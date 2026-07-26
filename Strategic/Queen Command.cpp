@@ -42,6 +42,7 @@
 	#include "ASD.h"				// added by Flugente
 	#include "Interface Panels.h"
 	#include "Strategic Transport Groups.h"
+	#include "GameContext.h"
 
 #ifdef JA2BETAVERSION
 	extern BOOLEAN gfClearCreatureQuest;
@@ -51,7 +52,6 @@
 #include "Reinforcement.h"
 #include "MilitiaSquads.h"
 
-#ifdef JA2UB
 #include "Explosion Control.h"
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
@@ -59,7 +59,6 @@
 #include "email.h"
 #include "interface Dialogue.h"
 #include "Arms Dealer Init.h"
-#endif
 
 #include "GameInitOptionsScreen.h"
 
@@ -90,9 +89,7 @@ extern BOOLEAN gfOverrideSector;
 
 INT32		gsGridNoForMapEdgePointInfo=-1;
 
-#ifdef JA2UB
 void HandleBloodCatDeaths( SECTORINFO *pSector );
-#endif
 
 extern void Ensure_RepairedGarrisonGroup( GARRISON_GROUP **ppGarrison, INT32 *pGarraySize );
 
@@ -1199,32 +1196,34 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 
 	EvaluateDeathEffectsToSoldierInitList( pSoldier );
 
-	switch( pSoldier->ubProfile )
+	// Morris is a configurable Unfinished Business profile. Profile 75 is the
+	// Arulco queen, so this rule must follow the selected campaign rather than
+	// becoming a shared switch label.
+	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+		pSoldier->ubProfile == MORRIS_UB )
 	{
-#ifdef JA2UB	
-		case 75://MORRIS:
-
-			if( !pSoldier->bSectorZ )
+		if( !pSoldier->bSectorZ )
+		{
+			pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
+			if( pSector->ubNumElites )
 			{
-				pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
-				if( pSector->ubNumElites )
-				{
-					pSector->ubNumElites--;
-				}
-				if( pSector->ubElitesInBattle )
-				{
-					pSector->ubElitesInBattle--;
-				}
+				pSector->ubNumElites--;
 			}
-			 else
+			if( pSector->ubElitesInBattle )
 			{
-				UNDERGROUND_SECTORINFO *pUnderground;
-				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
-				Assert( pUnderground );
-				if( !pUnderground )
-				{
-					break;
-				}
+				pSector->ubElitesInBattle--;
+			}
+		}
+		else
+		{
+			UNDERGROUND_SECTORINFO *pUnderground =
+				FindUnderGroundSector(
+					(UINT8)pSoldier->sSectorX,
+					(UINT8)pSoldier->sSectorY,
+					(UINT8)pSoldier->bSectorZ );
+			Assert( pUnderground );
+			if( pUnderground )
+			{
 				if( pUnderground->ubNumElites )
 				{
 					pUnderground->ubNumElites--;
@@ -1234,8 +1233,11 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 					pUnderground->ubElitesInBattle--;
 				}
 			}
-			break;
-#endif			
+		}
+	}
+
+	switch( pSoldier->ubProfile )
+	{
 		case MIKE:
 		case IGGY:
 			if( pSoldier->ubProfile == IGGY && !gubFact[ FACT_IGGY_AVAILABLE_TO_ARMY ] )
@@ -1611,11 +1613,10 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 						{
 							pSector->bBloodCats--;
 						}
-#ifdef JA2UB						
-							//JA25 UB
-							//handle anything important when bloodcats die
+						if( GetGameContext().capabilities().isUnfinishedBusiness() )
+						{
 							HandleBloodCatDeaths( pSector );
-#endif
+						}
 					}
 
 					break;
@@ -1766,10 +1767,6 @@ void AddPossiblePendingEnemiesToBattle()
 	// Check if no world is loaded, and is not underground level
 	if(!(gWorldSectorX > 0 && gWorldSectorY > 0 && gbWorldSectorZ == 0))//dnl ch57 161009
 		return;
-
-#ifdef JA2UB
-	BOOLEAN fMagicallyAppeared=FALSE;
-#endif
 
 	UINT16 ubSlots, ubNumAvailable;
 	UINT16 ubNumRobots, ubNumElites, ubNumTroops, ubNumAdmins, ubNumTanks, ubNumJeeps;
@@ -1954,14 +1951,13 @@ void AddPossiblePendingEnemiesToBattle()
 					ubStrategicInsertionCode = INSERTION_CODE_SOUTH;
 				else if ( NumNonPlayerTeamMembersInSector( gWorldSectorX, gWorldSectorY - 1, ENEMY_TEAM ) )
 					ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-			#ifdef JA2UB
-				else if( gsGridNoForMapEdgePointInfo != -1 )
+				else if(
+					GetGameContext().capabilities().isUnfinishedBusiness() &&
+					gsGridNoForMapEdgePointInfo != -1 )
 					{
 						//Ja25: it doesnt matter the entry point at this point, it will become GRIDNO at a later point
 						ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-						fMagicallyAppeared = FALSE;
 					}
-			#endif
 			}
 
 			if( ubStrategicInsertionCode == 255 )
@@ -2257,13 +2253,15 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 
 	ubTotalSoldiers = ubNumAdmins + ubNumTroops + ubNumElites + ubNumRobots + ubNumTanks + ubNumJeeps;
 	
-#ifdef JA2UB
-	if( gsGridNoForMapEdgePointInfo != -1 )
+	const bool useUnfinishedBusinessGridNo =
+		GetGameContext().capabilities().isUnfinishedBusiness();
+	if( useUnfinishedBusinessGridNo && gsGridNoForMapEdgePointInfo != -1 )
 	{
 		ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 	}
 
-	if( ubStrategicInsertionCode == INSERTION_CODE_GRIDNO )
+	if( useUnfinishedBusinessGridNo &&
+		ubStrategicInsertionCode == INSERTION_CODE_GRIDNO )
 	{
 		if( gsGridNoForMapEdgePointInfo == -1 )
 		{
@@ -2283,10 +2281,7 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 	{
 		ChooseMapEdgepoints( &MapEdgepointInfo, ubStrategicInsertionCode, ubTotalSoldiers );
 	}
-#else
-	ChooseMapEdgepoints( &MapEdgepointInfo, ubStrategicInsertionCode, ubTotalSoldiers );
-#endif	
-	
+
 	extern INT16 gsStrategicDiseaseOriginSector;
 
 	// Flugente: we need to set the sector of origin to determine from which sector to take the disease ratio that affects health
@@ -2482,9 +2477,10 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 	// set this back so it doesn't affect others
 	gsStrategicDiseaseOriginSector = -1;
 	
-#ifdef JA2UB
-	gsGridNoForMapEdgePointInfo = -1;
-#endif
+	if( useUnfinishedBusinessGridNo )
+	{
+		gsGridNoForMapEdgePointInfo = -1;
+	}
 }
 
 void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 ubNumGreens, UINT16 ubNumRegulars, UINT16 ubNumElites, BOOLEAN fMagicallyAppeared )
@@ -2526,13 +2522,15 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 
 	ubTotalSoldiers = ubNumGreens + ubNumRegulars + ubNumElites;
 
-#ifdef JA2UB
-	if ( gsGridNoForMapEdgePointInfo != -1 )
+	const bool useUnfinishedBusinessGridNo =
+		GetGameContext().capabilities().isUnfinishedBusiness();
+	if ( useUnfinishedBusinessGridNo && gsGridNoForMapEdgePointInfo != -1 )
 	{
 		ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 	}
 
-	if ( ubStrategicInsertionCode == INSERTION_CODE_GRIDNO )
+	if ( useUnfinishedBusinessGridNo &&
+		ubStrategicInsertionCode == INSERTION_CODE_GRIDNO )
 	{
 		if ( gsGridNoForMapEdgePointInfo == -1 )
 		{
@@ -2552,9 +2550,6 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 	{
 		ChooseMapEdgepoints( &MapEdgepointInfo, ubStrategicInsertionCode, ubTotalSoldiers );
 	}
-#else
-	ChooseMapEdgepoints( &MapEdgepointInfo, ubStrategicInsertionCode, (ubTotalSoldiers) );
-#endif	
 
 	ubCurrSlot = 0;
 	while ( ubTotalSoldiers )
@@ -2648,9 +2643,10 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		}
 	}
 
-#ifdef JA2UB
-	gsGridNoForMapEdgePointInfo = -1;
-#endif
+	if ( useUnfinishedBusinessGridNo )
+	{
+		gsGridNoForMapEdgePointInfo = -1;
+	}
 }
 
 
@@ -2831,7 +2827,11 @@ void BeginCaptureSquence( )
 
 void EndCaptureSequence( )
 {
-#ifndef JA2UB
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	// Set flag...
 	if( !( gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_RESCUE ) || !(gStrategicStatus.uiFlags & STRATEGIC_PLAYER_CAPTURED_FOR_ESCAPE) )
 	{
@@ -2860,22 +2860,28 @@ void EndCaptureSequence( )
 			gStrategicStatus.uiFlags |= STRATEGIC_PLAYER_CAPTURED_FOR_ESCAPE;
 		}
 	}
-#endif
 }
 
 int CalculateMaximumPrisonerAmount()
 {
-#ifndef JA2UB
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return 0;
+	}
+
 	if (gubQuest[QUEST_HELD_IN_ALMA] == QUESTNOTSTARTED) { return std::size(gModSettings.iInitialPOWGridNo); }
 	if (gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED) { return std::size(gModSettings.iTixaPrisonPOWGridNo); }
 	if (gubQuest[QUEST_INTERROGATION] == QUESTNOTSTARTED) { return std::size(gModSettings.iMeanwhileInterrogatePOWGridNo); }
-#endif
 	return 0;
 }
 
 void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 {
-#ifndef JA2UB
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	AssertNotNIL(pSoldier);
 
 	// ATE: Check first if ! in player captured sequence already
@@ -3025,7 +3031,6 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		RemovePlayerFromTeamSlotGivenMercID(pSoldier->ubID);
 		SelectNextAvailSoldier(pSoldier);
 	}
-#endif 	
 }
 
 
@@ -3149,9 +3154,13 @@ BOOLEAN CheckPendingNonPlayerTeam( UINT8 usTeam )
 	return FALSE;
 }
 
-#ifdef JA2UB
 void HandleBloodCatDeaths( SECTORINFO *pSector )
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	//if the current sector is the first part of the town
 	if( gWorldSectorX == BETTY_BLOODCAT_SECTOR_X && gWorldSectorY == BETTY_BLOODCAT_SECTOR_Y && gbWorldSectorZ == BETTY_BLOODCAT_SECTOR_Z )
 	{
@@ -3186,7 +3195,6 @@ void HandleBloodCatDeaths( SECTORINFO *pSector )
 		}
 	}
 }
-#endif
 
 
 UINT16 NumTurncoatsOfClassInSector( INT16 sSectorX, INT16 sSectorY, UINT8 aSoldierClass )

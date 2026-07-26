@@ -98,19 +98,15 @@
 #include "GameContext.h"
 
 
-#ifdef JA2UB
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
-#endif
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class SOLDIERTYPE;
 
-#ifdef JA2UB
 BOOLEAN gfProcessCustomMaps  = FALSE; //ja25 UB
-#endif
 
 // icons text id's
 enum{
@@ -662,10 +658,7 @@ extern	void CheatToGetAll5Merc();
 extern	void DemoHiringOfMercs( );
 #endif
 
-#ifdef JA2UB
-//JA25 UB
 #define		LAPTOP__HAVENT_CREATED_IMP_REMINDER_EMAIL_ARRIVE_TIME				( (8 + Random(4) ) * 60 )
-#endif
 
 void	SetLaptopExitScreen( UINT32 uiExitScreen )
 {
@@ -3276,31 +3269,39 @@ BOOLEAN HandleExit( void )
 
 void HaventMadeImpMercEmailCallBack()
 {
-#ifdef JA2UB
-	//if the Laptop is NOT broken
-	if( gubQuest[ QUEST_FIX_LAPTOP ] != QUESTINPROGRESS && gGameUBOptions.LaptopQuestEnabled == TRUE )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
 	{
-		//if the player STILL hasnt made an imp merc yet
-		if( ( LaptopSaveInfo.fIMPCompletedFlag == FALSE ) && ( LaptopSaveInfo.fSentImpWarningAlready == FALSE ) )
+		// Do not send the reminder while the Unfinished Business laptop is
+		// broken.
+		if( gubQuest[ QUEST_FIX_LAPTOP ] != QUESTINPROGRESS &&
+			gGameUBOptions.LaptopQuestEnabled == TRUE )
 		{
-			//if the player DIDNT import the save
-			//if( !gubFact[ FACT_PLAYER_IMPORTED_SAVE ] )
-			//{
-				//send a follow up email to the player
+			if( LaptopSaveInfo.fIMPCompletedFlag == FALSE &&
+				LaptopSaveInfo.fSentImpWarningAlready == FALSE )
+			{
 				LaptopSaveInfo.fSentImpWarningAlready = TRUE;
-				AddEmail( IMP_EMAIL_AGAIN, IMP_EMAIL_AGAIN_LENGTH, CHAR_PROFILE_SITE, GetWorldTotalMin( ), -1 ,-1, TYPE_EMAIL_EMAIL_EDT);
-			//}
+				AddEmail(
+					JA25_EMAIL_IMP_AGAIN,
+					JA25_EMAIL_IMP_AGAIN_LENGTH,
+					CHAR_PROFILE_SITE,
+					GetWorldTotalMin( ), -1, -1,
+					TYPE_EMAIL_EMAIL_EDT);
+			}
 		}
+		return;
 	}
-#else
 
 	//if the player STILL hasnt made an imp merc yet
 	if( ( LaptopSaveInfo.fIMPCompletedFlag == FALSE ) && ( LaptopSaveInfo.fSentImpWarningAlready == FALSE ) )
 	{
 		LaptopSaveInfo.fSentImpWarningAlready = TRUE;
-		AddEmail(IMP_EMAIL_AGAIN,IMP_EMAIL_AGAIN_LENGTH,1, GetWorldTotalMin( ), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_IMP_INTROAGAIN);
+		AddEmail(
+			JA2_EMAIL_IMP_AGAIN,
+			JA2_EMAIL_IMP_AGAIN_LENGTH,
+			CHAR_PROFILE_SITE,
+			GetWorldTotalMin( ), -1, -1,
+			TYPE_EMAIL_EMAIL_EDT, XML_IMP_INTROAGAIN);
 	}
-#endif
 }
 
 
@@ -7396,10 +7397,13 @@ void CreateLaptopButtonHelpText( INT32 iButtonIndex, UINT32 uiButtonHelpTextID )
 {
 	SetButtonFastHelpText( iButtonIndex, gzLaptopHelpText[ uiButtonHelpTextID ] );
 }
-#ifdef JA2UB
-//ja25 ub
 void ShouldImpReminderEmailBeSentWhenLaptopBackOnline()
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	//if this is past the point of when the IMP email should have been sent
 	if( GetWorldTotalMin() > LAPTOP__HAVENT_CREATED_IMP_REMINDER_EMAIL_ARRIVE_TIME )
 	{
@@ -7407,4 +7411,3 @@ void ShouldImpReminderEmailBeSentWhenLaptopBackOnline()
 		HaventMadeImpMercEmailCallBack();
 	}
 }
-#endif

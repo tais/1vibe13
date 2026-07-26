@@ -906,6 +906,14 @@ the engine must not contain SDL types in its public domain model.
   custom-sector prompts are emitted in every host and gated by
   `GameCapabilities`. The campaign-qualified Bobby Ray offset preserves the
   existing Arulco `Email.edt`; no strategic or content data format changed.
+- Queen-command and quest state machines are emitted identically in every
+  host. Morris and bloodcat deaths, grid-number reinforcements, capture/POW
+  handling, campaign-local facts, quest rewards and startup, and UB laptop
+  recovery now branch on `GameCapabilities`. Typed profile roles avoid the
+  Morris/Arulco-queen and shifted rebel-slot collisions, while compile-time
+  checked email and sender IDs preserve both campaigns' existing `Email.edt`
+  records. Quest numbers, maps, XML, Lua, dialogue, archives, and other content
+  formats remain unchanged.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

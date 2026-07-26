@@ -25,18 +25,18 @@
 	#include "strategic.h"
 	#include "Strategic Event Handler.h"
 	#include "Soldier Control.h"
+	#include "GameContext.h"
+	#include "CampaignProfileCodes.h"
 
 #include "BobbyRMailOrder.h"
 #include "connect.h"
 
-#ifdef JA2UB
 #include "email.h"
 #include "Strategic Merc Handler.h"
 #include "laptop.h"
 #include "Ja25 Strategic Ai.h"
 #include "ub_config.h"
 #include "Ja25_Tactical.h"
-#endif
 
 #include "LuaInitNPCs.h"
 
@@ -697,13 +697,15 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 
 	switch( usFact )
 	{
-#ifdef JA2UB
-//Ja25 No dimitri
-#else
 		case FACT_DIMITRI_DEAD:
-			gubFact[ usFact ] = (gMercProfiles[ DIMITRI ].bMercStatus == MERC_IS_DEAD );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				const UINT8 dimitri = CampaignProfileCode::profile(
+					GameCampaign::Arulco, CampaignProfileCode::Role::Dimitri );
+				gubFact[ usFact ] =
+					(gMercProfiles[ dimitri ].bMercStatus == MERC_IS_DEAD);
+			}
 			break;
-#endif
 		case FACT_CURRENT_SECTOR_IS_SAFE:
 			gubFact[FACT_CURRENT_SECTOR_IS_SAFE] = !( ( (gTacticalStatus.fEnemyInSector && NPCHeardShot( ubProfileID ) ) || gTacticalStatus.uiFlags & INCOMBAT ) );
 			break;
@@ -746,26 +748,35 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		case FACT_NPC_WOUNDED_BY_PLAYER:
 			gubFact[FACT_NPC_WOUNDED_BY_PLAYER] = CheckNPCWounded( ubProfileID, TRUE );
 			break;
-#ifdef JA2UB
-// no ja25 UB
-#else
 		case FACT_IRA_NOT_PRESENT:
-			gubFact[FACT_IRA_NOT_PRESENT] = !CheckNPCWithin( ubProfileID, IRA, 10 );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				const UINT8 ira = CampaignProfileCode::profile(
+					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
+				gubFact[FACT_IRA_NOT_PRESENT] =
+					!CheckNPCWithin( ubProfileID, ira, 10 );
+			}
 			break;
 		case FACT_IRA_TALKING:
-			gubFact[FACT_IRA_TALKING] = ( gubSrcSoldierProfile == IRA );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				const UINT8 ira = CampaignProfileCode::profile(
+					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
+				gubFact[FACT_IRA_TALKING] = ( gubSrcSoldierProfile == ira );
+			}
 			break;
 		case FACT_IRA_UNHIRED_AND_ALIVE:
-			if ( gMercProfiles[ IRA ].bMercStatus != MERC_IS_DEAD && CheckNPCSector( IRA, 10, 1, 1) && !(gMercProfiles[IRA].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED) )
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
 			{
-				gubFact[FACT_IRA_UNHIRED_AND_ALIVE] = TRUE;
-			}
-			else
-			{
-				gubFact[FACT_IRA_UNHIRED_AND_ALIVE] = FALSE;
+				const UINT8 ira = CampaignProfileCode::profile(
+					GameCampaign::Arulco, CampaignProfileCode::Role::Ira );
+				gubFact[FACT_IRA_UNHIRED_AND_ALIVE] =
+					gMercProfiles[ ira ].bMercStatus != MERC_IS_DEAD &&
+					CheckNPCSector( ira, 10, 1, 1) &&
+					!(gMercProfiles[ ira ].ubMiscFlags &
+						PROFILE_MISC_FLAG_RECRUITED);
 			}
 			break;
-#endif
 		case FACT_NPC_BLEEDING:
 			gubFact[FACT_NPC_BLEEDING] = CheckNPCBleeding( ubProfileID );
 			break;
@@ -779,21 +790,32 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 				gubFact[FACT_NPC_BLEEDING_BUT_OKAY] = FALSE;
 			}
 			break;
-#ifdef JA2UB
-//Ja25: NO Carmen
-#else
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_SAN_MONA:
-			gubFact[usFact] = (CheckNPCSector( CARMEN, 5, MAP_ROW_C, 0 ) && CheckPlayerHasHead() );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					CheckNPCSector( CARMEN, 5, MAP_ROW_C, 0 ) &&
+					CheckPlayerHasHead();
+			}
 			break;
 
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_CAMBRIA:
-			gubFact[usFact] = (CheckNPCSector( CARMEN, 9, MAP_ROW_G, 0 ) && CheckPlayerHasHead() );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					CheckNPCSector( CARMEN, 9, MAP_ROW_G, 0 ) &&
+					CheckPlayerHasHead();
+			}
 			break;
 
 		case FACT_PLAYER_HAS_HEAD_AND_CARMEN_IN_DRASSEN:
-			gubFact[usFact] = (CheckNPCSector( CARMEN, 13, MAP_ROW_C, 0 ) && CheckPlayerHasHead() );
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					CheckNPCSector( CARMEN, 13, MAP_ROW_C, 0 ) &&
+					CheckPlayerHasHead();
+			}
 			break;
-#endif
 		case FACT_NPC_OWED_MONEY:
 			gubFact[FACT_NPC_OWED_MONEY] = (gMercProfiles[ubProfileID].iBalance < 0);
 			break;
@@ -906,11 +928,27 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			gubFact[usFact] = ( gMercProfiles[ CARMEN ].uiMoney >= 10000 );
 			break;
 		case FACT_SLAY_IN_SECTOR:
-			gubFact[usFact] = (gMercProfiles[ SLAY ].sSectorX == gWorldSectorX && gMercProfiles[ SLAY ].sSectorY == gWorldSectorY && gMercProfiles[ SLAY ].bSectorZ == gbWorldSectorZ );
+		{
+			const UINT8 slay = CampaignProfileCode::profile(
+				GetGameContext().capabilities().campaign,
+				CampaignProfileCode::Role::Slay );
+			gubFact[usFact] =
+				gMercProfiles[ slay ].sSectorX == gWorldSectorX &&
+				gMercProfiles[ slay ].sSectorY == gWorldSectorY &&
+				gMercProfiles[ slay ].bSectorZ == gbWorldSectorZ;
 			break;
+		}
 		case FACT_SLAY_HIRED_AND_WORKED_FOR_48_HOURS:
-			gubFact[usFact] = ( ( gMercProfiles[ SLAY ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( gMercProfiles[ SLAY ].usTotalDaysServed > 1 ) );
+		{
+			const UINT8 slay = CampaignProfileCode::profile(
+				GetGameContext().capabilities().campaign,
+				CampaignProfileCode::Role::Slay );
+			gubFact[usFact] =
+				(gMercProfiles[ slay ].ubMiscFlags &
+					PROFILE_MISC_FLAG_RECRUITED) &&
+				gMercProfiles[ slay ].usTotalDaysServed > 1;
 			break;
+		}
 		case FACT_SHANK_IN_SQUAD_BUT_NOT_SPEAKING:
 		{
 			SOLDIERTYPE* dialogueSource =
@@ -921,13 +959,13 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		case FACT_SHANK_NOT_IN_SECTOR:
 			gubFact[usFact] = ( FindSoldierByProfileID( SHANK, FALSE ) == NULL );
 			break;
-#ifdef JA2UB
-//Ja25 No queen
-#else
 		case FACT_QUEEN_DEAD:
-			gubFact[usFact] = (gMercProfiles[ QUEEN ].bMercStatus == MERC_IS_DEAD);
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					(gMercProfiles[ QUEEN ].bMercStatus == MERC_IS_DEAD);
+			}
 			break;
-#endif
 		case FACT_MINE_EMPTY:
 			gubFact[usFact] = IsHisMineEmpty( ubProfileID );
 			break;
@@ -1078,33 +1116,49 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_PLAYER_OWNS_2_TOWNS_INCLUDING_OMERTA:
-#ifdef JA2UB
-//UB
-#else
-			gubFact[usFact] = ( ( GetNumberOfWholeTownsUnderControl() == gGameExternalOptions.ubEarlyRebelsRecruitment[1] || gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 
-								|| ( gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE && gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4 ) ) && IsTownUnderCompleteControlByPlayer( OMERTA ) );
-#endif
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					(GetNumberOfWholeTownsUnderControl() ==
+						gGameExternalOptions.ubEarlyRebelsRecruitment[1] ||
+					 gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 ||
+					 (gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE &&
+					  gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4)) &&
+					IsTownUnderCompleteControlByPlayer( OMERTA );
+			}
 			break;
 
 		case FACT_PLAYER_OWNS_3_TOWNS_INCLUDING_OMERTA:
-#ifdef JA2UB
-//UB
-#else
-			gubFact[usFact] = ( ( GetNumberOfWholeTownsUnderControl() == gGameExternalOptions.ubEarlyRebelsRecruitment[2] || gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 
-								|| ( gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE && gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4 ) ) && IsTownUnderCompleteControlByPlayer( OMERTA ) );
-#endif
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					(GetNumberOfWholeTownsUnderControl() ==
+						gGameExternalOptions.ubEarlyRebelsRecruitment[2] ||
+					 gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 ||
+					 (gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE &&
+					  gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4)) &&
+					IsTownUnderCompleteControlByPlayer( OMERTA );
+			}
 			break;
 
 		case FACT_PLAYER_OWNS_4_TOWNS_INCLUDING_OMERTA:
-#ifdef JA2UB
-//UB
-#else
-			gubFact[usFact] = ( ( GetNumberOfWholeTownsUnderControl() >= gGameExternalOptions.ubEarlyRebelsRecruitment[3] || gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 
-								|| ( gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE && gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4 ) ) && IsTownUnderCompleteControlByPlayer( OMERTA ) );
-			// silversurfer: this is the highest requirement and therefore we will automatically enable recruitment of Miguel
-			if ( gubFact[usFact] )
-				SetFactTrue(FACT_MIGUEL_AND_ALL_REBELS_CAN_BE_RECRUITED); // Miguel will now be willing to join and so will the other RPC
-#endif
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					(GetNumberOfWholeTownsUnderControl() >=
+						gGameExternalOptions.ubEarlyRebelsRecruitment[3] ||
+					 gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 1 ||
+					 (gubQuest[QUEST_FOOD_ROUTE] == QUESTDONE &&
+					  gGameExternalOptions.ubEarlyRebelsRecruitment[0] == 4)) &&
+					IsTownUnderCompleteControlByPlayer( OMERTA );
+				// This is the highest requirement, so Miguel and the other
+				// rebels become recruitable automatically.
+				if( gubFact[usFact] )
+				{
+					SetFactTrue(
+						FACT_MIGUEL_AND_ALL_REBELS_CAN_BE_RECRUITED);
+				}
+			}
 			break;
 
 		case FACT_PLAYER_FOUGHT_THREE_TIMES_TODAY:
@@ -1228,13 +1282,13 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		case FACT_WALDO_ALIVE:
 			gubFact[usFact] = gMercProfiles[ WALDO ].bMercStatus != MERC_IS_DEAD;
 			break;
-#ifdef JA2UB
-//UB
-#else        
 		case FACT_PERKO_ALIVE:
-			gubFact[usFact] = gMercProfiles[ PERKO ].bMercStatus != MERC_IS_DEAD;
+			if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+			{
+				gubFact[usFact] =
+					gMercProfiles[ PERKO ].bMercStatus != MERC_IS_DEAD;
+			}
 			break;
-#endif
 		case FACT_TONY_ALIVE:
 			gubFact[usFact] = gMercProfiles[ TONY ].bMercStatus != MERC_IS_DEAD;
 			break;
@@ -1354,8 +1408,16 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			break;
 
 		case FACT_DIMITRI_CAN_BE_RECRUITED: // Can dimitri be recruited? should be true if already true, OR if Miguel has been recruited already OR is available for recruitment
-			gubFact[usFact] = ( gubFact[usFact] || FindSoldierByProfileID( MIGUEL, TRUE ) || gubFact[FACT_MIGUEL_AND_ALL_REBELS_CAN_BE_RECRUITED] );
+		{
+			const UINT8 miguel = CampaignProfileCode::profile(
+				GetGameContext().capabilities().campaign,
+				CampaignProfileCode::Role::Miguel );
+			gubFact[usFact] =
+				gubFact[usFact] ||
+				FindSoldierByProfileID( miguel, TRUE ) ||
+				gubFact[FACT_MIGUEL_AND_ALL_REBELS_CAN_BE_RECRUITED];
 			break;
+		}
 /*			
 		case FACT_:
 			gubFact[usFact] = ;
@@ -1514,13 +1576,14 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 				else
 					GiveQuestRewardPoint( sSectorX, sSectorY, 9, NO_PROFILE );
 				break;
-#ifdef JA2UB
-//off
-#else
 			case QUEST_KILL_DEIDRANNA :
-				GiveQuestRewardPoint( sSectorX, sSectorY, 25, NO_PROFILE );
+				GiveQuestRewardPoint(
+					sSectorX, sSectorY,
+					GetGameContext().capabilities().isUnfinishedBusiness()
+						? 4
+						: 25,
+					NO_PROFILE );
 				break;
-#endif
 			default :
 				GiveQuestRewardPoint( sSectorX, sSectorY, 4, NO_PROFILE );
 				break;
@@ -1551,9 +1614,10 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 	
 #endif
 	
-#ifdef JA2UB	
 	//if the quest is the FIX LAPTOP quest
-	if( ubQuest == QUEST_FIX_LAPTOP && gGameUBOptions.LaptopQuestEnabled == TRUE )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
+		ubQuest == QUEST_FIX_LAPTOP &&
+		gGameUBOptions.LaptopQuestEnabled == TRUE )
 	{
 		//Set the fact that AIM and MERC should start selling
 		gJa25SaveStruct.fHaveAimandMercOffferItems = TRUE;
@@ -1561,13 +1625,13 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 		//Remeber that we should send email in the next sector
 		gJa25SaveStruct.fSendEmail_10_NextSector = TRUE;
 
-		AddEmail( EMAIL_PILOTMISSING, EMAIL_PILOTMISSING_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1,-1, TYPE_EMAIL_EMAIL_EDT);
-		AddEmail( EMAIL_MAKECONTACT, EMAIL_MAKECONTACT_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1,-1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_PILOT_MISSING, JA25_EMAIL_PILOT_MISSING_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1,-1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_MAKE_CONTACT, JA25_EMAIL_MAKE_CONTACT_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1,-1, TYPE_EMAIL_EMAIL_EDT);
 
 		//Merc and Aim emails
-		AddEmail( EMAIL_AIM_PROMOTION_1, EMAIL_AIM_PROMOTION_1_LENGTH, AIM_SITE,  GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT);
-		AddEmail( EMAIL_MERC_PROMOTION_1, EMAIL_MERC_PROMOTION_1_LENGTH, SPECK_FROM_MERC,  GetWorldTotalMin(),-1,-1, TYPE_EMAIL_EMAIL_EDT);
-		AddEmail( EMAIL_AIM_PROMOTION_2, EMAIL_AIM_PROMOTION_2_LENGTH, AIM_SITE,  GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_AIM_PROMOTION_1, JA25_EMAIL_AIM_PROMOTION_1_LENGTH, AIM_SITE,  GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_MERC_PROMOTION_1, JA25_EMAIL_MERC_PROMOTION_1_LENGTH, SPECK_FROM_MERC,  GetWorldTotalMin(),-1,-1, TYPE_EMAIL_EMAIL_EDT);
+		AddEmail( JA25_EMAIL_AIM_PROMOTION_2, JA25_EMAIL_AIM_PROMOTION_2_LENGTH, AIM_SITE,  GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT);
 
 		//Manuel
 		{
@@ -1578,7 +1642,7 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 			if( pSoldier != NULL )
 			{
 				//Add the Manuel email
-				AddEmail( EMAIL_MANUEL, EMAIL_MANUEL_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1, -1, TYPE_EMAIL_EMAIL_EDT);
+				AddEmail( JA25_EMAIL_MANUEL, JA25_EMAIL_MANUEL_LENGTH, MAIL_ENRICO,  GetWorldTotalMin() ,-1, -1, TYPE_EMAIL_EMAIL_EDT);
 			}
 		}
 
@@ -1588,7 +1652,7 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 			if( gubFact[ FACT_PLAYER_IMPORTED_SAVE_MIGUEL_DEAD ] == FALSE )
 			{
 				//Add the miguel email
-				AddEmail( EMAIL_MIGUELHELLO, EMAIL_MIGUELHELLO_LENGTH, MAIL_MIGUEL,  GetWorldTotalMin(),-1, -1, TYPE_EMAIL_EMAIL_EDT);
+				AddEmail( JA25_EMAIL_MIGUEL_HELLO, JA25_EMAIL_MIGUEL_HELLO_LENGTH, JA25_MAIL_MIGUEL,  GetWorldTotalMin(),-1, -1, TYPE_EMAIL_EMAIL_EDT);
 			}
 		}
 
@@ -1601,7 +1665,6 @@ void InternalEndQuest( UINT8 ubQuest, INT16 sSectorX, INT16 sSectorY, BOOLEAN fU
 		//Force which ever of these emails that needed to be sent, to be sent
 		HandleEmailBeingSentWhenEnteringSector( 0, 0, 0, TRUE );
 	}
-#endif
 };
 
 void InitQuestEngine()
@@ -1641,32 +1704,24 @@ void CheckForQuests( UINT32 uiDay )
 
 	ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Checking For Quests, Day %d", uiDay );
 
-#ifdef JA2UB
- // -------------------------------------------------------------------------------
-	// QUEST 23 : Detroy missles
-	// -------------------------------------------------------------------------------
-	// The game always starts with destrouy missles quest, so turn it on if it hasn't
-	// already started
-	if( gubQuest[ QUEST_DESTROY_MISSLES ] == QUESTNOTSTARTED )
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
 	{
-		StartQuest( QUEST_DESTROY_MISSLES, -1, -1 );
-		ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Started DESTORY MISSLES quest");
+		// Unfinished Business always begins with the destroy-missiles quest.
+		if( gubQuest[ QUEST_DESTROY_MISSLES ] == QUESTNOTSTARTED )
+		{
+			StartQuest( QUEST_DESTROY_MISSLES, -1, -1 );
+			ScreenMsg(
+				MSG_FONT_RED, MSG_DEBUG,
+				L"Started DESTROY MISSILES quest");
+		}
 	}
-//Ja25: No deliver letter quest, dont start it
-#else
-	// -------------------------------------------------------------------------------
-	// QUEST 0 : DELIVER LETTER
-	// -------------------------------------------------------------------------------
-	// The game always starts with DELIVER LETTER quest, so turn it on if it hasn't
-	// already started
-	if (gubQuest[QUEST_DELIVER_LETTER] == QUESTNOTSTARTED)
+	else if (gubQuest[QUEST_DELIVER_LETTER] == QUESTNOTSTARTED)
 	{
 		StartQuest( QUEST_DELIVER_LETTER, -1, -1 );
 
 		if (!is_networked)
 		ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Started DELIVER LETTER quest");
 	}
-#endif
 	// This quest gets turned OFF through conversation with Miguel - when user hands
 	// Miguel the letter
 }
@@ -1777,7 +1832,11 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 
 void HandlePOWQuestState(PowQuestState state, Quests quest, INT16 mapX, INT16 mapY, INT8 mapZ)
 {
-#ifndef JA2UB
+	if( GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	bool correctSector = false;
 	switch (quest)
 	{
@@ -1854,5 +1913,4 @@ void HandlePOWQuestState(PowQuestState state, Quests quest, INT16 mapX, INT16 ma
 			break;
 		}
 	}
-#endif
 }

@@ -37,10 +37,9 @@
 	#include "Facilities.h"
 	#include "Town Militia.h"
 	#include "DynamicDialogue.h"	// added by Flugente for HandleDynamicOpinionsDailyRefresh()
+	#include "GameContext.h"
 
-#ifdef JA2UB
 #include "ub_config.h"
-#endif
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -1474,9 +1473,13 @@ void HourlyCamouflageUpdate( void )
 		}
 	}
 }
-#ifdef JA2UB
 void HandleAddingAnyAimAwayEmailsWhenLaptopGoesOnline()
 {
+	if( !GetGameContext().capabilities().isUnfinishedBusiness() )
+	{
+		return;
+	}
+
 	UINT32 cnt;
 	INT32	iOffset;
 	MERCPROFILESTRUCT *pProfile;
@@ -1494,7 +1497,7 @@ void HandleAddingAnyAimAwayEmailsWhenLaptopGoesOnline()
 				// if the player has left a message for this merc
 				if ( pProfile->ubMiscFlags3 & PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM )
 				{
-					iOffset = AIM_REPLY_BARRY;
+					iOffset = JA25_EMAIL_AIM_REPLY_BARRY;
 
 					//remove the Flag, so if the merc goes on another assignment, the player can leave an email.
 					pProfile->ubMiscFlags3 &= ~PROFILE_MISC_FLAG3_PLAYER_LEFT_MSG_FOR_MERC_AT_AIM;
@@ -1519,11 +1522,10 @@ void HandleAddingAnyAimAwayEmailsWhenLaptopGoesOnline()
 					else
 					{
 						// TO DO: send E-mail to player telling him the merc has returned from an assignment
-						AddEmail( ( UINT8 )( iOffset + ( cnt * AIM_REPLY_LENGTH_BARRY ) ), AIM_REPLY_LENGTH_BARRY, ( UINT8 )( 6 + cnt ), GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
+						AddEmail( ( UINT8 )( iOffset + ( cnt * JA25_EMAIL_AIM_REPLY_BARRY_LENGTH ) ), JA25_EMAIL_AIM_REPLY_BARRY_LENGTH, ( UINT8 )( 6 + cnt ), GetWorldTotalMin(),-1 ,-1, TYPE_EMAIL_EMAIL_EDT_NAME_MERC);
 					}
 				}
 			}
 		}
 	}
 }
-#endif
