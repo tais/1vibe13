@@ -2707,6 +2707,50 @@ int main()
 		Check(tilePngWritten && tileStructureWritten,
 			"tile image and auxiliary-structure fixtures are written through VFS");
 
+		HWFILE siblingPngReader = FileOpen(
+			const_cast<CHAR8*>("tile.surface.png"),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		UINT8 firstPngBytes[4]{};
+		UINT32 firstPngBytesRead = 0;
+		const bool siblingPngStarted = siblingPngReader &&
+			FileRead(siblingPngReader, firstPngBytes,
+				sizeof(firstPngBytes), &firstPngBytesRead) &&
+			firstPngBytesRead == sizeof(firstPngBytes) &&
+			std::memcmp(firstPngBytes, tilePng.data(),
+				sizeof(firstPngBytes)) == 0 &&
+			FileGetPos(siblingPngReader) ==
+				static_cast<INT32>(sizeof(firstPngBytes));
+		HIMAGE concurrentPngImage = nullptr;
+		UINT8 nextPngBytes[4]{};
+		UINT32 nextPngBytesRead = 0;
+		bool concurrentPngLoadSucceeded = false;
+		bool siblingPngReaderSurvived = false;
+		try
+		{
+			concurrentPngImage = CreateImage(
+				"tile.surface.png", IMAGE_ALLDATA);
+			concurrentPngLoadSucceeded = concurrentPngImage &&
+				concurrentPngImage->usWidth == 1 &&
+				concurrentPngImage->usHeight == 1;
+			siblingPngReaderSurvived =
+				FileGetPos(siblingPngReader) ==
+					static_cast<INT32>(sizeof(firstPngBytes)) &&
+				FileRead(siblingPngReader, nextPngBytes,
+					sizeof(nextPngBytes), &nextPngBytesRead) &&
+				nextPngBytesRead == sizeof(nextPngBytes) &&
+				std::memcmp(nextPngBytes,
+					tilePng.data() + sizeof(firstPngBytes),
+					sizeof(nextPngBytes)) == 0;
+		}
+		catch(...)
+		{
+		}
+		if (concurrentPngImage) DestroyImage(concurrentPngImage);
+		if (siblingPngReader) FileClose(siblingPngReader);
+		Check(siblingPngStarted && concurrentPngLoadSucceeded &&
+				siblingPngReaderSurvived,
+			"PNG loading owns an independent FileMan cursor without closing sibling readers");
+
 		VOBJECT_DESC managedObjectDescription{};
 		managedObjectDescription.fCreateFlags =
 			VOBJECT_CREATE_FROMFILE | VOBJECT_CREATE_FROMPNG;
