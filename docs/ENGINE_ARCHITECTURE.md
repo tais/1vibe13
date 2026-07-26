@@ -876,6 +876,16 @@ the engine must not contain SDL types in its public domain model.
   decal records. UB mine-collapse, fan, tunnel, fortified-door, and scripted
   explosion hooks are emitted in every host and selected through
   `GameCapabilities`; existing map-temp bytes and content files are unchanged.
+- Strategic sector state now has one campaign-capable representation in every
+  host, including UB terrain IDs, surface/custom/campaign metadata, and the
+  underground-sector serializer. Sector entry, exit, arrival, map
+  modification, player-quote, email, guide-description, POW, and daily-event
+  paths select Arulco or UB behavior from `GameCapabilities`; no map, XML, Lua,
+  dialogue, or other game-data format changed. This deliberately unifies the
+  pre-release raw sector save layout instead of adding another compatibility
+  version. UB tunnel placement is bounded by its actual destination arrays,
+  and complex-map fallback placement makes one finite pass over distinct
+  enemies, eliminating two legacy out-of-bounds/hang paths.
 - typed resource owners bridge numeric SGP registries while platform services
   are extracted.
 - soldier component views split behavior domains without moving serialized

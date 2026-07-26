@@ -46,6 +46,14 @@ inline constexpr INT32 JA25_EMAIL_CONGRATS_MANUEL_DEAD = 65;
 inline constexpr INT32 JA25_EMAIL_CONGRATS_MANUEL_DEAD_LENGTH = 5;
 inline constexpr INT32 JA25_EMAIL_CONGRATS_MANUEL_ALIVE = 70;
 inline constexpr INT32 JA25_EMAIL_CONGRATS_MANUEL_ALIVE_LENGTH = 5;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_SORRY = 25;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_SORRY_LENGTH = 3;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_MANUEL = 28;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_MANUEL_LENGTH = 4;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_SICK = 32;
+inline constexpr INT32 JA25_EMAIL_MIGUEL_SICK_LENGTH = 3;
+inline constexpr INT32 JA25_EMAIL_PILOT_FOUND = 42;
+inline constexpr INT32 JA25_EMAIL_PILOT_FOUND_LENGTH = 2;
 
 //---ja25 ub
 #ifdef JA2UB
@@ -154,6 +162,14 @@ inline constexpr INT32 JA25_EMAIL_CONGRATS_MANUEL_ALIVE_LENGTH = 5;
 	static_assert(JA25_EMAIL_CONGRATS_MANUEL_DEAD_LENGTH == EMAIL_CONGRATMANUELDEAD_LENGTH);
 	static_assert(JA25_EMAIL_CONGRATS_MANUEL_ALIVE == EMAIL_CONGRATMANUELALIVE);
 	static_assert(JA25_EMAIL_CONGRATS_MANUEL_ALIVE_LENGTH == EMAIL_CONGRATMANUELALIVE_LENGTH);
+	static_assert(JA25_EMAIL_MIGUEL_SORRY == EMAIL_MIGUELSORRY);
+	static_assert(JA25_EMAIL_MIGUEL_SORRY_LENGTH == EMAIL_MIGUELSORRY_LENGTH);
+	static_assert(JA25_EMAIL_MIGUEL_MANUEL == EMAIL_MIGUELMANUEL);
+	static_assert(JA25_EMAIL_MIGUEL_MANUEL_LENGTH == EMAIL_MIGUELMANUEL_LENGTH);
+	static_assert(JA25_EMAIL_MIGUEL_SICK == EMAIL_MIGUELSICK);
+	static_assert(JA25_EMAIL_MIGUEL_SICK_LENGTH == EMAIL_MIGUELSICK_LENGTH);
+	static_assert(JA25_EMAIL_PILOT_FOUND == EMAIL_PILOTFOUND);
+	static_assert(JA25_EMAIL_PILOT_FOUND_LENGTH == EMAIL_PILOTFOUND_LENGTH);
 
 	// email # 13 - original AIM email
 	#define EMAIL_AIMDISCOUNT											(EMAIL_CONGRATMANUELALIVE + EMAIL_CONGRATMANUELALIVE_LENGTH)
@@ -612,6 +628,16 @@ enum {
 	PMC,
 	ANGEL_DASILVA,
 };
+
+// Unfinished Business inserts Miguel immediately after AIM_SITE. Keep that
+// sender byte available to runtime-selected campaign code without shifting the
+// Arulco enum that follows it.
+inline constexpr UINT8 JA25_MAIL_MIGUEL = 51;
+#ifdef JA2UB
+static_assert(JA25_MAIL_MIGUEL == MAIL_MIGUEL);
+#else
+static_assert(JA25_MAIL_MIGUEL == PMC);
+#endif
 
 // the length of the subject in char
 #define EMAIL_SUBJECT_LENGTH 128
