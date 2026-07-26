@@ -10,6 +10,7 @@ to call into.
 */
 
 #include "MiniEvents.h"
+#include "TacticalWorldAdapter.h"
 
 #include "Assignments.h"
 #include "Campaign.h"
@@ -1494,7 +1495,7 @@ void CheckMiniEvents(UINT32 nextEventId)
 		return;
 
 	// no events if we're in combat or a hostile sector
-	if ((gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector)
+	if ((IsJa2TacticalCombatActive()) || gTacticalStatus.fEnemyInSector)
 		return;
 
 	StopTimeCompression();

@@ -1,5 +1,6 @@
 
 	#include "Militia Control.h"
+#include "TacticalWorldAdapter.h"
 	#include "Town Militia.h"
 	#include "Soldier Init List.h"
 	#include "Campaign Types.h"
@@ -215,7 +216,7 @@ void PrepareMilitiaForTactical( BOOLEAN fPrepareAll)
 	// Flugente: if we are entering combat, have militia groups that arrived from other sectors start at the edges.
 	// As the arrival time is no longer set, we try to deduct that from the previous sectors of the groups.
 	// If that isn't set, too bad, have them insert in the center then.
-	if ( fPrepareAll && !guiDirNumber && NumHostilesInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) > 0 )//(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( fPrepareAll && !guiDirNumber && NumHostilesInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) > 0 )//(IsJa2TacticalCombatActive()) )
 	{
 		guiDirNumber = 5;
 
@@ -1013,7 +1014,7 @@ void HandleShadingOfLinesForMilitiaControlMenu( void )
 			UnShadeStringInBox( ghMilitiaControlBox, MILCON_MENU_CROUCH );
 			UnShadeStringInBox( ghMilitiaControlBox, MILCON_MENU_TAKE_COVER );
 
-			if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
+			if (IsJa2TacticalTurnBasedCombat())
 				ShadeStringInBox(ghMilitiaControlBox, MILCON_MENU_MOVE_TO);
 			else
 				UnShadeStringInBox(ghMilitiaControlBox, MILCON_MENU_MOVE_TO);
@@ -1393,7 +1394,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 					break;
 
 				case( MILCON_MENU_MOVE_TO ):
-					if (!((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)))
+					if (!(IsJa2TacticalTurnBasedCombat()))
 					{
 						// sevenfm: stop any AI
 						pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->sGridNo, pTMilitiaSoldier->ubDirection);

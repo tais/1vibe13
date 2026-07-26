@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Isometric Utils.h"
 	#include "Overhead.h"
 	#include "Event Pump.h"
@@ -476,7 +477,7 @@ void HandleBestSightingPositionInRealtime( void )
 	}
 
 	// Also delay until attack busy returns
-//	if (gTacticalStatus.ubAttackBusyCount > 0)
+//	if (GetJa2PendingTacticalCombatActions() > 0)
 //	{
 //		return;
 //	}
@@ -488,7 +489,7 @@ void HandleBestSightingPositionInRealtime( void )
 		// MP diagnostic: this realtime sighting is what triggers turn-based in networked
 		// play. Report which team/merc saw which enemy team/merc, and at what range, so
 		// it's clear what kicked off combat.
-		if ( is_networked && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( is_networked && !( IsJa2TacticalCombatActive() ) )
 		{
 			SOLDIERTYPE* pSighter = gubBestToMakeSighting[ 0 ];
 			SOLDIERTYPE* pSeen = NULL; INT16 sBest = 9999;
@@ -605,7 +606,7 @@ void HandleBestSightingPositionInTurnbased( void )
 
 	if ( gubBestToMakeSighting[ 0 ] != NOBODY )
 	{
-		if ( gubBestToMakeSighting[ 0 ]->bTeam != gTacticalStatus.ubCurrentTeam )
+		if ( gubBestToMakeSighting[ 0 ]->bTeam != GetJa2TacticalCurrentTeam() )
 		{
 
 			// interrupt!
@@ -627,7 +628,7 @@ void HandleBestSightingPositionInTurnbased( void )
 					}
 
 				}
-				else if ( gubBestToMakeSighting[ ubLoop ]->bTeam == gTacticalStatus.ubCurrentTeam )
+				else if ( gubBestToMakeSighting[ ubLoop ]->bTeam == GetJa2TacticalCurrentTeam() )
 				{
 					fOk = TRUE;
 					break;
@@ -800,7 +801,7 @@ void CheckHostileOrSayQuoteList( void )
 			memset( &gubShouldBecomeHostileOrSayQuote, NOBODY, SHOULD_BECOME_HOSTILE_SIZE );
 			gubNumShouldBecomeHostileOrSayQuote = 0;
 			//and return/go into combat
-			if ( !(gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( !(IsJa2TacticalCombatActive() ) )
 			{
 				EnterCombatMode( CIV_TEAM );
 			}
@@ -840,7 +841,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 	if ( gubBestToMakeSightingSize != BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL )
 	{
 		// if this is not being called as a result of all teams look for all, reset array size
-		if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( (IsJa2TacticalCombatActive()) )
 		{
 			// NB the incombat size is 0
 			gubBestToMakeSightingSize = BEST_SIGHTING_ARRAY_SIZE_INCOMBAT;
@@ -895,8 +896,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 	} // end of SIGHT_LOOK
 
 	// if we've been told that interrupts are possible as a result of sighting
-	if ((gTacticalStatus.uiFlags & TURNBASED) && 
-		(gTacticalStatus.uiFlags & INCOMBAT) && 
+	if (IsJa2TacticalTurnBasedCombat() &&
 		(ubSightFlags & SIGHT_INTERRUPT) && 
 		(!UsingImprovedInterruptSystem() || gGameExternalOptions.fAllowInstantInterruptsOnSight ) )
 	{
@@ -1151,7 +1151,7 @@ INT16 DistanceSmellable( SOLDIERTYPE *pSoldier, SOLDIERTYPE * pSubject )
 {
 	INT16 sDistVisible = STRAIGHT; // as a base
 
-	//if (gTacticalStatus.uiFlags & TURNBASED)
+	//if (IsJa2TacticalTurnBased())
 	//{
 		sDistVisible *= 2;
 	//}
@@ -1674,7 +1674,7 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 		return;
 	}
 
-	if ( ubAllowInterrupts || !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( ubAllowInterrupts || !(IsJa2TacticalCombatActive()) )
 	{
 		gubBestToMakeSightingSize = BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL;
 		if ( gfDelayResolvingBestSightingDueToDoor )
@@ -1705,12 +1705,12 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 		HandleSight( uiLoop, SIGHT_RADIO );		// looking was done above
 	}
 
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		// decide who should get first turn
 		HandleBestSightingPositionInRealtime();
 		// this could have made us switch to combat mode
-		if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( (IsJa2TacticalCombatActive()) )
 		{
 			gubBestToMakeSightingSize = BEST_SIGHTING_ARRAY_SIZE_INCOMBAT;
 		}
@@ -1809,7 +1809,7 @@ void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
 
 			// OK, We now want to , if in non-combat, set visiblity to 0 if not visible still....
 			// This allows us to walk away from buddy and have them disappear instantly
-			if ( gTacticalStatus.uiFlags & TURNBASED && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( IsJa2TacticalTurnBased() && !( IsJa2TacticalCombatActive() ) )
 			{
 				if ( pOpponent->bVisible == 0)
 				{
@@ -2268,7 +2268,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 									TriggerNPCRecord( pSoldier->ubProfile, 28 );
 								}
 								/*
-								if ( ! gTacticalStatus.uiFlags & INCOMBAT )
+								if ( ! IsJa2TacticalCombatActive() )
 								{
 								EnterCombatMode( pSoldier->bTeam );
 								}
@@ -2420,7 +2420,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 						if (pOpponent->ubProfile == MARIA)
 						{
 							MakeCivHostile(pSoldier);
-							if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+							if ( ! (IsJa2TacticalCombatActive()) )
 							{
 								EnterCombatMode( pSoldier->bTeam );
 							}
@@ -2438,7 +2438,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 							{
 								// unauthorized!
 								MakeCivHostile(pSoldier);
-								if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+								if ( ! (IsJa2TacticalCombatActive()) )
 								{
 									EnterCombatMode( pSoldier->bTeam );
 								}
@@ -2456,7 +2456,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 						{
 							// get off our farm!
 							MakeCivHostile(pSoldier);
-							if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+							if ( ! (IsJa2TacticalCombatActive()) )
 							{
 								EnterCombatMode( pSoldier->bTeam );
 
@@ -2511,7 +2511,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 				/*
 				SetSoldierNonNeutral( pSoldier );
 				RecalculateOppCntsDueToNoLongerNeutral( pSoldier );
-				if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( ( IsJa2TacticalCombatActive() ) )
 				{
 				CheckForPotentialAddToBattleIncrement( pSoldier );
 				}
@@ -2561,7 +2561,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			/*
 			SetSoldierNonNeutral( pOpponent );
 			RecalculateOppCntsDueToNoLongerNeutral( pOpponent );
-			if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( ( IsJa2TacticalCombatActive() ) )
 			{
 			CheckForPotentialAddToBattleIncrement( pOpponent );
 			}
@@ -2688,7 +2688,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 		{
 			if ( fNewOpponent )
 			{
-				if ( gTacticalStatus.uiFlags & INCOMBAT )
+				if ( IsJa2TacticalCombatActive() )
 				{
 					// presumably a door opening... we do require standard interrupt conditions				
 					if (StandardInterruptConditionsMet(pSoldier,pOpponent->ubID,bOldOppList))
@@ -2817,7 +2817,7 @@ if(SEE_MENT)
 			*/
 
 
-			if ( gTacticalStatus.uiFlags & TURNBASED && ( ( gTacticalStatus.uiFlags & INCOMBAT ) | gTacticalStatus.fVirginSector ) )
+			if ( IsJa2TacticalTurnBased() && ( ( IsJa2TacticalCombatActive() ) | gTacticalStatus.fVirginSector ) )
 			{
 				if (!pOpponent->aiData.bNeutral && (pSoldier->bSide != pOpponent->bSide))
 				{
@@ -2837,7 +2837,7 @@ if(SEE_MENT)
 		ReevaluateEnemyStance( pSoldier, pSoldier->usAnimState );
 	}
     AI::tactical::AIInputData ai_input(AI::tactical::AIInputData::Visual(), pOpponent, sOppGridNo, bOppLevel, ubCaller, ubCaller2);
-    AI::tactical::PlanInputData plan_input((gTacticalStatus.uiFlags & TURNBASED)!=0, gTacticalStatus);
+    AI::tactical::PlanInputData plan_input((IsJa2TacticalTurnBased())!=0, gTacticalStatus);
     AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
     plan_lib->update_plan(pSoldier->bAIIndex, pSoldier, ai_input);
 }
@@ -2880,7 +2880,7 @@ void DecideTrueVisibility(SOLDIERTYPE *pSoldier, UINT8 ubLocate)
 	else // not our team - if we're NOT allied then locate...
 	 //if (pSoldier->side != gTacticalStatus.Team[gbPlayerNum].side && ConfigOptions[FOLLOWMODE])
 		//if (Status.stopSlidingAt == NOBODY)
-				if (gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if (IsJa2TacticalTurnBasedCombat() )
 			//LocateSoldier(pSoldier->ubID,DONTSETLOCATOR);
 					SlideTo(pSoldier->ubID, DONTSETLOCATOR);
 
@@ -2967,14 +2967,14 @@ else
 			if (ManLooksForMan(pSoldier,pOpponent,OTHERTEAMSLOOKFORMAN))
 			{
 				// if a new opponent is seen (which must be oppPtr himself)
-				//if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bNewOppCnt)
+				//if (IsJa2TacticalTurnBasedCombat() && pSoldier->bNewOppCnt)
 				// Calc interrupt points in non-combat because we might get an interrupt or be interrupted
 				// on our first turn
 
 				// if doing regular in-combat sighting (not on opening doors!)
 				if ( gubBestToMakeSightingSize == BEST_SIGHTING_ARRAY_SIZE_INCOMBAT )
 				{
-					if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bNewOppCnt )
+					if ( IsJa2TacticalTurnBasedCombat() && pSoldier->bNewOppCnt )
 					{
 						// as long as viewer meets minimum interrupt conditions
 						if ( gubSightFlags & SIGHT_INTERRUPT && StandardInterruptConditionsMet(pSoldier,pOpponent->ubID,bOldOppList))
@@ -3656,7 +3656,7 @@ void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumN
 
 	// OK, check what music mode we are in, change to battle if we're in battle
 	// If we are in combat....
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 		// If we are NOT in any music mode...
 		if ( GetMusicMode() == MUSIC_NONE )
@@ -3850,7 +3850,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 					{
 						if ( pSoldier->bTeam == gbPlayerNum )
 						{
-							if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+							if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 							{
 								// Save some stuff!
 								if (gTacticalStatus.fEnemySightingOnTheirTurn)
@@ -5565,7 +5565,7 @@ void MakeNoise(SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrT
 	swprintf( SNoise.zNoiseMessage, L"%s", zNoiseMessage );
 	//SNoise.zNoiseMessage = zNoiseMessage;
 
-	if ( gTacticalStatus.ubAttackBusyCount )
+	if ( GetJa2PendingTacticalCombatActions() )
 	{
 		// delay these events until the attack is over!
 		AddGameEvent( S_NOISE, DEMAND_EVENT_DELAY, &SNoise );
@@ -5669,7 +5669,7 @@ void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrT
 	// see if anyone actually hears this noise, sees ubNoiseMaker, etc.
 	ProcessNoise(ubNoiseMaker, sGridNo, bLevel, ubTerrType,	ubVolume,	ubNoiseType, zNoiseMessage );
 
-	if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && (ubNoiseMaker < TOTAL_SOLDIERS) && !gfDelayResolvingBestSightingDueToDoor )
+	if (IsJa2TacticalTurnBasedCombat() && (ubNoiseMaker < TOTAL_SOLDIERS) && !gfDelayResolvingBestSightingDueToDoor )
 	{
 		// interrupts are possible, resolve them now (we're in control here)
 		// (you can't interrupt NOBODY, even if you hear the noise)
@@ -5872,7 +5872,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 #endif
 		{
 			// tell player about noise if enemies are present
-			bTellPlayer = gTacticalStatus.fEnemyInSector && ( !(gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.ubCurrentTeam) );
+			bTellPlayer = gTacticalStatus.fEnemyInSector && ( !(IsJa2TacticalCombatActive()) || (GetJa2TacticalCurrentTeam()) );
 
 #ifndef TESTNOISE
 			switch (ubNoiseType)
@@ -6157,7 +6157,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					DOOR_STATUS	*pDoorStatus = GetDoorStatus(sGridNo);
 					//shadooow: show locator when there is can with string attached to doors
 					if (pDoorStatus && pDoorStatus->ubFlags & DOOR_HAS_TIN_CAN)
-						BeginMultiPurposeLocator(sGridNo, bLevel, (INT8)((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)));
+						BeginMultiPurposeLocator(sGridNo, bLevel, (INT8)(IsJa2TacticalTurnBasedCombat()));
 				}
 				//if ( !(pSoldier->ubMovementNoiseHeard & (1 << ubNoiseDir) ) )
 			}
@@ -6247,11 +6247,11 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 		return( 0 );
 	}
 
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 	{
 		// ATE: Funny things happen to ABC stuff if bNewSituation set....
 		// anv: added exception to NOISE_VOICE
-		if ( gTacticalStatus.ubCurrentTeam == pSoldier->bTeam && ubNoiseType != NOISE_VOICE )
+		if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam && ubNoiseType != NOISE_VOICE )
 		{
 			return( 0 );
 		}
@@ -6604,7 +6604,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			// as long as listener meets minimum interrupt conditions
 			if ( gfDelayResolvingBestSightingDueToDoor)
 			{
-				if ( bSourceSeen && (!( (gTacticalStatus.uiFlags & TURNBASED) && ( gTacticalStatus.uiFlags & INCOMBAT ) ) || (gubSightFlags & SIGHTINTERRUPT && StandardInterruptConditionsMet(pSoldier, ubNoiseMaker, bOldOpplist)) ) )
+				if ( bSourceSeen && (!( IsJa2TacticalTurnBasedCombat() ) || (gubSightFlags & SIGHTINTERRUPT && StandardInterruptConditionsMet(pSoldier, ubNoiseMaker, bOldOpplist)) ) )
 				{
 					// we should be adding this to the array for the AllTeamLookForAll to handle
 					// since this is a door opening noise, add a bonus equal to half the door volume
@@ -6624,7 +6624,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			}
 			else
 			{
-				if ( (gTacticalStatus.uiFlags & TURNBASED) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( IsJa2TacticalTurnBasedCombat() )
 				{
 					if ( StandardInterruptConditionsMet( pSoldier, ubNoiseMaker, bOldOpplist ) )
 					{
@@ -6714,7 +6714,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		if ( gubBestToMakeSightingSize == BEST_SIGHTING_ARRAY_SIZE_INCOMBAT )
 		{
 			// if the noise heard was the fall of a rock
-			if ((gTacticalStatus.uiFlags & TURNBASED) && ( gTacticalStatus.uiFlags & INCOMBAT ) && ubNoiseType == NOISE_ROCK_IMPACT )
+			if (IsJa2TacticalTurnBasedCombat() && ubNoiseType == NOISE_ROCK_IMPACT )
 			{
 				// give every ELIGIBLE listener an automatic interrupt, since it's
 				// reasonable to assume the guy throwing wants to wait for their reaction!
@@ -6731,7 +6731,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		}
 	}
     AI::tactical::AIInputData ai_input(AI::tactical::AIInputData::Auditive(), ubNoiseMaker, sGridNo, bLevel, ubVolume, ubNoiseType);
-    AI::tactical::PlanInputData plan_input((gTacticalStatus.uiFlags & TURNBASED)!=0, gTacticalStatus);
+    AI::tactical::PlanInputData plan_input((IsJa2TacticalTurnBased())!=0, gTacticalStatus);
     AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
     plan_lib->update_plan(pSoldier->bAIIndex, pSoldier, ai_input);
 }
@@ -6856,7 +6856,7 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 		     pSoldier->ubTurnsUntilCanSayHeardNoise == 0)
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_HEARD_SOMETHING );
-			if ( gTacticalStatus.uiFlags & INCOMBAT )
+			if ( IsJa2TacticalCombatActive() )
 			{
 				pSoldier->ubTurnsUntilCanSayHeardNoise = 2;
 			}
@@ -6873,7 +6873,7 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 	if(ubVolumeIndex >= 2)
 	{
 		if ( FindHearingAid(pSoldier) )
-			BeginMultiPurposeLocator(sGridNo, bLevel, (INT8)((gTacticalStatus.uiFlags & TURNBASED) && ( gTacticalStatus.uiFlags & INCOMBAT )));
+			BeginMultiPurposeLocator(sGridNo, bLevel, (INT8)(IsJa2TacticalTurnBasedCombat()));
 	}
 
 	// flag soldier as having reported noise in a particular direction
@@ -7155,7 +7155,7 @@ void DecayPublicOpplist(INT8 bTeam)
 	// used to be -1 per turn but that's not fast enough!
 	if (gubPublicNoiseVolume[bTeam] > 0)
 	{
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			gubPublicNoiseVolume[bTeam] = (UINT8) ( (UINT32) (gubPublicNoiseVolume[bTeam] * 7) / 10 );
 		}
@@ -7325,7 +7325,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	INT8		bDirection;
 	BOOLEAN	fMuzzleFlash = FALSE;
 
-	if (!(gTacticalStatus.uiFlags & INCOMBAT))
+	if (!(IsJa2TacticalCombatActive()))
 	{
 		return;
 	}
@@ -7818,7 +7818,7 @@ void MakeBloodcatsHostile( void )
 			SetSoldierNonNeutral( pSoldier );
 			RecalculateOppCntsDueToNoLongerNeutral( pSoldier );
 
-			if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( ( IsJa2TacticalCombatActive() ) )
 			{
 				CheckForPotentialAddToBattleIncrement( pSoldier );
 			}

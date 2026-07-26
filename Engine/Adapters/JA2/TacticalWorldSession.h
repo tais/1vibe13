@@ -32,8 +32,8 @@ public:
 			std::uint8_t currentTeam = 0;
 			// Number of asynchronous combat effects that must finish before the
 			// active action can be finalized. This replaces JA2's writable
-			// attack-busy scalar. Its legacy 8-bit projection clamps large
-			// counts while this authoritative value retains the real workload.
+			// attack-busy scalar. Save compatibility clamps large counts only
+			// while emitting the established byte; runtime retains the workload.
 			std::uint32_t pendingCombatActions = 0;
 
 			friend bool operator==(const Turn& lhs, const Turn& rhs) noexcept

@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "TacticalWorldAdapter.h"
 
 #include "builddefines.h"
 
@@ -90,7 +91,6 @@
 #include "CampaignProfileCodes.h"
 #include "GameVersion.h"
 #include "StrategicGroupHost.h"
-#include "TacticalWorldAdapter.h"
 
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
@@ -4587,7 +4587,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 
 
 		// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
-		if ( (gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 		{
 			pSoldier->usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->usAnimState].ubEndHeight );
 		}
@@ -4600,7 +4600,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 		}
 
 		// ATE: if we are in combat, get cost to move here....
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			// Turn off at end of function...
 			sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );

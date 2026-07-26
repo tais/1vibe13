@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "worlddef.h"
 	#include "Points.h"
 	#include "Overhead.h"
@@ -412,7 +413,7 @@ INT16 TerrainBreathPoints(SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bDir, UINT
 		iPoints = iPoints * ( 100 + pSoldier->GetBackgroundValue(BG_SWIMMING) ) / 100.0f;
 	
 	// ATE: Adjust these by realtime movement
-	 if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	 if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	 {
 		// ATE: ADJUST FOR RT - MAKE BREATH GO A LITTLE FASTER!
 	 	// silversurfer: now externalized to APBPConstants.ini
@@ -791,7 +792,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 		return( TRUE );
 	}
 	// IN realtime.. only care about BPs
-	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT ) || !pSoldier->bInSector)
+	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) || !pSoldier->bInSector)
 	{
 		sAPCost = 0;
 	}
@@ -867,7 +868,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 
 	// in real time, there IS no AP cost, (only breath cost)
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) || !pSoldier->bInSector)
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) || !pSoldier->bInSector)
 	{
 		sAPCost = 0;
 	}
@@ -1138,7 +1139,7 @@ INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost )
 
  // in real time, there IS no AP cost, (only breath cost)
  /*
- if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+ if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
  {
 	// ATE: ADJUST FOR RT - MAKE BREATH GO A LITTLE FASTER!
 	iBPCost	*= TB_BREATH_DEDUCT_MODIFIER;
@@ -1235,7 +1236,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 		return;
 	}
 
-	if ( !( gTacticalStatus.uiFlags & TURNBASED ) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalTurnBased() ) || !(IsJa2TacticalCombatActive() ) )
 	{
 		// ALRIGHT, GIVE A FULL AMOUNT BACK, UNLES MODIFIED BY WHAT ACTIONS WE WERE DOING
 		sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->usAnimState );
@@ -3214,7 +3215,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 	INT16 sAPCost;
 	INT32 sGridNo;
 
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		return( FALSE );
 	}

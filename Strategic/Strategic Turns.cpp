@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Game Clock.h"
 	#include "Timer Control.h"
 	#include "Overhead.h"
@@ -55,7 +56,7 @@ void HandleStrategicTurn( )
 		uiTime = GetJA2Clock( );
 
 		// Do not handle turns update if in turnbased combat
-		if ( ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			guiLastTacticalRealTime = uiTime;
 		}

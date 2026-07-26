@@ -1,4 +1,5 @@
 #include "Items.h"
+#include "TacticalWorldAdapter.h"
 	#include "Soldier Control.h"
 	#include "Overhead.h"
 	#include "Handle UI.h"
@@ -685,7 +686,7 @@ void StopPowerGenFan()
 	}
 
 	//if we are in turn based combat
-	if( !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+	if( !(IsJa2TacticalTurnBasedCombat()) )
 	{
 		return;
 	}
@@ -1322,7 +1323,7 @@ void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
 		gJa25SaveStruct.bNewMercProfileIDForSayingMorrisNote = bID;
 
 		//if we are in turnbased combat
-		if( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if( IsJa2TacticalTurnBasedCombat() )
 		{
 			uiTime = GetWorldTotalSeconds() + 3;
 		}
@@ -1898,7 +1899,7 @@ void HandleShowingRadioLocatorsInMorrisArea()
 	BeginMultiPurposeLocator( RADIOLOCATORS_GRIDNO1, 0, TRUE );
 
 	//if we are not in combat
-	if( !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+	if( !(IsJa2TacticalTurnBasedCombat()) )
 	{
 		DelayedMercQuote( RADIOLOCATORS_GRIDNO2, DQ__SHOW_RADIO_LOCATOR, GetWorldTotalSeconds() + 3 );
 	}

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "Button System.h"
 	#include "mousesystem.h"
@@ -182,7 +183,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		gExitDialog.fAllMove				= TRUE;
 	}
 
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 	{
 		INT32 cnt = 0;
 		for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )

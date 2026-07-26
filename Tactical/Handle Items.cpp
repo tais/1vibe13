@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalWorldAdapter.h"
 #ifndef _WIN32
 #include <dirent.h>
 #endif
@@ -64,7 +65,6 @@
 	#include "english.h"
 	#include "Simulation Commands.h"
 	#include "TacticalEntityHost.h"
-	#include "TacticalWorldAdapter.h"
 	#include "TacticalWorldItemHost.h"
 
 	#include <cstdint>
@@ -618,7 +618,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	// ATE: If in realtime, set attacker count to 0...
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Setting attack busy count to 0 due to no combat" ) );
 		ResetJa2TacticalCombatActions();
@@ -868,7 +868,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			}
 
 			// Check if we are reloading
-			if ( (gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 			{
 				if ( pSoldier->flags.fReloading )
 				{
@@ -891,7 +891,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		}
 
 		// If it's a player guy, check ChanceToGetThrough to play quote
-		if ( fFromUI && (gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( fFromUI && IsJa2TacticalTurnBasedCombat() )
 		{
 			// Don't do if no spread!
 			if ( !pSoldier->flags.fDoSpread )
@@ -983,7 +983,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 			}
 
-			if(pSoldier->bDoAutofire && ((gTacticalStatus.uiFlags & INCOMBAT) && (gTacticalStatus.uiFlags & TURNBASED))) //this is the code that introduces uncertainty into full-auto bursts
+			if(pSoldier->bDoAutofire && (IsJa2TacticalTurnBasedCombat())) //this is the code that introduces uncertainty into full-auto bursts
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->stats.bMarksmanship));
 				//UINT32 diceSides = RAND_MAX;
@@ -1158,7 +1158,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if (fFromUI)
 			{
 				// Descrease aim by two if in real time
-				if ( (gTacticalStatus.uiFlags & REALTIME ) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive()) )
 				{
 					//pSoldier->aiData.bShownAimTime -= 2;
 					//if ( pSoldier->aiData.bShownAimTime < REFINE_AIM_1 )
@@ -1169,7 +1169,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 
 				// If in turn based - refresh aim to first level
-				if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( IsJa2TacticalTurnBasedCombat() )
 				{
 					pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
 
@@ -2161,8 +2161,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		//pSoldier->sLastTarget = sTargetGridNo;
 		//pSoldier->ubTargetID = WhoIsThere2( sTargetGridNo, pSoldier->bTargetLevel );
 
-//		gTacticalStatus.ubAttackBusyCount++;
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting swipe attack, incrementing a.b.c in HandleItems to %d", gTacticalStatus.ubAttackBusyCount) );
+//		GetJa2PendingTacticalCombatActions()++;
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting swipe attack, incrementing a.b.c in HandleItems to %d", GetJa2PendingTacticalCombatActions()) );
 		DebugAttackBusy( "Swipe attack\n");
 
 
@@ -2254,7 +2254,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->ubTargetID = WhoIsThere2( sTargetGridNo, pSoldier->bTargetLevel );
 
 				// Increment attack counter...
-//				gTacticalStatus.ubAttackBusyCount++;
+//				GetJa2PendingTacticalCombatActions()++;
 				DebugAttackBusy( "Weapon fire\n");
 
 				//dnl ch72 180913 decision is to charge for turning which was disabled in v1.12 also will turn off both options because is bad to charge APs before stance or turning really occurs
@@ -3140,7 +3140,7 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 				CHAR16 buffer[99];
 				wchar_t * ptr;
 				wcscpy(buffer,TacticalStr[ DISARM_TRAP_PROMPT ]);
-				if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
+				if((IsJa2TacticalCombatActive()) || (gTacticalStatus.fEnemyInSector))
 				{
 					const wchar_t * string = L" (";
 					wchar_t string2[20];
@@ -5672,7 +5672,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_CLOTHES_STR] );
 
 	// clean weapons - in realtime of the entire team, in turnbased only for the selected merc
-//	wcscpy( gzUserDefinedButton[2], (gTacticalStatus.uiFlags & INCOMBAT) ? TacticalStr[CLEAN_ONE_GUN_STR] : TacticalStr[CLEAN_ALL_GUNS_STR] );
+//	wcscpy( gzUserDefinedButton[2], (IsJa2TacticalCombatActive()) ? TacticalStr[CLEAN_ONE_GUN_STR] : TacticalStr[CLEAN_ALL_GUNS_STR] );
 	// silversurfer: instant cleaning is not used anymore. Guns are cleaned via repair items assignment.
 	wcscpy( gzUserDefinedButton[2], TacticalStr[UNUSED_STR] );
 
@@ -5759,7 +5759,7 @@ OBJECTTYPE* GetBetterSectorObject( UINT16 usItem, INT16 status, UINT8& arIndex )
 
 void UpdateGear()
 {
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 		return;
 
 	// no functionality if not in tactical or in combat, or nobody is here
@@ -6116,7 +6116,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			break;
        case 3:
 			// clean weapons - in realtime of the entire team, in turnbased only for the selected merc
-		    //CleanWeapons( !(gTacticalStatus.uiFlags & INCOMBAT) );
+		    //CleanWeapons( !(IsJa2TacticalCombatActive()) );
 			break;
        case 4:
 		    UpdateGear();
@@ -6474,7 +6474,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		// If we succede - we get exp, but if we fail - we pay fair and square!
 
 		//CHRISL: first things first.  If we're in combat, we need to spend some APs to disarm the device
-		if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
+		if((IsJa2TacticalCombatActive()) || (gTacticalStatus.fEnemyInSector))
 		{
 			// SANDRO was here, AP_DISARM_MINE changed to GetAPsToDisarmMine
 			if(EnoughPoints(gpBoobyTrapSoldier, GetAPsToDisarmMine( gpBoobyTrapSoldier ), APBPConstants[BP_DISARM_MINE], TRUE))
@@ -8056,7 +8056,7 @@ BOOLEAN BuildFortification( INT32 sGridNo, SOLDIERTYPE *pSoldier, OBJECTTYPE *pO
 			DeleteObj( &(pSoldier->inv[HANDPOS]) );
 
 			// sevenfm: auto-taking of items
-			if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) && gfShiftBombPlant )
+			if ( !(IsJa2TacticalTurnBasedCombat()) && gfShiftBombPlant )
 			{
 				pSoldier->TakeNewItemFromInventory( pObj->usItem );
 			}
@@ -9804,7 +9804,7 @@ void ExtendedDisarmMessageBox(void)
 
 	disarmAP = GetAPsToDisarmMine( boobyTrapSoldier );
 
-	if( (gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if( IsJa2TacticalTurnBasedCombat() )
 	{
 		swprintf( buf, L"%s %d", TacticalStr[ DISARM_DIALOG_DISARM ], disarmAP );
 		wcscpy( gzUserDefinedButton[0], buf );
@@ -9872,7 +9872,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 
 		disarmAP = GetAPsToDisarmMine( gpBoobyTrapSoldier );
 		disarmBP = APBPConstants[BP_DISARM_MINE];
-		if( (gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if( IsJa2TacticalTurnBasedCombat() )
 			turnbased = TRUE;
 		
 		if(gpWorldLevelData[gsBoobyTrapGridNo].uiFlags & MAPELEMENT_PLAYER_MINE_PRESENT)
@@ -9934,7 +9934,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 
 void HandleTakeNewBombFromInventory(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj)
 {
-	if( !( (gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) ) &&
+	if( !( IsJa2TacticalTurnBasedCombat() ) &&
 			!pSoldier->inv[HANDPOS].exists() && gfShiftBombPlant )
 	{	
        pSoldier->TakeNewBombFromInventory(pObj->usItem);
@@ -10398,7 +10398,7 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 			return;
 		}
 
-		if ( (gTacticalStatus.uiFlags & INCOMBAT || gTacticalStatus.fEnemyInSector) )
+		if ( (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
 		{
 			ScreenMsg( color, MSG_INTERFACE, szGearTemplateText[1] );
 

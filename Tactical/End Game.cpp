@@ -1,5 +1,6 @@
 
 	#include "Overhead.h"
+#include "TacticalWorldAdapter.h"
 	#include "worldman.h"
 	#include "Soldier Profile.h"
 	#include "Dialogue Control.h"
@@ -16,7 +17,6 @@
 	#include "Strategic Movement.h"
 	#include "screenids.h"
 	#include "TacticalEntityHost.h"
-	#include "TacticalWorldAdapter.h"
 	#include "ub_config.h"
 	#include "Ja25_Tactical.h"
 	#include "Handle UI.h"
@@ -692,7 +692,7 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 			// HELLO!	THESE ARE CREATURES!	THEY CAN'T BE NEUTRAL!
 			//if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
 			{
-//	 		gTacticalStatus.ubAttackBusyCount++;
+//	 		GetJa2PendingTacticalCombatActions()++;
 				DebugAttackBusy( "Killing off a queen ally.\n");
 				pTeamSoldier->EVENT_SoldierGotHit( 0, 10000, 0, pTeamSoldier->ubDirection, 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTeamSoldier->bAimShotLocation, 0, NOWHERE );
 			}

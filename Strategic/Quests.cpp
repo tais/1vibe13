@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "message.h"
 	#include "Quests.h"
 	#include "Game Clock.h"
@@ -707,7 +708,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 			}
 			break;
 		case FACT_CURRENT_SECTOR_IS_SAFE:
-			gubFact[FACT_CURRENT_SECTOR_IS_SAFE] = !( ( (gTacticalStatus.fEnemyInSector && NPCHeardShot( ubProfileID ) ) || gTacticalStatus.uiFlags & INCOMBAT ) );
+			gubFact[FACT_CURRENT_SECTOR_IS_SAFE] = !( ( (gTacticalStatus.fEnemyInSector && NPCHeardShot( ubProfileID ) ) || IsJa2TacticalCombatActive() ) );
 			break;
 		case FACT_BOBBYRAY_SHIPMENT_IN_TRANSIT:
 		case FACT_NEW_BOBBYRAY_SHIPMENT_WAITING:

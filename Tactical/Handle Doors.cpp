@@ -1,4 +1,5 @@
 	#include <wchar.h>
+#include "TacticalWorldAdapter.h"
 	#include "sgp.h"
 	#include "worlddef.h"
 	#include "worldman.h"
@@ -441,7 +442,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 			if ( pGoon->ubCivilianGroup == KINGPIN_CIV_GROUP && pGoon->bActive && pGoon->bInSector && pGoon->stats.bLife >= OKLIFE && pGoon->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
 			{
 				MakeCivHostile(pGoon);
-				if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( ! (IsJa2TacticalCombatActive()) )
 				{
 					EnterCombatMode( pGoon->bTeam );
 				}
@@ -764,7 +765,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 								pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_DESTROYED_STR ] );
 								// silversurfer: changed this so the merc can blow a lock without directly opening the door and remain helpless with no AP to do something. Doors have usKeyItem > 0.
-								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !(IsJa2TacticalTurnBasedCombat()) )
 									fHandleDoor = TRUE;
 							}
 							else
@@ -794,7 +795,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 								pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 								//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, TacticalStr[ DOOR_LOCK_HAS_BEEN_PICKED_STR ] );
 								// silversurfer: changed this so the merc can pick a lock without directly opening the door and remain helpless with no AP to do something. Doors have usKeyItem > 0.
-								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !(IsJa2TacticalTurnBasedCombat()) )
 									fHandleDoor = TRUE;
 							}
 							else
@@ -885,7 +886,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 								UpdateDoorPerceivedValue( pDoor );
 
 								// silversurfer: changed this so the merc can unlock a door without directly opening it and remain helpless with no AP to do something. Doors have usKeyItem > 0.
-								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+								if ( LockTable[ pDoor->ubLockID ].usKeyItem == 0 || !(IsJa2TacticalTurnBasedCombat()) )
 									fHandleDoor = TRUE;
 							}
 							else

@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "Overhead.h"
 	#include "Overhead Types.h"
@@ -1674,7 +1675,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 					// Flugente 2018-03-11: this part is problematic. If the enemy enters combat first, it is possible for enemie groups that are already present to be counted as pending
 					// reinfocements, causing them to spawn at the edges of a sector instead.
 					// I am thus changing this so that the player team always gets the first turn if combat has not yet been started
-					if ( !(gTacticalStatus.uiFlags & INCOMBAT) || Random( 100 ) >= Random( 100 ) )
+					if ( !(IsJa2TacticalCombatActive()) || Random( 100 ) >= Random( 100 ) )
 						EnterCombatMode( OUR_TEAM );
 					else
 						EnterCombatMode( ENEMY_TEAM );

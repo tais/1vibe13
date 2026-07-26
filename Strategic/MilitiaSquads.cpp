@@ -1,4 +1,5 @@
 	#include "Town Militia.h"
+#include "TacticalWorldAdapter.h"
 	#include "Militia Control.h"
 	#include "SaveLoadGame.h"
 	#include "Campaign Types.h"
@@ -1043,7 +1044,7 @@ void MilitiaMovementOrder(UINT8 sector)
 	int strategicsector = CALCULATE_STRATEGIC_INDEX( sX, sY );
 
 	// if we are in gamescreen and a battle is going on, and this is the sector that militia moves from, don't move them. Suddenly disappearing would be... awkward
-	if ( GetCurrentScreen() == GAME_SCREEN && gTacticalStatus.uiFlags & INCOMBAT && gWorldSectorX == sX && gWorldSectorY == sY && !gbWorldSectorZ )
+	if ( GetCurrentScreen() == GAME_SCREEN && IsJa2TacticalCombatActive() && gWorldSectorX == sX && gWorldSectorY == sY && !gbWorldSectorZ )
 	{
 		// remove all movement flags
 		StrategicMap[strategicsector].usFlags &= ~MILITIA_MOVE_ALLDIRS;

@@ -1,4 +1,5 @@
 	#include "Font.h"
+#include "TacticalWorldAdapter.h"
 	#include "Font Control.h"
 	#include "mapscreen.h"
 	#include "Map Screen Interface.h"
@@ -7810,7 +7811,7 @@ BOOLEAN CanRedistributeMilitiaInSector( INT16 sClickedSectorX, INT16 sClickedSec
 	}
 
 	// if tactically not in combat, hostile sector, or air-raid
-	if( !( gTacticalStatus.uiFlags & INCOMBAT ) && !( gTacticalStatus.fEnemyInSector ) && !InAirRaid( ) )
+	if( !( IsJa2TacticalCombatActive() ) && !( gTacticalStatus.fEnemyInSector ) && !InAirRaid( ) )
 	{
 		// ok to redistribute
 		return( TRUE );

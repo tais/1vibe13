@@ -1,4 +1,5 @@
 #include <string.h>
+#include "TacticalWorldAdapter.h"
 #include "stdlib.h"
 #include "DEBUG.H"
 #include "Timer Control.h"
@@ -707,7 +708,7 @@ BOOLEAN IsFastForwardKeyPressed()
 	if (is_networked)
 	{
 		if (!is_server) return false;
-		else if (gTacticalStatus.ubCurrentTeam != 1) return false;
+		else if (GetJa2TacticalCurrentTeam() != 1) return false;
 	}
 
 	return giFastForwardKey && ( gClockTestKeyStateSource

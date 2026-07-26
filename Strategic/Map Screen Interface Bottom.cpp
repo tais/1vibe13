@@ -1,4 +1,5 @@
 	#include "Map Screen Interface Bottom.h"
+#include "TacticalWorldAdapter.h"
 	#include "Map Screen Interface Border.h"
 	#include "types.h"
 	#include "vsurface.h"
@@ -1476,7 +1477,7 @@ BOOLEAN AllowedToTimeCompress( void )
 	}
 
 	// hostile sector / in battle
-	if( (gTacticalStatus.uiFlags & INCOMBAT ) || ( gTacticalStatus.fEnemyInSector ) )
+	if( (IsJa2TacticalCombatActive() ) || ( gTacticalStatus.fEnemyInSector ) )
 	{
 		return( FALSE );
 	}
@@ -1949,7 +1950,7 @@ BOOLEAN AllowedToExitFromMapscreenTo( INT8 bExitToWhere )
 	if ( bExitToWhere == MAP_EXIT_TO_TACTICAL )
 	{
 		// if in battle or air raid, the ONLY sector we can go tactical in is the one that's loaded
-		if ( ( ( gTacticalStatus.uiFlags & INCOMBAT ) || ( gTacticalStatus.fEnemyInSector ) /*|| InAirRaid( )*/ ) &&
+		if ( ( ( IsJa2TacticalCombatActive() ) || ( gTacticalStatus.fEnemyInSector ) /*|| InAirRaid( )*/ ) &&
 				( ( sSelMapX != gWorldSectorX ) || ( sSelMapY != gWorldSectorY ) || ( ( UINT8 )iCurrentMapSectorZ ) != gbWorldSectorZ ) )
 		{
 			return( FALSE );

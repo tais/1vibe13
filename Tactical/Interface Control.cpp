@@ -1,4 +1,5 @@
 	#include <stdio.h>
+#include "TacticalWorldAdapter.h"
 	#include <math.h>
 	#include "sgp.h"
 	#include "himage.h"
@@ -241,7 +242,7 @@ void SetUpInterface( )
 	}
 
 	// FOR THE MOST PART - SHUTDOWN INTERFACE WHEN IT'S THE ENEMY'S TURN
-	if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+	if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 	{
 		return;
 	}
@@ -936,7 +937,7 @@ void RenderTopmostTacticalInterface( )
 	}
 
 	// FOR THE MOST PART, DISABLE INTERFACE STUFF WHEN IT'S ENEMY'S TURN
-	if ( gTacticalStatus.ubCurrentTeam == gbPlayerNum )
+	if ( GetJa2TacticalCurrentTeam() == gbPlayerNum )
 	{
 		RenderArrows( );
 	}

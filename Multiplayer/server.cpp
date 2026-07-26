@@ -1,4 +1,5 @@
 #include "sgp_bounded_string.h"
+#include "TacticalWorldAdapter.h"
 #include "MessageIdentifiers.h"
 #include "RakNetworkFactory.h"
 #include "RakPeerInterface.h"
@@ -37,7 +38,6 @@
 #include "fresh_header.h"
 #include "Debug Control.h"
 #include "MPXmlTeams.hpp"
-#include "TacticalWorldAdapter.h"
 
 extern CHAR16 gzFileTransferDirectory[100];
 
@@ -509,7 +509,7 @@ void receiveSETID(RPCParameters *rpcParameters)
 
 void startCOMBAT(RPCParameters *rpcParameters)
 {
-	if(!( gTacticalStatus.uiFlags & INCOMBAT ))
+	if(!( IsJa2TacticalCombatActive() ))
 	
 	{
 

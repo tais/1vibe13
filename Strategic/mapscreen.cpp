@@ -1,4 +1,5 @@
 	#include "mapscreen.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
 	#include "gameloop.h"
@@ -10125,7 +10126,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (gTacticalStatus.uiFlags & INCOMBAT) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
@@ -10211,7 +10212,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				return;
 			}
 
-			if (UsingInventoryCostsAPSystem() && (gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bInSector)
+			if (UsingInventoryCostsAPSystem() && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 			{
 				if (!CanItemFitInPosition(pSoldier, gpItemPointer, (INT8)uiHandPos, FALSE))//dnl ch66 070913
 					return;
@@ -10252,7 +10253,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 						
 						for (UINT8 i = 0; i<cnt;i++)
 						{
-							if ((gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bInSector)
+							if ((IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 							{
 								// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 								usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, pSoldier->inv[uiHandPos].usItem, pSoldier);
@@ -10297,7 +10298,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				{
 					// HEADROCK HAM 5: Sector Inventory Item Desc Box no longer accessible during combat.
 					
-					if( gTacticalStatus.uiFlags & INCOMBAT )
+					if( IsJa2TacticalCombatActive() )
 					{
 						DoScreenIndependantMessageBox( New113HAMMessage[ 23 ], MSG_BOX_FLAG_OK, NULL );
 						return;
@@ -10321,7 +10322,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					{
 						// HEADROCK HAM 5: Sector Inventory Item Desc Box no longer accessible during combat.
 						
-						if( gTacticalStatus.uiFlags & INCOMBAT )
+						if( IsJa2TacticalCombatActive() )
 						{
 							DoScreenIndependantMessageBox( New113HAMMessage[ 24 ], MSG_BOX_FLAG_OK, NULL );
 							return;
@@ -12856,7 +12857,7 @@ void HandleShadingOfLinesForContractMenu( void )
 
 	// if THIS soldier is involved in a fight (dismissing in a hostile sector IS ok...)
 	// Also if we have multiple mercs selected, disable terminating contracts
-	if (multipleMercsSelected || (( gTacticalStatus.uiFlags & INCOMBAT ) && pSoldier->bInSector ))
+	if (multipleMercsSelected || (( IsJa2TacticalCombatActive() ) && pSoldier->bInSector ))
 	{
 		ShadeStringInBox( ghContractBox, CONTRACT_MENU_TERMINATE );
 	}
@@ -14537,7 +14538,7 @@ void TellPlayerWhyHeCantCompressTime( void )
 #endif
 	// ARM: THIS TEST SHOULD BE THE LAST ONE, BECAUSE IT ACTUALLY RESULTS IN SOMETHING HAPPENING NOW.
 	// KM:	Except if we are in a creature lair and haven't loaded the sector yet (no battle yet)
-	else if( gTacticalStatus.uiFlags & INCOMBAT || gTacticalStatus.fEnemyInSector )
+	else if( IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector )
 	{
 		if( OnlyHostileCivsInSector() )
 		{

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
 	#include "sgp.h"
@@ -2036,8 +2037,8 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 
 					// show AP only in turnbased combat, only during our turn
 					if( gGameExternalOptions.ubShowHealthBarsOnHead > 2 && 
-						(gTacticalStatus.uiFlags & TURNBASED ) && (gTacticalStatus.uiFlags & INCOMBAT) &&
-						gTacticalStatus.ubCurrentTeam == OUR_TEAM)
+						IsJa2TacticalTurnBasedCombat() &&
+						GetJa2TacticalCurrentTeam() == OUR_TEAM)
 					{
 						INT16 len;
 						swprintf( NameStr,L"%d", pSoldier->bActionPoints );
@@ -2678,7 +2679,7 @@ BOOLEAN DrawCTHIndicator()
 
 	/////////////// AP COST FOR CURRENT SHOT
 	// sevenfm: only if in turnbased!
-	if( ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) ) )
+	if( ( IsJa2TacticalTurnBasedCombat() ) )
 	{
 		// Create a pointer to the Frame Buffer which we are going to draw directly into.
 		SetFont( TINYFONT1 );
@@ -3834,7 +3835,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ USE_KEYRING_ICON ] );
 	}
@@ -3865,7 +3866,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ USE_CROWBAR_ICON ] );
 	}
@@ -3895,7 +3896,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ LOCKPICK_DOOR_ICON ] );
 	}
@@ -3927,7 +3928,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ EXPLOSIVE_DOOR_ICON ] );
 	}
@@ -3961,7 +3962,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 
 	if ( fClosingDoor )
 	{
-		if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+		if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 		{
 			swprintf( zDisp, pTacticalPopupButtonStrings[ CANCEL_ICON + 1 ] );
 		}
@@ -3972,7 +3973,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 	}
 	else
 	{
-		if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+		if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 		{
 			swprintf( zDisp, pTacticalPopupButtonStrings[ OPEN_DOOR_ICON ] );
 		}
@@ -3999,7 +4000,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ EXAMINE_DOOR_ICON ] );
 	}
@@ -4023,7 +4024,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ BOOT_DOOR_ICON ] );
 	}
@@ -4048,7 +4049,7 @@ void PopupDoorOpenMenu( BOOLEAN fClosingDoor )
 		return;
 	}
 
-	if (!(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) )
 	{
 		swprintf( zDisp, pTacticalPopupButtonStrings[ UNTRAP_DOOR_ICON ] );
 	}
@@ -4638,7 +4639,7 @@ BOOLEAN AddTopMessage( UINT8 ubType, STR16 pzString )
 
 	// WANNE: Disabled AI count on turnbar, because it shows different count on clients
 	/*
-	if(is_networked && gTacticalStatus.ubCurrentTeam == 1 && ubType == COMPUTER_TURN_MESSAGE){
+	if(is_networked && GetJa2TacticalCurrentTeam() == 1 && ubType == COMPUTER_TURN_MESSAGE){
 		//add ai count to turn bar - haydent
 		swprintf( pzString, MPClientMessage[80], NumEnemyInSector());
 	}
@@ -6144,7 +6145,7 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 		showExactInfo = ShowExactInfo( pSelectedSoldier, pTargetSoldier );
 
 	// show weapon/armour/items info
-	if ( gGameExternalOptions.fShowEnemyWeapon && gTacticalStatus.ubCurrentTeam == OUR_TEAM && pTargetSoldier->ubBodyType <= REGFEMALE )
+	if ( gGameExternalOptions.fShowEnemyWeapon && GetJa2TacticalCurrentTeam() == OUR_TEAM && pTargetSoldier->ubBodyType <= REGFEMALE )
 	{
 		SetFont( TINYFONT1 );
 		SetFontBackground( FONT_MCOLOR_BLACK );		
@@ -6177,7 +6178,7 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
 		return;
 
 	// show enemy health bar
-	if( gGameExternalOptions.ubShowEnemyHealth > 1 && gTacticalStatus.ubCurrentTeam == OUR_TEAM )
+	if( gGameExternalOptions.ubShowEnemyHealth > 1 && GetJa2TacticalCurrentTeam() == OUR_TEAM )
 	{
 		iBarHeight = 2 + 3 * ubLines - 1;
 		sY += 10;

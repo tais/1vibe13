@@ -313,11 +313,12 @@ one denotes the newly loaded pre-turn state, each accepted `BeginTeamTurn`
 boundary advances it, and exhaustion saturates instead of wrapping. Compare a
 turn serial only within the same epoch. `EngineRuntime` also owns the
 turn-based/combat mode, current team, and pending asynchronous combat-action
-count in that same session; the JA2 adapter is the only writer of their
-established `gTacticalStatus` mirrors. The pending-work gateway prevents the
-legacy 8-bit counter from wrapping or underflowing; a wider authoritative
-count clamps only that projection while keeping its save bytes and hot-path
-zero/nonzero behavior unchanged. Pending execution work remains host-internal;
+count in that same session. Gameplay reads these values through the JA2
+adapter's session-backed accessors; the former `gTacticalStatus` team,
+attack-busy, and turn/combat flag mirrors have been retired. The pending-work
+gateway prevents wrapping or underflowing, while save code explicitly clamps
+the wider authoritative count into the established byte position. Pending
+execution work remains host-internal;
 the package-facing tactical turn snapshot still contains mode, team, and turn
 identity, so this ownership move requires no wire or service-version change.
 
@@ -327,10 +328,10 @@ reads. Their hidden storage is published only by `TacticalWorldAdapter`; writes
 and mutable address escapes are rejected by both the C++ type system and the
 architecture boundary test. They are compatibility views, not engine storage:
 packages and external tools consume `TacticalWorldService`, and application
-transitions use the adapter gateways. The `TURNBASED`, `INCOMBAT`, and
-`ubCurrentTeam` portions of `gTacticalStatus` follow the same single-writer
-policy while the remaining broad legacy status structure is migrated by its
-own gameplay domains.
+transitions use the adapter gateways. Turn/combat mode and current team have
+gone one step further: no live `gTacticalStatus` projection remains, and
+architecture checks reject its return while the remaining broad legacy status
+structure is migrated by its own gameplay domains.
 
 `TacticalWorldObserver` invalidates `latest()` when its source becomes
 unavailable or the host calls `reset()`; any previously returned publication

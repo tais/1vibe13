@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "TacticalWorldAdapter.h"
 	#include "WCheck.h"
 	#include "Overhead.h"
 	#include "ai.h"
@@ -2361,7 +2362,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 					switch ( pQuotePtr->usGiftItem )
 					{
 						case TURN_UI_OFF:
-							if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+							if ( !(IsJa2TacticalCombatActive()) )
 							{
 								gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
 								// Increment refrence count...
@@ -2378,7 +2379,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 							}
 							break;
 						case SPECIAL_TURN_UI_OFF:
-							if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+							if ( !(IsJa2TacticalCombatActive()) )
 							{
 
 								gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;

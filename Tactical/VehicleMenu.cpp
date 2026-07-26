@@ -1,6 +1,7 @@
 // anv: totally not a copy of SkillMenu.cpp
 
 #include "VehicleMenu.h"
+#include "TacticalWorldAdapter.h"
 #include "mapscreen.h"
 #include "Overhead.h"
 #include "Text.h"
@@ -110,7 +111,7 @@ VehicleSelection::Setup( UINT32 aVal )
 		}
 
 		// block swapping between different compartments
-		if( gTacticalStatus.uiFlags & INCOMBAT )
+		if( IsJa2TacticalCombatActive() )
 		{
 			if( bSeatIndex != (-1) )
 			{

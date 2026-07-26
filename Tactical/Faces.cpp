@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
 	
@@ -1370,7 +1371,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 {
 	if (pFace->iVideoOverlay == -1 && !fExternBlit)
 	{
-		if ((pSoldier->bActionPoints == 0) && !(gTacticalStatus.uiFlags & REALTIME) && (gTacticalStatus.uiFlags & INCOMBAT))
+		if ((pSoldier->bActionPoints == 0) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()))
 		{
 			return FLASH_PORTRAIT_LITESHADE;
 		}
@@ -1936,7 +1937,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			}
 
-			if ( pSoldier->bInSector && ( ( ( gTacticalStatus.ubCurrentTeam != OUR_TEAM ) || !OK_INTERRUPT_MERC(	pSoldier ) ) && !gfHiddenInterrupt ) || ( ( gfSMDisableForItems && !gfInItemPickupMenu ) && gusSMCurrentMerc == pSoldier && gsCurInterfacePanel == SM_PANEL ) )
+			if ( pSoldier->bInSector && ( ( ( GetJa2TacticalCurrentTeam() != OUR_TEAM ) || !OK_INTERRUPT_MERC(	pSoldier ) ) && !gfHiddenInterrupt ) || ( ( gfSMDisableForItems && !gfInItemPickupMenu ) && gusSMCurrentMerc == pSoldier && gsCurInterfacePanel == SM_PANEL ) )
 			{
 				// Blit hatch!
 				BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -2508,7 +2509,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			else
 			{
 				//shadooow: display action points when in map screen during battle in turn based mode
-				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bInSector)
+				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 				{
 					SetFont(TINYFONT1);
 					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0), 0, FALSE) || pSoldier->bActionPoints < 0)

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include "mapscreen.h"
 	#include <stdio.h>
 	#include "sgp.h"
@@ -1835,7 +1836,7 @@ static BOOL sPocketPopupInitialized = FALSE;
 
 void popupCallbackAmmo(UINT16 item, UINT16 pocket, SOLDIERTYPE* pSoldier ){
 
-	if(!(gTacticalStatus.uiFlags & INCOMBAT))
+	if(!(IsJa2TacticalCombatActive()))
 	{
 		UINT16		magSize, ubShotsLeft;
 		OBJECTTYPE	*pObj = NULL;
@@ -2584,7 +2585,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 				case COMBAT_PACK:
 				case BACKPACK:
 
-					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (gTacticalStatus.uiFlags & INCOMBAT) )
+					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (IsJa2TacticalCombatActive()) )
 						lbePocket = 0;
 					else if( !pSoldier->inv[icLBE[sPocket]].exists() )
 					{
@@ -2728,7 +2729,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 			if ( CanItemFitInPosition( pSoldier, gpItemPointer, (INT8)sPocket, FALSE ) )
 			{
 				fHatchItOut = FALSE;
-				if (UsingInventoryCostsAPSystem() && (gTacticalStatus.uiFlags & INCOMBAT) && pSoldier->bInSector)
+				if (UsingInventoryCostsAPSystem() && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 				{
 					//Jenilee: determine the cost of moving this item around in our inventory
 					UINT16 usCostToMoveItem = GetInvMovementCost(gpItemPointer, iLastHandPos, sPocket);
@@ -3875,7 +3876,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 						AmmoTypes[( *pObjShown )[iter]->data.gun.ubGunAmmoType].blue );
 									
 					// HEADROCK HAM 3.4: Get estimate of bullets left.
-					if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+					if ( IsJa2TacticalTurnBasedCombat() )
 					{
 						// Soldier doesn't know.
 						EstimateBulletsLeft( pSoldier, pObjShown );
@@ -4456,7 +4457,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 			RestoreExternBackgroundRect( sNewX, sNewY, 20, 15 );
 		}
 
-		if( ( gTacticalStatus.uiFlags & TURNBASED ) && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if( IsJa2TacticalTurnBasedCombat() )
 		{
 			SetFontBackground( FONT_MCOLOR_BLACK );
 			SetFontForeground( FONT_MCOLOR_DKGRAY );
@@ -4577,7 +4578,7 @@ void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pOb
 		sNewY = ((sY + sHeight) - GetFontHeight( LARGEFONT1 )) - 2;
 		
 		// HEADROCK HAM 3.4: Get estimate of bullets left.
-		if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			// Soldier doesn't know.
 			swprintf( pStr, L"%s", L"??" );
@@ -4661,7 +4662,7 @@ void MAPINVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pOb
 		sNewY = ((sY + sHeight) - GetFontHeight( LARGEFONT1 )) - 2;
 		
 		// HEADROCK HAM 3.4: Get estimate of bullets left.
-		if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			// Soldier doesn't know.
 			swprintf( pStr, L"%s", L"??" );
@@ -5240,7 +5241,7 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 		if ( GetMagSize(gpItemDescObject) <= 99 )
 		{
 			// HEADROCK HAM 3.4: "Bullet Hide" feature - bullet count only shown during combat if character is competent enough.
-			if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				EstimateBulletsLeft( pSoldier, pObject );
 				swprintf(pStr, L"%s/%d", gBulletCount, GetMagSize(gpItemDescObject) );
@@ -5253,7 +5254,7 @@ BOOLEAN InternalInitItemDescriptionBox( OBJECTTYPE *pObject, INT16 sX, INT16 sY,
 		else
 		{
 			// HEADROCK HAM 3.4: "Bullet Hide" feature - bullet count only shown during combat if character is competent enough.
-			if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				EstimateBulletsLeft( pSoldier, pObject );
 				swprintf( pStr, L"%s", gBulletCount );
@@ -8323,8 +8324,7 @@ void DeleteItemDescriptionBox( )
 
 	// check for any AP costs
 	if ( descriptionObjectSafe &&
-		( gTacticalStatus.uiFlags & TURNBASED ) &&
-		( gTacticalStatus.uiFlags & INCOMBAT ) )
+		IsJa2TacticalTurnBasedCombat() )
 	{
 		if (GetAttachSoldier())
 		{
@@ -8966,7 +8966,7 @@ void DrawItemTileCursor( )
 			}
 
 			// We're going to toss it!
-			if ( gTacticalStatus.uiFlags & INCOMBAT )
+			if ( IsJa2TacticalCombatActive() )
 			{
 				gfUIDisplayActionPoints = TRUE;
 				gUIDisplayActionPointsOffX = 15;
@@ -9028,7 +9028,7 @@ void DrawItemTileCursor( )
 				}
 
 				// Set value
-				if ( gTacticalStatus.uiFlags & INCOMBAT )
+				if ( IsJa2TacticalCombatActive() )
 				{
 					gfUIDisplayActionPoints = TRUE;
 					gUIDisplayActionPointsOffX = 15;
@@ -9624,8 +9624,8 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			GetItemPointerSoldier()->flags.fTurningUntilDone = TRUE;
 
 			// Increment attacker count...
-			// gTacticalStatus.ubAttackBusyCount++;
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incremtning ABC: Throw item to %d", gTacticalStatus.ubAttackBusyCount) );
+			// GetJa2PendingTacticalCombatActions()++;
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incremtning ABC: Throw item to %d", GetJa2PendingTacticalCombatActions()) );
 			DebugAttackBusy( "Incrementing ABC: Throw item\n" );
 
 
@@ -10826,7 +10826,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				// HEADROCK HAM 5: Sector Inventory Item Desc Box no longer accessible during combat.
 				
-				if( gTacticalStatus.uiFlags & INCOMBAT )
+				if( IsJa2TacticalCombatActive() )
 				{
 					DoScreenIndependantMessageBox( New113HAMMessage[ 22 ], MSG_BOX_FLAG_OK, NULL );
 					return;
@@ -13587,7 +13587,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 		if ((gpItemDescPrevObject == NULL && Item[gpItemDescObject->usItem].usItemClass & IC_GUN) || !(Item[gpItemDescObject->usItem].usItemClass & IC_GUN) )
 		{
 			// Ammocrates may be split into magazines of any size available in the game. But not in combat.
-			if ( Item[gpItemDescObject->usItem].usItemClass == IC_AMMO && Magazine[Item[gpItemDescObject->usItem].ubClassIndex].ubMagType >= AMMO_BOX && !(gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( Item[gpItemDescObject->usItem].usItemClass == IC_AMMO && Magazine[Item[gpItemDescObject->usItem].ubClassIndex].ubMagType >= AMMO_BOX && !(IsJa2TacticalCombatActive()) )
 			{
 				BOOLEAN fCrateInPool = FALSE;
 
@@ -13671,7 +13671,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					{
 						fHaveToDisarm = TRUE;
 
-						if ( usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED )
+						if ( usAPCost > 0 && IsJa2TacticalTurnBasedCombat() )
 						{
 							swprintf (MenuRowText, szInventoryArmTextStr[STR_INV_ARM_DISARM_AP], usAPCost );
 						}
@@ -13682,7 +13682,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					}
 					else
 					{
-						if ( usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED )
+						if ( usAPCost > 0 && IsJa2TacticalTurnBasedCombat() )
 						{
 							swprintf (MenuRowText, szInventoryArmTextStr[STR_INV_ARM_ARM_AP], usAPCost );
 						}
@@ -13709,7 +13709,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 
 					CHAR16 MenuRowText[300];
 
-					if ( usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED )
+					if ( usAPCost > 0 && IsJa2TacticalTurnBasedCombat() )
 					{
 						swprintf (MenuRowText, szInventoryArmTextStr[STR_INV_ARM_BLOWUP_AP], usAPCost );
 					}
@@ -13741,7 +13741,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 					UINT16 usAPCost = APBPConstants[AP_GRENADE_MODE];
 					CHAR16 MenuRowText[300];
 
-					if ( usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED )
+					if ( usAPCost > 0 && IsJa2TacticalTurnBasedCombat() )
 					{
 						if( (*gpItemDescObject)[0]->data.sObjectFlag & DELAYED_GRENADE_EXPLOSION )
 							swprintf (MenuRowText, gzTransformationMessage[13], usAPCost );
@@ -13774,7 +13774,7 @@ void ItemDescTransformRegionCallback( MOUSE_REGION *pRegion, INT32 reason )
 						++iTransformIndex;
 
 						CHAR16 MenuRowText[300];
-						if ( Transform[x].usAPCost > 0 && gTacticalStatus.uiFlags & INCOMBAT && gTacticalStatus.uiFlags & TURNBASED )
+						if ( Transform[x].usAPCost > 0 && IsJa2TacticalTurnBasedCombat() )
 						{
 							swprintf (MenuRowText, L"%s (%d AP)", Transform[x].szMenuRowText, Transform[x].usAPCost );
 						}
@@ -14226,7 +14226,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 		// If we succede - we get exp, but if we fail - we pay fair and square!
 
 		//CHRISL: first things first.  If we're in combat, we need to spend some APs to disarm the device
-		if((gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.fEnemyInSector))
+		if((IsJa2TacticalCombatActive()) || (gTacticalStatus.fEnemyInSector))
 		{
 			// SANDRO was here, AP_DISARM_MINE changed to GetAPsToDisarmMine
 			if(EnoughPoints(GetItemDescSoldier(), GetAPsToDisarmMine( GetItemDescSoldier() ), APBPConstants[BP_DISARM_MINE], TRUE))
@@ -14768,7 +14768,7 @@ BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
 						lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[sPocket]], icPocket[sPocket]);
 					}
 				}
-				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (gTacticalStatus.uiFlags & INCOMBAT) )
+				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (IsJa2TacticalCombatActive()) )
 					lbePocket = 0;
 				// pocket exists and not occupied
 				if ( lbePocket != 0 && pObject->exists() == false )

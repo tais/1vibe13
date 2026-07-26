@@ -1,4 +1,5 @@
 	#include "Items.h"
+#include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
 	#include "Interface Cursors.h"
 
@@ -149,7 +150,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 	// ATE: Update attacking weapon!
 	// CC has added this attackingWeapon stuff and I need to update it constantly for
 	// CTGH algorithms
-	if ( gTacticalStatus.ubAttackBusyCount == 0 && Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
+	if ( GetJa2PendingTacticalCombatActions() == 0 && Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 	{
 		pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
 	}
@@ -210,7 +211,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 
 
 			// ATE: Only do this if we are in combat!
-			if ( gCurrentUIMode == ACTION_MODE && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( gCurrentUIMode == ACTION_MODE && ( IsJa2TacticalCombatActive() ) )
 			{
 				// Alrighty, let's change the cursor!
 				if ( fRecalc && gfUIFullTargetFound )
@@ -322,7 +323,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 			break;
 	}
 
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		if ( gfUIFullTargetFound )
 		{
@@ -360,7 +361,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 		if ( Item[ usInHand ].usItemClass != IC_THROWING_KNIFE )
 		{
 			// If we are in realtime, follow!
-			if ( ( !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+			if ( ( !( IsJa2TacticalCombatActive() ) ) )
 			{
 				if ( ( gAnimControl[ gusSelectedSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) )
 				{
@@ -374,7 +375,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			}
 
 			// Check if we are reloading
-			if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+			if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 			{
 				if ( pSoldier->flags.fReloading || pSoldier->flags.fPauseAim )
 				{
@@ -392,7 +393,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 		}
 		UINT8 ubMaxBullets = 1;
 		INT8 bMaxAim;
-		if ( gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			if(pSoldier->bDoAutofire)
 			{
@@ -534,7 +535,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			}
 		}
 
-		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 			if ( !pSoldier->flags.fPauseAim )
 			{
@@ -1266,7 +1267,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 
 	if ( Item[ usInHand ].usItemClass != IC_THROWING_KNIFE )
 	{
-		if (( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if (( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 			//DetermineCursorBodyLocation( (UINT8)gusSelectedSoldier, FALSE, fRecalc );
 			DetermineCursorBodyLocation( gusSelectedSoldier, fShowAPs, fRecalc );
@@ -1302,7 +1303,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 		}
 	}
 
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		DetermineCursorBodyLocation( gusSelectedSoldier, fShowAPs, fRecalc );
 
@@ -1328,7 +1329,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 
 	if(gusUIFullTargetID == NOBODY && pSoldier->bDoAutofire && !pSoldier->flags.fDoSpread)	//reset autofire if we move the mouse off the target, however don't reset it if we are spread-bursting
 	{
-		if(gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ))
+		if(IsJa2TacticalTurnBasedCombat())
 		{
 			pSoldier->bDoAutofire = 1;
 			// sevenfm: init autofire bullet num next time when the cursor will be on target
@@ -1338,7 +1339,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 		pSoldier->flags.autofireLastStep = FALSE;
 	}
 
-	//if ( gTacticalStatus.uiFlags & TURNBASED && !(gTacticalStatus.uiFlags & INCOMBAT ) )
+	//if ( IsJa2TacticalTurnBased() && !(IsJa2TacticalCombatActive() ) )
 	{
 		if ( fRecalc )
 		{
@@ -1429,7 +1430,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 
 	pSoldier = ubSoldierID;
 
-	if ( gTacticalStatus.ubAttackBusyCount > 0 )
+	if ( GetJa2PendingTacticalCombatActions() > 0 )
 	{
 		// ATE: Return if attacker busy count > 0, this
 		// helps in RT with re-setting the flag to random...
@@ -1698,7 +1699,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		}
 
 		// Calculate action points
-		if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 		{
 			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiData.bShownAimTime / 2) );
 			gfUIDisplayActionPoints = TRUE;
@@ -1727,7 +1728,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		}
 
-		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 			if ( !pSoldier->flags.fPauseAim )
 			{
@@ -1831,7 +1832,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		}
 
 		// Calculate action points
-		if ( gTacticalStatus.uiFlags & TURNBASED )
+		if ( IsJa2TacticalTurnBased() )
 		{
 			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiData.bShownAimTime / 2) );
 			gfUIDisplayActionPoints = TRUE;
@@ -1860,7 +1861,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		}
 
-		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 			if ( !pSoldier->flags.fPauseAim )
 			{
@@ -2016,7 +2017,7 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 	}
 
 	// Add APs....
-	if ( gTacticalStatus.uiFlags & TURNBASED && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		if ( ubItemCursor == TRAJECTORYCURS )
 		{
@@ -2212,7 +2213,7 @@ UINT8 HandleRemoteCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 {
 
 	// Calculate action points
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		gsCurrentActionPoints = GetAPsToUseRemote( pSoldier );
 		gfUIDisplayActionPoints = TRUE;
@@ -2317,7 +2318,7 @@ UINT8 HandleBombCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivated
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_BOMB );
 
 	// Calculate action points
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		gsCurrentActionPoints = GetTotalAPsToDropBomb( pSoldier, sGridNo );
 		gfUIDisplayActionPoints = TRUE;
@@ -2471,7 +2472,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 	ubItemCursor	=	GetActionModeCursor( pSoldier );
 
 	// OK, if we are i realtime.. goto directly to shoot
-	if ( ( ( gTacticalStatus.uiFlags & TURNBASED ) && !( gTacticalStatus.uiFlags & INCOMBAT ) ) )//&& ubItemCursor != TOSSCURS && ubItemCursor != TRAJECTORYCURS )
+	if ( ( ( IsJa2TacticalTurnBased() ) && !( IsJa2TacticalCombatActive() ) ) )//&& ubItemCursor != TOSSCURS && ubItemCursor != TRAJECTORYCURS )
 	{
 		// GOTO DIRECTLY TO USING ITEM
 		// ( only if not burst mode.. )
@@ -2495,7 +2496,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 	{
 		case TARGETCURS:
 
-			if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_AIM_1;
 				pSoldier->flags.fPauseAim = FALSE;
@@ -2511,7 +2512,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 		case PUNCHCURS:
 
-			if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_PUNCH_1;
 				pSoldier->flags.fPauseAim = FALSE;
@@ -2529,7 +2530,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 		case KNIFECURS:
 
-			if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_KNIFE_1;
 				pSoldier->flags.fPauseAim = FALSE;

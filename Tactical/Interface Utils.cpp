@@ -1,4 +1,5 @@
 	#include <string.h>
+#include "TacticalWorldAdapter.h"
 	#include "sgp.h"
 	#include "himage.h"
 	#include "vobject.h"
@@ -229,7 +230,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	// DO MAX BREATH
 	if( GetCurrentScreen() != MAP_SCREEN )
 	{
-		if( gusSelectedSoldier == pSoldier->ubID && gTacticalStatus.ubCurrentTeam == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
+		if( gusSelectedSoldier == pSoldier->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
 		{
 			// gold, the second entry in the .sti
 			BltVideoObject( uiBuffer , hHandle, 1, sXPos, ( INT16 )( sYPos - sHeight ), VO_BLT_SRCTRANSPARENCY, NULL );

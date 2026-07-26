@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "TacticalWorldAdapter.h"
 
 	#include "sgp.h"
 	#include "Overhead Types.h"
@@ -1368,7 +1369,7 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// ignore passed in target gridno for now
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("FireWeapon"));
 	// If realtime and we are reloading - do not fire until counter is done!
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) && !pSoldier->bDoBurst )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) && !pSoldier->bDoBurst )
 	{
 		if ( pSoldier->flags.fReloading )
 		{
@@ -2476,7 +2477,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	if ( Item[ usUBItem ].usItemClass != IC_THROWING_KNIFE )
 	{
 		// If realtime - set counter to freeup from attacking once done
-		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 
 			// Set delay based on stats, weapon type, etc
@@ -2558,7 +2559,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		  // Reduce again for attack end 'cause it has been incremented for a normal attack
 		  //
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
-			  DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, gTacticalStatus.ubAttackBusyCount ) );
+			  DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 			  DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
 	//		  ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
@@ -2607,7 +2608,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// HEADROCK: Actually, it's 1 for the first shot. Works fine regardless though.
 		// HEADROCK HAM 4: Extra experience gain now given when the target is hit. This part only gives basic points
 		// for the attack (FAILURE type).
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (gTacticalStatus.uiFlags & INCOMBAT ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
+		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (IsJa2TacticalCombatActive() ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
 		{
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 2.0f;
@@ -2770,8 +2771,8 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			if ( gAnimControl[ ubMerc->usAnimState ].ubHeight != ANIM_PRONE )
 			{
 				// Increment attack counter...
-//				gTacticalStatus.ubAttackBusyCount++;
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", gTacticalStatus.ubAttackBusyCount ) );
+//				GetJa2PendingTacticalCombatActions()++;
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
 				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->ubDirection, 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
@@ -3301,7 +3302,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	if ( Item[ usUBItem ].usItemClass != IC_THROWING_KNIFE )
 	{
 		// If realtime - set counter to freeup from attacking once done
-		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) ) )
+		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
 
 			// Set delay based on stats, weapon type, etc
@@ -3337,7 +3338,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 		// NB bDoBurst will be 2 at this point for the first shot since it was incremented
 		// above
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (gTacticalStatus.uiFlags & INCOMBAT ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
+		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (IsJa2TacticalCombatActive() ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
 		{
 			if ( fGonnaHit )
 			{
@@ -3498,7 +3499,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		    // Reduce again for attack end 'cause it has been incremented for a normal attack
 		    //
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, gTacticalStatus.ubAttackBusyCount ) );
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 			DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
 			//ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
@@ -3590,8 +3591,8 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			if ( gAnimControl[ ubMerc->usAnimState ].ubHeight != ANIM_PRONE )
 			{
 				// Increment attack counter...
-//				gTacticalStatus.ubAttackBusyCount++;
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", gTacticalStatus.ubAttackBusyCount ) );
+//				GetJa2PendingTacticalCombatActions()++;
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
 				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->ubDirection, 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
@@ -4740,7 +4741,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	}
 	#endif
 
-	if ( pSoldier->bTeam == gbPlayerNum && gTacticalStatus.uiFlags & INCOMBAT )
+	if ( pSoldier->bTeam == gbPlayerNum && IsJa2TacticalCombatActive() )
 	{
 		// check target gridno
 		ubTargetID = WhoIsThere2( pSoldier->sTargetGridNo, pSoldier->bTargetLevel );
@@ -4971,7 +4972,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 		// Reduce again for attack end 'cause it has been incremented for a normal attack
 		// Nope, not anymore.
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, gTacticalStatus.ubAttackBusyCount ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 		DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
 		// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
@@ -5231,8 +5232,8 @@ BOOLEAN DoSpecialEffectAmmoMiss( SoldierID ubAttackerID, UINT16 usWeaponIndex, I
 	else if ( AmmoTypes[ubAmmoType].monsterSpit )
 	{
     // Increment attack busy...
-	  // gTacticalStatus.ubAttackBusyCount++;
-	  // DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion gone off, COunt now %d", gTacticalStatus.ubAttackBusyCount ) );
+	  // GetJa2PendingTacticalCombatActions()++;
+	  // DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion gone off, COunt now %d", GetJa2PendingTacticalCombatActions() ) );
 
 		PlayJA2Sample( CREATURE_GAS_NOISE, RATE_11025, SoundVolume( HIGHVOLUME, sGridNo ), 1, SoundDir( sGridNo ) );
 		// 0verhaul:  Not ready to simplify this to a single call yet.  What we need in order to
@@ -5368,7 +5369,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// {
 	//	Buddy had died from additional damage - free up attacker here...
 	//	ReduceAttackBusyCount( pTargetSoldier->ubAttackerID, FALSE );
-	//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Special effect killed before bullet impact, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+	//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Special effect killed before bullet impact, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 	//	OutputDebugString( "Special effect killed before bullet impact\n" );
 	// }
 }

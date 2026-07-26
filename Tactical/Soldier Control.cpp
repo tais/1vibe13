@@ -1,4 +1,5 @@
 #include "Soldier Functions.h"
+#include "TacticalWorldAdapter.h"
 #include "builddefines.h"
 #include <wchar.h>
 #include <stdio.h>
@@ -103,7 +104,6 @@
 #include "Rebel Command.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
-#include "TacticalWorldAdapter.h"
 
 
 #ifdef JA2UB
@@ -2826,7 +2826,7 @@ BOOLEAN SOLDIERTYPE::ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAni
 	{
 		send_changestate( &SChangeState );
 	}
-	//else if((is_client && !is_server) && (this->ubID < 20 || (this->ubID < 120 && gTacticalStatus.ubCurrentTeam == OUR_TEAM)))
+	//else if((is_client && !is_server) && (this->ubID < 20 || (this->ubID < 120 && GetJa2TacticalCurrentTeam() == OUR_TEAM)))
 	//{
 	//	this->EVENT_InitNewSoldierAnim( SChangeState.usNewState, SChangeState.usStartingAniCode, SChangeState.fForce );
 	//	send_changestate(&SChangeState);
@@ -3106,7 +3106,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 		if ( this->flags.fRTInNonintAnim )
 		{
-			if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( !(IsJa2TacticalCombatActive()) )
 			{
 				return(FALSE);
 			}
@@ -3137,7 +3137,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 				// Check if we are going from crouched height to prone height, and adjust fast turning accordingly
 				// Make guy turn while crouched THEN go into prone
-				if ( (gAnimControl[usNewState].ubEndHeight == ANIM_PRONE && gAnimControl[this->usAnimState].ubEndHeight == ANIM_CROUCH) && !(gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( (gAnimControl[usNewState].ubEndHeight == ANIM_PRONE && gAnimControl[this->usAnimState].ubEndHeight == ANIM_CROUCH) && !(IsJa2TacticalCombatActive()) )
 				{
 					this->flags.fTurningUntilDone = TRUE;
 					this->ubPendingStanceChange = gAnimControl[usNewState].ubEndHeight;
@@ -3145,13 +3145,13 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 					return(TRUE);
 				}
 				// Check if we are in realtime and we are going from stand to crouch
-				else if ( gAnimControl[usNewState].ubEndHeight == ANIM_CROUCH && gAnimControl[this->usAnimState].ubEndHeight == ANIM_STAND && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && ((gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT)) )
+				else if ( gAnimControl[usNewState].ubEndHeight == ANIM_CROUCH && gAnimControl[this->usAnimState].ubEndHeight == ANIM_STAND && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && ((gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive())) )
 				{
 					this->ubDesiredHeight = gAnimControl[usNewState].ubEndHeight;
 					// Continue with this course of action IE: Do animation and skip from stand to crouch
 				}
 				// Check if we are in realtime and we are going from crouch to stand
-				else if ( gAnimControl[usNewState].ubEndHeight == ANIM_STAND && gAnimControl[this->usAnimState].ubEndHeight == ANIM_CROUCH && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && ((gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT)) && this->usAnimState != HELIDROP )
+				else if ( gAnimControl[usNewState].ubEndHeight == ANIM_STAND && gAnimControl[this->usAnimState].ubEndHeight == ANIM_CROUCH && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && ((gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive())) && this->usAnimState != HELIDROP )
 				{
 					this->ubDesiredHeight = gAnimControl[usNewState].ubEndHeight;
 					// Continue with this course of action IE: Do animation and skip from stand to crouch
@@ -4271,7 +4271,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	{
 		if ( uiNewAnimFlags & ANIM_ATTACK ) {
 			BeginJa2TacticalCombatAction();
-			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->ubID, gTacticalStatus.ubAttackBusyCount ) );
+			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->ubID, GetJa2PendingTacticalCombatActions() ) );
 		} else if (uiOldAnimFlags & ANIM_ATTACK || this->flags.fChangingStanceDueToSuppression ) {
 			DebugAttackBusy( String( "**** Transfer to %s for %d.\n", gAnimControl[usNewState].zAnimStr, this->ubID ) );
 		}
@@ -4963,12 +4963,12 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "EVENT_FireSoldierWeapon: Muzzle flash = %d", this->flags.fMuzzleFlash ) );
 
 	// Increment the number of people busy doing stuff because of an attack
-	//if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	//if ( IsJa2TacticalTurnBasedCombat() )
 	//{
 	// Nah, just let the animations speak for themselves
-	//	gTacticalStatus.ubAttackBusyCount++;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting attack, attack count now %d", gTacticalStatus.ubAttackBusyCount ) );
-	DebugAttackBusy( String( "!!!!!!! Starting fire weapon attack, attack count now %d\n", gTacticalStatus.ubAttackBusyCount ) );
+	//	GetJa2PendingTacticalCombatActions()++;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting attack, attack count now %d", GetJa2PendingTacticalCombatActions() ) );
+	DebugAttackBusy( String( "!!!!!!! Starting fire weapon attack, attack count now %d\n", GetJa2PendingTacticalCombatActions() ) );
 	//}
 
 	// Set soldier's target gridno
@@ -6133,7 +6133,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// IAN ADDED THIS SAT JUNE 14th : HAVE TO SHOW VICTIM!
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) && this->bVisible != -1 && this->bTeam == gbPlayerNum )
+	if ( IsJa2TacticalTurnBasedCombat() && this->bVisible != -1 && this->bTeam == gbPlayerNum )
 		LocateSoldier( this->ubID, DONTSETLOCATOR );
 
 
@@ -7065,7 +7065,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	}
 
 	// ATE: Some stuff here for realtime, going through interface....
-	if ( (!(gTacticalStatus.uiFlags & INCOMBAT) && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && fFromUI == 1) || fFromUI == 2 )
+	if ( (!(IsJa2TacticalCombatActive()) && (gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING) && fFromUI == 1) || fFromUI == 2 )
 	{
 		if ( this->bCollapsed )
 		{
@@ -7896,7 +7896,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 			this->BeginSoldierGetup( );
 
 			// CJC Nov 30: handle RT opplist decaying in another function which operates less often
-			if ( gTacticalStatus.uiFlags & INCOMBAT )
+			if ( IsJa2TacticalCombatActive() )
 			{
 				VerifyAndDecayOpplist( this );
 
@@ -9014,13 +9014,13 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 
 	// MODIFTY NOW BASED ON REAL-TIME, ETC
 	// Adjust speed, make twice as fast if in turn-based!
-	if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		pSoldier->sAniDelay = pSoldier->sAniDelay / 2;
 	}
 
 	// MODIFY IF REALTIME COMBAT
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		// ATE: If realtime, and stealth mode...
 		if ( pStatsSoldier->bStealthMode )
@@ -9063,7 +9063,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 
 FLOAT GetSpeedUpFactor( )
 {
-	switch ( gTacticalStatus.ubCurrentTeam )
+	switch ( GetJa2TacticalCurrentTeam() )
 	{
 	case OUR_TEAM:
 		return gGameExternalOptions.giPlayerTurnSpeedUpFactor;
@@ -9090,7 +9090,7 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 	// Set speed to 0
 	if ( !is_client )
 	{
-		if ( (gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT)) || gTacticalStatus.fAutoBandageMode )
+		if ( (IsJa2TacticalTurnBasedCombat()) || gTacticalStatus.fAutoBandageMode )
 		{
 			if ( ((pSoldier->bVisible == -1 && pSoldier->bVisible == pSoldier->bLastRenderVisibleValue) || gTacticalStatus.fAutoBandageMode) && pSoldier->usAnimState != MONSTER_UP )
 			{
@@ -9151,7 +9151,7 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 		//pSoldier->sAniDelay = 1000;
 	}
 
-	if ( gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		// braces make the binding explicit: the else belongs to the inner
 		// 'if ( GetSpeedUpFactor() )', not the outer combat check.
@@ -12492,11 +12492,11 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	ROTTING_CORPSE *pCorpse;
 
 	// Increment the number of people busy doing stuff because of an attack
-	//if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	//if ( IsJa2TacticalTurnBasedCombat() )
 	//{
-	//	gTacticalStatus.ubAttackBusyCount++;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Begin blade attack: ATB  %d", gTacticalStatus.ubAttackBusyCount ) );
-	DebugAttackBusy( String( "Begin blade attack: ATB  %d\n", gTacticalStatus.ubAttackBusyCount ) );
+	//	GetJa2PendingTacticalCombatActions()++;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Begin blade attack: ATB  %d", GetJa2PendingTacticalCombatActions() ) );
+	DebugAttackBusy( String( "Begin blade attack: ATB  %d\n", GetJa2PendingTacticalCombatActions() ) );
 	//}
 
 	// CHANGE DIRECTION AND GOTO ANIMATION NOW
@@ -12719,11 +12719,11 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 
 
 	// Increment the number of people busy doing stuff because of an attack
-	//if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	//if ( IsJa2TacticalTurnBasedCombat() )
 	//{
-	//	gTacticalStatus.ubAttackBusyCount++;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Begin HTH attack: ATB  %d", gTacticalStatus.ubAttackBusyCount ) );
-	DebugAttackBusy( String( "Begin HTH attack: ATB  %d\n", gTacticalStatus.ubAttackBusyCount ) );
+	//	GetJa2PendingTacticalCombatActions()++;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Begin HTH attack: ATB  %d", GetJa2PendingTacticalCombatActions() ) );
+	DebugAttackBusy( String( "Begin HTH attack: ATB  %d\n", GetJa2PendingTacticalCombatActions() ) );
 
 	//}
 
@@ -13043,13 +13043,13 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 void SOLDIERTYPE::EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDirection )
 {
 	// Increment the number of people busy doing stuff because of an attack
-	//if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	//if ( IsJa2TacticalTurnBasedCombat() )
 	//{
-	//	gTacticalStatus.ubAttackBusyCount++;
+	//	GetJa2PendingTacticalCombatActions()++;
 	//}
 	//	this->bBulletsLeft = 1;
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting knifethrow attack, bullets left %d", this->bBulletsLeft ) );
-	DebugAttackBusy( String( "Begin knife throwing attack: ATB  %d\n", gTacticalStatus.ubAttackBusyCount ) );
+	DebugAttackBusy( String( "Begin knife throwing attack: ATB  %d\n", GetJa2PendingTacticalCombatActions() ) );
 
 	// SANDRO - new animation for throwing for big mercs by PasHancock
 	if ( this->ubBodyType == BIGMALE && (DoesMercHavePersonality( this, CHAR_TRAIT_SHOWOFF ) || (HAS_SKILL_TRAIT( this, THROWING_NT ) && gGameOptions.fNewTraitSystem) || (HAS_SKILL_TRAIT( this, THROWING_OT ) && !gGameOptions.fNewTraitSystem)))
@@ -13364,7 +13364,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	uiAvailAPs = this->bActionPoints;
 
 	// OK, If we are in real-time, use another value...
-	if ( !(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive()) )
 	{
 		// Set to a value which looks good based on our tactical turns duration
 		uiAvailAPs = RT_FIRST_AID_GAIN_MODIFIER;
@@ -13934,7 +13934,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 		DirtyMercPanelInterface( this, DIRTYLEVEL2 );
 	}
 	
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		this->EVENT_StopMerc( this->sGridNo, this->ubDirection );
 	}
@@ -16635,7 +16635,7 @@ void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 
 	// immediately starting the action would leave us without APs, thus removing the benefit of multi-turn actions (ability to do something else while performing a longer action)
 	// for this reason, we only do this when we are not in combat
-	if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalTurnBasedCombat()) )
 		UpdateMultiTurnAction( );
 }
 
@@ -16773,7 +16773,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		case MTA_REMOVE_FORTIFY:
 		{
 			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
-			if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( !(IsJa2TacticalTurnBasedCombat()) )
 				bOverTurnAPS = 0;
 			// otherwise this might take longer, so we refresh our animation
 			else
@@ -16792,7 +16792,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		case MTA_HACK:
 		{
 			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
-			if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( !(IsJa2TacticalTurnBasedCombat()) )
 				bOverTurnAPS = 0;
 		}
 		break;
@@ -16951,7 +16951,7 @@ void SOLDIERTYPE::TakeNewItemFromInventory( UINT16 usItem )
 		return;
 
 	// this feature works now only in realtime
-	if ( (gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( (IsJa2TacticalTurnBasedCombat()) )
 		return;
 
 	if ( this->inv[HANDPOS].exists( ) )
@@ -17954,7 +17954,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 	}
 
 	// if there is a combat going and we are in sector, note that in the battle report
-	if ( this->bInSector && (gTacticalStatus.uiFlags & INCOMBAT || gTacticalStatus.fEnemyInSector) )
+	if ( this->bInSector && (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
 	{
 		if ( !(this->usSoldierFlagMask & SOLDIER_BATTLE_PARTICIPATION) )
 		{
@@ -18067,7 +18067,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 				if ( this->sSectorX == gWorldSectorX && this->sSectorY == gWorldSectorY && this->bSectorZ == gbWorldSectorZ )
 				{
 					if ( gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition ||
-						( gTacticalStatus.uiFlags & INCOMBAT ) ||
+						( IsJa2TacticalCombatActive() ) ||
 						HostileCiviliansPresent() ||
 						HostileCreaturesPresent() )
 					{
@@ -18166,7 +18166,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 		break;
 
 	case SKILLS_FILL_CANTEENS:
-		if ( !((GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY) )
+		if ( !((GetCurrentScreen() != GAME_SCREEN && GetCurrentScreen() != MSG_BOX_SCREEN) || (IsJa2TacticalCombatActive()) || gTacticalStatus.fEnemyInSector || gusSelectedSoldier == NOBODY) )
 			canuse = TRUE;
 		break;
 
@@ -18858,7 +18858,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		// Also use 2 if we are AI, otherwise the shells will fly immediately at the player's turn, giving him no chance to react (blame the way turns are handled)
 
 		shellobj[0]->data.misc.bDelay = 1;
-		if ( bTeam == ENEMY_TEAM || !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( bTeam == ENEMY_TEAM || !(IsJa2TacticalTurnBasedCombat()) )
 			shellobj[0]->data.misc.bDelay += 1;
 
 		// now set special flags - we simply abuse the ubWireNetworkFlag
@@ -18970,7 +18970,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 
 			INT8 shelldelay = 1;
 			// In realtime the player could choose to put down a bomb right before a turn expires, so add 1 to the setting in RT
-			if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( !(IsJa2TacticalTurnBasedCombat()) )
 				++shelldelay;
 
 			INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
@@ -19614,7 +19614,7 @@ void	SOLDIERTYPE::AddDisability( UINT8 aDisability )
 bool	SOLDIERTYPE::CanReceiveSplint()
 {
 	// not during combat
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 		return FALSE;
 
 	//  must be player team
@@ -21077,7 +21077,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 	if ( !this->HasBackgroundFlag( BACKGROUND_DRUGUSE ) )
 		return;
 	
-	if ( !( gTacticalStatus.uiFlags & (INCOMBAT| TURNBASED) ) )
+	if ( !( IsJa2TacticalCombatActive() || IsJa2TacticalTurnBased() ) )
 		return;
 
 	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT] )
@@ -21219,7 +21219,7 @@ bool		SOLDIERTYPE::HasItemInInventory( UINT16 ausItem )
 BOOLEAN		SOLDIERTYPE::IsValidBloodDonor()
 {
 	// not during combat
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 		return FALSE;
 
 	//  must be player team
@@ -21775,7 +21775,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 					iBlood = min( 1, iBlood );
 
 				// Are we in a different mode?
-				if ( !(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+				if ( !(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive()) )
 				{
 					pSoldier->dNextBleed -= (FLOAT)RT_NEXT_BLEED_MODIFIER;
 				}
@@ -22013,7 +22013,7 @@ void SoldierCollapse( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
+		if ( IsJa2TacticalTurnBasedCombat() && (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
 		{
 #ifdef TESTAICONTROL
 			DebugAI( String( "Ending turn for %d because of error from HandleItem", pSoldier->ubID ) );
@@ -22403,7 +22403,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginRepair( INT32 sGridNo, UINT8 ubDirection )
 		// CHANGE TO ANIMATION
 		this->EVENT_InitNewSoldierAnim( GOTO_REPAIRMAN, 0, FALSE );
 		// SET BUDDY'S ASSIGNMENT TO REPAIR...
-		if (gTacticalStatus.uiFlags & INCOMBAT)
+		if (IsJa2TacticalCombatActive())
 		{
 			//this doesn't work during combat, so return
 			UnSetUIBusy(this->ubID);
@@ -23245,11 +23245,11 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		}
 
 		// OK, set UI
-		//		gTacticalStatus.ubAttackBusyCount++;
+		//		GetJa2PendingTacticalCombatActions()++;
 		// reset attacking item (hand)
 		pSoldier->usAttackingWeapon = 0;
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting STEAL attack, attack count now %d", gTacticalStatus.ubAttackBusyCount ) );
-		DebugAttackBusy( String( "!!!!!!! Starting STEAL attack, attack count now %d\n", gTacticalStatus.ubAttackBusyCount ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting STEAL attack, attack count now %d", GetJa2PendingTacticalCombatActions() ) );
+		DebugAttackBusy( String( "!!!!!!! Starting STEAL attack, attack count now %d\n", GetJa2PendingTacticalCombatActions() ) );
 
 		SetUIBusy( pSoldier->ubID );
 		return TRUE;
@@ -23305,7 +23305,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 	// Get APs...
 	sAPCost = APBPConstants[AP_TALK];
 
-	if ( !(gTacticalStatus.uiFlags & INCOMBAT) || (gTacticalStatus.uiFlags & REALTIME) ) //lal
+	if ( !(IsJa2TacticalCombatActive()) || (gTacticalStatus.uiFlags & REALTIME) ) //lal
 	{
 		ConvertGridNoToXY( pTSoldier->sGridNo, &sXPos, &sYPos );
 
@@ -23368,7 +23368,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[1] );
 				}
 				// not possible in combat
-				else if ( gTacticalStatus.uiFlags & INCOMBAT )
+				else if ( IsJa2TacticalCombatActive() )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[2] );
 				}		
@@ -23828,7 +23828,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 	// after the interrupt is triggered, so if the AI causes an interrupt and it's the player's turn, he will
 	// continue doing what he was going to do.  We need this function to work even when it's the player's turn,
 	// at least in this case.
-	//if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum && pSoldier->bTeam != gbPlayerNum )
+	//if ( GetJa2TacticalCurrentTeam() != gbPlayerNum && pSoldier->bTeam != gbPlayerNum )
 	{
 		if ( pSoldier->aiData.bNewSituation == IS_NEW_SITUATION )
 		{
@@ -23941,7 +23941,7 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 
 			// OK, if in realtime, don't play at full volume, because too many people walking around
 			// sounds don't sound good - ( unless we are the selected guy, then always play at reg volume )
-			if ( !(gTacticalStatus.uiFlags & INCOMBAT) && (pSoldier->ubID != gusSelectedSoldier) )
+			if ( !(IsJa2TacticalCombatActive()) && (pSoldier->ubID != gusSelectedSoldier) )
 			{
 				bVolume = LOWVOLUME;
 			}
@@ -24879,8 +24879,8 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 {
 	// real time or not in combat? disable and clear
-	if ( !(gTacticalStatus.uiFlags & TURNBASED) ||
-		 !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalTurnBased()) ||
+		 !(IsJa2TacticalCombatActive()) )
 	{
 		gTacticalStatus.ubInterruptPending = DISABLED_INTERRUPT;
 		ClearIntList( );
@@ -24895,7 +24895,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 	}
 
 	// can't be interrupted if it's not our turn at all
-	if ( gTacticalStatus.ubCurrentTeam != pSoldier->bTeam )
+	if ( GetJa2TacticalCurrentTeam() != pSoldier->bTeam )
 	{
 		return(FALSE);
 	}
@@ -25107,7 +25107,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			/////////////////////////////////////////////
 
 			// remove AI control from the interrupted guy just in case may not be neccessary, but it's harmless anyway
-			if ( (gTacticalStatus.ubCurrentTeam != pSoldier->bTeam) && !(gTacticalStatus.Team[gTacticalStatus.ubCurrentTeam].bHuman) )
+			if ( (GetJa2TacticalCurrentTeam() != pSoldier->bTeam) && !(gTacticalStatus.Team[GetJa2TacticalCurrentTeam()].bHuman) )
 			{
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )
 				{
@@ -25196,7 +25196,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
 	{
 		// are we in combat?
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			// then only use it if morale is very high (we are definately winning)
 			if ( pSoldier->aiData.bMorale > 95 )
@@ -25663,7 +25663,7 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	uiAvailAPs = pSoldier->bActionPoints;
 
 	// OK, If we are in real-time, use another value...
-	if ( !(gTacticalStatus.uiFlags & TURNBASED) || !(gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( !(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive()) )
 	{	// Set to a value which looks good based on out tactical turns duration
 		uiAvailAPs = RT_FIRST_AID_GAIN_MODIFIER;
 	}

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include "types.h"
 	#include "Keys.h"
 	#include "DEBUG.H"
@@ -693,8 +694,8 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	 pSoldier->ubAttackerID = pSoldier->ubID;
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
-		// gTacticalStatus.ubAttackBusyCount++;
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", gTacticalStatus.ubAttackBusyCount) );
+		// GetJa2PendingTacticalCombatActions()++;
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", GetJa2PendingTacticalCombatActions()) );
 		DebugAttackBusy( "!!!!!!! Trap gone off\n" );
 
 			pSoldier->SoldierTakeDamage( 0, (UINT16) (10 + PreRandom( 10 )), (UINT16) ((3 + PreRandom( 3 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );
@@ -708,8 +709,8 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	 pSoldier->ubAttackerID = pSoldier->ubID;
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
-		//	gTacticalStatus.ubAttackBusyCount++;
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", gTacticalStatus.ubAttackBusyCount) );
+		//	GetJa2PendingTacticalCombatActions()++;
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Trap gone off %d", GetJa2PendingTacticalCombatActions()) );
 		DebugAttackBusy( "!!!!!!! Trap gone off\n" );
 
 			pSoldier->SoldierTakeDamage( 0, (UINT16) (20 + PreRandom( 20 )), (UINT16) ((6 + PreRandom( 6 ) * 1000)), TAKE_DAMAGE_ELECTRICITY, NOBODY, pDoor->sGridNo, 0, TRUE );

@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "Town Militia.h"
 	#include "Militia Control.h"
@@ -812,7 +813,7 @@ BOOLEAN SectorOursAndPeaceful( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 	if ( ( sMapX == gWorldSectorX ) && ( sMapY == gWorldSectorY ) && ( bMapZ == gbWorldSectorZ ) )
 	{
 		// and either there are enemies prowling this sector, or combat is in progress
-		if ( gTacticalStatus.fEnemyInSector || ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( gTacticalStatus.fEnemyInSector || ( IsJa2TacticalCombatActive() ) )
 		{
 			return FALSE;
 		}

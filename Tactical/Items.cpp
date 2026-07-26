@@ -1,4 +1,5 @@
 	#include "Items.h"
+#include "TacticalWorldAdapter.h"
 	#include "Action Items.h"
 	#include "Weapons.h"
 	#include "Soldier Control.h"
@@ -1695,7 +1696,7 @@ INT8 FindObj( SOLDIERTYPE * pSoldier, UINT16 usItem, INT8 bLower, INT8 bUpper )
 	for (bLoop = bLower; bLoop < bUpper; bLoop++)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (gTacticalStatus.uiFlags & INCOMBAT) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
 			continue;
 
 		//CHRISL: If we check exists() then we can't search for an empty pocket with this function, which is done.
@@ -3386,7 +3387,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 
 	bAPs = 0;
 
-	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		//CHRISL: Alter this so we treat clip fed weapons differently from weapons that load with loose rounds
 		bAPs = GetAPsToReloadGunWithAmmo( pSoldier, pGun, pAmmo );
@@ -3433,7 +3434,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 			{
 				if (fSameAmmoType)
 				{
-					if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && Weapon[pGun->usItem].swapClips )
+					if ( IsJa2TacticalTurnBasedCombat() && Weapon[pGun->usItem].swapClips )
 					{
 						bReloadType = RELOAD_SWAP;
 					}
@@ -3536,7 +3537,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 		}
 
 		//CHRIS: This should reset the number of bullets moved to what we can actually afford when loading loose rounds
-		if(Weapon[pGun->usItem].swapClips == 0 && (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
+		if(Weapon[pGun->usItem].swapClips == 0 && IsJa2TacticalTurnBasedCombat())
 		{
 			if(fEnoughAPs)
 			{
@@ -3591,7 +3592,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 					// (suppose his inventory is full!)
 
 					//ADB copying the old ammo to the cursor at any time will screw it up if the cursor ammo is a stack!
-					if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && !EnoughPoints( pSoldier, (INT8) (bAPs + GetBasicAPsToPickupItem( pSoldier )), 0, FALSE ) // SANDRO
+					if ( IsJa2TacticalTurnBasedCombat() && !EnoughPoints( pSoldier, (INT8) (bAPs + GetBasicAPsToPickupItem( pSoldier )), 0, FALSE ) // SANDRO
 						|| pAmmo->ubNumberOfObjects > 1)
 					{
 						// try autoplace
@@ -3756,7 +3757,7 @@ INT8 FindAmmo( SOLDIERTYPE * pSoldier, UINT8 ubCalibre, UINT16 ubMagSize, UINT8 
 	for (bLoop = HANDPOS; bLoop < invsize; ++bLoop)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (gTacticalStatus.uiFlags & INCOMBAT) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
 			continue;
 
 		if (pSoldier->inv[bLoop].exists() == true) {
@@ -3842,7 +3843,7 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 	if ( Item[pObj->usItem].usItemClass == IC_GUN && !ItemIsCannon(pObj->usItem) )
 	{
 		//MM: make reload use crates/boxes if not in combat...
-	 	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( IsJa2TacticalTurnBasedCombat() )
 			magSize = GetMagSize(pObj);
 		else
 			magSize = ANY_MAGSIZE;
@@ -6524,7 +6525,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 		case SMALLPOCK30POS:
 			if( UsingNewInventorySystem() )
 			{
-				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (gTacticalStatus.uiFlags & INCOMBAT) && fDoingPlacement)
+				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
 					return( FALSE );
 
 				lbePocket = ( !pSoldier->inv[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
@@ -6861,7 +6862,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 						//CHRISL: Work differently with ammo crates but only when not in combat
 						if(Magazine[Item[pObj->usItem].ubClassIndex].ubMagType >= AMMO_BOX)
 						{
-							if(!(gTacticalStatus.uiFlags & INCOMBAT))
+							if(!(IsJa2TacticalCombatActive()))
 							{
 								UINT16		magSize, ubShotsLeft;
 								OBJECTTYPE	tempClip;
@@ -8615,7 +8616,7 @@ BOOLEAN ArmBomb( OBJECTTYPE * pObj, INT8 bSetting )
 		// In realtime the player could choose to put down a bomb right before a turn expires, SO
 		// add 1 to the setting in RT
 		(*pObj)[0]->data.misc.bDelay = detonatesetting;
-		if ( !(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( !(IsJa2TacticalTurnBasedCombat()) )
 		{
 			(*pObj)[0]->data.misc.bDelay++;
 		}
@@ -9296,7 +9297,7 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 			INT16 sX, sY;
 			ConvertGridNoToCenterCellXY(pSoldier->sGridNo, &sX, &sY);
 
-			if ( gTacticalStatus.ubAttackBusyCount )
+			if ( GetJa2PendingTacticalCombatActions() )
 			{
 				IgniteExplosion( pSoldier->ubAttackerID, sX, sY, 0, pSoldier->sGridNo, pSoldier->inv[ bSlot ].usItem, pSoldier->pathing.bLevel, pSoldier->ubDirection, &pSoldier->inv[ bSlot ] );
 			}

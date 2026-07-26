@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include "sgp_bounded_string.h"
 	#include "Bullets.h"
 	#include <stdio.h>
@@ -71,7 +72,6 @@
 #include "MPChatScreen.h"
 #include "sgp_logger.h"
 #include "Simulation Commands.h"
-#include "TacticalWorldAdapter.h"
 
 #include "MessageIdentifiers.h"
 #include "RakNetworkFactory.h"
@@ -1744,13 +1744,13 @@ void recieveEndTurn(RPCParameters *rpcParameters)
 	if(is_server || sender_bTeam==6)
 	{
 		if(ubTeam==netbTeam)ubTeam=0;
-		// M7: ubTeam drives EndTurn()/BeginTeamTurn() (ubCurrentTeam -> Team[]) -- bound it.
+		// M7: ubTeam drives EndTurn()/BeginTeamTurn() (current team -> Team[]) -- bound it.
 		if(ubTeam>=MAXTEAMS)
 			return;
 		const SimulationCommandDispatchResult turn =
 			TryDispatchNetworkTurnCommand(
 				ubTeam,
-				!is_server && !(gTacticalStatus.uiFlags & INCOMBAT),
+				!is_server && !(IsJa2TacticalCombatActive()),
 				!is_server && is_client );
 		if ( turn.submitted )
 			requested=false ;//request for realtime made or not
@@ -2690,7 +2690,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				// let us keep acting -> "both sides act"). EndInterrupt restores it on resume.
 				SetJa2TacticalCurrentTeam( INT->bTeam );
 				InitEnemyUIBar( 0, 0 );
-				// Flip the top banner off green "PLAYER'S TURN": the freeze + ubCurrentTeam
+				// Flip the top banner off green "PLAYER'S TURN": the freeze + current-team
 				// hand-over already block input (clock cursor), but InitEnemyUIBar only sets
 				// the progress counters -- the banner stayed PLAYER_TURN_MESSAGE, so the GUI
 				// lied that we could still act. Latch the interrupting team so AddTopMessage
@@ -5165,7 +5165,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 			SUpdateNetworkSoldier.bBleeding=pSoldier->bBleeding;
 			SUpdateNetworkSoldier.ubNewStance= gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
 			
-			if((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))//update progress bar, not supporting coop yet...
+			if((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && IsJa2TacticalTurnBasedCombat())//update progress bar, not supporting coop yet...
 			{
 				SUpdateNetworkSoldier.usTactialTurnLimitCounter = gTacticalStatus.usTactialTurnLimitCounter;
 				SUpdateNetworkSoldier.usTactialTurnLimitMax = gTacticalStatus.usTactialTurnLimitMax;
@@ -5260,7 +5260,7 @@ void kick_callback (UINT8 ubResult)
 				client->RPC("Snull_team",(const char*)&kick, (int)sizeof(kickR)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);
 
 				// If the team that should be kicked has the turn, give the turn to the server
-				if (gTacticalStatus.ubCurrentTeam == kick.ubResult)
+				if (GetJa2TacticalCurrentTeam() == kick.ubResult)
 				{					
 					EndTurn(0);
 				}
@@ -5337,7 +5337,7 @@ void turn_callback (UINT8 ubResult)
 			{
 				ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[31],ubResult );
 	
-				if(!( gTacticalStatus.uiFlags & INCOMBAT ))
+				if(!( IsJa2TacticalCombatActive() ))
 				{
 					SetJa2TacticalCombatMode( true );
 				}
@@ -5471,7 +5471,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 	memset(&client_ready[cl_num-1],0,sizeof(int));
 	memset(&client_teams[cl_num-1],0,sizeof(int));
 
-	if (GetCurrentScreen() == MAP_SCREEN && !(gTacticalStatus.uiFlags & INCOMBAT))
+	if (GetCurrentScreen() == MAP_SCREEN && !(IsJa2TacticalCombatActive()))
 	{
 		// in the map screen and not in combat
 		// refresh player list to remove from the game
@@ -5506,7 +5506,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 		// if it was that teams turn then end it
 		if(is_server)
 		{
-			if(gTacticalStatus.ubCurrentTeam==iNetbTeam)EndTurn( iNetbTeam+1 );	
+			if(GetJa2TacticalCurrentTeam()==iNetbTeam)EndTurn( iNetbTeam+1 );
 		}
 	}
 }
@@ -5624,7 +5624,7 @@ void gotoRT(RPCParameters *rpcParameters)
 	ExitCombatMode();
 	fInterfacePanelDirty = DIRTYLEVEL2;
 
-	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, MPClientMessage[34] );
 	}
@@ -5686,7 +5686,7 @@ void recieve_wipe (RPCParameters *rpcParameters)
 	ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, MPClientMessage[75], TeamNameStrings[data->ubStartingTeam] );
 	if(is_server)
 	{
-		if(gTacticalStatus.ubCurrentTeam==data->ubStartingTeam)EndTurn( data->ubStartingTeam+1 );	
+		if(GetJa2TacticalCurrentTeam()==data->ubStartingTeam)EndTurn( data->ubStartingTeam+1 );
 
 		// end the co-op game if all player teams have wiped
 		if (cGameType==MP_TYPE_COOP)

@@ -1,4 +1,5 @@
 #include "connect.h"
+#include "TacticalWorldAdapter.h"
 #include "builddefines.h"
 #include <stdio.h>
 #include <math.h>
@@ -3258,7 +3259,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		}
 	}
 
-	if ( gTacticalStatus.ubCurrentTeam != OUR_TEAM && pTarget->bTeam == gbPlayerNum )
+	if ( GetJa2TacticalCurrentTeam() != OUR_TEAM && pTarget->bTeam == gbPlayerNum )
 	{
 		// someone has been hit so no close-call quotes
 		gTacticalStatus.fSomeoneHit = TRUE;
@@ -6390,7 +6391,7 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 	// deduct ammo
 	(*pObj)[0]->data.gun.ubGunShotsLeft = max(0, (*pObj)[0]->data.gun.ubGunShotsLeft - 1);
 						
-	//gTacticalStatus.ubAttackBusyCount++;
+	//GetJa2PendingTacticalCombatActions()++;
 
 	///////////////////////// SOUND ////////////////////////////
 	UINT8 ubVolume = Weapon[usItem].ubAttackVolume;

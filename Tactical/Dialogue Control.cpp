@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Encrypted File.h"
 	#include "faces.h"
 	#include "WCheck.h"
@@ -527,7 +528,7 @@ void HandleDialogue( )
 			HandleTacticalUI( );
 
 			// ATE: If this is NOT the player's turn.. engage AI UI lock!
-			if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+			if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 			{
 				// Setup locked UI
 				guiPendingOverrideEvent = LU_BEGINUILOCK;
@@ -787,7 +788,7 @@ void HandleDialogue( )
 	if ( QItem.fDelayed )
 	{
 		// Are we not in our turn and not interrupted
-		if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+		if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 		{
 			//Place back in!
 			ghDialogueQ.push(QItem);

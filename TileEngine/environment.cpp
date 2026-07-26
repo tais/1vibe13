@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "environment.h"
 	#include "renderworld.h"
 	#include "Sound Control.h"
@@ -688,7 +689,7 @@ BOOLEAN gfWasTurnBasedWhenLightningBegin = FALSE;
 
 UINT8 gubLastTeamLightning;
 
-#define IS_TURNBASED ( gTacticalStatus.uiFlags & TURNBASED &&	gTacticalStatus.uiFlags & INCOMBAT )
+#define IS_TURNBASED ( IsJa2TacticalTurnBasedCombat() )
 
 void BeginTeamTurn( UINT8 ubTeam );
 

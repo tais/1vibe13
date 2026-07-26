@@ -1,4 +1,5 @@
 #include <cstdio>
+#include "TacticalWorldAdapter.h"
 #include <string.h>
 #include <random>
 #include <array>
@@ -87,7 +88,6 @@
 #include "Arms Dealer Init.h"
 #include "Interface Utils.h"
 #include "Air Raid.h"
-#include "TacticalWorldAdapter.h"
 #include "CampaignProfileCodes.h"
 #include "GameContext.h"
 #include "Civ Quotes.h"
@@ -752,8 +752,8 @@ BOOLEAN InitOverhead( )
 
 
     // Set other tactical flags
-    RestoreJa2TacticalTurnMirrors(
-        TURNBASED | TRANSLUCENCY_TYPE, gTacticalStatus.ubCurrentTeam);
+    RestoreJa2TacticalTurnState(
+        TURNBASED | TRANSLUCENCY_TYPE, OUR_TEAM, 0);
     gTacticalStatus.sSlideTarget = NOWHERE;
     gTacticalStatus.uiTimeOfLastInput = GetJA2Clock();
     gTacticalStatus.uiTimeSinceDemoOn = GetJA2Clock();
@@ -972,7 +972,7 @@ BOOLEAN ExecuteOverhead( )
     {
         // AI limiting crap
         gubAICounter = 0;
-        if (!((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)))
+        if (!(IsJa2TacticalTurnBasedCombat()))
         {
             if ((iTimerVal - giRTAILastUpdateTime ) > RT_DELAY_BETWEEN_AI_HANDLING)
             {
@@ -1456,7 +1456,7 @@ BOOLEAN ExecuteOverhead( )
                                         if ( sGridNo == pSoldier->sGridNo )
                                         {
                                             // OK, now, if in realtime
-                                            if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+                                            if ( !( IsJa2TacticalCombatActive() ) )
                                             {
                                                 // If the two gridnos are not the same, check to see if we can
                                                 // now go into it
@@ -1626,8 +1626,7 @@ BOOLEAN ExecuteOverhead( )
                                                 // otherwise freezes on its final stride frame.
                                                 const BOOLEAN fRetainMovementAnimation =
                                                     ShouldRetainMovementAnimationAtDestination(
-                                                        ( gTacticalStatus.uiFlags & TURNBASED ) &&
-                                                        ( gTacticalStatus.uiFlags & INCOMBAT ) &&
+                                                        IsJa2TacticalTurnBasedCombat() &&
                                                         ( pSoldier->flags.uiStatusFlags & SOLDIER_PC ) &&
                                                         gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
                                                         !pSoldier->bCollapsed &&
@@ -1710,7 +1709,7 @@ BOOLEAN ExecuteOverhead( )
                                         // led through that soldier.    Since this was set up to allow that, he ended up deadlocked
                                         // in "take cover" mode waiting for the soldier right next to him to leave.
                                         // So in turn-based mode, we will just allow the soldier to re-think his next move.
-                                        if ( gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT)
+                                        if ( IsJa2TacticalTurnBasedCombat())
                                         {
                                             ActionDone( pSoldier);
                                             pSoldier->SoldierGotoStationaryStance( );
@@ -1827,11 +1826,11 @@ BOOLEAN ExecuteOverhead( )
             }
 
             if ( !gfPauseAllAI &&
-                    ( ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) ||
+                    ( (IsJa2TacticalTurnBasedCombat()) ||
                        (fHandleAI && guiAISlotToHandle == cnt) || (pSoldier->aiData.fAIFlags & AI_HANDLE_EVERY_FRAME) || gTacticalStatus.fAutoBandageMode ) )
             {
                 HandleSoldierAI( pSoldier );
-                if ( !((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT)) )
+                if ( !(IsJa2TacticalTurnBasedCombat()) )
                 {
                     if (GetJA2Clock() - iTimerVal > RT_AI_TIMESLICE)
                     {
@@ -1848,7 +1847,7 @@ BOOLEAN ExecuteOverhead( )
         }
     }
 
-    if ( guiNumAwaySlots > 0 && !gfPauseAllAI && !(gTacticalStatus.uiFlags & INCOMBAT) && guiAISlotToHandle == HANDLE_OFF_MAP_MERC && guiAIAwaySlotToHandle != RESET_HANDLE_OF_OFF_MAP_MERCS )
+    if ( guiNumAwaySlots > 0 && !gfPauseAllAI && !(IsJa2TacticalCombatActive()) && guiAISlotToHandle == HANDLE_OFF_MAP_MERC && guiAIAwaySlotToHandle != RESET_HANDLE_OF_OFF_MAP_MERCS )
     {
         pSoldier = AwaySlots[ guiAIAwaySlotToHandle ];
 
@@ -1940,7 +1939,7 @@ BOOLEAN ExecuteOverhead( )
         {
             case WAIT_FOR_MERCS_TO_WALKOFF_SCREEN:
 
-                if ( ( gTacticalStatus.ubCurrentTeam == gbPlayerNum ) )
+                if ( ( GetJa2TacticalCurrentTeam() == gbPlayerNum ) )
                 {
                     guiPendingOverrideEvent = LU_ENDUILOCK;
                     HandleTacticalUI( );
@@ -1951,7 +1950,7 @@ BOOLEAN ExecuteOverhead( )
             case WAIT_FOR_MERCS_TO_WALKON_SCREEN:
 
                 // OK, unset UI
-                if ( ( gTacticalStatus.ubCurrentTeam == gbPlayerNum ) )
+                if ( ( GetJa2TacticalCurrentTeam() == gbPlayerNum ) )
                 {
                     guiPendingOverrideEvent = LU_ENDUILOCK;
                     HandleTacticalUI( );
@@ -1961,7 +1960,7 @@ BOOLEAN ExecuteOverhead( )
             case WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO:
 
                 // OK, unset UI
-                if ( ( gTacticalStatus.ubCurrentTeam == gbPlayerNum ) )
+                if ( ( GetJa2TacticalCurrentTeam() == gbPlayerNum ) )
                 {
                     guiPendingOverrideEvent = LU_ENDUILOCK;
                     HandleTacticalUI( );
@@ -1991,7 +1990,7 @@ static void HaltGuyFromNewGridNoBecauseOfNoAPs( SOLDIERTYPE *pSoldier )
     pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
     UnMarkMovementReserved( pSoldier );
     // Display message if our merc...
-    if ( pSoldier->bTeam == gbPlayerNum && ( gTacticalStatus.uiFlags & INCOMBAT ) )
+    if ( pSoldier->bTeam == gbPlayerNum && ( IsJa2TacticalCombatActive() ) )
     {
         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ GUY_HAS_RUN_OUT_OF_APS_STR ], pSoldier->GetName() );
     }
@@ -2039,7 +2038,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
     INT16                           sBPCost;
     INT32                          usNewGridNo, sOverFenceGridNo, sMineGridNo;
 
-    if (gTacticalStatus.uiFlags & INCOMBAT && fInitialMove )
+    if (IsJa2TacticalCombatActive() && fInitialMove )
     {
         HandleLocateToGuyAsHeWalks( pSoldier );
     }
@@ -2243,7 +2242,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             // but we won't place a locator or say anything
 
             // IF not in combat, stop them all
-            if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+            if ( !( IsJa2TacticalCombatActive() ) )
             {
                 SOLDIERTYPE *pSoldier2;
                 SoldierID id = gTacticalStatus.Team[gbPlayerNum].bFirstID;
@@ -2519,7 +2518,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                 DeductPoints( pSoldier, sAPCost, sBPCost, MOVEMENT_INTERRUPT );
 
 				// anv: deduct points from vehicle passengers to prevent time travel paradoxes... yeah yeah, you get the idea
-				if ( gTacticalStatus.uiFlags & TURNBASED && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleMode )
+				if ( IsJa2TacticalTurnBased() && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleMode )
 				{
 					INT32 iId = pSoldier->bVehicleID;
 					// Loop through passengers and update each guy's AP
@@ -2758,7 +2757,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         }
     }
 
-    if (gTacticalStatus.uiFlags & INCOMBAT )
+    if (IsJa2TacticalCombatActive() )
     {
         HandleLocateToGuyAsHeWalks( pSoldier );
     }
@@ -2774,7 +2773,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     }
 
     // First if we are in realtime combat or noncombat
-    if ( (gTacticalStatus.uiFlags & REALTIME) || !(gTacticalStatus.uiFlags & INCOMBAT ) )
+    if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive() ) )
     {
         // Update value for RT breath update
         pSoldier->ubTilesMovedPerRTBreathUpdate++;
@@ -2785,7 +2784,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     // Update path if showing path in RT
     if ( gGameSettings.fOptions[ TOPTION_ALWAYS_SHOW_MOVEMENT_PATH ] )
     {
-        if ( !(gTacticalStatus.uiFlags & INCOMBAT ) )
+        if ( !(IsJa2TacticalCombatActive() ) )
         {
             gfPlotNewMovement   = TRUE;
         }
@@ -2939,7 +2938,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             // but we won't place a locator or say anything
 
             // IF not in combat, stop them all
-            if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+            if ( !( IsJa2TacticalCombatActive() ) )
             {
                 SOLDIERTYPE *pSoldier2;
                 SoldierID cnt2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
@@ -3348,7 +3347,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
     // Change UI mode to reflact that we are selected
     // NOT if we are locked inthe UI
-    if ( gTacticalStatus.ubCurrentTeam == OUR_TEAM && gCurrentUIMode != LOCKUI_MODE && gCurrentUIMode != LOCKOURTURN_UI_MODE )
+    if ( GetJa2TacticalCurrentTeam() == OUR_TEAM && gCurrentUIMode != LOCKUI_MODE && gCurrentUIMode != LOCKOURTURN_UI_MODE )
     {
         guiPendingOverrideEvent = M_ON_TERRAIN;
     }
@@ -4456,7 +4455,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
     }
 
     // If we are already in combat...
-    if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+    if ( ( IsJa2TacticalCombatActive() ) )
     {
         CheckForPotentialAddToBattleIncrement( pSoldier );
     }
@@ -6312,7 +6311,7 @@ void CommonEnterCombatModeCode( )
 
     SetJa2TacticalCombatMode( true );
 
-    //gTacticalStatus.ubAttackBusyCount = 0;
+    // ResetJa2TacticalCombatActions(); // Do not hide unmatched combat work.
 
     // Reset num enemies fought flag...
     // SANDRO - removed from here
@@ -6460,7 +6459,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
         }
     }
 
-    if ( gTacticalStatus.uiFlags & INCOMBAT )
+    if ( IsJa2TacticalCombatActive() )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Can't enter combat when already in combat" );
         // we're already in combat!
@@ -6870,7 +6869,7 @@ BOOLEAN CheckForEndOfCombatMode( BOOLEAN fIncrementTurnsNotSeen )
     }
 
     // We can only check for end of combat if in combat mode
-    if ( ! ( gTacticalStatus.uiFlags & INCOMBAT ) )
+    if ( ! ( IsJa2TacticalCombatActive() ) )
     {
         return( FALSE );
     }
@@ -7406,7 +7405,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
     {
         // We can only check for end of battle if in combat mode or there are enemies
         // present (they might bleed to death or run off the map!)
-        if ( ! ( gTacticalStatus.uiFlags & INCOMBAT ) )
+        if ( ! ( IsJa2TacticalCombatActive() ) )
         {
             if ( ! (gTacticalStatus.fEnemyInSector) )
             {
@@ -7416,7 +7415,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
     }
 
     // ATE: If attack busy count.. get out...
-    if ( (gTacticalStatus.ubAttackBusyCount > 0 ) )
+    if ( (GetJa2PendingTacticalCombatActions() > 0 ) )
     {
         return( FALSE );
     }
@@ -7518,7 +7517,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 		// If here, the battle has been lost!
 		UnSetUIBusy(gusSelectedSoldier);
 
-		if (gTacticalStatus.uiFlags & INCOMBAT)
+		if (IsJa2TacticalCombatActive())
 		{
 			// Exit mode!
 			ExitCombatMode();
@@ -7633,7 +7632,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
         guiPendingOverrideEvent = LU_ENDUILOCK;
         HandleTacticalUI( );
 
-        if ( gTacticalStatus.uiFlags & INCOMBAT )
+        if ( IsJa2TacticalCombatActive() )
         {
             // Exit mode!
             ExitCombatMode();
@@ -9149,11 +9148,11 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 // This person is going to change stance
 
                 // This person will be busy while they crouch or go prone
-                if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
+                if (IsJa2TacticalTurnBasedCombat())
                 {
                     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting suppression, on %d", pSoldier->ubID ) );
                     DebugAttackBusy( String("!!!!!!! Starting suppression, on %d\n", pSoldier->ubID ) );
-                    //gTacticalStatus.ubAttackBusyCount++;
+                    //GetJa2PendingTacticalCombatActions()++;
 
                     // make sure suppressor ID is the same!
                     pSoldier->ubSuppressorID = ubCausedAttacker;
@@ -9173,7 +9172,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 pSoldier->flags.fInNonintAnim = FALSE;
                 pSoldier->flags.fRTInNonintAnim = FALSE;
                 BeginJa2TacticalCombatAction();
-                DebugAttackBusy( String( "Attack busy %d due to suppression fire on %d\n", gTacticalStatus.ubAttackBusyCount, pSoldier->ubID ));
+                DebugAttackBusy( String( "Attack busy %d due to suppression fire on %d\n", GetJa2PendingTacticalCombatActions(), pSoldier->ubID ));
 
 				// sevenfm: switch scope mode as alt holding can only be used in standing stance
 				if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD)
@@ -9445,7 +9444,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
                 MakeBloodcatsHostile();
             }
         }
-        else if ( pTarget->bTeam == gbPlayerNum && !(gTacticalStatus.uiFlags & INCOMBAT) )
+        else if ( pTarget->bTeam == gbPlayerNum && !(IsJa2TacticalCombatActive()) )
         {
 			// Flugente: if we are on the same team adn are currently stealing (accessing inventory) from a teammember, do NOT retaliate
 			if ( AllowedToStealFromTeamMate(pSoldier->ubID, pTarget->ubID) && pSoldier->usSoldierFlagMask & SOLDIER_ACCESSTEAMMEMBER )
@@ -9512,14 +9511,14 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     SoldierID   ubID;
 
 
-    //  if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
+    //  if (IsJa2TacticalTurnBasedCombat())
     //  {
 
     if ( !CompleteJa2TacticalCombatAction() )
     {
         // ATE: We have a problem here... if testversion, report error......
         // But for all means.... DON'T wrap!
-        if ( (gTacticalStatus.uiFlags & INCOMBAT) )
+        if ( (IsJa2TacticalCombatActive()) )
         {
             DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! &&&&&&& Problem with attacker busy count decrementing past 0.... preventing wrap-around." ) );
 #ifdef JA2BETAVERSION
@@ -9529,12 +9528,12 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
 #endif
         }
     }
-    DebugAttackBusy( String( "New attack busy %d\n", gTacticalStatus.ubAttackBusyCount));
+    DebugAttackBusy( String( "New attack busy %d\n", GetJa2PendingTacticalCombatActions()));
 
-    DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Ending attack, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+    DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Ending attack, attack count now %d", GetJa2PendingTacticalCombatActions()) );
     //  }
 
-    if (gTacticalStatus.ubAttackBusyCount > 0)
+    if (GetJa2PendingTacticalCombatActions() > 0)
     {
         return( NULL );
     }
@@ -9546,14 +9545,14 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
 
     pSoldier = NULL;
 
-    if (gTacticalStatus.ubCurrentTeam == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
+    if (GetJa2TacticalCurrentTeam() == gbPlayerNum && gusSelectedSoldier < TOTAL_SOLDIERS)
     {
         pSoldier = gusSelectedSoldier;
     }
     else
     {
-        for ( SoldierID id = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-                id <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID;
+        for ( SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+                id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID;
                 ++id)
         {
             if (id != NOBODY && id->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
@@ -9596,7 +9595,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     }
 
 	// Flugente 18-07-22: commenting this out - it doesn't do harm in realtime, and is more realistic
-    //if ((gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT))
+    //if (IsJa2TacticalTurnBasedCombat())
     {
         // Check to see if anyone was suppressed
         if (pTarget)
@@ -9611,9 +9610,9 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         //HandleAfterShootingGuy( pSoldier, pTarget );
 
         // suppression fire might cause the count to be increased, so check it again
-        if (gTacticalStatus.ubAttackBusyCount > 0)
+        if (GetJa2PendingTacticalCombatActions() > 0)
         {
-            DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting suppression, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+            DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting suppression, attack count now %d", GetJa2PendingTacticalCombatActions()) );
             return( NULL );
         }
     }
@@ -9743,7 +9742,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         if ( !fEnterCombat )
         {
             // It's still possible that something happened
-            if (!(gTacticalStatus.uiFlags & INCOMBAT) )
+            if (!(IsJa2TacticalCombatActive()) )
             {
                 HandleBestSightingPositionInRealtime();
             }
@@ -9751,7 +9750,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         }
 
 
-        if ( fEnterCombat && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+        if ( fEnterCombat && !( IsJa2TacticalCombatActive() ) )
         {
             // Go into combat!
 
@@ -9777,7 +9776,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     HandleAnyStatChangesAfterAttack( );
 
 
-    if ( gTacticalStatus.fItemsSeenOnAttack && gTacticalStatus.ubCurrentTeam == gbPlayerNum )
+    if ( gTacticalStatus.fItemsSeenOnAttack && GetJa2TacticalCurrentTeam() == gbPlayerNum )
     {
         gTacticalStatus.fItemsSeenOnAttack = FALSE;
 
@@ -9821,7 +9820,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
 
     // if we're in realtime, turn off the attacker's muzzle flash at this point
 	// sevenfm: always stop muzzle flash at the end of attack
-	if (pSoldier) // &&!(gTacticalStatus.uiFlags & INCOMBAT) 
+	if (pSoldier) // &&!(IsJa2TacticalCombatActive())
     {
         EndMuzzleFlash( pSoldier );
     }
@@ -10452,7 +10451,7 @@ void HandleCreatureTenseQuote( )
     {
         if ( gTacticalStatus.uiFlags & IN_CREATURE_LAIR )
         {
-            if( !(gTacticalStatus.uiFlags & INCOMBAT ) )
+            if( !(IsJa2TacticalCombatActive() ) )
             {
                 uiTime = GetJA2Clock( );
 
@@ -11381,7 +11380,7 @@ void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)
         return;
 
     // not if there is a battle going on
-    if ( (gTacticalStatus.uiFlags & INCOMBAT ) && !fForce )
+    if ( (IsJa2TacticalCombatActive() ) && !fForce )
         return;
 
     // not if this team is hostile to us
@@ -11412,7 +11411,7 @@ void TeamRestock(UINT8 bTeam)
         return;
 
     // not if there is a battle going on
-    if ( (gTacticalStatus.uiFlags & INCOMBAT ) )
+    if ( (IsJa2TacticalCombatActive() ) )
         return;
 
     // not if this team is hostile to us
@@ -11854,10 +11853,10 @@ void UpdateFastForwardMode(SOLDIERTYPE* pSoldier, INT8 bAction)
 	}
 
 	// fast forward mode is only possible in turnbased combat only for invisible opponents
-	if (!(gTacticalStatus.uiFlags & TURNBASED && gTacticalStatus.uiFlags & INCOMBAT) ||
+	if (!(IsJa2TacticalTurnBasedCombat()) ||
 		pSoldier->flags.uiStatusFlags & SOLDIER_PC ||
 		pSoldier->bVisible == TRUE ||
-		gTacticalStatus.ubCurrentTeam == gbPlayerNum ||
+		GetJa2TacticalCurrentTeam() == gbPlayerNum ||
 		gTacticalStatus.bBoxingState != NOT_BOXING ||
 		gTacticalStatus.uiFlags & ENGAGED_IN_CONV ||
 		gpCurrentTalkingFace != NULL && gpCurrentTalkingFace->fTalking ||

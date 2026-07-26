@@ -1,4 +1,5 @@
 #include "TacticalCommandHost.h"
+#include "TacticalWorldAdapter.h"
 
 #include <array>
 #include <limits>
@@ -55,9 +56,8 @@ bool HasTacticalExecutionContext(const SimulationCommand& command) noexcept
 		using Command = typename std::decay<decltype(value)>::type;
 		if constexpr (std::is_same<Command, EndTurnCommand>::value)
 		{
-			constexpr UINT32 RequiredFlags = TURNBASED | INCOMBAT;
-			return (gTacticalStatus.uiFlags & RequiredFlags) == RequiredFlags &&
-				gTacticalStatus.ubCurrentTeam < MAXTEAMS;
+			return IsJa2TacticalTurnBasedCombat() &&
+				GetJa2TacticalCurrentTeam() < MAXTEAMS;
 		}
 		return true;
 	}, command);

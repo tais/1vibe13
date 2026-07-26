@@ -1,4 +1,5 @@
 #include "sgp.h"
+#include "TacticalWorldAdapter.h"
 #include "CampaignClockAdapter.h"
 #include "Game Clock.h"
 #include <Engine/Adapters/JA2/CampaignClockScheduler.h>
@@ -195,9 +196,9 @@ void AdvanceClock( UINT8 ubWarpCode )
 
 
 	// Set value, to different things if we are in combat...
-	if ( (gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( (IsJa2TacticalCombatActive() ) )
 	{
-		if ( (gTacticalStatus.uiFlags & TURNBASED) )
+		if ( (IsJa2TacticalTurnBased()) )
 		{
 			uiGameSecondsPerRealSecond = SECONDS_PER_COMPRESSION_IN_TBCOMBAT;
 		}
@@ -318,7 +319,7 @@ void RenderClock( INT16 sX, INT16 sY )
 #endif
 
 	// Are we in combat?
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 	{
 		SetFontForeground( FONT_FCOLOR_NICERED );
 	}
@@ -350,7 +351,7 @@ void ToggleSuperCompression()
 	static UINT32 uiOldTimeCompressMode = 0;
 
 	// Display message
-	if ( gTacticalStatus.uiFlags & INCOMBAT )
+	if ( IsJa2TacticalCombatActive() )
 	{
 		//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, L"Cannot toggle compression in Combat Mode."	);
 		return;
@@ -750,8 +751,7 @@ CampaignClockScheduleResult AdvanceClockFromFixedStep(
 		!supportedScreen || gfGamePaused || gfTimeInterruptPause ||
 		gubClockResolution == 0 || guiGameSecondsPerRealSecond == 0 ||
 		ARE_IN_FADE_IN() || gfFadeOut ||
-		((gTacticalStatus.uiFlags & TURNBASED) &&
-			(gTacticalStatus.uiFlags & INCOMBAT));
+		(IsJa2TacticalTurnBasedCombat());
 	if (paused)
 	{
 		scheduler.reset();

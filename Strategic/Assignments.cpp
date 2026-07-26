@@ -1,4 +1,5 @@
 #include "Assignments.h"
+#include "TacticalWorldAdapter.h"
 #include "strategic.h"
 #include "Items.h"
 #include "Overhead.h"
@@ -2553,7 +2554,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 		if ( !SoldierAboardAirborneHeli( pSoldier ) )
 		{
 			// if he's in the loaded sector, and it's hostile or in combat
-			if( pSoldier->bInSector && ( ( gTacticalStatus.uiFlags & INCOMBAT ) || gTacticalStatus.fEnemyInSector ) )
+			if( pSoldier->bInSector && ( ( IsJa2TacticalCombatActive() ) || gTacticalStatus.fEnemyInSector ) )
 			{
 				if( fExplainWhyNot )
 				{
@@ -6802,7 +6803,7 @@ void HandleSpyAssignments()
 		AddIntel( intelgained, TRUE );
 
 	// We don't want to start a battle when there is already one going on...
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) && !vector_uncoveredmercs.empty() )
+	if ( !( IsJa2TacticalCombatActive() ) && !vector_uncoveredmercs.empty() )
 	{
 		UINT16 usIdOfUncoveredMerc = vector_uncoveredmercs[ Random( vector_uncoveredmercs.size() ) ];
 

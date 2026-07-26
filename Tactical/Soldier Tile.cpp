@@ -1,4 +1,5 @@
 	#include "Render Fun.h"
+#include "TacticalWorldAdapter.h"
 	#include "DEBUG.H"
 	#include "Overhead Types.h"
 
@@ -41,7 +42,7 @@ class SOLDIERTYPE;
 
 void OutputDebugInfoForTurnBasedNextTileWaiting( SOLDIERTYPE * pSoldier )
 {
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) && (pSoldier->pathing.usPathDataSize > 0) )
+	if ( (IsJa2TacticalCombatActive()) && (pSoldier->pathing.usPathDataSize > 0) )
 	{
 		UINT32	uiLoop;
 		INT32	usTemp = NOWHERE;
@@ -124,7 +125,7 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 	pSoldier->pathing.sFinalDestination = pSoldier->sGridNo;
 
 	#ifdef JA2BETAVERSION
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 		}
@@ -351,7 +352,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 	INT16	bOverTerrainType;
 
 	// Check for blocking if in realtime
-	///if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	///if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 
 	// ATE: If not on visible tile, return clear ( for path out of map )
 	if ( !GridNoOnVisibleWorldTile( sGridNo ) )
@@ -390,7 +391,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 					// Maintain sFinalDest....
 					sOldFinalDest = pSoldier->pathing.sFinalDestination;
 					#ifdef JA2BETAVERSION
-						if ( gTacticalStatus.uiFlags & INCOMBAT )
+						if ( IsJa2TacticalCombatActive() )
 						{
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
@@ -412,7 +413,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 					// Maintain sFinalDest....
 					sOldFinalDest = pSoldier->pathing.sFinalDestination;
 					#ifdef JA2BETAVERSION
-						if ( gTacticalStatus.uiFlags & INCOMBAT )
+						if ( IsJa2TacticalCombatActive() )
 						{
 							OutputDebugInfoForTurnBasedNextTileWaiting( pSoldier );
 						}
@@ -431,7 +432,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 		else
 		{
 			// Mark this tile as reserverd ( until we get there! )
-			if ( !( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) ) )
+			if ( !( IsJa2TacticalTurnBasedCombat() ) )
 			{
 				MarkMovementReserved( pSoldier, sGridNo );
 			}
@@ -792,7 +793,7 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 		if ( ( gAnimControl[ pSoldier2->usAnimState ].uiFlags & ANIM_MOVING ) )
 			return( FALSE );
 
-		if ( ( gAnimControl[ pSoldier1->usAnimState ].uiFlags & ANIM_MOVING ) && !(gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( ( gAnimControl[ pSoldier1->usAnimState ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive()) )
 			return( FALSE );
 
 		if ( pSoldier2->bSide == 0 )

@@ -1,4 +1,5 @@
 	#include "sgp.h"
+#include "TacticalWorldAdapter.h"
 	#include "Air Raid.h"
 	#include "Game Event Hook.h"
 	#include "Game Clock.h"
@@ -27,7 +28,6 @@
 	#include "Meanwhile.h"
 
 #include "GameInitOptionsScreen.h"
-#include "TacticalWorldAdapter.h"
 
 #define		SCRIPT_DELAY													10
 #define		AIR_RAID_SAY_QUOTE_TIME								3000
@@ -427,7 +427,7 @@ static void AirRaidStart( )
 	gubAirRaidMode = AIR_RAID_LOOK_FOR_DIVE;
 
 	// If we are not in combat, change music mode...
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		SetMusicMode( MUSIC_TACTICAL_BATTLE );
 	}
@@ -440,7 +440,7 @@ static void AirRaidLookForDive( )
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("AirRaidLookForDive: quote said? = %d",gfQuoteSaid));
 
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		if ( !gfQuoteSaid )
 		{
@@ -477,7 +477,7 @@ static void AirRaidLookForDive( )
 
 
 	// If NOT in combat....
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		// OK, for now on, all we try to do is look for dives to make...
 		if ( gfQuoteSaid )
@@ -537,13 +537,13 @@ static void AirRaidLookForDive( )
 	}
 	else
 	{
-		if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( IsJa2TacticalCombatActive() ) )
 		{
 			if ( giNumGridNosMovedThisTurn == 0 )
 			{
 				// Free up attacker...
 				ReduceAttackBusyCount( );
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID NO DIVE, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID NO DIVE, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 			}
 		}
 	}
@@ -572,7 +572,7 @@ static void BeginBombing( )
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginBombing"));
 
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		// Start diving sound...
 		PlayJA2Sample( S_RAID_WHISTLE, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
@@ -598,7 +598,7 @@ static void BeginBombing( )
 
 	RESETTIMECOUNTER( giTimerAirRaidUpdate, RAID_DELAY );
 
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 		iSoundStartDelay = 0;
 	}
@@ -636,8 +636,8 @@ static void BeginDive( )
 
 	// Increment attacker bust count....
 	BeginJa2TacticalCombatAction();
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack BEGIN DIVE %d", gTacticalStatus.ubAttackBusyCount) );
-	DebugAttackBusy( String("!!!!!!! Starting attack BEGIN DIVE %d", gTacticalStatus.ubAttackBusyCount) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack BEGIN DIVE %d", GetJa2PendingTacticalCombatActions()) );
+	DebugAttackBusy( String("!!!!!!! Starting attack BEGIN DIVE %d", GetJa2PendingTacticalCombatActions()) );
 
 	// Pick location...
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginDive: pick location"));
@@ -659,7 +659,7 @@ static void BeginDive( )
 	RESETTIMECOUNTER( giTimerAirRaidUpdate, RAID_DELAY );
 	giNumTurnsSinceDiveStarted = 0;
 
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 		iSoundStartDelay = 0;
 	}
@@ -729,7 +729,7 @@ static void DoDive(	)
 		}
 
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoDive: locate target");
-		if ( gsNotLocatedYet && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( gsNotLocatedYet && !( IsJa2TacticalCombatActive() ) )
 		{
 			gsNotLocatedYet = FALSE;
 			LocateGridNo( gsDiveTargetLocation );
@@ -795,7 +795,7 @@ static void DoDive(	)
 				dDeltaYPos = STRAFE_DIST * (FLOAT)cos( dAngle );
 				sStrafeY = (INT16)( gsDiveY + dDeltaYPos );
 
-				if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( ( IsJa2TacticalCombatActive() ) )
 				{
 					LocateGridNo( sGridNo );
 				}
@@ -803,17 +803,17 @@ static void DoDive(	)
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoDive: Fire bullets");
 				if ( GridNoOnVisibleWorldTile( GETWORLDINDEXFROMWORLDCOORDS( sStrafeY, sStrafeX ) ) )
 				{
-					//if ( gsNotLocatedYet && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+					//if ( gsNotLocatedYet && !( IsJa2TacticalCombatActive() ) )
 				//	{
 					//	gsNotLocatedYet = FALSE;
 				//		LocateGridNo( sGridNo );
 				//	}
 
-					//if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					//if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						// Increase attacker busy...
-						//gTacticalStatus.ubAttackBusyCount++;
-						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( fire gun ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+						//GetJa2PendingTacticalCombatActions()++;
+						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( fire gun ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
 						// gpRaidSoldier->bBulletsLeft++;
@@ -844,11 +844,11 @@ static void DoDive(	)
 
 				if ( GridNoOnVisibleWorldTile( GETWORLDINDEXFROMWORLDCOORDS( sStrafeY, sStrafeX ) ) )
 				{
-					//if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					//if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						// Increase attacker busy...
-						//gTacticalStatus.ubAttackBusyCount++;
-						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( second one ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+						//GetJa2PendingTacticalCombatActions()++;
+						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( second one ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
 						// gpRaidSoldier->bBulletsLeft++;
@@ -863,11 +863,11 @@ static void DoDive(	)
 
 			if ( giNumGridNosMovedThisTurn >= 6 )
 			{
-				if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( ( IsJa2TacticalCombatActive() ) )
 				{
 					// Free up attacker...
 					ReduceAttackBusyCount( );
-					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID DIVE DONE FOR THIS TURN, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID DIVE DONE FOR THIS TURN, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 				}
 			}
 
@@ -904,7 +904,7 @@ static void DoBombing(	)
 			//}
 		}
 
-		if ( gsNotLocatedYet && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( gsNotLocatedYet && !( IsJa2TacticalCombatActive() ) )
 		{
 			gsNotLocatedYet = FALSE;
 			LocateGridNo( gsDiveTargetLocation );
@@ -967,7 +967,7 @@ static void DoBombing(	)
 
 					if ( GridNoOnVisibleWorldTile( GETWORLDINDEXFROMWORLDCOORDS( sStrafeY, sStrafeX ) ) )
 					{
-						//if ( gsNotLocatedYet && !( gTacticalStatus.uiFlags & INCOMBAT ) )
+						//if ( gsNotLocatedYet && !( IsJa2TacticalCombatActive() ) )
 						//{
 						//	gsNotLocatedYet = FALSE;
 						//	LocateGridNo( sGridNo );
@@ -986,13 +986,13 @@ static void DoBombing(	)
 						// Pick random gridno....
 						sBombGridNo = PickRandomLocationAtMinSpacesAway( GETWORLDINDEXFROMWORLDCOORDS( sStrafeY, sStrafeX ), 40, 40 );
 
-						if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+						if ( ( IsJa2TacticalCombatActive() ) )
 						{
 							fLocate = TRUE;
 							// Increase attacker busy...
 							BeginJa2TacticalCombatAction();
-							DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
-							DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+							DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
+							DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID ( bombs away ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 						}
 
 						// Drop bombs...
@@ -1005,11 +1005,11 @@ static void DoBombing(	)
 
 				if ( giNumGridNosMovedThisTurn >= 6 )
 				{
-					if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						// Free up attacker...
 						ReduceAttackBusyCount( );
-						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID BOMB ATTACK DONE FOR THIS TURN, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID BOMB ATTACK DONE FOR THIS TURN, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 					}
 				}
 
@@ -1035,7 +1035,7 @@ void HandleAirRaid( )
 			return;
 
 		// Are we in TB?
-		if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( IsJa2TacticalCombatActive() ) )
 		{
 			// Do we have the batton?
 			if ( !gfHaveTBBatton )
@@ -1167,7 +1167,7 @@ void HandleAirRaid( )
 				case AIR_RAID_DIVING:
 
 					// If in combat, check if we have reached our max...
-					if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						if ( giNumGridNosMovedThisTurn < 6 )
 						{
@@ -1185,11 +1185,11 @@ void HandleAirRaid( )
 					giNumTurnsSinceLastDive = 0;
 					RESETTIMECOUNTER( giTimerAirRaidDiveStarted, AIR_RAID_DIVE_INTERVAL );
 
-					if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						// Free up attacker...
 						ReduceAttackBusyCount( );
-						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID ENDING DIVE, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID ENDING DIVE, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 					}
 
 					gubAirRaidMode = AIR_RAID_LOOK_FOR_DIVE;
@@ -1200,11 +1200,11 @@ void HandleAirRaid( )
 					RESETTIMECOUNTER( giTimerAirRaidDiveStarted, AIR_RAID_DIVE_INTERVAL );
 					giNumTurnsSinceLastDive = 0;
 
-					if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( ( IsJa2TacticalCombatActive() ) )
 					{
 						// Free up attacker...
 						ReduceAttackBusyCount( );
-						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID ENDING DIVE, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
+						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Tried to free up attacker AIR RAID ENDING DIVE, attack count now %d", GetJa2PendingTacticalCombatActions()) );
 					}
 
 					gubAirRaidMode = AIR_RAID_LOOK_FOR_DIVE;
@@ -1220,14 +1220,14 @@ void HandleAirRaid( )
 			}
 		}
 
-		if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if ( ( IsJa2TacticalCombatActive() ) )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: in combat"));
 			// Do we have the batton?
 			if ( gfHaveTBBatton )
 			{
 				// Are we through with attacker busy count?
-				if ( gTacticalStatus.ubAttackBusyCount == 0 )
+				if ( GetJa2PendingTacticalCombatActions() == 0 )
 				{
 					// Relinquish control....
 					gfAirRaidHasHadTurn = TRUE;
@@ -1270,17 +1270,17 @@ BOOLEAN HandleAirRaidEndTurn( UINT8 ubTeam )
 	gfHaveTBBatton = TRUE;
 
 	// ATE: Even if we have an attacker busy problem.. init to 0 now
-	//gTacticalStatus.ubAttackBusyCount = 0;
+	// ResetJa2TacticalCombatActions();
 
 	// Increment attacker bust count....
 	BeginJa2TacticalCombatAction();
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID, attack count now %d", gTacticalStatus.ubAttackBusyCount) );
-	DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID, attack count now %d\n", gTacticalStatus.ubAttackBusyCount) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID, attack count now %d", GetJa2PendingTacticalCombatActions()) );
+	DebugAttackBusy( String("!!!!!!! Starting attack AIR RAID, attack count now %d\n", GetJa2PendingTacticalCombatActions()) );
 
 	AddTopMessage( AIR_RAID_TURN_MESSAGE, TacticalStr[ AIR_RAID_TURN_STR ] );
 
 	// OK, handle some sound effects, depending on the mode we are in...
-	if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 			switch( gubAirRaidMode )
 			{
@@ -1440,7 +1440,7 @@ void EndAirRaid( )
 	SoundStop( guiSoundSample );
 
 	// Change music back...
-	if ( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+	if ( !( IsJa2TacticalCombatActive() ) )
 	{
 		SetMusicMode( MUSIC_TACTICAL_NOTHING );
 

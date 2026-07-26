@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "strategicmap.h"
 	#include "strategic.h"
@@ -1277,7 +1278,7 @@ static BOOLEAN AddEnemiesToSectorPlayerIsIn(INT16 sectorX, INT16 sectorY, INT8 s
 	if ( gGameUBOptions.pJA2UB == TRUE )
 	{
 
-		if ( !(gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( !(IsJa2TacticalCombatActive()) )
 		{
 			SetEnemyEncounterCode(ENEMY_INVASION_CODE);
 		}
@@ -1877,7 +1878,7 @@ BOOLEAN CanJa25SaiAttack()
 
 	uiCurrentTime = GetWorldTotalMin( );
 
-	if( gTacticalStatus.uiFlags & INCOMBAT )
+	if( IsJa2TacticalCombatActive() )
 	{
 		return( FALSE );
 	}
@@ -2254,7 +2255,7 @@ BOOLEAN HandleAddEnemiesToSectorPlayerIsntIn( INT16 sSaiSector, UINT8 ubNumEnemi
 		INT16 sSectorY = SECTORY( gJa25AiSectorStruct[sSaiSector].iSectorID );
 		INT8  bSectorZ = gJa25AiSectorStruct[sSaiSector].bSectorZ;
 
-		if( !( gTacticalStatus.uiFlags & INCOMBAT ) )
+		if( !( IsJa2TacticalCombatActive() ) )
 		{
 			SetEnemyEncounterCode( ENEMY_INVASION_CODE );
 		}

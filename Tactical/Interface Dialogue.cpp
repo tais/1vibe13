@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp.h"
 	#include "faces.h"
@@ -448,7 +449,7 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 	gubSrcSoldierProfile = pSrcSoldier->ubProfile;
 
 	// find which squad this guy is, then set selected squad to this guy
-	if ( pSrcSoldier->bTeam == gbPlayerNum && gTacticalStatus.ubCurrentTeam == gbPlayerNum )
+	if ( pSrcSoldier->bTeam == gbPlayerNum && GetJa2TacticalCurrentTeam() == gbPlayerNum )
 	{
 		SetCurrentSquad( pSrcSoldier->bAssignment, FALSE );
 
@@ -2499,7 +2500,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					SetSoldierNeutral( pSoldier );
 					pSoldier->bBleeding = 0; // make sure he doesn't bleed now...
 					RecalculateOppCntsDueToBecomingNeutral( pSoldier );
-					if ( gTacticalStatus.uiFlags & INCOMBAT )
+					if ( IsJa2TacticalCombatActive() )
 					{
 						CheckForEndOfCombatMode( FALSE );
 					}
@@ -3163,7 +3164,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						MakeCivHostile(pSoldier);
 					}
 					DeleteTalkingMenu();
-					if ( ! ( gTacticalStatus.uiFlags & INCOMBAT ) )
+					if ( ! ( IsJa2TacticalCombatActive() ) )
 					{
 						EnterCombatMode( pSoldier->bTeam );
 					}

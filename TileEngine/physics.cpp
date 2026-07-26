@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 
 	#include "physics.h"
 	#include "WCheck.h"
@@ -21,7 +22,6 @@
 	#include "Map Information.h"	// added by Shadooow
 #include "connect.h"
 #include "PATHAI.H"
-#include "TacticalWorldAdapter.h"
 
 
 //forward declarations of common classes to eliminate includes
@@ -304,7 +304,7 @@ INT32	CreatePhysicalObject( OBJECTTYPE *pGameObj, real dLifeLength, real xPos, r
 	if (!fTestObject)
 	{
 		BeginJa2TacticalCombatAction();
-		DebugAttackBusy( String( "@@@@@@@ Increasing attacker busy count..., PHYSICS OBJECT effect started.	Now %d\n", gTacticalStatus.ubAttackBusyCount) );
+		DebugAttackBusy( String( "@@@@@@@ Increasing attacker busy count..., PHYSICS OBJECT effect started.	Now %d\n", GetJa2PendingTacticalCombatActions()) );
 	}
 
 	return( iObjectIndex );
@@ -1130,7 +1130,7 @@ BOOLEAN	PhysicsCheckForCollisions( REAL_OBJECT *pObject, INT32 *piCollisionID )
 						Explosive[Item[pObject->Obj.usItem].ubClassIndex].ubType == EXPLOSV_FLASHBANG))
 					{
 						BeginJa2TacticalCombatAction();
-						DebugAttackBusy( String( "Incrementing attack busy because of delayed water explosion. Now %d\n", gTacticalStatus.ubAttackBusyCount ) );
+						DebugAttackBusy( String( "Incrementing attack busy because of delayed water explosion. Now %d\n", GetJa2PendingTacticalCombatActions() ) );
 						AniParams.ubKeyFrame1				= 11;
 						AniParams.uiKeyFrame1Code			= ANI_KEYFRAME_CHAIN_WATER_EXPLOSION;
 						AniParams.uiUserData					= pObject->Obj.usItem;

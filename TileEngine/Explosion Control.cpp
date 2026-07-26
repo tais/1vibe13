@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "TacticalWorldAdapter.h"
 #include "WorldDat.h"
 #include "DEBUG.H"
 #include "Weapons.h"
@@ -34,7 +35,6 @@
 #include "Points.h"				// added by Flugente
 #include "Interface Control.h"		// added by Flugente for DrawExplosionWarning(...)
 #include "SkillMenu.h"
-#include "TacticalWorldAdapter.h"
 #include "GameContext.h"
 #include "Ja25_Tactical.h"
 #include "Ja25 Strategic Ai.h"
@@ -292,8 +292,8 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 	}
 
 
-	// gTacticalStatus.ubAttackBusyCount++;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion gone off, COunt now %d", gTacticalStatus.ubAttackBusyCount ) );
+	// GetJa2PendingTacticalCombatActions()++;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion gone off, COunt now %d", GetJa2PendingTacticalCombatActions() ) );
 
 
 	// OK, go on!
@@ -529,7 +529,7 @@ void GenerateExplosionFromExplosionPointer( EXPLOSIONTYPE *pExplosion )
 	if (CreateAnimationTile( &AniParams ) )
 	{
 		BeginJa2TacticalCombatAction();
-		DebugAttackBusy( String( "Explosion started.	Incrementing attack busy, now %d\n", gTacticalStatus.ubAttackBusyCount ) );
+		DebugAttackBusy( String( "Explosion started.	Incrementing attack busy, now %d\n", GetJa2PendingTacticalCombatActions() ) );
 	}
 
 	//	set light source for flashbangs.... or...
@@ -1595,8 +1595,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	ubDirection = (UINT8)GetDirectionFromGridNo( sBombGridNo, pSoldier );
 
 	// Increment attack counter...
-	//	gTacticalStatus.ubAttackBusyCount++;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion dishing out damage, Count now %d", gTacticalStatus.ubAttackBusyCount ) );
+	//	GetJa2PendingTacticalCombatActions()++;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion dishing out damage, Count now %d", GetJa2PendingTacticalCombatActions() ) );
 	DebugAttackBusy( String("Explosion dishing out damage to %d\n", pSoldier->ubID) );
 
 	sNewWoundAmt = sWoundAmt - __min( sWoundAmt, 35 ) * ArmourVersusExplosivesPercent( pSoldier ) / 100;
@@ -3464,7 +3464,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 	case ACTION_ITEM_ENTER_BROTHEL:
 		// JA2Gold: Disable brothel tracking
 		/*
-		if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( ! (IsJa2TacticalCombatActive()) )
 		{
 		UINT8	ubID;
 
@@ -3539,7 +3539,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 	case ACTION_ITEM_EXIT_BROTHEL:
 		// JA2Gold: Disable brothel tracking
 		/*
-		if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( ! (IsJa2TacticalCombatActive()) )
 		{
 		UINT8	ubID;
 
@@ -3584,7 +3584,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 				}
 			}
 
-			if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+			if ( ! (IsJa2TacticalCombatActive()) )
 			{
 				EnterCombatMode( CIV_TEAM );
 			}
@@ -3596,7 +3596,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 	case ACTION_ITEM_SEX:
 		// JA2Gold: Disable brothel sex Madd: Re-enabled
 
-		if ( ! (gTacticalStatus.uiFlags & INCOMBAT) )
+		if ( ! (IsJa2TacticalCombatActive()) )
 		{
 			UINT8	ubID;
 			OBJECTTYPE DoorCloser;
@@ -4281,7 +4281,7 @@ void HandleExplosionQueue( void )
 		gubElementsOnExplosionQueue--;
 	}
 
-	if ( gubElementsOnExplosionQueue == 0 && (gubPersonToSetOffExplosions == NOBODY || gTacticalStatus.ubAttackBusyCount == 0) )
+	if ( gubElementsOnExplosionQueue == 0 && (gubPersonToSetOffExplosions == NOBODY || GetJa2PendingTacticalCombatActions() == 0) )
 	{
 		// turn off explosion queue
 
@@ -4320,7 +4320,7 @@ void HandleExplosionQueue( void )
 		// unlock UI
 		//UnSetUIBusy( (UINT8)gusSelectedSoldier );
 		// OJW - 20091028 - fix explosion UI lock bug on unoriginating clients
-		if ( !(gTacticalStatus.uiFlags & INCOMBAT) || gTacticalStatus.ubCurrentTeam == gbPlayerNum || (is_networked && gTacticalStatus.ubCurrentTeam != 1) )
+		if ( !(IsJa2TacticalCombatActive()) || GetJa2TacticalCurrentTeam() == gbPlayerNum || (is_networked && GetJa2TacticalCurrentTeam() != 1) )
 		{
 			// don't end UI lock when it's a computer turn
 			guiPendingOverrideEvent = LU_ENDUILOCK;
@@ -4505,7 +4505,7 @@ void HandleExplosionWarningAnimations( )
 
 			// show known opponents
 			if (gGameSettings.fOptions[TOPTION_SHOW_ENEMY_LOCATION] &&
-				gTacticalStatus.ubCurrentTeam == gbPlayerNum &&
+				GetJa2TacticalCurrentTeam() == gbPlayerNum &&
 				!gTacticalStatus.fAtLeastOneGuyOnMultiSelect &&
 				pSoldier->stats.bLife >= OKLIFE &&
 				!pSoldier->IsUnconscious() &&
@@ -5027,7 +5027,7 @@ void ActivateSwitchInGridNo( SoldierID ubID, INT32 sGridNo )
 
 				// first set attack busy count to 0 in case of a lingering a.b.c. problem...
 				// No, not a good idea.
-				// gTacticalStatus.ubAttackBusyCount = 0;
+				// ResetJa2TacticalCombatActions();
 
 				SetOffBombsByFrequency( ubID, (*pObj)[0]->data.misc.bFrequency );
 			}

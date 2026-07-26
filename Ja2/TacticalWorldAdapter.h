@@ -60,7 +60,35 @@ private:
 
 Ja2TacticalWorldAdapter& GetJa2TacticalWorldAdapter();
 const TacticalWorldSession::Snapshot& CaptureJa2TacticalWorld() noexcept;
+const TacticalWorldSession::Snapshot::Turn& CaptureJa2TacticalTurn() noexcept;
 bool IsJa2TacticalWorldLoaded() noexcept;
+inline bool IsJa2TacticalTurnBased() noexcept
+{
+	return CaptureJa2TacticalTurn().turnBased;
+}
+inline bool IsJa2TacticalCombatActive() noexcept
+{
+	return CaptureJa2TacticalTurn().inCombat;
+}
+inline bool IsJa2TacticalTurnBasedCombat() noexcept
+{
+	const TacticalWorldSession::Snapshot::Turn& turn =
+		CaptureJa2TacticalTurn();
+	return turn.turnBased && turn.inCombat;
+}
+inline std::uint8_t GetJa2TacticalCurrentTeam() noexcept
+{
+	return CaptureJa2TacticalTurn().currentTeam;
+}
+inline std::uint32_t GetJa2PendingTacticalCombatActions() noexcept
+{
+	return CaptureJa2TacticalTurn().pendingCombatActions;
+}
+
+// Compose the legacy status word only at compatibility boundaries. The live
+// gTacticalStatus word no longer stores the runtime-owned turn/combat bits.
+std::uint32_t CaptureJa2TacticalStatusFlags() noexcept;
+std::uint8_t CaptureJa2SerializedPendingCombatActions() noexcept;
 
 // Application composition and the only production write gateway for the
 // legacy tactical-world compatibility globals.
@@ -73,22 +101,24 @@ std::uint64_t CommitJa2TacticalWorldLoad() noexcept;
 void RestoreJa2TacticalWorldSession(
 	TacticalWorldSession::Snapshot state) noexcept;
 
-// Tactical turn identity is part of the same runtime session. These are the
-// only production writers for the corresponding gTacticalStatus mirrors.
-void ImportJa2TacticalTurnState() noexcept;
-void RestoreJa2TacticalTurnMirrors(
+// Tactical turn identity is part of the same runtime session. Restore accepts
+// the established serialized/editor flag representation but publishes only
+// session-owned turn state. The two-argument form preserves pending work.
+void RestoreJa2TacticalTurnState(
 	std::uint32_t tacticalFlags, std::uint8_t currentTeam) noexcept;
+void RestoreJa2TacticalTurnState(
+	std::uint32_t tacticalFlags, std::uint8_t currentTeam,
+	std::uint32_t pendingCombatActions) noexcept;
 void SetJa2TacticalTurnBasedMode(bool active) noexcept;
 void SetJa2TacticalCombatMode(bool active) noexcept;
 void SetJa2TacticalCurrentTeam(std::uint8_t team) noexcept;
 void AdvanceJa2TacticalCurrentTeam() noexcept;
 
 // The tactical session owns the pending asynchronous combat-action lifecycle.
-// gTacticalStatus.ubAttackBusyCount remains a bounded save-compatible mirror.
+// Save code emits the established bounded byte without retaining a live mirror.
 bool BeginJa2TacticalCombatAction() noexcept;
 bool CompleteJa2TacticalCombatAction() noexcept;
 void ResetJa2TacticalCombatActions() noexcept;
-std::uint32_t GetJa2PendingTacticalCombatActions() noexcept;
 
 // Narrow legacy-facing hooks. Turn identity remains owned by the adapter and
 // is not exposed as another mutable JA2 global.

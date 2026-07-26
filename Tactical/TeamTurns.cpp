@@ -1,4 +1,5 @@
 	#include "types.h"
+#include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
 	#include "Animation Control.h"
 	#include "Points.h"
@@ -41,7 +42,6 @@
 #include "fresh_header.h"
 #include "connect.h"
 #include "Map Information.h"
-#include "TacticalWorldAdapter.h"
 
 
 #ifdef JA2UB
@@ -176,10 +176,10 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 
 	InitPlayerUIBar( FALSE );
 
-	if ( gTacticalStatus.uiFlags & TURNBASED )
+	if ( IsJa2TacticalTurnBased() )
 	{
 		// Are we in combat already?
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			PlayJA2Sample( ENDTURN_1, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 		}
@@ -202,7 +202,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 		//}
 
 		// Are we in combat already?
-		if ( gTacticalStatus.uiFlags & INCOMBAT )
+		if ( IsJa2TacticalCombatActive() )
 		{
 			if ( gusSelectedSoldier != NOBODY )
 			{
@@ -335,8 +335,8 @@ void EndTurn( UINT8 ubNextTeam )
 		FreezeInterfaceForEnemyTurn();
 
 		// Loop through all mercs and set to moved
-		SoldierID cnt = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-		for ( ; cnt <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++cnt )
+		SoldierID cnt = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+		for ( ; cnt <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++cnt )
 		{
 			pSoldier = cnt;
 			if ( pSoldier->bActive )
@@ -349,7 +349,7 @@ void EndTurn( UINT8 ubNextTeam )
 		
 		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
 
-		if(is_server || !is_client) BeginTeamTurn( gTacticalStatus.ubCurrentTeam );
+		if(is_server || !is_client) BeginTeamTurn( GetJa2TacticalCurrentTeam() );
 
 		// WANNE: Disabled Headrocks Experimental fix, because it causes assertion in AddPossiblePendingMilitiaToBattle();
 		// HEADROCK HAM 3.2: Experimental fix to force reinforcements enter battle with 0 APs.
@@ -386,8 +386,8 @@ void EndAITurn( void )
 	}
 	else
 	{
-		SoldierID cnt = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-		for ( ; cnt <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++cnt )
+		SoldierID cnt = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+		for ( ; cnt <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++cnt )
 		{
 			pSoldier = cnt;
 			if ( pSoldier->bActive )
@@ -400,7 +400,7 @@ void EndAITurn( void )
 		}
 
 		AdvanceJa2TacticalCurrentTeam();
-		BeginTeamTurn( gTacticalStatus.ubCurrentTeam );
+		BeginTeamTurn( GetJa2TacticalCurrentTeam() );
 	}
 }
 
@@ -417,10 +417,10 @@ void EndAllAITurns( void )
 		EndInterrupt( FALSE );
 	}
 
-	if ( gTacticalStatus.ubCurrentTeam != gbPlayerNum )
+	if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
 	{
-		SoldierID id = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-		for ( ; id <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++id )
+		SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+		for ( ; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id )
 		{
 			pSoldier = id;
 			if ( pSoldier->bActive )
@@ -434,7 +434,7 @@ void EndAllAITurns( void )
 		}
 
 		SetJa2TacticalCurrentTeam( gbPlayerNum );
-		//BeginTeamTurn( gTacticalStatus.ubCurrentTeam );
+		//BeginTeamTurn( GetJa2TacticalCurrentTeam() );
 		
 		gTacticalStatus.ubInterruptPending	= DISABLED_INTERRUPT;
 	}
@@ -578,7 +578,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration);
 
-		if ( gTacticalStatus.uiFlags & TURNBASED )
+		if ( IsJa2TacticalTurnBased() )
 		{
 			BeginLoggingForBleedMeToos( TRUE );
 
@@ -612,7 +612,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		{
 			// ATE: Check if we are still in a valid battle...
 			// ( they could have blead to death above )
-			if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+			if ( ( IsJa2TacticalCombatActive() ) )
 			{
 				extern BOOLEAN gfDedicatedServer;
 				// Coordinator host has no mercs and no UI to end a turn -- never run
@@ -766,7 +766,7 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 		return;
 	}
 #endif
-	if (gTacticalStatus.uiFlags & REALTIME || gTacticalStatus.uiFlags & INCOMBAT)
+	if (gTacticalStatus.uiFlags & REALTIME || IsJa2TacticalCombatActive())
 	{
 		// pointless call here; do nothing
 		return;
@@ -789,13 +789,13 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	{
 		// Dirty panel interface!
 		fInterfacePanelDirty = DIRTYLEVEL2;
-		if ( gTacticalStatus.ubCurrentTeam == CREATURE_TEAM && BloodcatsPresent() )
+		if ( GetJa2TacticalCurrentTeam() == CREATURE_TEAM && BloodcatsPresent() )
 		{
 			AddTopMessage( COMPUTER_TURN_MESSAGE, Message[ STR_BLOODCATS_TURN ] );
 		}
 		else
 		{
-			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ gTacticalStatus.ubCurrentTeam ] );
+			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ GetJa2TacticalCurrentTeam() ] );
 		}
 
 	}
@@ -1166,8 +1166,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 	}
 
 	// Loop through all mercs and see if any passed on this interrupt
-	SoldierID id = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-	for ( ; id <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++id )
+	SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+	for ( ; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id )
 	{
 		pTempSoldier = id;
 		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved && (pTempSoldier->bActionPoints == pTempSoldier->aiData.bIntStartAPs))
@@ -1215,7 +1215,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s and AI", TeamNameStrings[npSoldier->bTeam] );//tried to use pSoldier, but its not available. find another way to get correct team
 
 			}
-			else if ( is_server && gTacticalStatus.ubCurrentTeam == 1 )// resume AI interrupted and im server
+			else if ( is_server && GetJa2TacticalCurrentTeam() == 1 )// resume AI interrupted and im server
 			{
 				//hayden
 				send_interrupt( npSoldier );
@@ -1231,7 +1231,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 #ifdef	INTERRUPT_MP_DEADLOCK_FIX
 			//its our turn//else// pure client awarding interrupt resume //its our turn
-			else if ( gTacticalStatus.ubCurrentTeam == 0 )
+			else if ( GetJa2TacticalCurrentTeam() == 0 )
 #else
 			// pure client awarding interrupt resume
 			else
@@ -1296,8 +1296,8 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			// set everyone on the team to however they were set moved before the interrupt
 			// must do this before selecting soldier...
 			/*
-			cnt = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID;
-			for ( pTempSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; cnt++,pTempSoldier++)
+			cnt = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
+			for ( pTempSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; cnt++,pTempSoldier++)
 			{
 				if ( pTempSoldier->bActive )
 				{
@@ -1407,7 +1407,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 			// rebuild list for this team if anyone on the team is still available
 			SoldierID id = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
-			for ( ; id <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++id )
+			for ( ; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id )
 			{
 				pTempSoldier = id;
 				if ( pTempSoldier->bActive && pTempSoldier->bInSector && pTempSoldier->stats.bLife >= OKLIFE )
@@ -1422,7 +1422,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				// reset found flag because we are rebuilding the AI list
 				fFound = FALSE;
 
-				if ( BuildAIListForTeam( gTacticalStatus.ubCurrentTeam ) )
+				if ( BuildAIListForTeam( GetJa2TacticalCurrentTeam() ) )
 				{
 					// now bubble up everyone left in the interrupt queue, starting
 					// at the front of the array
@@ -1444,13 +1444,13 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			if (fFound)
 			{
 				// back to the computer!
-				if ( gTacticalStatus.ubCurrentTeam == CREATURE_TEAM && BloodcatsPresent() )
+				if ( GetJa2TacticalCurrentTeam() == CREATURE_TEAM && BloodcatsPresent() )
 				{
 					AddTopMessage( COMPUTER_TURN_MESSAGE, Message[ STR_BLOODCATS_TURN ] );
 				}
 				else
 				{
-					AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ gTacticalStatus.ubCurrentTeam ] );
+					AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ GetJa2TacticalCurrentTeam() ] );
 				}
 
 				// Signal UI done enemy's turn
@@ -1468,13 +1468,13 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			else
 			{
 				// back to the computer!
-				if ( gTacticalStatus.ubCurrentTeam == CREATURE_TEAM && BloodcatsPresent() )
+				if ( GetJa2TacticalCurrentTeam() == CREATURE_TEAM && BloodcatsPresent() )
 				{
 					AddTopMessage( COMPUTER_TURN_MESSAGE, Message[ STR_BLOODCATS_TURN ] );
 				}
 				else
 				{
-					AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ gTacticalStatus.ubCurrentTeam ] );
+					AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ GetJa2TacticalCurrentTeam() ] );
 				}
 
 				// Signal UI done enemy's turn
@@ -1497,7 +1497,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		{
 	
 			SetJa2TacticalCurrentTeam( pSoldier->bTeam );
-			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ gTacticalStatus.ubCurrentTeam ] );
+			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ GetJa2TacticalCurrentTeam() ] );
 			if(is_client)
 			{
 				guiPendingOverrideEvent = LA_BEGINUIOURTURNLOCK;
@@ -1521,12 +1521,12 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		if (is_networked)
 		{
 			// Only allow fast forward mode on enemy team!
-			SetFastForwardMode( (gTacticalStatus.ubCurrentTeam == ENEMY_TEAM) );
+			SetFastForwardMode( (GetJa2TacticalCurrentTeam() == ENEMY_TEAM) );
 		}
 		else
 		{
 			// Allow fast forward mode on all teams except our team!
-			SetFastForwardMode( (gTacticalStatus.ubCurrentTeam != OUR_TEAM) );
+			SetFastForwardMode( (GetJa2TacticalCurrentTeam() != OUR_TEAM) );
 		}	
 	}
 }
@@ -1545,12 +1545,12 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	// grants at most one at a time, so the out-of-turn stack can't diverge. To go
 	// back to interrupt-free combat, restore `if (is_networked) return FALSE;` here.
 
-	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) && !(gubSightFlags & SIGHT_INTERRUPT) )
+	if ( IsJa2TacticalTurnBasedCombat() && !(gubSightFlags & SIGHT_INTERRUPT) )
 	{
 		return( FALSE );
 	}
 
-	if ( gTacticalStatus.ubAttackBusyCount > 0 )
+	if ( GetJa2PendingTacticalCombatActions() > 0 )
 	{
 		return( FALSE );
 	}
@@ -1602,10 +1602,10 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 	// in non-combat allow interrupt points to be calculated freely (everyone's in control!)
 	// also allow calculation for storing in AllTeamsLookForAll
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) && ( gubBestToMakeSightingSize != BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL ) )
+	if ( (IsJa2TacticalCombatActive()) && ( gubBestToMakeSightingSize != BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL ) )
 	{
 		// if his team's already in control
-		if (pSoldier->bTeam == gTacticalStatus.ubCurrentTeam )
+		if (pSoldier->bTeam == GetJa2TacticalCurrentTeam() )
 		{
 			// if this is a player's a merc or civilian
 			if ((pSoldier->flags.uiStatusFlags & SOLDIER_PC) || PTR_CIVILIAN)
@@ -1754,7 +1754,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		*/
 
 		// an non-active soldier can't interrupt a soldier who is also non-active!
-		if ((pOpponent->bTeam != gTacticalStatus.ubCurrentTeam) && (pSoldier->bTeam != gTacticalStatus.ubCurrentTeam))
+		if ((pOpponent->bTeam != GetJa2TacticalCurrentTeam()) && (pSoldier->bTeam != GetJa2TacticalCurrentTeam()))
 		{
 			return(FALSE);
 		}
@@ -1919,7 +1919,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 	// if we are in combat mode - thus doing an interrupt rather than determine who gets first turn -
 	// then give bonus
-	if ( (gTacticalStatus.uiFlags & INCOMBAT) && (pSoldier->bTeam != gTacticalStatus.ubCurrentTeam) )
+	if ( (IsJa2TacticalCombatActive()) && (pSoldier->bTeam != GetJa2TacticalCurrentTeam()) )
 	{
 		// passive player gets penalty due to range
 		iPoints -= (ubDistance / 10);
@@ -2371,7 +2371,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 
 				}
 				// INTERRUPT is calculated on the server
-				else if(is_server && gTacticalStatus.ubCurrentTeam == 1)//  against ai and are server
+				else if(is_server && GetJa2TacticalCurrentTeam() == 1)//  against ai and are server
 				{
 					//hayden
 					send_interrupt( npSoldier ); //
@@ -2383,7 +2383,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"AI is interrupted by %s", TeamNameStrings[npSoldier->bTeam]);
 				}
 				// INTERRUPT is calculated on the pure client
-				else if(gTacticalStatus.ubCurrentTeam == 0)//its our turn (we are moving)
+				else if(GetJa2TacticalCurrentTeam() == 0)//its our turn (we are moving)
 				{																	
 #ifdef	INTERRUPT_MP_DEADLOCK_FIX
 					// Do nothing
@@ -2444,7 +2444,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 
 	AssertNotNIL(pSoldier);
 
-	if ( (gTacticalStatus.uiFlags & TURNBASED) && (gTacticalStatus.uiFlags & INCOMBAT) )
+	if ( IsJa2TacticalTurnBasedCombat() )
 	{
 		ubIntCnt = 0;
 
@@ -2564,11 +2564,11 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 			// victim's screaming...	the guy screaming is pSoldier here, it's not his turn!
 			//AddToIntList( (UINT8) gusSelectedSoldier, FALSE, TRUE);
 
-			if ( (gTacticalStatus.ubCurrentTeam != pSoldier->bTeam) && !(gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bHuman) )
+			if ( (GetJa2TacticalCurrentTeam() != pSoldier->bTeam) && !(gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bHuman) )
 			{
 				// if anyone on this team is under AI control, remove
 				// their AI control flag and put them on the queue instead of this guy
-				for ( SoldierID id = gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bFirstID; id <= gTacticalStatus.Team[ gTacticalStatus.ubCurrentTeam ].bLastID; ++id)
+				for ( SoldierID id = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID; id <= gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bLastID; ++id)
 				{
 					if ( id->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
 					{

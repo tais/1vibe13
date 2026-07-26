@@ -1,4 +1,5 @@
 #include "stdlib.h"
+#include "TacticalWorldAdapter.h"
 #include "DEBUG.H"
 #include "MemMan.h"
 #include "Overhead Types.h"
@@ -1544,7 +1545,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 477:
 
 				// CODE: Locate to target ( if an AI guy.. )
-				if ( gTacticalStatus.uiFlags & TURNBASED && (gTacticalStatus.uiFlags & INCOMBAT ) )
+				if ( IsJa2TacticalTurnBasedCombat() )
 				{
 					if ( pSoldier->bTeam != gbPlayerNum )
 					{
@@ -1616,8 +1617,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									// cancelled.  So if we indeed need to keep the attack busy (which may not be the case),
 									// we will need to find a more reliable method.  For now, I'm going to cancel out the
 									// ABC adjustment here and we'll see if there needs to be something in its place.
-									//gTacticalStatus.ubAttackBusyCount++;
-									DebugAttackBusy( String( "Soldier turning from a hit.  Not Increasing attack busy.  Now %d\n", gTacticalStatus.ubAttackBusyCount ) );
+									//GetJa2PendingTacticalCombatActions()++;
+									DebugAttackBusy( String( "Soldier turning from a hit.  Not Increasing attack busy.  Now %d\n", GetJa2PendingTacticalCombatActions() ) );
 
 									// Pick evenly between both
 									if ( Random( 50 ) < 25 )
@@ -1865,7 +1866,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										if ( ( pAnimDef->ubFlags & RANDOM_ANIM_CASUAL ) )
 										{
 											// If he's a bad guy, do not do it!
-											if ( pSoldier->bTeam != gbPlayerNum	|| ( gTacticalStatus.uiFlags & INCOMBAT ) )
+											if ( pSoldier->bTeam != gbPlayerNum	|| ( IsJa2TacticalCombatActive() ) )
 											{
 												continue;
 											}
@@ -1928,7 +1929,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 													{
 														if ( Random( 10 ) == 1 )
 														{
-															if ( ( gTacticalStatus.uiFlags & INCOMBAT ) && pSoldier->bVisible == -1 )
+															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->bVisible == -1 )
 															{
 																// DO this every 10th time or so...
 																if ( Random( 100 ) < 10 )
@@ -1951,7 +1952,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 													{
 														if ( Random( 4 ) == 1 )
 														{
-															if ( ( gTacticalStatus.uiFlags & INCOMBAT ) && pSoldier->bVisible == -1 )
+															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->bVisible == -1 )
 															{
 																// DO this every 10th time or so...
 																if ( Random( 100 ) < 10 )
@@ -1992,7 +1993,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 															continue;
 														}
 														// these funny moves are not likely to be used in combat
-														if ( ( gTacticalStatus.uiFlags & INCOMBAT ) )
+														if ( ( IsJa2TacticalCombatActive() ) )
 														{
 															if ( pSoldier->aiData.bMorale < 95 ) // .. unless we are really confident about ourselves
 															{ 
@@ -2010,7 +2011,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 														}
 													}
 													// generally make funny moves less common in combat, we need to focus!
-													if ( ( gTacticalStatus.uiFlags & INCOMBAT ) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_INJURED )) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_DRUNK )) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_LOOKAROUND )) )
+													if ( ( IsJa2TacticalCombatActive() ) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_INJURED )) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_DRUNK )) && !( pAnimDef->ubFlags & ( RANDOM_ANIM_LOOKAROUND )) )
 													{
 														if ( Random( 3 ) == 1 )
 															continue;
@@ -2382,7 +2383,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					if ( pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER )
 					{
-						if ( pSoldier->usAnimState == AI_PULL_SWITCH && gTacticalStatus.ubAttackBusyCount == 0 && gubElementsOnExplosionQueue == 0 )
+						if ( pSoldier->usAnimState == AI_PULL_SWITCH && GetJa2PendingTacticalCombatActions() == 0 && gubElementsOnExplosionQueue == 0 )
 						{
 							FreeUpNPCFromPendingAction( pSoldier );
 						}
@@ -2503,7 +2504,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE ) && 
 						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON ) )
 					{
-						if ( gTacticalStatus.ubAttackBusyCount == 0 )
+						if ( GetJa2PendingTacticalCombatActions() == 0 )
 						{
 							// OK, UNSET INTERFACE FIRST
 							UnSetUIBusy( pSoldier->ubID );
@@ -2515,7 +2516,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STANCECHANGEANIM)
 					{
 						if ( pSoldier->usPendingAnimation == NO_PENDING_ANIMATION && 
-							gTacticalStatus.ubAttackBusyCount == 0 && 
+							GetJa2PendingTacticalCombatActions() == 0 &&
 							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE && 
 							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON )
 						{
@@ -3141,8 +3142,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 757:
 
 				// INcrement attacker busy count....
-//				gTacticalStatus.ubAttackBusyCount++;
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!! Incrementing attacker busy count..., CODE FROM ANIMATION %s ( %d ) : Count now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, pSoldier->usAnimState, gTacticalStatus.ubAttackBusyCount ) );
+//				GetJa2PendingTacticalCombatActions()++;
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!! Incrementing attacker busy count..., CODE FROM ANIMATION %s ( %d ) : Count now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, pSoldier->usAnimState, GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( String("!!!!! CODE FROM ANIMATION %s ( %d )\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr, pSoldier->usAnimState ) );
 				break;
 
@@ -4016,7 +4017,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 				// IF this guy has an attacker and he's a good guy, play sound
 				if ( pSoldier->ubAttackerID < NOBODY )
 				{								
-					if ( pSoldier->ubAttackerID->bTeam == gbPlayerNum && gTacticalStatus.ubAttackBusyCount > 0 )
+					if ( pSoldier->ubAttackerID->bTeam == gbPlayerNum && GetJa2PendingTacticalCombatActions() > 0 )
 					{
 						gTacticalStatus.fKilledEnemyOnAttack	= TRUE;
 						gTacticalStatus.ubEnemyKilledOnAttack = pSoldier->ubID;
@@ -4943,7 +4944,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 	HandleSight( pSoldier, SIGHT_LOOK );
 
 	// ATE: If it is our turn, make them try to getup...
-	if ( gTacticalStatus.ubCurrentTeam == pSoldier->bTeam )
+	if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam )
 	{
 		// Try to getup...
 		pSoldier->BeginSoldierGetup( );
@@ -4996,7 +4997,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 	pSoldier->bCollapsed = TRUE;
 
 	// ATE: If it is our turn, make them try to getup...
-	if ( gTacticalStatus.ubCurrentTeam == pSoldier->bTeam )
+	if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam )
 	{
 		// Try to getup...
 		pSoldier->BeginSoldierGetup( );
