@@ -264,8 +264,12 @@ than independent flat `SOLDIERTYPE` fields. This component is not exposed
 through the SDK and is deliberately absent from soldier persistence. Serialized
 health, maximum health, breath, maximum breath, and bleeding are now privately
 owned by `SoldierVitalsComponent`; the explicit serializer retains their
-established save byte positions. Position remains behind a compatibility view.
-Neither component changes content, map, packet, or save schemas.
+established save byte positions. Current tactical grid, elevation, and facing
+are privately owned by `SoldierPositionComponent` as the next persistent
+storage domain, with zero-cost reference accessors for the application hot
+paths. Old-save conversion and explicit persistence retain the established
+field order. Neither component changes content, map, packet, Lua, or save
+schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is
