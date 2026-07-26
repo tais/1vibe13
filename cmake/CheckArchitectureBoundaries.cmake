@@ -273,6 +273,8 @@ set(runtime_campaign_selection_files
   "${SOURCE_ROOT}/Strategic/Map Screen Interface Bottom.h"
   "${SOURCE_ROOT}/Strategic/MapScreen Quotes.cpp"
   "${SOURCE_ROOT}/Strategic/Player Command.cpp"
+  "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
+  "${SOURCE_ROOT}/Strategic/Quests.cpp"
   "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.cpp"
   "${SOURCE_ROOT}/Strategic/strategicmap.h"
@@ -396,6 +398,53 @@ foreach(required_runtime_group_movement_fragment IN ITEMS
   endif()
 endforeach()
 
+file(READ "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
+  runtime_campaign_queen_rules_contents)
+foreach(required_runtime_queen_rule_fragment IN ITEMS
+    "pSoldier->ubProfile == MORRIS_UB"
+    "HandleBloodCatDeaths"
+    "CalculateMaximumPrisonerAmount"
+    "useUnfinishedBusinessGridNo"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_queen_rules_contents}"
+    "${required_runtime_queen_rule_fragment}" runtime_queen_rule_fragment_position)
+  if(runtime_queen_rule_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Queen-command rules lost runtime campaign selection; missing '${required_runtime_queen_rule_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Strategic/Quests.cpp"
+  runtime_campaign_quest_rules_contents)
+foreach(required_runtime_quest_rule_fragment IN ITEMS
+    "CampaignProfileCode::Role::Slay"
+    "QUEST_DESTROY_MISSLES"
+    "JA25_EMAIL_PILOT_MISSING"
+    "HandlePOWQuestState"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_quest_rules_contents}"
+    "${required_runtime_quest_rule_fragment}" runtime_quest_rule_fragment_position)
+  if(runtime_quest_rule_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Quest/fact rules lost runtime campaign selection; missing '${required_runtime_quest_rule_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Laptop/laptop.cpp"
+  runtime_campaign_laptop_recovery_contents)
+foreach(required_runtime_laptop_recovery_fragment IN ITEMS
+    "JA2_EMAIL_IMP_AGAIN"
+    "JA25_EMAIL_IMP_AGAIN"
+    "ShouldImpReminderEmailBeSentWhenLaptopBackOnline"
+    "GetGameContext().capabilities().isUnfinishedBusiness()")
+  string(FIND "${runtime_campaign_laptop_recovery_contents}"
+    "${required_runtime_laptop_recovery_fragment}" runtime_laptop_recovery_fragment_position)
+  if(runtime_laptop_recovery_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Laptop quest recovery lost runtime campaign selection; missing '${required_runtime_laptop_recovery_fragment}'")
+  endif()
+endforeach()
+
 file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement Costs.cpp"
   runtime_campaign_movement_cost_contents)
 foreach(required_runtime_movement_cost_fragment IN ITEMS
@@ -476,6 +525,10 @@ foreach(required_runtime_sector_email_fragment IN ITEMS
     "JA25_EMAIL_MIGUEL_MANUEL = 28"
     "JA25_EMAIL_MIGUEL_SICK = 32"
     "JA25_EMAIL_PILOT_FOUND = 42"
+    "JA25_EMAIL_PILOT_MISSING = 8"
+    "JA25_EMAIL_AIM_PROMOTION_1 = 184"
+    "JA25_EMAIL_AIM_REPLY_BARRY = 98"
+    "JA2_EMAIL_AIM_REPLY_BARRY = 58"
     "JA25_MAIL_MIGUEL = 51")
   string(FIND "${runtime_campaign_sector_email_contents}"
     "${required_runtime_sector_email_fragment}" runtime_sector_email_fragment_position)
