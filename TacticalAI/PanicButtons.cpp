@@ -7,6 +7,7 @@
 	#include "Map Screen Interface Map.h"
 	#include "Soldier Profile.h"
 	#include "Quests.h"
+	#include "SoldierRepository.h"
 
 #include "Queen Command.h"
 
@@ -162,7 +163,8 @@ void MakeClosestEnemyChosenOne()
 		NumMessage("TEST MSG: The chosen one is ",TheChosenOne);
 #endif
 
-		pSoldier = gTacticalStatus.ubTheChosenOne;
+		pSoldier = GetJa2SoldierRepository().resolve(
+			gTacticalStatus.ubTheChosenOne.i);
 		if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
 		{
 			pSoldier->aiData.bAlertStatus = STATUS_RED;

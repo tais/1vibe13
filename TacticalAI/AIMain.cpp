@@ -52,6 +52,7 @@
 #include "Soldier Functions.h" // added by SANDRO
 #include "Text.h"	// sevenfm
 #include "english.h" // sevenfm: for ESC key
+#include "SoldierRepository.h"
 
 #include "connect.h"
 // needed to use the modularized tactical AI:
@@ -889,7 +890,8 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 		// search for any player merc to say close call quote
 		for ( SoldierID ubID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubID )
 		{
-			SOLDIERTYPE *pMerc = ubID;
+			SOLDIERTYPE *pMerc =
+				GetJa2SoldierRepository().resolve(ubID.i);
 
 			if ( OK_INSECTOR_MERC( pMerc ) )
 			{
@@ -946,7 +948,8 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 		SoldierID ubID = RemoveFirstAIListEntry();
 		if (ubID != NOBODY)
 		{
-			StartNPCAI( ubID );
+			StartNPCAI(
+				GetJa2SoldierRepository().resolve(ubID.i) );
 			return;
 		}
 
@@ -972,9 +975,10 @@ void EndAIDeadlock(void)
 	// ESCAPE ENEMY'S TURN
 
 	// find enemy with problem and free him up...
-	for (cnt=0,pSoldier=Menptr; cnt < MAXMERCS; cnt++,pSoldier++)
+	for (cnt = 0; cnt < MAXMERCS; cnt++)
 	{
-		if ( pSoldier->bActive && pSoldier->bInSector )
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
 			if (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
 			{
@@ -1127,8 +1131,8 @@ BOOLEAN DestNotSpokenFor(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	// make a list of all of our team's mercs
 	for ( ; cnt <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++cnt )
 	{
-		pOurTeam = cnt;
-		if ( pOurTeam->bActive )
+		pOurTeam = GetJa2SoldierRepository().resolve(cnt.i);
+		if ( pOurTeam && pOurTeam->bActive )
 		{
 			if (pOurTeam->position().gridNo() == sGridNo || pOurTeam->aiData.usActionData == sGridNo)
 				return(FALSE);
@@ -1259,8 +1263,12 @@ void FreeUpNPCFromPendingAction( 	SOLDIERTYPE *pSoldier )
 
 void FreeUpNPCFromAttacking(SoldierID ubID)
 {
-	ActionDone(ubID);
-	ubID->pathing.bNeedToLook = TRUE;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubID.i);
+	if ( !soldier )
+		return;
+	ActionDone(soldier);
+	soldier->pathing.bNeedToLook = TRUE;
 }
 
 void FreeUpNPCFromLoweringGun( SOLDIERTYPE *pSoldier )
@@ -2623,7 +2631,10 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             usSoldierIndex = WhoIsThere2( pSoldier->aiData.usActionData, pSoldier->bTargetLevel);
             if ( usSoldierIndex != NOBODY )
 			{
-                MercStealFromMerc( pSoldier, usSoldierIndex );
+                MercStealFromMerc(
+					pSoldier,
+					GetJa2SoldierRepository().resolve(
+						usSoldierIndex.i) );
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_STEAL, usSoldierIndex );
 			}
 

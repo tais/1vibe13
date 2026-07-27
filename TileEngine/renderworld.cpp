@@ -24,6 +24,7 @@
 	#include "LogicalBodyTypes/BodyTypeDB.h"
 
 #include "Utilities.h"
+#include "SoldierRepository.h"
 
 #include <Engine/Adapters/Legacy/LegacyRenderCommandGateway.h>
 #include <Engine/Adapters/Legacy/LegacyRenderSurfaceGateway.h>
@@ -1795,7 +1796,9 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			SOLDIERTYPE * pSelSoldier;
 			if (gusSelectedSoldier != NOBODY)
 			{
-				pSelSoldier = gusSelectedSoldier;
+				pSelSoldier =
+					GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i);
 			}
 			else
 			{
@@ -1832,7 +1835,10 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			}
 			// Set shade
 			// If a bad guy is highlighted
-			if (gfUIHandleSelectionAboveGuy == TRUE && gsSelectedGuy->bSide != gbPlayerNum)
+			SOLDIERTYPE* selectedGuy =
+				GetJa2SoldierRepository().resolve(gsSelectedGuy.i);
+			if (gfUIHandleSelectionAboveGuy == TRUE &&
+				selectedGuy && selectedGuy->bSide != gbPlayerNum)
 			{
 				if (gsSelectedGuy == pSoldier->ubID)
 				{

@@ -14,6 +14,7 @@
 	// added by SANDRO
 	#include "Soldier Profile.h"
 	#include "GameSettings.h"
+	#include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -55,12 +56,18 @@ BOOLEAN FindAutobandageClimbPoint( INT32 sDesiredGridNo, BOOLEAN fClimbUp )
 	for ( ubLoop = 0; ubLoop < ubNumClimbSpots; ubLoop++ )
 	{
 		ubWhoIsThere = WhoIsThere2( pBuilding->sUpClimbSpots[ ubLoop ], 1 );
-		if ( ubWhoIsThere != NOBODY && !CanCharacterAutoBandageTeammate( ubWhoIsThere ) )
+		if ( ubWhoIsThere != NOBODY &&
+			!CanCharacterAutoBandageTeammate(
+				GetJa2SoldierRepository().resolve(
+					ubWhoIsThere.i) ) )
 		{
 			continue;
 		}
 		ubWhoIsThere = WhoIsThere2( pBuilding->sDownClimbSpots[ ubLoop ], 0 );
-		if ( ubWhoIsThere != NOBODY && !CanCharacterAutoBandageTeammate( ubWhoIsThere ) )
+		if ( ubWhoIsThere != NOBODY &&
+			!CanCharacterAutoBandageTeammate(
+				GetJa2SoldierRepository().resolve(
+					ubWhoIsThere.i) ) )
 		{
 			continue;
 		}
@@ -92,7 +99,8 @@ BOOLEAN FullPatientCheck( SOLDIERTYPE * pPatient )
 		SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(cnt.i);
 			// can this character help out?
 			if ( CanCharacterAutoBandageTeammate( pSoldier ) == TRUE )
 			{
@@ -128,7 +136,8 @@ BOOLEAN CanAutoBandage( BOOLEAN fDoFullCheck )
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
 		// can this character help out?
-		if( CanCharacterAutoBandageTeammate( cnt ) == TRUE )
+		if( CanCharacterAutoBandageTeammate(
+			GetJa2SoldierRepository().resolve(cnt.i) ) == TRUE )
 		{
 			// yep, up the number of medics in sector
 			ubMedics++;
@@ -144,7 +153,8 @@ BOOLEAN CanAutoBandage( BOOLEAN fDoFullCheck )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		// can this character be helped out by a teammate?
 		if ( CanCharacterBeAutoBandagedByTeammate( pSoldier ) == TRUE )
 		{
@@ -246,8 +256,10 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 	SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
-		pPatient = cnt;
-		if ( !(pPatient->bActive) || !(pPatient->bInSector) )
+		pPatient =
+			GetJa2SoldierRepository().resolve(cnt.i);
+		if ( !pPatient || !(pPatient->bActive) ||
+			!(pPatient->bInSector) )
 		{
 			continue; // NEXT!!!
 		}
@@ -311,7 +323,10 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 							{
 								// only switch to this patient if our distance is closer than
 								// the other medic's
-								pOtherMedic = pPatient->ubAutoBandagingMedic;
+				pOtherMedic = GetJa2SoldierRepository().resolve(
+					pPatient->ubAutoBandagingMedic.i);
+				if ( !pOtherMedic )
+					continue;
 								sOtherAdjacentGridNo = FindAdjacentGridEx( pOtherMedic, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
 								if (sOtherAdjacentGridNo != -1)
 								{
@@ -379,8 +394,13 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 		if (pBestPatient->ubAutoBandagingMedic != NOBODY)
 		{
 			// cancel that medic
-			DebugAI(AI_MSG_INFO, pBestPatient->ubAutoBandagingMedic, String("CancelAIAction: medic: find patient"));
-			CancelAIAction( pBestPatient->ubAutoBandagingMedic, TRUE );
+			SOLDIERTYPE* previousMedic =
+				GetJa2SoldierRepository().resolve(
+					pBestPatient->ubAutoBandagingMedic.i);
+			DebugAI(AI_MSG_INFO, previousMedic,
+				String("CancelAIAction: medic: find patient"));
+			if ( previousMedic )
+				CancelAIAction( previousMedic, TRUE );
 		}
 		pBestPatient->ubAutoBandagingMedic = pSoldier->ubID;
 		*pfDoClimb = FALSE;
@@ -481,8 +501,11 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 	SoldierID cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
-		pMedic = cnt;
-		if ( !(pMedic->bActive) || !(pMedic->bInSector) || ( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pMedic->bAssignment == VEHICLE ) )
+		pMedic = GetJa2SoldierRepository().resolve(cnt.i);
+		if ( !pMedic || !(pMedic->bActive) ||
+			!(pMedic->bInSector) ||
+			( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
+			(pMedic->bAssignment == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue; // NEXT!!!

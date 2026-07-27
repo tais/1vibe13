@@ -40,6 +40,7 @@
 	#include "LoadScreen.h"//dnl ch30 150909
 	#include "Interface Cursors.h"
 	#include "Simple Render Utils.h"//dnl ch54 111009
+#include "SoldierRepository.h"
 	#include "Interface.h"
 ///ddd
 	#include "GameSettings.h"
@@ -3328,7 +3329,10 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 	// CHECK IF OUR SELECTED GUY IS GONE!
 	if(gusSelectedSoldier != NOBODY)
 	{
-		if(gusSelectedSoldier->bActive == FALSE)
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(
+				gusSelectedSoldier.i);
+		if(!selectedSoldier || selectedSoldier->bActive == FALSE)
 			gusSelectedSoldier = NOBODY;
 	}
 	RenderProgressBar(0, 60);
@@ -3425,9 +3429,10 @@ void TrashWorld( void )
 	//cnt = gTacticalStatus.Team[ gbPlayerNum ].bLastID + 1;
 	cnt = 0;
 
-	for ( pSoldier = MercPtrs[ cnt ]; cnt < MAX_NUM_SOLDIERS; pSoldier++, cnt++ )
+	for ( ; cnt < MAX_NUM_SOLDIERS; cnt++ )
 	{
-		if ( pSoldier->bActive )
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if ( pSoldier && pSoldier->bActive )
 		{
 			if ( pSoldier->bTeam == gbPlayerNum )
 			{

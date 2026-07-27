@@ -28,6 +28,7 @@
 	#include "Shade Table Util.h"
 	#include "Rotting Corpses.h"
 	#include "PATHAI.H"
+#include "SoldierRepository.h"
 
 #define LVL1_L1_PER			(50)
 #define LVL1_L2_PER			(50)
@@ -310,7 +311,12 @@ UINT32 uiCount;
 	// Loop through mercs and reset light value
 	for ( uiCount = 0; uiCount < MAX_NUM_SOLDIERS; uiCount++ )
 	{
-		MercPtrs[ uiCount ]->iLight = -1;
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(uiCount);
+		if (soldier)
+		{
+			soldier->iLight = -1;
+		}
 	}
 
 	return(TRUE);

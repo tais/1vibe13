@@ -35,6 +35,7 @@
 #include "Exit Grids.h"		// added by Flugente
 #include "Game Clock.h"		// sevenfm
 #include "SkillCheck.h"		// sevenfm
+#include "SoldierRepository.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -765,7 +766,12 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 							SOLDIERTYPE	*pTeamSoldier;
 							for ( SoldierID bLoop=gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
 							{
-								pTeamSoldier = bLoop;
+								pTeamSoldier =
+									GetJa2SoldierRepository().resolve(bLoop.i);
+								if (!pTeamSoldier)
+								{
+									continue;
+								}
 
 								if (pTeamSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL)
 									pTeamSoldier->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
@@ -955,6 +961,8 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
 			if ( ubPerson == pSoldier->ubID )
@@ -969,12 +977,12 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 
 				return(AI_ACTION_DOCTOR_SELF);
 			}
-			else if ( ubPerson != NOBODY )
+			else if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) < 2 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 				{
 					// see if we are facing this person
-					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), ubPerson->position().gridNo());
+					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), person->position().gridNo());
 
 					// if not already facing in that direction,
 					if ( pSoldier->position().direction() != ubDesiredMercDir )
@@ -996,7 +1004,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 				}
 				else
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -1009,12 +1017,14 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) > 1 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) > 1 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -1029,13 +1039,15 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->bTeam, SOLDIER_VIP, FALSE );
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
 				// we want to stay close to him, but still be able to function properly... stay withing a 7-tile radius
-				if ( SpacesAway( pSoldier->position().gridNo(), ubPerson->position().gridNo() ) > 7 )
+				if ( SpacesAway( pSoldier->position().gridNo(), person->position().gridNo() ) > 7 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
 
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )
 					{
@@ -1665,17 +1677,19 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		if ( gGameExternalOptions.fAllowPrisonerSystem && pSoldier->bTeam == ENEMY_TEAM )
 		{
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 20, ENEMY_TEAM, SOLDIER_POW, TRUE );
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
 				// if we are close, we can release this guy
 				// possible only if not handcuffed (binders can be opened, handcuffs not)
-				if ( !HasItemFlag( (&(ubPerson->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+				if ( !HasItemFlag( (&(person->inv[HANDPOS]))->usItem, HANDCUFFS ) )
 				{
-					if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) < 2 )
+					if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 					{
 						// see if we are facing this person
-						UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), ubPerson->position().gridNo());
+						UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), person->position().gridNo());
 
 						// if not already facing in that direction,
 						if ( pSoldier->position().direction() != ubDesiredMercDir )
@@ -1689,7 +1703,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 					}
 					else
 					{
-						pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+						pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 						if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 						{
@@ -1709,6 +1723,8 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
 			if ( ubPerson == pSoldier->ubID )
@@ -1723,12 +1739,12 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 
 				return(AI_ACTION_DOCTOR_SELF);
 			}
-			else if ( ubPerson != NOBODY )
+			else if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) < 2 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 				{
 					// see if we are facing this person
-					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), ubPerson->position().gridNo());
+					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), person->position().gridNo());
 
 					// if not already facing in that direction,
 					if ( pSoldier->position().direction() != ubDesiredMercDir )
@@ -1750,7 +1766,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				}
 				else
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -1763,12 +1779,14 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) > 1 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) > 1 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -1783,13 +1801,15 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->bTeam, SOLDIER_VIP, FALSE );
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
 				// we want to stay close to him, but still be able to function properly... stay withing a 7-tile radius
-				if ( SpacesAway( pSoldier->position().gridNo(), ubPerson->position().gridNo() ) > 7 )
+				if ( SpacesAway( pSoldier->position().gridNo(), person->position().gridNo() ) > 7 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
 
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )
 					{
@@ -2892,13 +2912,16 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 			if (BestThrow.ubPossible)
 			{
+				SOLDIERTYPE* bestThrowOpponent =
+					GetJa2SoldierRepository().resolve(
+						BestThrow.ubOpponent.i);
 				DebugAI(AI_MSG_INFO, pSoldier, String("prepare throw at spot %d level %d aimtime %d", BestThrow.sTarget, BestThrow.bTargetLevel, BestThrow.ubAimTime));
 
 				// start retreating for several turns
-				if (BestThrow.ubOpponent != NOBODY && !BestThrow.ubOpponent->IsFlanking())
+				if (bestThrowOpponent && !bestThrowOpponent->IsFlanking())
 				{
 					DebugAI(AI_MSG_INFO, pSoldier, String("start retreat counter for %d", BestThrow.ubOpponent));
-					BestThrow.ubOpponent->RetreatCounterStart(2);
+					bestThrowOpponent->RetreatCounterStart(2);
 				}
 
 				// if necessary, swap the usItem from holster into the hand position
@@ -2939,6 +2962,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			// sevenfm: set bAimShotLocation
 			pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
 			CheckIfShotPossible(pSoldier, &BestShot);
+			SOLDIERTYPE* bestShotOpponent =
+				GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
 			DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("decideactionred: is sniper shot possible? = %d, CTH = %d", BestShot.ubPossible, BestShot.ubChanceToReallyHit));
 
 			if (BestShot.ubPossible && BestShot.ubChanceToReallyHit > 50)
@@ -3039,8 +3064,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				BestShot.bWeaponIn != -1 &&
 				// check valid target
 				!TileIsOutOfBounds(BestShot.sTarget) &&
-				BestShot.ubOpponent != NOBODY &&
-				Chance(100 - BestShot.ubOpponent->ShockLevelPercent() / 2) &&
+				bestShotOpponent &&
+				Chance(100 - bestShotOpponent->ShockLevelPercent() / 2) &&
 				// check weapon/ammo requirements
 				IsGunAutofireCapable(&pSoldier->inv[BestShot.bWeaponIn]) &&
 				GetMagSize(&pSoldier->inv[BestShot.bWeaponIn]) >= gGameExternalOptions.ubAISuppressionMinimumMagSize &&
@@ -3057,16 +3082,16 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				!fCanBeSeen && NightLight() && CountFriendsFlankSameSpot(pSoldier, sClosestOpponent) && Chance(50) ||
 				ARMED_VEHICLE(pSoldier) ||																		// tanks don't need cover
 				ENEMYROBOT(pSoldier) || // robots don't try to be in cover
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || BestShot.ubOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
 				Chance((BestShot.ubChanceToReallyHit + 100) / 2) ||											// 50% chance to fire without cover
 				//SoldierToSoldierLineOfSightTest(pSoldier, BestShot.ubOpponent, TRUE, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
-				LOS_Raised(pSoldier, BestShot.ubOpponent, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
+				LOS_Raised(pSoldier, bestShotOpponent, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
 				// reduce chance to shoot if target is beyond weapon range
 				(AICheckIsMachinegunner(pSoldier) ||
 				ARMED_VEHICLE(pSoldier) ||
 				ENEMYROBOT(pSoldier) ||
 				AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) ||
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || BestShot.ubOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
 				(PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget)))) &&
 				// check that we have spare ammo
 				(fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))
@@ -3160,7 +3185,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						DebugAI(AI_MSG_INFO, pSoldier, String("Change stance before shooting"));
 
 						// show "suppression fire" message only if opponent cannot be seen after turning
-						if (!LOS_Raised(pSoldier, BestShot.ubOpponent, CALC_FROM_ALL_DIRS))
+						if (!LOS_Raised(pSoldier, bestShotOpponent, CALC_FROM_ALL_DIRS))
 							ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SUPPRESSIONFIRE]);
 						
 						return(AI_ACTION_CHANGE_STANCE);
@@ -3170,7 +3195,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						pSoldier->aiData.usActionData = BestShot.sTarget;
 
 						// show "suppression fire" message only if opponent cannot be seen after turning
-						if (!LOS_Raised(pSoldier, BestShot.ubOpponent, CALC_FROM_ALL_DIRS))
+						if (!LOS_Raised(pSoldier, bestShotOpponent, CALC_FROM_ALL_DIRS))
 							ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SUPPRESSIONFIRE]);
 
 						return(AI_ACTION_FIRE_GUN);
@@ -3293,17 +3318,19 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( gGameExternalOptions.fAllowPrisonerSystem && pSoldier->bTeam == ENEMY_TEAM )
 		{
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 20, ENEMY_TEAM, SOLDIER_POW, TRUE );
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
 				// if we are close, we can release this guy
 				// possible only if not handcuffed (binders can be opened, handcuffs not)
-				if ( !HasItemFlag( (&(ubPerson->inv[HANDPOS]))->usItem, HANDCUFFS ) )
+				if ( !HasItemFlag( (&(person->inv[HANDPOS]))->usItem, HANDCUFFS ) )
 				{
-					if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) < 2 )
+					if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 					{
 						// see if we are facing this person
-						UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), ubPerson->position().gridNo());
+						UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), person->position().gridNo());
 
 						// if not already facing in that direction,
 						if ( pSoldier->position().direction() != ubDesiredMercDir )
@@ -3317,7 +3344,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 					else
 					{
-						pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+						pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 						if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 						{
@@ -3332,6 +3359,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->CanMedicAI() )
 		{
 			SoldierID ubPerson = GetClosestWoundedSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
 			// are we ourselves the patient?
 			if ( ubPerson == pSoldier->ubID )
@@ -3346,12 +3375,12 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 				return(AI_ACTION_DOCTOR_SELF);
 			}
-			else if ( ubPerson != NOBODY )
+			else if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) < 2 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) < 2 )
 				{
 					// see if we are facing this person
-					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), ubPerson->position().gridNo());
+					UINT8 ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), person->position().gridNo());
 
 					// if not already facing in that direction,
 					if ( pSoldier->position().direction() != ubDesiredMercDir )
@@ -3373,7 +3402,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				}
 				else
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -3386,12 +3415,14 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
-				if ( PythSpacesAway(pSoldier->position().gridNo(), ubPerson->position().gridNo()) > 1 )
+				if ( PythSpacesAway(pSoldier->position().gridNo(), person->position().gridNo()) > 1 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0);
 				
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
 					{
@@ -3425,13 +3456,15 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->bTeam, SOLDIER_VIP, FALSE );
+			SOLDIERTYPE* person =
+				GetJa2SoldierRepository().resolve(ubPerson.i);
 
-			if ( ubPerson != NOBODY )
+			if ( person )
 			{
 				// we want to stay close to him, but still be able to function properly... stay withing a 7-tile radius
-				if ( SpacesAway( pSoldier->position().gridNo(), ubPerson->position().gridNo() ) > 7 )
+				if ( SpacesAway( pSoldier->position().gridNo(), person->position().gridNo() ) > 7 )
 				{
-					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, ubPerson->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
+					pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, person->position().gridNo(), 20, AI_ACTION_SEEK_FRIEND, 0 );
 
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )
 					{
@@ -4917,6 +4950,7 @@ INT16 ubMinAPCost;
 	LogDecideInfo(pSoldier);
 
 	ATTACKTYPE BestShot, BestThrow, BestStab ,BestAttack;//dnl ch69 150913
+	SOLDIERTYPE* bestShotOpponent = nullptr;
 	BOOLEAN fCivilian = (PTR_CIVILIAN && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || pSoldier->aiData.bNeutral || (pSoldier->ubBodyType >= FATCIV && pSoldier->ubBodyType <= CRIPPLECIV) ) );
 	BOOLEAN fClimb;
 	INT16	ubBurstAPs;
@@ -5463,6 +5497,12 @@ INT16 ubMinAPCost;
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"FIRE A GUN AT AN OPPONENT");
 
 		CheckIfShotPossible(pSoldier, &BestShot);
+		bestShotOpponent =
+			GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
+		if (BestShot.ubPossible && !bestShotOpponent)
+		{
+			BestShot.ubPossible = FALSE;
+		}
 
 		if (BestShot.ubFriendlyFireChance)	//dnl ch61 180813
 		{
@@ -5486,8 +5526,8 @@ INT16 ubMinAPCost;
 			// if the selected opponent is not a threat (unconscious & !serviced)
 			// (usually, this means all the guys we see are unconscious, but, on
 			//  rare occasions, we may not be able to shoot a healthy guy, too)
-			if ((Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) &&
-				!Menptr[BestShot.ubOpponent].bService &&
+			if ((bestShotOpponent->vitals().health() < OKLIFE) &&
+				!bestShotOpponent->bService &&
 				(pSoldier->aiData.bAttitude != AGGRESSIVE || Chance((100 - BestShot.ubChanceToReallyHit) / 2)))
 			{
 				// get the location of the closest CONSCIOUS reachable opponent
@@ -5586,14 +5626,21 @@ INT16 ubMinAPCost;
 
 					// look around for a worthy target (which sets BestStab.ubPossible)
 					CalcBestShot(pSoldier,&BestStab);
+					SOLDIERTYPE* throwingKnifeOpponent =
+						GetJa2SoldierRepository().resolve(
+							BestStab.ubOpponent.i);
+					if (BestStab.ubPossible && !throwingKnifeOpponent)
+					{
+						BestStab.ubPossible = FALSE;
+					}
 
 					if (BestStab.ubPossible)
 					{
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see are unconscious, but, on
 						//  rare occasions, we may not be able to shoot a healthy guy, too)
-						if ((Menptr[BestStab.ubOpponent].vitals().health() < OKLIFE) &&
-							!Menptr[BestStab.ubOpponent].bService)
+						if ((throwingKnifeOpponent->vitals().health() < OKLIFE) &&
+							!throwingKnifeOpponent->bService)
 						{
 							// don't throw a knife at him.
 							BestStab.ubPossible = FALSE;
@@ -5765,6 +5812,12 @@ INT16 ubMinAPCost;
 		//////////////////////////////////////////////////////////////////////////
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CHOOSE THE BEST TYPE OF ATTACK OUT OF THOSE FOUND TO BE POSSIBLE");
 		BestAttack.iAttackValue = 0;
+		SOLDIERTYPE* bestStabOpponent =
+			GetJa2SoldierRepository().resolve(BestStab.ubOpponent.i);
+		if (BestStab.ubPossible && !bestStabOpponent)
+		{
+			BestStab.ubPossible = FALSE;
+		}
 
 		if (BestShot.ubPossible)
 		{
@@ -5777,10 +5830,10 @@ INT16 ubMinAPCost;
 		if (BestStab.ubPossible &&
 			(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 			SpacesAway(pSoldier->position().gridNo(), BestStab.sTarget) > 2 &&
-			BestStab.ubOpponent != NOBODY &&
-			AIDirection(pSoldier->position().gridNo(), BestStab.ubOpponent->position().gridNo()) != BestStab.ubOpponent->position().direction() &&
-			AIDirection(pSoldier->position().gridNo(), BestStab.ubOpponent->position().gridNo()) != gOneCDirection[BestStab.ubOpponent->position().direction()] &&
-			AIDirection(pSoldier->position().gridNo(), BestStab.ubOpponent->position().gridNo()) != gOneCCDirection[BestStab.ubOpponent->position().direction()] &&
+			bestStabOpponent &&
+			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != bestStabOpponent->position().direction() &&
+			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != gOneCDirection[bestStabOpponent->position().direction()] &&
+			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != gOneCCDirection[bestStabOpponent->position().direction()] &&
 			pSoldier->bInitialActionPoints >= 2 * MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0) + APBPConstants[AP_MOVEMENT_FLAT] + APBPConstants[AP_MODIFIER_WALK] &&
 			pSoldier->bActionPoints < BestStab.ubAPCost + MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0))
 		{
@@ -5793,10 +5846,10 @@ INT16 ubMinAPCost;
 		if (BestStab.ubPossible &&
 			(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 			SpacesAway(pSoldier->position().gridNo(), BestStab.sTarget) > 1 &&
-			BestStab.ubOpponent != NOBODY &&
-			gAnimControl[BestStab.ubOpponent->usAnimState].ubEndHeight == ANIM_STAND &&
-			BestStab.ubOpponent->bActionPoints > 0 &&
-			Chance(EffectiveAgility(BestStab.ubOpponent, FALSE) * (100 + BestStab.ubOpponent->vitals().breath()) * EffectiveWisdom(pSoldier) / (100 * 200)))
+			bestStabOpponent &&
+			gAnimControl[bestStabOpponent->usAnimState].ubEndHeight == ANIM_STAND &&
+			bestStabOpponent->bActionPoints > 0 &&
+			Chance(EffectiveAgility(bestStabOpponent, FALSE) * (100 + bestStabOpponent->vitals().breath()) * EffectiveWisdom(pSoldier) / (100 * 200)))
 		{
 			// find closest spot around opponent, avoid front direction
 			UINT8	ubMovementCost;
@@ -5816,7 +5869,7 @@ INT16 ubMinAPCost;
 
 					if (ubMovementCost < TRAVELCOST_BLOCKED &&
 						NewOKDestination(pSoldier, sTempGridNo, FALSE, pSoldier->position().level()) &&
-						AIDirection(BestStab.sTarget, sTempGridNo) != BestStab.ubOpponent->position().direction())
+						AIDirection(BestStab.sTarget, sTempGridNo) != bestStabOpponent->position().direction())
 					{
 						sPathCost = PlotPath(pSoldier, sTempGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, pSoldier->bReverse, 0);
 						if (TileIsOutOfBounds(sBestSpot) || sPathCost < sBestPathCost)
@@ -5854,7 +5907,7 @@ INT16 ubMinAPCost;
 			// SANDRO - added a chance to try to steal merc's gun from hands
 			else
 			{
-				if (AIDetermineStealingWeaponAttempt( pSoldier, BestStab.ubOpponent ) == TRUE)
+				if (AIDetermineStealingWeaponAttempt( pSoldier, bestStabOpponent ) == TRUE)
 				{
 					ubBestAttackAction = AI_ACTION_STEAL_MOVE;
 					DebugAI(AI_MSG_INFO, pSoldier, String("best action = move to steal weapon, iAttackValue = %d", BestStab.iAttackValue));
@@ -6309,7 +6362,8 @@ INT16 ubMinAPCost;
 			//////////////////////////////////////////////////////////////////////////
 
 			if (IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
-				!(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
+				bestShotOpponent &&
+				!(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				(pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.bRTPCombat == RTP_COMBAT_AGGRESSIVE) )
 			{
@@ -6384,7 +6438,8 @@ INT16 ubMinAPCost;
 			}
 
 			if (IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
-				!(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
+				bestShotOpponent &&
+				!(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				(( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				!pSoldier->bDoBurst ) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
@@ -6539,13 +6594,14 @@ L_NEWAIM:
 
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
 			if ((pSoldier->bActionPoints > BestAttack.ubAPCost) &&
-				(pSoldier->aiData.bShock == 0) && 
+				bestShotOpponent &&
+				(pSoldier->aiData.bShock == 0) &&
 				(pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 				(BestAttack.ubChanceToReallyHit < 8) &&
 				(PythSpacesAway( pSoldier->position().gridNo(), BestAttack.sTarget ) > usRange / CELL_X_SIZE ) &&
 				(RangeChangeDesire( pSoldier ) >= 3) ) // Cunning and above
 			{
-				sClosestOpponent = Menptr[BestShot.ubOpponent].position().gridNo();
+				sClosestOpponent = bestShotOpponent->position().gridNo();
 
 				DebugAI(AI_MSG_INFO, pSoldier, String("check if can advance to closest opponent %d", sClosestOpponent));
 
@@ -6850,9 +6906,11 @@ L_NEWAIM:
 
 		SoldierID ubOpponentID;
 		sClosestOpponent = ClosestKnownOpponent(pSoldier, NULL, NULL, &ubOpponentID);
+		SOLDIERTYPE* boxerOpponent =
+			GetJa2SoldierRepository().resolve(ubOpponentID.i);
 		DebugAI(AI_MSG_INFO, pSoldier, String("boxer: found closest opponent [%d] at %d", ubOpponentID, sClosestOpponent));
 
-		if ( !TileIsOutOfBounds(sClosestOpponent) && ubOpponentID != NOBODY )
+		if ( !TileIsOutOfBounds(sClosestOpponent) && boxerOpponent )
 		{
 			if (pSoldier->bActionPoints > 0)
 			{
@@ -6889,7 +6947,7 @@ L_NEWAIM:
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData) &&
 						(pSoldier->vitals().breath() < OKBREATH ||
 						pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
-						pSoldier->vitals().breath() < ubOpponentID->vitals().breath() &&
+						pSoldier->vitals().breath() < boxerOpponent->vitals().breath() &&
 						Chance((100 - pSoldier->vitals().breath()) * (100 - pSoldier->vitals().breath()) / (2 * 100 * 100))))
 					{
 						DebugAI(AI_MSG_INFO, pSoldier, String("boxer: restore breath"));
@@ -6913,7 +6971,7 @@ L_NEWAIM:
 				}
 				else if (pSoldier->vitals().breath() < OKBREATH ||
 					pSoldier->vitals().breath() < pSoldier->vitals().maximumBreath() &&
-					(pSoldier->vitals().breath() < ubOpponentID->vitals().breath() || !pSoldier->aiData.bLastAttackHit && pSoldier->TakenLargeHit()))
+					(pSoldier->vitals().breath() < boxerOpponent->vitals().breath() || !pSoldier->aiData.bLastAttackHit && pSoldier->TakenLargeHit()))
 				{
 					// maybe move away from opponent
 					UINT8 ubOpponentDir = AIDirection(pSoldier->position().gridNo(), sClosestOpponent);
@@ -8567,6 +8625,12 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 
 		//SUPPRESSION FIRE
 		CheckIfShotPossible(pSoldier, &BestShot); //WarmSteel - No longer returns 0 when there IS actually a chance to hit.
+		SOLDIERTYPE* bestShotOpponent =
+			GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
+		if (BestShot.ubPossible && !bestShotOpponent)
+		{
+			BestShot.ubPossible = FALSE;
+		}
 
 		// sevenfm: check that we have a clip to reload
 		BOOLEAN fExtraClip = FALSE;
@@ -8589,13 +8653,13 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			 && BestShot.ubPossible
 			 && GetMagSize( &pSoldier->inv[BestShot.bWeaponIn] ) >= gGameExternalOptions.ubAISuppressionMinimumMagSize
 			 && pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumAmmo
-			 //&& BestShot.ubChanceToReallyHit < (INT16)(PreRandom(50))  
-			 //&& Menptr[BestShot.ubOpponent].position().level() == 0
+			 //&& BestShot.ubChanceToReallyHit < (INT16)(PreRandom(50))
 			 && pSoldier->aiData.bOrders != SNIPER &&
 			 BestShot.ubFriendlyFireChance < 5 &&
-			 !BestShot.ubOpponent->IsCowering() &&
+			 bestShotOpponent &&
+			 !bestShotOpponent->IsCowering() &&
 			 !AICheckIsFlanking( pSoldier ) &&
-			 LocationToLocationLineOfSightTest( pSoldier->position().gridNo(), pSoldier->position().level(), BestShot.ubOpponent->position().gridNo(), BestShot.ubOpponent->position().level(), TRUE, NO_DISTANCE_LIMIT ) &&
+			 LocationToLocationLineOfSightTest( pSoldier->position().gridNo(), pSoldier->position().level(), bestShotOpponent->position().gridNo(), bestShotOpponent->position().level(), TRUE, NO_DISTANCE_LIMIT ) &&
 			 //Weapon[pSoldier->inv[BestShot.bWeaponIn].usItem].ubWeaponType == GUN_LMG ) &&	//Weapon[usInHand].ubWeaponClass == MGCLASS
 			 (fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft > gGameExternalOptions.ubAISuppressionMinimumMagSize) )
 		{
@@ -9541,6 +9605,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	}
 
 	ATTACKTYPE BestShot, BestThrow, BestAttack;//dnl ch69 150913
+	SOLDIERTYPE* bestShotOpponent = nullptr;
 	BOOLEAN fClimb;
 	INT16	ubBurstAPs;
 	UINT8	ubOpponentDir;
@@ -9727,6 +9792,13 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				{
 					// look around for a worthy target (which sets BestShot.ubPossible)
 					CalcBestShot(pSoldier, &BestShot);
+					bestShotOpponent =
+						GetJa2SoldierRepository().resolve(
+							BestShot.ubOpponent.i);
+					if (BestShot.ubPossible && !bestShotOpponent)
+					{
+						BestShot.ubPossible = FALSE;
+					}
 
 					if ( pSoldier->bTeam == gbPlayerNum && pSoldier->aiData.bRTPCombat == RTP_COMBAT_CONSERVE )
 					{
@@ -9768,8 +9840,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see are unconscious, but, on
 						//  rare occasions, we may not be able to shoot a healthy guy, too)
-						if ( (Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) &&
-							 !Menptr[BestShot.ubOpponent].bService )
+						if ( (bestShotOpponent->vitals().health() < OKLIFE) &&
+							 !bestShotOpponent->bService )
 						{
 							// if our attitude is NOT aggressive
 							if ( pSoldier->aiData.bAttitude != AGGRESSIVE || BestShot.ubChanceToReallyHit < 60 )
@@ -10053,7 +10125,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			//////////////////////////////////////////////////////////////////////////
 
 			if ( IsGunBurstCapable( &pSoldier->inv[BestAttack.bWeaponIn], FALSE, pSoldier ) &&
-				 !(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
+				 bestShotOpponent &&
+				 !(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				 pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				 (pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.bRTPCombat == RTP_COMBAT_AGGRESSIVE) )
 			{
@@ -10082,7 +10155,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			}
 
 			if ( IsGunAutofireCapable( &pSoldier->inv[BestAttack.bWeaponIn] ) &&
-				 !(Menptr[BestShot.ubOpponent].vitals().health() < OKLIFE) && // don't burst at downed targets
+				 bestShotOpponent &&
+				 !(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				 ((pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
 				 !pSoldier->bDoBurst) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
@@ -10163,13 +10237,14 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
 			if ( (pSoldier->bActionPoints > BestAttack.ubAPCost) &&
+				 bestShotOpponent &&
 				 (pSoldier->aiData.bShock == 0) &&
 				 (pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() / 2) &&
 				 (BestAttack.ubChanceToReallyHit < 8) &&
 				 (PythSpacesAway( pSoldier->position().gridNo(), BestAttack.sTarget ) > usRange / CELL_X_SIZE) &&
 				 (RangeChangeDesire( pSoldier ) >= 3) ) // Cunning and above
 			{
-				sClosestOpponent = Menptr[BestShot.ubOpponent].position().gridNo();
+				sClosestOpponent = bestShotOpponent->position().gridNo();
 				if ( !TileIsOutOfBounds( sClosestOpponent ) )
 				{
 					// temporarily make merc get closer reserving enough for expected cost of shot
@@ -10406,25 +10481,25 @@ void LogKnowledgeInfo(SOLDIERTYPE *pSoldier)
 	// show public opponents
 	for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 	{
+		SOLDIERTYPE* opponent =
+			GetJa2SoldierRepository().resolve(oppID);
 		if (gbPublicOpplist[pSoldier->bTeam][oppID] != NOT_HEARD_OR_SEEN &&
-			!MercPtrs[oppID]->aiData.bNeutral)
+			opponent &&
+			!opponent->aiData.bNeutral)
 		{
-			//wcstombs(str8, MercPtrs[oppID]->GetName(), wcslen(MercPtrs[oppID]->GetName())+1);
-			//wcstombs(str8, MercPtrs[oppID]->GetName(), 1024 - 1);
 			DebugAI(AI_MSG_INFO, pSoldier, String("public opponent [%d] knowledge %s gridno %d level %d", oppID, gStr8Knowledge[gbPublicOpplist[pSoldier->bTeam][oppID] - OLDEST_HEARD_VALUE], gsPublicLastKnownOppLoc[pSoldier->bTeam][oppID], gbPublicLastKnownOppLevel[pSoldier->bTeam][oppID]));
-			//swprintf( pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, MercPtrs[oppID]->GetName(), SeenStr(gbPublicOpplist[pSoldier->bTeam][oppID]) );
 		}
 	}
 	// show personal opponents
 	for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 	{
+		SOLDIERTYPE* opponent =
+			GetJa2SoldierRepository().resolve(oppID);
 		if (pSoldier->aiData.bOppList[oppID] != NOT_HEARD_OR_SEEN &&
-			!MercPtrs[oppID]->aiData.bNeutral)
+			opponent &&
+			!opponent->aiData.bNeutral)
 		{
-			//wcstombs(str8, MercPtrs[oppID]->GetName(), wcslen(MercPtrs[oppID]->GetName())+1);
-			//wcstombs(str8, MercPtrs[oppID]->GetName(), 1024 - 1);
 			DebugAI(AI_MSG_INFO, pSoldier, String("personal opponent [%d] knowledge %s gridno %d level %d", oppID, gStr8Knowledge[pSoldier->aiData.bOppList[oppID] - OLDEST_HEARD_VALUE], gsLastKnownOppLoc[pSoldier->ubID][oppID], gbLastKnownOppLevel[pSoldier->ubID][oppID]));
-			//swprintf( pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, MercPtrs[oppID]->GetName(), SeenStr(pSoldier->aiData.bOppList[oppID]) );
 		}
 	}
 }

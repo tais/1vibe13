@@ -2253,7 +2253,7 @@ string(REGEX MATCH
   "set\\(ExplicitSoldierResolutionLibs[^\\)]*\\)"
   explicit_soldier_resolution_definition "${root_cmake_contents}")
 foreach(required_resolution_domain IN ITEMS
-    Editor Ja2 Laptop Strategic Utils)
+    Editor Ja2 Laptop Strategic TacticalAI TileEngine Utils)
   string(REGEX MATCH
     "(^|[ \t\r\n])${required_resolution_domain}([ \t\r\n]|\\))"
     resolution_domain_entry
@@ -2308,6 +2308,12 @@ file(GLOB_RECURSE explicit_soldier_resolution_sources
   "${SOURCE_ROOT}/Strategic/*.cpp"
   "${SOURCE_ROOT}/Strategic/*.h"
   "${SOURCE_ROOT}/Strategic/*.hpp"
+  "${SOURCE_ROOT}/TacticalAI/*.cpp"
+  "${SOURCE_ROOT}/TacticalAI/*.h"
+  "${SOURCE_ROOT}/TacticalAI/*.hpp"
+  "${SOURCE_ROOT}/TileEngine/*.cpp"
+  "${SOURCE_ROOT}/TileEngine/*.h"
+  "${SOURCE_ROOT}/TileEngine/*.hpp"
   "${SOURCE_ROOT}/Utils/*.cpp"
   "${SOURCE_ROOT}/Utils/*.h"
   "${SOURCE_ROOT}/Utils/*.hpp"

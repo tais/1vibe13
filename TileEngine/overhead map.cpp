@@ -23,6 +23,7 @@
 	#include "gameloop.h"
 	#include "Action Items.h"	// added by Flugente
 	#include "Rebel Command.h"
+#include "SoldierRepository.h"
 
 #include "connect.h"
 
@@ -566,9 +567,13 @@ void HandleOverheadMap( )
 
 	if( !gfEditMode && !gfTacticalPlacementGUIActive && gusSelectedSoldier != NOBODY )
 	{
-		pSoldier = gusSelectedSoldier;
+		pSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
-	DisplayMercNameInOverhead( pSoldier );
+		if (pSoldier)
+		{
+			DisplayMercNameInOverhead( pSoldier );
+		}
 	}
 
 	RenderButtons( );
@@ -778,9 +783,7 @@ void HandleOverheadUI(void)
 		{
 			// OK, selected guy is here...
 
-			// WANNE: Commented these lines out.
-			//gprintfdirty( gusMouseXPos, gusMouseYPos, MercPtrs[ ubID ]->name );
-			//mprintf( gusMouseXPos, gusMouseYPos, MercPtrs[ ubID ]->name );
+			// WANNE: Merc-name rendering was intentionally disabled here.
 		}
 	}
 
@@ -1416,8 +1419,8 @@ void RenderOverheadOverlays()
 	for( id = 0; id < end; ++id )
 	{
 		//First, check to see if the soldier exists and is in the sector.
-		pSoldier = id;
-		if( !pSoldier->bActive || !pSoldier->bInSector )
+		pSoldier = GetJa2SoldierRepository().resolve(id.i);
+		if( !pSoldier || !pSoldier->bActive || !pSoldier->bInSector )
 			continue;
 		//Soldier is here.	Calculate his screen position based on his current gridno.
 

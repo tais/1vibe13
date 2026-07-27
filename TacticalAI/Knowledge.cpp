@@ -7,6 +7,7 @@
 	#include "Quests.h"
 	#include "Render Fun.h"
 	#include "Soldier macros.h"
+	#include "SoldierRepository.h"
 
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 
@@ -38,7 +39,8 @@ void CallAvailableTeamEnemiesTo( INT32 sGridNo, INT8 bTeam )
 			SoldierID iLoop2 = gTacticalStatus.Team[ bTeam ].bFirstID;
 			for ( ; iLoop2 <= gTacticalStatus.Team[ bTeam ].bLastID; ++iLoop2 )
 			{
-				pSoldier = iLoop2;
+				pSoldier =
+					GetJa2SoldierRepository().resolve(iLoop2.i);
 				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 				{
 					SetNewSituation( pSoldier );
@@ -69,7 +71,8 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 		SoldierID iLoop2 = gTacticalStatus.Team[ CIV_TEAM ].bFirstID;
 		for ( ; iLoop2 <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++iLoop2 )
 		{
-			pSoldier = iLoop2;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(iLoop2.i);
 			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP && pSoldier->ubProfile == NO_PROFILE)
 			{
 				SetNewSituation( pSoldier );
@@ -344,7 +347,7 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 	// for every opponent
 //	for (iLoop = 0; iLoop < MAXMERCS; iLoop++,pbPersOL++,pbPublOL++)
 //	{
-//	pTemp = &(Menptr[iLoop]);
+//	pTemp = GetJa2SoldierRepository().resolve(iLoop);
 
 
 	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)

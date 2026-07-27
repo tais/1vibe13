@@ -264,11 +264,12 @@ records. The repository is not part of the SDK and does not expose
 whole-record creation/replacement, save/load access, and record swaps while
 legacy consumers are migrated. Strategic simulation no longer names either
 backing array directly, and its array-derived pointer walks now resolve stable
-numeric slots without relying on adjacent records. Its remaining implicit
-`SoldierID` compatibility conversions, plus tactical, AI, UI, and multiplayer
-consumers, are later migration domains. `Menptr` and `MercPtrs` remain backing
-storage during that migration, so numeric soldier slots and every external data
-format remain stable.
+numeric slots without relying on adjacent records. TacticalAI, TileEngine,
+Ja2 composition/save handling, Laptop, Utils, Editor, Lua, and Multiplayer have
+the same explicit-resolution compile ratchet; the broad Tactical gameplay
+library is the remaining migration domain. `Menptr` and `MercPtrs` remain
+backing storage during that migration, so numeric soldier slots and every
+external data format remain stable.
 
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,

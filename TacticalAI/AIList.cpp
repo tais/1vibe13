@@ -18,6 +18,7 @@
 	#include "opplist.h"
 	#include "Interface.h"
 	#include "Tactical Save.h"
+	#include "SoldierRepository.h"
 
 #define AI_LIST_SIZE TOTAL_SOLDIERS
 
@@ -85,7 +86,9 @@ SoldierID RemoveFirstAIListEntry( void )
 		DeleteAIListEntry( pOldFirstEntry );
 
 		// make sure conditions still met
-		if ( SatisfiesAIListConditions( ubID, NULL, FALSE ) )
+		if ( SatisfiesAIListConditions(
+			GetJa2SoldierRepository().resolve(ubID.i),
+			NULL, FALSE ) )
 		{
 			return( ubID );
 		}
@@ -284,7 +287,9 @@ BOOLEAN MoveToFrontOfAIList( SoldierID ubID )
 	SoldierID	ubNewEntry;
 	AILIST		*pNewEntry;
 
-	if ( !SatisfiesAIListConditions( ubID, NULL, FALSE ) )
+	if ( !SatisfiesAIListConditions(
+		GetJa2SoldierRepository().resolve(ubID.i),
+		NULL, FALSE ) )
 	{
 		// can't do dat!
 		return( FALSE );

@@ -37,6 +37,7 @@
 #include "CampaignStats.h"		// added by Flugente
 #include "Rebel Command.h"
 #include "TacticalEntityHost.h"
+#include "SoldierRepository.h"
 
 typedef struct MERCPLACEMENT
 {
@@ -725,8 +726,9 @@ void InitTacticalPlacementGUI()
 	giPlacements = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && !pSoldier->flags.fBetweenSectors &&
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(i.i);
+		if( pSoldier && pSoldier->bActive && !pSoldier->flags.fBetweenSectors &&
 			CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) &&
 				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
 				pSoldier->bAssignment != ASSIGNMENT_POW &&
@@ -745,8 +747,9 @@ void InitTacticalPlacementGUI()
 	giPlacements = 0;
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
-		SOLDIERTYPE *pSoldier = i;
-		if( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(i.i);
+		if( pSoldier && pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
 			CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) &&
 				pSoldier->bAssignment != ASSIGNMENT_POW &&
 				pSoldier->bAssignment != ASSIGNMENT_MINIEVENT &&

@@ -16,6 +16,7 @@
 	#include "NPC.h"
 	#include "Explosion Control.h"
 	#include "Text.h"
+#include "SoldierRepository.h"
 
 #ifdef JA2TESTVERSION
 	#include "message.h"
@@ -509,6 +510,8 @@ void LogMouseOverInteractiveTile( INT32 sGridNo )
 	SGPRect				aRect;
 	INT16					sXMapPos, sYMapPos, sScreenX, sScreenY;
 	LEVELNODE			*pNode;
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 	// OK, for now, don't allow any interactive tiles on higher interface level!
 	if ( gsInterfaceLevel > 0 )
@@ -517,7 +520,7 @@ void LogMouseOverInteractiveTile( INT32 sGridNo )
 	}
 
 	// Also, don't allow for mercs who are on upper level...
-	if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->position().level() == 1 )
+	if ( selectedSoldier && selectedSoldier->position().level() == 1 )
 	{
 		return;
 	}
@@ -774,6 +777,8 @@ BOOLEAN RefineLogicOnStruct( INT32 sGridNo, LEVELNODE *pNode )
 {
 	TILE_ELEMENT *TileElem;
 	STRUCTURE		*pStructure;
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 
 	if ( pNode->uiFlags & LEVELNODE_CACHEDANITILE )
@@ -801,7 +806,7 @@ BOOLEAN RefineLogicOnStruct( INT32 sGridNo, LEVELNODE *pNode )
 			return( FALSE );
 		}
 
-		if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->ubBodyType == ROBOTNOWEAPON )
+		if ( selectedSoldier && selectedSoldier->ubBodyType == ROBOTNOWEAPON )
 		{
 			return( FALSE );
 		}

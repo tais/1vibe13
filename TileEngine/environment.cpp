@@ -18,6 +18,7 @@
 
 #include "Text.h"
 #include "connect.h"
+#include "SoldierRepository.h"
 
 extern SECTOR_EXT_DATA	SectorExternalData[256][4];
 
@@ -1126,9 +1127,11 @@ void HandleEnvironmentHazard( )
 
 		SOLDIERTYPE *pSoldier = NULL;
 		UINT32 uiCnt = 0;
-		for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt < TOTAL_SOLDIERS; ++uiCnt, ++pSoldier )
+		for ( uiCnt = 0; uiCnt < TOTAL_SOLDIERS; ++uiCnt )
 		{
-			if ( pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->vitals().health() > 0 )
+			pSoldier =
+				GetJa2SoldierRepository().resolve(uiCnt);
+			if ( pSoldier && pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->vitals().health() > 0 )
 			{
 				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->position().level() <= 0 )
 				{

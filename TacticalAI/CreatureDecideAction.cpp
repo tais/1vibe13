@@ -6,6 +6,7 @@
 	#include "Items.h"
 	#include "Rotting Corpses.h"
 	#include "Soldier Add.h"
+	#include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -126,8 +127,9 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 
 	for (ubReceiver = gTacticalStatus.Team[ pCaller->bTeam ].bFirstID; ubReceiver <= gTacticalStatus.Team[ pCaller->bTeam ].bLastID; ++ubReceiver )
 	{
-		pReceiver = ubReceiver;
-		if (pReceiver->bActive && pReceiver->bInSector && (pReceiver->vitals().health() >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiData.bAlertStatus < STATUS_BLACK))
+		pReceiver =
+			GetJa2SoldierRepository().resolve(ubReceiver.i);
+		if (pReceiver && pReceiver->bActive && pReceiver->bInSector && (pReceiver->vitals().health() >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiData.bAlertStatus < STATUS_BLACK))
 		{
 			if (pReceiver->ubBodyType != LARVAE_MONSTER && pReceiver->ubBodyType != INFANT_MONSTER && pReceiver->ubBodyType != QUEENMONSTER)
 			{
@@ -1157,8 +1159,12 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 						// if the selected opponent is not a threat (unconscious & !serviced)
 						// (usually, this means all the guys we see our unconscious, but, on
 						//	rare occasions, we may not be able to shoot a healthy guy, too)
-						if ((BestShot.ubOpponent->vitals().health() < OKLIFE) &&
-							!BestShot.ubOpponent->bService)
+						SOLDIERTYPE* bestOpponent =
+							GetJa2SoldierRepository().resolve(
+								BestShot.ubOpponent.i);
+						if (bestOpponent &&
+							(bestOpponent->vitals().health() < OKLIFE) &&
+							!bestOpponent->bService)
 						{
 							// if our attitude is NOT aggressive
 							if (pSoldier->aiData.bAttitude != AGGRESSIVE)
