@@ -95,3 +95,8 @@ void SoldierAnimationIntentComponent::reset() noexcept
 {
 	*this = SoldierAnimationIntentComponent{};
 }
+
+void SoldierAnimationPlaybackComponent::reset() noexcept
+{
+	*this = SoldierAnimationPlaybackComponent{};
+}

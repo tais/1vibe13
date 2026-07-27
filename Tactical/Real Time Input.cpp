@@ -438,8 +438,8 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 								{
 									// Set movement mode
 									// OK, only change this if we are stationary!
-									//if ( gAnimControl[ gusSelectedSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
-									//if ( gusSelectedSoldier->usAnimState == WALKING )
+									//if ( gAnimControl[ gusSelectedSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY )
+									//if ( gusSelectedSoldier->animationPlayback().state() == WALKING )
 									{
 										subjectSoldier->flags.fUIMovementFast =
 											TRUE;
@@ -586,7 +586,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 													if ( usSubjectSoldier != NOBODY )
 													{
-													if ( subjectSoldier->usAnimState != RUNNING )
+													if ( subjectSoldier->animationPlayback().state() != RUNNING )
 														{
 															*puiNewEvent = C_MOVE_MERC;
 														}
@@ -613,7 +613,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 													//{
 													//	if ( gusSelectedSoldier != NOBODY )
 													//	{
-													//		if ( !( gAnimControl[ gusSelectedSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) )
+													//		if ( !( gAnimControl[ gusSelectedSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) )
 													//		{
 
 													//gUITargetShotWaiting	= TRUE;
@@ -749,7 +749,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																	{
 																		BeginDisplayTimedCursor( GetInteractiveTileCursor( guiCurrentUICursor, TRUE ), 300 );
 
-																		if ( pSoldier->usAnimState != RUNNING )
+																		if ( pSoldier->animationPlayback().state() != RUNNING )
 																		{
 																			*puiNewEvent = C_MOVE_MERC;
 																		}

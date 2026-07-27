@@ -1473,7 +1473,7 @@ void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot )
 				if ( usSleepSpot2 == usSleepSpot )
 				{
 					// conflict!
-					//usNewSleepSpot = (INT16) FindGridNoFromSweetSpotWithStructData( pSoldier2, pSoldier2->usAnimState, usSleepSpot2, 3, &ubDirection, FALSE );
+					//usNewSleepSpot = (INT16) FindGridNoFromSweetSpotWithStructData( pSoldier2, pSoldier2->animationPlayback().state(), usSleepSpot2, 3, &ubDirection, FALSE );
 					INT32 usNewSleepSpot = FindGridNoFromSweetSpotExcludingSweetSpot( pSoldier2, usSleepSpot2, 3, &ubDirection );
 					if (!TileIsOutOfBounds(usNewSleepSpot))
 					{

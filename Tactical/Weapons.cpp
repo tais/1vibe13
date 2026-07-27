@@ -1573,7 +1573,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 				{
 					CalculateSoldierZPos( pTargetSoldier, HEAD_TARGET_POS, &dTargetZ );
 
-					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->usAnimState].ubHeight == ANIM_PRONE )
+					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->animationPlayback().state()].ubHeight == ANIM_PRONE )
 					{
 						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->position().gridNo(), DirectionInc( pTargetSoldier->position().direction() ) );
 						INT16 sX, sY;
@@ -1591,7 +1591,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 				{
 					CalculateSoldierZPos( pTargetSoldier, LEGS_TARGET_POS, &dTargetZ );
 
-					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->usAnimState].ubHeight == ANIM_PRONE )
+					if ( gGameExternalOptions.fAllowTargetHeadAndLegIfProne && gAnimControl[pTargetSoldier->animationPlayback().state()].ubHeight == ANIM_PRONE )
 					{
 						INT32 viewdirectiongridno = NewGridNo( pTargetSoldier->position().gridNo(), DirectionInc( gOppositeDirection[pTargetSoldier->position().direction()] ) );
 						INT16 sX, sY;
@@ -2562,8 +2562,8 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		  // Reduce again for attack end 'cause it has been incremented for a normal attack
 		  //
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
-			  DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
-			  DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
+			  DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
+			  DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
 	//		  ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
 		return( FALSE );
@@ -2715,7 +2715,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		CalculateSoldierZPos(pSoldier, FIRING_POS, &dStartZ);
 
 		INT32 sTempGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
+		if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
 		{
 			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->position().direction()));
 		}
@@ -2786,7 +2786,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		{
 			SOLDIERTYPE* exhaustTarget =
 				GetJa2SoldierRepository().resolve(ubMerc.i);
-			if ( gAnimControl[ exhaustTarget->usAnimState ].ubHeight !=
+			if ( gAnimControl[ exhaustTarget->animationPlayback().state() ].ubHeight !=
 				ANIM_PRONE )
 			{
 				// Increment attack counter...
@@ -3537,8 +3537,8 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		    // Reduce again for attack end 'cause it has been incremented for a normal attack
 		    //
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
-			DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
+			DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
 			//ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
 		  return( FALSE );
@@ -3558,7 +3558,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		CalculateSoldierZPos(pSoldier, FIRING_POS, &dStartZ);
 
 		INT32 sTempGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
+		if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && pSoldier->position().direction() % 2 == 0)
 		{
 			sTempGridNo = NewGridNo(sTempGridNo, DirectionInc(pSoldier->position().direction()));
 		}
@@ -3628,7 +3628,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		{
 			SOLDIERTYPE* exhaustTarget =
 				GetJa2SoldierRepository().resolve(ubMerc.i);
-			if ( gAnimControl[ exhaustTarget->usAnimState ].ubHeight !=
+			if ( gAnimControl[ exhaustTarget->animationPlayback().state() ].ubHeight !=
 				ANIM_PRONE )
 			{
 				// Increment attack counter...
@@ -4123,7 +4123,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				if (iHitChance < 100 &&
 					(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 					!pSoldier->bBlindedCounter &&
-					gAnimControl[pTargetSoldier->usAnimState].ubEndHeight > ANIM_PRONE &&
+					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 					(pTargetSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 					pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK)
 				{
@@ -4504,7 +4504,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			{
 				// SANDRO - Enhanced Close Combat System - Notice merc after stealing
 				// sevenfm: don't turn when lying prone
-				if ( gGameExternalOptions.fEnhancedCloseCombatSystem && gAnimControl[pTargetSoldier->usAnimState].ubEndHeight != ANIM_PRONE )
+				if ( gGameExternalOptions.fEnhancedCloseCombatSystem && gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight != ANIM_PRONE )
 					pTargetSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier ) );
 
 				// 0verhaul:  Also handled in the animation transition
@@ -4540,7 +4540,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			if (!gGameExternalOptions.fEnhancedCloseCombatSystem)
 			{
 				// ATE/CC: if doing ninja spin kick (only), automatically make it a hit 
-				if ( pSoldier->usAnimState == NINJA_SPINKICK)
+				if ( pSoldier->animationPlayback().state() == NINJA_SPINKICK)
 				{
 					// Let him to succeed by a random amount
 					iDiceRoll = PreRandom( iHitChance );				
@@ -4570,7 +4570,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 						
 						// Double EXP for focused attack
-						if ( (pSoldier->usAnimState == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
+						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
 							((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT)) && gGameOptions.fNewTraitSystem ))
 						{
 							ubExpGain *= 2;
@@ -4620,7 +4620,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 						
 						// Double EXP for focused attack
-						if ( (pSoldier->usAnimState == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
+						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
 							((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT)) && gGameOptions.fNewTraitSystem ) )
 						{
 							ubExpGain *= 2;
@@ -4718,7 +4718,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					Chance(ubCounterattackChance) &&
 					IS_MERC_BODY_TYPE(pSoldier) &&
 					IS_MERC_BODY_TYPE(pTargetSoldier) &&
-					gAnimControl[pTargetSoldier->usAnimState].ubEndHeight == ANIM_STAND &&
+					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
 					!(pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK) &&
 					(!pTargetSoldier->inv[HANDPOS].exists() || Item[pTargetSoldier->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH) || !pTargetSoldier->inv[SECONDHANDPOS].exists()))
 				{
@@ -4742,7 +4742,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						pTargetSoldier->aiData.bAimTime = 1;
 
 					pTargetSoldier->bAimMeleeLocation = AIM_SHOT_RANDOM;
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE)
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
 					{
 						if (Chance((6 + EffectiveDexterity(pTargetSoldier, FALSE) / 10 + 5 * NUM_SKILL_TRAITS(pTargetSoldier, MARTIAL_ARTS_NT)) * 100 / (100 + pSoldier->vitals().breath())))
 							pTargetSoldier->bAimMeleeLocation = AIM_SHOT_HEAD;
@@ -5024,8 +5024,8 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 		// Reduce again for attack end 'cause it has been incremented for a normal attack
 		// Nope, not anymore.
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->usAnimState ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
-		DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->usAnimState ].zAnimStr ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
+		DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
 		// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
 
 		// So all's well, should be good from here....
@@ -6174,7 +6174,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	pTarget = SimpleFindSoldier( sGridNo, pSoldier->bTargetLevel ); // Target Pointer
 
-	UINT8 stance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
@@ -6277,7 +6277,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	// Add a flat Base bonus from the item and its attachments.
 	INT32 imoda = GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_FLATBASE );
-	INT32 imodb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_FLATBASE );
+	INT32 imodb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_FLATBASE );
 	fBaseChance += (FLOAT)((gGameExternalOptions.ubProneModifierPercentage * imoda + (100 - gGameExternalOptions.ubProneModifierPercentage) * imodb)/100); 
 
 	// get bonus from effects lasting on the shooter (morale, injury, shock etc.)
@@ -6379,7 +6379,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 		// Add percent-based modifier from the gun and its attachments
 		FLOAT moda = (FLOAT)(fAimChance * GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_PERCENTCAP ) / 100);
-		FLOAT modb = (FLOAT)(fAimChance * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_PERCENTCAP ) / 100);
+		FLOAT modb = (FLOAT)(fAimChance * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_PERCENTCAP ) / 100);
 		fAimChance += (FLOAT)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100);
 
 		// get aimbonus from effects lasting on the shooter
@@ -6470,7 +6470,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		// args depend on x. Compute it once; the per-iteration add stays in the same order
 		// (identical value each iteration -> bit-identical float accumulation).
 		INT32 flatModa = GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_FLATAIM );
-		INT32 flatModb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_FLATAIM );
+		INT32 flatModb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_FLATAIM );
 		FLOAT flatTerm = (FLOAT)((gGameExternalOptions.ubProneModifierPercentage * flatModa + (100 - gGameExternalOptions.ubProneModifierPercentage) * flatModb)/100);
 		for (UINT8 x = 0; x < ubAimTime; x++)
 		{
@@ -6549,7 +6549,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	MAX_TARGET_COWERING_PENALTY = gGameExternalOptions.usMaxTargetCoweringPenalty;
 	/////////////////////////////////////////////////////////////////////////////////////
 
-	UINT8 stance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
@@ -6739,7 +6739,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	{
 		// targeting a merc
 		// adjust for crouched/prone target
-		switch( gAnimControl[ pTarget->usAnimState ].ubHeight )
+		switch( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight )
 		{
 			case ANIM_CROUCH:
 				if ( ARMED_VEHICLE( pSoldier ) && iRange < MIN_TANK_RANGE )
@@ -6829,7 +6829,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
-		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				uiShooterHeight += 2;
@@ -6844,7 +6844,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
-		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				switch (ubAimPos)
@@ -6906,7 +6906,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		if ( pTarget->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) && !(pSoldier->ubBodyType != QUEENMONSTER) )
 		{
 			iPenalty = ( EffectiveAgility( pTarget, FALSE ) / 5 + EffectiveExpLevel( pTarget ) * 2);
-			switch( gAnimControl[ pTarget->usAnimState ].ubHeight )
+			switch( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight )
 			{
 				case ANIM_CROUCH:
 					iPenalty = iPenalty * 2 / 3;
@@ -6999,7 +6999,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Modify for stance and weapon
 	// if shooter is crouched, he aims slightly better (to max of AIM_BONUS_CROUCHING)
-	if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_CROUCH )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_CROUCH )
 	{
 		iBonus = iRange / 10;
 		if (iBonus > AIM_BONUS_CROUCHING)
@@ -7008,7 +7008,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		}
 
 		// if our weapon is rested, factor in the prone position
-		if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != stance )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != stance )
 		{
 			INT32 pronebonus = iRange / 10;
 			if (pronebonus > AIM_BONUS_PRONE)
@@ -7021,10 +7021,10 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 		iChance += iBonus;
 	}
-	else if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND )
+	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND )
 	{
 		// if our weapon is rested, factor in the prone position
-		if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != stance )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != stance )
 		{
 			iBonus = iRange / 10;
 			if (iBonus > AIM_BONUS_PRONE)
@@ -7036,7 +7036,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		}
 	}
 	// if shooter is prone, he aims even better, except at really close range
-	else if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE )
+	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
 	{
 		if (iRange > MIN_PRONE_RANGE)
 		{
@@ -7101,7 +7101,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier)
 		{
 			INT16 moda = GetBurstToHitBonus(pInHand, stance == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
-			INT16 modb = GetBurstToHitBonus(pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
+			INT16 modb = GetBurstToHitBonus(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
 			iBonus = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 			
 			iPenalty = Weapon[pInHand->usItem].ubBurstPenalty * (pSoldier->bDoBurst - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
@@ -7111,7 +7111,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		{
 			// Snap: bipod may reduce burst penalty
 			INT16 moda = GetBurstPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
-			INT16 modb = GetBurstPenalty(pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
+			INT16 modb = GetBurstPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
 			iPenalty = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 			if(gGameExternalOptions.bAimedBurstEnabled)
@@ -7149,7 +7149,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier)
 		{
 			INT16 moda = GetAutoToHitBonus(pInHand, stance == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
-			INT16 modb = GetAutoToHitBonus(pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
+			INT16 modb = GetAutoToHitBonus(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
 			iBonus = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 			iPenalty = Weapon[pInHand->usItem].AutoPenalty * (pSoldier->bDoBurst - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
@@ -7159,7 +7159,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		{
 			// Snap: bipod may reduce auto penalty
 			INT16 moda = GetAutoPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
-			INT16 modb = GetAutoPenalty(pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
+			INT16 modb = GetAutoPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
 			iPenalty = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 			if(gGameExternalOptions.bAimedBurstEnabled)
@@ -7394,7 +7394,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	else
 	{
 		INT16 moda = GetToHitBonus(pInHand, iRange, bLightLevel, stance == ANIM_PRONE && iRange > MIN_PRONE_RANGE);
-		INT16 modb = GetToHitBonus(pInHand, iRange, bLightLevel, gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && iRange > MIN_PRONE_RANGE);
+		INT16 modb = GetToHitBonus(pInHand, iRange, bLightLevel, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && iRange > MIN_PRONE_RANGE);
 		iChance += (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb) / 100);
 	}
 
@@ -7408,7 +7408,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		{
 			if (pTarget->aiData.bShock )
 			{
-				if (gAnimControl[ pTarget->usAnimState ].ubHeight == ANIM_PRONE)
+				if (gAnimControl[ pTarget->animationPlayback().state() ].ubHeight == ANIM_PRONE)
 				{
 					ubCoweringDivisor = gGameExternalOptions.ubCoweringPenaltyDivisorProne;
 
@@ -7426,7 +7426,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 					iChance -= sCoweringPenalty;
 				}
-				else if (gAnimControl[ pTarget->usAnimState ].ubHeight == ANIM_CROUCH) 
+				else if (gAnimControl[ pTarget->animationPlayback().state() ].ubHeight == ANIM_CROUCH)
 				{
 					switch ( ubAimPos )
 					{
@@ -7460,7 +7460,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 					if (pSoldier->position().level() == pTarget->position().level() && pSoldier->position().level() > 0)
 						sCoweringPenalty = 0; // No cowering penalties when both are on the roof!
-					else if (pSoldier->position().level() < pTarget->position().level() && gAnimControl[ pTarget->usAnimState ].ubHeight == ANIM_PRONE)
+					else if (pSoldier->position().level() < pTarget->position().level() && gAnimControl[ pTarget->animationPlayback().state() ].ubHeight == ANIM_PRONE)
 						sCoweringPenalty *= 2; // Much harder to shoot at anyone cowering above you.
 					else if (pSoldier->position().level() > pTarget->position().level())
 						sCoweringPenalty /= 2; // Much easier to shoot at cowerers below you.
@@ -7535,11 +7535,11 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	UINT32 uiChance;
 
 	// same as CCTHG but fakes the attacker always standing
-	usTrueState = pSoldier->usAnimState;
+	usTrueState = pSoldier->animationPlayback().state();
 	bTrueLevel = pSoldier->bTargetLevel;
 
 	pSoldier->bTargetLevel = bTargetLevel;
-	pSoldier->usAnimState = usAnimState;
+	pSoldier->animationPlayback().state() = usAnimState;
 	if(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE)//dnl ch70 160913
 	{
 		uiChance = CalcThrownChanceToHit(pSoldier, sGridNo, ubAimTime, ubAimPos);
@@ -7548,7 +7548,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 	{
 		uiChance = CalcChanceToHitGun(pSoldier, sGridNo, ubAimTime, ubAimPos);
 	}
-	pSoldier->usAnimState = usTrueState;
+	pSoldier->animationPlayback().state() = usTrueState;
 	pSoldier->bTargetLevel = bTrueLevel;
 
 	if(UsingNewCTHSystem() && !(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE))//dnl ch70 160913
@@ -7686,7 +7686,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		if (pTarget &&
 			gGameCTHConstants.SIDE_FACING_DIVISOR <= 1.0f &&
 			(IS_MERC_BODY_TYPE(pTarget) || IS_CIV_BODY_TYPE(pTarget)) &&
-			gAnimControl[pTarget->usAnimState].ubEndHeight > ANIM_PRONE &&
+			gAnimControl[pTarget->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 			pSoldier->bAimShotLocation != AIM_SHOT_HEAD &&
 			pSoldier->position().direction() != pTarget->position().direction() &&
 			pSoldier->position().direction() != gOppositeDirection[pTarget->position().direction()])
@@ -7697,7 +7697,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 				pSoldier->position().direction() == gOneCCDirection[pTarget->position().direction()] ||
 				pSoldier->position().direction() == gOneCDirection[gOppositeDirection[pTarget->position().direction()]] ||
 				pSoldier->position().direction() == gOneCCDirection[gOppositeDirection[pTarget->position().direction()]] ||
-				gAnimControl[pTarget->usAnimState].ubEndHeight == ANIM_CROUCH)
+				gAnimControl[pTarget->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 			{
 				iDivisor = 1.5f;
 			}
@@ -8238,7 +8238,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				break;
 			case AIM_SHOT_LEGS:
 				// is the damage enough to make us fall over?
-				if ( pubSpecial && IS_MERC_BODY_TYPE( pTarget ) && gAnimControl[ pTarget->usAnimState ].ubEndHeight == ANIM_STAND && !pTarget->MercInWater() )
+				if ( pubSpecial && IS_MERC_BODY_TYPE( pTarget ) && gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight == ANIM_STAND && !pTarget->MercInWater() )
 				{
 					if (iImpactForCrits > MIN_DAMAGE_FOR_AUTO_FALL_OVER )
 					{
@@ -8381,7 +8381,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				bStatLoss = (INT8) PreRandom( iImpactForCrits / 2 ) + 1;
 				// SANDRO - malicious hit
 				if ( fMaliciousHit && Chance( max( 15, uiCritChance )) && ( ubHitLocation == AIM_SHOT_TORSO || ubHitLocation == AIM_SHOT_LEGS ) && 
-					( sHitBy >= 20 ) && ( pTarget->ubBodyType <= STOCKYMALE ) && ( gAnimControl[ pTarget->usAnimState ].ubHeight != ANIM_PRONE ) )
+					( sHitBy >= 20 ) && ( pTarget->ubBodyType <= STOCKYMALE ) && ( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight != ANIM_PRONE ) )
 				{
 					// no stats to lose, but drain breath a lot
 					DeductPoints( pTarget, 0, (5 * APBPConstants[BP_GET_HIT]) );
@@ -8732,7 +8732,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 					}
 
 					// add bonus for focused punch
-					if ( !autoresolve && (pSoldier->usAnimState == NINJA_SPINKICK || pSoldier->usAnimState == FOCUSED_PUNCH || pSoldier->usAnimState == FOCUSED_HTH_KICK) )
+					if ( !autoresolve && (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->animationPlayback().state() == FOCUSED_PUNCH || pSoldier->animationPlayback().state() == FOCUSED_HTH_KICK) )
 					{
 						iBonus += 50;
 
@@ -8753,7 +8753,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 
 						// The Spinning kicks or aimed punch bonus - SANDRO
 						if ( !autoresolve &&
-							(pSoldier->usAnimState == NINJA_SPINKICK || (pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) ))
+							(pSoldier->animationPlayback().state() == NINJA_SPINKICK || (pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) ))
 						{
 							//iImpact = (INT32)((iImpact * (100 + gSkillTraitValues.usMAAimedPunchDamageBonus * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) ) / 100) + 0.5); // +75% damage per trait
 							iBonus += ( (gSkillTraitValues.ubMABonusDamageHandToHand + 25 )* NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) );
@@ -8778,7 +8778,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		}
 		else // original code
 		{
-			if ( !autoresolve && gGameExternalOptions.fEnhancedCloseCombatSystem && (pSoldier->usAnimState == NINJA_SPINKICK || pSoldier->usAnimState == FOCUSED_PUNCH || pSoldier->usAnimState == FOCUSED_HTH_KICK ))
+			if ( !autoresolve && gGameExternalOptions.fEnhancedCloseCombatSystem && (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->animationPlayback().state() == FOCUSED_PUNCH || pSoldier->animationPlayback().state() == FOCUSED_HTH_KICK ))
 			{
 				iBonus += 50;
 			}
@@ -8788,7 +8788,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 			{
 				iBonus += gbSkillTraitBonus[MARTIALARTS_OT] * NUM_SKILL_TRAITS( pSoldier, MARTIALARTS_OT );
 
-				if ( !autoresolve && pSoldier->usAnimState == NINJA_SPINKICK)
+				if ( !autoresolve && pSoldier->animationPlayback().state() == NINJA_SPINKICK)
 				{
 					iBonus += 100;
 				}
@@ -8816,7 +8816,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 				iBonus -= 50; 
 				//DeductPoints( pTarget, (APBPConstants[AP_MAXIMUM] / 10), 0 );
 			}
-			else if (gAnimControl[ pTarget->usAnimState ].ubEndHeight == ANIM_PRONE)
+			else if (gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 			{
 				iBonus += 30; // 30% incresed damage to lying characters
 			}
@@ -8844,7 +8844,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		{
 			iBonus += gSkillTraitValues.ubMEDamageBonusBlades; // +30% damage
 
-			if ( !autoresolve && pSoldier->usAnimState == FOCUSED_STAB)
+			if ( !autoresolve && pSoldier->animationPlayback().state() == FOCUSED_STAB)
 			{
 				iBonus += gSkillTraitValues.usMEAimedMeleeAttackDamageBonus;  // 50% increased damage if focused melee attack
 			}
@@ -8853,7 +8853,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		// Enhanced Close Combat System
 		if ( !autoresolve && gGameExternalOptions.fEnhancedCloseCombatSystem)
 		{
-			if (gAnimControl[ pTarget->usAnimState ].ubEndHeight == ANIM_PRONE)
+			if (gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 			{
 				iBonus += 30;  // incresed damage to lying characters
 			}
@@ -9387,11 +9387,11 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iDefRating += 10000;
 	}
 
-	if (gAnimControl[ pDefender->usAnimState ].ubEndHeight < ANIM_STAND)
+	if (gAnimControl[ pDefender->animationPlayback().state() ].ubEndHeight < ANIM_STAND)
 	{
 		if (usInHand == CREATURE_QUEEN_TENTACLES)
 		{
-			if ( gAnimControl[ pDefender->usAnimState ].ubEndHeight == ANIM_PRONE )
+			if ( gAnimControl[ pDefender->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
 			{
 				// make it well-nigh impossible to hit someone who is prone!
 				iDefRating += 1000;
@@ -9406,7 +9406,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			// if defender crouched, reduce chance accordingly (harder to dodge)
 			iDefRating -= BAD_DODGE_POSITION_PENALTY;
 			// If our target is prone, double the penalty!
-			if ( gAnimControl[ pDefender->usAnimState ].ubEndHeight == ANIM_PRONE )
+			if ( gAnimControl[ pDefender->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
 			{
 				iDefRating -= BAD_DODGE_POSITION_PENALTY;
 			}
@@ -9608,7 +9608,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		if (gGameExternalOptions.fEnhancedCloseCombatSystem)
 		{
 			if( gGameOptions.fNewTraitSystem  && HAS_SKILL_TRAIT( pAttacker, MARTIAL_ARTS_NT ) && 
-				((pAttacker->usAnimState == NINJA_SPINKICK) || (pAttacker->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6))) )
+				((pAttacker->animationPlayback().state() == NINJA_SPINKICK) || (pAttacker->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6))) )
 			{
 				// spinning kick or focused punch modifier
 				iChance += gSkillTraitValues.bMAAimedPunchCtHModifier * NUM_SKILL_TRAITS( pAttacker, MARTIAL_ARTS_NT );
@@ -9658,7 +9658,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		(pDefender->flags.uiStatusFlags & SOLDIER_BOXER) &&
 		iChance < 100 &&
 		!pAttacker->bBlindedCounter &&
-		gAnimControl[pDefender->usAnimState].ubEndHeight > ANIM_PRONE &&
+		gAnimControl[pDefender->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 		(AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == pDefender->position().direction() ||
 		AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == gOneCDirection[pDefender->position().direction()] ||
 		AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == gOneCCDirection[pDefender->position().direction()]))
@@ -10091,7 +10091,7 @@ INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, O
 		////////////////////////////////////////////////////////////////////////////////////////////////
 
 		// Adjust for thrower's stance
-		if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight < ANIM_STAND)
+		if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight < ANIM_STAND)
 		{
 			// For now we just assume the thrower is crouched since we don't allow prone tossing at the moment
 			// So dock 30% from the distance
@@ -10224,7 +10224,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	if ( UsingNewCTHSystem() == false && pSoldier->bDoBurst )
 	{
 		int iPenalty = ( Weapon[usHandItem].ubBurstPenalty
-			- GetBurstToHitBonus(&pSoldier->inv[HANDPOS], gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE) )
+			- GetBurstToHitBonus(&pSoldier->inv[HANDPOS], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) )
 			* (pSoldier->bDoBurst - 1);
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
@@ -10421,7 +10421,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 void ChangeWeaponMode( SOLDIERTYPE * pSoldier )
 {
 	// ATE: Don't do this if in a fire animation.....
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
 	{
 		return;
 	}
@@ -10513,7 +10513,7 @@ void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
 		return;
 
 	if ( (&pSoldier->inv[HANDPOS])->exists() != true )
@@ -10543,7 +10543,7 @@ void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
 		while( ObjList[pSoldier->bScopeMode] == NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD); //USE_BEST_SCOPE);
 		
 		// If this mode is not allowed, or we are not standing, or holding something weird, skip it
-		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && ( gGameExternalOptions.ubAllowAlternativeWeaponHolding != 3 || gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND || AM_A_ROBOT(pSoldier) || ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem) || ItemIsSingleShotRocketLauncher(pSoldier->inv[HANDPOS].usItem)) )
+		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && ( gGameExternalOptions.ubAllowAlternativeWeaponHolding != 3 || gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND || AM_A_ROBOT(pSoldier) || ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem) || ItemIsSingleShotRocketLauncher(pSoldier->inv[HANDPOS].usItem)) )
 			pSoldier->bScopeMode = USE_BEST_SCOPE;
 	}
 	// changing scope mode can change number of aiming levels, we should reset the aiming variable here
@@ -10901,9 +10901,9 @@ bool WeaponReady(SOLDIERTYPE * pSoldier)
 		return false;
 	if (gbForceWeaponReady)
 		return true;
-	if (( (gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIREREADY ) ||
-		(gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE ) ) &&
-		!(gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) )
+	if (( (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) ||
+		(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ) &&
+		!(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) )
 		return true;
 	else
 		return false;
@@ -11460,7 +11460,7 @@ FLOAT CalcNewChanceToHitBaseWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, IN
 
 	// Percentage based handling modifier from the gun and its attachments
 	FLOAT moda = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_PERCENTHANDLING )) / 100;
-	FLOAT modb = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_PERCENTHANDLING )) / 100;
+	FLOAT modb = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_PERCENTHANDLING )) / 100;
 	fGunBaseDifficulty += ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 	
 	// Now apply Gun Difficulty to the Base Modifier.
@@ -11468,7 +11468,7 @@ FLOAT CalcNewChanceToHitBaseWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, IN
 
 	// Percentage based modifier from the weapon and its attachments
 	moda = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_PERCENTBASE )) / 100;
-	modb = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_PERCENTBASE )) / 100;
+	modb = (fGunBaseDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_PERCENTBASE )) / 100;
 	fBaseModifier += ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 	return fBaseModifier;
@@ -11566,7 +11566,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
-		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				uiShooterHeight += 2;
@@ -11581,7 +11581,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
-		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				switch (ubAimPos)
@@ -11827,7 +11827,7 @@ FLOAT CalcNewChanceToHitAimWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT
 
 	// Percentage based handling modifier from the gun and its attachments
 	FLOAT moda = (fGunAimDifficulty * GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_PERCENTHANDLING )) / 100;
-	FLOAT modb = (fGunAimDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_PERCENTHANDLING )) / 100;
+	FLOAT modb = (fGunAimDifficulty * GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_PERCENTHANDLING )) / 100;
 	fGunAimDifficulty += (gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100; 
 
 	// Now apply Gun Difficulty to the Aim Modifier
@@ -11835,7 +11835,7 @@ FLOAT CalcNewChanceToHitAimWeaponBonus(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT
 
 	// Percent modifier from the weapon and its attachments
 	INT32 imoda = GetObjectModifier( pSoldier, pInHand, stance, ITEMMODIFIER_PERCENTAIM );
-	INT32 imodb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_PERCENTAIM );
+	INT32 imodb = GetObjectModifier( pSoldier, pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_PERCENTAIM );
 	fAimModifier += (FLOAT)(gGameExternalOptions.ubProneModifierPercentage * imoda + (100 - gGameExternalOptions.ubProneModifierPercentage) * imodb)/100; 
 	
 	return fAimModifier;
@@ -11885,7 +11885,7 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 			uiShooterHeight += 3 * pSoldier->position().level();
 		}
 		
-		switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				uiShooterHeight += 2;
@@ -11900,7 +11900,7 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 			uiTargetHeight += 3 * pTarget->position().level();
 		}
 
-		switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
+		switch ( gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight )
 		{
 			case ANIM_STAND:
 				switch (ubAimPos)

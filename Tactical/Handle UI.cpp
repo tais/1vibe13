@@ -1947,7 +1947,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_CROUCH);
-						if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_CROUCH)
+						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 					else
@@ -1961,7 +1961,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_PRONE);
-						if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_PRONE)
+						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_PRONE)
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 					else
@@ -2051,7 +2051,7 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 		// If we are in realtime, and in a stationary animation, follow!
 		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 		{
-			if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY && pSoldier->aiData.ubPendingAction == NO_PENDING_ACTION )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY && pSoldier->aiData.ubPendingAction == NO_PENDING_ACTION )
 			{
 				// Check if we have a shot waiting!
 				if ( gUITargetShotWaiting )
@@ -2249,10 +2249,10 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					else
 					{
 						pSoldier->flags.fUIMovementFast = FALSE;
-						pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
+						pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 					}
 
-					//if ( !( IsJa2TacticalCombatActive() ) && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
+					//if ( !( IsJa2TacticalCombatActive() ) && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 					//{
 					//	pSoldier->sRTPendingMovementGridNo = sMapPos;
 					//	pSoldier->usRTPendingMovementAnim	= pSoldier->usUIMovementMode;
@@ -2323,7 +2323,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 				{
-					pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
+					pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 				}
 				
 				sDestGridNo = usMapPos;
@@ -2619,7 +2619,7 @@ UINT32 UIHandleMAdjustStanceMode( UI_EVENT *pUIEvent )
 				}
 			}
 
-			switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+			switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 			{
 			case ANIM_STAND:
 				if ( ubNearHeigherLevel )
@@ -2942,7 +2942,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	// this is to stop the shooting trigger/happy duded from contiously pressing fire...
 	if ( !(IsJa2TacticalCombatActive()) )
 	{
-		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
 		{
 			return;
 		}
@@ -3290,7 +3290,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 		// Get soldier
 		if ( GetSoldier( &pSoldier, gusSelectedSoldier )	)
 		{
-			ubNewStance = GetAdjustedAnimHeight( gAnimControl[ pSoldier->usAnimState ].ubEndHeight, gbAdjustStanceDiff );
+			ubNewStance = GetAdjustedAnimHeight( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, gbAdjustStanceDiff );
 
 			if ( gbClimbID	== 1 )
 			{
@@ -3310,7 +3310,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 				{
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubNewStance);
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ubNewStance)
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubNewStance)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
 				else
@@ -3781,7 +3781,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 							// Don't do this unless we want to
 
 							// Check if buddy is stationary!
-							if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY || pSoldier->flags.fNoAPToFinishMove )
+							if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY || pSoldier->flags.fNoAPToFinishMove )
 							{
 								guiShowUPDownArrows							= ARROWS_SHOW_DOWN_BESIDE | ARROWS_SHOW_UP_BESIDE;
 							}
@@ -4157,7 +4157,7 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 	}
 
 	// Check if we're stationary
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) || ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) || ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
 	{
 		// If we are targeting a merc for some reason, don't go thorugh normal channels if we are on someone now
 		if ( uiFlags == MOVEUI_TARGET_MERCS || uiFlags == MOVEUI_TARGET_MERCSFORAID )
@@ -4847,12 +4847,12 @@ INT16 APsToTurnAround(SOLDIERTYPE *pSoldier, INT16 sAdjustedGridNo)
 	// If new direction is not the same than the old direction
 	if ( pSoldier->pathing().desiredDirection() != ubDirection)
 	{
-		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY ) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY ) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
 		{
 			// SANDRO - hey, we have a function for this, why not to use it, huh?
 			sAPCost += GetAPsToLook( pSoldier );
 			//// Which position has the soldier?
-			//switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+			//switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 			//{
 			//case ANIM_STAND:
 			//	sAPCost += APBPConstants[AP_LOOK_STANDING];
@@ -5204,7 +5204,7 @@ BOOLEAN SoldierCanAffordNewStance( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance 
 	INT8		bCurrentHeight;
 	UINT8		bAP = 0, bBP = 0;
 
-	bCurrentHeight = ( ubDesiredStance - gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
+	bCurrentHeight = ( ubDesiredStance - gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 	// Now change to appropriate animation
 
@@ -5437,7 +5437,7 @@ void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 		}
 		else
 		{
-			if ( pSoldier->IsFastMovement() && pSoldier->usAnimState == RUNNING && fFromMove )
+			if ( pSoldier->IsFastMovement() && pSoldier->animationPlayback().state() == RUNNING && fFromMove )
 			{
 				BeginDisplayTimedCursor( MOVE_RUN_REALTIME_UICURSOR, 300 );
 			}
@@ -5584,7 +5584,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 			//since this is a reset animation function, we should be VERY specific about when and what we dont reset
 
 			UINT16	test;
-			test = pSoldier->usAnimState; 
+			test = pSoldier->animationPlayback().state();
 			if (!( 	test == AIM_RIFLE_STAND ||	test == AIM_RIFLE_CROUCH ||
 					test == AIM_RIFLE_PRONE ||	test == AIM_DUAL_STAND 	 ||
 					test == AIM_DUAL_CROUCH ||	test == AIM_DUAL_PRONE
@@ -6083,7 +6083,7 @@ BOOLEAN StopRubberBandedMercFromMoving(void)
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
 			{
-				if (!(gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_STATIONARY))
+				if (!(gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_STATIONARY))
 				{
 					fFound = TRUE;
 				}
@@ -6198,7 +6198,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				}
 
 				pSoldier->flags.fUIMovementFast	= fMoveFast;
-				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
+				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 				pSoldier->flags.fUIMovementFast	= FALSE;
 
@@ -6456,7 +6456,7 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 
 	pSoldier->flags.fDontChargeTurningAPs = TRUE;
 	// sevenfm: if soldier is prone, change to standing
-	if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 		UIHandleSoldierStanceChange(pSoldier->ubID, ANIM_CROUCH);
 	// sevenfm: first change to stationary
 	pSoldier->SoldierGotoStationaryStance();
@@ -6645,7 +6645,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 	// Do some checks common to all..
 	if ( fValidGuy )
 	{
-		if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive() ) )
+		if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive() ) )
 		{
 			return( FALSE );
 		}
@@ -7247,32 +7247,32 @@ BOOLEAN SelectedGuyInBusyAnimation( )
 			return FALSE;
 		}
 
-		if ( pSoldier->usAnimState == LOB_ITEM ||
-			pSoldier->usAnimState == THROW_ITEM ||
+		if ( pSoldier->animationPlayback().state() == LOB_ITEM ||
+			pSoldier->animationPlayback().state() == THROW_ITEM ||
 			//<SB> crouch throwing
-			pSoldier->usAnimState == THROW_ITEM_CROUCHED ||
+			pSoldier->animationPlayback().state() == THROW_ITEM_CROUCHED ||
 			//<SB> crouch throwing
-			pSoldier->usAnimState == PICKUP_ITEM ||
-			pSoldier->usAnimState == DROP_ITEM ||
-			pSoldier->usAnimState == OPEN_DOOR ||
-			pSoldier->usAnimState == OPEN_STRUCT ||
-			pSoldier->usAnimState == OPEN_STRUCT ||
-			pSoldier->usAnimState == END_OPEN_DOOR ||
-			pSoldier->usAnimState == END_OPEN_LOCKED_DOOR ||
-			pSoldier->usAnimState == ADJACENT_GET_ITEM ||
-			pSoldier->usAnimState == ADJACENT_GET_ITEM_CROUCHED ||
-			pSoldier->usAnimState == DROP_ADJACENT_OBJECT ||
+			pSoldier->animationPlayback().state() == PICKUP_ITEM ||
+			pSoldier->animationPlayback().state() == DROP_ITEM ||
+			pSoldier->animationPlayback().state() == OPEN_DOOR ||
+			pSoldier->animationPlayback().state() == OPEN_STRUCT ||
+			pSoldier->animationPlayback().state() == OPEN_STRUCT ||
+			pSoldier->animationPlayback().state() == END_OPEN_DOOR ||
+			pSoldier->animationPlayback().state() == END_OPEN_LOCKED_DOOR ||
+			pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM ||
+			pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM_CROUCHED ||
+			pSoldier->animationPlayback().state() == DROP_ADJACENT_OBJECT ||
 
-			pSoldier->usAnimState == OPEN_DOOR_CROUCHED ||
-			pSoldier->usAnimState == BEGIN_OPENSTRUCT_CROUCHED ||
-			pSoldier->usAnimState == CLOSE_DOOR_CROUCHED ||
-			pSoldier->usAnimState == OPEN_DOOR_CROUCHED ||
-			pSoldier->usAnimState == OPEN_STRUCT_CROUCHED ||
-			pSoldier->usAnimState == END_OPENSTRUCT_CROUCHED ||
-			pSoldier->usAnimState == END_OPEN_DOOR_CROUCHED ||
-			pSoldier->usAnimState == END_OPEN_LOCKED_DOOR_CROUCHED ||
-			pSoldier->usAnimState == END_OPENSTRUCT_LOCKED_CROUCHED ||
-			pSoldier->usAnimState == BEGIN_OPENSTRUCT )
+			pSoldier->animationPlayback().state() == OPEN_DOOR_CROUCHED ||
+			pSoldier->animationPlayback().state() == BEGIN_OPENSTRUCT_CROUCHED ||
+			pSoldier->animationPlayback().state() == CLOSE_DOOR_CROUCHED ||
+			pSoldier->animationPlayback().state() == OPEN_DOOR_CROUCHED ||
+			pSoldier->animationPlayback().state() == OPEN_STRUCT_CROUCHED ||
+			pSoldier->animationPlayback().state() == END_OPENSTRUCT_CROUCHED ||
+			pSoldier->animationPlayback().state() == END_OPEN_DOOR_CROUCHED ||
+			pSoldier->animationPlayback().state() == END_OPEN_LOCKED_DOOR_CROUCHED ||
+			pSoldier->animationPlayback().state() == END_OPENSTRUCT_LOCKED_CROUCHED ||
+			pSoldier->animationPlayback().state() == BEGIN_OPENSTRUCT )
 		{
 			return( TRUE );
 		}
@@ -7286,7 +7286,7 @@ void GotoHeigherStance( SOLDIERTYPE *pSoldier )
 	BOOLEAN						fNearHeigherLevel;
 	BOOLEAN						fNearLowerLevel;
 
-	switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 	{
 	case ANIM_STAND:
 
@@ -7321,7 +7321,7 @@ void GotoLowerStance( SOLDIERTYPE *pSoldier )
 	BOOLEAN						fNearLowerLevel;
 
 
-	switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 	{
 	case ANIM_STAND:
 
@@ -7588,7 +7588,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 							GetJa2SoldierRepository().resolve(
 								ubGuyThere.i);
 						if ( !blockingSoldier ||
-							gAnimControl[ blockingSoldier->usAnimState ].ubHeight != ANIM_PRONE )
+							gAnimControl[ blockingSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE )
 						{
 							return( FALSE );
 						}
@@ -7668,7 +7668,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 						if ( ubGuyThere != NOBODY &&
 							ubGuyThere != pSoldier->ubID &&
 							(!firstBlockingSoldier ||
-							 gAnimControl[ firstBlockingSoldier->usAnimState ].ubHeight != ANIM_PRONE) )
+							 gAnimControl[ firstBlockingSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE) )
 						{
 							return( FALSE );
 						}
@@ -7679,7 +7679,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 						if ( ubGuyThere != NOBODY &&
 							ubGuyThere != pSoldier->ubID &&
 							(!secondBlockingSoldier ||
-							 gAnimControl[ secondBlockingSoldier->usAnimState ].ubHeight != ANIM_PRONE) )
+							 gAnimControl[ secondBlockingSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE) )
 						{
 							return( FALSE );
 						}

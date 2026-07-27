@@ -2320,11 +2320,11 @@ string(REGEX MATCH
   serialized_soldier_animation_continuation_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bBreathCollapsed\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.pendingAnimation\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingStance\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usAnimState\\);"
+  "ar\\.i8\\(s\\.bBreathCollapsed\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.pendingAnimation\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingStance\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.state\\(\\)\\);"
   serialized_soldier_animation_primary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.bStartFallDir\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.uiAnimSubFlags\\);"
+  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.bStartFallDir\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);"
   serialized_soldier_animation_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2343,6 +2343,88 @@ if(NOT serialized_soldier_animation_stop_order OR
    NOT serialized_soldier_animation_ui_turn_order)
   message(FATAL_ERROR
     "Soldier animation intent moved in the portable save schema; keep each transition value at its established byte position")
+endif()
+
+# Accepted animation transitions now advance through one private playback
+# owner. Keep frame/timing and render-selection state out of the public soldier
+# field list, and keep it distinct from queued animation intent.
+foreach(retired_animation_playback_field IN ITEMS
+  "UINT16;usAnimState"
+  "UINT16;usAniCode"
+  "UINT16;usAniFrame"
+  "INT16;sAniDelay"
+  "UINT16;usOldAniState"
+  "INT16;sOldAniCode"
+  "UINT16;usAnimSurface"
+  "UINT16;sZLevel"
+  "UINT32;uiAnimSubFlags")
+  string(REPLACE ";" ";" retired_animation_playback_parts
+    "${retired_animation_playback_field}")
+  list(GET retired_animation_playback_parts 0 retired_animation_playback_type)
+  list(GET retired_animation_playback_parts 1 retired_animation_playback_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_animation_playback_type}[ \t]+${retired_animation_playback_name}[ \t]*;"
+    retired_current_animation_playback_field
+    "${current_soldier_contents}")
+  if(retired_current_animation_playback_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE animation field '${retired_animation_playback_name}' returned; accepted animation state belongs to SoldierAnimationPlaybackComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAnimationPlaybackComponent[ \t\r\n]+animationPlayback_[ \t]*;"
+  soldier_animation_playback_owner
+  "${current_soldier_contents}")
+if(NOT soldier_animation_playback_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAnimationPlaybackComponent")
+endif()
+
+foreach(owned_animation_playback_field IN ITEMS
+  "UINT16;state"
+  "UINT16;code"
+  "UINT16;frame"
+  "INT16;delay"
+  "UINT16;previousState"
+  "INT16;previousCode"
+  "UINT16;surface"
+  "UINT16;zLevel"
+  "UINT32;subFlags")
+  string(REPLACE ";" ";" owned_animation_playback_parts
+    "${owned_animation_playback_field}")
+  list(GET owned_animation_playback_parts 0 owned_animation_playback_type)
+  list(GET owned_animation_playback_parts 1 owned_animation_playback_name)
+  string(REGEX MATCH
+    "${owned_animation_playback_type}[ \t]+${owned_animation_playback_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_animation_playback
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_animation_playback)
+    message(FATAL_ERROR
+      "SoldierAnimationPlaybackComponent no longer owns initialized '${owned_animation_playback_name}_' storage")
+  endif()
+endforeach()
+
+# Moving playback storage must not move a single byte in the portable soldier
+# schema. The state/subflag positions are also pinned above where they neighbor
+# queued intent; these expressions cover the remaining playback values.
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(s\\.bViewRange\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
+  serialized_soldier_animation_cursor_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);"
+  serialized_soldier_animation_previous_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiTimeOfLastRandomAction\\);[ \t]*ar\\.i16\\(s\\.usLastRandomAnim\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.surface\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.zLevel\\(\\)\\);"
+  serialized_soldier_animation_render_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_animation_cursor_order OR
+   NOT serialized_soldier_animation_previous_order OR
+   NOT serialized_soldier_animation_render_order)
+  message(FATAL_ERROR
+    "Soldier animation playback moved in the portable save schema; keep every playback value at its established byte position")
 endif()
 
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The

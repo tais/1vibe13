@@ -129,7 +129,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 						pSoldier->aiData.bAction = AI_ACTION_STOP_COWERING;
 						pSoldier->aiData.usActionData = ANIM_STAND;
 					}
-					else if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight < ANIM_STAND )
+					else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight < ANIM_STAND )
 					{
 						// stand up!
 						pSoldier->aiData.bAction = AI_ACTION_CHANGE_STANCE;

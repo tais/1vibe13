@@ -920,7 +920,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 		//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
-		if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE )
 		{
 			if ( fAddingTurningCost && fAddingRaiseGunCost )
 			{
@@ -2219,7 +2219,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// Get new gridno!
 			sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( ubDirection ) );
 
-			if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubDirection , pSoldier->usAnimState ) )
+			if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubDirection , pSoldier->animationPlayback().state() ) )
 			{
 				return( ITEM_HANDLE_NOROOM );
 			}
@@ -2234,7 +2234,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 			//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
-			if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE )
 			{
 				if ( fAddingTurningCost && fAddingRaiseGunCost )
 				{
@@ -2507,7 +2507,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	BOOLEAN gbGrenadeRolling = pSoldier->pThrowParams->dX != sXTest || pSoldier->pThrowParams->dY != sYTest;
 
 	// Alrighty, switch based on stance!
-	switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 	{
 		case ANIM_STAND:
 
@@ -6860,7 +6860,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 		{
 		ubDetectLevel++;
 		}
-		switch (pSoldier->usAnimState)
+		switch (pSoldier->animationPlayback().state())
 		{
 		case CRAWLING:
 		ubDetectLevel += 2;

@@ -614,7 +614,7 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 				}
 
 				// Catch anim.....
-				switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+				switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 				{
 				case ANIM_STAND:
 
@@ -2549,15 +2549,15 @@ BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 
 			if ( uiSpacesAway < 4 && !pObject->fAttemptedCatch )
 			{
-				if ( pSoldier->usAnimState != CATCH_STANDING &&
-					pSoldier->usAnimState != CATCH_CROUCHED &&
-					pSoldier->usAnimState != LOWER_RIFLE )
+				if ( pSoldier->animationPlayback().state() != CATCH_STANDING &&
+					pSoldier->animationPlayback().state() != CATCH_CROUCHED &&
+					pSoldier->animationPlayback().state() != LOWER_RIFLE )
 				{
-					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_STAND )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND )
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( CATCH_STANDING, 0 , FALSE );
 					}
-					else if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_CROUCH )
+					else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( CATCH_CROUCHED, 0 , FALSE );
 					}
@@ -2632,7 +2632,7 @@ BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 	}
 
 	// Catch anim.....
-	switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 	{
 	case ANIM_STAND:
 

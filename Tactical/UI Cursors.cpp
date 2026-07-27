@@ -367,7 +367,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			{
 				if ( ( gAnimControl[
 					GetJa2SoldierRepository()
-						.resolve(gusSelectedSoldier.i)->usAnimState
+						.resolve(gusSelectedSoldier.i)->animationPlayback().state()
 					].uiFlags & ANIM_STATIONARY ) )
 				{
 					if ( gUITargetShotWaiting )
@@ -1465,7 +1465,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 			if ( pTargetSoldier != NULL )
 			{
 				// ATE: Check their stance - if prone - return!
-				if ( gAnimControl[ pTargetSoldier->usAnimState ].ubHeight == ANIM_PRONE )
+				if ( gAnimControl[ pTargetSoldier->animationPlayback().state() ].ubHeight == ANIM_PRONE )
 				{
 					return;
 				}

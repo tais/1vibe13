@@ -2663,7 +2663,7 @@ void send_interrupt (SOLDIERTYPE *pSoldier)
 				SOLDIERTYPE* _s = SafeMerc(_sid.i);
 				if ( _s && _s->bActive && _s->bInSector && _s->bTeam >= LAN_TEAM_ONE
 					&& _s->position().gridNo() >= 0 && _s->position().gridNo() < WORLD_MAX
-					&& ( gAnimControl[ _s->usAnimState ].uiFlags & ANIM_MOVING ) )
+					&& ( gAnimControl[ _s->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 				{
 					_s->EVENT_StopMerc( _s->position().gridNo(), _s->position().direction() );
 				}
@@ -4727,7 +4727,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
 			// SANDRO - we can now bandage mercs when prone, so change stance only if standing
-			if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND )
 			{
 				pSoldier->ChangeSoldierStance( ANIM_CROUCH );
 			}
@@ -4738,7 +4738,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		{
 			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->EVENT_SetSoldierDirection(	new_state->usNewDirection );
-			if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_PRONE )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_PRONE )
 			{
 				pSoldier->ChangeSoldierStance( ANIM_PRONE );
 			}
@@ -4757,7 +4757,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		// MP echo guard: already collapsed locally -- don't stand him up and replay
 		// the fall (anim + thump + AP/BP) when the owner's collapse echo arrives. (audit [27])
 		if ( pSoldier->bCollapsed &&
-			gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE &&
+			gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE &&
 			gAnimControl[ new_state->usNewState ].ubEndHeight == ANIM_PRONE &&
 			gAnimControl[ new_state->usNewState ].ubHeight != ANIM_PRONE )
 		{
@@ -4953,7 +4953,7 @@ void recieveDEATH (RPCParameters *rpcParameters)
 			
 	if(pSoldier->bActive)
 	{
-		pSoldier->usAnimState=50;
+		pSoldier->animationPlayback().state()=50;
 
 		#ifdef JA2BETAVERSION
 			ScreenMsg( FONT_YELLOW, MSG_MPSYSTEM, L"made merc corpse/dead");	
@@ -5205,7 +5205,7 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 
 			SUpdateNetworkSoldier.bLife=pSoldier->vitals().health();
 			SUpdateNetworkSoldier.bBleeding=pSoldier->vitals().bleeding();
-			SUpdateNetworkSoldier.ubNewStance= gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+			SUpdateNetworkSoldier.ubNewStance= gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 			
 			if((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE || ((gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_INTERRUPT_MESSAGE || gTacticalStatus.combatUI.ubTopMessageType == COMPUTER_TURN_MESSAGE )&& is_server)) && IsJa2TacticalTurnBasedCombat())//update progress bar, not supporting coop yet...
 			{
@@ -5247,7 +5247,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	{
 		pSoldier->EVENT_SetSoldierDesiredDirection( SUpdateNetworkSoldier->ubDirection );
 	}
-	if(gAnimControl[ pSoldier->usAnimState ].ubEndHeight != SUpdateNetworkSoldier->ubNewStance && pSoldier->bCollapsed != TRUE)
+	if(gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != SUpdateNetworkSoldier->ubNewStance && pSoldier->bCollapsed != TRUE)
 	{
 		pSoldier->ChangeSoldierStance( SUpdateNetworkSoldier->ubNewStance );
 	}

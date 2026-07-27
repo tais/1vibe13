@@ -1422,7 +1422,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 
 			sDistVisible *= 2;
 
-			if ( pSoldier->usAnimState == RUNNING )
+			if ( pSoldier->animationPlayback().state() == RUNNING )
 			{
 				if ( gbLookDistance[bFacingDir][bSubjectDir] != STRAIGHT )
 				{
@@ -2951,7 +2951,7 @@ if(SEE_MENT)
 	else if (!PTR_OURTEAM)
 	{
 		// ATE: Check stance, change to threatending
-		ReevaluateEnemyStance( pSoldier, pSoldier->usAnimState );
+		ReevaluateEnemyStance( pSoldier, pSoldier->animationPlayback().state() );
 	}
     AI::tactical::AIInputData ai_input(AI::tactical::AIInputData::Visual(), pOpponent, sOppGridNo, bOppLevel, ubCaller, ubCaller2);
     AI::tactical::PlanInputData plan_input((IsJa2TacticalTurnBased())!=0, gTacticalStatus);
@@ -4646,7 +4646,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Animation:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gAnimControl[ pSoldier->usAnimState ].zAnimStr );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr );
 		ubLine++;
 
 /*
@@ -4692,13 +4692,13 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"PrevAnimation:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gAnimControl[ pSoldier->usOldAniState ].zAnimStr );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gAnimControl[ pSoldier->animationPlayback().previousState() ].zAnimStr );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"PrevAniCode:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gusAnimInst[ pSoldier->usOldAniState ][ pSoldier->sOldAniCode ] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gusAnimInst[ pSoldier->animationPlayback().previousState() ][ pSoldier->animationPlayback().previousCode() ] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4710,7 +4710,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"AniCode:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gusAnimInst[ pSoldier->usAnimState ][ pSoldier->usAniCode ] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gusAnimInst[ pSoldier->animationPlayback().state() ][ pSoldier->animationPlayback().code() ] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -5455,7 +5455,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	}
 	else if (pSoldier->flags.uiStatusFlags & (SOLDIER_VEHICLE))
 	{
-		if (pSoldier->usAnimState == RUNNING)
+		if (pSoldier->animationPlayback().state() == RUNNING)
 		{
 			// driving fast makes engine work louder
 			return(VEHICLE_FAST_MOVEMENT_NOISE);
@@ -6491,7 +6491,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 	}
 	*/
 
-	if (pSoldier->usAnimState == RUNNING)
+	if (pSoldier->animationPlayback().state() == RUNNING)
 	{
 		iEffVolume -= 5;
 	}
@@ -7569,7 +7569,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 		else
 		{
 			// go to threatening stance
-			ReevaluateEnemyStance( pDefender, pDefender->usAnimState );
+			ReevaluateEnemyStance( pDefender, pDefender->animationPlayback().state() );
 		}
 	}
 	else	// victim NOTICED the attack, but CAN'T SEE the actual attacker

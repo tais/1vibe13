@@ -2576,9 +2576,9 @@ BOOLEAN AddMercStructureInfo( INT32 sGridNo, SOLDIERTYPE *pSoldier )
 	UINT16 usAnimSurface;
 
 	// Get surface data
- 	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
-	AddMercStructureInfoFromAnimSurface( sGridNo, pSoldier, usAnimSurface, pSoldier->usAnimState );
+	AddMercStructureInfoFromAnimSurface( sGridNo, pSoldier, usAnimSurface, pSoldier->animationPlayback().state() );
 
 	return( TRUE );
 }
@@ -2682,16 +2682,16 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	// across that grid but has the structure, this call will not allow the current soldier to turn.  Since we are talking
 	// about the soldier whose turn it is, this is not a good thing because it will lead to deadlock.
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ||
-		pSoldier->usAnimState == CRAWLING)
+		pSoldier->animationPlayback().state() == CRAWLING)
 	{
 		// Get surface data
- 		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 		if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 		{
 			return( FALSE );
 		}
 
-		pStructFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->usAnimState );
+		pStructFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->animationPlayback().state() );
 
 		// Now check if we have multi-tile info!
 		if ( pStructFileRef != NULL )

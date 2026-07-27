@@ -2166,7 +2166,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_VEHICLE;
 				break;
 		}
-		SetSoldierAnimationSurface( gpSelected->pSoldier, gpSelected->pSoldier->usAnimState );
+		SetSoldierAnimationSurface( gpSelected->pSoldier, gpSelected->pSoldier->animationPlayback().state() );
 		gpSelected->pSoldier->ConvertAniCodeToAniFrame( 0 );
 	}
 	//Update the placement's info as well.

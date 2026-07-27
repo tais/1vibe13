@@ -1817,7 +1817,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				{
 					if (pSelSoldier->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY)
 					{
-						if (pSoldier->usAnimState != CHARIOTS_OF_FIRE && pSoldier->usAnimState != BODYEXPLODING)
+						if (pSoldier->animationPlayback().state() != CHARIOTS_OF_FIRE && pSoldier->animationPlayback().state() != BODYEXPLODING)
 						{
 							bGlowShadeOffset = 10;
 						}
@@ -2784,7 +2784,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 
 								// Get animation surface....
-								usAnimSurface = GetSoldierAnimationSurface(pSoldier, pSoldier->usAnimState);
+								usAnimSurface = GetSoldierAnimationSurface(pSoldier, pSoldier->animationPlayback().state());
 
 								if (usAnimSurface == INVALID_ANIMATION_SURFACE)
 								{
@@ -2838,7 +2838,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 									sZLevel += 2;
 								}
 
-								usImageIndex = pSoldier->usAniFrame;
+								usImageIndex = pSoldier->animationPlayback().frame();
 
 								// Flugente: frozen soldiers don't move
 								if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] && pSoldier->vitals().health() > 0)

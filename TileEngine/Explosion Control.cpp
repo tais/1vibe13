@@ -4428,7 +4428,7 @@ void HandleExplosionWarningAnimations( )
 									candidate->position().gridNo() == sSpot &&
 									candidate->bVisible == TRUE &&
 									candidate->position().level() == bLevel &&
-									gAnimControl[candidate->usAnimState].ubEndHeight == ANIM_PRONE &&
+									gAnimControl[candidate->animationPlayback().state()].ubEndHeight == ANIM_PRONE &&
 									!Water(candidate->position().gridNo(), candidate->position().level()) &&
 									pSoldier->ubBodyType <= REGFEMALE &&
 									(candidate->bTeam == pSoldier->bTeam ||

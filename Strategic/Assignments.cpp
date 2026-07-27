@@ -9343,7 +9343,7 @@ void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier )
 		}
 		else
 		{
-			if ( pSoldier->usAnimState != WKAEUP_FROM_SLEEP && !(pSoldier->bOldAssignment < ON_DUTY ) )
+			if ( pSoldier->animationPlayback().state() != WKAEUP_FROM_SLEEP && !(pSoldier->bOldAssignment < ON_DUTY ) )
 			{
 				// default: standing
 				pSoldier->ChangeSoldierState( STANDING, 1, TRUE );

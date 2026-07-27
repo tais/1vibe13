@@ -1640,7 +1640,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 					RevealRoofsAndItems( pSoldier, TRUE, FALSE, pSoldier->position().level(), TRUE );
 
 				// ATE: Patch fix: If we are in an non-interruptable animation, stop!
-				if ( pSoldier->usAnimState == HOPFENCE )
+				if ( pSoldier->animationPlayback().state() == HOPFENCE )
 				{
 					pSoldier->flags.fInNonintAnim = FALSE;
 					pSoldier->SoldierGotoStationaryStance( );
@@ -1702,7 +1702,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 			if ( ubInsertionCode != INSERTION_CODE_ARRIVING_GAME )
 			{
 				// default to standing on arrival
-				if ( pSoldier->usAnimState != HELIDROP )
+				if ( pSoldier->animationPlayback().state() != HELIDROP )
 				{
 #ifdef JA2UB				
 					// DAVE!!!!
@@ -1760,7 +1760,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				}
 
 		// ATE: Make sure movement mode is up to date!
-				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
+				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 			}
 		}
@@ -1768,7 +1768,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		{
 			// THIS ALL SHOULD HAVE BEEN HANDLED BY THE FACT THAT A GAME WAS LOADED
 
-			//pSoldier->EVENT_InitNewSoldierAnim( pSoldier->usAnimState, pSoldier->usAniCode, TRUE );
+			//pSoldier->EVENT_InitNewSoldierAnim( pSoldier->animationPlayback().state(), pSoldier->animationPlayback().code(), TRUE );
 
 			// if the merc had a final destination, get the merc walking there
 			//if( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )

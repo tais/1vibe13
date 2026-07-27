@@ -956,7 +956,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// Set some values for variation in anims...
 		if ( Soldier.ubBodyType == BIGMALE )
 		{
-			Soldier.uiAnimSubFlags |= SUB_ANIM_BIGGUYTHREATENSTANCE;
+			Soldier.animationPlayback().subFlags() |= SUB_ANIM_BIGGUYTHREATENSTANCE;
 		}
 
 		// sevenfm: max morale for AI soldiers
@@ -1220,7 +1220,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// Alrighty then, we are set to create the merc, stuff after here can fail!
 		CHECKF( pLiveSoldier->CreateSoldierCommon(
 			Soldier.ubBodyType, Soldier.ubID,
-			pLiveSoldier->usAnimState ) != FALSE );
+			pLiveSoldier->animationPlayback().state() ) != FALSE );
 
 		*pubID = Soldier.ubID;
 
@@ -1307,7 +1307,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	pSoldier->iHealableInjury = 0; 
 
 	pSoldier->bVocalVolume							= MIDVOLUME;
-	pSoldier->uiAnimSubFlags						= pProfile->uiBodyTypeSubFlags;
+	pSoldier->animationPlayback().subFlags()						= pProfile->uiBodyTypeSubFlags;
 	pSoldier->ubBodyType								= pProfile->ubBodyType;
 	pSoldier->ubCivilianGroup						= pProfile->ubCivilianGroup;
 	//OK set initial duty
@@ -2122,7 +2122,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->sZLevelOverride			= -1;
 	pSoldier->ubServicePartner			= NOBODY;
 	pSoldier->ubAttackingHand			= HANDPOS;
-	pSoldier->usAnimState				= STANDING;
+	pSoldier->animationPlayback().state()				= STANDING;
 	pSoldier->aiData.bInterruptDuelPts	= NO_INTERRUPT;
 	pSoldier->aiData.bMoved				= FALSE;
 	pSoldier->ubRobotRemoteHolderID		= NOBODY;
@@ -2865,7 +2865,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	{
 		TacticalCopySoldierFromProfile( s, spp );
 		UpdateStaticDetailedPlacementWithProfileInformation( spp, spp->ubProfile );
-		SetSoldierAnimationSurface( s, s->usAnimState );
+		SetSoldierAnimationSurface( s, s->animationPlayback().state() );
 		s->CreateSoldierPalettes( );
 		return;
 	}
@@ -3020,7 +3020,7 @@ void ForceSoldierProfileID( SOLDIERTYPE *pSoldier, UINT8 ubProfileID )
 	pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 
 	// Update animation, palettes
-	SetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+	SetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 	// Re-Create palettes
 	pSoldier->CreateSoldierPalettes( );
@@ -3585,7 +3585,7 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// make him wear administrator uniform
-			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 			if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 			{
@@ -3712,7 +3712,7 @@ SOLDIERTYPE* TacticalCreateBandit()
 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
-			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 			if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 			{
@@ -3908,7 +3908,7 @@ void CreatePrisonerOfWar()
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// make him wear 'prisoner garb' (just what Shank and Dynamo are wearing)
-			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+			UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 			if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 			{
@@ -3981,7 +3981,7 @@ void CreateDownedPilot( )
 		pSoldier->ubCivilianGroup = DOWNEDPILOT_CIV_GROUP;
 		
 		// make him wear administrator uniform
-		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{

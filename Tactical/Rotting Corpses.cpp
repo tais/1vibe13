@@ -1002,7 +1002,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		Corpse.usFlags |= ROTTING_CORPSE_NO_PANTS;
 
 	// Determine corpse type!
-	ubType = (UINT8)gubAnimSurfaceCorpseID[ pSoldier->ubBodyType][ pSoldier->usAnimState ];
+	ubType = (UINT8)gubAnimSurfaceCorpseID[ pSoldier->ubBodyType][ pSoldier->animationPlayback().state() ];
 
 	Corpse.ubDirection	= pSoldier->position().direction();
 
@@ -1168,7 +1168,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		Corpse.ubAIWarningValue = 20;
 
 	// This should free up ABC for death codes
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_ATTACK )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ATTACK )
 	{
 		DebugAttackBusy( "%%%%%%%%% Freeing up attacker because soldier became a corpse.\n");
 		ReduceAttackBusyCount( );

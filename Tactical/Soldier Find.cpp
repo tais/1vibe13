@@ -314,14 +314,14 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 						// Check if we are a vehicle and refine if so....
 						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
-							usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+							usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 							if ( usAnimSurface != INVALID_ANIMATION_SURFACE )
 							{
 								iMercScreenX = (INT32)( sScreenX - aRect.iLeft );
 								iMercScreenY = (INT32)( -1 * ( sScreenY - aRect.iBottom ) );
 
-								if ( !CheckVideoObjectScreenCoordinateInData( gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject, pSoldier->usAniFrame, iMercScreenX, iMercScreenY ) )
+								if ( !CheckVideoObjectScreenCoordinateInData( gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject, pSoldier->animationPlayback().frame(), iMercScreenX, iMercScreenY ) )
 								{
 									continue;
 								}
@@ -586,7 +586,7 @@ void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect )
 
 		GetSoldierScreenPos( pSoldier, &sMercScreenX, &sMercScreenY );
 
-		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 		if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 		{
 			pRect->iLeft		= sMercScreenX;
@@ -597,7 +597,7 @@ void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect )
 			return;
 		}
 
-		//pTrav = &(gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject->pETRLEObject[ pSoldier->usAniFrame ] );
+		//pTrav = &(gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject->pETRLEObject[ pSoldier->animationPlayback().frame() ] );
 		//usHeight				= (UINT32)pTrav->usHeight;
 		//usWidth					= (UINT32)pTrav->usWidth;
 
@@ -611,7 +611,7 @@ void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth 
 {
 	UINT16											usAnimSurface;
 
-	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 	if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 	{
@@ -633,7 +633,7 @@ void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffs
 {
 	UINT16											usAnimSurface;
 
-	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+	usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 	if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 	{
@@ -655,7 +655,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 		UINT16											usAnimSurface;
 //		ETRLEObject *pTrav;
 
-		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 		if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 		{
@@ -679,7 +679,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 
 		FloatFromCellToScreenCoordinates( dOffsetX, dOffsetY, &dTempX_S, &dTempY_S );
 
-		//pTrav = &(gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject->pETRLEObject[ pSoldier->usAniFrame ] );
+		//pTrav = &(gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject->pETRLEObject[ pSoldier->animationPlayback().frame() ] );
 
 		sMercScreenX = ( ( gsVIEWPORT_END_X - gsVIEWPORT_START_X ) /2 ) + (INT16)dTempX_S;
 		sMercScreenY = ( ( gsVIEWPORT_END_Y - gsVIEWPORT_START_Y ) /2 ) + (INT16)dTempY_S;
@@ -713,7 +713,7 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 		FLOAT dTempX_S, dTempY_S;
 		UINT16											usAnimSurface;
 
-		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 		if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 		{
@@ -900,7 +900,7 @@ BOOLEAN FindRelativeSoldierPosition( SOLDIERTYPE *pSoldier, UINT16 *usFlags, INT
 		dRelPer = (FLOAT)sRelY / ( aRect.iBottom - aRect.iTop );
 
 		// Determine relative positions
-		switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+		switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 		{
 			case ANIM_STAND:
 

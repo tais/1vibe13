@@ -530,7 +530,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 			case WALKING_ALTERNATIVE_RDY:
 			case SIDE_STEP_ALTERNATIVE_RDY:
 				sPoints = sTileCost + APBPConstants[AP_MODIFIER_WALK];
-				if ( usMovementMode == WALKING && !(pSoldier->MercInWater()) && ( (gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE ) ))
+				if ( usMovementMode == WALKING && !(pSoldier->MercInWater()) && ( (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 				{
 					sPoints += APBPConstants[AP_MODIFIER_READY];	
 				}
@@ -573,7 +573,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 			sPoints = max(1.0f, ( sPoints * (100 - (FLOAT)gSkillTraitValues.ubATAPsMovementReduction) / 100.0f ) );
 		}
 
-		if (usMovementMode == RUNNING && pSoldier->usAnimState != RUNNING)
+		if (usMovementMode == RUNNING && pSoldier->animationPlayback().state() != RUNNING)
 		{
 			// CHRISL
 			if ((UsingNewInventorySystem() == true) && PathingFindBackpackOnSoldier(pSoldier) != ITEM_NOT_FOUND)
@@ -1188,7 +1188,7 @@ INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost )
 	// if a non-swimmer type is thrashing around in deep water
 	if ( DoesMercHaveDisability( pSoldier, NONSWIMMER ) )
 	{
-		if ( pSoldier->usAnimState == DEEP_WATER_TRED || pSoldier->usAnimState == DEEP_WATER_SWIM)
+		if ( pSoldier->animationPlayback().state() == DEEP_WATER_TRED || pSoldier->animationPlayback().state() == DEEP_WATER_SWIM)
 		{
 			sBreathFactor *= 7;		// lose breath 5 times faster in deep water!
 		}
@@ -1240,7 +1240,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 	if ( !( IsJa2TacticalTurnBased() ) || !(IsJa2TacticalCombatActive() ) )
 	{
 		// ALRIGHT, GIVE A FULL AMOUNT BACK, UNLES MODIFIED BY WHAT ACTIONS WE WERE DOING
-		sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->usAnimState );
+		sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->animationPlayback().state() );
 
 		// adjust for carried weight
 		sBreathPerAP = sBreathPerAP * 100 / BreathPointAdjustmentForCarriedWeight( pSoldier );
@@ -1330,7 +1330,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 			else
 				sUnusedAPs = pSoldier->bActionPoints - APBPConstants[MAX_AP_CARRIED];
 
-			sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->usAnimState );
+			sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->animationPlayback().state() );
 
 			if (sBreathPerAP < 0)
 			{
@@ -2106,19 +2106,19 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 		// SANDRO - alternative weapon holding feature
 		if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 		{
-			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && !( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) ))
+			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) ))
 			{
 				fAddingRaiseGunCost = TRUE;
 			}
-			else if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD && ( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) || !( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ))
+			else if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) || !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ))
 			{
 				fAddingRaiseGunCost = TRUE;
 			}
 		}
 		else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 2 )
 		{
-			if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) || 
-				((gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_ALT_WEAPON_HOLDING )) && 
+			if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ||
+				((gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING )) &&
 				(bAimTime > GetNumberAltFireAimLevels( pSoldier, sGridNo )) ))
 			{
 				fAddingRaiseGunCost = TRUE;
@@ -2126,8 +2126,8 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 		}
 		else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 1 )
 		{
-			if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) || 
-				((gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_ALT_WEAPON_HOLDING )) && 
+			if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ||
+				((gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING )) &&
 				(bAimTime > 0) ))
 			{
 				fAddingRaiseGunCost = TRUE;
@@ -2135,7 +2135,7 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 		}
 		else 
 		{
-			if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) )
+			if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) )
 			{
 				fAddingRaiseGunCost = TRUE;
 			}	
@@ -2144,7 +2144,7 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 		//CHRISL: Handle ready weapon with facing changes based on stance
 		if(fAddingTurningCost && !fAddingRaiseGunCost)
 		{
-			switch (gAnimControl[ pSoldier->usAnimState ].ubHeight)
+			switch (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight)
 			{
 				case ANIM_STAND:
 					fAddingRaiseGunCost = GetDirectionChangeAmount(sGridNo, pSoldier, 3);
@@ -2174,7 +2174,7 @@ UINT16 CalculateActionTurningCost(SOLDIERTYPE *pSoldier, INT32 sActionGridNo, IN
 	{
 		OBJECTTYPE *pObjUsed = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
 		UINT16 usItem = pObjUsed->usItem;
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+		if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			sAPCost += CalculateTurningCost(pSoldier, usItem, TRUE, ANIM_CROUCH);
 		else
 			sAPCost += CalculateTurningCost(pSoldier, usItem, TRUE);
@@ -2188,25 +2188,25 @@ UINT16 CalculateTurningCost(SOLDIERTYPE *pSoldier, UINT16 usItem, BOOLEAN fAddin
 
 	if(fAddingTurningCost)
 	{
-		usTrueAnimState = pSoldier->usAnimState;
+		usTrueAnimState = pSoldier->animationPlayback().state();
 		switch(bDesiredHeight)
 		{
 		case ANIM_STAND:
-			pSoldier->usAnimState = STANDING;
+			pSoldier->animationPlayback().state() = STANDING;
 			break;
 		case ANIM_CROUCH:
-			pSoldier->usAnimState = CROUCHING;
+			pSoldier->animationPlayback().state() = CROUCHING;
 			break;
 		case ANIM_PRONE:
-			pSoldier->usAnimState = PRONE;
+			pSoldier->animationPlayback().state() = PRONE;
 			break;
 		default:
 			break;
 		}
 		if(Item[usItem].usItemClass == IC_THROWING_KNIFE)
-			pSoldier->usAnimState = STANDING;
+			pSoldier->animationPlayback().state() = STANDING;
 		usTurningCost = GetAPsToLook(pSoldier);
-		pSoldier->usAnimState = usTrueAnimState;
+		pSoldier->animationPlayback().state() = usTrueAnimState;
 	}
 	return(usTurningCost);
 }
@@ -2317,7 +2317,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		}
 
 		//CHRISL: When prone and using a bipod, bipod should help compensate for recoil.  To reflect this, our shot AP cost should be minimially reduced
-		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier > 0 && gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE && GetBipodBonus(&GrenadeLauncher) > 0){
+		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier > 0 && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE && GetBipodBonus(&GrenadeLauncher) > 0){
 			bAPCost += (BaseAPsToShootOrStab( bFullAPs, bAimSkill, &GrenadeLauncher, pSoldier ) * (100 - GetBipodBonus(&GrenadeLauncher)) / 100);
 		} else {
 			bAPCost += BaseAPsToShootOrStab( bFullAPs, bAimSkill, &GrenadeLauncher, pSoldier );
@@ -2357,7 +2357,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 	else
 	{
 		//CHRISL: When prone and using a bipod, bipod should help compensate for recoil.  To reflect this, our shot AP cost should be minimially reduced
-		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier > 0 && gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE && GetBipodBonus(&(pSoldier->inv[HANDPOS])) > 0)
+		if(gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier > 0 && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE && GetBipodBonus(&(pSoldier->inv[HANDPOS])) > 0)
 		{
 			bAPCost += (BaseAPsToShootOrStab( bFullAPs, bAimSkill, pObjUsed, pSoldier ) * (100 - GetBipodBonus(&(pSoldier->inv[HANDPOS]))) / 100);
 		} 
@@ -2437,10 +2437,10 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		}
 		else if(ItemIsRocketLauncher(usItem) || ItemIsGrenadeLauncher(usItem) || ItemIsMortar(usItem))//dnl ch72 260913 move this here from bottom, need to change as rocketlaucher could be fired from crouch too
 		{
-			if(gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE || ItemIsMortar(usItem) && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)
+			if(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE || ItemIsMortar(usItem) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 				bAPCost += GetAPsToChangeStance(pSoldier, ANIM_CROUCH);
 			else
-				bAPCost += GetAPsToChangeStance(pSoldier, gAnimControl[pSoldier->usAnimState].ubEndHeight);
+				bAPCost += GetAPsToChangeStance(pSoldier, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight);
 		}
 	}
 
@@ -2455,7 +2455,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		{
 			if(ItemIsRocketLauncher(usItem) || ItemIsGrenadeLauncher(usItem) || ItemIsMortar(usItem))//dnl ch72 260913
 			{
-				if(gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE || ItemIsMortar(usItem) && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)
+				if(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE || ItemIsMortar(usItem) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 					usTurningCost = CalculateTurningCost(pSoldier, usItem, fAddingTurningCost, ANIM_CROUCH);
 				else
 					usTurningCost = CalculateTurningCost(pSoldier, usItem, fAddingTurningCost);
@@ -2472,7 +2472,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 	// silversurfer: this was different from HandleItem() and therefore it displayed different values
 	// on the cursor than those deducted for real
 	// bAPCost += (usTurningCost + usRaiseGunCost);
-	if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE )
 	{
 		if ( fAddingTurningCost && fAddingRaiseGunCost )
 		{
@@ -2541,7 +2541,7 @@ INT16 MinAPsToPunch(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		if(target != nullptr)
 		{
 			// Check if target is prone, if so, calc cost...
-			if(gAnimControl[target->usAnimState].ubEndHeight == ANIM_PRONE)
+			if(gAnimControl[target->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 				bAPCost += GetAPsToChangeStance(pSoldier, ANIM_CROUCH);
 			else
 				bAPCost += GetAPsToChangeStance(pSoldier, ANIM_STAND);
@@ -2635,11 +2635,11 @@ INT8 MinAPsToStartMovement( SOLDIERTYPE * pSoldier, UINT16 usMovementMode )
 		case WALKING:
 		case WALKING_WEAPON_RDY:
 		case WALKING_DUAL_RDY:
-			if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE)
+			if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 			{
 				bAPs += GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE);
 			}
-			else if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_CROUCH)
+			else if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_CROUCH)
 			{
 				bAPs += GetAPsCrouch(pSoldier, TRUE);
 			}
@@ -2648,21 +2648,21 @@ INT8 MinAPsToStartMovement( SOLDIERTYPE * pSoldier, UINT16 usMovementMode )
 		case CROUCHEDMOVE_RIFLE_READY:
 		case CROUCHEDMOVE_PISTOL_READY:
 		case CROUCHEDMOVE_DUAL_READY:
-			if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE)
+			if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)
 			{
 				bAPs += GetAPsProne(pSoldier, TRUE);
 			}
-			else if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
+			else if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 			{
 				bAPs += GetAPsCrouch(pSoldier, TRUE);
 			}
 			break;
 		case CRAWLING:
-			if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
+			if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 			{
 				bAPs += GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE);
 			}
-			else if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_CROUCH)
+			else if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_CROUCH)
 			{
 				//bAPs += GetAPsCrouch(pSoldier, TRUE);
 				bAPs += GetAPsProne(pSoldier, TRUE);
@@ -2672,7 +2672,7 @@ INT8 MinAPsToStartMovement( SOLDIERTYPE * pSoldier, UINT16 usMovementMode )
 			break;
 	}
 	/*
-	if (usMovementMode == RUNNING && pSoldier->usAnimState != RUNNING )
+	if (usMovementMode == RUNNING && pSoldier->animationPlayback().state() != RUNNING )
 	{
 		bAPs += GetAPsStartRun( pSoldier ); // changed by SANDRO
 	}
@@ -3145,7 +3145,7 @@ INT16 GetAPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight )
 	UINT16						sAPCost = 0;
 	INT8							bCurrentHeight;
 
-	bCurrentHeight = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+	bCurrentHeight = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 	if ( bCurrentHeight == bDesiredHeight )
 	{
@@ -3186,7 +3186,7 @@ INT16 GetAPsToChangeStance( SOLDIERTYPE *pSoldier, INT8 bDesiredHeight )
 INT16 GetAPsToLook( SOLDIERTYPE *pSoldier )
 {
 	// Set # of APs
-	switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 	{
 		// Now change to appropriate animation
 		case ANIM_STAND:
@@ -3360,7 +3360,7 @@ INT16 GetAPsToReadyWeapon( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 						}
 					}
 					// If we are told to go from alternative to standard weapon holding
-					else if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
+					else if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 					{
 						if (ItemIsTwoHanded(usItem))
 						{
@@ -3678,14 +3678,14 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 	else
 		ubAddTurningCost = FALSE;
 
-	if(gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+	if(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 	{
 		iAPCost += GetAPsToChangeStance(pSoldier, ANIM_CROUCH);
 		iAPCost += CalculateTurningCost(pSoldier, usInHand, ubAddTurningCost, ANIM_CROUCH);
 	}
 	else
 	{
-		iAPCost += GetAPsToChangeStance(pSoldier, gAnimControl[pSoldier->usAnimState].ubEndHeight);
+		iAPCost += GetAPsToChangeStance(pSoldier, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight);
 		iAPCost += CalculateTurningCost(pSoldier, usInHand, ubAddTurningCost);
 	}
 
@@ -3900,7 +3900,7 @@ INT32 CalcAPCostForAiming( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, INT8 bAim
 	UINT16 usItemNum = pSoldier->inv[HANDPOS].usItem;
 
 #ifndef dnlCALCBESTSHOT//dnl ch69 150913 if this is turn on we get incorrect APs as MinAPsToShootOrStab always include raise gun cost
-	if (!ARMED_VEHICLE(pSoldier) && !( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_FIREREADY | ANIM_FIRE )))//dnl ch64 310813
+	if (!ARMED_VEHICLE(pSoldier) && !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_FIREREADY | ANIM_FIRE )))//dnl ch64 310813
 	{
 		// Weapon not ready, check aiming from hip, else add raise gun cost
 		//if (!pSoldier->IsValidShotFromHip(bAimTime,sTargetGridNo))
@@ -4116,7 +4116,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 		return 0;
 	if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass != IC_GUN && Item[pSoldier->inv[HANDPOS].usItem].usItemClass != IC_LAUNCHER )
 		return 0;
-	if ( !(gAnimControl[ pSoldier->usAnimState ].uiFlags & (ANIM_FIRE | ANIM_FIREREADY) ) && !fEstimate ) // don't if weapon not raised, but do if we are gonna estimate the cost
+	if ( !(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & (ANIM_FIRE | ANIM_FIREREADY) ) && !fEstimate ) // don't if weapon not raised, but do if we are gonna estimate the cost
 		return 0;
 	if ( ARMED_VEHICLE( pSoldier ) || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
 		return 0;
@@ -4177,7 +4177,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	// APPLY MODIFIERS FOR STANCE AND BIPOD
 	dModifier = 0;
 	// Alternative weapon holding?
-	if (( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) || (fEstimate && pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD) )
+	if (( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) || (fEstimate && pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD) )
 	{
 		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem)) // firing from hip is not nearly ?n effort
 			dModifier += 80; // only 20% cost if on hip
@@ -4185,13 +4185,13 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 			dModifier -= 25; // increased cost by 25%
 	}
 	// If weapon is rested on something or we are prone, reduce the power
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE ) )
+	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 90; // only 10% of the regular cost if prone or rested	
 		if ( GetBipodBonus(&pSoldier->inv[pSoldier->ubAttackingHand]) > 0)
 			iBPcost = 0; // with bipod on top, there is no bp cost
 	}
-	else if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_CROUCH )
+	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
 		dModifier += 50; // only 50% of the cost if crouching
 
 	if ( dModifier != 0 )
@@ -4202,7 +4202,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	iBPcost = max(0, iBPcost);
 
 	// What the hell, can't shoulder these, return some crazy breath cost
-	if ( Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding && (!(gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_ALT_WEAPON_HOLDING) || (fEstimate && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )) )
+	if ( Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding && (!(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING) || (fEstimate && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )) )
 	{
 		iBPcost = (iBPcost + 25) * 5;
 	}
@@ -4333,7 +4333,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	// APPLY MODIFIERS FOR STANCE AND BIPOD
 	dModifier = 0;
 	// Alternative weapon holding?
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_ALT_WEAPON_HOLDING )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING )
 	{
 		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem)) // firing from hip makes the kicking rather diminishing
 			dModifier += 80; // only 20% of the regular kick power 
@@ -4341,12 +4341,12 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 			dModifier -= 33; // plus 33% power
 	}
 	// If weapon is rested on something or we are prone, reduce the power
-	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE ) )
+	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 40; // only 60% of the regular kick power if prone		
 		dModifier += (2 * GetBipodBonus(&pSoldier->inv[pSoldier->ubAttackingHand])); // minus up to 20% for bipod	
 	}
-	else if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_CROUCH )
+	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
 		dModifier += 20; // only 80% of the regular kick power if crouching
 
 	if ( dModifier != 0 )
@@ -4417,9 +4417,9 @@ INT16 GetAPsToStartDrag(SOLDIERTYPE *pSoldier, BOOLEAN fStance)
 {
 	INT16 sAPCost = 0;
 
-	if (fStance && gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_CROUCH)
+	if (fStance && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_CROUCH)
 	{
-		if (gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_CROUCH)
+		if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_CROUCH)
 			sAPCost += GetAPsCrouch(pSoldier, TRUE);
 		else
 			sAPCost += GetAPsProne(pSoldier, TRUE);

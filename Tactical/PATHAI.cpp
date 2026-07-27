@@ -1295,7 +1295,7 @@ INT16 AStarPathfinder::CalcStartingAP()
 	// We should reduce points for starting to run if first tile is a fence...
 	if ( gubWorldMovementCosts[ CurrentNode ][ direction ][ onRooftop ] == TRAVELCOST_FENCE )
 	{
-		if ( movementMode == RUNNING && pSoldier->usAnimState != RUNNING )
+		if ( movementMode == RUNNING && pSoldier->animationPlayback().state() != RUNNING )
 		{
 			startingAPCost = startingAPCost - GetAPsStartRun( pSoldier ); // changed by SANDRO
 		}
@@ -3349,7 +3349,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 						break;
 					case WALKING:
 						ubAPCost += APBPConstants[AP_MODIFIER_WALK];	//WALKCOST);
-						if (!(s->MercInWater()) && ( (gAnimControl[ s->usAnimState ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ s->usAnimState ].uiFlags & ANIM_FIRE ) ))
+						if (!(s->MercInWater()) && ( (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ s->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 						{
 							ubAPCost += APBPConstants[AP_MODIFIER_READY];	//WALKCOST);
 						}
@@ -4223,7 +4223,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 	{
 		// if soldier would be STARTING to run then he pays a penalty since it takes time to
 		// run full speed
-		if (pSold->usAnimState != RUNNING)
+		if (pSold->animationPlayback().state() != RUNNING)
 		{
 			// for estimation purposes, always pay penalty
 			sPointsRun = GetAPsStartRun( pSold ); // changed by SANDRO
@@ -4249,7 +4249,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 
 		if ( gubWorldMovementCosts[ sTestGridNo ][ guiPathingData[0] ][ pSold->position().level()] == TRAVELCOST_FENCE )
 		{
-			if ( usMovementMode == RUNNING && pSold->usAnimState != RUNNING )
+			if ( usMovementMode == RUNNING && pSold->animationPlayback().state() != RUNNING )
 			{
 				sPoints -= GetAPsStartRun( pSold ); // changed by SANDRO
 			}
@@ -4264,7 +4264,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 			iLastGrid = giPathDataSize;
 		}
 
-		INT16 usMovementModeBefore = pSold->usAnimState;
+		INT16 usMovementModeBefore = pSold->animationPlayback().state();
 
 		// sevenfm: moved calculations out of loop
 		UINT16 usBackpackPenalty = 0;
@@ -4439,7 +4439,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 							sMovementAPsCost = sTileCost + APBPConstants[AP_MODIFIER_RUN];
 							break;
 						case WALKING:
-							if ( 0 && !(pSold->MercInWater()) && ( (gAnimControl[ pSold->usAnimState ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->usAnimState ].uiFlags & ANIM_FIRE ) ))
+							if ( 0 && !(pSold->MercInWater()) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 							{
 								sMovementAPsCost = sTileCost + APBPConstants[AP_MODIFIER_WALK] + APBPConstants[AP_MODIFIER_READY];	
 							}
@@ -4596,7 +4596,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					sPointsRun = (sPointsRun * (100 + pSold->GetBackgroundValue(BG_SWIMMING))) / 100;
 				}
 				// walking with weapon raised?
-				if (!(pSold->MercInWater()) && ( (gAnimControl[ pSold->usAnimState ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->usAnimState ].uiFlags & ANIM_FIRE ) ))
+				if (!(pSold->MercInWater()) && ( (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIREREADY ) || (gAnimControl[ pSold->animationPlayback().state() ].uiFlags & ANIM_FIRE ) ))
 				{
 					sPointsWalk += APBPConstants[AP_MODIFIER_READY];
 				}

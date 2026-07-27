@@ -1675,14 +1675,14 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
 	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(s.bCollapsed); ar.i8(s.bBreathCollapsed);
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
-	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.usAnimState);
+	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(s.ubAttackerID.i); ar.u16(s.ubPreviousAttackerID.i);
 	ar.i32(s.sInsertionGridNo);
 	// AnimCache is a runtime surface cache; clear its pointers/count on load.
 	ar.ptr(s.AnimCache.usCachedSurfaces); ar.ptr(s.AnimCache.sCacheHits);
 	if (Ar::isLoading) s.AnimCache.ubCacheSize = 0;
 	ar.u8(s.bSide); ar.u8(s.bViewRange); ar.i8(s.bNewOppCnt); ar.i8(s.bService);
-	ar.u16(s.usAniCode); ar.u16(s.usAniFrame); ar.i16(s.sAniDelay);
+	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(s.sTargetGridNo); ar.i8(s.bTargetLevel); ar.i8(s.bTargetCubeLevel); ar.i32(s.sLastTarget);
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetX[i]);
@@ -1709,10 +1709,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.usUnblitX); ar.u16(s.usUnblitY); ar.u16(s.usUnblitWidth); ar.u16(s.usUnblitHeight);
 	ar.u8(s.ubStrategicInsertionCode); ar.i32(s.usStrategicInsertionData);
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
-	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.usOldAniState); ar.i16(s.sOldAniCode);
+	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
 	ar.i8(s.bBulletsLeft); ar.u8(s.ubSuppressionPoints);
 	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
-	ar.u16(s.usAnimSurface); ar.u16(s.sZLevel);
+	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(s.sWalkToAttackMovementMode); ar.i32(s.sWalkToAttackGridNo); ar.i16(s.sWalkToAttackWalkToCost);
 	ar.i16(s.sLocatorOffX); ar.i16(s.sLocatorOffY); ar.ptr(s.pForcedShade);
 	ar.i8(s.bDisplayDamageCount); ar.u8(s.sWalkToAttackEndDirection);
@@ -1723,7 +1723,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sPanelFaceX); ar.i16(s.sPanelFaceY);
 	ar.i8(s.bNumHitsThisTurn); ar.u16(s.usQuoteSaidFlags); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);
 	ar.i8(s.bVocalVolume); ar.i8(s.bStartFallDir);
-	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.uiAnimSubFlags);
+	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.animationPlayback().subFlags());
 	ar.u8(s.bAimShotLocation); ar.u8(s.ubHitLocation); ar.u8(s.bAimMeleeLocation);
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
 	ar.u8(s.ubPlannedUIAPCost); ar.i16(s.sPlannedTargetX); ar.i16(s.sPlannedTargetY);

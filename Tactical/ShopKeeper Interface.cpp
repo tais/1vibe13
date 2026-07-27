@@ -1484,11 +1484,11 @@ BOOLEAN RenderShopKeeperInterface()
 
 			if ( pBuffer != NULL )
 			{
-				UINT16 usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+				UINT16 usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 				HVOBJECT hVObject = gAnimSurfaceDatabase[usAnimSurface].hVideoObject;
 
-				ETRLEObject* pTrav = &(hVObject->pETRLEObject[pSoldier->usAniFrame]);
+				ETRLEObject* pTrav = &(hVObject->pETRLEObject[pSoldier->animationPlayback().frame()]);
 
 				INT32 sCenX = SKI_FACE_X + (INT16)(abs( (long)(SKI_FACE_WIDTH - pTrav->usWidth) ) / 2) - pTrav->sOffsetX;
 				INT32 sCenY = SKI_FACE_Y + (INT16)(abs( (long)(SKI_FACE_HEIGHT - pTrav->usHeight) ) / 2) - pTrav->sOffsetY;
@@ -1502,7 +1502,7 @@ BOOLEAN RenderShopKeeperInterface()
 				Blt8BPPDataTo16BPPBufferTransShadowClip( pBuffer, uiPitch,
 														 hVObject,
 														 sCenX, sCenY,
-														 pSoldier->usAniFrame,
+														 pSoldier->animationPlayback().frame(),
 														 &rect,
 														 pSoldier->pShades[pSoldier->ubFadeLevel],
 														 TRUE

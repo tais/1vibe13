@@ -149,10 +149,10 @@ namespace
 
 	bool CanBeginWorldObjectInteraction(const SOLDIERTYPE& soldier) noexcept
 	{
-		return soldier.usAnimState != OPEN_STRUCT &&
-			soldier.usAnimState != OPEN_STRUCT_CROUCHED &&
-			soldier.usAnimState != BEGIN_OPENSTRUCT &&
-			soldier.usAnimState != BEGIN_OPENSTRUCT_CROUCHED;
+		return soldier.animationPlayback().state() != OPEN_STRUCT &&
+			soldier.animationPlayback().state() != OPEN_STRUCT_CROUCHED &&
+			soldier.animationPlayback().state() != BEGIN_OPENSTRUCT &&
+			soldier.animationPlayback().state() != BEGIN_OPENSTRUCT_CROUCHED;
 	}
 
 	bool IsValidConversationPair(
@@ -315,7 +315,7 @@ namespace
 						(gTacticalStatus.uiFlags & REALTIME) != 0 ||
 						(IsJa2TacticalCombatActive()) == 0;
 					if (realtimeStanceChange &&
-						(gAnimControl[soldier->usAnimState].uiFlags &
+						(gAnimControl[soldier->animationPlayback().state()].uiFlags &
 							ANIM_STATIONARY) == 0)
 					{
 						soldier->usUIMovementMode =
@@ -436,7 +436,7 @@ namespace
 				INT16 positionY = 0;
 				ConvertGridNoToCenterCellXY(
 					value.reportedGrid, &positionX, &positionY);
-				if ((gAnimControl[soldier->usAnimState].uiFlags &
+				if ((gAnimControl[soldier->animationPlayback().state()].uiFlags &
 						(ANIM_MOVING | ANIM_SPECIALMOVE)) == 0 ||
 					soldier->flags.fNoAPToFinishMove)
 					soldier->EVENT_InternalSetSoldierPosition(
@@ -476,7 +476,7 @@ namespace
 				if (value.stop && soldier->bTeam >= LAN_TEAM_ONE &&
 					soldier->position().gridNo() >= 0 &&
 					soldier->position().gridNo() < WORLD_MAX &&
-					(gAnimControl[soldier->usAnimState].uiFlags &
+					(gAnimControl[soldier->animationPlayback().state()].uiFlags &
 						ANIM_MOVING) != 0)
 					soldier->EVENT_StopMerc(
 						soldier->position().gridNo(), soldier->position().direction());
@@ -497,7 +497,7 @@ namespace
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inv[HANDPOS].exists() ||
-					(gAnimControl[soldier->usAnimState].uiFlags & ANIM_FIRE) != 0)
+					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
 				ChangeWeaponMode(soldier);
 				return CommandDisposition::Applied;
@@ -506,7 +506,7 @@ namespace
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier || !soldier->inv[HANDPOS].exists() ||
-					(gAnimControl[soldier->usAnimState].uiFlags & ANIM_FIRE) != 0)
+					(gAnimControl[soldier->animationPlayback().state()].uiFlags & ANIM_FIRE) != 0)
 					return CommandDisposition::Discard;
 				ChangeScopeMode(soldier, value.targetGrid);
 				ManLooksForOtherTeams(soldier);
@@ -2293,9 +2293,9 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 
 	soldier.EVENT_SetSoldierDesiredDirection(
 		static_cast<UINT8>(rawDirection));
-	if (gAnimControl[soldier.usAnimState].ubEndHeight == ANIM_PRONE ||
-		gAnimControl[soldier.usAnimState].ubEndHeight == ANIM_CROUCH ||
-		gAnimControl[target->usAnimState].ubEndHeight == ANIM_PRONE)
+	if (gAnimControl[soldier.animationPlayback().state()].ubEndHeight == ANIM_PRONE ||
+		gAnimControl[soldier.animationPlayback().state()].ubEndHeight == ANIM_CROUCH ||
+		gAnimControl[target->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 	{
 		soldier.EVENT_InitNewSoldierAnim(
 			STEAL_ITEM_CROUCHED, 0, FALSE);

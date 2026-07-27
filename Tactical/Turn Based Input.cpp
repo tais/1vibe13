@@ -2242,7 +2242,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					continue;
 				}
 				else if (selectedSoldier &&
-					!(gAnimControl[selectedSoldier->usAnimState].uiFlags & ANIM_STATIONARY))
+					!(gAnimControl[selectedSoldier->animationPlayback().state()].uiFlags & ANIM_STATIONARY))
 				{
 					// If soldier is not stationary, stop
 					if (TryDispatchStopMovementCommandNow(
@@ -5310,7 +5310,7 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 		{
 			pSoldier->ubBodyType = ubBodyType;
 			pSoldier->EVENT_InitNewSoldierAnim( STANDING, 0 , TRUE );
-			//SetSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+			//SetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 			if( fCreateNewPalette )
 			{
 				pSoldier->CreateSoldierPalettes( );
@@ -6609,7 +6609,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				{
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ubAnimHeight)
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubAnimHeight)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
 				else if (pSoldier->bCollapsed && pSoldier->vitals().breath() >= OKBREATH)
@@ -9133,7 +9133,7 @@ void HandleTacticalTransformItem(void)
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if (gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FIRE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FIRE)
 		return;
 
 	// don't do this when EDB is active
@@ -9515,7 +9515,7 @@ void HandleTacticalTransformScope(void)
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if (gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FIRE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FIRE)
 		return;
 
 	// don't do this when EDB is active
@@ -9580,7 +9580,7 @@ void HandleTacticalTransformLaser(void)
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if (gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FIRE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FIRE)
 		return;
 
 	// don't do this when EDB is active
@@ -9643,7 +9643,7 @@ void HandleTacticalTransformStock(void)
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if (gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FIRE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FIRE)
 		return;
 
 	// don't do this when EDB is active
@@ -9726,7 +9726,7 @@ void HandleTacticalTransformFlashlight(void)
 		return;
 
 	// ATE: Don't do this if in a fire animation.....
-	if (gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FIRE)
+	if (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FIRE)
 		return;
 
 	// don't do this when EDB is active

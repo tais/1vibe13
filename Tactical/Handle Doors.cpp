@@ -105,7 +105,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 		{
 			if ( fDoor )
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( OPEN_DOOR_CROUCHED );
 				}
@@ -116,7 +116,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 			}
 			else
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( BEGIN_OPENSTRUCT_CROUCHED );
 				}
@@ -138,7 +138,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 		{
 			if ( fDoor )
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( CLOSE_DOOR_CROUCHED );
 				}
@@ -149,7 +149,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 			}
 			else
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( OPEN_STRUCT_CROUCHED );
 				}
@@ -171,7 +171,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 		{
 			if ( fDoor )
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( END_OPEN_DOOR_CROUCHED );
 				}
@@ -182,7 +182,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 			}
 			else
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( END_OPENSTRUCT_CROUCHED );
 				}
@@ -205,7 +205,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 		{
 			if ( fDoor )
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( END_OPEN_LOCKED_DOOR_CROUCHED );
 				}
@@ -216,7 +216,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 			}
 			else
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 				{
 					return( END_OPENSTRUCT_LOCKED_CROUCHED );
 				}
@@ -230,7 +230,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 
 		case PICK_LOCK:
 
-			if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND )
 			{
 		return( LOCKPICK_CROUCHED );
 		}

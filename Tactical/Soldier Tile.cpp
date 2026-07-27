@@ -168,12 +168,12 @@ void UnMarkMovementReserved( SOLDIERTYPE *pSoldier )
 	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(pSoldier->dYPos, pSoldier->dXPos );
 
 	// OK, if NOT in fence anim....
-	if ( pSoldier->usAnimState == HOPFENCE && pSoldier->movement().reservedGrid() != sNewGridNo )
+	if ( pSoldier->animationPlayback().state() == HOPFENCE && pSoldier->movement().reservedGrid() != sNewGridNo )
 	{
 		return;
 	}
 	
-	if ( pSoldier->usAnimState == JUMPWINDOWS && pSoldier->movement().reservedGrid() != sNewGridNo )
+	if ( pSoldier->animationPlayback().state() == JUMPWINDOWS && pSoldier->movement().reservedGrid() != sNewGridNo )
 	{
 		return;
 	}
@@ -375,7 +375,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 	}
 
 	// If animation state is crow, iall is clear
-	if ( pSoldier->usAnimState == CROW_FLY )
+	if ( pSoldier->animationPlayback().state() == CROW_FLY )
 	{
 		return( TRUE );
 	}
@@ -462,7 +462,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 			if ( TERRAIN_IS_WATER( bOverTerrainType) )
 			{
 				// Check if we are of prone or crawl height and change stance accordingly....
-				switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+				switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 				{
 					case ANIM_PRONE:
 					case ANIM_CROUCH:
@@ -475,7 +475,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 
 				// Check animation
 				// Change to walking
-				if ( pSoldier->usAnimState == RUNNING )
+				if ( pSoldier->animationPlayback().state() == RUNNING )
 				{
 					pSoldier->ChangeSoldierState( WALKING, 0 , FALSE );
 				}
@@ -817,10 +817,10 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 	// NB checks outside of this function
 	if ( EnoughPoints( pSoldier1, APBPConstants[AP_EXCHANGE_PLACES], 0, fShow ) ){
 	if ( EnoughPoints( pSoldier2, APBPConstants[AP_EXCHANGE_PLACES], 0, fShow ) ){
-		if ( ( gAnimControl[ pSoldier2->usAnimState ].uiFlags & ANIM_MOVING ) )
+		if ( ( gAnimControl[ pSoldier2->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 			return( FALSE );
 
-		if ( ( gAnimControl[ pSoldier1->usAnimState ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive()) )
+		if ( ( gAnimControl[ pSoldier1->animationPlayback().state() ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive()) )
 			return( FALSE );
 
 		if ( pSoldier2->bSide == 0 )

@@ -547,7 +547,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 				GetJa2SoldierRepository().resolve(id.i);
 			if ( pStop && pStop->bActive && pStop->bInSector && pStop->bTeam >= LAN_TEAM_ONE
 				&& pStop->position().gridNo() >= 0 && pStop->position().gridNo() < WORLD_MAX
-				&& ( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
+				&& ( gAnimControl[ pStop->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 			{
 				pStop->EVENT_StopMerc( pStop->position().gridNo(), pStop->position().direction() );
 			}
@@ -2081,7 +2081,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	//hayden, multiplayer add advantage for a ready'd reapon
 	if(is_networked)
 	{
-		if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ))
+		if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ))
 		{
 			iPoints=(iPoints + cWeaponReadyBonus);
 			
@@ -2109,11 +2109,11 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 		// this soldier is moving, so give them a bonus for crawling or swatting at long distances
 		if ( !gbSeenOpponents[ ubOpponentID ][ pSoldier->ubID ] )
 		{
-			if (pSoldier->usAnimState == SWATTING && ubDistance > (MaxNormalDistanceVisible() / 2) ) // more than 1/2 sight distance
+			if (pSoldier->animationPlayback().state() == SWATTING && ubDistance > (MaxNormalDistanceVisible() / 2) ) // more than 1/2 sight distance
 			{
 				iPoints++;
 			}
-			else if (pSoldier->usAnimState == CRAWLING && ubDistance > (MaxNormalDistanceVisible() / 4) ) // more than 1/4 sight distance
+			else if (pSoldier->animationPlayback().state() == CRAWLING && ubDistance > (MaxNormalDistanceVisible() / 4) ) // more than 1/4 sight distance
 			{
 				iPoints += ubDistance / STRAIGHT;
 			}
@@ -2121,7 +2121,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// whether active or not, penalize people who are running
-	if ( pSoldier->usAnimState == RUNNING && !gbSeenOpponents[ pSoldier->ubID ][ ubOpponentID ] )
+	if ( pSoldier->animationPlayback().state() == RUNNING && !gbSeenOpponents[ pSoldier->ubID ][ ubOpponentID ] )
 	{
 		iPoints -= 2;
 	}

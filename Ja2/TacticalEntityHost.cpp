@@ -30,9 +30,9 @@ TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
 
 TacticalStance LegacyStance(const SOLDIERTYPE& soldier) noexcept
 {
-	if (soldier.usAnimState >= NUMANIMATIONSTATES)
+	if (soldier.animationPlayback().state() >= NUMANIMATIONSTATES)
 		return TacticalStance::Unknown;
-	switch (gAnimControl[soldier.usAnimState].ubHeight)
+	switch (gAnimControl[soldier.animationPlayback().state()].ubHeight)
 	{
 		case ANIM_STAND: return TacticalStance::Standing;
 		case ANIM_CROUCH: return TacticalStance::Crouched;
@@ -51,7 +51,7 @@ TacticalActorSnapshot LegacyState(
 		soldier.position().gridNo(),
 		static_cast<std::int8_t>(soldier.position().level()),
 		soldier.position().direction(),
-		soldier.usAnimState,
+		soldier.animationPlayback().state(),
 		LegacyStance(soldier),
 		soldier.bActionPoints,
 		soldier.vitals().health(),

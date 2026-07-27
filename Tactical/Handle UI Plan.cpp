@@ -279,13 +279,13 @@ void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier )
 {
 	// Determine which animation to do...depending on stance and gun in hand...
 
-	switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+	switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 	{
 		case ANIM_STAND:
 
 			if ( pSoldier->bDoBurst > 0 )
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 				{
 					pSoldier->ChangeSoldierState( BURST_ALTERNATIVE_STAND, 2 , FALSE );
 				}
@@ -296,7 +296,7 @@ void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier )
 			}
 			else
 			{
-				if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 				{
 					pSoldier->ChangeSoldierState( SHOOT_ALTERNATIVE_STAND, 2 , FALSE );
 				}
