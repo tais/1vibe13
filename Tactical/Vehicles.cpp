@@ -9,6 +9,7 @@
 	#include "Map Screen Helicopter.h"
 	#include "Game Clock.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Soldier Profile.h"
 	#include "Sound Control.h"
 	#include "Soldier Add.h"
@@ -523,7 +524,9 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	//CHRISL: Get number of vehicles currently in player team
 	for(int x = 0; x < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; x++)
 	{
-		if(MercPtrs[x]->bTeam == OUR_TEAM && (MercPtrs[x]->flags.uiStatusFlags & SOLDIER_VEHICLE) && MercPtrs[x]->bActive == TRUE)
+		SOLDIERTYPE* teamSoldier =
+			GetJa2SoldierRepository().resolve(x);
+		if(teamSoldier->bTeam == OUR_TEAM && (teamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && teamSoldier->bActive == TRUE)
 			vCount ++;
 	}
 
@@ -1580,7 +1583,8 @@ SOLDIERTYPE *GetDriver( INT32 iID )
 	INT32 iCounter;
 	if( pVehicleList[ iID ].ubDriver != NOBODY )
 	{
-		return( pVehicleList[ iID ].ubDriver );
+		return GetJa2SoldierRepository().resolve(
+			pVehicleList[iID].ubDriver.i);
 	}
 	else
 	{
@@ -1600,9 +1604,13 @@ SOLDIERTYPE *GetDriver( INT32 iID )
 void SetDriver( INT32 iID, SoldierID ubID )
 {
 	// anv: first make sure previous driver won't be driver anymore
-	SOLDIERTYPE* prevDriver = pVehicleList[iID].ubDriver;
+	SoldierID previousDriverId = pVehicleList[iID].ubDriver;
+	SOLDIERTYPE* prevDriver =
+		previousDriverId != NOBODY
+			? GetJa2SoldierRepository().resolve(previousDriverId.i)
+			: nullptr;
 
-	if( prevDriver != NOBODY && prevDriver->iVehicleId == iID )
+	if( prevDriver && prevDriver->iVehicleId == iID )
 	{
 		if( prevDriver )
 		{
@@ -1616,8 +1624,10 @@ void SetDriver( INT32 iID, SoldierID ubID )
 	// set proper flags
 	if( ubID != NOBODY )
 	{
-		ubID->flags.uiStatusFlags |= SOLDIER_DRIVER;
-		ubID->flags.uiStatusFlags &= ~(SOLDIER_PASSENGER);
+		SOLDIERTYPE* driver =
+			GetJa2SoldierRepository().resolve(ubID.i);
+		driver->flags.uiStatusFlags |= SOLDIER_DRIVER;
+		driver->flags.uiStatusFlags &= ~(SOLDIER_PASSENGER);
 	}
 	pVehicleList[ iID ].ubDriver = ubID;
 }
@@ -1765,7 +1775,7 @@ SOLDIERTYPE *GetVehicleSoldierPointerFromPassenger( SOLDIERTYPE *pSrcSoldier )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
 			// Check ubID....
@@ -2242,7 +2252,8 @@ SOLDIERTYPE * GetSoldierStructureForVehicle( INT32 iId )
 
 	for( INT32 iCounter = 0; iCounter < TOTAL_SOLDIERS; iCounter++ )
 	{
-		SOLDIERTYPE *pSoldier = &Menptr[ iCounter ];
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(iCounter);
 
 		if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
@@ -2980,7 +2991,7 @@ BOOLEAN OnlythisCanDriveVehicle( SOLDIERTYPE *pthis, INT32 iVehicleId )
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 	{
 		// get the current soldier
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id.i);
 
 		// skip checking THIS soldier, we wanna know about everyone else
 		if ( pSoldier == pthis )

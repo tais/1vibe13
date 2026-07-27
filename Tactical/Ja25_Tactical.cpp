@@ -2,6 +2,7 @@
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Control.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Handle UI.h"
 	#include "Animation Control.h"
 	#include "Isometric Utils.h"
@@ -454,8 +455,9 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 	INT32 cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 
 	//Check to see if Gaston, Stogie or the PGC is on the team
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt, ++pSoldier )
-	{    
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
+	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive, in sector, etc...
 		//Note: cant do the OK_CONTROLLABLE_MERC() cause it does bInSector which is not set when EnterSector is finshed ( we need it then )
 		if( pSoldier->bActive	&&
@@ -858,25 +860,39 @@ void HandlePowerGenAlarm()
 
 				if( bID != -1 )
 				{
-					TacticalCharacterDialogue( &Menptr[ bID ], QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE );
+					TacticalCharacterDialogue(
+						GetJa2SoldierRepository().resolve(bID),
+						QUOTE_HATED_2_ON_TEAM_LONGTIMETOHATE);
 				}
 			}
 			else
 			{
 				SoldierID bSoldierId1, bSoldierId2, bSoldierId3;
 				Get3RandomQualifiedMercs( &bSoldierId1, &bSoldierId2, &bSoldierId3 );
+				SOLDIERTYPE* firstSoldier =
+					bSoldierId1 != NOBODY
+						? GetJa2SoldierRepository().resolve(bSoldierId1.i)
+						: nullptr;
+				SOLDIERTYPE* secondSoldier =
+					bSoldierId2 != NOBODY
+						? GetJa2SoldierRepository().resolve(bSoldierId2.i)
+						: nullptr;
+				SOLDIERTYPE* thirdSoldier =
+					bSoldierId3 != NOBODY
+						? GetJa2SoldierRepository().resolve(bSoldierId3.i)
+						: nullptr;
 
-				if( bSoldierId1 != NOBODY && bSoldierId1->ubProfile != BIGGENS_UB ) //BIGGENS
+				if( firstSoldier && firstSoldier->ubProfile != BIGGENS_UB ) //BIGGENS
 				{
-					TacticalCharacterDialogue( bSoldierId1, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
+					TacticalCharacterDialogue( firstSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
-				else if( bSoldierId2 != NOBODY && bSoldierId2->ubProfile != BIGGENS_UB ) //BIGGENS
+				else if( secondSoldier && secondSoldier->ubProfile != BIGGENS_UB ) //BIGGENS
 				{
-					TacticalCharacterDialogue( bSoldierId2, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
+					TacticalCharacterDialogue( secondSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
-				else if( bSoldierId3 != NOBODY && bSoldierId3->ubProfile != BIGGENS_UB ) // BIGGENS
+				else if( thirdSoldier && thirdSoldier->ubProfile != BIGGENS_UB ) // BIGGENS
 				{
-					TacticalCharacterDialogue( bSoldierId3, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
+					TacticalCharacterDialogue( thirdSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
 			}
 		}
@@ -960,8 +976,9 @@ BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSold
 	//
 	// loop throught the team and see if anyone in this sector has the wire cutter
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
 		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
@@ -980,7 +997,9 @@ BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSold
 	if( bID != -1 )
 	{
 		//have the merc say the quote about the tough gate
-		TacticalCharacterDialogue( &Menptr[ bID ], QUOTE_IMPATIENT_QUOTE );
+		TacticalCharacterDialogue(
+			GetJa2SoldierRepository().resolve(bID),
+			QUOTE_IMPATIENT_QUOTE);
 	}
 
 	//remeber we said the quote
@@ -1062,13 +1081,16 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 
 	for ( UINT8 iCnt=0; iCnt<usNumMercsPresent; ++iCnt )
 	{
+		SOLDIERTYPE* quoteSoldier =
+			GetJa2SoldierRepository().resolve(SoldierIdArray[iCnt].i);
 		//Do Gaston and the newly hired RPC last
-		if( Menptr[ SoldierIdArray[ iCnt ] ].ubProfile == GASTON_UB || Menptr[ SoldierIdArray[ iCnt ] ].ubProfile == ubProfile) //  GASTON
+		if( quoteSoldier->ubProfile == GASTON_UB ||
+			quoteSoldier->ubProfile == ubProfile) //  GASTON
 		{
 			continue;
 		}
 
-		TacticalCharacterDialogue( &Menptr[ SoldierIdArray[ iCnt ] ], (UINT16)uiQuoteNum );
+		TacticalCharacterDialogue(quoteSoldier, (UINT16)uiQuoteNum);
 	}
 
 	//if Gaston is on the team, say his quote
@@ -1318,7 +1340,9 @@ void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
 		//the merc is not a new merc
 		gJa25SaveStruct.ubMorrisNoteState = MN__PICKED_UP_BY_OLD_MERC_SAID_QUOTE_ALREADY;
 
-		TacticalCharacterDialogue( &Menptr[ bID ], QUOTE_RENEWING_CAUSE_BUDDY_1_ON_TEAM );
+		TacticalCharacterDialogue(
+			GetJa2SoldierRepository().resolve(bID),
+			QUOTE_RENEWING_CAUSE_BUDDY_1_ON_TEAM);
 
 		gJa25SaveStruct.bNewMercProfileIDForSayingMorrisNote = bID;
 
@@ -1575,8 +1599,9 @@ INT8 JA25HighestExpLevelOnTeam( INT8 bTeam )
 	INT8	bHighestExpLevel=0;
 
 	cnt = gTacticalStatus.Team[ bTeam ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; cnt++, pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
 			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
@@ -1599,8 +1624,9 @@ INT8 JA25SecondHighestExpLevelOnPlayersTeam( )
 	INT8  bNumber=0;
 
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++, pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
 			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
@@ -1658,8 +1684,9 @@ INT8 JA25SecondHighestExpLevelOnEnemiesTeam( )
 	{
 		//otherwise loop through and determine the second highest exp level
 		cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
-		for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++, pSoldier++)
+		for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 		{
+			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			if( pSoldier->bActive )
 			{
 				//if the exp level is less then the highest
@@ -1686,8 +1713,9 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 	INT8		bNewExpLevel=0;
 
 	cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++, pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
 			bNewExpLevel = pSoldier->stats.bExpLevel + bExpScaleValue;
@@ -1721,8 +1749,9 @@ INT8 CountNumberOfMercsOnSameTeamOfSameExpLevel( INT8 bTeam, INT8 bExpLevel )
 	INT32 cnt;
 
 	cnt = gTacticalStatus.Team[ bTeam ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; cnt++, pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
 			if( bExpLevel == pSoldier->stats.bExpLevel )
@@ -1754,8 +1783,9 @@ INT8 RandomSoldierIdForAnyMercInSector()
 
 	//loop through the merc array and fill in the soldier id
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
 		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
@@ -1797,8 +1827,9 @@ void HandleInitialEventsInHeliCrash()
 
 	//first, loop through all the mercs and injure them
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
-	{    
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
+	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive
 		if( pSoldier->bActive )
 		{
@@ -1869,7 +1900,8 @@ void HandleCommanderMorrisNewMercWantsNoteDelayedSpeech()
 
 	//if the original merc who said the quote is valid
 	INT16 bID = gJa25SaveStruct.bNewMercProfileIDForSayingMorrisNote;
-	if( bID != -1 && IsSoldierQualifiedMerc( &Menptr[ bID ] ) )
+	if( bID != -1 && IsSoldierQualifiedMerc(
+		GetJa2SoldierRepository().resolve(bID)) )
 	{
 	}
 	else
@@ -1886,7 +1918,9 @@ void HandleCommanderMorrisNewMercWantsNoteDelayedSpeech()
 		}
 	}
 
-	TacticalCharacterDialogue( &Menptr[ bID ], QUOTE_RENEWING_CAUSE_BUDDY_1_ON_TEAM );
+	TacticalCharacterDialogue(
+		GetJa2SoldierRepository().resolve(bID),
+		QUOTE_RENEWING_CAUSE_BUDDY_1_ON_TEAM);
 }
 
 
@@ -1935,8 +1969,9 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 	// Loop through all the mercs in the sector and make them run to the elevator
 	//
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
-	{       
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
+	{
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// if the soldier was in the complex
 		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector &&
 				pSoldier->sSectorX == SECTOR_LAUNCH_MISSLES_X && pSoldier->sSectorY == SECTOR_LAUNCH_MISSLES_Y && pSoldier->bSectorZ == SECTOR_LAUNCH_MISSLES_Z )

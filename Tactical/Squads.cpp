@@ -6,6 +6,7 @@
 	#include "Strategic Movement.h"
 	#include "Assignments.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Interface.h"
 	#include "Vehicles.h"
 	#include "Map Screen Helicopter.h"
@@ -925,7 +926,9 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 	// check if the currently selected guy is on this squad, if not, get the first one on the new squad
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		if( gusSelectedSoldier->bAssignment != iCurrentTacticalSquad )
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+		if( selectedSoldier->bAssignment != iCurrentTacticalSquad )
 		{
 			// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
 			SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->ubID, FALSE, TRUE );
@@ -998,9 +1001,11 @@ void ExamineCurrentSquadLights( void )
 	SoldierID usID = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; usID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++usID)
 	{
-		if ( usID->bInSector && usID->vitals().health() >= OKLIFE )
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(usID.i);
+		if ( soldier->bInSector && soldier->vitals().health() >= OKLIFE )
 		{
-			usID->PositionSoldierLight(	);
+			soldier->PositionSoldierLight(	);
 		}
 	}
 
@@ -1246,7 +1251,9 @@ BOOLEAN LoadSquadInfoFromSavedGameFile( HWFILE hFile )
 		for( iCounterB =0; iCounterB < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounterB++ )
 		{
 			if( sSquadSaveStruct[ iCounter ][ iCounterB ].uiID != -1 )
-				Squad[ iCounter ][ iCounterB ]	= &Menptr[ sSquadSaveStruct[ iCounter ][ iCounterB ].uiID ];
+				Squad[ iCounter ][ iCounterB ] =
+					GetJa2SoldierRepository().resolve(
+						sSquadSaveStruct[ iCounter ][ iCounterB ].uiID);
 			else
 				Squad[ iCounter ][ iCounterB ] = NULL;
 		}

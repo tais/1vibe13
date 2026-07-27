@@ -1,6 +1,7 @@
 	#include "sgp.h"
 #include "TacticalWorldAdapter.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "MessageBoxScreen.h"
 	#include "screenids.h"
 	#include "Handle UI.h"
@@ -95,10 +96,12 @@ void BeginAutoBandage( )
 		return;
 	}
 
-	SoldierID soldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
+	SoldierID soldierId = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	// check for anyone needing bandages
-	for ( ; soldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++soldier )
+	for ( ; soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++soldierId )
 	{
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(soldierId.i);
 		// if the soldier isn't active or in sector, we have problems..leave
 		if ( !(soldier->bActive) || !(soldier->bInSector) || ( soldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (soldier->bAssignment == VEHICLE ) )
 		{
@@ -167,9 +170,11 @@ void HandleAutoBandagePending( )
 		}
 
 		// Do any guys have pending actions...?
-		SoldierID soldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-		for ( ; soldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldier)
+		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
+		for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId)
 		{
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(soldierId.i);
 			// Are we in sector?
 			if ( soldier->bActive	)
 			{
@@ -238,9 +243,11 @@ BOOLEAN HandleAutoBandage( )
 			InvalidateScreen( );
 			RefreshScreen( NULL );
 
-			SoldierID soldier = gTacticalStatus.Team[OUR_TEAM].bFirstID;
-			for ( ; soldier <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++soldier)
+			SoldierID soldierId = gTacticalStatus.Team[OUR_TEAM].bFirstID;
+			for ( ; soldierId <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++soldierId)
 			{
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(soldierId.i);
 				if(soldier->bActive && soldier->bInSector && soldier->aiData.bAction != 0)
 				{
 					//shadooow: this fixes autobandaging sometimes hang indefinitely
@@ -306,9 +313,11 @@ static BOOLEAN CreateAutoBandageString( void )
 	UINT32				uiDoctorNameStringLength = 1; // for end-of-string character
 	CHAR16				*sTemp;
 
-	SoldierID pSoldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-	for ( ; pSoldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++pSoldier )
+	SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
+	for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId )
 	{
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
 			ubDoctor[ubDoctors] = pSoldier->ubID;
@@ -341,7 +350,10 @@ static BOOLEAN CreateAutoBandageString( void )
 
 	if (ubDoctors == 1)
 	{
-		sgp_swprintf( sAutoBandageString, uiDoctorNameStringLength, Message[STR_IS_APPLYING_FIRST_AID], MercPtrs[ubDoctor[0]]->name );
+		sgp_swprintf(
+			sAutoBandageString, uiDoctorNameStringLength,
+			Message[STR_IS_APPLYING_FIRST_AID],
+			GetJa2SoldierRepository().resolve(ubDoctor[0])->name);
 	}
 	else
 	{
@@ -355,7 +367,9 @@ static BOOLEAN CreateAutoBandageString( void )
 		wcscpy( sTemp, L"" );
 		for (UINT16 cnt = 0; cnt < ubDoctors - 1; ++cnt)
 		{
-			wcscat( sTemp, MercPtrs[ubDoctor[cnt]]->name );
+			wcscat(
+				sTemp,
+				GetJa2SoldierRepository().resolve(ubDoctor[cnt])->name);
 			if (ubDoctors > 2)
 			{
 				if (cnt == ubDoctors - 2)
@@ -368,7 +382,11 @@ static BOOLEAN CreateAutoBandageString( void )
 				}
 			}
 		}
-		sgp_swprintf( sAutoBandageString, uiDoctorNameStringLength, Message[STR_ARE_APPLYING_FIRST_AID], sTemp, MercPtrs[ubDoctor[ubDoctors - 1]]->name );
+		sgp_swprintf(
+			sAutoBandageString, uiDoctorNameStringLength,
+			Message[STR_ARE_APPLYING_FIRST_AID], sTemp,
+			GetJa2SoldierRepository()
+				.resolve(ubDoctor[ubDoctors - 1])->name);
 		MemFree( sTemp );
 	}
 
@@ -403,9 +421,11 @@ void AutoBandage( BOOLEAN fStart )
 		// Compress time...
 		//SetGameTimeCompressionLevel( TIME_COMPRESS_5MINS );
 
-		SoldierID pSoldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-		for ( ; pSoldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++pSoldier)
+		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
+		for ( ; soldierId <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldierId)
 		{
+			SOLDIERTYPE* pSoldier =
+				GetJa2SoldierRepository().resolve(soldierId.i);
 			if ( pSoldier->bActive	)
 			{
 				pSoldier->bSlotItemTakenFrom = NO_SLOT;
@@ -442,9 +462,11 @@ void AutoBandage( BOOLEAN fStart )
 		gTacticalStatus.uiFlags					&= ( ~OUR_MERCS_AUTO_MOVE );
 
 		// make sure anyone under AI control has their action cancelled
-		SoldierID pSoldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
-		for ( ; pSoldier <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++pSoldier )
+		SoldierID soldierId = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
+		for ( ; soldierId <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++soldierId )
 		{
+			SOLDIERTYPE* pSoldier =
+				GetJa2SoldierRepository().resolve(soldierId.i);
 			// 0verhaul:  Make sure the merc is also in the sector before making him stand up!
 			if (pSoldier->bActive && pSoldier->bInSector)
 			{
@@ -466,9 +488,11 @@ void AutoBandage( BOOLEAN fStart )
 			}
 		}
 
-		pSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-		for ( ; pSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++pSoldier )
+		soldierId = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
+		for ( ; soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++soldierId )
 		{
+			SOLDIERTYPE* pSoldier =
+				GetJa2SoldierRepository().resolve(soldierId.i);
 			if ( pSoldier->bActive && pSoldier->bInSector)
 			{
 				ActionDone(pSoldier);
@@ -561,7 +585,8 @@ void SetUpAutoBandageUpdatePanel( void )
 	// run through mercs on squad...if they can be a doctor or patient, add to list
 	for( iCounterA = 0; iCounterA < iNumberOnTeam; iCounterA++ )
 	{
-		SOLDIERTYPE *pSoldier = &Menptr[iCounterA];
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(iCounterA);
 
 		if( CanCharacterAutoBandageTeammate( pSoldier ))
 		{
@@ -752,7 +777,12 @@ void DisplayAutoBandageUpdatePanel( void )
 				RenderSoldierSmallFaceForAutoBandagePanel( iIndex, sCurrentXPosition, sCurrentYPosition );
 
 				// display the mercs name
-				swprintf( sString, L"%s", ( Menptr[ iDoctorList[ iCounterA * iNumberDoctorsWide + iCounterB ] ] ).name );
+				swprintf(
+					sString, L"%s",
+					GetJa2SoldierRepository()
+						.resolve(iDoctorList[
+							iCounterA * iNumberDoctorsWide +
+							iCounterB])->name);
 				FindFontCenterCoordinates( ( INT16 )( sCurrentXPosition ), ( INT16 )( sCurrentYPosition ),	( TACT_UPDATE_MERC_FACE_X_WIDTH - 25 ), 0, sString, TINYFONT1, &sX, &sY );
 				SetFont( TINYFONT1 );
 				SetFontForeground( FONT_LTRED );
@@ -820,7 +850,10 @@ void DisplayAutoBandageUpdatePanel( void )
 				RenderSoldierSmallFaceForAutoBandagePanel( iIndex + iNumberDoctors, sCurrentXPosition, sCurrentYPosition );
 
 				// display the mercs name
-				swprintf( sString, L"%s", ( Menptr[ iPatientList[ iIndex ] ] ).name );
+				swprintf(
+					sString, L"%s",
+					GetJa2SoldierRepository()
+						.resolve(iPatientList[iIndex])->name);
 				FindFontCenterCoordinates( ( INT16 )( sCurrentXPosition ), ( INT16 )( sCurrentYPosition ),	( TACT_UPDATE_MERC_FACE_X_WIDTH - 25 ), 0, sString, TINYFONT1, &sX, &sY );
 				SetFont( TINYFONT1 );
 				SetFontForeground( FONT_LTRED );
@@ -1025,7 +1058,9 @@ BOOLEAN AddFacesToAutoBandageBox( void )
 		// find a free slot
 		if( iDoctorList[ iCounter ] != -1 )
 		{
-			profile = &gMercProfiles[(Menptr[iDoctorList[iCounter]]).ubProfile];
+			profile = &gMercProfiles[
+				GetJa2SoldierRepository()
+					.resolve(iDoctorList[iCounter])->ubProfile];
 			const UINT8 face = profile->ubFaceIndex;
 
 			if( face < 100 )
@@ -1061,7 +1096,9 @@ BOOLEAN AddFacesToAutoBandageBox( void )
 		// find a free slot
 		if( iPatientList[ iCounter ] != -1 )
 		{
-			profile = &gMercProfiles[(Menptr[iPatientList[iCounter]]).ubProfile];
+			profile = &gMercProfiles[
+				GetJa2SoldierRepository()
+					.resolve(iPatientList[iCounter])->ubProfile];
 			const UINT8 face = profile->ubFaceIndex;
 
 			if( face < 100 )
@@ -1166,12 +1203,14 @@ BOOLEAN RenderSoldierSmallFaceForAutoBandagePanel( INT32 iIndex, INT16 sCurrentX
 	if( iIndexCount > iIndex )
 	{
 		//HEALTH BAR
-		pSoldier = &Menptr[ iDoctorList[ iIndex ] ];
+		pSoldier =
+			GetJa2SoldierRepository().resolve(iDoctorList[iIndex]);
 	}
 	else
 	{
 		//HEALTH BAR
-		pSoldier = &Menptr[ iPatientList[ iIndex - iIndexCount ] ];
+		pSoldier = GetJa2SoldierRepository().resolve(
+			iPatientList[iIndex - iIndexCount]);
 	}
 
 	// is the merc alive?
@@ -1228,7 +1267,8 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 		SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 		for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
 		{
-			SOLDIERTYPE *pSoldier = ID;
+			SOLDIERTYPE *pSoldier =
+				GetJa2SoldierRepository().resolve(ID.i);
 			// this requires mercs to travel and thus NOT be in a sector
 			// also we need to be in a specific sector
 			if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && pSoldier->sSectorX == pPatient->sSectorX  && pSoldier->sSectorY == pPatient->sSectorY )
@@ -1270,7 +1310,8 @@ void HandleRetreatBandaging()
 	SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 	for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
 	{
-		SOLDIERTYPE* pSoldier = ID;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ID.i);
 		// this requires mercs to travel and thus NOT be in a sector
 		// are we bleeding?
 		if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors &&  pSoldier->vitals().bleeding() )
@@ -1323,17 +1364,20 @@ void HandleRetreatBandaging()
 	if ( needhelpinsector && possiblepatient != NOBODY)
 	{
 		// find the best doctor here
-		SoldierID bestdoctorid = GetBestRetreatingMercDoctor( MercPtrs[possiblepatient] );
-		
+		SoldierID bestdoctorid = GetBestRetreatingMercDoctor(
+			GetJa2SoldierRepository().resolve(possiblepatient.i));
+
 		if ( bestdoctorid != NOBODY )
 		{
 			// have the doctor treat people
-			SOLDIERTYPE* pDoctor = bestdoctorid;
+			SOLDIERTYPE* pDoctor =
+				GetJa2SoldierRepository().resolve(bestdoctorid.i);
 
 			SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 			for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID)
 			{
-				SOLDIERTYPE *pSoldier = ID;
+				SOLDIERTYPE *pSoldier =
+					GetJa2SoldierRepository().resolve(ID.i);
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector
 				// treat bleeding people only

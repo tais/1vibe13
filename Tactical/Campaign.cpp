@@ -1,5 +1,6 @@
 	#include "builddefines.h"
 #include "TacticalWorldAdapter.h"
+#include "SoldierRepository.h"
 	#include <stdio.h>
 	#include "DEBUG.H"
 	#include "Overhead Types.h"
@@ -1058,10 +1059,13 @@ void HandleAnyStatChangesAfterAttack( void )
 {
   INT32 cnt;
 	SOLDIERTYPE *pSoldier;
+	auto& soldiers = GetJa2SoldierRepository();
+	SOLDIERTYPE* firstSoldier = soldiers.resolve(0);
 
 	// must check everyone on player's team, not just the shooter
-	for ( cnt = 0, pSoldier = MercPtrs[ 0 ]; cnt <= gTacticalStatus.Team[ MercPtrs[ 0 ]->bTeam ].bLastID; cnt++,pSoldier++)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ firstSoldier->bTeam ].bLastID; ++cnt )
 	{
+		pSoldier = soldiers.resolve(cnt);
 		if (pSoldier->bActive)
 		{
 			ProcessUpdateStats( &( gMercProfiles[ pSoldier->ubProfile ] ), pSoldier );
@@ -1847,10 +1851,12 @@ void AwardExperienceBonusToActiveSquad( UINT8 ubExpBonusType )
 	}
 
 	// to do: find guys in sector on the currently active squad, those that are conscious get this amount in XPs
-	for ( SoldierID pSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID ;
-				pSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
-				++pSoldier)
+	for ( SoldierID soldierId = gTacticalStatus.Team[ gbPlayerNum ].bFirstID ;
+				soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
+				++soldierId)
 	{
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{

@@ -13,6 +13,7 @@
 	#include "Timer Control.h"
 	#include "Dialogue Control.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "message.h"
 	#include "Isometric Utils.h"
 	#include "Soldier macros.h"
@@ -216,7 +217,7 @@ BOOLEAN BeginAirRaid( )
 		SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
 			if ( pSoldier->bActive	)
 			{
@@ -281,7 +282,8 @@ BOOLEAN BeginAirRaid( )
 		gbNumDives				= 0;
 		gfAirRaidHasHadTurn = FALSE;
 
-		gpRaidSoldier = MercPtrs[ MAX_NUM_SOLDIERS - 1 ];
+		gpRaidSoldier =
+			GetJa2SoldierRepository().resolve(MAX_NUM_SOLDIERS - 1);
 		gpRaidSoldier->initialize();
 		gpRaidSoldier->position().level() = 0;
 		gpRaidSoldier->bTeam = 1;
@@ -319,7 +321,7 @@ static INT32 PickLocationNearAnyMercInSector( )
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: total guys = %d", gTacticalStatus.Team[ gbPlayerNum ].bLastID));
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: looping %d",cnt));
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) )
@@ -336,7 +338,9 @@ static INT32 PickLocationNearAnyMercInSector( )
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
 
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: chosen guy = %d",ubChosenMerc));
-		return( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ]->position().gridNo() );
+		return GetJa2SoldierRepository()
+			.resolve(ubMercsInSector[ubChosenMerc])
+			->position().gridNo();
 	}
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickLocationNearAnyMercInSector: no target"));
@@ -1059,7 +1063,7 @@ void HandleAirRaid( )
 		SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
 			if ( pSoldier->bActive	)
 			{
@@ -1409,7 +1413,8 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 
 	if( sAirRaidSaveStruct.sRaidSoldierID != NOBODY )
 	{
-		gpRaidSoldier = sAirRaidSaveStruct.sRaidSoldierID;
+		gpRaidSoldier = GetJa2SoldierRepository().resolve(
+			sAirRaidSaveStruct.sRaidSoldierID.i);
 
 		gpRaidSoldier->position().level() = sAirRaidSaveStruct.bLevel;
 		gpRaidSoldier->bTeam = sAirRaidSaveStruct.bTeam;
@@ -1452,7 +1457,8 @@ void EndAirRaid( )
 			SoldierID cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID;
 			for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 			{
-				pTeamSoldier = cnt;
+				pTeamSoldier =
+					GetJa2SoldierRepository().resolve(cnt.i);
 				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
 					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
@@ -1464,7 +1470,8 @@ void EndAirRaid( )
 			// Loop through all civs and restore them to peaceful status
 			for ( ; cnt <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++cnt )
 			{
-				pTeamSoldier = cnt;
+				pTeamSoldier =
+					GetJa2SoldierRepository().resolve(cnt.i);
 				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
 					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
@@ -1540,8 +1547,9 @@ static void CheckForAndSetupAirRaid ()
 
 	//		sMenInSector = 0;
 	//		cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	//		for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++, pSoldier++ )
+	//		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	//		{
+	//			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 	//			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CheckForAndSetupAirRaid: soldier id = %d, (x,y,z) = (%d,%d,%d)",pSoldier->bActive,pSoldier->sSectorX,pSoldier->sSectorY,pSoldier->bSectorZ ));
 	//			if ( pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == 0 && pSoldier->bActive )
 	//				sMenInSector++;

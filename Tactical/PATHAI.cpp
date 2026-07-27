@@ -2076,21 +2076,6 @@ bool AStarPathfinder::WantToTraverse()
 		{
 			return false;
 			//ScreenMsg( MSG_FONT_YELLOW, MSG_INTERFACE, L"svet!" );
-				/*INT32 tcnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-				SOLDIERTYPE *tS;
-				// look for all mercs on the same team,
-				for ( tS = MercPtrs[ tcnt ]; tcnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; tcnt++,tS++ )
-				{		
-					if ( tS->vitals().health() >= OKLIFE && tS->sGridNo != NOWHERE && tS->bInSector )
-						if ( SoldierTo3DLocationLineOfSightTest(
-							tS, tS->sGridNo, pSoldier->position().level(), 3,
-							TRUE, CALC_FROM_WANTED_DIR ))
-						{
-							//if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE  )
-							 return false;
-							//else if ( Chance(35) ) return false;
-						}
-				}*/
 		}
 	}
 	///ddd}
@@ -2108,15 +2093,7 @@ bool AStarPathfinder::IsSomeoneInTheWay()
 		UINT16 ubMerc = WhoIsThere2( CurrentNode, pSoldier->position().level());
 		if ( ubMerc < NOBODY && ubMerc != pSoldier->ubID )
 		{
-			// Check for movement....
-			//if ( fTurnBased || ( (Menptr[ ubMerc ].sFinalDestination == Menptr[ ubMerc ].sGridNo) || (Menptr[ ubMerc ].fDelayedMovement) ) )
-			//{
-				return true;
-			//}
-			//	else
-			//{
-			//	nextCost += 50;
-			//}
+			return true;
 		}
 	}
 	return false;

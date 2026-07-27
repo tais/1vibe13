@@ -2264,10 +2264,32 @@ foreach(required_resolution_domain IN ITEMS
   endif()
 endforeach()
 
+# Overhead.cpp still owns the fixed compatibility allocation while the final
+# storage cut is prepared. No other production Tactical source may name those
+# arrays, even if it has not yet enabled the stricter deleted-conversion
+# ratchet. This keeps the remaining migration surface to implicit SoldierID
+# conveniences rather than allowing new direct storage dependencies.
+file(GLOB tactical_soldier_pool_consumers
+  "${SOURCE_ROOT}/Tactical/*.cpp")
+foreach(source_file IN LISTS tactical_soldier_pool_consumers)
+  if("${source_file}" STREQUAL "${SOURCE_ROOT}/Tactical/Overhead.cpp")
+    continue()
+  endif()
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
+    direct_tactical_soldier_pool_access "${contents}")
+  if(direct_tactical_soldier_pool_access)
+    message(FATAL_ERROR
+      "Tactical code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+  endif()
+endforeach()
+
 # Tactical is migrating by coherent source cuts rather than enabling the
-# deleted-conversion ratchet for the entire legacy library at once. Keep this
-# control/UI/dialogue cut explicit in the root build and subject it to the same
-# named-array and contiguous-pointer checks as the fully migrated domains.
+# deleted-conversion ratchet for the entire legacy library at once. Keep the
+# migrated control, combat, lifecycle, roster, and UI sources explicit in the
+# root build and subject them to the same named-array and contiguous-pointer
+# checks as the fully migrated domains.
 string(REGEX MATCH
   "set\\(ExplicitSoldierResolutionSources[^\\)]*\\)"
   explicit_soldier_resolution_source_definition
@@ -2286,10 +2308,17 @@ if(NOT explicit_soldier_resolution_source_property)
 endif()
 
 set(tactical_explicit_soldier_resolution_sources
+  "Tactical/Air Raid.cpp"
+  "Tactical/Auto Bandage.cpp"
   "Tactical/Boxing.cpp"
+  "Tactical/Campaign.cpp"
+  "Tactical/Civ Quotes.cpp"
   "Tactical/Dialogue Control.cpp"
+  "Tactical/Disease.cpp"
   "Tactical/DisplayCover.cpp"
   "Tactical/DynamicDialogue.cpp"
+  "Tactical/End Game.cpp"
+  "Tactical/Enemy Soldier Save.cpp"
   "Tactical/Handle Items.cpp"
   "Tactical/Handle UI Plan.cpp"
   "Tactical/Handle UI.cpp"
@@ -2298,15 +2327,24 @@ set(tactical_explicit_soldier_resolution_sources
   "Tactical/Interface Items.cpp"
   "Tactical/Interface Panels.cpp"
   "Tactical/Items.cpp"
+  "Tactical/Ja25_Tactical.cpp"
   "Tactical/LOS.cpp"
+  "Tactical/Merc Hiring.cpp"
+  "Tactical/Minigame.cpp"
   "Tactical/Points.cpp"
   "Tactical/Rotting Corpses.cpp"
   "Tactical/Soldier Ani.cpp"
   "Tactical/Soldier Control.cpp"
+  "Tactical/Soldier Init List.cpp"
+  "Tactical/Soldier Profile.cpp"
+  "Tactical/SoldierTooltips.cpp"
+  "Tactical/Squads.cpp"
+  "Tactical/Strategic Exit GUI.cpp"
   "Tactical/Structure Wrap.cpp"
   "Tactical/Tactical Turns.cpp"
   "Tactical/TeamTurns.cpp"
   "Tactical/Turn Based Input.cpp"
+  "Tactical/Vehicles.cpp"
   "Tactical/opplist.cpp")
 foreach(relative_source IN LISTS
     tactical_explicit_soldier_resolution_sources)

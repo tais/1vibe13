@@ -1,5 +1,6 @@
 
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "worldman.h"
 	#include "Soldier Profile.h"
@@ -218,7 +219,7 @@ void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLev
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
 		if ( cnt != ubKillerSoldierID )
 		{
@@ -274,7 +275,7 @@ static void DoneFadeOutKilledQueen( void )
 	// look for all mercs on the same team,
 	for (; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 		{
@@ -300,7 +301,7 @@ static void DoneFadeOutKilledQueen( void )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we active and in sector.....
 		if ( pTeamSoldier->bActive	)
 		{
@@ -388,7 +389,7 @@ void EndQueenDeathEndgameBeginEndCimenatic( )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
@@ -459,6 +460,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 {
 	INT32 cnt;
 	SOLDIERTYPE *pSoldier;
+	auto& soldiers = GetJa2SoldierRepository();
 
 	// Start end cimimatic....
   gTacticalStatus.uiFlags |= IN_ENDGAME_SEQUENCE;
@@ -471,8 +473,9 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	// first thing is to loop through team and look for QUALIFIED mercs on the team to say special end game quote
 	//
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
-	{       
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
+	{
+		pSoldier = soldiers.resolve(cnt);
 		// Are we in this sector, On the current squad?
 		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && IsSoldierQualifiedMerc( pSoldier ) )
 		{
@@ -484,8 +487,9 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	// Next is to loop through ENTIRE team and say end quote...
 	//
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
-	{       
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
+	{
+		pSoldier = soldiers.resolve(cnt);
 		// Are we in this sector, On the current squad?
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
@@ -681,7 +685,7 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we active and ALIVE and in sector.....
 		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
 		{
@@ -725,7 +729,8 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 	{
 		if ( cnt != ubKillerSoldierID )
 		{
-			pTeamSoldier = cnt;
+			pTeamSoldier =
+				GetJa2SoldierRepository().resolve(cnt.i);
 			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
 			{
 				if ( QuoteExp[ pTeamSoldier->ubProfile ].QuoteExpWitnessQueenBugDeath )
@@ -759,6 +764,7 @@ void DoneFadeOutJa25EndCinematic( void )
 {
 	INT32 cnt;
 	SOLDIERTYPE *pSoldier;
+	auto& soldiers = GetJa2SoldierRepository();
 
 	//Change the currently selecter sector in mapscreen
 	//ChangeSelectedMapSector( 16, 11, 0 );
@@ -767,8 +773,9 @@ void DoneFadeOutJa25EndCinematic( void )
 	// Loop through all the soldiers and move any of them that are in the complex to be in the safe sector near ther
 	//
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++,pSoldier++)
-	{       
+	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
+	{
+		pSoldier = soldiers.resolve(cnt);
 		// if the soldier was in the complex
 		if( pSoldier->bActive && 
 				pSoldier->sSectorX == 15 && ( pSoldier->sSectorY == 11 || pSoldier->sSectorY == 12 ) )

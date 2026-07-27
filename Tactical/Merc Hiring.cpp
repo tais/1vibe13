@@ -10,6 +10,7 @@
 	#include <Font Control.h>
 	#include "random.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Soldier Profile.h"
 	#include "Game Clock.h"
 	#include "Soldier Create.h"
@@ -189,18 +190,20 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 			// make an objecttype
 			CreateItem(LETTER, 100, &gTempObject);
 			// Give it
-			fReturn = AutoPlaceObject( iNewIndex, &gTempObject, FALSE );
+			SOLDIERTYPE* newMerc =
+				GetJa2SoldierRepository().resolve(iNewIndex.i);
+			fReturn = AutoPlaceObject( newMerc, &gTempObject, FALSE );
 			// CHRISL: This condition should resolve the issue of the letter not being issued to the first merc
 			if(!fReturn)
 			{
 				if (UsingNewInventorySystem())
 				{
-					(iNewIndex->inv[NUM_INV_SLOTS-1]) = gTempObject;
+					newMerc->inv[NUM_INV_SLOTS-1] = gTempObject;
 					fReturn=TRUE;
 				}
 				else
 				{
-					(iNewIndex->inv[SMALLPOCK8POS]) = gTempObject;
+					newMerc->inv[SMALLPOCK8POS] = gTempObject;
 					fReturn = TRUE;
 				}
 			}
@@ -217,7 +220,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	//record how long the merc will be gone for
 	pMerc->bMercStatus = (UINT8)pHireMerc->iTotalContractLength;
 
-	pSoldier = iNewIndex;
+	pSoldier = GetJa2SoldierRepository().resolve(iNewIndex.i);
 
 	//Copy over insertion data....
 	pSoldier->ubStrategicInsertionCode = pHireMerc->ubInsertionCode;
@@ -435,7 +438,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	// stop time compression until player restarts it
 	StopTimeCompression();
 
-	pSoldier = ubSoldierID;
+	pSoldier = GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	pMerc = &gMercProfiles[ pSoldier->ubProfile ];
 
@@ -479,7 +482,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		{
 			if (gCharactersList[cnt].fValid)
 			{
-				pTeamSoldier = gCharactersList[cnt].usSolID;
+				pTeamSoldier = GetJa2SoldierRepository().resolve(
+					gCharactersList[cnt].usSolID.i);
 				if (pTeamSoldier != pSoldier && pTeamSoldier->bAssignment != ASSIGNMENT_DEAD && pTeamSoldier->bAssignment != ASSIGNMENT_POW && pTeamSoldier->bAssignment != IN_TRANSIT && pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER)
 				{
 					force_helidrop = false;
@@ -659,12 +663,12 @@ UINT16	NumberOfMercsOnPlayerTeam()
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 
-	if (! MercPtrs[cnt])
+	if (!GetJa2SoldierRepository().resolve(cnt.i))
 		return 0;
 
 	for ( ; cnt <= bLastTeamID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		AssertNotNIL(pSoldier);
 
 		//if the is active, and is not a vehicle
@@ -710,7 +714,8 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 		//loop though all the mercs
 		for ( ; cnt <= usLastTeamID; ++cnt )
 		{
-			pTeamSoldier = cnt;
+			pTeamSoldier =
+				GetJa2SoldierRepository().resolve(cnt.i);
 			if ( pTeamSoldier->bActive )
 			{
 				if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
@@ -804,7 +809,7 @@ void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive )
 		{
 			if ( pSoldier->bAssignment == IN_TRANSIT )
@@ -1116,11 +1121,13 @@ void AddItemToMerc( UINT8 ubNewMerc, INT16 sItemType )
         CreateItem(sItemType, 100, &gTempObject);
 
 	// Give it 
-	fReturn = AutoPlaceObject( MercPtrs[ ubNewMerc ], &gTempObject, FALSE );
+	SOLDIERTYPE* newMerc =
+		GetJa2SoldierRepository().resolve(ubNewMerc);
+	fReturn = AutoPlaceObject( newMerc, &gTempObject, FALSE );
 	
 			if(!fReturn && (UsingNewInventorySystem() == true))
 			{
-				(MercPtrs[ubNewMerc]->inv[NUM_INV_SLOTS-1]) = gTempObject;
+				newMerc->inv[NUM_INV_SLOTS-1] = gTempObject;
 				fReturn=TRUE;
 			}
 	Assert( fReturn );
