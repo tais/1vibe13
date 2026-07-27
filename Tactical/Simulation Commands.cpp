@@ -320,7 +320,7 @@ namespace
 					{
 						soldier->usUIMovementMode =
 							soldier->GetMoveStateBasedOnStance(value.stance);
-						soldier->ubDesiredHeight = NO_DESIRED_HEIGHT;
+						soldier->animationIntent().clearDesiredHeight();
 						soldier->usDontUpdateNewGridNoOnMoveAnimChange = 1;
 						soldier->ChangeSoldierState(
 							soldier->usUIMovementMode, 0, FALSE);

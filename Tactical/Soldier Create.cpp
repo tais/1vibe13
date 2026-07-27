@@ -2103,15 +2103,14 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->iFaceIndex = -1;
 
 	// Set update time to new speed
-	pSoldier->ubDesiredHeight			= NO_DESIRED_HEIGHT;
+	pSoldier->animationIntent().clearDesiredHeight();
 	pSoldier->bViewRange					= NORMAL_VIEW_RANGE;
 	pSoldier->bInSector					= FALSE;
 	pSoldier->position().gridNo()					= NOWHERE;
 	pSoldier->iMuzFlash					= -1;
-	pSoldier->usPendingAnimation			= NO_PENDING_ANIMATION;
-	pSoldier->usPendingAnimation2		= NO_PENDING_ANIMATION;
-	pSoldier->ubPendingStanceChange		= NO_PENDING_STANCE;
-	pSoldier->ubPendingDirection			= NO_PENDING_DIRECTION;
+	pSoldier->animationIntent().clearPendingAnimations();
+	pSoldier->animationIntent().clearPendingStance();
+	pSoldier->animationIntent().clearPendingDirection();
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
 	pSoldier->bLastRenderVisibleValue	= -1;
 	pSoldier->vitals().breath()					= 99;

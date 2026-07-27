@@ -1567,16 +1567,17 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
 	STRUCT_Flags& f = soldier.flags;
 	SoldierMovementComponent& movement = soldier.movement();
+	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	ar.i8(f.bHasKeys);
 	ar.u8(movement.delayCounter()); ar.boolean(f.fTurnInProgress); ar.boolean(f.fBeginFade);
 	ar.i8(f.bTurningFromPronePosition);
 	ar.boolean(f.fDontChargeReadyAPs); ar.boolean(f.fPrevInWater);
 	ar.i8(f.bGoBackToAimAfterHit);
 	ar.boolean(f.fForceRenderColor); ar.boolean(f.fForceNoRenderPaletteCycle);
-	ar.boolean(f.fStopPendingNextTile); ar.boolean(f.fUIMovementFast); ar.boolean(f.fForceShade);
+	ar.boolean(animationIntent.stopPendingNextTile()); ar.boolean(f.fUIMovementFast); ar.boolean(f.fForceShade);
 	ar.boolean(f.fDeadSoundPlayed); ar.boolean(f.fClosePanel); ar.boolean(f.fClosePanelToDie);
 	ar.boolean(f.fDeadPanel); ar.boolean(f.fOpenPanel); ar.boolean(f.fIntendedTarget);
-	ar.boolean(f.fPauseAllAnimation); ar.boolean(f.fContinueMoveAfterStanceChange);
+	ar.boolean(f.fPauseAllAnimation); ar.u8(animationIntent.continuationMode());
 	ar.boolean(f.fHoldAttackerUntilDone); ar.boolean(f.fWarnedAboutBleeding); ar.boolean(f.fDyingComment);
 	ar.boolean(f.fTurningToShoot); ar.boolean(f.fTurningToFall); ar.boolean(f.fTurningUntilDone);
 	ar.boolean(f.fGettingHit); ar.boolean(f.fInNonintAnim); ar.boolean(f.fFlashLocator);
@@ -1673,7 +1674,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
 	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
 	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(s.bCollapsed); ar.i8(s.bBreathCollapsed);
-	ar.u8(s.ubDesiredHeight); ar.u16(s.usPendingAnimation); ar.u8(s.ubPendingStanceChange); ar.u16(s.usAnimState);
+	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
+	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.usAnimState);
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(s.ubAttackerID.i); ar.u16(s.ubPreviousAttackerID.i);
 	ar.i32(s.sInsertionGridNo);
 	// AnimCache is a runtime surface cache; clear its pointers/count on load.
@@ -1721,7 +1723,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sPanelFaceX); ar.i16(s.sPanelFaceY);
 	ar.i8(s.bNumHitsThisTurn); ar.u16(s.usQuoteSaidFlags); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);
 	ar.i8(s.bVocalVolume); ar.i8(s.bStartFallDir);
-	ar.u8(s.ubPendingDirection); ar.u32(s.uiAnimSubFlags);
+	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.uiAnimSubFlags);
 	ar.u8(s.bAimShotLocation); ar.u8(s.ubHitLocation); ar.u8(s.bAimMeleeLocation);
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
 	ar.u8(s.ubPlannedUIAPCost); ar.i16(s.sPlannedTargetX); ar.i16(s.sPlannedTargetY);
@@ -1739,7 +1741,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.iStartOfInsuranceContract); ar.u32(s.uiLastAssignmentChangeMin); ar.i32(s.iTotalLengthOfInsuranceContract);
 	ar.u8(s.ubSoldierClass); ar.u8(s.ubAPsLostToSuppression); ar.u16(s.ubSuppressorID.i);
 	ar.u8(s.ubDesiredSquadAssignment); ar.u8(s.ubNumTraversalsAllowedToMerge);
-	ar.u16(s.usPendingAnimation2); ar.u8(s.ubCivilianGroup);
+	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
 	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
 	ar.u16(s.usAttackingWeapon); ar.i8(s.bWeaponMode); ar.u16(s.ubTargetID.i); ar.i8(s.bAIScheduleProgress);
@@ -1764,7 +1766,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bCurrentCivQuote); ar.i8(s.bCurrentCivQuoteDelta); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(s.sLocationOfFadeStart); ar.u8(s.bUseExitGridForReentryDirection);
 	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(s.ubContractRenewalQuoteCode); ar.i32(s.sPreTraversalGridNo);
-	ar.u32(s.uiXRayActivatedTime); ar.i8(s.bTurningFromUI); ar.i8(s.bPendingActionData5);
+	ar.u32(s.uiXRayActivatedTime); ar.i8(s.animationIntent().turningFromUi()); ar.i8(s.bPendingActionData5);
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
 	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(s.uiTimeSoldierWillArrive);

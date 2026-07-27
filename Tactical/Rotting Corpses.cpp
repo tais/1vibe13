@@ -3052,7 +3052,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		//pNewSoldier->sHeightAdjustment		= pCorpse->def.sHeightAdjustment;
 		pNewSoldier->sDesiredHeight			= 3;
 
-		pNewSoldier->ubDesiredHeight		= 3;		// this forces pNewSoldier to rise up to crouching position
+		pNewSoldier->animationIntent().desiredHeight()		= 3;		// this forces pNewSoldier to rise up to crouching position
 
 		pNewSoldier->ubSoldierClass			= SOLDIER_CLASS_ZOMBIE;
 		pNewSoldier->aiData.bOrders			= SEEKENEMY;

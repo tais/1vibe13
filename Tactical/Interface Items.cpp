@@ -9559,7 +9559,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 							 if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
 							 {
-							  pSoldier->usPendingAnimation = PASS_OBJECT;
+							  pSoldier->animationIntent().pendingAnimation() = PASS_OBJECT;
               }
 						 }
 
@@ -9571,7 +9571,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 							  if (gAnimControl[ GetItemPointerSoldier()->usAnimState ].ubEndHeight == ANIM_STAND)
 							  {
-							  GetItemPointerSoldier()->usPendingAnimation = PASS_OBJECT;
+							  GetItemPointerSoldier()->animationIntent().pendingAnimation() = PASS_OBJECT;
 						  }
 					  }
 					  }

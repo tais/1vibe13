@@ -293,9 +293,15 @@ mutation while the portable serializer retains the established byte sequence.
 delayed-tile counters and causes, movement reservation, merc contention,
 scripted and continued destinations, stop reason, and coordinated speed
 override. Paired transitions have named operations rather than independently
-mutating generic flags. The unused legacy delayed-cause-merc byte is retained
-only at its save position and is no longer live soldier state. None of these
-components changes content, map, packet, Lua, or save schemas.
+mutating generic flags. `SoldierAnimationIntentComponent` owns the next
+persistent domain: desired stance height, both queued animations, queued stance
+and facing, UI turn origin, next-tile stopping, and the post-stance continuation
+mode. Playback frames and surfaces remain separate. The serializer keeps all
+of these values at their established byte positions and preserves continuation
+mode `2` as an 8-bit value rather than reducing it to boolean `1`. The unused
+legacy delayed-cause-merc byte is retained only at its save position and is no
+longer live soldier state. None of these components changes content, map,
+packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

@@ -873,7 +873,7 @@ void UpdateSMPanel( )
 	}
 
 	// Stance
-	ubStanceState = GetSMCurrentMerc()->ubDesiredHeight;
+	ubStanceState = GetSMCurrentMerc()->animationIntent().desiredHeight();
 
 	if ( ubStanceState == NO_DESIRED_HEIGHT )
 	{

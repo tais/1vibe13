@@ -618,13 +618,13 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 				{
 				case ANIM_STAND:
 
-					pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+					pSoldier->animationIntent().clearPendingAnimation();
 					pSoldier->EVENT_InitNewSoldierAnim( END_CATCH, 0 , FALSE );
 					break;
 
 				case ANIM_CROUCH:
 
-					pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+					pSoldier->animationIntent().clearPendingAnimation();
 					pSoldier->EVENT_InitNewSoldierAnim( END_CROUCH_CATCH, 0 , FALSE );
 					break;
 				}
@@ -2636,13 +2636,13 @@ BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 	{
 	case ANIM_STAND:
 
-		pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+		pSoldier->animationIntent().clearPendingAnimation();
 		pSoldier->EVENT_InitNewSoldierAnim( END_CATCH, 0 , FALSE );
 		break;
 
 	case ANIM_CROUCH:
 
-		pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+		pSoldier->animationIntent().clearPendingAnimation();
 		pSoldier->EVENT_InitNewSoldierAnim( END_CROUCH_CATCH, 0 , FALSE );
 		break;
 	}

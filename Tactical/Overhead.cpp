@@ -1307,38 +1307,38 @@ BOOLEAN ExecuteOverhead( )
                                 if ( pSoldier->usAnimState == WALKING_ALTERNATIVE_RDY || pSoldier->usAnimState == SIDE_STEP_ALTERNATIVE_RDY )
                                 {
                                     fAimAfterMove = TRUE;
-                                    pSoldier->usPendingAnimation = AIM_ALTERNATIVE_STAND;
-                                    pSoldier->ubPendingDirection = pSoldier->position().direction();
+                                    pSoldier->animationIntent().queueFacingAnimation(
+                                        AIM_ALTERNATIVE_STAND, pSoldier->position().direction() );
                                 }
                                 else if ( pSoldier->usAnimState == SIDE_STEP_WEAPON_RDY || pSoldier->usAnimState == WALKING_WEAPON_RDY )
                                 {
                                     fAimAfterMove = TRUE;
-                                    pSoldier->usPendingAnimation = AIM_RIFLE_STAND;
-                                    pSoldier->ubPendingDirection = pSoldier->position().direction();
+                                    pSoldier->animationIntent().queueFacingAnimation(
+                                        AIM_RIFLE_STAND, pSoldier->position().direction() );
                                 }
                                 else if ( pSoldier->usAnimState == SIDE_STEP_DUAL_RDY || pSoldier->usAnimState == WALKING_DUAL_RDY )
                                 {
                                     fAimAfterMove = TRUE;
-                                    pSoldier->usPendingAnimation = AIM_DUAL_STAND;
-                                    pSoldier->ubPendingDirection = pSoldier->position().direction();
+                                    pSoldier->animationIntent().queueFacingAnimation(
+                                        AIM_DUAL_STAND, pSoldier->position().direction() );
                                 }
 								else if ( pSoldier->usAnimState == CROUCHEDMOVE_RIFLE_READY )
 								{
 									fAimAfterMove = TRUE;
-									pSoldier->usPendingAnimation = AIM_RIFLE_CROUCH;
-									pSoldier->ubPendingDirection = pSoldier->position().direction();
+									pSoldier->animationIntent().queueFacingAnimation(
+										AIM_RIFLE_CROUCH, pSoldier->position().direction() );
 								}
 								else if ( pSoldier->usAnimState == CROUCHEDMOVE_PISTOL_READY )
 								{
 									fAimAfterMove = TRUE;
-									pSoldier->usPendingAnimation = AIM_RIFLE_CROUCH;
-									pSoldier->ubPendingDirection = pSoldier->position().direction();
+									pSoldier->animationIntent().queueFacingAnimation(
+										AIM_RIFLE_CROUCH, pSoldier->position().direction() );
 								}
 								else if ( pSoldier->usAnimState == CROUCHEDMOVE_DUAL_READY )
 								{
 									fAimAfterMove = TRUE;
-									pSoldier->usPendingAnimation = AIM_DUAL_CROUCH;
-									pSoldier->ubPendingDirection = pSoldier->position().direction();
+									pSoldier->animationIntent().queueFacingAnimation(
+										AIM_DUAL_CROUCH, pSoldier->position().direction() );
 								}
 
                                 // OK, if we are the selected soldier, refresh some UI stuff
@@ -1366,15 +1366,15 @@ BOOLEAN ExecuteOverhead( )
                                 StopSoldierMovementTime(pSoldier);
 #endif
                                 // CHECK IF WE HAVE A PENDING ANIMATION
-                                if ( pSoldier->usPendingAnimation != NO_PENDING_ANIMATION )
+                                if ( pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION )
                                 {
-                                    pSoldier->ChangeSoldierState( pSoldier->usPendingAnimation, 0 , FALSE );
-                                    pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+                                    pSoldier->ChangeSoldierState( pSoldier->animationIntent().pendingAnimation(), 0 , FALSE );
+                                    pSoldier->animationIntent().clearPendingAnimation();
 
-                                    if ( pSoldier->ubPendingDirection != NO_PENDING_DIRECTION )
+                                    if ( pSoldier->animationIntent().pendingDirection() != NO_PENDING_DIRECTION )
                                     {
-                                        pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->ubPendingDirection );
-                                        pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+                                        pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->animationIntent().pendingDirection() );
+                                        pSoldier->animationIntent().clearPendingDirection();
                                     }
 
                                 }
@@ -1598,8 +1598,7 @@ BOOLEAN ExecuteOverhead( )
                                         // Change status of guy to waiting
                                         HaltMoveForSoldierOutOfPoints( pSoldier );
                                         fKeepMoving = FALSE;
-                                        pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-                                        pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+                                        pSoldier->animationIntent().clearFacingAnimation();
                                     }
 								}
                                 else
@@ -1640,8 +1639,7 @@ BOOLEAN ExecuteOverhead( )
                                                 {
                                                     pSoldier->AdjustNoAPToFinishMove( TRUE );
 
-                                                    pSoldier->usPendingAnimation        = NO_PENDING_ANIMATION;
-                                                    pSoldier->ubPendingDirection        = NO_PENDING_DIRECTION;
+                                                    pSoldier->animationIntent().clearFacingAnimation();
                                                     pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
                                                 }
                                                 else
@@ -1877,8 +1875,7 @@ BOOLEAN ExecuteOverhead( )
             {
                 fKeepMoving = FALSE;
                 pSoldier->AdjustNoAPToFinishMove( TRUE );
-                pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-                pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+                pSoldier->animationIntent().clearFacingAnimation();
 
                 // "artificially" set lock ui flag in this case
                 if (pSoldier->bTeam == gbPlayerNum)
@@ -1987,8 +1984,7 @@ BOOLEAN ExecuteOverhead( )
 static void HaltGuyFromNewGridNoBecauseOfNoAPs( SOLDIERTYPE *pSoldier )
 {
     HaltMoveForSoldierOutOfPoints( pSoldier );
-    pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-    pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+    pSoldier->animationIntent().clearFacingAnimation();
     pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
     UnMarkMovementReserved( pSoldier );
     // Display message if our merc...
@@ -2131,7 +2127,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                 // OK, jump!
                 pSoldier->BeginSoldierClimbFence( );
 
-                pSoldier->flags.fContinueMoveAfterStanceChange = 2;
+                pSoldier->animationIntent().continueAfterStance(2);
             }
 
         }
@@ -2894,8 +2890,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         pSoldier->AdjustNoAPToFinishMove( TRUE );
 
         (*pfKeepMoving ) = FALSE;
-        pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-        pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+        pSoldier->animationIntent().clearFacingAnimation();
 
         // ATE: Cancel only if our final destination
         if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
@@ -6636,8 +6631,7 @@ void ExitCombatMode( )
             }
 
             //Cancel pending events
-            pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-            pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+            pSoldier->animationIntent().clearFacingAnimation();
             pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
 
             // Reset moved flag
@@ -9105,8 +9099,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                                 // SANDRO - added cowering animation
                                 //if ( Random(4) == 0 )
                                 //{
-                                //  pSoldier->usPendingAnimation = START_COWER_PRONE;
-                                //  pSoldier->ubDesiredHeight = ANIM_PRONE;
+                                //  pSoldier->animationIntent().pendingAnimation() = START_COWER_PRONE;
+                                //  pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
                                 //  pSoldier->EVENT_InitNewSoldierAnim( PRONE_DOWN, 0 , FALSE ); 
                                 //  ubNewStance = 0;
                                 //}
@@ -9266,7 +9260,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
                 // go for it!
                 // ATE: Cancel any PENDING ANIMATIONS...
-                pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+                pSoldier->animationIntent().clearPendingAnimation();
                 // ATE: Turn off non-interrupt flag ( this NEEDS to be done! )
                 pSoldier->flags.fInNonintAnim = FALSE;
                 pSoldier->flags.fRTInNonintAnim = FALSE;
@@ -9980,8 +9974,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     {
         if ( ResolvePendingInterrupt( pSoldier, AFTERSHOT_INTERRUPT ) )
         {
-            pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-            pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+            pSoldier->animationIntent().clearFacingAnimation();
             // "artificially" set lock ui flag
             if (pSoldier->bTeam == gbPlayerNum)
             {

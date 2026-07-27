@@ -185,7 +185,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Death takes precedence...
 				pSoldier->bBreathCollapsed = FALSE;
 			}
-			else if ( pSoldier->usPendingAnimation == FALLFORWARD_ROOF || pSoldier->usPendingAnimation == FALLOFF || pSoldier->usAnimState == FALLFORWARD_ROOF || pSoldier->usAnimState == FALLOFF )
+			else if ( pSoldier->animationIntent().pendingAnimation() == FALLFORWARD_ROOF || pSoldier->animationIntent().pendingAnimation() == FALLOFF || pSoldier->usAnimState == FALLFORWARD_ROOF || pSoldier->usAnimState == FALLOFF )
 			{
 				pSoldier->bBreathCollapsed = FALSE;
 			}
@@ -292,7 +292,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 
 				// Set desired anim height!
-				pSoldier->ubDesiredHeight = ANIM_CROUCH;
+				pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 
 				// Madd
 				usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
@@ -674,8 +674,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					if ( ResolvePendingInterrupt( pSoldier, AFTERACTION_INTERRUPT ) )
 					{
-						pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-						pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+						pSoldier->animationIntent().clearFacingAnimation();
 						// "artificially" set lock ui flag in this case
 						if (pSoldier->bTeam == gbPlayerNum)
 						{
@@ -1215,7 +1214,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 
 					// Set desired anim height!
-					pSoldier->ubDesiredHeight = ANIM_CROUCH;
+					pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 					pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 
 				}
@@ -1507,7 +1506,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 475:
 
 				// CODE: END CLIMB DOWN ROOF
-				pSoldier->ubDesiredHeight = ANIM_STAND;
+				pSoldier->animationIntent().desiredHeight() = ANIM_STAND;
 				pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 
 				// re-enable sight
@@ -2107,18 +2106,18 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									//		(HAS_SKILL_TRAIT( pTSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) &&
 									//		 pTSoldier->ubBodyType == REGMALE )
 									//	{
-									//		//pTSoldier->usPendingAnimation = NINJA_GOTOBREATH;
-									//		pTSoldier->usPendingAnimation = NINJA_BREATH ;
+									//		//pTSoldier->animationIntent().pendingAnimation() = NINJA_GOTOBREATH;
+									//		pTSoldier->animationIntent().pendingAnimation() = NINJA_BREATH ;
 									//	}
 									//	else
 									//	{
-									//		pTSoldier->usPendingAnimation = PUNCH_BREATH ;
+									//		pTSoldier->animationIntent().pendingAnimation() = PUNCH_BREATH ;
 									//	}
 									//}
 									//else if ( (gAnimControl[ pTSoldier->usAnimState ].ubHeight == ANIM_STAND) && pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 && (Item[pTSoldier->inv[HANDPOS].usItem].usItemClass == IC_BLADE))
 									//{
-									//	//pTSoldier->usPendingAnimation = KNIFE_GOTOBREATH;
-									//	pTSoldier->usPendingAnimation = KNIFE_BREATH ;
+									//	//pTSoldier->animationIntent().pendingAnimation() = KNIFE_GOTOBREATH;
+									//	pTSoldier->animationIntent().pendingAnimation() = KNIFE_BREATH ;
 									//}
 								}
 							}
@@ -2357,8 +2356,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( pSoldier->flags.fTurningToShoot )
 							pSoldier->flags.fTurningToShoot = FALSE;
 
-						pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-						pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+						pSoldier->animationIntent().clearFacingAnimation();
 						// "artificially" set lock ui flag in this case
 						if (pSoldier->bTeam == gbPlayerNum)
 						{
@@ -2373,10 +2371,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// CONDITONAL JUMP
 				// If we have a pending animation, play it, else continue
-				if ( pSoldier->usPendingAnimation != NO_PENDING_ANIMATION )
+				if ( pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION )
 				{
-					pSoldier->ChangeSoldierState( pSoldier->usPendingAnimation, 0, FALSE );
-					pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+					pSoldier->ChangeSoldierState( pSoldier->animationIntent().pendingAnimation(), 0, FALSE );
+					pSoldier->animationIntent().clearPendingAnimation();
 					return( TRUE );
 				}
 				break;
@@ -2409,13 +2407,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 				}
 
-				ubDesiredHeight = pSoldier->ubDesiredHeight;
+				ubDesiredHeight = pSoldier->animationIntent().desiredHeight();
 
 				// Check if we are at the desired height
-				if ( pSoldier->ubDesiredHeight == gAnimControl[ pSoldier->usAnimState ].ubEndHeight || pSoldier->ubDesiredHeight == NO_DESIRED_HEIGHT )
+				if ( pSoldier->animationIntent().desiredHeight() == gAnimControl[ pSoldier->usAnimState ].ubEndHeight || pSoldier->animationIntent().desiredHeight() == NO_DESIRED_HEIGHT )
 				{
 					// Adjust movement mode......
-					if ( pSoldier->bTeam == gbPlayerNum && !pSoldier->flags.fContinueMoveAfterStanceChange )
+					if ( pSoldier->bTeam == gbPlayerNum && !pSoldier->animationIntent().continuationMode() )
 					{
 						usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->usAnimState ].ubEndHeight );
 
@@ -2430,7 +2428,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					if (pSoldier->usAnimState == DODGE_ONE && pSoldier->usPendingAnimation == NO_PENDING_ANIMATION )
+					if (pSoldier->usAnimState == DODGE_ONE && pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION )
 					{						
 						INT8 bGoBackToAimAfterHit = pSoldier->flags.bGoBackToAimAfterHit;
 						pSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
@@ -2495,7 +2493,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					pSoldier->ubDesiredHeight = NO_DESIRED_HEIGHT;
+					pSoldier->animationIntent().clearDesiredHeight();
 
 					// 0verhaul:	This is moved to the animation state transition code to make sure it isn't sidestepped.
 					// if (pSoldier->flags.fChangingStanceDueToSuppression)
@@ -2505,7 +2503,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					//	ReduceAttackBusyCount( pSoldier->ubSuppressorID, FALSE );
 					// }
 
-					if ( pSoldier->usPendingAnimation == NO_PENDING_ANIMATION && 
+					if ( pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE ) && 
 						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON ) )
 					{
@@ -2520,7 +2518,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Check to see if we have changed stance and need to update visibility
 					if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STANCECHANGEANIM)
 					{
-						if ( pSoldier->usPendingAnimation == NO_PENDING_ANIMATION && 
+						if ( pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 							GetJa2PendingTacticalCombatActions() == 0 &&
 							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE && 
 							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON )
@@ -2587,20 +2585,20 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// Check if we should contine into a moving animation
-					if ( pSoldier->usPendingAnimation != NO_PENDING_ANIMATION )
+					if ( pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION )
 					{
-						UINT16 usPendingAnimation = pSoldier->usPendingAnimation;
+						UINT16 usPendingAnimation = pSoldier->animationIntent().pendingAnimation();
 
-						pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+						pSoldier->animationIntent().clearPendingAnimation();
 						pSoldier->ChangeSoldierState( usPendingAnimation, 0, FALSE );
 						return( TRUE );
 					}
 
 					// Alrighty, do we wish to continue
-					if ( pSoldier->flags.fContinueMoveAfterStanceChange )
+					if ( pSoldier->animationIntent().continuationMode() )
 					{
 						// OK, if the code is == 2, get the path and try to move....
-						if ( pSoldier->flags.fContinueMoveAfterStanceChange == 2 )
+						if ( pSoldier->animationIntent().continuationMode() == 2 )
 						{
 							pSoldier->pathing().pathIndex()++;
 
@@ -2636,7 +2634,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							SelectMoveAnimationFromStance( pSoldier );
 						}
 
-						pSoldier->flags.fContinueMoveAfterStanceChange = FALSE;
+						pSoldier->animationIntent().clearContinuation();
 						return( TRUE );
 					}
 					pSoldier->SoldierGotoStationaryStance( );
@@ -4945,24 +4943,23 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 	//shadooow: fix for going back to cower animation after collapsing
 	if (pSoldier->CheckForBreathCollapse() || pSoldier->bCollapsed)
 	{
-		pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-		pSoldier->usPendingAnimation2 = NO_PENDING_ANIMATION;
+		pSoldier->animationIntent().clearPendingAnimations();
 	}
 	else
 	{
 		// Do we have a primary pending animation?
-		if (pSoldier->usPendingAnimation2 != NO_PENDING_ANIMATION)
+		if (pSoldier->animationIntent().secondaryPendingAnimation() != NO_PENDING_ANIMATION)
 		{
-			pSoldier->ChangeSoldierState(pSoldier->usPendingAnimation2, 0, FALSE);
-			pSoldier->usPendingAnimation2 = NO_PENDING_ANIMATION;
+			pSoldier->ChangeSoldierState(pSoldier->animationIntent().secondaryPendingAnimation(), 0, FALSE);
+			pSoldier->animationIntent().clearSecondaryPendingAnimation();
 			return(TRUE);
 		}
 
 		// CHECK IF WE HAVE A PENDING ANIMATION HERE
-		if (pSoldier->usPendingAnimation != NO_PENDING_ANIMATION)
+		if (pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION)
 		{
-			pSoldier->ChangeSoldierState(pSoldier->usPendingAnimation, 0, FALSE);
-			pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
+			pSoldier->ChangeSoldierState(pSoldier->animationIntent().pendingAnimation(), 0, FALSE);
+			pSoldier->animationIntent().clearPendingAnimation();
 			return(TRUE);
 		}
 	}
