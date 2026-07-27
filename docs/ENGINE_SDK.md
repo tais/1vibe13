@@ -280,7 +280,11 @@ than independent flat `SOLDIERTYPE` fields. This component is not exposed
 through the SDK and is deliberately absent from soldier persistence. Serialized
 health, maximum health, breath, maximum breath, and bleeding are now privately
 owned by `SoldierVitalsComponent`; the explicit serializer retains their
-established save byte positions. Current tactical grid, elevation, and facing
+established save byte positions. `SoldierActionPointComponent` separately owns
+the current and turn-start tactical AP budgets. Named turn setup, snapshot, and
+clear transitions keep that pair coherent, while network reconciliation still
+uses the established owner-authoritative packet field. Current tactical grid,
+elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot
 paths. Old-save conversion and explicit persistence retain the established

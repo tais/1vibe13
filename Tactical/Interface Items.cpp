@@ -2746,7 +2746,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 					usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
 
 					//we dont have enough APs to move it to this slot
-					if (usCostToMoveItem > 0 && pSoldier->bActionPoints < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
+					if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
 					{
 						fHatchItOut = 2;
 					}
@@ -4476,7 +4476,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 			SetFontBackground( FONT_MCOLOR_BLACK );
 			SetFontForeground( FONT_MCOLOR_DKGRAY );
 
-			swprintf( pStr, L"%d", pVehicle->bActionPoints );
+			swprintf( pStr, L"%d", pVehicle->actionPoints().current() );
 			mprintf( sNewX, sNewY, pStr );
 			gprintfinvalidate( sNewX, sNewY, pStr );
 		}

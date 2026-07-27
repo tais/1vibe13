@@ -1041,6 +1041,8 @@ public:
 	bool	exists();
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
+	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
+	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1081,8 +1083,6 @@ public:
 
 	// DESCRIPTION / STATS, ETC
 	UINT8			ubBodyType;
-	INT16			bActionPoints;	//100AP
-	INT16			bInitialActionPoints;	//100AP
 	INT8				bOldLife;			// life at end of last turn, recorded for monster AI
 	INT8				bVisible;			// to render or not to render...
 	INT8				bActive;
@@ -1507,6 +1507,7 @@ public:
 
 private:
 	SoldierVitalsComponent	vitals_;
+	SoldierActionPointComponent	actionPoints_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

@@ -2447,9 +2447,9 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
                     SoldierCollapse( pSoldier );
-                    if (pSoldier->bActionPoints > 0)
+                    if (pSoldier->actionPoints().current() > 0)
                     {
-                        pSoldier->bActionPoints -= (INT8) (Random( pSoldier->bActionPoints ) + 1);
+                        pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
                     }
                     return( FALSE );
                 }
@@ -2460,9 +2460,9 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 37 ], pSoldier->GetName() );
                     SoldierCollapse( pSoldier );
-                    if (pSoldier->bActionPoints > 0)
+                    if (pSoldier->actionPoints().current() > 0)
                     {
-                        pSoldier->bActionPoints -= (INT8) (Random( pSoldier->bActionPoints ) + 1);
+                        pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
                     }
                     return( FALSE );
                 }
@@ -2482,9 +2482,9 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 
                             TacticalCharacterDialogue( pSoldier, QUOTE_PERSONALITY_TRAIT );
                             pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
-                            if (pSoldier->bActionPoints > 0)
+                            if (pSoldier->actionPoints().current() > 0)
                             {
-                                pSoldier->bActionPoints -= (INT8) (Random( pSoldier->bActionPoints ) + 1);
+                                pSoldier->actionPoints().current() -= (INT8) (Random( pSoldier->actionPoints().current() ) + 1);
                             }
 
                             fDontContinue = TRUE;
@@ -2523,7 +2523,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 						SOLDIERTYPE *pPassenger = pVehicleList[ iId ].pPassengers[ iCounter ];
 						if( pPassenger != NULL )
 						{
-							//INT16 sPassengerAPCost = pPassenger->bInitialActionPoints * sAPCost / max(1, pSoldier->bInitialActionPoints) * gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleScale / 100;
+							//INT16 sPassengerAPCost = pPassenger->actionPoints().initial() * sAPCost / max(1, pSoldier->actionPoints().initial()) * gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleScale / 100;
 							INT16 sPassengerAPCost = 0;
 							switch( gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleMode )
 							{
@@ -2531,13 +2531,13 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 									sPassengerAPCost = sAPCost;
 									break;
 								case 2:
-									sPassengerAPCost = pPassenger->bInitialActionPoints * sAPCost / max(1, pSoldier->bInitialActionPoints);
+									sPassengerAPCost = pPassenger->actionPoints().initial() * sAPCost / max(1, pSoldier->actionPoints().initial());
 									break;
 								case 3:
-									INT16 sPassengerAPTreshold = pPassenger->bInitialActionPoints * ( pSoldier->bActionPoints - sAPCost ) / max(1, pSoldier->bInitialActionPoints);
-									sPassengerAPCost = pPassenger->bInitialActionPoints * sAPCost / max(1, pSoldier->bInitialActionPoints) ;
-									if( pPassenger->bActionPoints - sPassengerAPCost > sPassengerAPTreshold )
-										sPassengerAPCost = max( sPassengerAPCost, ( pPassenger->bActionPoints - sPassengerAPCost ) - sPassengerAPTreshold );
+									INT16 sPassengerAPTreshold = pPassenger->actionPoints().initial() * ( pSoldier->actionPoints().current() - sAPCost ) / max(1, pSoldier->actionPoints().initial());
+									sPassengerAPCost = pPassenger->actionPoints().initial() * sAPCost / max(1, pSoldier->actionPoints().initial()) ;
+									if( pPassenger->actionPoints().current() - sPassengerAPCost > sPassengerAPTreshold )
+										sPassengerAPCost = max( sPassengerAPCost, ( pPassenger->actionPoints().current() - sPassengerAPCost ) - sPassengerAPTreshold );
 									else
 										sPassengerAPCost = 0;
 									break;
@@ -2604,7 +2604,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
     else
     {
         // HALT GUY HERE
-        DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No APs %d %d", sAPCost, pSoldier->bActionPoints ) );
+        DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No APs %d %d", sAPCost, pSoldier->actionPoints().current() ) );
         HaltGuyFromNewGridNoBecauseOfNoAPs( pSoldier );
         pSoldier->bEndDoorOpenCode = FALSE;
         (*pfKeepMoving ) = FALSE;
@@ -2833,9 +2833,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 			}
 			RemoveItemFromPool(pSoldier->position().gridNo(), iMarblesIndex, 0);
 			SoldierCollapse(pSoldier);
-			if (pSoldier->bActionPoints > 0)
+			if (pSoldier->actionPoints().current() > 0)
 			{
-				pSoldier->bActionPoints -= (INT8)(Random(pSoldier->bActionPoints) + 1);
+				pSoldier->actionPoints().current() -= (INT8)(Random(pSoldier->actionPoints().current()) + 1);
 			}
 			return(FALSE);
 		}
@@ -3006,7 +3006,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				gAnimControl[pOpponent->animationPlayback().state()].ubEndHeight < ANIM_STAND ||
 				pOpponent->position().level() != pSoldier->position().level() ||
 				!SoldierToSoldierLineOfSightTest(pOpponent, pSoldier, TRUE, CALC_FROM_WANTED_DIR) ||
-				pOpponent->bActionPoints <= 0 ||
+				pOpponent->actionPoints().current() <= 0 ||
 				pOpponent->inv[HANDPOS].exists() && pOpponent->inv[SECONDHANDPOS].exists() && !(Item[pOpponent->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)))
 			{
 				continue;			// next merc
@@ -3051,7 +3051,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 
 			// prepare attack
 			pOpponent->aiData.bAimTime = 0;
-			if (pOpponent->bActionPoints >= MinAPsToAttack(pOpponent, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(pOpponent->vitals().health()))
+			if (pOpponent->actionPoints().current() >= MinAPsToAttack(pOpponent, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(pOpponent->vitals().health()))
 				pOpponent->aiData.bAimTime = 1;
 
 			pOpponent->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
@@ -5533,7 +5533,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 
         if ( fCheckGivenGridNo )
         {
-            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
             if ( sDistance > 0 )
             {
@@ -5615,7 +5615,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
         ubDir = (UINT8)GetDirectionToGridNoFromGridNo( sSpot, sGridNo );
 
         if ( ( NewOKDestinationAndDirection( pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level() ) > 0 ) &&
-                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) ) > 0 ) )
+                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
         {
 			if (ubDir != gfPlotPathEndDirection) sDistance += 4;//shadooow: small hack to return adjacent GridNo with lowest AP cost
             if (sDistance < sClosest || sClosest == -1)
@@ -5696,7 +5696,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 			ubDir = (UINT8)GetDirectionToGridNoFromGridNo(sSpot, sGridNoProne);
 
 			if ((NewOKDestinationAndDirection(pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level()) > 0) &&
-				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints)) > 0))
+				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
 			{
 				if (ubDir != gfPlotPathEndDirection) sDistance += 4;//shadooow: small hack to return adjacent GridNo with lowest AP cost
 				if (sDistance < sClosest || sClosest == -1)
@@ -5844,7 +5844,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
         if ( fCheckGivenGridNo )
         {
-            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
             if ( sDistance > 0 )
             {
@@ -5935,7 +5935,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
         // don't store path, just measure it
         if ( ( NewOKDestinationAndDirection( pSoldier, sSpot, ubDir, TRUE , pSoldier->position().level() ) > 0 ) &&
-                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) ) > 0 ) )
+                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
         {
             if ( sDistance < sClosest || sClosest == -1)
             {
@@ -6024,7 +6024,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
 			// don't store path, just measure it
 			if ((NewOKDestinationAndDirection(pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level()) > 0) &&
-				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints)) > 0))
+				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
 			{
 				if (sDistance < sClosest || sClosest == -1)
 				{
@@ -9181,7 +9181,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             if (gGameExternalOptions.fShowSuppressionShutdown)
             {
                 // If we're about the hit the lower limit
-                if (pSoldier->bActionPoints > APBPConstants[AP_MIN_LIMIT] && pSoldier->bActionPoints - sPointsLost <= APBPConstants[AP_MIN_LIMIT])
+                if (pSoldier->actionPoints().current() > APBPConstants[AP_MIN_LIMIT] && pSoldier->actionPoints().current() - sPointsLost <= APBPConstants[AP_MIN_LIMIT])
                 {
                     // And soldier is visible
                     if ( pSoldier->bVisible != -1 )
@@ -9202,13 +9202,13 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
             // Reduce action points!
             // HEADROCK HAM Beta 2.2: Enforce a minimum limit via INI.
-            if (pSoldier->bActionPoints - sPointsLost <= APBPConstants[AP_MIN_LIMIT] )
+            if (pSoldier->actionPoints().current() - sPointsLost <= APBPConstants[AP_MIN_LIMIT] )
             {
-                pSoldier->bActionPoints = APBPConstants[AP_MIN_LIMIT];
+                pSoldier->actionPoints().current() = APBPConstants[AP_MIN_LIMIT];
             }
             else
             {
-                pSoldier->bActionPoints -= sPointsLost;
+                pSoldier->actionPoints().current() -= sPointsLost;
             }
             // Remember how many APs were lost. This prevents us from losing more and more APs without receiving
             // extra suppression. Note that a specific HAM setting will reset this value after every attack,

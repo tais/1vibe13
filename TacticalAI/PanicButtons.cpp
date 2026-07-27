@@ -273,7 +273,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 			//////////////////////////////////////////////////////////////////////
 
 			// if we have enough APs to activate it now
-			if (pSoldier->bActionPoints >= APBPConstants[AP_USE_REMOTE])
+			if (pSoldier->actionPoints().current() >= APBPConstants[AP_USE_REMOTE])
 			{
 #ifdef TESTVERSION
 				sprintf(tempstr,"TEST MSG: %s - ACTIVATING his DETONATOR!",pSoldier->name);
@@ -362,7 +362,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 					////////////////////////////////////////////////////////////////
 
 					// and we have enough APs left to pull the trigger
-					if (pSoldier->bActionPoints >= APBPConstants[AP_PULL_TRIGGER])
+					if (pSoldier->actionPoints().current() >= APBPConstants[AP_PULL_TRIGGER])
 					{
 						// blow up the all the PANIC bombs (or just the journal)
 						pSoldier->aiData.usActionData = sPanicTriggerGridNo;

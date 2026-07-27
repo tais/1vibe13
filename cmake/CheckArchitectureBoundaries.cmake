@@ -1929,6 +1929,8 @@ endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
   soldier_components_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_control_source_contents)
 foreach(owned_vital_field IN ITEMS
   health
   maximumHealth
@@ -1962,6 +1964,81 @@ if(NOT serialized_soldier_breath_order OR
    NOT serialized_soldier_health_order)
   message(FATAL_ERROR
     "Soldier vitals moved in the portable save schema; keep their established byte order while storage evolves")
+endif()
+
+# The tactical AP budget is a lifecycle pair, not two unrelated public
+# counters. Current and turn-start values have one private owner, while the
+# explicit field visitor and multiplayer packet adapters retain their formats.
+foreach(retired_action_point_field IN ITEMS
+  bActionPoints
+  bInitialActionPoints)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT16[ \t]+${retired_action_point_field}[ \t]*;"
+    retired_current_action_point_field
+    "${current_soldier_contents}")
+  if(retired_current_action_point_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE action-point field '${retired_action_point_field}' returned; turn budgets belong to SoldierActionPointComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierActionPointComponent[ \t\r\n]+actionPoints_[ \t]*;"
+  soldier_action_point_owner
+  "${current_soldier_contents}")
+if(NOT soldier_action_point_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierActionPointComponent")
+endif()
+
+foreach(owned_action_point_field IN ITEMS current initial)
+  string(REGEX MATCH
+    "INT16[ \t]+${owned_action_point_field}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_action_point
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_action_point)
+    message(FATAL_ERROR
+      "SoldierActionPointComponent no longer owns initialized '${owned_action_point_field}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierActionPointComponent& actionPoints() noexcept"
+  soldier_action_point_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "actionPoints().reset();"
+  soldier_action_point_reset)
+string(FIND "${soldier_components_header_contents}"
+  "void beginTurn(INT16 points) noexcept;"
+  soldier_action_point_begin_turn)
+string(FIND "${soldier_components_header_contents}"
+  "void snapshotTurnStart() noexcept"
+  soldier_action_point_snapshot)
+string(FIND "${soldier_components_header_contents}"
+  "void clear() noexcept;"
+  soldier_action_point_clear)
+if(soldier_action_point_accessor EQUAL -1)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must retain its SoldierActionPointComponent accessor")
+endif()
+if(soldier_action_point_reset EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier initialization must reset the complete action-point component")
+endif()
+if(soldier_action_point_begin_turn EQUAL -1 OR
+   soldier_action_point_snapshot EQUAL -1 OR
+   soldier_action_point_clear EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierActionPointComponent must retain its coordinated turn lifecycle operations")
+endif()
+
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubBodyType\\);[ \t\r\n]*ar\\.i16\\(actionPoints\\.current\\(\\)\\);[ \t]*ar\\.i16\\(actionPoints\\.initial\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.bOldLife\\);"
+  serialized_soldier_action_point_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_action_point_order)
+  message(FATAL_ERROR
+    "Soldier action-point budgets moved in the portable save schema; keep both INT16 values at their established positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
@@ -2288,8 +2365,6 @@ endforeach()
 string(FIND "${soldier_control_header_contents}"
   "SoldierTargetingComponent& targeting() noexcept"
   soldier_targeting_accessor)
-file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
-  soldier_control_source_contents)
 string(FIND "${soldier_control_source_contents}"
   "targeting().reset();"
   soldier_targeting_reset)

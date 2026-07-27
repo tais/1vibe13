@@ -692,8 +692,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//this->bReserved1 = src.bReserved1;
 
 		this->ubBodyType = src.ubBodyType;
-		this->bActionPoints = src.bActionPoints;
-		this->bInitialActionPoints = src.bInitialActionPoints;
+		this->actionPoints().current() = src.bActionPoints;
+		this->actionPoints().initial() = src.bInitialActionPoints;
 
 
 		this->pKeyRing = src.pKeyRing;
@@ -1133,6 +1133,7 @@ void SOLDIERTYPE::initialize( )
 	memset( &newdrugs, 0, sizeof(DRUGS) );
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
+	actionPoints().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -2191,25 +2192,25 @@ void SOLDIERTYPE::CalcNewActionPoints( void )
 	if ( gTacticalStatus.bBoxingState == BOXING || gTacticalStatus.bBoxingState == PRE_BOXING )
 	{
 		// if we are in boxing mode, carry 1/2 as many points
-		if ( this->bActionPoints > APBPConstants[MAX_AP_CARRIED] / 2 )
+		if ( this->actionPoints().current() > APBPConstants[MAX_AP_CARRIED] / 2 )
 		{
-			this->bActionPoints = APBPConstants[MAX_AP_CARRIED] / 2;
+			this->actionPoints().current() = APBPConstants[MAX_AP_CARRIED] / 2;
 		}
 	}
 	else
 	{
 		//POSSIBLE STRUCTURE CHANGE PROBLEM, NOT CURRENTLY CHANGED. GOTTHARD 7/14/08		
-		if ( this->bActionPoints > APBPConstants[MAX_AP_CARRIED] )
+		if ( this->actionPoints().current() > APBPConstants[MAX_AP_CARRIED] )
 		{
-			this->bActionPoints = APBPConstants[MAX_AP_CARRIED];
+			this->actionPoints().current() = APBPConstants[MAX_AP_CARRIED];
 		}
 	}
 
-	this->bActionPoints += this->CalcActionPoints( );
+	this->actionPoints().current() += this->CalcActionPoints( );
 	// HEADROCK HAM 3.6: This should've been here all along. This enforces an absolute minimum limit on APs, which
 	// can be negative.
-	if ( this->bActionPoints < APBPConstants[AP_MIN_LIMIT] )
-		this->bActionPoints = APBPConstants[AP_MIN_LIMIT];
+	if ( this->actionPoints().current() < APBPConstants[AP_MIN_LIMIT] )
+		this->actionPoints().current() = APBPConstants[AP_MIN_LIMIT];
 
 	// Don't max out if we are drugged....
 	if ( !this->newdrugs.size[DRUG_EFFECT_AP] && !this->newdrugs.size[DRUG_EFFECT_AGI] )
@@ -2286,22 +2287,21 @@ void SOLDIERTYPE::CalcNewActionPoints( void )
 		}
 
 		// Now repair
-		if ( this->bActionPoints > usMaxActionPnts )
+		if ( this->actionPoints().current() > usMaxActionPnts )
 		{
-			this->bActionPoints = usMaxActionPnts;
+			this->actionPoints().current() = usMaxActionPnts;
 		}
 		///////////////////////////////////////////////////////////////////////////////////////////
 	}
 
-	this->bInitialActionPoints = this->bActionPoints;
+	this->actionPoints().snapshotTurnStart();
 
 	// Flugente: due to changes and bugs with enemy reinforcements, we now set a flag if a soldier should start with no APs, and act here accordingly
 	if ( this->usSoldierFlagMask & SOLDIER_NO_AP )
 	{
 		this->usSoldierFlagMask &= ~SOLDIER_NO_AP;
 
-		this->bInitialActionPoints = 0;
-		this->bActionPoints = 0;
+		this->actionPoints().clear();
 	}
 }
 
@@ -8047,7 +8047,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		this->ubMovementNoiseHeard = 0;
 
 		// If soldier has new APs, reset flags!
-		if ( this->bActionPoints > 0 )
+		if ( this->actionPoints().current() > 0 )
 		{
 			this->flags.fUIFirstTimeNOAP = FALSE;
 			this->aiData.bMoved = FALSE;
@@ -13407,7 +13407,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	}
 
 	// try to use every AP that the merc has left
-	uiAvailAPs = this->bActionPoints;
+	uiAvailAPs = this->actionPoints().current();
 
 	// OK, If we are in real-time, use another value...
 	if ( !(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive()) )
@@ -16883,7 +16883,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 	}
 
 	// if we can afford it, do it now
-	if ( bOverTurnAPS <= this->bActionPoints )
+	if ( bOverTurnAPS <= this->actionPoints().current() )
 	{
 		switch ( usMultiTurnAction )
 		{
@@ -16943,11 +16943,11 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		CancelMultiTurnAction( TRUE );
 	}
 	// remove the costs as much as we can
-	else if ( this->bActionPoints > 0 )
+	else if ( this->actionPoints().current() > 0 )
 	{
-		INT16 oldAPs = this->bActionPoints;
+		INT16 oldAPs = this->actionPoints().current();
 		if ( bOverTurnAPS > 0 )
-			DeductPoints( this, this->bActionPoints, (INT32)(entirebpcost * this->bActionPoints / entireapcost), 0 );
+			DeductPoints( this, this->actionPoints().current(), (INT32)(entirebpcost * this->actionPoints().current() / entireapcost), 0 );
 
 		bOverTurnAPS -= oldAPs;
 	}
@@ -17229,10 +17229,10 @@ void	SOLDIERTYPE::SwitchWeapons( BOOLEAN fKnife, BOOLEAN fSideArm )
 			// Flugente: backgrounds
 			APTotalCost = (APTotalCost * (100 + this->GetBackgroundValue(BG_INVENTORY))) / 100;
 
-			if ( this->bActionPoints >= APTotalCost )
+			if ( this->actionPoints().current() >= APTotalCost )
 			{
 				// SANDRO - I dared to change this to use the appropriate function, as that function is actually important for IIS
-				//pSoldier->bActionPoints -= APTotalCost;
+				//pSoldier->actionPoints().current() -= APTotalCost;
 				DeductPoints( this, APTotalCost, 0 );
 
 				SwapObjs( &this->inv[HANDPOS], &this->inv[retrieveslot] );
@@ -17246,7 +17246,7 @@ void	SOLDIERTYPE::SwitchWeapons( BOOLEAN fKnife, BOOLEAN fSideArm )
 			else
 			{
 				CHAR16	zOutputString[512];
-				swprintf( zOutputString, New113Message[MSG113_INVENTORY_APS_INSUFFICIENT], APTotalCost, this->bActionPoints );
+				swprintf( zOutputString, New113Message[MSG113_INVENTORY_APS_INSUFFICIENT], APTotalCost, this->actionPoints().current() );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, zOutputString );
 			}
 		}
@@ -25057,7 +25057,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 				GetJa2SoldierRepository().resolve( uCnt );
 			if ( pInterrupter == NULL )
 				continue;			// not valid
-			if (pInterrupter->vitals().health() < OKLIFE || pInterrupter->bCollapsed || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->bActionPoints < 4)
+			if (pInterrupter->vitals().health() < OKLIFE || pInterrupter->bCollapsed || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->actionPoints().current() < 4)
 				continue;			// not active
 			if (pInterrupter->vitals().breath() < OKBREATH && pInterrupter->bTeam != OUR_TEAM)
 				continue;			// BOB: prevent NPCs from getting interrupts when out of breath
@@ -25101,7 +25101,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			}
 			// adjust based on APs left
 			// at full possible APs no adjustement (100% applies), +1% length per every 2% of APs down from full
-			uiReactionTime = (uiReactionTime * (100 + (50 - (50 * pInterrupter->bActionPoints / pInterrupter->CalcActionPoints( )))) / 100);
+			uiReactionTime = (uiReactionTime * (100 + (50 - (50 * pInterrupter->actionPoints().current() / pInterrupter->CalcActionPoints( )))) / 100);
 			// adjust based on injuries
 			if ( pInterrupter->vitals().health() < pInterrupter->vitals().maximumHealth() )
 			{
@@ -25191,7 +25191,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 							continue;			// not valid
 						if ( pTeammate->bTeam != pInterrupter->bTeam )
 							continue;			// little paranoya check here
-						if ( pTeammate->vitals().health() < OKLIFE || pTeammate->bCollapsed || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->bActionPoints < 4 )
+						if ( pTeammate->vitals().health() < OKLIFE || pTeammate->bCollapsed || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->actionPoints().current() < 4 )
 							continue;			// not active
 
 						// check if we haven't been added to the list already
@@ -25808,7 +25808,7 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 	}
 
 	// try to use every AP that the merc has left
-	uiAvailAPs = pSoldier->bActionPoints;
+	uiAvailAPs = pSoldier->actionPoints().current();
 
 	// OK, If we are in real-time, use another value...
 	if ( !(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive()) )
@@ -26375,7 +26375,7 @@ BOOLEAN ApplyConsumable(SOLDIERTYPE* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForce,
 // sevenfm: service functions
 BOOLEAN SOLDIERTYPE::CheckInitialAP(void)
 {
-	if (this->bActionPoints < this->bInitialActionPoints || this->usSoldierFlagMask2 & SOLDIER_SPENT_AP)
+	if (this->actionPoints().current() < this->actionPoints().initial() || this->usSoldierFlagMask2 & SOLDIER_SPENT_AP)
 	{
 		return FALSE;
 	}

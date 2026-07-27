@@ -4711,7 +4711,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					ubCounterattackChance /= 2;
 
 				// sevenfm: possibly counterattack when boxing
-				if (pTargetSoldier->bActionPoints > 0 &&
+				if (pTargetSoldier->actionPoints().current() > 0 &&
 					gGameOptions.fNewTraitSystem &&
 					gTacticalStatus.bBoxingState == BOXING &&
 					(pTargetSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
@@ -4738,7 +4738,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					}
 
 					pTargetSoldier->aiData.bAimTime = 0;
-					if (pTargetSoldier->bActionPoints >= MinAPsToAttack(pTargetSoldier, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(EffectiveStrength(pTargetSoldier, FALSE) / 4))
+					if (pTargetSoldier->actionPoints().current() >= MinAPsToAttack(pTargetSoldier, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(EffectiveStrength(pTargetSoldier, FALSE) / 4))
 						pTargetSoldier->aiData.bAimTime = 1;
 
 					pTargetSoldier->attackSelection().meleeLocation() = AIM_SHOT_RANDOM;

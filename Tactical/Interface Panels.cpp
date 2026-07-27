@@ -620,7 +620,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 INT16 GetUIApsToDisplay( SOLDIERTYPE *pSoldier )
 {
 
-	return ( pSoldier->bActionPoints );
+	return ( pSoldier->actionPoints().current() );
 
 }
 
@@ -3820,7 +3820,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				// Flugente: backgrounds
 				usCostToMoveItem = (usCostToMoveItem * (100 + GetSMCurrentMerc()->GetBackgroundValue(BG_INVENTORY))) / 100;
 				
-				if ( ( usCostToMoveItem == 0 ) || ( GetSMCurrentMerc()->bActionPoints >= usCostToMoveItem ) )
+				if ( ( usCostToMoveItem == 0 ) || ( GetSMCurrentMerc()->actionPoints().current() >= usCostToMoveItem ) )
 				{
 					fOKToGo = TRUE;
 					//iLastHandPos = uiHandPos;//dnl ch66 070913 this should be set after we move item
@@ -3911,7 +3911,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 									// do we have enough AP?
 									if (!EnoughPoints(GetSMCurrentMerc(), usCostToMoveItem, 0, TRUE))
 										return;
-									GetSMCurrentMerc()->bActionPoints -= usCostToMoveItem;
+									GetSMCurrentMerc()->actionPoints().current() -= usCostToMoveItem;
 								}
 								GetSMCurrentMerc()->inv[uiHandPos].AttachObject(GetSMCurrentMerc(), gpItemPointer, TRUE, i);
 							}
@@ -4004,7 +4004,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					iLastHandPos = uiHandPos;//dnl ch66 070913
 					//Jenilee: pay the price
 					//just make sure to handle that if we are putting it back in the SAME slot, the cost should be 0!!!
-					GetSMCurrentMerc()->bActionPoints -= usCostToMoveItem;
+					GetSMCurrentMerc()->actionPoints().current() -= usCostToMoveItem;
 
 					RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 					// it worked!	if we're in the SKI...
@@ -4179,8 +4179,8 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 	if(IsJa2TacticalCombatActive())
 	{
 		// If we have fewer base points then the default cost to unzip a pack, use all remaining points instead
-		if(pSoldier->bInitialActionPoints < sAPCost)
-			sAPCost = pSoldier->bInitialActionPoints;
+		if(pSoldier->actionPoints().initial() < sAPCost)
+			sAPCost = pSoldier->actionPoints().initial();
 		if(EnoughPoints(pSoldier, sAPCost, iBPCost, TRUE))
 			DeductPoints(pSoldier, sAPCost, iBPCost);
 		else
@@ -4397,7 +4397,7 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 			}
 
 			// While our mouse is here, draw a path!
-			PlotPath( pSoldier, sGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+			PlotPath( pSoldier, sGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		}
 	}
 	else
@@ -6117,7 +6117,7 @@ void HandleMouseOverTeamFaceForContMove( BOOLEAN fOn )
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
 
 			// While our mouse is here, draw a path!
-			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing().finalDestinationGrid(), NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->usUIMovementMode, NOT_STEALTH, FORWARD, GetSMCurrentMerc()->bActionPoints );
+			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing().finalDestinationGrid(), NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->usUIMovementMode, NOT_STEALTH, FORWARD, GetSMCurrentMerc()->actionPoints().current() );
 		}
 	}
 	else

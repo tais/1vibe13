@@ -707,7 +707,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			if ( pVehicleSoldier )
 			{
 				// bInitialActionPoints - point in time where soldier and vehicle start sharing timeline
-				pSoldier->bInitialActionPoints = pSoldier->bActionPoints;
+				pSoldier->actionPoints().snapshotTurnStart();
 				// set proper initial rotation
 				UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicleSoldier->bVehicleID ].ubVehicleType ].VehicleSeats[ ubFinalSeatIndex ].ubRotation;
 				pSoldier->animationActivity().turningCostWaived() = TRUE;

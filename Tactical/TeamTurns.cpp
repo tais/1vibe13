@@ -1012,7 +1012,7 @@ void StartInterrupt( void )
 						{
 							INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->position().gridNo(),ADDTURNCOST, 0);
 							// if we don't have enough APs left to shoot even a snap-shot at this guy
-							if (ubMinAPcost < pSoldier->bActionPoints)
+							if (ubMinAPcost < pSoldier->actionPoints().current())
 							{
 								handleInterrupt = TRUE;
 							}
@@ -1283,10 +1283,10 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		{
 			continue;
 		}
-		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved && (pTempSoldier->bActionPoints == pTempSoldier->aiData.bIntStartAPs))
+		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved && (pTempSoldier->actionPoints().current() == pTempSoldier->aiData.bIntStartAPs))
 		{
 			ubMinAPsToAttack = MinAPsToAttack( pTempSoldier, pTempSoldier->targeting().lastGridNo(), FALSE, 0 );
-			if ( (ubMinAPsToAttack <= pTempSoldier->bActionPoints) && (ubMinAPsToAttack > 0) )
+			if ( (ubMinAPsToAttack <= pTempSoldier->actionPoints().current()) && (ubMinAPsToAttack > 0) )
 			{
 				pTempSoldier->aiData.bPassedLastInterrupt = TRUE;
 			}
@@ -1391,7 +1391,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			if ( pTempSoldier->bActive )
 			{
 				// AI guys only here...
-				if ( pTempSoldier->bActionPoints == 0 )
+				if ( pTempSoldier->actionPoints().current() == 0 )
 				{
 					pTempSoldier->aiData.bMoved = TRUE;
 				}
@@ -1811,7 +1811,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// if soldier doesn't have enough APs
-	if ( pSoldier->bActionPoints < APBPConstants[MIN_APS_TO_INTERRUPT] )
+	if ( pSoldier->actionPoints().current() < APBPConstants[MIN_APS_TO_INTERRUPT] )
 	{
 		return( FALSE );
 	}
@@ -1968,7 +1968,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 
 	// soldiers without sufficient APs to do something productive can't interrupt
-	if (pSoldier->bActionPoints < ubMinPtsNeeded)
+	if (pSoldier->actionPoints().current() < ubMinPtsNeeded)
 	{
 		return(FALSE);
 	}
@@ -2382,7 +2382,7 @@ void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate )
 	{
 		// record his initial APs at the start of his interrupt at this time
 		// this is not the ideal place for this, but it's the best I could do...
-		soldier->aiData.bIntStartAPs = soldier->bActionPoints;
+		soldier->aiData.bIntStartAPs = soldier->actionPoints().current();
 	}
 	else
 	{
@@ -2643,7 +2643,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 
 void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 {
-	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("ResolveInterruptsVs: Soldier ID = %d, APs = %d (interrupt type = %d)",pSoldier->ubID,pSoldier->bActionPoints, ubInterruptType));
+	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("ResolveInterruptsVs: Soldier ID = %d, APs = %d (interrupt type = %d)",pSoldier->ubID,pSoldier->actionPoints().current(), ubInterruptType));
 	UINT8 ubTeam;
 	SoldierID ubOpp;
 	UINT16 ubIntCnt;

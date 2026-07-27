@@ -4758,7 +4758,7 @@ int main( int, char** )
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
 		worldActor.animationPlayback().state() = STANDING;
-		worldActor.bActionPoints = 72;
+		worldActor.actionPoints().current() = 72;
 		worldActor.vitals().health() = 76;
 		worldActor.vitals().maximumHealth() = 80;
 		worldActor.vitals().breath() = 64;
@@ -7260,6 +7260,9 @@ int main( int, char** )
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
 		vitals.breath() = 60;
+		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
+		actionPoints.beginTurn(78);
+		actionPoints.current() = 43;
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7375,6 +7378,10 @@ int main( int, char** )
 		const SOLDIERTYPE& constSoldier = soldier;
 		CHECK( constSoldier.vitals().health() == 75 && constSoldier.vitals().maximumHealth() == 90,
 		       "const soldier access reads the canonical vitals component" );
+		CHECK( constSoldier.actionPoints().hasAny() &&
+		       constSoldier.actionPoints().current() == 43 &&
+		       constSoldier.actionPoints().initial() == 78,
+		       "soldier action-point component owns current and turn-start budgets" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7533,6 +7540,9 @@ int main( int, char** )
 		       copiedSoldier.vitals().maximumBreath() == 91 &&
 		       copiedSoldier.vitals().bleeding() == 7,
 		       "soldier copies retain their owned persistent vitals" );
+		CHECK( copiedSoldier.actionPoints().current() == 43 &&
+		       copiedSoldier.actionPoints().initial() == 78,
+		       "soldier copies retain their owned persistent action-point budget" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -7757,6 +7767,23 @@ int main( int, char** )
 		       suppressionLifecycle.suppressor() == NOBODY &&
 		       !suppressionLifecycle.closeCall(),
 		       "suppression reset clears the complete hostile-fire reaction domain" );
+
+		SoldierActionPointComponent actionPointLifecycle;
+		actionPointLifecycle.beginTurn(80);
+		actionPointLifecycle.current() = 35;
+		CHECK( actionPointLifecycle.current() == 35 &&
+		       actionPointLifecycle.initial() == 80 &&
+		       actionPointLifecycle.hasAny(),
+		       "action-point turn setup records one current and initial budget" );
+		actionPointLifecycle.snapshotTurnStart();
+		CHECK( actionPointLifecycle.current() == 35 &&
+		       actionPointLifecycle.initial() == 35,
+		       "action-point turn snapshot advances both consumers to the current budget" );
+		actionPointLifecycle.clear();
+		CHECK( actionPointLifecycle.current() == 0 &&
+		       actionPointLifecycle.initial() == 0 &&
+		       !actionPointLifecycle.hasAny(),
+		       "action-point clear transition removes both current and turn-start budgets" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7764,6 +7791,10 @@ int main( int, char** )
 		       copiedSoldier.vitals().maximumBreath() == 0 &&
 		       copiedSoldier.vitals().bleeding() == 0,
 		       "soldier initialization resets the complete vitals domain" );
+		CHECK( copiedSoldier.actionPoints().current() == 0 &&
+		       copiedSoldier.actionPoints().initial() == 0 &&
+		       !copiedSoldier.actionPoints().hasAny(),
+		       "soldier initialization resets the complete action-point domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -7890,6 +7921,8 @@ int main( int, char** )
 		legacySoldier->bBulletsLeft = 3;
 		legacySoldier->bDoBurst = 4;
 		legacySoldier->bDoAutofire = 8;
+		legacySoldier->bActionPoints = 43;
+		legacySoldier->bInitialActionPoints = 78;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -7914,6 +7947,9 @@ int main( int, char** )
 
 		SOLDIERTYPE convertedSoldier;
 		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.actionPoints().current() == 43 &&
+		       convertedSoldier.actionPoints().initial() == 78,
+		       "v101 soldier conversion retains current and turn-start action-point budgets" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8058,6 +8094,8 @@ int main( int, char** )
 		savedSoldier.vitals().breath() = 62;
 		savedSoldier.vitals().maximumBreath() = 94;
 		savedSoldier.vitals().bleeding() = 11;
+		savedSoldier.actionPoints().beginTurn(76);
+		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8178,7 +8216,13 @@ int main( int, char** )
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
 		       loadedSoldier.vitals().breath() == 62 &&
 		       loadedSoldier.vitals().maximumBreath() == 94 &&
-		       loadedSoldier.vitals().bleeding() == 11 &&
+		       loadedSoldier.vitals().bleeding() == 11,
+		       "soldier save/load round-trips vitals state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.actionPoints().current() == 41 &&
+		       loadedSoldier.actionPoints().initial() == 76,
+		       "soldier save/load round-trips action-point state at established schema positions" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&
 		       loadedSoldier.position().direction() == 5 &&

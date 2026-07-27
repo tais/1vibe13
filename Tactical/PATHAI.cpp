@@ -609,7 +609,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 {
 	//copy over private data that makes code more readable
 	this->pSoldier = s;
-	this->mercsMaxAPs = this->pSoldier->bActionPoints;
+	this->mercsMaxAPs = this->pSoldier->actionPoints().current();
 	this->onRooftop = ubLevel;
 	this->movementMode = usMovementMode;
 	this->maxAPBudget = gubNPCAPBudget;

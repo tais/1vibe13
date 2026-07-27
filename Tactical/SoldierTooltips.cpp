@@ -361,7 +361,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			if ( gGameExternalOptions.fEnableSoldierTooltipAttitude )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ATTITUDE], pStrInfo, pSoldier->aiData.bAttitude );
 			if ( gGameExternalOptions.fEnableSoldierTooltipActionPoints )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_APS], pStrInfo, pSoldier->bActionPoints );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_APS], pStrInfo, pSoldier->actionPoints().current() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipHealth )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_HEALTH], pStrInfo, pSoldier->vitals().health() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipEnergy )

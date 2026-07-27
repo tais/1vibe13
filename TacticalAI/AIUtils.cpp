@@ -163,9 +163,9 @@ UINT8 StanceChange( SOLDIERTYPE * pSoldier, INT16 ubAttackAPCost )
 
 	if (PTR_STANDING)
 	{
-		if (pSoldier->bActionPoints - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE))
+		if (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE))
 		{
-			if ( (pSoldier->bActionPoints - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
+			if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
 			{
 				return( ANIM_PRONE );
 			}
@@ -177,7 +177,7 @@ UINT8 StanceChange( SOLDIERTYPE * pSoldier, INT16 ubAttackAPCost )
 	}
 	else if (PTR_CROUCHED)
 	{
-		if ( (pSoldier->bActionPoints - ubAttackAPCost >= GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
+		if ( (pSoldier->actionPoints().current() - ubAttackAPCost >= GetAPsProne(pSoldier, TRUE)) && IsValidStance( pSoldier, ANIM_PRONE ) && ConsiderProne( pSoldier ) )
 		{
 			return( ANIM_PRONE );
 		}
@@ -205,7 +205,7 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 
 	bSetScopeMode = pSoldier->attackSelection().scopeMode();
 	pSoldier->attackSelection().scopeMode() = pAttack->bScopeMode;
-	bAPsAfterAttack = pSoldier->bActionPoints - MinAPsToAttack( pSoldier, pAttack->sTarget, ADDTURNCOST, pAttack->ubAimTime, 1);
+	bAPsAfterAttack = pSoldier->actionPoints().current() - MinAPsToAttack( pSoldier, pAttack->sTarget, ADDTURNCOST, pAttack->ubAimTime, 1);
 	pSoldier->attackSelection().scopeMode() = bSetScopeMode;
 	if (bAPsAfterAttack < GetAPsCrouch(pSoldier, TRUE))
 	{
@@ -516,14 +516,14 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					// use running for taking cover when not under attack
 					if (!pSoldier->suppression().underFire() &&
 						bAction == AI_ACTION_TAKE_COVER &&
-						pSoldier->bInitialActionPoints > APBPConstants[AP_MINIMUM] &&
+						pSoldier->actionPoints().initial() > APBPConstants[AP_MINIMUM] &&
 						(!InARoom(pSoldier->position().gridNo(), NULL) || PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > sDistanceVisible * 2) &&
 						pSoldier->aiData.bAIMorale >= MORALE_NORMAL &&
 						pSoldier->vitals().breath() > 25 &&
 						pSoldier->position().level() == 0 &&
 						pSoldier->aiData.bOrders != STATIONARY &&
 						pSoldier->aiData.bOrders != SNIPER &&
-						(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE || pSoldier->bActionPoints > APBPConstants[AP_MINIMUM]))
+						(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE || pSoldier->actionPoints().current() > APBPConstants[AP_MINIMUM]))
 					{
 						return RUNNING;
 					}
@@ -723,7 +723,7 @@ BOOLEAN IsActionAffordable(SOLDIERTYPE *pSoldier, INT8 bAction)
 			bMinPointsNeeded = MinAPsToAttack(pSoldier,pSoldier->aiData.usActionData,ADDTURNCOST,pSoldier->aiData.bAimTime);
 
 #ifdef BETAVERSION
-			if (ptsNeeded > pSoldier->bActionPoints)
+			if (ptsNeeded > pSoldier->actionPoints().current())
 			{
 			/*
 				sprintf(tempstr,"AI ERROR: %s has insufficient points for attack action %d at grid %d",
@@ -822,7 +822,7 @@ BOOLEAN IsActionAffordable(SOLDIERTYPE *pSoldier, INT8 bAction)
 	}
 
 	// check whether or not we can afford to do this action
-	if (bMinPointsNeeded > pSoldier->bActionPoints)
+	if (bMinPointsNeeded > pSoldier->actionPoints().current())
 	{
 		return(FALSE);
 	}
@@ -2696,7 +2696,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		iThreatValue += 25 * pEnemy->CalcActionPoints() / APBPConstants[AP_MAXIMUM];
 
 		// ADD 1/2 of man's current action points (4-17)
-		iThreatValue += 25 * pEnemy->bActionPoints / APBPConstants[AP_MAXIMUM] / 2;
+		iThreatValue += 25 * pEnemy->actionPoints().current() / APBPConstants[AP_MAXIMUM] / 2;
 
 		// ADD 1/10 of man's current health (0-10)
 		iThreatValue += (pEnemy->vitals().health() / 10);
@@ -3411,7 +3411,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 		iThreatValue += 25 * pEnemy->CalcActionPoints() / APBPConstants[AP_MAXIMUM];
 
 		// ADD 1/2 of man's current action points (4-17)
-		iThreatValue += 25 * pEnemy->bActionPoints / APBPConstants[AP_MAXIMUM] / 2;
+		iThreatValue += 25 * pEnemy->actionPoints().current() / APBPConstants[AP_MAXIMUM] / 2;
 
 		// ADD 1/10 of man's current health (0-10)
 		iThreatValue += (pEnemy->vitals().health() / 10);
@@ -4143,7 +4143,7 @@ UINT8 CountFriendsBlack( SOLDIERTYPE *pSoldier, INT32 sClosestOpponent )
 				pFriend->aiData.bAlertStatus == STATUS_BLACK &&
 				pFriend->vitals().health() > pFriend->vitals().maximumHealth() / 2 &&
 				( GetNearestRottingCorpseAIWarning( pFriend->position().gridNo() ) == 0 && !InLightAtNight(pFriend->position().gridNo(), pFriend->position().level()) ||
-				pFriend->bActionPoints > 3*pFriend->bInitialActionPoints/4 || 
+				pFriend->actionPoints().current() > 3*pFriend->actionPoints().initial()/4 ||
 				pFriend->aiData.bLastAttackHit )
 				)
 			{

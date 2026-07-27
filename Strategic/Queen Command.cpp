@@ -2462,7 +2462,7 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		// HEADROCK HAM 3.2: enemy reinforcements arrive with 0 APs.
 		if (gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 1 || gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 2)
 		{			
-			pSoldier->bActionPoints = 0;
+			pSoldier->actionPoints().current() = 0;
 
 			// Flugente: due to a fix, also note here that the reinforcements get no APs.
 			pSoldier->usSoldierFlagMask |= SOLDIER_NO_AP;
@@ -2631,7 +2631,7 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 		// HEADROCK HAM 3.2: enemy reinforcements arrive with 0 APs.
 		if ( gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 1 || gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 2 )
 		{
-			pSoldier->bActionPoints = 0;
+			pSoldier->actionPoints().current() = 0;
 
 			// Flugente: due to a fix, also note here that the reinforcements get no APs.
 			pSoldier->usSoldierFlagMask |= SOLDIER_NO_AP;

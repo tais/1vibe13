@@ -4604,7 +4604,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 		if ( IsJa2TacticalCombatActive() )
 		{
 			// Turn off at end of function...
-			sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+			sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			if ( !EnoughPoints( pSoldier, sAPs, 0, FALSE ) )
 			{

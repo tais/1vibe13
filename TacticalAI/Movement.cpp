@@ -446,7 +446,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	INT32 sOrigin;
 	UINT16 usMaxDist;
 	UINT8 ubDirection,ubDirsLeft,ubDirChecked[8],fFound = FALSE;
-	// anv: changed to INT16 since Soldier->bActionPoints are INT16 too
+	// anv: changed to INT16 since Soldier->actionPoints().current() are INT16 too
 	INT16 bAPsLeft, fPathFlags;
 	//DBrot: More Rooms
 	//UINT8 ubRoomRequired = 0, ubTempRoom;
@@ -666,7 +666,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	// CAN'T CALL PathCost() HERE! IT CALLS findBestPath() and overwrites
 	//		pathRouteToGo !!!	Gotta calculate the cost ourselves - Ian
 	//
-	//ubAPsLeft = pSoldier->bActionPoints - PathCost(pSoldier,sTempDest,FALSE,FALSE,FALSE,FALSE,FALSE);
+	//ubAPsLeft = pSoldier->actionPoints().current() - PathCost(pSoldier,sTempDest,FALSE,FALSE,FALSE,FALSE,FALSE);
 
 	if (gfTurnBasedAI)
 	{
@@ -682,7 +682,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 		// ATE: Direction here?
 		sAPCost += EstimateActionPointCost( pSoldier, sTempDest, (INT8) pSoldier->pathing().path()[sLoop], pSoldier->usUIMovementMode, (INT8) sLoop, (INT8) pSoldier->pathing().pathSize() );
 
-		bAPsLeft = pSoldier->bActionPoints - sAPCost;
+		bAPsLeft = pSoldier->actionPoints().current() - sAPCost;
 	}
 
 	// if this gridno is NOT a legal NPC destination
@@ -741,7 +741,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 
 #ifdef DEBUGDECISIONS
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->ubID, sGoToGrid, pSoldier->bActionPoints );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->ubID, sGoToGrid, pSoldier->actionPoints().current() );
  #endif
 
 
@@ -828,7 +828,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	// Find out how much it takes to move here!
 	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], pSoldier->usUIMovementMode, (INT8) pSoldier->pathing().pathIndex(), (INT8) pSoldier->pathing().pathSize() );
 
-	if (pSoldier->bActionPoints >= bAPCost)
+	if (pSoldier->actionPoints().current() >= bAPCost)
 	{
 		// seems to have enough points...
 		const SimulationCommandDispatchResult movement =
@@ -889,7 +889,7 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 	pSoldier->AdjustNoAPToFinishMove( TRUE );
 
 	// We'll keep his action intact though...
-	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->ubID, pSoldier->bActionPoints) );
+	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->ubID, pSoldier->actionPoints().current()) );
 
 	// if this dude is under AI right now, then pass the baton to someone else
 	if (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
