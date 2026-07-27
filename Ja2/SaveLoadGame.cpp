@@ -1658,6 +1658,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 {
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
+	SoldierTargetingComponent& targeting = s.targeting();
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
@@ -1686,7 +1687,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.bSide); ar.u8(s.bViewRange); ar.i8(s.bNewOppCnt); ar.i8(s.bService);
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
-	ar.i32(s.sTargetGridNo); ar.i8(s.bTargetLevel); ar.i8(s.bTargetCubeLevel); ar.i32(s.sLastTarget);
+	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetX[i]);
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetY[i]);
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevCounterForceX[i]);
@@ -1746,7 +1747,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
 	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
-	ar.u16(s.usAttackingWeapon); ar.i8(s.bWeaponMode); ar.u16(s.ubTargetID.i); ar.i8(s.bAIScheduleProgress);
+	ar.u16(s.usAttackingWeapon); ar.i8(s.bWeaponMode); ar.u16(targeting.targetId().i); ar.i8(s.bAIScheduleProgress);
 	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(s.bCamo); ar.i32(s.movement().absoluteDestination());
 	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(s.sOldGridNo);

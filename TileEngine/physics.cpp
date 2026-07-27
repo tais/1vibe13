@@ -2343,7 +2343,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CalculateLaunchItemParamsForThrow");
 
 	// Set target ID if anyone
-	pSoldier->ubTargetID = WhoIsThere2( sGridNo, ubLevel );
+	pSoldier->targeting().targetId() = WhoIsThere2( sGridNo, ubLevel );
 
 	if ( ubActionCode == THROW_ARM_ITEM )
 	{

@@ -3165,8 +3165,8 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			if ( IsJa2TacticalTurnBasedCombat() && GetSMCurrentMerc()->vitals().health() >= OKLIFE )
 			{
 				SetFont( TINYFONT1 );
-				//if ( GetSMCurrentMerc()->sLastTarget != NOWHERE && !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->sLastTarget, FALSE ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
-				if ( !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->sLastTarget, FALSE, 0 ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
+				//if ( GetSMCurrentMerc()->targeting().lastGridNo() != NOWHERE && !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->targeting().lastGridNo(), FALSE ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
+				if ( !EnoughPoints( GetSMCurrentMerc(), MinAPsToAttack( GetSMCurrentMerc(), GetSMCurrentMerc()->targeting().lastGridNo(), FALSE, 0 ), 0, FALSE ) || GetUIApsToDisplay( GetSMCurrentMerc() ) < 0 )
 				{
 					SetFontBackground( FONT_MCOLOR_BLACK );
 					SetFontForeground( FONT_MCOLOR_DKRED );
@@ -5794,8 +5794,8 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 						// Render APs
 						SetFont( TINYFONT1 );
 
-						//if ( pSoldier->sLastTarget != NOWHERE && !EnoughPoints( pSoldier, MinAPsToAttack( pSoldier, pSoldier->sLastTarget, TRUE ), 0, FALSE ) || GetUIApsToDisplay( pSoldier ) < 0 )
-						if ( !EnoughPoints( pSoldier, MinAPsToAttack( pSoldier, pSoldier->sLastTarget, TRUE, 0 ), 0, FALSE ) || GetUIApsToDisplay( pSoldier ) < 0 )
+						//if ( pSoldier->targeting().lastGridNo() != NOWHERE && !EnoughPoints( pSoldier, MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), TRUE ), 0, FALSE ) || GetUIApsToDisplay( pSoldier ) < 0 )
+						if ( !EnoughPoints( pSoldier, MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), TRUE, 0 ), 0, FALSE ) || GetUIApsToDisplay( pSoldier ) < 0 )
 						{
 							SetFontBackground( FONT_MCOLOR_BLACK );
 							SetFontForeground( FONT_MCOLOR_DKRED );

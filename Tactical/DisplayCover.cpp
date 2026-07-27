@@ -905,7 +905,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	UINT8 ubItemCursor = GetActionModeCursor(pSoldier);
 	UINT32 uiHitChance = 0;
 	UINT16 usGunRange = 0;
-	INT8 bTempTargetLevel = pSoldier->bTargetLevel;
+	INT8 bTempTargetLevel = pSoldier->targeting().level();
 	UINT16 usTempAttackingWeapon = pSoldier->usAttackingWeapon;
 	SOLDIERTYPE* pFullTarget = gfUIFullTargetFound
 		? GetJa2SoldierRepository().resolve( gusUIFullTargetID )
@@ -913,7 +913,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 
 	pSoldier->usAttackingWeapon = 0;
 	//AXP 30.03.2007: Fix CtH calculation for first shot after changing aim level (roof/ground)
-	pSoldier->bTargetLevel = (INT8)gsInterfaceLevel;
+	pSoldier->targeting().level() = (INT8)gsInterfaceLevel;
 
 	//if the soldier has a weapon in hand, display gun range and chance to hit
 	if (WeaponInHand(pSoldier))
@@ -981,7 +981,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		swprintf(zOutputString, gzDisplayCoverText[title], usRange / 10, 0, 0);
 	}
 
-	pSoldier->bTargetLevel = bTempTargetLevel;
+	pSoldier->targeting().level() = bTempTargetLevel;
 	pSoldier->usAttackingWeapon = usTempAttackingWeapon;
 
 	//Display the msg
@@ -1742,7 +1742,7 @@ void CalculateWeapondata()
 	}
 
 	// we have to store and later reset the soldier's target level
-	INT8 bTempTargetLevel = pSoldier->bTargetLevel;
+	INT8 bTempTargetLevel = pSoldier->targeting().level();
 
 
 	for ( auto& cell : gCoverViewArea )
@@ -1769,7 +1769,7 @@ void CalculateWeapondata()
 
 			if ( guninhand && gunrange > 0 && PythSpacesAway(sSelectedSoldierGridNo, sGridNo) <= gunrange )
 			{
-				pSoldier->bTargetLevel = onRoof;
+				pSoldier->targeting().level() = onRoof;
 				UINT32 uiHitChance = CalcChanceToHitGun(pSoldier, sGridNo, (INT8)(pSoldier->aiData.bShownAimTime), pSoldier->bAimShotLocation);
 
 				if ( uiHitChance > 75 )
@@ -1785,7 +1785,7 @@ void CalculateWeapondata()
 	}
 
 	// important: reset target level to what it really was
-	pSoldier->bTargetLevel = bTempTargetLevel;
+	pSoldier->targeting().level() = bTempTargetLevel;
 
 
 	BOOLEAN fChanged = FALSE;

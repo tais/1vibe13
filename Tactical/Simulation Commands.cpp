@@ -356,9 +356,9 @@ namespace
 				soldier->ubAttackingHand = value.attackingHand;
 				soldier->usAttackingWeapon =
 					static_cast<UINT16>(value.attackingWeapon);
-				soldier->sTargetGridNo = value.targetGrid;
-				soldier->bTargetLevel = value.targetLevel;
-				soldier->bTargetCubeLevel = value.targetCubeLevel;
+				soldier->targeting().gridNo() = value.targetGrid;
+				soldier->targeting().level() = value.targetLevel;
+				soldier->targeting().cubeLevel() = value.targetCubeLevel;
 				SendBeginFireWeaponEvent(soldier, value.targetGrid);
 				if (value.source == SimulationCommandSource::System &&
 					(is_server ||
@@ -374,9 +374,9 @@ namespace
 					!IsSimulationSynchronizationSource(value.source) ||
 					value.attackingWeapon >= MAXITEMS)
 					return CommandDisposition::Discard;
-				soldier->sTargetGridNo = value.targetGrid;
-				soldier->bTargetLevel = value.targetLevel;
-				soldier->bTargetCubeLevel = value.targetCubeLevel;
+				soldier->targeting().gridNo() = value.targetGrid;
+				soldier->targeting().level() = value.targetLevel;
+				soldier->targeting().cubeLevel() = value.targetCubeLevel;
 				soldier->usAttackingWeapon =
 					static_cast<UINT16>(value.attackingWeapon);
 				SendBeginFireWeaponEvent(soldier, value.targetGrid);
@@ -2270,7 +2270,7 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 	{
 		SoldierID targetId = WhoIsThere2(
 			soldier.aiData.sPendingActionData2,
-			soldier.bTargetLevel);
+			soldier.targeting().level());
 		if (targetId != NOBODY)
 		{
 			target = GetJa2SoldierRepository().resolve(targetId.i);
@@ -2280,7 +2280,7 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
 	if (!target ||
 		target->position().gridNo() != soldier.aiData.sPendingActionData2 ||
-		target->position().level() != soldier.bTargetLevel ||
+		target->position().level() != soldier.targeting().level() ||
 		soldier.position().level() != target->position().level() ||
 		PythSpacesAway(soldier.position().gridNo(), target->position().gridNo()) != 1 ||
 		rawDirection < 0 ||

@@ -1272,9 +1272,9 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: Begin Fire Weapon");
-				pSoldier->sTargetGridNo = SBeginFireWeapon.sTargetGridNo;
-				pSoldier->bTargetLevel = SBeginFireWeapon.bTargetLevel;
-				pSoldier->bTargetCubeLevel = SBeginFireWeapon.bTargetCubeLevel;
+				pSoldier->targeting().gridNo() = SBeginFireWeapon.sTargetGridNo;
+				pSoldier->targeting().level() = SBeginFireWeapon.bTargetLevel;
+				pSoldier->targeting().cubeLevel() = SBeginFireWeapon.bTargetCubeLevel;
 				pSoldier->EVENT_FireSoldierWeapon( SBeginFireWeapon.sTargetGridNo );
 				break;
 
@@ -1299,9 +1299,9 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 
 				// Call soldier function
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Event Pump: FireWeapon");
-				pSoldier->sTargetGridNo = SFireWeapon.sTargetGridNo;
-				pSoldier->bTargetLevel = SFireWeapon.bTargetLevel;
-				pSoldier->bTargetCubeLevel = SFireWeapon.bTargetCubeLevel;
+				pSoldier->targeting().gridNo() = SFireWeapon.sTargetGridNo;
+				pSoldier->targeting().level() = SFireWeapon.bTargetLevel;
+				pSoldier->targeting().cubeLevel() = SFireWeapon.bTargetCubeLevel;
 				FireWeapon( pSoldier, SFireWeapon.sTargetGridNo	);
 				break;
 

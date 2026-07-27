@@ -283,6 +283,10 @@ adapter, so save and load can never drift out of order. Extra methods:
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
+- Soldier target geometry and target identity are now stored by
+  `SoldierTargetingComponent`, but the field visitor emits them at the same two
+  established positions: geometry after movement reservation and identity
+  beside attacking weapon/mode. No save or multiplayer packet bytes change.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

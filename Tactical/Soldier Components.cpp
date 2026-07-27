@@ -73,6 +73,19 @@ void SoldierMovementComponent::reset() noexcept
 	*this = SoldierMovementComponent{};
 }
 
+void SoldierTargetingComponent::selectLocation(
+	INT32 gridNo, INT8 level, INT8 cubeLevel) noexcept
+{
+	gridNo_ = gridNo;
+	level_ = level;
+	cubeLevel_ = cubeLevel;
+}
+
+void SoldierTargetingComponent::reset() noexcept
+{
+	*this = SoldierTargetingComponent{};
+}
+
 void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
 {
 	clearPendingAnimation();

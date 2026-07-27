@@ -971,8 +971,13 @@ the engine must not contain SDL types in its public domain model.
   state, reservations, merc contention, scripted and continued destinations,
   stop reason, and coordinated speed override no longer live in the generic
   flag bucket or distant public fields. Named operations update paired state
-  such as a blocker and direction together. Animation transition requests now
-  follow the same rule through `SoldierAnimationIntentComponent`: requested
+  such as a blocker and direction together. Current attack target grid,
+  elevation, cube level, previous target grid, and target soldier identity now
+  have one private `SoldierTargetingComponent` owner. Tactical UI, AI,
+  weapons, simulation commands, animation events, and multiplayer adapters all
+  read and mutate that same component instead of independent public
+  `SOLDIERTYPE` fields. Animation transition requests now follow the same rule
+  through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,
   UI turn origin, next-tile stopping, and post-stance continuation have one
   private reset boundary. Accepted transitions advance through a separate
@@ -997,8 +1002,9 @@ the engine must not contain SDL types in its public domain model.
   no bytes, so load simply resets the inline working set. The unused legacy
   8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
   live state.
-  Map placements, Lua values, multiplayer packets, and content formats retain
-  their existing schemas.
+  Target values and all animation values remain at their established portable
+  save positions. Map placements, Lua values, multiplayer packets, and content
+  formats retain their existing schemas.
 
 ## Compatibility policy
 

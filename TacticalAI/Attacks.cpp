@@ -211,7 +211,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 	// sevenfm: set attacking hand and target
 	pSoldier->ubAttackingHand = HANDPOS;
-	pSoldier->ubTargetID = NOBODY;
+	pSoldier->targeting().targetId() = NOBODY;
 
 	pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
 	pSoldier->bWeaponMode = WM_NORMAL;
@@ -438,7 +438,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			if(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || (pSoldier->bScopeMode >= USE_BEST_SCOPE && ObjList[pSoldier->bScopeMode] != NULL))
 			{
 				usTrueState = pSoldier->animationPlayback().state();		// because is used in CalculateRaiseGunCost, CalcAimingLevelsAvailableWithAP, CalculateTurningCost
-				iTrueLastTarget = pSoldier->sLastTarget;	// because is used in MinAPsToShootOrStab
+				iTrueLastTarget = pSoldier->targeting().lastGridNo();	// because is used in MinAPsToShootOrStab
 
 				// --------- Standing ---------
 				ubStance = ANIM_STAND;
@@ -452,7 +452,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					{
 						// Going up so first is stance change then turnover, do animation change before APs calculation
 						pSoldier->animationPlayback().state() = STANDING;
-						pSoldier->sLastTarget = NOWHERE;
+						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
 					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
@@ -507,7 +507,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						}						
 					}
 					pSoldier->animationPlayback().state() = usTrueState;
-					pSoldier->sLastTarget = iTrueLastTarget;
+					pSoldier->targeting().lastGridNo() = iTrueLastTarget;
 				}
 
 				// no crouched/prone if we are tank/using throwing knife/hip firing
@@ -524,7 +524,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					if (sStanceAPcost)
 					{
 						pSoldier->animationPlayback().state() = CROUCHING;
-						pSoldier->sLastTarget = NOWHERE;
+						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
 					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
@@ -577,7 +577,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						}						
 					}
 					pSoldier->animationPlayback().state() = usTrueState;
-					pSoldier->sLastTarget = iTrueLastTarget;
+					pSoldier->targeting().lastGridNo() = iTrueLastTarget;
 				}
 
 				// no prone stance if we have to change direction and stance at the same time
@@ -595,7 +595,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					if (sStanceAPcost)
 					{
 						pSoldier->animationPlayback().state() = PRONE;
-						pSoldier->sLastTarget = NOWHERE;
+						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
 					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
@@ -641,7 +641,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						}
 					}
 					pSoldier->animationPlayback().state() = usTrueState;
-					pSoldier->sLastTarget = iTrueLastTarget;
+					pSoldier->targeting().lastGridNo() = iTrueLastTarget;
 				}
 			}
 		}
@@ -2874,7 +2874,7 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"checkiftosspossible: get minapstoattack");
 		// get the minimum cost to attack with this tossable item
-		ubMinAPcost = MinAPsToAttack( pSoldier, pSoldier->sLastTarget, DONTADDTURNCOST,0);
+		ubMinAPcost = MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), DONTADDTURNCOST,0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
 		if (pSoldier->bActionPoints >= ubMinAPcost)
@@ -3237,7 +3237,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// get the minimum cost to attack with this item
-		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->sLastTarget, ADDTURNCOST, 0);
+		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost
 		if (pSoldier->bActionPoints >= ubMinAPcost)
@@ -3266,7 +3266,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				}
 
 				// get the minimum cost to attack with this item
-				ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->sLastTarget, ADDTURNCOST, 0);
+				ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0);
 
 				if (pSoldier->bActionPoints >= ubMinAPcost)
 				{

@@ -274,7 +274,7 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 			continue;
 		}
 
-		uiChanceOfDamage = SoldierToLocationChanceToGetThrough( pSoldier, pAttack->sTarget, pSoldier->bTargetLevel, pSoldier->bTargetCubeLevel, pAttack->ubOpponent ) * CalcChanceToHitGun( pSoldier, pAttack->sTarget, bCurAimTime, AIM_SHOT_TORSO ) / 100;
+		uiChanceOfDamage = SoldierToLocationChanceToGetThrough( pSoldier, pAttack->sTarget, pSoldier->targeting().level(), pSoldier->targeting().cubeLevel(), pAttack->ubOpponent ) * CalcChanceToHitGun( pSoldier, pAttack->sTarget, bCurAimTime, AIM_SHOT_TORSO ) / 100;
 		if (uiChanceOfDamage > 0)
 		{
 			uiStanceBonus = 0;
@@ -2730,7 +2730,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	if (!TileIsOutOfBounds(sMyGrid))
 	{
 		// ADD 10% if man's already been shooting at me
-		if (pEnemy->sLastTarget == sMyGrid)
+		if (pEnemy->targeting().lastGridNo() == sMyGrid)
 		{
 			iThreatValue += (iThreatValue / 10);
 		}

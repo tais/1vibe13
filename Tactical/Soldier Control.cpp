@@ -768,10 +768,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().reservedGrid() = src.sReservedMovementGridNo;
 
 
-		this->sTargetGridNo = src.sTargetGridNo;
-		this->bTargetLevel = src.bTargetLevel;
-		this->bTargetCubeLevel = src.bTargetCubeLevel;
-		this->sLastTarget = src.sLastTarget;
+		this->targeting().gridNo() = src.sTargetGridNo;
+		this->targeting().level() = src.bTargetLevel;
+		this->targeting().cubeLevel() = src.bTargetCubeLevel;
+		this->targeting().lastGridNo() = src.sLastTarget;
 
 		// HEADROCK HAM 4: TODO: Added four new variables to soldiertype. MAke sure they don't screw it all up!
 		this->dPrevMuzzleOffsetX[0] = 0.0;
@@ -936,7 +936,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().blockedDirection() = src.bBlockedByAnotherMercDirection;
 		this->usAttackingWeapon = src.usAttackingWeapon;
 		this->bWeaponMode = src.bWeaponMode;
-		this->ubTargetID = static_cast<UINT16>( src.ubTargetID );
+		this->targeting().targetId() = static_cast<UINT16>( src.ubTargetID );
 		this->bAIScheduleProgress = src.bAIScheduleProgress;
 		this->sOffWorldGridNo = src.sOffWorldGridNo;
 		this->pAniTile = src.pAniTile;
@@ -1140,6 +1140,7 @@ void SOLDIERTYPE::initialize( )
 	position().reset();
 	pathing().reset();
 	movement().reset();
+	targeting().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
@@ -1155,7 +1156,6 @@ void SOLDIERTYPE::initialize( )
 	this->ubPreviousAttackerID = NOBODY;
 	this->ubServicePartner = NOBODY;
 	this->ubSuppressorID = NOBODY;
-	this->ubTargetID = NOBODY;
 	this->ubAutoBandagingMedic = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
@@ -2317,7 +2317,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 	UINT8		ubTargetStance;
 
 
-	SoldierID usSoldierIndex = WhoIsThere2( this->sTargetGridNo, this->position().level() );
+	SoldierID usSoldierIndex = WhoIsThere2( this->targeting().gridNo(), this->position().level() );
 	if ( usSoldierIndex != NOBODY )
 	{
 		GetSoldier( &pTSoldier, usSoldierIndex );
@@ -2829,7 +2829,7 @@ BOOLEAN SOLDIERTYPE::ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAni
 	SChangeState.sYPos = this->sY;
 	SChangeState.fForce = fForce;
 	SChangeState.usNewDirection = this->position().direction();
-	SChangeState.usTargetGridNo = this->sTargetGridNo;
+	SChangeState.usTargetGridNo = this->targeting().gridNo();
 
 
 	//AddGameEvent( S_CHANGESTATE, 0, &SChangeState );
@@ -3825,7 +3825,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		// this should have used a flag but we're out of them....
 		if ( usNewState != READY_ALTERNATIVE_STAND && usNewState != READY_RIFLE_STAND && usNewState != READY_RIFLE_PRONE && usNewState != READY_RIFLE_CROUCH && usNewState != ROBOT_SHOOT && usNewState != TANK_SHOOT && usNewState != TANK_BURST && usNewState != THROW_KNIFE && usNewState != THROW_KNIFE_SP_BM && this->animationPlayback().state() != THROW_KNIFE && this->animationPlayback().state() != THROW_KNIFE_SP_BM )//dnl ch64 300813 //dnl ch70 170913
 		{
-			this->sLastTarget = NOWHERE;
+			this->targeting().lastGridNo() = NOWHERE;
 		}
 	}
 
@@ -4997,9 +4997,9 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	// Set soldier's target gridno
 	// This assignment was redundent because it's already set in
 	// the actual event call
-	this->sTargetGridNo = sTargetGridNo;
-	//this->sLastTarget = sTargetGridNo;
-	this->ubTargetID = WhoIsThere2( sTargetGridNo, this->bTargetLevel );
+	this->targeting().gridNo() = sTargetGridNo;
+	//this->targeting().lastGridNo() = sTargetGridNo;
+	this->targeting().targetId() = WhoIsThere2( sTargetGridNo, this->targeting().level() );
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting attack, bullets left %d", this->bBulletsLeft ) );
 
@@ -5215,10 +5215,10 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 		else
 		{
 			// OK, while standing check distance away from target, and shoot low if we should!
-			sDist = PythSpacesAway( pSoldier->position().gridNo(), pSoldier->sTargetGridNo );
+			sDist = PythSpacesAway( pSoldier->position().gridNo(), pSoldier->targeting().gridNo() );
 
 			//ATE: OK, SEE WERE WE ARE TARGETING....
-			GetTargetWorldPositions( pSoldier, pSoldier->sTargetGridNo, &dTargetX, &dTargetY, &dTargetZ );
+			GetTargetWorldPositions( pSoldier, pSoldier->targeting().gridNo(), &dTargetX, &dTargetY, &dTargetZ );
 
 			//CalculateSoldierZPos( pSoldier, FIRING_POS, &dFirerZ );
 
@@ -5238,7 +5238,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->sTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_BURST_ALTERNATIVE_STAND);
 					}
@@ -5249,7 +5249,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->sTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
 					{
 						return(BURST_ALTERNATIVE_STAND);
 					}
@@ -5263,7 +5263,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->sTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_SHOT_ALTERNATIVE_STAND);
 					}
@@ -5274,7 +5274,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->sTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
 					{
 						return(SHOOT_ALTERNATIVE_STAND);
 					}
@@ -7713,7 +7713,7 @@ void SOLDIERTYPE::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	// If we are turning, we have chaanged our aim!
 	if ( !this->flags.fDontUnsetLastTargetFromTurn )
 	{
-		this->sLastTarget = NOWHERE;
+		this->targeting().lastGridNo() = NOWHERE;
 	}
 
 	AdjustForFastTurnAnimation( this );
@@ -8245,7 +8245,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 				this->animationActivity().turningToShoot() = FALSE;
 
 				// Save last target gridno!
-				//this->sLastTarget = this->sTargetGridNo;
+				//this->targeting().lastGridNo() = this->targeting().gridNo();
 
 			}
 			// Else check if we are trying to shoot and once was prone, but am now crouched because we needed to turn...
@@ -12212,7 +12212,7 @@ void SendBeginFireWeaponEvent( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 {
 	SendBeginFireWeaponEvent(
 		pSoldier, sTargetGridNo,
-		pSoldier->bTargetLevel, pSoldier->bTargetCubeLevel );
+		pSoldier->targeting().level(), pSoldier->targeting().cubeLevel() );
 }
 
 void SendBeginFireWeaponEvent(
@@ -12558,9 +12558,9 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	// CHANGE TO ANIMATION
 
 	// sevenfm: initialize attack data
-	this->sTargetGridNo = sGridNo;
-	this->bTargetLevel = this->position().level();	// melee attacks don't work between levels
-	this->ubTargetID = WhoIsThere2(sGridNo, this->bTargetLevel);
+	this->targeting().gridNo() = sGridNo;
+	this->targeting().level() = this->position().level();	// melee attacks don't work between levels
+	this->targeting().targetId() = WhoIsThere2(sGridNo, this->targeting().level());
 
 	// DETERMINE ANIMATION TO PLAY
 	// LATER BASED ON IF TAREGT KNOWS OF US, STANCE, ETC
@@ -12568,7 +12568,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
 	{
 		// Is there an unconscious guy at gridno......
-		SoldierID ubTargetID = WhoIsThere2( sGridNo, this->bTargetLevel );
+		SoldierID ubTargetID = WhoIsThere2( sGridNo, this->targeting().level() );
 		SOLDIERTYPE* target =
 			GetJa2SoldierRepository().resolve( ubTargetID );
 
@@ -12609,7 +12609,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	}
 	else
 	{
-		usSoldierIndex = WhoIsThere2( sGridNo, this->bTargetLevel );
+		usSoldierIndex = WhoIsThere2( sGridNo, this->targeting().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
 			GetSoldier( &pTSoldier, usSoldierIndex );
@@ -12775,7 +12775,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 	//}
 
 	// sevenfm: use supplied gridno as sTargetGridNo may not be set yet
-	//usSoldierIndex = WhoIsThere2( this->sTargetGridNo, this->position().level() );
+	//usSoldierIndex = WhoIsThere2( this->targeting().gridNo(), this->position().level() );
 	usSoldierIndex = WhoIsThere2(sGridNo, this->position().level());
 
 	if (usSoldierIndex == NOBODY)
@@ -13080,10 +13080,10 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 	}
 
 	// SET TARGET GRIDNO
-	this->sTargetGridNo = sGridNo;
-	this->bTargetLevel = this->position().level();
-	//this->sLastTarget		= sGridNo;//dnl ch73 021013
-	this->ubTargetID = WhoIsThere2( sGridNo, this->bTargetLevel );
+	this->targeting().gridNo() = sGridNo;
+	this->targeting().level() = this->position().level();
+	//this->targeting().lastGridNo()		= sGridNo;//dnl ch73 021013
+	this->targeting().targetId() = WhoIsThere2( sGridNo, this->targeting().level() );
 }
 
 
@@ -13127,16 +13127,16 @@ void SOLDIERTYPE::EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDir
 	usForceAnimState = INVALID_ANIMATION;
 
 	// SET TARGET GRIDNO
-	this->sTargetGridNo = sGridNo;
+	this->targeting().gridNo() = sGridNo;
 
 	// WANNE: Fix a vanilla bug: Throwing a knife costed one point less than it should.
 	// Fixed by Tron (Stracciatella): Revision: 5787
-	//this->sLastTarget		= sGridNo;
+	//this->targeting().lastGridNo()		= sGridNo;
 
 	this->animationActivity().turningFromProneMode() = 0;
 	// NB target level must be set by functions outside of here... but I think it
 	// is already set in HandleItem or in the AI code - CJC
-	this->ubTargetID = WhoIsThere2( sGridNo, this->bTargetLevel );
+	this->targeting().targetId() = WhoIsThere2( sGridNo, this->targeting().level() );
 }
 
 
@@ -13311,7 +13311,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 		}
 
 		// SET TARGET GRIDNO
-		this->sTargetGridNo = sGridNo;
+		this->targeting().gridNo() = sGridNo;
 
 		// SET PARTNER ID
 		this->ubServicePartner = usSoldierIndex;
@@ -13960,7 +13960,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 			}	
 			//AXP 25.03.2007: Not needed anymore, grenade costs are only deducted on throwing the object
 			//AXP 24.03.2007: Give APs back if we wanted to throw grenade, but interrupt/spotting occured
-			//DeductPoints( this, -MinAPsToAttack( this, this->sTargetGridNo, FALSE ), 0 );
+			//DeductPoints( this, -MinAPsToAttack( this, this->targeting().gridNo(), FALSE ), 0 );
 		}
 		else
 		{
@@ -16174,7 +16174,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 		{
 			SOLDIERTYPE* target =
 				GetJa2SoldierRepository().resolve(
-					this->ubTargetID );
+					this->targeting().targetId() );
 
 			// are we targeting a buddy of our observer?
 			if ( target != nullptr && target->bTeam == pSoldier->bTeam )
@@ -16293,7 +16293,7 @@ BOOLEAN		SOLDIERTYPE::RecognizeAsCombatant( SoldierID ubTargetID )
 	// this resolves the problem that we attack someone from behind and kill him instantly, but the game mechanic forces him to turn before
 	// only allow this if we are not yet alerted (we are suprised, so we don't recognize him in the moment of the attack)
 	// also: only allow if he's next to us
-	if ( this->aiData.bAlertStatus < STATUS_RED && pSoldier->ubTargetID == this->ubID )
+	if ( this->aiData.bAlertStatus < STATUS_RED && pSoldier->targeting().targetId() == this->ubID )
 	{
 		INT32 nextGridNoinSight = NewGridNo( pSoldier->position().gridNo(), DirectionInc( pSoldier->position().direction() ) );
 		if ( nextGridNoinSight == this->position().gridNo() && this->position().level() == pSoldier->position().level() )
@@ -22478,7 +22478,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginCutFence( INT32 sGridNo, UINT8 ubDirection )
 		//BOOLEAN CutWireFence( INT16 sGridNo )
 
 		// SET TARGET GRIDNO
-		this->sTargetGridNo = sGridNo;
+		this->targeting().gridNo() = sGridNo;
 
 		// CHANGE TO ANIMATION
 		if ( !is_networked )
@@ -23335,7 +23335,7 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 
 		// SEND PENDING ACTION
 		pSoldier->aiData.ubPendingAction = MERC_STEAL;
-		pSoldier->bTargetLevel = pTarget->position().level(); // Overhaul:  Update the level too!
+		pSoldier->targeting().level() = pTarget->position().level(); // Overhaul:  Update the level too!
 		pSoldier->aiData.uiPendingActionData1 = pTarget->ubID;
 		pSoldier->aiData.sPendingActionData2 = pTarget->position().gridNo();
 		pSoldier->aiData.bPendingActionData3 = ubDirection;
@@ -24390,10 +24390,10 @@ void SOLDIERTYPE::BreakWindow(void)
 		this->aiData.bAction = AI_ACTION_KNIFE_STAB;
 		this->aiData.usActionData = this->position().gridNo();
 		this->aiData.ubPendingAction = NO_PENDING_ACTION;
-		this->sTargetGridNo = this->position().gridNo();
-		this->bTargetLevel = this->position().level();
-		//this->sLastTarget		= sGridNo;	//dnl ch73 021013
-		this->ubTargetID = NOBODY; //WhoIsThere2(this->sTargetGridNo, this->bTargetLevel);
+		this->targeting().gridNo() = this->position().gridNo();
+		this->targeting().level() = this->position().level();
+		//this->targeting().lastGridNo()		= sGridNo;	//dnl ch73 021013
+		this->targeting().targetId() = NOBODY; //WhoIsThere2(this->targeting().gridNo(), this->targeting().level());
 		this->EVENT_InitNewSoldierAnim(CROWBAR_ATTACK, 0, FALSE);
 		SetUIBusy(this->ubID);
 
@@ -24411,7 +24411,7 @@ BOOLEAN SOLDIERTYPE::CanBreakWindow(void)
 		(ItemIsCrowbar(this->inv[HANDPOS].usItem) &&	Item[this->inv[HANDPOS].usItem].usItemClass & (IC_PUNCH) ||
 		Item[this->inv[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(this->inv[HANDPOS].usItem) && ItemIsMetal(this->inv[HANDPOS].usItem) ))
 	{
-		//INT32 sWindowGridNo = this->sTargetGridNo;
+		//INT32 sWindowGridNo = this->targeting().gridNo();
 		INT32 sWindowGridNo = this->position().gridNo();
 		if (this->position().direction() == NORTH || this->position().direction() == WEST)
 			sWindowGridNo = NewGridNo(this->position().gridNo(), (UINT16)DirectionInc((UINT8)this->position().direction()));
@@ -25597,7 +25597,7 @@ UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam )
 		{
 			BOOLEAN targetseen = FALSE;
 
-			SoldierID usID = WhoIsThere2( sGridNo, pSniper->bTargetLevel );
+			SoldierID usID = WhoIsThere2( sGridNo, pSniper->targeting().level() );
 			SOLDIERTYPE* target =
 				GetJa2SoldierRepository().resolve(
 					usID );

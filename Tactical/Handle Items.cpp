@@ -119,7 +119,7 @@ struct AttackSelectionSnapshot
 	{
 		soldier.ubAttackingHand = hand;
 		soldier.usAttackingWeapon = weapon;
-		soldier.bTargetLevel = targetLevel;
+		soldier.targeting().level() = targetLevel;
 	}
 };
 
@@ -129,12 +129,12 @@ bool DispatchBeginFireWeaponFromHandleItem(
 {
 	const SimulationCommandDispatchResult dispatch = fromUi
 		? TryDispatchBeginFireWeaponCommandNow(
-			*soldier, targetGrid, soldier->bTargetLevel,
-			soldier->bTargetCubeLevel,
+			*soldier, targetGrid, soldier->targeting().level(),
+			soldier->targeting().cubeLevel(),
 			SimulationCommandSource::LocalPlayer)
 		: TryDispatchSystemBeginSelectedFireWeaponCommand(
-			*soldier, targetGrid, soldier->bTargetLevel,
-			soldier->bTargetCubeLevel, soldier->ubAttackingHand,
+			*soldier, targetGrid, soldier->targeting().level(),
+			soldier->targeting().cubeLevel(), soldier->ubAttackingHand,
 			soldier->usAttackingWeapon);
 	if (!dispatch.accepted()) rejectedSelection.restore(*soldier);
 	return dispatch.accepted();
@@ -560,7 +560,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	const AttackSelectionSnapshot rejectedFireSelection{
 		pSoldier->ubAttackingHand,
 		pSoldier->usAttackingWeapon,
-		pSoldier->bTargetLevel};
+		pSoldier->targeting().level()};
 	SOLDIERTYPE		*pTargetSoldier = NULL;
 	SoldierID		usSoldierIndex;
 	INT32			sTargetGridNo;
@@ -1096,7 +1096,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if (fFromUI)
 			{
 				// set the target level; if the AI calls this it will have set the level already...
-				pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+				pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 			}
 
 			if ( Item[ usHandItem ].usItemClass != IC_THROWING_KNIFE )
@@ -1206,7 +1206,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		if (sActionGridNo != NOWHERE)
 		{
-			pSoldier->sTargetGridNo = sGridNo;
+			pSoldier->targeting().gridNo() = sGridNo;
 
 			pSoldier->aiData.usActionData	= sGridNo;
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -2172,9 +2172,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].usItemClass == IC_TENTACLES )
 	{
 		// See if we can get there to stab
-		//pSoldier->sTargetGridNo = sTargetGridNo;
-		//pSoldier->sLastTarget = sTargetGridNo;
-		//pSoldier->ubTargetID = WhoIsThere2( sTargetGridNo, pSoldier->bTargetLevel );
+		//pSoldier->targeting().gridNo() = sTargetGridNo;
+		//pSoldier->targeting().lastGridNo() = sTargetGridNo;
+		//pSoldier->targeting().targetId() = WhoIsThere2( sTargetGridNo, pSoldier->targeting().level() );
 
 //		GetJa2PendingTacticalCombatActions()++;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting swipe attack, incrementing a.b.c in HandleItems to %d", GetJa2PendingTacticalCombatActions()) );
@@ -2259,14 +2259,14 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			pSoldier->ubAttackingHand = HANDPOS;
 			pSoldier->usAttackingWeapon = usHandItem;
-			pSoldier->bTargetLevel	= bLevel;
+			pSoldier->targeting().level()	= bLevel;
 
 			// Look at the cursor, if toss cursor...
 			if ( Item[ usHandItem ].ubCursor == TOSSCURS )
 			{
-				pSoldier->sTargetGridNo = sTargetGridNo;
-				//	pSoldier->sLastTarget = sTargetGridNo;
-				pSoldier->ubTargetID = WhoIsThere2( sTargetGridNo, pSoldier->bTargetLevel );
+				pSoldier->targeting().gridNo() = sTargetGridNo;
+				//	pSoldier->targeting().lastGridNo() = sTargetGridNo;
+				pSoldier->targeting().targetId() = WhoIsThere2( sTargetGridNo, pSoldier->targeting().level() );
 
 				// Increment attack counter...
 //				GetJa2PendingTacticalCombatActions()++;
@@ -2499,7 +2499,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8 ubDirection;
 
 	// Set attacker to NOBODY, since it's not a combat attack
-	pSoldier->ubTargetID = NOBODY;
+	pSoldier->targeting().targetId() = NOBODY;
 
 	INT16 sXTest, sYTest;
 	ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sXTest, &sYTest);

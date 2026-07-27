@@ -166,6 +166,38 @@ private:
 	BOOLEAN usesMoveSpeedOverride_ = FALSE;
 };
 
+// Canonical tactical target selection. Attack execution, UI, AI, and network
+// adapters all observe this same target geometry and identity; keeping it
+// private prevents the legacy SOLDIERTYPE field list from becoming a second
+// mutable authority.
+class SoldierTargetingComponent
+{
+public:
+	INT32& gridNo() noexcept { return gridNo_; }
+	const INT32& gridNo() const noexcept { return gridNo_; }
+	INT8& level() noexcept { return level_; }
+	const INT8& level() const noexcept { return level_; }
+	INT8& cubeLevel() noexcept { return cubeLevel_; }
+	const INT8& cubeLevel() const noexcept { return cubeLevel_; }
+	INT32& lastGridNo() noexcept { return lastGridNo_; }
+	const INT32& lastGridNo() const noexcept { return lastGridNo_; }
+	SoldierID& targetId() noexcept { return targetId_; }
+	const SoldierID& targetId() const noexcept { return targetId_; }
+
+	bool hasTargetSoldier() const noexcept { return targetId_ != NOBODY; }
+	void selectLocation(INT32 gridNo, INT8 level, INT8 cubeLevel = 0) noexcept;
+	void selectSoldier(SoldierID target) noexcept { targetId_ = target; }
+	void clearTargetSoldier() noexcept { targetId_ = NOBODY; }
+	void reset() noexcept;
+
+private:
+	INT32 gridNo_ = 0;
+	INT8 level_ = 0;
+	INT8 cubeLevel_ = 0;
+	INT32 lastGridNo_ = 0;
+	SoldierID targetId_ = NOBODY;
+};
+
 // Canonical requests that bridge tactical decisions into animation playback.
 // The playback state itself remains separate: this component owns only queued
 // animations, stance/facing intent, and the movement continuation policy that

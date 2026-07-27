@@ -1285,7 +1285,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		}
 		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved && (pTempSoldier->bActionPoints == pTempSoldier->aiData.bIntStartAPs))
 		{
-			ubMinAPsToAttack = MinAPsToAttack( pTempSoldier, pTempSoldier->sLastTarget, FALSE, 0 );
+			ubMinAPsToAttack = MinAPsToAttack( pTempSoldier, pTempSoldier->targeting().lastGridNo(), FALSE, 0 );
 			if ( (ubMinAPsToAttack <= pTempSoldier->bActionPoints) && (ubMinAPsToAttack > 0) )
 			{
 				pTempSoldier->aiData.bPassedLastInterrupt = TRUE;

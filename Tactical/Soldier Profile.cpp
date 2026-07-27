@@ -1687,9 +1687,9 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 			if ( pGroupMember != NULL )
 			{
-				if ( pGroupMember->ubTargetID == pSoldier->ubID )
+				if ( pGroupMember->targeting().targetId() == pSoldier->ubID )
 				{
-					pGroupMember->ubTargetID = pNewSoldier->ubID;
+					pGroupMember->targeting().targetId() = pNewSoldier->ubID;
 				}
 			}
 		}

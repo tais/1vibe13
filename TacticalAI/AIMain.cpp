@@ -1695,7 +1695,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			{
 				pSoldier->aiData.bAction = pSoldier->aiData.bNextAction;
 				pSoldier->aiData.usActionData = pSoldier->aiData.usNextActionData;
-				pSoldier->bTargetLevel = pSoldier->aiData.bNextTargetLevel;
+				pSoldier->targeting().level() = pSoldier->aiData.bNextTargetLevel;
 				pSoldier->aiData.bNextAction = AI_ACTION_NONE;
 				pSoldier->aiData.usNextActionData = 0;
 				pSoldier->aiData.bNextTargetLevel = 0;
@@ -2310,7 +2310,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             if ( pSoldier->aiData.bAction == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]) )
                 usHandItem = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS]);
 
-            iRetCode = HandleItem( pSoldier, pSoldier->aiData.usActionData, pSoldier->bTargetLevel, usHandItem, FALSE );
+            iRetCode = HandleItem( pSoldier, pSoldier->aiData.usActionData, pSoldier->targeting().level(), usHandItem, FALSE );
             if ( iRetCode != ITEM_HANDLE_OK)
             {
                 if ( iRetCode != ITEM_HANDLE_BROKEN ) // if the item broke, this is 'legal' and doesn't need reporting
@@ -2628,7 +2628,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             
             pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
             pSoldier->usUIMovementMode = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
-            usSoldierIndex = WhoIsThere2( pSoldier->aiData.usActionData, pSoldier->bTargetLevel);
+            usSoldierIndex = WhoIsThere2( pSoldier->aiData.usActionData, pSoldier->targeting().level());
             if ( usSoldierIndex != NOBODY )
 			{
                 MercStealFromMerc(

@@ -2222,6 +2222,90 @@ if(NOT serialized_soldier_movement_delay_flag_order OR
     "Soldier movement state moved in the portable save schema; keep its established byte positions while storage evolves")
 endif()
 
+# Current tactical target geometry and actor identity now have one private
+# owner. Bullet trajectories, command/network packets, and v101 conversion
+# records retain similarly named compatibility fields, but the live soldier
+# declaration must not regain a second mutable target authority.
+foreach(retired_targeting_field IN ITEMS
+  "INT32;sTargetGridNo"
+  "INT8;bTargetLevel"
+  "INT8;bTargetCubeLevel"
+  "INT32;sLastTarget"
+  "SoldierID;ubTargetID")
+  string(REPLACE ";" ";" retired_targeting_parts
+    "${retired_targeting_field}")
+  list(GET retired_targeting_parts 0 retired_targeting_type)
+  list(GET retired_targeting_parts 1 retired_targeting_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_targeting_type}[ \t]+${retired_targeting_name}[ \t]*;"
+    retired_current_targeting_field
+    "${current_soldier_contents}")
+  if(retired_current_targeting_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE targeting field '${retired_targeting_name}' returned; current target state belongs to SoldierTargetingComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierTargetingComponent[ \t\r\n]+targeting_[ \t]*;"
+  soldier_targeting_owner
+  "${current_soldier_contents}")
+if(NOT soldier_targeting_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierTargetingComponent")
+endif()
+
+foreach(owned_targeting_field IN ITEMS
+  "INT32;gridNo;0"
+  "INT8;level;0"
+  "INT8;cubeLevel;0"
+  "INT32;lastGridNo;0"
+  "SoldierID;targetId;NOBODY")
+  string(REPLACE ";" ";" owned_targeting_parts
+    "${owned_targeting_field}")
+  list(GET owned_targeting_parts 0 owned_targeting_type)
+  list(GET owned_targeting_parts 1 owned_targeting_name)
+  list(GET owned_targeting_parts 2 owned_targeting_initializer)
+  string(REGEX MATCH
+    "${owned_targeting_type}[ \t]+${owned_targeting_name}_[ \t]*=[ \t]*${owned_targeting_initializer}[ \t]*;"
+    owned_soldier_targeting
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_targeting)
+    message(FATAL_ERROR
+      "SoldierTargetingComponent no longer owns initialized '${owned_targeting_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierTargetingComponent& targeting() noexcept"
+  soldier_targeting_accessor)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_control_source_contents)
+string(FIND "${soldier_control_source_contents}"
+  "targeting().reset();"
+  soldier_targeting_reset)
+if(soldier_targeting_accessor EQUAL -1 OR soldier_targeting_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierTargetingComponent must remain directly accessible to application adapters and reset with its soldier")
+endif()
+
+# Persistence keeps target geometry at the former weapon-target position and
+# target identity beside the selected attacking weapon/mode. This changes only
+# in-memory ownership; save bytes and multiplayer packet structures stay put.
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.movement\\(\\)\\.reservedGrid\\(\\)\\);[ \t\r\n]*ar\\.i32\\(targeting\\.gridNo\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.level\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.cubeLevel\\(\\)\\);[ \t]*ar\\.i32\\(targeting\\.lastGridNo\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(s\\.dPrevMuzzleOffsetX\\[i\\]\\);"
+  serialized_soldier_target_geometry_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.usAttackingWeapon\\);[ \t]*ar\\.i8\\(s\\.bWeaponMode\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(s\\.bAIScheduleProgress\\);"
+  serialized_soldier_target_identity_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_target_geometry_order OR
+   NOT serialized_soldier_target_identity_order)
+  message(FATAL_ERROR
+    "Soldier targeting state moved in the portable save schema; keep geometry and identity at their established byte positions")
+endif()
+
 # Animation transition requests now have one private owner, separate from
 # playback state. Do not return queued animation/stance/facing state to the
 # generic flags bucket or the public SOLDIERTYPE field list.
