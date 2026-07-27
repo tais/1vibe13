@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "SoldierRepository.h"
 	#include "Soldier Control.h"
 	#include "Soldier Profile.h"
 	#include "Drugs And Alcohol.h"
@@ -406,14 +407,17 @@ void HourlyDrugUpdate( )
 {
 	for ( SoldierID ubID = gTacticalStatus.Team[OUR_TEAM].bFirstID; ubID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ubID )
 	{
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(ubID.i);
 		// every hour, we lower our alcohol counter
-		if ( ubID->newdrugs.drinkstaken > 0.0f )
+		if ( soldier->newdrugs.drinkstaken > 0.0f )
 		{
-			ubID->newdrugs.drinkstaken = max( 0.0, ubID->newdrugs.drinkstaken - 0.15f );
+			soldier->newdrugs.drinkstaken =
+				max( 0.0, soldier->newdrugs.drinkstaken - 0.15f );
 
-			if ( ubID->newdrugs.drinkstaken <= 0.0f )
+			if ( soldier->newdrugs.drinkstaken <= 0.0f )
 			{
-				ubID->usSoldierFlagMask2 &= ~SOLDIER_HUNGOVER;
+				soldier->usSoldierFlagMask2 &= ~SOLDIER_HUNGOVER;
 			}
 		}
 	}

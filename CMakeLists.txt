@@ -341,46 +341,10 @@ set(ExplicitSoldierResolutionLibs
   TileEngine
   Utils
 )
-set(ExplicitSoldierResolutionSources
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Air Raid.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Auto Bandage.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Boxing.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Campaign.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Civ Quotes.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Dialogue Control.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Disease.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/DisplayCover.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/DynamicDialogue.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/End Game.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Enemy Soldier Save.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle Items.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI Plan.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Control.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Dialogue.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Items.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Panels.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Items.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Ja25_Tactical.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/LOS.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Merc Hiring.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Minigame.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Points.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Rotting Corpses.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Ani.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Control.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Init List.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Profile.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/SoldierTooltips.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Squads.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Strategic Exit GUI.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Structure Wrap.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Tactical Turns.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/TeamTurns.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Turn Based Input.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Vehicles.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/opplist.cpp"
-)
+file(GLOB ExplicitSoldierResolutionSources
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/*.cpp")
+list(REMOVE_ITEM ExplicitSoldierResolutionSources
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Overhead.cpp")
 set_property(SOURCE ${ExplicitSoldierResolutionSources} APPEND PROPERTY
   COMPILE_DEFINITIONS JA2_EXPLICIT_SOLDIER_RESOLUTION)
 foreach(lib IN LISTS Ja2_Libs)

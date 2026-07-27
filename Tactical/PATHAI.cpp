@@ -9,6 +9,7 @@
 */
 	#include <stdio.h>
 #include "TacticalWorldAdapter.h"
+#include "SoldierRepository.h"
 	#include "stdlib.h"
 	#include "DEBUG.H"
 	#include "MemMan.h"
@@ -2191,6 +2192,7 @@ void ShutDownPathAI(void)
 INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMovementMode, INT8 bCopy, UINT8 fFlags )
 {
 	s->runtime.pendingAction.pathSearchSourceGrid = s->position().gridNo();
+	Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 	if (gGameSettings.fOptions[TOPTION_ALT_PATHFINDING])
 	{
@@ -3169,10 +3171,18 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			{
 				// ATE: ONLY cancel if they are moving.....
 				ubMerc = WhoIsThere2( newLoc, s->position().level());
+				SOLDIERTYPE* blockingSoldier =
+					soldiers.resolve(ubMerc.i);
 
 				// sevenfm: for player mercs, ignore invisible opponents
-				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID && 
-					(!(s->flags.uiStatusFlags & SOLDIER_PC) || ubMerc->bSide == s->bSide || ubMerc->aiData.bNeutral || ubMerc->bVisible >= 0 || SoldierToSoldierLineOfSightTest(s, ubMerc, TRUE, CALC_FROM_ALL_DIRS)))
+				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID &&
+					(!(s->flags.uiStatusFlags & SOLDIER_PC) ||
+						blockingSoldier->bSide == s->bSide ||
+						blockingSoldier->aiData.bNeutral ||
+						blockingSoldier->bVisible >= 0 ||
+						SoldierToSoldierLineOfSightTest(
+							s, blockingSoldier, TRUE,
+							CALC_FROM_ALL_DIRS)))
 				//if ( ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID )
 				{
 					goto NEXTDIR;

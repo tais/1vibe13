@@ -4,6 +4,7 @@
  */
 
 #include "SkillMenu.h"
+#include "SoldierRepository.h"
 #include "soldier profile type.h"
 #include "Overhead.h"
 #include "Text.h"
@@ -786,13 +787,17 @@ SoldierSelection::Setup( UINT32 aVal )
 		// loop through all soldiers around
 		for ( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID ; id <= gTacticalStatus.Team[ CIV_TEAM ].bLastID ; ++id )
 		{
-			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( sTraitsMenuTargetGridNo, id->position().gridNo() );
+			SOLDIERTYPE* candidate =
+				GetJa2SoldierRepository().resolve(id.i);
+			INT32 iRange = GetRangeInCellCoordsFromGridNoDiff(
+				sTraitsMenuTargetGridNo,
+				candidate->position().gridNo());
 
 			if ( iRange < 100 )
 			{
 				if ( id != pSoldier->ubID )
 				{
-					swprintf( pStr, L"%s", id->GetName() );
+					swprintf( pStr, L"%s", candidate->GetName() );
 
 					pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT16>( &Wrapper_Function_SoldierSelection, id ) );
 
@@ -869,7 +874,10 @@ DragSelection::Setup( UINT32 aVal )
 		{
 			if ( cnt != pSoldier->ubID && pSoldier->CanDragPerson(cnt) )
 			{
-				swprintf( pStr, L"%s", cnt->GetName( ) );
+				swprintf(
+					pStr, L"%s",
+					GetJa2SoldierRepository()
+						.resolve(cnt.i)->GetName());
 
 				pOption = new POPUP_OPTION( &std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_DragSelection, cnt ) );
 				
@@ -1098,7 +1106,10 @@ EquipmentSelection::Functions(UINT32 aVal)
 	}
 	else if ( aVal < gTemplateVector.size( ) )
 	{
-		SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+		const SoldierID soldierId =
+			gCharactersList[bSelectedInfoChar].usSolID;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier )
 		{
 			std::string name = gTemplateVector[aVal];

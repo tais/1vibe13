@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Soldier Profile.h"
 	#include "Food.h"
@@ -770,7 +771,7 @@ void HourlyFoodUpdate( void )
 	// loop through all mercs to calculate their morale
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pSoldier = bMercID;
+		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, and in Arulco
 		if ( pSoldier && pSoldier->bActive && !AM_AN_EPC(pSoldier) && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->bAssignment == IN_TRANSIT || pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
 		{			
@@ -837,7 +838,7 @@ void SectorFillCanteens( void )
 		// loop through all mercs
 		for ( ; bMercID <= bLastTeamID; ++bMercID )
 		{
-			pSoldier = bMercID;
+			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
 			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
 			{
@@ -912,7 +913,7 @@ void SectorFillCanteens( void )
 		// loop through all mercs
 		for ( ; bMercID <= bLastTeamID; ++bMercID )
 		{
-			pSoldier = bMercID;
+			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
 			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
 			{

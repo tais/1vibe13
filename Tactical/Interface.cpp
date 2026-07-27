@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include <stdarg.h>
@@ -651,7 +652,7 @@ void SetCurrentTacticalPanelCurrentMerc( SoldierID ubID )
 	if ( gsCurInterfacePanel == SM_PANEL )
 	{
 		// If we are not of merc bodytype, or am an epc, and going into inv, goto another....
-		pSoldier = ubID;
+		pSoldier = GetJa2SoldierRepository().resolve(ubID.i);
 
 		if ( !IS_MERC_BODY_TYPE( pSoldier ) || AM_AN_EPC( pSoldier ) )
 		{
@@ -825,7 +826,8 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		pSoldier = gusSelectedSoldier;
+		pSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	}
 
 	// Blit background!
@@ -5237,7 +5239,8 @@ void InitPlayerUIBar( BOOLEAN fInterrupt )
 		// look for all mercs on the same team,
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pTeamSoldier = cnt;
+			pTeamSoldier =
+				GetJa2SoldierRepository().resolve(cnt.i);
 			// Are we active and in sector.....
 			if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 			{
@@ -6124,7 +6127,8 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 	INT32 iVisibleDistance;
 
 	if ( gusSelectedSoldier != NOBODY )
-		pSelectedSoldier = gusSelectedSoldier;
+		pSelectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	else
 		return;
 
@@ -6170,7 +6174,8 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
 	SOLDIERTYPE *pSelectedSoldier;
 
 	if ( gusSelectedSoldier != NOBODY )
-		pSelectedSoldier = gusSelectedSoldier;
+		pSelectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	else
 		return;
 	

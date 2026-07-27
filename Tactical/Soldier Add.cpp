@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "Overhead.h"
@@ -1141,7 +1142,8 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("InternalAddSoldierToSector"));
 
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubID.i);
 
 	if ( pSoldier->bActive	)
 	{
@@ -1791,7 +1793,7 @@ BOOLEAN IsMercOnTeam(UINT8 ubMercID, BOOLEAN aAlreadyInCountry, BOOLEAN aAlive)
 	// look for all mercs on the same team,
 	for ( ; cnt <= ubLastTeamID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier->ubProfile == ubMercID && pTeamSoldier->bActive )
 		{
 			if ( aAlreadyInCountry && pTeamSoldier->bAssignment == IN_TRANSIT )
@@ -1817,7 +1819,7 @@ SoldierID GetSoldierIDFromMercID(UINT8 ubMercID)
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier->ubProfile == ubMercID )
 		{
 			if( pTeamSoldier->bActive )

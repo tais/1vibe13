@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "types.h"
 	#include "Keys.h"
@@ -1411,7 +1412,7 @@ BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// ATE: Ok, lets check for some basic things here!		
 		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
 		{
@@ -2108,7 +2109,7 @@ void ExamineDoorsOnEnteringSector( )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ LAST_TEAM ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive )
 		{
 			if ( pSoldier->bInSector )
@@ -2167,7 +2168,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ LAST_TEAM ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			fOK = TRUE;
@@ -2179,7 +2180,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive && pSoldier->bInSector && gbMercIsNewInThisSector[ cnt ] )
 		{
 			iNumNewMercs++;

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "SoldierRepository.h"
 	#include <stdio.h>
 	#include <string.h>
 	#include "WCheck.h"
@@ -932,10 +933,14 @@ static STRUCTURE_FILE_REF	*InternalGetAnimationStructureRef( SoldierID usSoldier
 	if ( ( usAnimState == FALLFORWARD_FROMHIT_STAND || usAnimState == GENERIC_HIT_STAND ||
 			usAnimState == FALLFORWARD_FROMHIT_CROUCH || usAnimState == STANDING_BURST_HIT ) && !fUseAbsolute )
 	{
-		return( gAnimStructureDatabase[ usSoldierID->ubBodyType ][ S_STRUCT ].pStructureFileRef );
+		return( gAnimStructureDatabase[
+			GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+		][ S_STRUCT ].pStructureFileRef );
 	}
 
-	return( gAnimStructureDatabase[ usSoldierID->ubBodyType ][ bStructDataType ].pStructureFileRef );
+	return( gAnimStructureDatabase[
+		GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+	][ bStructDataType ].pStructureFileRef );
 }
 
 
@@ -947,7 +952,9 @@ STRUCTURE_FILE_REF	*GetAnimationStructureRef( SoldierID usSoldierID, UINT16 usSu
 
 STRUCTURE_FILE_REF	*GetDefaultStructureRef( SoldierID usSoldierID )
 {
-	return( gAnimStructureDatabase[ usSoldierID->ubBodyType ][ DEFAULT_STRUCT ].pStructureFileRef );
+	return( gAnimStructureDatabase[
+		GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+	][ DEFAULT_STRUCT ].pStructureFileRef );
 }
 
 // Surface management functions

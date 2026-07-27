@@ -1,4 +1,5 @@
 	#include "Items.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "Weapons.h"
 	#include "Interface Cursors.h"
@@ -143,7 +144,7 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 	UINT8 ubCursorID=0;
 	UINT8 ubItemCursor = 0;
 
-	pSoldier = ubSoldierID;
+	pSoldier = GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	fRecalc = GetMouseRecalcAndShowAPFlags( &uiCursorFlags, &fShowAPs );
 
@@ -158,7 +159,8 @@ UINT8	GetProperItemCursor( SoldierID ubSoldierID, UINT16 ubItemIndex, INT32 usMa
 	// Calculate target gridno!
 	if ( gfUIFullTargetFound )
 	{
-		sTargetGridNo = gusUIFullTargetID->position().gridNo();
+		sTargetGridNo = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->position().gridNo();
 	}
 	else
 	{
@@ -363,7 +365,10 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			// If we are in realtime, follow!
 			if ( ( !( IsJa2TacticalCombatActive() ) ) )
 			{
-				if ( ( gAnimControl[ gusSelectedSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) )
+				if ( ( gAnimControl[
+					GetJa2SoldierRepository()
+						.resolve(gusSelectedSoldier.i)->usAnimState
+					].uiFlags & ANIM_STATIONARY ) )
 				{
 					if ( gUITargetShotWaiting )
 					{
@@ -572,7 +577,12 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 		{
 			if ( gusUIFullTargetID != NOBODY )
 			{
-				if ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, gusUIFullTargetID, pSoldier->bAimShotLocation ) < OK_CHANCE_TO_GET_THROUGH )
+				if ( SoldierToSoldierBodyPartChanceToGetThrough(
+						pSoldier,
+						GetJa2SoldierRepository().resolve(
+							gusUIFullTargetID.i),
+						pSoldier->bAimShotLocation ) <
+					OK_CHANCE_TO_GET_THROUGH )
 				{
 					gfCannotGetThrough = TRUE;
 				}
@@ -1428,7 +1438,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 	BOOLEAN	fOnGuy = FALSE;
 	LEVELNODE		*pNode;
 
-	pSoldier = ubSoldierID;
+	pSoldier = GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	if ( GetJa2PendingTacticalCombatActions() > 0 )
 	{
@@ -1555,7 +1565,9 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 			// Check if we can find a soldier here
 			if ( gfUIFullTargetFound )
 			{
-				pTargetSoldier = gusUIFullTargetID;
+				pTargetSoldier =
+					GetJa2SoldierRepository().resolve(
+						gusUIFullTargetID.i);
 
 				if ( FindRelativeSoldierPosition( pTargetSoldier, &usFlags, gusMouseXPos, gusMouseYPos )	)
 				{
@@ -1593,7 +1605,9 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 	{
 		if ( gfUIFullTargetFound )
 		{
-			pTargetSoldier = gusUIFullTargetID;
+			pTargetSoldier =
+				GetJa2SoldierRepository().resolve(
+					gusUIFullTargetID.i);
 
 			if ( pTargetSoldier->ubBodyType == CROW )
 			{
@@ -2265,7 +2279,9 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID && usSoldierIndex->IsValidBloodDonor() )
+			if ( usSoldierIndex != pSoldier->ubID &&
+				GetJa2SoldierRepository()
+					.resolve(usSoldierIndex.i)->IsValidBloodDonor() )
 				return BLOODBAG_GREY_UICURSOR;
 		}
 	}
@@ -2300,7 +2316,9 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID && usSoldierIndex->CanReceiveSplint() )
+			if ( usSoldierIndex != pSoldier->ubID &&
+				GetJa2SoldierRepository()
+					.resolve(usSoldierIndex.i)->CanReceiveSplint() )
 				return SPLINT_GREY_UICURSOR;
 		}
 	}
@@ -2384,9 +2402,15 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	{
 		// is there a person here?
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
-		if (usSoldierIndex != NOBODY && usSoldierIndex->bVisible >= 0 && usSoldierIndex->CanBeCaptured())
+		if (usSoldierIndex != NOBODY)
 		{
-			return( HANDCUFF_GREY_UICURSOR );
+			SOLDIERTYPE* target =
+				GetJa2SoldierRepository().resolve(
+					usSoldierIndex.i);
+			if (target->bVisible >= 0 && target->CanBeCaptured())
+			{
+				return( HANDCUFF_GREY_UICURSOR );
+			}
 		}
 	}
 
@@ -2406,7 +2430,9 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 	{
 		// is there a person here?
 		SoldierID ubPerson = WhoIsThere2(sGridNo, pSoldier->position().level());
-		if (ubPerson != NOBODY && ubPerson->bVisible >= 0)
+		if (ubPerson != NOBODY &&
+			GetJa2SoldierRepository()
+				.resolve(ubPerson.i)->bVisible >= 0)
 		{
 			return(APPLYITEM_GREY_UICURSOR);
 		}
@@ -2582,7 +2608,8 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		usMapPos = gusUIFullTargetID->position().gridNo();
+		usMapPos = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->position().gridNo();
 	}
 
 
@@ -2608,7 +2635,9 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					if ( gfUIFullTargetFound )
 					{
 						// Get target soldier, if one exists
-						pTSoldier = gusUIFullTargetID;
+						pTSoldier =
+							GetJa2SoldierRepository().resolve(
+								gusUIFullTargetID.i);
 						sGridNo = pTSoldier->position().gridNo();
 						bTargetLevel = pSoldier->position().level();
 
@@ -2726,7 +2755,9 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				if ( gfUIFullTargetFound )
 				{
 					// Get target soldier, if one exists
-					pTSoldier = gusUIFullTargetID;
+					pTSoldier =
+						GetJa2SoldierRepository().resolve(
+							gusUIFullTargetID.i);
 					sGridNo = pTSoldier->position().gridNo();
 					bTargetLevel = pSoldier->position().level();
 
@@ -3022,7 +3053,9 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 			{
 				// is there a person here?
 				SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->position().level());
-				if (ubPerson != NOBODY && ubPerson->bVisible >= 0)
+				if (ubPerson != NOBODY &&
+					GetJa2SoldierRepository()
+						.resolve(ubPerson.i)->bVisible >= 0)
 				{
 					ubCursor = APPLYITEMCURS;
 				}
@@ -3171,18 +3204,25 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		sMapPos = gusUIFullTargetID->sGridNo;
+		sMapPos = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->sGridNo;
 	}
 
 	switch( ubCursor )
 	{
 		case TARGETCURS:
 			// warn if bad chance to get through
-			if ( gfUIFullTargetFound &&
-				!HandleCheckForBadChangeToGetThrough( pSoldier, gusUIFullTargetID,
-							gusUIFullTargetID->sGridNo , gusUIFullTargetID->position().level() ) )
+			if ( gfUIFullTargetFound )
 			{
-				return;
+				SOLDIERTYPE* target =
+					GetJa2SoldierRepository().resolve(
+						gusUIFullTargetID.i);
+				if ( !HandleCheckForBadChangeToGetThrough(
+						pSoldier, target, target->sGridNo,
+						target->position().level() ) )
+				{
+					return;
+				}
 			}
 
 			if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire )
@@ -3369,7 +3409,8 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		sMapPos = gusUIFullTargetID->sGridNo;
+		sMapPos = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->sGridNo;
 	}
 
 
@@ -3441,7 +3482,9 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				if ( gfUIFullTargetFound )
 				{
 					// Get target soldier, if one exists
-					pTSoldier = gusUIFullTargetID;
+					pTSoldier =
+						GetJa2SoldierRepository().resolve(
+							gusUIFullTargetID.i);
 					sGridNo = pTSoldier->sGridNo;
 					bTargetLevel = pSoldier->position().level();
 
@@ -3607,7 +3650,8 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
-		sMapPos = gusUIFullTargetID->position().gridNo();
+		sMapPos = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->position().gridNo();
 	
 	int aimlevelchange = 1;
 	int maxAimCanAfford = 0;
@@ -3680,7 +3724,9 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 					if ( gfUIFullTargetFound )
 					{
 						// Get target soldier, if one exists
-						pTSoldier = gusUIFullTargetID;
+						pTSoldier =
+							GetJa2SoldierRepository().resolve(
+								gusUIFullTargetID.i);
 						sGridNo = pTSoldier->position().gridNo();
 						bTargetLevel = pSoldier->position().level();
 
@@ -3835,7 +3881,8 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 	// 'snap' cursor to target tile....
 	if ( gfUIFullTargetFound )
 	{
-		sMapPos = gusUIFullTargetID->position().gridNo();
+		sMapPos = GetJa2SoldierRepository()
+			.resolve(gusUIFullTargetID.i)->position().gridNo();
 	}
 
 
@@ -3907,7 +3954,9 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 				if ( gfUIFullTargetFound )
 				{
 					// Get target soldier, if one exists
-					pTSoldier = gusUIFullTargetID;
+					pTSoldier =
+						GetJa2SoldierRepository().resolve(
+							gusUIFullTargetID.i);
 					sGridNo = pTSoldier->position().gridNo();
 					bTargetLevel = pSoldier->position().level();
 

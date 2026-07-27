@@ -1,5 +1,6 @@
 
 #include "Item Types.h"
+#include "SoldierRepository.h"
 #include "DEBUG.H"
 #include "Items.h"
 #include "GameSettings.h"
@@ -50,7 +51,8 @@ bool checkLBEArrayIntegrity(bool verbose) {
 		if (!gCharactersList[i].fValid || gCharactersList[i].usSolID >= NOBODY) continue;
 
 		SoldierID id = gCharactersList[i].usSolID;
-		SOLDIERTYPE *soldier = id;
+		SOLDIERTYPE *soldier =
+			GetJa2SoldierRepository().resolve(id.i);
 
 		if (verbose)ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"LBENODE integrity check start: checking soldier items (%s)...", soldier->name);
 

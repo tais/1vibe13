@@ -1,6 +1,7 @@
 
 	#include "Militia Control.h"
 #include "TacticalWorldAdapter.h"
+#include "SoldierRepository.h"
 	#include "Town Militia.h"
 	#include "Soldier Init List.h"
 	#include "Campaign Types.h"
@@ -159,7 +160,7 @@ void RemoveMilitiaFromTactical()
 	SOLDIERINITNODE *curr;
 	for( SoldierID id = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; id <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++id )
 	{
-		if( id->bActive )
+		if( GetJa2SoldierRepository().resolve(id.i)->bActive )
 		{
 			TacticalRemoveSoldier( id );
 		}
@@ -304,7 +305,7 @@ void HandleMilitiaPromotions( void )
 
 	for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0 )
 		{
 			// Flugente: take care of promotions and individual militia update
@@ -1395,7 +1396,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1433,7 +1435,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1471,7 +1474,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1536,7 +1540,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1593,7 +1598,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1646,7 +1652,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1685,7 +1692,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
@@ -1726,7 +1734,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 						for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 						{
-							pTeamSoldier = cnt;
+							pTeamSoldier =
+								GetJa2SoldierRepository().resolve(cnt.i);
 							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI

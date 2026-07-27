@@ -1,4 +1,5 @@
 	#include <wchar.h>
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "sgp.h"
 	#include "worlddef.h"
@@ -438,7 +439,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 		// see if a kingpin goon can see us
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
-			pGoon = ubLoop;
+			pGoon = GetJa2SoldierRepository().resolve(ubLoop.i);
 			if ( pGoon->ubCivilianGroup == KINGPIN_CIV_GROUP && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
 			{
 				MakeCivHostile(pGoon);

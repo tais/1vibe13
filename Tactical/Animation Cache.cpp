@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "SoldierRepository.h"
 	#include "WCheck.h"
 	#include "DEBUG.H"
 	#include "Animation Cache.h"
@@ -85,7 +86,9 @@ BOOLEAN GetCachedAnimationSurface( SoldierID usSoldierID, AnimationSurfaceCacheT
 		AnimDebugMsg( String( "Anim Cache: Determining Bump Candidate ( Soldier %d )", usSoldierID ) );
 
 		// Determine exisiting surface used by merc
-		usCurrentAnimSurface = DetermineSoldierAnimationSurface( usSoldierID, usCurrentAnimation );
+		usCurrentAnimSurface = DetermineSoldierAnimationSurface(
+			GetJa2SoldierRepository().resolve(usSoldierID.i),
+			usCurrentAnimation);
 		// If the surface we are going to bump is our existing animation, reject it as a candidate
 
 		// If we get here, we need to remove an animation, pick the best one
