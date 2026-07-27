@@ -617,6 +617,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 			animationCache().release( ubID );
 		}
 		//member classes
+		assignment().reset();
 		fireControl().reset();
 		combatResult().reset();
 		suppression().reset();
@@ -896,9 +897,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().totalLength() = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
 		this->iNextActionSpecialData = src.iNextActionSpecialData;		// AI special action data record for the next action
 		this->employment().mercenaryType() = src.ubWhatKindOfMercAmI;			//Set to the type of character it is
-		this->bAssignment = src.bAssignment;							// soldiers current assignment
-		this->bOldAssignment = src.bOldAssignment;						// old assignment, for autosleep purposes
-		this->bTrainStat = src.bTrainStat;								// current stat soldier is training
+		this->assignment().current() = src.bAssignment;							// soldiers current assignment
+		this->assignment().previous() = src.bOldAssignment;						// old assignment, for autosleep purposes
+		this->assignment().trainingStat() = src.bTrainStat;								// current stat soldier is training
 		this->sSectorX = src.sSectorX;									// X position on the Stategic Map
 		this->sSectorY = src.sSectorY;									// Y position on the Stategic Map
 		this->bSectorZ = src.bSectorZ;									// Z sector location
@@ -916,15 +917,15 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubSoldierUpdateType = src.ubSoldierUpdateType;
 
 		this->employment().insuranceStartDay() = src.iStartOfInsuranceContract;
-		this->uiLastAssignmentChangeMin = src.uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
+		this->assignment().lastChangeMinute() = src.uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
 		this->employment().insuranceLengthDays() = src.iTotalLengthOfInsuranceContract;
 
 		this->ubSoldierClass = src.ubSoldierClass;									//admin, elite, troop (creature types?)
 		this->suppression().actionPointsLost() = src.ubAPsLostToSuppression;
 		this->suppression().suppressor() = static_cast<UINT16>( src.ubSuppressorID );
 
-		this->ubDesiredSquadAssignment = src.ubDesiredSquadAssignment;
-		this->ubNumTraversalsAllowedToMerge = src.ubNumTraversalsAllowedToMerge;
+		this->assignment().desiredSquad() = src.ubDesiredSquadAssignment;
+		this->assignment().mergeTraversalAllowance() = src.ubNumTraversalsAllowedToMerge;
 
 		this->animationIntent().secondaryPendingAnimation() = src.usPendingAnimation2;
 		this->ubCivilianGroup = src.ubCivilianGroup;
@@ -966,7 +967,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 
 
-		this->ubHoursOnAssignment = src.ubHoursOnAssignment;						// used for assignments handled only every X hours
+		this->assignment().hours() = src.ubHoursOnAssignment;						// used for assignments handled only every X hours
 
 		this->employment().justFired() = src.ubMercJustFired;   // the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
 		// until after the merc leaves
@@ -1017,7 +1018,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().moveSpeedOverride() = static_cast<UINT16>( src.bOverrideMoveSpeed );
 
 		this->uiTimeSoldierWillArrive = src.uiTimeSoldierWillArrive;
-		this->bVehicleUnderRepairID = src.bVehicleUnderRepairID;
+		this->assignment().repairVehicleId() = src.bVehicleUnderRepairID;
 		this->employment().timeCanSignElsewhere() = src.iTimeCanSignElsewhere;
 		this->employment().hospitalPriceModifier() = src.bHospitalPriceModifier;
 		this->employment().insuranceStartTime() = src.uiStartTimeOfInsuranceContract;
@@ -1139,6 +1140,7 @@ void SOLDIERTYPE::initialize( )
 	awareness().reset();
 	camouflage().reset();
 	employment().reset();
+	assignment().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -6132,7 +6134,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// If anything other than on a squad or guard, make them guard....
 	if ( this->bTeam == gbPlayerNum )
 	{
-		if ( this->bAssignment >= ON_DUTY && this->bAssignment != ASSIGNMENT_POW && this->bAssignment != ASSIGNMENT_MINIEVENT && this->bAssignment != ASSIGNMENT_REBELCOMMAND)
+		if ( this->assignment().current() >= ON_DUTY && this->assignment().current() != ASSIGNMENT_POW && this->assignment().current() != ASSIGNMENT_MINIEVENT && this->assignment().current() != ASSIGNMENT_REBELCOMMAND)
 		{
 			if ( this->flags.fMercAsleep )
 			{
@@ -18119,7 +18121,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 
 			// we might already be on assignment, so be careful here
 			INT8 sectorz = this->bSectorZ;
-			if ( SPY_LOCATION( this->bAssignment ) )
+			if ( SPY_LOCATION( this->assignment().current() ) )
 				sectorz = max( 0, sectorz - 10 );
 
 			// if we are disguised as a civilian, but there is a curfew here, don't allow that
@@ -19006,7 +19008,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->bAssignment > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			if ( pSoldier->CanUseRadio( ) )
@@ -19049,7 +19051,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->bAssignment > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			INT8 shelldelay = 1;
@@ -20148,7 +20150,7 @@ FLOAT		SOLDIERTYPE::GetBurialPoints( UINT16* apCorpses )
 	}
 
 	// if not on correct assignment, no gain
-	if ( this->bAssignment != BURIAL )
+	if ( this->assignment().current() != BURIAL )
 		return 0.0f;
 	
 	UINT32 val = 4 * EffectiveStrength( this, FALSE );
@@ -21050,7 +21052,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 	if ( this->vitals().health() < OKLIFE || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 
-	if ( !SPY_LOCATION(this->bAssignment) )
+	if ( !SPY_LOCATION(this->assignment().current()) )
 		return 100;
 
 	// base value:
@@ -21077,7 +21079,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 	// if we do this disguised as a soldier, risk will be much higer, as we are under much more scrutiny. This makes up for the increased gain in soldier disguise
 	// less risk if we are asleep, just hiding or forced to hide
 	UINT8 typemultiplier = ( this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER ) ? 5 : 2;
-	if ( ( this->bAssignment == CONCEALED ) || this->flags.fMercAsleep || this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10 )
+	if ( ( this->assignment().current() == CONCEALED ) || this->flags.fMercAsleep || this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10 )
 		typemultiplier = 1;
 		
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
@@ -21099,7 +21101,7 @@ FLOAT		SOLDIERTYPE::GetIntelGain()
 		return 0.0f;
 
 	// if not on correct assignments, no gain
-	if ( this->bAssignment != GATHERINTEL )
+	if ( this->assignment().current() != GATHERINTEL )
 		return 0.0f;
 
 	// if we're asleep, or on a penalty, we accomplish nothing
@@ -21365,7 +21367,7 @@ UINT32		SOLDIERTYPE::GetAdministrationPoints()
 		return 0;
 	
 	// if not on correct assignment, no gain
-	if ( this->bAssignment != ADMINISTRATION )
+	if ( this->assignment().current() != ADMINISTRATION )
 		return 0;
 
 	UINT32 val = 250 + 4 * EffectiveWisdom( this ) + 3 * EffectiveLeadership( this ) + 5 * EffectiveExpLevel( this, FALSE );
@@ -21436,7 +21438,7 @@ extern FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY );
 
 FLOAT		SOLDIERTYPE::GetAdministrationModifier()
 {
-	if ( ADMINISTRATION_BONUS( this->bAssignment ) )
+	if ( ADMINISTRATION_BONUS( this->assignment().current() ) )
 		return 1.0f + GetAdministrationPercentage( this->sSectorX, this->sSectorY ) / 100.0f + RebelCommand::GetAssignmentBonus(this->sSectorX, this->sSectorY);
 
 	return 1.0f;
@@ -21787,7 +21789,7 @@ UINT32		SOLDIERTYPE::GetExplorationPoints()
 		return 0;
 
 	// if not on correct assignment, no gain
-	if ( this->bAssignment != EXPLORATION )
+	if ( this->assignment().current() != EXPLORATION )
 		return 0;
 
 	UINT32 val = 400 + 1 * EffectiveWisdom( this ) + 1 * EffectiveAgility( this, FALSE ) + 5 * EffectiveExpLevel( this, FALSE )
@@ -23785,7 +23787,7 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 	}
 
 	// allow control from within vehicles - allows strategic travel in a vehicle with robot!
-	if ( (this->bAssignment >= ON_DUTY) && (this->bAssignment != VEHICLE) )
+	if ( (this->assignment().current() >= ON_DUTY) && (this->assignment().current() != VEHICLE) )
 	{
 		return(FALSE);
 	}
@@ -23819,13 +23821,13 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 				if ( pRobot->flags.fBetweenSectors )
 				{
 					// they have to be in the same squad or vehicle
-					if ( pRobot->bAssignment != this->bAssignment )
+					if ( pRobot->assignment().current() != this->assignment().current() )
 					{
 						return(FALSE);
 					}
 
 					// if in a vehicle, must be the same vehicle
-					if ( pRobot->bAssignment == VEHICLE && (pRobot->iVehicleId != this->iVehicleId) )
+					if ( pRobot->assignment().current() == VEHICLE && (pRobot->iVehicleId != this->iVehicleId) )
 					{
 						return(FALSE);
 					}
@@ -24149,9 +24151,9 @@ void DebugValidateSoldierData( )
 			{
 				// Alive -- now check for proper group IDs
 				if ( pSoldier->ubGroupID == 0 && 
-					!SPY_LOCATION( pSoldier->bAssignment ) &&
-					pSoldier->bAssignment != IN_TRANSIT && 
-					pSoldier->bAssignment != ASSIGNMENT_POW && 
+					!SPY_LOCATION( pSoldier->assignment().current() ) &&
+					pSoldier->assignment().current() != IN_TRANSIT &&
+					pSoldier->assignment().current() != ASSIGNMENT_POW &&
 					!(pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 				{
 					// This is bad!
@@ -24176,10 +24178,10 @@ void DebugValidateSoldierData( )
 			}
 
 			// check for invalid sector data
-			if ( (pSoldier->bAssignment != IN_TRANSIT) &&
+			if ( (pSoldier->assignment().current() != IN_TRANSIT) &&
 				 ((pSoldier->sSectorX <= 0) || (pSoldier->sSectorX >= 17) ||
 				 (pSoldier->sSectorY <= 0) || (pSoldier->sSectorY >= 17) ||
-				 (pSoldier->bSectorZ  < 0) || (pSoldier->bSectorZ > (SPY_LOCATION( pSoldier->bAssignment ) ? 13 : 3) ) ) )
+				 (pSoldier->bSectorZ  < 0) || (pSoldier->bSectorZ > (SPY_LOCATION( pSoldier->assignment().current() ) ? 13 : 3) ) ) )
 			{
 				swprintf( sString, L"Soldier Data Error: Soldier %d is located at %d/%d/%d.", cnt.i, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 				fProblemDetected = TRUE;
@@ -25513,7 +25515,7 @@ BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 				GetJa2SoldierRepository().resolve(
 					cnt );
 			// check if soldier exists in this sector, and is on duty
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->bAssignment > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			if ( pSoldier->CanUseRadio( FALSE ) )

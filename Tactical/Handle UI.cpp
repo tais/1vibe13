@@ -2226,7 +2226,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				{
 					continue;
 				}
-				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->bAssignment == CurrentSquad( ) && !pSoldier->flags.fMercAsleep )
+				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->assignment().current() == CurrentSquad( ) && !pSoldier->flags.fMercAsleep )
 				{
 					// If we can't be controlled, returninvalid...
 					if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )

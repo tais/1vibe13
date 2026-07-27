@@ -744,7 +744,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 							{
 								gfFirstGuyDown = FALSE;
 								SetCurrentSquad(
-									heliMerc->bAssignment, TRUE);
+									heliMerc->assignment().current(), TRUE);
 							}
 							ScreenMsg(
 								FONT_MCOLOR_WHITE, MSG_INTERFACE,
@@ -1248,7 +1248,7 @@ void HandleEnemyAirdrop( )
 							if ( gfFirstGuyDown )
 							{
 								gfFirstGuyDown = FALSE;
-								//SetCurrentSquad( gusHeliSeats[ gbCurDrop ]->bAssignment, TRUE );
+								//SetCurrentSquad( gusHeliSeats[ gbCurDrop ]->assignment().current(), TRUE );
 							}
 							ScreenMsg(
 								FONT_MCOLOR_WHITE, MSG_INTERFACE,

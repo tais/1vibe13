@@ -217,7 +217,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->bActive && pSoldier->bInSector )
 		{
 			INT8 sectorz = pSoldier->bSectorZ;
-			if ( SPY_LOCATION( pSoldier->bAssignment ) )
+			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 				sectorz -= 10;
 
 			// claustrophobic!

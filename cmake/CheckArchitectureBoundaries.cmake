@@ -2241,7 +2241,7 @@ string(REGEX MATCH
   serialized_soldier_view_range_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubHoursOnAssignment\\);"
+  "ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(assignment\\.hours\\(\\)\\);"
   serialized_soldier_blindness_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2452,7 +2452,7 @@ string(REGEX MATCH
   serialized_soldier_camouflage_applied_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.origDir\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.jungleWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.desertApplied\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.desertWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sFacilityTypeOperated\\);"
+  "ar\\.i16\\(s\\.origDir\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.jungleWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.desertApplied\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.desertWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(assignment\\.facilityType\\(\\)\\);"
   serialized_soldier_camouflage_equipment_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_camouflage_applied_order OR
@@ -2567,7 +2567,7 @@ string(REGEX MATCH
   serialized_soldier_employment_deposit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sScheduledStop\\);[ \t\r\n]*ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(s\\.uiLastAssignmentChangeMin\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
+  "ar\\.i32\\(s\\.sScheduledStop\\);[ \t\r\n]*ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(assignment\\.lastChangeMinute\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
   serialized_soldier_employment_insurance_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2575,7 +2575,7 @@ string(REGEX MATCH
   serialized_soldier_employment_update_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubHoursOnAssignment\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubTurnsUntilCanSayHeardNoise\\);"
+  "ar\\.u8\\(assignment\\.hours\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubTurnsUntilCanSayHeardNoise\\);"
   serialized_soldier_employment_fired_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2583,7 +2583,7 @@ string(REGEX MATCH
   serialized_soldier_employment_renewal_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVehicleUnderRepairID\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);"
+  "ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);"
   serialized_soldier_employment_signing_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_employment_contract_order OR
@@ -2595,6 +2595,140 @@ if(NOT serialized_soldier_employment_contract_order OR
    NOT serialized_soldier_employment_signing_order)
   message(FATAL_ERROR
     "Soldier employment state moved in the portable save schema; keep all fifteen values at their established POD positions")
+endif()
+
+# Strategic duty and its subsidiary training, facility, repair, squad-merge,
+# item-moving, and mini-event context now have one lifecycle owner. Strategic
+# coordinates, travel paths, and vehicle occupancy remain independent.
+foreach(retired_assignment_field IN ITEMS
+  "INT8;bAssignment"
+  "INT8;bOldAssignment"
+  "INT8;bTrainStat"
+  "UINT32;uiLastAssignmentChangeMin"
+  "UINT8;ubDesiredSquadAssignment"
+  "UINT8;ubNumTraversalsAllowedToMerge"
+  "UINT8;ubHoursOnAssignment"
+  "INT8;bVehicleUnderRepairID"
+  "INT16;sFacilityTypeOperated"
+  "UINT8;usItemMoveSectorID"
+  "UINT16;ubHoursRemainingOnMiniEvent")
+  string(REPLACE ";" ";" retired_assignment_parts
+    "${retired_assignment_field}")
+  list(GET retired_assignment_parts 0 retired_assignment_type)
+  list(GET retired_assignment_parts 1 retired_assignment_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_assignment_type}[ \t]+${retired_assignment_name}[ \t]*;"
+    retired_current_assignment_field
+    "${current_soldier_contents}")
+  if(retired_current_assignment_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE assignment field '${retired_assignment_name}' returned; strategic duty state belongs to SoldierAssignmentComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAssignmentComponent[ \t\r\n]+assignment_[ \t]*;"
+  soldier_assignment_owner
+  "${current_soldier_contents}")
+if(NOT soldier_assignment_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAssignmentComponent")
+endif()
+
+foreach(owned_assignment_field IN ITEMS
+  "INT8;current"
+  "INT8;previous"
+  "INT8;trainingStat"
+  "UINT32;lastChangeMinute"
+  "UINT8;desiredSquad"
+  "UINT8;mergeTraversalAllowance"
+  "UINT8;hours"
+  "INT8;repairVehicleId"
+  "INT16;facilityType"
+  "UINT8;itemMoveSectorId"
+  "UINT16;miniEventHoursRemaining")
+  string(REPLACE ";" ";" owned_assignment_parts
+    "${owned_assignment_field}")
+  list(GET owned_assignment_parts 0 owned_assignment_type)
+  list(GET owned_assignment_parts 1 owned_assignment_name)
+  string(REGEX MATCH
+    "${owned_assignment_type}[ \t]+${owned_assignment_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_assignment_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_assignment_field)
+    message(FATAL_ERROR
+      "SoldierAssignmentComponent no longer owns initialized '${owned_assignment_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierAssignmentComponent& assignment() noexcept"
+  soldier_assignment_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "assignment().reset();"
+  soldier_assignment_reset)
+foreach(required_assignment_operation IN ITEMS
+  "bool isAssignedTo(INT8 assignment) const noexcept"
+  "bool hasAssignmentHours() const noexcept"
+  "bool hasMiniEventTime() const noexcept"
+  "void clearRepairVehicle() noexcept"
+  "void clearFacility() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_assignment_operation}"
+    soldier_assignment_operation)
+  if(soldier_assignment_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAssignmentComponent lost required lifecycle operation '${required_assignment_operation}'")
+  endif()
+endforeach()
+if(soldier_assignment_accessor EQUAL -1 OR
+   soldier_assignment_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAssignmentComponent must remain directly accessible and reset with its soldier")
+endif()
+
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sSectorX\\);"
+  serialized_soldier_assignment_identity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(assignment\\.lastChangeMinute\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
+  serialized_soldier_assignment_timestamp_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);[ \t]*ar\\.u8\\(assignment\\.mergeTraversalAllowance\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);"
+  serialized_soldier_assignment_merge_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(assignment\\.hours\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);"
+  serialized_soldier_assignment_hours_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiTimeSoldierWillArrive\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);"
+  serialized_soldier_assignment_repair_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(assignment\\.facilityType\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);"
+  serialized_soldier_assignment_facility_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.bAIIndex\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(s\\.usAISkillUse\\);"
+  serialized_soldier_assignment_item_move_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "for[ \t]*\\(i[ \t]*=[ \t]*0;[ \t]*i[ \t]*<[ \t]*10;[ \t]*\\+\\+i\\)[ \t]*ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.usGLDelayMode\\);"
+  serialized_soldier_assignment_mini_event_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_assignment_identity_order OR
+   NOT serialized_soldier_assignment_timestamp_order OR
+   NOT serialized_soldier_assignment_merge_order OR
+   NOT serialized_soldier_assignment_hours_order OR
+   NOT serialized_soldier_assignment_repair_order OR
+   NOT serialized_soldier_assignment_facility_order OR
+   NOT serialized_soldier_assignment_item_move_order OR
+   NOT serialized_soldier_assignment_mini_event_order)
+  message(FATAL_ERROR
+    "Soldier assignment state moved in the portable save schema; keep all eleven values at their established POD positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
@@ -3025,7 +3159,7 @@ string(REGEX MATCH
   serialized_soldier_attack_weapon_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sFacilityTypeOperated\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubMilitiaAssists\\);"
+  "ar\\.i16\\(assignment\\.facilityType\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubMilitiaAssists\\);"
   serialized_soldier_attack_scope_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_attack_hand_order OR
@@ -3530,7 +3664,7 @@ string(REGEX MATCH
   serialized_soldier_suppression_points_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubSoldierClass\\);[ \t]*ar\\.u8\\(suppression\\.actionPointsLost\\(\\)\\);[ \t]*ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(s\\.ubDesiredSquadAssignment\\);"
+  "ar\\.u8\\(s\\.ubSoldierClass\\);[ \t]*ar\\.u8\\(suppression\\.actionPointsLost\\(\\)\\);[ \t]*ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);"
   serialized_soldier_suppression_ap_source_order
   "${save_load_game_contents}")
 string(REGEX MATCHALL
@@ -3670,7 +3804,7 @@ string(REGEX MATCH
   serialized_soldier_animation_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubDesiredSquadAssignment\\);[ \t]*ar\\.u8\\(s\\.ubNumTraversalsAllowedToMerge\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubCivilianGroup\\);"
+  "ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);[ \t]*ar\\.u8\\(assignment\\.mergeTraversalAllowance\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubCivilianGroup\\);"
   serialized_soldier_animation_secondary_order
   "${save_load_game_contents}")
 string(REGEX MATCH

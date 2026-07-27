@@ -1411,7 +1411,7 @@ void CalculateEtaForCharacterPath( SOLDIERTYPE *pCharacter )
 	}
 
 	// the rules change a little for people in vehicles
-	if( pCharacter->bAssignment == VEHICLE )
+	if( pCharacter->assignment().current() == VEHICLE )
 	{
 		fInVehicle = TRUE;
 	}
@@ -1625,16 +1625,16 @@ void VerifyAllMercsInGroupAreOnSameSquad( GROUP *pGroup )
 		pSoldier = pPlayer->pSoldier;
 		Assert( pSoldier );
 
-		if ( pSoldier->bAssignment < ON_DUTY )
+		if ( pSoldier->assignment().current() < ON_DUTY )
 		{
 			if ( bSquad == -1 )
 			{
-				bSquad = pSoldier->bAssignment;
+				bSquad = pSoldier->assignment().current();
 			}
 			else
 			{
 				// better be the same squad!
-				Assert( pSoldier->bAssignment == bSquad );
+				Assert( pSoldier->assignment().current() == bSquad );
 			}
 		}
 
@@ -1973,7 +1973,7 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier );
 
 	// IN a vehicle?
-	if( pSoldier->bAssignment == VEHICLE )
+	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		pMercPath = pVehicleList[ pSoldier->iVehicleId ].pMercPath;
 	}
@@ -2040,7 +2040,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 	UINT8 ubGroupId = 0;
 
 	// IN a vehicle?
-	if( pSoldier->bAssignment == VEHICLE )
+	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
 	}
@@ -2128,7 +2128,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 		pVehicle = &( pVehicleList[ pSoldier->bVehicleID ] );
 	}
 	// or in a vehicle
-	else if( pSoldier->bAssignment == VEHICLE )
+	else if( pSoldier->assignment().current() == VEHICLE )
 	{
 		pVehicle = &( pVehicleList[ pSoldier->iVehicleId ] );
 	}

@@ -645,7 +645,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																// Select guy
 																if(	GetSoldier( &pSoldier, gusUIFullTargetID ) && gpItemPointer == NULL )
 																{
-																	if( pSoldier->bAssignment >= ON_DUTY && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+																	if( pSoldier->assignment().current() >= ON_DUTY && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 																	{
 																		PopupAssignmentMenuInTactical( pSoldier );
 																	}
@@ -1077,7 +1077,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 							{
 								if ( ( guiUIFullTargetFlags & OWNED_MERC ) && ( guiUIFullTargetFlags & VISIBLE_MERC ) && !( guiUIFullTargetFlags & DEAD_MERC )&&!( pSoldier ?	pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE : 0 ) )
 								{
-									//if( pSoldier->bAssignment >= ON_DUTY )
+									//if( pSoldier->assignment().current() >= ON_DUTY )
 									{
 										PopupAssignmentMenuInTactical( pSoldier );
 										fClickHoldIntercepted = TRUE;

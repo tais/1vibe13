@@ -991,13 +991,13 @@ BOOLEAN EnterMercCompareMatrix( )
 			GetJa2SoldierRepository().resolve(id.i);
 		if ( soldier && soldier->bActive &&
 			soldier->ubProfile != NO_PROFILE &&
-			soldier->bAssignment < ON_DUTY )
+			soldier->assignment().current() < ON_DUTY )
 		{
-			if ( squadmap.find( soldier->bAssignment ) ==
+			if ( squadmap.find( soldier->assignment().current() ) ==
 				squadmap.end() )
-				squadmap[soldier->bAssignment] = 1;
+				squadmap[soldier->assignment().current()] = 1;
 			else
-				++squadmap[soldier->bAssignment];
+				++squadmap[soldier->assignment().current()];
 		}
 	}
 		
@@ -1098,7 +1098,7 @@ void RenderMercCompareMatrix( )
 				GetJa2SoldierRepository().resolve(id.i);
 			if ( soldier && soldier->bActive &&
 				soldier->ubProfile != NO_PROFILE &&
-				soldier->bAssignment == gSquadToShow )
+				soldier->assignment().current() == gSquadToShow )
 			{
 				// remember squamember
 				squadvector.push_back( soldier->ubProfile );

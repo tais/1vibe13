@@ -1790,10 +1790,10 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 
 		if( ( pSoldier->bActive ) && ( pSoldier->vitals().health() > 0 ) &&
 				!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_POW ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_DEAD ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_POW ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 				( pSoldier->employment().mercenaryType() != MERC_TYPE__EPC ) )
 		{
 			return( TRUE );

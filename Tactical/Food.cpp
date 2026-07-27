@@ -365,7 +365,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 {
 	// A merc away on a minievent assignment is ignored since we cannot control their food or water intake.
 	// Without this they would end up losing stats and/or dying during long event assignments, which would lead to the game crashing when death occurs.
-	if ( !pSoldier || pSoldier->bAssignment == ASSIGNMENT_MINIEVENT)
+	if ( !pSoldier || pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT)
 		return;
 
 	// determine our current activity level
@@ -374,12 +374,12 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 		activitymodifier = gGameExternalOptions.sFoodDigestionSleep;
 	else if ( !pSoldier->bInSector )
 	{
-		if( pSoldier->bAssignment == VEHICLE )
+		if( pSoldier->assignment().current() == VEHICLE )
 			activitymodifier = gGameExternalOptions.sFoodDigestionTravelVehicle;
 		else
 			activitymodifier = gGameExternalOptions.sFoodDigestionTravel;
 	}
-	else if ( pSoldier->bAssignment > ON_DUTY )
+	else if ( pSoldier->assignment().current() > ON_DUTY )
 		activitymodifier = gGameExternalOptions.sFoodDigestionAssignment;
 	else if ( (IsJa2TacticalCombatActive()) )
 		activitymodifier = gGameExternalOptions.sFoodDigestionCombat;
@@ -590,7 +590,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 		return;
 
 	// if we're a prisoner, we can't feed ourself, and the player can't do that either. Instead the army provides food (not much and of bad quality)
-	if (pSoldier->bAssignment == ASSIGNMENT_POW)
+	if (pSoldier->assignment().current() == ASSIGNMENT_POW)
 	{
 		const INT16 powwater   = gGameExternalOptions.usFoodDigestionHourlyBaseDrink * gGameExternalOptions.sFoodDigestionAssignment * FOOD_POW_MULTIPLICATOR;
 		const INT16 powfoodadd = powwater * gGameExternalOptions.usFoodDigestionHourlyBaseFood / max(1, gGameExternalOptions.usFoodDigestionHourlyBaseDrink);
@@ -603,7 +603,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 			AddFoodpoints(pSoldier->bFoodLevel, powfoodadd);
 	}
 	// while on a minievent, assume that we can feed ourselves.. somehow
-	else if (pSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
+	else if (pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 	{
 		const INT16 water   = gGameExternalOptions.usFoodDigestionHourlyBaseDrink * gGameExternalOptions.sFoodDigestionAssignment;
 		const INT16 foodadd = water * gGameExternalOptions.usFoodDigestionHourlyBaseFood / max(1, gGameExternalOptions.usFoodDigestionHourlyBaseDrink);
@@ -630,7 +630,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 				// Does it allow training militia?
 				if (gFacilityTypes[cnt].AssignmentData[FAC_FOOD].sCantinaFoodModifier > 0)
 				{
-					if (cnt == (UINT16)pSoldier->sFacilityTypeOperated && // Soldier is operating this facility
+					if (cnt == (UINT16)pSoldier->assignment().facilityType() && // Soldier is operating this facility
 						GetSoldierFacilityAssignmentIndex( pSoldier ) != -1) 
 					{
 						eatinginfacility = TRUE;
@@ -773,7 +773,7 @@ void HourlyFoodUpdate( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, and in Arulco
-		if ( pSoldier && pSoldier->bActive && !AM_AN_EPC(pSoldier) && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->bAssignment == IN_TRANSIT || pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+		if ( pSoldier && pSoldier->bActive && !AM_AN_EPC(pSoldier) && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{			
 			// digestion
 			HourlyFoodSituationUpdate( pSoldier );

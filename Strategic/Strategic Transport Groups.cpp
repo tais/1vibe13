@@ -229,7 +229,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 
 		if( pSoldier->bActive &&
 			pSoldier->vitals().health() >= OKLIFE &&
-			(pSoldier->bAssignment < ON_DUTY || pSoldier->bAssignment == GATHERINTEL) &&
+			(pSoldier->assignment().current() < ON_DUTY || pSoldier->assignment().current() == GATHERINTEL) &&
 			!pSoldier->flags.fMercAsleep)
 		{
 			if (gGameOptions.fNewTraitSystem)
@@ -244,7 +244,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 				}
 				else if (HAS_SKILL_TRAIT(pSoldier, COVERT_NT))
 				{
-					if (pSoldier->bAssignment == GATHERINTEL)
+					if (pSoldier->assignment().current() == GATHERINTEL)
 					{
 						detectionMap[std::pair<INT16,INT16>(pSoldier->sSectorX, pSoldier->sSectorY)] = DETECTION_RANGE_COVERT;
 						monitoredTowns[GetTownIdForSector(pSoldier->sSectorX, pSoldier->sSectorY)] = MonitoredSectorState::Monitored;

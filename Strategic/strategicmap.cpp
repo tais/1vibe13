@@ -2082,7 +2082,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && !SPY_LOCATION(pSoldier->bAssignment) && pSoldier->bAssignment != ASSIGNMENT_POW)
+			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && !SPY_LOCATION(pSoldier->assignment().current()) && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
 				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
@@ -2133,7 +2133,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->bAssignment != VEHICLE && pSoldier->bAssignment != ASSIGNMENT_POW)
+			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
 				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
@@ -3059,7 +3059,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 					if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 					{
-						if ( pSoldier->bAssignment == ASSIGNMENT_POW )
+						if ( pSoldier->assignment().current() == ASSIGNMENT_POW )
 						{
 							if ( !fPOWSquadSet )
 							{
@@ -3075,7 +3075,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 								else
 								{
 									AddCharacterToUniqueSquad( pSoldier );
-									ubPOWSquad = pSoldier->bAssignment;
+									ubPOWSquad = pSoldier->assignment().current();
 									pSoldier->aiData.bNeutral = FALSE;
 								}
 							}
@@ -3127,7 +3127,7 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 	if ( pSoldier->bActive )		// This was in the if, removed by DEF:  pSoldier->vitals().health() >= OKLIFE &&
 	{
 		// If we are not in transit...
-		if ( pSoldier->bAssignment != IN_TRANSIT )
+		if ( pSoldier->assignment().current() != IN_TRANSIT )
 		{
 			// CHECK UBINSERTION CODE..
 			if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_PRIMARY_EDGEINDEX ||
@@ -3730,7 +3730,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			// If we are controllable
-			if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->bAssignment == CurrentSquad( ) )
+			if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->assignment().current() == CurrentSquad( ) )
 			{
 				pValidSoldier = pSoldier;
 				//This now gets handled by strategic movement.  It is possible that the
@@ -3755,7 +3755,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 
 		// save info for desired squad and and time for all single mercs leaving their squad.
 		Assert( pValidSoldier );
-		bPrevAssignment = pValidSoldier->bAssignment;
+		bPrevAssignment = pValidSoldier->assignment().current();
 		ubPrevGroupID = pValidSoldier->ubGroupID;
 
 		if ( ubJumpCode == JUMP_SINGLE_NO_LOAD )
@@ -3766,11 +3766,11 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		{ // now add char to a squad all their own
 			AddCharacterToUniqueSquad( pValidSoldier );
 		}
-		if ( !pValidSoldier->ubNumTraversalsAllowedToMerge && bPrevAssignment < ON_DUTY )
+		if ( !pValidSoldier->assignment().mergeTraversalAllowance() && bPrevAssignment < ON_DUTY )
 		{
 			PLAYERGROUP *pPlayer;
-			pValidSoldier->ubDesiredSquadAssignment = bPrevAssignment;
-			pValidSoldier->ubNumTraversalsAllowedToMerge = 2;
+			pValidSoldier->assignment().desiredSquad() = bPrevAssignment;
+			pValidSoldier->assignment().mergeTraversalAllowance() = 2;
 			pGroup = GetGroup( ubPrevGroupID );
 			Assert( pGroup );
 			Assert( pGroup->usGroupTeam == OUR_TEAM );
@@ -3780,8 +3780,8 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 			{
 				if ( pPlayer->pSoldier != pValidSoldier )
 				{
-					pPlayer->pSoldier->ubNumTraversalsAllowedToMerge = 100;
-					pPlayer->pSoldier->ubDesiredSquadAssignment = NO_ASSIGNMENT;
+					pPlayer->pSoldier->assignment().mergeTraversalAllowance() = 100;
+					pPlayer->pSoldier->assignment().desiredSquad() = NO_ASSIGNMENT;
 				}
 				pPlayer = pPlayer->next;
 			}
@@ -3867,7 +3867,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		while ( curr )
 		{
 			// anv: passengers can't move anyway
-			if ( curr->pSoldier->bAssignment == VEHICLE )
+			if ( curr->pSoldier->assignment().current() == VEHICLE )
 			{
 				curr->pSoldier->ubWaitActionToDo = 0;
 			}
@@ -3935,7 +3935,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		{
 			if ( !OK_CONTROLLABLE_MERC( curr->pSoldier ) )
 			{
-				if ( OK_CONTROL_MERC( curr->pSoldier ) && curr->pSoldier->bAssignment == VEHICLE && pGroup->fVehicle )
+				if ( OK_CONTROL_MERC( curr->pSoldier ) && curr->pSoldier->assignment().current() == VEHICLE && pGroup->fVehicle )
 				{
 					//CHRISL: passengers in a vehicle movement group will not pass the OK_CONTROLLABLE_MERC check because their assignment is not "ON_DUTY".
 					//	The above conditions should allow passengers in a vehicle movement group to remain in the group.
@@ -4036,7 +4036,7 @@ void HandleSoldierLeavingSectorByThemSelf( SOLDIERTYPE *pSoldier )
 	// soldier leaving thier squad behind, will rejoin later
 	// if soldier in a squad, set the fact they want to return here
 
-	if ( pSoldier->bAssignment < ON_DUTY )
+	if ( pSoldier->assignment().current() < ON_DUTY )
 	{
 		RemoveCharacterFromSquads( pSoldier );
 
@@ -4051,7 +4051,7 @@ void HandleSoldierLeavingSectorByThemSelf( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// otherwise, they are on thier own, not in a squad, simply remove mvt group
-		if ( pSoldier->ubGroupID && pSoldier->bAssignment != VEHICLE )
+		if ( pSoldier->ubGroupID && pSoldier->assignment().current() != VEHICLE )
 		{ //Can only remove groups if they aren't persistant (not in a squad or vehicle)
 			// delete group
 			RemoveGroup( pSoldier->ubGroupID );
@@ -4635,7 +4635,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	}
 
 	// anv: vehicles can't use inner exit grids
-	if ( bExitDirection == (-1) && GetJa2SoldierRepository().resolve(gusSelectedSoldier)->bAssignment == VEHICLE )
+	if ( bExitDirection == (-1) && GetJa2SoldierRepository().resolve(gusSelectedSoldier)->assignment().current() == VEHICLE )
 	{
 		return FALSE;
 	}
@@ -4669,8 +4669,8 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// If we are controllable
-		if ( OK_CONTROLLABLE_MERC( pSoldier ) && (pSoldier->bAssignment == CurrentSquad( ) ||
-			(pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != iHelicopterVehicleId && GetSoldierStructureForVehicle( pSoldier->iVehicleId )->bAssignment == CurrentSquad( ))) )
+		if ( OK_CONTROLLABLE_MERC( pSoldier ) && (pSoldier->assignment().current() == CurrentSquad( ) ||
+			(pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId != iHelicopterVehicleId && GetSoldierStructureForVehicle( pSoldier->iVehicleId )->assignment().current() == CurrentSquad( ))) )
 		{
 			//Need to keep a copy of a good soldier, so we can access it later, and
 			//not more than once.
@@ -4750,7 +4750,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 	// If we are here, at least one guy is controllable in this sector, at least he can go!
 	if ( fAtLeastOneMercControllable )
 	{
-		ubPlayerControllableMercsInSquad = (UINT8)NumberOfPlayerControllableMercsInSquad( GetJa2SoldierRepository().resolve(gusSelectedSoldier)->bAssignment );
+		ubPlayerControllableMercsInSquad = (UINT8)NumberOfPlayerControllableMercsInSquad( GetJa2SoldierRepository().resolve(gusSelectedSoldier)->assignment().current() );
 		if ( fAtLeastOneMercControllable <= ubPlayerControllableMercsInSquad )
 		{ //if the selected merc is an EPC and we can only leave with that merc, then prevent it
 			//as EPCs aren't allowed to leave by themselves.  Instead of restricting this in the
@@ -4954,8 +4954,8 @@ BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// ARM: now allows loading of sector with all mercs below OKLIFE as long as they're alive
 		if( ( pSoldier->bActive && pSoldier->vitals().health() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-			( pSoldier->bAssignment != IN_TRANSIT ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
-			( pSoldier->bAssignment != ASSIGNMENT_DEAD ) && !SoldierAboardAirborneHeli( pSoldier )
+			( pSoldier->assignment().current() != IN_TRANSIT ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
+			( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && !SoldierAboardAirborneHeli( pSoldier )
 			)
 
 		//if( (SectorInfo[ SECTOR( gWorldSectorX,gWorldSectorY) ].uiFlags & SF_ALREADY_VISITED) )
@@ -6135,7 +6135,7 @@ void HandleSlayDailyEvent( void )
 	}
 
 	// valid soldier?
-	if ( (pSoldier->bActive == FALSE) || (pSoldier->vitals().health() == 0) || (pSoldier->bAssignment == IN_TRANSIT) || (pSoldier->bAssignment == ASSIGNMENT_POW) || (pSoldier->bAssignment == ASSIGNMENT_MINIEVENT) || (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) )
+	if ( (pSoldier->bActive == FALSE) || (pSoldier->vitals().health() == 0) || (pSoldier->assignment().current() == IN_TRANSIT) || (pSoldier->assignment().current() == ASSIGNMENT_POW) || (pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT) || (pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) )
 	{
 		// no
 		return;
@@ -7715,14 +7715,14 @@ UINT8 tryToRecoverSquadsAndMovementGroups(SOLDIERTYPE* pCharacter) {
 	// check if the char we're trying to move is in a valid squad!
 	if (SquadCharacterIsIn(pCharacter) == -1) {
 
-		if (pCharacter->bAssignment < ON_DUTY && SquadIsEmpty(pCharacter->bAssignment)) 
+		if (pCharacter->assignment().current() < ON_DUTY && SquadIsEmpty(pCharacter->assignment().current()))
 		{ // assignment says we're in a squad but that squad is empty!			
-			int squadWeThinkWeAreIn = pCharacter->bAssignment;
+			int squadWeThinkWeAreIn = pCharacter->assignment().current();
 			Ja2SoldierRepository& soldiers = GetJa2SoldierRepository();
 
 			for (int i = 0; i < MAXMERCS; i++) {
 				SOLDIERTYPE& soldier = soldiers.record(i);
-				if (soldier.bActive && soldier.bTeam == pCharacter->bTeam && soldier.bAssignment == squadWeThinkWeAreIn)
+				if (soldier.bActive && soldier.bTeam == pCharacter->bTeam && soldier.assignment().current() == squadWeThinkWeAreIn)
 				{ // reassign everyone who's supposed to be in the bogus squad
 					AddCharacterToAnySquad(&soldier);
 				}

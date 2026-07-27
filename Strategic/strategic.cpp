@@ -28,7 +28,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 	//AddCharacterToDeadList( pSoldier );
 
 	// If in a vehicle, remove them!
-	if( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId != -1 ) )
+	if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId != -1 ) )
 	{
 		// remove from vehicle
 		TakeSoldierOutOfVehicle( pSoldier );
@@ -38,21 +38,21 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 	if ( !(guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) && pSoldier->bInSector)
 	{
 		// ATE; At least make them dead!
-		if( ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) )
+		if( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) )
 		{
 			SetTimeOfAssignmentChangeForMerc( pSoldier );
 		}
 
 		ChangeSoldiersAssignment( pSoldier, ASSIGNMENT_DEAD );
 	}
-	else if( ( pSoldier->vitals().health() == 0 )&&( pSoldier->bAssignment != ASSIGNMENT_DEAD ) )
+	else if( ( pSoldier->vitals().health() == 0 )&&( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) )
 	{
 		// died in mapscreen
 
 		fReDrawFace = TRUE;
 
 		// dead
-		if( ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) )
+		if( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) )
 		{
 			SetTimeOfAssignmentChangeForMerc( pSoldier );
 		}

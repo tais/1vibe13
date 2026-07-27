@@ -1815,7 +1815,7 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 		AddCharacterToAnySquad( pNewSoldier );
 	}
 
-	ResetDeadSquadMemberList( pNewSoldier->bAssignment );
+	ResetDeadSquadMemberList( pNewSoldier->assignment().current() );
 
 	DirtyMercPanelInterface( pNewSoldier, DIRTYLEVEL2 );
 
@@ -1908,7 +1908,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 		AddCharacterToAnySquad( pNewSoldier );
 	}
 
-	ResetDeadSquadMemberList( pNewSoldier->bAssignment );
+	ResetDeadSquadMemberList( pNewSoldier->assignment().current() );
 
 	DirtyMercPanelInterface( pNewSoldier, DIRTYLEVEL2 );
 	// Make the interface panel dirty..
@@ -1954,9 +1954,9 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 		return( FALSE );
 	}
 
-	if ( pSoldier->bAssignment < ON_DUTY )
+	if ( pSoldier->assignment().current() < ON_DUTY )
 	{
-		ResetDeadSquadMemberList( pSoldier->bAssignment );
+		ResetDeadSquadMemberList( pSoldier->assignment().current() );
 	}
 
 	// Rmeove from squad....
@@ -2720,7 +2720,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 			continue;
 		}
 		// Are we actually here?
-		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->bAssignment == VEHICLE ) )
+		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue;

@@ -231,7 +231,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 
 	// Set assignment
 	//ATE: If first time, make ON_DUTY, otherwise GUARD
-	if( ( pSoldier->bAssignment != IN_TRANSIT ) )
+	if( ( pSoldier->assignment().current() != IN_TRANSIT ) )
 	{
 		SetTimeOfAssignmentChangeForMerc( pSoldier );
 	}
@@ -484,7 +484,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			{
 				pTeamSoldier = GetJa2SoldierRepository().resolve(
 					gCharactersList[cnt].usSolID.i);
-				if (pTeamSoldier != pSoldier && pTeamSoldier->bAssignment != ASSIGNMENT_DEAD && pTeamSoldier->bAssignment != ASSIGNMENT_POW && pTeamSoldier->bAssignment != IN_TRANSIT && pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER)
+				if (pTeamSoldier != pSoldier && pTeamSoldier->assignment().current() != ASSIGNMENT_DEAD && pTeamSoldier->assignment().current() != ASSIGNMENT_POW && pTeamSoldier->assignment().current() != IN_TRANSIT && pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER)
 				{
 					force_helidrop = false;
 				}
@@ -812,7 +812,7 @@ void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->bActive )
 		{
-			if ( pSoldier->bAssignment == IN_TRANSIT )
+			if ( pSoldier->assignment().current() == IN_TRANSIT )
 			{
 				if ( pSoldier->flags.fUseLandingZoneForArrival )
 				{

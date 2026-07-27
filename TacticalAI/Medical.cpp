@@ -202,7 +202,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 // can this soldier autobandage others in sector
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->bAssignment == VEHICLE ) )
+	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
@@ -221,7 +221,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->bAssignment == VEHICLE ) )
+	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
@@ -505,7 +505,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 		if ( !pMedic || !(pMedic->bActive) ||
 			!(pMedic->bInSector) ||
 			( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
-			(pMedic->bAssignment == VEHICLE ) )
+			(pMedic->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue; // NEXT!!!
@@ -516,7 +516,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 			// cannot make surgery on self!
 			continue; // NEXT!!!		
 		}
-		if ( fOnDoctorAssignmentCheck && !IS_DOCTOR(pMedic->bAssignment) )
+		if ( fOnDoctorAssignmentCheck && !IS_DOCTOR(pMedic->assignment().current()) )
 		{
 			// not on the right assignment!
 			continue; // NEXT!!!

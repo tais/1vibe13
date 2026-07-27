@@ -541,7 +541,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 			if( SectorIsPartOfTown( bTownId, pSoldier->sSectorX, pSoldier->sSectorY ) == TRUE )
 			{
 				// if onduty or in a vehicle
-				if( ( pSoldier->bAssignment < ON_DUTY ) || pSoldier->bAssignment == VEHICLE ) )
+				if( ( pSoldier->assignment().current() < ON_DUTY ) || pSoldier->assignment().current() == VEHICLE ) )
 				{
 					// increment soldier count
 					iSoldierCount++;
@@ -551,7 +551,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 				if( bTownId == gMercProfiles[ pSoldier->ubProfile ].bTown )
 				{
 					// he needn't be soldiering to have an impact...	presence is enough
-					if( pSoldier->bAssignment < ASSIGNMENT_DEAD )
+					if( pSoldier->assignment().current() < ASSIGNMENT_DEAD )
 					{
 						iLocalNPCBonus = HOURLY_GAIN_FOR_LOCAL_NPC_IN_TOWN;
 						iLocalNPCBonus *= gMercProfiles[ pSoldier->ubProfile ].bTownAttachment;

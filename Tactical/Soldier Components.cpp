@@ -153,6 +153,11 @@ void SoldierEmploymentComponent::reset() noexcept
 	*this = SoldierEmploymentComponent{};
 }
 
+void SoldierAssignmentComponent::reset() noexcept
+{
+	*this = SoldierAssignmentComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

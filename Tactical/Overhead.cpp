@@ -3310,18 +3310,18 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     gusSelectedSoldier = usSoldierID;
 
     // find which squad this guy is, then set selected squad to this guy
-	if( pSoldier->bAssignment == VEHICLE )
+	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		SOLDIERTYPE* pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
 
 		if ( pVehicle )
-			SetCurrentSquad( pVehicle->bAssignment, FALSE );
+			SetCurrentSquad( pVehicle->assignment().current(), FALSE );
 		else
-			SetCurrentSquad( pSoldier->bAssignment, FALSE );
+			SetCurrentSquad( pSoldier->assignment().current(), FALSE );
 	}
 	else
 	{
-		SetCurrentSquad( pSoldier->bAssignment, FALSE );
+		SetCurrentSquad( pSoldier->assignment().current(), FALSE );
 	}
 
     if ( pSoldier->position().level() == 0 )
@@ -4769,14 +4769,14 @@ SoldierID FindNextActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
 
         if ( fGoodForLessOKLife )
         {
-            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->bAssignment < ON_DUTY || pTeamSoldier->bAssignment == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->assignment().current() < ON_DUTY || pTeamSoldier->assignment().current() == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
         }
         else
         {
-            if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
@@ -4801,14 +4801,14 @@ SoldierID FindNextActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
 
         if ( fGoodForLessOKLife )
         {
-            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->bAssignment < ON_DUTY || pTeamSoldier->bAssignment == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->assignment().current() < ON_DUTY || pTeamSoldier->assignment().current() == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
         }
         else
         {
-            if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
@@ -4826,7 +4826,7 @@ SOLDIERTYPE *FindNextActiveSquad( SOLDIERTYPE *pSoldier )
     INT32 cnt, cnt2;
 	
 	// anv: soldier's "assignment" can be a vehicle, not a proper squad, causing out-of-range in second loop
-	INT8 bMaxSquad = pSoldier->bAssignment;
+	INT8 bMaxSquad = pSoldier->assignment().current();
 	if( bMaxSquad >= NUMBER_OF_SQUADS )
 	{
 		bMaxSquad = NUMBER_OF_SQUADS - 1;
@@ -4890,14 +4890,14 @@ SoldierID FindPrevActiveAndAliveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLes
         if ( fGoodForLessOKLife )
         {
             // Check for bLife > 0
-            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->bAssignment < ON_DUTY || pTeamSoldier->bAssignment == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && ( pTeamSoldier->assignment().current() < ON_DUTY || pTeamSoldier->assignment().current() == VEHICLE ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
         }
         else
         {
-            if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+            if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
             {
                 return( cnt );
             }
@@ -7706,7 +7706,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                         {
                             if( pTeamSoldier->bTeam == gbPlayerNum )
                             {
-								if (pTeamSoldier->bAssignment != ASSIGNMENT_POW)
+								if (pTeamSoldier->assignment().current() != ASSIGNMENT_POW)
 								{
 									// SANDRO - records - num tactical battles
 									gMercProfiles[pTeamSoldier->ubProfile].records.usBattlesTactical++;
@@ -7720,7 +7720,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                                 // If this guy is OKLIFE & not standing, make stand....
                                 if ( pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->collapseState().tactical() )
                                 {
-                                    if ( pTeamSoldier->bAssignment < ON_DUTY )
+                                    if ( pTeamSoldier->assignment().current() < ON_DUTY )
                                     {
                                         // Reset some quote flags....
                                         pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED);
@@ -10378,7 +10378,7 @@ void DoPOWPathChecks( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(iLoop.i);
 
-        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->bAssignment == ASSIGNMENT_POW )
+        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->assignment().current() == ASSIGNMENT_POW )
         {
             // check to see if POW has been freed!
             // this will be true if a path can be made from the POW to either of 3 gridnos
@@ -11121,7 +11121,7 @@ void AttemptToCapturePlayerSoldiers()
                 SOLDIERTYPE *pSoldier =
                     GetJa2SoldierRepository().resolve(i.i);
                 // Are we active and in sector
-                if (pSoldier->bActive && pSoldier->bInSector && pSoldier->bAssignment != ASSIGNMENT_POW)
+                if (pSoldier->bActive && pSoldier->bInSector && pSoldier->assignment().current() != ASSIGNMENT_POW)
                 {
                     if (pSoldier->vitals().health() != 0)
                     {
@@ -11159,7 +11159,7 @@ void AttemptToCapturePlayerSoldiers()
                 GetJa2SoldierRepository().resolve(i.i);
             // Are we active and in sector
             const bool inSector = (pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ);
-            if (pSoldier->bActive && inSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->bAssignment != ASSIGNMENT_POW)
+            if (pSoldier->bActive && inSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->assignment().current() != ASSIGNMENT_POW)
             {
                 activeMercs = true;
                 break;

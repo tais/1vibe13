@@ -213,7 +213,7 @@ void BeginContractRenewalSequence( )
 
 			if ( pSoldier )
 			{
-				if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+				if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->assignment().current() == IN_TRANSIT ) ||( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 				{
 					// no
 					continue;
@@ -462,7 +462,7 @@ BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction )
 	//determine the end of the contract
 	pSoldier->employment().endTime() += ( iContractLength * 1440 );
 
-	if( ( pSoldier->employment().lifeInsurance() ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) )	//	DEF:	Removed cause they can extend a 1 day contract && ( iContractLength > 1 )
+	if( ( pSoldier->employment().lifeInsurance() ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) )	//	DEF:	Removed cause they can extend a 1 day contract && ( iContractLength > 1 )
 	{
 		// check if player can afford insurance, if not, tell them
 		iCostOfInsurance = CalculateInsuranceContractCost( iContractLength, pSoldier->ubProfile );
@@ -806,9 +806,9 @@ void HandleBuddiesReactionToFiringMerc(SOLDIERTYPE *pFiredSoldier, INT8 bMoraleE
 		//if the merc is active, in Arulco, not POW and is a buddy
 		if ( WhichBuddy(pSoldier->ubProfile,pFiredSoldier->ubProfile) != (-1) &&
 			pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-			!(pSoldier->bAssignment == IN_TRANSIT ||
-			pSoldier->bAssignment == ASSIGNMENT_DEAD ||
-			pSoldier->bAssignment == ASSIGNMENT_POW) )
+			!(pSoldier->assignment().current() == IN_TRANSIT ||
+			pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
+			pSoldier->assignment().current() == ASSIGNMENT_POW) )
 		{
 			HandleMoraleEvent(pSoldier, bMoraleEvent, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
 		}
@@ -1034,7 +1034,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	}
 
 	//else if the merc was fired
-	else if( ubHistoryCode == HISTORY_MERC_FIRED || pSoldier->bAssignment == ASSIGNMENT_POW )
+	else if( ubHistoryCode == HISTORY_MERC_FIRED || pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 		AddCharacterToFiredList( pSoldier );
 	}
@@ -1057,14 +1057,14 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 		RemovePlayerFromGroup(pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup, pSoldier);
 	}
 	//remove him from the soldier structure
-	if( pSoldier->bAssignment >= ON_DUTY )
+	if( pSoldier->assignment().current() >= ON_DUTY )
 	{
 		// is he/she in a mvt group, if so, remove and destroy the group
 		if( pSoldier->ubGroupID )
 		{
 			// anv: dead people are on "dead" assignment even if they were in vehicle pre-mortem, check flags too
-			if( ( pSoldier->bAssignment != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
-			//if ( pSoldier->bAssignment != VEHICLE )
+			if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+			//if ( pSoldier->assignment().current() != VEHICLE )
 			{ //Can only remove groups if they aren't persistant (not in a squad or vehicle)
 				RemovePlayerFromGroup(pSoldier->ubGroupID, pSoldier);
 			}
@@ -1109,7 +1109,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	}
 
 	//if the merc was a POW, remember it becuase the merc cant show up in AIM or MERC anymore
-	if( pSoldier->bAssignment	== ASSIGNMENT_POW )
+	if( pSoldier->assignment().current()	== ASSIGNMENT_POW )
 	{
 		gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_FIRED_AS_A_POW;
 	}
@@ -1517,7 +1517,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
 		// valid soldier?
-		if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == IN_TRANSIT ) ||( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+		if( ( pSoldier->bActive == FALSE ) || ( pSoldier->vitals().health() == 0 ) || ( pSoldier->assignment().current() == IN_TRANSIT ) ||( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 		{
 			// no
 			continue;

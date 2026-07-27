@@ -270,7 +270,7 @@ INT16 GetSectorModifier( SOLDIERTYPE *pSoldier, UINT8 ubModifierType )
 			if ( bAssignmentType != -1)
 			{
 				// Soldier has a facility-based assignment. Is he working this type of facility?
-				if ((UINT8)pSoldier->sFacilityTypeOperated == (UINT8)cnt)
+				if ((UINT8)pSoldier->assignment().facilityType() == (UINT8)cnt)
 				{
 					sCurrent = GetFacilityModifier( ubModifierType, (UINT8)cnt, (UINT8)bAssignmentType );
 				}
@@ -363,7 +363,7 @@ void UpdateStrategicDetectionLevel( )
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
-			UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
@@ -376,7 +376,7 @@ void UpdateStrategicDetectionLevel( )
 
 			// Test to see whether the character is properly set up at this facility.
 			if ( CanCharacterFacility( pSoldier, ubFacilityType, ubAssignmentType ) &&
-				GetWorldTotalMin() - pSoldier->uiLastAssignmentChangeMin >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
+				GetWorldTotalMin() - pSoldier->assignment().lastChangeMinute() >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
 			{
 				// Make sure facility type is valid.
 				Assert(ubFacilityType < MAX_NUM_FACILITY_TYPES);
@@ -505,7 +505,7 @@ void UpdateSkyriderCostModifier()
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
-			UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
 				// Skip this soldier, he is not performing a facility assignment.
@@ -516,7 +516,7 @@ void UpdateSkyriderCostModifier()
 
 			// Is character using a facility?
 			if ( CanCharacterFacility( pSoldier, ubFacilityType, ubAssignmentType ) &&
-				GetWorldTotalMin() - pSoldier->uiLastAssignmentChangeMin >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
+				GetWorldTotalMin() - pSoldier->assignment().lastChangeMinute() >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
 			{
 
 				// Make sure facility type is valid.
@@ -568,7 +568,7 @@ void UpdateFacilityUsageCosts( )
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
-			UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
 				// Skip this soldier, he is not performing a facility assignment.
@@ -579,7 +579,7 @@ void UpdateFacilityUsageCosts( )
 
 			// Is character using a facility?
 			if ( CanCharacterFacility( pSoldier, ubFacilityType, ubAssignmentType ) &&
-				GetWorldTotalMin() - pSoldier->uiLastAssignmentChangeMin >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
+				GetWorldTotalMin() - pSoldier->assignment().lastChangeMinute() >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
 			{
 				// Make sure facility type is valid.
 				Assert(ubFacilityType < MAX_NUM_FACILITY_TYPES);
@@ -710,7 +710,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 				!(pSoldier->flags.fMercAsleep) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
-			UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
 				// Skip this soldier, he is not performing a facility assignment.
@@ -721,7 +721,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 
 			// Is character using a facility?
 			if ( CanCharacterFacility( pSoldier, ubFacilityType, ubAssignmentType ) &&
-				GetWorldTotalMin() - pSoldier->uiLastAssignmentChangeMin >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
+				GetWorldTotalMin() - pSoldier->assignment().lastChangeMinute() >= (UINT32)gGameExternalOptions.ubMinutesForAssignmentToCount )
 			{
 				if (GetFacilityModifier( FACILITY_MINE_INCOME_MOD, ubFacilityType, ubAssignmentType ) && // Facility adjusts mine income
 					(gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].fOnlyLocalMineAffected == 0 || // All mines affected
@@ -744,10 +744,10 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 {
 	// Read soldier's assignment
-	INT8 bAssignment = pSoldier->bAssignment;
+	INT8 bAssignment = pSoldier->assignment().current();
 	INT8 bAssignmentIndex = -1; // Return variable. -1 = Non-facility assignment.
 
-	if (pSoldier->sFacilityTypeOperated == -1)
+	if (pSoldier->assignment().facilityType() == -1)
 	{
 		// Soldier is not set to work at a facility...
 		return (-1);
@@ -764,7 +764,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 			break;
 		case FACILITY_REPAIR:
 			// Determine which kind of repair is he performing
-			if ( pSoldier->bVehicleUnderRepairID != -1 )
+			if ( pSoldier->assignment().repairVehicleId() != -1 )
 			{
 				bAssignmentIndex = FAC_REPAIR_VEHICLE;
 			}
@@ -778,7 +778,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 			}
 			break;
 		case TRAIN_SELF:
-			switch (pSoldier->bTrainStat)
+			switch (pSoldier->assignment().trainingStat())
 			{
 				case STRENGTH:
 					bAssignmentIndex = FAC_PRACTICE_STRENGTH;
@@ -813,7 +813,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 			}
 			break;
 		case TRAIN_TEAMMATE:
-			switch (pSoldier->bTrainStat)
+			switch (pSoldier->assignment().trainingStat())
 			{
 				case STRENGTH:
 					bAssignmentIndex = FAC_TRAINER_STRENGTH;
@@ -848,7 +848,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 			}
 			break;
 		case TRAIN_BY_OTHER:
-			switch (pSoldier->bTrainStat)
+			switch (pSoldier->assignment().trainingStat())
 			{
 				case STRENGTH:
 					bAssignmentIndex = FAC_STUDENT_STRENGTH;
@@ -1131,12 +1131,12 @@ void HandleRisksForSoldier( SOLDIERTYPE *pSoldier )
 	UINT8 ubFacilityType = 0;
 	UINT8 ubAssignmentType = 0;
 
-	if (pSoldier->sFacilityTypeOperated != -1 && GetSoldierFacilityAssignmentIndex( pSoldier ) != -1)
+	if (pSoldier->assignment().facilityType() != -1 && GetSoldierFacilityAssignmentIndex( pSoldier ) != -1)
 	{
 		// Soldier is working at a specific facility. Risks associated with this specific facility and assignment
 		// have priority.
 		ubAssignmentType = (UINT8)GetSoldierFacilityAssignmentIndex( pSoldier );
-		ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+		ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 		HandleRisksForSoldierFacilityAssignment( pSoldier, ubFacilityType, ubAssignmentType );
 	}
 
@@ -2009,7 +2009,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 			}
 
 			//UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
-			INT16 ubFacilityType = pSoldier->sFacilityTypeOperated;
+			INT16 ubFacilityType = pSoldier->assignment().facilityType();
 
 			if (!fPositive && ubFacilityType != -1 && // We want facilities that cost money to operate
 				gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].sCostPerHour > 0) // This facility costs money

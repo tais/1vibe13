@@ -175,7 +175,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 
 	// anv: vehicle always move with all passengers inside
 	if( GetJa2SoldierRepository()
-		.resolve(gusSelectedSoldier.i)->bAssignment == VEHICLE )
+		.resolve(gusSelectedSoldier.i)->assignment().current() == VEHICLE )
 	{
 		gExitDialog.fSingleMoveDisabled		= TRUE;
 		gExitDialog.fSingleMoveOn			= FALSE;
@@ -221,7 +221,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	gExitDialog.ubNumPeopleOnSquad =
 		NumberOfPlayerControllableMercsInSquad(
-			selectedSoldier->bAssignment);
+			selectedSoldier->assignment().current());
 
 	//Determine
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
@@ -235,9 +235,9 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		if( !pSoldier->flags.fBetweenSectors &&
 				pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				( pSoldier->bAssignment != selectedSoldier->bAssignment ||
-				( pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != selectedSoldier->iVehicleId ) ) &&
-				pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
+				( pSoldier->assignment().current() != selectedSoldier->assignment().current() ||
+				( pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId != selectedSoldier->iVehicleId ) ) &&
+				pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 				&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{ //KM:	We need to determine if there are more than one squad (meaning other concious mercs in a different squad or assignment)
 			//		These conditions were done to the best of my knowledge, so if there are other situations that require modification,
@@ -275,7 +275,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 			}
 			SOLDIERTYPE* soldier =
 				GetJa2SoldierRepository().resolve(id.i);
-			if( soldier->bAssignment == selectedSoldier->bAssignment )
+			if( soldier->assignment().current() == selectedSoldier->assignment().current() )
 			{
 				if( AM_AN_EPC( soldier ) )
 				{

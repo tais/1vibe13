@@ -1052,6 +1052,8 @@ public:
 	const SoldierCamouflageComponent& camouflage() const noexcept { return camouflage_; }
 	SoldierEmploymentComponent& employment() noexcept { return employment_; }
 	const SoldierEmploymentComponent& employment() const noexcept { return employment_; }
+	SoldierAssignmentComponent& assignment() noexcept { return assignment_; }
+	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1261,9 +1263,6 @@ public:
 	INT16			sZLevelOverride;
 	INT8				bMovedPriorToInterrupt;
 	INT32			iNextActionSpecialData;		// AI special action data record for the next action
-	INT8				bAssignment;							// soldiers current assignment 
-	INT8				bOldAssignment;						// old assignment, for autosleep purposes
-	INT8				bTrainStat;								// current stat soldier is training
 	INT16			sSectorX;									// X position on the Stategic Map
 	INT16			sSectorY;									// Y position on the Stategic Map
 	INT8				bSectorZ;									// Z sector location
@@ -1279,13 +1278,7 @@ public:
 	INT32			sScheduledStop; //hayden, used for scheduling a grid to stop
 	//END
 
-	UINT32			uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
-
 	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
-
-	//Squad merging vars
-	UINT8			ubDesiredSquadAssignment;
-	UINT8			ubNumTraversalsAllowedToMerge;
 
 	UINT8			ubCivilianGroup;
 
@@ -1317,9 +1310,6 @@ public:
 	SoldierID			ubAutoBandagingMedic;
 	SoldierID			ubRobotRemoteHolderID;
 	UINT8				ubMilitiaKills;
-	
-
-	UINT8				ubHoursOnAssignment;						// used for assignments handled only every X hours
 
 	UINT8				ubTurnsUntilCanSayHeardNoise;
 	UINT16				usQuoteSaidExtFlags;
@@ -1358,7 +1348,6 @@ public:
 	UINT32				uiTimeSoldierWillArrive;
 
 
-	INT8					bVehicleUnderRepairID;
 	INT8					bCorpseQuoteTolerance;
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
@@ -1368,12 +1357,6 @@ public:
 	INT32				lastFlankSpot;
 	INT8					sniper;
 	INT16				origDir;
-
-	// HEADROCK HAM 3.6: Added integer tracking the facility this character is using.
-	INT16		sFacilityTypeOperated;
-	// HEADROCK HAM 3.6: I'm removing this filler to make room for the above variable. I'm very worried though,
-	// I don't know if this is a good idea at all...
-	//INT16	filler;
 
 	// Flugente: Is this the correct position?
 	///////////////////////////////////////////////////////
@@ -1409,9 +1392,6 @@ public:
 
 	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
 
-	// Flugente: sector ID for move items assignment
-	UINT8	usItemMoveSectorID;
-
 	// Flugente: skill stuff
 	UINT8	usAISkillUse;							// this variable allows the AI to remember which skill it wants to use
 	UINT16	usSkillCounter[SOLDIER_COUNTER_MAX];	// counters used for various skill/trait/taint effects
@@ -1424,7 +1404,6 @@ public:
 	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
 	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
 	UINT8	ubFiller[10];
-	UINT16	ubHoursRemainingOnMiniEvent;
 	
 	// Flugente: modifiers to fire modes
 	UINT8	usGLDelayMode;			// if > 0, delay GL grenade explosions
@@ -1477,6 +1456,7 @@ private:
 	SoldierAwarenessComponent	awareness_;
 	SoldierCamouflageComponent	camouflage_;
 	SoldierEmploymentComponent	employment_;
+	SoldierAssignmentComponent	assignment_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
