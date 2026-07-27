@@ -4389,7 +4389,7 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 			pFace->fDisplayTextOver = FACE_DRAW_TEXT_OVER;
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
 
-			sGridNo = pSoldier->pathing.sFinalDestination;
+			sGridNo = pSoldier->pathing().finalDestinationGrid();
 
 			if ( pSoldier->bGoodContPath )
 			{
@@ -6117,7 +6117,7 @@ void HandleMouseOverTeamFaceForContMove( BOOLEAN fOn )
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
 
 			// While our mouse is here, draw a path!
-			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing.sFinalDestination, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->usUIMovementMode, NOT_STEALTH, FORWARD, GetSMCurrentMerc()->bActionPoints );
+			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing().finalDestinationGrid(), NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->usUIMovementMode, NOT_STEALTH, FORWARD, GetSMCurrentMerc()->bActionPoints );
 		}
 	}
 	else

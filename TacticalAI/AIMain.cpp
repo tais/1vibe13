@@ -754,7 +754,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		// an old action was in progress; continue it
 		if (pSoldier->aiData.bAction >= FIRST_MOVEMENT_ACTION && pSoldier->aiData.bAction <= LAST_MOVEMENT_ACTION && !pSoldier->flags.fDelayedMovement)
 		{
-			if (pSoldier->pathing.usPathIndex == pSoldier->pathing.usPathDataSize)
+			if (pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize())
 			{
 				INT8 bEscapeDirection = NOWHERE;
 
@@ -810,7 +810,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 				DebugMsg( TOPIC_JA2AI, DBG_LEVEL_0, String("OPPONENT %d REACHES DEST - ACTION DONE",pSoldier->ubID ) );
 #endif
 
-				if ( pSoldier->position().gridNo() == pSoldier->pathing.sFinalDestination )
+				if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
 				{
 					if ( pSoldier->aiData.bAction == AI_ACTION_MOVE_TO_CLIMB )
 					{
@@ -1268,7 +1268,7 @@ void FreeUpNPCFromAttacking(SoldierID ubID)
 	if ( !soldier )
 		return;
 	ActionDone(soldier);
-	soldier->pathing.bNeedToLook = TRUE;
+	soldier->pathing().needsLook() = TRUE;
 }
 
 void FreeUpNPCFromLoweringGun( SOLDIERTYPE *pSoldier )
@@ -1287,7 +1287,7 @@ void FreeUpNPCFromTurning(SOLDIERTYPE *pSoldier, INT8 bLook)
 	{
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-			String("FREEUPNPCFROMTURNING: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->position().direction()) );
+			String("FREEUPNPCFROMTURNING: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing().desiredDirection(),pSoldier->position().direction()) );
 #endif
 
 
@@ -1346,7 +1346,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		{
 #ifdef TESTAI
 			DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-				String("Cancelling actiondone: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing.bDesiredDirection,pSoldier->position().direction()) );
+				String("Cancelling actiondone: our action %d, desdir %d dir %d",pSoldier->aiData.bAction,pSoldier->pathing().desiredDirection(),pSoldier->position().direction()) );
 #endif
 		}
 
@@ -1360,7 +1360,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		//}
 
 		// cancel any turning & movement by making current settings desired ones
-		pSoldier->pathing.sFinalDestination	= pSoldier->position().gridNo();
+		pSoldier->pathing().finalDestinationGrid()	= pSoldier->position().gridNo();
 
 		if ( !pSoldier->flags.fNoAPToFinishMove )
 		{
@@ -1398,7 +1398,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		// This is possible if we decide on an action that we have no points for
 		// (but which set pathStored).  The action is retained until next turn,
 		// although NewDest isn't called.  A newSit. could cancel it before then!
-		pSoldier->pathing.bPathStored = FALSE;
+		pSoldier->pathing().stored() = FALSE;
 	}
 
 	if (pSoldier->flags.uiStatusFlags & SOLDIER_DEAD)
@@ -1462,9 +1462,9 @@ void NPCDoesAct(SOLDIERTYPE *pSoldier)
 
 	// CJC Feb 18 99: make sure that soldier is not in the middle of a turn due to visual crap to make enemies
 	// face and point their guns at us
-	if ( pSoldier->pathing.bDesiredDirection != pSoldier->position().direction() )
+	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
-		pSoldier->pathing.bDesiredDirection = pSoldier->position().direction();
+		pSoldier->pathing().desiredDirection() = pSoldier->position().direction();
 	}
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"NPCDoesAct done");
@@ -1535,22 +1535,22 @@ void CancelAIAction(SOLDIERTYPE *pSoldier, UINT8 ubForce)
 INT16 ActionInProgress(SOLDIERTYPE *pSoldier)
 {
 	// if NPC has a desired destination, but isn't currently going there	
-	if ((!TileIsOutOfBounds(pSoldier->pathing.sFinalDestination)) && (pSoldier->pathing.sDestination != pSoldier->pathing.sFinalDestination))
+	if ((!TileIsOutOfBounds(pSoldier->pathing().finalDestinationGrid())) && (pSoldier->pathing().destinationGrid() != pSoldier->pathing().finalDestinationGrid()))
 	{
 		// return success (TRUE) if we successfully resume the movement
-		return(TryToResumeMovement(pSoldier,pSoldier->pathing.sFinalDestination));
+		return(TryToResumeMovement(pSoldier,pSoldier->pathing().finalDestinationGrid()));
 	}
 
 
 	// this here should never happen, but it seems to (turns sometimes hang!)
-	if ((pSoldier->aiData.bAction == AI_ACTION_CHANGE_FACING) && (pSoldier->pathing.bDesiredDirection != pSoldier->aiData.usActionData))
+	if ((pSoldier->aiData.bAction == AI_ACTION_CHANGE_FACING) && (pSoldier->pathing().desiredDirection() != pSoldier->aiData.usActionData))
 	{
 #ifdef TESTVERSION
 		PopMessage("ActionInProgress: WARNING - CONTINUING FACING CHANGE...");
 #endif
 
 		// don't try to pay any more APs for this, it was paid for once already!
-		pSoldier->pathing.bDesiredDirection = (INT8) pSoldier->aiData.usActionData;   // turn to face direction in actionData
+		pSoldier->pathing().desiredDirection() = (INT8) pSoldier->aiData.usActionData;   // turn to face direction in actionData
 		return(TRUE);
 	}
 
@@ -1656,7 +1656,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 		// The only reason we would NEED to reinitialize it here is if I've
 		// incorrectly set pathStored to TRUE in a process that doesn't end up
 		// calling NewDest()
-		pSoldier->pathing.bPathStored = FALSE;
+		pSoldier->pathing().stored() = FALSE;
 
 		// decide on the next action
 		if (pSoldier->aiData.bNextAction != AI_ACTION_NONE)
@@ -1819,8 +1819,8 @@ void RefreshAI(SOLDIERTYPE *pSoldier)
 		{
 			// make sure any paths stored during out last AI decision but not reacted
 			// to (probably due to lack of APs) get re-tested by the ExecuteAction()
-			// function in AI, since the->pathing.sDestination may no longer be legal now!
-			pSoldier->pathing.bPathStored = FALSE;
+			// function in AI, since the destination may no longer be legal now!
+			pSoldier->pathing().stored() = FALSE;
 
 			// if not currently engaged, or even alerted
 			// take a quick look around to see if any friends seem to be in trouble
@@ -1939,7 +1939,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
 	// 0verhaul:  The decideaction stage does so many path plots and overrides that
 	// relying on a stored path from there is a bad idea.
-	pSoldier->pathing.usPathDataSize = pSoldier->pathing.usPathIndex = pSoldier->pathing.bPathStored = 0;
+	pSoldier->pathing().clearRoute();
 
 	// sevenfm: update fast forward mode
 	UpdateFastForwardMode(pSoldier, pSoldier->aiData.bAction);
@@ -1971,7 +1971,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // as long as we don't see anyone new, cover won't have changed
             // if we see someone new, it will cause a new situation & remove this
             // 0verhaul:  If turning and not moving, set the final destination to the current position
-            pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+            pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
             SkipCoverCheck = TRUE;
 
 #ifdef DEBUGDECISIONS
@@ -2099,11 +2099,11 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // on YELLOW/GREEN status, NPCs keep the actions from turn to turn
             // (newSituation is intentionally NOT set in NewSelectedNPC()), so the
             // possibility exists that NOW the actionData is no longer a valid
-            // NPC->pathing.sDestination (path got blocked, someone is now standing at that
-            // gridno, etc.)  So we gotta check again that the->pathing.sDestination's legal!
+            // NPC destination (path got blocked, someone is now standing at that
+            // gridno, etc.)  So we have to check again that the destination is legal.
 
             // optimization - Ian (if up-to-date path is known, do not check again)
-            if (!pSoldier->pathing.bPathStored)
+            if (!pSoldier->pathing().stored())
             {			
                 if ( (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) || gTacticalStatus.fAutoBandageMode) && !(IsJa2TacticalCombatActive()) )
                 {
@@ -2111,7 +2111,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                     if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, PATH_THROUGH_PEOPLE ))
                     {
                         // optimization - Ian: prevent another path call in SetNewCourse()
-                        pSoldier->pathing.bPathStored = TRUE;
+                        pSoldier->pathing().stored() = TRUE;
                     }
                 }
                 else
@@ -2119,12 +2119,12 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                     if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, 0))
                     {
                         // optimization - Ian: prevent another path call in SetNewCourse()
-                        pSoldier->pathing.bPathStored = TRUE;
+                        pSoldier->pathing().stored() = TRUE;
                     }
                 }
 
                 // if we STILL don't have a path
-                if ( !pSoldier->pathing.bPathStored )
+                if ( !pSoldier->pathing().stored() )
                 {
                     // Check if we were told to move by NPC stuff				
                     if ( !TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !(IsJa2TacticalCombatActive()) )
@@ -2144,7 +2144,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                             if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, PATH_THROUGH_PEOPLE))
                             {
                                 // optimization - Ian: prevent another path call in SetNewCourse()
-                                pSoldier->pathing.bPathStored = TRUE;
+                                pSoldier->pathing().stored() = TRUE;
                             }
                             else
                             {
@@ -2154,7 +2154,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                             }
                         }
 
-                        if (!pSoldier->pathing.bPathStored)
+                        if (!pSoldier->pathing().stored())
                         {
 							DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: no path stored, could not find path"));
                             CancelAIAction(pSoldier,FORCE);
@@ -2200,9 +2200,9 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			if (movement.accepted() && !movement.processed())
 				return TRUE;
 
-            // make sure it worked (check that pSoldier->pathing.sDestination == pSoldier->aiData.usActionData)
+            // make sure it worked (check that pSoldier->pathing().destinationGrid() == pSoldier->aiData.usActionData)
             if (!movement.accepted() ||
-				pSoldier->pathing.sFinalDestination !=
+				pSoldier->pathing().finalDestinationGrid() !=
 					pSoldier->aiData.usActionData)
             {
 #ifdef BETAVERSION
@@ -2222,23 +2222,23 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 SaveGame(ERROR_SAVE);
 #endif
                 // temporarily black list this gridno to stop enemy from going there
-                pSoldier->pathing.sBlackList = (INT16) pSoldier->aiData.usActionData;
+                pSoldier->pathing().blackListGrid() = (INT16) pSoldier->aiData.usActionData;
 
-                DebugAI( String( "Setting blacklist for %d to %d", pSoldier->ubID, pSoldier->pathing.sBlackList ) );
+                DebugAI( String( "Setting blacklist for %d to %d", pSoldier->ubID, pSoldier->pathing().blackListGrid() ) );
 				DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: sFinalDestination != usActionData"));
 
                 CancelAIAction(pSoldier,FORCE);
                 return(FALSE);         // nothing is in progress
             }
 
-            // cancel any old black-listed gridno, got a valid new->pathing.sDestination
-            pSoldier->pathing.sBlackList = NOWHERE;
+            // cancel any old black-listed gridno; we got a valid new destination
+            pSoldier->pathing().blackListGrid() = NOWHERE;
             break;
 		}
 
         case AI_ACTION_ESCORTED_MOVE:         // go where told to by escortPlayer
             // since this is a delayed move, gotta make sure that it hasn't become
-            // illegal since escort orders were issued (->pathing.sDestination/route blocked).
+            // illegal since escort orders were issued (destination/route blocked).
             // So treat it like a CONTINUE movement, and handle errors that way
             if (!TryToResumeMovement(pSoldier,pSoldier->aiData.usActionData))
             {
@@ -2246,8 +2246,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 return(FALSE);         // nothing is in progress
             }
 
-            // cancel any old black-listed gridno, got a valid new->pathing.sDestination
-            pSoldier->pathing.sBlackList = NOWHERE;
+            // cancel any old black-listed gridno; we got a valid new destination
+            pSoldier->pathing().blackListGrid() = NOWHERE;
             break;
 
         case AI_ACTION_TOSS_PROJECTILE:       // throw grenade at/near opponent(s)

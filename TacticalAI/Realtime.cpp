@@ -113,7 +113,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 		// The only reason we would NEED to reinitialize it here is if I've
 		// incorrectly set pathStored to TRUE in a process that doesn't end up
 		// calling NewDest()
-		pSoldier->pathing.bPathStored = FALSE;
+		pSoldier->pathing().stored() = FALSE;
 
 		// decide on the next action
 #ifdef AI_PROFILING

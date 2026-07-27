@@ -1047,7 +1047,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 		}
 
 		pSoldier->bNewOppCnt = 0;
-		pSoldier->pathing.bNeedToLook = FALSE;
+		pSoldier->pathing().needsLook() = FALSE;
 
 // Temporary for opplist synching - disable random order radioing
 #ifndef RECORDOPPLIST
@@ -1094,7 +1094,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 				}
 
 				pThem->bNewOppCnt = 0;
-				pThem->pathing.bNeedToLook = FALSE;
+				pThem->pathing().needsLook() = FALSE;
 			}
 		}
 	}
@@ -1310,7 +1310,7 @@ INT16 SOLDIERTYPE::GetMaxDistanceVisible(INT32 sGridNo, INT8 bLevel, int calcAsT
 		return DistanceVisible( this, DIRECTION_IRRELEVANT, DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject );
 	}
 
-	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing.bDesiredDirection : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject);
+	return DistanceVisible( this, (SoldierHasLimitedVision(this) ? this->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sGridNo, bLevel, this->IsCowering(), GetPercentTunnelVision(this), pKnownSubject);
 }
 
 INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, INT32 sSubjectGridNo, INT8 bLevel, const BOOLEAN& isCowering, const UINT8& tunnelVision, SOLDIERTYPE *pKnownSubject)
@@ -1367,7 +1367,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	if ( bFacingDir == DIRECTION_IRRELEVANT && ARMED_VEHICLE( pSoldier ) )
 	{
 		// always calculate direction for tanks so we have something to work with
-		bFacingDir = pSoldier->pathing.bDesiredDirection;
+		bFacingDir = pSoldier->pathing().desiredDirection();
 		bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
 		//bSubjectDir = atan8(pSoldier->sX,pSoldier->sY,pOpponent->sX,pOpponent->sY);
 	}
@@ -2224,7 +2224,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
-		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pOpponent->position().gridNo(), pOpponent->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
+		sDistVisible = DistanceVisible(pSoldier, pSoldier->pathing().desiredDirection(), bDir, pOpponent->position().gridNo(), pOpponent->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier), pOpponent);
 		//if (pSoldier->ubID == 0)
 		//sprintf(gDebugStr,"dist visible %d: my dir %d to him %d",sDistVisible,pSoldier->bDesiredDirection,bDir);
 	}
@@ -4349,7 +4349,7 @@ void DebugSoldierPage2( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"DesDirection:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gzDirectionStr[ pSoldier->pathing.bDesiredDirection] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gzDirectionStr[ pSoldier->pathing().desiredDirection()] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4361,35 +4361,35 @@ void DebugSoldierPage2( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Dest:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing.sFinalDestination );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing().finalDestinationGrid() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Path Size:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing.usPathDataSize);
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing().pathSize());
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Path Index:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing.usPathIndex );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->pathing().pathIndex() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"First 3 Steps:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d %d %d", pSoldier->pathing.usPathingData[0],
-		pSoldier->pathing.usPathingData[1],
-		pSoldier->pathing.usPathingData[2] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d %d %d", pSoldier->pathing().path()[0],
+		pSoldier->pathing().path()[1],
+		pSoldier->pathing().path()[2] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Next 3 Steps:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d %d %d", pSoldier->pathing.usPathingData[pSoldier->pathing.usPathIndex],
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathIndex + 1],
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathIndex + 2] );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d %d %d", pSoldier->pathing().path()[pSoldier->pathing().pathIndex()],
+		pSoldier->pathing().path()[pSoldier->pathing().pathIndex() + 1],
+		pSoldier->pathing().path()[pSoldier->pathing().pathIndex() + 2] );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -7662,7 +7662,7 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 
 			// distance we "see" then depends on the direction he is located from us
 			bDir = atan8(pSoldier->sX,pSoldier->sY,pDyingSoldier->sX,pDyingSoldier->sY);
-			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing.bDesiredDirection, bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
+			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
 			sDistAway = PythSpacesAway( pSoldier->position().gridNo(), pDyingSoldier->position().gridNo() );
 
 			// if we see close enough to see the soldier

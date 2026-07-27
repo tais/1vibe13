@@ -1282,10 +1282,10 @@ BOOLEAN ExecuteOverhead( )
                             // (to prevent mercs from going through corners of tiles and producing
                             // structure data complaints)
 
-                            //pSoldier->dXPos = pSoldier->pathing.sDestXPos;
-                            //pSoldier->dYPos = pSoldier->pathing.sDestYPos;
+                            //pSoldier->dXPos = pSoldier->pathing().destinationX();
+                            //pSoldier->dYPos = pSoldier->pathing().destinationY();
                             HandleBloodForNewGridNo( pSoldier );
-                            if ( !( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) && pSoldier->position().gridNo() != pSoldier->pathing.sFinalDestination) )
+                            if ( !( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) && pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid()) )
                             {
                                 //OK, we're at the MIDDLE of a new tile...
                                 HandleAtNewGridNo( pSoldier, &fKeepMoving );
@@ -1297,10 +1297,10 @@ BOOLEAN ExecuteOverhead( )
                             }
 
                             // Are we at our final destination?
-                            if ( pSoldier->pathing.sFinalDestination == pSoldier->position().gridNo() )
+                            if ( pSoldier->pathing().finalDestinationGrid() == pSoldier->position().gridNo() )
                             {
                                 // Cancel path....
-                                pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize = 0;
+                                pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize() = 0;
                                 // Cancel reverse
                                 pSoldier->bReverse = FALSE;
                                 BOOLEAN fAimAfterMove = FALSE;
@@ -1358,8 +1358,8 @@ BOOLEAN ExecuteOverhead( )
                                 }
 
                                 // Update to middle if we're on destination
-                                dXPos = pSoldier->pathing.sDestXPos;
-                                dYPos = pSoldier->pathing.sDestYPos;
+                                dXPos = pSoldier->pathing().destinationX();
+                                dYPos = pSoldier->pathing().destinationY();
                                 pSoldier->EVENT_SetSoldierPosition( dXPos, dYPos );
 #ifdef NETWORKED
                                 // DEF: Test Code
@@ -1388,7 +1388,7 @@ BOOLEAN ExecuteOverhead( )
 
                                         if ( gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALKOFF_SCREEN )
                                         {
-                                            pSoldier->pathing.usPathIndex--; // ATE wanted this line here...
+                                            pSoldier->pathing().pathIndex()--; // ATE wanted this line here...
                                             AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->position().gridNo(), (UINT8)pSoldier->aiData.uiPendingActionData1 );
                                             continue;
                                         }
@@ -1671,28 +1671,28 @@ BOOLEAN ExecuteOverhead( )
                             else if ( !pSoldier->flags.fNoAPToFinishMove )
                             {
                                 // Increment path....
-                                pSoldier->pathing.usPathIndex++;
+                                pSoldier->pathing().pathIndex()++;
 
-                                if ( pSoldier->pathing.usPathIndex > pSoldier->pathing.usPathDataSize )
+                                if ( pSoldier->pathing().pathIndex() > pSoldier->pathing().pathSize() )
                                 {
-                                    pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize;
+                                    pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize();
                                 }
 
                                 // Are we at the end?
-                                if ( pSoldier->pathing.usPathIndex == pSoldier->pathing.usPathDataSize )
+                                if ( pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize() )
                                 {
                                     // ATE: Pop up warning....
-                                    if ( pSoldier->pathing.usPathDataSize != MAX_PATH_LIST_SIZE )
+                                    if ( pSoldier->pathing().pathSize() != MAX_PATH_LIST_SIZE )
                                     {
 #ifdef JA2BETAVERSION
                                         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_TESTVERSION, L"Path for %s ( %d ) did not make merc get to dest (%d spaces away).",
-                                                pSoldier->GetName(), pSoldier->ubID, PythSpacesAway( pSoldier->pathing.sFinalDestination, pSoldier->position().gridNo()) );
+                                                pSoldier->GetName(), pSoldier->ubID, PythSpacesAway( pSoldier->pathing().finalDestinationGrid(), pSoldier->position().gridNo()) );
 #endif
                                     }
 
                                     // In case this is an AI person with the path-stored flag set,
                                     // turn it OFF since we have exhausted our stored path
-                                    pSoldier->pathing.bPathStored = FALSE;                                      
+                                    pSoldier->pathing().stored() = FALSE;
                                     if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
                                     {
                                         // We have not made it to our dest... but it's better to let the AI handle this itself,
@@ -1719,7 +1719,7 @@ BOOLEAN ExecuteOverhead( )
                                         }
                                         else
                                         {
-                                            if ( FindBestPath( pSoldier, pSoldier->pathing.sFinalDestination, pSoldier->position().level(), pSoldier->usUIMovementMode,
+                                            if ( FindBestPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->position().level(), pSoldier->usUIMovementMode,
                                                         NO_COPYROUTE, PATH_THROUGH_PEOPLE ) != 0 )
                                             {
                                                 INT32 sNewGridNo;
@@ -1728,7 +1728,7 @@ BOOLEAN ExecuteOverhead( )
                                             }
 
                                             // We have not made it to our dest... set flag that we are waiting....
-                                            if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode, 2, FALSE ) )
+                                            if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode, 2, FALSE ) )
                                             {
                                                 // ATE: To do here.... we could not get path, so we have to stop
                                                 // 0verhaul:    May also need to clear the action type so that the soldier will know
@@ -1754,7 +1754,7 @@ BOOLEAN ExecuteOverhead( )
                                     {
                                         // Change desired direction
                                         // Just change direction
-                                        pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], FALSE, pSoldier->usAnimState );
+                                        pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], FALSE, pSoldier->usAnimState );
                                     }
 
                                     if ( gTacticalStatus.bBoxingState != NOT_BOXING && (gTacticalStatus.bBoxingState == BOXING_WAITING_FOR_PLAYER ||
@@ -1788,8 +1788,8 @@ BOOLEAN ExecuteOverhead( )
                         if ( executeCondition )
                         {
                             // Determine deltas
-                            //  dDeltaX = pSoldier->pathing.sDestXPos - pSoldier->dXPos;
-                            //dDeltaY = pSoldier->pathing.sDestYPos - pSoldier->dYPos;
+                            //  dDeltaX = pSoldier->pathing().destinationX() - pSoldier->dXPos;
+                            //dDeltaY = pSoldier->pathing().destinationY() - pSoldier->dYPos;
 
                             // Determine angle
                             //  dAngle = (FLOAT)atan2( dDeltaX, dDeltaY );
@@ -2082,10 +2082,10 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 
     }
 
-    usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
+    usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) );
 
     // OK, check if this is a fence cost....
-    if ( gubWorldMovementCosts[ usNewGridNo ][ (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ][ pSoldier->position().level() ] == TRAVELCOST_FENCE )
+    if ( gubWorldMovementCosts[ usNewGridNo ][ (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ][ pSoldier->position().level() ] == TRAVELCOST_FENCE )
     {
         // We have been told to jump fence....
 
@@ -2108,18 +2108,18 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             sBPCost = GetBPsToJumpFence( pSoldier, FALSE );
         }*/
 
-		sAPCost = ActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], usAnimState );
-		sBPCost = TerrainBreathPoints( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], usAnimState );
+		sAPCost = ActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], usAnimState );
+		sBPCost = TerrainBreathPoints( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], usAnimState );
 
         if ( EnoughPoints( pSoldier, sAPCost, sBPCost, FALSE )  )
         {
             // ATE: Check for tile being clear....
-            sOverFenceGridNo = NewGridNo( usNewGridNo, DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex + 1 ] ) );
+            sOverFenceGridNo = NewGridNo( usNewGridNo, DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() + 1 ] ) );
 
-            if ( HandleNextTile( pSoldier, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex + 1 ], sOverFenceGridNo, pSoldier->pathing.sFinalDestination ) )
+            if ( HandleNextTile( pSoldier, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() + 1 ], sOverFenceGridNo, pSoldier->pathing().finalDestinationGrid() ) )
             {
                 // We do, adjust path data....
-                pSoldier->pathing.usPathIndex++;
+                pSoldier->pathing().pathIndex()++;
                 // We go two, because we really want to start moving towards the NEXT gridno,
                 // if we have any...
 
@@ -2143,7 +2143,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 
         return( FALSE );
     }
-    else if ( InternalDoorTravelCost( pSoldier, usNewGridNo, gubWorldMovementCosts[ usNewGridNo ][ (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ][ pSoldier->position().level() ], (BOOLEAN) (pSoldier->bTeam == gbPlayerNum), NULL, TRUE ) == TRAVELCOST_DOOR )
+    else if ( InternalDoorTravelCost( pSoldier, usNewGridNo, gubWorldMovementCosts[ usNewGridNo ][ (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ][ pSoldier->position().level() ], (BOOLEAN) (pSoldier->bTeam == gbPlayerNum), NULL, TRUE ) == TRAVELCOST_DOOR )
     {
         STRUCTURE * pStructure;
         INT8                bDirection;
@@ -2156,12 +2156,12 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         // No need to check for right key ( since the path checks for that? )
 
         // Just for now play the $&&% animation
-        bDirection = (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ];
+        bDirection = (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ];
 
         // OK, based on the direction, get door gridno
         if ( bDirection == NORTH || bDirection == WEST )
         {
-            sDoorGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
+            sDoorGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) );
         }
         else if ( bDirection == SOUTH || bDirection == EAST )
         {
@@ -2211,14 +2211,14 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 
 
     // Find out how much it takes to move here!
-    sAPCost = ActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], usAnimState );
-    sBPCost = TerrainBreathPoints( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], usAnimState );
+    sAPCost = ActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], usAnimState );
+    sBPCost = TerrainBreathPoints( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], usAnimState );
     // SANDRO: add BP cost for weapon holding (additional for APBPConstants[BP_MOVEMENT_READY]), this one is specifically based on the weapon itself
     if ( gGameExternalOptions.ubEnergyCostForWeaponWeight )
         sBPCost += sAPCost * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
 
     // CHECK IF THIS TILE IS A GOOD ONE!
-    if ( !HandleNextTile( pSoldier, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], usNewGridNo, pSoldier->pathing.sFinalDestination ) )
+    if ( !HandleNextTile( pSoldier, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], usNewGridNo, pSoldier->pathing().finalDestinationGrid() ) )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "HandleGotoNewGridNo() Failed: Tile %d Was blocked", usNewGridNo ) );
 
@@ -2320,7 +2320,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         pSoldier->bEndDoorOpenCode = FALSE;
         (*pfKeepMoving ) = FALSE;
     }
-    else if ( pSoldier->pathing.usPathIndex == pSoldier->pathing.usPathDataSize && pSoldier->pathing.usPathDataSize == 0 )
+    else if ( pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize() && pSoldier->pathing().pathSize() == 0 )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No Path") );
         pSoldier->bEndDoorOpenCode = FALSE;
@@ -2339,7 +2339,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 		// silversurfer: Moved this further down. We will now check for gas at the starting point. 
 		// Otherwise the soldier might just run out of the gas and take no damage when next tile has no gas.
 		// This change was necessary because we don't apply gas damage directly anymore when a gas grenade is tossed.
-//        if ( pSoldier->pathing.usPathIndex > 0 )
+//        if ( pSoldier->pathing().pathIndex() > 0 )
 //        {
             // check for running into gas
 
@@ -2442,7 +2442,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                 }
             }
 
-        if ( pSoldier->pathing.usPathIndex > 0 )
+        if ( pSoldier->pathing().pathIndex() > 0 )
         {
             if ( !fDontContinue )
             {
@@ -2483,7 +2483,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                             pSoldier->ubNumTilesMovesSinceLastForget++;
                         }
 
-                        if ( pSoldier->pathing.usPathIndex > 2 && (Random( 100 ) == 0) && pSoldier->ubNumTilesMovesSinceLastForget > 200 )
+                        if ( pSoldier->pathing().pathIndex() > 2 && (Random( 100 ) == 0) && pSoldier->ubNumTilesMovesSinceLastForget > 200 )
                         {
                             pSoldier->ubNumTilesMovesSinceLastForget = 0;
 
@@ -2559,7 +2559,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             // OK, let's check for monsters....
             if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
             {
-                if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) ) )
+                if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) ) )
                 {
                     if ( !pSoldier->bReverse )
                     {
@@ -2584,7 +2584,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             // OK, let's check for monsters....
             if (pSoldier->ubBodyType == BLOODCAT )
             {
-                if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) ) )
+                if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) ) )
                 {
                     if ( !pSoldier->bReverse )
                     {
@@ -2601,7 +2601,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 			//shadooow: fix for charging AP for turning at the end of the movement
 			pSoldier->flags.fDontChargeTurningAPs = TRUE;
             // Change desired direction
-            pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], fInitialMove, usAnimState );       
+            pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], fInitialMove, usAnimState );
 
             // CONTINUE
             // IT'S SAVE TO GO AGAIN, REFRESH flag
@@ -2898,7 +2898,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
 
         // ATE: Cancel only if our final destination
-        if ( pSoldier->position().gridNo() == pSoldier->pathing.sFinalDestination )
+        if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
         {
             pSoldier->aiData.ubPendingAction                = NO_PENDING_ACTION;
         }
@@ -2920,7 +2920,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     {
         (*pfKeepMoving ) = FALSE;
     }
-    else if ( pSoldier->pathing.usPathIndex == pSoldier->pathing.usPathDataSize && pSoldier->pathing.usPathDataSize == 0 )
+    else if ( pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize() && pSoldier->pathing().pathSize() == 0 )
     {
         (*pfKeepMoving ) = FALSE;
     }
@@ -6644,7 +6644,7 @@ void ExitCombatMode( )
             pSoldier->aiData.bMoved = FALSE;
 
             // Set final destination
-            pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+            pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 
             // remove AI controlled flag
             pSoldier->flags.uiStatusFlags &= ~SOLDIER_UNDERAICONTROL;

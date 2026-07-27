@@ -588,7 +588,7 @@ SimulationCommandDispatchResult NewDest(
 	else
 	{
 		// ATE: Setting sDestination? Tis does not make sense...
-		//pSoldier->pathing.sDestination = usGridNo;
+		//pSoldier->pathing().destinationGrid() = usGridNo;
 		BOOLEAN fSet = FALSE;
 
 		if (IS_MERC_BODY_TYPE(pSoldier) && pSoldier->aiData.bAction == AI_ACTION_TAKE_COVER && (pSoldier->aiData.bAttitude == DEFENSIVE || pSoldier->aiData.bAttitude == CUNNINGSOLO || pSoldier->aiData.bAttitude == CUNNINGAID) && (SoldierDifficultyLevel(pSoldier) >= 2))
@@ -649,7 +649,7 @@ SimulationCommandDispatchResult NewDest(
 		}
 	}
 
-	//pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing.sDestination, pSoldier->usUIMovementMode );
+	//pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().destinationGrid(), pSoldier->usUIMovementMode );
 	// ATE: Using this more versatile version
 	// Last parameter says whether to re-start the soldier's animation
 	// This should be done if buddy was paused for fNoApstofinishMove...
@@ -905,7 +905,7 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 		if (selectedFriend &&
 			SpacesAway(usOrigin, selectedFriend->position().gridNo()) - 1 <= usMaxDist)
 		{
-			// should be close enough, try to find a legal->pathing.sDestination within 1 tile
+			// should be close enough, try to find a legal destination within 1 tile
 
 			// clear dirChecked flag for all 8 directions
 			for ( ubDirection = 0; ubDirection < NUM_WORLD_DIRECTIONS; ++ubDirection )
@@ -950,8 +950,8 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 				if (LegalNPCDestination(pSoldier, usDest, ENSURE_PATH, NOWATER, 0))
 				{
 					fFound = TRUE;			// found a spot
-					pSoldier->aiData.usActionData = usDest;	// store this->pathing.sDestination
-					pSoldier->pathing.bPathStored = TRUE;	// optimization - Ian
+					pSoldier->aiData.usActionData = usDest;	// store this destination
+					pSoldier->pathing().stored() = TRUE;	// optimization - Ian
 					break;					// stop checking in other directions
 				}
 			}
@@ -988,7 +988,7 @@ INT32 RandDestWithinRange(SOLDIERTYPE *pSoldier)
 	sOrigX = sOrigY = -1;
 	sMaxLeft = sMaxRight = sMaxUp = sMaxDown = sXRange = sYRange = -1;
 
-	// Try to find a random->pathing.sDestination that's no more than maxDist away from
+	// Try to find a random destination that's no more than maxDist away from
 	// the given gridno of origin
 
 	if (gfTurnBasedAI)
@@ -1064,14 +1064,14 @@ INT32 RandDestWithinRange(SOLDIERTYPE *pSoldier)
 				continue;					// try again!
 			}
 
-			// passed all the tests,->pathing.sDestination is acceptable
+			// passed all the tests; the destination is acceptable
 			fFound = TRUE;
-			pSoldier->pathing.bPathStored = TRUE;	// optimization - Ian
+			pSoldier->pathing().stored() = TRUE;	// optimization - Ian
 		}
 	}
 	else
 	{
-		// keep rolling random->pathing.sDestinations until one's satisfactory or retries used
+		// keep rolling random destinations until one is satisfactory or retries are used
 		while ((ubTriesLeft--) && !fFound)
 		{
 			if (fLimited)
@@ -1119,9 +1119,9 @@ INT32 RandDestWithinRange(SOLDIERTYPE *pSoldier)
 				continue;					// try again!
 			}
 
-			// passed all the tests,->pathing.sDestination is acceptable
+			// passed all the tests; the destination is acceptable
 			fFound = TRUE;
-			pSoldier->pathing.bPathStored = TRUE;	// optimization - Ian
+			pSoldier->pathing().stored() = TRUE;	// optimization - Ian
 		}
 	}
 

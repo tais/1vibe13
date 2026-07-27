@@ -5682,14 +5682,14 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 	INT32	iLoop;
 
 	// will this path segment actually take us to our desired destination in the first place?
-	if ( pSoldier->pathing.usPathDataSize + 2 > MAX_PATH_LIST_SIZE )
+	if ( pSoldier->pathing().pathSize() + 2 > MAX_PATH_LIST_SIZE )
 	{
 
 		sTempGridNo = pSoldier->position().gridNo();
 
-		for ( iLoop = 0; iLoop < pSoldier->pathing.usPathDataSize; iLoop++ )
+		for ( iLoop = 0; iLoop < pSoldier->pathing().pathSize(); iLoop++ )
 		{
-			sTempGridNo += DirectionInc( (UINT8)pSoldier->pathing.usPathingData[iLoop] );
+			sTempGridNo += DirectionInc( (UINT8)pSoldier->pathing().path()[iLoop] );
 		}
 
 		if ( sTempGridNo == sEndGridNo )
@@ -5697,7 +5697,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 			// we can make it, but there isn't enough path room for the two steps required.
 			// truncate our path so there's guaranteed the merc will have to generate another
 			// path later on...
-			pSoldier->pathing.usPathDataSize -= 4;
+			pSoldier->pathing().pathSize() -= 4;
 			return;
 		}
 		else
@@ -5718,9 +5718,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 			return;
 		}
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = NORTHEAST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHEAST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)NORTHEAST ) );
@@ -5731,9 +5731,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		}
 		sNewGridNo = sTempGridNo;
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = NORTHEAST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHEAST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		break;
@@ -5747,9 +5747,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 			return;
 		}
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = SOUTHWEST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHWEST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)SOUTHWEST ) );
@@ -5760,9 +5760,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		}
 		sNewGridNo = sTempGridNo;
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = SOUTHWEST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHWEST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 		break;
 
@@ -5775,9 +5775,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 			return;
 		}
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = NORTHWEST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHWEST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)NORTHWEST ) );
@@ -5788,9 +5788,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		}
 		sNewGridNo = sTempGridNo;
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = NORTHWEST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHWEST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		break;
@@ -5804,9 +5804,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 			return;
 		}
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = SOUTHEAST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHEAST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)SOUTHEAST ) );
@@ -5817,9 +5817,9 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		}
 		sNewGridNo = sTempGridNo;
 
-		pSoldier->pathing.usPathingData[pSoldier->pathing.usPathDataSize] = SOUTHEAST;
-		pSoldier->pathing.usPathDataSize++;
-		pSoldier->pathing.sFinalDestination = sNewGridNo;
+		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHEAST;
+		pSoldier->pathing().pathSize()++;
+		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
 		pSoldier->aiData.usActionData = sNewGridNo;
 		break;
 
@@ -6536,7 +6536,7 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 			}
 			else
 			{
-				if ( pSoldier->pathing.sFinalDestination == pSoldier->position().gridNo() )
+				if ( pSoldier->pathing().finalDestinationGrid() == pSoldier->position().gridNo() )
 				{
 					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->position().gridNo();
 				}
@@ -6546,7 +6546,7 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 				}
 				else
 				{
-					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->pathing.sFinalDestination;
+					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->pathing().finalDestinationGrid();
 				}
 
 				gMercProfiles[pSoldier->ubProfile].fUseProfileInsertionInfo = TRUE;

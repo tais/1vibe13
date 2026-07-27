@@ -873,8 +873,8 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	// data and copy into soldier's database
 	if (bCopy == COPYROUTE) 
 	{
-		pSoldier->pathing.usPathDataSize  = (UINT16) sizePath;
-		pSoldier->pathing.usPathIndex = 0;
+		pSoldier->pathing().pathSize()  = (UINT16) sizePath;
+		pSoldier->pathing().pathIndex() = 0;
 		while (sizePath > 0)
 		{
 			int numSteps = GetNumSteps(parent);
@@ -882,13 +882,13 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 			{
 				sizePath--;
 				numSteps--;
-				pSoldier->pathing.usPathingData[sizePath] = GetDirection(parent);
+				pSoldier->pathing().path()[sizePath] = GetDirection(parent);
 			}
 			parent = GetAStarParent( parent);
 		}
 		// Since the sizePath began as the total path size, it should be 0 when we finish copying it
 		Assert( sizePath == 0);
-		sizePath = pSoldier->pathing.usPathDataSize;
+		sizePath = pSoldier->pathing().pathSize();
 	}
 	else if (bCopy == NO_COPYROUTE) 
 	{
@@ -3906,13 +3906,13 @@ ENDOFLOOP:
 
 			for (iCnt=0; z && (iCnt < MAX_PATH_LIST_SIZE); iCnt++)
 		{
-			s->pathing.usPathingData[iCnt] = (INT16) trailTree[z].stepDir;
+			s->pathing().path()[iCnt] = (INT16) trailTree[z].stepDir;
 
 			z = trailTree[z].nextLink;
 		}
 
-			s->pathing.usPathIndex = 0;
-		s->pathing.usPathDataSize	= (UINT16) iCnt;
+			s->pathing().pathIndex() = 0;
+		s->pathing().pathSize()	= (UINT16) iCnt;
 
 		}
 		else if (bCopy == NO_COPYROUTE)
@@ -4853,13 +4853,13 @@ INT16 RecalculatePathCost( SOLDIERTYPE *pSoldier, UINT16 usMovementMode )
 	// AI function for a soldier already with a path; this will return the cost of that path using the given movement mode
 	INT16	sRet;
 
-	if ( !pSoldier->pathing.bPathStored || pSoldier->pathing.usPathDataSize == 0 )
+	if ( !pSoldier->pathing().stored() || pSoldier->pathing().pathSize() == 0 )
 	{
 		return( 0 );
 	}
 
 	gfRecalculatingExistingPathCost = TRUE;
-	sRet = PlotPath( pSoldier, pSoldier->pathing.sFinalDestination, NO_COPYROUTE, FALSE, FALSE, usMovementMode, FALSE, FALSE, 0 );
+	sRet = PlotPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), NO_COPYROUTE, FALSE, FALSE, usMovementMode, FALSE, FALSE, 0 );
 	gfRecalculatingExistingPathCost = FALSE;
 	return( sRet );
 }

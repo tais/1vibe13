@@ -133,7 +133,7 @@ static int LuaSoldierWalkTo( lua_State *L )
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
 	pSoldier->aiData.bAction = AI_ACTION_WALK;
 	pSoldier->aiData.usActionData = (INT16) newgrid;
-	pSoldier->pathing.bPathStored = FALSE;
+	pSoldier->pathing().stored() = FALSE;
 	pSoldier->aiData.bActionInProgress = ExecuteAction( pSoldier);
 	return 0;
 }
@@ -146,7 +146,7 @@ static int LuaSoldierRunTo( lua_State *L )
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
 	pSoldier->aiData.bAction = AI_ACTION_RUN;
 	pSoldier->aiData.usActionData = (INT16) newgrid;
-	pSoldier->pathing.bPathStored = FALSE;
+	pSoldier->pathing().stored() = FALSE;
 	pSoldier->aiData.bActionInProgress = ExecuteAction( pSoldier);
 	return 0;
 }

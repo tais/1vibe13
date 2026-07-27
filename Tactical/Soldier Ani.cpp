@@ -735,7 +735,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Goto Stance...
 					pSoldier->ChangeSoldierStance( gAnimControl[ pSoldier->usUIMovementMode ].ubEndHeight );
 
-					if ( pSoldier->position().gridNo() == pSoldier->pathing.sFinalDestination )
+					if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
 					{
 						// Set UI Busy
 						UnSetUIBusy( pSoldier->ubID );
@@ -991,7 +991,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				//CODE: BEGINHOPFENCE
 				// MOVE TWO FACGIN GRIDNOS
-				// Flugente: the old complicaed method relied on pSoldier->pathing.usPathingData to be filled correctly - which it often wasn't. 
+				// Flugente: the old complicated method relied on the route path being filled correctly, which it often wasn't.
 				// This is unneccessary, as we've already filled sTempNewGridNo with the correct data
 				// we could fill sForcastGridno when initiating the jump, but lets keep this as a hook
 				if ( pSoldier->sTempNewGridNo != NOWHERE )
@@ -1216,7 +1216,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					// Set desired anim height!
 					pSoldier->ubDesiredHeight = ANIM_CROUCH;
-					pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+					pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 
 				}
 				break;
@@ -1508,7 +1508,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: END CLIMB DOWN ROOF
 				pSoldier->ubDesiredHeight = ANIM_STAND;
-				pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+				pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 
 				// re-enable sight
 				gTacticalStatus.uiFlags &= (~DISALLOW_SIGHT);
@@ -1658,7 +1658,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					///	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
 					//	{
 					///		pSoldier->ubDirection				= (INT8)pSoldier->aiData.uiPendingActionData1;
-					//		pSoldier->pathing.bDesiredDirection = (INT8)pSoldier->aiData.uiPendingActionData1;
+					//		pSoldier->pathing().desiredDirection() = (INT8)pSoldier->aiData.uiPendingActionData1;
 					//	}
 					//}
 				}
@@ -2568,7 +2568,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							pSoldier->bEndDoorOpenCode = 2;
 
 							// yes..
-							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode );
+							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
 
 							if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_MOVING ) ) )
 							{								
@@ -2602,22 +2602,22 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						// OK, if the code is == 2, get the path and try to move....
 						if ( pSoldier->flags.fContinueMoveAfterStanceChange == 2 )
 						{
-							pSoldier->pathing.usPathIndex++;
+							pSoldier->pathing().pathIndex()++;
 
-							if ( pSoldier->pathing.usPathIndex > pSoldier->pathing.usPathDataSize )
+							if ( pSoldier->pathing().pathIndex() > pSoldier->pathing().pathSize() )
 							{
-								pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize;
+								pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize();
 							}
 
-							if ( pSoldier->pathing.usPathIndex == pSoldier->pathing.usPathDataSize )
+							if ( pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize() )
 							{
 								// Stop, don't do anything.....
 								// 0verhaul:	Only if not at the final destination
 								// Another reason for rebuilding the animation system.	This should be part of a common
 								// path continuation code so that any other bug fixes won't need to be duplicated in other areas.
-								if ( pSoldier->position().gridNo() != pSoldier->pathing.sFinalDestination)
+								if ( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid())
 								{
-									if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode, 2, FALSE ) )
+									if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode, 2, FALSE ) )
 									{
 									}
 								}

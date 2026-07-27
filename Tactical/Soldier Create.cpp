@@ -811,7 +811,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.sSectorY						= pCreateStruct->sSectorY;
 		Soldier.bSectorZ						= pCreateStruct->bSectorZ;
 		Soldier.ubInsertionDirection			= pCreateStruct->ubDirection;
-		Soldier.pathing.bDesiredDirection		= pCreateStruct->ubDirection;
+		Soldier.pathing().desiredDirection()		= pCreateStruct->ubDirection;
 		Soldier.aiData.bDominantDir				= pCreateStruct->ubDirection;
 		Soldier.position().direction()						= pCreateStruct->ubDirection;
 

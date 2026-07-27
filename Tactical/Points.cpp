@@ -2082,7 +2082,7 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
 			// Is it the same as he's facing?
-			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing.bDesiredDirection && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
+			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing().desiredDirection() && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
 			{
 					fAddingTurningCost = TRUE;
 			}
@@ -3239,14 +3239,14 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 
 	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH) )
 	{
-		if( pSoldier->position().gridNo() != pSoldier->pathing.sFinalDestination || pSoldier->bGoodContPath	)
+		if( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid() || pSoldier->bGoodContPath	)
 		{
 			// OK< check if we are the selected guy!
 			if ( pSoldier->ubID == gusSelectedSoldier )
 			{
 				if (SoldierOnScreen( pSoldier->ubID ) )
 				{
-					sGridNo = pSoldier->pathing.sFinalDestination;
+					sGridNo = pSoldier->pathing().finalDestinationGrid();
 
 					if ( pSoldier->bGoodContPath )
 					{

@@ -736,7 +736,7 @@ void CalculateCoverFromSoldier( SOLDIERTYPE* pFromSoldier, const INT32& sTargetG
 void CalculateCoverFromEnemySoldier(SOLDIERTYPE* pFromSoldier, const INT32& sTargetGridNo, const BOOLEAN& fRoof, INT8& bOverlayType, SOLDIERTYPE* pToSoldier, const BOOLEAN& bFromSoldierCowering, const UINT8& tunnelVision, const INT8 ToSoldierStealth, const INT8 ToSoldierLBeSightAdjustment)
 {
 	// Had to extract this from SOLDIERTYPE::GetMaxDistanceVisible() function due to performance improvement from minimizing recalculating CoweringShockLevel(pSoldier) & GetPercentTunnelVision(pSoldier)
-	const UINT16 usSightLimit = DistanceVisible(pFromSoldier, (SoldierHasLimitedVision(pFromSoldier) ? pFromSoldier->pathing.bDesiredDirection : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
+	const UINT16 usSightLimit = DistanceVisible(pFromSoldier, (SoldierHasLimitedVision(pFromSoldier) ? pFromSoldier->pathing().desiredDirection() : DIRECTION_IRRELEVANT), DIRECTION_IRRELEVANT, sTargetGridNo, (INT8)fRoof, bFromSoldierCowering, tunnelVision);
 
 	for (int i = 0; i < sizeof(animArr); ++i)
 	{

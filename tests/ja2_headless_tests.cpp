@@ -3802,7 +3802,7 @@ int main( int, char** )
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		commandHostActor.position().gridNo() = 77;
-		commandHostActor.pathing.sFinalDestination = 99;
+		commandHostActor.pathing().finalDestinationGrid() = 99;
 		commandHostActor.flags.fDelayedMovement = TRUE;
 		commandHostActor.usAnimState = STANDING;
 		const SimulationCommandDispatchResult movementStopped =
@@ -3820,7 +3820,7 @@ int main( int, char** )
 		       commandHostActor.bStealthMode == TRUE &&
 		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.flags.fDelayedMovement == FALSE &&
-		       commandHostActor.pathing.sFinalDestination == commandHostActor.position().gridNo() &&
+		       commandHostActor.pathing().finalDestinationGrid() == commandHostActor.position().gridNo() &&
 		       facingQueued.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostExecutedState &&
 		       commandHostExecutedState->grid == commandHostActor.position().gridNo() &&
@@ -7250,6 +7250,20 @@ int main( int, char** )
 		position.gridNo() = 1234;
 		position.level() = 1;
 		position.direction() = 6;
+		SoldierPathingComponent& pathing = soldier.pathing();
+		pathing.desiredDirection() = 7;
+		pathing.destinationX() = 14;
+		pathing.destinationY() = 28;
+		pathing.destinationGrid() = 1235;
+		pathing.finalDestinationGrid() = 1240;
+		pathing.stopped() = 1;
+		pathing.needsLook() = 1;
+		pathing.path()[0] = 2;
+		pathing.path()[1] = 3;
+		pathing.pathSize() = 2;
+		pathing.pathIndex() = 1;
+		pathing.blackListGrid() = 1300;
+		pathing.stored() = 1;
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
@@ -7259,6 +7273,15 @@ int main( int, char** )
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
 		       "soldier position component owns the canonical tactical location" );
+		CHECK( constSoldier.pathing().desiredDirection() == 7 &&
+		       constSoldier.pathing().destinationGrid() == 1235 &&
+		       constSoldier.pathing().finalDestinationGrid() == 1240 &&
+		       constSoldier.pathing().path()[0] == 2 &&
+		       constSoldier.pathing().pathSize() == 2 &&
+		       constSoldier.pathing().pathIndex() == 1 &&
+		       !constSoldier.pathing().empty() &&
+		       !constSoldier.pathing().complete(),
+		       "soldier pathing component owns the canonical tactical route" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7285,6 +7308,25 @@ int main( int, char** )
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
 		       "soldier copies retain their owned persistent position" );
+		CHECK( copiedSoldier.pathing().desiredDirection() == 7 &&
+		       copiedSoldier.pathing().destinationX() == 14 &&
+		       copiedSoldier.pathing().destinationY() == 28 &&
+		       copiedSoldier.pathing().destinationGrid() == 1235 &&
+		       copiedSoldier.pathing().finalDestinationGrid() == 1240 &&
+		       copiedSoldier.pathing().stopped() == 1 &&
+		       copiedSoldier.pathing().needsLook() == 1 &&
+		       copiedSoldier.pathing().path()[1] == 3 &&
+		       copiedSoldier.pathing().pathSize() == 2 &&
+		       copiedSoldier.pathing().pathIndex() == 1 &&
+		       copiedSoldier.pathing().blackListGrid() == 1300 &&
+		       copiedSoldier.pathing().stored() == 1,
+		       "soldier copies retain their owned persistent pathing state" );
+		copiedSoldier.pathing().clearRoute();
+		CHECK( copiedSoldier.pathing().empty() &&
+		       copiedSoldier.pathing().complete() &&
+		       copiedSoldier.pathing().pathIndex() == 0 &&
+		       copiedSoldier.pathing().stored() == 0,
+		       "soldier pathing component clears route cursors and cached-route state together" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7296,6 +7338,19 @@ int main( int, char** )
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
 		       "soldier initialization resets the complete position domain" );
+		CHECK( copiedSoldier.pathing().desiredDirection() == 0 &&
+		       copiedSoldier.pathing().destinationX() == 0 &&
+		       copiedSoldier.pathing().destinationY() == 0 &&
+		       copiedSoldier.pathing().destinationGrid() == 0 &&
+		       copiedSoldier.pathing().finalDestinationGrid() == 0 &&
+		       copiedSoldier.pathing().stopped() == 0 &&
+		       copiedSoldier.pathing().needsLook() == 0 &&
+		       copiedSoldier.pathing().path()[0] == 0 &&
+		       copiedSoldier.pathing().pathSize() == 0 &&
+		       copiedSoldier.pathing().pathIndex() == 0 &&
+		       copiedSoldier.pathing().blackListGrid() == 0 &&
+		       copiedSoldier.pathing().stored() == 0,
+		       "soldier initialization resets the complete pathing domain" );
 	}
 
 	{
@@ -7409,6 +7464,19 @@ int main( int, char** )
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
+		savedSoldier.pathing().desiredDirection() = 4;
+		savedSoldier.pathing().destinationX() = 321;
+		savedSoldier.pathing().destinationY() = 654;
+		savedSoldier.pathing().destinationGrid() = 1430;
+		savedSoldier.pathing().finalDestinationGrid() = 1450;
+		savedSoldier.pathing().stopped() = 1;
+		savedSoldier.pathing().needsLook() = 1;
+		savedSoldier.pathing().path()[0] = 6;
+		savedSoldier.pathing().path()[1] = 7;
+		savedSoldier.pathing().pathSize() = 2;
+		savedSoldier.pathing().pathIndex() = 1;
+		savedSoldier.pathing().blackListGrid() = 1444;
+		savedSoldier.pathing().stored() = 1;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7433,7 +7501,20 @@ int main( int, char** )
 		       loadedSoldier.vitals().bleeding() == 11 &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&
-		       loadedSoldier.position().direction() == 5,
+		       loadedSoldier.position().direction() == 5 &&
+		       loadedSoldier.pathing().desiredDirection() == 4 &&
+		       loadedSoldier.pathing().destinationX() == 321 &&
+		       loadedSoldier.pathing().destinationY() == 654 &&
+		       loadedSoldier.pathing().destinationGrid() == 1430 &&
+		       loadedSoldier.pathing().finalDestinationGrid() == 1450 &&
+		       loadedSoldier.pathing().stopped() == 1 &&
+		       loadedSoldier.pathing().needsLook() == 1 &&
+		       loadedSoldier.pathing().path()[0] == 6 &&
+		       loadedSoldier.pathing().path()[1] == 7 &&
+		       loadedSoldier.pathing().pathSize() == 2 &&
+		       loadedSoldier.pathing().pathIndex() == 1 &&
+		       loadedSoldier.pathing().blackListGrid() == 1444 &&
+		       loadedSoldier.pathing().stored() == 1,
 		       "soldier save/load round-trips component-owned persistent state through the established schema" );
 	}
 
