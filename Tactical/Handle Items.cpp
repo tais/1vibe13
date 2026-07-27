@@ -81,6 +81,7 @@
 	#include "Map Screen Interface.h"		// added by Flugente
 	#include "Map Screen Interface Map.h"	// added by Flugente
 #include "WorldDat.h"
+#include "SoldierRepository.h"
 
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -598,7 +599,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	//if ( FindSoldier( sGridNo, &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO )  )
 	if ( ( usSoldierIndex = WhoIsThere2( sGridNo, bLevel ) ) != NOBODY )
 	{
-		pTargetSoldier = usSoldierIndex;
+		pTargetSoldier =
+			GetJa2SoldierRepository().resolve( usSoldierIndex );
 
 		// anv: don't try to heal interactive spots
 		if (fFromUI && Item[usHandItem].usItemClass != IC_MEDKIT)
@@ -1366,14 +1368,19 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			INT32 sNewGridNo;
 			UINT8	ubDirection;
+			SOLDIERTYPE* vehicle =
+				GetJa2SoldierRepository().resolve( ubMercID );
 
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, MercPtrs[ ubMercID ] );
+			if ( vehicle == nullptr )
+				return( ITEM_HANDLE_CANNOT_GETTO_LOCATION );
+
+			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, vehicle );
 			
 			if (!TileIsOutOfBounds(sNewGridNo))
 			{
 				sGridNo = sNewGridNo;
 
-				sVehicleGridNo = MercPtrs[ ubMercID ]->position().gridNo();
+				sVehicleGridNo = vehicle->position().gridNo();
 
 				fVehicle = TRUE;
 			}
@@ -1436,16 +1443,21 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// For repair, check if we are over a vehicle, then get gridnot to edge of that vehicle!
 		if ( IsRefuelableStructAtGridNo( sGridNo, &ubMercID ) )
 		{
-				INT32 sNewGridNo;
+			INT32 sNewGridNo;
 			UINT8	ubDirection;
+			SOLDIERTYPE* vehicle =
+				GetJa2SoldierRepository().resolve( ubMercID );
 
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, MercPtrs[ ubMercID ] );
+			if ( vehicle == nullptr )
+				return( ITEM_HANDLE_CANNOT_GETTO_LOCATION );
+
+			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, vehicle );
 			
 			if (!TileIsOutOfBounds(sNewGridNo))
 			{
 				sGridNo = sNewGridNo;
 
-				sVehicleGridNo = MercPtrs[ ubMercID ]->position().gridNo();
+				sVehicleGridNo = vehicle->position().gridNo();
 
 			}
 		}
@@ -1725,10 +1737,13 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->position().level());
+	SOLDIERTYPE* targetPerson =
+		GetJa2SoldierRepository().resolve( ubPerson );
 
 	// Flugente: apply misc items to other soldiers
 	// sevenfm: check that target soldier is visible
-	if (ItemCanBeAppliedToOthers(usHandItem) && ubPerson != NOBODY && ubPerson->bVisible != 0)
+	if (ItemCanBeAppliedToOthers(usHandItem) && targetPerson &&
+		targetPerson->bVisible != 0)
 	{
 		// ATE: AI CANNOT GO THROUGH HERE!
 		BOOLEAN	fHadToUseCursorPos = FALSE;
@@ -4561,6 +4576,18 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 	INT16				sLargestLineWidth = 30;
 	INT8				bCurStart = 0;
 	BOOLEAN			fDoBack;
+	auto backpackOwnerFor = []( ITEM_POOL* pool ) -> SOLDIERTYPE*
+	{
+		if ( !pool || !gGameExternalOptions.gfShowBackpackOwner )
+			return nullptr;
+		const auto& worldItem = gWorldItems[ pool->iItemIndex ];
+		if ( Item[ worldItem.object.usItem ].usItemClass != IC_LBEGEAR ||
+			 LoadBearingEquipment[
+				 Item[ worldItem.object.usItem ].ubClassIndex ].lbeClass !=
+				 BACKPACK )
+			return nullptr;
+		return GetJa2SoldierRepository().resolve( worldItem.soldierID );
+	};
 
 
 	// Take a look at each guy in current sqaud and check for compatible ammo...
@@ -4639,24 +4666,20 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 		{
 			// GET ITEM
 			pItem = &Item[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ];
+			SOLDIERTYPE* backpackOwner =
+				backpackOwnerFor( pTempItemPool );
 			// Set string
 			if ( gWorldItems[ pTempItemPool->iItemIndex ].object.ubNumberOfObjects > 1 )
 			{
-				if (gGameExternalOptions.gfShowBackpackOwner &&
-					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
-					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
-					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], gWorldItems[pTempItemPool->iItemIndex].object.ubNumberOfObjects, gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
+				if ( backpackOwner )
+					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], gWorldItems[pTempItemPool->iItemIndex].object.ubNumberOfObjects, backpackOwner->GetName());
 				else
 					swprintf( pStr, L"%s (%d)", ShortItemNames[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ], gWorldItems[ pTempItemPool->iItemIndex ].object.ubNumberOfObjects );
 			}
 			else
 			{
-				if (gGameExternalOptions.gfShowBackpackOwner &&
-					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
-					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
-					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
+				if ( backpackOwner )
+					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pTempItemPool->iItemIndex].object.usItem], backpackOwner->GetName());
 				else
 					swprintf( pStr, L"%s", ShortItemNames[ gWorldItems[ pTempItemPool->iItemIndex ].object.usItem ] );
 			}
@@ -4757,25 +4780,21 @@ BOOLEAN DrawItemPoolList( ITEM_POOL *pItemPool, INT32 sGridNo, UINT8 bCommand, I
 		{
 			// GET ITEM
 			pItem = &Item[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ];
+			SOLDIERTYPE* backpackOwner =
+				backpackOwnerFor( pItemPool );
 			// Set string
 
 			if ( gWorldItems[ pItemPool->iItemIndex ].object.ubNumberOfObjects > 1 )
 			{
-				if (gGameExternalOptions.gfShowBackpackOwner &&
-					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
-					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
-					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].object.ubNumberOfObjects, gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
+				if ( backpackOwner )
+					swprintf(pStr, L"%s (%d) (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].object.ubNumberOfObjects, backpackOwner->GetName());
 				else
 					swprintf( pStr, L"%s (%d)", ShortItemNames[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ], gWorldItems[ pItemPool->iItemIndex ].object.ubNumberOfObjects );
 			}
 			else
 			{
-				if (gGameExternalOptions.gfShowBackpackOwner &&
-					Item[gWorldItems[pItemPool->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
-					LoadBearingEquipment[Item[gWorldItems[pItemPool->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-					gWorldItems[pItemPool->iItemIndex].soldierID != NOBODY && (SOLDIERTYPE*)gWorldItems[pItemPool->iItemIndex].soldierID != NULL)
-					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], gWorldItems[pItemPool->iItemIndex].soldierID->GetName());
+				if ( backpackOwner )
+					swprintf(pStr, L"%s (%s)", ShortItemNames[gWorldItems[pItemPool->iItemIndex].object.usItem], backpackOwner->GetName());
 				else
 					swprintf( pStr, L"%s", ShortItemNames[ gWorldItems[ pItemPool->iItemIndex ].object.usItem ] );
 			}
@@ -5210,7 +5229,11 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 
 			if ( ubTargetMercID != NOBODY )
 			{
-				ubTargetMercID->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+				SOLDIERTYPE* target =
+					GetJa2SoldierRepository().resolve( ubTargetMercID );
+				if ( target )
+					target->flags.uiStatusFlags &=
+						(~SOLDIER_ENGAGEDINACTION );
 			}
 
 			OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
@@ -5775,9 +5798,9 @@ void UpdateGear()
 	// loop through all mercs
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pSoldier = bMercID;
+		pSoldier = GetJa2SoldierRepository().resolve( bMercID );
 		//if the merc is in this sector
-		if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
 		{
 			// loop over inventory
 			INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
@@ -7307,7 +7330,8 @@ void CheckForPickedOwnership( void )
 				}
 				for ( ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 				{
-					pSoldier = ubLoop;
+					pSoldier =
+						GetJa2SoldierRepository().resolve( ubLoop );
 					if ( pSoldier && pSoldier->ubCivilianGroup == ubCivGroup )
 					{
 						TestPotentialOwner(
@@ -9999,7 +10023,7 @@ void DoInteractiveActionDefaultResult( INT32 sGridNo, SoldierID ubID, BOOLEAN aS
 {
 	SOLDIERTYPE* pSoldier = NULL;
 	if ( ubID != NOBODY )
-		pSoldier = ubID;
+		pSoldier = GetJa2SoldierRepository().resolve( ubID );
 
 	// we need a valid soldier and a valid object
 	if ( !pSoldier )
@@ -11059,8 +11083,10 @@ void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 
 				// check if there is someone here
 				SoldierID ubid = WhoIsThere2( newgridno, bLevel );
+				const SOLDIERTYPE* photographedSoldier =
+					GetJa2SoldierRepository().resolve( ubid );
 
-				LuaAddPhotoData( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, newgridno, bLevel, pSoldier->ubProfile, room, ( ubid == NOBODY ) ? NO_PROFILE : ubid->ubProfile );
+				LuaAddPhotoData( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, newgridno, bLevel, pSoldier->ubProfile, room, photographedSoldier ? photographedSoldier->ubProfile : NO_PROFILE );
 			}
 		}
 	}

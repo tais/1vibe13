@@ -37,6 +37,7 @@
 #include "connect.h"
 
 #include "GameInitOptionsScreen.h"
+#include "SoldierRepository.h"
 
 //rain
 //#define BREATH_GAIN_REDUCTION_PER_RAIN_INTENSITY 25
@@ -1017,7 +1018,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		for ( uCnt = 0; uCnt < MAX_NUM_SOLDIERS; uCnt++ )
 		{
 			// first find all guys who watch us
-			pOpponent = MercPtrs[ uCnt ];
+			pOpponent = GetJa2SoldierRepository().resolve( uCnt );
 			if ( pOpponent == NULL)
 				continue;			// not here or not even breathing -> next!
 			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed || !pOpponent->bActive )
@@ -2071,7 +2072,11 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 			// Given a gridno here, check if we are on a guy - if so - get his gridno
 			if ( FindSoldier( sGridNo, &usTargID, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
 			{
-					sGridNo = usTargID->position().gridNo();
+				SOLDIERTYPE* target =
+					GetJa2SoldierRepository().resolve(
+						usTargID );
+				if ( target != nullptr )
+					sGridNo = target->position().gridNo();
 			}
 
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
@@ -2283,7 +2288,11 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		// Given a gridno here, check if we are on a guy - if so - get his gridno
 		if ( FindSoldier( sGridNo, &usTargID, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
 		{
-				sGridNo = usTargID->position().gridNo();
+			SOLDIERTYPE* target =
+				GetJa2SoldierRepository().resolve(
+					usTargID );
+			if ( target != nullptr )
+				sGridNo = target->position().gridNo();
 		}
 		//usRange = GetRangeFromGridNoDiff( pSoldier->sGridNo, sGridNo );
 	}
@@ -2525,11 +2534,14 @@ INT16 MinAPsToPunch(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	if( !TileIsOutOfBounds(sGridNo) )
 	{
 		SoldierID usTargID = WhoIsThere2(sGridNo, pSoldier->bTargetLevel);
+		SOLDIERTYPE* target =
+			GetJa2SoldierRepository().resolve(
+				usTargID );
 		// Given a gridno here, check if we are on a guy - if so - get his gridno
-		if(usTargID != NOBODY)
+		if(target != nullptr)
 		{
 			// Check if target is prone, if so, calc cost...
-			if(gAnimControl[usTargID->usAnimState].ubEndHeight == ANIM_PRONE)
+			if(gAnimControl[target->usAnimState].ubEndHeight == ANIM_PRONE)
 				bAPCost += GetAPsToChangeStance(pSoldier, ANIM_CROUCH);
 			else
 				bAPCost += GetAPsToChangeStance(pSoldier, ANIM_STAND);

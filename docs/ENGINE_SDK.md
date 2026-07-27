@@ -267,12 +267,12 @@ backing array directly, and its array-derived pointer walks now resolve stable
 numeric slots without relying on adjacent records. TacticalAI, TileEngine,
 Ja2 composition/save handling, Laptop, Utils, Editor, Lua, and Multiplayer have
 the same explicit-resolution compile ratchet. Tactical input, turn
-coordination, dialogue, planning, interface control, panels, and item
-interaction now form the first ratcheted Tactical source cut. The remaining
-Tactical lifecycle, animation, and combat implementations are the outstanding
-migration domain. `Menptr` and `MercPtrs` remain backing storage during that
-migration, so numeric soldier slots and every external data format remain
-stable.
+coordination, dialogue, planning, interface control, and panels are joined by
+a broad combat/animation cut covering soldier control and animation, item
+handling, AP calculation, LOS, sight/noise/interrupt processing, corpses,
+boxing, and structure helpers. Remaining Tactical sources continue through the
+compatibility boundary during migration. `Menptr` and `MercPtrs` remain backing
+storage, so numeric soldier slots and every external data format remain stable.
 
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,

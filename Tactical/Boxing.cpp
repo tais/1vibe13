@@ -1,4 +1,5 @@
 	#include "Soldier Control.h"
+	#include "SoldierRepository.h"
 	#include "Overhead.h"
 	#include "Boxing.h"
 	#include "Render Fun.h"
@@ -50,7 +51,7 @@ void ExitBoxing( void )
 		// because boxer could die, loop through all soldier ptrs
 		for ( uiLoop = 0; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++uiLoop )
 		{
-			pSoldier = MercPtrs[ uiLoop ];
+			pSoldier = GetJa2SoldierRepository().resolve( uiLoop );
 
 			if ( pSoldier != NULL )
 			{
@@ -339,8 +340,12 @@ BOOLEAN CheckOnBoxers( void )
 			// WANNE: Safety check!
 			if (ubID < TOTAL_SOLDIERS)
 			{
-				if ( FindObjClass( ubID, IC_WEAPON ) == NO_SLOT &&
-					IS_MERC_BODY_TYPE( ubID ) )
+				SOLDIERTYPE* boxer =
+					GetJa2SoldierRepository().resolve(
+						ubID );
+				if ( boxer != nullptr &&
+					FindObjClass( boxer, IC_WEAPON ) == NO_SLOT &&
+					IS_MERC_BODY_TYPE( boxer ) )
 				{
 					// no weapon and not a civilian so this guy is a boxer
 					gubBoxerID[ uiLoop ] = ubID;
@@ -381,14 +386,22 @@ BOOLEAN PickABoxer( void )
 	{
 		if ( gubBoxerID[ uiLoop ] != NOBODY )
 		{
+			pBoxer =
+				GetJa2SoldierRepository().resolve(
+					gubBoxerID[ uiLoop ] );
+			if ( pBoxer == nullptr )
+			{
+				gubBoxerID[ uiLoop ] = NOBODY;
+				continue;
+			}
+
 			if ( gfBoxerFought[ uiLoop ] )
 			{
 				// pathetic attempt to prevent multiple AI boxers
-				gubBoxerID[ uiLoop ]->DeleteBoxingFlag();
+				pBoxer->DeleteBoxingFlag();
 			}
 			else
 			{
-				pBoxer = gubBoxerID[ uiLoop ];
 				// pick this boxer!
 				if ( pBoxer->bActive && pBoxer->bInSector && pBoxer->vitals().health() >= OKLIFE )
 				{
@@ -445,7 +458,9 @@ BOOLEAN BoxerAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->vitals().health() >= OKLIFE )
+			SOLDIERTYPE* boxer =
+				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
+			if( boxer && boxer->bActive && boxer->bInSector && boxer->vitals().health() >= OKLIFE )
 				return( TRUE );
 		}
 	}
@@ -466,7 +481,9 @@ UINT8 BoxersAvailable( void )
 	{
 		if ( gubBoxerID[ ubLoop ] != NOBODY && !gfBoxerFought[ ubLoop ] )
 		{
-			if( gubBoxerID[ ubLoop ]->bActive && gubBoxerID[ ubLoop ]->bInSector && gubBoxerID[ ubLoop ]->vitals().health() >= OKLIFE )
+			SOLDIERTYPE* boxer =
+				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
+			if( boxer && boxer->bActive && boxer->bInSector && boxer->vitals().health() >= OKLIFE )
 				++ubCount;
 		}
 	}
@@ -490,10 +507,15 @@ BOOLEAN AnotherFightPossible( void )
 	}
 
 	// Loop through all mercs on player team
-	SoldierID pSoldier = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
-	for ( ; pSoldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++pSoldier )
+	for ( SoldierID soldierId = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
+		  soldierId <= gTacticalStatus.Team[ gbPlayerNum ].bLastID;
+		  ++soldierId )
 	{
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > (OKLIFE + 5) && !pSoldier->bCollapsed )
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve( soldierId );
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector &&
+			 pSoldier->vitals().health() > (OKLIFE + 5) &&
+			 !pSoldier->bCollapsed )
 		{
 			return( TRUE );
 		}

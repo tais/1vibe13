@@ -50,6 +50,7 @@
 #include "Meanwhile.h"
 #include "GameContext.h"
 #include "CampaignProfileCodes.h"
+#include "SoldierRepository.h"
 
 
 
@@ -344,6 +345,17 @@ INT16 AdjustMaxSightRangeForEnvEffects( SOLDIERTYPE *pSoldier, INT8 bLightLevel,
 	return( sNewDist );
 }
 
+static SOLDIERTYPE* ResolveBestSighter( UINT16 position )
+{
+	if ( position >= BEST_SIGHTING_ARRAY_SIZE )
+	{
+		return nullptr;
+	}
+
+	return GetJa2SoldierRepository().resolve(
+		gubBestToMakeSighting[ position ] );
+}
+
 void SwapBestSightingPositions( INT8 bPos1, INT8 bPos2 )
 {
 	SoldierID ubTemp = gubBestToMakeSighting[ bPos1 ];
@@ -395,7 +407,13 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 			// must percolate him down
 			for ( ubLoop2 = ubLoop + 1; ubLoop2 < gubBestToMakeSightingSize; ubLoop2++ )
 			{
-				if ( gubBestToMakeSighting[ ubLoop2 ] != NOBODY && gubBestToMakeSighting[ ubLoop2 - 1 ]->aiData.bInterruptDuelPts < gubBestToMakeSighting[ ubLoop2 ]->aiData.bInterruptDuelPts )
+				const SOLDIERTYPE* previous =
+					ResolveBestSighter( ubLoop2 - 1 );
+				const SOLDIERTYPE* current =
+					ResolveBestSighter( ubLoop2 );
+				if ( previous != nullptr && current != nullptr &&
+					previous->aiData.bInterruptDuelPts <
+						current->aiData.bInterruptDuelPts )
 				{
 					SwapBestSightingPositions( (UINT8) (ubLoop2 - 1), ubLoop2 );
 				}
@@ -428,11 +446,22 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 		{
 			for ( ubLoop = 0; ubLoop < gubBestToMakeSightingSize; ubLoop++ )
 			{
-				if ( pSoldier->RecognizeAsCombatant(gubBestToMakeSighting[ ubLoop ])  && (gubBestToMakeSighting[ ubLoop ] == NOBODY) || ( gubBestToMakeSighting[ ubLoop ] != NOBODY && bInterruptDuelPts > gubBestToMakeSighting[ ubLoop ]->aiData.bInterruptDuelPts ) )
+				const SoldierID currentId =
+					gubBestToMakeSighting[ ubLoop ];
+				SOLDIERTYPE* current = ResolveBestSighter( ubLoop );
+				const bool emptySlot =
+					currentId == NOBODY || current == nullptr;
+				if ( (emptySlot &&
+						pSoldier->RecognizeAsCombatant( currentId )) ||
+					(current != nullptr &&
+						bInterruptDuelPts >
+							current->aiData.bInterruptDuelPts) )
 				{
-					if ( gubBestToMakeSighting[ gubBestToMakeSightingSize - 1 ] != NOBODY )
+					SOLDIERTYPE* last =
+						ResolveBestSighter( gubBestToMakeSightingSize - 1 );
+					if ( last != nullptr )
 					{
-						gubBestToMakeSighting[ gubBestToMakeSightingSize - 1 ]->aiData.bInterruptDuelPts = NO_INTERRUPT;
+						last->aiData.bInterruptDuelPts = NO_INTERRUPT;
 						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP: resetting points for %d to zilch", pSoldier->ubID ) );
 					}
 
@@ -457,7 +486,11 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 	{
 		if ( (gubBestToMakeSighting[ ubLoop ] != NOBODY) )
 		{
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP entry %d: %d (%d pts)", ubLoop, gubBestToMakeSighting[ ubLoop ], gubBestToMakeSighting[ ubLoop ]->aiData.bInterruptDuelPts ) );
+			const SOLDIERTYPE* current = ResolveBestSighter( ubLoop );
+			if ( current != nullptr )
+			{
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP entry %d: %d (%d pts)", ubLoop, gubBestToMakeSighting[ ubLoop ], current->aiData.bInterruptDuelPts ) );
+			}
 		}
 	}
 
@@ -484,6 +517,13 @@ void HandleBestSightingPositionInRealtime( void )
 
 	if (gubBestToMakeSighting[ 0 ] != NOBODY)
 	{
+		SOLDIERTYPE* bestSighter = ResolveBestSighter( 0 );
+		if ( bestSighter == nullptr )
+		{
+			gubBestToMakeSighting[ 0 ] = NOBODY;
+			return;
+		}
+
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "HBSPIR called and there is someone in the list" );
 
 		// MP diagnostic: this realtime sighting is what triggers turn-based in networked
@@ -491,7 +531,7 @@ void HandleBestSightingPositionInRealtime( void )
 		// it's clear what kicked off combat.
 		if ( is_networked && !( IsJa2TacticalCombatActive() ) )
 		{
-			SOLDIERTYPE* pSighter = gubBestToMakeSighting[ 0 ];
+			SOLDIERTYPE* pSighter = bestSighter;
 			SOLDIERTYPE* pSeen = NULL; INT16 sBest = 9999;
 			for ( UINT32 uiL = 0; uiL < guiNumMercSlots; uiL++ )
 			{
@@ -509,7 +549,8 @@ void HandleBestSightingPositionInRealtime( void )
 
 		//if (gfHumanSawSomeoneInRealtime)
 		{
-			if (gubBestToMakeSighting[ 1 ] == NOBODY)
+			SOLDIERTYPE* secondSighter = ResolveBestSighter( 1 );
+			if (secondSighter == nullptr)
 			{	// The_Bob - real time sneaking code 01/06/09
 				// if real time sneaking conditions are met...
 				// this is now in the preferences window - SANDRO				
@@ -517,39 +558,46 @@ void HandleBestSightingPositionInRealtime( void )
 				// realtime-sneak and neither enters combat -> first-contact deadlock.
 				// Don't sneak over the network: enter combat on sight and let the
 				// server arbitrate who acts first (the startCOMBAT first-arrival guard).
-				if (gGameSettings.fOptions[TOPTION_ALLOW_REAL_TIME_SNEAK] && gubBestToMakeSighting[ 0 ]->bTeam == OUR_TEAM && NobodyAlerted() && !is_networked )
+				if (gGameSettings.fOptions[TOPTION_ALLOW_REAL_TIME_SNEAK] &&
+					bestSighter->bTeam == OUR_TEAM && NobodyAlerted() &&
+					!is_networked )
 				{
 					// get rid of the item under cursor (we gotta react FAST)
 					CancelItemPointer();
 					// select (and center screen on) the merc who saw the enemy
 					// HEADROCK HAM 3.6: A much-requested toggle.
-					if (gusSelectedSoldier != gubBestToMakeSighting[ 0 ]->ubID && !gGameExternalOptions.fNoAutoFocusChangeInRealtimeSneak)
-						SelectSoldier(gubBestToMakeSighting[ 0 ]->ubID, false, true);
+					if (gusSelectedSoldier != bestSighter->ubID &&
+						!gGameExternalOptions.fNoAutoFocusChangeInRealtimeSneak)
+						SelectSoldier(bestSighter->ubID, false, true);
 					// if not quiet, emit a message warning the player
 					if (!gGameExternalOptions.fQuietRealTimeSneak)
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_RTM_ENEMIES_SPOOTED]);
 
 					return;	// and do nothing
 				}
-				else if ( gubBestToMakeSighting[ 0 ]->bTeam != OUR_TEAM && gubBestToMakeSighting[ 0 ]->aiData.bOppCnt > 0 )
+				else if ( bestSighter->bTeam != OUR_TEAM &&
+					bestSighter->aiData.bOppCnt > 0 )
 				{
 					// otherwise, simply award the turn to the team that saw the enemy first
-					EnterCombatMode( gubBestToMakeSighting[ 0 ]->bTeam );
+					EnterCombatMode( bestSighter->bTeam );
 				}
 				else
 					// otherwise, simply award the turn to the team that saw the enemy first
-					EnterCombatMode( gubBestToMakeSighting[ 0 ]->bTeam );
+					EnterCombatMode( bestSighter->bTeam );
 			}
 			else
 			{
+				SOLDIERTYPE* thirdSighter = ResolveBestSighter( 2 );
 
 
 				// if 1st and 2nd on same team, or 1st and 3rd on same team, or there IS no 3rd, award turn to 1st
-				if (  /*gubBestToMakeSighting[ 0 ]->aiData.bOppCnt > 0 &&*/ ( gubBestToMakeSighting[ 0 ]->bTeam == gubBestToMakeSighting[ 1 ]->bTeam ) ||
-							( (gubBestToMakeSighting[ 2 ] == NOBODY) || ( gubBestToMakeSighting[ 0 ]->bTeam == gubBestToMakeSighting[ 2 ]->bTeam ) )
+				if (  /*gubBestToMakeSighting[ 0 ]->aiData.bOppCnt > 0 &&*/
+						(bestSighter->bTeam == secondSighter->bTeam) ||
+							(thirdSighter == nullptr ||
+							 bestSighter->bTeam == thirdSighter->bTeam)
 					)
 				{
-					EnterCombatMode( gubBestToMakeSighting[ 0 ]->bTeam );
+					EnterCombatMode( bestSighter->bTeam );
 				}
 				else //if ( gubBestToMakeSighting[ 1 ]->aiData.bOppCnt > 0 ) // give turn to 2nd best but interrupt to 1st
 				{
@@ -558,19 +606,19 @@ void HandleBestSightingPositionInRealtime( void )
 						// MP has interrupts disabled (they desync over the relay), so don't
 						// OPEN combat with one either. Give the first sighter the turn and
 						// let the server arbitrate -- no out-of-turn interrupt state.
-						EnterCombatMode( gubBestToMakeSighting[ 0 ]->bTeam );
+						EnterCombatMode( bestSighter->bTeam );
 					}
 					else
 					{
 						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "Entering combat mode: turn for 2nd best, int for best" );
 
-						EnterCombatMode( gubBestToMakeSighting[ 1 ]->bTeam );
+						EnterCombatMode( secondSighter->bTeam );
 						// 2nd guy loses control
 						AddToIntList( gubBestToMakeSighting[ 1 ], FALSE, TRUE);
 						// 1st guy gains control
 						AddToIntList( gubBestToMakeSighting[ 0 ], TRUE, TRUE);
 						// done
-						DoneAddingToIntList( gubBestToMakeSighting[ 0 ], TRUE, SIGHTINTERRUPT );
+						DoneAddingToIntList( bestSighter, TRUE, SIGHTINTERRUPT );
 					}
 				}
 			}
@@ -580,8 +628,12 @@ void HandleBestSightingPositionInRealtime( void )
 		{
 			if ( gubBestToMakeSighting[ ubLoop ] != NOBODY )
 			{
-				gubBestToMakeSighting[ ubLoop ]->aiData.bInterruptDuelPts = NO_INTERRUPT;
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP: done, resetting points for %d to zilch", gubBestToMakeSighting[ ubLoop ]->ubID ) );
+				SOLDIERTYPE* sighter = ResolveBestSighter( ubLoop );
+				if ( sighter != nullptr )
+				{
+					sighter->aiData.bInterruptDuelPts = NO_INTERRUPT;
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP: done, resetting points for %d to zilch", sighter->ubID ) );
+				}
 			}
 		}
 
@@ -606,7 +658,14 @@ void HandleBestSightingPositionInTurnbased( void )
 
 	if ( gubBestToMakeSighting[ 0 ] != NOBODY )
 	{
-		if ( gubBestToMakeSighting[ 0 ]->bTeam != GetJa2TacticalCurrentTeam() )
+		SOLDIERTYPE* bestSighter = ResolveBestSighter( 0 );
+		if ( bestSighter == nullptr )
+		{
+			gubBestToMakeSighting[ 0 ] = NOBODY;
+			return;
+		}
+
+		if ( bestSighter->bTeam != GetJa2TacticalCurrentTeam() )
 		{
 
 			// interrupt!
@@ -628,23 +687,33 @@ void HandleBestSightingPositionInTurnbased( void )
 					}
 
 				}
-				else if ( gubBestToMakeSighting[ ubLoop ]->bTeam == GetJa2TacticalCurrentTeam() )
+				else
 				{
-					fOk = TRUE;
-					break;
+					const SOLDIERTYPE* current =
+						ResolveBestSighter( ubLoop );
+					if ( current != nullptr &&
+						current->bTeam == GetJa2TacticalCurrentTeam() )
+					{
+						fOk = TRUE;
+						break;
+					}
 				}
 			}
 
 			if ( fOk )
 			{
-				// this is the guy who gets "interrupted"; all else before him interrupted him
-				AddToIntList( gubBestToMakeSighting[ ubLoop ], FALSE, TRUE);
-				for ( ubLoop2 = 0; ubLoop2 < ubLoop; ubLoop2++ )
+				SOLDIERTYPE* interrupted = ResolveBestSighter( ubLoop );
+				if ( interrupted != nullptr )
 				{
-					AddToIntList( gubBestToMakeSighting[ ubLoop2 ], TRUE, TRUE);
+					// this is the guy who gets "interrupted"; all else before him interrupted him
+					AddToIntList( gubBestToMakeSighting[ ubLoop ], FALSE, TRUE);
+					for ( ubLoop2 = 0; ubLoop2 < ubLoop; ubLoop2++ )
+					{
+						AddToIntList( gubBestToMakeSighting[ ubLoop2 ], TRUE, TRUE);
+					}
+					// done
+					DoneAddingToIntList( interrupted, TRUE, SIGHTINTERRUPT );
 				}
-				// done
-				DoneAddingToIntList( gubBestToMakeSighting[ ubLoop ], TRUE, SIGHTINTERRUPT );
 			}
 
 		}
@@ -652,8 +721,12 @@ void HandleBestSightingPositionInTurnbased( void )
 		{
 			if ( gubBestToMakeSighting[ ubLoop ] != NOBODY )
 			{
-				gubBestToMakeSighting[ ubLoop ]->aiData.bInterruptDuelPts = NO_INTERRUPT;
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP (TB): done, resetting points for %d to zilch", gubBestToMakeSighting[ ubLoop ]->ubID ) );
+				SOLDIERTYPE* sighter = ResolveBestSighter( ubLoop );
+				if ( sighter != nullptr )
+				{
+					sighter->aiData.bInterruptDuelPts = NO_INTERRUPT;
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "RBSP (TB): done, resetting points for %d to zilch", sighter->ubID ) );
+				}
 			}
 		}
 
@@ -701,7 +774,9 @@ void AddToShouldBecomeHostileOrSayQuoteList( SoldierID ubID )
 
 	Assert( gubNumShouldBecomeHostileOrSayQuote < SHOULD_BECOME_HOSTILE_SIZE );
 
-	if ( ubID->vitals().health() < OKLIFE )
+	const SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve( ubID );
+	if ( soldier == nullptr || soldier->vitals().health() < OKLIFE )
 	{
 		return;
 	}
@@ -727,7 +802,13 @@ SoldierID SelectSpeakerFromHostileOrSayQuoteList( void )
 
 	for ( ubLoop = 0; ubLoop < gubNumShouldBecomeHostileOrSayQuote; ubLoop++ )
 	{
-		pSoldier = gubShouldBecomeHostileOrSayQuote[ ubLoop ];
+		pSoldier = GetJa2SoldierRepository().resolve(
+			gubShouldBecomeHostileOrSayQuote[ ubLoop ] );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
+
 		if ( pSoldier->ubProfile != NO_PROFILE )
 		{
 
@@ -778,7 +859,13 @@ void CheckHostileOrSayQuoteList( void )
 			// make sure everyone on this list is hostile
 			for ( ubLoop = 0; ubLoop < gubNumShouldBecomeHostileOrSayQuote; ubLoop++ )
 			{
-				pSoldier = gubShouldBecomeHostileOrSayQuote[ ubLoop ];
+				pSoldier = GetJa2SoldierRepository().resolve(
+					gubShouldBecomeHostileOrSayQuote[ ubLoop ] );
+				if ( pSoldier == nullptr )
+				{
+					continue;
+				}
+
 				if ( pSoldier->aiData.bNeutral )
 				{
 					MakeCivHostile(pSoldier);
@@ -808,18 +895,25 @@ void CheckHostileOrSayQuoteList( void )
 		}
 		else
 		{
+			SOLDIERTYPE* speaker =
+				GetJa2SoldierRepository().resolve( ubSpeaker );
+			if ( speaker == nullptr )
+			{
+				return;
+			}
+
 			// pause all AI
 			PauseAIUntilManuallyUnpaused();
 			// stop everyone?
 
 			// We want to make this guy visible to the player.
-			if ( ubSpeaker->bVisible != TRUE )
+			if ( speaker->bVisible != TRUE )
 			{
 				gbPublicOpplist[ gbPlayerNum ][ ubSpeaker ] = HEARD_THIS_TURN;
-				HandleSight( ubSpeaker, SIGHT_LOOK | SIGHT_RADIO );
+				HandleSight( speaker, SIGHT_LOOK | SIGHT_RADIO );
 			}
 			// trigger hater
-			TriggerNPCWithIHateYouQuote( ubSpeaker->ubProfile );
+			TriggerNPCWithIHateYouQuote( speaker->ubProfile );
 		}
 	}
 }
@@ -1020,10 +1114,13 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 
 	// Temporary for opplist synching - disable random order radioing
 #ifdef RECORDOPPLIST
-	for (iLoop = Status.team[Net.pnum].guystart,ourPtr = MercPtrs[iLoop]; iLoop < Status.team[Net.pnum].guyend; iLoop++,ourPtr++)
+	for (INT16 iLoop = Status.team[Net.pnum].guystart;
+		 iLoop < Status.team[Net.pnum].guyend; ++iLoop)
 	{
+		pSoldier = GetJa2SoldierRepository().resolve( iLoop );
 		// if this merc is active, in this sector, and well enough to look
-		if (pSoldier->active && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE))
+		if (pSoldier && pSoldier->bActive && pSoldier->bInSector &&
+			(pSoldier->vitals().health() >= OKLIFE))
 		{
 			RadioSightings(pSoldier,ubAbout,pSoldier->bTeam);
 			pSoldier->bNewOppCnt = 0;
@@ -1040,9 +1137,9 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 	// make a list of all of our team's mercs
 	for ( ; id <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve( id );
 		// if this merc is active, in this sector, and well enough to look
-		if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE))
+		if (pSoldier && pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE))
 			// put him on our list, and increment the counter
 			radioMan[radioCnt++] = (INT16)id;
 	}
@@ -1059,8 +1156,14 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 		INT16 iLoop = Random(radioCnt);
 
 		// handle radioing for that merc
-		RadioSightings( MercPtrs[radioMan[iLoop]], ubAbout, MercPtrs[radioMan[iLoop]]->bTeam );
-		Menptr[radioMan[iLoop]].bNewOppCnt = 0;
+		SOLDIERTYPE* radioSoldier =
+			GetJa2SoldierRepository().resolve( radioMan[iLoop] );
+		if ( radioSoldier )
+		{
+			RadioSightings(
+				radioSoldier, ubAbout, radioSoldier->bTeam );
+			radioSoldier->bNewOppCnt = 0;
+		}
 
 		// unless it WAS the last used slot that we happened to pick
 		if (iLoop != (radioCnt - 1))
@@ -1088,7 +1191,12 @@ INT16 TeamNoLongerSeesMan( UINT8 ubTeam, SOLDIERTYPE *pOpponent, SoldierID ubExc
 	// look for all mercs on the same team, check opplists for this soldier
 	for ( ; bLoop <= gTacticalStatus.Team[ubTeam].bLastID; ++bLoop )
 	{
-		pMate = bLoop;
+		pMate = GetJa2SoldierRepository().resolve( bLoop );
+		if ( pMate == nullptr )
+		{
+			continue;
+		}
+
 		// if this "teammate" is me, myself, or I (whom we want to exclude)
 		if ( bLoop == ubExcludeID )
 			continue;			// skip to next teammate, I KNOW I don't see him...
@@ -1558,7 +1666,11 @@ void TurnOffTeamsMuzzleFlashes( UINT8 ubTeam )
 
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ ubTeam ].bFirstID; ubLoop <= gTacticalStatus.Team[ ubTeam ].bLastID; ++ubLoop )
 	{
-		pSoldier = ubLoop;
+		pSoldier = GetJa2SoldierRepository().resolve( ubLoop );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
 
 		if ( pSoldier->flags.fMuzzleFlash )
 		{
@@ -1702,7 +1814,12 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 	// the player team now radios about all sightings
 	for ( SoldierID uiLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; uiLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiLoop )
 	{
-		HandleSight( uiLoop, SIGHT_RADIO );		// looking was done above
+		SOLDIERTYPE* player =
+			GetJa2SoldierRepository().resolve( uiLoop );
+		if ( player != nullptr )
+		{
+			HandleSight( player, SIGHT_RADIO );		// looking was done above
+		}
 	}
 
 	if ( !(IsJa2TacticalCombatActive()) )
@@ -1746,13 +1863,13 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 	// all soldiers now radio their findings (NO interrupts permitted this early!)
 	// NEW: our entire team must radio first, so that they radio about EVERYBODY
 	// rather radioing about individuals one a a time (repeats see 1 enemy quote)
-	for (cnt = Status.team[Net.pnum].guystart,ptr = MercPtrs[cnt]; cnt < Status.team[Net.pnum].guyend; cnt++,ptr++)
+	for each local-team soldier
 	   {
 	   if (ptr->active && ptr->in_sector && (ptr->life >= OKLIFE))
 		HandleSight(ptr,SIGHT_RADIO);		// looking was done above
 	   }
 
-	for (cnt = 0,ptr = Menptr; cnt < MAXMERCS; cnt++,ptr++)
+	for each soldier
 	   {
 	   if (ptr->active && ptr->in_sector && (ptr->life >= OKLIFE) && !PTR_OURTEAM)
 		HandleSight(ptr,SIGHT_RADIO);		// looking was done above
@@ -1762,7 +1879,7 @@ void AllTeamsLookForAll(UINT8 ubAllowInterrupts)
 	// if interrupts were allowed
 	if (allowInterrupts)
 	   // resolve interrupts against the selected character (others disallowed)
-	   HandleSight(MercPtrs[Status.allLookCharacter],SIGHT_INTERRUPT);
+	   HandleSight(the selected soldier,SIGHT_INTERRUPT);
 
 
 	// revert to normal interrupt operation
@@ -3082,7 +3199,7 @@ void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
 	IAN COMMENTED THIS OUT MAY 1997 - DO WE NEED THIS?
 
 	// make sure this guy is no longer a possible target for anyone
-	for (cnt = 0, pOpponent = Menptr; cnt < MAXMERCS; cnt++,pOpponent++)
+	for each soldier
 	{
 		if (pOpponent->bOppNum == ubTarget)
 			pOpponent->bOppNum = NOBODY;
@@ -3112,7 +3229,7 @@ void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
 	}
 
 	/*
-	for (ubLoop = 0,pOpponent = Menptr; ubLoop < MAXMERCS; ubLoop++,pOpponent++)
+	for each soldier
 		{
 		// if the target is a true opponent and currently seen by this merc
 		if (!pSoldier->aiData.bNeutral && !pSoldier->aiData.bNeutral &&
@@ -3144,6 +3261,13 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 	SoldierID cnt;
 	UINT8 ubTeamMustLookAgain = FALSE, ubMadeDifference = FALSE;
 	SOLDIERTYPE *pSoldier;
+	SOLDIERTYPE* opponent =
+		GetJa2SoldierRepository().resolve( ubID );
+	if ( opponent == nullptr )
+	{
+		return;
+	}
+
 	INT8* pbPublOL = &(gbPublicOpplist[ubTeam][ubID]);
 
 	// if new opplist is more up-to-date, or we are just wiping it for some reason
@@ -3171,14 +3295,19 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 
 		for ( ; cnt <= gTacticalStatus.Team[ubTeam].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve( cnt );
+			if ( pSoldier == nullptr )
+			{
+				continue;
+			}
+
 			// if this soldier is active, in this sector, and well enough to look
 			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
 			{
 				// if soldier isn't aware of guynum, give him another chance to see
 				if (pSoldier->aiData.bOppList[ubID] == NOT_HEARD_OR_SEEN)
 				{
-					if ( ManLooksForMan( pSoldier, ubID, UPDATEPUBLIC ) )
+					if ( ManLooksForMan( pSoldier, opponent, UPDATEPUBLIC ) )
 						// then he actually saw guynum because of our new public knowledge
 						ubMadeDifference = TRUE;
 
@@ -3234,7 +3363,8 @@ INT8 OurMaxPublicOpplist()
 			continue;		// next merc
 
 		// if this man is NEUTRAL / on our side, he's not an opponent
-		if (pSoldier->aiData.bNeutral || (gTacticalStatus.Team[gbPlayerNum].bSide == pSoldier->ubID->bSide))
+		if (pSoldier->aiData.bNeutral ||
+			(gTacticalStatus.Team[gbPlayerNum].bSide == pSoldier->bSide))
 			continue;		// next merc
 
 		// opponent, check our public opplist value for him
@@ -3285,7 +3415,7 @@ BOOLEAN VisibleAnywhere(SOLDIERTYPE *pSoldier)
 	// so we're left with another human player's team of mercs...
 
 	// check if soldier is currently visible to any human mercs on other teams
-	for (cnt = Status.team[team].guystart,oppPtr = Menptr + cnt; cnt < Status.team[team].guyend; cnt++,oppPtr++)
+	for each soldier on the team
 	{
 	 // if this merc is inactive, or in no condition to care
 	 if (!oppPtr->active || !oppPtr->in_sector || oppPtr->deadAndRemoved || (oppPtr->life < OKLIFE))
@@ -3403,7 +3533,7 @@ void BetweenTurnsVisibilityAdjustments(void)
 
 
 	// make all soldiers on other teams that are no longer seen not visible
-	// iterate only the active merc slots (skips the ~1200 inactive Menptr slots)
+	// iterate only the active merc slots (skips the inactive backing records)
 	for (cnt = 0; cnt < guiNumMercSlots; cnt++)
 	{
 		pSoldier = MercSlots[ cnt ];
@@ -3717,11 +3847,16 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 	 // hang a pointer to the start of this guy's opponents in the public opplist
 	 pbPublOL = &(gbPublicOpplist[ubTeamToRadioTo][start]);
 
-	pOpponent = MercPtrs[start];
-
 	// loop through every one of this guy's opponents
-	for (iLoop = start; iLoop < end; ++iLoop,pOpponent++,pPersOL++,pbPublOL++)
+	for (iLoop = start; iLoop < end; ++iLoop,pPersOL++,pbPublOL++)
 	{
+		pOpponent = GetJa2SoldierRepository().resolve(
+			static_cast<std::size_t>( iLoop ) );
+		if ( pOpponent == nullptr )
+		{
+			continue;
+		}
+
 		fContactSeen = FALSE;
 
 #ifdef TESTOPPLIST
@@ -3837,13 +3972,6 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 							++revealedEnemies;
 							fContactSeen = TRUE;
 						}
-						else
-						{
-							if ( MercPtrs[0]->vitals().health() < 10 )
-							{
-								//int breakpoint = 0;
-							}
-						}
 					}
 
 					if ( fContactSeen )
@@ -3857,7 +3985,13 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 								{
 									// this has already come up so turn OFF the pause-all-anims flag for the previous
 									// person and set it for this next person
-									gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID->flags.fPauseAllAnimation = FALSE;
+									SOLDIERTYPE* previousEnemy =
+										GetJa2SoldierRepository().resolve(
+											gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID );
+									if ( previousEnemy != nullptr )
+									{
+										previousEnemy->flags.fPauseAllAnimation = FALSE;
+									}
 								}
 								else
 								{
@@ -4614,19 +4748,23 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
 		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fRTInNonintAnim );
 		ubLine++;
-		
-		// OPIONION OF SELECTED MERC
-		if ( gusSelectedSoldier != NOBODY && pSoldier->ubProfile != NO_PROFILE && (
-			gMercProfiles[gusSelectedSoldier->ubProfile].Type == PROFILETYPE_AIM ||
-			gMercProfiles[gusSelectedSoldier->ubProfile].Type == PROFILETYPE_MERC ||
-			gMercProfiles[gusSelectedSoldier->ubProfile].Type == PROFILETYPE_RPC ||
-			gMercProfiles[gusSelectedSoldier->ubProfile].Type == PROFILETYPE_IMP ) )
+
+		// OPINION OF SELECTED MERC
+		const SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve( gusSelectedSoldier );
+		if ( selectedSoldier != nullptr &&
+			selectedSoldier->ubProfile != NO_PROFILE &&
+			pSoldier->ubProfile != NO_PROFILE && (
+			gMercProfiles[selectedSoldier->ubProfile].Type == PROFILETYPE_AIM ||
+			gMercProfiles[selectedSoldier->ubProfile].Type == PROFILETYPE_MERC ||
+			gMercProfiles[selectedSoldier->ubProfile].Type == PROFILETYPE_RPC ||
+			gMercProfiles[selectedSoldier->ubProfile].Type == PROFILETYPE_IMP ) )
 		{
 			SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 			gprintf( 0, LINE_HEIGHT * ubLine, L"NPC Opinion:");
 			SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-			if (OKToCheckOpinion(gusSelectedSoldier->ubProfile))
-				gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gMercProfiles[ pSoldier->ubProfile ].bMercOpinion[ gusSelectedSoldier->ubProfile ] );
+			if (OKToCheckOpinion(selectedSoldier->ubProfile))
+				gprintf( 150, LINE_HEIGHT * ubLine, L"%d", gMercProfiles[ pSoldier->ubProfile ].bMercOpinion[ selectedSoldier->ubProfile ] );
 			ubLine++;
 		}
 	}
@@ -5673,8 +5811,12 @@ void OurNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubTerrT
 	{
 		// interrupts are possible, resolve them now (we're in control here)
 		// (you can't interrupt NOBODY, even if you hear the noise)
-
-		ResolveInterruptsVs(ubNoiseMaker, NOISEINTERRUPT);
+		SOLDIERTYPE* noiseMaker =
+			GetJa2SoldierRepository().resolve( ubNoiseMaker );
+		if ( noiseMaker != nullptr )
+		{
+			ResolveInterruptsVs(noiseMaker, NOISEINTERRUPT);
+		}
 	}
 }
 
@@ -5752,6 +5894,8 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 	INT8 bTellPlayer = FALSE, bHeard, bSeen;
 	SoldierID ubHeardLoudestBy = NOBODY;
 	UINT8 ubNoiseDir = 0xff, ubLoudestNoiseDir = 0xff;
+	SOLDIERTYPE* noiseMaker =
+		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 
 #ifdef RECORDOPPLIST
@@ -5770,11 +5914,11 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 	// dead noiseMaker is only used here to decide WHICH soldiers HearNoise().
 
 	// if noise is made by a person, AND it's not noise from an explosion
-	if ((ubNoiseMaker < TOTAL_SOLDIERS) && (ubNoiseType != NOISE_EXPLOSION))
+	if (noiseMaker != nullptr && (ubNoiseType != NOISE_EXPLOSION))
 	{
 		// inactive/not in sector/dead soldiers, shouldn't be making noise!
-		if (!ubNoiseMaker->bActive || !ubNoiseMaker->bInSector ||
-		ubNoiseMaker->flags.uiStatusFlags & SOLDIER_DEAD)
+		if (!noiseMaker->bActive || !noiseMaker->bInSector ||
+			noiseMaker->flags.uiStatusFlags & SOLDIER_DEAD)
 		{
 #ifdef BETAVERSION
 			NumMessage("ProcessNoise: ERROR - Noisemaker is inactive/not in sector/dead, Guy #",ubNoiseMaker);
@@ -5783,7 +5927,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		}
 
 		// if he's out of life, and this isn't just his "dying scream" which is OK
-		if (!ubNoiseMaker->vitals().health() && (ubNoiseType != NOISE_SCREAM))
+		if (!noiseMaker->vitals().health() && (ubNoiseType != NOISE_SCREAM))
 		{
 #ifdef BETAVERSION
 			NumMessage("ProcessNoise: ERROR - Noisemaker is lifeless, Guy #",ubNoiseMaker);
@@ -5825,7 +5969,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 
 		default:
 			// normal situation: the noiseMaker is obviously the source of the noise
-			ubSource = ubNoiseMaker;
+			ubSource = noiseMaker != nullptr ? ubNoiseMaker : NOBODY;
 			break;
 	}
 
@@ -5839,7 +5983,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		}
 
 		// if a the noise maker is a person, not just NOBODY
-		if (ubNoiseMaker < TOTAL_SOLDIERS)
+		if (noiseMaker != nullptr)
 		{
 			// if this team is the same TEAM as the noise maker's
 			// (for now, assume we will report noises by unknown source on same SIDE)
@@ -5848,7 +5992,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			// CJC: changed to if the side is the same side as the noise maker's!
 			// CJC: changed back!
 
-			if (bTeam == ubNoiseMaker->bTeam)
+			if (bTeam == noiseMaker->bTeam)
 			{
 				continue;
 			}
@@ -5907,7 +6051,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			}
 
 			// if noise was made by a person
-			if (ubNoiseMaker < TOTAL_SOLDIERS)
+			if (noiseMaker != nullptr)
 			{
 				// if noisemaker has been *PUBLICLY* SEEN OR HEARD during THIS TURN
 				if ((gbPublicOpplist[bTeam][ubNoiseMaker] == SEEN_CURRENTLY) || // seen now
@@ -5930,7 +6074,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					bTellPlayer = TRUE;
 				}
 
-				if ( ubNoiseMaker->vitals().health() == 0 )
+				if ( noiseMaker->vitals().health() == 0 )
 				{
 					// this guy is dead (just dying) so don't report to player
 					bTellPlayer = FALSE;
@@ -5949,7 +6093,12 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		// All mercs on this team check if they are eligible to hear this noise
 		for ( SoldierID bLoop = gTacticalStatus.Team[bTeam].bFirstID; bLoop <= gTacticalStatus.Team[bTeam].bLastID; ++bLoop )
 		{
-			pSoldier = bLoop;
+			pSoldier = GetJa2SoldierRepository().resolve( bLoop );
+			if ( pSoldier == nullptr )
+			{
+				continue;
+			}
+
 			// if this "listener" is inactive, or in no condition to care
 			if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->flags.uiStatusFlags & SOLDIER_DEAD || (pSoldier->vitals().health() < OKLIFE) || pSoldier->ubBodyType == LARVAE_MONSTER)
 			{
@@ -5971,7 +6120,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			ubEffVolume = CalcEffVolume(pSoldier, sGridNo, bLevel, ubNoiseType, ubBaseVolume, pSoldier->bOverTerrainType, ubSourceTerrType);
 
 			// if a the noise maker is a person, not just NOBODY
-			if (ubNoiseMaker < TOTAL_SOLDIERS)
+			if (noiseMaker != nullptr)
 			{
 				// if this listener can see this noise maker
 				if (pSoldier->aiData.bOppList[ubNoiseMaker] == SEEN_CURRENTLY)
@@ -5989,7 +6138,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				}
 
 				// screen out allied militia from hearing us
-				switch( ubNoiseMaker->bTeam )
+				switch( noiseMaker->bTeam )
 				{
 					case OUR_TEAM:
 						// if the listener is militia and still on our side, ignore noise from us
@@ -6023,7 +6172,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					case MILITIA_TEAM:
 						// if the noisemaker is militia and still on our side, ignore noise if we're listening
 						// sevenfm: allow taunts from militia
-						if (pSoldier->bTeam == OUR_TEAM && ubNoiseMaker->bSide == 0 && (ubNoiseType != NOISE_VOICE || !gTauntsSettings.fTauntVoice))
+						if (pSoldier->bTeam == OUR_TEAM && noiseMaker->bSide == 0 && (ubNoiseType != NOISE_VOICE || !gTauntsSettings.fTauntVoice))
 						//if ( pSoldier->bTeam == OUR_TEAM && ubNoiseMaker->bSide == 0 )
 						{
 							continue;
@@ -6054,11 +6203,11 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					//if (gBloodcatPlacements[ ubSectorID ][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == QUEENS_CIV_GROUP)				
 					{
 						// skip noises between army & bloodcats
-						if ( pSoldier->bTeam == ENEMY_TEAM && ubNoiseMaker->ubBodyType == BLOODCAT && ubNoiseMaker->bTeam == CREATURE_TEAM )
+						if ( pSoldier->bTeam == ENEMY_TEAM && noiseMaker->ubBodyType == BLOODCAT && noiseMaker->bTeam == CREATURE_TEAM )
 						{
 							continue;
 						}
-						if ( pSoldier->bTeam == CREATURE_TEAM && pSoldier->ubBodyType == BLOODCAT && ubNoiseMaker->bTeam == ENEMY_TEAM )
+						if ( pSoldier->bTeam == CREATURE_TEAM && pSoldier->ubBodyType == BLOODCAT && noiseMaker->bTeam == ENEMY_TEAM )
 						{
 							continue;
 						}
@@ -6066,7 +6215,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					else if (gBloodcatPlacements[ ubSectorID ][ DiffLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP)
 					//else if (gBloodcatPlacements[ ubSectorID ][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP)
 					{
-						if ( ubNoiseMaker->ubBodyType == BLOODCAT && ubNoiseMaker->bTeam == CREATURE_TEAM && pSoldier->bSide != gbPlayerNum)
+						if ( noiseMaker->ubBodyType == BLOODCAT && noiseMaker->bTeam == CREATURE_TEAM && pSoldier->bSide != gbPlayerNum)
 						{
 							// Target is a bloodcat. He can't be heard by civilians no matter what.
 							{
@@ -6076,7 +6225,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 						else if ( pSoldier->bTeam == CREATURE_TEAM && pSoldier->ubBodyType == BLOODCAT )
 						{
 							// Source is a bloodcat. He can only hear player-side soldiers, and only if hostile.
-							if ( ubNoiseMaker->bSide != gbPlayerNum || pSoldier->aiData.bNeutral )
+							if ( noiseMaker->bSide != gbPlayerNum || pSoldier->aiData.bNeutral )
 							{
 								continue;
 							}
@@ -6144,11 +6293,15 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				{
 					// the merc that heard it the LOUDEST is the one to comment
 					// should add level to this function call
-					TellPlayerAboutNoise(MercPtrs[ubHeardLoudestBy],ubNoiseMaker,sGridNo,bLevel,ubLoudestEffVolume,ubNoiseType, ubLoudestNoiseDir, zNoiseMessage);
+					SOLDIERTYPE* listener =
+						GetJa2SoldierRepository().resolve(
+							ubHeardLoudestBy );
+					if ( listener )
+						TellPlayerAboutNoise(listener,ubNoiseMaker,sGridNo,bLevel,ubLoudestEffVolume,ubNoiseType, ubLoudestNoiseDir, zNoiseMessage);
 
-					if ( ubNoiseType == NOISE_MOVEMENT)
+					if ( listener && ubNoiseType == NOISE_MOVEMENT)
 					{
-						MercPtrs[ ubHeardLoudestBy ]->ubMovementNoiseHeard |= (1 << ubNoiseDir);
+						listener->ubMovementNoiseHeard |= (1 << ubNoiseDir);
 					}
 
 				}
@@ -6166,7 +6319,11 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			{
 				if (bTellPlayer)
 				{
-					TellPlayerAboutNoise(MercPtrs[ubHeardLoudestBy],ubNoiseMaker,sGridNo,bLevel,ubLoudestEffVolume,ubNoiseType, ubLoudestNoiseDir);
+					SOLDIERTYPE* listener =
+						GetJa2SoldierRepository().resolve(
+							ubHeardLoudestBy );
+					if ( listener )
+						TellPlayerAboutNoise(listener,ubNoiseMaker,sGridNo,bLevel,ubLoudestEffVolume,ubNoiseType, ubLoudestNoiseDir);
 				}
 			}
 #endif
@@ -6174,7 +6331,10 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 		else if(bTeam == OUR_TEAM && ubNoiseType == NOISE_CREAKING)
 		{
 			//shadooow: this will indicate doors not to make animation/sound of doors opening or closing
-			ubNoiseMaker->ubDoorOpeningNoise = 0;
+			if ( noiseMaker != nullptr )
+			{
+				noiseMaker->ubDoorOpeningNoise = 0;
+			}
 		}
 		// if the listening team is human-controlled AND
 		// the noise's source is another soldier
@@ -6187,13 +6347,18 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 // Temporary for opplist synching - disable random order radioing
 #ifdef RECORDOPPLIST
 				// insure all machines radio in synch to keep logs the same
-				for (bLoop = Status.team[team].guystart,pSoldier = Menptr + bLoop; bLoop < Status.team[team].guyend; bLoop++,pSoldier++)
+				for (bLoop = Status.team[team].guystart;
+					 bLoop < Status.team[team].guyend; ++bLoop)
 				{
+					pSoldier =
+						GetJa2SoldierRepository().resolve( bLoop );
 					// if this merc is active, in this sector, and well enough to look
-					if (pSoldier->active && pSoldier->in_sector && (pSoldier->life >= OKLIFE))
+					if (pSoldier && pSoldier->bActive &&
+						pSoldier->bInSector &&
+						(pSoldier->vitals().health() >= OKLIFE))
 					{
-						RadioSightings(pSoldier,ubSource);
-						pSoldier->newOppCnt = 0;
+						RadioSightings(pSoldier,ubSource,pSoldier->bTeam);
+						pSoldier->bNewOppCnt = 0;
 					}
 				}
 #else
@@ -6391,6 +6556,8 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	INT8		bOldOpplist;
 	INT8		bDirection;
 	BOOLEAN fMuzzleFlash = FALSE;
+	SOLDIERTYPE* noiseMaker =
+		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 	if ( pSoldier->ubBodyType == CROW )
 	{
@@ -6414,14 +6581,15 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	// is he close enough to see that gridno if he turns his head?
 
 	// ignore muzzle flashes when turning head to see noise
-	if ( ubNoiseType == NOISE_GUNFIRE && ubNoiseMaker != NOBODY && ubNoiseMaker->flags.fMuzzleFlash )
+	if ( ubNoiseType == NOISE_GUNFIRE && noiseMaker != nullptr &&
+		noiseMaker->flags.fMuzzleFlash )
 	{
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
 		bDirection = atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY);
 		if ( pSoldier->position().direction() != bDirection && pSoldier->position().direction() != gOneCDirection[ bDirection ] && pSoldier->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
-			ubNoiseMaker->flags.fMuzzleFlash = FALSE;
+			noiseMaker->flags.fMuzzleFlash = FALSE;
 			fMuzzleFlash = TRUE;
 		}
 	}
@@ -6431,7 +6599,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	if ( fMuzzleFlash )
 	{
 		// turn flash on again
-		ubNoiseMaker->flags.fMuzzleFlash = TRUE;
+		noiseMaker->flags.fMuzzleFlash = TRUE;
 	}
 
 	if (PythSpacesAway(pSoldier->position().gridNo(),sGridNo) <= sDistVisible )
@@ -6479,7 +6647,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	}
 
 	// if noise is made by a person
-	if (ubNoiseMaker < TOTAL_SOLDIERS)
+	if (noiseMaker != nullptr)
 	{
 		bOldOpplist = pSoldier->aiData.bOppList[ubNoiseMaker];
 
@@ -6488,7 +6656,9 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 
 		if (bSourceSeen)
 		{
-			ManSeesMan( pSoldier, ubNoiseMaker, ubNoiseMaker->position().gridNo(), ubNoiseMaker->position().level(), HEARNOISE, CALLER_UNKNOWN );
+			ManSeesMan( pSoldier, noiseMaker,
+				noiseMaker->position().gridNo(),
+				noiseMaker->position().level(), HEARNOISE, CALLER_UNKNOWN );
 
 			// if it's an AI soldier, he is not allowed to automatically radio any
 			// noise heard, but manSeesMan has set his newOppCnt, so clear it here
@@ -6551,7 +6721,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 				!TileIsOutOfBounds(sGridNo) &&
 				!(pSoldier->flags.uiStatusFlags & SOLDIER_PC) &&
 				!pSoldier->aiData.bNeutral &&
-				!ubNoiseMaker->aiData.bNeutral &&
+				!noiseMaker->aiData.bNeutral &&
 				!pSoldier->IsFlanking())
 			{
 				// check that we can see enemy if we raise weapon
@@ -6598,7 +6768,9 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		}
 
 		// FIRST REQUIRE MUTUAL HOSTILES!
-		if (!CONSIDERED_NEUTRAL( ubNoiseMaker, pSoldier ) && !CONSIDERED_NEUTRAL( pSoldier, ubNoiseMaker ) && (pSoldier->bSide != ubNoiseMaker->bSide))
+		if (!CONSIDERED_NEUTRAL( noiseMaker, pSoldier ) &&
+			!CONSIDERED_NEUTRAL( pSoldier, noiseMaker ) &&
+			(pSoldier->bSide != noiseMaker->bSide))
 		{
 			// regardless of whether the noisemaker (who's not NOBODY) was seen or not,
 			// as long as listener meets minimum interrupt conditions
@@ -6615,7 +6787,8 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 					{
 						// require the enemy not to be dying if we are the sighter; in other words,
 						// always add for AI guys, and always add for people with life >= OKLIFE
-						if ( pSoldier->bTeam != gbPlayerNum || ubNoiseMaker->vitals().health() >= OKLIFE )
+						if ( pSoldier->bTeam != gbPlayerNum ||
+							noiseMaker->vitals().health() >= OKLIFE )
 						{
 							ReevaluateBestSightingPosition( pSoldier, (UINT8) (ubPoints + (ubVolume / 2)) );
 						}
@@ -6739,6 +6912,8 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir, STR16 zNoiseMessage )
 {
 	UINT8 ubVolumeIndex;
+	SOLDIERTYPE* noiseMaker =
+		GetJa2SoldierRepository().resolve( ubNoiseMaker );
 
 	// CJC: tweaked the noise categories upwards a bit because our movement noises can be louder now.
 	if (ubVolume < 4)
@@ -6761,21 +6936,22 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 	// display a message about a noise...
 	// e.g. Sidney hears a loud splash from/to? the north.
 
-	if ( ubNoiseMaker != NOBODY && pSoldier->bTeam == gbPlayerNum && pSoldier->bTeam == ubNoiseMaker->bTeam )
+	if ( noiseMaker != nullptr && pSoldier->bTeam == gbPlayerNum &&
+		pSoldier->bTeam == noiseMaker->bTeam )
 	{
 		#ifdef JA2BETAVERSION
 			ScreenMsg( MSG_FONT_RED, MSG_ERROR, L"ERROR! TAKE SCREEN CAPTURE AND TELL CAMFIELD NOW!" );
-			ScreenMsg( MSG_FONT_RED, MSG_ERROR, L"%s (%d) heard noise from %s (%d), noise at %dL%d, type %d", pSoldier->name, pSoldier->ubID, ubNoiseMaker->name, ubNoiseMaker, sGridNo, bLevel, ubNoiseType );
+			ScreenMsg( MSG_FONT_RED, MSG_ERROR, L"%s (%d) heard noise from %s (%d), noise at %dL%d, type %d", pSoldier->name, pSoldier->ubID, noiseMaker->name, ubNoiseMaker, sGridNo, bLevel, ubNoiseType );
 		#endif
 	}
 
 	// anv: special treatment of NOISE_VOICE - also display taunt message
-	if (ubNoiseType == NOISE_VOICE && ubNoiseMaker != NOBODY)
+	if (ubNoiseType == NOISE_VOICE && noiseMaker != nullptr)
 	{
 		// information about direction etc. only displayed if we don't see noise maker
 		// sevenfm: don't show noise messages from militia (if on our side)
 		if (gbPublicOpplist[gbPlayerNum][ubNoiseMaker] != SEEN_CURRENTLY &&	pSoldier->aiData.bOppList[ubNoiseMaker] != SEEN_CURRENTLY &&
-			!(ubNoiseMaker->bTeam == MILITIA_TEAM && ubNoiseMaker->bSide == 0))
+			!(noiseMaker->bTeam == MILITIA_TEAM && noiseMaker->bSide == 0))
 		//if( gbPublicOpplist[gbPlayerNum][ubNoiseMaker] != SEEN_CURRENTLY && pSoldier->aiData.bOppList[ubNoiseMaker] != SEEN_CURRENTLY )
 		{
 			if (bLevel == pSoldier->position().level())
@@ -6818,14 +6994,14 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 				if (gbPublicOpplist[gbPlayerNum][ubNoiseMaker] == SEEN_CURRENTLY || pSoldier->aiData.bOppList[ubNoiseMaker] == SEEN_CURRENTLY)
 				{
 					if (gTauntsSettings.fTauntShowPopupBox == TRUE)
-						ShowTauntPopupBox(ubNoiseMaker, zNoiseMessage);
+						ShowTauntPopupBox(noiseMaker, zNoiseMessage);
 					if (gTauntsSettings.fTauntShowInLog == TRUE)
-						ScreenMsg(FONT_GRAY2, MSG_INTERFACE, L"%s: %s", ubNoiseMaker->GetName(), zNoiseMessage);
+						ScreenMsg(FONT_GRAY2, MSG_INTERFACE, L"%s: %s", noiseMaker->GetName(), zNoiseMessage);
 				}
 				else
 				{
 					if (gTauntsSettings.fTauntShowPopupBox == TRUE && gTauntsSettings.fTauntShowPopupBoxIfHeard == TRUE)
-						ShowTauntPopupBox(ubNoiseMaker, zNoiseMessage);
+						ShowTauntPopupBox(noiseMaker, zNoiseMessage);
 					if (gTauntsSettings.fTauntShowInLog == TRUE && gTauntsSettings.fTauntShowInLogIfHeard == TRUE)
 						ScreenMsg(FONT_GRAY2, MSG_INTERFACE, L"%s: %s", pTauntUnknownVoice[0], zNoiseMessage);
 				}
@@ -7013,7 +7189,10 @@ void DecayIndividualOpplist(SOLDIERTYPE *pSoldier)
 		{
 			if ( pSoldier->aiData.bOppList[ uiLoop ] == SEEN_CURRENTLY )
 			{
-				HandleManNoLongerSeen( pSoldier, MercPtrs[ uiLoop ], &(pSoldier->aiData.bOppList[ uiLoop ]), &(gbPublicOpplist[ pSoldier->bTeam ][ uiLoop ]) );
+				SOLDIERTYPE* opponent =
+					GetJa2SoldierRepository().resolve( uiLoop );
+				if ( opponent )
+					HandleManNoLongerSeen( pSoldier, opponent, &(pSoldier->aiData.bOppList[ uiLoop ]), &(gbPublicOpplist[ pSoldier->bTeam ][ uiLoop ]) );
 			}
 		}
 	//void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT8 * pPersOL, INT8 * pbPublOL )
@@ -7471,7 +7650,11 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 	for ( ubID = gTacticalStatus.Team[ pDyingSoldier->bTeam ].bFirstID; ubID <= gTacticalStatus.Team[ pDyingSoldier->bTeam ].bLastID; ++ubID )
 	{
 
-		pSoldier = ubID;
+		pSoldier = GetJa2SoldierRepository().resolve( ubID );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
 
 		if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier != pDyingSoldier) && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiData.bAlertStatus < STATUS_RED ) )
 		{
@@ -7507,7 +7690,11 @@ BOOLEAN ArmyKnowsOfPlayersPresence( void )
 	{
 		for ( ubID = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubID <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++ubID )
 		{
-			pSoldier = ubID;
+			pSoldier = GetJa2SoldierRepository().resolve( ubID );
+			if ( pSoldier == nullptr )
+			{
+				continue;
+			}
 
 			if ( pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiData.bAlertStatus >= STATUS_RED ) )
 			{
@@ -7526,7 +7713,11 @@ BOOLEAN MercSeesCreature( SOLDIERTYPE * pSoldier )
 	{
 		for ( ubID = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; ubID <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++ubID )
 		{
-			if ( (pSoldier->aiData.bOppList[ubID] == SEEN_CURRENTLY) && (ubID->flags.uiStatusFlags & SOLDIER_MONSTER) )
+			const SOLDIERTYPE* creature =
+				GetJa2SoldierRepository().resolve( ubID );
+			if ( creature != nullptr &&
+				pSoldier->aiData.bOppList[ubID] == SEEN_CURRENTLY &&
+				(creature->flags.uiStatusFlags & SOLDIER_MONSTER) )
 			{
 				return(TRUE);
 			}
@@ -7614,13 +7805,17 @@ INT8 GetHighestVisibleWatchedLoc( UINT16 ubID )
 	INT8	bLoop;
 	INT8	bHighestLoc = -1;
 	INT8	bHighestPoints = 0;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve( ubID );
+	if ( soldier == nullptr )
+		return bHighestLoc;
 
 	for ( bLoop = 0; bLoop < NUM_WATCHED_LOCS; bLoop++ )
 	{		
 		if (!TileIsOutOfBounds(gsWatchedLoc[ ubID ][ bLoop ]) && gubWatchedLocPoints[ ubID ][ bLoop ] > bHighestPoints )
 		{
 			// look at standing height
-			if ( SoldierTo3DLocationLineOfSightTest( MercPtrs[ ubID ], gsWatchedLoc[ ubID ][ bLoop ], gbWatchedLocLevel[ ubID ][ bLoop ], 3, TRUE, CALC_FROM_WANTED_DIR ) )
+			if ( SoldierTo3DLocationLineOfSightTest( soldier, gsWatchedLoc[ ubID ][ bLoop ], gbWatchedLocLevel[ ubID ][ bLoop ], 3, TRUE, CALC_FROM_WANTED_DIR ) )
 			{
 				bHighestLoc = bLoop;
 				bHighestPoints = gubWatchedLocPoints[ ubID ][ bLoop ];
@@ -7651,11 +7846,23 @@ void CommunicateWatchedLoc( SoldierID ubID, INT32 sGridNo, INT8 bLevel, UINT8 ub
 	SoldierID ubLoop;
 	INT8 bTeam, bLoopPoint, bPoint;
 
-	bTeam = ubID->bTeam;
+	const SOLDIERTYPE* source =
+		GetJa2SoldierRepository().resolve( ubID );
+	if ( source == nullptr )
+	{
+		return;
+	}
+	bTeam = source->bTeam;
 
 	for ( ubLoop = gTacticalStatus.Team[ bTeam ].bFirstID; ubLoop <= gTacticalStatus.Team[ bTeam ].bLastID; ++ubLoop )
 	{
-		SOLDIERTYPE *pSoldier = ubLoop;
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve( ubLoop );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
+
 		if ( ubLoop == ubID || pSoldier->bActive == FALSE || pSoldier->bInSector == FALSE || pSoldier->vitals().health() < OKLIFE )
 		{
 			continue;
@@ -7759,7 +7966,9 @@ BOOLEAN WatchedLocLocationIsEmpty( INT32 sGridNo, INT8 bLevel, INT8 bTeam )
 				continue;
 			}
 			ubID = WhoIsThere2( sTempGridNo, bLevel );
-			if ( ubID != NOBODY && ubID->bTeam != bTeam )
+			const SOLDIERTYPE* occupant =
+				GetJa2SoldierRepository().resolve( ubID );
+			if ( occupant != nullptr && occupant->bTeam != bTeam )
 			{
 				return( FALSE );
 			}
@@ -7811,7 +8020,11 @@ void MakeBloodcatsHostile( void )
 
 	for ( ; id <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++id )
 	{
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve( id );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
 
 		if ( pSoldier->ubBodyType == BLOODCAT && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 )
 		{

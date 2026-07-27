@@ -3,6 +3,7 @@
 	#include "Action Items.h"
 	#include "Weapons.h"
 	#include "Soldier Control.h"
+	#include "SoldierRepository.h"
 	#include "Overhead.h"
 	#include "Animation Control.h"
 	#include "Points.h"
@@ -3175,10 +3176,15 @@ UINT32 CalculateCarriedWeight( SOLDIERTYPE * pSoldier, BOOLEAN fConsiderDragging
 	{
 		if (pSoldier->usDragPersonID != NOBODY)
 		{
-			SOLDIERTYPE* pOtherSoldier = pSoldier->usDragPersonID;
+			SOLDIERTYPE* pOtherSoldier =
+				GetJa2SoldierRepository().resolve(
+					pSoldier->usDragPersonID );
 
-			uiTotalWeight += GetTotalWeight( pOtherSoldier );
-			uiTotalWeight += pOtherSoldier->GetBodyWeight();
+			if ( pOtherSoldier != nullptr )
+			{
+				uiTotalWeight += GetTotalWeight( pOtherSoldier );
+				uiTotalWeight += pOtherSoldier->GetBodyWeight();
+			}
 		}
 		else if (pSoldier->sDragCorpseID >= 0)
 		{
@@ -9375,8 +9381,11 @@ BOOLEAN DamageItemOnGround( OBJECTTYPE * pObject, INT32 sGridNo, INT8 bLevel, IN
 		// SANDRO - merc records
 		if ( (pObject->fFlags & OBJECT_ARMED_BOMB) && ((*pObject)[0]->data.misc.ubBombOwner > 1) )
 		{
-			if ( MercPtrs[ ((*pObject)[0]->data.misc.ubBombOwner - 2) ]->ubProfile != NO_PROFILE && MercPtrs[ ((*pObject)[0]->data.misc.ubBombOwner - 2) ]->bTeam == gbPlayerNum ) 
-				gMercProfiles[ MercPtrs[ ((*pObject)[0]->data.misc.ubBombOwner - 2) ]->ubProfile ].records.usExpDetonated++;
+			SOLDIERTYPE* bombOwner = GetJa2SoldierRepository().resolve(
+				(*pObject)[0]->data.misc.ubBombOwner - 2 );
+			if ( bombOwner && bombOwner->ubProfile != NO_PROFILE &&
+				 bombOwner->bTeam == gbPlayerNum )
+				gMercProfiles[ bombOwner->ubProfile ].records.usExpDetonated++;
 		}
 
 		// Remove item!
@@ -15353,12 +15362,14 @@ BOOLEAN ObjectIsExternalFeeder(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject)
 	UINT16 usAmmoSlot2 = 0;
 	if ( pSoldier->IsFeedingExternal(&usSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2) )
 	{
-		SOLDIERTYPE* pTargetSoldier = MercPtrs[usSoldierFeedingTarget1];
+		SOLDIERTYPE* pTargetSoldier =
+			GetJa2SoldierRepository().resolve( usSoldierFeedingTarget1 );
 
 		if ( pTargetSoldier && &(pSoldier->inv[usAmmoSlot1]) == pObject )
 			return( TRUE );
 
-		pTargetSoldier = MercPtrs[usSoldierFeedingTarget2];
+		pTargetSoldier =
+			GetJa2SoldierRepository().resolve( usSoldierFeedingTarget2 );
 
 		if ( pTargetSoldier && &(pSoldier->inv[usAmmoSlot2]) == pObject )
 			return( TRUE );
@@ -15394,7 +15405,9 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 		SoldierID lastid = gTacticalStatus.Team[ pSoldier->bTeam ].bLastID;
 		for ( ; cnt < lastid; ++cnt )
 		{
-			pTeamSoldier = cnt;
+			pTeamSoldier =
+				GetJa2SoldierRepository().resolve(
+					cnt );
 			// check if teamsoldier exists in this sector
 			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ )
 				continue;

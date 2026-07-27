@@ -2286,17 +2286,28 @@ if(NOT explicit_soldier_resolution_source_property)
 endif()
 
 set(tactical_explicit_soldier_resolution_sources
+  "Tactical/Boxing.cpp"
   "Tactical/Dialogue Control.cpp"
+  "Tactical/DisplayCover.cpp"
   "Tactical/DynamicDialogue.cpp"
+  "Tactical/Handle Items.cpp"
   "Tactical/Handle UI Plan.cpp"
   "Tactical/Handle UI.cpp"
   "Tactical/Interface Control.cpp"
   "Tactical/Interface Dialogue.cpp"
   "Tactical/Interface Items.cpp"
   "Tactical/Interface Panels.cpp"
+  "Tactical/Items.cpp"
+  "Tactical/LOS.cpp"
+  "Tactical/Points.cpp"
+  "Tactical/Rotting Corpses.cpp"
+  "Tactical/Soldier Ani.cpp"
+  "Tactical/Soldier Control.cpp"
+  "Tactical/Structure Wrap.cpp"
   "Tactical/Tactical Turns.cpp"
   "Tactical/TeamTurns.cpp"
-  "Tactical/Turn Based Input.cpp")
+  "Tactical/Turn Based Input.cpp"
+  "Tactical/opplist.cpp")
 foreach(relative_source IN LISTS
     tactical_explicit_soldier_resolution_sources)
   string(FIND "${explicit_soldier_resolution_source_definition}"
