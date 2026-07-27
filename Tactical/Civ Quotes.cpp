@@ -1143,7 +1143,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 		return;
 	}
 	// only enemies that are able to speak at the moment can taunt
-	if ( pCiv->vitals().health() < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed )
+	if ( pCiv->vitals().health() < OKLIFE || pCiv->collapseState().tactical() || pCiv->collapseState().breathTriggered() )
 	{
 		return;
 	}
@@ -2177,7 +2177,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier [%d] TauntType %d", pCiv->ubID, iTauntType);
 
 	// cannot taunt when dead or collapsed
-	if (pCiv->vitals().health() < OKLIFE || pCiv->bCollapsed || pCiv->bBreathCollapsed)
+	if (pCiv->vitals().health() < OKLIFE || pCiv->collapseState().tactical() || pCiv->collapseState().breathTriggered())
 	{
 		if (gTauntsSettings.fTauntVoiceShowInfo)
 			ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Bad soldier state (dying or collapsed)");

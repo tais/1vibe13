@@ -7263,6 +7263,12 @@ int main( int, char** )
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
+		SoldierCollapseComponent& collapseState = soldier.collapseState();
+		collapseState.collapse();
+		collapseState.markBreathCollapse();
+		collapseState.turns() = 2;
+		collapseState.sleepDrugCounter() = 7;
+		collapseState.markFatigueCollapse();
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7382,6 +7388,12 @@ int main( int, char** )
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
 		       "soldier action-point component owns current and turn-start budgets" );
+		CHECK( constSoldier.collapseState().collapsed() &&
+		       constSoldier.collapseState().breathCollapsed() &&
+		       constSoldier.collapseState().turns() == 2 &&
+		       constSoldier.collapseState().sleepDrugCounter() == 7 &&
+		       constSoldier.collapseState().fatigueCollapsed(),
+		       "soldier collapse component owns tactical and strategic incapacitation state" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7543,6 +7555,12 @@ int main( int, char** )
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
+		CHECK( copiedSoldier.collapseState().collapsed() &&
+		       copiedSoldier.collapseState().breathCollapsed() &&
+		       copiedSoldier.collapseState().turns() == 2 &&
+		       copiedSoldier.collapseState().sleepDrugCounter() == 7 &&
+		       copiedSoldier.collapseState().fatigueCollapsed(),
+		       "soldier copies retain their owned persistent collapse state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -7784,6 +7802,35 @@ int main( int, char** )
 		       actionPointLifecycle.initial() == 0 &&
 		       !actionPointLifecycle.hasAny(),
 		       "action-point clear transition removes both current and turn-start budgets" );
+
+		SoldierCollapseComponent collapseLifecycle;
+		collapseLifecycle.collapse();
+		collapseLifecycle.markBreathCollapse();
+		collapseLifecycle.turns() = 3;
+		collapseLifecycle.sleepDrugCounter() = 4;
+		collapseLifecycle.markFatigueCollapse();
+		CHECK( collapseLifecycle.collapsed() &&
+		       collapseLifecycle.breathCollapsed() &&
+		       collapseLifecycle.turns() == 3 &&
+		       collapseLifecycle.sleepDrugCounter() == 4 &&
+		       collapseLifecycle.fatigueCollapsed(),
+		       "collapse lifecycle distinguishes tactical, breath, drug, and strategic fatigue state" );
+		collapseLifecycle.clearBreathCollapse();
+		collapseLifecycle.clearFatigueCollapse();
+		collapseLifecycle.recover();
+		CHECK( !collapseLifecycle.collapsed() &&
+		       !collapseLifecycle.breathCollapsed() &&
+		       collapseLifecycle.turns() == 0 &&
+		       collapseLifecycle.sleepDrugCounter() == 4 &&
+		       !collapseLifecycle.fatigueCollapsed(),
+		       "collapse recovery clears tactical duration without discarding the independent sleep-drug timer" );
+		collapseLifecycle.reset();
+		CHECK( !collapseLifecycle.collapsed() &&
+		       !collapseLifecycle.breathCollapsed() &&
+		       collapseLifecycle.turns() == 0 &&
+		       collapseLifecycle.sleepDrugCounter() == 0 &&
+		       !collapseLifecycle.fatigueCollapsed(),
+		       "collapse reset clears the complete incapacitation domain" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7795,6 +7842,12 @@ int main( int, char** )
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
 		       "soldier initialization resets the complete action-point domain" );
+		CHECK( !copiedSoldier.collapseState().collapsed() &&
+		       !copiedSoldier.collapseState().breathCollapsed() &&
+		       copiedSoldier.collapseState().turns() == 0 &&
+		       copiedSoldier.collapseState().sleepDrugCounter() == 0 &&
+		       !copiedSoldier.collapseState().fatigueCollapsed(),
+		       "soldier initialization resets the complete collapse domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -7923,6 +7976,11 @@ int main( int, char** )
 		legacySoldier->bDoAutofire = 8;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
+		legacySoldier->bCollapsed = TRUE;
+		legacySoldier->bBreathCollapsed = TRUE;
+		legacySoldier->bTurnsCollapsed = 3;
+		legacySoldier->bSleepDrugCounter = 6;
+		legacySoldier->fMercCollapsedFlag = TRUE;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -7950,6 +8008,12 @@ int main( int, char** )
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
+		CHECK( convertedSoldier.collapseState().collapsed() &&
+		       convertedSoldier.collapseState().breathCollapsed() &&
+		       convertedSoldier.collapseState().turns() == 3 &&
+		       convertedSoldier.collapseState().sleepDrugCounter() == 6 &&
+		       convertedSoldier.collapseState().fatigueCollapsed(),
+		       "v101 soldier conversion retains tactical and strategic collapse state" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8096,6 +8160,11 @@ int main( int, char** )
 		savedSoldier.vitals().bleeding() = 11;
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
+		savedSoldier.collapseState().collapse();
+		savedSoldier.collapseState().markBreathCollapse();
+		savedSoldier.collapseState().turns() = 4;
+		savedSoldier.collapseState().sleepDrugCounter() = 8;
+		savedSoldier.collapseState().markFatigueCollapse();
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8222,6 +8291,13 @@ int main( int, char** )
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,
 		       "soldier save/load round-trips action-point state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.collapseState().collapsed() &&
+		       loadedSoldier.collapseState().breathCollapsed() &&
+		       loadedSoldier.collapseState().turns() == 4 &&
+		       loadedSoldier.collapseState().sleepDrugCounter() == 8 &&
+		       loadedSoldier.collapseState().fatigueCollapsed(),
+		       "soldier save/load round-trips collapse state at established flags and POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

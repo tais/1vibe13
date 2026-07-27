@@ -1341,7 +1341,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	}
 
 	// sevenfm: if soldier is unconscious, he can't see anything
-	if ( pSoldier->bCollapsed && pSoldier->vitals().breath() == 0 )
+	if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() == 0 )
 	{
 		return( 0 );
 	}
@@ -2333,7 +2333,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			pOpponent->usSoldierFlagMask |= SOLDIER_ENEMY_OBSERVEDTHISTURN;
 	}
 	// sevenfm: if soldier is unconscious, he can't see anybody
-	if ( pSoldier->bCollapsed && pSoldier->vitals().breath() == 0 )
+	if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() == 0 )
 	{
 		return;
 	}

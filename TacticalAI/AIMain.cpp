@@ -598,7 +598,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		return;
 	}
 
-	if (pSoldier->bCollapsed)
+	if (pSoldier->collapseState().tactical())
 	{
 		// being handled so turn off muzzle flash
 		if ( pSoldier->flags.fMuzzleFlash )
@@ -2696,7 +2696,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 		case AI_ACTION_STOP_MEDIC:
 			if (pSoldier->vitals().health() >= OKLIFE &&
 				pSoldier->vitals().breath() > 0 &&
-				!pSoldier->bCollapsed &&
+				!pSoldier->collapseState().tactical() &&
 				pSoldier->IsGivingAid())
 			{
 				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)

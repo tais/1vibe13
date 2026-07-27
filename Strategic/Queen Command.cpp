@@ -3025,7 +3025,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		// make him quite exhausted when found
 		pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 50;
 		pSoldier->sBreathRed = 0;
-		pSoldier->flags.fMercCollapsedFlag = FALSE;
+		pSoldier->collapseState().clearFatigueCollapse();
 
 
 		RemoveSoldierFromTacticalSector(pSoldier, TRUE);

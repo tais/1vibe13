@@ -967,6 +967,12 @@ the engine must not contain SDL types in its public domain model.
   forced zero-AP transitions update the pair through named operations, while
   authoritative multiplayer reconciliation can still update only the current
   budget without changing packet layout.
+  Tactical collapse, breath-triggered collapse, recovery duration, the
+  sleep-drug timer, and strategic fatigue collapse now have a separate private
+  `SoldierCollapseComponent` owner. Named collapse and recovery operations
+  preserve the intentionally independent breath, sleep-drug, and strategic
+  fatigue lifecycles while the serializer retains every established field
+  position and width.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

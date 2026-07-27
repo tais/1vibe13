@@ -288,6 +288,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   values immediately after body type, and v101 conversion maps the original
   pair into that owner. Multiplayer reconciliation keeps its existing packet
   member and width.
+- Tactical and breath-triggered collapse, recovery turns, the sleep-drug
+  counter, and strategic fatigue collapse are now stored by
+  `SoldierCollapseComponent`. The visitor still emits the fatigue flag and four
+  signed 8-bit values at their original positions, and v101 conversion maps
+  the original fields into that owner. No save or multiplayer packet bytes
+  change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

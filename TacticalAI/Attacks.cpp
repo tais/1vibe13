@@ -331,7 +331,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		// sevenfm: only try to suppress alive and conscious human targets
 		if (fSuppression &&
 			(pOpponent->vitals().health() < OKLIFE ||
-			pOpponent->bCollapsed && pOpponent->vitals().breath() == 0 ||
+			pOpponent->collapseState().tactical() && pOpponent->vitals().breath() == 0 ||
 			pOpponent->IsCowering() ||
 			pOpponent->IsCowering() ||
 			pOpponent->IsZombie() ||
@@ -694,7 +694,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// sevenfm: dying, cowering or unconscious soldiers have very low priority
-		if( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed || pOpponent->bBreathCollapsed )
+		if( pOpponent->vitals().health() < OKLIFE || pOpponent->collapseState().tactical() || pOpponent->collapseState().breathTriggered() )
 		{
 			iAttackValue /= 4;
 		}
@@ -718,7 +718,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				//dnl ch62 180813 ignore firing into breathless targets if there are targets in better condition
 				// sevenfm: check that best opponent exists
 				if (previousBestOpponent &&
-					(previousBestOpponent->bCollapsed || previousBestOpponent->bBreathCollapsed) &&
+					(previousBestOpponent->collapseState().tactical() || previousBestOpponent->collapseState().breathTriggered()) &&
 					previousBestOpponent->vitals().breath() < OKBREATH
 					&& previousBestOpponent->vitals().breath() < pOpponent->vitals().breath())
 				{
@@ -1163,7 +1163,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_CREATUREGAS &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_BURNABLEGAS &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_MUSTGAS &&
-			(pOpponent->bCollapsed || pOpponent->bBreathCollapsed))
+			(pOpponent->collapseState().tactical() || pOpponent->collapseState().breathTriggered()))
 		{
 			continue;
 		}
@@ -3299,7 +3299,7 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		return( FALSE );
 	}
 
-	if( pOpponent->bCollapsed || pOpponent->bBreathCollapsed )
+	if( pOpponent->collapseState().tactical() || pOpponent->collapseState().breathTriggered() )
 	{
 		return( FALSE );
 	}

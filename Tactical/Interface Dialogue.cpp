@@ -1560,7 +1560,7 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 		return( FALSE );
 	}
 	if ( source->vitals().health() < OKLIFE ||
-		( source->vitals().breath() < OKBREATH && source->bCollapsed ) )
+		( source->vitals().breath() < OKBREATH && source->collapseState().tactical() ) )
 	{
 		return( FALSE );
 	}

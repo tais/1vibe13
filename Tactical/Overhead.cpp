@@ -1627,8 +1627,8 @@ BOOLEAN ExecuteOverhead( )
                                                         IsJa2TacticalTurnBasedCombat() &&
                                                         ( pSoldier->flags.uiStatusFlags & SOLDIER_PC ) &&
                                                         gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
-                                                        !pSoldier->bCollapsed &&
-                                                        !pSoldier->bBreathCollapsed,
+                                                        !pSoldier->collapseState().tactical() &&
+                                                        !pSoldier->collapseState().breathTriggered(),
                                                         pSoldier->animationPlayback().state(),
                                                         gAnimControl[ pSoldier->animationPlayback().state() ] );
 
@@ -2051,7 +2051,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         if ( pSoldier->vitals().breath() == 0 )
         {
             // Collapse!
-            pSoldier->bBreathCollapsed = TRUE;
+            pSoldier->collapseState().markBreathCollapse();
             pSoldier->bEndDoorOpenCode = FALSE;
 
             if ( fInitialMove )
@@ -2064,11 +2064,11 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         }
 
         // OK, if we are collapsed now, check for OK breath instead...
-        if ( pSoldier->bCollapsed )
+        if ( pSoldier->collapseState().tactical() )
         {
             // Collapse!
             DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: Has Collapsed") );
-            pSoldier->bBreathCollapsed = TRUE;
+            pSoldier->collapseState().markBreathCollapse();
             pSoldier->bEndDoorOpenCode = FALSE;
             return( FALSE );
         }
@@ -2999,8 +2999,8 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				SpacesAway(pSoldier->position().gridNo(), pOpponent->position().gridNo()) > 1 ||
 				pOpponent->vitals().health() < OKLIFE ||
 				!ValidOpponent(pSoldier, pOpponent) ||
-				pOpponent->bCollapsed ||
-				pOpponent->bBreathCollapsed ||
+				pOpponent->collapseState().tactical() ||
+				pOpponent->collapseState().breathTriggered() ||
 				!IS_MERC_BODY_TYPE(pOpponent) ||
 				!(pOpponent->flags.uiStatusFlags & SOLDIER_BOXER) ||
 				gAnimControl[pOpponent->animationPlayback().state()].ubEndHeight < ANIM_STAND ||
@@ -3072,7 +3072,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     HandleSystemNewAISituation( pSoldier, FALSE );
 
 	// Flugente: tracker...
-	if ( pSoldier->bInSector && gusSelectedSoldier == pSoldier->ubID && !pSoldier->bCollapsed )
+	if ( pSoldier->bInSector && gusSelectedSoldier == pSoldier->ubID && !pSoldier->collapseState().tactical() )
 	{
 		DisplayCover( TRUE );
 	}
@@ -7723,7 +7723,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 								}
 
                                 // If this guy is OKLIFE & not standing, make stand....
-                                if ( pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->bCollapsed )
+                                if ( pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->collapseState().tactical() )
                                 {
                                     if ( pTeamSoldier->bAssignment < ON_DUTY )
                                     {
@@ -9541,7 +9541,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
 				
 			}
             // firing at one of our own guys who is not a rebel etc
-			else if (pTarget->vitals().health() >= OKLIFE && !(pTarget->bCollapsed) && !AM_A_ROBOT(pTarget) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && (bReason == REASON_NORMAL_ATTACK))
+			else if (pTarget->vitals().health() >= OKLIFE && !(pTarget->collapseState().tactical()) && !AM_A_ROBOT(pTarget) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && (bReason == REASON_NORMAL_ATTACK))
             {
                 // OK, sturn towards the prick
                 // Change to fire ready animation

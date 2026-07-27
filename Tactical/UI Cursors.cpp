@@ -3075,7 +3075,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 	}
 
 	// If we are out of breath, no cursor...
-	if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
+	if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->collapseState().tactical() )
 	{
 		ubCursor = INVALIDCURS;
 	}

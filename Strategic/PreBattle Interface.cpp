@@ -1961,7 +1961,7 @@ void GetSoldierConditionInfo( SOLDIERTYPE *pSoldier, CHAR16 *szCondition, UINT8 
 	{ //life less than OKLIFE and bleeding
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_DYING ] );
 	}
-	else if( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
+	else if( pSoldier->vitals().breath() < OKBREATH && pSoldier->collapseState().tactical() )
 	{ //breath less than OKBREATH
 		sgp_swprintf( szCondition, 64,pConditionStrings[ COND_UNCONCIOUS ] );
 	}

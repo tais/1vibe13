@@ -3836,7 +3836,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		pSoldier->ubOppNum = pTargetSoldier->ubID;
 
 		// CHECK IF BUDDY KNOWS ABOUT US
-		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
+		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 		{
 			iHitChance = 100;
 			fSurpriseAttack = TRUE;
@@ -4097,7 +4097,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				// give bonus for surprise, but not so much as struggle would still occur
 				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime ) + 20;
 			}
-			else if ( pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
+			else if ( pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 			{
 				iHitChance = 100;
 				fSoldierCollapsed = TRUE;
@@ -4110,8 +4110,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		else
 		{
 			// sevenfm: use sneak attack code
-			//if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed )
-			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->bCollapsed)
+			//if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
+			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical())
 			{
 				iHitChance = 100;
 			}
@@ -4587,7 +4587,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					}
 
 					// SANDRO - Enhanced Close Combat System
-					if ( gGameExternalOptions.fEnhancedCloseCombatSystem && pTargetSoldier->bCollapsed)
+					if ( gGameExternalOptions.fEnhancedCloseCombatSystem && pTargetSoldier->collapseState().tactical())
 					{
 						// beating unconscious enemy is a matter of brute strength, so give exp mostly to Stregnth 
 						StatChange( pSoldier, DEXTAMT, (ubExpGain+1)/3, FALSE );
@@ -8887,7 +8887,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		else if ( pTarget->aiData.bAlertStatus >= STATUS_RED )
 			resistchance += 50;
 
-		if ( pTarget->bCollapsed )
+		if ( pTarget->collapseState().tactical() )
 			resistchance = 0;
 
 		// killchance gets lowered if garotte is in bad shape
@@ -9236,7 +9236,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 				UINT8 skilllevel = NUM_SKILL_TRAITS( pAttacker, COVERT_NT );
 				garottemodifier += skilllevel * gSkillTraitValues.sCOMeleeCTHBonus;
 
-				if ( pDefender->bCollapsed )
+				if ( pDefender->collapseState().tactical() )
 					garottemodifier += 80;
 
 				// if this guy can see us, get a big malus!

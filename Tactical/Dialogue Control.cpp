@@ -1381,7 +1381,7 @@ void HandleDialogue( )
 						pSoldier->fIgnoreGetupFromCollapseCheck = FALSE;
 
 						//Get the soldier up
-						pSoldier->bCollapsed = FALSE;
+						pSoldier->collapseState().clearTactical();
 						(void)TryDispatchSystemChangeStanceCommand(
 							*pSoldier, ANIM_STAND,
 							TacticalEventPolicy::LocalOnly);

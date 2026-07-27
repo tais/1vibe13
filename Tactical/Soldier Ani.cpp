@@ -171,23 +171,23 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 		}
 
-		if ( pSoldier->bBreathCollapsed )
+		if ( pSoldier->collapseState().breathTriggered() )
 		{
 			// ATE: If we have fallen, and we can't get up... no
 			// really, if we were told to collapse but have been hit after, don't
 			// do anything...
 			if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_HITSTOP | ANIM_HITFINISH ) )
 			{
-				pSoldier->bBreathCollapsed = FALSE;
+				pSoldier->collapseState().clearBreathCollapse();
 			}
 			else if ( pSoldier->vitals().health() == 0 )
 			{
 				// Death takes precedence...
-				pSoldier->bBreathCollapsed = FALSE;
+				pSoldier->collapseState().clearBreathCollapse();
 			}
 			else if ( pSoldier->animationIntent().pendingAnimation() == FALLFORWARD_ROOF || pSoldier->animationIntent().pendingAnimation() == FALLOFF || pSoldier->animationPlayback().state() == FALLFORWARD_ROOF || pSoldier->animationPlayback().state() == FALLOFF )
 			{
-				pSoldier->bBreathCollapsed = FALSE;
+				pSoldier->collapseState().clearBreathCollapse();
 			}
 			else
 			{
@@ -199,7 +199,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					SoldierCollapse( pSoldier );
 
-					pSoldier->bBreathCollapsed = FALSE;
+					pSoldier->collapseState().clearBreathCollapse();
 
 					return( TRUE );
 				}
@@ -4753,7 +4753,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 		{
 			UnSetUIBusy( pSoldier->ubID );
 			SoldierCollapse( pSoldier );
-			pSoldier->bBreathCollapsed = FALSE;
+			pSoldier->collapseState().clearBreathCollapse();
 			return( TRUE );
 		}
 		// ok, if this gun is rather heavy, and cost us at least 3 energy points per turn, and we got very low on breath
@@ -4941,7 +4941,7 @@ BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT
 BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 {
 	//shadooow: fix for going back to cower animation after collapsing
-	if (pSoldier->CheckForBreathCollapse() || pSoldier->bCollapsed)
+	if (pSoldier->CheckForBreathCollapse() || pSoldier->collapseState().tactical())
 	{
 		pSoldier->animationIntent().clearPendingAnimations();
 	}
@@ -4964,7 +4964,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 		}
 	}
 	// OTHERWISE, GOTO APPROPRIATE STOPANIMATION!
-	pSoldier->bCollapsed = TRUE;
+	pSoldier->collapseState().collapse();
 
 	// CC has requested - handle sight here...
 	HandleSight( pSoldier, SIGHT_LOOK );
@@ -4976,7 +4976,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 		pSoldier->BeginSoldierGetup( );
 
 		// Check this to see if above worked
-		if ( !pSoldier->bCollapsed )
+		if ( !pSoldier->collapseState().tactical() )
 		{
 			return( TRUE );
 		}
@@ -5020,7 +5020,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 
 	}
 	// OTHERWISE, GOTO APPROPRIATE STOPANIMATION!
-	pSoldier->bCollapsed = TRUE;
+	pSoldier->collapseState().collapse();
 
 	// ATE: If it is our turn, make them try to getup...
 	if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam )
@@ -5029,7 +5029,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 		pSoldier->BeginSoldierGetup( );
 
 		// Check this to see if above worked
-		if ( !pSoldier->bCollapsed )
+		if ( !pSoldier->collapseState().tactical() )
 		{
 			return( TRUE );
 		}

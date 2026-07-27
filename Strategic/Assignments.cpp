@@ -2614,14 +2614,14 @@ BOOLEAN CanCharacterBeAwakened( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	AssertNotNIL(pSoldier);
 
 	// if dead tired
-	if( ( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM ) && !pSoldier->flags.fMercCollapsedFlag )
+	if( ( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM ) && !pSoldier->collapseState().fatigue() )
 	{
 		// should be collapsed, then!
-		pSoldier->flags.fMercCollapsedFlag = TRUE;
+		pSoldier->collapseState().markFatigueCollapse();
 	}
 
 	// merc collapsed due to being dead tired, you can't wake him up until he recovers substantially
-	if ( pSoldier->flags.fMercCollapsedFlag == TRUE )
+	if ( pSoldier->collapseState().fatigueCollapsed() )
 	{
 		if ( fExplainWhyNot )
 		{
@@ -9567,7 +9567,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 			{
 				continue; // NEXT!!!
 			}
-			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0
+			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0
 				&& pMedic->ubID != pSoldier->ubID && HAS_SKILL_TRAIT( pMedic, DOCTOR_NT ))
 			{
 				bRegenerationBonus += NUM_SKILL_TRAITS( pMedic, DOCTOR_NT );
@@ -13862,7 +13862,7 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 			if ( bSlot == NO_SLOT )
 				continue;// no medical kit!
 
-			if ( pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
+			if ( pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
 			{
 				if ( pBestMedic != NULL )
 				{
@@ -16543,7 +16543,7 @@ void HandleRestFatigueAndSleepStatus( void )
 						}
 
 						// guy collapses
-						pSoldier->flags.fMercCollapsedFlag = TRUE;
+						pSoldier->collapseState().markFatigueCollapse();
 					}
 				}
 				// if pretty tired, and not forced to stay awake
@@ -16638,7 +16638,7 @@ void HandleRestFatigueAndSleepStatus( void )
 			if ( pSoldier->vitals().maximumBreath() >= BREATHMAX_CANCEL_COLLAPSE )
 			{
 				// reset the collapsed flag well before reaching the wakeup state
-				pSoldier->flags.fMercCollapsedFlag = FALSE;
+				pSoldier->collapseState().clearFatigueCollapse();
 			}
 
 
@@ -18300,7 +18300,7 @@ BOOLEAN AnyMercInGroupCantContinueMoving( GROUP *pGroup )
 				PutMercInAsleepState( pSoldier );
 
 				// player can't wake him up right away
-				pSoldier->flags.fMercCollapsedFlag = TRUE;
+				pSoldier->collapseState().markFatigueCollapse();
 			}
 		}
 

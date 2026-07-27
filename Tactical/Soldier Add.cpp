@@ -1714,7 +1714,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 						else
 							 pSoldier->EVENT_InitNewSoldierAnim( FALLBACKHIT_STOP, 1, TRUE );
 
-						pSoldier->bCollapsed = TRUE;
+						pSoldier->collapseState().collapse();
 
 					}					
 					else if ( fUseAnimation )

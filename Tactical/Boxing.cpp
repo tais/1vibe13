@@ -515,7 +515,7 @@ BOOLEAN AnotherFightPossible( void )
 			GetJa2SoldierRepository().resolve( soldierId );
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector &&
 			 pSoldier->vitals().health() > (OKLIFE + 5) &&
-			 !pSoldier->bCollapsed )
+			 !pSoldier->collapseState().tactical() )
 		{
 			return( TRUE );
 		}
