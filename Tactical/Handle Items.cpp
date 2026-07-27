@@ -735,7 +735,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			// Calculate AP costs...
 			sAPCost = 0;//GetAPsToHandcuff( pSoldier, sActionGridNo );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1249,7 +1249,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToBeginFirstAid( pSoldier );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1306,7 +1306,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToCutFence( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1390,7 +1390,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToBeginRepair( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1466,7 +1466,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToRefuelVehicle( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1517,7 +1517,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToUseJar( pSoldier, sActionGridNo );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1590,9 +1590,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( !TileIsOutOfBounds( sActionGridNo ) )
 		{			
 			// Calculate AP costs...
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
-			if ( pSoldier->bActionPoints > 0 )
+			if ( pSoldier->actionPoints().current() > 0 )
 			{
 				// CHECK IF WE ARE AT THIS GRIDNO NOW
 				if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1655,7 +1655,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToHandcuff( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1754,7 +1754,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToApplyItem( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1823,7 +1823,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToFillBloodbag( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		// if we are at the action gridno, the item is a bomb, but nobody is at the gridno, do not apply and do not return - we will plant the bomb instead (handlded later in this function)
 		if ( Item[usHandItem].usItemClass == IC_BOMB && pSoldier->position().gridNo() == sActionGridNo && WhoIsThere2( usMapPos, pSoldier->position().level() ) == NOBODY )
@@ -1897,7 +1897,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToApplyItem( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		// if we are at the action gridno, the item is a bomb, but nobody is at the gridno, do not apply and do not return - we will plant the bomb instead (handlded later in this function)
 		if ( Item[usHandItem].usItemClass == IC_BOMB && pSoldier->position().gridNo() == sActionGridNo && WhoIsThere2( usMapPos, pSoldier->position().level() ) == NOBODY )
@@ -1973,7 +1973,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				// Calculate AP costs...
 				sAPCost = APBPConstants[AP_ATTACH_CAN];
-				sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);
+				sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 				if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 				{
@@ -7786,7 +7786,7 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 				// SANDRO - added mechanism for APs needed to steal all items..
 				if ( gGameExternalOptions.fEnhancedCloseCombatSystem )
 				{
-					if (pSoldier->bActionPoints >= GetBasicAPsToPickupItem( pSoldier ) )
+					if (pSoldier->actionPoints().current() >= GetBasicAPsToPickupItem( pSoldier ) )
 					{					
 						// Make copy of item
 						gTempObject = pOpponent->inv[pTempItemPool->iItemIndex];

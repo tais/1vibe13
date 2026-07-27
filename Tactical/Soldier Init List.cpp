@@ -3164,7 +3164,7 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 		// HEADROCK HAM 3.2: Experimental, militia reinforcements arrive with 0 APs.
 		if (gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 1 || gGameExternalOptions.ubReinforcementsFirstTurnFreeze == 3)
 		{
-			pSoldier->bActionPoints = 0;
+			pSoldier->actionPoints().current() = 0;
 
 			// Flugente: due to a fix, also note here that the reinforcements get no APs.
 			pSoldier->usSoldierFlagMask |= SOLDIER_NO_AP;

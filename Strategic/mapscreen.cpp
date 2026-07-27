@@ -10241,7 +10241,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				usCostToMoveItem = (usCostToMoveItem * (100 + pSoldier->GetBackgroundValue(BG_INVENTORY))) / 100;
 
 				//we dont have enough APs to move it to this slot, show a warning message
-				if (usCostToMoveItem > 0 && pSoldier->bActionPoints < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
+				if (usCostToMoveItem > 0 && pSoldier->actionPoints().current() < usCostToMoveItem && pSoldier->inv[iLastHandPos].usItem == NULL)
 				{
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[NOT_ENOUGH_APS_STR]);
 					return;
@@ -10280,7 +10280,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 								// do we have enough AP?
 								if (!EnoughPoints(pSoldier, usCostToMoveItem, 0, TRUE))
 									return;
-								pSoldier->bActionPoints -= usCostToMoveItem;
+								pSoldier->actionPoints().current() -= usCostToMoveItem;
 								//this will force redraw APs shown at merc portrait
 								fCharacterInfoPanelDirty = TRUE;								
 							}
@@ -10390,7 +10390,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 			if (PlaceObject(pSoldier, (UINT8)uiHandPos, gpItemPointer))
 			{
 				iLastHandPos = uiHandPos;
-				pSoldier->bActionPoints -= usCostToMoveItem;
+				pSoldier->actionPoints().current() -= usCostToMoveItem;
 				HandleTacticalEffectsOfEquipmentChange(pSoldier, uiHandPos, usOldItemIndex, usNewItemIndex);
 
 				// Dirty

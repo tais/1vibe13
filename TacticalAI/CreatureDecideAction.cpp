@@ -164,7 +164,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 
 	// NB creatures would ignore smoke completely :-)
 
-	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->bActionPoints < pSoldier->bInitialActionPoints)
+	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->actionPoints().current() < pSoldier->actionPoints().initial())
 	{
 		return( AI_ACTION_NONE );
 	}
@@ -380,7 +380,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 		////////////////////////////////////////////////////////////////////////////
 
 		// avoid 2 consecutive random turns in a row
-		if (pSoldier->aiData.bLastAction != AI_ACTION_CHANGE_FACING && (GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints))
+		if (pSoldier->aiData.bLastAction != AI_ACTION_CHANGE_FACING && (GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()))
 		{
 			iChance = 25;
 
@@ -456,7 +456,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	BOOLEAN fReachable;
 //	INT16 sClosestFriend;
 
-	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->bActionPoints < pSoldier->bInitialActionPoints)
+	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->actionPoints().current() < pSoldier->actionPoints().initial())
 	{
 		return( AI_ACTION_NONE );
 	}
@@ -490,7 +490,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 
 		// if soldier is not already facing in that direction,
 		// and the noise source is close enough that it could possibly be seen
-		if ((GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) && (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= STRAIGHT)
+		if ((GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()) && (pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= STRAIGHT)
 		{
 			// set base chance according to orders
 			if ((pSoldier->aiData.bOrders == STATIONARY) || (pSoldier->aiData.bOrders == ONGUARD))
@@ -620,20 +620,20 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
  BOOLEAN fChangeLevel;
 
  // if we have absolutely no action points, we can't do a thing under RED!
- if (!pSoldier->bActionPoints)
+ if (!pSoldier->actionPoints().current())
 	{
 	pSoldier->aiData.usActionData = NOWHERE;
 	return(AI_ACTION_NONE);
 	}
 
-	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->bActionPoints < pSoldier->bInitialActionPoints)
+	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->actionPoints().current() < pSoldier->actionPoints().initial())
 	{
 		return( AI_ACTION_NONE );
 	}
 
 
  // can this guy move to any of the neighbouring squares ? (sets TRUE/FALSE)
- ubCanMove = ((pSoldier->aiData.bMobility != CREATURE_IMMOBILE) && (pSoldier->bActionPoints >= MinPtsToMove(pSoldier)));
+ ubCanMove = ((pSoldier->aiData.bMobility != CREATURE_IMMOBILE) && (pSoldier->actionPoints().current() >= MinPtsToMove(pSoldier)));
 
  // determine if we happen to be in water (in which case we're in BIG trouble!)
  //bInWater = pSoldier->MercInWater();
@@ -667,7 +667,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	////////////////////////////////////////////////////////////////////////////
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->bActionPoints >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->bOldLife)
 			{
@@ -716,7 +716,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	if ( CAN_CALL( pSoldier ) && (!gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition) )
 	{
-		if ((pSoldier->bActionPoints >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
 			// if there hasn't been a general sighting call sent yet
 
@@ -845,7 +845,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	////////////////////////////////////////////////////////////////////////////
 	// LOOK AROUND TOWARD CLOSEST KNOWN OPPONENT, IF KNOWN
 	////////////////////////////////////////////////////////////////////////////
-	if (GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints)
+	if (GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current())
 	{
 		// determine the location of the known closest opponent
 		// (don't care if he's conscious, don't care if he's reachable at all)
@@ -927,13 +927,13 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
  BOOLEAN	fChangeLevel;
 
  // if we have absolutely no action points, we can't do a thing under BLACK!
- if (!pSoldier->bActionPoints)
+ if (!pSoldier->actionPoints().current())
 	{
 	pSoldier->aiData.usActionData = NOWHERE;
 	return(AI_ACTION_NONE);
 	}
 
-	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->bActionPoints < pSoldier->bInitialActionPoints)
+	if ( pSoldier->aiData.bMobility == CREATURE_CRAWLER && pSoldier->actionPoints().current() < pSoldier->actionPoints().initial())
 	{
 		return( AI_ACTION_NONE );
 	}
@@ -944,7 +944,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->bActionPoints >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->bOldLife)
 			{
@@ -999,7 +999,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	}
 
  // can this guy move to any of the neighbouring squares ? (sets TRUE/FALSE)
- ubCanMove = ((pSoldier->aiData.bMobility != CREATURE_IMMOBILE) && (pSoldier->bActionPoints >= MinPtsToMove(pSoldier)));
+ ubCanMove = ((pSoldier->aiData.bMobility != CREATURE_IMMOBILE) && (pSoldier->actionPoints().current() >= MinPtsToMove(pSoldier)));
 
  // determine if we happen to be in water (in which case we're in BIG trouble!)
  //bInWater = pSoldier->MercInWater();
@@ -1062,7 +1062,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
  ////////////////////////////////////////////////////////////////////////////
 
 	// NPCs in water/tear gas without masks are not permitted to shoot/stab/throw
-	if ((pSoldier->bActionPoints < 2) /*|| bInWater*/ || bInGas)
+	if ((pSoldier->actionPoints().current() < 2) /*|| bInWater*/ || bInGas)
 	{
 		bCanAttack = FALSE;
 	}
@@ -1147,7 +1147,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 				ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0);
 
 				// if we have enough action points to shoot with this gun
-				if (pSoldier->bActionPoints >= ubMinAPCost)
+				if (pSoldier->actionPoints().current() >= ubMinAPCost)
 				{
 					// look around for a worthy target (which sets BestShot.ubPossible)
 					CalcBestShot(pSoldier,&BestShot);
@@ -1266,7 +1266,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		//PopMessage(tempstr);
 
 		// if we can afford the minimum AP cost to stab with this knife weapon
-		if (pSoldier->bActionPoints >= ubMinAPCost)
+		if (pSoldier->actionPoints().current() >= ubMinAPCost)
 		{
 			// then look around for a worthy target (which sets BestStab.ubPossible)
 
@@ -1385,7 +1385,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
  if ( !fRunAway )
  {
-	if ( (GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) )
+	if ( (GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()) )
 	{
 		// determine the location of the known closest opponent
 		// (don't care if he's conscious, don't care if he's reachable at all)
@@ -1417,7 +1417,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 				{
 					return( AI_ACTION_SEEK_OPPONENT );
 				}
-				else if (GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints) // turn to face enemy
+				else if (GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current()) // turn to face enemy
 				{
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 

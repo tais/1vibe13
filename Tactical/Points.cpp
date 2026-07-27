@@ -814,7 +814,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 	}
 
 	// Get New points
-	sNewAP = pSoldier->bActionPoints - sAPCost;
+	sNewAP = pSoldier->actionPoints().current() - sAPCost;
 
 	// If we cannot deduct points, return FALSE
 	if ( sNewAP < 0 )
@@ -881,10 +881,10 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 
 	// Get New points
-	sNewAP = pSoldier->bActionPoints - sAPCost;
+	sNewAP = pSoldier->actionPoints().current() - sAPCost;
 
 	// If this is the first time with no action points, set UI flag
-	if ( sNewAP <= 0 && pSoldier->bActionPoints > 0 )
+	if ( sNewAP <= 0 && pSoldier->actionPoints().current() > 0 )
 	{
 		pSoldier->flags.fUIFirstTimeNOAP = TRUE;
 		fInterfacePanelDirty = TRUE;
@@ -906,7 +906,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	// the owner's value is reconciled in via the updatenetworksoldier RPC (UpdateSoldierFromNetwork).
 	if ( !( is_networked && pSoldier->bTeam >= LAN_TEAM_ONE ) )
 	{
-		pSoldier->bActionPoints = sNewAP;
+		pSoldier->actionPoints().current() = sNewAP;
 	}
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->position().gridNo(), sAPCost, iBPCost	) );
@@ -969,14 +969,14 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 			// Snap: moved this up, because it had no effect below
 			// Take off 1 AP per 5 (negative) breath...
 			//CHRISL: Need to adjust this so that AP lose is based on AP_MAXIMUM
-			pSoldier->bActionPoints -= (INT16)( (float)( pSoldier->sBreathRed + iBPCost - BREATH_RED_MAX )
+			pSoldier->actionPoints().current() -= (INT16)( (float)( pSoldier->sBreathRed + iBPCost - BREATH_RED_MAX )
 									/ (float)( 5 * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL])
 									* (float)(4 * (float)APBPConstants[AP_MAXIMUM] / 100));
 			// HEADROCK HAM 3.1: This may be the problem with suppression - it limits the lower APs to 0, which breaks
 			// suppression's negative values. Changed instances of "0" to the APBP constant.
-			if ( pSoldier->bActionPoints < APBPConstants[AP_MIN_LIMIT] )
+			if ( pSoldier->actionPoints().current() < APBPConstants[AP_MIN_LIMIT] )
 			{
-				pSoldier->bActionPoints = APBPConstants[AP_MIN_LIMIT];
+				pSoldier->actionPoints().current() = APBPConstants[AP_MIN_LIMIT];
 			}
 
 			pSoldier->sBreathRed = BREATH_RED_MAX;
@@ -1322,13 +1322,13 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 	else
 	{
 		// if merc has any APs left unused this turn (that aren't carrying over)
-		if (pSoldier->bActionPoints > APBPConstants[MAX_AP_CARRIED])
+		if (pSoldier->actionPoints().current() > APBPConstants[MAX_AP_CARRIED])
 		{
 			// SANDRO - don't reduce the APs if collapsed
 			if ( pSoldier->bCollapsed || pSoldier->bBreathCollapsed )
-				sUnusedAPs = pSoldier->bActionPoints;
+				sUnusedAPs = pSoldier->actionPoints().current();
 			else
-				sUnusedAPs = pSoldier->bActionPoints - APBPConstants[MAX_AP_CARRIED];
+				sUnusedAPs = pSoldier->actionPoints().current() - APBPConstants[MAX_AP_CARRIED];
 
 			sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->animationPlayback().state() );
 
@@ -1843,7 +1843,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 					{
 						// Save for next time...
 						pSoldier->sWalkToAttackMovementMode = (UINT8)pSoldier->usUIMovementMode;
-						pSoldier->sWalkToAttackWalkToCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints);						
+						pSoldier->sWalkToAttackWalkToCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 						pSoldier->sWalkToAttackEndDirection = gfPlotPathEndDirection;
 						if (pSoldier->sWalkToAttackWalkToCost == 0)
 						{
@@ -2879,7 +2879,7 @@ UINT16 GetAPsToPickupItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
-			sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+			sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			// If point cost is zero, return 0
 			if ( sAPCost != 0 )
@@ -2902,7 +2902,7 @@ UINT16 GetAPsToGiveItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	UINT16						sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	// If point cost is zero, return 0
 	if ( sAPCost != 0 || pSoldier->position().gridNo() == usMapPos )
@@ -3125,7 +3125,7 @@ UINT16 GetAPsToReloadRobot( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pRobot )
 
 	sActionGridNo = FindAdjacentGridEx( pSoldier, pRobot->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
-	sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+	sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	// If point cost is zero, return 0
 	if ( sAPCost != 0 || sActionGridNo == pSoldier->position().gridNo() )
@@ -3722,7 +3722,7 @@ UINT16 GetTotalAPsToDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
 	INT16 sAPs = 0;
 
-	sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+	sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	if ( sAPs > 0 )
 	{
@@ -3749,7 +3749,7 @@ INT16 GetAPsToStealItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT
 
 	if (sMapPos != -1)
 	{
-		sAPCost = PlotPath( pSoldier, sMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+		sAPCost = PlotPath( pSoldier, sMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 	}
 
 	// ADD APS TO PICKUP
@@ -3804,7 +3804,7 @@ INT16 GetAPsToApplyItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	INT16 sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		
 	sAPCost += APBPConstants[AP_APPLYITEM];
 
@@ -3815,7 +3815,7 @@ INT16 GetAPsToFillBloodbag( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	INT16 sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	sAPCost += APBPConstants[AP_FILLBLOODBAG];
 

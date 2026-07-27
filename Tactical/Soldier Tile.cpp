@@ -247,7 +247,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 						blockingPerson->pathing().finalDestinationGrid() =
 							blockingPerson->position().gridNo();
 
-						if ( PlotPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) )
+						if ( PlotPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) )
 						{
 							pSoldier->pathing().stored() = FALSE;
 							// OK, make guy go here...

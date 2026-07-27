@@ -283,6 +283,11 @@ adapter, so save and load can never drift out of order. Extra methods:
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
+- Current and turn-start action-point budgets are now stored by
+  `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
+  values immediately after body type, and v101 conversion maps the original
+  pair into that owner. Multiplayer reconciliation keeps its existing packet
+  member and width.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

@@ -201,7 +201,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 
 	if ( pSoldier->aiData.bMoved )
 	{
-		if ( pSoldier->bActionPoints <= 1 && pubDoneCount )
+		if ( pSoldier->actionPoints().current() <= 1 && pubDoneCount )
 		{
 			(*pubDoneCount)++;
 		}

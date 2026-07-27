@@ -1387,7 +1387,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 {
 	if (pFace->iVideoOverlay == -1 && !fExternBlit)
 	{
-		if ((pSoldier->bActionPoints == 0) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()))
+		if ((pSoldier->actionPoints().current() == 0) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()))
 		{
 			return FLASH_PORTRAIT_LITESHADE;
 		}
@@ -2536,7 +2536,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 				{
 					SetFont(TINYFONT1);
-					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0), 0, FALSE) || pSoldier->bActionPoints < 0)
+					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0), 0, FALSE) || pSoldier->actionPoints().current() < 0)
 					{
 						SetFontBackground(FONT_MCOLOR_BLACK);
 						SetFontForeground(FONT_MCOLOR_DKRED);
@@ -2563,7 +2563,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 						}
 					}
 
-					swprintf(sString, L"%d", pSoldier->bActionPoints);
+					swprintf(sString, L"%d", pSoldier->actionPoints().current());
 					SetFontDestBuffer(uiRenderBuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE);
 
 					if (!usTextWidth)
@@ -2917,7 +2917,7 @@ void HandleAutoFaces( )
 					pFace->ubSoldierID.i);
 				bLife		= pSoldier->vitals().health();
 				bInSector = pSoldier->bInSector;
-				bAPs		= pSoldier->bActionPoints;
+				bAPs		= pSoldier->actionPoints().current();
 
 				if ( pSoldier->ubID == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
 				{

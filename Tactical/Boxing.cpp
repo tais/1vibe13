@@ -86,9 +86,9 @@ void ExitBoxing( void )
 					// HEADROCK HAM 3.6: Make sure all boxers' APs have been reset to a reasonable number. Otherwise,
                     // the AI combatant may fail several conditions in subsequent functions, and fail to leave the ring
                     // as a result.
-                    if (pSoldier->bActionPoints < (APBPConstants[AP_MAXIMUM]*6)/10)
+                    if (pSoldier->actionPoints().current() < (APBPConstants[AP_MAXIMUM]*6)/10)
                     {
-                        pSoldier->bActionPoints = (APBPConstants[AP_MAXIMUM]*6)/10;
+                        pSoldier->actionPoints().current() = (APBPConstants[AP_MAXIMUM]*6)/10;
                     }
 
 					// if necessary, revive boxer so he can leave ring
@@ -303,7 +303,7 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 				DebugQuestInfo(String("Start Match: gfLastBoxingMatchWonByPlayer %d", gfLastBoxingMatchWonByPlayer));
 
 #ifdef JA2TESTVERSION
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Boxer APs %d %d", pInRing[0]->bActionPoints, pInRing[1]->bActionPoints );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Boxer APs %d %d", pInRing[0]->actionPoints().current(), pInRing[1]->actionPoints().current() );
 #endif
 				// give the first turn to a randomly chosen boxer
 				EnterCombatMode(pInRing[Random(2)]->bTeam);

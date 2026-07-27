@@ -100,7 +100,7 @@ namespace AI
                         break;
                 }
             }
-            DEBUGAIMSG("Deciding for guynum "<<(int)get_npc()->ubID<<" at gridno "<<get_npc()->position().gridNo()<<", APs "<<get_npc()->bActionPoints<<
+            DEBUGAIMSG("Deciding for guynum "<<(int)get_npc()->ubID<<" at gridno "<<get_npc()->position().gridNo()<<", APs "<<get_npc()->actionPoints().current()<<
                     ", decided action: "<<(int)get_npc()->aiData.bAction<<", data "<<(int)get_npc()->aiData.usActionData);
         }
 

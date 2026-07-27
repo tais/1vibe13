@@ -25,6 +25,23 @@ void SoldierVitalsComponent::reset() noexcept
 	bleeding_ = 0;
 }
 
+void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
+{
+	current_ = points;
+	initial_ = points;
+}
+
+void SoldierActionPointComponent::clear() noexcept
+{
+	current_ = 0;
+	initial_ = 0;
+}
+
+void SoldierActionPointComponent::reset() noexcept
+{
+	*this = SoldierActionPointComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

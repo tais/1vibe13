@@ -187,7 +187,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 		{
 			// Calculate AP costs...
 			//sAPCost = GetAPsToBeginFirstAid( pSoldier );
-			sAPCost += PlotPath( pCurrentSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pCurrentSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pCurrentSoldier->bActionPoints);
+			sAPCost += PlotPath( pCurrentSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pCurrentSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pCurrentSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pCurrentSoldier, sAPCost, 0, TRUE ) )
 			{

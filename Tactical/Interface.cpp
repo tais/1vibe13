@@ -2043,12 +2043,12 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 						GetJa2TacticalCurrentTeam() == OUR_TEAM)
 					{
 						INT16 len;
-						swprintf( NameStr,L"%d", pSoldier->bActionPoints );
+						swprintf( NameStr,L"%d", pSoldier->actionPoints().current() );
 						len = StringPixLength ( NameStr, TINYFONT1 );
 						SetFont( TINYFONT1 );
-						if(pSoldier->bActionPoints > APBPConstants[MIN_APS_TO_INTERRUPT])
+						if(pSoldier->actionPoints().current() > APBPConstants[MIN_APS_TO_INTERRUPT])
 							SetFontForeground( FONT_MCOLOR_LTGRAY );
-						else if(pSoldier->bActionPoints > 10)
+						else if(pSoldier->actionPoints().current() > 10)
 							SetFontForeground( FONT_YELLOW );
 						else
 							SetFontForeground( FONT_MCOLOR_DKRED );
@@ -6223,10 +6223,10 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	// draw ap
 	if(ubLines > 1)
 	{
-		if( pSoldier->bActionPoints >0 )
+		if( pSoldier->actionPoints().current() >0 )
 		{
-			//dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( pSoldier->bActionPoints + pSoldier->suppression().actionPointsLost() + pSoldier->u);
-			dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( pSoldier->bInitialActionPoints);
+			//dPercentage = (FLOAT)pSoldier->actionPoints().current() / (FLOAT) ( pSoldier->actionPoints().current() + pSoldier->suppression().actionPointsLost() + pSoldier->u);
+			dPercentage = (FLOAT)pSoldier->actionPoints().current() / (FLOAT) ( pSoldier->actionPoints().initial());
 			dWidth = dPercentage * iBarWidth;
 			dWidth = __min (dWidth, iBarWidth);
 			//DrawBar( sX + 1, sY + 1 + (sHeight+1), (INT32)dWidth, sHeight, COLOR_BLUE, Get16BPPColor( FROMRGB( 20, 20, 220 ) ), pDestBuf );
@@ -6234,7 +6234,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 		}
 		else
 		{
-			dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( APBPConstants[AP_MIN_LIMIT] );
+			dPercentage = (FLOAT)pSoldier->actionPoints().current() / (FLOAT) ( APBPConstants[AP_MIN_LIMIT] );
 			dWidth	= dPercentage * iBarWidth;
 			dWidth = __min (dWidth, iBarWidth);
 			DrawBar( sX + 1, sY + 1 + (sHeight+1), (INT32)dWidth, sHeight, COLOR_LTGREY, Get16BPPColor( FROMRGB( 140, 140, 140	) ), pDestBuf );
@@ -6441,7 +6441,7 @@ void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon )
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 0 )
 	{
 		// compare Aps needed to shoot with shooter's APs
-		INT16 sRemainingAP = pSoldier->bActionPoints - gsCurrentActionPoints;			
+		INT16 sRemainingAP = pSoldier->actionPoints().current() - gsCurrentActionPoints;
 		INT16 sModifiedReloadAP = Weapon[Item[pWeapon->usItem].ubClassIndex].APsToReloadManually;
 		if( sModifiedReloadAP > 0 )
 		{

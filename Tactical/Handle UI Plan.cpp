@@ -59,7 +59,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	if ( ubPlanID == UIPLAN_ACTION_MOVETO )
 	{
 		// Calculate cost to move here
-		sAPCost = PlotPath( gpUIPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) gpUIPlannedSoldier->usUIMovementMode, NOT_STEALTH, FORWARD,	gpUIPlannedSoldier->bActionPoints );
+		sAPCost = PlotPath( gpUIPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) gpUIPlannedSoldier->usUIMovementMode, NOT_STEALTH, FORWARD,	gpUIPlannedSoldier->actionPoints().current() );
 		// Adjust for running if we are not already running
 		if (	gpUIPlannedSoldier->usUIMovementMode == RUNNING )
 		{
@@ -103,9 +103,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
 
 
-				pPlanSoldier->bActionPoints = gpUIPlannedSoldier->bActionPoints - sAPCost;
+				pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-				pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->bActionPoints;
+				pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->actionPoints().current();
 
 				// Get direction
 				bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
@@ -182,9 +182,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
 
 
-					pPlanSoldier->bActionPoints = gpUIPlannedSoldier->bActionPoints - sAPCost;
+					pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-					pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->bActionPoints;
+					pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->actionPoints().current();
 
 					// Get direction
 					bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
@@ -208,9 +208,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 			}
 
-			gpUIPlannedSoldier->bActionPoints = gpUIPlannedSoldier->bActionPoints - sAPCost;
+			gpUIPlannedSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-			gpUIPlannedSoldier->ubPlannedUIAPCost = (UINT8)gpUIPlannedSoldier->bActionPoints;
+			gpUIPlannedSoldier->ubPlannedUIAPCost = (UINT8)gpUIPlannedSoldier->actionPoints().current();
 
 			// Get direction from gridno
 			bDirection = GetDirectionFromGridNo( sGridNo, gpUIPlannedSoldier );

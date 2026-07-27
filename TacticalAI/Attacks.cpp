@@ -360,7 +360,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		// later will be decide if shoot is possible this here is just best guess so ignore turnover
 
 		// if we don't have enough APs left to shoot even a snap-shot at this guy
-		if (sMinAPcost > pSoldier->bActionPoints)
+		if (sMinAPcost > pSoldier->actionPoints().current())
 			continue;			// next opponent
 
 		// sevenfm: check CTGT and friendly fire for each stance instead since they can be different
@@ -466,10 +466,10 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sTarget, 0, FALSE, 2);
 					sMinAPcost = sRawAPCost + usTurningCost + sStanceAPcost + usRaiseGunCost;
 
-					if(pSoldier->bActionPoints - sMinAPcost >= 0)
+					if(pSoldier->actionPoints().current() - sMinAPcost >= 0)
 					{
 						// calc next attack's minimum shooting cost (excludes readying & turning & raise gun)
-						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->bActionPoints - sMinAPcost);
+						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->actionPoints().current() - sMinAPcost);
 
 						// sevenfm: check CTGT and friendly fire chance for every stance
 						gUnderFire.Clear();
@@ -488,7 +488,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							{
 								sChanceToHit = AICalcChanceToHitGun(pSoldier, sTarget, sAimTime, AIM_SHOT_TORSO, bLevel, STANDING);
 								sAimAPCost = CalcAPCostForAiming(pSoldier, sTarget, (INT8)sAimTime);
-								iHitRate = sChanceToHit * (pSoldier->bActionPoints - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
+								iHitRate = sChanceToHit * (pSoldier->actionPoints().current() - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
 								// sevenfm: take into account CTGT for every stance
 								if (iHitRate * ubChanceToGetThrough > iBestHitRate * ubBestChanceToGetThrough ||
 									(Item[pSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE) && sChanceToHit > sBestChanceToHit)// rather take best chance for throwing knives
@@ -538,9 +538,9 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sTarget, 0, FALSE, 2);
 					sMinAPcost = sRawAPCost + usTurningCost + sStanceAPcost + usRaiseGunCost;
 
-					if(pSoldier->bActionPoints - sMinAPcost >= 0)
+					if(pSoldier->actionPoints().current() - sMinAPcost >= 0)
 					{
-						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->bActionPoints - sMinAPcost);
+						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->actionPoints().current() - sMinAPcost);
 
 						// sevenfm: check CTGT and friendly fire chance for every stance
 						gUnderFire.Clear();
@@ -559,7 +559,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							{
 								sChanceToHit = AICalcChanceToHitGun(pSoldier, sTarget, sAimTime, AIM_SHOT_TORSO, bLevel, CROUCHING);
 								sAimAPCost = CalcAPCostForAiming(pSoldier, sTarget, (INT8)sAimTime);
-								iHitRate = sChanceToHit * (pSoldier->bActionPoints - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
+								iHitRate = sChanceToHit * (pSoldier->actionPoints().current() - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
 								// sevenfm: take into account CTGT for every stance
 								if (iHitRate * ubChanceToGetThrough > iBestHitRate * ubBestChanceToGetThrough)
 								{
@@ -602,9 +602,9 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sTarget, 0, FALSE, 2);
 					sMinAPcost = sRawAPCost + usTurningCost + sStanceAPcost + usRaiseGunCost;
 
-					if (pSoldier->bActionPoints - sMinAPcost >= 0)
+					if (pSoldier->actionPoints().current() - sMinAPcost >= 0)
 					{
-						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->bActionPoints - sMinAPcost);
+						sMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sTarget, pSoldier->actionPoints().current() - sMinAPcost);
 
 						// sevenfm: check CTGT and friendly fire chance for every stance
 						gUnderFire.Clear();
@@ -623,7 +623,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							{
 								sChanceToHit = AICalcChanceToHitGun(pSoldier, sTarget, sAimTime, AIM_SHOT_TORSO, bLevel, PRONE);
 								sAimAPCost = CalcAPCostForAiming(pSoldier, sTarget, (INT8)sAimTime);
-								iHitRate = sChanceToHit * (pSoldier->bActionPoints - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
+								iHitRate = sChanceToHit * (pSoldier->actionPoints().current() - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
 								// sevenfm: take into account CTGT for every stance
 								if (iHitRate * ubChanceToGetThrough > iBestHitRate * ubBestChanceToGetThrough)
 								{
@@ -1445,8 +1445,8 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				DebugMsg(TOPIC_JA2 , DBG_LEVEL_3 , String("MinAPcost to attack = %d",sMinAPcost));
 
 				// if we don't have enough APs left to throw even without aiming
-				DebugMsg(TOPIC_JA2 , DBG_LEVEL_3 , String("Soldier's action points = %d",pSoldier->bActionPoints ));
-				if (sMinAPcost > pSoldier->bActionPoints)
+				DebugMsg(TOPIC_JA2 , DBG_LEVEL_3 , String("Soldier's action points = %d",pSoldier->actionPoints().current() ));
+				if (sMinAPcost > pSoldier->actionPoints().current())
 					continue;				// next gridno
 
 				// check whether there are any friends standing near this gridno
@@ -1619,7 +1619,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				if (EXPLOSIVE_GUN(usInHand))
 				{
 					// calculate the maximum possible aiming time
-					ubMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sGridNo, pSoldier->bActionPoints - sMinAPcost);//dnl ch63 250813
+					ubMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sGridNo, pSoldier->actionPoints().current() - sMinAPcost);//dnl ch63 250813
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sGridNo, ubMaxPossibleAimTime, FALSE);
 					ubChanceToHit = (UINT8)AICalcChanceToHitGun(pSoldier, sGridNo, ubMaxPossibleAimTime, AIM_SHOT_TORSO, targetOpponent->position().level(), STANDING);//dnl ch59 130813
 				}
@@ -1646,7 +1646,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					sRawAPCost = sMinAPcost;
 
 				DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("calcbestthrow: checking hit rate: ubRawAPCost %d, ubMaxPossibleAimTime %d", sRawAPCost, ubMaxPossibleAimTime ));
-				iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / (sRawAPCost + ubMaxPossibleAimTime * APBPConstants[AP_CLICK_AIM]);
+				iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / (sRawAPCost + ubMaxPossibleAimTime * APBPConstants[AP_CLICK_AIM]);
 
 				// calculate chance to REALLY hit: throw accurately AND get past cover
 				ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;
@@ -1720,7 +1720,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		pBestThrow->ubPossible = FALSE;
 	}
 	
-//if(pBestThrow->ubPossible)SendFmtMsg("CalcBestThrow;\r\n  ID=%d Loc=%d APs=%d Ac=%d AcData=%d Al=%d, SM=%d, LAc=%d, NAc=%d AT=%d\r\n  AP?=%d,%d,%d/%d BS=%d", pSoldier->ubID, pSoldier->sGridNo, pSoldier->bActionPoints, pSoldier->aiData.bAction, pSoldier->aiData.usActionData, pSoldier->aiData.bAlertStatus, pBestThrow->bScopeMode, pSoldier->aiData.bLastAction, pSoldier->aiData.bNextAction, pBestThrow->ubAimTime, pBestThrow->ubAPCost, CalcAPCostForAiming(pSoldier, pBestThrow->sTarget, (INT8)pBestThrow->ubAimTime), CalcTotalAPsToAttack(pSoldier, pBestThrow->sTarget, TRUE, pBestThrow->ubAimTime), CalcTotalAPsToAttack(pSoldier, pBestThrow->sTarget, FALSE, pBestThrow->ubAimTime), pBestThrow->ubStance);
+//if(pBestThrow->ubPossible)SendFmtMsg("CalcBestThrow;\r\n  ID=%d Loc=%d APs=%d Ac=%d AcData=%d Al=%d, SM=%d, LAc=%d, NAc=%d AT=%d\r\n  AP?=%d,%d,%d/%d BS=%d", pSoldier->ubID, pSoldier->sGridNo, pSoldier->actionPoints().current(), pSoldier->aiData.bAction, pSoldier->aiData.usActionData, pSoldier->aiData.bAlertStatus, pBestThrow->bScopeMode, pSoldier->aiData.bLastAction, pSoldier->aiData.bNextAction, pBestThrow->ubAimTime, pBestThrow->ubAPCost, CalcAPCostForAiming(pSoldier, pBestThrow->sTarget, (INT8)pBestThrow->ubAimTime), CalcTotalAPsToAttack(pSoldier, pBestThrow->sTarget, TRUE, pBestThrow->ubAimTime), CalcTotalAPsToAttack(pSoldier, pBestThrow->sTarget, FALSE, pBestThrow->ubAimTime), pBestThrow->ubStance);
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow done");
 }
 
@@ -1800,7 +1800,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 		// Monster:	I'll do an extra check later on to see if I can reach the guy this turn.
 
 		// if 0 is returned then no path!
-		if ( ubMinAPCost > pSoldier->bActionPoints || ubMinAPCost == 0 )
+		if ( ubMinAPCost > pSoldier->actionPoints().current() || ubMinAPCost == 0 )
 		{
 			continue;
 			/*
@@ -1808,7 +1808,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 			{
 			// hardcode ubMinAPCost so that aiming time is 0 and can start move to stab
 			// at any time
-			ubMinAPCost = pSoldier->bActionPoints;
+			ubMinAPCost = pSoldier->actionPoints().current();
 			}
 			else
 			{
@@ -1843,7 +1843,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// calculate the maximum possible aiming time
 		// HEADROCK HAM 4: Required for new Aiming Level Limits function
-		ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier, pOpponent->position().gridNo()),pSoldier->bActionPoints - ubMinAPCost);
+		ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier, pOpponent->position().gridNo()),pSoldier->actionPoints().current() - ubMinAPCost);
 		//NumMessage("Max Possible Aim Time = ",ubMaxPossibleAimTime);
 
 		// consider the various aiming times
@@ -1877,8 +1877,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 				ubRawAPCost = ubMinAPCost;
 
 			// sevenfm: 100AP system
-			iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / (ubRawAPCost + ubAimTime * APBPConstants[AP_CLICK_AIM]);
-			//iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / (ubRawAPCost + ubAimTime);
+			iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / (ubRawAPCost + ubAimTime * APBPConstants[AP_CLICK_AIM]);
+			//iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / (ubRawAPCost + ubAimTime);
 			//NumMessage("hitRate = ",iHitRate);
 
 			// if aiming for this amount of time produces a better hit rate
@@ -2038,7 +2038,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 
 		// calculate the maximum possible aiming time
 
-		//ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier),pSoldier->bActionPoints - ubMinAPCost);
+		//ubMaxPossibleAimTime = min(AllowedAimingLevels(pSoldier),pSoldier->actionPoints().current() - ubMinAPCost);
 		ubMaxPossibleAimTime = 0;
 		//NumMessage("Max Possible Aim Time = ",ubMaxPossibleAimTime);
 
@@ -2066,8 +2066,8 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 				ubRawAPCost = ubMinAPCost;
 
 			// sevenfm: 100AP system
-			iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / max(1,(ubRawAPCost + ubAimTime * APBPConstants[AP_CLICK_AIM]));
-			//iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / (ubRawAPCost + ubAimTime);
+			iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / max(1,(ubRawAPCost + ubAimTime * APBPConstants[AP_CLICK_AIM]));
+			//iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / (ubRawAPCost + ubAimTime);
 			//NumMessage("hitRate = ",iHitRate);
 
 			// if aiming for this amount of time produces a better hit rate
@@ -2876,7 +2876,7 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		ubMinAPcost = MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), DONTADDTURNCOST,0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
-		if (pSoldier->bActionPoints >= ubMinAPcost)
+		if (pSoldier->actionPoints().current() >= ubMinAPcost)
 		{
 			// then look around for a worthy target (which sets bestThrow.ubPossible)
 			CalcBestThrow( pSoldier, pBestThrow );
@@ -3201,20 +3201,20 @@ INT16 AdvanceToFiringRange( SOLDIERTYPE * pSoldier, INT16 sClosestOpponent )
 
 	bAttackCost = MinAPsToAttack(pSoldier, sClosestOpponent, ADDTURNCOST,pSoldier->aiData.bAimTime);
 
-	if (bAttackCost >= pSoldier->bActionPoints)
+	if (bAttackCost >= pSoldier->actionPoints().current())
 	{
 		// probably want to go as far as possible!
 		// return( NOWHERE );
 		return( GoAsFarAsPossibleTowards( pSoldier, sClosestOpponent, AI_ACTION_SEEK_OPPONENT ) );
 	}
 
-	bTrueActionPoints = pSoldier->bActionPoints;
+	bTrueActionPoints = pSoldier->actionPoints().current();
 
-	pSoldier->bActionPoints -= bAttackCost;
+	pSoldier->actionPoints().current() -= bAttackCost;
 
 	usActionData = GoAsFarAsPossibleTowards( pSoldier, sClosestOpponent, AI_ACTION_SEEK_OPPONENT );
 	//POSSIBLE STRUCTURE PROBLEM HERE.  GOTTHARD 7/15/08
-	pSoldier->bActionPoints = bTrueActionPoints;
+	pSoldier->actionPoints().current() = bTrueActionPoints;
 
 	return( usActionData );
 
@@ -3239,7 +3239,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost
-		if (pSoldier->bActionPoints >= ubMinAPcost)
+		if (pSoldier->actionPoints().current() >= ubMinAPcost)
 		{
 			// then look around for a worthy target (which sets bestThrow.ubPossible)
 			CalcBestShot(pSoldier, pBestShot);
@@ -3252,7 +3252,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// try to use sidearm
-		if (pSoldier->bActionPoints < ubMinAPcost && IS_MERC_BODY_TYPE(pSoldier))
+		if (pSoldier->actionPoints().current() < ubMinAPcost && IS_MERC_BODY_TYPE(pSoldier))
 		{
 			pBestShot->bWeaponIn = FindAIUsableObjClass(pSoldier, IC_GUN, TRUE);
 
@@ -3267,7 +3267,7 @@ void CheckIfShotPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// get the minimum cost to attack with this item
 				ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0);
 
-				if (pSoldier->bActionPoints >= ubMinAPcost)
+				if (pSoldier->actionPoints().current() >= ubMinAPcost)
 				{
 					// then look around for a worthy target (which sets bestThrow.ubPossible)
 					CalcBestShot(pSoldier, pBestShot);
@@ -3304,7 +3304,7 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		return( FALSE );
 	}
 	pSoldier->usUIMovementMode = RUNNING;
-	if( pSoldier->bActionPoints < GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) )
+	if( pSoldier->actionPoints().current() < GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) )
 	{
 		return( FALSE );
 	}
@@ -3390,11 +3390,11 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 		sChance += ((pOpponent->vitals().maximumBreath() - pOpponent->vitals().breath()) / 2);
 	}
 
-	if( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  (2 * ApsToPunch( pSoldier ))) )
+	if( pSoldier->actionPoints().current() > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  (2 * ApsToPunch( pSoldier ))) )
 	{
 		sChance += 35;
 	}
-	else if ( pSoldier->bActionPoints > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  ApsToPunch( pSoldier )) )
+	else if ( pSoldier->actionPoints().current() > (GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) +  ApsToPunch( pSoldier )) )
 	{
 		sChance += 20;
 	}
@@ -3809,7 +3809,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
-		if (pSoldier->bActionPoints >= ubMinAPcost)
+		if (pSoldier->actionPoints().current() >= ubMinAPcost)
 		{
 			INT32 sSpot = pSoldier->position().gridNo();
 			INT8	 bLevel = pSoldier->position().level();
@@ -3911,7 +3911,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
-		if (pSoldier->bActionPoints >= ubMinAPcost)
+		if (pSoldier->actionPoints().current() >= ubMinAPcost)
 		{
 			INT32	sSpot = pSoldier->position().gridNo();
 			INT8	bLevel = pSoldier->position().level();
@@ -4063,14 +4063,14 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 	ubAPCost = (UINT8)MinAPsToThrow(pSoldier, sTargetSpot, TRUE) + CalcAPCostForAiming(pSoldier, sTargetSpot, ubMaxPossibleAimTime);
 	ubChanceToHit = (UINT8)CalcThrownChanceToHit(pSoldier, sTargetSpot, 0, AIM_SHOT_TORSO);
 	ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;
-	iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / ubAPCost;
+	iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / ubAPCost;
 	iAttackValue = (iHitRate * ubChanceToReallyHit * iTotalThreatValue) / 1000;
 
 	// maybe try to stand up for better range
 	if (ubChanceToReallyHit == 0 &&
 		gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < ANIM_STAND &&
 		pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTargetSpot), ANIM_STAND) &&
-		pSoldier->bActionPoints >= ubAPCost + GetAPsToChangeStance(pSoldier, ANIM_STAND))
+		pSoldier->actionPoints().current() >= ubAPCost + GetAPsToChangeStance(pSoldier, ANIM_STAND))
 	{
 		pSoldier->animationPlayback().state() = STANDING;
 
@@ -4081,7 +4081,7 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 		ubAPCost = (UINT8)MinAPsToThrow(pSoldier, sTargetSpot, TRUE) + CalcAPCostForAiming(pSoldier, sTargetSpot, ubMaxPossibleAimTime);
 		ubChanceToHit = (UINT8)CalcThrownChanceToHit(pSoldier, sTargetSpot, 0, AIM_SHOT_TORSO);
 		ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;
-		iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / ubAPCost;
+		iHitRate = (pSoldier->actionPoints().current() * ubChanceToHit) / ubAPCost;
 		iAttackValue = (iHitRate * ubChanceToReallyHit * iTotalThreatValue) / 1000;
 		pSoldier->animationPlayback().state() = usTrueState;
 
@@ -4250,7 +4250,7 @@ void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTa
 		ubMinAPcost = MinAPsToAttack(pSoldier, pSoldier->position().gridNo(), DONTADDTURNCOST, 0);
 
 		// if we can afford the minimum AP cost to throw this tossable item
-		if (pSoldier->bActionPoints >= ubMinAPcost)
+		if (pSoldier->actionPoints().current() >= ubMinAPcost)
 		{
 			CheckTossAt(pSoldier, pBestThrow, sTargetSpot, bTargetLevel, NOBODY);
 		}

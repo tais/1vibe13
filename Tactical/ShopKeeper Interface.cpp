@@ -797,7 +797,7 @@ BOOLEAN EnterShopKeeperInterface()
 				return( FALSE );
 			}
 
-			if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) == 0 )
+			if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) == 0 )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
 				return( FALSE );

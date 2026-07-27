@@ -1663,6 +1663,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 {
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
+	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1672,7 +1673,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
-	ar.i16(s.bActionPoints); ar.i16(s.bInitialActionPoints);
+	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
 	ar.i8(s.bOldLife); ar.i8(s.bVisible); ar.i8(s.bActive); ar.i8(s.bTeam);
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
 	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(s.sFractLife);

@@ -34,6 +34,28 @@ private:
 	INT8 bleeding_ = 0;
 };
 
+// Canonical tactical action-point budget. The current amount and the turn-start
+// snapshot form one lifecycle: turn setup records them together, while network
+// reconciliation may still update only the authoritative current amount.
+class SoldierActionPointComponent
+{
+public:
+	INT16& current() noexcept { return current_; }
+	const INT16& current() const noexcept { return current_; }
+	INT16& initial() noexcept { return initial_; }
+	const INT16& initial() const noexcept { return initial_; }
+
+	bool hasAny() const noexcept { return current_ > 0; }
+	void beginTurn(INT16 points) noexcept;
+	void snapshotTurnStart() noexcept { initial_ = current_; }
+	void clear() noexcept;
+	void reset() noexcept;
+
+private:
+	INT16 current_ = 0;
+	INT16 initial_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

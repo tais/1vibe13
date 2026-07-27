@@ -110,7 +110,7 @@ static int LuaGetSoldierAPs( lua_State *L )
 	}
 	else
 	{
-		lua_pushinteger( L, pSoldier->bActionPoints);
+		lua_pushinteger( L, pSoldier->actionPoints().current());
 	}
 	return 1;
 }
@@ -121,7 +121,7 @@ static int LuaSetSoldierAPs( lua_State *L )
 	SOLDIERTYPE *pSoldier = *ppSoldier;
 	int newaps = luaL_checkinteger( L, 3);
 	luaL_argcheck( L, newaps > 0 && newaps < 256, 2, "The grid number must be on screen!" );
-	pSoldier->bActionPoints = (INT8) newaps;
+	pSoldier->actionPoints().current() = (INT8) newaps;
 	return 0;
 }
 

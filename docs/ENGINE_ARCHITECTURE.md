@@ -962,6 +962,11 @@ the engine must not contain SDL types in its public domain model.
   have one private `SoldierVitalsComponent` owner as well. Zero-cost reference
   accessors preserve hot-path mutation semantics, while the portable field
   serializer emits those values in their established save byte positions.
+  Current and turn-start action points now have one private
+  `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
+  forced zero-AP transitions update the pair through named operations, while
+  authoritative multiplayer reconciliation can still update only the current
+  budget without changing packet layout.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

@@ -4145,7 +4145,7 @@ void DebugSoldierPage1( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"APs:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->bActionPoints );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->actionPoints().current() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);

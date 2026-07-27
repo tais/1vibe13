@@ -53,7 +53,7 @@ TacticalActorSnapshot LegacyState(
 		soldier.position().direction(),
 		soldier.animationPlayback().state(),
 		LegacyStance(soldier),
-		soldier.bActionPoints,
+		soldier.actionPoints().current(),
 		soldier.vitals().health(),
 		soldier.vitals().maximumHealth(),
 		soldier.vitals().breath(),

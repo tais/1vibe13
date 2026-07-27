@@ -748,9 +748,9 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 		// cost to move per tile is 1 points.
 		// HEADROCK HAM 3.6: This doesn't take into account the 100AP system. Adjusting.
 		// Please note, I used a calculation that may have a better representation in some global variable.
-		//iMaxMoveTilesLeft = __max( 0, pSoldier->bActionPoints - MinAPsToStartMovement( pSoldier, usMovementMode ) );
+		//iMaxMoveTilesLeft = __max( 0, pSoldier->actionPoints().current() - MinAPsToStartMovement( pSoldier, usMovementMode ) );
 		// WarmSteel - Bugfix:  wrong parentheses
-		iMaxMoveTilesLeft = __max( 0, (pSoldier->bActionPoints - MinAPsToStartMovement( pSoldier, usMovementMode )) / (APBPConstants[AP_MAXIMUM] / 25) );
+		iMaxMoveTilesLeft = __max( 0, (pSoldier->actionPoints().current() - MinAPsToStartMovement( pSoldier, usMovementMode )) / (APBPConstants[AP_MAXIMUM] / 25) );
 
 		//NumMessage("In BLACK, maximum tiles to move left = ",maxMoveTilesLeft);
 
@@ -795,7 +795,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 		if (Threat[uiLoop].iOrigRange <= MAX_THREAT_RANGE)
 		{
 			// add this opponent's cover value to our current total cover value
-			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->position().gridNo(),iMyThreatValue,pSoldier->bActionPoints,uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale,iRangeChangeDesire);
+			iCurrentCoverValue += CalcCoverValue(pSoldier,pSoldier->position().gridNo(),iMyThreatValue,pSoldier->actionPoints().current(),uiLoop,Threat[uiLoop].iOrigRange,morale,&iCurrentScale,iRangeChangeDesire);
 		}
 		// sevenfm: sight test -- only matters when defending (fWantProneCover); and
 		// once any threat sees the prone spot, fProneCover is decided, so stop testing.
@@ -895,7 +895,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	if (pSoldier->aiData.bAlertStatus >= STATUS_RED)			// if already in battle
 	{
 		// to speed this up, tell PathAI to cancel any paths beyond our AP reach!
-		gubNPCAPBudget = pSoldier->bActionPoints;
+		gubNPCAPBudget = pSoldier->actionPoints().current();
 	}
 	else
 	{
@@ -1034,7 +1034,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			if (pSoldier->aiData.bAlertStatus == STATUS_BLACK)		// in battle
 			{
 				// must be able to afford the APs to get to this cover this turn
-				if (iPathCost > pSoldier->bActionPoints)
+				if (iPathCost > pSoldier->actionPoints().current())
 				{
 					//NumMessage("In BLACK, and can't afford to get there, cost = ",iPathCost);
 					continue;		// skip on to the next potential grid
@@ -1059,7 +1059,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 				if (iThreatRange <= MAX_THREAT_RANGE)
 				{
 					iCoverValue += CalcCoverValue(pSoldier,sGridNo,iMyThreatValue,
-						(pSoldier->bActionPoints - iPathCost),
+						(pSoldier->actionPoints().current() - iPathCost),
 						uiLoop,iThreatRange,morale,&iCoverScale,iRangeChangeDesire);
 				}
 
@@ -1344,15 +1344,15 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 
 	if (pSoldier->aiData.bAlertStatus == STATUS_BLACK)			// if already in battle
 	{
-		iSearchRange = pSoldier->bActionPoints / 2;
+		iSearchRange = pSoldier->actionPoints().current() / 2;
 
 		// to speed this up, tell PathAI to cancel any paths beyond our AP reach!
-		gubNPCAPBudget = pSoldier->bActionPoints;
+		gubNPCAPBudget = pSoldier->actionPoints().current();
 	}
 	else
 	{
 		// even if not under pressure, limit to 1 turn's travelling distance
-		gubNPCAPBudget = __min( pSoldier->bActionPoints / 2, pSoldier->CalcActionPoints( ) );
+		gubNPCAPBudget = __min( pSoldier->actionPoints().current() / 2, pSoldier->CalcActionPoints( ) );
 
 		iSearchRange = gubNPCAPBudget / 2;
 	}
@@ -1587,7 +1587,7 @@ INT32 FindNearestUngassedLand(SOLDIERTYPE *pSoldier)
 			}
 		}
 
-		//gubNPCAPBudget = pSoldier->bActionPoints;
+		//gubNPCAPBudget = pSoldier->actionPoints().current();
 		gubNPCAPBudget = 0;
 		gubNPCDistLimit = (UINT8)iSearchRange;
 		FindBestPath(pSoldier, GRIDSIZE, pSoldier->position().level(), usMovementMode, COPYREACHABLE, 0);	//dnl ch50 071009
@@ -1731,7 +1731,7 @@ INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
 			}
 		}
 
-		//gubNPCAPBudget = pSoldier->bActionPoints;
+		//gubNPCAPBudget = pSoldier->actionPoints().current();
 		gubNPCAPBudget = 0;
 		gubNPCDistLimit = (UINT8)iSearchRange;
 		FindBestPath(pSoldier, GRIDSIZE, pSoldier->position().level(), usMovementMode, COPYREACHABLE, 0);	//dnl ch50 071009
@@ -1871,7 +1871,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 		return AI_ACTION_NONE;
 	}
 
-	if (pSoldier->bActionPoints < GetBasicAPsToPickupItem( pSoldier ))
+	if (pSoldier->actionPoints().current() < GetBasicAPsToPickupItem( pSoldier ))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("not enough AP!"));
 		return( AI_ACTION_NONE );
@@ -1931,7 +1931,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 
 	// set an AP limit too, to our APs less the cost of picking up an item
 	// and less the cost of dropping an item since we might need to do that
-	gubNPCAPBudget = pSoldier->bActionPoints - GetBasicAPsToPickupItem( pSoldier );
+	gubNPCAPBudget = pSoldier->actionPoints().current() - GetBasicAPsToPickupItem( pSoldier );
 
 	// reset the "reachable" flags in the region we're looking at
 	for (sYOffset = -sMaxUp; sYOffset <= sMaxDown; sYOffset++)
@@ -2226,7 +2226,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 			//if (pSoldier->inv[HANDPOS].exists() == true && PlaceInAnyPocket(pSoldier, &pSoldier->inv[HANDPOS], false) == false)
 			if (FindBetterSpotForItem( pSoldier, HANDPOS ) == FALSE)
 			{
-				if (pSoldier->bActionPoints < GetBasicAPsToPickupItem( pSoldier ) + GetBasicAPsToPickupItem( pSoldier ))
+				if (pSoldier->actionPoints().current() < GetBasicAPsToPickupItem( pSoldier ) + GetBasicAPsToPickupItem( pSoldier ))
 				{
 					return( AI_ACTION_NONE );
 				}
@@ -3171,7 +3171,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 		}
 	}
 
-	if (pSoldier->bActionPoints <= ubReserveAP)
+	if (pSoldier->actionPoints().current() <= ubReserveAP)
 	{
 		return NOWHERE;
 	}
@@ -3186,7 +3186,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 	iRoamRange = RoamingRange(pSoldier, &sOrigin);
 
 	// set AP limit
-	gubNPCAPBudget = pSoldier->bActionPoints - ubReserveAP;
+	gubNPCAPBudget = pSoldier->actionPoints().current() - ubReserveAP;
 	// set the distance limit of the square region
 	gubNPCDistLimit = (UINT8)iSearchRange;
 
@@ -3355,7 +3355,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 				}
 				// check that we'll have enough APs to go prone at target spot
 				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
-				if( pSoldier->bActionPoints - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
+				if( pSoldier->actionPoints().current() - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
 				{
 				continue;
 				}*/
@@ -3369,7 +3369,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 				}
 				// check that we'll have enough APs to go prone at target spot
 				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
-				if( pSoldier->bActionPoints - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
+				if( pSoldier->actionPoints().current() - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
 				{
 				continue;
 				}*/
@@ -3437,7 +3437,7 @@ INT32 FindRetreatSpot(SOLDIERTYPE *pSoldier)
 	//ubReserveAP = GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING];
 	ubReserveAP = GetAPsCrouch(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING];
 
-	if (pSoldier->bActionPoints <= ubReserveAP)
+	if (pSoldier->actionPoints().current() <= ubReserveAP)
 	{
 		return NOWHERE;
 	}
@@ -3445,7 +3445,7 @@ INT32 FindRetreatSpot(SOLDIERTYPE *pSoldier)
 	iRoamRange = RoamingRange(pSoldier, &sOrigin);
 
 	// set AP limit
-	gubNPCAPBudget = pSoldier->bActionPoints;
+	gubNPCAPBudget = pSoldier->actionPoints().current();
 	// set the distance limit of the square region
 	gubNPCDistLimit = (UINT8)iSearchRange;
 
