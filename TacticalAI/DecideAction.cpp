@@ -2859,7 +2859,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					else
 					{
 						pSoldier->aiData.usActionData = BestThrow.sTarget;
-						pSoldier->bTargetLevel = BestThrow.bTargetLevel;
+						pSoldier->targeting().level() = BestThrow.bTargetLevel;
 						pSoldier->aiData.bAimTime = BestThrow.ubAimTime;
 					}
 
@@ -2945,7 +2945,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				else
 				{
 					pSoldier->aiData.usActionData = BestThrow.sTarget;
-					pSoldier->bTargetLevel = BestThrow.bTargetLevel;
+					pSoldier->targeting().level() = BestThrow.bTargetLevel;
 					pSoldier->aiData.bAimTime = BestThrow.ubAimTime;
 				}
 
@@ -3082,7 +3082,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				!fCanBeSeen && NightLight() && CountFriendsFlankSameSpot(pSoldier, sClosestOpponent) && Chance(50) ||
 				ARMED_VEHICLE(pSoldier) ||																		// tanks don't need cover
 				ENEMYROBOT(pSoldier) || // robots don't try to be in cover
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
 				Chance((BestShot.ubChanceToReallyHit + 100) / 2) ||											// 50% chance to fire without cover
 				//SoldierToSoldierLineOfSightTest(pSoldier, BestShot.ubOpponent, TRUE, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
 				LOS_Raised(pSoldier, bestShotOpponent, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
@@ -3091,7 +3091,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				ARMED_VEHICLE(pSoldier) ||
 				ENEMYROBOT(pSoldier) ||
 				AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) ||
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->sLastTarget == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
 				(PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget)))) &&
 				// check that we have spare ammo
 				(fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))
@@ -3107,7 +3107,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					RearrangePocket(pSoldier, HANDPOS, BestShot.bWeaponIn, FOREVER);
 				}
 
-				pSoldier->bTargetLevel = BestShot.bTargetLevel;
+				pSoldier->targeting().level() = BestShot.bTargetLevel;
 				pSoldier->aiData.bAimTime = BestShot.ubAimTime;
 				pSoldier->bDoAutofire = 0;
 				pSoldier->bDoBurst = 1;
@@ -3700,7 +3700,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			else
 			{
 				pSoldier->aiData.usActionData = BestThrow.sTarget;
-				pSoldier->bTargetLevel = BestThrow.bTargetLevel;
+				pSoldier->targeting().level() = BestThrow.bTargetLevel;
 				pSoldier->aiData.bAimTime = BestThrow.ubAimTime;
 			}
 
@@ -5383,7 +5383,7 @@ INT16 ubMinAPCost;
 			else
 			{
 				pSoldier->aiData.usActionData = BestThrow.sTarget;
-				pSoldier->bTargetLevel = BestThrow.bTargetLevel;
+				pSoldier->targeting().level() = BestThrow.bTargetLevel;
 				pSoldier->aiData.bAimTime = BestThrow.ubAimTime;
 			}
 
@@ -5614,7 +5614,7 @@ INT16 ubMinAPCost;
 			}
 
 			// get the minimum cost to attack with this knife
-			ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->sLastTarget,DONTADDTURNCOST,0,0);
+			ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0,0);
 
 			// if we can afford the minimum AP cost to stab with/throw this knife weapon
 			if (pSoldier->bActionPoints >= ubMinAPCost)
@@ -5716,7 +5716,7 @@ INT16 ubMinAPCost;
 				}
 
 				// get the minimum cost to attack with punch
-				ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->sLastTarget,DONTADDTURNCOST,0,0);
+				ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0,0);
 				// if we can afford the minimum AP cost to punch
 				if (pSoldier->bActionPoints >= ubMinAPCost)
 				{
@@ -5834,8 +5834,8 @@ INT16 ubMinAPCost;
 			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != bestStabOpponent->position().direction() &&
 			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != gOneCDirection[bestStabOpponent->position().direction()] &&
 			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != gOneCCDirection[bestStabOpponent->position().direction()] &&
-			pSoldier->bInitialActionPoints >= 2 * MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0) + APBPConstants[AP_MOVEMENT_FLAT] + APBPConstants[AP_MODIFIER_WALK] &&
-			pSoldier->bActionPoints < BestStab.ubAPCost + MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0))
+			pSoldier->bInitialActionPoints >= 2 * MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0) + APBPConstants[AP_MOVEMENT_FLAT] + APBPConstants[AP_MODIFIER_WALK] &&
+			pSoldier->bActionPoints < BestStab.ubAPCost + MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0))
 		{
 			BestStab.ubPossible = FALSE;
 			fTryPunching = FALSE;
@@ -5882,7 +5882,7 @@ INT16 ubMinAPCost;
 			}
 
 			if (!TileIsOutOfBounds(sBestSpot) &&
-				pSoldier->bActionPoints >= sPathCost + GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0))
+				pSoldier->bActionPoints >= sPathCost + GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0))
 			{
 				pSoldier->aiData.usActionData = sBestSpot;
 				DebugAI(AI_MSG_INFO, pSoldier, String("boxer: get closer to opponent, avoid front direction"));
@@ -5942,7 +5942,7 @@ INT16 ubMinAPCost;
 				}
 
 				// get the minimum cost to attack by HTH
-				ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->sLastTarget,DONTADDTURNCOST,0,0);
+				ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0,0);
 
 				// if we can afford the minimum AP cost to use HTH combat
 				if (pSoldier->bActionPoints >= ubMinAPCost)
@@ -6052,7 +6052,7 @@ INT16 ubMinAPCost;
 		DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER) != CRAWLING &&
 		pSoldier->aiData.bShock < RangeChangeDesire(pSoldier) * 2 &&
 		(AIGunRange(pSoldier) < PythSpacesAway(pSoldier->position().gridNo(), sClosestOpponent) ||
-		pSoldier->aiData.bLastAttackHit && pSoldier->sLastTarget != NOWHERE || 
+		pSoldier->aiData.bLastAttackHit && pSoldier->targeting().lastGridNo() != NOWHERE ||
 		pSoldier->aiData.bAIMorale == MORALE_FEARLESS ||
 		ubBestAttackAction == AI_ACTION_NONE ||
 		ubBestAttackAction == AI_ACTION_FIRE_GUN && BestAttack.ubChanceToReallyHit == 1 ||
@@ -6175,7 +6175,7 @@ INT16 ubMinAPCost;
 							}
 
 							pSoldier->aiData.usActionData = BestThrow.sTarget;
-							pSoldier->bTargetLevel = BestThrow.bTargetLevel;
+							pSoldier->targeting().level() = BestThrow.bTargetLevel;
 							pSoldier->aiData.bAimTime = BestThrow.ubAimTime;
 
 							return(AI_ACTION_TOSS_PROJECTILE);
@@ -6760,7 +6760,7 @@ L_NEWAIM:
 			else
 			{
 				pSoldier->aiData.usActionData = BestAttack.sTarget;
-				pSoldier->bTargetLevel = BestAttack.bTargetLevel;
+				pSoldier->targeting().level() = BestAttack.bTargetLevel;
 				return(AI_ACTION_FIRE_GUN);
 			}
 		}
@@ -6789,7 +6789,7 @@ L_NEWAIM:
 				else
 				{
 					pSoldier->aiData.usActionData = BestAttack.sTarget;
-					pSoldier->bTargetLevel = BestAttack.bTargetLevel;
+					pSoldier->targeting().level() = BestAttack.bTargetLevel;
 				return(AI_ACTION_TOSS_PROJECTILE);
 			}
 		}
@@ -6797,7 +6797,7 @@ L_NEWAIM:
 		else
 		{
 			pSoldier->aiData.usActionData = BestAttack.sTarget;
-			pSoldier->bTargetLevel = BestAttack.bTargetLevel;
+			pSoldier->targeting().level() = BestAttack.bTargetLevel;
 			return(ubBestAttackAction);
 		}
 	}
@@ -6916,16 +6916,16 @@ L_NEWAIM:
 			{
 				if (SpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > 1)
 				{
-					INT16 sReserveAP = GetAPsToLook(pSoldier) + 2 * MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0);
+					INT16 sReserveAP = GetAPsToLook(pSoldier) + 2 * MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0);
 					BOOLEAN fLimitOneStep = FALSE;
 
 					if (pSoldier->bInitialActionPoints < sReserveAP + APBPConstants[AP_MOVEMENT_FLAT] + APBPConstants[AP_MODIFIER_WALK])
 					{
-						sReserveAP = GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0);
+						sReserveAP = GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0);
 					}
 
 					if (pSoldier->bInitialActionPoints < sReserveAP + APBPConstants[AP_MOVEMENT_FLAT] + APBPConstants[AP_MODIFIER_WALK] &&
-						pSoldier->bInitialActionPoints >= GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0, 0) &&
+						pSoldier->bInitialActionPoints >= GetAPsToLook(pSoldier) + MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0, 0) &&
 						SpacesAway(pSoldier->position().gridNo(), sClosestOpponent) > 2)
 					{
 						sReserveAP = GetAPsToLook(pSoldier) + 1;
@@ -7062,8 +7062,8 @@ L_NEWAIM:
 		pSoldier->aiData.usActionData = sBestCover;
 		if(!TileIsOutOfBounds(sClosestOpponent))//dnl ch58 150913 After taking cover change facing toward recent target or closest enemy, currently such turn not charge APs and seems because AI is still in moving animation from take cover action
 		{
-			if(!TileIsOutOfBounds(pSoldier->sLastTarget))
-				sClosestOpponent = pSoldier->sLastTarget;
+			if(!TileIsOutOfBounds(pSoldier->targeting().lastGridNo()))
+				sClosestOpponent = pSoldier->targeting().lastGridNo();
 			pSoldier->aiData.bNextAction = AI_ACTION_CHANGE_FACING;
 			pSoldier->aiData.usNextActionData = GetDirectionFromCenterCellXYGridNo(sBestCover, sClosestOpponent);
 		}
@@ -7218,8 +7218,8 @@ L_NEWAIM:
 			// if we have a closest reachable opponent			
 			if (!TileIsOutOfBounds(sClosestOpponent))
 			{
-				if(!TileIsOutOfBounds(pSoldier->sLastTarget))//dnl ch58 150913
-					sClosestOpponent = pSoldier->sLastTarget;
+				if(!TileIsOutOfBounds(pSoldier->targeting().lastGridNo()))//dnl ch58 150913
+					sClosestOpponent = pSoldier->targeting().lastGridNo();
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
@@ -8667,7 +8667,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: suppression fire possible!" );
 
 			pSoldier->aiData.usActionData = BestShot.sTarget;
-			pSoldier->bTargetLevel = BestShot.bTargetLevel;
+			pSoldier->targeting().level() = BestShot.bTargetLevel;
 			pSoldier->aiData.bAimTime = 0;
 			pSoldier->bDoAutofire = 0;
 			pSoldier->bDoBurst = 1;
@@ -9785,7 +9785,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			if ( Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_GUN && pSoldier->inv[HANDPOS][0]->data.gun.bGunStatus >= USABLE )
 			{
 				// get the minimum cost to attack the same target with this gun
-				ubMinAPCost = MinAPsToAttack( pSoldier, pSoldier->sLastTarget, ADDTURNCOST, 0 );
+				ubMinAPCost = MinAPsToAttack( pSoldier, pSoldier->targeting().lastGridNo(), ADDTURNCOST, 0 );
 
 				// if we have enough action points to shoot with this gun
 				if ( pSoldier->bActionPoints >= ubMinAPCost )
@@ -10296,7 +10296,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				
 		{
 			pSoldier->aiData.usActionData = BestAttack.sTarget;
-			pSoldier->bTargetLevel = BestAttack.bTargetLevel;
+			pSoldier->targeting().level() = BestAttack.bTargetLevel;
 
 #ifdef DEBUGDECISIONS
 			STR tempstr = "";
@@ -10397,8 +10397,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			// if we have a closest reachable opponent			
 			if ( !TileIsOutOfBounds( sClosestOpponent ) )
 			{
-				if ( !TileIsOutOfBounds( pSoldier->sLastTarget ) )//dnl ch58 150913
-					sClosestOpponent = pSoldier->sLastTarget;
+				if ( !TileIsOutOfBounds( pSoldier->targeting().lastGridNo() ) )//dnl ch58 150913
+					sClosestOpponent = pSoldier->targeting().lastGridNo();
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him

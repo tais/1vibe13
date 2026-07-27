@@ -2926,7 +2926,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 
 			// now set target cube height
 			// CJC says to hardcode this value :)
-			pSoldier->bTargetCubeLevel = 2;
+			pSoldier->targeting().cubeLevel() = 2;
 		}
 		else
 		{
@@ -5502,7 +5502,7 @@ UINT32 UIHandleLCOnTerrain( UI_EVENT *pUIEvent )
 		//	at someone in our current firing arc, we'll again pay the AP_CHANGE_TARGET cost because it's considered a new tartget.
 		//	Should be simply pay the ready weapon cost and only pay the AP_CHANGE_TARGET when we actually aim at a target?
 		// Lesh: raise weapon include APs to set weapon towards enemy and APs to aquire/change target
-		//if( pSoldier->sLastTarget != sXPos + (MAXCOL * sYPos ) )
+		//if( pSoldier->targeting().lastGridNo() != sXPos + (MAXCOL * sYPos ) )
 		//	gsCurrentActionPoints = APBPConstants[AP_CHANGE_TARGET];
 
 		if( usAnimState != INVALID_ANIMATION )
@@ -5610,15 +5610,15 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 
 		sAPCostToReady = sAPCost = 0;
 
-		// silversurfer: We can't charge AP_CHANGE_TARGET here without also setting pSoldier->sLastTarget to the new grid number.
-		// Otherwise we'll be charging AP_CHANGE_TARGET over and over because pSoldier->sLastTarget will always be -1. But
-		// we can't set pSoldier->sLastTarget without screwing up CtH calculation and creating an exploit for that.
+		// silversurfer: We can't charge AP_CHANGE_TARGET here without also setting pSoldier->targeting().lastGridNo() to the new grid number.
+		// Otherwise we'll be charging AP_CHANGE_TARGET over and over because pSoldier->targeting().lastGridNo() will always be -1. But
+		// we can't set pSoldier->targeting().lastGridNo() without screwing up CtH calculation and creating an exploit for that.
 		//CHRISL: We should only charge AP_CHANGE_TARGET if we're actually pointing at a new target.  Don't charge just
 		//	to ready a weapon since we'll charge AP_CHANGE_TARGET when we actually fire.
-		/*SOLDIERTYPE * pTarget = SimpleFindSoldier( sXPos + (MAXCOL * sYPos ), pSoldier->bTargetLevel );
+		/*SOLDIERTYPE * pTarget = SimpleFindSoldier( sXPos + (MAXCOL * sYPos ), pSoldier->targeting().level() );
 
 		// Lesh: raise weapon include APs to set weapon towards enemy and APs to aquire/change target
-		if( pSoldier->sLastTarget != sXPos + (MAXCOL * sYPos ) && pTarget != NULL )
+		if( pSoldier->targeting().lastGridNo() != sXPos + (MAXCOL * sYPos ) && pTarget != NULL )
 			sAPCost = APBPConstants[AP_CHANGE_TARGET];
 
 		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 ) 
@@ -5653,7 +5653,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 
 		// Setting "Last Target"
 
-		//pSoldier->sLastTarget = sXPos + (MAXCOL * sYPos);//dnl ch70 160913 when you turn you will lost target, it was always been like that!
+		//pSoldier->targeting().lastGridNo() = sXPos + (MAXCOL * sYPos);//dnl ch70 160913 when you turn you will lost target, it was always been like that!
 
 		// SANDRO - get BP cost for weapon manipulating
 		if ( gGameExternalOptions.ubEnergyCostForWeaponWeight)

@@ -4011,7 +4011,7 @@ int main( int, char** )
 		commandHostActor.aiData.sPendingActionData2 = 100;
 		commandHostActor.aiData.bPendingActionData3 = 3;
 		commandHostActor.aiData.uiPendingActionData4 = 0;
-		commandHostActor.bTargetLevel = FIRST_LEVEL;
+		commandHostActor.targeting().level() = FIRST_LEVEL;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingStealCompleted =
@@ -7287,6 +7287,10 @@ int main( int, char** )
 		movement.delayedFlags() = 5;
 		movement.stopReason() = 2;
 		movement.overrideMoveSpeedWith(SoldierID{ 4 });
+		SoldierTargetingComponent& targeting = soldier.targeting();
+		targeting.selectLocation(1280, 1, 3);
+		targeting.lastGridNo() = 1279;
+		targeting.selectSoldier(SoldierID{ 5 });
 		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 		animationIntent.requestHeight( ANIM_CROUCH );
 		animationIntent.queueFacingAnimation( WALKING, 4 );
@@ -7355,6 +7359,13 @@ int main( int, char** )
 		       constSoldier.movement().usesMoveSpeedOverride() &&
 		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier movement component owns tactical intent and contention state" );
+		CHECK( constSoldier.targeting().gridNo() == 1280 &&
+		       constSoldier.targeting().level() == 1 &&
+		       constSoldier.targeting().cubeLevel() == 3 &&
+		       constSoldier.targeting().lastGridNo() == 1279 &&
+		       constSoldier.targeting().hasTargetSoldier() &&
+		       constSoldier.targeting().targetId() == SoldierID{ 5 },
+		       "soldier targeting component owns current target geometry and identity" );
 		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
 		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       constSoldier.animationIntent().hasPendingAnimation() &&
@@ -7457,6 +7468,12 @@ int main( int, char** )
 		       copiedSoldier.movement().usesMoveSpeedOverride() &&
 		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier copies retain their owned persistent movement state" );
+		CHECK( copiedSoldier.targeting().gridNo() == 1280 &&
+		       copiedSoldier.targeting().level() == 1 &&
+		       copiedSoldier.targeting().cubeLevel() == 3 &&
+		       copiedSoldier.targeting().lastGridNo() == 1279 &&
+		       copiedSoldier.targeting().targetId() == SoldierID{ 5 },
+		       "soldier copies retain their owned persistent targeting state" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
 		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
@@ -7575,6 +7592,13 @@ int main( int, char** )
 		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
 		       !copiedSoldier.movement().usesMoveSpeedOverride(),
 		       "soldier initialization resets the complete movement domain" );
+		CHECK( copiedSoldier.targeting().gridNo() == 0 &&
+		       copiedSoldier.targeting().level() == 0 &&
+		       copiedSoldier.targeting().cubeLevel() == 0 &&
+		       copiedSoldier.targeting().lastGridNo() == 0 &&
+		       !copiedSoldier.targeting().hasTargetSoldier() &&
+		       copiedSoldier.targeting().targetId() == NOBODY,
+		       "soldier initialization resets the complete targeting domain" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
 		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
@@ -7747,6 +7771,9 @@ int main( int, char** )
 		savedSoldier.movement().delayedFlags() = 3;
 		savedSoldier.movement().stopReason() = 4;
 		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
+		savedSoldier.targeting().selectLocation(1480, 1, 4);
+		savedSoldier.targeting().lastGridNo() = 1479;
+		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
 		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
 		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
 		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
@@ -7845,6 +7872,13 @@ int main( int, char** )
 		       loadedSoldier.movement().usesMoveSpeedOverride() &&
 		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
 		       "soldier save/load round-trips component-owned movement speed state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.targeting().gridNo() == 1480 &&
+		       loadedSoldier.targeting().level() == 1 &&
+		       loadedSoldier.targeting().cubeLevel() == 4 &&
+		       loadedSoldier.targeting().lastGridNo() == 1479 &&
+		       loadedSoldier.targeting().targetId() == SoldierID{ 9 },
+		       "soldier save/load round-trips component-owned targeting state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
 		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&

@@ -293,7 +293,12 @@ mutation while the portable serializer retains the established byte sequence.
 delayed-tile counters and causes, movement reservation, merc contention,
 scripted and continued destinations, stop reason, and coordinated speed
 override. Paired transitions have named operations rather than independently
-mutating generic flags. `SoldierAnimationIntentComponent` owns the next
+mutating generic flags. `SoldierTargetingComponent` owns the selected target
+grid, elevation, cube level, previous target grid, and target soldier identity.
+The application UI, AI, weapons, simulation-command, animation-event, and
+multiplayer adapters use this one private owner; packages still receive only
+stable pointer-free tactical identities and snapshots. The
+`SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
 mode. `SoldierAnimationPlaybackComponent` separately owns the accepted current
@@ -306,12 +311,12 @@ change coordinated hit, fall, pause, and interruptibility state together.
 fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
-to its canonical slot. The serializer keeps persistent animation values at
-their established byte positions and preserves both continuation mode `2` and
-hit phase `2` as 8-bit values rather than reducing them to boolean `1`. The
-retired cache-pointer visitors emitted no bytes; load now resets the inline
-cache directly. The unused legacy delayed-cause-merc byte is retained only at
-its save position and is no longer live soldier state. None of these
+to its canonical slot. The serializer keeps targeting and persistent animation
+values at their established byte positions and preserves both continuation
+mode `2` and hit phase `2` as 8-bit values rather than reducing them to boolean
+`1`. The retired cache-pointer visitors emitted no bytes; load now resets the
+inline cache directly. The unused legacy delayed-cause-merc byte is retained
+only at its save position and is no longer live soldier state. None of these
 components changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows

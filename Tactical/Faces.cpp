@@ -2536,7 +2536,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
 				{
 					SetFont(TINYFONT1);
-					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->sLastTarget, FALSE, 0), 0, FALSE) || pSoldier->bActionPoints < 0)
+					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0), 0, FALSE) || pSoldier->bActionPoints < 0)
 					{
 						SetFontBackground(FONT_MCOLOR_BLACK);
 						SetFontForeground(FONT_MCOLOR_DKRED);

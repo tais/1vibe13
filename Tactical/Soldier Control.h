@@ -1054,6 +1054,8 @@ public:
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
+	SoldierTargetingComponent& targeting() noexcept { return targeting_; }
+	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
@@ -1154,11 +1156,6 @@ public:
 	INT8 			bNewOppCnt;
 	INT8				bService;		// first aid, or other time consuming process
 	
-	// Weapon Stuff
-	INT32			sTargetGridNo;
-	INT8				bTargetLevel;
-	INT8				bTargetCubeLevel;
-	INT32			sLastTarget;
 	// HEADROCK HAM 4: the muzzle offset of the shooter's previous bullet. (NCTH)
 	FLOAT			dPrevMuzzleOffsetX[2];
 	FLOAT			dPrevMuzzleOffsetY[2];
@@ -1338,7 +1335,6 @@ public:
 	INT32				sEndDoorOpenCodeData;//dnl ch53 121009
 	UINT16				usAttackingWeapon;
 	INT8					bWeaponMode;
-	SoldierID			ubTargetID;
 	INT8					bAIScheduleProgress;
 	INT32				sOffWorldGridNo;
 	struct TAG_anitile	*pAniTile;	
@@ -1549,6 +1545,7 @@ private:
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
+	SoldierTargetingComponent	targeting_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;

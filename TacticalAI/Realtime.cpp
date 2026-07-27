@@ -156,7 +156,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 					// do the next thing we have to do...
 					pSoldier->aiData.bAction = pSoldier->aiData.bNextAction;
 					pSoldier->aiData.usActionData = pSoldier->aiData.usNextActionData;
-					pSoldier->bTargetLevel = pSoldier->aiData.bNextTargetLevel;
+					pSoldier->targeting().level() = pSoldier->aiData.bNextTargetLevel;
 					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
 					pSoldier->aiData.usNextActionData = 0;
 					pSoldier->aiData.bNextTargetLevel = 0;

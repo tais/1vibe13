@@ -6181,7 +6181,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
             if ( pTeamSoldier->animationPlayback().state() == GIVING_AID || pTeamSoldier->animationPlayback().state() == GIVING_AID_PRN )
             { 
                 // Get victim pointer
-                usSoldierIndex = WhoIsThere2( pTeamSoldier->sTargetGridNo, pTeamSoldier->position().level() );
+                usSoldierIndex = WhoIsThere2( pTeamSoldier->targeting().gridNo(), pTeamSoldier->position().level() );
                 if ( usSoldierIndex != NOBODY )
                 {
                     pTargetSoldier =
@@ -6265,7 +6265,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
         if ( pTeamSoldier->animationPlayback().state() == GIVING_AID || pTeamSoldier->animationPlayback().state() == GIVING_AID_PRN )
         {
             // Get victim pointer
-            usSoldierIndex = WhoIsThere2( pTeamSoldier->sTargetGridNo, pTeamSoldier->position().level() );
+            usSoldierIndex = WhoIsThere2( pTeamSoldier->targeting().gridNo(), pTeamSoldier->position().level() );
 
             if ( usSoldierIndex != NOBODY )
             {
@@ -9685,10 +9685,10 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     DebugAttackBusy( String( "Ending action for %d\n", ubID ) );
     // Get the intended target info
     pTarget = NULL;
-    if (pSoldier->ubTargetID != NOBODY)
+    if (pSoldier->targeting().targetId() != NOBODY)
     {
         pTarget =
-            GetJa2SoldierRepository().resolve(pSoldier->ubTargetID.i);
+            GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
     }
 
 	// Flugente 18-07-22: commenting this out - it doesn't do harm in realtime, and is more realistic
@@ -9964,7 +9964,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     // Check for valid target!
     if ( pSoldier )
     {
-        pSoldier->sLastTarget = pSoldier->sTargetGridNo;
+        pSoldier->targeting().lastGridNo() = pSoldier->targeting().gridNo();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

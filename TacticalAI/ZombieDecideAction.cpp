@@ -1011,7 +1011,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			}
 
 			// get the minimum cost to attack by HTH
-			ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->sLastTarget,DONTADDTURNCOST,0,0);
+			ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0,0);
 			DebugAI( AI_MSG_INFO, pSoldier, String("min AP to attack %d", ubMinAPCost));
 
 			// if we can afford the minimum AP cost to use HTH combat
@@ -1112,9 +1112,9 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		}
 
 		pSoldier->aiData.usActionData = BestAttack.sTarget;
-		pSoldier->bTargetLevel = BestAttack.bTargetLevel;
+		pSoldier->targeting().level() = BestAttack.bTargetLevel;
 
-		DebugAI( AI_MSG_INFO, pSoldier, String("attack opponent %d at gridno %d level %d", BestAttack.ubOpponent, pSoldier->aiData.usActionData, pSoldier->bTargetLevel));
+		DebugAI( AI_MSG_INFO, pSoldier, String("attack opponent %d at gridno %d level %d", BestAttack.ubOpponent, pSoldier->aiData.usActionData, pSoldier->targeting().level()));
 
 		return(ubBestAttackAction);
 	}

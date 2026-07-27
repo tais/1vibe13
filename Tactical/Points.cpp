@@ -1051,8 +1051,8 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				}
 				// adjust by range to target
 				//INT32 iRange = GetRangeInCellCoordsFromGridNoDiff( pOpponent->sGridNo, pSoldier->sGridNo );		// calculate actual range
-				//INT16 iDistVisible = (pOpponent->GetMaxDistanceVisible(pOpponent->sGridNo, pOpponent->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE); // how far do we see
-				INT16 iDistVisible = pOpponent->GetMaxDistanceVisible(pOpponent->position().gridNo(), pOpponent->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target
+				//INT16 iDistVisible = (pOpponent->GetMaxDistanceVisible(pOpponent->sGridNo, pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE); // how far do we see
+				INT16 iDistVisible = pOpponent->GetMaxDistanceVisible(pOpponent->position().gridNo(), pOpponent->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE; // -1% registered by 4% of the difference of how far we can see and how far is the target
 				iDistVisible = max(iDistVisible, CELL_X_SIZE);
 				ubPointsRegistered -= min( 25, ( 25 * GetRangeInCellCoordsFromGridNoDiff( pOpponent->position().gridNo(), pSoldier->position().gridNo() ) / iDistVisible ));
 				
@@ -1074,7 +1074,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 					{
 						// check how far we are, we only get this bonus at certain range
 						INT16 sTileDistance = PythSpacesAway(pSoldier->position().gridNo(), pOpponent->position().gridNo());
-						if ( (sTileDistance <= 9) && (pOpponent->bTargetLevel == pSoldier->bTargetLevel)) // we must be on the same ground level as well
+						if ( (sTileDistance <= 9) && (pOpponent->targeting().level() == pSoldier->targeting().level())) // we must be on the same ground level as well
 						{
 							UINT8 ubBonus = gSkillTraitValues.ubMAReducedAPsRegisteredWhenMoving * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT );
 							if (sTileDistance > 6) // make it gradually effective based on distance 
@@ -2489,7 +2489,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 
 	// if attacking a new target (or if the specific target is uncertain)
 	// Added check if the weapon is throwing knife/melee weapons - otherwise it would add APs for change target on cursor but not actually deduct them afterwards - SANDRO
-	if ( ubForceRaiseGunCost == TRUE || (( sGridNo != pSoldier->sLastTarget ) && !ItemIsRocketLauncher(usUBItem) && ( Item[ usUBItem ].usItemClass != IC_THROWING_KNIFE )/* && ( Item[ usUBItem ].usItemClass != IC_PUNCH ) && ( Item[ usUBItem ].usItemClass != IC_BLADE )*/ ) )//dnl ch69 140913 //dnl ch73 290913
+	if ( ubForceRaiseGunCost == TRUE || (( sGridNo != pSoldier->targeting().lastGridNo() ) && !ItemIsRocketLauncher(usUBItem) && ( Item[ usUBItem ].usItemClass != IC_THROWING_KNIFE )/* && ( Item[ usUBItem ].usItemClass != IC_PUNCH ) && ( Item[ usUBItem ].usItemClass != IC_BLADE )*/ ) )//dnl ch69 140913 //dnl ch73 290913
 	{
 		if ( pSoldier->IsValidAlternativeFireMode( bAimTime, sGridNo ) )
 			bAPCost += (APBPConstants[AP_CHANGE_TARGET] / 2);
@@ -2533,7 +2533,7 @@ INT16 MinAPsToPunch(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	// sevenfm: check enemy only if we have correct gridNo
 	if( !TileIsOutOfBounds(sGridNo) )
 	{
-		SoldierID usTargID = WhoIsThere2(sGridNo, pSoldier->bTargetLevel);
+		SoldierID usTargID = WhoIsThere2(sGridNo, pSoldier->targeting().level());
 		SOLDIERTYPE* target =
 			GetJa2SoldierRepository().resolve(
 				usTargID );

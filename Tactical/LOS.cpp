@@ -3054,7 +3054,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		// intentionally shot
 		pTarget->flags.fIntendedTarget = TRUE;
 
-		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->ubID == pFirer->ubTargetID ) )
+		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->ubID == pFirer->targeting().targetId() ) )
 		{
 			pTarget->bNumPelletsHitBy++;
 		}
@@ -3177,17 +3177,17 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 
 	// check to see if someone was accidentally hit when no target was specified by the player
-	if ( pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pFirer->ubTargetID == NOBODY && pTarget->aiData.bNeutral	)
+	if ( pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pFirer->targeting().targetId() == NOBODY && pTarget->aiData.bNeutral	)
 	{
 		if ( pTarget->ubCivilianGroup == KINGPIN_CIV_GROUP || pTarget->ubCivilianGroup == HICKS_CIV_GROUP )
 		{
 			// hicks and kingpin are touchy!
-			pFirer->ubTargetID = pTarget->ubID;
+			pFirer->targeting().targetId() = pTarget->ubID;
 		}
 		else if ( Random( 100 ) < 60 )
 		{
 			// get touchy
-			pFirer->ubTargetID = pTarget->ubID;
+			pFirer->targeting().targetId() = pTarget->ubID;
 		}
 	}
 
@@ -4672,7 +4672,7 @@ INT8 FireBullet( SoldierID ubFirer, BULLET * pBullet, BOOLEAN fFake )
 	else
 	{
 		if ( hasFirer )
-			pBullet->ubTargetID = pBullet->pFirer->ubTargetID;
+			pBullet->ubTargetID = pBullet->pFirer->targeting().targetId();
 		else
 			pBullet->ubTargetID = NOBODY;
 
@@ -4906,11 +4906,11 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 			fBuckshot = true;
 			usBulletFlags |= BULLET_FLAG_BUCKSHOT;
 			ubImpact = (UINT8) (ubImpact * AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageDivisor) );
-			if (pFirer->ubTargetID != NOBODY)
+			if (pFirer->targeting().targetId() != NOBODY)
 			{
 				SOLDIERTYPE* target =
 					GetJa2SoldierRepository().resolve(
-						pFirer->ubTargetID );
+						pFirer->targeting().targetId() );
 				if ( target )
 					target->bNumPelletsHitBy = 0;
 			}
@@ -5416,11 +5416,11 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 				{
 					ubSpreadIndex = 1;
 				}
-				if (pFirer->ubTargetID != NOBODY)
+				if (pFirer->targeting().targetId() != NOBODY)
 				{
 					SOLDIERTYPE* target =
 						GetJa2SoldierRepository().resolve(
-							pFirer->ubTargetID );
+							pFirer->targeting().targetId() );
 					if ( target )
 						target->bNumPelletsHitBy = 0;
 				}
@@ -5442,11 +5442,11 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			fBuckshot = true;
 			usBulletFlags |= BULLET_FLAG_BUCKSHOT;
 			ubImpact = (UINT8) (ubImpact * AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageMultiplier / max(1,AmmoTypes[weapon->gun.ubGunAmmoType].multipleBulletDamageDivisor) );
-			if (pFirer->ubTargetID != NOBODY)
+			if (pFirer->targeting().targetId() != NOBODY)
 			{
 				SOLDIERTYPE* target =
 					GetJa2SoldierRepository().resolve(
-						pFirer->ubTargetID );
+						pFirer->targeting().targetId() );
 				if ( target )
 					target->bNumPelletsHitBy = 0;
 			}
@@ -6964,7 +6964,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		// sevenfm: additionally initialize usAttackingWeapon, ubTargetID, bDoBurst and bDoAutofire which are used by FireBulletGivenTarget()
 		UINT16 oldAttackingWeapon = pFirer->usAttackingWeapon;
 		UINT8 oldAttackingHand = pFirer->ubAttackingHand;
-		SoldierID oldTargetID = pFirer->ubTargetID;
+		SoldierID oldTargetID = pFirer->targeting().targetId();
 		INT8 oldBurst = pFirer->bDoBurst;
 		INT8 oldAutofire = pFirer->bDoAutofire;
 
@@ -6979,7 +6979,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 
 		pFirer->usAttackingWeapon = usItem;
 		pFirer->ubAttackingHand = HANDPOS;
-		pFirer->ubTargetID = NOBODY;
+		pFirer->targeting().targetId() = NOBODY;
 		pFirer->bDoBurst = 0;
 		pFirer->bDoAutofire = 0;
 
@@ -6989,7 +6989,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		pFirer->inv[HANDPOS] = oldItemInHand;
 		pFirer->usAttackingWeapon = oldAttackingWeapon;
 		pFirer->ubAttackingHand = oldAttackingHand;
-		pFirer->ubTargetID = oldTargetID;
+		pFirer->targeting().targetId() = oldTargetID;
 		pFirer->bDoBurst = oldBurst;
 		pFirer->bDoAutofire = oldAutofire;
 
@@ -7630,7 +7630,7 @@ void MoveBullet( INT32 iBullet )
 							{
 								if (pStructure->fFlags & STRUCTURE_PERSON)
 								{
-									if(!(UsingNewCTHSystem() || pBullet->fFragment || (pBullet->usFlags & BULLET_FLAG_BUCKSHOT)) && fIntended && pBullet->sHitBy < 0 && pBullet->pFirer != nullptr && pBullet->pFirer->ubTargetID == pStructure->usStructureID)//dnl ch60 010913 don't hit target if CTH roll decide to miss
+									if(!(UsingNewCTHSystem() || pBullet->fFragment || (pBullet->usFlags & BULLET_FLAG_BUCKSHOT)) && fIntended && pBullet->sHitBy < 0 && pBullet->pFirer != nullptr && pBullet->pFirer->targeting().targetId() == pStructure->usStructureID)//dnl ch60 010913 don't hit target if CTH roll decide to miss
 									{
 										gpLocalStructure[iStructureLoop] = NULL;
 //SendFmtMsg("shoot me, miss me, lucky me :-)");
@@ -7964,7 +7964,7 @@ void MoveBullet( INT32 iBullet )
 		}
 
 		// check to see if bullet is close to target
-		if ( pBullet->pFirer != nullptr && pBullet->pFirer->ubTargetID != NOBODY && !(pBullet->pFirer->flags.uiStatusFlags & SOLDIER_ATTACK_NOTICED) && PythSpacesAway( pBullet->sGridNo, pBullet->sTargetGridNo ) <= 3 )
+		if ( pBullet->pFirer != nullptr && pBullet->pFirer->targeting().targetId() != NOBODY && !(pBullet->pFirer->flags.uiStatusFlags & SOLDIER_ATTACK_NOTICED) && PythSpacesAway( pBullet->sGridNo, pBullet->sTargetGridNo ) <= 3 )
 		{
 			pBullet->pFirer->flags.uiStatusFlags |= SOLDIER_ATTACK_NOTICED;
 		}
@@ -8571,7 +8571,7 @@ BOOLEAN CalculateLOSNormal( 	STRUCTURE *pStructure, INT8 bLOSX, INT8 bLOSY, INT8
  
 void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT *dEndX, FLOAT *dEndY, FLOAT *dEndZ, OBJECTTYPE *pWeapon, UINT32 uiMuzzleSway, INT16 *sApertureRatio )
 {
-	SOLDIERTYPE *pTarget = SimpleFindSoldier( iTargetGridNo, pShooter->bTargetLevel );
+	SOLDIERTYPE *pTarget = SimpleFindSoldier( iTargetGridNo, pShooter->targeting().level() );
 	BOOLEAN fSecondHandBurst = FALSE;
 
 	if ( pShooter->ubAttackingHand == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() ) 
@@ -8688,7 +8688,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	if (sLaserRange > 0
 		&& ( gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP + gGameCTHConstants.LASER_PERFORMANCE_BONUS_IRON + gGameCTHConstants.LASER_PERFORMANCE_BONUS_SCOPE != 0) )
 	{
-		INT8 bLightLevel = LightTrueLevel(iTargetGridNo, pShooter->bTargetLevel);
+		INT8 bLightLevel = LightTrueLevel(iTargetGridNo, pShooter->targeting().level());
 		INT32 iMaxLaserRange = (sLaserRange * (2 * bLightLevel + 3 * NORMAL_LIGHTLEVEL_NIGHT - 5 * NORMAL_LIGHTLEVEL_DAY)) / (2 * (NORMAL_LIGHTLEVEL_NIGHT - NORMAL_LIGHTLEVEL_DAY));
 
 		// laser only has effect when in range
@@ -9450,7 +9450,7 @@ void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, 
 	// hit, assuming no muzzle adjustment, and pretending there's no ground to collide with. The result is equal to
 	// exactly the amount of extra upwards angle we need to add to the muzzle to make the bullet hit the target!
 	FLOAT dOptimalAddY = iRangeDiff * (iRangeDiff+1) * (dGravity/2);
-	if ( pShooter->position().level() && pShooter->bTargetLevel == 0 )
+	if ( pShooter->position().level() && pShooter->targeting().level() == 0 )
 	{
 		dOptimalAddY -= 25.6f;
 		if (dOptimalAddY < 0)
@@ -9948,13 +9948,13 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	// If we can't see the target, but buddies can see it, CF-Accuracy drops by 50%
 	// If we can't see the target and neither can buddies, CF-Accuracy drops by 75%
 
-	SoldierID ubTargetID = WhoIsThere2( pShooter->sTargetGridNo, pShooter->bTargetLevel ); // Target ubID
+	SoldierID ubTargetID = WhoIsThere2( pShooter->targeting().gridNo(), pShooter->targeting().level() ); // Target ubID
 	SOLDIERTYPE* target =
 		GetJa2SoldierRepository().resolve(
 			ubTargetID );
-	INT16 sDistVis = pShooter->GetMaxDistanceVisible(pShooter->sTargetGridNo, pShooter->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	INT16 sDistVis = pShooter->GetMaxDistanceVisible(pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = true;
-	INT16 sDistVisNoScope = pShooter->GetMaxDistanceVisible(pShooter->sTargetGridNo, pShooter->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	INT16 sDistVisNoScope = pShooter->GetMaxDistanceVisible(pShooter->targeting().gridNo(), pShooter->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 	FLOAT scopeRangeMod = ( sDistVisNoScope ? (float)sDistVis / (float)sDistVisNoScope : 1.0f );
 
@@ -9962,7 +9962,7 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	if (target != nullptr)
 		iSightRange = SoldierToSoldierLineOfSightTest( pShooter, target, TRUE, NO_DISTANCE_LIMIT, pShooter->bAimShotLocation, false );
 	if (iSightRange == 0) {	// didn't do a bodypart-based test or can't see specific body part aimed at
-		iSightRange = SoldierTo3DLocationLineOfSightTest( pShooter, pShooter->sTargetGridNo, pShooter->bTargetLevel, pShooter->bTargetCubeLevel, TRUE, NO_DISTANCE_LIMIT, false );
+		iSightRange = SoldierTo3DLocationLineOfSightTest( pShooter, pShooter->targeting().gridNo(), pShooter->targeting().level(), pShooter->targeting().cubeLevel(), TRUE, NO_DISTANCE_LIMIT, false );
 	}
 	if (iSightRange == 0 && target != nullptr) {	// Can't see the target but we still need to know what the sight range would be if we could so we can deal with cover penalties
 		iSightRange = SoldierToSoldierLineOfSightTest( pShooter, target, TRUE, NO_DISTANCE_LIMIT, pShooter->bAimShotLocation, false, true );

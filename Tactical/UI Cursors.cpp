@@ -593,7 +593,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			}
 			else
 			{
-				if ( SoldierToLocationChanceToGetThrough( pSoldier, usMapPos, (INT8) gsInterfaceLevel, pSoldier->bTargetCubeLevel, NOBODY ) < OK_CHANCE_TO_GET_THROUGH )
+				if ( SoldierToLocationChanceToGetThrough( pSoldier, usMapPos, (INT8) gsInterfaceLevel, pSoldier->targeting().cubeLevel(), NOBODY ) < OK_CHANCE_TO_GET_THROUGH )
 				{
 					gfCannotGetThrough = TRUE;
 				}
@@ -668,8 +668,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					if(UsingNewCTHSystem() == true)
 					{
 						//AXP 29.03.2007: Rooftop CtH fix. See below.
-						INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-						pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+						INT8 bTempTargetLevel = pSoldier->targeting().level();
+						pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 						UINT32 uiHitChance;
 						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, pSoldier->aiData.bShownAimTime, pSoldier->bAimShotLocation );
@@ -695,7 +695,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
 						
-						pSoldier->bTargetLevel = bTempTargetLevel;
+						pSoldier->targeting().level() = bTempTargetLevel;
 					}
 					else if(gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
 					{
@@ -715,8 +715,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							for (i=0;i<gbCtHBurstCount;i++)
 							{
 								//AXP 29.03.2007: Rooftop CtH fix. See below.
-								INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-								pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+								INT8 bTempTargetLevel = pSoldier->targeting().level();
+								pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 								// Calculate hit chance (using the current bDoBurst for burst-penalty calculations)
 								UINT32 uiHitChance;
@@ -727,7 +727,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 									uiHitChance = ChanceToHitApproximation( pSoldier, uiHitChance );
 								}
 
-								pSoldier->bTargetLevel = bTempTargetLevel;
+								pSoldier->targeting().level() = bTempTargetLevel;
 
 								// Put result (burst CTH) into the array
 								gbCtH[i] = (gbCtH[i]+uiHitChance)/2;
@@ -744,8 +744,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						else // One "BASE CTH" bar, JA2 1.13 vanilla
 						{
 							//AXP 29.03.2007: Rooftop CtH fix. See below.
-							INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-							pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+							INT8 bTempTargetLevel = pSoldier->targeting().level();
+							pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 							UINT32 uiHitChance;
 							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->bAimShotLocation );
@@ -755,7 +755,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 								uiHitChance = ChanceToHitApproximation( pSoldier, uiHitChance );
 							}
 
-							pSoldier->bTargetLevel = bTempTargetLevel;
+							pSoldier->targeting().level() = bTempTargetLevel;
 
 							gfUICtHBar = TRUE;
 							gbCtH[0] = (gbCtH[0]+uiHitChance)/2;
@@ -773,8 +773,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					if(UsingNewCTHSystem() == true)
 					{
 						//AXP 29.03.2007: Rooftop CtH fix. See below.
-						INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-						pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+						INT8 bTempTargetLevel = pSoldier->targeting().level();
+						pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 							
 						UINT32 uiHitChance;
 						// Calculate CTH for the first bullet
@@ -805,7 +805,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
 
-						pSoldier->bTargetLevel = bTempTargetLevel;
+						pSoldier->targeting().level() = bTempTargetLevel;
 					}
 					else if(gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
 					{
@@ -814,8 +814,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							gbCtHBurstCount = 1;
 
 							//AXP 29.03.2007: Rooftop CtH fix. See below.
-							INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-							pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+							INT8 bTempTargetLevel = pSoldier->targeting().level();
+							pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 							
 							UINT32 uiHitChance;
 							// Calculate CTH for the first bullet
@@ -842,7 +842,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 								uiHitChance = ChanceToHitApproximation( pSoldier, uiHitChance );
 							}
 
-							pSoldier->bTargetLevel = bTempTargetLevel;
+							pSoldier->targeting().level() = bTempTargetLevel;
 							// Return Burst State to original value
 							pSoldier->bDoBurst = saveDoBurst;
 
@@ -864,8 +864,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			{
 				//AXP 29.03.2007: Rooftop CtH fix. Temporarily set soldier targetlevel to the real interface
 				//level (selected with TAB), so the first shot after switching TL is calculated correctly
-				INT8 bTempTargetLevel = pSoldier->bTargetLevel;
-				pSoldier->bTargetLevel = (INT8) gsInterfaceLevel;
+				INT8 bTempTargetLevel = pSoldier->targeting().level();
+				pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 				UINT32 uiHitChance;
 				// SANDRO - precise calculation for throwing knives added
@@ -912,7 +912,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
 				}
 
-				pSoldier->bTargetLevel = bTempTargetLevel;
+				pSoldier->targeting().level() = bTempTargetLevel;
 
 				if(UsingNewCTHSystem() == false && gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
 				{
@@ -1353,7 +1353,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 	{
 		if ( fRecalc )
 		{
-			if ( SoldierToLocationChanceToGetThrough( pSoldier, usMapPos, (INT8) gsInterfaceLevel, pSoldier->bTargetCubeLevel, NOBODY	) < OK_CHANCE_TO_GET_THROUGH )
+			if ( SoldierToLocationChanceToGetThrough( pSoldier, usMapPos, (INT8) gsInterfaceLevel, pSoldier->targeting().cubeLevel(), NOBODY	) < OK_CHANCE_TO_GET_THROUGH )
 			{
 				gfCannotGetThrough = TRUE;
 			}

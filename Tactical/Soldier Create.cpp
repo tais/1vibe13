@@ -2117,7 +2117,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->vitals().maximumBreath()					= 100;
 	pSoldier->bActive					= TRUE;
 	pSoldier->flags.fShowLocator			= FALSE;
-	pSoldier->sLastTarget				= NOWHERE;
+	pSoldier->targeting().lastGridNo()				= NOWHERE;
 	pSoldier->movement().absoluteDestination() = NOWHERE;
 	pSoldier->sZLevelOverride			= -1;
 	pSoldier->ubServicePartner			= NOBODY;

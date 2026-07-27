@@ -2395,7 +2395,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				
 			case OPINIONEVENT_FRAGTHIEF:
 				// we care if we were going for the same target at the same location
-				if ( pTeamSoldier->ubTargetID == pSoldier->ubTargetID && pTeamSoldier->sTargetGridNo == pSoldier->sTargetGridNo )
+				if ( pTeamSoldier->targeting().targetId() == pSoldier->targeting().targetId() && pTeamSoldier->targeting().gridNo() == pSoldier->targeting().gridNo() )
 				{
 					// are we ambitious enough to care about kill counts?
 					if ( DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_ASSERTIVE ) || DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_SHOWOFF ) )

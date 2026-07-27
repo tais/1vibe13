@@ -377,7 +377,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						(ItemIsCrowbar(pSoldier->inv[HANDPOS].usItem) &&	Item[pSoldier->inv[HANDPOS].usItem].usItemClass & (IC_PUNCH) ||
 						Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && ItemIsMetal(pSoldier->inv[HANDPOS].usItem)))
 					{
-						INT32 sWindowGridNo = pSoldier->sTargetGridNo;
+						INT32 sWindowGridNo = pSoldier->targeting().gridNo();
 						if (pSoldier->position().direction() == NORTH || pSoldier->position().direction() == WEST)
 							sWindowGridNo = NewGridNo(pSoldier->position().gridNo(), (UINT16)DirectionInc((UINT8)pSoldier->position().direction()));
 
@@ -407,9 +407,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// MAKE AN EVENT, BUT ONLY DO STUFF IF WE OWN THE GUY!
 					SFireWeapon.usSoldierID			= pSoldier->ubID;
 					SFireWeapon.uiUniqueId			= pSoldier->uiUniqueSoldierIdValue;
-					SFireWeapon.sTargetGridNo		= pSoldier->sTargetGridNo;
-					SFireWeapon.bTargetLevel		= pSoldier->bTargetLevel;
-					SFireWeapon.bTargetCubeLevel= pSoldier->bTargetCubeLevel;
+					SFireWeapon.sTargetGridNo		= pSoldier->targeting().gridNo();
+					SFireWeapon.bTargetLevel		= pSoldier->targeting().level();
+					SFireWeapon.bTargetCubeLevel= pSoldier->targeting().cubeLevel();
 					if((is_server && pSoldier->ubID<120) || (!is_server && is_client && pSoldier->ubID<20) || (!is_server && !is_client) )
 					{
 						//only carry on if own merc
@@ -1116,7 +1116,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					{
 						//AXP 25.03.2007: MinAPsToThrow now actually returns the real cost, not 0
 						// ATE: Deduct points!
-						DeductPoints( pSoldier, MinAPsToThrow( pSoldier, pSoldier->sTargetGridNo, FALSE ), 0, AFTERACTION_INTERRUPT );
+						DeductPoints( pSoldier, MinAPsToThrow( pSoldier, pSoldier->targeting().gridNo(), FALSE ), 0, AFTERACTION_INTERRUPT );
 					}
 					else
 					{
@@ -1156,7 +1156,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					{
 						if (pSoldier->bTeam == 0 || (pSoldier->bTeam == 1 && is_server))
 						{
-							send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->sTargetGridNo, pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iRealObjectID, true);
+							send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->targeting().gridNo(), pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iRealObjectID, true);
 						}
 					}
 
@@ -1550,13 +1550,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pSoldier->bTeam != gbPlayerNum )
 					{
 						const SOLDIERTYPE* target =
-							GetJa2SoldierRepository().resolve( pSoldier->ubTargetID );
+							GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 
 						// only locate if the enemy is visible or he's aiming at a player
 						if ( pSoldier->bVisible != -1 ||
 							(target != nullptr && target->bTeam == gbPlayerNum) )
 						{
-							LocateGridNo( pSoldier->sTargetGridNo );
+							LocateGridNo( pSoldier->targeting().gridNo() );
 						}
 					}
 				}
@@ -1679,7 +1679,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 481:
 
 				// CODE: CUT FENCE...
-				CutWireFence( pSoldier->sTargetGridNo );
+				CutWireFence( pSoldier->targeting().gridNo() );
 				break;
 
 			case 482:
@@ -2045,7 +2045,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					UINT32 uiMercFlags;
 					SoldierID usSoldierIndex;
 
-					if ( FindSoldier( pSoldier->sTargetGridNo, &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
+					if ( FindSoldier( pSoldier->targeting().gridNo(), &usSoldierIndex, &uiMercFlags, FIND_SOLDIER_GRIDNO ) )
 					{
 						GetSoldier( &pTSoldier, usSoldierIndex );
 
@@ -3077,10 +3077,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 752:
 
 				// Code: decapitate
-				//DecapitateCorpse( pSoldier, pSoldier->sTargetGridNo, pSoldier->bTargetLevel );
+				//DecapitateCorpse( pSoldier, pSoldier->targeting().gridNo(), pSoldier->targeting().level() );
 
 				// Flugente: instead of jsut decapitating, we call a selection window where we can choose what to do with the corpse
-				HandleSoldierUseCorpse( pSoldier, pSoldier->sTargetGridNo, pSoldier->bTargetLevel );	// Flugente: handle corpses
+				HandleSoldierUseCorpse( pSoldier, pSoldier->targeting().gridNo(), pSoldier->targeting().level() );	// Flugente: handle corpses
 				break;
 
 			case 753:
@@ -4156,7 +4156,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							{
 								// if this enemy was attacking a freshly wounded merc, it is likely they posed a real threat - the merc will be thankful for saving their life
 								const SOLDIERTYPE* target =
-									GetJa2SoldierRepository().resolve( pSoldier->ubTargetID );
+									GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 								if (target != nullptr && target->vitals().bleeding() > 10)
 								{
 									AddOpinionEvent(target->ubProfile, attacker->ubProfile, OPINIONEVENT_BATTLE_SAVIOUR);

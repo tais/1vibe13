@@ -4209,7 +4209,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 
 		// Assume a target gridno is here.... get direction...
 		// ATE: use +2 in gridno because here head is far from body
-		bDir = (INT8)GetDirectionToGridNoFromGridNo( (INT16)( pSoldier->position().gridNo() + 2 ), pSoldier->sTargetGridNo );
+		bDir = (INT8)GetDirectionToGridNoFromGridNo( (INT16)( pSoldier->position().gridNo() + 2 ), pSoldier->targeting().gridNo() );
 
 		return( gusQueenMonsterSpitAnimPerDir[ bDir ] );
 	}

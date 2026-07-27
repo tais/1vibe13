@@ -1523,10 +1523,10 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 
 	if ( pSoldier )
 	{
-		pTargetSoldier = SimpleFindSoldier( sTargetGridNo, pSoldier->bTargetLevel );
+		pTargetSoldier = SimpleFindSoldier( sTargetGridNo, pSoldier->targeting().level() );
 
-		bTargetCubeLevel = pSoldier->bTargetCubeLevel;
-		bTargetLevel = pSoldier->bTargetLevel;
+		bTargetCubeLevel = pSoldier->targeting().cubeLevel();
+		bTargetLevel = pSoldier->targeting().level();
 	}
 
 	if ( pTargetSoldier )
@@ -1904,9 +1904,9 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 		}
 		else if (InARoom(pSoldier->position().gridNo(), &Room1) &&
 			pSoldier->position().level() == 0 &&
-			!TileIsOutOfBounds(pSoldier->sTargetGridNo) &&
-			InARoom(pSoldier->sTargetGridNo, &Room2) &&
-			(SameBuilding(pSoldier->position().gridNo(), pSoldier->sTargetGridNo) || Room1 == Room2))
+			!TileIsOutOfBounds(pSoldier->targeting().gridNo()) &&
+			InARoom(pSoldier->targeting().gridNo(), &Room2) &&
+			(SameBuilding(pSoldier->position().gridNo(), pSoldier->targeting().gridNo()) || Room1 == Room2))
 		{
 			strcpy(zEcho, "echo_building");
 			iCommonEcho = gCommonEchoBuilding;
@@ -2269,10 +2269,10 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	SOLDIERTYPE* pAttackTarget =
-		GetJa2SoldierRepository().resolve(pSoldier->ubTargetID.i);
+		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
 	// sevenfm: reduce shock when firing gun, for autofire shots - apply once
-	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->bTargetLevel);
+	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
@@ -2314,7 +2314,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
 	{
-		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->sGridNo, pSoldier->sTargetGridNo ) );
+		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->sGridNo, pSoldier->targeting().gridNo() ) );
 	}
 	#endif
 
@@ -2611,7 +2611,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// HEADROCK: Actually, it's 1 for the first shot. Works fine regardless though.
 		// HEADROCK HAM 4: Extra experience gain now given when the target is hit. This part only gives basic points
 		// for the attack (FAILURE type).
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY &&
+		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY &&
 			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
 			(IsJa2TacticalCombatActive() ) &&
 			( SoldierToSoldierBodyPartChanceToGetThrough(
@@ -2664,7 +2664,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// HEADROCK HAM 4: Extra experience gain now done when the bullet hits the target. This part only
 		// gives basic experience for the attack (FAILURE type).
 		// Improve for using a throwing knife....
-		if (PTR_OURTEAM && pSoldier->ubTargetID != NOBODY)
+		if (PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY)
 		{
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 5.0f;
@@ -3078,12 +3078,12 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon(&(pSoldier->inv[HANDPOS]));
 	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->ubAttackingHand]);
 	SOLDIERTYPE* pAttackTarget =
-		GetJa2SoldierRepository().resolve(pSoldier->ubTargetID.i);
+		GetJa2SoldierRepository().resolve(pSoldier->targeting().targetId().i);
 
 	usItemNum = pSoldier->usAttackingWeapon;
 
 	// sevenfm: reduce shock when firing gun, for autofire shots - apply once
-	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->bTargetLevel);
+	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->targeting().level());
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
@@ -3306,7 +3306,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->position().gridNo(), pSoldier->sTargetGridNo ) );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Hit chance was %ld, roll %ld (range %d)", uiHitChance, uiDiceRoll, PythSpacesAway( pSoldier->position().gridNo(), pSoldier->targeting().gridNo() ) );
 	}
 	#endif
 
@@ -3363,7 +3363,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 		// NB bDoBurst will be 2 at this point for the first shot since it was incremented
 		// above
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY &&
+		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY &&
 			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
 			(IsJa2TacticalCombatActive() ) &&
 			( SoldierToSoldierBodyPartChanceToGetThrough(
@@ -3448,7 +3448,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// Deduct knife from inv! (not here, later?)
 
 		// Improve for using a throwing knife....
-		if (PTR_OURTEAM && pSoldier->ubTargetID != NOBODY)
+		if (PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY)
 		{
 			if ( fGonnaHit )
 			{
@@ -3825,7 +3825,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	ConvertGridNoToCenterCellXY( sTargetGridNo, &sXMapPos, &sYMapPos );
 
 	// See if a guy is here!
-	pTargetSoldier = SimpleFindSoldier( sTargetGridNo, pSoldier->bTargetLevel );
+	pTargetSoldier = SimpleFindSoldier( sTargetGridNo, pSoldier->targeting().level() );
 	if ( pTargetSoldier )
 	{
 		// set target as noticed attack
@@ -3961,7 +3961,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// FreeUpAttacker( (UINT8) pSoldier->ubID );
 		}
 
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY)
+		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY)
 		{
 			if ( fGonnaHit )
 			{
@@ -4063,8 +4063,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	// turn the delayed action into a steal from a different actor.
 	pTargetSoldier = fStealing
 		? ResolveAndConsumePendingStealTarget(
-			*pSoldier, sTargetGridNo, pSoldier->bTargetLevel)
-		: SimpleFindSoldier( sTargetGridNo, pSoldier->bTargetLevel );
+			*pSoldier, sTargetGridNo, pSoldier->targeting().level())
+		: SimpleFindSoldier( sTargetGridNo, pSoldier->targeting().level() );
 	if ( fStealing && pTargetSoldier == NULL )
 	{
 		return FALSE;
@@ -4793,7 +4793,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( pSoldier->bTeam == gbPlayerNum && IsJa2TacticalCombatActive() )
 	{
 		// check target gridno
-		ubTargetID = WhoIsThere2( pSoldier->sTargetGridNo, pSoldier->bTargetLevel );
+		ubTargetID = WhoIsThere2( pSoldier->targeting().gridNo(), pSoldier->targeting().level() );
 		if ( ubTargetID == NOBODY )
 		{
 			pTargetSoldier = NULL;
@@ -4819,7 +4819,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		// search for an opponent near the target gridno
 		for ( bLoop = 0; bLoop < NUM_WORLD_DIRECTIONS; bLoop++ )
 		{
-			ubTargetID = WhoIsThere2( NewGridNo( pSoldier->sTargetGridNo, DirectionInc( bLoop ) ), pSoldier->bTargetLevel );
+			ubTargetID = WhoIsThere2( NewGridNo( pSoldier->targeting().gridNo(), DirectionInc( bLoop ) ), pSoldier->targeting().level() );
 			pTargetSoldier = NULL;
 			if ( ubTargetID != NOBODY )
 			{
@@ -4878,7 +4878,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
-	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->bTargetLevel, (INT16)(pSoldier->bTargetLevel * 256 ), &(pSoldier->inv[ HANDPOS ] ), uiHitChance, THROW_ARM_ITEM, 0, pSoldier->inv[HANDPOS].usItem );
+	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->targeting().level(), (INT16)(pSoldier->targeting().level() * 256 ), &(pSoldier->inv[ HANDPOS ] ), uiHitChance, THROW_ARM_ITEM, 0, pSoldier->inv[HANDPOS].usItem );
 
 	// anv: knife throw attack noise
 	UINT16 usItem = pSoldier->GetUsedWeaponNumber(&pSoldier->inv[pSoldier->ubAttackingHand]);
@@ -4899,7 +4899,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GRENADE_IMPACT);
 	}
 
-	HandleSoldierThrowItem(pSoldier, pSoldier->sTargetGridNo);
+	HandleSoldierThrowItem(pSoldier, pSoldier->targeting().gridNo());
 	pSoldier->inv[HANDPOS].RemoveObjectsFromStack(1);
 
 	return( TRUE );
@@ -5064,7 +5064,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( Item[ usItemNum ].usItemClass == IC_LAUNCHER )
 	{
 		// Preserve gridno!
-		//pSoldier->sLastTarget = sTargetGridNo;
+		//pSoldier->targeting().lastGridNo() = sTargetGridNo;
 
 		//sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE );
 
@@ -5111,7 +5111,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
-	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->bTargetLevel, 0, &Launchable, uiHitChance, THROW_ARM_ITEM, 0, usItemNum );
+	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->targeting().level(), 0, &Launchable, uiHitChance, THROW_ARM_ITEM, 0, usItemNum );
 
 	// Flugente: depending on fire mode, delay explosion
 	if ( pSoldier->usGLDelayMode )
@@ -6169,10 +6169,10 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	FLOAT d2DDistance = sqrt((dDeltaX*dDeltaX)+(dDeltaY*dDeltaY));
 
 	// Find a target in the tile
-	ubTargetID = WhoIsThere2( sGridNo, pSoldier->bTargetLevel ); // Target ubID
+	ubTargetID = WhoIsThere2( sGridNo, pSoldier->targeting().level() ); // Target ubID
 	SOLDIERTYPE* targetSoldier =
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
-	pTarget = SimpleFindSoldier( sGridNo, pSoldier->bTargetLevel ); // Target Pointer
+	pTarget = SimpleFindSoldier( sGridNo, pSoldier->targeting().level() ); // Target Pointer
 
 	UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
@@ -6190,7 +6190,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip or on fast shot with pistol
 		gbForceWeaponReady = true;
 
-	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 
 	iSightRange = 0;
 
@@ -6203,7 +6203,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	if (iSightRange == 0) 
 	{	
 		// didn't do a bodypart-based test or can't see specific body part aimed at
-		iSightRange = SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, pSoldier->bTargetLevel, pSoldier->bTargetCubeLevel, TRUE, NO_DISTANCE_LIMIT, false );
+		iSightRange = SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, pSoldier->targeting().level(), pSoldier->targeting().cubeLevel(), TRUE, NO_DISTANCE_LIMIT, false );
 	}
 	if (iSightRange == 0) 
 	{	
@@ -6219,7 +6219,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	//CHRIS: This next value needs to be determined with no vision modifiers from our weapon
 	gbForceWeaponNotReady = true;
-	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 
 	// Flugente: blind soldiers have sDistVisNoScope = 0...
@@ -6535,13 +6535,13 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	pInHand = pSoldier->GetUsedWeapon( &(pSoldier->inv[pSoldier->ubAttackingHand]) );
 	UINT16 usItemUsed =  pSoldier->GetUsedWeaponNumber( &(pSoldier->inv[pSoldier->ubAttackingHand]) );
 
-	pTarget = SimpleFindSoldier( sGridNo, pSoldier->bTargetLevel );
+	pTarget = SimpleFindSoldier( sGridNo, pSoldier->targeting().level() );
 	iGunCondition = WEAPON_STATUS_MOD( (*pInHand)[0]->data.gun.bGunStatus );
 	usInHand = pSoldier->usAttackingWeapon;
-	ubTargetID = WhoIsThere2( sGridNo, pSoldier->bTargetLevel );
+	ubTargetID = WhoIsThere2( sGridNo, pSoldier->targeting().level() );
 	SOLDIERTYPE* targetSoldier =
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
-	bLightLevel = LightTrueLevel(sGridNo, pSoldier->bTargetLevel);
+	bLightLevel = LightTrueLevel(sGridNo, pSoldier->targeting().level());
 	usShockPenalty = pSoldier->aiData.bShock * AIM_PENALTY_PER_SHOCK;
 	iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
 	AIM_PENALTY_PER_TARGET_SHOCK = gGameExternalOptions.ubAimPenaltyPerTargetShock;
@@ -6562,7 +6562,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	if ( !pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) ) // ignore scopes when firing from hip
 		gbForceWeaponReady = true;
 
-	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	iScopeVisionRangeBonus = GetTotalVisionRangeBonus(pSoldier, bLightLevel);	// not an actual range value, simply a modifier for range calculations
 
 	if (ubTargetID != NOBODY && ( pSoldier->aiData.bOppList[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY ) )
@@ -6573,7 +6573,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	if (iSightRange == 0)
 	{
 		// didn't do a bodypart-based test or can't see specific body part aimed at
-		iSightRange = SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, pSoldier->bTargetLevel, pSoldier->bTargetCubeLevel, TRUE, NO_DISTANCE_LIMIT, false );
+		iSightRange = SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, pSoldier->targeting().level(), pSoldier->targeting().cubeLevel(), TRUE, NO_DISTANCE_LIMIT, false );
 		fCoverObscured = true;
 	}
 
@@ -6590,7 +6590,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 	gbForceWeaponReady = false;
 	gbForceWeaponNotReady = true;
-	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->bTargetLevel, CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
+	sDistVisNoScope = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	gbForceWeaponNotReady = false;
 
 	// Flugente: blind soldiers have sDistVisNoScope = 0...
@@ -6678,7 +6678,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	else	// base chance is equal to the average of marksmanship & gun's condition!
 		iChance = (iMarksmanship + iGunCondition) / 2;
 	// if shooting same target as the last shot
-	if (sGridNo == pSoldier->sLastTarget )	// give a bonus to hit
+	if (sGridNo == pSoldier->targeting().lastGridNo() )	// give a bonus to hit
 		iChance += AIM_BONUS_SAME_TARGET;
 	// if shooting from alternative weapon holding, apply the preset penalty
 	if ( pSoldier->IsValidAlternativeFireMode( ubAimTime, sGridNo ) )
@@ -6813,9 +6813,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
+		if ( pSoldier->targeting().level() > pSoldier->position().level() )
 		{
-			iHeightDifference = 3 * pSoldier->bTargetLevel;
+			iHeightDifference = 3 * pSoldier->targeting().level();
 		}
 	}
 	else
@@ -7346,7 +7346,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	// adjust for roof/not on roof
 	if ( pSoldier->position().level() == 0 )
 	{
-		if ( pSoldier->bTargetLevel > 0 )
+		if ( pSoldier->targeting().level() > 0 )
 		{
 			// penalty for firing up
 			iChance -= AIM_PENALTY_FIRING_UP;
@@ -7354,7 +7354,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	}
 	else // pSoldier->position().level() > 0 )
 	{
-		if ( pSoldier->bTargetLevel == 0 )
+		if ( pSoldier->targeting().level() == 0 )
 		{
 			iChance += AIM_BONUS_FIRING_DOWN;
 		}
@@ -7530,15 +7530,15 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos, INT8 bTargetLevel, UINT16 usAnimState)//dnl ch59 180813
 {
-	INT8 bTrueLevel;//dnl ch59 180813 if target is above ground CalcChanceToHitGun will return 0 because pSoldier->bTargetLevel contains some old values from previous target which was on ground level
+	INT8 bTrueLevel;//dnl ch59 180813 if target is above ground CalcChanceToHitGun will return 0 because pSoldier->targeting().level() contains some old values from previous target which was on ground level
 	UINT16 usTrueState;
 	UINT32 uiChance;
 
 	// same as CCTHG but fakes the attacker always standing
 	usTrueState = pSoldier->animationPlayback().state();
-	bTrueLevel = pSoldier->bTargetLevel;
+	bTrueLevel = pSoldier->targeting().level();
 
-	pSoldier->bTargetLevel = bTargetLevel;
+	pSoldier->targeting().level() = bTargetLevel;
 	pSoldier->animationPlayback().state() = usAnimState;
 	if(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE)//dnl ch70 160913
 	{
@@ -7549,7 +7549,7 @@ UINT32 AICalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTim
 		uiChance = CalcChanceToHitGun(pSoldier, sGridNo, ubAimTime, ubAimPos);
 	}
 	pSoldier->animationPlayback().state() = usTrueState;
-	pSoldier->bTargetLevel = bTrueLevel;
+	pSoldier->targeting().level() = bTrueLevel;
 
 	if(UsingNewCTHSystem() && !(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE))//dnl ch70 160913
 	{
@@ -10260,7 +10260,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	iChance -= GetSkillCheckPenaltyForFatigue( pSoldier, iChance );
 
 	// if shooting same target from same position as the last shot
-	if (sGridNo == pSoldier->sLastTarget)
+	if (sGridNo == pSoldier->targeting().lastGridNo())
 	{
 		iChance += AIM_BONUS_SAME_TARGET;		// give a bonus to hit
 	}
@@ -11542,16 +11542,16 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 	INT32 iHeightDifference = 0;
 
 	// SHOOTING AT SAME TARGET AGAIN
-	if (sGridNo == pSoldier->sLastTarget )
+	if (sGridNo == pSoldier->targeting().lastGridNo() )
 		fBaseModifier += (FLOAT)gGameCTHConstants.BASE_SAME_TARGET;
 
 	// SHOOTING AT A TARGET AT DIFFERENT HEIGHT?
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
+		if ( pSoldier->targeting().level() > pSoldier->position().level() )
 		{
-			iHeightDifference = 3 * pSoldier->bTargetLevel;
+			iHeightDifference = 3 * pSoldier->targeting().level();
 		}
 	}
 	else
@@ -11869,9 +11869,9 @@ FLOAT CalcNewChanceToHitAimTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarg
 	if ( pTarget == NULL )
 	{
 		// Shooting to roof.
-		if ( pSoldier->bTargetLevel > pSoldier->position().level() )
+		if ( pSoldier->targeting().level() > pSoldier->position().level() )
 		{
-			iHeightDifference = 3 * pSoldier->bTargetLevel;
+			iHeightDifference = 3 * pSoldier->targeting().level();
 		}
 	}
 	else

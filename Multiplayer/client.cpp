@@ -1359,8 +1359,8 @@ void send_fire( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 
 	SBeginFireWeapon.sTargetGridNo = sTargetGridNo;
-	SBeginFireWeapon.bTargetLevel = pSoldier->bTargetLevel;
-	SBeginFireWeapon.bTargetCubeLevel = pSoldier->bTargetCubeLevel;
+	SBeginFireWeapon.bTargetLevel = pSoldier->targeting().level();
+	SBeginFireWeapon.bTargetCubeLevel = pSoldier->targeting().cubeLevel();
 	SBeginFireWeapon.uiUniqueId = pSoldier->usAttackingWeapon;
 		
 
@@ -4747,7 +4747,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 		else if (new_state->usNewState==CUTTING_FENCE)
 		{
 			// The usTargetGridNo holds the GridNo of the fence tile
-			pSoldier->sTargetGridNo = new_state->usTargetGridNo;
+			pSoldier->targeting().gridNo() = new_state->usTargetGridNo;
 
 			pSoldier->EVENT_InternalSetSoldierPosition( new_state->sXPos, new_state->sYPos ,FALSE, FALSE, FALSE );
 			pSoldier->ChangeSoldierStance( ANIM_CROUCH );
@@ -5423,9 +5423,9 @@ void recieve_fireweapon (RPCParameters *rpcParameters)
 		return;	// MP wire guard: ignore events for soldiers not in our world (mp_audit_findings.json)
 	}
 
-	pSoldier->sTargetGridNo = SFireWeapon->sTargetGridNo;
-	pSoldier->bTargetLevel = SFireWeapon->bTargetLevel;
-	pSoldier->bTargetCubeLevel = SFireWeapon->bTargetCubeLevel;
+	pSoldier->targeting().gridNo() = SFireWeapon->sTargetGridNo;
+	pSoldier->targeting().level() = SFireWeapon->bTargetLevel;
+	pSoldier->targeting().cubeLevel() = SFireWeapon->bTargetCubeLevel;
 	FireWeapon( pSoldier, SFireWeapon->sTargetGridNo  );
 }
 

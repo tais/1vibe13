@@ -273,7 +273,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				SOLDIERTYPE* previousAttacker =
 					GetJa2SoldierRepository().resolve(
 						pSoldier->ubPreviousAttackerID.i);
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i, previousAttacker->sLastTarget);
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i, previousAttacker->targeting().lastGridNo());
 			}
 			else
 			{
