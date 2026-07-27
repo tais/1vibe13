@@ -721,7 +721,7 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 									gusHeliSeats[gbCurDrop].i);
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.
 							// In the worst case, this can cause the game to be unable to finish the airdrop. For that reason, we set all those soldiers to the STANDING animation.
-							heliMerc->usAnimState = STANDING;
+							heliMerc->animationPlayback().state() = STANDING;
 							heliMerc->EVENT_InitNewSoldierAnim(
 								HELIDROP, 0, FALSE);
 
@@ -1229,7 +1229,7 @@ void HandleEnemyAirdrop( )
 									gusHeliSeats[gbCurDrop].i);
 							// Flugente: it is now possible to use airdrops with soldiers after they have arrived in Arulco. In that case, they might have an animation that breaks EVENT_InitNewSoldierAnim prematurely.
 							// In the worst case, this can cause the game to be unable to finish the airdrop. For that reason, we set all those soldiers to the STANDING aniamtion.
-							//gusHeliSeats[ gbCurDrop ]->usAnimState = STANDING;
+							//gusHeliSeats[ gbCurDrop ]->animationPlayback().state() = STANDING;
 							heliMerc->EVENT_InitNewSoldierAnim(
 								HELIDROP, 0, FALSE);
 

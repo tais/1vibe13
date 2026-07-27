@@ -59,8 +59,8 @@ public:
 	}
 
 	inline BodyType::LogicalSurfaceType* GetLogicalSurfaceType(Layers::LayerPropertiesVector::size_type layer, SOLDIERTYPE* pSoldier) {
-		FilterSurfaceTypeList::iterator end = animstates[pSoldier->usAnimState][layer].end();
-		for (FilterSurfaceTypeList::iterator i = animstates[pSoldier->usAnimState][layer].begin(); i != end; i++) {
+		FilterSurfaceTypeList::iterator end = animstates[pSoldier->animationPlayback().state()][layer].end();
+		for (FilterSurfaceTypeList::iterator i = animstates[pSoldier->animationPlayback().state()][layer].begin(); i != end; i++) {
 			Filter* f = (*i).first;
 			if (f != NULL) {
 				if (f->Match(pSoldier)) {
@@ -78,8 +78,8 @@ public:
 				return (isLoaded) ? &(*i).second.second : NULL;
 			}
 		}
-		end = physAnimSurfaces[pSoldier->usAnimSurface][layer].end();
-		for (FilterSurfaceTypeList::iterator i = physAnimSurfaces[pSoldier->usAnimSurface][layer].begin(); i != end; i++) {
+		end = physAnimSurfaces[pSoldier->animationPlayback().surface()][layer].end();
+		for (FilterSurfaceTypeList::iterator i = physAnimSurfaces[pSoldier->animationPlayback().surface()][layer].begin(); i != end; i++) {
 			Filter* f = (*i).first;
 			if (f != NULL) {
 				if (f->Match(pSoldier)) {

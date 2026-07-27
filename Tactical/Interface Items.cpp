@@ -9110,7 +9110,7 @@ void DrawItemTileCursor( )
 									gubUIValidCatcherID.i);
 							if (validCatcher)
 							{
-								switch( gAnimControl[ validCatcher->usAnimState ].ubHeight )
+								switch( gAnimControl[ validCatcher->animationPlayback().state() ].ubHeight )
 								{
 									case ANIM_STAND:
 
@@ -9252,7 +9252,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		// Force mouse position to guy...
 		usMapPos = fullTarget->position().gridNo();
 
-		if ( gAnimControl[ fullTarget->usAnimState ].uiFlags & ANIM_MOVING )
+		if ( gAnimControl[ fullTarget->animationPlayback().state() ].uiFlags & ANIM_MOVING )
 		{
 			return( FALSE );
 		}
@@ -9455,7 +9455,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 
 
-				switch ( gAnimControl[ GetItemPointerSoldier()->usAnimState ].ubHeight )
+				switch ( gAnimControl[ GetItemPointerSoldier()->animationPlayback().state() ].ubHeight )
 				{
 					case ANIM_STAND:
 
@@ -9557,7 +9557,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							  pSoldier->EVENT_SetSoldierDesiredDirection( ubFacingDirection );
 							  pSoldier->flags.fTurningUntilDone	 = TRUE;
 
-							 if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
+							 if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 							 {
 							  pSoldier->animationIntent().pendingAnimation() = PASS_OBJECT;
               }
@@ -9569,7 +9569,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							  GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
 							  GetItemPointerSoldier()->flags.fTurningUntilDone	 = TRUE;
 
-							  if (gAnimControl[ GetItemPointerSoldier()->usAnimState ].ubEndHeight == ANIM_STAND)
+							  if (gAnimControl[ GetItemPointerSoldier()->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 							  {
 							  GetItemPointerSoldier()->animationIntent().pendingAnimation() = PASS_OBJECT;
 						  }
@@ -9625,7 +9625,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 						sGridNo = pSoldier->position().gridNo();
 
-						switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
+						switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
 						{
 								case ANIM_STAND:
 

@@ -569,7 +569,7 @@ INT8 DecideActionBoxerEnteringRing(SOLDIERTYPE *pSoldier)
 				ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sDesiredMercLoc);
 
 				// if not already facing in that direction,
-				if ( pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ( pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 
 					pSoldier->aiData.usActionData = ubDesiredMercDir;
@@ -638,7 +638,7 @@ INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
 			ubDesiredMercDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sDesiredMercLoc);
 
 			// if not already facing in that direction,
-			if (pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+			if (pSoldier->position().direction() != ubDesiredMercDir && pSoldier->InternalIsValidStance( ubDesiredMercDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
 
 				pSoldier->aiData.usActionData = ubDesiredMercDir;
@@ -968,7 +968,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 			if ( ubPerson == pSoldier->ubID )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 				{
 					pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -993,7 +993,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 					{
 						pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -1534,7 +1534,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 #endif
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity, sniper = %d",pSoldier->sniper));
-				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -1730,7 +1730,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			if ( ubPerson == pSoldier->ubID )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 				{
 					pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -1755,7 +1755,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 					{
 						pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -1843,7 +1843,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				iChance += 15;
 
 
-			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
 				pSoldier->aiData.usActionData = ubNoiseDir;
 #ifdef DEBUGDECISIONS
@@ -2445,7 +2445,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			pSoldier->position().direction() == ubNoiseDir && // if we are facing the direction of where the noise came from
 			(pSoldier->vitals().breath() > 25 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 30))
 		{
-			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints)
+			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->bActionPoints)
 			{
 				if (IsScoped(&pSoldier->inv[HANDPOS]))
 				{
@@ -2784,7 +2784,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					// Get new gridno!
 					sCheckGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(ubOpponentDir));
 
-					if (!OKFallDirection(pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->usAnimState))
+					if (!OKFallDirection(pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->animationPlayback().state()))
 					{
 						DebugAI(AI_MSG_INFO, pSoldier, String("no room to deploy mortar, check if we can move behind"));
 
@@ -2793,7 +2793,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 						// try behind us, see if there's room to move back
 						sCheckGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(gOppositeDirection[ubOpponentDir]));
-						if (OKFallDirection(pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->usAnimState))
+						if (OKFallDirection(pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->animationPlayback().state()))
 						{
 							// sevenfm: check if we can reach this gridno
 							INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, FALSE, 0);
@@ -2846,7 +2846,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 
 					// stand up before throwing if needed
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestThrow.ubStance &&
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
 						pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 					{
 						pSoldier->aiData.usActionData = BestThrow.ubStance;
@@ -2932,7 +2932,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				}
 
 				// stand up before throwing if needed
-				if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestThrow.ubStance &&
+				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
 					pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 				{
 					pSoldier->aiData.usActionData = BestThrow.ubStance;
@@ -3154,7 +3154,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				}
 				else
 				{
-					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE);
+					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
 					do
 					{
 						pSoldier->bDoAutofire++;
@@ -3174,7 +3174,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				// minimum 3 bullets
 				if (pSoldier->bDoAutofire >= 3 && pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP)
 				{
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != BestShot.ubStance &&
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != BestShot.ubStance &&
 						IsValidStance(pSoldier, BestShot.ubStance))
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_FIRE_GUN;
@@ -3366,7 +3366,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			if ( ubPerson == pSoldier->ubID )
 			{
 				// if not already crouched, crouch down first
-				if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 				{
 					pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -3391,7 +3391,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 
 					// if not already crouched, crouch down first
-					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_CROUCH && IsValidStance( pSoldier, ANIM_CROUCH ) && GetAPsToChangeStance( pSoldier, ANIM_CROUCH ) <= pSoldier->bActionPoints )
 					{
 						pSoldier->aiData.usActionData = ANIM_CROUCH;
 
@@ -3512,7 +3512,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
 	{
 		// if not already crouched, try to crouch down first
-		if (!fCivilian && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE)
+		if (!fCivilian && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE)
 		{
 #ifdef DEBUGDECISIONS
 			sprintf(tempstr,"%s CROUCHES, NEEDING REST (STATUS RED), breath = %d",pSoldier->name,pSoldier->vitals().breath());
@@ -3687,7 +3687,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			}
 
 			// stand up before throwing if needed
-			if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestThrow.ubStance &&
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
 				pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 			{
 				pSoldier->aiData.usActionData = BestThrow.ubStance;
@@ -3751,7 +3751,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		// sevenfm: dont' flank when under fire
 		if ( pSoldier->numFlanks > 0 && 
 			pSoldier->numFlanks < MAX_FLANKS_RED  && 
-			gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE &&
+			gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE &&
 			!pSoldier->aiData.bUnderFire )
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: continue flanking");
@@ -4036,7 +4036,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					// if there is an opponent reachable					
 					// sevenfm: allow seeking in prone stance if we haven't seen enemy for several turns
 					if (!TileIsOutOfBounds(sClosestDisturbance) &&
-						 (gAnimControl[pSoldier->usAnimState].ubHeight != ANIM_PRONE || !GuySawEnemy( pSoldier )) )
+						 (gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE || !GuySawEnemy( pSoldier )) )
 					{
 						DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: seek opponent");
 						//////////////////////////////////////////////////////////////////////
@@ -4122,7 +4122,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 							if (( pSoldier->aiData.bAttitude == CUNNINGAID || pSoldier->aiData.bAttitude == CUNNINGSOLO ||
 								( pSoldier->aiData.bAttitude == BRAVESOLO || pSoldier->aiData.bAttitude == BRAVEAID ) && fOvercrowded ) &&
 								pSoldier->bTeam == ENEMY_TEAM &&
-								gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_PRONE &&
+								gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE &&
 								!pSoldier->aiData.bUnderFire &&
 								pSoldier->position().level() == 0 &&
 								( pSoldier->aiData.bOrders == SEEKENEMY ||
@@ -4255,7 +4255,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						DebugAI(AI_MSG_INFO, pSoldier, String("Highest watch location: [%d] %d %d watch dir: %d", bHighestWatchLoc, gsWatchedLoc[pSoldier->ubID][bHighestWatchLoc], gbWatchedLocLevel[pSoldier->ubID][bHighestWatchLoc], ubOpponentDir));
 
 						// consider at least crouching
-						if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND &&
+						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
 							IsValidStance(pSoldier, ANIM_CROUCH) &&
 							pSoldier->bActionPoints >= GetAPsCrouch(pSoldier, TRUE))
 						{
@@ -4277,7 +4277,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 						// if soldier is not already facing in that direction
 						if (pSoldier->position().direction() != ubOpponentDir &&
-							pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->usAnimState].ubEndHeight) &&
+							pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight) &&
 							pSoldier->bActionPoints >= GetAPsToLook(pSoldier))
 						{
 							// turn
@@ -4287,7 +4287,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						}
 
 						// possibly go prone, check that we'll have line of sight to standing enemy at watched location
-						if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_CROUCH &&
+						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH &&
 							IsValidStance(pSoldier, ANIM_PRONE) &&
 							pSoldier->bActionPoints >= GetAPsProne(pSoldier, TRUE) &&
 							(!InARoom(pSoldier->position().gridNo(), NULL) || pSoldier->position().level() > 0 || pSoldier->aiData.bUnderFire) &&
@@ -4493,7 +4493,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: crouch or go prone");
 			// if not in water and not already crouched
-			if (gAnimControl[pSoldier->usAnimState].ubHeight == ANIM_STAND && IsValidStance(pSoldier, ANIM_CROUCH))
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubHeight == ANIM_STAND && IsValidStance(pSoldier, ANIM_CROUCH))
 			{
 				if (!gfTurnBasedAI || GetAPsToChangeStance(pSoldier, ANIM_CROUCH) <= pSoldier->bActionPoints)
 				{
@@ -4507,7 +4507,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					return(AI_ACTION_CHANGE_STANCE);
 				}
 			}
-			else if (gAnimControl[pSoldier->usAnimState].ubHeight != ANIM_PRONE)
+			else if (gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE)
 			{
 				// maybe go prone
 				if (PreRandom(2) == 0 && IsValidStance(pSoldier, ANIM_PRONE))
@@ -4587,7 +4587,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					iChance += 50;
 				}
 
-				if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 					pSoldier->aiData.usActionData = ubOpponentDir;
 
@@ -4633,7 +4633,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					!WeaponReady(pSoldier) &&
 					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 			{
-				if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
+				if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->bActionPoints) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 				{
 					if ( pSoldier->aiData.bOrders == SNIPER )
 					{
@@ -4681,7 +4681,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 			if ( (pSoldier->position().direction() != ubOpponentDir) )
 			{
-				if ( (pSoldier->bActionPoints == pSoldier->bInitialActionPoints || (INT16)PreRandom(100) < 60) && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ( (pSoldier->bActionPoints == pSoldier->bInitialActionPoints || (INT16)PreRandom(100) < 60) && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 					pSoldier->aiData.usActionData = ubOpponentDir;
 
@@ -4791,7 +4791,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	// if not in water and not already crouched, try to crouch down first
-	if (!fCivilian && !bInWater && (gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_STAND) && IsValidStance( pSoldier, ANIM_CROUCH ) )
+	if (!fCivilian && !bInWater && (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND) && IsValidStance( pSoldier, ANIM_CROUCH ) )
 	{
 		//sClosestOpponent = ClosestKnownOpponent(pSoldier, NULL, NULL);
 
@@ -4897,7 +4897,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION &&
 			(pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
 		{
-			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->usAnimState ) <= pSoldier->bActionPoints)
+			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, pSoldier->animationPlayback().state() ) <= pSoldier->bActionPoints)
 			{
 				if (IsScoped(&pSoldier->inv[HANDPOS]))
 				{
@@ -5370,7 +5370,7 @@ INT16 ubMinAPCost;
 			}
 
 			// stand up before throwing if needed
-			if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestThrow.ubStance &&
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
 				pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 			{
 				pSoldier->aiData.usActionData = BestThrow.ubStance;
@@ -5565,14 +5565,14 @@ INT16 ubMinAPCost;
 				// Get new gridno!
 				sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( ubOpponentDir ) );
 
-				if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->usAnimState ) )
+				if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->animationPlayback().state() ) )
 				{
 					// can't fire!
 					BestThrow.ubPossible = FALSE;
 
 					// try behind us, see if there's room to move back
 					sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( gOppositeDirection[ ubOpponentDir ] ) );
-					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ ubOpponentDir ], pSoldier->usAnimState ) )
+					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ ubOpponentDir ], pSoldier->animationPlayback().state() ) )
 					{
 						// sevenfm: check if we can reach this gridno
 					INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, FALSE, 0);
@@ -5847,7 +5847,7 @@ INT16 ubMinAPCost;
 			(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 			SpacesAway(pSoldier->position().gridNo(), BestStab.sTarget) > 1 &&
 			bestStabOpponent &&
-			gAnimControl[bestStabOpponent->usAnimState].ubEndHeight == ANIM_STAND &&
+			gAnimControl[bestStabOpponent->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
 			bestStabOpponent->bActionPoints > 0 &&
 			Chance(EffectiveAgility(bestStabOpponent, FALSE) * (100 + bestStabOpponent->vitals().breath()) * EffectiveWisdom(pSoldier) / (100 * 200)))
 		{
@@ -6163,7 +6163,7 @@ INT16 ubMinAPCost;
 							}
 
 							// stand up before throwing if needed
-							if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestThrow.ubStance &&
+							if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestThrow.ubStance &&
 								pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestThrow.sTarget), BestThrow.ubStance))
 							{
 								pSoldier->aiData.usActionData = BestThrow.ubStance;
@@ -6464,7 +6464,7 @@ L_NEWAIM:
 						pSoldier->bDoAutofire++;
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
 					}
-					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE)*pSoldier->bDoAutofire <= 80);//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->bDoAutofire <= 80);//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->bDoAutofire--;
@@ -6667,7 +6667,7 @@ L_NEWAIM:
 		{
 			DebugAI(AI_MSG_TOPIC, pSoldier, String("[Prepare throwing knife]"));
 
-			if (BestAttack.bWeaponIn != HANDPOS && gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND )
+			if (BestAttack.bWeaponIn != HANDPOS && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND )
 			{
 				// we had better make sure we lower our gun first!
 
@@ -6746,7 +6746,7 @@ L_NEWAIM:
 
 		if (ubBestAttackAction == AI_ACTION_FIRE_GUN)
 		{
-			if (gAnimControl[pSoldier->usAnimState].ubEndHeight != BestAttack.ubStance  &&
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != BestAttack.ubStance  &&
 				IsValidStance(pSoldier, BestAttack.ubStance))
 			{
 				pSoldier->aiData.bNextAction = AI_ACTION_FIRE_GUN;
@@ -6777,7 +6777,7 @@ L_NEWAIM:
 				}
 
 				// stand up before throwing if needed
-				if (gAnimControl[pSoldier->usAnimState].ubEndHeight < BestAttack.ubStance &&
+				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < BestAttack.ubStance &&
 					pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), BestAttack.sTarget), BestAttack.ubStance))
 				{
 					pSoldier->aiData.usActionData = BestAttack.ubStance;
@@ -6860,7 +6860,7 @@ L_NEWAIM:
 					else
 					{
 						// look into that direction
-						if ( pSoldier->InternalIsValidStance( targetdirection, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+						if ( pSoldier->InternalIsValidStance( targetdirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 						{
 							pSoldier->aiData.usActionData = targetdirection;
 							return(AI_ACTION_CHANGE_FACING);
@@ -7031,7 +7031,7 @@ L_NEWAIM:
 
 			// possibly turn to closest opponent
 			if (pSoldier->position().direction() != ubOpponentDir &&
-				pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->usAnimState].ubEndHeight) &&
+				pSoldier->InternalIsValidStance(ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight) &&
 				pSoldier->bActionPoints >= GetAPsToLook(pSoldier))
 			{
 				pSoldier->aiData.usActionData = ubOpponentDir;
@@ -7223,7 +7223,7 @@ L_NEWAIM:
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 					pSoldier->aiData.usActionData = bDirection;
 
@@ -7891,7 +7891,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 #endif
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "DecideActionGreen: Trying to turn - checking stance validity, sniper = %d", pSoldier->sniper ) );
-				if ( pSoldier->InternalIsValidStance( (INT8)pSoldier->aiData.usActionData, gAnimControl[pSoldier->usAnimState].ubEndHeight ) )
+				if ( pSoldier->InternalIsValidStance( (INT8)pSoldier->aiData.usActionData, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -7992,7 +7992,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 			if ( pSoldier->aiData.bAttitude == DEFENSIVE )
 				iChance += 15;
 
-			if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[pSoldier->usAnimState].ubEndHeight ) )
+			if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 			{
 				pSoldier->aiData.usActionData = ubNoiseDir;
 #ifdef DEBUGDECISIONS
@@ -8486,7 +8486,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 				// Get new gridno!
 				sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( ubOpponentDir ) );
 
-				if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->usAnimState ) )
+				if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->animationPlayback().state() ) )
 				{
 					// then do it!  The functions have already made sure that we have a
 					// pair of worthy opponents, etc., so we're not just wasting our time
@@ -8509,7 +8509,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 
 					// try behind us, see if there's room to move back
 					sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( gOppositeDirection[ubOpponentDir] ) );
-					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->usAnimState ) )
+					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->animationPlayback().state() ) )
 					{
 						pSoldier->aiData.usActionData = sCheckGridNo;
 
@@ -8696,7 +8696,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->bDoAutofire, pSoldier );
 					totalUsedAPs = BestShot.ubAPCost + ubBurstAPs;
 				} while ( pSoldier->bActionPoints >= totalUsedAPs && remainingAmmo >= pSoldier->bDoAutofire &&
-						 GetAutoPenalty( &weapon, gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );
+						 GetAutoPenalty( &weapon, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );
 			}
 
 			pSoldier->bDoAutofire--;
@@ -8846,7 +8846,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		// sevenfm: dont' flank when under fire
 		if ( pSoldier->numFlanks > 0 &&
 			 pSoldier->numFlanks < MAX_FLANKS_RED  &&
-			 gAnimControl[pSoldier->usAnimState].ubHeight != ANIM_PRONE &&
+			 gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE &&
 			 !pSoldier->aiData.bUnderFire )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: continue flanking" );
@@ -9060,7 +9060,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 					// if there is an opponent reachable					
 					// sevenfm: allow seeking in prone stance if we haven't seen enemy for several turns
 					if ( !TileIsOutOfBounds( sClosestDisturbance ) &&
-						 (gAnimControl[pSoldier->usAnimState].ubHeight != ANIM_PRONE || !GuySawEnemy( pSoldier )) )
+						 (gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE || !GuySawEnemy( pSoldier )) )
 					{
 						DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: seek opponent" );
 						//////////////////////////////////////////////////////////////////////
@@ -9103,7 +9103,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 							if ( (pSoldier->aiData.bAttitude == CUNNINGAID || pSoldier->aiData.bAttitude == CUNNINGSOLO ||
 								(pSoldier->aiData.bAttitude == BRAVESOLO || pSoldier->aiData.bAttitude == BRAVEAID) && fOvercrowded) &&
 								pSoldier->bTeam == ENEMY_TEAM &&
-								gAnimControl[pSoldier->usAnimState].ubHeight != ANIM_PRONE &&
+								gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE &&
 								!pSoldier->aiData.bUnderFire &&
 								pSoldier->position().level() == 0 &&
 								(pSoldier->aiData.bOrders == SEEKENEMY ||
@@ -9237,7 +9237,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 						// if soldier is not already facing in that direction,
 						// and the opponent is close enough that he could possibly be seen
 						if ( pSoldier->position().direction() != ubOpponentDir &&
-							 pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->usAnimState].ubEndHeight ) &&
+							 pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) &&
 							 pSoldier->bActionPoints >= GetAPsToLook( pSoldier ) )
 						{
 							// turn
@@ -9441,7 +9441,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 					iChance += 50;
 				}
 
-				if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->usAnimState].ubEndHeight ) )
+				if ( (INT16)PreRandom( 100 ) < iChance && pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 				{
 					pSoldier->aiData.usActionData = ubOpponentDir;
 
@@ -9898,14 +9898,14 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				// Get new gridno!
 				sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( ubOpponentDir ) );
 
-				if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->usAnimState ) )
+				if ( !OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), ubOpponentDir, pSoldier->animationPlayback().state() ) )
 				{
 					// can't fire!
 					BestThrow.ubPossible = FALSE;
 
 					// try behind us, see if there's room to move back
 					sCheckGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( gOppositeDirection[ubOpponentDir] ) );
-					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->usAnimState ) )
+					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->animationPlayback().state() ) )
 					{
 						pSoldier->aiData.usActionData = sCheckGridNo;
 
@@ -10112,7 +10112,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), BestAttack.sTarget);
 				
 				// Change facing
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->usAnimState].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 				{
 					// we're not facing towards him, so turn first!
 					pSoldier->aiData.usActionData = bDirection;
@@ -10177,7 +10177,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 					{
 						pSoldier->bDoAutofire++;
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
-					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->bDoAutofire--;
@@ -10402,7 +10402,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				bDirection = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sClosestOpponent);
 
 				// if we're not facing towards him
-				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->usAnimState].ubEndHeight ) )
+				if ( pSoldier->position().direction() != bDirection && pSoldier->InternalIsValidStance( bDirection, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 				{
 					pSoldier->aiData.usActionData = bDirection;
 

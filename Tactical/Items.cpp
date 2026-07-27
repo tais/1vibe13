@@ -6531,7 +6531,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 		case SMALLPOCK30POS:
 			if( UsingNewInventorySystem() )
 			{
-				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
+				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
 					return( FALSE );
 
 				lbePocket = ( !pSoldier->inv[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
@@ -10080,7 +10080,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 	
 	if ( newvest || newpants )
 	{
-		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->usAnimState );
+		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{
@@ -13548,14 +13548,14 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD ) 
 	{
 		// HEADROCK HAM 4: This modifier from the weapon and its attachments replaces the generic bipod bonus.
-		UINT8 stance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+		UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 		// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 		if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
 			stance = ANIM_PRONE;
 
 		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], stance, ITEMMODIFIER_AIMLEVELS );
-		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[ pSoldier->usAnimState ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
+		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
 		aimLevels += (INT32) ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 	}
 
@@ -13726,7 +13726,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 
 			// Determine whether a bipod is being used (prone)
 
-			UINT8 stance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+			UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 
 			// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 			if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
@@ -15488,7 +15488,7 @@ BOOLEAN DeductBulletViaExternalFeeding(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObje
 
 INT8 GetNumberAltFireAimLevels( SOLDIERTYPE * pSoldier, INT32 iGridNo )
 {
-	if ( !gGameExternalOptions.ubAllowAlternativeWeaponHolding || (gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_STAND) )
+	if ( !gGameExternalOptions.ubAllowAlternativeWeaponHolding || (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_STAND) )
 	{
 		return -1;
 	}

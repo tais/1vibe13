@@ -4015,7 +4015,7 @@ INT8	GetBodyTypePaletteSubstitutionCode( SOLDIERTYPE *pSoldier, UINT8 ubBodyType
 		if ( pSoldier != NULL )
 		{
 			// Are we on fire?
-			if ( pSoldier->usAnimState == CHARIOTS_OF_FIRE || pSoldier->usAnimState == BODYEXPLODING || pSoldier->usAnimState == CRYO_DEATH || pSoldier->usAnimState == CRYO_DEATH_CROUCHED )
+			if ( pSoldier->animationPlayback().state() == CHARIOTS_OF_FIRE || pSoldier->animationPlayback().state() == BODYEXPLODING || pSoldier->animationPlayback().state() == CRYO_DEATH || pSoldier->animationPlayback().state() == CRYO_DEATH_CROUCHED )
 			{
 				return( 0 );
 			}
@@ -4116,7 +4116,7 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	}
 
 	// Set
-	pSoldier->usAnimSurface = usAnimSurface;
+	pSoldier->animationPlayback().surface() = usAnimSurface;
 
 	if ( usAnimSurface == INVALID_ANIMATION_SURFACE )
 	{
@@ -4136,7 +4136,7 @@ UINT16 LoadSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	if ( usAnimSurface != INVALID_ANIMATION_SURFACE )
 	{
 		// Ensure that it's been loaded!
-		if ( GetCachedAnimationSurface( pSoldier->ubID, &(pSoldier->AnimCache), usAnimSurface, pSoldier->usAnimState ) == FALSE )
+		if ( GetCachedAnimationSurface( pSoldier->ubID, &(pSoldier->AnimCache), usAnimSurface, pSoldier->animationPlayback().state() ) == FALSE )
 		{
 			usAnimSurface = INVALID_ANIMATION_SURFACE;
 		}
@@ -4220,7 +4220,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 	}
 
 	// SWITCH TO DIFFERENT AIM ANIMATION FOR BIG GUY!
-	if ( pSoldier->uiAnimSubFlags & SUB_ANIM_BIGGUYSHOOT2 ) // badass rifle holding animation
+	if ( pSoldier->animationPlayback().subFlags() & SUB_ANIM_BIGGUYSHOOT2 ) // badass rifle holding animation
 	{
 		switch ( usAnimSurface )
 		{
@@ -4272,7 +4272,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 			}
 			break;
 		case BGMSTANDAIM2:
-			if ( DecideAltAnimForBigMerc( pSoldier ) && !( pSoldier->uiAnimSubFlags & SUB_ANIM_BIGGUYSHOOT2 ))
+			if ( DecideAltAnimForBigMerc( pSoldier ) && !( pSoldier->animationPlayback().subFlags() & SUB_ANIM_BIGGUYSHOOT2 ))
 			{
 				usAnimSurface = BGMSRAIMALT;
 			}
@@ -4441,7 +4441,7 @@ UINT16 GetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 {
 	UINT16 usAnimSurface;
 
-	usAnimSurface = pSoldier->usAnimSurface;
+	usAnimSurface = pSoldier->animationPlayback().surface();
 
 	if ( usAnimSurface != INVALID_ANIMATION_SURFACE )
 	{

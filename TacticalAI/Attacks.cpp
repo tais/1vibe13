@@ -138,7 +138,7 @@ void LoadWeaponIfNeeded(SOLDIERTYPE *pSoldier)
 void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 {
 	// ATE: Don't do this if in a fire amimation.....
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_FIRE )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_FIRE )
 	{
 		return;
 	}
@@ -437,7 +437,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 			if(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || (pSoldier->bScopeMode >= USE_BEST_SCOPE && ObjList[pSoldier->bScopeMode] != NULL))
 			{
-				usTrueState = pSoldier->usAnimState;		// because is used in CalculateRaiseGunCost, CalcAimingLevelsAvailableWithAP, CalculateTurningCost
+				usTrueState = pSoldier->animationPlayback().state();		// because is used in CalculateRaiseGunCost, CalcAimingLevelsAvailableWithAP, CalculateTurningCost
 				iTrueLastTarget = pSoldier->sLastTarget;	// because is used in MinAPsToShootOrStab
 
 				// --------- Standing ---------
@@ -451,7 +451,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					if(sStanceAPcost)						
 					{
 						// Going up so first is stance change then turnover, do animation change before APs calculation
-						pSoldier->usAnimState = STANDING;
+						pSoldier->animationPlayback().state() = STANDING;
 						pSoldier->sLastTarget = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
@@ -506,7 +506,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							}
 						}						
 					}
-					pSoldier->usAnimState = usTrueState;
+					pSoldier->animationPlayback().state() = usTrueState;
 					pSoldier->sLastTarget = iTrueLastTarget;
 				}
 
@@ -523,7 +523,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
 					if (sStanceAPcost)
 					{
-						pSoldier->usAnimState = CROUCHING;
+						pSoldier->animationPlayback().state() = CROUCHING;
 						pSoldier->sLastTarget = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
@@ -576,13 +576,13 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							}
 						}						
 					}
-					pSoldier->usAnimState = usTrueState;
+					pSoldier->animationPlayback().state() = usTrueState;
 					pSoldier->sLastTarget = iTrueLastTarget;
 				}
 
 				// no prone stance if we have to change direction and stance at the same time
 				if (pSoldier->position().direction() != AIDirection(pSoldier->position().gridNo(), sTarget) &&
-					gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE)
+					gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
 				{
 					continue;
 				}
@@ -594,7 +594,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
 					if (sStanceAPcost)
 					{
-						pSoldier->usAnimState = PRONE;
+						pSoldier->animationPlayback().state() = PRONE;
 						pSoldier->sLastTarget = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
@@ -640,7 +640,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 							}
 						}
 					}
-					pSoldier->usAnimState = usTrueState;
+					pSoldier->animationPlayback().state() = usTrueState;
 					pSoldier->sLastTarget = iTrueLastTarget;
 				}
 			}
@@ -1132,7 +1132,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		if (usGrenade != NOTHING &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType == EXPLOSV_SMOKE &&
 			(FindAIUsableObjClass(pOpponent, IC_GUN) == NO_SLOT ||
-			(pSoldier->usAnimState == COWERING || pSoldier->usAnimState == COWERING_PRONE) ||
+			(pSoldier->animationPlayback().state() == COWERING || pSoldier->animationPlayback().state() == COWERING_PRONE) ||
 			pOpponent->ShockLevelPercent() > 50 ||
 			EffectiveMarksmanship(pOpponent) < 90 && !IsScoped(&pOpponent->inv[HANDPOS]) && !pOpponent->aiData.bLastAttackHit))
 		{
@@ -1686,7 +1686,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					pBestThrow->ubAPCost			= MinAPsToAttack(pSoldier, sGridNo, ADDTURNCOST, ubMaxPossibleAimTime);
 					pBestThrow->bTargetLevel		= bOpponentLevel[ubLoop];
 					// set current stance
-					pBestThrow->ubStance			= gAnimControl[pSoldier->usAnimState].ubEndHeight;
+					pBestThrow->ubStance			= gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight;
 					pBestThrow->ubFriendlyFireChance = ubFriendlyFireChance;
 
 					// bWeaponIn
@@ -2404,7 +2404,7 @@ INT32 EstimateThrowDamage( SOLDIERTYPE *pSoldier, UINT8 ubItemPos, SOLDIERTYPE *
 	}
 
 	// if this opponent is standing
-	if (gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_STAND)
+	if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 	{
 		// 15 pt. flat bonus for knocking him down (for ANY type of explosion)
 		iDamage += 15;
@@ -2538,7 +2538,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 			{
 				iBonus += gbSkillTraitBonus[MARTIALARTS_OT] * NUM_SKILL_TRAITS(pSoldier, MARTIALARTS_OT);
 
-				if (pSoldier->usAnimState == NINJA_SPINKICK)
+				if (pSoldier->animationPlayback().state() == NINJA_SPINKICK)
 				{
 					iBonus += 100;
 				}
@@ -2554,7 +2554,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 
 		if (gGameExternalOptions.fEnhancedCloseCombatSystem)
 		{
-			if (gAnimControl[pOpponent->usAnimState].ubEndHeight == ANIM_PRONE)
+			if (gAnimControl[pOpponent->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			{
 				iBonus += 30; // 30% increased damage to lying characters
 			}
@@ -2571,7 +2571,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 		// Enhanced Close Combat System
 		if (gGameExternalOptions.fEnhancedCloseCombatSystem)
 		{
-			if (gAnimControl[pOpponent->usAnimState].ubEndHeight == ANIM_PRONE)
+			if (gAnimControl[pOpponent->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			{
 				iBonus += 30;  // increased damage to lying characters
 			}
@@ -4048,8 +4048,8 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 	INT32	iAttackValue;
 	INT32	iTotalThreatValue = 100;
 	UINT8	ubMaxPossibleAimTime = 0;
-	UINT16	usTrueState = pSoldier->usAnimState;
-	UINT8	ubStance = gAnimControl[pSoldier->usAnimState].ubEndHeight;
+	UINT16	usTrueState = pSoldier->animationPlayback().state();
+	UINT8	ubStance = gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight;
 
 	usInHand = pSoldier->inv[HANDPOS].usItem;
 
@@ -4069,11 +4069,11 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 
 	// maybe try to stand up for better range
 	if (ubChanceToReallyHit == 0 &&
-		gAnimControl[pSoldier->usAnimState].ubEndHeight < ANIM_STAND &&
+		gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight < ANIM_STAND &&
 		pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTargetSpot), ANIM_STAND) &&
 		pSoldier->bActionPoints >= ubAPCost + GetAPsToChangeStance(pSoldier, ANIM_STAND))
 	{
-		pSoldier->usAnimState = STANDING;
+		pSoldier->animationPlayback().state() = STANDING;
 
 		iTossRange = CalcMaxTossRange(pSoldier, usInHand, TRUE);
 
@@ -4084,7 +4084,7 @@ void CheckTossAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTargetSpo
 		ubChanceToReallyHit = (ubChanceToHit * ubChanceToGetThrough) / 100;
 		iHitRate = (pSoldier->bActionPoints * ubChanceToHit) / ubAPCost;
 		iAttackValue = (iHitRate * ubChanceToReallyHit * iTotalThreatValue) / 1000;
-		pSoldier->usAnimState = usTrueState;
+		pSoldier->animationPlayback().state() = usTrueState;
 
 		ubStance = ANIM_STAND;
 		ubAPCost += GetAPsToChangeStance(pSoldier, ANIM_STAND);

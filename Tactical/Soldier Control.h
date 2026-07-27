@@ -23,9 +23,9 @@
 #include "Soldier Components.h"
 
 #define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
-#define PTR_CROUCHED	(gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_CROUCH)
-#define PTR_STANDING	(gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_STAND)
-#define PTR_PRONE	 (gAnimControl[ pSoldier->usAnimState ].ubHeight == ANIM_PRONE)
+#define PTR_CROUCHED	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH)
+#define PTR_STANDING	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND)
+#define PTR_PRONE	 (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_PRONE)
 
 #define DRUG_TYPE_MAX	32
 #define FOOD_TYPE_MAX	500
@@ -1072,6 +1072,8 @@ public:
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
+	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
+	const SoldierAnimationPlaybackComponent& animationPlayback() const noexcept { return animationPlayback_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1151,8 +1153,6 @@ public:
 	INT8				bCollapsed;				// collapsed due to being out of APs
 	INT8				bBreathCollapsed;		// collapsed due to being out of APs
 
-	UINT16			usAnimState;
-
 	UINT32			uiAIDelay;
 	INT16			sReloadDelay;
 	SoldierID		ubAttackerID;
@@ -1168,10 +1168,6 @@ public:
 	INT8 			bNewOppCnt;
 	INT8				bService;		// first aid, or other time consuming process
 	
-	UINT16			usAniCode;
-	UINT16			usAniFrame;
-	INT16			sAniDelay;
-
 	// Weapon Stuff
 	INT32			sTargetGridNo;
 	INT8				bTargetLevel;
@@ -1242,9 +1238,6 @@ public:
 	INT16			sX;
 	INT16			sY;
 
-	UINT16			usOldAniState;
-	INT16			sOldAniCode;
-
 	INT8				bBulletsLeft;
 	UINT8			ubSuppressionPoints;
 
@@ -1252,9 +1245,6 @@ public:
 	UINT32			uiTimeOfLastRandomAction;
 	INT16			usLastRandomAnim;
 
-
-	UINT16			usAnimSurface;
-	UINT16			sZLevel;
 
 	INT16			sWalkToAttackMovementMode;//shadooow: stores movement mode used in last pathing
 	INT32			sWalkToAttackGridNo;
@@ -1296,8 +1286,6 @@ public:
 	INT8				bVocalVolume;	// verbal sounds need to differ in volume
 
 	INT8				bStartFallDir;
-
-	UINT32			uiAnimSubFlags;
 
 	UINT8			bAimShotLocation;
 	UINT8			ubHitLocation;
@@ -1578,6 +1566,7 @@ private:
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
 	SoldierAnimationIntentComponent	animationIntent_;
+	SoldierAnimationPlaybackComponent	animationPlayback_;
 
 public:
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is

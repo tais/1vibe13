@@ -877,7 +877,7 @@ void UpdateSMPanel( )
 
 	if ( ubStanceState == NO_DESIRED_HEIGHT )
 	{
-		ubStanceState = gAnimControl[ GetSMCurrentMerc()->usAnimState ].ubEndHeight;
+		ubStanceState = gAnimControl[ GetSMCurrentMerc()->animationPlayback().state() ].ubEndHeight;
 	}
 
 
@@ -3722,7 +3722,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	//else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP && fLeftDown )
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->flags.ZipperFlag) || (GetSMCurrentMerc()->flags.ZipperFlag && gAnimControl[GetSMCurrentMerc()->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->flags.ZipperFlag) || (GetSMCurrentMerc()->flags.ZipperFlag && gAnimControl[GetSMCurrentMerc()->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -4191,7 +4191,7 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 	if(newStatus)
 	{
 		// Are we standing?
-		bNewStance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+		bNewStance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 		if(bNewStance == ANIM_STAND)
 		{
 			bNewStance = ANIM_CROUCH;
@@ -4547,7 +4547,7 @@ void BtnStanceUpCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		bNewStance = gAnimControl[ GetSMCurrentMerc()->usAnimState ].ubEndHeight;
+		bNewStance = gAnimControl[ GetSMCurrentMerc()->animationPlayback().state() ].ubEndHeight;
 
 		if ( bNewStance == ANIM_CROUCH )
 		{
@@ -4793,7 +4793,7 @@ void BtnStanceDownCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		bNewStance = gAnimControl[ GetSMCurrentMerc()->usAnimState ].ubEndHeight;
+		bNewStance = gAnimControl[ GetSMCurrentMerc()->animationPlayback().state() ].ubEndHeight;
 
 		if ( bNewStance == ANIM_STAND )
 		{

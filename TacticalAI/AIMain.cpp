@@ -841,7 +841,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 					SoldierTriesToContinueAlongPath(pSoldier);
 				}
 				// ATE: Let's also test if we are in any stationary animation...
-				else if ((gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_STATIONARY))
+				else if ((gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_STATIONARY))
 				{
 					// ATE: Put some ( MORE ) refinements on here....
 					// If we are trying to open door, or jump fence  don't continue until done...
@@ -1246,12 +1246,12 @@ void FreeUpNPCFromPendingAction( 	SOLDIERTYPE *pSoldier )
 					pSoldier->ubQuoteRecord = 0;
 					TriggerNPCRecord( KYLE, 11 );
 				}
-				else if (pSoldier->usAnimState == END_OPENSTRUCT)
+				else if (pSoldier->animationPlayback().state() == END_OPENSTRUCT)
 				{
 					TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_OPEN_STRUCTURE, TRUE );
 					//TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_OPEN_STRUCTURE, FALSE );
 				}
-				else if (pSoldier->usAnimState == PICKUP_ITEM || pSoldier->usAnimState == ADJACENT_GET_ITEM || pSoldier->usAnimState == ADJACENT_GET_ITEM_CROUCHED )
+				else if (pSoldier->animationPlayback().state() == PICKUP_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM_CROUCHED )
 				{
 					TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_GET_ITEM, TRUE );
 				}
@@ -1311,7 +1311,7 @@ void FreeUpNPCFromStanceChange(SOLDIERTYPE *pSoldier )
 		if (pSoldier->aiData.bAction == AI_ACTION_CHANGE_STANCE || pSoldier->aiData.bAction == AI_ACTION_COWER || pSoldier->aiData.bAction == AI_ACTION_STOP_COWERING)
 		{
 			// yes we were - are we finished?
-			if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == pSoldier->aiData.usActionData )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == pSoldier->aiData.usActionData )
 			{
 				// yes! Free us up to do other fun things
 				ActionDone(pSoldier);
@@ -1669,7 +1669,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 					pSoldier->aiData.bAction = AI_ACTION_STOP_COWERING;
 					pSoldier->aiData.usActionData = ANIM_STAND;
 				}
-				else if ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight < ANIM_STAND )
+				else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight < ANIM_STAND )
 				{
 					// stand up!
 					pSoldier->aiData.bAction = AI_ACTION_CHANGE_STANCE;
@@ -1874,7 +1874,7 @@ void AIDecideRadioAnimation( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	switch( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 	{
 	case ANIM_STAND:
 
@@ -2419,7 +2419,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             break;
 
         case AI_ACTION_CHANGE_STANCE:                // crouch
-            if ( gAnimControl[ pSoldier->usAnimState ].ubHeight == pSoldier->aiData.usActionData )
+            if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == pSoldier->aiData.usActionData )
             {
                 // abort!
                 ActionDone( pSoldier );
@@ -2464,25 +2464,25 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 				pSoldier->aiData.usActionData = ANIM_STAND;
 				pSoldier->SetSoldierCowerState(FALSE);
 			}
-			else if (SoldierAI(pSoldier) && (pSoldier->usAnimState == COWERING || pSoldier->usAnimState == COWERING_PRONE))
+			else if (SoldierAI(pSoldier) && (pSoldier->animationPlayback().state() == COWERING || pSoldier->animationPlayback().state() == COWERING_PRONE))
 			{
 				// sevenfm: stop cowering for soldiers
-				if (pSoldier->usAnimState == COWERING)
+				if (pSoldier->animationPlayback().state() == COWERING)
 				{
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_STAND;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER, 0, FALSE);
 					}
-					else if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_CROUCH)
+					else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_CROUCHED, 0, FALSE);
 					}
 				}
-				else if (pSoldier->usAnimState == COWERING_PRONE)
+				else if (pSoldier->animationPlayback().state() == COWERING_PRONE)
 				{
-					if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 					{
 						pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_PRONE, 0, FALSE);
@@ -2699,7 +2699,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 				!pSoldier->bCollapsed &&
 				pSoldier->IsGivingAid())
 			{
-				if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+				if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 					pSoldier->ChangeSoldierState(END_AID_PRN, 0, 0);
 				else
 					pSoldier->ChangeSoldierState(END_AID, 0, 0);

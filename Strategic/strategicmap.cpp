@@ -4590,7 +4590,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 		// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 		if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 		{
-			pSoldier->usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->usAnimState].ubEndHeight );
+			pSoldier->usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight );
 		}
 
 		sGridNo = FindGridNoFromSweetSpotCloseToExitGrid( pSoldier, usAdditionalData, 10, &ubDirection );

@@ -480,7 +480,7 @@ void AutoBandage( BOOLEAN fStart )
 				// ATE: Make everyone stand up!
 				if ( pSoldier->vitals().health() >= OKLIFE && !pSoldier->bCollapsed )
 				{
-					if ( gAnimControl[ pSoldier->usAnimState ].ubHeight != ANIM_STAND )
+					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_STAND )
 					{
 						pSoldier->ChangeSoldierStance( ANIM_STAND );
 					}
@@ -498,7 +498,7 @@ void AutoBandage( BOOLEAN fStart )
 				ActionDone(pSoldier);
 
 				// If anyone is still doing aid animation, stop!
-				if (pSoldier->usAnimState == GIVING_AID || pSoldier->usAnimState == GIVING_AID_PRN)
+				if (pSoldier->animationPlayback().state() == GIVING_AID || pSoldier->animationPlayback().state() == GIVING_AID_PRN)
 				{
 					pSoldier->SoldierGotoStationaryStance();
 				}

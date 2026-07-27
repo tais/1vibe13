@@ -1707,7 +1707,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		//pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ
 		)
 		{
-			AddSoldierToSectorNoCalculateDirectionUseAnimation( ubID, pSoldier->usAnimState, pSoldier->usAniCode );
+			AddSoldierToSectorNoCalculateDirectionUseAnimation( ubID, pSoldier->animationPlayback().state(), pSoldier->animationPlayback().code() );
 			HandleSight(pNewSoldier, SIGHT_LOOK | SIGHT_RADIO);
 		}
 

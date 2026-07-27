@@ -213,8 +213,8 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 	}
 	// Unfortunately, to get this to work, we have to fake the AI guy's
 	// animation state so we get the right height values
-	usRealAnimState = pSoldier->usAnimState;
-	usBestAnimState = pSoldier->usAnimState;
+	usRealAnimState = pSoldier->animationPlayback().state();
+	usBestAnimState = pSoldier->animationPlayback().state();
 	uiBestChanceOfDamage = 0;
 	iRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pAttack->sTarget );
 
@@ -248,21 +248,21 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 				{
 					continue;
 				}
-				pSoldier->usAnimState = STANDING;
+				pSoldier->animationPlayback().state() = STANDING;
 				break;
 			case 1:
 				if ( !pSoldier->InternalIsValidStance( bDesiredDirection, ANIM_CROUCH ) )
 				{
 					continue;
 				}
-				pSoldier->usAnimState = CROUCHING;
+				pSoldier->animationPlayback().state() = CROUCHING;
 				break;
 			default:
 				if ( !pSoldier->InternalIsValidStance( bDesiredDirection, ANIM_PRONE ) )
 				{
 					continue;
 				}
-				pSoldier->usAnimState = PRONE;
+				pSoldier->animationPlayback().state() = PRONE;
 				break;
 		}
 
@@ -279,7 +279,7 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 		{
 			uiStanceBonus = 0;
 			// artificially augment "chance of damage" to reflect penalty to be shot at various stances
-			switch( pSoldier->usAnimState )
+			switch( pSoldier->animationPlayback().state() )
 			{
 				case CROUCHING:
 					if (iRange > POINT_BLANK_RANGE + 10 * (AIM_PENALTY_TARGET_CROUCHED / 3))
@@ -319,12 +319,12 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 		if (uiChanceOfDamage > uiBestChanceOfDamage )
 		{
 			uiBestChanceOfDamage = uiChanceOfDamage;
-			usBestAnimState = pSoldier->usAnimState;
+			usBestAnimState = pSoldier->animationPlayback().state();
 			bBestStanceDiff = bStanceDiff;
 		}
 	}
 
-	pSoldier->usAnimState = usRealAnimState;
+	pSoldier->animationPlayback().state() = usRealAnimState;
 
 	// return 0 or the best height value to be at
 	if (bBestStanceDiff == 0 || ((uiBestChanceOfDamage - uiCurrChanceOfDamage) / bBestStanceDiff) < uiMinimumStanceBonusPerChange)
@@ -378,7 +378,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 			gGameExternalOptions.fAIMovementMode &&
 			IS_MERC_BODY_TYPE(pSoldier) &&
 			(pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == MILITIA_TEAM) &&
-			gAnimControl[pSoldier->usAnimState].ubEndHeight <= ANIM_CROUCH)
+			gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight <= ANIM_CROUCH)
 		{
 			return SWATTING;
 		}
@@ -445,7 +445,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						!pSoldier->aiData.bUnderFire &&
 						pSoldier->aiData.bShock == 0 &&
 						!GuySawEnemy(pSoldier) &&
-						(NightTime() || gAnimControl[pSoldier->usAnimState].ubEndHeight <= ANIM_CROUCH) &&
+						(NightTime() || gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight <= ANIM_CROUCH) &&
 						CountNearbyFriends(pSoldier, pSoldier->position().gridNo(), TACTICAL_RANGE / 4) < 3 &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) < 3 * sDistanceVisible / 2 &&
 						CountFriendsBlack(pSoldier) == 0 &&
@@ -459,7 +459,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8 &&
 						(pSoldier->aiData.bUnderFire && iRCD < 4 ||
 						pSoldier->aiData.bShock > 2 * iRCD ||
-						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE) &&
+						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE) &&
 						!pSoldier->aiData.bLastAttackHit &&
 						bAction == AI_ACTION_TAKE_COVER)
 					{
@@ -469,9 +469,9 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					// use SWATTING when under fire 
 					if (pSoldier->aiData.bAlertStatus >= STATUS_RED &&
 						(pSoldier->aiData.bShock > iRCD && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 2 ||
-						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4) &&
+						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4) &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) < 3 * sDistanceVisible / 2 &&
-						gAnimControl[pSoldier->usAnimState].ubEndHeight <= ANIM_CROUCH &&
+						gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight <= ANIM_CROUCH &&
 						!pSoldier->aiData.bLastAttackHit &&
 						(bAction == AI_ACTION_SEEK_OPPONENT ||
 						bAction == AI_ACTION_GET_CLOSER ||
@@ -523,7 +523,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						pSoldier->position().level() == 0 &&
 						pSoldier->aiData.bOrders != STATIONARY &&
 						pSoldier->aiData.bOrders != SNIPER &&
-						(gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE || pSoldier->bActionPoints > APBPConstants[AP_MINIMUM]))
+						(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE || pSoldier->bActionPoints > APBPConstants[AP_MINIMUM]))
 					{
 						return RUNNING;
 					}
@@ -531,14 +531,14 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					// decide movement mode when getting closer
 					if (bAction == AI_ACTION_GET_CLOSER)
 					{
-						if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)
+						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 						{
 							if (WeaponReady(pSoldier) && !pSoldier->aiData.bUnderFire && pSoldier->aiData.bAlertStatus == STATUS_BLACK)
 								return WALKING;
 							else
 								return RUNNING;
 						}
-						else if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_CROUCH)
+						else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 						{
 							if (WeaponReady(pSoldier) && !pSoldier->aiData.bUnderFire && pSoldier->aiData.bAlertStatus == STATUS_BLACK ||
 								pSoldier->aiData.bUnderFire && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
@@ -546,7 +546,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 							else
 								return RUNNING;
 						}
-						else if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+						else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 						{
 							if (pSoldier->aiData.bUnderFire && !pSoldier->aiData.bLastAttackHit && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
 								return SWATTING;
@@ -6249,7 +6249,7 @@ BOOLEAN CheckSuppressionDirection(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, IN
 			ubShootingDir == AIDirection(pSoldier->position().gridNo(), pFriend->position().gridNo()) &&
 			PythSpacesAway(pSoldier->position().gridNo(), pFriend->position().gridNo()) > 1 &&
 			PythSpacesAway(pSoldier->position().gridNo(), pFriend->position().gridNo()) < 2 * TACTICAL_RANGE &&
-			(gAnimControl[pFriend->usAnimState].ubHeight == ANIM_STAND || gGameExternalOptions.fAllowTargetHeadAndLegIfProne) &&
+			(gAnimControl[pFriend->animationPlayback().state()].ubHeight == ANIM_STAND || gGameExternalOptions.fAllowTargetHeadAndLegIfProne) &&
 			//!pFriend->IsCowering() &&
 			AISoldierToSoldierChanceToGetThrough(pSoldier, pFriend) > 25)
 			//LocationToLocationLineOfSightTest(pSoldier->sGridNo, pSoldier->position().level(), pFriend->sGridNo, pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT))

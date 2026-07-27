@@ -975,10 +975,12 @@ the engine must not contain SDL types in its public domain model.
   follow the same rule through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,
   UI turn origin, next-tile stopping, and post-stance continuation have one
-  private reset boundary. This is deliberately separate from animation
-  playback state, which remains the next storage domain. These components are
-  independent of the legacy soldier declaration; old-save conversion and the
-  explicit serializer still emit every value at its established byte position.
+  private reset boundary. Accepted transitions advance through a separate
+  `SoldierAnimationPlaybackComponent`, which privately owns current and
+  previous animation state/code, frame timing, selected render surface/depth,
+  and animation subflags. These components are independent of the legacy
+  soldier declaration; old-save conversion and the explicit serializer still
+  emit every value at its established byte position.
   The continuation mode is transferred as its real 8-bit value so fence mode
   `2` is no longer normalized to boolean `1`. The unused legacy 8-bit
   delayed-cause-merc slot remains a zero compatibility byte rather than live

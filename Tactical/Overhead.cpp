@@ -1163,7 +1163,7 @@ BOOLEAN ExecuteOverhead( )
             pSoldier->bLastRenderVisibleValue = pSoldier->bVisible;
 
             // Handle stationary polling...
-            if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove )
+            if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove )
             {
                 // Are are stationary....
                 // Were we once moving...?
@@ -1188,7 +1188,7 @@ BOOLEAN ExecuteOverhead( )
             // Handle animation update counters
             // ATE: Added additional check here for special value of anispeed that pauses all updates
 #ifndef BOUNDS_CHECKER
-            if ( TIMECOUNTERDONE( pSoldier->timeCounters.UpdateCounter, pSoldier->sAniDelay ) && pSoldier->sAniDelay != 10000 )
+            if ( TIMECOUNTERDONE( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() ) && pSoldier->animationPlayback().delay() != 10000 )
 #endif
             {
 #ifdef NETWORKED
@@ -1207,7 +1207,7 @@ BOOLEAN ExecuteOverhead( )
                 }
 
 
-                RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->sAniDelay );
+                RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() );
 
                 fNoAPsForPendingAction = FALSE;
 
@@ -1230,7 +1230,7 @@ BOOLEAN ExecuteOverhead( )
                     && pSoldier->position().gridNo() >= 0 && pSoldier->position().gridNo() < WORLD_MAX
                     && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE )
                     && !pSoldier->flags.fPauseAllAnimation
-                    && ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_MOVING ) )
+                    && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
                 {
                     static INT16  s_lanLastGrid[ TOTAL_SOLDIERS ];
                     static UINT16 s_lanStuckFrames[ TOTAL_SOLDIERS ];
@@ -1255,20 +1255,20 @@ BOOLEAN ExecuteOverhead( )
 #endif
 
                 // Check if we are moving and we deduct points and we have no points
-                if ( !( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->flags.fNoAPToFinishMove ) && !pSoldier->flags.fPauseAllAnimation    )
+                if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->flags.fNoAPToFinishMove ) && !pSoldier->flags.fPauseAllAnimation    )
                 {
                     if ( !AdjustToNextAnimationFrame( pSoldier ) )
                     {
                         continue;
                     }
-                    if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) )
+                    if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) )
                     {
                         HandleNextTileWaiting( pSoldier ); // Check if we are waiting for an opened path
                     }
 
                     // Update world data with new position, etc
                     // Determine gameworld cells corrds of guy
-                    if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE ) )
+                    if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE ) )
                     {
                         fKeepMoving = TRUE;
 
@@ -1285,7 +1285,7 @@ BOOLEAN ExecuteOverhead( )
                             //pSoldier->dXPos = pSoldier->pathing().destinationX();
                             //pSoldier->dYPos = pSoldier->pathing().destinationY();
                             HandleBloodForNewGridNo( pSoldier );
-                            if ( !( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) && pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid()) )
+                            if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) && pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid()) )
                             {
                                 //OK, we're at the MIDDLE of a new tile...
                                 HandleAtNewGridNo( pSoldier, &fKeepMoving );
@@ -1304,37 +1304,37 @@ BOOLEAN ExecuteOverhead( )
                                 // Cancel reverse
                                 pSoldier->bReverse = FALSE;
                                 BOOLEAN fAimAfterMove = FALSE;
-                                if ( pSoldier->usAnimState == WALKING_ALTERNATIVE_RDY || pSoldier->usAnimState == SIDE_STEP_ALTERNATIVE_RDY )
+                                if ( pSoldier->animationPlayback().state() == WALKING_ALTERNATIVE_RDY || pSoldier->animationPlayback().state() == SIDE_STEP_ALTERNATIVE_RDY )
                                 {
                                     fAimAfterMove = TRUE;
                                     pSoldier->animationIntent().queueFacingAnimation(
                                         AIM_ALTERNATIVE_STAND, pSoldier->position().direction() );
                                 }
-                                else if ( pSoldier->usAnimState == SIDE_STEP_WEAPON_RDY || pSoldier->usAnimState == WALKING_WEAPON_RDY )
+                                else if ( pSoldier->animationPlayback().state() == SIDE_STEP_WEAPON_RDY || pSoldier->animationPlayback().state() == WALKING_WEAPON_RDY )
                                 {
                                     fAimAfterMove = TRUE;
                                     pSoldier->animationIntent().queueFacingAnimation(
                                         AIM_RIFLE_STAND, pSoldier->position().direction() );
                                 }
-                                else if ( pSoldier->usAnimState == SIDE_STEP_DUAL_RDY || pSoldier->usAnimState == WALKING_DUAL_RDY )
+                                else if ( pSoldier->animationPlayback().state() == SIDE_STEP_DUAL_RDY || pSoldier->animationPlayback().state() == WALKING_DUAL_RDY )
                                 {
                                     fAimAfterMove = TRUE;
                                     pSoldier->animationIntent().queueFacingAnimation(
                                         AIM_DUAL_STAND, pSoldier->position().direction() );
                                 }
-								else if ( pSoldier->usAnimState == CROUCHEDMOVE_RIFLE_READY )
+								else if ( pSoldier->animationPlayback().state() == CROUCHEDMOVE_RIFLE_READY )
 								{
 									fAimAfterMove = TRUE;
 									pSoldier->animationIntent().queueFacingAnimation(
 										AIM_RIFLE_CROUCH, pSoldier->position().direction() );
 								}
-								else if ( pSoldier->usAnimState == CROUCHEDMOVE_PISTOL_READY )
+								else if ( pSoldier->animationPlayback().state() == CROUCHEDMOVE_PISTOL_READY )
 								{
 									fAimAfterMove = TRUE;
 									pSoldier->animationIntent().queueFacingAnimation(
 										AIM_RIFLE_CROUCH, pSoldier->position().direction() );
 								}
-								else if ( pSoldier->usAnimState == CROUCHEDMOVE_DUAL_READY )
+								else if ( pSoldier->animationPlayback().state() == CROUCHEDMOVE_DUAL_READY )
 								{
 									fAimAfterMove = TRUE;
 									pSoldier->animationIntent().queueFacingAnimation(
@@ -1347,7 +1347,7 @@ BOOLEAN ExecuteOverhead( )
                                     gfUIRefreshArrows = TRUE;
                                 }
                                 // ATE: Play landing sound.....
-                                if ( pSoldier->usAnimState == JUMP_OVER_BLOCKING_PERSON || pSoldier->usAnimState == LONG_JUMP )
+                                if ( pSoldier->animationPlayback().state() == JUMP_OVER_BLOCKING_PERSON || pSoldier->animationPlayback().state() == LONG_JUMP )
                                 {
                                     PlaySoldierFootstepSound( pSoldier );
                                 }
@@ -1632,8 +1632,8 @@ BOOLEAN ExecuteOverhead( )
                                                         gGameExternalOptions.fNoStandingAnimAdjustInCombat &&
                                                         !pSoldier->bCollapsed &&
                                                         !pSoldier->bBreathCollapsed,
-                                                        pSoldier->usAnimState,
-                                                        gAnimControl[ pSoldier->usAnimState ] );
+                                                        pSoldier->animationPlayback().state(),
+                                                        gAnimControl[ pSoldier->animationPlayback().state() ] );
 
                                                 if ( fRetainMovementAnimation )
                                                 {
@@ -1740,10 +1740,10 @@ BOOLEAN ExecuteOverhead( )
                                 else
                                 {
                                     // OK, Now find another dest grindo....
-                                    if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) )
+                                    if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) )
                                     {
                                         // OK, now we want to see if we can continue to another tile...
-                                        if ( !HandleGotoNewGridNo( pSoldier, &fKeepMoving, FALSE, pSoldier->usAnimState ) )
+                                        if ( !HandleGotoNewGridNo( pSoldier, &fKeepMoving, FALSE, pSoldier->animationPlayback().state() ) )
                                         {
                                             continue;
                                         }
@@ -1752,7 +1752,7 @@ BOOLEAN ExecuteOverhead( )
                                     {
                                         // Change desired direction
                                         // Just change direction
-                                        pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], FALSE, pSoldier->usAnimState );
+                                        pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], FALSE, pSoldier->animationPlayback().state() );
                                     }
 
                                     if ( gTacticalStatus.bBoxingState != NOT_BOXING && (gTacticalStatus.bBoxingState == BOXING_WAITING_FOR_PLAYER ||
@@ -1793,13 +1793,13 @@ BOOLEAN ExecuteOverhead( )
                             //  dAngle = (FLOAT)atan2( dDeltaX, dDeltaY );
                             dAngle = gdRadiansForAngle[ pSoldier->bMovementDirection ];
 
-							FLOAT movementchange = gAnimControl[pSoldier->usAnimState].dMovementChange;
+							FLOAT movementchange = gAnimControl[pSoldier->animationPlayback().state()].dMovementChange;
 
                             // For walking, base it on body type!
-                            if ( pSoldier->usAnimState == WALKING || 
-                                    pSoldier->usAnimState == WALKING_WEAPON_RDY ||
-                                    pSoldier->usAnimState == WALKING_DUAL_RDY ||
-                                    pSoldier->usAnimState == WALKING_ALTERNATIVE_RDY )
+                            if ( pSoldier->animationPlayback().state() == WALKING ||
+                                    pSoldier->animationPlayback().state() == WALKING_WEAPON_RDY ||
+                                    pSoldier->animationPlayback().state() == WALKING_DUAL_RDY ||
+                                    pSoldier->animationPlayback().state() == WALKING_ALTERNATIVE_RDY )
                             {
 								movementchange = gubAnimWalkSpeeds[pSoldier->ubBodyType].dMovementChange;
                             }
@@ -1808,7 +1808,7 @@ BOOLEAN ExecuteOverhead( )
 						}
                     }
                     // Check for direction change
-                    if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_TURNING )
+                    if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_TURNING )
                     {
                         pSoldier->TurnSoldier( );
                     }
@@ -2443,8 +2443,8 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             if ( !fDontContinue )
             {
 
-                if ( (pSoldier->bBlindedCounter > 0) && (pSoldier->usAnimState == RUNNING) && (Random( 5 ) == 0) &&
-                        OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->usAnimState ) )
+                if ( (pSoldier->bBlindedCounter > 0) && (pSoldier->animationPlayback().state() == RUNNING) && (Random( 5 ) == 0) &&
+                        OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->animationPlayback().state() ) )
                 {
                     // 20% chance of falling over!
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
@@ -2457,7 +2457,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                     return( FALSE );
                 }
                 else if ( ( GetDrunkLevel( pSoldier ) == DRUNK ) && (Random( 5 ) == 0) &&
-                        OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->usAnimState ) )
+                        OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->animationPlayback().state() ) )
                 {
                     // 20% chance of falling over!
                     pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
@@ -2765,7 +2765,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     (*pfKeepMoving ) = TRUE;
 
     pSoldier->bTilesMoved++;
-    if ( pSoldier->usAnimState == RUNNING )
+    if ( pSoldier->animationPlayback().state() == RUNNING )
     {
         // count running as double
         pSoldier->bTilesMoved++;
@@ -2777,7 +2777,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         // Update value for RT breath update
         pSoldier->ubTilesMovedPerRTBreathUpdate++;
         // Update last anim
-        pSoldier->usLastMovementAnimPerRTBreathUpdate = pSoldier->usAnimState;
+        pSoldier->usLastMovementAnimPerRTBreathUpdate = pSoldier->animationPlayback().state();
     }
 
     // Update path if showing path in RT
@@ -3006,7 +3006,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				pOpponent->bBreathCollapsed ||
 				!IS_MERC_BODY_TYPE(pOpponent) ||
 				!(pOpponent->flags.uiStatusFlags & SOLDIER_BOXER) ||
-				gAnimControl[pOpponent->usAnimState].ubEndHeight < ANIM_STAND ||
+				gAnimControl[pOpponent->animationPlayback().state()].ubEndHeight < ANIM_STAND ||
 				pOpponent->position().level() != pSoldier->position().level() ||
 				!SoldierToSoldierLineOfSightTest(pOpponent, pSoldier, TRUE, CALC_FROM_WANTED_DIR) ||
 				pOpponent->bActionPoints <= 0 ||
@@ -3058,7 +3058,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 				pOpponent->aiData.bAimTime = 1;
 
 			pOpponent->bAimShotLocation = AIM_SHOT_RANDOM;
-			if (gAnimControl[pSoldier->usAnimState].ubEndHeight > ANIM_PRONE)
+			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
 			{
 				if (Chance((6 + EffectiveDexterity(pOpponent, FALSE) / 10 + 5 * NUM_SKILL_TRAITS(pOpponent, MARTIAL_ARTS_NT)) * 100 / (100 + pSoldier->vitals().breath())))
 					pOpponent->bAimShotLocation = AIM_SHOT_HEAD;
@@ -5490,7 +5490,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 				SOLDIERTYPE *pTargetSoldier =
                     GetJa2SoldierRepository().resolve(usSoldierIndex.i);
             sGridNo = pTargetSoldier->position().gridNo();
-			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			{
 				// prone; could be the base tile is inaccessible but the rest isn't...
 				for (INT8 cnt = 0; cnt < NUM_WORLD_DIRECTIONS; cnt++)
@@ -5814,7 +5814,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 				SOLDIERTYPE *pTargetSoldier =
                     GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 			sGridNo = pTargetSoldier->position().gridNo();
-			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
+			if (CREATURE_OR_BLOODCAT(pTargetSoldier) || gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			{
 				// prone; could be the base tile is inaccessible but the rest isn't...
 				for (INT8 cnt = 0; cnt < NUM_WORLD_DIRECTIONS; cnt++)
@@ -6178,7 +6178,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
             fDone = FALSE;
             // Check for different events!
             // FOR DOING AID
-            if ( pTeamSoldier->usAnimState == GIVING_AID || pTeamSoldier->usAnimState == GIVING_AID_PRN )
+            if ( pTeamSoldier->animationPlayback().state() == GIVING_AID || pTeamSoldier->animationPlayback().state() == GIVING_AID_PRN )
             { 
                 // Get victim pointer
                 usSoldierIndex = WhoIsThere2( pTeamSoldier->sTargetGridNo, pTeamSoldier->position().level() );
@@ -6262,7 +6262,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
     {
         // Check for different events!
         // FOR DOING AID
-        if ( pTeamSoldier->usAnimState == GIVING_AID || pTeamSoldier->usAnimState == GIVING_AID_PRN )
+        if ( pTeamSoldier->animationPlayback().state() == GIVING_AID || pTeamSoldier->animationPlayback().state() == GIVING_AID_PRN )
         {
             // Get victim pointer
             usSoldierIndex = WhoIsThere2( pTeamSoldier->sTargetGridNo, pTeamSoldier->position().level() );
@@ -6482,7 +6482,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
                 GetJa2SoldierRepository().resolve(id.i);
             if ( pStop == NULL || !pStop->bActive || !pStop->bInSector
                 || pStop->position().gridNo() < 0 || pStop->position().gridNo() >= WORLD_MAX
-                || !( gAnimControl[ pStop->usAnimState ].uiFlags & ANIM_MOVING ) )
+                || !( gAnimControl[ pStop->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
             {
                 continue;
             }
@@ -6620,7 +6620,7 @@ void ExitCombatMode( )
                 //since this is a reset animation function, we should be VERY specific about when and what we dont reset
 
                 UINT16  test;
-                test = pSoldier->usAnimState; 
+                test = pSoldier->animationPlayback().state();
                 if (!(  test == AIM_RIFLE_STAND ||  test == AIM_RIFLE_CROUCH ||
                             test == AIM_RIFLE_PRONE ||  test == AIM_DUAL_STAND   ||
                             test == AIM_DUAL_CROUCH ||  test == AIM_DUAL_PRONE
@@ -7745,7 +7745,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                                         //DBrot: Stance change
                                         if (gGameExternalOptions.fStandUpAfterBattle)
 										{
-                                            if ( gAnimControl[ pTeamSoldier->usAnimState ].ubHeight != ANIM_STAND )
+                                            if ( gAnimControl[ pTeamSoldier->animationPlayback().state() ].ubHeight != ANIM_STAND )
                                             {
                                                 pTeamSoldier->ChangeSoldierStance( ANIM_STAND );
                                             }
@@ -9069,14 +9069,14 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // because upright characters can easily get themselves killed. Soldiers drop stance for "free", using up
             // the APs that they've just lost to do so.
 
-            switch (gAnimControl[ pSoldier->usAnimState ].ubEndHeight)
+            switch (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight)
             {
                 case ANIM_PRONE:
                     // can't change stance below prone!
                     // SANDRO - added cower animation when prone (made by Pashancock)
                     if ( fCower )
                     {
-                        if ( pSoldier->usAnimState == COWERING_PRONE ) // if cowering alread, do nothing
+                        if ( pSoldier->animationPlayback().state() == COWERING_PRONE ) // if cowering alread, do nothing
                         {
                             ubNewStance = 0;
                         }
@@ -9105,7 +9105,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                                 //  ubNewStance = 0;
                                 //}
                                 //else
-                                if ( pSoldier->usAnimState == COWERING ) // if cowering alread, do nothing
+                                if ( pSoldier->animationPlayback().state() == COWERING ) // if cowering alread, do nothing
                                 {
                                     ubNewStance = 0;
                                 }
@@ -9156,7 +9156,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                             ubNewStance = ANIM_CROUCH;
                         }
                     }
-                    else if ( sPointsLost >= GetAPsCrouch(pSoldier, TRUE) && ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight != ANIM_CROUCH ) && IsValidStance( pSoldier, ANIM_CROUCH ) )
+                    else if ( sPointsLost >= GetAPsCrouch(pSoldier, TRUE) && ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != ANIM_CROUCH ) && IsValidStance( pSoldier, ANIM_CROUCH ) )
                     {
                         if ( fCower )
                         {

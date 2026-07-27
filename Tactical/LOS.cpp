@@ -362,7 +362,7 @@ LocationCode;
 */
 inline UINT8 GetCurrentHeightOfSoldier( SOLDIERTYPE* pSoldier )
 {
-	return gAnimControl[ pSoldier->usAnimState ].ubHeight;
+	return gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight;
 }
 
 // why not functions? because these are typeless
@@ -2046,7 +2046,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 			ubPosType = TORSO_TARGET_POS;
 		}
 
-		ubHeight = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
+		ubHeight = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
 	}
 
 	switch( ubPosType )
@@ -2758,7 +2758,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// with their own fragments.
 	if ( pFirer != nullptr && pBullet->fFragment && pTarget == pFirer)
 	{
-		if (pTarget->usAniCode >1)
+		if (pTarget->animationPlayback().code() >1)
 		{
 			pTarget->flags.fInNonintAnim = FALSE;
 			pTarget->flags.fRTInNonintAnim = FALSE;
@@ -2822,7 +2822,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 				// Flugente: kids are smaller. We have to keep hat in mind... otherwise we will never make a sucessful headshot
 				BOOLEAN iskid = ( pTarget->ubBodyType == HATKIDCIV || pTarget->ubBodyType == KIDCIV );
 
-				switch (gAnimControl[ pTarget->usAnimState ].ubEndHeight)
+				switch (gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight)
 				{
 				case ANIM_STAND:
 					// Fall through to crouch if in shallow or medium water
@@ -3808,7 +3808,7 @@ static BOOLEAN PositionAllowsHit(BULLET * pBullet, STRUCTURE *	pStructure)
 		return FALSE;
 
 	// First of all, check if current stance allows to be hit accidentally (considering standing stance gives 100% hit prob in any case)
-	UINT8 mercStance = gAnimControl[target->usAnimState].ubEndHeight;
+	UINT8 mercStance = gAnimControl[target->animationPlayback().state()].ubEndHeight;
 	BOOLEAN fPositionAllowsHit = mercStance == ANIM_STAND;
 
 	// Now check for additional stances, if this option is enabled and the check still makes sense
@@ -4454,8 +4454,8 @@ UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIER
 	{
 		return( FALSE );
 	}
-	usTrueState = pStartSoldier->usAnimState;
-	pStartSoldier->usAnimState = STANDING;
+	usTrueState = pStartSoldier->animationPlayback().state();
+	pStartSoldier->animationPlayback().state() = STANDING;
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
@@ -4463,7 +4463,7 @@ UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIER
 
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	ubChance = ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos );
-	pStartSoldier->usAnimState = usTrueState;
+	pStartSoldier->animationPlayback().state() = usTrueState;
 	return( ubChance );
 }
 
@@ -4518,12 +4518,12 @@ UINT8 AISoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 
 		// is the AI calculating cover to a location where he might not be any more
 		pStartSoldier->ubCTGTTargetID = NOBODY;
 
-		usTrueState = pStartSoldier->usAnimState;
-		pStartSoldier->usAnimState = STANDING;
+		usTrueState = pStartSoldier->animationPlayback().state();
+		pStartSoldier->animationPlayback().state() = STANDING;
 
 		ubChance = ChanceToGetThrough( pStartSoldier, (FLOAT) sXPos, (FLOAT) sYPos, dEndZPos );
 
-		pStartSoldier->usAnimState = usTrueState;
+		pStartSoldier->animationPlayback().state() = usTrueState;
 
 		return( ubChance );
 	}
@@ -7300,7 +7300,7 @@ void MoveBullet( INT32 iBullet )
 							if (!(pBullet->usFlags & BULLET_FLAG_BUCKSHOT) || Chance(gGameExternalOptions.ubBuckshotSuppressionEffectiveness))
 							{
 								// bullet goes whizzing by this guy!
-								switch ( gAnimControl[ pSoldier->usAnimState ].ubEndHeight )
+								switch ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight )
 								{
 								case ANIM_PRONE:
 									// two 1/4 chances of avoiding suppression pt - one below
@@ -7393,7 +7393,7 @@ void MoveBullet( INT32 iBullet )
 								if (!(pBullet->usFlags & BULLET_FLAG_BUCKSHOT) || Chance(gGameExternalOptions.ubBuckshotSuppressionEffectiveness))								
 								{
 									// bullet goes whizzing by this guy!
-									switch ( gAnimControl[ pTarget->usAnimState ].ubEndHeight )
+									switch ( gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight )
 									{
 									case ANIM_PRONE:
 										// two 1/4 chances of avoiding suppression pt - one below
@@ -9249,7 +9249,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	// are essentially assuming that turns overlap, so the shot isn't being taken at the exact moment after the
 	// guy has crouched down, it's taking place simultaneously with his sprint. Commented out.
 	/*
-	if (pTarget->usAnimState != pTarget->usUIMovementMode)
+	if (pTarget->animationPlayback().state() != pTarget->usUIMovementMode)
 		sDistanceMoved = 0;
 	*/
 
@@ -9302,7 +9302,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	//INT16 uiTilesForMaxPenalty = (INT16)((100-uiCombinedSkill) / (100 / gGameCTHConstants.MOVEMENT_TRACKING_DIFFICULTY));
 	INT16 uiTilesForMaxPenalty = (INT16)((100 - uiCombinedSkill) * gGameCTHConstants.MOVEMENT_TRACKING_DIFFICULTY / 100);
 	
-	UINT8 stance = gAnimControl[ pShooter->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
@@ -9314,7 +9314,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	// silversurfer: uiTilesForMaxPenalty is supposed to be small to allow for fast compensation, right? Why do we ADD the tracking modifier then?
 	// According to the description of the tracking modifier: "Higher is better". So we better subtract and also make the modifiers a FLOAT for better precision.
 	FLOAT moda = (FLOAT)(uiTilesForMaxPenalty * GetObjectModifier( pShooter, pWeapon, stance, ITEMMODIFIER_TRACKING ) ) / 100;
-	FLOAT modb = (FLOAT)(uiTilesForMaxPenalty * GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->usAnimState ].ubEndHeight, ITEMMODIFIER_TRACKING ) ) / 100;
+	FLOAT modb = (FLOAT)(uiTilesForMaxPenalty * GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_TRACKING ) ) / 100;
 //	uiTilesForMaxPenalty += (INT16)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100);
 	uiTilesForMaxPenalty -= (INT16)(((FLOAT)gGameExternalOptions.ubProneModifierPercentage * moda + (100 - (FLOAT)gGameExternalOptions.ubProneModifierPercentage) * modb)/100);
 
@@ -9473,14 +9473,14 @@ void CalcRangeCompensationOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetY, 
 
 	// The weapon and/or its attachments can increase our skill by a certain percentage. Windage sights on long-range
 	// weapons (like sniper rifles and launchers) are sometimes designed specifically for this purpose.
-	UINT8 stance = gAnimControl[ pShooter->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = (iCombinedSkill * GetObjectModifier( pShooter, pWeapon, stance, ITEMMODIFIER_DROPCOMPENSATION )) / 100;
-	FLOAT modb = (iCombinedSkill * GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->usAnimState ].ubEndHeight, ITEMMODIFIER_DROPCOMPENSATION )) / 100;
+	FLOAT modb = (iCombinedSkill * GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_DROPCOMPENSATION )) / 100;
 	iCombinedSkill += ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100);
 
 	// Limit this to a scale of 0-100.
@@ -9564,7 +9564,7 @@ void CalcMuzzleSway( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuzzl
 		// of up/down deviation. To balance things out, lateral (left/right) deviation is increased by the same proportion.
 		// Vertical bias is applied based on stance. You get a flatter ellipse when prone, and no ellipse (a circle) when standing.
 		dVerticalBias = gGameCTHConstants.VERTICAL_BIAS;
-		switch (gAnimControl[pShooter->usAnimState].ubEndHeight)
+		switch (gAnimControl[pShooter->animationPlayback().state()].ubEndHeight)
 		{
 		case ANIM_STAND:
 			dVerticalBias = 1.0;
@@ -9714,7 +9714,7 @@ void LimitImpactPointByFacing( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, FLOA
 		!pTarget ||
 		gGameCTHConstants.SIDE_FACING_DIVISOR <= 1.0f ||
 		!IS_MERC_BODY_TYPE(pTarget) && !IS_CIV_BODY_TYPE(pTarget) ||
-		gAnimControl[pTarget->usAnimState].ubEndHeight < ANIM_CROUCH ||
+		gAnimControl[pTarget->animationPlayback().state()].ubEndHeight < ANIM_CROUCH ||
 		pShooter->bAimShotLocation == AIM_SHOT_HEAD)
 	{
 		return;
@@ -9725,7 +9725,7 @@ void LimitImpactPointByFacing( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, FLOA
 	FLOAT	iDivisor = gGameCTHConstants.SIDE_FACING_DIVISOR;
 
 	// sevenfm: lower modifier for crouched
-	if (gAnimControl[pTarget->usAnimState].ubEndHeight == ANIM_CROUCH)
+	if (gAnimControl[pTarget->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 		iDivisor = 1.0f + (iDivisor - 1.0f) / 2.0f;
 
 	switch (iTargetFacing)
@@ -9861,7 +9861,7 @@ void LimitImpactPointToMaxAperture(FLOAT *dShotOffsetX, FLOAT *dShotOffsetY, FLO
 FLOAT CalcCounterForceMax(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT8 uiStance)
 {
 	if(uiStance == 0)
-		uiStance = gAnimControl[ pShooter->usAnimState ].ubHeight;
+		uiStance = gAnimControl[ pShooter->animationPlayback().state() ].ubHeight;
 
 	FLOAT iCounterForceMax = gGameCTHConstants.RECOIL_MAX_COUNTER_STR * EffectiveStrength(pShooter, FALSE);
 	iCounterForceMax += gGameCTHConstants.RECOIL_MAX_COUNTER_AGI * EffectiveAgility(pShooter, FALSE);
@@ -9903,14 +9903,14 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 	// Add the effects from the weapon and its attachments. A foregrip or bipod are very useful for this.
 	// Attachment bonuses are applied as a percentage to the accuracy of the shooter.
 
-	UINT8 stance = gAnimControl[ pShooter->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
 		stance = ANIM_PRONE;
 
 	INT32 moda = GetObjectModifier( pShooter, pWeapon, stance, ITEMMODIFIER_COUNTERFORCEACCURACY );
-	INT32 modb = GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->usAnimState ].ubEndHeight, ITEMMODIFIER_COUNTERFORCEACCURACY );
+	INT32 modb = GetObjectModifier( pShooter, pWeapon, gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_COUNTERFORCEACCURACY );
 	INT32 iModifier = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100);
 
 	UINT32 uiCounterForceAccuracy = (UINT32)(iCounterForceAccuracy + ((iCounterForceAccuracy * iModifier) / 100));
@@ -10070,14 +10070,14 @@ void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMu
 	// Calculate the Distance Ratio for later use.
 	FLOAT dDistanceRatio = (FLOAT)uiRange / (FLOAT)gGameCTHConstants.NORMAL_RECOIL_DISTANCE;
 
-	UINT8 stance = gAnimControl[ pShooter->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = CalcCounterForceMax(pShooter, pWeapon, stance);
-	FLOAT modb = CalcCounterForceMax(pShooter, pWeapon, gAnimControl[ pShooter->usAnimState ].ubEndHeight);
+	FLOAT modb = CalcCounterForceMax(pShooter, pWeapon, gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight);
 	FLOAT dCounterForceMax = (gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb) / 100;
 	
 	UINT32 uiCounterForceAccuracy = CalcCounterForceAccuracy(pShooter, pWeapon, uiRange, FALSE, true);
@@ -10346,14 +10346,14 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	// maximum counter-force that can be applied. By default, it is based primarily on the strength of the shooter,
 	// although agility is also helpful.
 
-	UINT8 stance = gAnimControl[ pShooter->usAnimState ].ubEndHeight;
+	UINT8 stance = gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight;
 
 	// Flugente: new feature: if the next tile in our sight direction has a height so that we could rest our weapon on it, we do that, thereby gaining the prone boni instead. This includes bipods
 	if ( gGameExternalOptions.fWeaponResting && pShooter->IsWeaponMounted() )
 		stance = ANIM_PRONE;
 
 	FLOAT moda = CalcCounterForceMax(pShooter, pWeapon, stance);
-	FLOAT modb = CalcCounterForceMax(pShooter, pWeapon, gAnimControl[ pShooter->usAnimState ].ubEndHeight);
+	FLOAT modb = CalcCounterForceMax(pShooter, pWeapon, gAnimControl[ pShooter->animationPlayback().state() ].ubEndHeight);
 	FLOAT dCounterForceMax = (gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb) / 100;
 		
 	// iCounterForceMax is now the absolute limit.

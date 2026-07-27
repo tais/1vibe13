@@ -862,7 +862,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 {
 	// If a special move, ignore this!
-	if ( ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_SPECIALMOVE ) )
+	if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) )
 	{
 		return;
 	}

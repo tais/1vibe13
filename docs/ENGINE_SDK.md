@@ -296,12 +296,13 @@ override. Paired transitions have named operations rather than independently
 mutating generic flags. `SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
-mode. Playback frames and surfaces remain separate. The serializer keeps all
-of these values at their established byte positions and preserves continuation
-mode `2` as an 8-bit value rather than reducing it to boolean `1`. The unused
-legacy delayed-cause-merc byte is retained only at its save position and is no
-longer live soldier state. None of these components changes content, map,
-packet, Lua, or save schemas.
+mode. `SoldierAnimationPlaybackComponent` separately owns the accepted current
+and previous animation, frame/code/delay cursor, render surface/depth, and
+subflags. The serializer keeps all of these values at their established byte
+positions and preserves continuation mode `2` as an 8-bit value rather than
+reducing it to boolean `1`. The unused legacy delayed-cause-merc byte is
+retained only at its save position and is no longer live soldier state. None
+of these components changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

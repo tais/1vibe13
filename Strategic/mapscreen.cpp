@@ -10144,7 +10144,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
@@ -15667,7 +15667,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 								(pSoldier->bAssignment == TRAIN_TEAMMATE || pSoldier->bAssignment == TRAIN_BY_OTHER) &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
-								pSoldier->sZLevel == pSelected->sZLevel )
+								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
 								if (pSoldier->bTrainStat == pSelected->bTrainStat)
@@ -15679,7 +15679,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
-								pSoldier->sZLevel == pSelected->sZLevel )
+								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								SetEntryInSelectedCharacterList( iCounter );
 							}
@@ -15722,7 +15722,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 								(pSoldier->bAssignment == TRAIN_TEAMMATE || pSoldier->bAssignment == TRAIN_BY_OTHER) &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
-								pSoldier->sZLevel == pSelected->sZLevel )
+								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
 								if (pSoldier->bTrainStat == pSelected->bTrainStat)
@@ -15734,7 +15734,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
-								pSoldier->sZLevel == pSelected->sZLevel )
+								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								ResetEntryForSelectedList( iCounter );
 							}

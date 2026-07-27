@@ -234,6 +234,47 @@ private:
 	UINT8 continuationMode_ = 0;
 };
 
+// Canonical state of the animation currently being played. Transition
+// requests belong to SoldierAnimationIntentComponent; this component owns the
+// frame cursor, timing, previous-state bookkeeping, and render selection that
+// advance after a request has been accepted.
+class SoldierAnimationPlaybackComponent
+{
+public:
+	UINT16& state() noexcept { return state_; }
+	const UINT16& state() const noexcept { return state_; }
+	UINT16& code() noexcept { return code_; }
+	const UINT16& code() const noexcept { return code_; }
+	UINT16& frame() noexcept { return frame_; }
+	const UINT16& frame() const noexcept { return frame_; }
+	INT16& delay() noexcept { return delay_; }
+	const INT16& delay() const noexcept { return delay_; }
+	UINT16& previousState() noexcept { return previousState_; }
+	const UINT16& previousState() const noexcept { return previousState_; }
+	INT16& previousCode() noexcept { return previousCode_; }
+	const INT16& previousCode() const noexcept { return previousCode_; }
+	UINT16& surface() noexcept { return surface_; }
+	const UINT16& surface() const noexcept { return surface_; }
+	UINT16& zLevel() noexcept { return zLevel_; }
+	const UINT16& zLevel() const noexcept { return zLevel_; }
+	UINT32& subFlags() noexcept { return subFlags_; }
+	const UINT32& subFlags() const noexcept { return subFlags_; }
+
+	bool isPlaying(UINT16 animation) const noexcept { return state_ == animation; }
+	void reset() noexcept;
+
+private:
+	UINT16 state_ = 0;
+	UINT16 code_ = 0;
+	UINT16 frame_ = 0;
+	INT16 delay_ = 0;
+	UINT16 previousState_ = 0;
+	INT16 previousCode_ = 0;
+	UINT16 surface_ = 0;
+	UINT16 zLevel_ = 0;
+	UINT32 subFlags_ = 0;
+};
+
 struct SoldierPendingActionRuntimeState
 {
 	// Debug/path scratch retained across the path-cost operation only.

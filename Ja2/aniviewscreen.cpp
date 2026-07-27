@@ -126,8 +126,8 @@ UINT32  AniEditScreenHandle(void)
 	gprintfdirty( (INT16)0,(INT16)0,L"SOLDIER ANIMATION VIEWER" );
 
 
-	mprintf( 0,20,L"Current Animation: %S %S", gAnimControl[ usStartAnim ].zAnimStr, gAnimSurfaceDatabase[ pSoldier->usAnimSurface ].Filename );
-	gprintfdirty( (INT16)0,(INT16)20,L"Current Animation: %S %S", gAnimControl[ usStartAnim ].zAnimStr, gAnimSurfaceDatabase[ pSoldier->usAnimSurface ].Filename );
+	mprintf( 0,20,L"Current Animation: %S %S", gAnimControl[ usStartAnim ].zAnimStr, gAnimSurfaceDatabase[ pSoldier->animationPlayback().surface() ].Filename );
+	gprintfdirty( (INT16)0,(INT16)20,L"Current Animation: %S %S", gAnimControl[ usStartAnim ].zAnimStr, gAnimSurfaceDatabase[ pSoldier->animationPlayback().surface() ].Filename );
 
 
 	switch( ubStartHeight )

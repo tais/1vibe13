@@ -1511,17 +1511,17 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	sMercScreenY -= sOffsetY;
 
 	// Adjust based on stance
-	/*if ((gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_NOMOVE_MARKER))
+	/*if ((gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_NOMOVE_MARKER))
 	{
-		ubAnimUseHeight = gAnimControl[pSoldier->usAnimState].ubHeight;
+		ubAnimUseHeight = gAnimControl[pSoldier->animationPlayback().state()].ubHeight;
 	}
 	else
 	{
-		ubAnimUseHeight = gAnimControl[pSoldier->usAnimState].ubEndHeight;
+		ubAnimUseHeight = gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight;
 	}*/
 
 	// sevenfm: use max value so that animation and health string do not overlap
-	ubAnimUseHeight = max(gAnimControl[pSoldier->usAnimState].ubEndHeight, gAnimControl[pSoldier->usAnimState].ubHeight);
+	ubAnimUseHeight = max(gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight, gAnimControl[pSoldier->animationPlayback().state()].ubHeight);
 
 	switch (ubAnimUseHeight)
 	{
@@ -1852,7 +1852,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 
 	// If he is in the middle of a certain animation, ignore!
-	if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ANIM_NOSHOW_MARKER )
+	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_NOSHOW_MARKER )
 	{
 		return;
 	}
@@ -3263,7 +3263,7 @@ BOOLEAN DrawCTHIndicator()
 
 	// Vertical bias makes the circle "flatter" and "wider" in prone and crouched stance.
 	FLOAT dVerticalBias = gGameCTHConstants.VERTICAL_BIAS;
-	switch (gAnimControl[ pSoldier->usAnimState ].ubEndHeight)
+	switch (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight)
 	{
 		case ANIM_STAND:
 			dVerticalBias = 1.0;

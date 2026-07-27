@@ -286,7 +286,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 
 					sPatientGridNo = pPatient->position().gridNo();
 					sAdjacentGridNo = FindAdjacentGridEx( pSoldier, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
-					if ( sAdjacentGridNo == -1 && gAnimControl[ pPatient->usAnimState ].ubEndHeight == ANIM_PRONE )
+					if ( sAdjacentGridNo == -1 && gAnimControl[ pPatient->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
 					{
 						// prone; could be the base tile is inaccessible but the rest isn't...
 						for ( cnt2 = 0; cnt2 < NUM_WORLD_DIRECTIONS; cnt2++ )

@@ -88,8 +88,8 @@ BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, SOLDIERTYPE
 	STRUCTURE * pStructure;
 
 	// ATE: Patch fix: Don't allow if alreay in animation
-	if ( pSoldier->usAnimState == OPEN_STRUCT || pSoldier->usAnimState == OPEN_STRUCT_CROUCHED ||
-		pSoldier->usAnimState == BEGIN_OPENSTRUCT || pSoldier->usAnimState == BEGIN_OPENSTRUCT_CROUCHED )
+	if ( pSoldier->animationPlayback().state() == OPEN_STRUCT || pSoldier->animationPlayback().state() == OPEN_STRUCT_CROUCHED ||
+		pSoldier->animationPlayback().state() == BEGIN_OPENSTRUCT || pSoldier->animationPlayback().state() == BEGIN_OPENSTRUCT_CROUCHED )
 	{
 	return( FALSE );
 	}

@@ -3804,7 +3804,7 @@ int main( int, char** )
 		commandHostActor.position().gridNo() = 77;
 		commandHostActor.pathing().finalDestinationGrid() = 99;
 		commandHostActor.movement().delayCounter() = TRUE;
-		commandHostActor.usAnimState = STANDING;
+		commandHostActor.animationPlayback().state() = STANDING;
 		const SimulationCommandDispatchResult movementStopped =
 			TryDispatchStopMovementCommandNow(
 				commandHostActor, SimulationCommandSource::System );
@@ -3825,13 +3825,13 @@ int main( int, char** )
 		       commandHostExecutedState &&
 		       commandHostExecutedState->grid == commandHostActor.position().gridNo() &&
 		       commandHostExecutedState->direction == commandHostActor.position().direction() &&
-		       commandHostExecutedState->animation == commandHostActor.usAnimState,
+		       commandHostExecutedState->animation == commandHostActor.animationPlayback().state(),
 		       "structured commands execute and commit the resulting public actor state through one path" );
 
 		const UINT32 stanceFlags = CaptureJa2TacticalStatusFlags();
 		const UINT8 stanceTeam = GetJa2TacticalCurrentTeam();
 		RestoreJa2TacticalTurnState(ACTIVE | REALTIME, stanceTeam);
-		commandHostActor.usAnimState = WALKING;
+		commandHostActor.animationPlayback().state() = WALKING;
 		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
 		const UINT16 expectedMovingStance =
@@ -3862,7 +3862,7 @@ int main( int, char** )
 		const AnimationSurfaceCacheType previousAnimationCache =
 			commandHostActor.AnimCache;
 		const UINT16 previousAnimationSurface =
-			commandHostActor.usAnimSurface;
+			commandHostActor.animationPlayback().surface();
 		// The data-free host has no animation assets. Seed only the surface lookup
 		// and one inert eight-direction surface that ChangeSoldierState requires
 		// so the production transition remains under test without loading game
@@ -3881,13 +3881,13 @@ int main( int, char** )
 				SimulationCommandDispatchStatus::Applied &&
 			commandHostActor.usUIMovementMode == expectedMovingStance &&
 			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
-			commandHostActor.usAnimState == START_SWAT &&
+			commandHostActor.animationPlayback().state() == START_SWAT &&
 			cachedMovingStanceHits == 1;
 		commandHostActor.AnimCache = previousAnimationCache;
-		commandHostActor.usAnimSurface = previousAnimationSurface;
+		commandHostActor.animationPlayback().surface() = previousAnimationSurface;
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
-		commandHostActor.usAnimState = STANDING;
+		commandHostActor.animationPlayback().state() = STANDING;
 		commandHostActor.animationIntent().clearDesiredHeight();
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
 		CHECK( movingStanceOwnedByExecutor,
@@ -4743,7 +4743,7 @@ int main( int, char** )
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
-		worldActor.usAnimState = STANDING;
+		worldActor.animationPlayback().state() = STANDING;
 		worldActor.bActionPoints = 72;
 		worldActor.vitals().health() = 76;
 		worldActor.vitals().maximumHealth() = 80;
@@ -7281,6 +7281,16 @@ int main( int, char** )
 		animationIntent.markTurningFromUi();
 		animationIntent.requestStopAtNextTile();
 		animationIntent.continueAfterStance( 2 );
+		SoldierAnimationPlaybackComponent& animationPlayback = soldier.animationPlayback();
+		animationPlayback.state() = RUNNING;
+		animationPlayback.code() = 17;
+		animationPlayback.frame() = 23;
+		animationPlayback.delay() = -7;
+		animationPlayback.previousState() = WALKING;
+		animationPlayback.previousCode() = 11;
+		animationPlayback.surface() = 321;
+		animationPlayback.zLevel() = 654;
+		animationPlayback.subFlags() = 0x10203040;
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
@@ -7328,6 +7338,16 @@ int main( int, char** )
 		       constSoldier.animationIntent().continuesAfterStance() &&
 		       constSoldier.animationIntent().continuationMode() == 2,
 		       "soldier animation-intent component owns queued transitions and continuation policy" );
+		CHECK( constSoldier.animationPlayback().isPlaying( RUNNING ) &&
+		       constSoldier.animationPlayback().code() == 17 &&
+		       constSoldier.animationPlayback().frame() == 23 &&
+		       constSoldier.animationPlayback().delay() == -7 &&
+		       constSoldier.animationPlayback().previousState() == WALKING &&
+		       constSoldier.animationPlayback().previousCode() == 11 &&
+		       constSoldier.animationPlayback().surface() == 321 &&
+		       constSoldier.animationPlayback().zLevel() == 654 &&
+		       constSoldier.animationPlayback().subFlags() == 0x10203040,
+		       "soldier animation-playback component owns accepted frame, timing, and render state" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7389,6 +7409,16 @@ int main( int, char** )
 		       copiedSoldier.animationIntent().stopPendingNextTile() &&
 		       copiedSoldier.animationIntent().continuationMode() == 2,
 		       "soldier copies retain their owned persistent animation intent" );
+		CHECK( copiedSoldier.animationPlayback().state() == RUNNING &&
+		       copiedSoldier.animationPlayback().code() == 17 &&
+		       copiedSoldier.animationPlayback().frame() == 23 &&
+		       copiedSoldier.animationPlayback().delay() == -7 &&
+		       copiedSoldier.animationPlayback().previousState() == WALKING &&
+		       copiedSoldier.animationPlayback().previousCode() == 11 &&
+		       copiedSoldier.animationPlayback().surface() == 321 &&
+		       copiedSoldier.animationPlayback().zLevel() == 654 &&
+		       copiedSoldier.animationPlayback().subFlags() == 0x10203040,
+		       "soldier copies retain their owned persistent animation playback" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
 		       copiedSoldier.pathing().complete() &&
@@ -7468,6 +7498,16 @@ int main( int, char** )
 		       !copiedSoldier.animationIntent().stopPendingNextTile() &&
 		       copiedSoldier.animationIntent().continuationMode() == 0,
 		       "soldier initialization resets the complete animation-intent domain" );
+		CHECK( copiedSoldier.animationPlayback().state() == 0 &&
+		       copiedSoldier.animationPlayback().code() == 0 &&
+		       copiedSoldier.animationPlayback().frame() == 0 &&
+		       copiedSoldier.animationPlayback().delay() == 0 &&
+		       copiedSoldier.animationPlayback().previousState() == 0 &&
+		       copiedSoldier.animationPlayback().previousCode() == 0 &&
+		       copiedSoldier.animationPlayback().surface() == 0 &&
+		       copiedSoldier.animationPlayback().zLevel() == 0 &&
+		       copiedSoldier.animationPlayback().subFlags() == 0,
+		       "soldier initialization resets the complete animation-playback domain" );
 	}
 
 	{
@@ -7609,6 +7649,15 @@ int main( int, char** )
 		savedSoldier.animationIntent().markTurningFromUi();
 		savedSoldier.animationIntent().requestStopAtNextTile();
 		savedSoldier.animationIntent().continueAfterStance( 2 );
+		savedSoldier.animationPlayback().state() = RUNNING;
+		savedSoldier.animationPlayback().code() = 27;
+		savedSoldier.animationPlayback().frame() = 45;
+		savedSoldier.animationPlayback().delay() = -13;
+		savedSoldier.animationPlayback().previousState() = STANDING;
+		savedSoldier.animationPlayback().previousCode() = 9;
+		savedSoldier.animationPlayback().surface() = 123;
+		savedSoldier.animationPlayback().zLevel() = 456;
+		savedSoldier.animationPlayback().subFlags() = 0xA5A55A5A;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7686,6 +7735,17 @@ int main( int, char** )
 		       loadedSoldier.animationIntent().stopPendingNextTile() &&
 		       loadedSoldier.animationIntent().continuationMode() == 2,
 		       "soldier save/load preserves animation continuation modes without boolean normalization" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.animationPlayback().state() == RUNNING &&
+		       loadedSoldier.animationPlayback().code() == 27 &&
+		       loadedSoldier.animationPlayback().frame() == 45 &&
+		       loadedSoldier.animationPlayback().delay() == -13 &&
+		       loadedSoldier.animationPlayback().previousState() == STANDING &&
+		       loadedSoldier.animationPlayback().previousCode() == 9 &&
+		       loadedSoldier.animationPlayback().surface() == 123 &&
+		       loadedSoldier.animationPlayback().zLevel() == 456 &&
+		       loadedSoldier.animationPlayback().subFlags() == 0xA5A55A5A,
+		       "soldier save/load round-trips component-owned animation playback at established schema positions" );
 	}
 
 	{

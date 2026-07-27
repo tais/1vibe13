@@ -364,7 +364,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 				} while (pSoldier->aiData.usActionData == pSoldier->position().direction());
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity"));
-				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 
 					if ( !gfTurnBasedAI )
@@ -438,7 +438,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 				iChance += 15;
 
 
-			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
 				pSoldier->aiData.usActionData = ubNoiseDir;
 
@@ -725,7 +725,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 
 							if( pSoldier->position().direction() != ubOpponentDir &&
 								PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
-								pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+								pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 							{
 								pSoldier->aiData.usActionData = ubOpponentDir;
 								return(AI_ACTION_CHANGE_FACING);								
@@ -837,7 +837,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 
 		if( pSoldier->position().direction() != ubOpponentDir &&
 			PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
-			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 		{
 			pSoldier->aiData.usActionData = ubOpponentDir;
 			return(AI_ACTION_CHANGE_FACING);			
@@ -881,7 +881,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		DebugAI( AI_MSG_INFO, pSoldier, String("soldier direction %d noise direction %d", pSoldier->position().direction(), ubOpponentDir));
 
 		if ( pSoldier->position().direction() != ubOpponentDir &&
-			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ))
+			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ))
 		{
 			pSoldier->aiData.usActionData = ubOpponentDir;
 			return( AI_ACTION_CHANGE_FACING );
@@ -1078,7 +1078,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			UINT16	usRealCTH = BestAttack.ubChanceToReallyHit;
 
 			// attack to head randomly
-			if( gAnimControl[attackOpponent->usAnimState].ubEndHeight != ANIM_PRONE )
+			if( gAnimControl[attackOpponent->animationPlayback().state()].ubEndHeight != ANIM_PRONE )
 			{	
 				ubChanceHead = 6;
 				ubChanceHead += usRealCTH / 2;
@@ -1248,7 +1248,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 
 			// if we're not facing towards him
 			if( pSoldier->position().direction() != bDirection &&
-				pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->usAnimState ].ubEndHeight ) )
+				pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
 				pSoldier->aiData.usActionData = bDirection;
 
