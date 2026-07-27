@@ -17,6 +17,7 @@
 #include "Sys Globals.h"
 #include "english.h"
 #include "MessageBoxScreen.h"
+#include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -96,7 +97,7 @@ UINT32  AniEditScreenHandle(void)
 		fToggle2   = FALSE;
 		ubCurLoadedState = 0;
 
-		pSoldier = gusSelectedSoldier;
+		pSoldier = GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 		gTacticalStatus.uiFlags |= LOADING_SAVED_GAME;
 

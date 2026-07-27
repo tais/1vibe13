@@ -9,6 +9,7 @@
 	#include "finances.h"
 	#include "Game Clock.h"
 	#include "Soldier Add.h"
+	#include "SoldierRepository.h"
 	#include "Overhead.h"
 	#include "history.h"
 	#include "email.h"
@@ -713,7 +714,10 @@ void SettleMercAccounts()
 				if( LaptopSaveInfo.iCurrentBalance > iContractCharge )
 				{
 					sSoldierID = GetSoldierIDFromMercID( ubMercID );
-					pSoldier = MercPtrs[ sSoldierID ];
+					pSoldier =
+						GetJa2SoldierRepository().resolve(sSoldierID.i);
+					if ( !pSoldier )
+						continue;
 
 					LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->iTotalContractLength;
 
@@ -754,7 +758,10 @@ void SettleMercAccounts()
 		if( IsMercOnTeam( ubMercID ) )
 		{
 			sSoldierID = GetSoldierIDFromMercID( ubMercID );
-			pSoldier = MercPtrs[ sSoldierID ];
+			pSoldier =
+				GetJa2SoldierRepository().resolve(sSoldierID.i);
+			if ( !pSoldier )
+				continue;
 
 			LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->iTotalContractLength;
 

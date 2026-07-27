@@ -36,6 +36,7 @@
 #include "Game Clock.h"
 #include "Game Init.h"
 #include "GameContext.h"
+#include "SoldierRepository.h"
 
 //DEF: Test Code
 #ifdef NETWORKED
@@ -244,18 +245,23 @@ void EnterTacticalScreen( )
 	// CHECK IF OURGUY IS NOW OFF DUTY
 	if ( gusSelectedSoldier != NOBODY )
 	{
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: check our guy"));
-		if ( !OK_CONTROLLABLE_MERC( gusSelectedSoldier ) )
+		if ( !OK_CONTROLLABLE_MERC( selectedSoldier ) )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: SelectNextAvailSoldier, merc not controllable"));
-			SelectNextAvailSoldier( gusSelectedSoldier );
+			SelectNextAvailSoldier( selectedSoldier );
 		}
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: who is selected? %d", gusSelectedSoldier));
 		// ATE: If the current guy is sleeping, change....
-		if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->flags.fMercAsleep )
+		selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+		if ( gusSelectedSoldier != NOBODY && selectedSoldier &&
+			selectedSoldier->flags.fMercAsleep )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: SelectNextAvailSoldier, merc asleep"));
-			SelectNextAvailSoldier( gusSelectedSoldier );
+			SelectNextAvailSoldier( selectedSoldier );
 		}
 	}
 	else
@@ -562,11 +568,16 @@ UINT32	MainGameScreenHandle(void)
 		{
 			if ( (( GetJA2Clock( ) - gTacticalStatus.uiTimeSinceDemoOn ) > 3000) || is_client)//unpause straight away if in MP
 			{
-				if ( GetJa2TacticalCurrentTeam() != gbPlayerNum )
+				SOLDIERTYPE* sightingEnemy =
+					GetJa2SoldierRepository().resolve(
+						gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID.i);
+				if ( sightingEnemy &&
+					GetJa2TacticalCurrentTeam() != gbPlayerNum )
 				{
-					gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID->AdjustNoAPToFinishMove( FALSE );
+					sightingEnemy->AdjustNoAPToFinishMove( FALSE );
 				}
-				gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID->flags.fPauseAllAnimation = FALSE;
+				if ( sightingEnemy )
+					sightingEnemy->flags.fPauseAllAnimation = FALSE;
 
 				gTacticalStatus.fEnemySightingOnTheirTurn = FALSE;
 			}
@@ -668,7 +679,10 @@ UINT32	MainGameScreenHandle(void)
 		// Select a guy if he hasn;'
 		if( !gfTacticalPlacementGUIActive )
 		{
-			if ( gusSelectedSoldier != NOBODY && OK_INTERRUPT_MERC( gusSelectedSoldier ) )
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			if ( gusSelectedSoldier != NOBODY &&
+				OK_INTERRUPT_MERC( selectedSoldier ) )
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("maingamescreenhandle: selectsoldier"));
 				SelectSoldier( gusSelectedSoldier, FALSE, TRUE );
@@ -933,8 +947,11 @@ UINT32	MainGameScreenHandle(void)
 
 			if ( gusSelectedSoldier != NOBODY )
 			{
-				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
-					gusSelectedSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
+				SOLDIERTYPE* selectedSoldier =
+					GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] &&
+					selectedSoldier )
+					selectedSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
 			}
 		}
 
@@ -1035,8 +1052,12 @@ void TacticalScreenLocateToSoldier( )
 
 	if ( gubPreferredInitialSelectedGuy != NOBODY )
 	{
+		SOLDIERTYPE* preferredSoldier =
+			GetJa2SoldierRepository().resolve(
+				gubPreferredInitialSelectedGuy.i);
 		// ATE: Put condition here...
-		if ( OK_CONTROLLABLE_MERC( gubPreferredInitialSelectedGuy ) && OK_INTERRUPT_MERC( gubPreferredInitialSelectedGuy ) )
+		if ( OK_CONTROLLABLE_MERC( preferredSoldier ) &&
+			OK_INTERRUPT_MERC( preferredSoldier ) )
 		{
 			LocateSoldier( gubPreferredInitialSelectedGuy, 10 );
 			SelectSoldier( gubPreferredInitialSelectedGuy, FALSE, TRUE );
@@ -1052,7 +1073,10 @@ void TacticalScreenLocateToSoldier( )
 		SoldierID bLastTeamID = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
 		for ( ; Soldier <= bLastTeamID; ++Soldier)
 		{
-			if ( OK_CONTROLLABLE_MERC( Soldier ) && OK_INTERRUPT_MERC( Soldier ) )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(Soldier.i);
+			if ( OK_CONTROLLABLE_MERC( soldier ) &&
+				OK_INTERRUPT_MERC( soldier ) )
 			{
 				LocateSoldier( Soldier, 10 );
 				SelectSoldier( Soldier, FALSE, TRUE );
@@ -1082,7 +1106,8 @@ void UpdateTeamPanelAssignments( )
 	for ( ; Soldier <= bLastTeamID; ++Soldier)
 	{
 		// Setup team interface
-		CheckForAndAddMercToTeamPanel( Soldier );
+		CheckForAndAddMercToTeamPanel(
+			GetJa2SoldierRepository().resolve(Soldier.i) );
 	}
 }
 

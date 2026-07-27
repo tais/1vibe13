@@ -19,6 +19,7 @@
 #include "random.h"
 #include "Interface.h"
 #include "Soldier Add.h"
+#include "SoldierRepository.h"
 #include "Soldier Profile.h"
 #include "DropDown.h"
 #include "Overhead.h"
@@ -344,8 +345,13 @@ BOOLEAN EnterMercCompareAnalyze()
 	SoldierID lastid  = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		if ( id->bActive && id->ubProfile != NO_PROFILE )
-			mercvector.push_back( std::make_pair( id->ubProfile, gMercProfiles[id->ubProfile].zNickname ) );
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(id.i);
+		if ( soldier && soldier->bActive &&
+			soldier->ubProfile != NO_PROFILE )
+			mercvector.push_back( std::make_pair(
+				soldier->ubProfile,
+				gMercProfiles[soldier->ubProfile].zNickname ) );
 	}
 	
 	DropDownTemplate<DROPDOWNNR_MERCCOMPARE1>::getInstance( ).SetEntries( mercvector );
@@ -457,8 +463,10 @@ BOOLEAN DisplayMercData( UINT8 usProfileA, UINT8 usProfileB )
 	if ( idA == NOBODY || idB == NOBODY )
 		return FALSE;
 
-	SOLDIERTYPE* pSoldierA = idA;
-	SOLDIERTYPE* pSoldierB = idB;
+	SOLDIERTYPE* pSoldierA =
+		GetJa2SoldierRepository().resolve(idA.i);
+	SOLDIERTYPE* pSoldierB =
+		GetJa2SoldierRepository().resolve(idB.i);
 
 	if ( !pSoldierA || !pSoldierB )
 		return FALSE;
@@ -979,12 +987,17 @@ BOOLEAN EnterMercCompareMatrix( )
 	SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id )
 	{
-		if ( id->bActive && id->ubProfile != NO_PROFILE && id->bAssignment < ON_DUTY )
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(id.i);
+		if ( soldier && soldier->bActive &&
+			soldier->ubProfile != NO_PROFILE &&
+			soldier->bAssignment < ON_DUTY )
 		{
-			if ( squadmap.find( id->bAssignment ) == squadmap.end() )
-				squadmap[id->bAssignment] = 1;
+			if ( squadmap.find( soldier->bAssignment ) ==
+				squadmap.end() )
+				squadmap[soldier->bAssignment] = 1;
 			else
-				++squadmap[id->bAssignment];
+				++squadmap[soldier->bAssignment];
 		}
 	}
 		
@@ -1081,10 +1094,14 @@ void RenderMercCompareMatrix( )
 		SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; id <= lastid; ++id )
 		{
-			if ( id->bActive && id->ubProfile != NO_PROFILE && id->bAssignment == gSquadToShow )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(id.i);
+			if ( soldier && soldier->bActive &&
+				soldier->ubProfile != NO_PROFILE &&
+				soldier->bAssignment == gSquadToShow )
 			{
 				// remember squamember
-				squadvector.push_back( id->ubProfile );
+				squadvector.push_back( soldier->ubProfile );
 			}
 		}
 
@@ -1119,7 +1136,8 @@ void RenderMercCompareMatrix( )
 			if ( idA == NOBODY )
 				continue;
 
-			SOLDIERTYPE* pSoldierA = idA;
+			SOLDIERTYPE* pSoldierA =
+				GetJa2SoldierRepository().resolve(idA.i);
 			if ( !pSoldierA )
 				continue;
 
@@ -1147,7 +1165,8 @@ void RenderMercCompareMatrix( )
 					continue;
 				}
 
-				SOLDIERTYPE* pSoldierB = idB;
+				SOLDIERTYPE* pSoldierB =
+					GetJa2SoldierRepository().resolve(idB.i);
 				if ( !pSoldierB )
 					continue;
 

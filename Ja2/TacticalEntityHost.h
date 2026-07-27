@@ -9,7 +9,7 @@
 class SOLDIERTYPE;
 
 // Composition gateways between the pointer-free runtime directory and JA2's
-// fixed SOLDIERTYPE/MercPtrs compatibility pool. The directory owns the
+// fixed SOLDIERTYPE compatibility pool. The directory owns the
 // incarnation sequence and latest public actor projection directly; no
 // independently synchronized identity or package-facing state path remains.
 void BindJa2TacticalEntityDirectory(

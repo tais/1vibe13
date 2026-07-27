@@ -6,6 +6,7 @@
 	#include "Cursors.h"
 	#include "Overhead.h"
 	#include "Soldier Add.h"
+	#include "SoldierRepository.h"
 	#include "email.h"
 	#include "Game Clock.h"
 	#include "faces.h"
@@ -1008,7 +1009,10 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 			//	continue;
 
 			sSoldierID = GetSoldierIDFromMercID( ubMercID );
-			pSoldier = sSoldierID;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(sSoldierID.i);
+			if ( !pSoldier )
+				continue;
 
 			//if the merc is dead, dont advance the contract length
 			if( !IsMercDead( pSoldier->ubProfile ) )

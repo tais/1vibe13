@@ -33,6 +33,7 @@
 #include "Sound Control.h"
 #include "Text.h"
 #include "INIReader.h"
+#include "SoldierRepository.h"
 
 #include "sgp_logger.h"
 #include <language.hpp>
@@ -501,12 +502,15 @@ UINT32 PalEditScreenShutdown(void)
 
 void PalEditRenderHook(	)
 {
-	if ( gusSelectedSoldier < NOBODY && gusSelectedSoldier->bActive)
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+	if ( gusSelectedSoldier < NOBODY && selectedSoldier &&
+		selectedSoldier->bActive)
 	{
-		DisplayPaletteRep( gusSelectedSoldier->HeadPal, 50, 10, FRAME_BUFFER );
-		DisplayPaletteRep( gusSelectedSoldier->PantsPal, 50, 50, FRAME_BUFFER );
-		DisplayPaletteRep( gusSelectedSoldier->VestPal, 50, 90, FRAME_BUFFER );
-		DisplayPaletteRep( gusSelectedSoldier->SkinPal, 50, 130, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->HeadPal, 50, 10, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->PantsPal, 50, 50, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->VestPal, 50, 90, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->SkinPal, 50, 130, FRAME_BUFFER );
 	}
 }
 
@@ -519,7 +523,9 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 	UINT8		ubStartRep = 0;
 	UINT8		ubEndRep = 0;
 
-	if ( gusSelectedSoldier >= NOBODY || gusSelectedSoldier->bActive == FALSE )
+	pSoldier = GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+	if ( gusSelectedSoldier >= NOBODY || !pSoldier ||
+		pSoldier->bActive == FALSE )
 	{
 		return( FALSE );
 	}
@@ -529,8 +535,6 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 		gfExitPalEditScreen = TRUE;
 		return( TRUE );
 	}
-
-	pSoldier = gusSelectedSoldier;
 
 	if ((pInputEvent->usEvent == KEY_DOWN )&& ( pInputEvent->usParam == 'h' ))
 	{

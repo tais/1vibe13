@@ -51,6 +51,7 @@
 	#include "vobject_blitters.h"
 	#include "Soldier Profile.h"
 	#include "Overhead.h"
+	#include "SoldierRepository.h"
 	#include "environment.h"
 	#include "LibraryDataBase.h"
 	#include "Music Control.h"
@@ -6194,13 +6195,16 @@ void PrintNumberOnTeam( void )
 	SetFontShadow( NO_SHADOW );
 
 	// grab number on team
-	pSoldier = MercPtrs[0];
+	pSoldier = GetJa2SoldierRepository().resolve(0);
+	if ( !pSoldier )
+		return;
 
 	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-		if( ( pTeamSoldier->bActive)&&( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+		if( pTeamSoldier && ( pTeamSoldier->bActive)&&
+			( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
 		{
 			iCounter++;
 		}

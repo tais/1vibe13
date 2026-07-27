@@ -11,6 +11,7 @@
 	#include "Overhead.h"
 	#include "Text Input.h"
 	#include "Soldier Add.h"
+	#include "SoldierRepository.h"
 	#include "Game Clock.h"
 	#include "finances.h"
 	#include "history.h"
@@ -397,7 +398,10 @@ void RenderInsuranceContract()
 		SoldierID ID = GetSoldierIDFromMercID( sMercID );
 		if ( ID != NOBODY )
 		{
-			if( ( sMercID != -1 ) && MercIsInsurable( ID ) )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(ID.i);
+			if( ( sMercID != -1 ) &&
+				MercIsInsurable( soldier ) )
 			{
 				DisplayOrderGrid( ubCount, (UINT8)sMercID );
 				ubCount++;
@@ -516,7 +520,10 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 		return(FALSE);
 	}
 
-	SOLDIERTYPE	*pSoldier = usID;
+	SOLDIERTYPE	*pSoldier =
+		GetJa2SoldierRepository().resolve(usID.i);
+	if ( !pSoldier )
+		return(FALSE);
 	usPosX=usPosY=0;
 
 	switch( ubGridNumber )
@@ -759,11 +766,16 @@ void BtnInsuranceAcceptClearForm1ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 			//the accept button
 			if( ubButton == 0 )
 			{
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(
+						ubSoldierID.i);
 				//handle the accept button, (global to all accept button
 				HandleAcceptButton( ubSoldierID, 1 );
 
 				//specify the length of the insurance contract
-				ubSoldierID->iTotalLengthOfInsuranceContract = gsForm1InsuranceLengthNumber;
+				if ( soldier )
+					soldier->iTotalLengthOfInsuranceContract =
+						gsForm1InsuranceLengthNumber;
 
 				//reset the insurance length
 				gsForm1InsuranceLengthNumber = 0;
@@ -803,11 +815,16 @@ void BtnInsuranceAcceptClearForm2ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 			//the accept button
 			if( ubButton == 0 )
 			{
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(
+						ubSoldierID.i);
 				//handle the accept button, (global to all accept button
 				HandleAcceptButton( ubSoldierID, 2 );
 
 				//specify the length of the insurance contract
-				ubSoldierID->iTotalLengthOfInsuranceContract = gsForm2InsuranceLengthNumber;
+				if ( soldier )
+					soldier->iTotalLengthOfInsuranceContract =
+						gsForm2InsuranceLengthNumber;
 
 				//reset the insurance length
 				gsForm2InsuranceLengthNumber = 0;
@@ -848,11 +865,16 @@ void BtnInsuranceAcceptClearForm3ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 			//the accept button
 			if( ubButton == 0 )
 			{
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(
+						ubSoldierID.i);
 				//handle the accept button, (global to all accept button
 				HandleAcceptButton( ubSoldierID, 3 );
 
 				//specify the length of the insurance contract
-				ubSoldierID->iTotalLengthOfInsuranceContract = gsForm3InsuranceLengthNumber;
+				if ( soldier )
+					soldier->iTotalLengthOfInsuranceContract =
+						gsForm3InsuranceLengthNumber;
 
 				//reset the insurance length
 				gsForm3InsuranceLengthNumber = 0;
@@ -951,7 +973,8 @@ UINT16 CountInsurableMercs()
 
 	for ( ; Soldier <= bLastTeamID; ++Soldier)
 	{
-		if (MercIsInsurable(Soldier))
+		if (MercIsInsurable(
+			GetJa2SoldierRepository().resolve(Soldier.i)))
 		{
 			bCount++;
 		}
@@ -1073,7 +1096,12 @@ void HandleAcceptButton( SoldierID ubSoldierID, UINT8 ubFormID )
 	//passed in either 1,2,3 should be 0,1,2
 	ubFormID--;
 
-	PurchaseOrExtendInsuranceForSoldier( ubSoldierID, CalculateSoldiersInsuranceContractLength( ubSoldierID ) );
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
+	if ( soldier )
+		PurchaseOrExtendInsuranceForSoldier(
+			soldier,
+			CalculateSoldiersInsuranceContractLength( soldier ) );
 
 	RenderInsuranceContract();
 }
@@ -1094,24 +1122,28 @@ void DailyUpdateOfInsuredMercs()
 
 	for ( ; Soldier <= bLastTeamID; ++Soldier)
 	{
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(Soldier.i);
 		//if the soldier is in the team array
-		if( Soldier->bActive )
+		if( soldier && soldier->bActive )
 		{
 			//if the merc has life insurance
-			if( Soldier->usLifeInsurance )
+			if( soldier->usLifeInsurance )
 			{
 				//if the merc wasn't just hired
-				if( (INT16)GetWorldDay() != Soldier->iStartOfInsuranceContract )
+				if( (INT16)GetWorldDay() !=
+					soldier->iStartOfInsuranceContract )
 				{
 					//if the contract has run out of time
-					if( GetTimeRemainingOnSoldiersInsuranceContract( Soldier ) <= 0 )
+					if( GetTimeRemainingOnSoldiersInsuranceContract(
+						soldier ) <= 0 )
 					{
 						//if the soldier isn't dead
-						if( !IsMercDead( Soldier->ubProfile ) )
+						if( !IsMercDead( soldier->ubProfile ) )
 						{
-							Soldier->usLifeInsurance = 0;
-							Soldier->iTotalLengthOfInsuranceContract = 0;
-							Soldier->iStartOfInsuranceContract = 0;
+							soldier->usLifeInsurance = 0;
+							soldier->iTotalLengthOfInsuranceContract = 0;
+							soldier->iStartOfInsuranceContract = 0;
 						}
 					}
 				}
@@ -1136,7 +1168,10 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 	SOLDIERTYPE	*pSoldier;
 
 
-	pSoldier = GetSoldierIDFromMercID( ubMercID );
+	const SoldierID soldierID = GetSoldierIDFromMercID( ubMercID );
+	pSoldier = GetJa2SoldierRepository().resolve(soldierID.i);
+	if ( !pSoldier )
+		return( 0 );
 
 
 	// only mercs with at least 2 days to go on their employment contract are insurable
@@ -1252,9 +1287,12 @@ void BuildInsuranceArray()
 	// store profile #s of all insurable mercs in an array
 	for ( ; Soldier <= bLastTeamID; ++Soldier)
 	{
-		if( MercIsInsurable(Soldier) )
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(Soldier.i);
+		if( MercIsInsurable(soldier) )
 		{
-			gubInsuranceMercArray[ gsMaxPlayersOnTeam ] = Soldier->ubProfile;
+			gubInsuranceMercArray[ gsMaxPlayersOnTeam ] =
+				soldier->ubProfile;
 			gsMaxPlayersOnTeam++;
 		}
 	}
@@ -1463,13 +1501,17 @@ void InsuranceContractPayLifeInsuranceForDeadMerc( UINT16 ubPayoutID )
 {
 	const auto mercID = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].ubMercID;
 	const auto payoutPrice = LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].iPayOutPrice;
+	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(
+		LaptopSaveInfo.pLifeInsurancePayouts[ubPayoutID].ubSoldierID.i);
 
 	//if the mercs id number is the same what is in the soldier array
-	if( LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID == LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID->ubID )
+	if( soldier &&
+		LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID ==
+			soldier->ubID )
 	{
 		// and if the soldier is still active ( player hasn't removed carcass yet ), reset insurance flag
-		if( LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID->bActive )
-			LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID->usLifeInsurance = 0;
+		if( soldier->bActive )
+			soldier->usLifeInsurance = 0;
 	}
 
 	//add transaction to players account
@@ -1515,6 +1557,9 @@ void InsuranceContractEndGameShutDown()
 
 BOOLEAN MercIsInsurable( SOLDIERTYPE *pSoldier )
 {
+	if ( !pSoldier )
+		return(FALSE);
+
 	// only A.I.M. mercs currently on player's team
 	if( ( pSoldier->bActive ) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
 	{
@@ -1563,9 +1608,13 @@ void EnableDisableIndividualInsuranceContractButton( UINT8 ubMercIDForMercInForm
 	SoldierID sSoldierID = GetSoldierIDFromMercID( ubMercIDForMercInForm );
 	if( sSoldierID == NOBODY)
 		return;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(sSoldierID.i);
+	if ( !soldier )
+		return;
 
 	// if the soldiers contract can be extended, enable the button
-	if( CanSoldierExtendInsuranceContract( sSoldierID ) )
+	if( CanSoldierExtendInsuranceContract( soldier ) )
 		EnableButton( *puiAcceptButton );
 
 	// else the soldier cant extend their insurance contract, disable the button
@@ -1601,9 +1650,10 @@ UINT32	GetContractLengthForFormNumber( UINT8 ubFormID )
 			break;
 	}
 
-	pSoldier = &Menptr[ GetSoldierIDFromMercID( ubMercID ) ];
+	const SoldierID soldierID = GetSoldierIDFromMercID( ubMercID );
+	pSoldier = GetJa2SoldierRepository().resolve(soldierID.i);
 
-	return( pSoldier->iTotalContractLength );
+	return( pSoldier ? pSoldier->iTotalContractLength : 0 );
 }
 */
 
@@ -1716,6 +1766,9 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 
 BOOLEAN	CanSoldierExtendInsuranceContract( SOLDIERTYPE *pSoldier )
 {
+	if ( !pSoldier )
+		return( FALSE );
+
 	if( CalculateSoldiersInsuranceContractLength( pSoldier ) != 0 )
 		return( TRUE );
 	else
@@ -1725,6 +1778,9 @@ BOOLEAN	CanSoldierExtendInsuranceContract( SOLDIERTYPE *pSoldier )
 
 INT32 CalculateSoldiersInsuranceContractLength( SOLDIERTYPE *pSoldier )
 {
+	if ( !pSoldier )
+		return( 0 );
+
 	INT32 iInsuranceContractLength=0;
 	UINT32 uiTimeRemainingOnSoldiersContract = GetTimeRemainingOnSoldiersContract( pSoldier );
 
@@ -1794,8 +1850,11 @@ BOOLEAN AreAnyAimMercsOnTeam( )
 
 	for( ; Soldier <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++Soldier)
 	{
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(Soldier.i);
 		//check to see if any of the mercs are AIM mercs
-		if( Soldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+		if( soldier &&
+			soldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
 		{
 			return TRUE;
 		}

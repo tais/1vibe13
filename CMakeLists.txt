@@ -332,6 +332,13 @@ set(Ja2_Libs
   TileEngine
   Utils
 )
+set(ExplicitSoldierResolutionLibs
+  Editor
+  Ja2
+  Laptop
+  Strategic
+  Utils
+)
 foreach(lib IN LISTS Ja2_Libs)
   add_subdirectory(${lib})
 endforeach()
@@ -367,6 +374,10 @@ foreach(lib IN LISTS CampaignNeutralLibs)
   set(common_target "ja2_campaign_neutral_${lib_lower}")
   add_library(${common_target} OBJECT ${${lib}CommonSrc})
   target_compile_definitions(${common_target} PRIVATE ${debugFlags})
+  if("${lib}" IN_LIST ExplicitSoldierResolutionLibs)
+    target_compile_definitions(${common_target} PRIVATE
+      JA2_EXPLICIT_SOLDIER_RESOLUTION)
+  endif()
   target_link_libraries(${common_target} PRIVATE JA2::RuntimeAdapter)
   set_target_properties(${common_target} PROPERTIES
     FOLDER "Campaign-neutral legacy objects")
@@ -419,12 +430,11 @@ foreach(app IN LISTS ApplicationTargets)
         $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
     endif()
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
-    if(${lib} STREQUAL "Strategic")
-      # Strategic has completed its repository migration.  Compile its view of
-      # SoldierID without the legacy pointer conveniences so new code cannot
-      # bypass Ja2SoldierRepository accidentally.
+    if("${lib}" IN_LIST ExplicitSoldierResolutionLibs)
+      # Migrated domains compile SoldierID without the legacy pointer
+      # conveniences so new code cannot bypass Ja2SoldierRepository.
       target_compile_definitions(${game_library} PRIVATE
-        JA2_STRATEGIC_EXPLICIT_SOLDIER_RESOLUTION)
+        JA2_EXPLICIT_SOLDIER_RESOLUTION)
     endif()
     target_link_libraries(${game_library} PUBLIC JA2::RuntimeAdapter)
 

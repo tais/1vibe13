@@ -6,6 +6,7 @@
 #include "soldier tile.h"
 #include "Soldier Profile.h"
 #include "Soldier Functions.h"
+#include "SoldierRepository.h"
 #include "ai.h"
 
 #define SOLDIER_CLASS "ja2_SoldierClass"
@@ -183,9 +184,11 @@ void LuaTacticalSetup(lua_State *L)
 	for ( int sold = 0; sold < TOTAL_SOLDIERS; ++sold )
 	{
 		lua_pushinteger( L, sold);
-		if (MercPtrs[ sold ] )
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(sold);
+		if (soldier)
 		{
-			NewLuaObject( L, SOLDIER_CLASS, MercPtrs[ sold ] );
+			NewLuaObject( L, SOLDIER_CLASS, soldier );
 		}
 		else
 		{
