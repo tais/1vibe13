@@ -298,11 +298,15 @@ persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
 mode. `SoldierAnimationPlaybackComponent` separately owns the accepted current
 and previous animation, frame/code/delay cursor, render surface/depth, and
-subflags. The serializer keeps all of these values at their established byte
-positions and preserves continuation mode `2` as an 8-bit value rather than
-reducing it to boolean `1`. The unused legacy delayed-cause-merc byte is
-retained only at its save position and is no longer live soldier state. None
-of these components changes content, map, packet, Lua, or save schemas.
+subflags. `SoldierAnimationActivityComponent` owns the lifecycle around that
+playback: prone-turn mode, pausing, hit and fall phases, interruptibility,
+turn-to-completion state, and one-shot AP-cost waivers. Named operations now
+change coordinated hit, fall, pause, and interruptibility state together. The
+serializer keeps all of these values at their established byte positions and
+preserves both continuation mode `2` and hit phase `2` as 8-bit values rather
+than reducing them to boolean `1`. The unused legacy delayed-cause-merc byte
+is retained only at its save position and is no longer live soldier state.
+None of these components changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

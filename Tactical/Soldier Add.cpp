@@ -1642,7 +1642,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				// ATE: Patch fix: If we are in an non-interruptable animation, stop!
 				if ( pSoldier->animationPlayback().state() == HOPFENCE )
 				{
-					pSoldier->flags.fInNonintAnim = FALSE;
+					pSoldier->animationActivity().nonInterruptible() = FALSE;
 					pSoldier->SoldierGotoStationaryStance( );
 				}
 

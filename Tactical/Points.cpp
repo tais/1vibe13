@@ -2238,7 +2238,7 @@ UINT16 CalculateRaiseGunCost(SOLDIERTYPE *pSoldier, BOOLEAN fAddingRaiseGunCost,
 		}
 		usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, fAltFireMode );
 		usRaiseGunCost = GetAPsToReadyWeapon( pSoldier, usAnimState );
-		pSoldier->flags.fDontChargeReadyAPs = FALSE;
+		pSoldier->animationActivity().readyCostWaived() = FALSE;
 	}
 
 	return usRaiseGunCost;

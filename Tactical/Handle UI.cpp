@@ -3984,7 +3984,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	// IF turn-based - adjust stance now!
 	if ( IsJa2TacticalTurnBasedCombat() )
 	{
-		pSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+		pSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 
 		// Check if we have enough APS
 		if ( SoldierCanAffordNewStance( pSoldier, bNewStance ) )
@@ -4847,7 +4847,7 @@ INT16 APsToTurnAround(SOLDIERTYPE *pSoldier, INT16 sAdjustedGridNo)
 	// If new direction is not the same than the old direction
 	if ( pSoldier->pathing().desiredDirection() != ubDirection)
 	{
-		if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY ) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
+		if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY ) && !fInitalMove && !pSoldier->animationActivity().turningCostWaived() )
 		{
 			// SANDRO - hey, we have a function for this, why not to use it, huh?
 			sAPCost += GetAPsToLook( pSoldier );
@@ -6454,14 +6454,14 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 	// Get direction to goto....
 	ubDirection = GetDirectionFromGridNo( usMapPos, pSoldier );
 
-	pSoldier->flags.fDontChargeTurningAPs = TRUE;
+	pSoldier->animationActivity().turningCostWaived() = TRUE;
 	// sevenfm: if soldier is prone, change to standing
 	if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 		UIHandleSoldierStanceChange(pSoldier->ubID, ANIM_CROUCH);
 	// sevenfm: first change to stationary
 	pSoldier->SoldierGotoStationaryStance();
 	pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
-	pSoldier->flags.fTurningUntilDone = TRUE;
+	pSoldier->animationActivity().turningUntilDone() = TRUE;
 	// ATE: Reset flag to go back to prone...
 	//pSoldier->flags.fTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
 	if (SpacesAway(pSoldier->position().gridNo(), usMapPos) == 3 )
@@ -7526,7 +7526,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 			if ( NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel ) && IsLocationSittable( sGridNo, pSoldier->position().level() ) )
 			{
 				// If the soldier in the middle of doing stuff?
-				if ( !pSoldier->flags.fTurningUntilDone )
+				if ( !pSoldier->animationActivity().turningUntilDone() )
 				{
 					// OK, NOW check if there is a guy in between us
 					//
@@ -7640,7 +7640,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 				if ( NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel ) && IsLocationSittable( sGridNo, pSoldier->position().level() ) )
 				{
 					// If the soldier in the middle of doing stuff?
-					if ( !pSoldier->flags.fTurningUntilDone )
+					if ( !pSoldier->animationActivity().turningUntilDone() )
 					{			
 						// Can't jump from a water tile (but we can jumpt TO a water tile)
 						if ( pSoldier->MercInWater() )

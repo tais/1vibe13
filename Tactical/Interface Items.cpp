@@ -9555,7 +9555,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  {
 							  // Turn to face, then do animation....
 							  pSoldier->EVENT_SetSoldierDesiredDirection( ubFacingDirection );
-							  pSoldier->flags.fTurningUntilDone	 = TRUE;
+							  pSoldier->animationActivity().turningUntilDone()	 = TRUE;
 
 							 if (gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 							 {
@@ -9567,7 +9567,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						  if ( !GetItemPointerSoldier()->MercInWater(  ) )
 						  {
 							  GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( gOppositeDirection[ ubFacingDirection ] );
-							  GetItemPointerSoldier()->flags.fTurningUntilDone	 = TRUE;
+							  GetItemPointerSoldier()->animationActivity().turningUntilDone()	 = TRUE;
 
 							  if (gAnimControl[ GetItemPointerSoldier()->animationPlayback().state() ].ubEndHeight == ANIM_STAND)
 							  {
@@ -9597,7 +9597,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 			// Deduct points
 			//DeductPoints( GetItemPointerSoldier(), APBPConstants[AP_TOSS_ITEM], 0 );
-			GetItemPointerSoldier()->flags.fDontChargeTurningAPs = TRUE;
+			GetItemPointerSoldier()->animationActivity().turningCostWaived() = TRUE;
 			// Will be dome later....
 
 			ubThrowActionCode = NO_THROW_ACTION;
@@ -9664,7 +9664,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 			// CHANGE DIRECTION AT LEAST
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, GetItemPointerSoldier() );
 			GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( ubDirection );
-			GetItemPointerSoldier()->flags.fTurningUntilDone = TRUE;
+			GetItemPointerSoldier()->animationActivity().turningUntilDone() = TRUE;
 
 			// Increment attacker count...
 			// GetJa2PendingTacticalCombatActions()++;
@@ -11712,7 +11712,7 @@ void RemoveItemPickupMenu( )
 
 		// Unfreese guy!
 		if (pickupActor)
-			pickupActor->flags.fPauseAllAnimation = FALSE;
+			pickupActor->animationActivity().resume();
 
 		// Flugente: remove the marker notifying we are currently stealing
 		if (pickupActor)

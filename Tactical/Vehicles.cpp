@@ -710,7 +710,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				pSoldier->bInitialActionPoints = pSoldier->bActionPoints;
 				// set proper initial rotation
 				UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicleSoldier->bVehicleID ].ubVehicleType ].VehicleSeats[ ubFinalSeatIndex ].ubRotation;
-				pSoldier->flags.fDontChargeTurningAPs = TRUE;
+				pSoldier->animationActivity().turningCostWaived() = TRUE;
 				pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicleSoldier->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 				// Set gridno for vehicle.....
@@ -1942,7 +1942,7 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 
 			// set proper initial rotation
 			UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].VehicleSeats[ ubSeatIndex ].ubRotation;
-			pSoldier->flags.fDontChargeTurningAPs = TRUE;
+			pSoldier->animationActivity().turningCostWaived() = TRUE;
 			pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			UpdateAllVehiclePassengersGridNo( pVehicle );
@@ -2012,11 +2012,11 @@ BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubS
 
 			// set proper initial rotations
 			UINT8 ubRotation = gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].VehicleSeats[ ubSeatIndex ].ubRotation;
-			pSoldier->flags.fDontChargeTurningAPs = TRUE;
+			pSoldier->animationActivity().turningCostWaived() = TRUE;
 			pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			ubRotation = gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].VehicleSeats[ bCurrentSeatIndex ].ubRotation;
-			pSoldier2->flags.fDontChargeTurningAPs = TRUE;
+			pSoldier2->animationActivity().turningCostWaived() = TRUE;
 			pSoldier2->EVENT_SetSoldierDesiredDirection( ( pVehicle->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 			UpdateAllVehiclePassengersGridNo( pVehicle );

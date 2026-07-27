@@ -1229,7 +1229,7 @@ BOOLEAN ExecuteOverhead( )
                     && pSoldier->bActive && pSoldier->bInSector
                     && pSoldier->position().gridNo() >= 0 && pSoldier->position().gridNo() < WORLD_MAX
                     && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE )
-                    && !pSoldier->flags.fPauseAllAnimation
+                    && !pSoldier->animationActivity().paused()
                     && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
                 {
                     static INT16  s_lanLastGrid[ TOTAL_SOLDIERS ];
@@ -1255,7 +1255,7 @@ BOOLEAN ExecuteOverhead( )
 #endif
 
                 // Check if we are moving and we deduct points and we have no points
-                if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->flags.fNoAPToFinishMove ) && !pSoldier->flags.fPauseAllAnimation    )
+                if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->flags.fNoAPToFinishMove ) && !pSoldier->animationActivity().paused()    )
                 {
                     if ( !AdjustToNextAnimationFrame( pSoldier ) )
                     {
@@ -2508,7 +2508,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
         if ( !fDontContinue )
         {
             // Don't apply the first deduction in points...
-            if ( usAnimState == CRAWLING && pSoldier->flags.bTurningFromPronePosition > TURNING_FROM_PRONE_ON )
+            if ( usAnimState == CRAWLING && pSoldier->animationActivity().turningFromProneMode() > TURNING_FROM_PRONE_ON )
             {
             }
             else
@@ -2595,7 +2595,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             }
 
 			//shadooow: fix for charging AP for turning at the end of the movement
-			pSoldier->flags.fDontChargeTurningAPs = TRUE;
+			pSoldier->animationActivity().turningCostWaived() = TRUE;
             // Change desired direction
             pSoldier->EVENT_InternalSetSoldierDestination( (UINT8) pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], fInitialMove, usAnimState );
 
@@ -2906,7 +2906,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         {
             if ( gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID == pSoldier->ubID )
             {
-                pSoldier->flags.fPauseAllAnimation = FALSE;
+                pSoldier->animationActivity().resume();
                 gTacticalStatus.fEnemySightingOnTheirTurn = FALSE;
             }
         }
@@ -9262,8 +9262,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 // ATE: Cancel any PENDING ANIMATIONS...
                 pSoldier->animationIntent().clearPendingAnimation();
                 // ATE: Turn off non-interrupt flag ( this NEEDS to be done! )
-                pSoldier->flags.fInNonintAnim = FALSE;
-                pSoldier->flags.fRTInNonintAnim = FALSE;
+                pSoldier->animationActivity().clearInterruptibility();
                 BeginJa2TacticalCombatAction();
                 DebugAttackBusy( String( "Attack busy %d due to suppression fire on %d\n", GetJa2PendingTacticalCombatActions(), pSoldier->ubID ));
 
@@ -9279,8 +9278,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: change stance"));
                 pSoldier->ChangeSoldierStance( ubNewStance );
 
-                pSoldier->flags.fChangingStanceDueToSuppression = TRUE;
-                pSoldier->flags.fDontChargeAPsForStanceChange = TRUE;
+                pSoldier->animationActivity().suppressionStanceChange() = TRUE;
+                pSoldier->animationActivity().stanceCostWaived() = TRUE;
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier
@@ -9551,7 +9550,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
                 // Change to fire ready animation
                 ConvertGridNoToXY( pSoldier->position().gridNo(), &sTargetXPos, &sTargetYPos );
 
-                pTarget->flags.fDontChargeReadyAPs = TRUE;
+                pTarget->animationActivity().readyCostWaived() = TRUE;
                 // Ready weapon
                 pTarget->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, AIDecideHipOrShoulderStance( pTarget, pSoldier->position().gridNo() ) );
 
@@ -9997,7 +9996,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             {
                 // 0verhaul:  This is an ugly hack.  I don't like it, but until I figure out a better solution
                 // for turning from a hit, it's the only way to not stop a soldier in mid-turn.
-                pSoldier->flags.fGettingHit = FALSE;
+                pSoldier->animationActivity().clearHit();
             }
 
             if (pSoldier->ubAttackerID != NOBODY )

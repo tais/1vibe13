@@ -3548,8 +3548,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
 
 					// make sure the pickup starts dammit!
-					pSoldier->flags.fInNonintAnim = FALSE;
-					pSoldier->flags.fRTInNonintAnim = FALSE;
+					pSoldier->animationActivity().clearInterruptibility();
 
 					if ( pSoldier->ubProfile == ARMAND )
 					{

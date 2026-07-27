@@ -3990,7 +3990,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 											gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID );
 									if ( previousEnemy != nullptr )
 									{
-										previousEnemy->flags.fPauseAllAnimation = FALSE;
+										previousEnemy->animationActivity().resume();
 									}
 								}
 								else
@@ -4001,7 +4001,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 								gTacticalStatus.ubEnemySightingOnTheirTurnPlayerID = pSoldier->ubID;
 								gTacticalStatus.uiTimeSinceDemoOn = GetJA2Clock( );
 
-								pOpponent->flags.fPauseAllAnimation = TRUE;
+								pOpponent->animationActivity().pause();
 							}
 						}
 
@@ -4663,7 +4663,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Getting Hit:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fGettingHit );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->animationActivity().hitPhase() );
 
 		if (pSoldier->ubCivilianGroup != 0)
 		{
@@ -4740,13 +4740,13 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Anim non-int:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fInNonintAnim );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->animationActivity().nonInterruptible() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"RT Anim non-int:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fRTInNonintAnim );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->animationActivity().realtimeNonInterruptible() );
 		ubLine++;
 
 		// OPINION OF SELECTED MERC

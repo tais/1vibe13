@@ -275,6 +275,82 @@ private:
 	UINT32 subFlags_ = 0;
 };
 
+// Runtime lifecycle surrounding accepted animation playback. Modes that must
+// coordinate turning, hit/fall completion, interruption, and one-shot AP
+// charging live here rather than in the generic soldier flag bucket.
+class SoldierAnimationActivityComponent
+{
+public:
+	INT8& turningFromProneMode() noexcept { return turningFromProneMode_; }
+	const INT8& turningFromProneMode() const noexcept { return turningFromProneMode_; }
+	BOOLEAN& readyCostWaived() noexcept { return readyCostWaived_; }
+	const BOOLEAN& readyCostWaived() const noexcept { return readyCostWaived_; }
+	INT8& postHitStance() noexcept { return postHitStance_; }
+	const INT8& postHitStance() const noexcept { return postHitStance_; }
+	BOOLEAN& paused() noexcept { return paused_; }
+	const BOOLEAN& paused() const noexcept { return paused_; }
+	BOOLEAN& holdAttackerUntilDone() noexcept { return holdAttackerUntilDone_; }
+	const BOOLEAN& holdAttackerUntilDone() const noexcept { return holdAttackerUntilDone_; }
+	BOOLEAN& turningToShoot() noexcept { return turningToShoot_; }
+	const BOOLEAN& turningToShoot() const noexcept { return turningToShoot_; }
+	BOOLEAN& turningToFall() noexcept { return turningToFall_; }
+	const BOOLEAN& turningToFall() const noexcept { return turningToFall_; }
+	BOOLEAN& turningUntilDone() noexcept { return turningUntilDone_; }
+	const BOOLEAN& turningUntilDone() const noexcept { return turningUntilDone_; }
+	UINT8& hitPhase() noexcept { return hitPhase_; }
+	const UINT8& hitPhase() const noexcept { return hitPhase_; }
+	BOOLEAN& nonInterruptible() noexcept { return nonInterruptible_; }
+	const BOOLEAN& nonInterruptible() const noexcept { return nonInterruptible_; }
+	BOOLEAN& turningCostWaived() noexcept { return turningCostWaived_; }
+	const BOOLEAN& turningCostWaived() const noexcept { return turningCostWaived_; }
+	BOOLEAN& suppressionStanceChange() noexcept { return suppressionStanceChange_; }
+	const BOOLEAN& suppressionStanceChange() const noexcept { return suppressionStanceChange_; }
+	BOOLEAN& stanceCostWaived() noexcept { return stanceCostWaived_; }
+	const BOOLEAN& stanceCostWaived() const noexcept { return stanceCostWaived_; }
+	BOOLEAN& realtimeNonInterruptible() noexcept { return realtimeNonInterruptible_; }
+	const BOOLEAN& realtimeNonInterruptible() const noexcept { return realtimeNonInterruptible_; }
+	INT8& tryingToFall() noexcept { return tryingToFall_; }
+	const INT8& tryingToFall() const noexcept { return tryingToFall_; }
+	BOOLEAN& fallClockwise() noexcept { return fallClockwise_; }
+	const BOOLEAN& fallClockwise() const noexcept { return fallClockwise_; }
+	INT8& fallDirection() noexcept { return fallDirection_; }
+	const INT8& fallDirection() const noexcept { return fallDirection_; }
+	INT8& turningIncrement() noexcept { return turningIncrement_; }
+	const INT8& turningIncrement() const noexcept { return turningIncrement_; }
+
+	bool gettingHit() const noexcept { return hitPhase_ != 0; }
+	void beginHit() noexcept { hitPhase_ = 1; }
+	void advanceHit() noexcept { hitPhase_ = 2; }
+	void clearHit() noexcept { hitPhase_ = 0; }
+	void pause() noexcept { paused_ = TRUE; }
+	void resume() noexcept { paused_ = FALSE; }
+	void setInterruptibility(BOOLEAN nonInterruptible, BOOLEAN realtimeNonInterruptible) noexcept;
+	void clearInterruptibility() noexcept;
+	void beginFall(INT8 direction) noexcept;
+	void clearFall() noexcept { tryingToFall_ = FALSE; }
+	void reset() noexcept;
+
+private:
+	INT8 turningFromProneMode_ = 0;
+	BOOLEAN readyCostWaived_ = FALSE;
+	INT8 postHitStance_ = 0;
+	BOOLEAN paused_ = FALSE;
+	BOOLEAN holdAttackerUntilDone_ = FALSE;
+	BOOLEAN turningToShoot_ = FALSE;
+	BOOLEAN turningToFall_ = FALSE;
+	BOOLEAN turningUntilDone_ = FALSE;
+	UINT8 hitPhase_ = 0;
+	BOOLEAN nonInterruptible_ = FALSE;
+	BOOLEAN turningCostWaived_ = FALSE;
+	BOOLEAN suppressionStanceChange_ = FALSE;
+	BOOLEAN stanceCostWaived_ = FALSE;
+	BOOLEAN realtimeNonInterruptible_ = FALSE;
+	INT8 tryingToFall_ = FALSE;
+	BOOLEAN fallClockwise_ = FALSE;
+	INT8 fallDirection_ = 0;
+	INT8 turningIncrement_ = 0;
+};
+
 struct SoldierPendingActionRuntimeState
 {
 	// Debug/path scratch retained across the path-cost operation only.

@@ -916,7 +916,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 						if( existingSoldier && existingSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
 							if( movingSoldier &&
-								(movingSoldier->flags.fInNonintAnim == TRUE ||
+								(movingSoldier->animationActivity().nonInterruptible() == TRUE ||
 									gAnimControl[movingSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE) )
 							{
 								pExistingStructure = pExistingStructure->pNext;

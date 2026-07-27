@@ -854,10 +854,7 @@ public:
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
 	BOOLEAN											fTurnInProgress;
 	BOOLEAN											fBeginFade;
-	INT8											bTurningFromPronePosition;
-	BOOLEAN											fDontChargeReadyAPs;
 	BOOLEAN											fPrevInWater;
-	INT8											bGoBackToAimAfterHit;
 	BOOLEAN											fForceRenderColor;
 	BOOLEAN											fForceNoRenderPaletteCycle;
 	BOOLEAN											fUIMovementFast;
@@ -868,15 +865,8 @@ public:
 	BOOLEAN											fDeadPanel;
 	BOOLEAN											fOpenPanel;
 	BOOLEAN											fIntendedTarget; // intentionally shot?
-	BOOLEAN											fPauseAllAnimation;
-	BOOLEAN											fHoldAttackerUntilDone;
 	BOOLEAN											fWarnedAboutBleeding;
 	BOOLEAN											fDyingComment;
-	BOOLEAN											fTurningToShoot;
-	BOOLEAN											fTurningToFall;
-	BOOLEAN											fTurningUntilDone;
-	BOOLEAN											fGettingHit;
-	BOOLEAN											fInNonintAnim;
 	BOOLEAN											fFlashLocator;
 	BOOLEAN											fShowLocator;
 	BOOLEAN											fFlashPortrait;
@@ -897,8 +887,6 @@ public:
 	BOOLEAN											fFixingSAMSite;
 	BOOLEAN											fFixingRobot;
 	BOOLEAN											fSignedAnotherContract; 
-	BOOLEAN											fDontChargeTurningAPs;
-	BOOLEAN											fChangingStanceDueToSuppression;
 	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	BOOLEAN											fDoSpread;
 	BOOLEAN											fIsSoldierMoving;							// ie.	Record time is on
@@ -909,21 +897,17 @@ public:
 	BOOLEAN											fMercCollapsedFlag;
 	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
 	BOOLEAN											fMercAsleep;
-	BOOLEAN											fDontChargeAPsForStanceChange;
 	BOOLEAN											fSoldierWasMoving;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
 	BOOLEAN											fDieSoundUsed;
 	BOOLEAN											fUseLandingZoneForArrival;
  	BOOLEAN											fComplainedThatTired;
-	BOOLEAN											fRTInNonintAnim;
 
 	UINT8												fHitByGasFlags;						// flags 
 	INT8												fDisplayDamage;
 	INT8												fCloseCall;
-	INT8												fTryingToFall;
 	INT8												fPastXDest;
 	INT8												fPastYDest;
- BOOLEAN					 fFallClockwise;
 	BOOLEAN					 fDoingExternalDeath;
 	BOOLEAN					autofireLastStep;
 	BOOLEAN lastFlankLeft;
@@ -1074,6 +1058,8 @@ public:
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
 	const SoldierAnimationPlaybackComponent& animationPlayback() const noexcept { return animationPlayback_; }
+	SoldierAnimationActivityComponent& animationActivity() noexcept { return animationActivity_; }
+	const SoldierAnimationActivityComponent& animationActivity() const noexcept { return animationActivity_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1285,7 +1271,6 @@ public:
 
 	INT8				bVocalVolume;	// verbal sounds need to differ in volume
 
-	INT8				bStartFallDir;
 
 	UINT8			bAimShotLocation;
 	UINT8			ubHitLocation;
@@ -1401,7 +1386,6 @@ public:
 
 	UINT8				ubPrevSectorID;
 	UINT8				ubNumTilesMovesSinceLastForget;
-	INT8					bTurningIncrement;
 	UINT32				uiBattleSoundID;
 
 	UINT16				usValueGoneUp;
@@ -1567,6 +1551,7 @@ private:
 	SoldierMovementComponent	movement_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
+	SoldierAnimationActivityComponent	animationActivity_;
 
 public:
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is

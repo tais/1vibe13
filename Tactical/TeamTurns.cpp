@@ -788,7 +788,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 	{
 		interruptedSoldier->AdjustNoAPToFinishMove( TRUE );
 		// Stop him from going to prone position if doing a turn while prone
-		interruptedSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+		interruptedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 	}
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AddTopMessage");
@@ -1239,7 +1239,7 @@ void StartInterrupt( void )
 			)
 		{
 			latestInterrupter->AdjustNoAPToFinishMove( TRUE );
-			latestInterrupter->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+			latestInterrupter->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 		}
 	}
 
@@ -2445,7 +2445,7 @@ void VerifyOutOfTurnOrderArray()
 								interruptedSoldier->AdjustNoAPToFinishMove( TRUE );
 
 								// If they were turning from prone, stop them
-								interruptedSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+								interruptedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 							}
 
 							DeleteFromIntList( ubNextIndex, FALSE );
@@ -2513,7 +2513,7 @@ void VerifyOutOfTurnOrderArray()
 				queuedSoldier->AdjustNoAPToFinishMove( TRUE );
 
 				// If they were turning from prone, stop them
-				queuedSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+				queuedSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 
 				DeleteFromIntList( ubLoop, FALSE );
 

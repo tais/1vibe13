@@ -978,13 +978,17 @@ the engine must not contain SDL types in its public domain model.
   private reset boundary. Accepted transitions advance through a separate
   `SoldierAnimationPlaybackComponent`, which privately owns current and
   previous animation state/code, frame timing, selected render surface/depth,
-  and animation subflags. These components are independent of the legacy
-  soldier declaration; old-save conversion and the explicit serializer still
-  emit every value at its established byte position.
-  The continuation mode is transferred as its real 8-bit value so fence mode
-  `2` is no longer normalized to boolean `1`. The unused legacy 8-bit
-  delayed-cause-merc slot remains a zero compatibility byte rather than live
-  state.
+  and animation subflags. A third private
+  `SoldierAnimationActivityComponent` owns the surrounding lifecycle:
+  prone-turn mode, pausing, turn-to-completion state, hit and fall phases,
+  interruptibility, suppression stance changes, and animation AP-cost
+  waivers. Named operations update coordinated lifecycle state together.
+  These components are independent of the legacy soldier declaration;
+  old-save conversion and the explicit serializer still emit every value at
+  its established byte position. Continuation mode and hit phase are
+  transferred as their real 8-bit values, so valid mode/phase `2` is no
+  longer normalized to boolean `1`. The unused legacy 8-bit delayed-cause-merc
+  slot remains a zero compatibility byte rather than live state.
   Map placements, Lua values, multiplayer packets, and content formats retain
   their existing schemas.
 

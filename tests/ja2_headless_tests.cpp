@@ -7291,6 +7291,24 @@ int main( int, char** )
 		animationPlayback.surface() = 321;
 		animationPlayback.zLevel() = 654;
 		animationPlayback.subFlags() = 0x10203040;
+		SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
+		animationActivity.turningFromProneMode() = TURNING_FROM_PRONE_ON;
+		animationActivity.readyCostWaived() = TRUE;
+		animationActivity.postHitStance() = GO_TO_AIM_AFTER_HIT;
+		animationActivity.pause();
+		animationActivity.holdAttackerUntilDone() = TRUE;
+		animationActivity.turningToShoot() = TRUE;
+		animationActivity.turningToFall() = TRUE;
+		animationActivity.turningUntilDone() = TRUE;
+		animationActivity.beginHit();
+		animationActivity.advanceHit();
+		animationActivity.setInterruptibility( TRUE, TRUE );
+		animationActivity.turningCostWaived() = TRUE;
+		animationActivity.suppressionStanceChange() = TRUE;
+		animationActivity.stanceCostWaived() = TRUE;
+		animationActivity.beginFall( 6 );
+		animationActivity.fallClockwise() = TRUE;
+		animationActivity.turningIncrement() = -1;
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
@@ -7348,6 +7366,26 @@ int main( int, char** )
 		       constSoldier.animationPlayback().zLevel() == 654 &&
 		       constSoldier.animationPlayback().subFlags() == 0x10203040,
 		       "soldier animation-playback component owns accepted frame, timing, and render state" );
+		CHECK( constSoldier.animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ON &&
+		       constSoldier.animationActivity().readyCostWaived() &&
+		       constSoldier.animationActivity().postHitStance() == GO_TO_AIM_AFTER_HIT &&
+		       constSoldier.animationActivity().paused() &&
+		       constSoldier.animationActivity().holdAttackerUntilDone() &&
+		       constSoldier.animationActivity().turningToShoot() &&
+		       constSoldier.animationActivity().turningToFall() &&
+		       constSoldier.animationActivity().turningUntilDone() &&
+		       constSoldier.animationActivity().gettingHit() &&
+		       constSoldier.animationActivity().hitPhase() == 2 &&
+		       constSoldier.animationActivity().nonInterruptible() &&
+		       constSoldier.animationActivity().turningCostWaived() &&
+		       constSoldier.animationActivity().suppressionStanceChange() &&
+		       constSoldier.animationActivity().stanceCostWaived() &&
+		       constSoldier.animationActivity().realtimeNonInterruptible() &&
+		       constSoldier.animationActivity().tryingToFall() &&
+		       constSoldier.animationActivity().fallClockwise() &&
+		       constSoldier.animationActivity().fallDirection() == 6 &&
+		       constSoldier.animationActivity().turningIncrement() == -1,
+		       "soldier animation-activity component owns coordinated turn, hit, fall, and AP lifecycle state" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7419,6 +7457,25 @@ int main( int, char** )
 		       copiedSoldier.animationPlayback().zLevel() == 654 &&
 		       copiedSoldier.animationPlayback().subFlags() == 0x10203040,
 		       "soldier copies retain their owned persistent animation playback" );
+		CHECK( copiedSoldier.animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ON &&
+		       copiedSoldier.animationActivity().readyCostWaived() &&
+		       copiedSoldier.animationActivity().postHitStance() == GO_TO_AIM_AFTER_HIT &&
+		       copiedSoldier.animationActivity().paused() &&
+		       copiedSoldier.animationActivity().holdAttackerUntilDone() &&
+		       copiedSoldier.animationActivity().turningToShoot() &&
+		       copiedSoldier.animationActivity().turningToFall() &&
+		       copiedSoldier.animationActivity().turningUntilDone() &&
+		       copiedSoldier.animationActivity().hitPhase() == 2 &&
+		       copiedSoldier.animationActivity().nonInterruptible() &&
+		       copiedSoldier.animationActivity().turningCostWaived() &&
+		       copiedSoldier.animationActivity().suppressionStanceChange() &&
+		       copiedSoldier.animationActivity().stanceCostWaived() &&
+		       copiedSoldier.animationActivity().realtimeNonInterruptible() &&
+		       copiedSoldier.animationActivity().tryingToFall() &&
+		       copiedSoldier.animationActivity().fallClockwise() &&
+		       copiedSoldier.animationActivity().fallDirection() == 6 &&
+		       copiedSoldier.animationActivity().turningIncrement() == -1,
+		       "soldier copies retain their owned persistent animation activity" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
 		       copiedSoldier.pathing().complete() &&
@@ -7438,6 +7495,10 @@ int main( int, char** )
 		copiedSoldier.animationIntent().clearTurningFromUi();
 		copiedSoldier.animationIntent().clearStopAtNextTile();
 		copiedSoldier.animationIntent().clearContinuation();
+		copiedSoldier.animationActivity().resume();
+		copiedSoldier.animationActivity().clearHit();
+		copiedSoldier.animationActivity().clearInterruptibility();
+		copiedSoldier.animationActivity().clearFall();
 		CHECK( !copiedSoldier.movement().delayed() &&
 		       !copiedSoldier.movement().blockedByAnotherMerc() &&
 		       !copiedSoldier.movement().continuedPathValid() &&
@@ -7452,6 +7513,12 @@ int main( int, char** )
 		       !copiedSoldier.animationIntent().stopPendingNextTile() &&
 		       !copiedSoldier.animationIntent().continuesAfterStance(),
 		       "soldier animation-intent component clears coordinated transition modes through named operations" );
+		CHECK( !copiedSoldier.animationActivity().paused() &&
+		       !copiedSoldier.animationActivity().gettingHit() &&
+		       !copiedSoldier.animationActivity().nonInterruptible() &&
+		       !copiedSoldier.animationActivity().realtimeNonInterruptible() &&
+		       !copiedSoldier.animationActivity().tryingToFall(),
+		       "soldier animation-activity component clears coordinated lifecycle modes through named operations" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7508,6 +7575,25 @@ int main( int, char** )
 		       copiedSoldier.animationPlayback().zLevel() == 0 &&
 		       copiedSoldier.animationPlayback().subFlags() == 0,
 		       "soldier initialization resets the complete animation-playback domain" );
+		CHECK( copiedSoldier.animationActivity().turningFromProneMode() == 0 &&
+		       !copiedSoldier.animationActivity().readyCostWaived() &&
+		       copiedSoldier.animationActivity().postHitStance() == 0 &&
+		       !copiedSoldier.animationActivity().paused() &&
+		       !copiedSoldier.animationActivity().holdAttackerUntilDone() &&
+		       !copiedSoldier.animationActivity().turningToShoot() &&
+		       !copiedSoldier.animationActivity().turningToFall() &&
+		       !copiedSoldier.animationActivity().turningUntilDone() &&
+		       copiedSoldier.animationActivity().hitPhase() == 0 &&
+		       !copiedSoldier.animationActivity().nonInterruptible() &&
+		       !copiedSoldier.animationActivity().turningCostWaived() &&
+		       !copiedSoldier.animationActivity().suppressionStanceChange() &&
+		       !copiedSoldier.animationActivity().stanceCostWaived() &&
+		       !copiedSoldier.animationActivity().realtimeNonInterruptible() &&
+		       !copiedSoldier.animationActivity().tryingToFall() &&
+		       !copiedSoldier.animationActivity().fallClockwise() &&
+		       copiedSoldier.animationActivity().fallDirection() == 0 &&
+		       copiedSoldier.animationActivity().turningIncrement() == 0,
+		       "soldier initialization resets the complete animation-activity domain" );
 	}
 
 	{
@@ -7658,6 +7744,23 @@ int main( int, char** )
 		savedSoldier.animationPlayback().surface() = 123;
 		savedSoldier.animationPlayback().zLevel() = 456;
 		savedSoldier.animationPlayback().subFlags() = 0xA5A55A5A;
+		savedSoldier.animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE;
+		savedSoldier.animationActivity().readyCostWaived() = TRUE;
+		savedSoldier.animationActivity().postHitStance() = GO_TO_AIM_AFTER_HIT;
+		savedSoldier.animationActivity().pause();
+		savedSoldier.animationActivity().holdAttackerUntilDone() = TRUE;
+		savedSoldier.animationActivity().turningToShoot() = TRUE;
+		savedSoldier.animationActivity().turningToFall() = TRUE;
+		savedSoldier.animationActivity().turningUntilDone() = TRUE;
+		savedSoldier.animationActivity().beginHit();
+		savedSoldier.animationActivity().advanceHit();
+		savedSoldier.animationActivity().setInterruptibility( TRUE, TRUE );
+		savedSoldier.animationActivity().turningCostWaived() = TRUE;
+		savedSoldier.animationActivity().suppressionStanceChange() = TRUE;
+		savedSoldier.animationActivity().stanceCostWaived() = TRUE;
+		savedSoldier.animationActivity().beginFall( 4 );
+		savedSoldier.animationActivity().fallClockwise() = TRUE;
+		savedSoldier.animationActivity().turningIncrement() = -1;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7746,6 +7849,26 @@ int main( int, char** )
 		       loadedSoldier.animationPlayback().zLevel() == 456 &&
 		       loadedSoldier.animationPlayback().subFlags() == 0xA5A55A5A,
 		       "soldier save/load round-trips component-owned animation playback at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE &&
+		       loadedSoldier.animationActivity().readyCostWaived() &&
+		       loadedSoldier.animationActivity().postHitStance() == GO_TO_AIM_AFTER_HIT &&
+		       loadedSoldier.animationActivity().paused() &&
+		       loadedSoldier.animationActivity().holdAttackerUntilDone() &&
+		       loadedSoldier.animationActivity().turningToShoot() &&
+		       loadedSoldier.animationActivity().turningToFall() &&
+		       loadedSoldier.animationActivity().turningUntilDone() &&
+		       loadedSoldier.animationActivity().hitPhase() == 2 &&
+		       loadedSoldier.animationActivity().nonInterruptible() &&
+		       loadedSoldier.animationActivity().turningCostWaived() &&
+		       loadedSoldier.animationActivity().suppressionStanceChange() &&
+		       loadedSoldier.animationActivity().stanceCostWaived() &&
+		       loadedSoldier.animationActivity().realtimeNonInterruptible() &&
+		       loadedSoldier.animationActivity().tryingToFall() &&
+		       loadedSoldier.animationActivity().fallClockwise() &&
+		       loadedSoldier.animationActivity().fallDirection() == 4 &&
+		       loadedSoldier.animationActivity().turningIncrement() == -1,
+		       "soldier save/load round-trips animation activity without normalizing hit phase 2 to boolean 1" );
 	}
 
 	{

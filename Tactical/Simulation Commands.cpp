@@ -482,7 +482,7 @@ namespace
 						soldier->position().gridNo(), soldier->position().direction());
 				soldier->AdjustNoAPToFinishMove(
 					value.stop ? TRUE : FALSE);
-				soldier->flags.bTurningFromPronePosition = FALSE;
+				soldier->animationActivity().turningFromProneMode() = FALSE;
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, CancelDragCommand>::value)

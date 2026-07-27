@@ -3050,7 +3050,7 @@ void HandleAutoFaces( )
 						pFace->fOldShowMoveHilight = FALSE;
 				}
 
-				if ( pSoldier->flags.fGettingHit && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_STOP )
+				if ( pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_STOP )
 				{
 					pSoldier->flags.fFlashPortrait = TRUE;
 					pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_STARTSHADE;
@@ -3070,7 +3070,7 @@ void HandleAutoFaces( )
 						{
 							pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_ENDSHADE;
 
-							if ( pSoldier->flags.fGettingHit )
+							if ( pSoldier->animationActivity().hitPhase() )
 							{
 								pSoldier->flags.fFlashPortrait = FLASH_PORTRAIT_WAITING;
 							}
@@ -3086,7 +3086,7 @@ void HandleAutoFaces( )
 				}
 					
 				// CHECK IF WE WERE WAITING FOR GETTING HIT TO FINISH!
-				if ( !pSoldier->flags.fGettingHit && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_WAITING )
+				if ( !pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_WAITING )
 				{
 					pSoldier->flags.fFlashPortrait = FALSE;
 					fRerender = TRUE;
