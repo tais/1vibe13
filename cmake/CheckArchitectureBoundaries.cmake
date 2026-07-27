@@ -2165,15 +2165,17 @@ foreach(required_actor_projection_fragment IN ITEMS
   endif()
 endforeach()
 
-# The application composition root now owns the only repository object exposed
-# to JA2 systems. Menptr/MercPtrs remain the repository implementation's
-# compatibility backing store, not an application-wide lookup API.
+# The application composition root exposes one repository object to JA2
+# systems. Its fixed-capacity backing records and slot table are private to the
+# repository implementation rather than process-global lookup APIs.
 set(soldier_repository_source
   "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp")
 file(READ "${soldier_repository_source}"
   soldier_repository_contents)
 foreach(required_repository_fragment IN ITEMS
-    "Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)"
+    "SOLDIERTYPE soldierRecords[TOTAL_SOLDIERS];"
+    "SOLDIERTYPE* soldierSlots[TOTAL_SOLDIERS];"
+    "Ja2SoldierRepository(soldierRecords, soldierSlots, TOTAL_SOLDIERS)"
     "SOLDIERTYPE* Ja2SoldierRepository::replace"
     "bool Ja2SoldierRepository::swapRecords"
     "void BindJa2SoldierRepository")
@@ -2240,54 +2242,45 @@ foreach(source_file IN LISTS ja2_application_sources)
   endif()
 endforeach()
 
-# These migrated application domains resolve soldier slots explicitly through
-# the repository. Keep both active code and dormant examples from restoring
-# named array access or contiguous soldier-pointer walks. The target-specific
-# deleted operators make every implicit conversion a compiler error, including
-# patterns a regex cannot identify reliably.
-file(READ "${SOURCE_ROOT}/CMakeLists.txt"
-  root_cmake_contents)
+# SoldierID is now a numeric identity only. Storage resolution is unconditionally
+# explicit, so the temporary per-target compile-definition migration machinery
+# and every pointer conversion must stay retired.
 file(READ "${SOURCE_ROOT}/Tactical/Overhead Types.h"
   soldier_id_header_contents)
-string(REGEX MATCH
-  "set\\(ExplicitSoldierResolutionLibs[^\\)]*\\)"
-  explicit_soldier_resolution_definition "${root_cmake_contents}")
-foreach(required_resolution_domain IN ITEMS
-    Editor Ja2 Laptop Strategic TacticalAI TileEngine Utils)
-  string(REGEX MATCH
-    "(^|[ \t\r\n])${required_resolution_domain}([ \t\r\n]|\\))"
-    resolution_domain_entry
-    "${explicit_soldier_resolution_definition}")
-  if(NOT resolution_domain_entry)
+foreach(soldier_build_file IN ITEMS
+    "${SOURCE_ROOT}/CMakeLists.txt"
+    "${SOURCE_ROOT}/lua/CMakeLists.txt"
+    "${SOURCE_ROOT}/Multiplayer/CMakeLists.txt")
+  file(READ "${soldier_build_file}" soldier_build_contents)
+  string(FIND "${soldier_build_contents}"
+    "JA2_EXPLICIT_SOLDIER_RESOLUTION"
+    retired_soldier_resolution_gate)
+  if(NOT retired_soldier_resolution_gate EQUAL -1)
     message(FATAL_ERROR
-      "${required_resolution_domain} lost the explicit SoldierID resolution compile ratchet")
+      "Retired SoldierID transition gate returned in ${soldier_build_file}")
   endif()
 endforeach()
 
-# Overhead.cpp still defines the fixed compatibility allocation while the final
-# storage cut is prepared, but it no longer consumes the arrays directly.
-# Every top-level Tactical translation unit compiles with implicit SoldierID
-# pointer conversions deleted. This source scan independently rejects direct
-# storage access and contiguous pointer walks, while allowing only the two
-# temporary allocation definitions in Overhead.cpp.
+foreach(retired_pointer_conversion IN ITEMS
+    "operator->()"
+    "operator SOLDIERTYPE*"
+    "operator const SOLDIERTYPE*")
+  string(FIND "${soldier_id_header_contents}"
+    "${retired_pointer_conversion}"
+    retired_pointer_conversion_position)
+  if(NOT retired_pointer_conversion_position EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierID regained storage resolution through '${retired_pointer_conversion}'")
+  endif()
+endforeach()
+
+# Tactical code must resolve numeric slots independently through the repository.
+# This rejects both the retired process-global names and pointer arithmetic that
+# would silently recreate a contiguous-storage dependency.
 file(GLOB tactical_soldier_pool_consumers
   "${SOURCE_ROOT}/Tactical/*.cpp")
 foreach(source_file IN LISTS tactical_soldier_pool_consumers)
   file(READ "${source_file}" contents)
-  if("${source_file}" STREQUAL "${SOURCE_ROOT}/Tactical/Overhead.cpp")
-    foreach(overhead_storage_definition IN ITEMS
-        "SOLDIERTYPE     Menptr[ TOTAL_SOLDIERS ];"
-        "SOLDIERTYPE*    MercPtrs[ TOTAL_SOLDIERS ];")
-      string(FIND "${contents}" "${overhead_storage_definition}"
-        overhead_storage_definition_position)
-      if(overhead_storage_definition_position EQUAL -1)
-        message(FATAL_ERROR
-          "Overhead.cpp lost expected temporary soldier allocation '${overhead_storage_definition}'")
-      endif()
-      string(REPLACE "${overhead_storage_definition}" ""
-        contents "${contents}")
-    endforeach()
-  endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
     direct_tactical_soldier_pool_access "${contents}")
@@ -2304,119 +2297,49 @@ foreach(source_file IN LISTS tactical_soldier_pool_consumers)
   endif()
 endforeach()
 
-foreach(tactical_resolution_fragment IN ITEMS
-    "file(GLOB ExplicitSoldierResolutionSources"
-    "Tactical/*.cpp")
-  string(FIND "${root_cmake_contents}"
-    "${tactical_resolution_fragment}"
-    tactical_resolution_fragment_position)
-  if(tactical_resolution_fragment_position EQUAL -1)
-    message(FATAL_ERROR
-      "Tactical SoldierID resolution coverage lost '${tactical_resolution_fragment}'")
-  endif()
+set(soldier_storage_source_directories
+  Editor
+  Engine
+  Ja2
+  Laptop
+  ModularizedTacticalAI
+  Multiplayer
+  Strategic
+  Tactical
+  TacticalAI
+  TileEngine
+  Utils
+  i18n
+  lua
+  sgp
+  tests)
+set(soldier_storage_sources)
+foreach(source_directory IN LISTS soldier_storage_source_directories)
+  file(GLOB_RECURSE source_files
+    "${SOURCE_ROOT}/${source_directory}/*.cpp"
+    "${SOURCE_ROOT}/${source_directory}/*.h"
+    "${SOURCE_ROOT}/${source_directory}/*.hpp")
+  list(APPEND soldier_storage_sources ${source_files})
 endforeach()
+list(REMOVE_DUPLICATES soldier_storage_sources)
 
-string(REGEX MATCH
-  "list\\(REMOVE_ITEM[ \t\r\n]+ExplicitSoldierResolutionSources[^\\)]*Tactical/Overhead\\.cpp"
-  tactical_resolution_owner_exclusion
-  "${root_cmake_contents}")
-if(tactical_resolution_owner_exclusion)
-  message(FATAL_ERROR
-    "Overhead.cpp must retain the explicit SoldierID resolution compile ratchet")
-endif()
-
-string(REGEX MATCH
-  "set_property\\(SOURCE[ \t\r\n]+\\$\\{ExplicitSoldierResolutionSources\\}[^\\)]*JA2_EXPLICIT_SOLDIER_RESOLUTION[^\\)]*\\)"
-  explicit_soldier_resolution_source_property
-  "${root_cmake_contents}")
-if(NOT explicit_soldier_resolution_source_property)
-  message(FATAL_ERROR
-    "Top-level Tactical sources lost their explicit SoldierID resolution compile ratchet")
-endif()
-
-foreach(required_resolution_fragment IN ITEMS
-    "JA2_EXPLICIT_SOLDIER_RESOLUTION"
-    "SOLDIERTYPE* operator->() = delete;"
-    "operator SOLDIERTYPE* () = delete;")
-  string(FIND
-    "${root_cmake_contents}${soldier_id_header_contents}"
-    "${required_resolution_fragment}"
-    resolution_fragment_position)
-  if(resolution_fragment_position EQUAL -1)
-    message(FATAL_ERROR
-      "Explicit SoldierID resolution compile-time ratchet lost '${required_resolution_fragment}'")
-  endif()
-endforeach()
-
-foreach(standalone_resolution_cmake IN ITEMS
-    "${SOURCE_ROOT}/lua/CMakeLists.txt"
-    "${SOURCE_ROOT}/Multiplayer/CMakeLists.txt")
-  file(READ "${standalone_resolution_cmake}"
-    standalone_resolution_contents)
-  string(FIND "${standalone_resolution_contents}"
-    "JA2_EXPLICIT_SOLDIER_RESOLUTION"
-    standalone_resolution_definition)
-  if(standalone_resolution_definition EQUAL -1)
-    message(FATAL_ERROR
-      "Standalone target lost explicit SoldierID resolution in ${standalone_resolution_cmake}")
-  endif()
-endforeach()
-
-file(GLOB_RECURSE explicit_soldier_resolution_sources
-  "${SOURCE_ROOT}/Editor/*.cpp"
-  "${SOURCE_ROOT}/Editor/*.h"
-  "${SOURCE_ROOT}/Editor/*.hpp"
-  "${SOURCE_ROOT}/Ja2/*.cpp"
-  "${SOURCE_ROOT}/Ja2/*.h"
-  "${SOURCE_ROOT}/Ja2/*.hpp"
-  "${SOURCE_ROOT}/Laptop/*.cpp"
-  "${SOURCE_ROOT}/Laptop/*.h"
-  "${SOURCE_ROOT}/Laptop/*.hpp"
-  "${SOURCE_ROOT}/Multiplayer/*.cpp"
-  "${SOURCE_ROOT}/Multiplayer/*.h"
-  "${SOURCE_ROOT}/Multiplayer/*.hpp"
-  "${SOURCE_ROOT}/Strategic/*.cpp"
-  "${SOURCE_ROOT}/Strategic/*.h"
-  "${SOURCE_ROOT}/Strategic/*.hpp"
-  "${SOURCE_ROOT}/TacticalAI/*.cpp"
-  "${SOURCE_ROOT}/TacticalAI/*.h"
-  "${SOURCE_ROOT}/TacticalAI/*.hpp"
-  "${SOURCE_ROOT}/TileEngine/*.cpp"
-  "${SOURCE_ROOT}/TileEngine/*.h"
-  "${SOURCE_ROOT}/TileEngine/*.hpp"
-  "${SOURCE_ROOT}/Utils/*.cpp"
-  "${SOURCE_ROOT}/Utils/*.h"
-  "${SOURCE_ROOT}/Utils/*.hpp"
-  "${SOURCE_ROOT}/lua/*.cpp"
-  "${SOURCE_ROOT}/lua/*.h"
-  "${SOURCE_ROOT}/lua/*.hpp")
-foreach(source_file IN LISTS explicit_soldier_resolution_sources)
-  if("${source_file}" STREQUAL "${soldier_repository_source}" OR
-      "${source_file}" STREQUAL
-        "${SOURCE_ROOT}/Ja2/SoldierRepository.h")
-    continue()
-  endif()
+foreach(source_file IN LISTS soldier_storage_sources)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
     direct_migrated_soldier_pool_access "${contents}")
   if(direct_migrated_soldier_pool_access)
     message(FATAL_ERROR
-      "Migrated application code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+      "Application code accesses retired soldier arrays in ${source_file}; use GetJa2SoldierRepository")
   endif()
   string(REGEX MATCH
-    "(p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer)[ \t]*\\+\\+|\\+\\+[ \t]*p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer))"
+    "(p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer)[ \t]*\\+\\+|\\+\\+[ \t]*p(Soldier|TeamSoldier|Trainer|Student|Snitch|CheckedTrainer)([^A-Za-z0-9_.-]|$))"
     contiguous_migrated_soldier_walk "${contents}")
   if(contiguous_migrated_soldier_walk)
     message(FATAL_ERROR
       "Migrated application code increments a soldier pointer in ${source_file}; traverse numeric slots through GetJa2SoldierRepository")
   endif()
 endforeach()
-
-if(NOT explicit_soldier_resolution_definition)
-  message(FATAL_ERROR
-    "Explicit SoldierID resolution domain list is missing")
-endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
   soldier_creation_contents)

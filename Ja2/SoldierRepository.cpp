@@ -2,8 +2,13 @@
 
 #include <cassert>
 
-#include "Overhead.h"
 #include "Soldier Control.h"
+
+namespace
+{
+SOLDIERTYPE soldierRecords[TOTAL_SOLDIERS];
+SOLDIERTYPE* soldierSlots[TOTAL_SOLDIERS];
+}
 
 Ja2SoldierRepository& Ja2SoldierRepository::standalone() noexcept
 {
@@ -14,7 +19,7 @@ Ja2SoldierRepository& Ja2SoldierRepository::standalone() noexcept
 Ja2SoldierRepository* Ja2SoldierRepository::boundRepository_ = nullptr;
 
 Ja2SoldierRepository::Ja2SoldierRepository() noexcept
-	: Ja2SoldierRepository(Menptr, MercPtrs, TOTAL_SOLDIERS)
+	: Ja2SoldierRepository(soldierRecords, soldierSlots, TOTAL_SOLDIERS)
 {
 }
 

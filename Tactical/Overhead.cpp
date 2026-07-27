@@ -255,10 +255,6 @@ INT8 ubLevelMoveLink[ 10 ] =
 };
 
 
-// Soldier List used for all soldier overhead interaction
-SOLDIERTYPE     Menptr[ TOTAL_SOLDIERS ];
-SOLDIERTYPE*    MercPtrs[ TOTAL_SOLDIERS ];
-
 SOLDIERTYPE*    MercSlots[ TOTAL_SOLDIERS ];
 UINT32          guiNumMercSlots = 0;
 

@@ -187,10 +187,6 @@ extern UINT8    gubCurrentScene;
 extern CHAR8    *GetSceneFilename(  );
 extern INT8     ubLevelMoveLink[ 10 ];
 
-// Soldier List used for all soldier overhead interaction
-extern SOLDIERTYPE  Menptr[ TOTAL_SOLDIERS ];
-extern SOLDIERTYPE  *MercPtrs[ TOTAL_SOLDIERS ];
-
 // MERC SLOTS - A LIST OF ALL ACTIVE MERCS
 extern SOLDIERTYPE  *MercSlots[ TOTAL_SOLDIERS ];
 extern UINT32       guiNumMercSlots;
