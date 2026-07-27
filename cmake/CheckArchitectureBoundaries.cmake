@@ -2264,20 +2264,30 @@ foreach(required_resolution_domain IN ITEMS
   endif()
 endforeach()
 
-# Overhead.cpp still owns the fixed compatibility allocation while the final
-# storage cut is prepared. No other production Tactical source may name those
-# arrays, even if it has not yet enabled the stricter deleted-conversion
-# ratchet. All non-owner top-level Tactical translation units also compile
-# with the implicit SoldierID pointer conversions deleted, so this source scan
-# guards direct storage access and contiguous pointer walks independently of
-# compiler configuration.
+# Overhead.cpp still defines the fixed compatibility allocation while the final
+# storage cut is prepared, but it no longer consumes the arrays directly.
+# Every top-level Tactical translation unit compiles with implicit SoldierID
+# pointer conversions deleted. This source scan independently rejects direct
+# storage access and contiguous pointer walks, while allowing only the two
+# temporary allocation definitions in Overhead.cpp.
 file(GLOB tactical_soldier_pool_consumers
   "${SOURCE_ROOT}/Tactical/*.cpp")
 foreach(source_file IN LISTS tactical_soldier_pool_consumers)
-  if("${source_file}" STREQUAL "${SOURCE_ROOT}/Tactical/Overhead.cpp")
-    continue()
-  endif()
   file(READ "${source_file}" contents)
+  if("${source_file}" STREQUAL "${SOURCE_ROOT}/Tactical/Overhead.cpp")
+    foreach(overhead_storage_definition IN ITEMS
+        "SOLDIERTYPE     Menptr[ TOTAL_SOLDIERS ];"
+        "SOLDIERTYPE*    MercPtrs[ TOTAL_SOLDIERS ];")
+      string(FIND "${contents}" "${overhead_storage_definition}"
+        overhead_storage_definition_position)
+      if(overhead_storage_definition_position EQUAL -1)
+        message(FATAL_ERROR
+          "Overhead.cpp lost expected temporary soldier allocation '${overhead_storage_definition}'")
+      endif()
+      string(REPLACE "${overhead_storage_definition}" ""
+        contents "${contents}")
+    endforeach()
+  endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
     direct_tactical_soldier_pool_access "${contents}")
@@ -2296,9 +2306,7 @@ endforeach()
 
 foreach(tactical_resolution_fragment IN ITEMS
     "file(GLOB ExplicitSoldierResolutionSources"
-    "Tactical/*.cpp"
-    "list(REMOVE_ITEM ExplicitSoldierResolutionSources"
-    "Tactical/Overhead.cpp")
+    "Tactical/*.cpp")
   string(FIND "${root_cmake_contents}"
     "${tactical_resolution_fragment}"
     tactical_resolution_fragment_position)
@@ -2309,12 +2317,21 @@ foreach(tactical_resolution_fragment IN ITEMS
 endforeach()
 
 string(REGEX MATCH
+  "list\\(REMOVE_ITEM[ \t\r\n]+ExplicitSoldierResolutionSources[^\\)]*Tactical/Overhead\\.cpp"
+  tactical_resolution_owner_exclusion
+  "${root_cmake_contents}")
+if(tactical_resolution_owner_exclusion)
+  message(FATAL_ERROR
+    "Overhead.cpp must retain the explicit SoldierID resolution compile ratchet")
+endif()
+
+string(REGEX MATCH
   "set_property\\(SOURCE[ \t\r\n]+\\$\\{ExplicitSoldierResolutionSources\\}[^\\)]*JA2_EXPLICIT_SOLDIER_RESOLUTION[^\\)]*\\)"
   explicit_soldier_resolution_source_property
   "${root_cmake_contents}")
 if(NOT explicit_soldier_resolution_source_property)
   message(FATAL_ERROR
-    "Non-owner Tactical sources lost their explicit SoldierID resolution compile ratchet")
+    "Top-level Tactical sources lost their explicit SoldierID resolution compile ratchet")
 endif()
 
 foreach(required_resolution_fragment IN ITEMS

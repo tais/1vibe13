@@ -343,8 +343,6 @@ set(ExplicitSoldierResolutionLibs
 )
 file(GLOB ExplicitSoldierResolutionSources
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/*.cpp")
-list(REMOVE_ITEM ExplicitSoldierResolutionSources
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Overhead.cpp")
 set_property(SOURCE ${ExplicitSoldierResolutionSources} APPEND PROPERTY
   COMPILE_DEFINITIONS JA2_EXPLICIT_SOLDIER_RESOLUTION)
 foreach(lib IN LISTS Ja2_Libs)
