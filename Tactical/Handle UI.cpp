@@ -6602,7 +6602,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 	// IF BAD GUY - CHECK VISIVILITY
 	if ( pSoldier->bTeam != gbPlayerNum )
 	{
-		if ( pSoldier->bVisible == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
+		if ( pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
 		{
 			return( FALSE	);
 		}
@@ -7004,8 +7004,8 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 		}
 
 		// anv: added condition - make sure we won't put vehicle in another vehicle
-		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
-		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 )
+		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
+		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 )
 		{
 			// grab number of occupants in vehicles
 			if ( fItemsOnlyIfOnIntTiles )

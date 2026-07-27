@@ -1686,7 +1686,7 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 		ShowRadioLocator( pSoldier->ubID, SHOW_LOCATOR_FAST );
 
 		// If he's visible, locate...
-		if ( pSoldier->bVisible != -1 )
+		if ( pSoldier->awareness().visibility() != -1 )
 		{
 			LocateSoldier( pSoldier->ubID, FALSE );
 		}

@@ -907,7 +907,7 @@ void CheckHostileOrSayQuoteList( void )
 			// stop everyone?
 
 			// We want to make this guy visible to the player.
-			if ( speaker->bVisible != TRUE )
+			if ( speaker->awareness().visibility() != TRUE )
 			{
 				gbPublicOpplist[ gbPlayerNum ][ ubSpeaker ] = HEARD_THIS_TURN;
 				HandleSight( speaker, SIGHT_LOOK | SIGHT_RADIO );
@@ -1046,7 +1046,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 			}
 		}
 
-		pSoldier->bNewOppCnt = 0;
+		pSoldier->awareness().clearNewOpponents();
 		pSoldier->pathing().needsLook() = FALSE;
 
 // Temporary for opplist synching - disable random order radioing
@@ -1093,7 +1093,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 					}
 				}
 
-				pThem->bNewOppCnt = 0;
+				pThem->awareness().clearNewOpponents();
 				pThem->pathing().needsLook() = FALSE;
 			}
 		}
@@ -1123,7 +1123,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 			(pSoldier->vitals().health() >= OKLIFE))
 		{
 			RadioSightings(pSoldier,ubAbout,pSoldier->bTeam);
-			pSoldier->bNewOppCnt = 0;
+			pSoldier->awareness().clearNewOpponents();
 		}
 	}
 
@@ -1162,7 +1162,7 @@ void OurTeamRadiosRandomlyAbout(UINT16 ubAbout)
 		{
 			RadioSightings(
 				radioSoldier, ubAbout, radioSoldier->bTeam );
-			radioSoldier->bNewOppCnt = 0;
+			radioSoldier->awareness().clearNewOpponents();
 		}
 
 		// unless it WAS the last used slot that we happened to pick
@@ -1562,7 +1562,7 @@ void EndMuzzleFlash( SOLDIERTYPE * pSoldier )
 #endif
 
 	{
-		pSoldier->bVisible = 0; // indeterminate state
+		pSoldier->awareness().markIndeterminate(); // indeterminate state
 	}
 */	
 
@@ -1578,12 +1578,12 @@ else
 {
 	if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)	
 	{	if ( pSoldier->bTeam != gbPlayerNum && pSoldier->bTeam != MILITIA_TEAM )
-			pSoldier->bVisible = 0; // indeterminate state
+			pSoldier->awareness().markIndeterminate(); // indeterminate state
 	}
 	else
 	{
 		if ( pSoldier->bTeam != gbPlayerNum )
-			pSoldier->bVisible = 0; // indeterminate state
+			pSoldier->awareness().markIndeterminate(); // indeterminate state
 	}
 }//haydent
 
@@ -1614,19 +1614,19 @@ else
 #endif
 
 					{
-						pSoldier->bVisible = TRUE; // yes, still seen
+						pSoldier->awareness().markVisible(); // yes, still seen
 					}
 */					
 					//ddd{
 					else if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)
 					{
 						if ( pOtherSoldier->bTeam == gbPlayerNum || pOtherSoldier->bTeam == MILITIA_TEAM )
-							{pSoldier->bVisible = TRUE;} // yes, still seen
+							{pSoldier->awareness().markVisible();} // yes, still seen
 					}
 					else
 					{
 						if ( pOtherSoldier->bTeam == gbPlayerNum )
-							pSoldier->bVisible = TRUE; // yes, still seen
+							pSoldier->awareness().markVisible(); // yes, still seen
 					}
 					//ddd}
 
@@ -1634,7 +1634,7 @@ else
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
 					//haydent
 					if(is_networked &&  pOtherSoldier->bSide == 0 && pOtherSoldier->bTeam != OUR_TEAM)
-						pSoldier->bVisible = TRUE; // yes, still seen
+						pSoldier->awareness().markVisible(); // yes, still seen
 #endif
 				}
 			}
@@ -1928,9 +1928,9 @@ void ManLooksForOtherTeams(SOLDIERTYPE *pSoldier)
 			// This allows us to walk away from buddy and have them disappear instantly
 			if ( IsJa2TacticalTurnBased() && !( IsJa2TacticalCombatActive() ) )
 			{
-				if ( pOpponent->bVisible == 0)
+				if ( pOpponent->awareness().visibility() == 0)
 				{
-					pOpponent->bVisible = -1;
+					pOpponent->awareness().markHidden();
 				}
 			}
 
@@ -2007,7 +2007,7 @@ void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT
 			if ( pSoldier->bTeam == gbPlayerNum && pOpponent->bTeam != gbPlayerNum )
 #endif
 			{
-				pOpponent->bVisible = 0;
+				pOpponent->awareness().markIndeterminate();
 			}
 */			
 
@@ -2024,12 +2024,12 @@ void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT
 				if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)
 				{
 					if ( (pSoldier->bTeam == gbPlayerNum || pSoldier->bTeam == MILITIA_TEAM) && !(pOpponent->bTeam == gbPlayerNum || pOpponent->bTeam == MILITIA_TEAM ) )
-						pOpponent->bVisible = 0;
+						pOpponent->awareness().markIndeterminate();
 				}
 				else
 				{ 
 					if ( pSoldier->bTeam == gbPlayerNum && pOpponent->bTeam != gbPlayerNum )
-						pOpponent->bVisible = 0;
+						pOpponent->awareness().markIndeterminate();
 				}
 			}//haydent
 		}
@@ -2288,7 +2288,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 
 			// we didn't see the opponent, but since we didn't last time, we should be
 			//if (*pbPublOL)
-				//pOpponent->bVisible = TRUE;
+				//pOpponent->awareness().markVisible();
 		}
 		else
 			DebugMsg( TOPIC_JA2OPPLIST, DBG_LEVEL_3, String("COOL. STILL VISIBLE ID %d (%S)to ID %d Personally %d, public %d success: %d",pSoldier->ubID,pSoldier->name,pOpponent->ubID,*pPersOL,*pbPublOL,bSuccess) );
@@ -2732,7 +2732,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			if (pSoldier->aiData.bOppList[pOpponent->ubID] != SEEN_THIS_TURN)
 			{
 				fNewOpponent = TRUE;
-				pSoldier->bNewOppCnt++;        // increment looker's NEW opponent count
+				pSoldier->awareness().recordNewOpponent();        // increment looker's NEW opponent count
 				//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Soldier %d sees soldier %d!", pSoldier->ubID, pOpponent->ubID );
 
 				//ExtMen[ptr->guynum].lastCaller = caller;
@@ -2836,18 +2836,18 @@ BOOLEAN SEE_MENT = FALSE;
 
 if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)
 {
-	if ( ( PTR_OURTEAM || (pSoldier->bTeam == MILITIA_TEAM) ) && (pOpponent->bVisible <= 0))
+	if ( ( PTR_OURTEAM || (pSoldier->bTeam == MILITIA_TEAM) ) && (pOpponent->awareness().visibility() <= 0))
 	SEE_MENT = TRUE;
 }
 else
 {
-	if (PTR_OURTEAM && (pOpponent->bVisible <= 0))
+	if (PTR_OURTEAM && (pOpponent->awareness().visibility() <= 0))
 	SEE_MENT = TRUE;
 }
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
 	//haydent
-	if((is_networked &&  pSoldier->bSide == 0 && pSoldier->bTeam != OUR_TEAM) && (pOpponent->bVisible <= 0))
+	if((is_networked &&  pSoldier->bSide == 0 && pSoldier->bTeam != OUR_TEAM) && (pOpponent->awareness().visibility() <= 0))
 		SEE_MENT = TRUE;
 #endif
 
@@ -2857,15 +2857,15 @@ else
 	// if looker is on local team, and the enemy was invisible or "maybe"
 	// visible just prior to this
 #ifdef WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
-	if ( ( PTR_OURTEAM || (pSoldier->bTeam == MILITIA_TEAM) ) && (pOpponent->bVisible <= 0))
+	if ( ( PTR_OURTEAM || (pSoldier->bTeam == MILITIA_TEAM) ) && (pOpponent->awareness().visibility() <= 0))
 #else
-	if (PTR_OURTEAM && (pOpponent->bVisible <= 0))
+	if (PTR_OURTEAM && (pOpponent->awareness().visibility() <= 0))
 #endif
 */
 if(SEE_MENT)
 	{
 		// if opponent was truly invisible, not just turned off temporarily (FALSE)
-		if (pOpponent->bVisible == -1)
+		if (pOpponent->awareness().visibility() == -1)
 		{
 			// then locate to him and set his locator flag
 			bDoLocate = TRUE;
@@ -2877,7 +2877,7 @@ if(SEE_MENT)
 
 		// make opponent visible (to us)
 		// must do this BEFORE the locate since it checks for visibility
-		pOpponent->bVisible = TRUE;
+		pOpponent->awareness().markVisible();
 
 		//ATE: Cancel any fading going on!
 		// ATE: Added for fade in.....
@@ -2963,25 +2963,25 @@ if(SEE_MENT)
 void DecideTrueVisibility(SOLDIERTYPE *pSoldier, UINT8 ubLocate)
 {
  // if his visibility is still in the special "limbo" state (FALSE)
- if (pSoldier->bVisible == FALSE)
+ if (pSoldier->awareness().visibility() == FALSE)
  {
 	// then none of our team's merc turned him visible,
 	// therefore he now becomes truly invisible
-	pSoldier->bVisible = -1;
+	pSoldier->awareness().markHidden();
 
 	// Don;t adjust anim speed here, it's done once fade is over!
 	}
 
 
  // If soldier is not visible, make sure his red "locator" is turned off
- //if ((pSoldier->bVisible < 0) && !gbShowEnemies)
+ //if ((pSoldier->awareness().visibility() < 0) && !gbShowEnemies)
 	//	pSoldier->bLocator = FALSE;
 
 
  if (ubLocate)
 	{
 	// if he remains visible (or ShowEnemies ON)
-	if ((pSoldier->bVisible >= 0) || gbShowEnemies)
+	if ((pSoldier->awareness().visibility() >= 0) || gbShowEnemies)
 	{
 		/*
 #ifdef RECORDNET
@@ -3023,13 +3023,13 @@ void OtherTeamsLookForMan(SOLDIERTYPE *pOpponent)
 /* comm by ddd	
 	// if the guy we're looking for is NOT on our team AND is currently visible
 #ifdef WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
-	if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
+	if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->awareness().visibility() >= 0 && pOpponent->awareness().visibility() < 2) && pOpponent->vitals().health())
 #else
-	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
+	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->awareness().visibility() >= 0 && pOpponent->awareness().visibility() < 2) && pOpponent->vitals().health())
 #endif
 	{
 		// assume he's no longer visible, until one of our mercs sees him again
-		pOpponent->bVisible = 0;
+		pOpponent->awareness().markIndeterminate();
 	}
 */	
 
@@ -3046,13 +3046,13 @@ else
 
 	if(gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa)
 	{	
-		if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
-			pOpponent->bVisible = 0;
+		if ((pOpponent->bTeam != gbPlayerNum && pOpponent->bTeam != MILITIA_TEAM) && (pOpponent->awareness().visibility() >= 0 && pOpponent->awareness().visibility() < 2) && pOpponent->vitals().health())
+			pOpponent->awareness().markIndeterminate();
 	}
 	else
 	{
-	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->bVisible >= 0 && pOpponent->bVisible < 2) && pOpponent->vitals().health())
-		pOpponent->bVisible = 0;
+	if ((pOpponent->bTeam != gbPlayerNum) && (pOpponent->awareness().visibility() >= 0 && pOpponent->awareness().visibility() < 2) && pOpponent->vitals().health())
+		pOpponent->awareness().markIndeterminate();
 	}
 
 }//haydent
@@ -3084,14 +3084,14 @@ else
 			if (ManLooksForMan(pSoldier,pOpponent,OTHERTEAMSLOOKFORMAN))
 			{
 				// if a new opponent is seen (which must be oppPtr himself)
-				//if (IsJa2TacticalTurnBasedCombat() && pSoldier->bNewOppCnt)
+				//if (IsJa2TacticalTurnBasedCombat() && pSoldier->awareness().newOpponentCount())
 				// Calc interrupt points in non-combat because we might get an interrupt or be interrupted
 				// on our first turn
 
 				// if doing regular in-combat sighting (not on opening doors!)
 				if ( gubBestToMakeSightingSize == BEST_SIGHTING_ARRAY_SIZE_INCOMBAT )
 				{
-					if ( IsJa2TacticalTurnBasedCombat() && pSoldier->bNewOppCnt )
+					if ( IsJa2TacticalTurnBasedCombat() && pSoldier->awareness().newOpponentCount() )
 					{
 						// as long as viewer meets minimum interrupt conditions
 						if ( gubSightFlags & SIGHT_INTERRUPT && StandardInterruptConditionsMet(pSoldier,pOpponent->ubID,bOldOppList))
@@ -3313,7 +3313,7 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 
 					// whether successful or not, whack newOppCnt.	Since this is a
 					// delayed reaction to a radio call, there's no chance of interrupt!
-					pSoldier->bNewOppCnt = 0;
+					pSoldier->awareness().clearNewOpponents();
 
 					// if "Show only enemies seen" option is ON and it's this guy looking
 					//if (pSoldier->ubID == ShowOnlySeenPerson)
@@ -3390,7 +3390,7 @@ BOOLEAN VisibleAnywhere(SOLDIERTYPE *pSoldier)
 
 
  // this takes care of any mercs on our own team
- if (pSoldier->bVisible >= 0)
+ if (pSoldier->awareness().visibility() >= 0)
 	return(TRUE);
 
  // if playing alone, "anywhere" is just over here!
@@ -3575,7 +3575,7 @@ void BetweenTurnsVisibilityAdjustments(void)
 				if (TeamNoLongerSeesMan(gbPlayerNum,pSoldier,NOBODY,0))
 				{
 					// then our team has lost sight of him
-					pSoldier->bVisible = -1;		// make him fully invisible
+					pSoldier->awareness().markHidden();		// make him fully invisible
 
 					// Allow fade to adjust anim speed
 				}
@@ -3888,7 +3888,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 
 		// determine whether we think we're still unseen or if "our cover's blown"
 		// if we know about this opponent's location for any reason
-		if ((pOpponent->bVisible >= 0) || gbShowEnemies)
+		if ((pOpponent->awareness().visibility() >= 0) || gbShowEnemies)
 		{
 			// and he can see us, then gotta figure we KNOW that he can see us
 			if (pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY)
@@ -4337,7 +4337,7 @@ void DebugSoldierPage2( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Visible:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->bVisible);
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->awareness().visibility());
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -6062,7 +6062,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					bTellPlayer = FALSE;
 				}
 				/*
-				else if ( (ubNoiseMaker->bVisible == TRUE) && (bTeam == gbPlayerNum) )
+				else if ( (ubNoiseMaker->awareness().visibility() == TRUE) && (bTeam == gbPlayerNum) )
 				{
 					ScreenMsg( MSG_FONT_YELLOW, MSG_TESTVERSION, L"Handling noise from person not currently seen in player's public opplist" );
 				}
@@ -6358,7 +6358,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 						(pSoldier->vitals().health() >= OKLIFE))
 					{
 						RadioSightings(pSoldier,ubSource,pSoldier->bTeam);
-						pSoldier->bNewOppCnt = 0;
+						pSoldier->awareness().clearNewOpponents();
 					}
 				}
 #else
@@ -6664,7 +6664,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			// noise heard, but manSeesMan has set his newOppCnt, so clear it here
 			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
 			{
-				pSoldier->bNewOppCnt = 0;
+				pSoldier->awareness().clearNewOpponents();
 			}
 
 			*ubSeen = TRUE;
@@ -7075,7 +7075,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 	}
 
 	// if any new opponents were seen earlier and not yet radioed
-	if (pSoldier->bNewOppCnt)
+	if (pSoldier->awareness().newOpponentCount())
 	{
 #ifdef BETAVERSION
 		tempstr = String("VerifyAndDecayOpplist: WARNING - %d(%s) still has %d NEW OPPONENTS - lastCaller %s/%s",
@@ -7098,7 +7098,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 			RadioSightings(pSoldier,EVERYBODY,pSoldier->bTeam);
 		}
 
-		pSoldier->bNewOppCnt = 0;
+		pSoldier->awareness().clearNewOpponents();
 	}
 
 	// man looks for each of his opponents WHO ARE ALREADY KNOWN TO HIM
@@ -7155,7 +7155,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 
 
  // if any new opponents were seen
- if (pSoldier->bNewOppCnt)
+ if (pSoldier->awareness().newOpponentCount())
 	{
 	// turns out this is NOT an error!	If this guy was gassed last time he
 	// looked, his sight limit was 2 tiles, and now he may no longer be gassed
@@ -7169,7 +7169,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 	if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
 	 RadioSightings(pSoldier,EVERYBODY,pSoldier->bTeam);
 
-	pSoldier->bNewOppCnt = 0;
+	pSoldier->awareness().clearNewOpponents();
 	}
 }
 
@@ -7553,7 +7553,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 
 		// newOppCnt not needed here (no radioing), must get reset right away
 		// CJC: Huh? well, leave it in for now
-		pDefender->bNewOppCnt = 0;
+		pDefender->awareness().clearNewOpponents();
 
 
 		if (pDefender->bTeam == gbPlayerNum)

@@ -294,8 +294,12 @@ movement-noise memory, heard-noise elevation, blindness/deafness lifetimes, and
 X-ray activation time. Its named operations preserve the exact sight-recovery
 edge and per-turn noise cleanup while persistence retains all six original
 positions and widths. Opponent lists and render visibility are intentionally
-separate. Current tactical grid,
-elevation, and facing
+separate. `SoldierAwarenessComponent` owns current player-facing visibility,
+the last visibility consumed by rendering, newly discovered opponent count, and
+movement distance used to age stale knowledge. Its named visibility, fade,
+render-sync, discovery, and forget transitions preserve the tactical state
+machine while keeping per-observer opponent lists in the AI adapter. Current
+tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot
 paths. Old-save conversion and explicit persistence retain the established

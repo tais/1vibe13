@@ -2105,7 +2105,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 	//Show damage
 	pSoldier->combatResult().accumulatedDamage() += sDmg;
 
-	if ( pSoldier->bInSector && pSoldier->bVisible != -1 )
+	if ( pSoldier->bInSector && pSoldier->awareness().visibility() != -1 )
 	{
 		// If we are already dead, don't show damage!
 		if ( sDmg != 0 )

@@ -3665,7 +3665,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 
 	// OK, let's play a sound of reloading too...
 	// If this guy is visible...
-	if ( pSoldier->bVisible != -1 )
+	if ( pSoldier->awareness().visibility() != -1 )
 	{
 		// Play some effects!
 		usReloadSound	= Weapon[ pGun->usItem ].sReloadSound;

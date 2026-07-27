@@ -1046,6 +1046,8 @@ public:
 	const SoldierCollapseComponent& collapseState() const noexcept { return collapseState_; }
 	SoldierPerceptionComponent& perception() noexcept { return perception_; }
 	const SoldierPerceptionComponent& perception() const noexcept { return perception_; }
+	SoldierAwarenessComponent& awareness() noexcept { return awareness_; }
+	const SoldierAwarenessComponent& awareness() const noexcept { return awareness_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1087,7 +1089,6 @@ public:
 	// DESCRIPTION / STATS, ETC
 	UINT8			ubBodyType;
 	INT8				bOldLife;			// life at end of last turn, recorded for monster AI
-	INT8				bVisible;			// to render or not to render...
 	INT8				bActive;
 	INT8				bTeam;				// Team identifier
 
@@ -1106,7 +1107,6 @@ public:
 	INT8				ubInsertionDirection;
 	INT8				bGunType;
 	SoldierID		ubOppNum;
-	INT8				bLastRenderVisibleValue;
 	INT16			sWeightCarriedAtTurnStart;
 	
 	/////////////////////////////////////////////////////////////////////////////////
@@ -1149,7 +1149,6 @@ public:
 
 
 	UINT8			bSide;
-	INT8 			bNewOppCnt;
 	INT8				bService;		// first aid, or other time consuming process
 	
 
@@ -1343,7 +1342,6 @@ public:
 	SoldierID			ubLastEnemyCycledID;
 
 	UINT8				ubPrevSectorID;
-	UINT8				ubNumTilesMovesSinceLastForget;
 	UINT32				uiBattleSoundID;
 
 	UINT16				usValueGoneUp;
@@ -1499,6 +1497,7 @@ private:
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;
+	SoldierAwarenessComponent	awareness_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

@@ -7277,6 +7277,12 @@ int main( int, char** )
 		perception.heardNoiseLevel() = 1;
 		perception.activateXrayAt(12345);
 		perception.setDeafness(3);
+		SoldierAwarenessComponent& awareness = soldier.awareness();
+		awareness.markVisible();
+		awareness.lastRenderedVisibility() = -1;
+		awareness.recordNewOpponent();
+		awareness.recordNewOpponent();
+		awareness.tilesSinceForget() = 201;
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7410,6 +7416,13 @@ int main( int, char** )
 		       constSoldier.perception().xrayActivatedAt() == 12345 &&
 		       constSoldier.perception().deafnessTurns() == 3,
 		       "soldier perception component owns sensory range, memory, effects, and X-ray lifetime" );
+		CHECK( constSoldier.awareness().visibleNow() &&
+		       constSoldier.awareness().lastRenderedVisibility() == -1 &&
+		       constSoldier.awareness().renderVisibilityChanged() &&
+		       constSoldier.awareness().newOpponentCount() == 2 &&
+		       constSoldier.awareness().hasNewOpponents() &&
+		       constSoldier.awareness().tilesSinceForget() == 201,
+		       "soldier awareness component owns visibility, render synchronization, discovery, and stale-memory distance" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7585,6 +7598,11 @@ int main( int, char** )
 		       copiedSoldier.perception().xrayActivatedAt() == 12345 &&
 		       copiedSoldier.perception().deafnessTurns() == 3,
 		       "soldier copies retain their owned persistent perception state" );
+		CHECK( copiedSoldier.awareness().visibleNow() &&
+		       copiedSoldier.awareness().lastRenderedVisibility() == -1 &&
+		       copiedSoldier.awareness().newOpponentCount() == 2 &&
+		       copiedSoldier.awareness().tilesSinceForget() == 201,
+		       "soldier copies retain their owned persistent awareness state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -7905,6 +7923,57 @@ int main( int, char** )
 		       !perceptionLifecycle.xrayActive() &&
 		       !perceptionLifecycle.isDeafened(),
 		       "perception reset clears the complete sensory domain" );
+
+		SoldierAwarenessComponent awarenessLifecycle;
+		CHECK( awarenessLifecycle.locationKnown() &&
+		       !awarenessLifecycle.visibleNow() &&
+		       !awarenessLifecycle.fullyHidden() &&
+		       !awarenessLifecycle.fadingOut() &&
+		       !awarenessLifecycle.renderVisibilityChanged() &&
+		       !awarenessLifecycle.hasNewOpponents() &&
+		       awarenessLifecycle.tilesSinceForget() == 0,
+		       "awareness defaults to synchronized indeterminate visibility with no discoveries or stale movement" );
+		awarenessLifecycle.markHidden();
+		CHECK( awarenessLifecycle.fullyHidden() &&
+		       !awarenessLifecycle.locationKnown() &&
+		       awarenessLifecycle.renderVisibilityChanged(),
+		       "awareness distinguishes fully hidden soldiers from the synchronized render state" );
+		awarenessLifecycle.syncRenderedVisibility();
+		CHECK( !awarenessLifecycle.renderVisibilityChanged(),
+		       "awareness explicitly acknowledges visibility consumed by rendering" );
+		awarenessLifecycle.markVisible();
+		awarenessLifecycle.recordNewOpponent();
+		awarenessLifecycle.recordNewOpponent();
+		awarenessLifecycle.tilesSinceForget() = 254;
+		awarenessLifecycle.recordTileForMemory();
+		awarenessLifecycle.recordTileForMemory();
+		CHECK( awarenessLifecycle.visibleNow() &&
+		       awarenessLifecycle.newOpponentCount() == 2 &&
+		       awarenessLifecycle.tilesSinceForget() == 255,
+		       "awareness coordinates visibility and saturates stale-memory movement distance" );
+		awarenessLifecycle.newOpponentCount() = 127;
+		awarenessLifecycle.recordNewOpponent();
+		CHECK( awarenessLifecycle.newOpponentCount() == 127,
+		       "awareness discovery count saturates instead of overflowing signed storage" );
+		awarenessLifecycle.clearNewOpponents();
+		awarenessLifecycle.resetForgetDistance();
+		awarenessLifecycle.markHidden();
+		awarenessLifecycle.beginFadeOut();
+		CHECK( awarenessLifecycle.fadingOut() &&
+		       !awarenessLifecycle.locationKnown() &&
+		       !awarenessLifecycle.hasNewOpponents() &&
+		       awarenessLifecycle.tilesSinceForget() == 0,
+		       "awareness exposes the render fade-out sentinel as a named transition" );
+		awarenessLifecycle.setVisibilityAndRendered(0);
+		CHECK( awarenessLifecycle.locationKnown() &&
+		       !awarenessLifecycle.renderVisibilityChanged(),
+		       "awareness can synchronize editor visibility without an artificial render transition" );
+		awarenessLifecycle.reset();
+		CHECK( awarenessLifecycle.visibility() == 0 &&
+		       awarenessLifecycle.lastRenderedVisibility() == 0 &&
+		       awarenessLifecycle.newOpponentCount() == 0 &&
+		       awarenessLifecycle.tilesSinceForget() == 0,
+		       "awareness reset clears the complete player-knowledge domain" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7929,6 +7998,13 @@ int main( int, char** )
 		       !copiedSoldier.perception().xrayActive() &&
 		       !copiedSoldier.perception().isDeafened(),
 		       "soldier initialization resets the complete perception domain" );
+		CHECK( copiedSoldier.awareness().visibility() == 0 &&
+		       copiedSoldier.awareness().lastRenderedVisibility() == 0 &&
+		       copiedSoldier.awareness().newOpponentCount() == 0 &&
+		       copiedSoldier.awareness().tilesSinceForget() == 0 &&
+		       !copiedSoldier.awareness().hasNewOpponents() &&
+		       !copiedSoldier.awareness().renderVisibilityChanged(),
+		       "soldier initialization resets the complete awareness domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -8068,6 +8144,10 @@ int main( int, char** )
 		legacySoldier->bNoiseLevel = 1;
 		legacySoldier->uiXRayActivatedTime = 12346;
 		legacySoldier->bDeafenedCounter = 4;
+		legacySoldier->bVisible = 1;
+		legacySoldier->bLastRenderVisibleValue = -1;
+		legacySoldier->bNewOppCnt = 3;
+		legacySoldier->ubNumTilesMovesSinceLastForget = 202;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8109,6 +8189,11 @@ int main( int, char** )
 		       convertedSoldier.perception().xrayActivatedAt() == 12346 &&
 		       convertedSoldier.perception().deafnessTurns() == 4,
 		       "v101 soldier conversion retains sensory range, memory, effects, and X-ray lifetime" );
+		CHECK( convertedSoldier.awareness().visibility() == 1 &&
+		       convertedSoldier.awareness().lastRenderedVisibility() == -1 &&
+		       convertedSoldier.awareness().newOpponentCount() == 3 &&
+		       convertedSoldier.awareness().tilesSinceForget() == 202,
+		       "v101 soldier conversion retains visibility, render synchronization, discovery, and stale-memory distance" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8267,6 +8352,10 @@ int main( int, char** )
 		savedSoldier.perception().heardNoiseLevel() = 1;
 		savedSoldier.perception().activateXrayAt(12347);
 		savedSoldier.perception().setDeafness(5);
+		savedSoldier.awareness().visibility() = -2;
+		savedSoldier.awareness().lastRenderedVisibility() = -1;
+		savedSoldier.awareness().newOpponentCount() = 4;
+		savedSoldier.awareness().tilesSinceForget() = 203;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8409,6 +8498,12 @@ int main( int, char** )
 		       loadedSoldier.perception().xrayActivatedAt() == 12347 &&
 		       loadedSoldier.perception().deafnessTurns() == 5,
 		       "soldier save/load round-trips perception state at established POD positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.awareness().visibility() == -2 &&
+		       loadedSoldier.awareness().lastRenderedVisibility() == -1 &&
+		       loadedSoldier.awareness().newOpponentCount() == 4 &&
+		       loadedSoldier.awareness().tilesSinceForget() == 203,
+		       "soldier save/load round-trips awareness state at established POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

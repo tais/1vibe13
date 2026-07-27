@@ -549,7 +549,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	if ( pSoldier->aiData.fAIFlags & AI_ASLEEP )
 	{
-		if ( gfTurnBasedAI && pSoldier->bVisible == TRUE )
+		if ( gfTurnBasedAI && pSoldier->awareness().visibility() == TRUE )
 		{
 			// turn off sleep flag, guy's got to be able to do stuff in turnbased
 			// if he's visible
@@ -1080,7 +1080,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 				}
 			}
 #endif						
-		if( ( ( pSoldier->bVisible != -1 && pSoldier->vitals().health()) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
+		if( ( ( pSoldier->awareness().visibility() != -1 && pSoldier->vitals().health()) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) ) && ( fInValidSoldier == FALSE ) )
 		{
 			// If we are on a roof, set flag for rendering...
 			if ( pSoldier->position().level() != 0 && ( IsJa2TacticalCombatActive() ) )
@@ -1851,7 +1851,7 @@ void AIDecideRadioAnimation( SOLDIERTYPE *pSoldier )
 	}
 
 	// sevenfm: no radio animation for invisible soldiers
-	if (pSoldier->bVisible == FALSE)
+	if (pSoldier->awareness().visibility() == FALSE)
 	{
 		// don't play animation
 		ActionDone(pSoldier);
@@ -2026,8 +2026,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			{
 				// SANDRO - ENEMY TAUNTS
 				if (gGameSettings.fOptions[TOPTION_ALLOW_TAUNTS] == TRUE && 
-					( ( pSoldier->bTeam == ENEMY_TEAM && SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass ) && pSoldier->bVisible != -1 ) ||
-					( pSoldier->bTeam == MILITIA_TEAM && SOLDIER_CLASS_MILITIA( pSoldier->ubSoldierClass ) && pSoldier->bVisible != -1 ) ) )
+					( ( pSoldier->bTeam == ENEMY_TEAM && SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass ) && pSoldier->awareness().visibility() != -1 ) ||
+					( pSoldier->bTeam == MILITIA_TEAM && SOLDIER_CLASS_MILITIA( pSoldier->ubSoldierClass ) && pSoldier->awareness().visibility() != -1 ) ) )
 				{
 					if (pSoldier->aiData.bAction == AI_ACTION_SEEK_NOISE )
 						PossiblyStartEnemyTaunt( pSoldier, TAUNT_SEEK_NOISE );
@@ -2286,7 +2286,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			if (!is_networked)
 			{
 				if ( Random( 50 ) == 0 && gGameSettings.fOptions[TOPTION_ALLOW_TAUNTS] == FALSE &&
-						IS_MERC_BODY_TYPE( pSoldier ) && pSoldier->ubProfile == NO_PROFILE && pSoldier->bVisible != -1)
+						IS_MERC_BODY_TYPE( pSoldier ) && pSoldier->ubProfile == NO_PROFILE && pSoldier->awareness().visibility() != -1)
 				{
 					StartCivQuote( pSoldier );
 				}

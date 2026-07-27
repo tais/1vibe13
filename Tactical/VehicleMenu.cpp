@@ -178,7 +178,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 			gusSelectedSoldier = sTempSelectedSoldier;
 		}
 	}
-	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->bVisible != -1 && OKUseVehicle( pCurrentVehicle->ubProfile ) )
+	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->ubProfile ) )
 	{
 		// Find a gridno closest to sweetspot...
 		sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pCurrentSoldier, pCurrentSoldier->usUIMovementMode, 5, &ubDirection, 0, pCurrentVehicle, TRUE );

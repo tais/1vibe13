@@ -5793,8 +5793,8 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 		}
 
 		// anv: added condition - make sure we won't put vehicle in another vehicle
-		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 && OKUseVehicle( pTSoldier->ubProfile ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
-		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 && OKUseVehicle( pTSoldier->ubProfile ) )
+		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && OKUseVehicle( pTSoldier->ubProfile ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
+		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && OKUseVehicle( pTSoldier->ubProfile ) )
 		{
 			if ( ( GetNumberInVehicle( pTSoldier->bVehicleID ) == 0 ) || !fMovementMode )
 			{
@@ -6132,7 +6132,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 			{
 				return;
 			}
-			if( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 && OKUseVehicle( pTSoldier->ubProfile ) )
+			if( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && OKUseVehicle( pTSoldier->ubProfile ) )
 			{
 				// anv: if we are passengers, only show menu when clicking on vehicle we're in
 				if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )

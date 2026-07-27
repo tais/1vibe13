@@ -1099,7 +1099,7 @@ void UpdateJerryMiloInInitialSector()
 			{
 				//Make sure we can see the pilot
 				gbPublicOpplist[OUR_TEAM][pJerrySoldier->ubID] = SEEN_CURRENTLY;
-				pJerrySoldier->bVisible = TRUE;
+				pJerrySoldier->awareness().markVisible();
 			}
 
 		}

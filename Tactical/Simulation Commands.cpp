@@ -202,7 +202,7 @@ namespace
 			(soldier.flags.uiStatusFlags &
 				(SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE)) != 0 ||
 			!OK_ENTERABLE_VEHICLE((&vehicle)) ||
-			vehicle.bVisible == -1 ||
+			vehicle.awareness().visibility() == -1 ||
 			!OKUseVehicle(vehicle.ubProfile) ||
 			!IsThisVehicleAccessibleToSoldier(
 				&soldier, vehicle.bVehicleID) ||

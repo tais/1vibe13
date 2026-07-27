@@ -1666,7 +1666,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 
 	GetSoldier( &pSoldier, usSoldierID );
 
-	if ( !pSoldier || (pSoldier->bVisible == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
+	if ( !pSoldier || (pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
 	{
 		return;
 	}
@@ -1678,7 +1678,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 
 	if ( pSoldier->flags.fFlashLocator )
 	{
-		if ( pSoldier->bVisible == -1 )
+		if ( pSoldier->awareness().visibility() == -1 )
 		{
 			pSoldier->flags.fFlashLocator = FALSE;
 		}
@@ -1830,7 +1830,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			usGraphicToUse = THIRDPOINTERS2;
 		}
 		// show all people's names if !
-		//else if ( pSoldier->ubID >= 20 && pSoldier->bVisible != -1 )
+		//else if ( pSoldier->ubID >= 20 && pSoldier->awareness().visibility() != -1 )
 		//{
 
 		//}
@@ -5844,7 +5844,7 @@ BOOLEAN ShowExactInfo( SOLDIERTYPE* pSoldier, SOLDIERTYPE* pTargetSoldier )
 	INT32 range;
 	INT32 maxExactWeaponDistance;
 
-	if( pTargetSoldier->bVisible == -1 )
+	if( pTargetSoldier->awareness().visibility() == -1 )
 		return FALSE;
 
 	range = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), pTargetSoldier->position().gridNo() ) / 10;
@@ -6141,7 +6141,7 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 	if( iRange > iVisibleDistance )
 		return;
 
-	if( pTargetSoldier->bVisible == -1 )
+	if( pTargetSoldier->awareness().visibility() == -1 )
 		return;
 
 	// calc max range for exact info

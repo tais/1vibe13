@@ -1633,7 +1633,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	// Flugente: handcuffing people
-	if (gGameExternalOptions.fAllowPrisonerSystem && HasItemFlag(usHandItem, HANDCUFFS) && pTargetSoldier && pTargetSoldier->bVisible >= 0)
+	if (gGameExternalOptions.fAllowPrisonerSystem && HasItemFlag(usHandItem, HANDCUFFS) && pTargetSoldier && pTargetSoldier->awareness().visibility() >= 0)
 	{
 		if (!pTargetSoldier->CanBeCaptured())
 			return ITEM_HANDLE_REFUSAL;
@@ -1740,7 +1740,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	// Flugente: apply misc items to other soldiers
 	// sevenfm: check that target soldier is visible
 	if (ItemCanBeAppliedToOthers(usHandItem) && targetPerson &&
-		targetPerson->bVisible != 0)
+		targetPerson->awareness().visibility() != 0)
 	{
 		// ATE: AI CANNOT GO THROUGH HERE!
 		BOOLEAN	fHadToUseCursorPos = FALSE;
@@ -2461,7 +2461,7 @@ void SoldierHandleDropItem( SOLDIERTYPE *pSoldier )
 	// LOOK IN PANDING DATA FOR ITEM TO DROP, AND LOCATION
 	if ( pSoldier->pTempObject != NULL )
 	{
-		if ( pSoldier->bVisible != -1 )
+		if ( pSoldier->awareness().visibility() != -1 )
 		{
 			if (Water(pSoldier->position().gridNo(), pSoldier->position().level()))
 			{

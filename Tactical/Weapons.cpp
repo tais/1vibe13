@@ -2704,7 +2704,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	//ScreenMsg(FONT_ORANGE, MSG_INTERFACE, L"ammotype %d", Magazine[Item[(*pObjAttHand)[0]->data.gun.usGunAmmoItem].ubClassIndex].ubAmmoType);	
 	if (IS_MERC_BODY_TYPE(pSoldier) &&
-		pSoldier->bVisible == TRUE &&
+		pSoldier->awareness().visibility() == TRUE &&
 		Item[usUBItem].usItemClass == IC_GUN &&
 		!ItemIsRocketLauncher(usUBItem) &&
 		strlen(AmmoTypes[Magazine[Item[(*pObjAttHand)[0]->data.gun.usGunAmmoItem].ubClassIndex].ubAmmoType].shotAnimation) > 0)
@@ -3547,7 +3547,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	//ScreenMsg(FONT_ORANGE, MSG_INTERFACE, L"ammotype %d", Magazine[Item[(*pObjAttHand)[0]->data.gun.usGunAmmoItem].ubClassIndex].ubAmmoType);
 	if (IS_MERC_BODY_TYPE(pSoldier) &&
-		pSoldier->bVisible == TRUE &&
+		pSoldier->awareness().visibility() == TRUE &&
 		Item[usUBItem].usItemClass == IC_GUN &&
 		!ItemIsRocketLauncher(usUBItem) &&
 		strlen(AmmoTypes[Magazine[Item[(*pObjAttHand)[0]->data.gun.usGunAmmoItem].ubClassIndex].ubAmmoType].shotAnimation) > 0)
@@ -8387,7 +8387,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					DeductPoints( pTarget, 0, (5 * APBPConstants[BP_GET_HIT]) );
 					SoldierCollapse( pTarget );
 
-					if (pTarget->name[0] && pTarget->bVisible == TRUE)
+					if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SOLDIER_HIT_TO_GROIN], pTarget->GetName() );
 					}
@@ -8419,7 +8419,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								// Flugente: disease
 								HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_WIS );
 
-								if (pTarget->name[0] && pTarget->bVisible == TRUE)
+								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
 									pTarget->timeChanges.uiChangeWisdomTime = GetJA2Clock();
@@ -8474,7 +8474,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										gMercProfiles[ pTarget->ubProfile ].bLifeMax = pTarget->vitals().maximumHealth();
 									}
 
-									if (pTarget->name[0] && pTarget->bVisible == TRUE)
+									if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 									{
 										// make stat RED for a while...
 										pTarget->timeChanges.uiChangeHealthTime = GetJA2Clock();
@@ -8514,7 +8514,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										// Flugente: disease
 										HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_DEX );
 
-										if (pTarget->name[0] && pTarget->bVisible == TRUE)
+										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
 											pTarget->timeChanges.uiChangeDexterityTime = GetJA2Clock();
@@ -8551,7 +8551,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										// Flugente: disease
 										HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_STR );
 
-										if (pTarget->name[0] && pTarget->bVisible == TRUE)
+										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
 											pTarget->timeChanges.uiChangeStrengthTime = GetJA2Clock();
@@ -8589,7 +8589,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								// Flugente: disease
 								HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_AGI );
 
-								if (pTarget->name[0] && pTarget->bVisible == TRUE)
+								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
 									pTarget->timeChanges.uiChangeAgilityTime = GetJA2Clock();
@@ -10633,7 +10633,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 
 BOOLEAN WillExplosiveWeaponFail( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 {
-  if ( pSoldier->bTeam == gbPlayerNum || pSoldier->bVisible == 1 )
+  if ( pSoldier->bTeam == gbPlayerNum || pSoldier->awareness().visibility() == 1 )
   {
 	// malus for overheating
 	INT16 iOverheatMalus = 0;	

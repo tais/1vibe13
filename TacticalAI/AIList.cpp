@@ -237,7 +237,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 				// heard gunshots
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
 				{
-					if ( pSoldier->bVisible == TRUE )
+					if ( pSoldier->awareness().visibility() == TRUE )
 					{
 						// if have profile, don't handle, don't want them running around
 						if ( pSoldier->ubProfile != NO_PROFILE )
@@ -344,7 +344,7 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 			}
 
 			bPriority = pSoldier->aiData.bAlertStatus;
-			if ( pSoldier->bVisible == TRUE )
+			if ( pSoldier->awareness().visibility() == TRUE )
 			{
 				bPriority += 3;
 			}

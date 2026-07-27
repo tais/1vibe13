@@ -638,7 +638,7 @@ namespace MiniEventHelpers
 					gMercProfiles[merc->ubProfile].bLife = min(gMercProfiles[merc->ubProfile].bLife, gMercProfiles[merc->ubProfile].bLifeMax);
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeHealthTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
@@ -656,7 +656,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bStrength = merc->stats.bStrength;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeStrengthTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( STRENGTH_INCREASE );
@@ -674,7 +674,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bAgility = merc->stats.bAgility;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeAgilityTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( AGIL_INCREASE );
@@ -692,7 +692,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bDexterity = merc->stats.bDexterity;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeDexterityTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( DEX_INCREASE );
@@ -710,7 +710,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bWisdom = merc->stats.bWisdom;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeWisdomTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( WIS_INCREASE );
@@ -728,7 +728,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bLeadership = merc->stats.bLeadership;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeLeadershipTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( LDR_INCREASE );
@@ -746,7 +746,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bMarksmanship = merc->stats.bMarksmanship;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeMarksmanshipTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( MRK_INCREASE );
@@ -764,7 +764,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bMechanical = merc->stats.bMechanical;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeMechanicalTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( MECH_INCREASE );
@@ -782,7 +782,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bExplosive = merc->stats.bExplosive;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeExplosivesTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( EXP_INCREASE );
@@ -800,7 +800,7 @@ namespace MiniEventHelpers
 					gMercProfiles[ merc->ubProfile ].bMedical = merc->stats.bMedical;
 				}
 
-				if (merc->name[0] && merc->bVisible == TRUE)
+				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->timeChanges.uiChangeMedicalTime = GetJA2Clock();
 					merc->usValueGoneUp &= ~( MED_INCREASE );

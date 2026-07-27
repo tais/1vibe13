@@ -1599,7 +1599,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	gTacticalStatus.Team[MercCreateStruct.bTeam	].bSide=0;
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
-	pSoldier->bVisible = 1;
+	pSoldier->awareness().markVisible();
 #endif
 
 	if(MercCreateStruct.ubProfile==SLAY)//slay
@@ -1613,7 +1613,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 		pSoldier->bSide=1;
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
-		pSoldier->bVisible = 0;
+		pSoldier->awareness().markIndeterminate();
 #endif
 
 		gTacticalStatus.Team[MercCreateStruct.bTeam	].bSide=1;
@@ -1625,7 +1625,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 			pSoldier->bSide=1;
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
-			pSoldier->bVisible = 0;
+			pSoldier->awareness().markIndeterminate();
 #endif
 
 			gTacticalStatus.Team[MercCreateStruct.bTeam	].bSide=1;

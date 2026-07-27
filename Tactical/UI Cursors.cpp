@@ -2407,7 +2407,7 @@ UINT8 HandleHandcuffCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 			SOLDIERTYPE* target =
 				GetJa2SoldierRepository().resolve(
 					usSoldierIndex.i);
-			if (target->bVisible >= 0 && target->CanBeCaptured())
+			if (target->awareness().visibility() >= 0 && target->CanBeCaptured())
 			{
 				return( HANDCUFF_GREY_UICURSOR );
 			}
@@ -2432,7 +2432,7 @@ UINT8 HandleApplyItemCursor(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT32 uiCurso
 		SoldierID ubPerson = WhoIsThere2(sGridNo, pSoldier->position().level());
 		if (ubPerson != NOBODY &&
 			GetJa2SoldierRepository()
-				.resolve(ubPerson.i)->bVisible >= 0)
+				.resolve(ubPerson.i)->awareness().locationKnown())
 		{
 			return(APPLYITEM_GREY_UICURSOR);
 		}
@@ -3055,7 +3055,7 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 				SoldierID ubPerson = WhoIsThere2(usMapPos, pSoldier->position().level());
 				if (ubPerson != NOBODY &&
 					GetJa2SoldierRepository()
-						.resolve(ubPerson.i)->bVisible >= 0)
+						.resolve(ubPerson.i)->awareness().locationKnown())
 				{
 					ubCursor = APPLYITEMCURS;
 				}

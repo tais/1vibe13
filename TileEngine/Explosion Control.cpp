@@ -1687,7 +1687,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 							gMercProfiles[ pSoldier->ubProfile ].bWisdom = pSoldier->stats.bWisdom;
 						}
 
-						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
+						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->timeChanges.uiChangeWisdomTime = GetJA2Clock();
@@ -1720,7 +1720,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->stats.bDexterity;
 						}
 
-						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
+						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->timeChanges.uiChangeDexterityTime = GetJA2Clock();
@@ -1754,7 +1754,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 							gMercProfiles[ pSoldier->ubProfile ].bStrength = pSoldier->stats.bStrength;
 						}
 
-						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
+						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->timeChanges.uiChangeStrengthTime = GetJA2Clock();
@@ -1788,7 +1788,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 							gMercProfiles[ pSoldier->ubProfile ].bAgility = pSoldier->stats.bAgility;
 						}
 
-						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
+						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->timeChanges.uiChangeAgilityTime = GetJA2Clock();
@@ -1826,7 +1826,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 							gMercProfiles[ pSoldier->ubProfile ].bLifeMax = pSoldier->vitals().maximumHealth();
 						}
 
-						if (pSoldier->name[0] && pSoldier->bVisible == TRUE)
+						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->timeChanges.uiChangeDexterityTime = GetJA2Clock();
@@ -4063,7 +4063,7 @@ void HandleExplosionQueue( void )
 								gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->stats.bAgility;
 							}
 
-							if ( pSoldier->name[0] && pSoldier->bVisible == TRUE )
+							if ( pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE )
 							{
 								// make stat RED for a while...
 								pSoldier->timeChanges.uiChangeAgilityTime = GetJA2Clock( );
@@ -4429,7 +4429,7 @@ void HandleExplosionWarningAnimations( )
 								if (candidate &&
 									candidate != pSoldier &&
 									candidate->position().gridNo() == sSpot &&
-									candidate->bVisible == TRUE &&
+									candidate->awareness().visibility() == TRUE &&
 									candidate->position().level() == bLevel &&
 									gAnimControl[candidate->animationPlayback().state()].ubEndHeight == ANIM_PRONE &&
 									!Water(candidate->position().gridNo(), candidate->position().level()) &&
@@ -4525,7 +4525,7 @@ void HandleExplosionWarningAnimations( )
 						continue;
 					}
 
-					if (pOpponent->bVisible != -1)
+					if (pOpponent->awareness().visibility() != -1)
 					{
 						continue;
 					}

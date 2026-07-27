@@ -583,7 +583,7 @@ UINT32 PlaySoldierJA2Sample( SoldierID usID, UINT32 usNum, UINT32 usRate, UINT32
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(usID.i);
 		// CHECK IF GUY IS ON SCREEN BEFORE PLAYING!
-		if ( soldier && ( soldier->bVisible != -1 || !fCheck ) )
+		if ( soldier && ( !soldier->awareness().fullyHidden() || !fCheck ) )
 		{
 			return( PlayJA2Sample( usNum, usRate, CalculateSoundEffectsVolume( ubVolume ), ubLoops, uiPan ) );
 		}
@@ -1086,7 +1086,7 @@ void SetPositionSndsVolumeAndPanning()
 						pSoldier = GetJa2SoldierRepository().resolve(
 							pPositionSnd->uiData);
 
-						if ( pSoldier != NULL && pSoldier->bVisible == -1 )
+						if ( pSoldier != NULL && pSoldier->awareness().visibility() == -1 )
 						{
 							// Limit volume,,,
 							if ( bVolume > 10 )

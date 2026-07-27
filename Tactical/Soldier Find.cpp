@@ -159,7 +159,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 		MercFlags	|=	DEAD_MERC;
 	}
 
-	if ( pSoldier->bVisible != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
+	if ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
 	{
 		MercFlags	|=	VISIBLE_MERC;
 	}
@@ -213,7 +213,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 		if ( pSoldier != NULL )
 		{
 
-			if ( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) && ( pSoldier->bVisible != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
+			if ( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) && ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
 			{
 				// OK, ignore if we are a passenger...
 				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
@@ -534,7 +534,7 @@ BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 	// IF BAD GUY - CHECK VISIVILITY
 	if ( pSoldier->bTeam != gbPlayerNum )
 	{
-		if ( pSoldier->bVisible == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
+		if ( pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
 		{
 			return( FALSE	);
 		}
@@ -1012,7 +1012,7 @@ SoldierID QuickFindSoldier( INT32 sGridNo )
 
 		if ( pSoldier != NULL )
 		{
-			if ( pSoldier->position().gridNo() == sGridNo && pSoldier->bVisible != -1 )
+			if ( pSoldier->position().gridNo() == sGridNo && pSoldier->awareness().visibility() != -1 )
 			{
 				return( cnt );
 			}

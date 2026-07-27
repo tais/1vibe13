@@ -99,7 +99,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 				pPlanSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
 				pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) sGridNo ); // Hopefully this code is never used anymore because the second param is now direction, not grid
-				pPlanSoldier->bVisible = 1;
+				pPlanSoldier->awareness().markVisible();
 				pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
 
 
@@ -178,7 +178,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->dXPos, gpUIPlannedSoldier->dYPos );
 					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->position().gridNo() );
-					pPlanSoldier->bVisible = 1;
+					pPlanSoldier->awareness().markVisible();
 					pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
 
 
