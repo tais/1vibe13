@@ -2760,8 +2760,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	{
 		if (pTarget->animationPlayback().code() >1)
 		{
-			pTarget->flags.fInNonintAnim = FALSE;
-			pTarget->flags.fRTInNonintAnim = FALSE;
+			pTarget->animationActivity().clearInterruptibility();
 		}
 	}
 

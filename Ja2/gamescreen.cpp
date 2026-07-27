@@ -577,7 +577,7 @@ UINT32	MainGameScreenHandle(void)
 					sightingEnemy->AdjustNoAPToFinishMove( FALSE );
 				}
 				if ( sightingEnemy )
-					sightingEnemy->flags.fPauseAllAnimation = FALSE;
+					sightingEnemy->animationActivity().resume();
 
 				gTacticalStatus.fEnemySightingOnTheirTurn = FALSE;
 			}

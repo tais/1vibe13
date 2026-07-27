@@ -925,9 +925,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( fAddingTurningCost && fAddingRaiseGunCost )
 			{
 				if(usRaiseGunCost > usTurningCost)
-					pSoldier->flags.fDontChargeTurningAPs = TRUE;
+					pSoldier->animationActivity().turningCostWaived() = TRUE;
 				else
-					pSoldier->flags.fDontChargeReadyAPs = TRUE;
+					pSoldier->animationActivity().readyCostWaived() = TRUE;
 			}
 		}
 		/*else
@@ -935,7 +935,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// If raising gun, don't charge turning!
 		if ( fAddingTurningCost )
 		{
-		pSoldier->flags.fDontChargeReadyAPs = TRUE;
+		pSoldier->animationActivity().readyCostWaived() = TRUE;
 		}
 		}*/
 
@@ -2224,7 +2224,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				return( ITEM_HANDLE_NOROOM );
 			}
 
-			//pSoldier->flags.fDontChargeAPsForStanceChange = TRUE;//dnl ch72 270913 no reason why not charge for stance change
+			//pSoldier->animationActivity().stanceCostWaived() = TRUE;//dnl ch72 270913 no reason why not charge for stance change
 		}
 		else if (ItemIsGrenadeLauncher(usHandItem))//usHandItem == GLAUNCHER || usHandItem == UNDER_GLAUNCHER )
 		{
@@ -2239,9 +2239,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( fAddingTurningCost && fAddingRaiseGunCost )
 				{
 					if(usRaiseGunCost > usTurningCost)
-						pSoldier->flags.fDontChargeTurningAPs = TRUE;
+						pSoldier->animationActivity().turningCostWaived() = TRUE;
 					else
-						pSoldier->flags.fDontChargeReadyAPs = TRUE;
+						pSoldier->animationActivity().readyCostWaived() = TRUE;
 				}
 			}
 			/*else
@@ -2249,7 +2249,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// If raising gun, don't charge turning!
 			if ( fAddingTurningCost )
 			{
-			pSoldier->flags.fDontChargeReadyAPs = TRUE;
+			pSoldier->animationActivity().readyCostWaived() = TRUE;
 			}
 			}*/
 		}
@@ -2274,8 +2274,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 				//dnl ch72 180913 decision is to charge for turning which was disabled in v1.12 also will turn off both options because is bad to charge APs before stance or turning really occurs
 				// ATE: Don't charge turning...
-				//pSoldier->flags.fDontChargeTurningAPs = TRUE;
-				//pSoldier->flags.fDontChargeAPsForStanceChange = TRUE;
+				//pSoldier->animationActivity().turningCostWaived() = TRUE;
+				//pSoldier->animationActivity().stanceCostWaived() = TRUE;
 
 				FireWeapon( pSoldier, sTargetGridNo );
 			}
@@ -2524,7 +2524,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			pSoldier->SoldierGotoStationaryStance( );
 
 			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
-			pSoldier->flags.fTurningUntilDone = TRUE;
+			pSoldier->animationActivity().turningUntilDone() = TRUE;
 
 			if (gbGrenadeRolling)
 			{
@@ -2592,7 +2592,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			pSoldier->SoldierGotoStationaryStance( );
 
 			pSoldier->EVENT_SetSoldierDesiredDirection( ubDirection );
-			pSoldier->flags.fTurningUntilDone = TRUE;
+			pSoldier->animationActivity().turningUntilDone() = TRUE;
 
 			if (gbGrenadeRolling)
 			{
@@ -3212,7 +3212,7 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 						if ( usNum != 0 )
 						{
 							// Freeze guy!
-							pSoldier->flags.fPauseAllAnimation = TRUE;
+							pSoldier->animationActivity().pause();
 
 							InitializeItemPickupMenu( pSoldier, sGridNo, pItemPool, 0, 0, bZLevel );
 
@@ -7745,7 +7745,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 	}
 
 	// Freeze guy!
-	pSoldier->flags.fPauseAllAnimation = TRUE;
+	pSoldier->animationActivity().pause();
 
 	InitializeStealItemPickupMenu( pSoldier, pOpponent, pItemPool, ubCount);
 	guiPendingOverrideEvent = G_GETTINGITEM;

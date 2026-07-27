@@ -478,7 +478,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fIsSoldierMoving = src.fIsSoldierMoving;							// ie.  Record time is on
 	this->fIsSoldierDelayed = src.fIsSoldierDelayed;						//Is the soldier delayed Soldier
 	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
-	this->fChangingStanceDueToSuppression = src.fChangingStanceDueToSuppression;
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
 	//this->fCheckForNewlyAddedItems = src.bEndDoorOpenCode;//dnl ch33 130909
 	this->fMuzzleFlash = src.fMuzzleFlash;
@@ -487,9 +486,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
 	this->fDieSoundUsed = src.fDieSoundUsed;
 	this->fUseLandingZoneForArrival = src.fUseLandingZoneForArrival;
-	this->fFallClockwise = src.fFallClockwise;
 	this->fComplainedThatTired = src.fComplainedThatTired;
-	this->fRTInNonintAnim = src.fRTInNonintAnim;
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
 	this->fPastXDest = src.fPastXDest;
 	this->fPastYDest = src.fPastYDest;
@@ -498,20 +495,15 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fFixingSAMSite = src.fFixingSAMSite;
 	this->fFixingRobot = src.fFixingRobot;
 	this->fSignedAnotherContract = src.fSignedAnotherContract;
-	this->fDontChargeTurningAPs = src.fDontChargeTurningAPs;
 	this->fMercCollapsedFlag = src.fMercCollapsedFlag;
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
-	this->fDontChargeAPsForStanceChange = src.fDontChargeAPsForStanceChange;
 	this->fForceShade = src.fForceShade;
 	this->fForceRenderColor = src.fForceRenderColor;
 	this->fForceNoRenderPaletteCycle = src.fForceNoRenderPaletteCycle;
-	this->bTurningFromPronePosition = src.bTurningFromPronePosition;
 	this->fFlashPortrait = src.fFlashPortrait;
 	this->fBeginFade = src.fBeginFade;
-	this->fDontChargeReadyAPs = src.fDontChargeReadyAPs;
 	this->fPrevInWater = src.fPrevInWater;
-	this->bGoBackToAimAfterHit = src.fGoBackToAimAfterHit;
 	this->fDisplayDamage = src.fDisplayDamage;
 	this->fUIMovementFast = src.fUIMovementFast;
 	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
@@ -519,7 +511,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fClosePanelToDie = src.fClosePanelToDie;
 	this->fDeadPanel = src.fDeadPanel;
 	this->fOpenPanel = src.fOpenPanel;
-	this->fTryingToFall = src.fTryingToFall;
 	this->fCloseCall = src.fCloseCall;
 	this->fDoSpread = src.fDoSpread;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
@@ -528,7 +519,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fInMissionExitNode = src.fInMissionExitNode;
 	this->fTurnInProgress = src.fTurnInProgress;
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
-	this->fHoldAttackerUntilDone = src.fHoldAttackerUntilDone;
 	this->fWarnedAboutBleeding = src.fWarnedAboutBleeding;
 	this->fDyingComment = src.fDyingComment;
 	this->fNoAPToFinishMove = src.fNoAPToFinishMove;
@@ -539,12 +529,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fUIFirstTimeNOAP = src.fUIFirstTimeNOAP;		// UI Flag for diming guys when no APs ( dirty flags )
 	this->fUIFirstTimeUNCON = src.fUIFirstTimeUNCON;	// UI FLAG For unconscious dirty
 	this->fBetweenSectors = src.fBetweenSectors;	//set when the group isn't actually in a sector.
-	this->fPauseAllAnimation = src.fPauseAllAnimation;
-	this->fTurningToShoot = src.fTurningToShoot;
-	this->fTurningToFall = src.fTurningToFall;
-	this->fTurningUntilDone = src.fTurningUntilDone;
-	this->fGettingHit = src.fGettingHit;
-	this->fInNonintAnim = src.fInNonintAnim;
 	this->fFlashLocator = src.fFlashLocator;
 	this->fShowLocator = src.fShowLocator;
 	this->autofireLastStep = src.autofireLastStep;
@@ -638,6 +622,22 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//member classes
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
+		animationActivity().turningFromProneMode() = src.bTurningFromPronePosition;
+		animationActivity().readyCostWaived() = src.fDontChargeReadyAPs;
+		animationActivity().postHitStance() = src.fGoBackToAimAfterHit;
+		animationActivity().paused() = src.fPauseAllAnimation;
+		animationActivity().holdAttackerUntilDone() = src.fHoldAttackerUntilDone;
+		animationActivity().turningToShoot() = src.fTurningToShoot;
+		animationActivity().turningToFall() = src.fTurningToFall;
+		animationActivity().turningUntilDone() = src.fTurningUntilDone;
+		animationActivity().hitPhase() = src.fGettingHit;
+		animationActivity().nonInterruptible() = src.fInNonintAnim;
+		animationActivity().turningCostWaived() = src.fDontChargeTurningAPs;
+		animationActivity().suppressionStanceChange() = src.fChangingStanceDueToSuppression;
+		animationActivity().stanceCostWaived() = src.fDontChargeAPsForStanceChange;
+		animationActivity().realtimeNonInterruptible() = src.fRTInNonintAnim;
+		animationActivity().tryingToFall() = src.fTryingToFall;
+		animationActivity().fallClockwise() = src.fFallClockwise;
 		animationIntent().stopPendingNextTile() = src.fStopPendingNextTile;
 		animationIntent().continuationMode() = src.fContinueMoveAfterStanceChange;
 		movement().delayCounter() = src.fDelayedMovement;
@@ -867,7 +867,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->bVocalVolume = src.bVocalVolume;	// verbal sounds need to differ in volume
 
-		this->bStartFallDir = src.bStartFallDir;
+		this->animationActivity().fallDirection() = src.bStartFallDir;
 
 		this->animationIntent().pendingDirection() = src.ubPendingDirection;
 		this->animationPlayback().subFlags() = src.uiAnimSubFlags;
@@ -981,7 +981,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->ubPrevSectorID = src.ubPrevSectorID;
 		this->ubNumTilesMovesSinceLastForget = src.ubNumTilesMovesSinceLastForget;
-		this->bTurningIncrement = src.bTurningIncrement;
+		this->animationActivity().turningIncrement() = src.bTurningIncrement;
 		this->uiBattleSoundID = src.uiBattleSoundID;
 
 
@@ -1129,6 +1129,7 @@ void SOLDIERTYPE::initialize( )
 	movement().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
+	animationActivity().reset();
 
 	// sevenfm:initialize additional data
 	this->InitializeExtraData();
@@ -2852,7 +2853,7 @@ BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	// make the chosen one not turn to face us
 	if ( OK_ENEMY_MERC( pSoldier ) && pSoldier->ubID != gTacticalStatus.ubTheChosenOne && gAnimControl[usAnimState].ubEndHeight == ANIM_STAND && !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
 	{
-		if ( pSoldier->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_OFF )
+		if ( pSoldier->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_OFF )
 		{
 			// If we are a queen and see enemies, goto ready
 			if ( pSoldier->ubBodyType == QUEENMONSTER )
@@ -2907,7 +2908,7 @@ BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 							// Change to fire ready animation
 							ConvertGridNoToXY( closestEnemy->position().gridNo(), &sTargetXPos, &sTargetYPos );
 
-							pSoldier->flags.fDontChargeReadyAPs = TRUE;
+							pSoldier->animationActivity().readyCostWaived() = TRUE;
 
 							// Ready weapon
 							fReturnVal = pSoldier->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, AIDecideHipOrShoulderStance( pSoldier, closestEnemy->position().gridNo() ) );
@@ -2969,7 +2970,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		// ReleaseSoldiersAttacker( pSoldier );
 
 		//FREEUP GETTING HIT FLAG
-		// pSoldier->flags.fGettingHit = FALSE;
+		// pSoldier->animationActivity().hitPhase() = FALSE;
 
 		// ATE: if our guy, have 10% change of say damn, if still conscious...
 		if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
@@ -2991,7 +2992,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		// ReleaseSoldiersAttacker( pSoldier );
 
 		//FREEUP GETTING HIT FLAG
-		// pSoldier->flags.fGettingHit = FALSE;
+		// pSoldier->animationActivity().hitPhase() = FALSE;
 
 		if ( pSoldier->vitals().health() == 0 && pSoldier->ubPreviousAttackerID != NOBODY ) // SANDRO added check
 		{
@@ -3107,12 +3108,12 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		usItem = this->inv[HANDPOS].usItem;
 
 		// CHECK IF WE ARE TRYING TO INTURRUPT A SCRIPT WHICH WE DO NOT WANT INTERRUPTED!
-		if ( this->flags.fInNonintAnim )
+		if ( this->animationActivity().nonInterruptible() )
 		{
 			return(FALSE);
 		}
 
-		if ( this->flags.fRTInNonintAnim )
+		if ( this->animationActivity().realtimeNonInterruptible() )
 		{
 			if ( !(IsJa2TacticalCombatActive()) )
 			{
@@ -3120,7 +3121,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			}
 			else
 			{
-				this->flags.fRTInNonintAnim = FALSE;
+				this->animationActivity().realtimeNonInterruptible() = FALSE;
 			}
 		}
 
@@ -3147,7 +3148,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				// Make guy turn while crouched THEN go into prone
 				if ( (gAnimControl[usNewState].ubEndHeight == ANIM_PRONE && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_CROUCH) && !(IsJa2TacticalCombatActive()) )
 				{
-					this->flags.fTurningUntilDone = TRUE;
+					this->animationActivity().turningUntilDone() = TRUE;
 					this->animationIntent().pendingStance() = gAnimControl[usNewState].ubEndHeight;
 					this->animationIntent().pendingAnimation() = usNewState;
 					return(TRUE);
@@ -3203,7 +3204,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				EVENT_InternalSetSoldierDesiredDirection( this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3216,7 +3217,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				EVENT_InternalSetSoldierDesiredDirection( this, this->animationIntent().pendingDirection(), FALSE, this->animationPlayback().state() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = ADJACENT_GET_ITEM_CROUCHED;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3229,7 +3230,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = CLIMBUPROOF;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3242,8 +3243,8 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = CLIMBDOWNROOF;
-				this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3256,7 +3257,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = JUMPUPWALL;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3269,8 +3270,8 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = JUMPDOWNWALL;
-				this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
 			}
@@ -3283,8 +3284,8 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				this->EVENT_SetSoldierDesiredDirection( this->animationIntent().pendingDirection() );
 				this->animationIntent().clearPendingDirection();
 				this->animationIntent().pendingAnimation() = START_AID_PRN;
-				this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_ON;
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ON;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingStance() = ANIM_PRONE;
 				this->SoldierGotoStationaryStance( );
 				return(TRUE);
@@ -3778,7 +3779,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	{
 		if ( gTacticalStatus.ubEnemySightingOnTheirTurnEnemyID == this->ubID )
 		{
-			this->flags.fPauseAllAnimation = FALSE;
+			this->animationActivity().resume();
 			gTacticalStatus.fEnemySightingOnTheirTurn = FALSE;
 		}
 	}
@@ -3805,8 +3806,9 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	// 0verhaul:  Okay, here is a question:  Is the "non-interrupt" supposed to be transferrable to other anims?
 	// That is, if one anim is not interruptable but it chains to another anim, should the "not interruptable" flag
 	// remain?  I'm going to try out the theory that new animations should reset the "don't interrupt" flag.
-	this->flags.fInNonintAnim = (uiNewAnimFlags & ANIM_NONINTERRUPT) != 0;
-	this->flags.fRTInNonintAnim = (uiNewAnimFlags & ANIM_RT_NONINTERRUPT) != 0;
+	this->animationActivity().setInterruptibility(
+		(uiNewAnimFlags & ANIM_NONINTERRUPT) != 0,
+		(uiNewAnimFlags & ANIM_RT_NONINTERRUPT) != 0);
 
 	// CHECK IF WE ARE NOT AIMING, IF NOT, RESET LAST TAGRET!
 	if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_FIREREADY) && !(gAnimControl[usNewState].uiFlags & ANIM_FIREREADY) )
@@ -3873,7 +3875,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case READY_ALTERNATIVE_STAND:
 
 			// OK, get points to ready weapon....
-			if ( !this->flags.fDontChargeReadyAPs )
+			if ( !this->animationActivity().readyCostWaived() )
 			{
 				sAPCost = GetAPsToReadyWeapon( this, usNewState );
 				// SANDRO - get BP cost for weapon manipulating
@@ -3885,7 +3887,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			}
 			else
 			{
-				this->flags.fDontChargeReadyAPs = FALSE;
+				this->animationActivity().readyCostWaived() = FALSE;
 			}
 			break;
 
@@ -3910,7 +3912,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case CRAWLING:
 
 			// Turn off flag...
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 			this->aiData.ubPendingActionAnimCount = 0;
 			this->animationIntent().clearPendingAnimation();
 			break;
@@ -3950,7 +3952,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case BIGMERC_CROUCH_TRANS_INTO:
 		case BIGMERC_CROUCH_TRANS_OUTOF:
 
-			if ( !this->flags.fDontChargeAPsForStanceChange )
+			if ( !this->animationActivity().stanceCostWaived() )
 			{
 				if ( UsingNewInventorySystem( ) )
 				{
@@ -3972,14 +3974,14 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				}
 				DeductPoints( this, sAPCost, sBPCost );
 			}
-			this->flags.fDontChargeAPsForStanceChange = FALSE;
+			this->animationActivity().stanceCostWaived() = FALSE;
 			break;
 
 		case PRONE_UP:
 		case PRONE_DOWN:
 
 			// ATE: If we are NOT waiting for prone down...
-			if ( this->flags.bTurningFromPronePosition < TURNING_FROM_PRONE_START_UP_FROM_MOVE && !this->flags.fDontChargeAPsForStanceChange )
+			if ( this->animationActivity().turningFromProneMode() < TURNING_FROM_PRONE_START_UP_FROM_MOVE && !this->animationActivity().stanceCostWaived() )
 			{
 				if ( UsingNewInventorySystem( ) )
 				{
@@ -4001,7 +4003,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				}
 				DeductPoints( this, sAPCost, sBPCost );
 			}
-			this->flags.fDontChargeAPsForStanceChange = FALSE;
+			this->animationActivity().stanceCostWaived() = FALSE;
 			break;
 
 			//Deduct points for stance change
@@ -4231,7 +4233,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case ROBOTNW_DIE:
 
 			// Set getting hit flag to TRUE
-			this->flags.fGettingHit = TRUE;
+			this->animationActivity().beginHit();
 			break;
 
 		case CHARIOTS_OF_FIRE:
@@ -4280,20 +4282,20 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		if ( uiNewAnimFlags & ANIM_ATTACK ) {
 			BeginJa2TacticalCombatAction();
 			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->ubID, GetJa2PendingTacticalCombatActions() ) );
-		} else if (uiOldAnimFlags & ANIM_ATTACK || this->flags.fChangingStanceDueToSuppression ) {
+		} else if (uiOldAnimFlags & ANIM_ATTACK || this->animationActivity().suppressionStanceChange() ) {
 			DebugAttackBusy( String( "**** Transfer to %s for %d.\n", gAnimControl[usNewState].zAnimStr, this->ubID ) );
 		}
 		if ( uiOldAnimFlags & ANIM_ATTACK ) {
 			DebugAttackBusy( String( "**** Attack animation transfer from %s for %d.  Reducing ABC.\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->ubID ) );
 			ReduceAttackBusyCount( );
-		} else if (uiNewAnimFlags & ANIM_ATTACK  || this->flags.fChangingStanceDueToSuppression ) {
+		} else if (uiNewAnimFlags & ANIM_ATTACK  || this->animationActivity().suppressionStanceChange() ) {
 			DebugAttackBusy( String( "**** Transfer from %s for %d\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->ubID ) );
 		}
 	}
 
-	if ( this->flags.fChangingStanceDueToSuppression )
+	if ( this->animationActivity().suppressionStanceChange() )
 	{
-		this->flags.fChangingStanceDueToSuppression = FALSE;
+		this->animationActivity().suppressionStanceChange() = FALSE;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Freeing up attacker - end of suppression stance change" ) );
 		DebugAttackBusy( String( "@@@@@@@ Freeing up attacker - end of suppression stance change for %d\n", this->ubID ) );
 		ReduceAttackBusyCount( );
@@ -5065,7 +5067,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 					this->flags.fDontUnsetLastTargetFromTurn = TRUE;
 
 					// Make sure we don't try and do fancy prone turning.....
-					this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+					this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 
 					// Force our direction!
 					this->EVENT_SetSoldierDirection( this->pathing().desiredDirection() );
@@ -5075,7 +5077,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 				else
 				{
 					// Set flag indicating we are about to shoot once destination direction is hit
-					this->flags.fTurningToShoot = TRUE;
+					this->animationActivity().turningToShoot() = TRUE;
 
 					if (this->bTeam != gbPlayerNum)
 					{
@@ -5451,12 +5453,12 @@ BOOLEAN SOLDIERTYPE::InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndR
 		{
 		case ANIM_STAND:
 			this->animationPlayback().state() = STANDING;
-			if ( this->flags.fDontChargeTurningAPs && !this->flags.fDontChargeReadyAPs && usAnimState == INVALID_ANIMATION )
+			if ( this->animationActivity().turningCostWaived() && !this->animationActivity().readyCostWaived() && usAnimState == INVALID_ANIMATION )
 				usAnimState = PickSoldierReadyAnimation( this, FALSE, fRaiseToHipOnly );// someone introduced new cost system for turning and this means we must force gun raise
 			break;
 		case ANIM_CROUCH:
 			this->animationPlayback().state() = CROUCHING;
-			if ( this->flags.fDontChargeTurningAPs && !this->flags.fDontChargeReadyAPs && usAnimState == INVALID_ANIMATION )
+			if ( this->animationActivity().turningCostWaived() && !this->animationActivity().readyCostWaived() && usAnimState == INVALID_ANIMATION )
 				usAnimState = PickSoldierReadyAnimation( this, FALSE, FALSE );// force gun raise for proper APs deduction
 			break;
 		case ANIM_PRONE:
@@ -6177,7 +6179,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		else
 		{
 			// ATE: This is to disallow large amounts of smaples being played which is load!
-			if ( this->flags.fGettingHit && this->animationPlayback().code() != STANDING_BURST_HIT )
+			if ( this->animationActivity().hitPhase() && this->animationPlayback().code() != STANDING_BURST_HIT )
 			{
 
 			}
@@ -6263,25 +6265,25 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	{
 		if ( this->vitals().health() > 30 && this->vitals().breath() > 25 )
 		{
-			this->flags.bGoBackToAimAfterHit = GO_TO_HTH_BREATH_AFTER_HIT;
+			this->animationActivity().postHitStance() = GO_TO_HTH_BREATH_AFTER_HIT;
 		}
 	}
 	// If we were aiming
 	else if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_FIREREADY )
 	{
 		if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_ALT_WEAPON_HOLDING ) // alternative weapon holding stance
-			this->flags.bGoBackToAimAfterHit = GO_TO_ALTERNATIVE_AIM_AFTER_HIT;
+			this->animationActivity().postHitStance() = GO_TO_ALTERNATIVE_AIM_AFTER_HIT;
 		else // standard
-			this->flags.bGoBackToAimAfterHit = GO_TO_AIM_AFTER_HIT;
+			this->animationActivity().postHitStance() = GO_TO_AIM_AFTER_HIT;
 	}
 	// if we were cowering (this is different from the bellow, we don't use that status flag for this animation)
 	else if ( this->animationPlayback().state() == COWERING )
 	{
-		this->flags.bGoBackToAimAfterHit = GO_TO_COWERING_AFTER_HIT;
+		this->animationActivity().postHitStance() = GO_TO_COWERING_AFTER_HIT;
 	}
 	else
 	{
-		this->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
+		this->animationActivity().postHitStance() = NO_SPEC_STANCE_AFTER_HIT;
 	}
 
 	// IF COWERING, PLAY SPECIFIC GENERIC HIT STAND...
@@ -6954,7 +6956,7 @@ void SoldierGotHitVehicle(SOLDIERTYPE *pSoldier, UINT16 bDirection)
 		return;
 	}
 
-	if ( pSoldier->flags.fTryingToFall )
+	if ( pSoldier->animationActivity().tryingToFall() )
 	{
 		return;
 	}
@@ -7577,7 +7579,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
-		if ( (gAnimControl[usAnimState].uiFlags & (ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY | ANIM_TURNING) || usForceAnimState != INVALID_ANIMATION) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
+		if ( (gAnimControl[usAnimState].uiFlags & (ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY | ANIM_TURNING) || usForceAnimState != INVALID_ANIMATION) && !fInitalMove && !pSoldier->animationActivity().turningCostWaived() )
 		{
 			// SANDRO: hey, we have a function for this around, why not to use it, hm?
 			// silversurfer: we better don't do that. GetAPsToLook( ... ) will charge APs for getting to crouched/prone position
@@ -7615,15 +7617,15 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 				pSoldier->flags.fDontUnsetLastTargetFromTurn = FALSE;
 		}
 
-		pSoldier->flags.fDontChargeTurningAPs = FALSE;
+		pSoldier->animationActivity().turningCostWaived() = FALSE;
 
 		if ( fInitalMove )
 		{
 			if ( gAnimControl[usAnimState].ubHeight == ANIM_PRONE )
 			{
-				if ( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE )
+				if ( pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE )
 				{
-					pSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_START_UP_FROM_MOVE;
+					pSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_START_UP_FROM_MOVE;
 				}
 			}
 		}
@@ -7637,7 +7639,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 				//if ( pSoldier->pathing().destinationGrid() == pSoldier->sGridNo )
 				if ( !fInitalMove )
 				{
-					pSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_ON;
+					pSoldier->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ON;
 
 					// Set a pending animation to change stance first...
 					SendChangeSoldierStanceEvent( pSoldier, ANIM_CROUCH );
@@ -7661,17 +7663,17 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
-		pSoldier->bTurningIncrement = (INT8)ExtQuickestDirection( pSoldier->ubHiResDirection, pSoldier->ubHiResDesiredDirection );
+		pSoldier->animationActivity().turningIncrement() = (INT8)ExtQuickestDirection( pSoldier->ubHiResDirection, pSoldier->ubHiResDesiredDirection );
 	}
 	else
 	{
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE )
 		{
-			pSoldier->bTurningIncrement = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
+			pSoldier->animationActivity().turningIncrement() = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
 		}
 		else
 		{
-			pSoldier->bTurningIncrement = (INT8)QuickestDirection( pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
+			pSoldier->animationActivity().turningIncrement() = (INT8)QuickestDirection( pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
 		}
 	}
 
@@ -8221,25 +8223,25 @@ void SOLDIERTYPE::TurnSoldier( void )
 		HandleSystemNewAISituation( this, FALSE );
 	}
 
-	if ( this->flags.fTurningToShoot )
+	if ( this->animationActivity().turningToShoot() )
 	{
 		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			if ( ((gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_FIREREADY) &&
-				this->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_OFF) ||
+				this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_OFF) ||
 				this->ubBodyType == ROBOTNOWEAPON ||
 				ARMED_VEHICLE( this ) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "TurnSoldier: EVENT_InitNewSoldierAnim" ) );
 				this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, gAnimControl[this->animationPlayback().state()].ubEndHeight ), 0, FALSE );
-				this->flags.fTurningToShoot = FALSE;
+				this->animationActivity().turningToShoot() = FALSE;
 
 				// Save last target gridno!
 				//this->sLastTarget = this->sTargetGridNo;
 
 			}
 			// Else check if we are trying to shoot and once was prone, but am now crouched because we needed to turn...
-			else if ( this->flags.bTurningFromPronePosition )
+			else if ( this->animationActivity().turningFromProneMode() )
 			{
 				//dnl ch71 170913
 				if ( IsValidStance( this, ANIM_PRONE ) )
@@ -8252,7 +8254,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 				}
 				else
 					this->EVENT_InitNewSoldierAnim( PickSoldierReadyAnimation( this, FALSE, FALSE ), 0, FALSE );
-				this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 				return;
 				/*
 				if ( IsValidStance( this, ANIM_PRONE ) )
@@ -8264,34 +8266,34 @@ void SOLDIERTYPE::TurnSoldier( void )
 				{
 				this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, ANIM_CROUCH ), 0, FALSE );
 				}
-				this->flags.fTurningToShoot = FALSE;
-				this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+				this->animationActivity().turningToShoot() = FALSE;
+				this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 				//}
 				*/
 			}
 		}
 	}
 
-	if ( this->flags.fTurningToFall )
+	if ( this->animationActivity().turningToFall() )
 	{
 		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			SelectFallAnimation( this );
-			this->flags.fTurningToFall = FALSE;
+			this->animationActivity().turningToFall() = FALSE;
 		}
 	}
 
-	if ( this->flags.fTurningUntilDone && (this->animationIntent().pendingStance() != NO_PENDING_STANCE) )
+	if ( this->animationActivity().turningUntilDone() && (this->animationIntent().pendingStance() != NO_PENDING_STANCE) )
 	{
 		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			SendChangeSoldierStanceEvent( this, this->animationIntent().pendingStance() );
 			this->animationIntent().clearPendingStance();
-			this->flags.fTurningUntilDone = FALSE;
+			this->animationActivity().turningUntilDone() = FALSE;
 		}
 	}
 
-	if ( this->flags.fTurningUntilDone && (this->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION) )
+	if ( this->animationActivity().turningUntilDone() && (this->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION) )
 	{
 		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
@@ -8301,7 +8303,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			this->animationIntent().clearPendingAnimation();
 
 			this->EVENT_InitNewSoldierAnim( usPendingAnimation, 0, FALSE );
-			this->flags.fTurningUntilDone = FALSE;
+			this->animationActivity().turningUntilDone() = FALSE;
 		}
 	}
 
@@ -8325,8 +8327,8 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 		// Unset ui busy if from ui
 		if ( this->animationIntent().turningFromUi() &&
-			 (this->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE) &&
-			 (this->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON) )
+			 (this->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE) &&
+			 (this->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ON) )
 		{
 			UnSetUIBusy( this->ubID );
 			this->animationIntent().clearTurningFromUi();
@@ -8341,18 +8343,18 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 		// Undo our flag for prone turning...
 		// Else check if we are trying to shoot and once was prone, but am now crouched because we needed to turn...
-		if ( this->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_ON )
+		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ON )
 		{
 			// ATE: Don't do this if we have something in our hands we are going to throw!
 			if ( IsValidStance( this, ANIM_PRONE ) && this->pTempObject == NULL )
 			{
 				SendChangeSoldierStanceEvent( this, ANIM_PRONE );
 			}
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 		}
 
 		// If a special code, make guy crawl after stance change!
-		if ( this->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE &&
+		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE &&
 			 this->animationPlayback().state() != PRONE_UP &&
 			 this->animationPlayback().state() != PRONE_DOWN )
 		{
@@ -8371,7 +8373,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		{
 			// This section seems problem-prone.  It relies on all animations happening without interruption.  There must be a more
 			// foolproof method.
-			if ( this->flags.fGettingHit == 1 )
+			if ( this->animationActivity().hitPhase() == 1 )
 			{
 				if ( this->animationIntent().pendingAnimation() != FALLFORWARD_ROOF && this->animationIntent().pendingAnimation() != FALLOFF && this->animationPlayback().state() != FALLFORWARD_ROOF && this->animationPlayback().state() != FALLOFF )
 				{
@@ -8379,15 +8381,15 @@ void SOLDIERTYPE::TurnSoldier( void )
 					this->EVENT_SetSoldierDesiredDirection( (INT8)this->aiData.uiPendingActionData1 );
 
 					//SETUP GETTING HIT FLAG TO 2
-					this->flags.fGettingHit = 2;
+					this->animationActivity().advanceHit();
 				}
 				else
 				{
 					this->flags.uiStatusFlags &= (~SOLDIER_TURNINGFROMHIT);
-					this->flags.fGettingHit = FALSE;
+					this->animationActivity().clearHit();
 				}
 			}
-			else if ( this->flags.fGettingHit == 2 )
+			else if ( this->animationActivity().hitPhase() == 2 )
 			{
 				// Turn off
 				this->flags.uiStatusFlags &= (~SOLDIER_TURNINGFROMHIT);
@@ -8401,13 +8403,13 @@ void SOLDIERTYPE::TurnSoldier( void )
 				//ReduceAttackBusyCount( );
 
 				//FREEUP GETTING HIT FLAG
-				this->flags.fGettingHit = FALSE;
+				this->animationActivity().clearHit();
 			}
 		}
 
-		if ( this->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB )//dnl ch73 290913
+		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB )//dnl ch73 290913
 		{
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 		}
 
 		return;
@@ -8430,7 +8432,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		/*
 		sDirection = this->ubHiResDirection + ExtQuickestDirection( this->ubHiResDirection, this->ubHiResDesiredDirection );
 		*/
-		sDirection = this->ubHiResDirection + this->bTurningIncrement;
+		sDirection = this->ubHiResDirection + this->animationActivity().turningIncrement();
 		if ( sDirection > 31 )
 		{
 			sDirection = 0;
@@ -8469,7 +8471,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	{
 		// Get new direction
 		//sDirection = this->ubDirection + QuickestDirection( this->ubDirection, this->pathing().desiredDirection() );
-		sDirection = this->position().direction() + this->bTurningIncrement;
+		sDirection = this->position().direction() + this->animationActivity().turningIncrement();
 		if ( sDirection > NORTHWEST )
 		{
 			sDirection = NORTH;
@@ -8500,7 +8502,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			{
 				if ( pVehicleList[iId].pPassengers[iCounter] != NULL )
 				{
-					pVehicleList[iId].pPassengers[iCounter]->flags.fDontChargeTurningAPs = TRUE;
+					pVehicleList[iId].pPassengers[iCounter]->animationActivity().turningCostWaived() = TRUE;
 					pVehicleList[iId].pPassengers[iCounter]->EVENT_SetSoldierDesiredDirection( (pVehicleList[iId].pPassengers[iCounter]->pathing().desiredDirection() + bDirectionChange + NUM_WORLD_DIRECTIONS) % NUM_WORLD_DIRECTIONS );
 				}
 			}
@@ -8538,7 +8540,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		{
 			// OK, we want to getup, turn and go prone again....
 			SendChangeSoldierStanceEvent( this, ANIM_CROUCH );
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE;
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE;
 		}
 		// If we are a creature, or multi-tiled, cancel AI action.....?
 		else if ( this->flags.uiStatusFlags & SOLDIER_MULTITILE )
@@ -9590,11 +9592,11 @@ void SOLDIERTYPE::BeginSoldierClimbFence( void )
 		// Flugente: we want to jump OVER the structure, not INTO it!
 		this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (UINT16)DirectionInc( bDirection ) );
 
-		this->flags.fDontChargeTurningAPs = TRUE;
+		this->animationActivity().turningCostWaived() = TRUE;
 		EVENT_InternalSetSoldierDesiredDirection( this, bDirection, FALSE, this->animationPlayback().state() );
-		this->flags.fTurningUntilDone = TRUE;
+		this->animationActivity().turningUntilDone() = TRUE;
 		// ATE: Reset flag to go back to prone...
-		this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+		this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 		this->animationIntent().pendingAnimation() = HOPFENCE;
 	}
 }
@@ -9618,9 +9620,9 @@ void SOLDIERTYPE::BeginSoldierClimbWindow( void )
 	if ( FindWindowJumpDirection( this, this->position().gridNo(), bDirection, &bDirection ) && this->position().level() == 0 && (this->position().direction() == NORTH || this->position().direction() == EAST || this->position().direction() == SOUTH || this->position().direction() == WEST) )
 	{
 		this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bDirection ) );
-		this->flags.fDontChargeTurningAPs = TRUE;
+		this->animationActivity().turningCostWaived() = TRUE;
 		EVENT_InternalSetSoldierDesiredDirection( this, bDirection, FALSE, this->animationPlayback().state() );
-		this->flags.fTurningUntilDone = TRUE;
+		this->animationActivity().turningUntilDone() = TRUE;
 		// ATE: Reset flag to go back to prone...
 
 		// Flugente: In case an animation is missing (civilian bodytypes), we TELEPORT instead
@@ -9630,7 +9632,7 @@ void SOLDIERTYPE::BeginSoldierClimbWindow( void )
 		}
 		else
 		{
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
 			this->animationIntent().pendingAnimation() = JUMPWINDOWS;
 		}
 
@@ -9949,7 +9951,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 
 			if ( (ubReason == TAKE_DAMAGE_ELECTRICITY) && pSoldier->vitals().health() < OKLIFE )
 			{
-				pSoldier->flags.fInNonintAnim = FALSE;
+				pSoldier->animationActivity().nonInterruptible() = FALSE;
 			}
 
 			// silversurfer: fix for the deadlock that could happen when the victim was running through a gas cloud that lead to his death.
@@ -11309,7 +11311,7 @@ BOOLEAN SOLDIERTYPE::CheckSoldierHitRoof( void )
 				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->EVENT_SetSoldierDesiredDirection( gOppositeDirection[bNewDirection] );
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLFORWARD_ROOF;
 				//this->EVENT_InitNewSoldierAnim( FALLFORWARD_ROOF, 0 , FALSE );
 
@@ -11323,7 +11325,7 @@ BOOLEAN SOLDIERTYPE::CheckSoldierHitRoof( void )
 				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->EVENT_SetSoldierDesiredDirection( bNewDirection );
-				this->flags.fTurningUntilDone = TRUE;
+				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLOFF;
 
 				// Deduct hitpoints/breath for falling!
@@ -12324,8 +12326,7 @@ void SOLDIERTYPE::ReviveSoldier( void )
 		AddManToTeam( this->bTeam );
 
 		// Set to standing
-		this->flags.fInNonintAnim = FALSE;
-		this->flags.fRTInNonintAnim = FALSE;
+		this->animationActivity().clearInterruptibility();
 
 		// Change to standing,unless we can getup with an animation
 		this->EVENT_InitNewSoldierAnim( STANDING, 0, TRUE );
@@ -12542,8 +12543,8 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
-		if (this->flags.bTurningFromPronePosition)
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB;
+		if (this->animationActivity().turningFromProneMode())
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB;
 		usForceAnimState = INVALID_ANIMATION;
 	}
 	// CHANGE TO ANIMATION
@@ -12807,8 +12808,8 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
-		if ( this->flags.bTurningFromPronePosition )
-			this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB;
+		if ( this->animationActivity().turningFromProneMode() )
+			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_FOR_PUNCH_OR_STAB;
 		usForceAnimState = INVALID_ANIMATION;
 	}
 
@@ -13124,7 +13125,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDir
 	// Fixed by Tron (Stracciatella): Revision: 5787
 	//this->sLastTarget		= sGridNo;
 
-	this->flags.bTurningFromPronePosition = 0;
+	this->animationActivity().turningFromProneMode() = 0;
 	// NB target level must be set by functions outside of here... but I think it
 	// is already set in HandleItem or in the AI code - CJC
 	this->ubTargetID = WhoIsThere2( sGridNo, this->bTargetLevel );
@@ -14013,9 +14014,9 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 
 		// ATE; IF turning to shoot, stop!
 		// ATE: We want to do this only for enemies, not items....
-		if ( this->flags.fTurningToShoot && fFromSightingEnemy )
+		if ( this->animationActivity().turningToShoot() && fFromSightingEnemy )
 		{
-			this->flags.fTurningToShoot = FALSE;
+			this->animationActivity().turningToShoot() = FALSE;
 			// Release attacker
 
 			// OK - this is hightly annoying , but due to the huge combinations of
@@ -14044,14 +14045,14 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 			this->animationIntent().clearContinuation();
 		}
 
-		if ( !this->flags.fTurningToShoot )
+		if ( !this->animationActivity().turningToShoot() )
 		{
-			this->flags.bTurningFromPronePosition = FALSE;
+			this->animationActivity().turningFromProneMode() = FALSE;
 		}
 	}
 
 	// Unset UI!
-	if ( fFromSightingEnemy || (this->pTempObject == NULL && !this->flags.fTurningToShoot) )
+	if ( fFromSightingEnemy || (this->pTempObject == NULL && !this->animationActivity().turningToShoot()) )
 	{
 		UnSetUIBusy( this->ubID );
 	}
@@ -14080,7 +14081,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	}
 
 	this->bEndDoorOpenCode = 0;
-	this->flags.bTurningFromPronePosition = 0;
+	this->animationActivity().turningFromProneMode() = 0;
 
 	// Cancel path data!
 	this->pathing().pathIndex() = this->pathing().pathSize() = 0;
@@ -14102,9 +14103,9 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	}
 
 	// ATE; IF turning to shoot, stop!
-	if ( this->flags.fTurningToShoot )
+	if ( this->animationActivity().turningToShoot() )
 	{
-		this->flags.fTurningToShoot = FALSE;
+		this->animationActivity().turningToShoot() = FALSE;
 		// Release attacker
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something" ) );
 		DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something\n" );
@@ -23957,7 +23958,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 			if ( pSoldier->animationIntent().pendingAnimation() != FALLOFF && pSoldier->animationIntent().pendingAnimation() != FALLFORWARD_ROOF )
 				pSoldier->animationIntent().clearPendingAnimation();
 			pSoldier->animationIntent().clearSecondaryPendingAnimation();
-			pSoldier->flags.bTurningFromPronePosition = FALSE;
+			pSoldier->animationActivity().turningFromProneMode() = FALSE;
 			pSoldier->animationIntent().clearPendingDirection();
 			pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
 			pSoldier->bEndDoorOpenCode = 0;
@@ -23965,9 +23966,9 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 			// if this guy isn't under direct AI control, WHO GIVES A FLYING FLICK?
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )
 			{
-				if ( pSoldier->flags.fTurningToShoot )
+				if ( pSoldier->animationActivity().turningToShoot() )
 				{
-					pSoldier->flags.fTurningToShoot = FALSE;
+					pSoldier->animationActivity().turningToShoot() = FALSE;
 					// Release attacker
 					// OK - this is hightly annoying , but due to the huge combinations of
 					// things that can happen - 1 of them is that sLastTarget will get unset
@@ -24211,17 +24212,16 @@ void DebugValidateSoldierData( )
 
 void SOLDIERTYPE::BeginTyingToFall( void )
 {
-	this->bStartFallDir = this->position().direction();
-	this->flags.fTryingToFall = TRUE;
+	this->animationActivity().beginFall(this->position().direction());
 
 	// Randomize direction
 	if ( Random( 50 ) < 25 )
 	{
-		this->flags.fFallClockwise = TRUE;
+		this->animationActivity().fallClockwise() = TRUE;
 	}
 	else
 	{
-		this->flags.fFallClockwise = FALSE;
+		this->animationActivity().fallClockwise() = FALSE;
 	}
 }
 

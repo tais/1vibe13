@@ -508,7 +508,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	}
 
 	// if this NPC is getting hit, abort
-	if (pSoldier->flags.fGettingHit)
+	if (pSoldier->animationActivity().hitPhase())
 	{
 		return;
 	}

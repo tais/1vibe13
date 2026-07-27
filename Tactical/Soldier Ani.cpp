@@ -192,7 +192,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			else
 			{
 				// Wait here until we are free....
-				if ( !pSoldier->flags.fInNonintAnim )
+				if ( !pSoldier->animationActivity().nonInterruptible() )
 				{
 					// UNset UI
 					UnSetUIBusy( pSoldier->ubID );
@@ -660,7 +660,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 442:
 
 				//CODE: FOR A NON-INTERRUPTABLE SCRIPT - SIGNAL DONE
-				pSoldier->flags.fInNonintAnim = FALSE;
+				pSoldier->animationActivity().nonInterruptible() = FALSE;
 
 				// ATE: if it's the begin cower animation, unset ui, cause it could
 				// be from player changin stance
@@ -773,7 +773,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 447:
 
 				// TRY TO FALL!!!
-				if ( pSoldier->flags.fTryingToFall )
+				if ( pSoldier->animationActivity().tryingToFall() )
 				{
 					INT16 sLastAniFrame;
 
@@ -789,7 +789,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						// if ( OKFallDirection( pSoldier, sNewGridNo, pSoldier->position().level(), pSoldier->ubDirection, FALLFORWARD_HITDEATH_STOP ) )
 						{
 							// ALL'S OK HERE...
-							pSoldier->flags.fTryingToFall = FALSE;
+							pSoldier->animationActivity().clearFall();
 							break;
 						}
 					}
@@ -797,7 +797,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					// IF HERE, INCREMENT DIRECTION
 					// ATE: Added Feb1 - can be either direction....
-					if ( pSoldier->flags.fFallClockwise )
+					if ( pSoldier->animationActivity().fallClockwise() )
 					{
 						pSoldier->EVENT_SetSoldierDirection(	gOneCDirection[ pSoldier->position().direction() ] );
 					}
@@ -809,10 +809,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					sLastAniFrame = gusAnimInst[ pSoldier->animationPlayback().state() ][ ( pSoldier->animationPlayback().code() - 2 ) ];
 					pSoldier->ConvertAniCodeToAniFrame( (INT16)( sLastAniFrame ) );
 
-					if ( pSoldier->position().direction() == pSoldier->bStartFallDir )
+					if ( pSoldier->position().direction() == pSoldier->animationActivity().fallDirection() )
 					{
 						// GO FORWARD HERE...
-						pSoldier->flags.fTryingToFall = FALSE;
+						pSoldier->animationActivity().clearFall();
 						break;;
 					}
 					// IF HERE, RETURN SO WE DONOT INCREMENT DIR
@@ -1423,8 +1423,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					// Save old flag, then reset. If we do nothing special here, at least go back
 					// to aim if we were.
-					bGoBackToAimAfterHit = pSoldier->flags.bGoBackToAimAfterHit;
-					pSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
+					bGoBackToAimAfterHit = pSoldier->animationActivity().postHitStance();
+					pSoldier->animationActivity().postHitStance() = NO_SPEC_STANCE_AFTER_HIT;
 
 					// CODE: HANDLE ANY RANDOM HIT VARIATIONS WE WISH TO DO.....
 					if ( pSoldier->vitals().health() >= OKLIFE && bGoBackToAimAfterHit)
@@ -1673,7 +1673,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				//ReleaseSoldiersAttacker( pSoldier );
 
 				//FREEUP GETTING HIT FLAG
-				//pSoldier->flags.fGettingHit = FALSE;
+				//pSoldier->animationActivity().hitPhase() = FALSE;
 				break;
 
 			case 481:
@@ -1786,7 +1786,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						{
 							// Don't do any in water!
 							// Also don't play if we are in the middle of something
-							if ( !pSoldier->MercInWater( ) && !pSoldier->flags.fTurningUntilDone )
+							if ( !pSoldier->MercInWater( ) && !pSoldier->animationActivity().turningUntilDone() )
 							{
 								// OK, make a dice roll
 								ubDiceRoll = (UINT8)Random( 100 );
@@ -2071,7 +2071,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									{
 										if ( pTSoldier->vitals().health() > 30 && pTSoldier->vitals().breath() > 25 )
 										{
-											pTSoldier->flags.bGoBackToAimAfterHit = GO_TO_HTH_BREATH_AFTER_HIT;
+											pTSoldier->animationActivity().postHitStance() = GO_TO_HTH_BREATH_AFTER_HIT;
 										}
 									}
 									// If we were aiming
@@ -2079,18 +2079,18 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									//else if ( gAnimControl[ pTSoldier->animationPlayback().state() ].uiFlags & ANIM_FIREREADY )
 									//{
 									//	if ( gAnimControl[ pTSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) // alternative weapon holding stance
-									//		pTSoldier->flags.bGoBackToAimAfterHit = GO_TO_ALTERNATIVE_AIM_AFTER_HIT;
+									//		pTSoldier->animationActivity().postHitStance() = GO_TO_ALTERNATIVE_AIM_AFTER_HIT;
 									//	else // standard
-									//		pTSoldier->flags.bGoBackToAimAfterHit = GO_TO_AIM_AFTER_HIT;
+									//		pTSoldier->animationActivity().postHitStance() = GO_TO_AIM_AFTER_HIT;
 									//}
 									// if we were cowering (this is different from the bellow, we don't use that status flag for this animation)
 									else if ( pTSoldier->animationPlayback().state() == COWERING )
 									{
-										pTSoldier->flags.bGoBackToAimAfterHit = GO_TO_COWERING_AFTER_HIT;
+										pTSoldier->animationActivity().postHitStance() = GO_TO_COWERING_AFTER_HIT;
 									}
 									else 
 									{
-										pTSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
+										pTSoldier->animationActivity().postHitStance() = NO_SPEC_STANCE_AFTER_HIT;
 									}
 
 									// Turn towards the person!
@@ -2336,7 +2336,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						gfPotentialTeamChangeDuringDeath = FALSE;
 
 						// FREEUP GETTING HIT FLAG
-						pSoldier->flags.fGettingHit = FALSE;
+						pSoldier->animationActivity().clearHit();
 					}
 
 					HandleCheckForDeathCommonCode( pSoldier );
@@ -2353,8 +2353,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					if ( ResolvePendingInterrupt( pSoldier, BEFORESHOT_INTERRUPT ) )
 					{	
-						if ( pSoldier->flags.fTurningToShoot )
-							pSoldier->flags.fTurningToShoot = FALSE;
+						if ( pSoldier->animationActivity().turningToShoot() )
+							pSoldier->animationActivity().turningToShoot() = FALSE;
 
 						pSoldier->animationIntent().clearFacingAnimation();
 						// "artificially" set lock ui flag in this case
@@ -2430,8 +2430,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					if (pSoldier->animationPlayback().state() == DODGE_ONE && pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION )
 					{						
-						INT8 bGoBackToAimAfterHit = pSoldier->flags.bGoBackToAimAfterHit;
-						pSoldier->flags.bGoBackToAimAfterHit = NO_SPEC_STANCE_AFTER_HIT;
+						INT8 bGoBackToAimAfterHit = pSoldier->animationActivity().postHitStance();
+						pSoldier->animationActivity().postHitStance() = NO_SPEC_STANCE_AFTER_HIT;
 
 						// CODE: HANDLE ANY RANDOM HIT VARIATIONS WE WISH TO DO.....
 						if ( pSoldier->vitals().health() >= OKLIFE && bGoBackToAimAfterHit )
@@ -2496,16 +2496,16 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					pSoldier->animationIntent().clearDesiredHeight();
 
 					// 0verhaul:	This is moved to the animation state transition code to make sure it isn't sidestepped.
-					// if (pSoldier->flags.fChangingStanceDueToSuppression)
+					// if (pSoldier->animationActivity().suppressionStanceChange())
 					// {
-					//	pSoldier->flags.fChangingStanceDueToSuppression = FALSE;
+					//	pSoldier->animationActivity().suppressionStanceChange() = FALSE;
 					//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - end of suppression stance change") );
 					//	ReduceAttackBusyCount( pSoldier->ubSuppressorID, FALSE );
 					// }
 
 					if ( pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
-						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE ) && 
-						( pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON ) )
+						( pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE ) &&
+						( pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ON ) )
 					{
 						if ( GetJa2PendingTacticalCombatActions() == 0 )
 						{
@@ -2520,8 +2520,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					{
 						if ( pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 							GetJa2PendingTacticalCombatActions() == 0 &&
-							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE && 
-							pSoldier->flags.bTurningFromPronePosition != TURNING_FROM_PRONE_ON )
+							pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE &&
+							pSoldier->animationActivity().turningFromProneMode() != TURNING_FROM_PRONE_ON )
 						{
 							HandleSight(pSoldier,SIGHT_LOOK | SIGHT_RADIO | SIGHT_INTERRUPT );
 						}
@@ -3327,7 +3327,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 772:
 
 				//CODE: FOR A REALTIME NON-INTERRUPTABLE SCRIPT - SIGNAL DONE
-				pSoldier->flags.fRTInNonintAnim = FALSE;
+				pSoldier->animationActivity().realtimeNonInterruptible() = FALSE;
 				break;
 
 			case 773:
@@ -3994,7 +3994,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		}
 
 		//FREEUP GETTING HIT FLAG
-		pSoldier->flags.fGettingHit = FALSE;
+		pSoldier->animationActivity().clearHit();
 
 		// Find next closest team member!
 		if ( pSoldier->bTeam == gbPlayerNum )

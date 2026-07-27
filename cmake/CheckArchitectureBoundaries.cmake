@@ -2316,7 +2316,7 @@ string(REGEX MATCH
   serialized_soldier_animation_stop_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fPauseAllAnimation\\);[ \t]*ar\\.u8\\(animationIntent\\.continuationMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fHoldAttackerUntilDone\\);"
+  "ar\\.boolean\\(animationActivity\\.paused\\(\\)\\);[ \t]*ar\\.u8\\(animationIntent\\.continuationMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.holdAttackerUntilDone\\(\\)\\);"
   serialized_soldier_animation_continuation_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2324,7 +2324,7 @@ string(REGEX MATCH
   serialized_soldier_animation_primary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.bStartFallDir\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);"
+  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.fallDirection\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);"
   serialized_soldier_animation_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2425,6 +2425,138 @@ if(NOT serialized_soldier_animation_cursor_order OR
    NOT serialized_soldier_animation_render_order)
   message(FATAL_ERROR
     "Soldier animation playback moved in the portable save schema; keep every playback value at its established byte position")
+endif()
+
+# Playback lifecycle is a separate domain from both queued intent and the
+# accepted frame cursor. Do not return turn/hit/fall activity to STRUCT_Flags
+# or scatter its direction state back across the public soldier declaration.
+foreach(retired_animation_activity_flag IN ITEMS
+  "INT8;bTurningFromPronePosition"
+  "BOOLEAN;fDontChargeReadyAPs"
+  "INT8;bGoBackToAimAfterHit"
+  "BOOLEAN;fPauseAllAnimation"
+  "BOOLEAN;fHoldAttackerUntilDone"
+  "BOOLEAN;fTurningToShoot"
+  "BOOLEAN;fTurningToFall"
+  "BOOLEAN;fTurningUntilDone"
+  "BOOLEAN;fGettingHit"
+  "BOOLEAN;fInNonintAnim"
+  "BOOLEAN;fDontChargeTurningAPs"
+  "BOOLEAN;fChangingStanceDueToSuppression"
+  "BOOLEAN;fDontChargeAPsForStanceChange"
+  "BOOLEAN;fRTInNonintAnim"
+  "INT8;fTryingToFall"
+  "BOOLEAN;fFallClockwise")
+  string(REPLACE ";" ";" retired_animation_activity_parts
+    "${retired_animation_activity_flag}")
+  list(GET retired_animation_activity_parts 0 retired_animation_activity_type)
+  list(GET retired_animation_activity_parts 1 retired_animation_activity_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_animation_activity_type}[ \t]+${retired_animation_activity_name}[ \t]*;"
+    retired_current_animation_activity_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_animation_activity_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags animation field '${retired_animation_activity_name}' returned; lifecycle state belongs to SoldierAnimationActivityComponent")
+  endif()
+endforeach()
+
+foreach(retired_animation_activity_field IN ITEMS
+  bStartFallDir
+  bTurningIncrement)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_animation_activity_field}[ \t]*;"
+    retired_current_animation_activity_field
+    "${current_soldier_contents}")
+  if(retired_current_animation_activity_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE animation field '${retired_animation_activity_field}' returned; lifecycle state belongs to SoldierAnimationActivityComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAnimationActivityComponent[ \t\r\n]+animationActivity_[ \t]*;"
+  soldier_animation_activity_owner
+  "${current_soldier_contents}")
+if(NOT soldier_animation_activity_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAnimationActivityComponent")
+endif()
+
+foreach(owned_animation_activity_field IN ITEMS
+  "INT8;turningFromProneMode;0"
+  "BOOLEAN;readyCostWaived;FALSE"
+  "INT8;postHitStance;0"
+  "BOOLEAN;paused;FALSE"
+  "BOOLEAN;holdAttackerUntilDone;FALSE"
+  "BOOLEAN;turningToShoot;FALSE"
+  "BOOLEAN;turningToFall;FALSE"
+  "BOOLEAN;turningUntilDone;FALSE"
+  "UINT8;hitPhase;0"
+  "BOOLEAN;nonInterruptible;FALSE"
+  "BOOLEAN;turningCostWaived;FALSE"
+  "BOOLEAN;suppressionStanceChange;FALSE"
+  "BOOLEAN;stanceCostWaived;FALSE"
+  "BOOLEAN;realtimeNonInterruptible;FALSE"
+  "INT8;tryingToFall;FALSE"
+  "BOOLEAN;fallClockwise;FALSE"
+  "INT8;fallDirection;0"
+  "INT8;turningIncrement;0")
+  string(REPLACE ";" ";" owned_animation_activity_parts
+    "${owned_animation_activity_field}")
+  list(GET owned_animation_activity_parts 0 owned_animation_activity_type)
+  list(GET owned_animation_activity_parts 1 owned_animation_activity_name)
+  list(GET owned_animation_activity_parts 2 owned_animation_activity_initializer)
+  string(REGEX MATCH
+    "${owned_animation_activity_type}[ \t]+${owned_animation_activity_name}_[ \t]*=[ \t]*${owned_animation_activity_initializer}[ \t]*;"
+    owned_soldier_animation_activity
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_animation_activity)
+    message(FATAL_ERROR
+      "SoldierAnimationActivityComponent no longer owns initialized '${owned_animation_activity_name}_' storage")
+  endif()
+endforeach()
+
+# Preserve every established flag/POD byte position while moving ownership.
+# hitPhase intentionally transfers as raw u8: the live state machine uses phase
+# 2, which the former boolean serializer silently normalized back to phase 1.
+string(REGEX MATCH
+  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.boolean\\(f\\.fBeginFade\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fPrevInWater\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
+  serialized_soldier_animation_turn_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fWarnedAboutBleeding\\);[ \t]*ar\\.boolean\\(f\\.fDyingComment\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.turningToShoot\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningToFall\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningUntilDone\\(\\)\\);[ \t\r\n]*ar\\.u8\\(animationActivity\\.hitPhase\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fFlashLocator\\);"
+  serialized_soldier_animation_hit_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fSignedAnotherContract\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningCostWaived\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);"
+  serialized_soldier_animation_cost_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);[ \t]*ar\\.boolean\\(f\\.fMercAsleep\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fSoldierWasMoving\\);"
+  serialized_soldier_animation_stance_cost_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(f\\.fUseLandingZoneForArrival\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
+  serialized_soldier_animation_realtime_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(f\\.fDisplayDamage\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
+  serialized_soldier_animation_fall_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(s\\.ubNumTilesMovesSinceLastForget\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
+  serialized_soldier_animation_turn_increment_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_animation_turn_activity_order OR
+   NOT serialized_soldier_animation_hit_activity_order OR
+   NOT serialized_soldier_animation_cost_activity_order OR
+   NOT serialized_soldier_animation_stance_cost_order OR
+   NOT serialized_soldier_animation_realtime_activity_order OR
+   NOT serialized_soldier_animation_fall_activity_order OR
+   NOT serialized_soldier_animation_turn_increment_order)
+  message(FATAL_ERROR
+    "Soldier animation activity moved in the portable save schema; keep every lifecycle value at its established byte position")
 endif()
 
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The

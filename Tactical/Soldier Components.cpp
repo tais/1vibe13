@@ -100,3 +100,26 @@ void SoldierAnimationPlaybackComponent::reset() noexcept
 {
 	*this = SoldierAnimationPlaybackComponent{};
 }
+
+void SoldierAnimationActivityComponent::setInterruptibility(
+	BOOLEAN nonInterruptible, BOOLEAN realtimeNonInterruptible) noexcept
+{
+	nonInterruptible_ = nonInterruptible;
+	realtimeNonInterruptible_ = realtimeNonInterruptible;
+}
+
+void SoldierAnimationActivityComponent::clearInterruptibility() noexcept
+{
+	setInterruptibility(FALSE, FALSE);
+}
+
+void SoldierAnimationActivityComponent::beginFall(INT8 direction) noexcept
+{
+	fallDirection_ = direction;
+	tryingToFall_ = TRUE;
+}
+
+void SoldierAnimationActivityComponent::reset() noexcept
+{
+	*this = SoldierAnimationActivityComponent{};
+}
