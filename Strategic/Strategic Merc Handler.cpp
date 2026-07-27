@@ -122,14 +122,14 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 
 
 	//if the merc had life insurance
-	if( pSoldier->usLifeInsurance )
+	if( pSoldier->employment().lifeInsurance() )
 	{
 		// if he didn't die during auto-resolve
 		if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
 			// check whether this was obviously a suspicious death
 			// if killed within an hour of being insured
-			if ( pSoldier->uiStartTimeOfInsuranceContract <= GetWorldTotalMin() && GetWorldTotalMin() - pSoldier->uiStartTimeOfInsuranceContract < 60 )
+			if ( pSoldier->employment().insuranceStartTime() <= GetWorldTotalMin() && GetWorldTotalMin() - pSoldier->employment().insuranceStartTime() < 60 )
 			{
 				gMercProfiles[ pSoldier->ubProfile ].ubSuspiciousDeath = VERY_SUSPICIOUS_DEATH;
 			}
@@ -154,9 +154,9 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	}
 
 	//if its a MERC merc, record the time of his death
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 	{
-		pSoldier->iEndofContractTime = GetWorldTotalMin();
+		pSoldier->employment().endTime() = GetWorldTotalMin();
 
 		//set is so Speck can say that a merc is dead
 		LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote = 1;
@@ -280,7 +280,7 @@ void MercDailyUpdate()
 				INT32	iMoneyOwedToMerc = 0;
 
 				//increment the number of days the mercs has been on the team
-				pSoldier->iTotalContractLength++;
+				pSoldier->employment().totalLength()++;
 
 				//if the player owes the npc money, the balance field will be negative
 				if( gMercProfiles[ pSoldier->ubProfile ].iBalance < 0 )
@@ -349,7 +349,7 @@ void MercDailyUpdate()
 		{
 			if( ( pSoldier->bActive ) && ( pSoldier->bAssignment == ASSIGNMENT_POW ) )
 			{
-				pSoldier->iEndofContractTime += 1440;
+				pSoldier->employment().endTime() += 1440;
 			}
 		}
 
@@ -370,7 +370,7 @@ void MercDailyUpdate()
 		if ( ( pSoldier->bActive )&&( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
 		{
 			//if its a MERC merc, determine if the merc should leave ( because player refused to pay for merc )
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
 				//if the players account status is invalid
 				if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_INVALID )
@@ -605,13 +605,13 @@ void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 		if( iCounter == 0 )
 		{
 			// first guy, if he no leave today, no one is leave, go home
-			if( ( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__MERC ) && (	pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM ) )
+			if( ( pSoldier->employment().mercenaryType() != MERC_TYPE__MERC ) && (	pSoldier->employment().mercenaryType() != MERC_TYPE__AIM ) )
 			{
 				return;
 			}
 			else
 			{
-				if( ( pSoldier->iEndofContractTime / 1440 ) > (INT32)GetWorldDay( ) )
+				if( ( pSoldier->employment().endTime() / 1440 ) > (INT32)GetWorldDay( ) )
 				{
 					return;
 				}
@@ -621,7 +621,7 @@ void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 				if( IsTheSoldierAliveAndConcious( pSoldier ) )
 				{
 					//if the soldier is an AIM merc
-					if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+					if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 					{
 						//add an event so the merc will say the departing warning ( 2 hours prior to leaving
 						AddSameDayStrategicEvent( EVENT_MERC_ABOUT_TO_LEAVE_COMMENT, MERC_DEPARTURE_TIME_OF_DAY - 2 * 60,	(UINT32) pSoldier->ubID );
@@ -659,7 +659,7 @@ void MercsContractIsFinished( SoldierID ubID )
 	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_ENTER_MAPSCREEN,0,0,0,0,0 );
 
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 	{
 		//if the players account status is invalid
 		if( LaptopSaveInfo.gubPlayersMercAccountStatus == MERC_ACCOUNT_INVALID )
@@ -678,7 +678,7 @@ void MercsContractIsFinished( SoldierID ubID )
 			pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
 		}
 	}
-	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC )
+	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
 	{
 		InterruptTime( );
 		PauseGame();
@@ -702,7 +702,7 @@ void RPCWhineAboutNoPay( SoldierID ubID )
 	if( !pSoldier->bActive )
 		return;
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
 	{
 		// Say quote for needing pay!
 		TacticalCharacterDialogue( pSoldier, QUOTE_NOT_GETTING_PAID );
@@ -920,21 +920,21 @@ void UpdateBuddyAndHatedCounters( void )
 											}
 											else if (iLoop == 2)
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_3 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_3 );
 											}
 											else if (iLoop == 3)
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_4 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_4 );
 											}
 											else if (iLoop == 4)
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_5 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_5 );
@@ -944,7 +944,7 @@ void UpdateBuddyAndHatedCounters( void )
 										else if ( pProfile->bHatedCount[iLoop] == 0 )
 										{
 											// zero count!
-											if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC || pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC )
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
 											{
 												// MERC mercs leave now!
 												if (iLoop == 0)
@@ -986,21 +986,21 @@ void UpdateBuddyAndHatedCounters( void )
 												}
 												else if (iLoop == 2) 
 												{
-													if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+													if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 														TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_3 );
 													else
 														TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_3 );
 												}
 												else if (iLoop == 3) 
 												{
-													if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+													if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 														TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_4 );
 													else
 														TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_4 );
 												}
 												else if (iLoop == 4) 
 												{
-													if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+													if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 														TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_5 );
 													else
 														TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_5 );
@@ -1039,21 +1039,21 @@ void UpdateBuddyAndHatedCounters( void )
 											}
 											else if (iLoop == 2) 
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_3 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_3 );
 											}
 											else if (iLoop == 3) 
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_4 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_4 );
 											}
 											else if (iLoop == 4) 
 											{
-												if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+												if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 													TacticalCharacterDialogue( pSoldier, QUOTE_AIM_HATED_5 );
 												else
 													TacticalCharacterDialogue( pSoldier, QUOTE_NON_AIM_HATED_5 );
@@ -1088,9 +1088,9 @@ void UpdateBuddyAndHatedCounters( void )
 											pProfile->bMercOpinion[ubOtherProfileID] = HATED_OPINION;
 											}
 #ifdef JA2UB
-											if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC || (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC &&  ( /* pSoldier->ubProfile == DEVIN || */ pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC &&  ( /* pSoldier->ubProfile == DEVIN || */ pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
 #else
-											if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC || (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC && (pSoldier->ubProfile == DEVIN || pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC && (pSoldier->ubProfile == DEVIN || pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
 #endif
 											{
 												// Leave now! ( handle equipment too )....
@@ -1099,7 +1099,7 @@ void UpdateBuddyAndHatedCounters( void )
 												pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
 
 											}
-											else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC)
+											else if (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC)
 											{
 												// whine again
 												TacticalCharacterDialogue( pSoldier, QUOTE_LEARNED_TO_HATE_MERC );

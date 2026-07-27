@@ -7292,6 +7292,22 @@ int main( int, char** )
 		camouflage.desertWorn() = -90;
 		camouflage.snowApplied() = 15;
 		camouflage.snowWorn() = 10;
+		SoldierEmploymentComponent& employment = soldier.employment();
+		employment.endTime() = 12000;
+		employment.startTime() = 17;
+		employment.totalLength() = 14;
+		employment.mercenaryType() = MERC_TYPE__AIM_MERC;
+		employment.medicalDeposit() = 600;
+		employment.lifeInsurance() = 1;
+		employment.insuranceStartDay() = 4;
+		employment.insuranceLengthDays() = 8;
+		employment.lastContractUpdateTime() = 12001;
+		employment.lastContractType() = CONTRACT_EXTEND_2_WEEK;
+		employment.justFired() = 1;
+		employment.renewalQuoteCode() = SOLDIER_CONTRACT_RENEW_QUOTE_89_USED;
+		employment.timeCanSignElsewhere() = 13000;
+		employment.hospitalPriceModifier() = -2;
+		employment.insuranceStartTime() = 11000;
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7439,6 +7455,23 @@ int main( int, char** )
 		       constSoldier.camouflage().strongestTotal() == 65 &&
 		       constSoldier.camouflage().appliedTotal() == 40,
 		       "soldier camouflage component owns applied and equipment totals for every terrain family" );
+		CHECK( constSoldier.employment().endTime() == 12000 &&
+		       constSoldier.employment().startTime() == 17 &&
+		       constSoldier.employment().totalLength() == 14 &&
+		       constSoldier.employment().isMercenaryType(MERC_TYPE__AIM_MERC) &&
+		       constSoldier.employment().medicalDeposit() == 600 &&
+		       constSoldier.employment().hasMedicalDeposit() &&
+		       constSoldier.employment().hasLifeInsurance() &&
+		       constSoldier.employment().insuranceStartDay() == 4 &&
+		       constSoldier.employment().insuranceLengthDays() == 8 &&
+		       constSoldier.employment().lastContractUpdateTime() == 12001 &&
+		       constSoldier.employment().lastContractType() == CONTRACT_EXTEND_2_WEEK &&
+		       constSoldier.employment().wasJustFired() &&
+		       constSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
+		       constSoldier.employment().timeCanSignElsewhere() == 13000 &&
+		       constSoldier.employment().hospitalPriceModifier() == -2 &&
+		       constSoldier.employment().insuranceStartTime() == 11000,
+		       "soldier employment component owns contract, classification, deposit, insurance, and renewal state" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7628,6 +7661,22 @@ int main( int, char** )
 		       copiedSoldier.camouflage().snowApplied() == 15 &&
 		       copiedSoldier.camouflage().snowWorn() == 10,
 		       "soldier copies retain their owned persistent camouflage state" );
+		CHECK( copiedSoldier.employment().endTime() == 12000 &&
+		       copiedSoldier.employment().startTime() == 17 &&
+		       copiedSoldier.employment().totalLength() == 14 &&
+		       copiedSoldier.employment().mercenaryType() == MERC_TYPE__AIM_MERC &&
+		       copiedSoldier.employment().medicalDeposit() == 600 &&
+		       copiedSoldier.employment().lifeInsurance() == 1 &&
+		       copiedSoldier.employment().insuranceStartDay() == 4 &&
+		       copiedSoldier.employment().insuranceLengthDays() == 8 &&
+		       copiedSoldier.employment().lastContractUpdateTime() == 12001 &&
+		       copiedSoldier.employment().lastContractType() == CONTRACT_EXTEND_2_WEEK &&
+		       copiedSoldier.employment().justFired() == 1 &&
+		       copiedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
+		       copiedSoldier.employment().timeCanSignElsewhere() == 13000 &&
+		       copiedSoldier.employment().hospitalPriceModifier() == -2 &&
+		       copiedSoldier.employment().insuranceStartTime() == 11000,
+		       "soldier copies retain their owned persistent employment state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -8023,6 +8072,34 @@ int main( int, char** )
 		       camouflageLifecycle.snowApplied() == 0 &&
 		       camouflageLifecycle.snowWorn() == 0,
 		       "camouflage reset clears applied and equipment-derived state for every terrain family" );
+
+		SoldierEmploymentComponent employmentLifecycle;
+		employmentLifecycle.mercenaryType() = MERC_TYPE__MERC;
+		employmentLifecycle.medicalDeposit() = 1;
+		employmentLifecycle.lifeInsurance() = 1;
+		employmentLifecycle.justFired() = 1;
+		CHECK( employmentLifecycle.isMercenaryType(MERC_TYPE__MERC) &&
+		       employmentLifecycle.hasMedicalDeposit() &&
+		       employmentLifecycle.hasLifeInsurance() &&
+		       employmentLifecycle.wasJustFired(),
+		       "employment exposes named classification, deposit, insurance, and dismissal queries" );
+		employmentLifecycle.reset();
+		CHECK( employmentLifecycle.endTime() == 0 &&
+		       employmentLifecycle.startTime() == 0 &&
+		       employmentLifecycle.totalLength() == 0 &&
+		       employmentLifecycle.mercenaryType() == 0 &&
+		       employmentLifecycle.medicalDeposit() == 0 &&
+		       employmentLifecycle.lifeInsurance() == 0 &&
+		       employmentLifecycle.insuranceStartDay() == 0 &&
+		       employmentLifecycle.insuranceLengthDays() == 0 &&
+		       employmentLifecycle.lastContractUpdateTime() == 0 &&
+		       employmentLifecycle.lastContractType() == 0 &&
+		       employmentLifecycle.justFired() == 0 &&
+		       employmentLifecycle.renewalQuoteCode() == 0 &&
+		       employmentLifecycle.timeCanSignElsewhere() == 0 &&
+		       employmentLifecycle.hospitalPriceModifier() == 0 &&
+		       employmentLifecycle.insuranceStartTime() == 0,
+		       "employment reset clears the complete strategic contract lifecycle" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -8065,6 +8142,22 @@ int main( int, char** )
 		       copiedSoldier.camouflage().strongestTotal() == 0 &&
 		       copiedSoldier.camouflage().appliedTotal() == 0,
 		       "soldier initialization resets the complete camouflage domain" );
+		CHECK( copiedSoldier.employment().endTime() == 0 &&
+		       copiedSoldier.employment().startTime() == 0 &&
+		       copiedSoldier.employment().totalLength() == 0 &&
+		       copiedSoldier.employment().mercenaryType() == 0 &&
+		       copiedSoldier.employment().medicalDeposit() == 0 &&
+		       copiedSoldier.employment().lifeInsurance() == 0 &&
+		       copiedSoldier.employment().insuranceStartDay() == 0 &&
+		       copiedSoldier.employment().insuranceLengthDays() == 0 &&
+		       copiedSoldier.employment().lastContractUpdateTime() == 0 &&
+		       copiedSoldier.employment().lastContractType() == 0 &&
+		       copiedSoldier.employment().justFired() == 0 &&
+		       copiedSoldier.employment().renewalQuoteCode() == 0 &&
+		       copiedSoldier.employment().timeCanSignElsewhere() == 0 &&
+		       copiedSoldier.employment().hospitalPriceModifier() == 0 &&
+		       copiedSoldier.employment().insuranceStartTime() == 0,
+		       "soldier initialization resets the complete employment domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -8216,6 +8309,21 @@ int main( int, char** )
 		legacySoldier->wornDesertCamo = -6;
 		legacySoldier->snowCamo = -7;
 		legacySoldier->wornSnowCamo = -8;
+		legacySoldier->iEndofContractTime = -2;
+		legacySoldier->iStartContractTime = 18;
+		legacySoldier->iTotalContractLength = 21;
+		legacySoldier->ubWhatKindOfMercAmI = MERC_TYPE__MERC;
+		legacySoldier->usMedicalDeposit = 700;
+		legacySoldier->usLifeInsurance = 2;
+		legacySoldier->iStartOfInsuranceContract = 5;
+		legacySoldier->iTotalLengthOfInsuranceContract = 9;
+		legacySoldier->uiTimeOfLastContractUpdate = 12002;
+		legacySoldier->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
+		legacySoldier->ubMercJustFired = 1;
+		legacySoldier->ubContractRenewalQuoteCode = SOLDIER_CONTRACT_RENEW_QUOTE_115_USED;
+		legacySoldier->iTimeCanSignElsewhere = 13001;
+		legacySoldier->bHospitalPriceModifier = -3;
+		legacySoldier->uiStartTimeOfInsuranceContract = 11001;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8271,6 +8379,22 @@ int main( int, char** )
 		       convertedSoldier.camouflage().snowApplied() == -7 &&
 		       convertedSoldier.camouflage().snowWorn() == -8,
 		       "v101 soldier conversion retains all applied and equipment-derived camouflage values" );
+		CHECK( convertedSoldier.employment().endTime() == -2 &&
+		       convertedSoldier.employment().startTime() == 18 &&
+		       convertedSoldier.employment().totalLength() == 21 &&
+		       convertedSoldier.employment().mercenaryType() == MERC_TYPE__MERC &&
+		       convertedSoldier.employment().medicalDeposit() == 700 &&
+		       convertedSoldier.employment().lifeInsurance() == 2 &&
+		       convertedSoldier.employment().insuranceStartDay() == 5 &&
+		       convertedSoldier.employment().insuranceLengthDays() == 9 &&
+		       convertedSoldier.employment().lastContractUpdateTime() == 12002 &&
+		       convertedSoldier.employment().lastContractType() == CONTRACT_EXTEND_1_WEEK &&
+		       convertedSoldier.employment().justFired() == 1 &&
+		       convertedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_115_USED &&
+		       convertedSoldier.employment().timeCanSignElsewhere() == 13001 &&
+		       convertedSoldier.employment().hospitalPriceModifier() == -3 &&
+		       convertedSoldier.employment().insuranceStartTime() == 11001,
+		       "v101 soldier conversion retains the complete employment and insurance lifecycle" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8441,6 +8565,21 @@ int main( int, char** )
 		savedSoldier.camouflage().desertWorn() = -16;
 		savedSoldier.camouflage().snowApplied() = 17;
 		savedSoldier.camouflage().snowWorn() = 18;
+		savedSoldier.employment().endTime() = 22000;
+		savedSoldier.employment().startTime() = 27;
+		savedSoldier.employment().totalLength() = 28;
+		savedSoldier.employment().mercenaryType() = MERC_TYPE__NPC;
+		savedSoldier.employment().medicalDeposit() = 800;
+		savedSoldier.employment().lifeInsurance() = 3;
+		savedSoldier.employment().insuranceStartDay() = 6;
+		savedSoldier.employment().insuranceLengthDays() = 10;
+		savedSoldier.employment().lastContractUpdateTime() = 22001;
+		savedSoldier.employment().lastContractType() = CONTRACT_EXTEND_1_DAY;
+		savedSoldier.employment().justFired() = 1;
+		savedSoldier.employment().renewalQuoteCode() = SOLDIER_CONTRACT_RENEW_QUOTE_89_USED;
+		savedSoldier.employment().timeCanSignElsewhere() = 23000;
+		savedSoldier.employment().hospitalPriceModifier() = -4;
+		savedSoldier.employment().insuranceStartTime() = 21000;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8599,6 +8738,23 @@ int main( int, char** )
 		       loadedSoldier.camouflage().snowApplied() == 17 &&
 		       loadedSoldier.camouflage().snowWorn() == 18,
 		       "soldier save/load round-trips camouflage state at established POD positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.employment().endTime() == 22000 &&
+		       loadedSoldier.employment().startTime() == 27 &&
+		       loadedSoldier.employment().totalLength() == 28 &&
+		       loadedSoldier.employment().mercenaryType() == MERC_TYPE__NPC &&
+		       loadedSoldier.employment().medicalDeposit() == 800 &&
+		       loadedSoldier.employment().lifeInsurance() == 3 &&
+		       loadedSoldier.employment().insuranceStartDay() == 6 &&
+		       loadedSoldier.employment().insuranceLengthDays() == 10 &&
+		       loadedSoldier.employment().lastContractUpdateTime() == 22001 &&
+		       loadedSoldier.employment().lastContractType() == CONTRACT_EXTEND_1_DAY &&
+		       loadedSoldier.employment().justFired() == 1 &&
+		       loadedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
+		       loadedSoldier.employment().timeCanSignElsewhere() == 23000 &&
+		       loadedSoldier.employment().hospitalPriceModifier() == -4 &&
+		       loadedSoldier.employment().insuranceStartTime() == 21000,
+		       "soldier save/load round-trips employment state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

@@ -304,6 +304,11 @@ all four established terrain families. Its bounded terrain and strongest-total
 queries give line-of-sight and UI code one definition of effective camouflage,
 while its applied-only total preserves camouflage-kit behavior. Existing item
 fields and XML data remain the content-facing API. Current
+`SoldierEmploymentComponent` owns live contract timing, mercenary
+classification, deposits, insurance, renewal/dismissal bookkeeping, signing
+eligibility, and the hospital modifier. Laptop, strategic, tactical, AI, and
+persistence adapters use the same owner; mercenary profiles and hire requests
+retain their existing content- and command-facing structures. Current
 tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot

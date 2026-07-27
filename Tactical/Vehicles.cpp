@@ -246,7 +246,7 @@ void SetVehicleValuesIntoSoldierType( SOLDIERTYPE *pVehicle )
 	pVehicle->sBreathRed = 10000;
 	pVehicle->vitals().breath()	= 100;
 
-	pVehicle->ubWhatKindOfMercAmI = MERC_TYPE__VEHICLE;
+	pVehicle->employment().mercenaryType() = MERC_TYPE__VEHICLE;
 }
 
 INT32 AddVehicleToList( INT16 sMapX, INT16 sMapY, INT32 sGridNo, UINT8 ubType )

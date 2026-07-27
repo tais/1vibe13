@@ -1018,7 +1018,7 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 			if( !IsMercDead( pSoldier->ubProfile ) )
 			{
 				gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength += 1;
-//				pSoldier->iTotalContractLength++;
+//				pSoldier->employment().totalLength()++;
 			}
 
 #ifdef JA2UB
@@ -2631,7 +2631,7 @@ BOOLEAN IsSpeckComAvailable() // anv: Prevent Speck from talking if his playable
 
 void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle playable Speck witnessing his employee death
 {	
-	if(pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+	if(pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 	{
 		// first blood
 		if( !LaptopSaveInfo.fHasAMercDiedAtMercSite )

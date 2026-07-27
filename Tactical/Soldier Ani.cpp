@@ -3678,7 +3678,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 			break;
 
 		case 2:
-			if( pChosen->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+			if( pChosen->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				usQuoteNum = QUOTE_AIM_BUDDY_3_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_3_GOOD;
@@ -3686,7 +3686,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 			break;
 
 		case 3:
-			if( pChosen->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+			if( pChosen->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				usQuoteNum = QUOTE_AIM_BUDDY_4_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_4_GOOD;
@@ -3694,7 +3694,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 			break;
 
 		case 4:
-			if( pChosen->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+			if( pChosen->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				usQuoteNum = QUOTE_AIM_BUDDY_5_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_5_GOOD;
@@ -3769,7 +3769,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 	BOOLEAN	fCanWeSeeLocation = ( SoldierTo3DLocationLineOfSightTest( pKillerSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) != 0 );
 
 	// Are we killing mike?
-	if ( pKilledSoldier->ubProfile == MIKE && ( pKillerSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC || (  pKillerSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC && gMercProfiles[pKillerSoldier->ubProfile].bLearnToHate == 255 ) ) )
+	if ( pKilledSoldier->ubProfile == MIKE && ( pKillerSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || (  pKillerSoldier->employment().mercenaryType() == MERC_TYPE__MERC && gMercProfiles[pKillerSoldier->ubProfile].bLearnToHate == 255 ) ) )
 	{
 		// Can we see?
 		if ( fCanWeSeeLocation )

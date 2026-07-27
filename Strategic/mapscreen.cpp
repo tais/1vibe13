@@ -2299,21 +2299,21 @@ void RenderIconsForUpperLeftCornerPiece( INT8 bCharNumber )
 	GetVideoObject(&hHandle, guiULICONS);
 
 	// if merc is an AIM merc
-	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 	{
 		// finite contract length icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 0, x, y, VO_BLT_SRCTRANSPARENCY, NULL );
 	}
 
 	// if merc has life insurance
-	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->usLifeInsurance > 0 )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->employment().lifeInsurance() > 0 )
 	{
 		// draw life insurance icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 2, x, y + spacing, VO_BLT_SRCTRANSPARENCY, NULL );
 	}
 
 	// if merc has a medical deposit
-	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->usMedicalDeposit > 0 )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID)->employment().medicalDeposit() > 0 )
 	{
 		// draw medical deposit icon
 		BltVideoObject( guiSAVEBUFFER, hHandle, 1, x, y + ( 2 * spacing), VO_BLT_SRCTRANSPARENCY, NULL );
@@ -3111,20 +3111,20 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	// what kind of merc
-	else if(pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
+	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
 	{
 		FLOAT dTimeLeft = 0.0;
 
 		// amount of time left on contract
-		iTimeRemaining = pSoldier->iEndofContractTime-GetWorldTotalMin();
+		iTimeRemaining = pSoldier->employment().endTime()-GetWorldTotalMin();
 
 		//if the merc is in transit
 		if( pSoldier->bAssignment == IN_TRANSIT )
 		{
 			//and if the ttime left on the cotract is greater then the contract time
-			if( iTimeRemaining > (INT32)( pSoldier->iTotalContractLength * NUM_MIN_IN_DAY ) )
+			if( iTimeRemaining > (INT32)( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY ) )
 			{
-				iTimeRemaining = ( pSoldier->iTotalContractLength * NUM_MIN_IN_DAY );
+				iTimeRemaining = ( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY );
 			}
 		}
 
@@ -3141,7 +3141,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_LTGREEN);
 			}
 
-			sgp_swprintf(sString, 32,L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+			sgp_swprintf(sString, 32,L"%.1f%s/%d%s", dTimeLeft, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 		else
 		{
@@ -3168,12 +3168,12 @@ void DrawCharacterInfo(INT16 sCharNumber)
 				SetFontForeground(FONT_RED);
 			}
 
-		sgp_swprintf(sString, 32,L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+		sgp_swprintf(sString, 32,L"%d%s/%d%s",iTimeRemaining, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 		}
 	}
-	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 	{
-		INT32 iBeenHiredFor = ( GetWorldTotalMin( ) / NUM_MIN_IN_DAY ) - pSoldier->iStartContractTime;
+		INT32 iBeenHiredFor = ( GetWorldTotalMin( ) / NUM_MIN_IN_DAY ) - pSoldier->employment().startTime();
 
 		sgp_swprintf(sString, 32,L"%d%s/%d%s",gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 	}
@@ -3198,14 +3198,14 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 
 	// salary
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 	{
 		// daily rate
-		if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+		if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 		{
 			iDailyCost = ( gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14 );
 		}
-		if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+		if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 		{
 			iDailyCost = ( gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 );
 		}
@@ -12783,7 +12783,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	const bool multipleMercsSelected = (gSelectedSoldiers.size() > 0) ? true : false;
 
 	bool atLeastOneAIMmerc = false;
-	if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+	if (pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 	{
 		atLeastOneAIMmerc = true;
 
@@ -12792,7 +12792,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	{
 		for (const auto& soldier : gSelectedSoldiers)
 		{
-			if (soldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if (soldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				atLeastOneAIMmerc = true;
 				break;
@@ -14238,7 +14238,7 @@ BOOLEAN AnyMercsLeavingRealSoon()
 	{
 		if( gCharactersList[ uiCounter ].fValid == TRUE )
 		{
-			if( ( GetJa2SoldierRepository().resolve(gCharactersList[uiCounter].usSolID)->iEndofContractTime - uiTimeInMin ) <= MINS_TO_FLASH_CONTRACT_TIME )
+			if( ( GetJa2SoldierRepository().resolve(gCharactersList[uiCounter].usSolID)->employment().endTime() - uiTimeInMin ) <= MINS_TO_FLASH_CONTRACT_TIME )
 			{
 				fFoundOne = TRUE;
 				break;
@@ -15326,7 +15326,7 @@ BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 				// And added this instead:
 			( (!gGameExternalOptions.fVehicleInventory) && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) ) ||
 			( AM_A_ROBOT( pSoldier ) && !gGameExternalOptions.fRobotUpgradeable) ||
-			( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC && !AM_A_ROBOT( pSoldier ) ) ||
+			( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC && !AM_A_ROBOT( pSoldier ) ) ||
 			( pSoldier->vitals().health() < OKLIFE )
 		)
 	{
@@ -15789,9 +15789,9 @@ INT32 GetContractExpiryTime( SOLDIERTYPE *pSoldier )
 #ifdef JA2UB
 /* JA25 UB  */
 #else
-	if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) || ( pSoldier->ubProfile == SLAY ) )
+	if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) || ( pSoldier->ubProfile == SLAY ) )
 	{
-		return ( pSoldier->iEndofContractTime );
+		return ( pSoldier->employment().endTime() );
 	}
 	else	
 #endif
@@ -16859,22 +16859,22 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 //Ja25:		Removed the aim merc check because aim mercs are hired for a 1 time fee
 	if( ( pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
 #else
-	if( ( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
+	if( ( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
 #endif
 	{
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	else
 	{
-		iMinsRemaining = pSoldier->iEndofContractTime - GetWorldTotalMin();
+		iMinsRemaining = pSoldier->employment().endTime() - GetWorldTotalMin();
 
 		//if the merc is in transit
 		if( pSoldier->bAssignment == IN_TRANSIT )
 		{
 			//and if the time left on the cotract is greater then the contract time
-			if( iMinsRemaining > (INT32)( pSoldier->iTotalContractLength * NUM_MIN_IN_DAY ) )
+			if( iMinsRemaining > (INT32)( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY ) )
 			{
-				iMinsRemaining = ( pSoldier->iTotalContractLength * NUM_MIN_IN_DAY );
+				iMinsRemaining = ( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY );
 			}
 		}
 
@@ -17397,16 +17397,16 @@ INT32 GetTotalContractExpenses ( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 		// salary
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 		{
 			if (gGameExternalOptions.ubIncludeContractsInExpenses == 2)
 			{
 				// daily rate
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					iTotalCost += ( gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14 );
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					iTotalCost += ( gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 );
 				}

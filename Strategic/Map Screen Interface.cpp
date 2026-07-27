@@ -1293,10 +1293,10 @@ void CheckAndUpdateBasedOnContractTimes( void )
 		if( gCharactersList[iCounter].fValid == TRUE )
 		{
 				// what kind of merc
-			if(GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if(GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				// amount of time left on contract
-				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->iEndofContractTime - GetWorldTotalMin();
+				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->employment().endTime() - GetWorldTotalMin();
 				if(iTimeRemaining >60*24)
 				{
 					// more than a day, display in green
@@ -1327,9 +1327,9 @@ void CheckAndUpdateBasedOnContractTimes( void )
 					}
 				}
 			}
-			else if( GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			else if( GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
-				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->iTotalContractLength;
+				iTimeRemaining = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID)->employment().totalLength();
 
 				if( iTimeRemaining != iOldContractTimes[ iCounter ])
 				{
@@ -6070,7 +6070,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 	else
 	{
 		// if merc is an AIM merc
-		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 		{
 			SetRegionFastHelpText( &(gContractIconRegion), zMarksMapScreenText[ 22 ] );
 		}
@@ -6080,7 +6080,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 		}
 
 		// if merc has life insurance
-		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->usLifeInsurance > 0 )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->employment().lifeInsurance() > 0 )
 		{
 			SetRegionFastHelpText( &(gInsuranceIconRegion), zMarksMapScreenText[ 3 ] );
 		}
@@ -6090,7 +6090,7 @@ void UpdateHelpTextForMapScreenMercIcons( void )
 		}
 
 		// if merc has a medical deposit
-		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->usMedicalDeposit > 0 )
+		if( GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->employment().medicalDeposit() > 0 )
 		{
 			SetRegionFastHelpText( &(gDepositIconRegion), zMarksMapScreenText[ 12 ] );
 		}
@@ -6607,7 +6607,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		}
 	}
 	// an Escorted NPC?
-	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// going alone?
 		if ( ( ( pSoldier->bAssignment == VEHICLE ) && ( GetNumberOfNonEPCsInVehicle( pSoldier->iVehicleId ) == 0 ) ) ||

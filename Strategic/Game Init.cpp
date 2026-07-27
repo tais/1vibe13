@@ -1027,7 +1027,7 @@ BOOLEAN QuickGameMemberHireMerc( UINT8 ubCurrentSoldier )
 	sSoldierID = GetSoldierIDFromMercID( ubCurrentSoldier );
 	if( sSoldierID == -1 )
 		return( FALSE );
-	GetJa2SoldierRepository().record(sSoldierID).bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
+	GetJa2SoldierRepository().record(sSoldierID).employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
 	#endif
 	
 

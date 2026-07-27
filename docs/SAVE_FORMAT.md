@@ -311,6 +311,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   signed 8-bit values at their original POD positions, and v101 conversion maps
   the original values into that owner while retaining the established kit-area
   caps. No save, packet, map, XML, Lua, or installed-data bytes change.
+- Live contract timing, mercenary classification, deposits, insurance terms,
+  renewal/dismissal bookkeeping, signing eligibility, and the per-soldier
+  hospital modifier are now stored by `SoldierEmploymentComponent`. The field
+  visitor still emits all fifteen values at their original POD positions and
+  widths, and v101 conversion maps the original fields into that owner. Hire
+  requests, profiles, and all save, packet, map, XML, Lua, and installed-data
+  bytes remain unchanged.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

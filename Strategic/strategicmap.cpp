@@ -6144,7 +6144,7 @@ void HandleSlayDailyEvent( void )
 	// ATE: This function is used to check for the ultimate last day SLAY can stay for
 	// he may decide to leave randomly while asleep...
 	//if the user hasnt renewed yet, and is still leaving today
-	if ( (pSoldier->iEndofContractTime / 1440) <= (INT32)GetWorldDay( ) )
+	if ( (pSoldier->employment().endTime() / 1440) <= (INT32)GetWorldDay( ) )
 	{
 		pSoldier->ubLeaveHistoryCode = HISTORY_SLAY_MYSTERIOUSLY_LEFT;
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );

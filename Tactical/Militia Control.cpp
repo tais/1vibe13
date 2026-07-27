@@ -577,7 +577,7 @@ void CreateDestroyMouseRegionsForMilitiaControlMenu( void )
 
 		//pSoldier = GetSelectedAssignSoldier( FALSE );
 
-		//if( pSoldier -> ubWhatKindOfMercAmI != MERC_TYPE__EPC ) //laltodo
+		//if( pSoldier ->employment().mercenaryType() != MERC_TYPE__EPC ) //laltodo
 		{
 			// grab height of font
 			iFontHeight = GetLineSpace( ghMilitiaControlBox ) + GetFontHeight( GetBoxFont( ghMilitiaControlBox ) ); 
@@ -883,7 +883,7 @@ void CheckAndUpdateTacticalMilitiaControlPopUpPositions( void )
 	//get the soldier
 	//pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	//if( pSoldier -> ubWhatKindOfMercAmI == MERC_TYPE__EPC ) //laltodo
+	//if( pSoldier ->employment().mercenaryType() == MERC_TYPE__EPC ) //laltodo
 	{
 		GetBoxSize( ghMilitiaControlBox, &pDimensions2 );
 	}
@@ -904,7 +904,7 @@ void CheckAndUpdateTacticalMilitiaControlPopUpPositions( void )
 	pPoint.iX = gsMilitiaControlBoxesX;
 	pPoint.iY = gsMilitiaControlBoxesY;
 
-	//if( pSoldier -> ubWhatKindOfMercAmI != MERC_TYPE__EPC) //laltodo
+	//if( pSoldier ->employment().mercenaryType() != MERC_TYPE__EPC) //laltodo
 	{
 		SetBoxPosition( ghMilitiaControlBox, pPoint );
 	}
@@ -1087,7 +1087,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 		UnHighLightBox( ghMilitiaControlBox );
 
-		//if( pSoldier -> ubWhatKindOfMercAmI != MERC_TYPE__EPC ) //laltodo
+		//if( pSoldier ->employment().mercenaryType() != MERC_TYPE__EPC ) //laltodo
 		if (pSoldier)
 		{
 			switch( iValue )

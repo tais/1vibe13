@@ -1817,31 +1817,31 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			switch( zTaunt[ i ].value[TAUNT_TARGET_TYPE] )
 			{
 				case 0:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__PLAYER_CHARACTER )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
 						continue;
 					break;
 				case 1:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 						continue;
 					break;
 				case 2:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__MERC )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__MERC )
 						continue;
 					break;
 				case 3:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__NPC )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__NPC )
 						continue;
 					break;
 				case 4:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__EPC )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__EPC )
 						continue;
 					break;
 				case 5:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT )
 						continue;
 					break;
 				case 6:
-					if( pTarget->ubWhatKindOfMercAmI != MERC_TYPE__VEHICLE )
+					if( pTarget->employment().mercenaryType() != MERC_TYPE__VEHICLE )
 						continue;
 					break;
 				default:

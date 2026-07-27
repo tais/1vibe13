@@ -296,14 +296,14 @@ void HandleContractRenewalSequence( )
 				{
 					// OK check what dialogue to play
 					// If we have not used this one before....
-					if ( pSoldier->ubContractRenewalQuoteCode == SOLDIER_CONTRACT_RENEW_QUOTE_NOT_USED )
+					if ( pSoldier->employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_NOT_USED )
 					{
 						SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1 ,MAP_SCREEN ,0 ,0 ,0 );
 						HandleImportantMercQuote( pSoldier, QUOTE_CONTRACTS_OVER );
 						SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,0 ,MAP_SCREEN ,0 ,0 ,0 );
 					}
 					// Else if we have said 89 already......
-					else if ( pSoldier->ubContractRenewalQuoteCode == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED )
+					else if ( pSoldier->employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED )
 					{
 						SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1 ,MAP_SCREEN ,0 ,0 ,0 );
 						HandleImportantMercQuote( pSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
@@ -387,7 +387,7 @@ BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction )
 
 
 	//determins what kind of merc the contract is being extended for (only aim mercs can extend contract)
-	if( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 		return(FALSE);
 
 	switch( ubDesiredAction )
@@ -455,14 +455,14 @@ BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction )
 	//
 
 	//set the contract length and the charge
-	pSoldier->iTotalContractLength += iContractLength;
+	pSoldier->employment().totalLength() += iContractLength;
 //	pSoldier->iTotalContractCharge = iContractCharge;
-	pSoldier->bTypeOfLastContract = ubDesiredAction;
+	pSoldier->employment().lastContractType() = ubDesiredAction;
 
 	//determine the end of the contract
-	pSoldier->iEndofContractTime += ( iContractLength * 1440 );
+	pSoldier->employment().endTime() += ( iContractLength * 1440 );
 
-	if( ( pSoldier->usLifeInsurance ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) )	//	DEF:	Removed cause they can extend a 1 day contract && ( iContractLength > 1 )
+	if( ( pSoldier->employment().lifeInsurance() ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) )	//	DEF:	Removed cause they can extend a 1 day contract && ( iContractLength > 1 )
 	{
 		// check if player can afford insurance, if not, tell them
 		iCostOfInsurance = CalculateInsuranceContractCost( iContractLength, pSoldier->ubProfile );
@@ -506,17 +506,17 @@ BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction )
 	// ATE: Setup when they can be signed again!
 	// If they are 2-weeks this can be extended
 	// otherwise don't change from current
-	if ( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+	if ( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 	{
-	pSoldier->iTimeCanSignElsewhere = pSoldier->iEndofContractTime;
+	pSoldier->employment().timeCanSignElsewhere() = pSoldier->employment().endTime();
 	}
 
 // ARM: Do not reset because of renewal!	The quote is for early dismissal from *initial* time of hiring
-//	pSoldier->uiTimeOfLastContractUpdate = GetWorldTotalMin();
+//	pSoldier->employment().lastContractUpdateTime() = GetWorldTotalMin();
 
 // ARM: Do not reset because of renewal!	The deposit in the profile goes up when merc levels, but the one in the soldier
 // structure must always reflect the deposit actually paid (which does NOT change when a merc levels).
-//	pSoldier->usMedicalDeposit = gMercProfiles[ pSoldier->ubProfile ].sMedicalDepositAmount;
+//	pSoldier->employment().medicalDeposit() = gMercProfiles[ pSoldier->ubProfile ].sMedicalDepositAmount;
 
 	//add an entry in the finacial page for the extending	of the mercs contract
 	AddTransactionToPlayersBook( ubFinancesContractType, pSoldier->ubProfile, GetWorldTotalMin(), -iContractCharge );
@@ -539,7 +539,7 @@ BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote )
 	BOOLEAN fSayPrecedent = FALSE;
 	SOLDIERTYPE * pHated;
 
-	if( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 		return( FALSE );
 
 	// Flugente: an unconscious merc can't say 'yes' to a contract renewal
@@ -850,12 +850,12 @@ BOOLEAN SoldierWantsToDelayRenewalOfContract( SOLDIERTYPE *pSoldier )
 	INT32 iToleranceLevelForContract = 0; // how much time before contract ends before merc actually speaks thier mind
 
 	// does the soldier want to delay renew of contract, possibly due to poor performance by player
-	if( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 		return( FALSE );
 
 	// type of contract the merc had
-	bTypeOfCurrentContract = pSoldier->bTypeOfLastContract;
-	iLeftTimeOnContract = pSoldier->iEndofContractTime - GetWorldTotalMin();
+	bTypeOfCurrentContract = pSoldier->employment().lastContractType();
+	iLeftTimeOnContract = pSoldier->employment().endTime() - GetWorldTotalMin();
 
 	// grab tolerance
 	switch( bTypeOfCurrentContract )
@@ -894,11 +894,11 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 	INT32 iChance = 0;
 
 	// aim merc?
-	if( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 		return;
 
 	// ATE: check time we have and see if we can accept new contracts....
-	if ( GetWorldTotalMin() <= (UINT32) pSoldier->iTimeCanSignElsewhere )
+	if ( GetWorldTotalMin() <= (UINT32) pSoldier->employment().timeCanSignElsewhere() )
 	{
 	return;
 	}
@@ -907,7 +907,7 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 	if (!pSoldier->flags.fSignedAnotherContract)
 	{
 		// chance depends on how much time he has left in his contract, and his experience level (determines demand)
-		uiFullDaysRemaining = (pSoldier->iEndofContractTime - GetWorldTotalMin()) / (24 * 60);
+		uiFullDaysRemaining = (pSoldier->employment().endTime() - GetWorldTotalMin()) / (24 * 60);
 
 		if (uiFullDaysRemaining == 0)
 		{
@@ -973,7 +973,7 @@ BOOLEAN BeginStrategicRemoveMerc( SOLDIERTYPE *pSoldier, BOOLEAN fAddRehireButto
 	}
 
 	// IF the soldier is an EPC, don't ask about equipment
-	if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if ( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		UnEscortEPC( pSoldier );
 		gLeavingSoldier.reset();
@@ -1046,7 +1046,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	}
 
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
 	{
 		SetupProfileInsertionDataForSoldier( pSoldier );
 	}
@@ -1140,7 +1140,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	StopTimeCompression();
 
 	// WDS: This allows for replacing dead IMP mercs.	See "BtnIMPBeginScreenDoneCallback" in "IMP Begin Screen.cpp"
-	if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER ) &&
+	if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER ) &&
 		( gMercProfiles[ pSoldier->ubProfile ].bMercStatus == MERC_IS_DEAD ) ) {
 		// Replace the name with an empty string
 		wcsncpy( gMercProfiles[ pSoldier->ubProfile ].zName, L"", 1 );
@@ -1174,7 +1174,7 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 	{
 		//add an entry in the finacial page for the FULL refund of the medical deposit
 		// use the medical deposit in pSoldier, not in profile, which goes up with leveling
-		AddTransactionToPlayersBook(FULL_MEDICAL_REFUND, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->usMedicalDeposit );
+		AddTransactionToPlayersBook(FULL_MEDICAL_REFUND, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->employment().medicalDeposit() );
 
 		//add an email
 #ifdef JA2UB
@@ -1183,11 +1183,11 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 	{
 		if ( gGameUBOptions.fDeadMerc == TRUE )
 		{
-			AddEmailWithSpecialData(27, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->usMedicalDeposit, pSoldier->ubProfile, TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L2, XML_AIM_REFUND);
+			AddEmailWithSpecialData(27, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->ubProfile, TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L2, XML_AIM_REFUND);
 		}
 	}
 #else
-		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_REFUND, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->usMedicalDeposit, pSoldier->ubProfile, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_REFUND);
+		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_REFUND, AIM_MEDICAL_DEPOSIT_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->ubProfile, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_REFUND);
 #endif
 	}
 	//else if the merc is a dead, refund NOTHING!!
@@ -1202,18 +1202,18 @@ void CalculateMedicalDepositRefund( SOLDIERTYPE *pSoldier )
 	{
 		if ( gGameUBOptions.fDeadMerc == TRUE )
 		{
-			AddEmailWithSpecialData(217, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->usMedicalDeposit, pSoldier->ubProfile, TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L3, XML_AIM_NOREFUND);
+			AddEmailWithSpecialData(217, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->ubProfile, TYPE_EMAIL_DEAD_MERC_AIM_SITE_EMAIL_JA2_EDT, TYPE_E_AIM_L3, XML_AIM_NOREFUND);
 		}
 	}
 #else
-		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_NO_REFUND, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->usMedicalDeposit, pSoldier->ubProfile, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_NOREFUND);
+		AddEmailWithSpecialData(AIM_MEDICAL_DEPOSIT_NO_REFUND, AIM_MEDICAL_DEPOSIT_NO_REFUND_LENGTH, AIM_SITE, GetWorldTotalMin(), pSoldier->employment().medicalDeposit(), pSoldier->ubProfile, TYPE_EMAIL_EMAIL_EDT, TYPE_E_NONE, XML_AIM_NOREFUND);
 #endif
 	}
 	//else the player is injured, refund a partial amount
 	else
 	{
 		// use the medical deposit in pSoldier, not in profile, which goes up with leveling
-		iRefundAmount = (INT32) ( ( pSoldier->vitals().health() / ( FLOAT ) pSoldier->vitals().maximumHealth() ) * pSoldier->usMedicalDeposit + 0.5 );
+		iRefundAmount = (INT32) ( ( pSoldier->vitals().health() / ( FLOAT ) pSoldier->vitals().maximumHealth() ) * pSoldier->employment().medicalDeposit() + 0.5 );
 
 		//add an entry in the finacial page for a PARTIAL refund of the medical deposit
 		AddTransactionToPlayersBook( PARTIAL_MEDICAL_REFUND, pSoldier->ubProfile, GetWorldTotalMin(), iRefundAmount );
@@ -1265,7 +1265,7 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 		fAddRehireButton = FALSE;
 	}
 
-	if( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+	if( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 	{
 		fAddRehireButton = FALSE;
 	}
@@ -1401,7 +1401,7 @@ void MercDepartEquipmentBoxCallBack( UINT8 bExitValue )
 		HandleLeavingOfEquipmentInCurrentSector( leavingSoldier->ubID );
 
 		// aim merc will say goodbye when leaving
-		if( ( leavingSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
+		if( ( leavingSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
 		{
 		//	TacticalCharacterDialogue( leavingSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
 		}
@@ -1419,7 +1419,7 @@ void MercDepartEquipmentBoxCallBack( UINT8 bExitValue )
 		HandleLeavingOfEquipmentInCurrentSector( leavingSoldier->ubID );
 
 		// aim merc will say goodbye when leaving
-		if( ( leavingSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
+		if( ( leavingSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) && ( ubQuitType != HISTORY_MERC_FIRED ) )
 		{
 		//	TacticalCharacterDialogue( leavingSoldier, QUOTE_MERC_LEAVING_ALSUCO_SOON );
 		}
@@ -1523,13 +1523,13 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 			continue;
 		}
 
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 		{
 			//if the user hasnt renewed yet, and is still leaving today
 			if ( ContractIsGoingToExpireSoon( pSoldier ) )
 			{
 				// OK, default value for quote said
-				pSoldier->ubContractRenewalQuoteCode = SOLDIER_CONTRACT_RENEW_QUOTE_NOT_USED;
+				pSoldier->employment().renewalQuoteCode() = SOLDIER_CONTRACT_RENEW_QUOTE_NOT_USED;
 
 				// Add this guy to the renewal list
 				ContractRenewalList[ ubNumContractRenewals ].ubProfileID = pSoldier->ubProfile;
@@ -1552,7 +1552,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 		}
 		else
 		{
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
 				// Do nothing here for now...
 			}
@@ -1571,7 +1571,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 		AddReasonToWaitingListQueue( CONTRACT_EXPIRE_WARNING_REASON );
 		TacticalCharacterDialogueWithSpecialEvent( pSoldierWhoWillQuit, 0, DIALOGUE_SPECIAL_EVENT_SHOW_UPDATE_MENU, 0,0 );
 
-		pSoldierWhoWillQuit->ubContractRenewalQuoteCode = SOLDIER_CONTRACT_RENEW_QUOTE_115_USED;
+		pSoldierWhoWillQuit->employment().renewalQuoteCode() = SOLDIER_CONTRACT_RENEW_QUOTE_115_USED;
 
 	}
 	else
@@ -1589,7 +1589,7 @@ void FindOutIfAnyMercAboutToLeaveIsGonnaRenew( void )
 			AddReasonToWaitingListQueue( CONTRACT_EXPIRE_WARNING_REASON );
 			TacticalCharacterDialogueWithSpecialEvent( pChosenSoldier, 0, DIALOGUE_SPECIAL_EVENT_SHOW_UPDATE_MENU, 0,0 );
 
-			pChosenSoldier->ubContractRenewalQuoteCode = SOLDIER_CONTRACT_RENEW_QUOTE_89_USED;
+			pChosenSoldier->employment().renewalQuoteCode() = SOLDIER_CONTRACT_RENEW_QUOTE_89_USED;
 		}
 	}
 }
@@ -1694,7 +1694,7 @@ BOOLEAN ContractIsExpiring( SOLDIERTYPE *pSoldier )
 	UINT32	uiCheckHour;
 
 	// First at least make sure same day....
-	if( ( pSoldier->iEndofContractTime /1440 ) <= (INT32)GetWorldDay( ) )
+	if( ( pSoldier->employment().endTime() /1440 ) <= (INT32)GetWorldDay( ) )
 	{
 		uiCheckHour = GetHourWhenContractDone( pSoldier );
 
@@ -1716,7 +1716,7 @@ BOOLEAN ContractIsGoingToExpireSoon( SOLDIERTYPE *pSoldier )
 	UINT32 uiCheckHour;
 
 	// First at least make sure same day....
-	if( ( pSoldier->iEndofContractTime /1440 ) <= (INT32)GetWorldDay( ) )
+	if( ( pSoldier->employment().endTime() /1440 ) <= (INT32)GetWorldDay( ) )
 	{
 		uiCheckHour = GetHourWhenContractDone( pSoldier );
 

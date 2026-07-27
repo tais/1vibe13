@@ -708,7 +708,7 @@ void SettleMercAccounts()
 					continue;
 
 				//Calc the contract charge
-				iContractCharge = gMercProfiles[ ubMercID ].sSalary * pSoldier->iTotalContractLength;
+				iContractCharge = gMercProfiles[ ubMercID ].sSalary * pSoldier->employment().totalLength();
 
 				//if the player can afford to pay this merc
 				if( LaptopSaveInfo.iCurrentBalance > iContractCharge )
@@ -719,9 +719,9 @@ void SettleMercAccounts()
 					if ( !pSoldier )
 						continue;
 
-					LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->iTotalContractLength;
+					LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->employment().totalLength();
 
-					pSoldier->iTotalContractLength = 0;
+					pSoldier->employment().totalLength() = 0;
 
 					iPartialPayment += iContractCharge;
 				}
@@ -763,9 +763,9 @@ void SettleMercAccounts()
 			if ( !pSoldier )
 				continue;
 
-			LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->iTotalContractLength;
+			LaptopSaveInfo.guiNumberOfMercPaymentsInDays += pSoldier->employment().totalLength();
 
-			pSoldier->iTotalContractLength = 0;
+			pSoldier->employment().totalLength() = 0;
 		}
 	}
 

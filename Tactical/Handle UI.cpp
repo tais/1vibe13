@@ -6748,7 +6748,7 @@ BOOLEAN HandleTalkInit(	)
 				}
 
 				// If we are a PC, only use 0
-				if ( pTSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+				if ( pTSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 				{
 					ubDiceRoll = 0;
 				}

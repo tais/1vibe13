@@ -2527,7 +2527,7 @@ INT8 AimMemberHireMerc()
 		GetJa2SoldierRepository().resolve(sSoldierID.i);
 	if ( !hiredSoldier )
 		return( FALSE );
-	hiredSoldier->bTypeOfLastContract = bTypeOfContract;
+	hiredSoldier->employment().lastContractType() = bTypeOfContract;
 
 
 	//add an entry in the finacial page for the hiring of the merc

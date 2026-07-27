@@ -238,11 +238,11 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	ChangeSoldiersAssignment( pSoldier, IN_TRANSIT );
 
 	//set the contract length
-	pSoldier->iTotalContractLength = pHireMerc->iTotalContractLength;
+	pSoldier->employment().totalLength() = pHireMerc->iTotalContractLength;
 
 	//reset the insurance values
-	pSoldier->iStartOfInsuranceContract = 0;
-	pSoldier->iTotalLengthOfInsuranceContract = 0;
+	pSoldier->employment().insuranceStartDay() = 0;
+	pSoldier->employment().insuranceLengthDays() = 0;
 
 	//Init the contract charge
 //	pSoldier->iTotalContractCharge = 0;
@@ -299,18 +299,18 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		pHireMerc->ubInsertionCode				= INSERTION_CODE_CHOPPER;
 #endif
 		//set when the merc's contract is finished
-		pSoldier->iEndofContractTime = GetMidnightOfFutureDayInMinutes( pSoldier->iTotalContractLength ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
+		pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 	}
 	else
 	{
 		//set when the merc's contract is finished ( + 1 cause it takes a day for the merc to arrive )
-		pSoldier->iEndofContractTime = GetMidnightOfFutureDayInMinutes( 1 + pSoldier->iTotalContractLength ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
+		pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( 1 + pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 	}
 	}
 	// WANNE - MP: We need this, so the merc contract is correct!
 	else
 	{
-		pSoldier->iEndofContractTime = GetMidnightOfFutureDayInMinutes( pSoldier->iTotalContractLength ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
+		pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 	}
 
 	//Set the time and ID of the last hired merc will arrive
@@ -337,59 +337,59 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	//if the merc is an AIM merc
 	if ( gMercProfiles[ubCurrentSoldier].Type == PROFILETYPE_AIM )
 	{
-		pSoldier->ubWhatKindOfMercAmI = MERC_TYPE__AIM_MERC;
+		pSoldier->employment().mercenaryType() = MERC_TYPE__AIM_MERC;
 		//determine how much the contract is, and remember what type of contract he got
 		if( pHireMerc->iTotalContractLength == 1 )
 		{
 			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].sSalary;
-			pSoldier->bTypeOfLastContract = CONTRACT_EXTEND_1_DAY;
-		pSoldier->iTimeCanSignElsewhere = GetWorldTotalMin();
+			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_1_DAY;
+		pSoldier->employment().timeCanSignElsewhere() = GetWorldTotalMin();
 		}
 		else if( pHireMerc->iTotalContractLength == 7 )
 		{
 			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary;
-			pSoldier->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
-		pSoldier->iTimeCanSignElsewhere = GetWorldTotalMin();
+			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
+		pSoldier->employment().timeCanSignElsewhere() = GetWorldTotalMin();
 		}
 		else if( pHireMerc->iTotalContractLength == 14 )
 		{
 			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary;
-			pSoldier->bTypeOfLastContract = CONTRACT_EXTEND_2_WEEK;
+			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_2_WEEK;
 		// These luck fellows need to stay the whole duration!
-		pSoldier->iTimeCanSignElsewhere = pSoldier->iEndofContractTime;
+		pSoldier->employment().timeCanSignElsewhere() = pSoldier->employment().endTime();
 		}
 
 		// remember the medical deposit we PAID.	The one in his profile can increase when he levels!
-		pSoldier->usMedicalDeposit = gMercProfiles[ pSoldier->ubProfile ].sMedicalDepositAmount;
+		pSoldier->employment().medicalDeposit() = gMercProfiles[ pSoldier->ubProfile ].sMedicalDepositAmount;
 	}
 	//if the merc is from M.E.R.C.
 	else if ( gMercProfiles[ubCurrentSoldier].Type == PROFILETYPE_MERC )
 	{
-		pSoldier->ubWhatKindOfMercAmI = MERC_TYPE__MERC;
+		pSoldier->employment().mercenaryType() = MERC_TYPE__MERC;
 		//pSoldier->iTotalContractCharge = -1;
 
 		gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength = 1;
 
 		//Set starting conditions for the merc
-		pSoldier->iStartContractTime = GetWorldDay( );
+		pSoldier->employment().startTime() = GetWorldDay( );
 
 		if(!is_client)AddHistoryToPlayersLog(HISTORY_HIRED_MERC_FROM_MERC, ubCurrentSoldier, GetWorldTotalMin(), -1, -1 );
 	}
 	//If the merc is from IMP, (ie a player character)
 	else if ( gMercProfiles[ubCurrentSoldier].Type == PROFILETYPE_IMP )
 	{
-		pSoldier->ubWhatKindOfMercAmI = MERC_TYPE__PLAYER_CHARACTER;
+		pSoldier->employment().mercenaryType() = MERC_TYPE__PLAYER_CHARACTER;
 		//pSoldier->iTotalContractCharge = -1;
 	}
 	//else its a NPC merc
 	else
 	{
-		pSoldier->ubWhatKindOfMercAmI = MERC_TYPE__NPC;
+		pSoldier->employment().mercenaryType() = MERC_TYPE__NPC;
 		//pSoldier->iTotalContractCharge = -1;
 	}
 #ifdef JA2UB
 	//Ja25:  Need to set start time for all mercs
-	pSoldier->iStartContractTime = GetWorldDay( );
+	pSoldier->employment().startTime() = GetWorldDay( );
 #endif
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
 	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->ubProfile );
@@ -582,13 +582,13 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 
 	//record how long the merc will be gone for
-	pMerc->bMercStatus = (UINT8)pSoldier->iTotalContractLength;
+	pMerc->bMercStatus = (UINT8)pSoldier->employment().totalLength();
 
 	// remember when excatly he ARRIVED in Arulco, in case he gets fired early
-	pSoldier->uiTimeOfLastContractUpdate = GetWorldTotalMin();
+	pSoldier->employment().lastContractUpdateTime() = GetWorldTotalMin();
 
 	//set when the merc's contract is finished
-	pSoldier->iEndofContractTime = GetMidnightOfFutureDayInMinutes( pSoldier->iTotalContractLength ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
+	pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 
 	// Do initial check for bad items
 	if ( pSoldier->bTeam == gbPlayerNum )
@@ -702,7 +702,7 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 		if ( gubQuest[QUEST_DELIVER_LETTER] == QUESTINPROGRESS )
 		{
 			// Player-generated characters issue a comment about arriving in Omerta.
-			if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 			{
 				TacticalCharacterDialogue( pSoldier, QUOTE_PC_DROPPED_OMERTA );
 			}
@@ -718,7 +718,7 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 				GetJa2SoldierRepository().resolve(cnt.i);
 			if ( pTeamSoldier->bActive )
 			{
-				if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+				if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				{
 					bHated = WhichHated( pTeamSoldier->ubProfile, pSoldier->ubProfile );
 					if ( bHated != -1 )

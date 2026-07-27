@@ -2347,11 +2347,11 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		DrawTextToScreen(sText, x+55, y+150+34, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// draw contract
-		const BOOLEAN fromAim = mercs[agentIndex[index]]->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC;
+		const BOOLEAN fromAim = mercs[agentIndex[index]]->employment().mercenaryType() == MERC_TYPE__AIM_MERC;
 		
 		if (fromAim)
 		{
-			const INT32 endTime = mercs[agentIndex[index]]->iEndofContractTime;
+			const INT32 endTime = mercs[agentIndex[index]]->employment().endTime();
 			const INT32 worldMin = GetWorldTotalMin();
 			const INT32 remaining = endTime - worldMin;
 
@@ -2590,7 +2590,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	{
 		const UINT8 townId = GetTownIdForSector(mercs[agentIndex[index]]->sSectorX, mercs[agentIndex[index]]->sSectorY);
 		const UINT8 townLoyalty = GetRegionLoyalty(townId);
-		const INT32 endTime = mercs[agentIndex[index]]->iEndofContractTime;
+		const INT32 endTime = mercs[agentIndex[index]]->employment().endTime();
 		const INT32 worldMin = GetWorldTotalMin();
 		const INT32 remaining = endTime - worldMin;
 
@@ -2609,7 +2609,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 			canStartMission = FALSE;
 			swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_START_AGENT_UNAVAILABLE]);
 		}
-		else if (mercs[agentIndex[index]]->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC && remaining < 24 * 60)
+		else if (mercs[agentIndex[index]]->employment().mercenaryType() == MERC_TYPE__AIM_MERC && remaining < 24 * 60)
 		{
 			canStartMission = FALSE;
 			swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_START_CONTRACT_EXPIRING]);

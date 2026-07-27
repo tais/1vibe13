@@ -8820,19 +8820,19 @@ static int l_ubWhatKindOfMercAmI(lua_State* L)
 		if (pSoldier)
 		{
 
-			if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER)
+			if (pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER)
 				team = 0;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 				team = 1;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 				team = 2;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC)
 				team = 3;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__EPC)
 				team = 4;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT)
 				team = 5;
-			else if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__VEHICLE)
+			else if (pSoldier->employment().mercenaryType() == MERC_TYPE__VEHICLE)
 				team = 6;
 		}
 
@@ -10638,7 +10638,7 @@ static int l_HireMerc(lua_State* L)
 			{
 				SoldierID sSoldierID = GetSoldierIDFromMercID(ubCurrentSoldier);
 				if (sSoldierID != NOBODY)
-					GetJa2SoldierRepository().resolve(sSoldierID)->bTypeOfLastContract = CONTRACT_EXTEND_1_WEEK;
+					GetJa2SoldierRepository().resolve(sSoldierID)->employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
 
 				gMercProfiles[ubCurrentSoldier].bMercStatus = MERC_OK;
 

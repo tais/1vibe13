@@ -2135,7 +2135,7 @@ string(REGEX MATCH
   serialized_soldier_tactical_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeOfLastContractUpdate\\);[ \t]*ar\\.i8\\(s\\.bTypeOfLastContract\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);"
+  "ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);"
   serialized_soldier_collapse_duration_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_fatigue_collapse_order OR
@@ -2253,7 +2253,7 @@ string(REGEX MATCH
   serialized_soldier_xray_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiStartTimeOfInsuranceContract\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
+  "ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
   serialized_soldier_deafness_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_noise_order OR
@@ -2459,6 +2459,142 @@ if(NOT serialized_soldier_camouflage_applied_order OR
    NOT serialized_soldier_camouflage_equipment_order)
   message(FATAL_ERROR
     "Soldier camouflage state moved in the portable save schema; keep all eight signed bytes at their established POD positions")
+endif()
+
+# Live contract, mercenary classification, deposit, insurance, renewal,
+# dismissal, re-signing, and hospital state now have one strategic owner. Keep
+# hire requests and profile economics independent of the live soldier record.
+foreach(retired_employment_field IN ITEMS
+  "INT32;iEndofContractTime"
+  "INT32;iStartContractTime"
+  "INT32;iTotalContractLength"
+  "UINT8;ubWhatKindOfMercAmI"
+  "UINT16;usMedicalDeposit"
+  "UINT16;usLifeInsurance"
+  "INT32;iStartOfInsuranceContract"
+  "INT32;iTotalLengthOfInsuranceContract"
+  "UINT32;uiTimeOfLastContractUpdate"
+  "INT8;bTypeOfLastContract"
+  "UINT8;ubMercJustFired"
+  "UINT8;ubContractRenewalQuoteCode"
+  "INT32;iTimeCanSignElsewhere"
+  "INT8;bHospitalPriceModifier"
+  "UINT32;uiStartTimeOfInsuranceContract")
+  string(REPLACE ";" ";" retired_employment_parts
+    "${retired_employment_field}")
+  list(GET retired_employment_parts 0 retired_employment_type)
+  list(GET retired_employment_parts 1 retired_employment_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_employment_type}[ \t]+${retired_employment_name}[ \t]*;"
+    retired_current_employment_field
+    "${current_soldier_contents}")
+  if(retired_current_employment_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE employment field '${retired_employment_name}' returned; strategic engagement state belongs to SoldierEmploymentComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierEmploymentComponent[ \t\r\n]+employment_[ \t]*;"
+  soldier_employment_owner
+  "${current_soldier_contents}")
+if(NOT soldier_employment_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierEmploymentComponent")
+endif()
+
+foreach(owned_employment_field IN ITEMS
+  "INT32;endTime"
+  "INT32;startTime"
+  "INT32;totalLength"
+  "UINT8;mercenaryType"
+  "UINT16;medicalDeposit"
+  "UINT16;lifeInsurance"
+  "INT32;insuranceStartDay"
+  "INT32;insuranceLengthDays"
+  "UINT32;lastContractUpdateTime"
+  "INT8;lastContractType"
+  "UINT8;justFired"
+  "UINT8;renewalQuoteCode"
+  "INT32;timeCanSignElsewhere"
+  "INT8;hospitalPriceModifier"
+  "UINT32;insuranceStartTime")
+  string(REPLACE ";" ";" owned_employment_parts
+    "${owned_employment_field}")
+  list(GET owned_employment_parts 0 owned_employment_type)
+  list(GET owned_employment_parts 1 owned_employment_name)
+  string(REGEX MATCH
+    "${owned_employment_type}[ \t]+${owned_employment_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_employment_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_employment_field)
+    message(FATAL_ERROR
+      "SoldierEmploymentComponent no longer owns initialized '${owned_employment_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierEmploymentComponent& employment() noexcept"
+  soldier_employment_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "employment().reset();"
+  soldier_employment_reset)
+foreach(required_employment_query IN ITEMS
+  "bool isMercenaryType(UINT8 type) const noexcept"
+  "bool hasMedicalDeposit() const noexcept"
+  "bool hasLifeInsurance() const noexcept"
+  "bool wasJustFired() const noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_employment_query}"
+    soldier_employment_query)
+  if(soldier_employment_query EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierEmploymentComponent lost required lifecycle query '${required_employment_query}'")
+  endif()
+endforeach()
+if(soldier_employment_accessor EQUAL -1 OR
+   soldier_employment_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierEmploymentComponent must remain directly accessible and reset with its soldier")
+endif()
+
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bMovedPriorToInterrupt\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
+  serialized_soldier_employment_contract_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pMercPath\\);[ \t\r\n]*ar\\.u16\\(employment\\.medicalDeposit\\(\\)\\);[ \t]*ar\\.u16\\(employment\\.lifeInsurance\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiStartMovementTime\\);"
+  serialized_soldier_employment_deposit_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.sScheduledStop\\);[ \t\r\n]*ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(s\\.uiLastAssignmentChangeMin\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
+  serialized_soldier_employment_insurance_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);"
+  serialized_soldier_employment_update_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubHoursOnAssignment\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubTurnsUntilCanSayHeardNoise\\);"
+  serialized_soldier_employment_fired_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sPreTraversalGridNo\\);"
+  serialized_soldier_employment_renewal_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bVehicleUnderRepairID\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);"
+  serialized_soldier_employment_signing_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_employment_contract_order OR
+   NOT serialized_soldier_employment_deposit_order OR
+   NOT serialized_soldier_employment_insurance_order OR
+   NOT serialized_soldier_employment_update_order OR
+   NOT serialized_soldier_employment_fired_order OR
+   NOT serialized_soldier_employment_renewal_order OR
+   NOT serialized_soldier_employment_signing_order)
+  message(FATAL_ERROR
+    "Soldier employment state moved in the portable save schema; keep all fifteen values at their established POD positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage

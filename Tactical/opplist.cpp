@@ -2599,8 +2599,8 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			}
 			else if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
 			          (pOpponent->ubProfile == MIKE) &&
-			          ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ||
-			            pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC ) &&
+			          ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
+			            pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ) &&
 			          !(pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_MIKE) )
 			{
 				if (gfMikeShouldSayHi == FALSE)

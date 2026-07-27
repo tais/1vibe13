@@ -1794,7 +1794,7 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 				( pSoldier->bAssignment != ASSIGNMENT_DEAD ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) &&
 				( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
-				( pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__EPC ) )
+				( pSoldier->employment().mercenaryType() != MERC_TYPE__EPC ) )
 		{
 			return( TRUE );
 		}
