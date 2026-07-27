@@ -4734,7 +4734,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Bullets out:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->bBulletsLeft );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->fireControl().bulletsLeft() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);

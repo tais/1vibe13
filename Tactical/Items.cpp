@@ -6809,14 +6809,12 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 		if (!Weapon[ Item[pObj->usItem].ubClassIndex ].NoSemiAuto)
 		{
 			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-			pSoldier->bDoBurst = FALSE;
-			pSoldier->bDoAutofire = FALSE;
+			pSoldier->fireControl().selectSingleShot();
 		}
 		else
 		{
 			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-			pSoldier->bDoBurst = TRUE;
-			pSoldier->bDoAutofire = TRUE;
+			pSoldier->fireControl().selectAutofire();
 		}
 		if (ItemIsTwoHanded(pObj->usItem) && Weapon[pObj->usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 			pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
@@ -8738,14 +8736,12 @@ BOOLEAN OBJECTTYPE::RemoveAttachment( OBJECTTYPE * pAttachment, OBJECTTYPE * pNe
 			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 			{
 				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-				pSoldier->bDoBurst = FALSE;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().selectSingleShot();
 			}
 			else
 			{
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-				pSoldier->bDoBurst = TRUE;
-				pSoldier->bDoAutofire = 1;
+				pSoldier->fireControl().selectAutofire();
 			}
 			if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 				pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
@@ -12163,7 +12159,7 @@ BOOLEAN IsFlashSuppressor( OBJECTTYPE * pObj, SOLDIERTYPE * pSoldier )
 {
 	if (pObj->exists() == true) {
 		//Madd: tracers automatically negate any muzzle flash suppression due to inherent lighting effects
-		if (Item[pObj->usItem].usItemClass == IC_GUN && AmmoTypes[(*pObj)[0]->data.gun.ubGunAmmoType].tracerEffect && pSoldier->bDoBurst )
+		if (Item[pObj->usItem].usItemClass == IC_GUN && AmmoTypes[(*pObj)[0]->data.gun.ubGunAmmoType].tracerEffect && pSoldier->fireControl().burstCounter() )
 			return FALSE;
 
 		if (ItemHasHiddenMuzzleFlash(pObj->usItem))

@@ -820,7 +820,7 @@ static void DoDive(	)
 						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( fire gun ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
-						// gpRaidSoldier->bBulletsLeft++;
+						// gpRaidSoldier->fireControl().bulletsLeft()++;
 					}
 
 					// For now use first position....
@@ -855,7 +855,7 @@ static void DoDive(	)
 						//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Starting attack AIR RAID ( second one ), attack count now %d", GetJa2PendingTacticalCombatActions()) );
 
 						// INcrement bullet fired...
-						// gpRaidSoldier->bBulletsLeft++;
+						// gpRaidSoldier->fireControl().bulletsLeft()++;
 
 					}
 

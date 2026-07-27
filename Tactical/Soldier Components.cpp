@@ -98,6 +98,35 @@ void SoldierAttackSelectionComponent::reset() noexcept
 	*this = SoldierAttackSelectionComponent{};
 }
 
+void SoldierFireControlComponent::selectSingleShot() noexcept
+{
+	burstCounter_ = 0;
+	autofireShots_ = 0;
+}
+
+void SoldierFireControlComponent::selectBurst() noexcept
+{
+	burstCounter_ = 1;
+	autofireShots_ = 0;
+}
+
+void SoldierFireControlComponent::selectAutofire(UINT8 shots) noexcept
+{
+	burstCounter_ = 1;
+	autofireShots_ = shots;
+}
+
+void SoldierFireControlComponent::clearSpreadTargets() noexcept
+{
+	std::fill_n(spreadLocations_, SpreadTargetCapacity, 0);
+	spreadIndex_ = FALSE;
+}
+
+void SoldierFireControlComponent::reset() noexcept
+{
+	*this = SoldierFireControlComponent{};
+}
+
 void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
 {
 	clearPendingAnimation();

@@ -1567,6 +1567,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
 	STRUCT_Flags& f = soldier.flags;
 	SoldierMovementComponent& movement = soldier.movement();
+	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
 	ar.i8(f.bHasKeys);
@@ -1590,7 +1591,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(movement.blockedByAnotherMerc());
 	ar.boolean(f.fContractPriceHasIncreased); ar.boolean(f.fFixingSAMSite); ar.boolean(f.fFixingRobot);
 	ar.boolean(f.fSignedAnotherContract); ar.boolean(animationActivity.turningCostWaived());
-	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(f.fForcedToStayAwake); ar.boolean(f.fDoSpread);
+	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(f.fForcedToStayAwake); ar.boolean(fireControl.spreadIndex());
 	ar.boolean(f.fIsSoldierMoving); ar.boolean(f.fIsSoldierDelayed); ar.boolean(f.fSoldierUpdatedFromNetwork);
 	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(f.fMuzzleFlash); ar.boolean(f.fMercCollapsedFlag);
 	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
@@ -1601,7 +1602,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.u8(f.fHitByGasFlags);
 	ar.i8(f.fDisplayDamage); ar.i8(f.fCloseCall); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
 	ar.boolean(animationActivity.fallClockwise()); ar.boolean(f.fDoingExternalDeath);
-	ar.boolean(f.autofireLastStep); ar.boolean(f.lastFlankLeft);
+	ar.boolean(fireControl.autofireLastStep()); ar.boolean(f.lastFlankLeft);
 	ar.u32(f.uiStatusFlags);
 	ar.boolean(f.ZipperFlag); ar.boolean(f.DropPackFlag);
 }
@@ -1660,6 +1661,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	UINT8 retiredDelayedMovementCauseMerc = 0;
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
+	SoldierFireControlComponent& fireControl = s.fireControl();
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
@@ -1689,11 +1691,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
-	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetX[i]);
-	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetY[i]);
-	for (i = 0; i < 2; ++i) ar.f32(s.dPrevCounterForceX[i]);
-	for (i = 0; i < 2; ++i) ar.f32(s.dPrevCounterForceY[i]);
-	ar.f32(s.dInitialMuzzleOffsetX); ar.f32(s.dInitialMuzzleOffsetY);
+	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousMuzzleOffsetX()[i]);
+	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousMuzzleOffsetY()[i]);
+	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceX()[i]);
+	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceY()[i]);
+	ar.f32(fireControl.initialMuzzleOffsetX()); ar.f32(fireControl.initialMuzzleOffsetY());
 	ar.i8(s.bTilesMoved); ar.f32(s.dNextBleed);
 	ar.u8(s.ubTilesMovedPerRTBreathUpdate); ar.u16(s.usLastMovementAnimPerRTBreathUpdate);
 	ar.i16(s.sLocatorFrame); ar.i32(s.iFaceIndex);
@@ -1714,13 +1716,13 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubStrategicInsertionCode); ar.i32(s.usStrategicInsertionData);
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
 	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
-	ar.i8(s.bBulletsLeft); ar.u8(s.ubSuppressionPoints);
+	ar.i8(fireControl.bulletsLeft()); ar.u8(s.ubSuppressionPoints);
 	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(s.sWalkToAttackMovementMode); ar.i32(s.sWalkToAttackGridNo); ar.i16(s.sWalkToAttackWalkToCost);
 	ar.i16(s.sLocatorOffX); ar.i16(s.sLocatorOffY); ar.ptr(s.pForcedShade);
 	ar.i8(s.bDisplayDamageCount); ar.u8(s.sWalkToAttackEndDirection);
-	ar.i16(s.sDamage); ar.i16(s.sDamageX); ar.i16(s.sDamageY); ar.i8(s.bDamageDir); ar.i8(s.bDoBurst);
+	ar.i16(s.sDamage); ar.i16(s.sDamageX); ar.i16(s.sDamageY); ar.i8(s.bDamageDir); ar.i8(fireControl.burstCounter());
 	ar.i16(s.usUIMovementMode); ar.i8(s.bUIInterfaceLevel);
 	ar.u8(s.ubProfile); ar.u8(s.ubQuoteRecord); ar.u8(s.ubQuoteActionID); ar.u8(s.ubBattleSoundID);
 	ar.u8(s.ubClosePanelFrame); ar.u8(s.ubDeadPanelFrame); ar.i8(s.bOpenPanelFrame);
@@ -1731,7 +1733,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(attackSelection.shotLocation()); ar.u8(s.ubHitLocation); ar.u8(attackSelection.meleeLocation());
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
 	ar.u8(s.ubPlannedUIAPCost); ar.i16(s.sPlannedTargetX); ar.i16(s.sPlannedTargetY);
-	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(s.sSpreadLocations[i]);
+	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
 	ar.i32(s.sStartGridNo); ar.i32(s.sEndGridNo); ar.i32(s.sForcastGridno); ar.i16(s.sZLevelOverride);
 	ar.i8(s.bMovedPriorToInterrupt);
 	ar.i32(s.iEndofContractTime); ar.i32(s.iStartContractTime); ar.i32(s.iTotalContractLength);
@@ -1779,7 +1781,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(s.ubLastDamageReason);
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
 	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(s.ubNextToPreviousAttackerID.i);
-	ar.u8(s.bDoAutofire); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
+	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
 	ar.i8(s.wornCamo); ar.i8(s.urbanCamo); ar.i8(s.wornUrbanCamo); ar.i8(s.desertCamo);
 	ar.i8(s.wornDesertCamo); ar.i8(s.snowCamo); ar.i8(s.wornSnowCamo);
 	ar.i16(s.sFacilityTypeOperated); ar.i8(attackSelection.scopeMode());
@@ -1797,7 +1799,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(s.sDiseaseFlag[i]);
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(s.ubHoursRemainingOnMiniEvent);
-	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(s.usBarrelCounter);
+	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
 	ar.i32(s.sFocusGridNo); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(s.usDisabilityFlagMask); ar.i32(s.sDragGridNo);
 	ar.boolean(s.fIgnoreGetupFromCollapseCheck);

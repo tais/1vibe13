@@ -2293,7 +2293,7 @@ endif()
 # target identity beside the selected attacking weapon/mode. This changes only
 # in-memory ownership; save bytes and multiplayer packet structures stay put.
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.movement\\(\\)\\.reservedGrid\\(\\)\\);[ \t\r\n]*ar\\.i32\\(targeting\\.gridNo\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.level\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.cubeLevel\\(\\)\\);[ \t]*ar\\.i32\\(targeting\\.lastGridNo\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(s\\.dPrevMuzzleOffsetX\\[i\\]\\);"
+  "ar\\.i32\\(s\\.movement\\(\\)\\.reservedGrid\\(\\)\\);[ \t\r\n]*ar\\.i32\\(targeting\\.gridNo\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.level\\(\\)\\);[ \t]*ar\\.i8\\(targeting\\.cubeLevel\\(\\)\\);[ \t]*ar\\.i32\\(targeting\\.lastGridNo\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(fireControl\\.previousMuzzleOffsetX\\(\\)\\[i\\]\\);"
   serialized_soldier_target_geometry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2394,6 +2394,185 @@ if(NOT serialized_soldier_attack_hand_order OR
    NOT serialized_soldier_attack_scope_order)
   message(FATAL_ERROR
     "Soldier attack-selection state moved in the portable save schema; keep every value at its established byte position")
+endif()
+
+# Firing-mode choice and mutable volley execution now have one private owner.
+# Keep the generic flags block and flat SOLDIERTYPE list from becoming parallel
+# authorities for burst, spread, recoil, or multi-barrel progression.
+foreach(retired_fire_control_flag IN ITEMS
+  fDoSpread
+  autofireLastStep)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_fire_control_flag}[ \t]*;"
+    retired_current_fire_control_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_fire_control_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags fire-control field '${retired_fire_control_flag}' returned; volley execution belongs to SoldierFireControlComponent")
+  endif()
+endforeach()
+
+foreach(retired_fire_control_field IN ITEMS
+  bDoBurst
+  bDoAutofire
+  bBulletsLeft
+  sSpreadLocations
+  dPrevMuzzleOffsetX
+  dPrevMuzzleOffsetY
+  dPrevCounterForceX
+  dPrevCounterForceY
+  dInitialMuzzleOffsetX
+  dInitialMuzzleOffsetY
+  usBarrelCounter)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8|INT32|FLOAT)[ \t]+${retired_fire_control_field}([ \t]*\\[[^]]+\\])?[ \t]*;"
+    retired_current_fire_control_field
+    "${current_soldier_contents}")
+  if(retired_current_fire_control_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE fire-control field '${retired_fire_control_field}' returned; volley execution belongs to SoldierFireControlComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierFireControlComponent[ \t\r\n]+fireControl_[ \t]*;"
+  soldier_fire_control_owner
+  "${current_soldier_contents}")
+if(NOT soldier_fire_control_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierFireControlComponent")
+endif()
+
+foreach(owned_fire_control_scalar IN ITEMS
+  "INT8;burstCounter;0"
+  "UINT8;autofireShots;0"
+  "INT8;bulletsLeft;0"
+  "BOOLEAN;spreadIndex;FALSE"
+  "BOOLEAN;autofireLastStep;FALSE"
+  "FLOAT;initialMuzzleOffsetX;0\\.0f"
+  "FLOAT;initialMuzzleOffsetY;0\\.0f"
+  "UINT8;barrelCounter;0")
+  string(REPLACE ";" ";" owned_fire_control_parts
+    "${owned_fire_control_scalar}")
+  list(GET owned_fire_control_parts 0 owned_fire_control_type)
+  list(GET owned_fire_control_parts 1 owned_fire_control_name)
+  list(GET owned_fire_control_parts 2 owned_fire_control_initializer)
+  string(REGEX MATCH
+    "${owned_fire_control_type}[ \t]+${owned_fire_control_name}_[ \t]*=[ \t]*${owned_fire_control_initializer}[ \t]*;"
+    owned_soldier_fire_control_scalar
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_fire_control_scalar)
+    message(FATAL_ERROR
+      "SoldierFireControlComponent no longer owns initialized '${owned_fire_control_name}_' storage")
+  endif()
+endforeach()
+
+foreach(owned_fire_control_array IN ITEMS
+  "SpreadLocations;spreadLocations"
+  "OffsetHistory;previousMuzzleOffsetX"
+  "OffsetHistory;previousMuzzleOffsetY"
+  "OffsetHistory;previousCounterForceX"
+  "OffsetHistory;previousCounterForceY")
+  string(REPLACE ";" ";" owned_fire_control_array_parts
+    "${owned_fire_control_array}")
+  list(GET owned_fire_control_array_parts 0 owned_fire_control_array_type)
+  list(GET owned_fire_control_array_parts 1 owned_fire_control_array_name)
+  string(REGEX MATCH
+    "${owned_fire_control_array_type}[ \t]+${owned_fire_control_array_name}_\\{\\}[ \t]*;"
+    owned_soldier_fire_control_array
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_fire_control_array)
+    message(FATAL_ERROR
+      "SoldierFireControlComponent no longer owns zero-initialized '${owned_fire_control_array_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_header_contents}"
+  "static constexpr UINT8 SpreadTargetCapacity = 6;"
+  soldier_fire_control_spread_capacity)
+string(FIND "${soldier_control_header_contents}"
+  "SoldierFireControlComponent& fireControl() noexcept"
+  soldier_fire_control_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "fireControl().reset();"
+  soldier_fire_control_reset)
+string(FIND "${soldier_components_header_contents}"
+  "clampSpreadTargetCount(UINT16 requested)"
+  soldier_fire_control_spread_clamp)
+if(soldier_fire_control_spread_capacity EQUAL -1 OR
+   soldier_fire_control_accessor EQUAL -1 OR
+   soldier_fire_control_reset EQUAL -1 OR
+   soldier_fire_control_spread_clamp EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierFireControlComponent must retain its six-target capacity, accessor, reset boundary, and defensive spread clamp")
+endif()
+
+# The component changes in-memory ownership only. Pin every former schema site:
+# flags, recoil history, bullets in flight, burst cursor, spread targets,
+# autofire count, and multi-barrel cursor.
+string(REGEX MATCH
+  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fIsSoldierMoving\\);"
+  serialized_soldier_fire_spread_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fDoingExternalDeath\\);[ \t\r\n]*ar\\.boolean\\(fireControl\\.autofireLastStep\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.lastFlankLeft\\);"
+  serialized_soldier_fire_autofire_step_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(fireControl\\.previousMuzzleOffsetX\\(\\)\\[i\\]\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(fireControl\\.previousMuzzleOffsetY\\(\\)\\[i\\]\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(fireControl\\.previousCounterForceX\\(\\)\\[i\\]\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.f32\\(fireControl\\.previousCounterForceY\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.f32\\(fireControl\\.initialMuzzleOffsetX\\(\\)\\);[ \t]*ar\\.f32\\(fireControl\\.initialMuzzleOffsetY\\(\\)\\);"
+  serialized_soldier_fire_recoil_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubSuppressionPoints\\);"
+  serialized_soldier_fire_bullets_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bDamageDir\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.usUIMovementMode\\);"
+  serialized_soldier_fire_burst_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sPlannedTargetY\\);[ \t\r\n]*for \\(i = 0; i < MAX_BURST_SPREAD_TARGETS; \\+\\+i\\) ar\\.i32\\(fireControl\\.spreadLocations\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.i32\\(s\\.sStartGridNo\\);"
+  serialized_soldier_fire_targets_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.ubNextToPreviousAttackerID\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(s\\.numFlanks\\);"
+  serialized_soldier_fire_autofire_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.usGLDelayMode\\);[ \t]*ar\\.u8\\(s\\.usBarrelMode\\);[ \t]*ar\\.u8\\(fireControl\\.barrelCounter\\(\\)\\);"
+  serialized_soldier_fire_barrel_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_fire_spread_flag_order)
+  message(FATAL_ERROR
+    "Soldier spread cursor moved in the portable save flags schema")
+endif()
+if(NOT serialized_soldier_fire_autofire_step_order)
+  message(FATAL_ERROR
+    "Soldier autofire UI step moved in the portable save flags schema")
+endif()
+if(NOT serialized_soldier_fire_recoil_order)
+  message(FATAL_ERROR
+    "Soldier recoil history moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_bullets_order)
+  message(FATAL_ERROR
+    "Soldier bullets-in-flight state moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_burst_order)
+  message(FATAL_ERROR
+    "Soldier burst cursor moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_targets_order)
+  message(FATAL_ERROR
+    "Soldier burst spread targets moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_autofire_order)
+  message(FATAL_ERROR
+    "Soldier autofire count moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_barrel_order)
+  message(FATAL_ERROR
+    "Soldier multi-barrel cursor moved in the portable save schema")
 endif()
 
 # Animation transition requests now have one private owner, separate from

@@ -1202,9 +1202,9 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 
 				int jamChance = 100;
 				if ( pSoldier->attackSelection().hand() == SECONDHANDPOS && pSoldier->IsValidSecondHandBurst() )
-					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)((pSoldier->bDoBurst/2)>1)*15) + (double)invertedBaseJamChance / 2.0)); 
+					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)((pSoldier->fireControl().burstCounter()/2)>1)*15) + (double)invertedBaseJamChance / 2.0));
 				else
-					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)(pSoldier->bDoBurst>1)*15) + (double)invertedBaseJamChance / 2.0)); 
+					jamChance -= (int)sqrt((double)invertedBaseJamChance * ((75.0-(int)(pSoldier->fireControl().burstCounter()>1)*15) + (double)invertedBaseJamChance / 2.0));
 
 				if (jamChance < 0) 
 					jamChance = 0; 
@@ -1370,7 +1370,7 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// ignore passed in target gridno for now
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("FireWeapon"));
 	// If realtime and we are reloading - do not fire until counter is done!
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) && !pSoldier->bDoBurst )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) && !pSoldier->fireControl().burstCounter() )
 	{
 		if ( pSoldier->flags.fReloading )
 		{
@@ -1406,40 +1406,40 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			else
 			{
 				// ATE: PAtch up - bookkeeping for spreading done out of whak
-				if ( pSoldier->flags.fDoSpread)
+				if ( pSoldier->fireControl().spreadIndex())
 				{
 
 					// 0verhaul:  This check does not work!  All auto-fire has bDoBurst turned on.  And only allowing a spread
 					// for a single-shot mode is useless.
 					//if (pSoldier->flags.fDoBurst )
 					//{
-					//	pSoldier->flags.fDoSpread = FALSE;
+					//	pSoldier->fireControl().spreadIndex() = FALSE;
 					//}
 					//else 
 					// 0verhaul:  The original code seemed brain damaged:  If the current spread target was 0 it would shoot at the
 					// non-spread target grid # instead.  Also fDoSpread is used as a counter from 1 to MAX_BURST_SPREAD_TARGETS,
 					// but was actually reset before it got there.  So the final spread target would never be shot at.  Hopefully this
 					// will work better.
-					if (pSoldier->flags.fDoSpread > MAX_BURST_SPREAD_TARGETS ||
-						pSoldier->sSpreadLocations[ pSoldier->flags.fDoSpread - 1 ] == 0)
+					if (pSoldier->fireControl().spreadIndex() > MAX_BURST_SPREAD_TARGETS ||
+						pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] == 0)
 					{
-						if (pSoldier->flags.fDoSpread == 1)
+						if (pSoldier->fireControl().spreadIndex() == 1)
 						{
 							// If no spread locations are defined, don't spread
-							pSoldier->flags.fDoSpread = 0;
+							pSoldier->fireControl().spreadIndex() = 0;
 						}
 						else
 						{
 							// If we hit the end of the array, either by finding a 0 or by exceeding its size, reset
-							pSoldier->flags.fDoSpread = 1;
+							pSoldier->fireControl().spreadIndex() = 1;
 						}
 					}
 				}
 
-				if ( pSoldier->flags.fDoSpread )
+				if ( pSoldier->fireControl().spreadIndex() )
 				{
-					UseGunWrapper( pSoldier, pSoldier->sSpreadLocations[pSoldier->flags.fDoSpread - 1] );
-					pSoldier->flags.fDoSpread++;
+					UseGunWrapper( pSoldier, pSoldier->fireControl().spreadLocations()[pSoldier->fireControl().spreadIndex() - 1] );
+					pSoldier->fireControl().spreadIndex()++;
 				}
 				else
 				{
@@ -1460,37 +1460,37 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				UseGunWrapper( pSoldier, sTargetGridNo );
 			} else {
 				// ATE: PAtch up - bookkeeping for spreading done out of whak
-				if ( pSoldier->flags.fDoSpread)
+				if ( pSoldier->fireControl().spreadIndex())
 				{
-					if (!pSoldier->bDoBurst )
+					if (!pSoldier->fireControl().burstCounter() )
 					{
-						pSoldier->flags.fDoSpread = FALSE;
+						pSoldier->fireControl().spreadIndex() = FALSE;
 					}
 
 					// 0verhaul:  The original code seemed brain damaged:  If the current spread target was 0 it would shoot at the
 					// non-spread target grid # instead.  Also fDoSpread is used as a counter from 1 to MAX_BURST_SPREAD_TARGETS,
 					// but was actually reset before it got there.  So the final spread target would never be shot at.  Hopefully this
 					// will work better.
-					else if ( pSoldier->flags.fDoSpread > MAX_BURST_SPREAD_TARGETS ||
-						pSoldier->sSpreadLocations[ pSoldier->flags.fDoSpread - 1 ] == 0)
+					else if ( pSoldier->fireControl().spreadIndex() > MAX_BURST_SPREAD_TARGETS ||
+						pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] == 0)
 					{
-						if (pSoldier->flags.fDoSpread == 1)
+						if (pSoldier->fireControl().spreadIndex() == 1)
 						{
 							// If no spread locations are defined, don't spread
-							pSoldier->flags.fDoSpread = 0;
+							pSoldier->fireControl().spreadIndex() = 0;
 						}
 						else
 						{
 							// If we hit the end of the array, either by finding a 0 or by exceeding its size, reset
-							pSoldier->flags.fDoSpread = 1;
+							pSoldier->fireControl().spreadIndex() = 1;
 						}
 					}
 				}
 
-				if ( pSoldier->flags.fDoSpread )
+				if ( pSoldier->fireControl().spreadIndex() )
 				{
-					UseLauncherWrapper( pSoldier, pSoldier->sSpreadLocations[ pSoldier->flags.fDoSpread - 1 ] );
-					pSoldier->flags.fDoSpread++;
+					UseLauncherWrapper( pSoldier, pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] );
+					pSoldier->fireControl().spreadIndex()++;
 				}
 				else
 				{
@@ -1796,7 +1796,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 	UINT16	usShotsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft;
 	UINT16	usNoisefactor = GetPercentNoiseVolume(pObjAttHand);
 	INT8	bVolume = HIGHVOLUME;
-	INT8	bShotsToFire = pSoldier->bDoAutofire ? pSoldier->bDoAutofire : GetShotsPerBurst(pObjHand);
+	INT8	bShotsToFire = pSoldier->fireControl().autofireShots() ? pSoldier->fireControl().autofireShots() : GetShotsPerBurst(pObjHand);
 	UINT32	uiResult = SOUND_ERROR;
 	BOOLEAN fSkipSound = FALSE;
 
@@ -1845,7 +1845,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 			pSoldier->position().level() == 0 &&
 			bTerrainType == FLAT_FLOOR && 
 			CheckRoof(pSoldier->position().gridNo()) &&
-			pSoldier->bDoBurst <= 1)
+			pSoldier->fireControl().burstCounter() <= 1)
 			fRoom = TRUE;
 		if (pSoldier->attackSelection().hand() == HANDPOS)
 			fMainHand = TRUE;
@@ -1978,7 +1978,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 		strcpy(zRoom, "room");
 		strcpy(zUnderground, "underground");
 
-		if (pSoldier->bDoBurst)
+		if (pSoldier->fireControl().burstCounter())
 		{
 			// auto fire
 			if (pSoldier->attackSelection().hand() == SECONDHANDPOS)
@@ -2114,7 +2114,7 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 				}
 
 				// sector echo (single or last shot)
-				if (!fNoEcho && !fSilenced && (!pSoldier->bDoBurst || pSoldier->bDoBurst == bShotsToFire))
+				if (!fNoEcho && !fSilenced && (!pSoldier->fireControl().burstCounter() || pSoldier->fireControl().burstCounter() == bShotsToFire))
 				{
 					if (iCommonEcho > 0)
 					{
@@ -2181,11 +2181,11 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 	if (!gGameExternalOptions.fNWSS || uiResult == SOUND_ERROR && !fSkipSound)
 	{
 		// original sound system
-		if (pSoldier->bDoBurst)
+		if (pSoldier->fireControl().burstCounter())
 		{
 			if (Weapon[usUBItem].sBurstSound != NO_WEAPON_SOUND)
 			{
-				if (pSoldier->bDoBurst == 1)
+				if (pSoldier->fireControl().burstCounter() == 1)
 				{
 					// playing first sound
 					if (fSilenced)
@@ -2276,15 +2276,15 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
-		(pSoldier->bDoBurst == 1 || pSoldier->bDoBurst == 0))
+		(pSoldier->fireControl().burstCounter() == 1 || pSoldier->fireControl().burstCounter() == 0))
 	{
 		UINT16 noisefactor = GetPercentNoiseVolume(pObjHand);
 		UINT8 ubDamage = Weapon[usUBItem].ubImpact;
 
 		INT8 bShotsToFire = 1;
-		if (pSoldier->bDoBurst)
+		if (pSoldier->fireControl().burstCounter())
 		{
-			bShotsToFire = pSoldier->bDoAutofire ? pSoldier->bDoAutofire : GetShotsPerBurst(pObjHand);
+			bShotsToFire = pSoldier->fireControl().autofireShots() ? pSoldier->fireControl().autofireShots() : GetShotsPerBurst(pObjHand);
 		}
 		// calculate shock reduction value 0-50%
 		UINT8 ubShockReductPercent = (50 - 400 / (bShotsToFire + 8)) * noisefactor * Weapon[usUBItem].ubAttackVolume / (50 * 100);
@@ -2318,15 +2318,15 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 	#endif
 
-	if (pSoldier->bDoBurst)
+	if (pSoldier->fireControl().burstCounter())
 	{
 		// auto fire
-		INT8 bShotsToFire = pSoldier->bDoAutofire ? pSoldier->bDoAutofire : GetShotsPerBurst(pObjHand);
+		INT8 bShotsToFire = pSoldier->fireControl().autofireShots() ? pSoldier->fireControl().autofireShots() : GetShotsPerBurst(pObjHand);
 
 		PlayWeaponSound(pSoldier, pObjHand, pObjAttHand, usUBItem);
 
 		// Only deduct points once for Burst and Autofire (on firing the first bullet).
-		if (pSoldier->bDoBurst == 1)
+		if (pSoldier->fireControl().burstCounter() == 1)
 		{
 			DeductPoints(pSoldier, sAPCost, iBPCost, AFTERSHOT_INTERRUPT);
 		}
@@ -2337,7 +2337,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		PlayWeaponSound(pSoldier, pObjHand, pObjAttHand, usUBItem);
 
 		// ONLY DEDUCT FOR THE FIRST HAND when doing two-pistol attacks
-		if ( !pSoldier->usBarrelCounter )
+		if ( !pSoldier->fireControl().barrelCounter() )
 		{
 			if ( pSoldier->IsValidSecondHandShot() && ( *pObjHand )[0]->data.gun.bGunStatus >= USABLE && ( *pObjHand )[0]->data.gun.bGunAmmoStatus > 0 )
 			{
@@ -2612,7 +2612,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// HEADROCK HAM 4: Extra experience gain now given when the target is hit. This part only gives basic points
 		// for the attack (FAILURE type).
 		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY &&
-			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
+			(!pSoldier->fireControl().burstCounter() || pSoldier->fireControl().burstCounter() == 2 ) &&
 			(IsJa2TacticalCombatActive() ) &&
 			( SoldierToSoldierBodyPartChanceToGetThrough(
 				pSoldier, pAttackTarget,
@@ -2819,10 +2819,10 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
-	if ( pSoldier->bDoBurst && !pSoldier->usBarrelCounter )
+	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
 	{
 		// done, if bursting, increment
-		pSoldier->bDoBurst++;
+		pSoldier->fireControl().burstCounter()++;
 	}
 
 	INT16 iOverheatReliabilityMalus = 0;
@@ -3030,7 +3030,7 @@ BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		barrelstofire = min( barrelstofire, ( *pObjUsed )[0]->data.gun.ubGunShotsLeft );
 	}
 	
-	for ( pSoldier->usBarrelCounter = 0; pSoldier->usBarrelCounter < barrelstofire; ++pSoldier->usBarrelCounter )
+	for ( pSoldier->fireControl().barrelCounter() = 0; pSoldier->fireControl().barrelCounter() < barrelstofire; ++pSoldier->fireControl().barrelCounter() )
 	{
 		UseGun( pSoldier, sTargetGridNo );		
 	}
@@ -3087,15 +3087,15 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	if (gGameExternalOptions.fNewSuppressionCode &&
 		Item[usUBItem].usItemClass == IC_GUN && 
 		pTarget && 
-		(pSoldier->bDoBurst == 1 || pSoldier->bDoBurst == 0))
+		(pSoldier->fireControl().burstCounter() == 1 || pSoldier->fireControl().burstCounter() == 0))
 	{
 		UINT16 noisefactor = GetPercentNoiseVolume(pObjUsed);
 		UINT8 ubDamage = Weapon[usUBItem].ubImpact;
 
 		INT8 bShotsToFire = 1;
-		if (pSoldier->bDoBurst)
+		if (pSoldier->fireControl().burstCounter())
 		{
-			bShotsToFire = pSoldier->bDoAutofire ? pSoldier->bDoAutofire : GetShotsPerBurst(pObjUsed);
+			bShotsToFire = pSoldier->fireControl().autofireShots() ? pSoldier->fireControl().autofireShots() : GetShotsPerBurst(pObjUsed);
 		}
 		// calculate shock reduction value 0-50%
 		UINT8 ubShockReductPercent = (50 - 400 / (bShotsToFire + 8)) * noisefactor * Weapon[usUBItem].ubAttackVolume / (50 * 100);
@@ -3107,15 +3107,15 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	// DEDUCT APs
-	if (pSoldier->bDoBurst)
+	if (pSoldier->fireControl().burstCounter())
 	{
 		// auto fire
-		INT8 bShotsToFire = pSoldier->bDoAutofire ? pSoldier->bDoAutofire : GetShotsPerBurst(pObjUsed);
+		INT8 bShotsToFire = pSoldier->fireControl().autofireShots() ? pSoldier->fireControl().autofireShots() : GetShotsPerBurst(pObjUsed);
 
 		PlayWeaponSound(pSoldier, pObjHand, pObjAttHand, usUBItem);
 
 		// ONly deduct points once
-		if (pSoldier->bDoBurst == 1)
+		if (pSoldier->fireControl().burstCounter() == 1)
 		{
 			DeductPoints(pSoldier, sAPCost, iBPCost, AFTERSHOT_INTERRUPT);
 		}
@@ -3128,7 +3128,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		PlayWeaponSound(pSoldier, pObjHand, pObjAttHand, usUBItem);
 
 		// ONLY DEDUCT FOR THE FIRST HAND when doing two-pistol attacks
-		if ( !pSoldier->usBarrelCounter )
+		if ( !pSoldier->fireControl().barrelCounter() )
 		{
 			if ( pSoldier->IsValidSecondHandShot() && ( *pObjUsed )[0]->data.gun.bGunStatus >= USABLE && ( *pObjUsed )[0]->data.gun.bGunAmmoStatus > 0 )
 			{
@@ -3163,7 +3163,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		uiHitChance = CalcChanceToHitGun( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation() );
 		//CHRISL:
 		//pSoldier->CTH.push_back(uiHitChance);
-		//if(pSoldier->bDoAutofire == pSoldier->bDoBurst && pSoldier->CTH.size() > 0)
+		//if(pSoldier->fireControl().autofireShots() == pSoldier->fireControl().burstCounter() && pSoldier->CTH.size() > 0)
 		//	pSoldier->CTH.clear();
 	}
 	fCalculateCTHDuringGunfire = FALSE;
@@ -3364,7 +3364,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// NB bDoBurst will be 2 at this point for the first shot since it was incremented
 		// above
 		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY &&
-			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
+			(!pSoldier->fireControl().burstCounter() || pSoldier->fireControl().burstCounter() == 2 ) &&
 			(IsJa2TacticalCombatActive() ) &&
 			( SoldierToSoldierBodyPartChanceToGetThrough(
 				pSoldier, pAttackTarget,
@@ -3375,7 +3375,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				// grant extra exp for hitting a difficult target
 				usExpGain += (UINT8) (100 - uiHitChance) / 25;
 
-				if ( pSoldier->aiData.bAimTime && !pSoldier->bDoBurst )
+				if ( pSoldier->aiData.bAimTime && !pSoldier->fireControl().burstCounter() )
 				{
 					// gain extra exp for aiming, up to the amount from
 					// the difficulty of the shot
@@ -3661,10 +3661,10 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
-	if ( pSoldier->bDoBurst && !pSoldier->usBarrelCounter )
+	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
 	{
 		// done, if bursting, increment
-		pSoldier->bDoBurst++;
+		pSoldier->fireControl().burstCounter()++;
 	}
 
 	INT16 iOverheatReliabilityMalus = 0;
@@ -4922,7 +4922,7 @@ BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		//barrelstofire = min( barrelstofire, ( *pObjUsed )[0]->data.gun.ubGunShotsLeft );
 	}
 
-	for ( pSoldier->usBarrelCounter = 0; pSoldier->usBarrelCounter < barrelstofire; ++pSoldier->usBarrelCounter )
+	for ( pSoldier->fireControl().barrelCounter() = 0; pSoldier->fireControl().barrelCounter() < barrelstofire; ++pSoldier->fireControl().barrelCounter() )
 	{
 		UseLauncher( pSoldier, sTargetGridNo );
 	}
@@ -5086,12 +5086,12 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 			iBPCost = 0;
 	}
 
-	if ( !pSoldier->usBarrelCounter )
+	if ( !pSoldier->fireControl().barrelCounter() )
 	{
-		if ( pSoldier->bDoBurst )
+		if ( pSoldier->fireControl().burstCounter() )
 		{
 			// ONly deduct points once
-			if ( pSoldier->bDoBurst == 1 )
+			if ( pSoldier->fireControl().burstCounter() == 1 )
 			{
 				DeductPoints( pSoldier, sAPCost, iBPCost, AFTERSHOT_INTERRUPT );
 			}
@@ -5138,10 +5138,10 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	MemFree( pSoldier->pThrowParams );
 	pSoldier->pThrowParams = NULL;
 
-	if ( pSoldier->bDoBurst && !pSoldier->usBarrelCounter )
+	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
 	{
 		// done, if bursting, increment
-		pSoldier->bDoBurst++;
+		pSoldier->fireControl().burstCounter()++;
 	}
 	
 	// anv: launcher attack noise
@@ -5630,7 +5630,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				if ( ubAttackerID != NOBODY &&
 					pAttacker->bTeam == gbPlayerNum )
 				{
-					if ( !pAttacker->bDoBurst )
+					if ( !pAttacker->fireControl().burstCounter() )
 					{
 						if ( Random( 40 ) == 0 )
 						{
@@ -7093,7 +7093,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Modify for Recoil and Tracer effects
-	if ( pSoldier->bDoBurst && pSoldier->bDoAutofire == 0 )
+	if ( pSoldier->fireControl().burstCounter() && pSoldier->fireControl().autofireShots() == 0 )
 	{
 		/*CHRISL: At this point in the calculation, Bipods, Foregrips and other "recoil stabalizing" bonuses should reduce the weapons "recoil penalty"
 			(BurstPenalty) by a percentage.  This reduction should apply to the recoil per shot and not as a "flat" initial reduction.  Later in the code,
@@ -7104,18 +7104,18 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			INT16 modb = GetBurstToHitBonus(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
 			iBonus = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 			
-			iPenalty = Weapon[pInHand->usItem].ubBurstPenalty * (pSoldier->bDoBurst - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
+			iPenalty = Weapon[pInHand->usItem].ubBurstPenalty * (pSoldier->fireControl().burstCounter() - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
 			iPenalty = max(0, (iPenalty * (100 - iBonus))/100 );
 		}
 		else
 		{
 			// Snap: bipod may reduce burst penalty
-			INT16 moda = GetBurstPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
-			INT16 modb = GetBurstPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
+			INT16 moda = GetBurstPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->fireControl().burstCounter() - 1);
+			INT16 modb = GetBurstPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->fireControl().burstCounter() - 1);
 			iPenalty = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 			if(gGameExternalOptions.bAimedBurstEnabled)
-				iPenalty += Weapon[usInHand].ubBurstPenalty * (pSoldier->bDoBurst - 1) * gGameExternalOptions.uAimedBurstPenalty;
+				iPenalty += Weapon[usInHand].ubBurstPenalty * (pSoldier->fireControl().burstCounter() - 1) * gGameExternalOptions.uAimedBurstPenalty;
 		}
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
@@ -7141,7 +7141,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		}
 		iChance -= iPenalty;
 	}
-	else if ( pSoldier->bDoAutofire > 0 )
+	else if ( pSoldier->fireControl().autofireShots() > 0 )
 	{
 		/*CHRISL: At this point in the calculation, Bipods, Foregrips and other "recoil stabalizing" bonuses should reduce the weapons "recoil penalty"
 			(AutoPenalty) by a percentage.  This reduction should apply the the recoil per shot and not as a "flat" initial reduction.  Later in the code,
@@ -7152,18 +7152,18 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			INT16 modb = GetAutoToHitBonus(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * gGameExternalOptions.ubFlatAFTHBtoPrecentMultiplier;
 			iBonus = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
-			iPenalty = Weapon[pInHand->usItem].AutoPenalty * (pSoldier->bDoBurst - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
+			iPenalty = Weapon[pInHand->usItem].AutoPenalty * (pSoldier->fireControl().burstCounter() - 1) * (gGameExternalOptions.bAimedBurstEnabled?gGameExternalOptions.uAimedBurstPenalty:1);
 			iPenalty = max(0, (iPenalty * (100 - iBonus))/100 );
 		}
 		else
 		{
 			// Snap: bipod may reduce auto penalty
-			INT16 moda = GetAutoPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
-			INT16 modb = GetAutoPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->bDoBurst - 1);
+			INT16 moda = GetAutoPenalty(pInHand, stance == ANIM_PRONE) * (pSoldier->fireControl().burstCounter() - 1);
+			INT16 modb = GetAutoPenalty(pInHand, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) * (pSoldier->fireControl().burstCounter() - 1);
 			iPenalty = (INT32)((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 
 			if(gGameExternalOptions.bAimedBurstEnabled)
-				iPenalty += Weapon[usInHand].AutoPenalty * (pSoldier->bDoBurst - 1) * gGameExternalOptions.uAimedBurstPenalty;
+				iPenalty += Weapon[usInHand].AutoPenalty * (pSoldier->fireControl().burstCounter() - 1) * gGameExternalOptions.uAimedBurstPenalty;
 		}
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
@@ -7197,11 +7197,11 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 			much ammo we've used from the current mag.  If every 3rd round is a tracer, and we previously fired 5 rounds from our "mag", then the first
 			round of this burst is a tracer, the 2nd & 3rd are normal, the 4th is a tracer, 5th & 6th are normal, etc.*/
 		if (fCalculateCTHDuringGunfire)	// Calculate number of bullets left right before firing this burst
-			iBulletsLeft = (*pInHand)[0]->data.gun.ubGunShotsLeft + (pSoldier->bDoBurst - 1);
+			iBulletsLeft = (*pInHand)[0]->data.gun.ubGunShotsLeft + (pSoldier->fireControl().burstCounter() - 1);
 		else
 			iBulletsLeft = (*pInHand)[0]->data.gun.ubGunShotsLeft;
 		iRoundsFiredPreviously = GetMagSize(pInHand) - iBulletsLeft;	//How many rounds had been fired before this autofire sequence
-		for( UINT8 cnt = 1; cnt <= pSoldier->bDoBurst; cnt++ ){	//How many tracers have been fired prior to this bullet in this autofire sequence
+		for( UINT8 cnt = 1; cnt <= pSoldier->fireControl().burstCounter(); cnt++ ){	//How many tracers have been fired prior to this bullet in this autofire sequence
 			if((iRoundsFiredPreviously+cnt)%iBulletsPerTracer == 0)
 				iTracersFired++;
 		}
@@ -9864,14 +9864,12 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 		if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 		{
 			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-			pSoldier->bDoBurst = FALSE;
-			pSoldier->bDoAutofire = 0;			
+			pSoldier->fireControl().selectSingleShot();
 		}
 		else
 		{
 			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-			pSoldier->bDoBurst = TRUE;
-			pSoldier->bDoAutofire = 1;
+			pSoldier->fireControl().selectAutofire();
 		}
 		if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[ pSoldier->inv[ HANDPOS ].usItem ].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 			pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
@@ -9905,14 +9903,12 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 			{
 				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-				pSoldier->bDoBurst = FALSE;
-				pSoldier->bDoAutofire = 0;				
+				pSoldier->fireControl().selectSingleShot();
 			}
 			else
 			{
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-				pSoldier->bDoAutofire = 1;
-				pSoldier->bDoBurst = TRUE;
+				pSoldier->fireControl().selectAutofire();
 			}
 			if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[ pSoldier->inv[ HANDPOS ].usItem ].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 				pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
@@ -10221,11 +10217,11 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		////////////////////////////////////////////////////////////////////////////////////////////////
 	}
 
-	if ( UsingNewCTHSystem() == false && pSoldier->bDoBurst )
+	if ( UsingNewCTHSystem() == false && pSoldier->fireControl().burstCounter() )
 	{
 		int iPenalty = ( Weapon[usHandItem].ubBurstPenalty
 			- GetBurstToHitBonus(&pSoldier->inv[HANDPOS], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE) )
-			* (pSoldier->bDoBurst - 1);
+			* (pSoldier->fireControl().burstCounter() - 1);
 
 		// SAMDRO - shooting dual bursts is somehow harder to control
 		if ( pSoldier->IsValidSecondHandBurst() )
@@ -10484,22 +10480,19 @@ void ChangeWeaponMode( SOLDIERTYPE * pSoldier )
 		// sevenfm: this flag means that we'll need to initialize number of bullets for autofire
 		gfAutofireInitBulletNum = FALSE;
 
-		pSoldier->bDoAutofire = 1;
-		pSoldier->bDoBurst = 1;
+		pSoldier->fireControl().selectAutofire();
 	}
 	else if(pSoldier->attackSelection().weaponMode() == WM_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST)
 	{
-		pSoldier->bDoAutofire = 0;
-		pSoldier->bDoBurst = 1;
+		pSoldier->fireControl().selectBurst();
 	}
 	else
 	{
-		pSoldier->bDoBurst = 0;
-		pSoldier->bDoAutofire = 0;	
+		pSoldier->fireControl().selectSingleShot();
 	}
 
 	// Changed by ADB, rev 1513
-	//pSoldier->flags.fDoSpread = 0;
+	//pSoldier->fireControl().spreadIndex() = 0;
 	
 	DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 	gfUIForceReExamineCursorData = TRUE;
@@ -10811,7 +10804,7 @@ BOOLEAN WasPrevBulletATracer( SOLDIERTYPE *pSoldier, OBJECTTYPE *pWeapon )
 		// Not a tracer magazine
 		return (FALSE);
 	}
-	if (pSoldier->bDoBurst == 0)
+	if (pSoldier->fireControl().burstCounter() == 0)
 	{
 		// No volley? Tracers are irrelevant
 		return (FALSE);

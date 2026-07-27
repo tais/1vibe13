@@ -292,6 +292,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   retains their four established schema sites around visibility, hit location,
   target identity, and facility state. Existing fire command and multiplayer
   packet fields remain unchanged.
+- Mutable volley execution is now stored by `SoldierFireControlComponent`.
+  Spread and autofire flags, recoil/counterforce history, initial muzzle
+  offsets, bullets in flight, burst progress, all six spread targets, autofire
+  count, and the multi-barrel cursor remain at their established field-visitor
+  positions. The v101 converter now copies the complete six-element `INT32`
+  spread array instead of only its first half. This is an in-memory ownership
+  and old-conversion correctness change; it does not change the current save
+  stream, multiplayer packets, or installed data.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

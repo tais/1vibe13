@@ -977,7 +977,7 @@ void UpdateSMPanel( )
 	}
 
 	/*
-	if ( GetSMCurrentMerc()->bDoBurst )
+	if ( GetSMCurrentMerc()->fireControl().burstCounter() )
 	{
 		if ( !ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->ubToggleButtonActivated )
 		{
@@ -8132,14 +8132,12 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 		if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 		{
 			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-			pSoldier->bDoBurst = FALSE;
-			pSoldier->bDoAutofire = 0;
+			pSoldier->fireControl().selectSingleShot();
 		}
 		else
 		{
 			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-			pSoldier->bDoBurst = TRUE;
-			pSoldier->bDoAutofire = 1;
+			pSoldier->fireControl().selectAutofire();
 		}
 	}
 
@@ -8169,14 +8167,12 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 			{
 				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-				pSoldier->bDoBurst = FALSE;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().selectSingleShot();
 			}
 			else
 			{
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-				pSoldier->bDoAutofire = 1;
-				pSoldier->bDoBurst = TRUE;
+				pSoldier->fireControl().selectAutofire();
 			}
 		}
 	}

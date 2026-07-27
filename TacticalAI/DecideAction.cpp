@@ -3109,8 +3109,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 				pSoldier->targeting().level() = BestShot.bTargetLevel;
 				pSoldier->aiData.bAimTime = BestShot.ubAimTime;
-				pSoldier->bDoAutofire = 0;
-				pSoldier->bDoBurst = 1;
+				pSoldier->fireControl().selectBurst();
 				pSoldier->attackSelection().scopeMode() = BestShot.bScopeMode;
 
 				INT16 ubBurstAPs = 0;
@@ -3144,35 +3143,35 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				{
 					do
 					{
-						pSoldier->bDoAutofire++;
-						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire);
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier);
+						pSoldier->fireControl().autofireShots()++;
+						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots());
+						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
-						pSoldier->bDoAutofire <= 30 &&
-						(dTotalRecoil <= 20.0f || pSoldier->bDoAutofire < ubMinAuto));
+						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
+						pSoldier->fireControl().autofireShots() <= 30 &&
+						(dTotalRecoil <= 20.0f || pSoldier->fireControl().autofireShots() < ubMinAuto));
 				}
 				else
 				{
 					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->attackSelection().hand()], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
 					do
 					{
-						pSoldier->bDoAutofire++;
-						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier);
+						pSoldier->fireControl().autofireShots()++;
+						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
 					} while (pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
-						pSoldier->bDoAutofire <= 30 &&
-						(ubAutoPenalty * pSoldier->bDoAutofire <= 80 || pSoldier->bDoAutofire < ubMinAuto));
+						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() &&
+						pSoldier->fireControl().autofireShots() <= 30 &&
+						(ubAutoPenalty * pSoldier->fireControl().autofireShots() <= 80 || pSoldier->fireControl().autofireShots() < ubMinAuto));
 				}
 
-				pSoldier->bDoAutofire--;
+				pSoldier->fireControl().autofireShots()--;
 
 				// Make sure we decided to fire at least one shot!
-				ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier);
-				DebugAI(AI_MSG_INFO, pSoldier, String("autofire shots %d APcost %d burst AP %d aimtime %d reserve AP %d", pSoldier->bDoAutofire, BestShot.ubAPCost, ubBurstAPs, sActualAimAP, sReserveAP));
+				ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier);
+				DebugAI(AI_MSG_INFO, pSoldier, String("autofire shots %d APcost %d burst AP %d aimtime %d reserve AP %d", pSoldier->fireControl().autofireShots(), BestShot.ubAPCost, ubBurstAPs, sActualAimAP, sReserveAP));
 
 				// minimum 3 bullets
-				if (pSoldier->bDoAutofire >= 3 && pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP)
+				if (pSoldier->fireControl().autofireShots() >= 3 && pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP)
 				{
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != BestShot.ubStance &&
 						IsValidStance(pSoldier, BestShot.ubStance))
@@ -3203,8 +3202,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				}
 				else
 				{
-					pSoldier->bDoBurst = 0;
-					pSoldier->bDoAutofire = 0;
+					pSoldier->fireControl().selectSingleShot();
 				}
 			}
 		}
@@ -6348,7 +6346,7 @@ INT16 ubMinAPCost;
 		//POSSIBLE STRUCTURE CHANGE PROBLEM, NOT CURRENTLY CHANGED. GOTTHARD 7/14/08		
 		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
 		pSoldier->attackSelection().scopeMode() = BestAttack.bScopeMode;
-		pSoldier->bDoBurst			= 0;
+		pSoldier->fireControl().burstCounter()			= 0;
 
 		// HEADROCK HAM 3.6: bAimTime represents how MANY aiming levels are used, not how much APs they cost necessarily.
 		INT16 sActualAimAP = CalcAPCostForAiming( pSoldier, BestAttack.sTarget, (INT8)pSoldier->aiData.bAimTime );
@@ -6431,8 +6429,7 @@ INT16 ubMinAPCost;
 							CalcSpreadBurst( pSoldier, BestAttack.sTarget, BestAttack.bTargetLevel );
 						}
 						//dnl ch58 130913 return aiming for burst
-						pSoldier->bDoBurst = 1;
-						pSoldier->bDoAutofire = 0;
+						pSoldier->fireControl().selectBurst();
 					}
 				}
 			}
@@ -6441,40 +6438,40 @@ INT16 ubMinAPCost;
 				bestShotOpponent &&
 				!(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				(( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
-				!pSoldier->bDoBurst ) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
+				!pSoldier->fireControl().burstCounter() ) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("enough APs to autofire, random chance of doing so"));
 L_NEWAIM:
 				FLOAT dTotalRecoil = 0.0f;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().autofireShots() = 0;
 				if(UsingNewCTHSystem() == true)
 				{
 					do
 					{
-						pSoldier->bDoAutofire++;
-						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
+						pSoldier->fireControl().autofireShots()++;
+						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
-					while(	pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
+					while(	pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				} 
 				else 
 				{
 					do
 					{
-						pSoldier->bDoAutofire++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
+						pSoldier->fireControl().autofireShots()++;
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 					}
-					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->bDoAutofire <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->fireControl().autofireShots() <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
-				pSoldier->bDoAutofire--;
+				pSoldier->fireControl().autofireShots()--;
 
-				DebugAI(AI_MSG_INFO, pSoldier, String("autofire %d", pSoldier->bDoAutofire));
+				DebugAI(AI_MSG_INFO, pSoldier, String("autofire %d", pSoldier->fireControl().autofireShots()));
 
 				//dnl ch69 130913 let try increase autofire rate for aim cost
 				// sevenfm: LIMIT_MAX_DEVIATION option increases effectiveness of suppression
 				if ((!UsingNewCTHSystem() || gGameCTHConstants.LIMIT_MAX_DEVIATION) &&
-					pSoldier->bDoAutofire < 3 && 
+					pSoldier->fireControl().autofireShots() < 3 &&
 					pSoldier->aiData.bAimTime > 0 && 
 					pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 &&
 					Chance(gGameExternalOptions.sSuppressionEffectiveness) &&
@@ -6486,9 +6483,9 @@ L_NEWAIM:
 					goto L_NEWAIM;
 				}
 
-				if (pSoldier->bDoAutofire > 0)
+				if (pSoldier->fireControl().autofireShots() > 0)
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if (pSoldier->bActionPoints >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
@@ -6546,7 +6543,7 @@ L_NEWAIM:
 						if ((INT32) PreRandom( 100 ) < iChance || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto)
 						{
 							//dnl ch69 140913 return aiming for autofire with halfautofire fix
-							pSoldier->bDoBurst = 1;
+							pSoldier->fireControl().burstCounter() = 1;
 							INT16 ubHalfBurstAPs = 256;
 							if (pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4)
 							{
@@ -6568,7 +6565,7 @@ L_NEWAIM:
 							if(Chance(iChance) && pSoldier->bActionPoints >= (2 * BestAttack.ubAPCost + ubHalfBurstAPs + sActualAimAP))
 							{
 								// Try short autofire to enhance chance of hitting
-								pSoldier->bDoAutofire = 2;
+								pSoldier->fireControl().autofireShots() = 2;
 								BestAttack.ubAPCost += ubHalfBurstAPs + sActualAimAP;
 							}
 							else
@@ -6578,18 +6575,17 @@ L_NEWAIM:
 						}
 						else
 						{
-							pSoldier->bDoAutofire = 0;
-							pSoldier->bDoBurst = 0;
+							pSoldier->fireControl().selectSingleShot();
 						}
 					}
 				}
 			}
 
-			if (!pSoldier->bDoBurst)
+			if (!pSoldier->fireControl().burstCounter())
 			{
 				pSoldier->aiData.bAimTime	= BestAttack.ubAimTime;
-				pSoldier->bDoBurst			= 0;
-				pSoldier->bDoAutofire		= 0;
+				pSoldier->fireControl().burstCounter()			= 0;
+				pSoldier->fireControl().autofireShots()		= 0;
 			}
 
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
@@ -6642,14 +6638,14 @@ L_NEWAIM:
 			if (BestAttack.ubAimTime == BURSTING)
 			{
 				pSoldier->aiData.bAimTime			= 0;
-				pSoldier->bDoBurst			= 1;
-				pSoldier->bDoAutofire		= 0;
+				pSoldier->fireControl().burstCounter()			= 1;
+				pSoldier->fireControl().autofireShots()		= 0;
 			}
 			else if(BestAttack.ubAimTime >= AUTOFIRING)
 			{
 				pSoldier->aiData.bAimTime			= 0;
-				pSoldier->bDoBurst			= 1;
-				pSoldier->bDoAutofire		= BestAttack.ubAimTime-AUTOFIRING;
+				pSoldier->fireControl().burstCounter()			= 1;
+				pSoldier->fireControl().autofireShots()		= BestAttack.ubAimTime-AUTOFIRING;
 
 				BestAttack.ubAimTime = AUTOFIRING;
 			}*/
@@ -6658,7 +6654,7 @@ L_NEWAIM:
 			else // defaults already set
 			{
 			pSoldier->aiData.bAimTime			= BestAttack.ubAimTime;
-			pSoldier->bDoBurst			= 0;
+			pSoldier->fireControl().burstCounter()			= 0;
 			}
 			*/
 
@@ -6721,8 +6717,8 @@ L_NEWAIM:
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("Attack!"));
 
 		//dnl ch64 270813 must be as below RearrangePocket with FOREVER will screw already decided BURST or AUTOFIRE
-		INT8 bDoBurst = pSoldier->bDoBurst;
-		UINT8 bDoAutofire = pSoldier->bDoAutofire;
+		INT8 bDoBurst = pSoldier->fireControl().burstCounter();
+		UINT8 bDoAutofire = pSoldier->fireControl().autofireShots();
 		// swap weapon to hand if necessary
 		if (BestAttack.bWeaponIn != HANDPOS)
 		{
@@ -6734,8 +6730,8 @@ L_NEWAIM:
 		{
 			DebugAI(AI_MSG_INFO, pSoldier, String("using burst/autofire"));
 
-			pSoldier->bDoAutofire = bDoAutofire;
-			pSoldier->bDoBurst = bDoBurst;
+			pSoldier->fireControl().autofireShots() = bDoAutofire;
+			pSoldier->fireControl().burstCounter() = bDoBurst;
 			if(bDoAutofire > 1)
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			else
@@ -6767,8 +6763,7 @@ L_NEWAIM:
 		else if (ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE)
 		{
 			DebugAI(AI_MSG_INFO, pSoldier, String("toss attack, disable burst/autofire"));
-			pSoldier->bDoBurst = 0;
-			pSoldier->bDoAutofire = 0;
+			pSoldier->fireControl().selectSingleShot();
 
 			if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))	//dnl ch63 240813
 			{
@@ -8669,8 +8664,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			pSoldier->aiData.usActionData = BestShot.sTarget;
 			pSoldier->targeting().level() = BestShot.bTargetLevel;
 			pSoldier->aiData.bAimTime = 0;
-			pSoldier->bDoAutofire = 0;
-			pSoldier->bDoBurst = 1;
+			pSoldier->fireControl().selectBurst();
 
 			INT16 ubBurstAPs = 0;
 			INT16 totalUsedAPs = 0;
@@ -8682,27 +8676,27 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			{
 				do
 				{
-					pSoldier->bDoAutofire++;
-					dTotalRecoil += AICalcRecoilForShot( pSoldier, &weapon, pSoldier->bDoAutofire );
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->bDoAutofire, pSoldier );
+					pSoldier->fireControl().autofireShots()++;
+					dTotalRecoil += AICalcRecoilForShot( pSoldier, &weapon, pSoldier->fireControl().autofireShots() );
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 					totalUsedAPs = BestShot.ubAPCost + ubBurstAPs;
-				} while ( pSoldier->bActionPoints >= totalUsedAPs && remainingAmmo >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );
+				} while ( pSoldier->bActionPoints >= totalUsedAPs && remainingAmmo >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );
 			}
 			else
 			{
 				do
 				{
-					pSoldier->bDoAutofire++;
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->bDoAutofire, pSoldier );
+					pSoldier->fireControl().autofireShots()++;
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 					totalUsedAPs = BestShot.ubAPCost + ubBurstAPs;
-				} while ( pSoldier->bActionPoints >= totalUsedAPs && remainingAmmo >= pSoldier->bDoAutofire &&
-						 GetAutoPenalty( &weapon, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );
+				} while ( pSoldier->bActionPoints >= totalUsedAPs && remainingAmmo >= pSoldier->fireControl().autofireShots() &&
+						 GetAutoPenalty( &weapon, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );
 			}
 
-			pSoldier->bDoAutofire--;
+			pSoldier->fireControl().autofireShots()--;
 
 			// Make sure we decided to fire at least one shot!
-			ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->bDoAutofire, pSoldier );
+			ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &weapon, pSoldier->fireControl().autofireShots(), pSoldier );
 
 			// if necessary, swap the usItem from holster into the hand position
 			if ( BestShot.bWeaponIn != HANDPOS )
@@ -8711,15 +8705,14 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			}
 
 			// minimum 5 bullets
-			if ( pSoldier->bDoAutofire >= 5 && pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs )
+			if ( pSoldier->fireControl().autofireShots() >= 5 && pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SUPPRESSIONFIRE] );
 				return(AI_ACTION_FIRE_GUN);
 			}
 			else
 			{
-				pSoldier->bDoBurst = 0;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().selectSingleShot();
 			}
 		}
 		// suppression not possible, do something else
@@ -10099,7 +10092,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		//POSSIBLE STRUCTURE CHANGE PROBLEM, NOT CURRENTLY CHANGED. GOTTHARD 7/14/08		
 		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
 		pSoldier->attackSelection().scopeMode() = BestAttack.bScopeMode;
-		pSoldier->bDoBurst = 0;
+		pSoldier->fireControl().burstCounter() = 0;
 
 		// HEADROCK HAM 3.6: bAimTime represents how MANY aiming levels are used, not how much APs they cost necessarily.
 		INT16 sActualAimAP = CalcAPCostForAiming( pSoldier, BestAttack.sTarget, (INT8)pSoldier->aiData.bAimTime );
@@ -10148,8 +10141,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 							CalcSpreadBurst( pSoldier, BestAttack.sTarget, BestAttack.bTargetLevel );
 						}
 						//dnl ch58 130913 return aiming for burst
-						pSoldier->bDoBurst = 1;
-						pSoldier->bDoAutofire = 0;
+						pSoldier->fireControl().selectBurst();
 					}
 				}
 			}
@@ -10158,38 +10150,38 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 				 bestShotOpponent &&
 				 !(bestShotOpponent->vitals().health() < OKLIFE) && // don't burst at downed targets
 				 ((pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft > 1 &&
-				 !pSoldier->bDoBurst) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
+				 !pSoldier->fireControl().burstCounter()) || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "DecideActionBlack: ENOUGH APs TO AUTOFIRE, RANDOM CHANCE OF DOING SO" );
 			L_NEWAIM:
 				FLOAT dTotalRecoil = 0.0f;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().autofireShots() = 0;
 				if ( UsingNewCTHSystem( ) == true ){
 					do
 					{
-						pSoldier->bDoAutofire++;
-						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire );
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
-					} while ( pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
+						pSoldier->fireControl().autofireShots()++;
+						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots() );
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					} while ( pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				}
 				else {
 					do
 					{
-						pSoldier->bDoAutofire++;
-						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
-					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+						pSoldier->fireControl().autofireShots()++;
+						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
+					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->fireControl().autofireShots() <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
-				pSoldier->bDoAutofire--;
-				if ( !UsingNewCTHSystem( ) && pSoldier->bDoAutofire < 3 && pSoldier->aiData.bAimTime > 0 && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 )//dnl ch69 130913 let try increase autofire rate for aim cost
+				pSoldier->fireControl().autofireShots()--;
+				if ( !UsingNewCTHSystem( ) && pSoldier->fireControl().autofireShots() < 3 && pSoldier->aiData.bAimTime > 0 && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= 3 )//dnl ch69 130913 let try increase autofire rate for aim cost
 				{
 					pSoldier->aiData.bAimTime--;
 					sActualAimAP = CalcAPCostForAiming( pSoldier, BestAttack.sTarget, (INT8)pSoldier->aiData.bAimTime );
 					goto L_NEWAIM;
 				}
-				if ( pSoldier->bDoAutofire > 0 )
+				if ( pSoldier->fireControl().autofireShots() > 0 )
 				{
-					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
+					ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->fireControl().autofireShots(), pSoldier );
 
 					if ( pSoldier->bActionPoints >= BestAttack.ubAPCost + sActualAimAP + ubBurstAPs )
 					{
@@ -10198,7 +10190,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						if ( (INT32)PreRandom( 100 ) < iChance || Weapon[pSoldier->inv[BestAttack.bWeaponIn].usItem].NoSemiAuto )
 						{
 							//dnl ch69 140913 return aiming for autofire with halfautofire fix
-							pSoldier->bDoBurst = 1;
+							pSoldier->fireControl().burstCounter() = 1;
 							INT16 ubHalfBurstAPs = 256;
 							if ( pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft < 4 )
 								iChance = 0;
@@ -10211,7 +10203,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 							if ( (INT32)PreRandom( 100 ) < iChance && pSoldier->bActionPoints > (2 * BestAttack.ubAPCost + ubHalfBurstAPs + sActualAimAP) )
 							{
 								// Try short autofire to enhance chance of hitting
-								pSoldier->bDoAutofire = 4;
+								pSoldier->fireControl().autofireShots() = 4;
 								BestAttack.ubAPCost += ubHalfBurstAPs + sActualAimAP;
 							}
 							else
@@ -10221,18 +10213,16 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						}
 						else
 						{
-							pSoldier->bDoAutofire = 0;
-							pSoldier->bDoBurst = 0;
+							pSoldier->fireControl().selectSingleShot();
 						}
 					}
 				}
 			}
 
-			if ( !pSoldier->bDoBurst )
+			if ( !pSoldier->fireControl().burstCounter() )
 			{
 				pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
-				pSoldier->bDoBurst = 0;
-				pSoldier->bDoAutofire = 0;
+				pSoldier->fireControl().selectSingleShot();
 			}
 
 			// IF WAY OUT OF EFFECTIVE RANGE TRY TO ADVANCE RESERVING ENOUGH AP FOR A SHOT IF NOT ACTED YET
@@ -10276,8 +10266,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "OTHERWISE, JUST GO AHEAD & ATTACK!" );
 
 		//dnl ch64 270813 must be as below RearrangePocket with FOREVER will screw already decided BURST or AUTOFIRE
-		INT8 bDoBurst = pSoldier->bDoBurst;
-		UINT8 bDoAutofire = pSoldier->bDoAutofire;
+		INT8 bDoBurst = pSoldier->fireControl().burstCounter();
+		UINT8 bDoAutofire = pSoldier->fireControl().autofireShots();
 		// swap weapon to hand if necessary
 		if ( BestAttack.bWeaponIn != HANDPOS )
 		{
@@ -10286,8 +10276,8 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		}
 		if ( ubBestAttackAction == AI_ACTION_FIRE_GUN && bDoBurst == 1 )//dnl ch64 270813
 		{
-			pSoldier->bDoAutofire = bDoAutofire;
-			pSoldier->bDoBurst = bDoBurst;
+			pSoldier->fireControl().autofireShots() = bDoAutofire;
+			pSoldier->fireControl().burstCounter() = bDoBurst;
 			if ( bDoAutofire > 1 )
 				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			else
@@ -10329,8 +10319,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						CalcSpreadBurst( pSoldier, BestAttack.sTarget, BestAttack.bTargetLevel );
 					}
 					//dnl ch58 140913 After HAM 4 BURSTING is not in use any more, for burst bDoAutofire must be set to 0
-					pSoldier->bDoBurst = 1;
-					pSoldier->bDoAutofire = 0;
+					pSoldier->fireControl().selectBurst();
 				}
 			}
 

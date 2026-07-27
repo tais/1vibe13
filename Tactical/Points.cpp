@@ -1631,25 +1631,25 @@ INT16 CalcAPsToAutofire( INT16 bBaseActionPoints, OBJECTTYPE * pObj, UINT8 bDoAu
 		const INT32 autofireaps =
 		aps = ( ( APBPConstants[AUTOFIRE_SHOTS_AP_VALUE] * bDoAutofire * bBaseActionPoints ) / GetAutofireShotsPerFiveAPs(pObj) + (APBPConstants[AP_MAXIMUM] - 1) ) / APBPConstants[AP_MAXIMUM];
 
-		//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: base aps = %d, # shots = %d",aps,pSoldier->bDoAutofire ));
+		//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: base aps = %d, # shots = %d",aps,pSoldier->fireControl().autofireShots() ));
 		//check for spring and bolt
 		//bAttachPos = FindAttachment( &(pSoldier->inv[HANDPOS]), SPRING_AND_BOLT_UPGRADE );
 		//if ( bAttachPos != -1 )
 		//{
 		//	aps = (aps * 100) / (100 + pSoldier->inv[HANDPOS].bAttachStatus[ bAttachPos ] / 5);
-		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found rod and spring, aps = %d, # shots = %d",aps,pSoldier->bDoAutofire ));
+		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found rod and spring, aps = %d, # shots = %d",aps,pSoldier->fireControl().autofireShots() ));
 		//}
 		//bAttachPos = FindAttachment( &(pSoldier->inv[HANDPOS]), REFLEX_SCOPED );
 		//if ( bAttachPos != -1 )
 		//{
 		//	aps = (aps * 100) / (100 + pSoldier->inv[HANDPOS].bAttachStatus[ bAttachPos ] / 5);
-		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found reflex scope, aps = %d, # shots = %d",aps,pSoldier->bDoAutofire ));
+		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found reflex scope, aps = %d, # shots = %d",aps,pSoldier->fireControl().autofireShots() ));
 		//}
 		//bAttachPos = FindAttachment( &(pSoldier->inv[HANDPOS]), REFLEX_UNSCOPED );
 		//if ( bAttachPos != -1 )
 		//{
 		//	aps = ( aps * 100 ) / (100 + pSoldier->inv[HANDPOS].bAttachStatus[ bAttachPos ] / 5);
-		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found reflex sight, aps = %d, # shots = %d",aps,pSoldier->bDoAutofire ));
+		//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutofire: found reflex sight, aps = %d, # shots = %d",aps,pSoldier->fireControl().autofireShots() ));
 		//}
 
 		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcAPsToAutoFire: before bonus aps = %d, std bonus = %d, auto bonus = %d", aps,GetPercentAPReduction(pSoldier, pObj),GetPercentAutofireAPReduction(pObj)));
@@ -1717,10 +1717,10 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 	{
 		sAPCost = MinAPsToAttack( pSoldier, sGridNo, ubAddTurningCost, bAimTime );
 
-		if ( pSoldier->bDoBurst )
+		if ( pSoldier->fireControl().burstCounter() )
 		{
-			if(pSoldier->bDoAutofire && GetAutofireShotsPerFiveAPs(AttackingWeapon) > 0 )
-				sAPCost += CalcAPsToAutofire( pSoldier->CalcActionPoints( ), AttackingWeapon, pSoldier->bDoAutofire, pSoldier );
+			if(pSoldier->fireControl().autofireShots() && GetAutofireShotsPerFiveAPs(AttackingWeapon) > 0 )
+				sAPCost += CalcAPsToAutofire( pSoldier->CalcActionPoints( ), AttackingWeapon, pSoldier->fireControl().autofireShots(), pSoldier );
 			else
 				sAPCost += CalcAPsToBurst( pSoldier->CalcActionPoints( ), AttackingWeapon, pSoldier );
 		}
@@ -2379,7 +2379,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
 
 /*			// Decreased APs needed for LMG - Auto Weapons
-			if (Weapon[usUBItem].ubWeaponType == GUN_LMG && (pSoldier->bDoBurst || pSoldier->bDoAutofire) && ( HAS_SKILL_TRAIT( pSoldier, AUTO_WEAPONS_NT ) ) )
+			if (Weapon[usUBItem].ubWeaponType == GUN_LMG && (pSoldier->fireControl().burstCounter() || pSoldier->fireControl().autofireShots()) && ( HAS_SKILL_TRAIT( pSoldier, AUTO_WEAPONS_NT ) ) )
 			{
 				bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubAWFiringSpeedBonusLMGs ) / 100)+ 0.5);
 			}
@@ -4359,7 +4359,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	// APPLY MODIFIER FOR AUTOFIRE
 	// Now, on autofire this becomes real thing.. the kick power evolves by the length of the autofire
 	// Depending somehow on the weapon autofire penalty, the 4th-6th bullet can already deal double the amount of energy loss.
-	if ( pSoldier->bDoBurst > 1 )
+	if ( pSoldier->fireControl().burstCounter() > 1 )
 	{					
 		// per every shot after the first one, the power increases by an amount based on the weapon steadiness (autopenalty - reduction of it)
 		// the additional kick factor is 5% base + half the auto penalty, but is itself also reduced by the above adjustments
@@ -4367,7 +4367,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 		dModifier = (INT32)((3 + (sSteadiness / 2)) * (100 - dModifier) / 100); 
 		if ( dModifier > 0 )
 		{
-			for ( INT16 i = 1; i < pSoldier->bDoBurst; i++ )
+			for ( INT16 i = 1; i < pSoldier->fireControl().burstCounter(); i++ )
 			{
 				iKickPower = (INT32)(iKickPower * ( 100 + dModifier ) / 100);
 			}

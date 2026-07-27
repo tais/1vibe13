@@ -2846,7 +2846,7 @@ BOOLEAN DrawCTHIndicator()
 #endif
 
 	//////////////////// BURST/AUTO LABEL AND BULLETS
-	if (pSoldier->bDoBurst)
+	if (pSoldier->fireControl().burstCounter())
 	{
 		SetFont( TINYFONT1 );
 		SetFontBackground( FONT_MCOLOR_BLACK );
@@ -2864,10 +2864,10 @@ BOOLEAN DrawCTHIndicator()
 		UINT32 uiMaxBulletsToDisplay = 0;
 		UINT32 uiSpacesToDisplay = 0;
 
-		if (pSoldier->bDoAutofire)
+		if (pSoldier->fireControl().autofireShots())
 		{
 			// Number of COLORED bullets to display is the number of bullets we want to fire.
-			ubNumBullets = pSoldier->bDoAutofire;
+			ubNumBullets = pSoldier->fireControl().autofireShots();
 
 			// How many bullets are left in the gun?
 			UINT32 uiBulletsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
@@ -2883,14 +2883,14 @@ BOOLEAN DrawCTHIndicator()
 				// that can be fired given the current number of APs left.
 
 				// Store Soldier Autofire variable into a temp. We do this to fool the AP Calculation formula.
-				UINT8 TempDoAutofire = pSoldier->bDoAutofire;
-				pSoldier->bDoAutofire = uiCurBullet;
+				UINT8 TempDoAutofire = pSoldier->fireControl().autofireShots();
+				pSoldier->fireControl().autofireShots() = uiCurBullet;
 
 				//Get AP cost to fire this many bullets
 				INT16 sAPCosts = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, TRUE, pSoldier->aiData.bShownAimTime);
 
 				// Switch back.
-				pSoldier->bDoAutofire = TempDoAutofire;
+				pSoldier->fireControl().autofireShots() = TempDoAutofire;
 
 				// Have we reached a number of bullets that can be fired with the current APs?
 				if( !uiMaxAutofire && EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
@@ -2936,7 +2936,7 @@ BOOLEAN DrawCTHIndicator()
 		UINT16 usNumSpacesShown = 0;
 
 		// AUTO FIRE
-		if (pSoldier->bDoAutofire)
+		if (pSoldier->fireControl().autofireShots())
 		{
 			// Draw greyed-out bullets, indicating how many bullets CAN be added to the volley given our
 			// current remaining APs.

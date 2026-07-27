@@ -4315,10 +4315,10 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 
 	}
 
-	if(pSoldier->bDoAutofire) //reset the autofire bullet count
+	if(pSoldier->fireControl().autofireShots()) //reset the autofire bullet count
 	{
-		pSoldier->flags.autofireLastStep = FALSE;
-		pSoldier->bDoAutofire = 1;
+		pSoldier->fireControl().autofireLastStep() = FALSE;
+		pSoldier->fireControl().autofireShots() = 1;
 	}
 
 	return( fSetCursor );
