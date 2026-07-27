@@ -63,7 +63,10 @@ SOLDIERTYPE* Ja2SoldierRepository::replace(
 	std::size_t slot, const SOLDIERTYPE& soldier) noexcept
 {
 	if (!hasCanonicalBinding(slot)) return nullptr;
+	SoldierAnimationCacheComponent retainedCache;
+	retainedCache.swapStorage(records_[slot].animationCache());
 	records_[slot] = soldier;
+	retainedCache.swapStorage(records_[slot].animationCache());
 	return &records_[slot];
 }
 
@@ -75,9 +78,20 @@ bool Ja2SoldierRepository::swapRecords(
 		!hasCanonicalBinding(secondSlot))
 		return false;
 
+	SoldierAnimationCacheComponent firstSlotCache;
+	SoldierAnimationCacheComponent secondSlotCache;
+	firstSlotCache.swapStorage(
+		records_[firstSlot].animationCache());
+	secondSlotCache.swapStorage(
+		records_[secondSlot].animationCache());
+
 	SOLDIERTYPE first = records_[firstSlot];
 	records_[firstSlot] = records_[secondSlot];
 	records_[secondSlot] = first;
+	firstSlotCache.swapStorage(
+		records_[firstSlot].animationCache());
+	secondSlotCache.swapStorage(
+		records_[secondSlot].animationCache());
 	records_[firstSlot].ubID = SoldierID{firstSlot};
 	records_[secondSlot].ubID = SoldierID{secondSlot};
 	return true;

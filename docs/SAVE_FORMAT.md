@@ -278,8 +278,11 @@ adapter, so save and load can never drift out of order. Extra methods:
 
 - `ptr(T*&)` — **runtime pointers are never persisted**: writes nothing, sets the
   pointer `NULL` on load. The game rebuilds them after load (palette/shade tables,
-  `LEVELNODE*`, `AnimCache`, `pMercPath`, `pGroup`, …). This matches the legacy
+  `LEVELNODE*`, `pMercPath`, `pGroup`, …). This matches the legacy
   behaviour, which only ever persisted meaningless pointer *values*.
+- The soldier animation cache no longer contains pointers. Its retired `ptr`
+  visits emitted no bytes, so load resets its fixed-capacity inline working set
+  directly without changing the field stream.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

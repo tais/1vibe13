@@ -1679,9 +1679,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(s.ubAttackerID.i); ar.u16(s.ubPreviousAttackerID.i);
 	ar.i32(s.sInsertionGridNo);
-	// AnimCache is a runtime surface cache; clear its pointers/count on load.
-	ar.ptr(s.AnimCache.usCachedSurfaces); ar.ptr(s.AnimCache.sCacheHits);
-	if (Ar::isLoading) s.AnimCache.ubCacheSize = 0;
+	// The animation surface working set is runtime-only. The retired pointer
+	// transfers emitted no bytes, so resetting the inline owner preserves the
+	// established schema exactly.
+	if (Ar::isLoading) s.animationCache().release(s.ubID);
 	ar.u8(s.bSide); ar.u8(s.bViewRange); ar.i8(s.bNewOppCnt); ar.i8(s.bService);
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());

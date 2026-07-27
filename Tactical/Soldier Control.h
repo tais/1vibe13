@@ -1060,6 +1060,8 @@ public:
 	const SoldierAnimationPlaybackComponent& animationPlayback() const noexcept { return animationPlayback_; }
 	SoldierAnimationActivityComponent& animationActivity() noexcept { return animationActivity_; }
 	const SoldierAnimationActivityComponent& animationActivity() const noexcept { return animationActivity_; }
+	SoldierAnimationCacheComponent& animationCache() noexcept { return animationCache_; }
+	const SoldierAnimationCacheComponent& animationCache() const noexcept { return animationCache_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1146,8 +1148,6 @@ public:
 
 	INT32			sInsertionGridNo;
 
-
-	AnimationSurfaceCacheType		AnimCache; // will be 9 bytes once changed to pointers
 
 	UINT8			bSide;
 	UINT8			bViewRange;
@@ -1552,6 +1552,7 @@ private:
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;
+	SoldierAnimationCacheComponent	animationCache_;
 
 public:
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is

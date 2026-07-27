@@ -983,12 +983,20 @@ the engine must not contain SDL types in its public domain model.
   prone-turn mode, pausing, turn-to-completion state, hit and fall phases,
   interruptibility, suppression stance changes, and animation AP-cost
   waivers. Named operations update coordinated lifecycle state together.
+  Runtime surface residency has a fourth private boundary:
+  `SoldierAnimationCacheComponent` replaces the public two-pointer
+  `AnimCache` with fixed-capacity inline storage. Soldier creation cannot fail
+  on cache allocation, copied soldiers cannot alias cache buffers, and
+  repository record replacement retains the working set with the canonical
+  slot used by global surface-usage history.
   These components are independent of the legacy soldier declaration;
   old-save conversion and the explicit serializer still emit every value at
   its established byte position. Continuation mode and hit phase are
   transferred as their real 8-bit values, so valid mode/phase `2` is no
-  longer normalized to boolean `1`. The unused legacy 8-bit delayed-cause-merc
-  slot remains a zero compatibility byte rather than live state.
+  longer normalized to boolean `1`. Retired cache-pointer transfers emitted
+  no bytes, so load simply resets the inline working set. The unused legacy
+  8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
+  live state.
   Map placements, Lua values, multiplayer packets, and content formats retain
   their existing schemas.
 
