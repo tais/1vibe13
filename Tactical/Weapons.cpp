@@ -1178,8 +1178,8 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 				int condition = (*pObj)[0]->data.gun.bGunStatus; 
 
 				int weatherpenalty = 0;
-				if ( !pSoldier->bSectorZ )
-					weatherpenalty = gGameExternalOptions.ubWeaponReliabilityReduction[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
+				if ( !pSoldier->deployment().sectorZ() )
+					weatherpenalty = gGameExternalOptions.ubWeaponReliabilityReduction[SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather];
 
 				int invertedBaseJamChance = condition + (reliability * 2) - weatherpenalty;
 
@@ -2878,7 +2878,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	dirtincreasefactor = __max( 1.0f, (dirtincreasefactor * (FLOAT)sectormod / 5000.0f) );
 
 	// weather also plays a role. A sand storm doesn't help keep our guns clean.
-	switch ( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather )
+	switch ( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather )
 	{
 		case WEATHER_FORECAST_NORMAL:
 			break;
@@ -3723,7 +3723,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	dirtincreasefactor = __max( 1.0f, (dirtincreasefactor * (FLOAT)sectormod / 5000.0f) );
 
 	// weather also plays a role. A sand storm doesn't help keep our guns clean.
-	switch ( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather )
+	switch ( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather )
 	{
 		case WEATHER_FORECAST_NORMAL:
 			break;
@@ -8394,7 +8394,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 
 					if ( pFirer )
 						// Gain morale for inflicting critical hit
-						HandleMoraleEvent( pFirer, MORALE_MALICIOUS_HIT, pFirer->sSectorX, pFirer->sSectorY, pFirer->bSectorZ );
+						HandleMoraleEvent( pFirer, MORALE_MALICIOUS_HIT, pFirer->deployment().sectorX(), pFirer->deployment().sectorY(), pFirer->deployment().sectorZ() );
 				}
 				else
 				{
@@ -8611,7 +8611,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					// SANDRO - Gain morale for inflicting critical hit if malicious character
 					if ( fMaliciousHit && pFirer )
 					{
-						HandleMoraleEvent( pFirer, MORALE_MALICIOUS_HIT, pFirer->sSectorX, pFirer->sSectorY, pFirer->bSectorZ );
+						HandleMoraleEvent( pFirer, MORALE_MALICIOUS_HIT, pFirer->deployment().sectorX(), pFirer->deployment().sectorY(), pFirer->deployment().sectorZ() );
 					}
 
 					// SANDRO - new merc records - times stat damaged

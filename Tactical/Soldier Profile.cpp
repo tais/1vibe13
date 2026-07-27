@@ -1578,9 +1578,9 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	MercCreateStruct.bTeam							= ubTeam;
 	MercCreateStruct.ubProfile					= pSoldier->ubProfile;
 	MercCreateStruct.ubBodyType					= pSoldier->ubBodyType;
-	MercCreateStruct.sSectorX						= pSoldier->sSectorX;
-	MercCreateStruct.sSectorY						= pSoldier->sSectorY;
-	MercCreateStruct.bSectorZ						= pSoldier->bSectorZ;
+	MercCreateStruct.sSectorX						= pSoldier->deployment().sectorX();
+	MercCreateStruct.sSectorY						= pSoldier->deployment().sectorY();
+	MercCreateStruct.bSectorZ						= pSoldier->deployment().sectorZ();
 	MercCreateStruct.sInsertionGridNo		= pSoldier->position().gridNo();
 	MercCreateStruct.ubDirection					= pSoldier->position().direction();
 
@@ -1696,7 +1696,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 
 		// Set insertion gridNo
-		pNewSoldier->sInsertionGridNo = sOldGridNo;
+		pNewSoldier->deployment().insertionGrid() = sOldGridNo;
 
 		if ( gfPotentialTeamChangeDuringDeath )
 		{
@@ -1704,7 +1704,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		}
 
 		if ( IsJa2TacticalWorldLoaded() &&	pSoldier->bInSector
-		//pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ
+		//pSoldier->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ )
 		)
 		{
 			AddSoldierToSectorNoCalculateDirectionUseAnimation( ubID, pSoldier->animationPlayback().state(), pSoldier->animationPlayback().code() );
@@ -1784,12 +1784,12 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 	}
 	else if ( ubCharNum == DYNAMO && gubQuest[ QUEST_FREE_DYNAMO ] == QUESTINPROGRESS && first_time_recruited)
 	{
-		EndQuest( QUEST_FREE_DYNAMO, pSoldier->sSectorX, pSoldier->sSectorY );
+		EndQuest( QUEST_FREE_DYNAMO, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	}
 	// SANDRO - give exp and records quest point, if finally recruiting Miguel
 	else if ( ubCharNum == MIGUEL && first_time_recruited)
 	{
-		GiveQuestRewardPoint( pSoldier->sSectorX, pSoldier->sSectorY, 6, MIGUEL );
+		GiveQuestRewardPoint( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), 6, MIGUEL );
 	}
 
 	if ( gGameOptions.fNewTraitSystem )
@@ -1860,8 +1860,8 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 	//
 	//add a history log that tells the user that a npc has joined the team
 	//
-	// ( pass in pNewSoldier->sSectorX cause if its invalid, -1, n/a will appear as the sector in the history log )
-	AddHistoryToPlayersLog( HISTORY_RPC_JOINED_TEAM, pNewSoldier->ubProfile, GetWorldTotalMin(), pNewSoldier->sSectorX, pNewSoldier->sSectorY );
+	// ( pass in pNewSoldier->deployment().sectorX() cause if its invalid, -1, n/a will appear as the sector in the history log )
+	AddHistoryToPlayersLog( HISTORY_RPC_JOINED_TEAM, pNewSoldier->ubProfile, GetWorldTotalMin(), pNewSoldier->deployment().sectorX(), pNewSoldier->deployment().sectorY() );
 
 
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
@@ -1978,8 +1978,7 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 
 	//Buggler: code only works on map reload so consolidate to HandleEarlyMorningEvents
 	// check to see if this person should disappear from the map after this
-	/*if ( (ubCharNum == JOHN || ubCharNum == MARY) && pSoldier->sSectorX == 13 && 
-		pSoldier->sSectorY == MAP_ROW_B && pSoldier->bSectorZ == 0 )
+	/*if ( (ubCharNum == JOHN || ubCharNum == MARY) && pSoldier->deployment().isInSector( 13, MAP_ROW_B, 0 ) )
 	{
 		gMercProfiles[ ubCharNum ].sSectorX = 0;
 		gMercProfiles[ ubCharNum ].sSectorY = 0;
@@ -1987,14 +1986,14 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 	}
 	else
 	{
-		gMercProfiles[ ubCharNum ].sSectorX = pSoldier->sSectorX;
-		gMercProfiles[ ubCharNum ].sSectorY = pSoldier->sSectorY;
-		gMercProfiles[ ubCharNum ].bSectorZ = pSoldier->bSectorZ;
+		gMercProfiles[ ubCharNum ].sSectorX = pSoldier->deployment().sectorX();
+		gMercProfiles[ ubCharNum ].sSectorY = pSoldier->deployment().sectorY();
+		gMercProfiles[ ubCharNum ].bSectorZ = pSoldier->deployment().sectorZ();
 	}*/
 
-	gMercProfiles[ ubCharNum ].sSectorX = pSoldier->sSectorX;
-	gMercProfiles[ ubCharNum ].sSectorY = pSoldier->sSectorY;
-	gMercProfiles[ ubCharNum ].bSectorZ = pSoldier->bSectorZ;
+	gMercProfiles[ ubCharNum ].sSectorX = pSoldier->deployment().sectorX();
+	gMercProfiles[ ubCharNum ].sSectorY = pSoldier->deployment().sectorY();
+	gMercProfiles[ ubCharNum ].bSectorZ = pSoldier->deployment().sectorZ();
 
 	// how do we decide whether or not to set this?
 	gMercProfiles[ ubCharNum ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE;
@@ -2190,17 +2189,17 @@ BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier )
 	// Flugente: drugs can temporarily cause a merc to be heat intolerant
 	if ( !pSoldier->MercInWater( ) && DoesMercHaveDisability( pSoldier, HEAT_INTOLERANT ) )
 	{
-		if ( (pSoldier->bSectorZ > 0) || (SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather == WEATHER_FORECAST_RAIN || SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather == WEATHER_FORECAST_THUNDERSHOWERS) )
+		if ( (pSoldier->deployment().sectorZ() > 0) || (SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather == WEATHER_FORECAST_RAIN || SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather == WEATHER_FORECAST_THUNDERSHOWERS) )
 		{
 			// cool underground or raining
 			return( FALSE );
 		}
-		else if ( IsSectorDesert( pSoldier->sSectorX, pSoldier->sSectorY ) ) // is desert
-		//if ( SectorTemperature( GetWorldMinutesInDay(), pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) > 1 )
+		else if ( IsSectorDesert( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ) // is desert
+		//if ( SectorTemperature( GetWorldMinutesInDay(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) > 1 )
 		{
 			return( TRUE );
 		}
-		else if ( IsSectorTropical( pSoldier->sSectorX, pSoldier->sSectorY ) ) // is tropical
+		else if ( IsSectorTropical( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ) // is tropical
 		{
 			return( TRUE );
 		}
@@ -2210,7 +2209,7 @@ BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier )
 // SANDRO - added function here
 BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier )
 {
-	if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->bSectorZ <= 0 && IsSectorTropical(pSoldier->sSectorX, pSoldier->sSectorY) )
+	if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->deployment().sectorZ() <= 0 && IsSectorTropical(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) )
 	{
 		return( TRUE );
 	}
@@ -2377,7 +2376,7 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 	pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 
 	// replace profile in group
-	ReplaceSoldierProfileInPlayerGroup( pSoldier->ubGroupID, ubSrcProfile, ubDestProfile );
+	ReplaceSoldierProfileInPlayerGroup( pSoldier->deployment().groupId(), ubSrcProfile, ubDestProfile );
 
 	pSoldier->stats.bStrength =			pNewProfile->bStrength + pNewProfile->bStrengthDelta;
 	pSoldier->stats.bDexterity =		pNewProfile->bDexterity + pNewProfile->bDexterityDelta;

@@ -2338,7 +2338,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 
 		// draw location
 		CHAR16 locationStr[128];
-		GetSectorIDString(mercs[agentIndex[index]]->sSectorX, mercs[agentIndex[index]]->sSectorY, 0, locationStr, TRUE);
+		GetSectorIDString(mercs[agentIndex[index]]->deployment().sectorX(), mercs[agentIndex[index]]->deployment().sectorY(), 0, locationStr, TRUE);
 		swprintf(sText, szRebelCommandText[RCT_MISSION_AGENT_LOCATION], locationStr);
 		DrawTextToScreen(sText, x+55, y+150+22, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
@@ -2588,7 +2588,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	BOOLEAN canStartMission = TRUE;
 	if (agentIndex[index] < static_cast<INT8>(mercs.size()))
 	{
-		const UINT8 townId = GetTownIdForSector(mercs[agentIndex[index]]->sSectorX, mercs[agentIndex[index]]->sSectorY);
+		const UINT8 townId = GetTownIdForSector(mercs[agentIndex[index]]->deployment().sectorX(), mercs[agentIndex[index]]->deployment().sectorY());
 		const UINT8 townLoyalty = GetRegionLoyalty(townId);
 		const INT32 endTime = mercs[agentIndex[index]]->employment().endTime();
 		const INT32 worldMin = GetWorldTotalMin();
@@ -2986,7 +2986,7 @@ void PrepareMission(INT8 index)
 					{
 						TakeSoldierOutOfVehicle(pSoldier);
 						RemoveCharacterFromSquads(pSoldier);
-						pSoldier->bSectorZ += REBEL_COMMAND_Z_OFFSET;
+						pSoldier->deployment().sectorZ() += REBEL_COMMAND_Z_OFFSET;
 						pSoldier->vitals().bleeding() = 0;
 						SetTimeOfAssignmentChangeForMerc(pSoldier);
 						ChangeSoldiersAssignment(pSoldier, ASSIGNMENT_REBELCOMMAND);
@@ -3085,7 +3085,7 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 			const INT16 y = std::get<1>(tuple);
 			const UINT8 loyalty = std::get<2>(tuple);
 
-			if (abs(x - pSoldier->sSectorX) + abs(y - pSoldier->sSectorY) <= level)
+			if (abs(x - pSoldier->deployment().sectorX()) + abs(y - pSoldier->deployment().sectorY()) <= level)
 			{
 				if (level > foundLevel)
 				{
@@ -4962,7 +4962,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 						{
 							if (mission == RCAM_FORGE_TRANSPORT_ORDERS)
 							{
-								ForceDeployTransportGroup(SECTOR(pSoldier->sSectorX, pSoldier->sSectorY));
+								ForceDeployTransportGroup(SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()));
 							}
 
 							// mission successful! give some experience pts
@@ -5010,7 +5010,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 				if (pSoldier->ubProfile == evt1.mercProfileId)
 				{
 					// merc ready for reassignment
-					pSoldier->bSectorZ -= REBEL_COMMAND_Z_OFFSET;
+					pSoldier->deployment().sectorZ() -= REBEL_COMMAND_Z_OFFSET;
 					AssignmentDone(pSoldier, TRUE, FALSE);
 					AddCharacterToAnySquad(pSoldier);
 					break;

@@ -618,6 +618,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		}
 		//member classes
 		assignment().reset();
+		deployment().reset();
 		fireControl().reset();
 		combatResult().reset();
 		suppression().reset();
@@ -720,7 +721,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sBreathRed = src.sBreathRed;			// current breath value
 
 		this->ubWaitActionToDo = src.ubWaitActionToDo;
-		this->ubInsertionDirection = src.ubInsertionDirection;
+		this->deployment().insertionDirection() = src.ubInsertionDirection;
 		this->bGunType = src.bGunType;
 		this->ubOppNum = static_cast<UINT16>( src.ubOppNum );
 		this->awareness().lastRenderedVisibility() = src.bLastRenderVisibleValue;
@@ -732,7 +733,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bActive = src.bActive;
 		this->bTeam = src.bTeam;				// Team identifier
 
-		this->ubGroupID = src.ubGroupID;		//the movement group the merc is currently part of.
+		this->deployment().groupId() = src.ubGroupID;		//the movement group the merc is currently part of.
 
 
 		this->dXPos = src.dXPos;
@@ -761,7 +762,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->combatResult().currentAttacker() = static_cast<UINT16>( src.ubAttackerID );
 		this->combatResult().previousAttacker() = static_cast<UINT16>( src.ubPreviousAttackerID );
 
-		this->sInsertionGridNo = src.sInsertionGridNo;
+		this->deployment().insertionGrid() = src.sInsertionGridNo;
 
 
 		// Old saves contain only meaningless process-local cache pointers.
@@ -813,8 +814,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->usUnblitWidth = src.usUnblitWidth;
 		this->usUnblitHeight = src.usUnblitHeight;
 
-		this->ubStrategicInsertionCode = src.ubStrategicInsertionCode;
-		this->usStrategicInsertionData = src.usStrategicInsertionData;
+		this->deployment().strategicInsertionCode() = src.ubStrategicInsertionCode;
+		this->deployment().strategicInsertionData() = src.usStrategicInsertionData;
 
 
 		this->iLight = src.iLight;
@@ -900,10 +901,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->assignment().current() = src.bAssignment;							// soldiers current assignment
 		this->assignment().previous() = src.bOldAssignment;						// old assignment, for autosleep purposes
 		this->assignment().trainingStat() = src.bTrainStat;								// current stat soldier is training
-		this->sSectorX = src.sSectorX;									// X position on the Stategic Map
-		this->sSectorY = src.sSectorY;									// Y position on the Stategic Map
-		this->bSectorZ = src.bSectorZ;									// Z sector location
-		this->iVehicleId = src.iVehicleId;								// the id of the vehicle the char is in
+		this->deployment().sectorX() = src.sSectorX;									// X position on the Stategic Map
+		this->deployment().sectorY() = src.sSectorY;									// Y position on the Stategic Map
+		this->deployment().sectorZ() = src.bSectorZ;									// Z sector location
+		this->deployment().vehicleId() = src.iVehicleId;								// the id of the vehicle the char is in
 		this->pMercPath = src.pMercPath;								//Path Structure
 		this->employment().medicalDeposit() = src.usMedicalDeposit;         // is there a medical deposit on merc
 		this->employment().lifeInsurance() = src.usLifeInsurance;          // is there life insurance taken out on merc
@@ -939,7 +940,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->attackSelection().weaponMode() = src.bWeaponMode;
 		this->targeting().targetId() = static_cast<UINT16>( src.ubTargetID );
 		this->bAIScheduleProgress = src.bAIScheduleProgress;
-		this->sOffWorldGridNo = src.sOffWorldGridNo;
+		this->deployment().offWorldGrid() = src.sOffWorldGridNo;
 		this->pAniTile = src.pAniTile;
 		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
 		this->ubHiResDirection = src.ubHiResDirection;
@@ -983,7 +984,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sSkillCheckGridNo = src.sSkillCheckGridNo;
 		this->ubLastEnemyCycledID = static_cast<UINT16>( src.ubLastEnemyCycledID );
 
-		this->ubPrevSectorID = src.ubPrevSectorID;
+		this->deployment().previousSectorId() = src.ubPrevSectorID;
 		this->awareness().tilesSinceForget() = src.ubNumTilesMovesSinceLastForget;
 		this->animationActivity().turningIncrement() = src.bTurningIncrement;
 		this->uiBattleSoundID = src.uiBattleSoundID;
@@ -1002,11 +1003,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().stopReason() = src.ubReasonCantFinishMove;
 
 		this->sLocationOfFadeStart = src.sLocationOfFadeStart;
-		this->bUseExitGridForReentryDirection = src.bUseExitGridForReentryDirection;
+		this->deployment().useExitGridForReentryDirection() = src.bUseExitGridForReentryDirection;
 
 		this->uiTimeSinceLastSpoke = src.uiTimeSinceLastSpoke;
 		this->employment().renewalQuoteCode() = src.ubContractRenewalQuoteCode;
-		this->sPreTraversalGridNo = src.sPreTraversalGridNo;
+		this->deployment().preTraversalGrid() = src.sPreTraversalGridNo;
 		this->animationIntent().turningFromUi() = src.bTurningFromUI;
 		this->bPendingActionData5 = src.bPendingActionData5;
 
@@ -1014,10 +1015,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubDoorOpeningNoise = src.ubDoorOpeningNoise;
 
 		this->pGroup = src.pGroup;
-		this->ubLeaveHistoryCode = src.ubLeaveHistoryCode;
+		this->deployment().leaveHistoryCode() = src.ubLeaveHistoryCode;
 		this->movement().moveSpeedOverride() = static_cast<UINT16>( src.bOverrideMoveSpeed );
 
-		this->uiTimeSoldierWillArrive = src.uiTimeSoldierWillArrive;
+		this->deployment().arrivalTime() = src.uiTimeSoldierWillArrive;
 		this->assignment().repairVehicleId() = src.bVehicleUnderRepairID;
 		this->employment().timeCanSignElsewhere() = src.iTimeCanSignElsewhere;
 		this->employment().hospitalPriceModifier() = src.bHospitalPriceModifier;
@@ -1124,7 +1125,6 @@ void SOLDIERTYPE::initialize( )
 	memset( (void*)this, 0, SIZEOF_SOLDIERTYPE_POD );
 	inv.clear( );
 	ai_masterplan_ = 0;
-	this->iVehicleId = (-1);
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	memset( &flags, 0, sizeof(STRUCT_Flags) );
@@ -1141,6 +1141,7 @@ void SOLDIERTYPE::initialize( )
 	camouflage().reset();
 	employment().reset();
 	assignment().reset();
+	deployment().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -4701,8 +4702,8 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		}
 
 		// OK, Update buddy's strategic insertion code....
-		this->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		this->usStrategicInsertionData = sNewGridNo;
+		this->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		this->deployment().strategicInsertionData() = sNewGridNo;
 
 
 		// Remove this gridno as a reserved place!
@@ -5787,12 +5788,12 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		if ( attacker != nullptr && attacker->bTeam == gbPlayerNum )
 		{
 			HandleMoraleEvent( attacker, MORALE_DID_LOTS_OF_DAMAGE,
-				attacker->sSectorX, attacker->sSectorY, attacker->bSectorZ );
+				attacker->deployment().sectorX(), attacker->deployment().sectorY(), attacker->deployment().sectorZ() );
 			this->runtime.combatFeedback.lastMoraleFromHit++;
 		}
 		if ( this->bTeam == gbPlayerNum )
 		{
-			HandleMoraleEvent( this, MORALE_TOOK_LOTS_OF_DAMAGE, this->sSectorX, this->sSectorY, this->bSectorZ );
+			HandleMoraleEvent( this, MORALE_TOOK_LOTS_OF_DAMAGE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 			this->runtime.combatFeedback.lastMoraleFromHit++;
 		}
 	}
@@ -7939,7 +7940,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 				{
 					if ( MercIsHot( this ) )
 					{
-						HandleMoraleEvent( this, MORALE_HEAT_INTOLERANT_IN_DESERT, this->sSectorX, this->sSectorY, this->bSectorZ );
+						HandleMoraleEvent( this, MORALE_HEAT_INTOLERANT_IN_DESERT, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
@@ -7958,7 +7959,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 				{
 					if ( MercSeesCreature( this ) )
 					{
-						HandleMoraleEvent( this, MORALE_INSECT_PHOBIC_SEES_CREATURE, this->sSectorX, this->sSectorY, this->bSectorZ );
+						HandleMoraleEvent( this, MORALE_INSECT_PHOBIC_SEES_CREATURE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
@@ -7978,7 +7979,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					if ( gbWorldSectorZ > 0 && Random( 6 - gbWorldSectorZ ) == 0 )
 					{
 						// underground!
-						HandleMoraleEvent( this, MORALE_CLAUSTROPHOBE_UNDERGROUND, this->sSectorX, this->sSectorY, this->bSectorZ );
+						HandleMoraleEvent( this, MORALE_CLAUSTROPHOBE_UNDERGROUND, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
@@ -8000,7 +8001,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 						// augh!!
 						if ( this->aiData.bMorale < 50 )
 						{
-							HandleMoraleEvent( this, MORALE_NERVOUS_ALONE, this->sSectorX, this->sSectorY, this->bSectorZ );
+							HandleMoraleEvent( this, MORALE_NERVOUS_ALONE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 							if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
 							{
 								TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
@@ -9534,7 +9535,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 				{
 					if (!(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY))
 					{
-						HandleMoraleEvent(this, MORALE_FEAR_OF_HEIGHTS, this->sSectorX, this->sSectorY, this->bSectorZ);
+						HandleMoraleEvent(this, MORALE_FEAR_OF_HEIGHTS, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ());
 
 						TacticalCharacterDialogue(this, QUOTE_PERSONALITY_TRAIT);
 						this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
@@ -10058,7 +10059,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		{
 			this->usSoldierFlagMask2 &= ~SOLDIER_TURNCOAT;
 
-			RemoveOneTurncoat( this->sSectorX, this->sSectorY, this->ubSoldierClass, FALSE );
+			RemoveOneTurncoat( this->deployment().sectorX(), this->deployment().sectorY(), this->ubSoldierClass, FALSE );
 		}
 	}
 
@@ -14832,7 +14833,7 @@ BOOLEAN	SOLDIERTYPE::IsWeaponMounted( void )
 	// anv: passengers who can shoot can rest their guns
 	if ( this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
 	{
-		if ( !gNewVehicle[pVehicleList[this->iVehicleId].ubVehicleType].VehicleSeats[GetSeatIndexFromSoldier( this )].fBlockedShots )
+		if ( !gNewVehicle[pVehicleList[this->deployment().vehicleId()].ubVehicleType].VehicleSeats[GetSeatIndexFromSoldier( this )].fBlockedShots )
 			return(TRUE);
 		else
 			return(FALSE);
@@ -15327,7 +15328,7 @@ BOOLEAN		SOLDIERTYPE::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1, 
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve( cnt );
 			// check if teamsoldier exists in this sector
-			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->sSectorX != this->sSectorX || pTeamSoldier->sSectorY != this->sSectorY || pTeamSoldier->bSectorZ != this->bSectorZ )
+			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->deployment().sectorX() != this->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != this->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != this->deployment().sectorZ() )
 				continue;
 
 			// check if both soldiers are on the same level
@@ -16086,7 +16087,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 		// 2 - civilians are always suspicious
 		// if underground, we still use the surface value
 
-		UINT8 ubSectorId = SECTOR( this->sSectorX, this->sSectorY );
+		UINT8 ubSectorId = SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
 		UINT8 sectordata = SectorExternalData[ubSectorId][0].usCurfewValue;
 		
 		if ( sectordata > 1 )
@@ -16102,7 +16103,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 		}
 
 		// do this check only if we are in the currently loaded sector
-		if ( this->sSectorX == gWorldSectorX && this->sSectorY == gWorldSectorY && this->bSectorZ == gbWorldSectorZ )
+		if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
 		{
 			// check wether we are around a fresh corpse - this will make us much more suspicious
 			INT32				cnt;
@@ -16161,7 +16162,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 		}
 
 		// do this check only if we are in the currently loaded sector
-		if ( this->sSectorX == gWorldSectorX && this->sSectorY == gWorldSectorY && this->bSectorZ == gbWorldSectorZ )
+		if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
 		{
 			SOLDIERTYPE* target =
 				GetJa2SoldierRepository().resolve(
@@ -16234,7 +16235,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 	// uncover if merc is using flashlight and alert is raised
 	if ( pSoldier->bTeam == ENEMY_TEAM &&
 		 pSoldier->aiData.bAlertStatus >= STATUS_RED &&
-		 (NightTime( ) || this->bSectorZ > 0) &&
+		 (NightTime( ) || this->deployment().sectorZ() > 0) &&
 		 this->GetBestEquippedFlashLightRange( ) > 0 )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s has a flashlight!", this->GetName( ) );
@@ -16532,7 +16533,7 @@ BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 	for ( UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt )
 	{
 		// Is this facility here?
-		if ( gFacilityLocations[SECTOR( this->sSectorX, this->sSectorY )][cnt].fFacilityHere )
+		if ( gFacilityLocations[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )][cnt].fFacilityHere )
 		{
 			// we determine wether this is a prison by checking for usPrisonBaseLimit
 			if ( gFacilityTypes[cnt].AssignmentData[FAC_INTERROGATE_PRISONERS].usPrisonBaseLimit > 0 )
@@ -16547,9 +16548,9 @@ BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 		return FALSE;
 
 	// Are there any prisoners in this prison? note that there are no underground prisons
-	if ( !this->bSectorZ )
+	if ( !this->deployment().sectorZ() )
 	{
-		SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( this->sSectorX, this->sSectorY )]);
+		SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )]);
 
 		INT16 aPrisoners[PRISONER_MAX] = {0};
 		if ( GetNumberOfPrisoners( pSectorInfo, aPrisoners ) > 0 )
@@ -16973,7 +16974,7 @@ void	SOLDIERTYPE::DropSectorEquipment( )
 	if ( Water( sPutGridNo, this->position().level() ) )
 		sPutGridNo = gMapInformation.sCenterGridNo;
 
-	if ( (this->sSectorX == gWorldSectorX) && (this->sSectorY == gWorldSectorY) && (this->bSectorZ == gbWorldSectorZ) )
+	if ( (this->deployment().sectorX() == gWorldSectorX) && (this->deployment().sectorY() == gWorldSectorY) && (this->deployment().sectorZ() == gbWorldSectorZ) )
 	{
 		for ( UINT8 cnt = 0; cnt < size; ++cnt )
 		{
@@ -17023,7 +17024,7 @@ void	SOLDIERTYPE::DropSectorEquipment( )
 			}
 		}
 
-		AddItemsToUnLoadedSector( this->sSectorX, this->sSectorY, this->bSectorZ, RandomGridNo( ), counter, pObject, 0, WORLD_ITEM_REACHABLE, 0, 1, FALSE );
+		AddItemsToUnLoadedSector( this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ(), RandomGridNo( ), counter, pObject, 0, WORLD_ITEM_REACHABLE, 0, 1, FALSE );
 	}
 }
 
@@ -17817,7 +17818,7 @@ INT16	SOLDIERTYPE::GetAPBonus( )
 	if ( this->usSoldierFlagMask & SOLDIER_ASSAULT_BONUS )
 		bonus += this->GetBackgroundValue( BG_ASSAULT );
 
-	UINT8 ubSector = (UINT8)SECTOR( this->sSectorX, this->sSectorY );
+	UINT8 ubSector = (UINT8)SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
 	UINT8 ubTraverseType = SectorInfo[ubSector].ubTraversability[THROUGH_STRATEGIC_MOVE];
 
 	switch ( ubTraverseType )
@@ -17974,7 +17975,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 		EndMuzzleFlash(this);
 	}
 
-	if ( HasBackgroundFlag( BACKGROUND_EXP_UNDERGROUND ) && this->bSectorZ )
+	if ( HasBackgroundFlag( BACKGROUND_EXP_UNDERGROUND ) && this->deployment().sectorZ() )
 		++bExtraExpLevel;
 	
 	// if we are dead or dying, we cannot continue radio work
@@ -18120,7 +18121,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 			canuse = TRUE;
 
 			// we might already be on assignment, so be careful here
-			INT8 sectorz = this->bSectorZ;
+			INT8 sectorz = this->deployment().sectorZ();
 			if ( SPY_LOCATION( this->assignment().current() ) )
 				sectorz = max( 0, sectorz - 10 );
 
@@ -18134,7 +18135,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 				// 2 - civilians are always suspicious
 				// if underground, we still use the surface value
 
-				UINT8 ubSectorId = SECTOR( this->sSectorX, this->sSectorY );
+				UINT8 ubSectorId = SECTOR( this->deployment().sectorX(), this->deployment().sectorY() );
 				UINT8 sectordata = SectorExternalData[ubSectorId][sectorz].usCurfewValue;
 
 				if ( sectordata > 1 )
@@ -18144,13 +18145,13 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 					canuse = FALSE;
 			}
 
-			if ( canuse && NumEnemiesInAnySector( this->sSectorX, this->sSectorY, sectorz ) > 0 &&
-				NumPlayerTeamMembersInSector( this->sSectorX, this->sSectorY, this->bSectorZ ) == 1 &&
-				( sectorz || NumNonPlayerTeamMembersInSector( this->sSectorX, this->sSectorY, MILITIA_TEAM ) == 0 ) &&		
+			if ( canuse && NumEnemiesInAnySector( this->deployment().sectorX(), this->deployment().sectorY(), sectorz ) > 0 &&
+				NumPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() ) == 1 &&
+				( sectorz || NumNonPlayerTeamMembersInSector( this->deployment().sectorX(), this->deployment().sectorY(), MILITIA_TEAM ) == 0 ) &&
 				SeemsLegit( this->ubID ) )
 			{
 				// additional checks if we are in the currently loaded sector
-				if ( this->sSectorX == gWorldSectorX && this->sSectorY == gWorldSectorY && this->bSectorZ == gbWorldSectorZ )
+				if ( this->deployment().sectorX() == gWorldSectorX && this->deployment().sectorY() == gWorldSectorY && this->deployment().sectorZ() == gbWorldSectorZ )
 				{
 					if ( gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition ||
 						( IsJa2TacticalCombatActive() ) ||
@@ -18753,7 +18754,7 @@ BOOLEAN SOLDIERTYPE::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// can
 	if ( !gSkillTraitValues.fROAllowArtillery )
 		return FALSE;
 
-	if ( this->bSectorZ )
+	if ( this->deployment().sectorZ() )
 		return FALSE;
 
 	// if we are AI-controlled, we have to wait for our timer to run out
@@ -18763,8 +18764,8 @@ BOOLEAN SOLDIERTYPE::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// can
 	// check wether we can call artillery from the 4 adjacent sectors
 	for ( UINT8 i = 0; i < 4; ++i )
 	{
-		INT16 loopX = this->sSectorX;
-		INT16 loopY = this->sSectorY;
+		INT16 loopX = this->deployment().sectorX();
+		INT16 loopY = this->deployment().sectorY();
 
 		if ( i == 0 )		++loopY;
 		else if ( i == 1 )	++loopX;
@@ -18775,7 +18776,7 @@ BOOLEAN SOLDIERTYPE::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// can
 			continue;
 
 		// as the player team can order artillery from the militia, we have to check that too.
-		if ( IsValidArtilleryOrderSector( loopX, loopY, this->bSectorZ, this->bTeam ) || (this->bTeam == gbPlayerNum && IsValidArtilleryOrderSector( loopX, loopY, this->bSectorZ, MILITIA_TEAM )) )
+		if ( IsValidArtilleryOrderSector( loopX, loopY, this->deployment().sectorZ(), this->bTeam ) || (this->bTeam == gbPlayerNum && IsValidArtilleryOrderSector( loopX, loopY, this->deployment().sectorZ(), MILITIA_TEAM )) )
 		{
 			*pSectorID = (UINT32)SECTOR( loopX, loopY );
 			return TRUE;
@@ -18812,7 +18813,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 	INT16 sSectorY = SECTORY( (UINT8)usSectorNr );
 
 	// just to make sure...
-	if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, this->bSectorZ, bTeam ) )
+	if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, this->deployment().sectorZ(), bTeam ) )
 		return FALSE;
 
 	// use the radio, this handles animation, batteries etc.
@@ -18821,11 +18822,11 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 
 	// determine from where the shells will come
 	INT32 sStartingGridNo = gMapInformation.sNorthGridNo;
-	if ( sSectorX < this->sSectorX )
+	if ( sSectorX < this->deployment().sectorX() )
 		sStartingGridNo = gMapInformation.sWestGridNo;
-	else if ( sSectorX > this->sSectorX )
+	else if ( sSectorX > this->deployment().sectorX() )
 		sStartingGridNo = gMapInformation.sEastGridNo;
-	else if ( sSectorY > this->sSectorY )
+	else if ( sSectorY > this->deployment().sectorY() )
 		sStartingGridNo = gMapInformation.sSouthGridNo;
 
 	if ( sStartingGridNo == -1 )
@@ -19008,7 +19009,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != deployment().sectorZ() || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			if ( pSoldier->CanUseRadio( ) )
@@ -19051,7 +19052,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		{
 			pSoldier = GetJa2SoldierRepository().resolve( cnt );
 			// check if soldier exists in this sector
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != deployment().sectorZ() || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			INT8 shelldelay = 1;
@@ -19308,7 +19309,7 @@ BOOLEAN SOLDIERTYPE::RadioCallReinforcements( UINT32 usSector, UINT16 sNumber )
 	}
 
 	// Flugente: order reinforcements from src sector to target sector
-	if ( CallMilitiaReinforcements( this->sSectorX, this->sSectorY, SECTORX( usSector ), SECTORY( usSector ), sNumber ) )
+	if ( CallMilitiaReinforcements( this->deployment().sectorX(), this->deployment().sectorY(), SECTORX( usSector ), SECTORY( usSector ), sNumber ) )
 	{
 		CHAR16 pStr2[128];
 		GetSectorIDString( SECTORX( usSector ), SECTORY( usSector ), 0, pStr2, FALSE );
@@ -20138,12 +20139,12 @@ UINT16		SOLDIERTYPE::GetDiseaseDiagnosePoints()
 
 FLOAT		SOLDIERTYPE::GetBurialPoints( UINT16* apCorpses )
 {
-	if ( this->vitals().health() < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || this->deployment().sectorZ() || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0.0f;
 
 	if ( apCorpses )
 	{
-		SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( this->sSectorX, this->sSectorY )] );
+		SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] );
 
 		if ( pSectorInfo )
 			*apCorpses = pSectorInfo->usNumCorpses;
@@ -20239,7 +20240,7 @@ INT8	SOLDIERTYPE::GetSleepBreathRegeneration( )
 	}
 
 	// HEADROCK HAM 3.5: Read adjustment from local sector facilities
-	if ( this->bSectorZ == 0 )
+	if ( this->deployment().sectorZ() == 0 )
 	{
 		if ( this->flags.fMercAsleep )
 		{
@@ -21084,7 +21085,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 		
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
 	// correct outliers - value in[0; 100]
-	UINT32 sectorvalue = typemultiplier * min( 20, gCoolnessBySector[SECTOR( this->sSectorX, this->sSectorY )] );
+	UINT32 sectorvalue = typemultiplier * min( 20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] );
 	
 	UINT8 totalvalue = sectorvalue * ( 110 - personalvalue ) / 100;
 	totalvalue = min(100, max(0, totalvalue ) );
@@ -21137,7 +21138,7 @@ FLOAT		SOLDIERTYPE::GetIntelGain()
 
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
 	// correct outliers
-	UINT32 ubLocationModifier = 1 + max(2, min(20, gCoolnessBySector[SECTOR( this->sSectorX, this->sSectorY )] ) );
+	UINT32 ubLocationModifier = 1 + max(2, min(20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] ) );
 
 	// in order not to make the differences to great, alter these values - will now be in [0.6; 4.63]
 	FLOAT sectorvalue = log( (FLOAT)ubLocationModifier );
@@ -21363,7 +21364,7 @@ BOOLEAN		SOLDIERTYPE::IsValidBloodDonor()
 
 UINT32		SOLDIERTYPE::GetAdministrationPoints()
 {
-	if ( this->vitals().health() < OKLIFE || this->bSectorZ || ( this->usSoldierFlagMask & SOLDIER_POW ) )
+	if ( this->vitals().health() < OKLIFE || this->deployment().sectorZ() || ( this->usSoldierFlagMask & SOLDIER_POW ) )
 		return 0;
 	
 	// if not on correct assignment, no gain
@@ -21439,7 +21440,7 @@ extern FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY );
 FLOAT		SOLDIERTYPE::GetAdministrationModifier()
 {
 	if ( ADMINISTRATION_BONUS( this->assignment().current() ) )
-		return 1.0f + GetAdministrationPercentage( this->sSectorX, this->sSectorY ) / 100.0f + RebelCommand::GetAssignmentBonus(this->sSectorX, this->sSectorY);
+		return 1.0f + GetAdministrationPercentage( this->deployment().sectorX(), this->deployment().sectorY() ) / 100.0f + RebelCommand::GetAssignmentBonus(this->deployment().sectorX(), this->deployment().sectorY());
 
 	return 1.0f;
 }
@@ -21622,7 +21623,7 @@ UINT8		SOLDIERTYPE::GetTurncoatConvinctionChance( SoldierID usID, INT16 sApproac
 	ReducePointsForFatigue( this, &recruitrating );
 
 	// determine resistance of soldier to our subversion
-	INT32 ubLocationModifier = 2 * max( 1, min( 20, gCoolnessBySector[SECTOR( this->sSectorX, this->sSectorY )] ) );
+	INT32 ubLocationModifier = 2 * max( 1, min( 20, gCoolnessBySector[SECTOR( this->deployment().sectorX(), this->deployment().sectorY() )] ) );
 
 	// enemy resistance is dependent on their level, class and the sector rating
 	INT32 enemyresistancerating = ubLocationModifier + 8 * EffectiveExpLevel( pSoldier, FALSE );
@@ -21737,7 +21738,7 @@ BOOLEAN		SOLDIERTYPE::OrderTurnCoatToSwitchSides( SoldierID usID )
 	{
 		// remove turncoat property
 		pSoldier->usSoldierFlagMask2 &= ~SOLDIER_TURNCOAT;
-		RemoveOneTurncoat( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->ubSoldierClass, TRUE );
+		RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass, TRUE );
 
 		MakeCivHostile( pSoldier );
 
@@ -21770,7 +21771,7 @@ void		SOLDIERTYPE::OrderAllTurnCoatToSwitchSides()
 				{
 					// remove turncoat property
 					pSoldier->usSoldierFlagMask2 &= ~SOLDIER_TURNCOAT;
-					RemoveOneTurncoat( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->ubSoldierClass, TRUE );
+					RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass, TRUE );
 
 					MakeCivHostile( pSoldier );
 				}
@@ -23465,7 +23466,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 			{
 				DeductPoints( this, sAPCost, 0, UNTRIGGERED_INTERRUPT );
 
-				UINT8 ubTownID = StrategicMap[CALCULATE_STRATEGIC_INDEX( pTSoldier->sSectorX, pTSoldier->sSectorY )].bNameId;
+				UINT8 ubTownID = StrategicMap[CALCULATE_STRATEGIC_INDEX( pTSoldier->deployment().sectorX(), pTSoldier->deployment().sectorY() )].bNameId;
 
 				// not possible if this guy is hostile towards us
 				// however, if we are covert as a soldier, this check does not apply - merchants know better than do defy the army
@@ -23810,9 +23811,9 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 	{
 		// Are we in the same sector....?
 		// ARM: CHANGED TO WORK IN MAPSCREEN, DON'T USE WorldSector HERE
-		if ( pRobot->sSectorX == this->sSectorX &&
-			 pRobot->sSectorY == this->sSectorY &&
-			 pRobot->bSectorZ == this->bSectorZ )
+		if ( pRobot->deployment().sectorX() == this->deployment().sectorX() &&
+			 pRobot->deployment().sectorY() == this->deployment().sectorY() &&
+			 pRobot->deployment().sectorZ() == this->deployment().sectorZ() )
 		{
 			// they have to be either both in sector, or both on the road
 			if ( pRobot->flags.fBetweenSectors == this->flags.fBetweenSectors )
@@ -23827,7 +23828,7 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 					}
 
 					// if in a vehicle, must be the same vehicle
-					if ( pRobot->assignment().current() == VEHICLE && (pRobot->iVehicleId != this->iVehicleId) )
+					if ( pRobot->assignment().current() == VEHICLE && (pRobot->deployment().vehicleId() != this->deployment().vehicleId()) )
 					{
 						return(FALSE);
 					}
@@ -24145,12 +24146,14 @@ void DebugValidateSoldierData( )
 				cnt );
 		if ( pSoldier != nullptr && pSoldier->bActive )
 		{
+			const SoldierDeploymentComponent& deployment = pSoldier->deployment();
+
 			// OK, first check for alive people
 			// Don't do this check if we are a vehicle...
 			if ( pSoldier->vitals().health() > 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 			{
 				// Alive -- now check for proper group IDs
-				if ( pSoldier->ubGroupID == 0 && 
+				if ( deployment.groupId() == 0 &&
 					!SPY_LOCATION( pSoldier->assignment().current() ) &&
 					pSoldier->assignment().current() != IN_TRANSIT &&
 					pSoldier->assignment().current() != ASSIGNMENT_POW &&
@@ -24160,16 +24163,16 @@ void DebugValidateSoldierData( )
 					swprintf( sString, L"Soldier Data Error: Soldier %d is alive but has a zero group ID.", cnt.i );
 					fProblemDetected = TRUE;
 				}
-				else if ( (pSoldier->ubGroupID != 0) && (GetGroup( pSoldier->ubGroupID ) == NULL) )
+				else if ( (deployment.groupId() != 0) && (GetGroup( deployment.groupId() ) == NULL) )
 				{
 					// This is bad!
-					swprintf( sString, L"Soldier Data Error: Soldier %d has an invalid group ID of %d.", cnt.i, pSoldier->ubGroupID );
+					swprintf( sString, L"Soldier Data Error: Soldier %d has an invalid group ID of %d.", cnt.i, deployment.groupId() );
 					fProblemDetected = TRUE;
 				}
 			}
 			//else
 			{
-				//if ( pSoldier->ubGroupID != 0 && (pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
+				//if ( pSoldier->deployment().groupId() != 0 && (pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
 				{
 					// Dead guys should have 0 group IDs
 					//swprintf( sString, L"GroupID Error: Soldier %d is dead but has a non-zero group ID.", cnt );
@@ -24179,11 +24182,11 @@ void DebugValidateSoldierData( )
 
 			// check for invalid sector data
 			if ( (pSoldier->assignment().current() != IN_TRANSIT) &&
-				 ((pSoldier->sSectorX <= 0) || (pSoldier->sSectorX >= 17) ||
-				 (pSoldier->sSectorY <= 0) || (pSoldier->sSectorY >= 17) ||
-				 (pSoldier->bSectorZ  < 0) || (pSoldier->bSectorZ > (SPY_LOCATION( pSoldier->assignment().current() ) ? 13 : 3) ) ) )
+				 ((deployment.sectorX() <= 0) || (deployment.sectorX() >= 17) ||
+				 (deployment.sectorY() <= 0) || (deployment.sectorY() >= 17) ||
+				 (deployment.sectorZ()  < 0) || (deployment.sectorZ() > (SPY_LOCATION( pSoldier->assignment().current() ) ? 13 : 3) ) ) )
 			{
-				swprintf( sString, L"Soldier Data Error: Soldier %d is located at %d/%d/%d.", cnt.i, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				swprintf( sString, L"Soldier Data Error: Soldier %d is located at %d/%d/%d.", cnt.i, deployment.sectorX(), deployment.sectorY(), deployment.sectorZ() );
 				fProblemDetected = TRUE;
 			}
 		}
@@ -25419,7 +25422,7 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 			GetJa2SoldierRepository().resolve(
 				owner - 2 );
 
-		if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+		if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 		{
 			*psTargetGridNo = pSoldier->position().gridNo();
 			//pSoldier->bSide;
@@ -25441,7 +25444,7 @@ BOOLEAN GetRadioOperatorSignal( SoldierID usOwner, INT32* psTargetGridNo )
 			pSoldier =
 				GetJa2SoldierRepository().resolve(
 					cnt );
-			if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+			if ( pSoldier && pSoldier->CanUseRadio( FALSE ) && pSoldier->bActive && pSoldier->bInSector && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
 				*psTargetGridNo = pSoldier->position().gridNo();
 				//pSoldier->bSide;
@@ -25515,7 +25518,7 @@ BOOLEAN IsValidArtilleryOrderSector( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 				GetJa2SoldierRepository().resolve(
 					cnt );
 			// check if soldier exists in this sector, and is on duty
-			if ( !pSoldier || !pSoldier->bActive || pSoldier->sSectorX != sSectorX || pSoldier->sSectorY != sSectorY || pSoldier->bSectorZ != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
+			if ( !pSoldier || !pSoldier->bActive || pSoldier->deployment().sectorX() != sSectorX || pSoldier->deployment().sectorY() != sSectorY || pSoldier->deployment().sectorZ() != bSectorZ || pSoldier->assignment().current() > ON_DUTY )
 				continue;
 
 			if ( pSoldier->CanUseRadio( FALSE ) )
@@ -25543,7 +25546,7 @@ BOOLEAN SectorJammed( )
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsJamming( ) )
+		if ( pSoldier != nullptr && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsJamming( ) )
 			return TRUE;
 	}
 
@@ -25561,7 +25564,7 @@ BOOLEAN PlayerTeamIsScanning( )
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsScanning( ) )
+		if ( pSoldier != nullptr && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && pSoldier->vitals().health() > 0 && pSoldier->IsScanning( ) )
 			return TRUE;
 	}
 
@@ -25581,7 +25584,7 @@ UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam )
 		pSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pSoldier != nullptr && pSoldier != pSniper && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ
+		if ( pSoldier != nullptr && pSoldier != pSniper && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ
 			 && pSoldier->IsSpotting( )
 			 && PythSpacesAway( pSoldier->position().gridNo(), pSniper->position().gridNo() ) <= gGameExternalOptions.usSpotterRange
 			 && PythSpacesAway( pSoldier->position().gridNo(), sGridNo ) >= 2 * gGameExternalOptions.usSpotterRange )
@@ -26135,7 +26138,7 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 	// Set a flag in this sector. This flag is removed every x hours. As long as it exists, newly created civilians won't be potential volunteers
 	// this is simply there to prevent the exploit of reloading the sector repeatedly and 'harvesting' volunteers.
 	// we do this even if we do not recruit this guy - otherwise the player could reload the sector over and over again until he find a volunteer
-	UINT8 sector = SECTOR( pTarget->sSectorX, pTarget->sSectorY );
+	UINT8 sector = SECTOR( pTarget->deployment().sectorX(), pTarget->deployment().sectorY() );
 
 	SECTORINFO *pSectorInfo = &(SectorInfo[sector]);
 	
@@ -26148,12 +26151,12 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 	if ( pTarget->usSoldierFlagMask2 & SOLDIER_POTENTIAL_VOLUNTEER )
 	{
 		// if sector not under our control, has enemies in it, or is currently in combat mode
-		if ( !SectorOursAndPeaceful( pTarget->sSectorX, pTarget->sSectorY, pTarget->bSectorZ ) )
+		if ( !SectorOursAndPeaceful( pTarget->deployment().sectorX(), pTarget->deployment().sectorY(), pTarget->deployment().sectorZ() ) )
 			return;
 		
 		// if this a town sector, min loyalty is required
 		// other sectors do not have a loyalty rating. This is okay here, as then the player has an incentive to try his luck outside of towns
-		UINT8 ubTownID = StrategicMap[CALCULATE_STRATEGIC_INDEX( pTarget->sSectorX, pTarget->sSectorY )].bNameId;
+		UINT8 ubTownID = StrategicMap[CALCULATE_STRATEGIC_INDEX( pTarget->deployment().sectorX(), pTarget->deployment().sectorY() )].bNameId;
 		if ( ubTownID != BLANK_SECTOR )
 		{
 			if ( gTownLoyalty[ubTownID].ubRating < gGameExternalOptions.iMinLoyaltyToTrain )

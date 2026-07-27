@@ -313,7 +313,12 @@ retain their existing content- and command-facing structures.
 time on assignment, squad-merge intent, and the facility, repair, item-move,
 and mini-event context belonging to that duty. Strategic travel and sector
 location remain independent; existing assignment constants and gameplay
-entry points are unchanged. Current
+entry points are unchanged. `SoldierDeploymentComponent` owns the complementary
+location boundary: strategic sector, movement group, vehicle, tactical
+insertion, traversal origin, off-world staging, and arrival bookkeeping.
+Strategic route/group objects remain adapters, and all existing sector,
+insertion, vehicle, and arrival gameplay entry points continue to operate on
+the same values. Current
 tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot

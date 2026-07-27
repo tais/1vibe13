@@ -37,7 +37,7 @@
 //#define PHOBIC_LIMIT -20
 
 // macros
-#define SOLDIER_IN_SECTOR( pSoldier, sX, sY, bZ )		( !pSoldier->flags.fBetweenSectors && ( pSoldier->sSectorX == sX ) && ( pSoldier->sSectorY == sY ) && ( pSoldier->bSectorZ == bZ ) )
+#define SOLDIER_IN_SECTOR( pSoldier, sX, sY, bZ )		( !pSoldier->flags.fBetweenSectors && ( pSoldier->deployment().sectorX() == sX ) && ( pSoldier->deployment().sectorY() == sY ) && ( pSoldier->deployment().sectorZ() == bZ ) )
 
 
 
@@ -264,12 +264,12 @@ void DecayTacticalMoraleModifiers( void )
 				
 			if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) )
 			{
-				if ( pSoldier->bSectorZ > 0 )
+				if ( pSoldier->deployment().sectorZ() > 0 )
 				{
 					// underground, no recovery... in fact, if tact morale is high, decay
 					if ( pSoldier->aiData.bTacticalMoraleMod > gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
 					{
-						HandleMoraleEvent( pSoldier, MORALE_CLAUSTROPHOBE_UNDERGROUND, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						HandleMoraleEvent( pSoldier, MORALE_CLAUSTROPHOBE_UNDERGROUND, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 					}
 				}
 			}
@@ -278,7 +278,7 @@ void DecayTacticalMoraleModifiers( void )
 			{
 				if ( pSoldier->aiData.bMorale < 50 )
 				{
-					if (pSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pSoldier->ubGroupID ))
+					if (pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ))
  					{
 						if ( NumberOfPeopleInSquad( pSoldier->assignment().current() ) == 1 )
 						{
@@ -308,7 +308,7 @@ void DecayTacticalMoraleModifiers( void )
 						{
 							SOLDIERTYPE *pSoldier2 =
 								GetJa2SoldierRepository().resolve(ubLoop2.i);
-							if ( pSoldier2 != pSoldier && pSoldier2->bActive && pSoldier2->sSectorX == pSoldier->sSectorX && pSoldier2->sSectorY == pSoldier->sSectorY && pSoldier2->bSectorZ == pSoldier->bSectorZ )
+							if ( pSoldier2 != pSoldier && pSoldier2->bActive && pSoldier2->deployment().sectorX() == pSoldier->deployment().sectorX() && pSoldier2->deployment().sectorY() == pSoldier->deployment().sectorY() && pSoldier2->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 							{
 								// found someone!
 								fHandleNervous = FALSE;
@@ -332,7 +332,7 @@ void DecayTacticalMoraleModifiers( void )
 								TacticalCharacterDialogue(pSoldier, QUOTE_PERSONALITY_TRAIT);
 								pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
 							}
-							HandleMoraleEvent(pSoldier, MORALE_NERVOUS_ALONE, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+							HandleMoraleEvent(pSoldier, MORALE_NERVOUS_ALONE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 
 							// Flugente: dynamic opinions
 							if (gGameExternalOptions.fDynamicOpinions)
@@ -411,7 +411,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	// HEADROCK HAM 3.5: Local facilities may decrease the total morale allowed.
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; cnt++)
 	{
-		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][cnt].fFacilityHere)
 		{
 			if (cnt == (UINT16)pSoldier->assignment().facilityType() && // Soldier is operating this facility
 				GetSoldierFacilityAssignmentIndex( pSoldier ) != -1) 
@@ -800,9 +800,9 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 					// CJC: adding to SOLDIER_IN_SECTOR check special stuff because the old sector values might
 					// be appropriate (because in transit going out of that sector!)
 					// sevenfm: improved check
-					//if ( SOLDIER_IN_SECTOR( pTeamSoldier, sMapX, sMapY, bMapZ ) || (pTeamSoldier->flags.fBetweenSectors && SECTORX( pTeamSoldier->ubPrevSectorID ) == sMapX && SECTORY( pTeamSoldier->ubPrevSectorID ) == sMapY && (pTeamSoldier->bSectorZ == bMapZ)) )
+					//if ( SOLDIER_IN_SECTOR( pTeamSoldier, sMapX, sMapY, bMapZ ) || (pTeamSoldier->flags.fBetweenSectors && SECTORX( pTeamSoldier->deployment().previousSectorId() ) == sMapX && SECTORY( pTeamSoldier->deployment().previousSectorId() ) == sMapY && (pTeamSoldier->deployment().sectorZ() == bMapZ)) )
 					if (pTeamSoldier->bInSector ||
-						pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->sSectorX == gWorldSectorX && pTeamSoldier->sSectorY == gWorldSectorY && pTeamSoldier->bSectorZ == gbWorldSectorZ)
+						pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
 					{
 						if ( gGameOptions.fNewTraitSystem )
 						{
@@ -1054,7 +1054,7 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 			{
 				pTeamSoldier =
 					GetJa2SoldierRepository().resolve(id.i);
-				if ( pTeamSoldier->bActive && (pTeamSoldier->sSectorX == sMapX) && (pTeamSoldier->sSectorY == sMapY) && (pTeamSoldier->bSectorZ == bMapZ) )
+				if ( pTeamSoldier->bActive && (pTeamSoldier->deployment().sectorX() == sMapX) && (pTeamSoldier->deployment().sectorY() == sMapY) && (pTeamSoldier->deployment().sectorZ() == bMapZ) )
 				{
 					if ( DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_COWARD ) )
 						HandleMoraleEventForSoldier( pTeamSoldier, bMoraleEvent );
@@ -1182,7 +1182,7 @@ void HourlyMoraleUpdate( void )
 			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
 
 			// if we're moving
-			if (pSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pSoldier->ubGroupID ))
+			if (pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ))
 			{
 				// we only check our opinions of people in our squad
 				fSameGroupOnly = TRUE;
@@ -1216,7 +1216,7 @@ void HourlyMoraleUpdate( void )
 					if (fSameGroupOnly)
 					{
 						// all we have to check is the group ID
-						if (pSoldier->ubGroupID != pOtherSoldier->ubGroupID)
+						if (pSoldier->deployment().groupId() != pOtherSoldier->deployment().groupId())
 						{
 							continue;
 						}
@@ -1224,15 +1224,15 @@ void HourlyMoraleUpdate( void )
 					else
 					{
 						// check to see if the location is the same
-						if (pOtherSoldier->sSectorX != pSoldier->sSectorX ||
-							pOtherSoldier->sSectorY != pSoldier->sSectorY ||
-								pOtherSoldier->bSectorZ != pSoldier->bSectorZ)
+						if (pOtherSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() ||
+							pOtherSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() ||
+								pOtherSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ())
 						{
 							continue;
 						}
 
 						// if the OTHER soldier is in motion then we don't do anything!
-						if (pOtherSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pOtherSoldier->ubGroupID ))
+						if (pOtherSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pOtherSoldier->deployment().groupId() ))
 						{
 							continue;
 						}
@@ -1382,7 +1382,7 @@ void HandleSnitchCheck( void )
 			pProfile = &(gMercProfiles[pSoldier->ubProfile]);
 
 			// if we're moving
-			if ( pSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pSoldier->ubGroupID ) )
+			if ( pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ) )
 			{
 				// we only check our opinions of people in our squad
 				fSameGroupOnly = TRUE;
@@ -1407,7 +1407,7 @@ void HandleSnitchCheck( void )
 					if ( fSameGroupOnly )
 					{
 						// all we have to check is the group ID
-						if ( pSoldier->ubGroupID != pOtherSoldier->ubGroupID )
+						if ( pSoldier->deployment().groupId() != pOtherSoldier->deployment().groupId() )
 						{
 							continue;
 						}
@@ -1415,15 +1415,15 @@ void HandleSnitchCheck( void )
 					else
 					{
 						// check to see if the location is the same
-						if ( pOtherSoldier->sSectorX != pSoldier->sSectorX ||
-							pOtherSoldier->sSectorY != pSoldier->sSectorY ||
-							pOtherSoldier->bSectorZ != pSoldier->bSectorZ )
+						if ( pOtherSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() ||
+							pOtherSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() ||
+							pOtherSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
 						{
 							continue;
 						}
 
 						// if the OTHER soldier is in motion then we don't do anything!
-						if ( pOtherSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pOtherSoldier->ubGroupID ) )
+						if ( pOtherSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pOtherSoldier->deployment().groupId() ) )
 						{
 							continue;
 						}
@@ -1597,7 +1597,7 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 			if ( fSameGroupOnly )
 			{
 				// all we have to check is the group ID
-				if ( pSoldier->ubGroupID != pSnitch->ubGroupID )
+				if ( pSoldier->deployment().groupId() != pSnitch->deployment().groupId() )
 				{
 					continue;
 				}
@@ -1605,15 +1605,15 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 			else
 			{
 				// check to see if the location is the same
-				if ( pSnitch->sSectorX != pSoldier->sSectorX ||
-					pSnitch->sSectorY != pSoldier->sSectorY ||
-					pSnitch->bSectorZ != pSoldier->bSectorZ )
+				if ( pSnitch->deployment().sectorX() != pSoldier->deployment().sectorX() ||
+					pSnitch->deployment().sectorY() != pSoldier->deployment().sectorY() ||
+					pSnitch->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
 				{
 					continue;
 				}
 
 				// if snitch is in motion then we don't do anything!
-				if ( pSnitch->ubGroupID != 0 && PlayerIDGroupInMotion( pSnitch->ubGroupID ) )
+				if ( pSnitch->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSnitch->deployment().groupId() ) )
 				{
 					continue;
 				}
@@ -1696,19 +1696,19 @@ void DailyMoraleUpdate(SOLDIERTYPE *pSoldier)
 	if ( MercThinksDeathRateTooHigh( pSoldier->ubProfile ) )
 	{
 		// too high, morale takes a hit
-		HandleMoraleEvent( pSoldier, MORALE_HIGH_DEATHRATE, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		HandleMoraleEvent( pSoldier, MORALE_HIGH_DEATHRATE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 
 	// check his morale vs. his morale tolerance once/day (ignores buddies!)
 	if ( MercThinksHisMoraleIsTooLow( pSoldier ) )
 	{
 		// too low, morale sinks further (merc's in a funk and things aren't getting better)
-		HandleMoraleEvent( pSoldier, MORALE_POOR_MORALE, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		HandleMoraleEvent( pSoldier, MORALE_POOR_MORALE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 	else if ( pSoldier->aiData.bMorale >= 75 )
 	{
 		// very high morale, merc is cheerleading others
-		HandleMoraleEvent( pSoldier, MORALE_GREAT_MORALE, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		HandleMoraleEvent( pSoldier, MORALE_GREAT_MORALE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 
 }

@@ -522,7 +522,7 @@ namespace MiniEventHelpers
 		{
 			if ((*iter)->ubProfile == profileId)
 			{
-				vehicleId = (*iter)->iVehicleId;
+				vehicleId = (*iter)->deployment().vehicleId();
 				break;
 
 			}
@@ -568,7 +568,7 @@ namespace MiniEventHelpers
 		{
 			if ((*iter)->ubProfile == profileId)
 			{
-				vehicleId = (*iter)->iVehicleId;
+				vehicleId = (*iter)->deployment().vehicleId();
 				break;
 
 			}
@@ -864,7 +864,7 @@ namespace MiniEventHelpers
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
-			if (globalSearch || ((*iter)->sSectorX == sectorX && (*iter)->sSectorY == sectorY && (*iter)->bSectorZ == sectorZ))
+			if (globalSearch || ((*iter)->deployment().sectorX() == sectorX && (*iter)->deployment().sectorY() == sectorY && (*iter)->deployment().sectorZ() == sectorZ))
 			{
 				if ((*iter)->assignment().current() == assignment)
 				{
@@ -933,7 +933,7 @@ namespace MiniEventHelpers
 				{
 					for (int i = 0; i < sizeof(merc.bSkillTraits) / sizeof(merc.bSkillTraits[0]); ++i)
 					{
-						if (globalSearch || ((*iter)->sSectorX == sectorX && (*iter)->sSectorY == sectorY && (*iter)->bSectorZ == sectorZ))
+						if (globalSearch || ((*iter)->deployment().sectorX() == sectorX && (*iter)->deployment().sectorY() == sectorY && (*iter)->deployment().sectorZ() == sectorZ))
 						{
 							if(merc.bSkillTraits[i] == skill)
 							{
@@ -1084,9 +1084,9 @@ namespace MiniEventHelpers
 			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
 			if (merc && merc->ubProfile == profileId)
 			{
-				x = merc->sSectorX;
-				y = merc->sSectorY;
-				z = merc->bSectorZ;
+				x = merc->deployment().sectorX();
+				y = merc->deployment().sectorY();
+				z = merc->deployment().sectorZ();
 				break;
 			}
 		}
@@ -1215,7 +1215,7 @@ namespace MiniEventHelpers
 		{
 			if (lookAtAllMercs || ((*iter)->ubProfile == profileId))
 			{
-				if (globalSearch || ((*iter)->sSectorX == sectorX && (*iter)->sSectorY == sectorY && (*iter)->bSectorZ == sectorZ))
+				if (globalSearch || ((*iter)->deployment().sectorX() == sectorX && (*iter)->deployment().sectorY() == sectorY && (*iter)->deployment().sectorZ() == sectorZ))
 				{
 					switch (stat)
 					{
@@ -1344,7 +1344,7 @@ namespace MiniEventHelpers
 			TakeSoldierOutOfVehicle(merc);
 			RemoveCharacterFromSquads(merc);
 			merc->assignment().miniEventHoursRemaining() = hoursOnMiniEvent;
-			merc->bSectorZ += MINI_EVENT_Z_OFFSET;
+			merc->deployment().sectorZ() += MINI_EVENT_Z_OFFSET;
 			merc->vitals().bleeding() = 0;
 			SetTimeOfAssignmentChangeForMerc(merc);
 			ChangeSoldiersAssignment(merc, ASSIGNMENT_MINIEVENT);
@@ -1412,14 +1412,14 @@ namespace MiniEventHelpers
 			if (merc->ubProfile != profileId)
 				return;
 
-			merc->sSectorX = sectorX;
-			merc->sSectorY = sectorY;
-			merc->bSectorZ = sectorZ;
+			merc->deployment().sectorX() = sectorX;
+			merc->deployment().sectorY() = sectorY;
+			merc->deployment().sectorZ() = sectorZ;
 
 			TakeSoldierOutOfVehicle(merc);
 			RemoveCharacterFromSquads(merc);
-			merc->ubInsertionDirection = DIRECTION_IRRELEVANT;
-			merc->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+			merc->deployment().insertionDirection() = DIRECTION_IRRELEVANT;
+			merc->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 			AddCharacterToAnySquad(merc);
 			});
 

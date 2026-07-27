@@ -233,10 +233,10 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 
 		pSoldier = GetJa2SoldierRepository().resolve(id.i);
 		if( !pSoldier->flags.fBetweenSectors &&
-				pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ &&
+				pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				( pSoldier->assignment().current() != selectedSoldier->assignment().current() ||
-				( pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId != selectedSoldier->iVehicleId ) ) &&
+				( pSoldier->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() != selectedSoldier->deployment().vehicleId() ) ) &&
 				pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 				&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{ //KM:	We need to determine if there are more than one squad (meaning other concious mercs in a different squad or assignment)
@@ -419,18 +419,18 @@ void DoneFadeOutWarpCallback( void )
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 		{
 			gfTacticalTraversal = TRUE;
-			SetGroupSectorValue( gsWarpWorldX, gsWarpWorldY, gbWarpWorldZ, pSoldier->ubGroupID );
+			SetGroupSectorValue( gsWarpWorldX, gsWarpWorldY, gbWarpWorldZ, pSoldier->deployment().groupId() );
 
 			// Set next sectore
-			pSoldier->sSectorX = gsWarpWorldX;
-			pSoldier->sSectorY = gsWarpWorldY;
-			pSoldier->bSectorZ = gbWarpWorldZ;
+			pSoldier->deployment().sectorX() = gsWarpWorldX;
+			pSoldier->deployment().sectorY() = gsWarpWorldY;
+			pSoldier->deployment().sectorZ() = gbWarpWorldZ;
 
 			// Set gridno
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-			pSoldier->usStrategicInsertionData = gsWarpGridNo;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() = gsWarpGridNo;
 			// Set direction to face....
-			pSoldier->ubInsertionDirection		= 100 + NORTHWEST;
+			pSoldier->deployment().insertionDirection()		= 100 + NORTHWEST;
 		}
 	}
 

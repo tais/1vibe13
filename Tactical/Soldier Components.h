@@ -363,6 +363,91 @@ private:
 	UINT16 miniEventHoursRemaining_ = 0;
 };
 
+// Canonical strategic placement and deployment state. Sector coordinates,
+// strategic group and vehicle membership, tactical insertion, traversal
+// origin, off-world staging, and arrival bookkeeping move together across the
+// strategic/tactical boundary while route and group objects remain adapters.
+class SoldierDeploymentComponent
+{
+public:
+	INT8& insertionDirection() noexcept { return insertionDirection_; }
+	const INT8& insertionDirection() const noexcept { return insertionDirection_; }
+	UINT8& groupId() noexcept { return groupId_; }
+	const UINT8& groupId() const noexcept { return groupId_; }
+	INT32& insertionGrid() noexcept { return insertionGrid_; }
+	const INT32& insertionGrid() const noexcept { return insertionGrid_; }
+	UINT8& strategicInsertionCode() noexcept { return strategicInsertionCode_; }
+	const UINT8& strategicInsertionCode() const noexcept { return strategicInsertionCode_; }
+	INT32& strategicInsertionData() noexcept { return strategicInsertionData_; }
+	const INT32& strategicInsertionData() const noexcept { return strategicInsertionData_; }
+	INT16& sectorX() noexcept { return sectorX_; }
+	const INT16& sectorX() const noexcept { return sectorX_; }
+	INT16& sectorY() noexcept { return sectorY_; }
+	const INT16& sectorY() const noexcept { return sectorY_; }
+	INT8& sectorZ() noexcept { return sectorZ_; }
+	const INT8& sectorZ() const noexcept { return sectorZ_; }
+	INT32& vehicleId() noexcept { return vehicleId_; }
+	const INT32& vehicleId() const noexcept { return vehicleId_; }
+	INT32& offWorldGrid() noexcept { return offWorldGrid_; }
+	const INT32& offWorldGrid() const noexcept { return offWorldGrid_; }
+	UINT8& previousSectorId() noexcept { return previousSectorId_; }
+	const UINT8& previousSectorId() const noexcept { return previousSectorId_; }
+	UINT8& useExitGridForReentryDirection() noexcept { return useExitGridForReentryDirection_; }
+	const UINT8& useExitGridForReentryDirection() const noexcept { return useExitGridForReentryDirection_; }
+	INT32& preTraversalGrid() noexcept { return preTraversalGrid_; }
+	const INT32& preTraversalGrid() const noexcept { return preTraversalGrid_; }
+	UINT8& leaveHistoryCode() noexcept { return leaveHistoryCode_; }
+	const UINT8& leaveHistoryCode() const noexcept { return leaveHistoryCode_; }
+	UINT32& arrivalTime() noexcept { return arrivalTime_; }
+	const UINT32& arrivalTime() const noexcept { return arrivalTime_; }
+
+	bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept
+	{
+		return sectorX_ == x && sectorY_ == y && sectorZ_ == z;
+	}
+	bool hasVehicle() const noexcept { return vehicleId_ >= 0; }
+	void setSector(INT16 x, INT16 y, INT8 z) noexcept
+	{
+		sectorX_ = x;
+		sectorY_ = y;
+		sectorZ_ = z;
+	}
+	void clearVehicle() noexcept { vehicleId_ = -1; }
+	void setStrategicInsertion(UINT8 code, INT32 data) noexcept
+	{
+		strategicInsertionCode_ = code;
+		strategicInsertionData_ = data;
+	}
+	void setTraversalOrigin(UINT8 previousSectorId, INT32 gridNo) noexcept
+	{
+		previousSectorId_ = previousSectorId;
+		preTraversalGrid_ = gridNo;
+	}
+	void scheduleArrival(UINT32 time, UINT8 historyCode) noexcept
+	{
+		arrivalTime_ = time;
+		leaveHistoryCode_ = historyCode;
+	}
+	void reset() noexcept;
+
+private:
+	INT8 insertionDirection_ = 0;
+	UINT8 groupId_ = 0;
+	INT32 insertionGrid_ = 0;
+	UINT8 strategicInsertionCode_ = 0;
+	INT32 strategicInsertionData_ = 0;
+	INT16 sectorX_ = 0;
+	INT16 sectorY_ = 0;
+	INT8 sectorZ_ = 0;
+	INT32 vehicleId_ = -1;
+	INT32 offWorldGrid_ = 0;
+	UINT8 previousSectorId_ = 0;
+	UINT8 useExitGridForReentryDirection_ = 0;
+	INT32 preTraversalGrid_ = 0;
+	UINT8 leaveHistoryCode_ = 0;
+	UINT32 arrivalTime_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

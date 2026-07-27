@@ -1167,12 +1167,12 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->bSectorZ &&
-				 (pSoldier->sSectorX == heli_x && pSoldier->sSectorY == heli_y) ||
-				 (pSoldier->sSectorX == heli_x + 1 && pSoldier->sSectorY == heli_y) ||
-				 (pSoldier->sSectorX == heli_x - 1 && pSoldier->sSectorY == heli_y) ||
-				 (pSoldier->sSectorX == heli_x && pSoldier->sSectorY == heli_y + 1) ||
-				 (pSoldier->sSectorX == heli_x && pSoldier->sSectorY == heli_y - 1)
+			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->deployment().sectorZ() &&
+				 (pSoldier->deployment().sectorX() == heli_x && pSoldier->deployment().sectorY() == heli_y) ||
+				 (pSoldier->deployment().sectorX() == heli_x + 1 && pSoldier->deployment().sectorY() == heli_y) ||
+				 (pSoldier->deployment().sectorX() == heli_x - 1 && pSoldier->deployment().sectorY() == heli_y) ||
+				 (pSoldier->deployment().sectorX() == heli_x && pSoldier->deployment().sectorY() == heli_y + 1) ||
+				 (pSoldier->deployment().sectorX() == heli_x && pSoldier->deployment().sectorY() == heli_y - 1)
 				 )
 			{
 				// look for a SAM in our inventory
@@ -1202,7 +1202,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 					samcth = (samcth * (*pObj)[0]->data.objectStatus) / 100.0f;
 
 					// determine distance from SAM to heli
-					FLOAT distance = sqrt(FLOAT(abs( heli_x - pSoldier->sSectorX ) * abs( heli_x - pSoldier->sSectorX ) + abs( heli_y - pSoldier->sSectorY ) * abs( heli_y - pSoldier->sSectorY ) ));
+					FLOAT distance = sqrt(FLOAT(abs( heli_x - pSoldier->deployment().sectorX() ) * abs( heli_x - pSoldier->deployment().sectorX() ) + abs( heli_y - pSoldier->deployment().sectorY() ) * abs( heli_y - pSoldier->deployment().sectorY() ) ));
 					
 					// distance penalty
 					samcth = (samcth * (100.0f - 20 * distance)) / 100.0f;

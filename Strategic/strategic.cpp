@@ -28,7 +28,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 	//AddCharacterToDeadList( pSoldier );
 
 	// If in a vehicle, remove them!
-	if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId != -1 ) )
+	if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() != -1 ) )
 	{
 		// remove from vehicle
 		TakeSoldierOutOfVehicle( pSoldier );
@@ -75,12 +75,12 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 		HandleSoldierDeadComments( pSoldier );
 
 		// put the dead guys down
-		INT32 sGridNo = pSoldier->sInsertionGridNo;
+		INT32 sGridNo = pSoldier->deployment().insertionGrid();
 		if (pSoldier->flags.fBetweenSectors || TileIsOutOfBounds(sGridNo))
 		{
 			sGridNo = RandomGridNo();
 		}
-		AddDeadSoldierToUnLoadedSector( ( UINT8 ) ( pSoldier->sSectorX ), ( UINT8 )( pSoldier->sSectorY ), pSoldier->bSectorZ, pSoldier, sGridNo, ADD_DEAD_SOLDIER_TO_SWEETSPOT );
+		AddDeadSoldierToUnLoadedSector( ( UINT8 ) ( pSoldier->deployment().sectorX() ), ( UINT8 )( pSoldier->deployment().sectorY() ), pSoldier->deployment().sectorZ(), pSoldier, sGridNo, ADD_DEAD_SOLDIER_TO_SWEETSPOT );
 
 		fTeamPanelDirty = TRUE;
 		fMapPanelDirty = TRUE;

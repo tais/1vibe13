@@ -223,8 +223,8 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	pSoldier = GetJa2SoldierRepository().resolve(iNewIndex.i);
 
 	//Copy over insertion data....
-	pSoldier->ubStrategicInsertionCode = pHireMerc->ubInsertionCode;
-	pSoldier->usStrategicInsertionData = pHireMerc->usInsertionData;
+	pSoldier->deployment().strategicInsertionCode() = pHireMerc->ubInsertionCode;
+	pSoldier->deployment().strategicInsertionData() = pHireMerc->usInsertionData;
 	// ATE: Copy over value for using alnding zone to soldier type
 	pSoldier->flags.fUseLandingZoneForArrival = pHireMerc->fUseLandingZoneForArrival;
 
@@ -248,7 +248,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 //	pSoldier->iTotalContractCharge = 0;
 
 	// store arrival time in soldier structure so map screen can display it
-	pSoldier->uiTimeSoldierWillArrive = pHireMerc->uiTimeTillMercArrives;
+	pSoldier->deployment().arrivalTime() = pHireMerc->uiTimeTillMercArrives;
 
 
 	//Set the type of merc
@@ -273,13 +273,13 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	if ( gGameUBOptions.InGameHeli == FALSE )
 	{
 		// Set the gridno for the soldier
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		pSoldier->usStrategicInsertionData = GetInitialHeliGridNo( );
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionData() = GetInitialHeliGridNo( );
 
 		//Set a "code" to enable the merc to be in the direction we set!
-		pSoldier->ubInsertionDirection = Random( NUM_WORLD_DIRECTIONS ) + 100;
+		pSoldier->deployment().insertionDirection() = Random( NUM_WORLD_DIRECTIONS ) + 100;
 
-		if( pSoldier->ubStrategicInsertionCode == 0 )
+		if( pSoldier->deployment().strategicInsertionCode() == 0 )
 		{
 			Assert( 0 );
 		}
@@ -454,8 +454,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		// every time Kulba delays his arrival, chances of next delay decrease
 		if( Random( 100 ) < LaptopSaveInfo.ubJohnPossibleMissedFlights * 25 ) 
 		{			
-			pSoldier->uiTimeSoldierWillArrive = pSoldier->uiTimeSoldierWillArrive + 720 + Random ( 720 );
-			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pSoldier->uiTimeSoldierWillArrive,	pSoldier->ubID );
+			pSoldier->deployment().arrivalTime() = pSoldier->deployment().arrivalTime() + 720 + Random ( 720 );
+			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pSoldier->deployment().arrivalTime(),	pSoldier->ubID );
 			if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 3 )
 				AddEmail(JOHN_KULBA_MISSED_FLIGHT_1, JOHN_KULBA_MISSED_FLIGHT_1_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_MISSEDTRANSFERFLIGHT);
 			else if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 2 )
@@ -484,7 +484,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			{
 				pTeamSoldier = GetJa2SoldierRepository().resolve(
 					gCharactersList[cnt].usSolID.i);
-				if (pTeamSoldier != pSoldier && pTeamSoldier->assignment().current() != ASSIGNMENT_DEAD && pTeamSoldier->assignment().current() != ASSIGNMENT_POW && pTeamSoldier->assignment().current() != IN_TRANSIT && pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER)
+				if (pTeamSoldier != pSoldier && pTeamSoldier->assignment().current() != ASSIGNMENT_DEAD && pTeamSoldier->assignment().current() != ASSIGNMENT_POW && pTeamSoldier->assignment().current() != IN_TRANSIT && pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER)
 				{
 					force_helidrop = false;
 				}
@@ -502,21 +502,21 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	// ATE: Make sure we use global.....
 	if ( pSoldier->flags.fUseLandingZoneForArrival )
 	{
-		pSoldier->sSectorX	= gsMercArriveSectorX;
-		pSoldier->sSectorY	= gsMercArriveSectorY;
-		pSoldier->bSectorZ	= 0;
+		pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
+		pSoldier->deployment().sectorY()	= gsMercArriveSectorY;
+		pSoldier->deployment().sectorZ()	= 0;
 	}
 
 	// Add merc to sector ( if it's the current one )
-	if ( gWorldSectorX == pSoldier->sSectorX && gWorldSectorY == pSoldier->sSectorY && pSoldier->bSectorZ == gbWorldSectorZ )
+	if ( gWorldSectorX == pSoldier->deployment().sectorX() && gWorldSectorY == pSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 	{
 		// OK, If this sector is currently loaded, and guy does not have CHOPPER insertion code....
 		// ( which means we are at beginning of game if so )
 		// Setup chopper....
 		#ifdef JA2UB
-		if ( pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER && pSoldier->sSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && pSoldier->sSectorY == gGameExternalOptions.ubDefaultArrivalSectorY && gGameUBOptions.InGameHeli == TRUE )
+		if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER && pSoldier->deployment().sectorX() == gGameExternalOptions.ubDefaultArrivalSectorX && pSoldier->deployment().sectorY() == gGameExternalOptions.ubDefaultArrivalSectorY && gGameUBOptions.InGameHeli == TRUE )
 		#else
-		if (pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER )
+		if (pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 		#endif
 		{
 			gfTacticalDoHeliRun = TRUE;
@@ -538,23 +538,23 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 				RequestTriggerExitFromMapscreen( MAP_EXIT_TO_TACTICAL );
 			}
 
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CHOPPER;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CHOPPER;
 		}
 
-		UpdateMercInSector( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		UpdateMercInSector( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 	// Strategic map arrival to a sector that's not loaded
 	else
 	{
 #ifdef JA2UB
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		pSoldier->usStrategicInsertionData = gGameUBOptions.LOCATEGRIDNO;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
 #else
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 #endif
 	}
 
-	if ( pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER )
+	if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 	{
 		ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, TacticalStr[ MERC_HAS_ARRIVED_STR ], pSoldier->GetName() );
 
@@ -564,8 +564,8 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 			gTacticalStatus.bMercArrivingQuoteBeingUsed = TRUE;
 
 			//Setup the highlight sector value (note this isn't for mines but using same system)
-			gsSectorLocatorX = pSoldier->sSectorX;
-			gsSectorLocatorY = pSoldier->sSectorY;
+			gsSectorLocatorX = pSoldier->deployment().sectorX();
+			gsSectorLocatorY = pSoldier->deployment().sectorY();
 
 			TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_MINESECTOREVENT, 2, 0 );
 			
@@ -613,7 +613,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	// if the currently selected sector has no one in it, select this one instead
 	if ( !CanGoToTacticalInSector( sSelMapX, sSelMapY, ( UINT8 )iCurrentMapSectorZ ) )
 	{
-		ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, 0 );
+		ChangeSelectedMapSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), 0 );
 	}
 
 	return;
@@ -696,7 +696,7 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 	}
 #endif	
 	// If we are approaching with helicopter, don't say any ( yet )
-	if ( pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER )
+	if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 	{
 		// if we haven't met the rebels yet, characters issue some comments
 		if ( gubQuest[QUEST_DELIVER_LETTER] == QUESTINPROGRESS )
@@ -816,9 +816,9 @@ void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 			{
 				if ( pSoldier->flags.fUseLandingZoneForArrival )
 				{
-					pSoldier->sSectorX	= gsMercArriveSectorX;
-					pSoldier->sSectorY	= gsMercArriveSectorY;
-					pSoldier->bSectorZ	= 0;
+					pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
+					pSoldier->deployment().sectorY()	= gsMercArriveSectorY;
+					pSoldier->deployment().sectorZ()	= 0;
 				}
 			}
 		}
@@ -1077,8 +1077,8 @@ void UpdateJerryMiloInInitialSector()
 			pSoldier->fWaitingToGetupFromJA25Start = TRUE;
 			pSoldier->fIgnoreGetupFromCollapseCheck = TRUE;
 
-			//pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO; // was disabled
-			//pSoldier->usStrategicInsertionData = GetInitialHeliGridNo( ); // was disabled
+			//pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO; // was disabled
+			//pSoldier->deployment().strategicInsertionData() = GetInitialHeliGridNo( ); // was disabled
 
 			RESETTIMECOUNTER( pSoldier->GetupFromJA25StartCounter, gsInitialHeliRandomTimes[6] + 800 + Random( 400 ) );
 

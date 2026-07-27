@@ -522,7 +522,7 @@ BOOLEAN	MercContractHandling( SOLDIERTYPE	*pSoldier, UINT8 ubDesiredAction )
 	AddTransactionToPlayersBook( ubFinancesContractType, pSoldier->ubProfile, GetWorldTotalMin(), -iContractCharge );
 
 	//add an entry in the history page for the extending of the merc contract
-	AddHistoryToPlayersLog( ubHistoryContractType, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->sSectorX, pSoldier->sSectorY );
+	AddHistoryToPlayersLog( ubHistoryContractType, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	return( TRUE );
 }
@@ -626,9 +626,9 @@ BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote )
 			else 			// else tolerance is > 0, only gripe if in same sector
 			{
 				pHated = FindSoldierByProfileID( bMercID, TRUE );
-				if ( pHated && pHated->sSectorX == pSoldier->sSectorX &&
-									pHated->sSectorY == pSoldier->sSectorY &&
-									pHated->bSectorZ == pSoldier->bSectorZ )
+				if ( pHated && pHated->deployment().sectorX() == pSoldier->deployment().sectorX() &&
+									pHated->deployment().sectorY() == pSoldier->deployment().sectorY() &&
+									pHated->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 				{
 					fUnhappy = TRUE;
 				}
@@ -672,9 +672,9 @@ BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote )
 				else if ( gMercProfiles[ pSoldier->ubProfile ].bLearnToHateCount <= gMercProfiles[ pSoldier->ubProfile ].bLearnToHateTime / 2 )
 				{
 					pHated = FindSoldierByProfileID( bMercID, TRUE );
-					if ( pHated && pHated->sSectorX == pSoldier->sSectorX &&
-										pHated->sSectorY == pSoldier->sSectorY &&
-										pHated->bSectorZ == pSoldier->bSectorZ )
+					if ( pHated && pHated->deployment().sectorX() == pSoldier->deployment().sectorX() &&
+										pHated->deployment().sectorY() == pSoldier->deployment().sectorY() &&
+										pHated->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 					{
 						fUnhappy = TRUE;
 						usReasonQuote = QUOTE_LEARNED_TO_HATE_ON_TEAM_WONT_RENEW;
@@ -810,7 +810,7 @@ void HandleBuddiesReactionToFiringMerc(SOLDIERTYPE *pFiredSoldier, INT8 bMoraleE
 			pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
 			pSoldier->assignment().current() == ASSIGNMENT_POW) )
 		{
-			HandleMoraleEvent(pSoldier, bMoraleEvent, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+			HandleMoraleEvent(pSoldier, bMoraleEvent, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 		}
 	}
 }
@@ -1019,13 +1019,13 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	HandleBuddiesReactionToFiringMerc(pSoldier, MORALE_BUDDY_FIRED);
 
 	// ATE: Determine which HISTORY ENTRY to use...
-	if ( pSoldier->ubLeaveHistoryCode == 0 )
+	if ( pSoldier->deployment().leaveHistoryCode() == 0 )
 	{
 		// Default use contract expired reason...
-		pSoldier->ubLeaveHistoryCode = HISTORY_MERC_CONTRACT_EXPIRED;
+		pSoldier->deployment().leaveHistoryCode() = HISTORY_MERC_CONTRACT_EXPIRED;
 	}
 
-	ubHistoryCode = pSoldier->ubLeaveHistoryCode;
+	ubHistoryCode = pSoldier->deployment().leaveHistoryCode();
 
 	//if the soldier is DEAD
 	if( pSoldier->vitals().health() <= 0 )
@@ -1060,13 +1060,13 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	if( pSoldier->assignment().current() >= ON_DUTY )
 	{
 		// is he/she in a mvt group, if so, remove and destroy the group
-		if( pSoldier->ubGroupID )
+		if( pSoldier->deployment().groupId() )
 		{
 			// anv: dead people are on "dead" assignment even if they were in vehicle pre-mortem, check flags too
 			if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 			//if ( pSoldier->assignment().current() != VEHICLE )
 			{ //Can only remove groups if they aren't persistant (not in a squad or vehicle)
-				RemovePlayerFromGroup(pSoldier->ubGroupID, pSoldier);
+				RemovePlayerFromGroup(pSoldier->deployment().groupId(), pSoldier);
 			}
 			else
 			{
@@ -1105,7 +1105,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	// ATE: Don't do this if they are already dead!
 	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
 	{
-		AddHistoryToPlayersLog( ubHistoryCode, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->sSectorX, pSoldier->sSectorY );
+		AddHistoryToPlayersLog( ubHistoryCode, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	}
 
 	//if the merc was a POW, remember it becuase the merc cant show up in AIM or MERC anymore
@@ -1247,9 +1247,9 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 	// use YES/NO Pop up box, settup for particular screen
 	SGPRect pCenteringRect= {0 + xResOffset, 0 + yResOffset, SCREEN_WIDTH - xResOffset, SCREEN_HEIGHT - yResOffset};
 
-	//GetSectorIDString( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, zTownIDString, TRUE );
+	//GetSectorIDString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), zTownIDString, TRUE );
 
-	GetShortSectorString( pSoldier->sSectorX ,pSoldier->sSectorY, zShortTownIDString );
+	GetShortSectorString( pSoldier->deployment().sectorX() ,pSoldier->deployment().sectorY(), zShortTownIDString );
 
 	// Set string for generic button
 	swprintf( gzUserDefinedButton1, L"%s", zShortTownIDString );
@@ -1288,7 +1288,7 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 	{
 		GetSectorIDString( AIRPORT_X, AIRPORT_Y, 0, zDropOffString, FALSE );
 
-		if( ( pSoldier->sSectorX == AIRPORT_X ) && ( pSoldier->sSectorY == AIRPORT_Y ) && ( pSoldier->bSectorZ == 0 ) )
+		if( ( pSoldier->deployment().sectorX() == AIRPORT_X ) && ( pSoldier->deployment().sectorY() == AIRPORT_Y ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 		{
 			if( gMercProfiles[ pSoldier->ubProfile ].bSex == MALE )
 			{
@@ -1320,7 +1320,7 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 	{
 		GetSectorIDString( OMERTA_LEAVE_EQUIP_SECTOR_X, OMERTA_LEAVE_EQUIP_SECTOR_Y, 0, zDropOffString, FALSE );
 
-		if( ( pSoldier->sSectorX == OMERTA_LEAVE_EQUIP_SECTOR_X ) && ( pSoldier->sSectorY == OMERTA_LEAVE_EQUIP_SECTOR_Y ) && ( pSoldier->bSectorZ == 0 ) )
+		if( ( pSoldier->deployment().sectorX() == OMERTA_LEAVE_EQUIP_SECTOR_X ) && ( pSoldier->deployment().sectorY() == OMERTA_LEAVE_EQUIP_SECTOR_Y ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 		{
 			if( gMercProfiles[ pSoldier->ubProfile ].bSex == MALE )
 			{
@@ -1676,7 +1676,7 @@ UINT32 GetHourWhenContractDone( SOLDIERTYPE *pSoldier )
 	// Get the arrival hour - that will give us when they arrived....
 	if (!is_networked)
 	{
-		uiArriveHour = ( ( pSoldier->uiTimeSoldierWillArrive ) - ( ( ( pSoldier->uiTimeSoldierWillArrive ) / 1440 ) * 1440 ) ) / 60;
+		uiArriveHour = ( ( pSoldier->deployment().arrivalTime() ) - ( ( ( pSoldier->deployment().arrivalTime() ) / 1440 ) * 1440 ) ) / 60;
 	}
 	else
 	{

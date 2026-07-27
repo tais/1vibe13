@@ -1005,6 +1005,13 @@ the engine must not contain SDL types in its public domain model.
   item-moving, and mini-event context. Strategic position, travel path, and
   vehicle occupancy remain separate domains. Named subsidiary-context clears
   prevent a duty change from retaining stale repair or facility state.
+  `SoldierDeploymentComponent` now owns that separate strategic-placement
+  domain: sector coordinates, movement-group and vehicle membership, tactical
+  insertion, traversal origin, off-world staging, and arrival bookkeeping.
+  Named sector, insertion, traversal, vehicle, and arrival transitions keep
+  related values coherent. The existing strategic route and live group
+  pointers remain boundary adapters rather than becoming component-owned
+  content formats.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

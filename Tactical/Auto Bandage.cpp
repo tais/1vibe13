@@ -178,7 +178,7 @@ void HandleAutoBandagePending( )
 			// Are we in sector?
 			if ( soldier->bActive	)
 			{
-				if ( soldier->sSectorX == gWorldSectorX && soldier->sSectorY == gWorldSectorY && soldier->bSectorZ == gbWorldSectorZ && !soldier->flags.fBetweenSectors )
+				if ( soldier->deployment().sectorX() == gWorldSectorX && soldier->deployment().sectorY() == gWorldSectorY && soldier->deployment().sectorZ() == gbWorldSectorZ && !soldier->flags.fBetweenSectors )
 				{
 					if ( soldier->aiData.ubPendingAction != NO_PENDING_ACTION )
 					{
@@ -1271,7 +1271,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 				GetJa2SoldierRepository().resolve(ID.i);
 			// this requires mercs to travel and thus NOT be in a sector
 			// also we need to be in a specific sector
-			if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && pSoldier->sSectorX == pPatient->sSectorX  && pSoldier->sSectorY == pPatient->sSectorY )
+			if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
 			{
 				// find the best conscious doctor that has a medkit
 				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
@@ -1353,8 +1353,8 @@ void HandleRetreatBandaging()
 			if ( pSoldier->vitals().bleeding() && !needhelpinsector )
 			{
 				needhelpinsector = TRUE;
-				sX = pSoldier->sSectorX;
-				sY = pSoldier->sSectorY;
+				sX = pSoldier->deployment().sectorX();
+				sY = pSoldier->deployment().sectorY();
 				possiblepatient = ID;
 			}
 		}
@@ -1381,7 +1381,7 @@ void HandleRetreatBandaging()
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector
 				// treat bleeding people only
-				if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && sX == pSoldier->sSectorX  && sY == pSoldier->sSectorY && pSoldier->vitals().bleeding() )
+				if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && sX == pSoldier->deployment().sectorX()  && sY == pSoldier->deployment().sectorY() && pSoldier->vitals().bleeding() )
 				{
 					UINT32 counter = 0;
 					INT8 bSlot = -1;

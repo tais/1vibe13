@@ -275,9 +275,9 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->ubCivilianGroup				= Soldier.ubCivilianGroup;
 	this->ubScheduleID					= Soldier.ubScheduleID;
 	this->fHasKeys							= Soldier.flags.bHasKeys;
-	this->sSectorX							= Soldier.sSectorX;
-	this->sSectorY							= Soldier.sSectorY;
-	this->bSectorZ							= Soldier.bSectorZ;
+	this->sSectorX							= Soldier.deployment().sectorX();
+	this->sSectorY							= Soldier.deployment().sectorY();
+	this->bSectorZ							= Soldier.deployment().sectorZ();
 	this->ubSoldierClass				= Soldier.ubSoldierClass;
 	this->bTeam									= Soldier.bTeam;
 	this->ubDirection						= Soldier.position().direction();
@@ -806,15 +806,15 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.actionPoints().beginTurn( Soldier.CalcActionPoints() );
 		Soldier.bSide							= gTacticalStatus.Team[ Soldier.bTeam ].bSide;
 		Soldier.bActive							= TRUE;
-		Soldier.sSectorX						= pCreateStruct->sSectorX;
-		Soldier.sSectorY						= pCreateStruct->sSectorY;
-		Soldier.bSectorZ						= pCreateStruct->bSectorZ;
-		Soldier.ubInsertionDirection			= pCreateStruct->ubDirection;
+		Soldier.deployment().sectorX()						= pCreateStruct->sSectorX;
+		Soldier.deployment().sectorY()						= pCreateStruct->sSectorY;
+		Soldier.deployment().sectorZ()						= pCreateStruct->bSectorZ;
+		Soldier.deployment().insertionDirection()			= pCreateStruct->ubDirection;
 		Soldier.pathing().desiredDirection()		= pCreateStruct->ubDirection;
 		Soldier.aiData.bDominantDir				= pCreateStruct->ubDirection;
 		Soldier.position().direction()						= pCreateStruct->ubDirection;
 
-		Soldier.sInsertionGridNo				= pCreateStruct->sInsertionGridNo;
+		Soldier.deployment().insertionGrid()				= pCreateStruct->sInsertionGridNo;
 		Soldier.bOldLife						= Soldier.vitals().maximumHealth();
 
 		// set custom side for civilian group
@@ -831,7 +831,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		if ( gGameExternalOptions.fDisease && gGameExternalOptions.fDiseaseStrategic && Soldier.bTeam != OUR_TEAM && Soldier.bTeam != CREATURE_TEAM && !ARMED_VEHICLE((&Soldier)) && !ENEMYROBOT((&Soldier)) &&
 			!( Soldier.bTeam == MILITIA_TEAM && gGameExternalOptions.fIndividualMilitia && gGameExternalOptions.fIndividualMilitia_ManageHealth )  )
 		{
-			UINT8 sector = SECTOR( Soldier.sSectorX, Soldier.sSectorY );
+			UINT8 sector = SECTOR( Soldier.deployment().sectorX(), Soldier.deployment().sectorY() );
 			
 			// if this is autoresolve, we have to get the sector in a different way..
 			if ( GetCurrentScreen() == AUTORESOLVE_SCREEN )
@@ -1156,7 +1156,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				else
 				{
 					// Add vehicle to list....
-					Soldier.bVehicleID = (INT8)AddVehicleToList( Soldier.sSectorX, Soldier.sSectorY, Soldier.bSectorZ, ubVehicleID );
+					Soldier.bVehicleID = (INT8)AddVehicleToList( Soldier.deployment().sectorX(), Soldier.deployment().sectorY(), Soldier.deployment().sectorZ(), ubVehicleID );
 				}
 				SetVehicleValuesIntoSoldierType( &Soldier );
 				break;
@@ -1170,7 +1170,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		if ( Soldier.bTeam == CIV_TEAM && Soldier.ubProfile == NO_PROFILE && Soldier.ubCivilianGroup == NON_CIV_GROUP && Soldier.ubBodyType <= DRESSCIV )
 		{
 			// there has to officially be an outbreak in this sector - if we don't know of a disease, we cannot treat it!
-			UINT8 sector = SECTOR( Soldier.sSectorX, Soldier.sSectorY );
+			UINT8 sector = SECTOR( Soldier.deployment().sectorX(), Soldier.deployment().sectorY() );
 
 			SECTORINFO *pSectorInfo = &(SectorInfo[sector]);
 
@@ -1258,9 +1258,9 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 		UINT8 ubSectorID = GetAutoResolveSectorID( );
 		pSoldier->ubID = NUM_PROFILES;
-		pSoldier->sSectorX = (INT16)SECTORX( ubSectorID );
-		pSoldier->sSectorY = (INT16)SECTORY( ubSectorID );
-		pSoldier->bSectorZ = 0;
+		pSoldier->deployment().sectorX() = (INT16)SECTORX( ubSectorID );
+		pSoldier->deployment().sectorY() = (INT16)SECTORY( ubSectorID );
+		pSoldier->deployment().sectorZ() = 0;
 		*pubID = NUM_PROFILES;
 
 		return pSoldier;
@@ -1764,9 +1764,9 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->flags.bHasKeys							= pCreateStruct->fHasKeys;
 	pSoldier->ubSoldierClass				= pCreateStruct->ubSoldierClass;
 
-	pSoldier->sSectorX = pCreateStruct->sSectorX;
-	pSoldier->sSectorY = pCreateStruct->sSectorY;
-	pSoldier->bSectorZ = pCreateStruct->bSectorZ;
+	pSoldier->deployment().sectorX() = pCreateStruct->sSectorX;
+	pSoldier->deployment().sectorY() = pCreateStruct->sSectorY;
+	pSoldier->deployment().sectorZ() = pCreateStruct->bSectorZ;
 
 	// Flugente: soldier profiles
 	// silversurfer: Don't replace tanks!
@@ -2124,7 +2124,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->aiData.bMoved				= FALSE;
 	pSoldier->ubRobotRemoteHolderID		= NOBODY;
 	pSoldier->aiData.sNoiseGridno		= NOWHERE;
-	pSoldier->ubPrevSectorID				= 255;
+	pSoldier->deployment().previousSectorId()				= 255;
 	pSoldier->aiData.bNextPatrolPnt		= 1;
 	pSoldier->bCurrentCivQuote			= -1;
 	pSoldier->bCurrentCivQuoteDelta		= 0;
@@ -3739,7 +3739,7 @@ void CreateAssassin(UINT8 disguisetype)
 	if ( pSoldier )
 	{
 		// find a valid starting gridno
-		if ( pSoldier->sInsertionGridNo <= 0 )
+		if ( pSoldier->deployment().insertionGrid() <= 0 )
 		{
 			UINT8 tries = 0;		// counter for gridno function... if we fail to get a valid starting gridno multiple times, do not place assassin
 			INT32 sGridNo = NOWHERE;
@@ -3753,7 +3753,7 @@ void CreateAssassin(UINT8 disguisetype)
 			// a valid starting gridno must be valid, not in a structure, not in water, and not too near to our mercs
 			while( TileIsOutOfBounds(sGridNo) || FindStructure( sGridNo, STRUCTURE_BLOCKSMOVES ) || TERRAIN_IS_WATER( gpWorldLevelData[ sGridNo ].ubTerrainID) || GridNoNearPlayerMercs(sGridNo,  12) );
 
-			pSoldier->sInsertionGridNo = sGridNo;
+			pSoldier->deployment().insertionGrid() = sGridNo;
 		}
 
 		AddSoldierToSector( pSoldier->ubID );

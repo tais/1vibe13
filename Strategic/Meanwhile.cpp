@@ -422,8 +422,8 @@ void CheckForMeanwhileOKStart( )
 			{
 				pSoldier = GetJa2SoldierRepository().resolve(
 					gCharactersList[uiCount].usSolID);
-				if (pSoldier->sSectorX == gModSettings.ubMeanwhileInterrogatePOWSectorX && pSoldier->sSectorY == gModSettings.ubMeanwhileInterrogatePOWSectorY &&
-					pSoldier->bSectorZ == 0 && pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->vitals().health() > 0 && gMercProfiles[pSoldier->ubProfile].bMercStatus != MERC_FIRED_AS_A_POW)
+				if (pSoldier->deployment().sectorX() == gModSettings.ubMeanwhileInterrogatePOWSectorX && pSoldier->deployment().sectorY() == gModSettings.ubMeanwhileInterrogatePOWSectorY &&
+					pSoldier->deployment().sectorZ() == 0 && pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->vitals().health() > 0 && gMercProfiles[pSoldier->ubProfile].bMercStatus != MERC_FIRED_AS_A_POW)
 				{
 					fFoundSoldierToInterrogate = TRUE;
 					break;

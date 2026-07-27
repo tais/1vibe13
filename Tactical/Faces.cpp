@@ -2322,7 +2322,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				{
 					sPtsAvailable = (sPtsAvailable / SAM_SITE_REPAIR_DIVISOR);
 
-					INT16 sector = CALCULATE_STRATEGIC_INDEX(pSoldier->sSectorX, pSoldier->sSectorY);
+					INT16 sector = CALCULATE_STRATEGIC_INDEX(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 
 					usMaximumPts = 100 - StrategicMap[sector].bSAMCondition;
 				}
@@ -2409,10 +2409,10 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				fShowMaximum = TRUE;
 
 				{
-					if (pSoldier->bSectorZ)
+					if (pSoldier->deployment().sectorZ())
 					{
 						UNDERGROUND_SECTORINFO *pSectorInfo;
-						pSectorInfo = FindUnderGroundSector(pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+						pSectorInfo = FindUnderGroundSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 
 						if (pSectorInfo)
 							usMaximumPts = (INT16)(pSectorInfo->dFortification_MaxPossible);
@@ -2420,7 +2420,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 					else
 					{
 						SECTORINFO *pSectorInfo;
-						pSectorInfo = &SectorInfo[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)];
+						pSectorInfo = &SectorInfo[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())];
 
 						if (pSectorInfo)
 							usMaximumPts = (INT16)(pSectorInfo->dFortification_MaxPossible);
@@ -2463,7 +2463,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
 				sPtsAvailable = (INT16)pSoldier->GetAdministrationPoints();
-				bPtsAvailable = GetAdministrationPercentage(pSoldier->sSectorX, pSoldier->sSectorY);
+				bPtsAvailable = GetAdministrationPercentage(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 
 				swprintf(sString, L"%d/%3.1f", sPtsAvailable, bPtsAvailable);
 				break;

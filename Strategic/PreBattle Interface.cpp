@@ -673,7 +673,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					//can detect it by comparing the first value with future values.	If we do, then
 					//we set a flag which determines whether to use the singular help text or plural version
 					//for the retreat button.
-					ubGroupID = pSoldier->ubGroupID;
+					ubGroupID = pSoldier->deployment().groupId();
 					if( !pBattleGroup )
 					{
 						pBattleGroup = GetGroup( ubGroupID );
@@ -682,7 +682,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					//if( bBestExpLevel > pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
 					if( bBestExpLevel < pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
 						bBestExpLevel = pSoldier->stats.bExpLevel;
-					if( pSoldier->ubPrevSectorID == 255 )
+					if( pSoldier->deployment().previousSectorId() == 255 )
 					{ //Not able to retreat (calculate it for group)
 						GROUP *pTempGroup;
 						pTempGroup = GetGroup( ubGroupID );
@@ -692,7 +692,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 							CalculateGroupRetreatSector( pTempGroup );
 					}
 				}
-				else if( ubGroupID != pSoldier->ubGroupID )
+				else if( ubGroupID != pSoldier->deployment().groupId() )
 				{
 					fUsePluralVersion = TRUE;
 				}
@@ -2554,7 +2554,7 @@ BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->ubRobotRemoteHolderID != NOBODY ) ) &&
 			!SoldierAboardAirborneHeli( pSoldier ) )
 	{
-		if ( CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+		if ( CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 		{
 			// involved
 			return( TRUE );

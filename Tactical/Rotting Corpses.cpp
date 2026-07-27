@@ -1282,10 +1282,10 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 		
 		if (!TileIsOutOfBounds(sGridNo))
 		{
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-			pSoldier->usStrategicInsertionData = sGridNo;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() = sGridNo;
 
-			pSoldier->sInsertionGridNo		= sGridNo;
+			pSoldier->deployment().insertionGrid()		= sGridNo;
 			pSoldier->sDesiredHeight			= 0;
 
 			// Add to sector
@@ -3046,7 +3046,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		pNewSoldier->actionPoints().beginTurn(60);
 		pNewSoldier->sBreathRed				= 0;
 
-		pNewSoldier->ubInsertionDirection	= pCorpse->def.ubDirection;
+		pNewSoldier->deployment().insertionDirection()	= pCorpse->def.ubDirection;
 
 		//pNewSoldier->sHeightAdjustment		= pCorpse->def.sHeightAdjustment;
 		pNewSoldier->sDesiredHeight			= 3;

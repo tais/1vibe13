@@ -2709,9 +2709,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     UINT8                            ubVolume;
 
     //uses Lua
-    PROFILLUA_sSectorX = pSoldier->sSectorX;
-    PROFILLUA_sSectorY = pSoldier->sSectorY;
-    PROFILLUA_bSectorZ = pSoldier->bSectorZ;
+    PROFILLUA_sSectorX = pSoldier->deployment().sectorX();
+    PROFILLUA_sSectorY = pSoldier->deployment().sectorY();
+    PROFILLUA_bSectorZ = pSoldier->deployment().sectorZ();
     PROFILLUA_Level = pSoldier->position().level();
     PROFILLUA_ubID = pSoldier->ubID;
     PROFILLUA_sGridNo = pSoldier->position().gridNo();
@@ -3085,7 +3085,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         if ( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC)
         {
             // are we there yet?
-            if (pSoldier->sSectorX == 13 && pSoldier->sSectorY == MAP_ROW_B && pSoldier->bSectorZ == 0)
+            if ( pSoldier->deployment().isInSector( 13, MAP_ROW_B, 0 ) )
             {
                 switch( pSoldier->ubProfile )
                 {
@@ -3109,7 +3109,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
                         break;
                 }
             }
-            else if ( pSoldier->ubProfile == MARIA && (pSoldier->sSectorX == 6 && pSoldier->sSectorY == MAP_ROW_C && pSoldier->bSectorZ == 0) && CheckFact( FACT_MARIA_ESCORTED_AT_LEATHER_SHOP, MARIA ) == TRUE )
+            else if ( pSoldier->ubProfile == MARIA && pSoldier->deployment().isInSector( 6, MAP_ROW_C, 0 ) && CheckFact( FACT_MARIA_ESCORTED_AT_LEATHER_SHOP, MARIA ) == TRUE )
             {
                 // check that Angel is there!
                 if ( NPCInRoom( ANGEL, 2 ) ) // room 2 is leather shop
@@ -3118,7 +3118,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
                     TriggerNPCRecord( ANGEL, 12 );
                 }
             }
-            else if ( ( pSoldier->ubProfile == JOEY ) && (pSoldier->sSectorX == 8 && pSoldier->sSectorY == MAP_ROW_G && pSoldier->bSectorZ == 0 ) )
+            else if ( ( pSoldier->ubProfile == JOEY ) && pSoldier->deployment().isInSector( 8, MAP_ROW_G, 0 ) )
             {
                 // if Joey walks near Martha then trigger Martha record 7
                 if ( CheckFact( FACT_JOEY_NEAR_MARTHA, 0 ) )
@@ -3130,7 +3130,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 
         }
         // Drassen stuff for John & Mary
-        else if ( gubQuest[ QUEST_ESCORT_TOURISTS ] == QUESTINPROGRESS && pSoldier->sSectorX == 13 && pSoldier->sSectorY == MAP_ROW_B && pSoldier->bSectorZ == 0 )
+        else if ( gubQuest[ QUEST_ESCORT_TOURISTS ] == QUESTINPROGRESS && pSoldier->deployment().isInSector( 13, MAP_ROW_B, 0 ) )
         {
             if ( CheckFact( FACT_JOHN_ALIVE, 0 ) )
             {
@@ -3312,7 +3312,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     // find which squad this guy is, then set selected squad to this guy
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		SOLDIERTYPE* pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		SOLDIERTYPE* pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 
 		if ( pVehicle )
 			SetCurrentSquad( pVehicle->assignment().current(), FALSE );
@@ -3852,7 +3852,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 if ( gubQuest[ QUEST_FREE_DYNAMO ] == QUESTINPROGRESS)
                 {
                     // SANDRO - quest failed if Dynamo is killed
-                    InternalEndQuest( QUEST_FREE_DYNAMO, pSoldierOld->sSectorX, pSoldierOld->sSectorY, FALSE );
+                    InternalEndQuest( QUEST_FREE_DYNAMO, pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY(), FALSE );
                 }
                 break;
                 // SANDRO - if we kill Carmen with Slay in our team, end the terrorists quest
@@ -3866,10 +3866,10 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                             CampaignProfileCode::Role::Slay),
                         FALSE );
                     if (pOther && pOther->vitals().health() && pOther->bTeam == gbPlayerNum &&
-                            pSoldierOld->sSectorX == pOther->sSectorX && pSoldierOld->sSectorY == pOther->sSectorY)
+                            pSoldierOld->deployment().sectorX() == pOther->deployment().sectorX() && pSoldierOld->deployment().sectorY() == pOther->deployment().sectorY())
                     {
                         // Slay is in sector and alive, Carmen dead, end quest, award some exp
-                        EndQuest( QUEST_KILL_TERRORISTS, pSoldierOld->sSectorX, pSoldierOld->sSectorY );
+                        EndQuest( QUEST_KILL_TERRORISTS, pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY() );
                     }
                 }
                 break;
@@ -3877,7 +3877,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 // check to see if Kingpin money quest is on
                 if ( gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS)
                 {
-                    EndQuest( QUEST_KINGPIN_MONEY, pSoldierOld->sSectorX, pSoldierOld->sSectorY );
+                    EndQuest( QUEST_KINGPIN_MONEY, pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY() );
                     HandleNPCDoAction( KINGPIN, NPC_ACTION_GRANT_EXPERIENCE_3, 0 );
                 }
                 SetFactTrue( FACT_KINGPIN_DEAD );
@@ -3910,7 +3910,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 // SANDRO - Check if queen bitch is dead 
             case QUEEN:
                 // Muhahahahaaa, QUEST COMPLETED! Give us everything!! Exp, glory, fame!
-                EndQuest( QUEST_KILL_DEIDRANNA, pSoldierOld->sSectorX, pSoldierOld->sSectorY );
+                EndQuest( QUEST_KILL_DEIDRANNA, pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY() );
                 break;
 
 			case SKYRIDER:
@@ -3980,10 +3980,10 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 		{
 			if ( !IsCivFactionMemberAliveInSector( BOUNTYHUNTER_CIV_GROUP ) )
 			{
-				if ( SECTOR( pSoldierOld->sSectorX, pSoldierOld->sSectorY ) == GetFact( FACT_BOUNTYHUNTER_SECTOR_1 ) )
+				if ( SECTOR( pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY() ) == GetFact( FACT_BOUNTYHUNTER_SECTOR_1 ) )
 					SetFactTrue( FACT_BOUNTYHUNTER_KILLED_1 );
 				
-				if ( SECTOR( pSoldierOld->sSectorX, pSoldierOld->sSectorY ) == GetFact( FACT_BOUNTYHUNTER_SECTOR_2 ) )
+				if ( SECTOR( pSoldierOld->deployment().sectorX(), pSoldierOld->deployment().sectorY() ) == GetFact( FACT_BOUNTYHUNTER_SECTOR_2 ) )
 					SetFactTrue( FACT_BOUNTYHUNTER_KILLED_2 );
 			}
 		}
@@ -4420,7 +4420,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 
 			// remember old class and switch to its equivalent
 			UINT8 oldclass = pSoldier->ubSoldierClass;
-			UINT16 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT16 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 			// extract militia profile from pSoldier, so that a fitting profile is ready to be taken during creation
 			CreateNewIndividualMilitiaFromSoldier( pSoldier, MO_DEFECTOR );
@@ -4445,7 +4445,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 				pSoldier->ubSoldierClass = SOLDIER_CLASS_GREEN_MILITIA;
 			}
 
-			StrategicAddMilitiaToSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->ubSoldierClass - 4, 1 );
+			StrategicAddMilitiaToSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass - 4, 1 );
 
 			// rehandle sight for everybody
 			SOLDIERTYPE*		pTeamSoldier;
@@ -4482,9 +4482,9 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 
     //uses Lua
     PROFILLUA2_ubProfile = pSoldier->ubProfile;
-    PROFILLUA2_sSectorX = pSoldier->sSectorX;
-    PROFILLUA2_sSectorY = pSoldier->sSectorY;
-    PROFILLUA2_bSectorZ = pSoldier->bSectorZ;
+    PROFILLUA2_sSectorX = pSoldier->deployment().sectorX();
+    PROFILLUA2_sSectorY = pSoldier->deployment().sectorY();
+    PROFILLUA2_bSectorZ = pSoldier->deployment().sectorZ();
     PROFILLUA2_sGridNo = pSoldier->position().gridNo();
 
     //LetLuaMyCustomHandleAtNewGridNo(bNewSide,NULL, 1);    
@@ -4616,11 +4616,11 @@ SOLDIERTYPE * CivilianGroupMemberChangesSides( SOLDIERTYPE * pAttacked )
 				DiffLevel = 4;	
 			else
 				DiffLevel = 1;
-    if ( gBloodcatPlacements[SECTOR(pNewAttacked->sSectorX,pNewAttacked->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-            gBloodcatPlacements[SECTOR(pNewAttacked->sSectorX,pNewAttacked->sSectorY)][ DiffLevel-1 ].ubFactionAffiliation == pNewAttacked->ubCivilianGroup )	
+    if ( gBloodcatPlacements[SECTOR(pNewAttacked->deployment().sectorX(),pNewAttacked->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+            gBloodcatPlacements[SECTOR(pNewAttacked->deployment().sectorX(),pNewAttacked->deployment().sectorY())][ DiffLevel-1 ].ubFactionAffiliation == pNewAttacked->ubCivilianGroup )
 	/*
-    if ( gBloodcatPlacements[SECTOR(pNewAttacked->sSectorX,pNewAttacked->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-            gBloodcatPlacements[SECTOR(pNewAttacked->sSectorX,pNewAttacked->sSectorY)][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == pNewAttacked->ubCivilianGroup )
+    if ( gBloodcatPlacements[SECTOR(pNewAttacked->deployment().sectorX(),pNewAttacked->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+            gBloodcatPlacements[SECTOR(pNewAttacked->deployment().sectorX(),pNewAttacked->deployment().sectorY())][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == pNewAttacked->ubCivilianGroup )
    */
 	{
         MakeBloodcatsHostile();
@@ -7239,7 +7239,7 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 
 					// Flugente: VIPs
 					if ( pTeamSoldier->usSoldierFlagMask & SOLDIER_VIP )
-						DeleteVIP( pTeamSoldier->sSectorX, pTeamSoldier->sSectorY );
+						DeleteVIP( pTeamSoldier->deployment().sectorX(), pTeamSoldier->deployment().sectorY() );
 
 					// Flugente: turncoats
 					if ( pTeamSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
@@ -7524,8 +7524,8 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 			if (pTeamSoldier->bActive)
 			{
 				if (pTeamSoldier->bInSector ||
-					//pTeamSoldier->flags.fBetweenSectors && SECTORX(pTeamSoldier->ubPrevSectorID) == gWorldSectorX && SECTORY(pTeamSoldier->ubPrevSectorID) == gWorldSectorY && (pTeamSoldier->bSectorZ == gbWorldSectorZ) ||
-					pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->sSectorX == gWorldSectorX && pTeamSoldier->sSectorY == gWorldSectorY && pTeamSoldier->bSectorZ == gbWorldSectorZ)
+					//pTeamSoldier->flags.fBetweenSectors && SECTORX(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorX && SECTORY(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorY && (pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ) ||
+					pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
 				{
 					if (pTeamSoldier->vitals().health() >= OKLIFE)
 					{
@@ -9046,7 +9046,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 					}
 					else
 					{
-						HandleMoraleEvent(pSoldier, MORALE_SUPPRESSED, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+						HandleMoraleEvent(pSoldier, MORALE_SUPPRESSED, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 					}
 					// sevenfm: update ubLastMorale
 					pSoldier->runtime.combatFeedback.lastMorale++;
@@ -9431,11 +9431,11 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
 			else
 				DiffLevel = 1;
 		
-        if ( gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-                gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ DiffLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP )		
+        if ( gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+                gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ DiffLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP )
 		/*
-        if ( gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-                gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP )
+        if ( gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+                gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP )
        */
 		{
             // Temporarily change bloodcat's civilian group
@@ -9453,8 +9453,8 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
 			else
 				DiffLevel2 = 1;
 			
-            pTarget->ubCivilianGroup = gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ DiffLevel2-1 ].ubFactionAffiliation;			
-           // pTarget->ubCivilianGroup = gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation;
+            pTarget->ubCivilianGroup = gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ DiffLevel2-1 ].ubFactionAffiliation;
+           // pTarget->ubCivilianGroup = gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation;
 			// Make entire faction hostile
             CivilianGroupMembersChangeSidesWithinProximity( pTarget );
             // Change back
@@ -9517,11 +9517,11 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
 			else
 				DiffLevel = 1;
 			
-            if ( gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-                    gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ DiffLevel-1 ].ubFactionAffiliation == pTarget->ubCivilianGroup )			
+            if ( gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+                    gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ DiffLevel-1 ].ubFactionAffiliation == pTarget->ubCivilianGroup )
            /*
-		   if ( gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
-                    gBloodcatPlacements[SECTOR(pTarget->sSectorX,pTarget->sSectorY)][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == pTarget->ubCivilianGroup )
+		   if ( gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][0].PlacementType == BLOODCAT_PLACEMENT_STATIC &&
+                    gBloodcatPlacements[SECTOR(pTarget->deployment().sectorX(),pTarget->deployment().sectorY())][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == pTarget->ubCivilianGroup )
            */
 			{
                 // Make them hostile.
@@ -10956,7 +10956,7 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 	{
 		pSoldier->usSoldierFlagMask2 |= SOLDIER_TURNCOAT;
 
-		AddOneTurncoat( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->ubSoldierClass );
+		AddOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass );
 
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szTurncoatText[0], pSoldier->GetName() );
 
@@ -11158,7 +11158,7 @@ void AttemptToCapturePlayerSoldiers()
             SOLDIERTYPE *pSoldier =
                 GetJa2SoldierRepository().resolve(i.i);
             // Are we active and in sector
-            const bool inSector = (pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ);
+            const bool inSector = (pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ);
             if (pSoldier->bActive && inSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->assignment().current() != ASSIGNMENT_POW)
             {
                 activeMercs = true;
@@ -11213,7 +11213,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
         for ( ; id <= lastid; ++id )
         {
             pSoldier = GetJa2SoldierRepository().resolve(id.i);
-            if( pSoldier->bActive && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+            if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
             {
                 // if we are disguised as a civilian, the enemy does not take us into the equation - he does not consider us
                 if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_CIV )
@@ -11233,7 +11233,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
         for ( ; id <= lastid; ++id )
         {
             pSoldier = GetJa2SoldierRepository().resolve(id.i);
-            if( pSoldier->bActive && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+            if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
             {
                 playersidestrength += pSoldier->GetSurrenderStrength();
             }
@@ -11258,7 +11258,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 		for (SoldierID id = firstid; id <= lastid; ++id )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(id.i);
-			if (pSoldier->bActive && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ))
+			if (pSoldier->bActive && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ))
 			{
 				if (pSoldierToSurrender->bTeam == CIV_TEAM)
 				{
@@ -11300,7 +11300,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             for ( SoldierID id = firstid; id <= lastid; ++id )
             {
                 pSoldier = GetJa2SoldierRepository().resolve(id.i);
-                if( pSoldier->bActive && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+                if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
                 {
 					// can this guy be captured?
 					if ( !pSoldier->CanBeCaptured( ) )
@@ -11522,7 +11522,7 @@ void TeamDropAll(UINT8 bTeam, BOOLEAN fForce)
     {
         pSoldier = GetJa2SoldierRepository().resolve(id.i);
         // if soldier is in the current sector, drop all equipment (that has the TAKEN_BY_MILITIA-flag set)
-        if( pSoldier->bActive && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+        if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
         {
             pSoldier->DropSectorEquipment();
         }
@@ -11552,7 +11552,7 @@ void TeamRestock(UINT8 bTeam)
     for ( ; id <= lastid; ++id )
     {
         pSoldier = GetJa2SoldierRepository().resolve(id.i);
-        if( pSoldier->bActive && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+        if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
         {
 			// the function fills a createstruct, so create one
 			SOLDIERCREATE_STRUCT createstruct;
@@ -11560,7 +11560,7 @@ void TeamRestock(UINT8 bTeam)
 			// we first have to copy over all our currently equipped items, otherwise we might overwrite them later
 			createstruct.Inv = pSoldier->inv;
 
-            TakeMilitiaEquipmentfromSector(pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, &createstruct, pSoldier->ubSoldierClass);
+            TakeMilitiaEquipmentfromSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), &createstruct, pSoldier->ubSoldierClass);
 
 			// replace our inventory with the new one
 			pSoldier->inv = createstruct.Inv;
@@ -12075,7 +12075,7 @@ BOOLEAN IsCivFactionMemberAliveInSector( UINT8 usCivilianGroup )
 	for ( ; cnt <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt )
 	{
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+		if ( pSoldier->bActive && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 		{
 			if ( pSoldier->ubCivilianGroup == usCivilianGroup && pSoldier->vitals().health() > 0 )
 				return TRUE;

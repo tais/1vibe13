@@ -2174,19 +2174,19 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             switch( pSoldier->ubQuoteActionID )
             {
             case QUOTE_ACTION_ID_TRAVERSE_EAST:
-                pSoldier->sOffWorldGridNo = pSoldier->aiData.usActionData;
+                pSoldier->deployment().offWorldGrid() = pSoldier->aiData.usActionData;
                 AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->aiData.usActionData, EAST );
                 break;
             case QUOTE_ACTION_ID_TRAVERSE_SOUTH:
-                pSoldier->sOffWorldGridNo = pSoldier->aiData.usActionData;
+                pSoldier->deployment().offWorldGrid() = pSoldier->aiData.usActionData;
                 AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->aiData.usActionData, SOUTH );
                 break;
             case QUOTE_ACTION_ID_TRAVERSE_WEST:
-                pSoldier->sOffWorldGridNo = pSoldier->aiData.usActionData;
+                pSoldier->deployment().offWorldGrid() = pSoldier->aiData.usActionData;
                 AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->aiData.usActionData, WEST );
                 break;
             case QUOTE_ACTION_ID_TRAVERSE_NORTH:
-                pSoldier->sOffWorldGridNo = pSoldier->aiData.usActionData;
+                pSoldier->deployment().offWorldGrid() = pSoldier->aiData.usActionData;
                 AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->aiData.usActionData, NORTH );
                 break;
             default:

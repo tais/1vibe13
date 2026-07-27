@@ -891,7 +891,7 @@ INT16 GetSightAdjustment(SOLDIERTYPE* pSoldier, INT8 soldierStealth, INT8 soldie
 	INT8 bSeatIndex = GetSeatIndexFromSoldier(pSoldier);
 	if (bSeatIndex != (-1))
 	{
-		if (gNewVehicle[pVehicleList[pSoldier->iVehicleId].ubVehicleType].VehicleSeats[bSeatIndex].fHidden)
+		if (gNewVehicle[pVehicleList[pSoldier->deployment().vehicleId()].ubVehicleType].VehicleSeats[bSeatIndex].fHidden)
 		{
 			iSightAdjustment = (-100);
 		}
@@ -6492,8 +6492,8 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 	int condition = (*pObj)[0]->data.gun.bGunStatus; 
 
 	int weatherpenalty = 0;
-	if ( pThrower && !pThrower->bSectorZ )
-		weatherpenalty = gGameExternalOptions.ubWeaponReliabilityReduction[SectorInfo[SECTOR( pThrower->sSectorX, pThrower->sSectorY )].usWeather];
+	if ( pThrower && !pThrower->deployment().sectorZ() )
+		weatherpenalty = gGameExternalOptions.ubWeaponReliabilityReduction[SectorInfo[SECTOR( pThrower->deployment().sectorX(), pThrower->deployment().sectorY() )].usWeather];
 
 	int invertedBaseJamChance = condition + (reliability * 2) - weatherpenalty;
 

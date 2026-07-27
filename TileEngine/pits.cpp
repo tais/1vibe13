@@ -260,12 +260,12 @@ void HandleFallIntoPitFromAnimation( SoldierID ubID )
 	GetExitGrid( sPitGridNo, &ExitGrid );
 
 	// Given exit grid, make buddy move to next sector....
-	pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-	pSoldier->usStrategicInsertionData = ExitGrid.usGridNo;
+	pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+	pSoldier->deployment().strategicInsertionData() = ExitGrid.usGridNo;
 
-	pSoldier->sSectorX = ExitGrid.ubGotoSectorX;
-	pSoldier->sSectorY = ExitGrid.ubGotoSectorY;
-	pSoldier->bSectorZ = ExitGrid.ubGotoSectorZ;
+	pSoldier->deployment().sectorX() = ExitGrid.ubGotoSectorX;
+	pSoldier->deployment().sectorY() = ExitGrid.ubGotoSectorY;
+	pSoldier->deployment().sectorZ() = ExitGrid.ubGotoSectorZ;
 
 	// Remove from world......
 	RemoveSoldierFromTacticalSector( pSoldier, TRUE );

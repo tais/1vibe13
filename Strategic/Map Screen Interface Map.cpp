@@ -1402,12 +1402,12 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				( pSoldier->sSectorX == sMapX) &&
-				( pSoldier->sSectorY == sMapY) &&
-				( pSoldier->bSectorZ == iCurrentMapSectorZ ) &&
-				( ( pSoldier->assignment().current() < ON_DUTY ) || ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) ) &&
+				( pSoldier->deployment().sectorX() == sMapX) &&
+				( pSoldier->deployment().sectorY() == sMapY) &&
+				( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) &&
+				( ( pSoldier->assignment().current() < ON_DUTY ) || ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() != iHelicopterVehicleId ) ) ) &&
 				( pSoldier->vitals().health() > 0) &&
-				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
+				( !PlayerIDGroupInMotion( pSoldier->deployment().groupId() ) ) )
 		{
 			++sNumberOnDuty;
 		}
@@ -1457,19 +1457,19 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 		// start at beginning of list, look for people who are in sector and assigned
 		// Flugente: concealed mercs also show up here, to give the illusion they are present
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				( pSoldier->sSectorX == sMapX) &&
-				( pSoldier->sSectorY == sMapY) &&
-				( ( pSoldier->bSectorZ == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->assignment().current()) && ( pSoldier->bSectorZ - 10 == iCurrentMapSectorZ ) ) ) &&
+				( pSoldier->deployment().sectorX() == sMapX) &&
+				( pSoldier->deployment().sectorY() == sMapY) &&
+				( ( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->assignment().current()) && ( pSoldier->deployment().sectorZ() - 10 == iCurrentMapSectorZ ) ) ) &&
 				( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) &&
 				( pSoldier->assignment().current() != IN_TRANSIT ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_POW ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 				( pSoldier->vitals().health() > 0 ) &&
-				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
+				( !PlayerIDGroupInMotion( pSoldier->deployment().groupId() ) ) )
 		{
 			// skip mercs inside the helicopter if we're showing airspace level - they show up inside chopper icon instead
-			if ( (gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS) || (pSoldier->assignment().current() != VEHICLE) || (pSoldier->iVehicleId != iHelicopterVehicleId) )
+			if ( (gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS) || (pSoldier->assignment().current() != VEHICLE) || (pSoldier->deployment().vehicleId() != iHelicopterVehicleId) )
 			{
 				++sNumberOfAssigned;
 			}
@@ -2028,7 +2028,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	}
 
 
-	if( pCharacter->bSectorZ != 0 )
+	if( pCharacter->deployment().sectorZ() != 0 )
 	{
 		if( pCharacter->assignment().current() >= ON_DUTY )
 		{
@@ -2117,7 +2117,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 
 	// if we're clearing everything beyond the current sector, that's quite different.  Since we're basically cancelling
 	// his movement completely, we must also make sure his next X,Y are changed and he officially "returns" to his sector
-	if ( ( sX == pCharacter->sSectorX ) && ( sY == pCharacter->sSectorY ) )
+	if ( ( sX == pCharacter->deployment().sectorX() ) && ( sY == pCharacter->deployment().sectorY() ) )
 	{
 		// if we're in confirm map move mode, cancel that (before new UI messages are issued)
 		EndConfirmMapMoveMode( );
@@ -2138,12 +2138,12 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 		// or in a vehicle
 		else if( pCharacter->assignment().current() == VEHICLE )
 		{
-			pVehicle = &( pVehicleList[ pCharacter->iVehicleId ] );
+			pVehicle = &( pVehicleList[ pCharacter->deployment().vehicleId() ] );
 		}
 		else
 		{
 			// foot soldier
-			pCharacter->pMercPath = ClearStrategicPathListAfterThisSector( pCharacter->pMercPath, sX, sY, pCharacter->ubGroupID );
+			pCharacter->pMercPath = ClearStrategicPathListAfterThisSector( pCharacter->pMercPath, sX, sY, pCharacter->deployment().groupId() );
 		}
 
 		// if there's an associated vehicle structure
@@ -2171,19 +2171,19 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 void CancelPathForCharacter( SOLDIERTYPE *pCharacter )
 {
 	// clear out character's entire path list, he and his squad will stay/return to his current sector.
-	pCharacter->pMercPath = ClearStrategicPathList( pCharacter->pMercPath, pCharacter->ubGroupID );
+	pCharacter->pMercPath = ClearStrategicPathList( pCharacter->pMercPath, pCharacter->deployment().groupId() );
 	// NOTE: This automatically calls RemoveGroupWaypoints() internally for valid movement groups
 
 	// This causes the group to effectively reverse directions (even if they've never actually left), so handle that.
 	// They are going to return to their current X,Y sector.
-	RebuildWayPointsForGroupPath( pCharacter->pMercPath, pCharacter->ubGroupID );
-//	GroupReversingDirectionsBetweenSectors( GetGroup( pCharacter->ubGroupID ), ( UINT8 )( pCharacter->sSectorX ), ( UINT8 )( pCharacter->sSectorY ), FALSE );
+	RebuildWayPointsForGroupPath( pCharacter->pMercPath, pCharacter->deployment().groupId() );
+//	GroupReversingDirectionsBetweenSectors( GetGroup( pCharacter->deployment().groupId() ), ( UINT8 )( pCharacter->deployment().sectorX() ), ( UINT8 )( pCharacter->deployment().sectorY() ), FALSE );
 
 
 	// if he's in a vehicle, clear out the vehicle, too
 	if( pCharacter->assignment().current() == VEHICLE )
 	{
-		CancelPathForVehicle( &( pVehicleList[ pCharacter->iVehicleId ] ), TRUE );
+		CancelPathForVehicle( &( pVehicleList[ pCharacter->deployment().vehicleId() ] ), TRUE );
 	}
 	else
 	{
@@ -5155,7 +5155,7 @@ UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 		pTeamSoldier = GetJa2SoldierRepository().resolve( cnt );
 		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
 		{
-			if ( (pTeamSoldier->bSide == gbPlayerNum ) && ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ ) )
+			if ( (pTeamSoldier->bSide == gbPlayerNum ) && pTeamSoldier->deployment().isInSector( sX, sY, bZ ) )
 			{
 				ubNumFriendlies++;
 			}
@@ -7087,7 +7087,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// don't count mercs aboard Skyrider
-		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			continue;
 		}
@@ -7099,7 +7099,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// is he here?
-		if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) )
+		if( ( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == bSectorZ ) )
 		{
 			return( TRUE );
 		}
@@ -7231,7 +7231,7 @@ UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSector
 			if( pSoldier->bActive && ( pSoldier->vitals().health() > 0 ) &&
 					( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 			{
-				if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) )
+				if( pSoldier->deployment().isInSector( sSectorX, sSectorY, bSectorZ ) )
 					ubNumberOnTeam++;
 			}
 		}

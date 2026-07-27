@@ -978,7 +978,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					{
 						// reduce morale for we are using a gun without burst or autofire and cannot go psycho
 						//HandleMoraleEventForSoldier( pSoldier, MORALE_PSYCHO_UNABLE_TO_PSYCHO );
-						HandleMoraleEvent( pSoldier, MORALE_PSYCHO_UNABLE_TO_PSYCHO, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						HandleMoraleEvent( pSoldier, MORALE_PSYCHO_UNABLE_TO_PSYCHO, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 					}
 				}
 			}
@@ -5796,7 +5796,7 @@ void UpdateGear()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve( bMercID );
 		//if the merc is in this sector
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 		{
 			// loop over inventory
 			INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
@@ -10409,9 +10409,9 @@ void ReadEquipmentTable( SOLDIERTYPE* pSoldier, std::string name )
 		UINT16 color = FONT_MCOLOR_WHITE;
 
 		// for safety, test again
-		if ( pSoldier->sSectorX != sSelMapX ||
-			 pSoldier->sSectorY != sSelMapY ||
-			 pSoldier->bSectorZ != iCurrentMapSectorZ )
+		if ( pSoldier->deployment().sectorX() != sSelMapX ||
+			 pSoldier->deployment().sectorY() != sSelMapY ||
+			 pSoldier->deployment().sectorZ() != iCurrentMapSectorZ )
 		{
 			ScreenMsg( color, MSG_INTERFACE, szGearTemplateText[3], pSoldier->GetName( ) );
 

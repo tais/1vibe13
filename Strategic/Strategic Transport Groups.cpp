@@ -236,18 +236,18 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 			{
 				if (HAS_SKILL_TRAIT(pSoldier, SCOUTING_NT))
 				{
-					detectionMap[std::pair<INT16,INT16>(pSoldier->sSectorX, pSoldier->sSectorY)] = DETECTION_RANGE_SCOUT;
+					detectionMap[std::pair<INT16,INT16>(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = DETECTION_RANGE_SCOUT;
 				}
 				else if (HAS_SKILL_TRAIT(pSoldier, RADIO_OPERATOR_NT) && pSoldier->CanUseRadio(FALSE))
 				{
-					detectionMap[std::pair<INT16,INT16>(pSoldier->sSectorX, pSoldier->sSectorY)] = DETECTION_RANGE_RADIO;
+					detectionMap[std::pair<INT16,INT16>(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = DETECTION_RANGE_RADIO;
 				}
 				else if (HAS_SKILL_TRAIT(pSoldier, COVERT_NT))
 				{
 					if (pSoldier->assignment().current() == GATHERINTEL)
 					{
-						detectionMap[std::pair<INT16,INT16>(pSoldier->sSectorX, pSoldier->sSectorY)] = DETECTION_RANGE_COVERT;
-						monitoredTowns[GetTownIdForSector(pSoldier->sSectorX, pSoldier->sSectorY)] = MonitoredSectorState::Monitored;
+						detectionMap[std::pair<INT16,INT16>(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = DETECTION_RANGE_COVERT;
+						monitoredTowns[GetTownIdForSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())] = MonitoredSectorState::Monitored;
 					}
 				}
 			}
@@ -607,7 +607,7 @@ void UpdateTransportGroupInventory()
 	{
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(slot);
 
-		const std::map<UINT8, std::map<int, UINT16>>::iterator groupIter = transportGroupIdToSoldierMap.find(pSoldier->ubGroupID);
+		const std::map<UINT8, std::map<int, UINT16>>::iterator groupIter = transportGroupIdToSoldierMap.find(pSoldier->deployment().groupId());
 		if (groupIter != transportGroupIdToSoldierMap.end())
 		{
 			// let's find out if this group is coming home or still outgoing to its target destination
@@ -752,7 +752,7 @@ void UpdateTransportGroupInventory()
 						// regardless of whether the group is outgoing or incoming. I'll keep the in/out flag in case that changes
 					}
 
-					transportGroupIdToSoldierMap[pSoldier->ubGroupID][SOLDIER_CLASS_JEEP]--;
+					transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][SOLDIER_CLASS_JEEP]--;
 				}
 				else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR
 					|| pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY
@@ -782,7 +782,7 @@ void UpdateTransportGroupInventory()
 							item->fFlags &= ~OBJECT_UNDROPPABLE;
 						}
 					}
-					transportGroupIdToSoldierMap[pSoldier->ubGroupID][pSoldier->ubSoldierClass]--;
+					transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->ubSoldierClass]--;
 				}
 			}
 			else
@@ -870,7 +870,7 @@ void UpdateTransportGroupInventory()
 								item->fFlags &= ~OBJECT_UNDROPPABLE;
 							}
 						}
-						transportGroupIdToSoldierMap[pSoldier->ubGroupID][pSoldier->ubSoldierClass]--;
+						transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->ubSoldierClass]--;
 					}
 				}
 			}

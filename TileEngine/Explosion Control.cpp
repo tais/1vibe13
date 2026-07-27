@@ -4333,7 +4333,7 @@ void HandleExplosionWarningAnimations( )
 
 			if ( pSoldier != NULL )
 			{
-				if ( pSoldier->bInSector && pSoldier->bActive && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+				if ( pSoldier->bInSector && pSoldier->bActive && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 				{
 					INT8 invsize = (INT8)pSoldier->inv.size( );								// remember inventorysize, so we don't call size() repeatedly
 

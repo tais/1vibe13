@@ -501,13 +501,13 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
 				#ifdef JA2UB
-				//gusHeliSeats[ cnt ]->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-				heliMerc->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				heliMerc->usStrategicInsertionData = gGameUBOptions.LOCATEGRIDNO;
+				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
+				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				heliMerc->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
 				#else
-				//gusHeliSeats[ cnt ]->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-				heliMerc->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				heliMerc->usStrategicInsertionData =
+				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
+				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				heliMerc->deployment().strategicInsertionData() =
 					gGameExternalOptions.iInitialMercArrivalLocation;
 				#endif
 				// HEADROCK HAM 3.5: Externalized!
@@ -567,15 +567,15 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 					gusHeliSeats[cnt].i);
 				// Add merc to sector
 #ifdef JA2UB
-				//gusHeliSeats[ cnt ]->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-				heliMerc->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				heliMerc->usStrategicInsertionData = gGameUBOptions.LOCATEGRIDNO;
+				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
+				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				heliMerc->deployment().strategicInsertionData() = gGameUBOptions.LOCATEGRIDNO;
 #else
-				//gusHeliSeats[ cnt ]->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-				heliMerc->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+				//gusHeliSeats[ cnt ]->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
+				heliMerc->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 				// sevenfm: if soldiers land into enemy sector, use gsGridNoSweetSpot
-				//gusHeliSeats[ cnt ]->usStrategicInsertionData = gGameExternalOptions.iInitialMercArrivalLocation;
-				heliMerc->usStrategicInsertionData = gsGridNoSweetSpot;
+				//gusHeliSeats[ cnt ]->deployment().strategicInsertionData() = gGameExternalOptions.iInitialMercArrivalLocation;
+				heliMerc->deployment().strategicInsertionData() = gsGridNoSweetSpot;
 				#endif
 				// HEADROCK HAM 3.5: Externalized!
 				UpdateMercInSector(
@@ -726,9 +726,9 @@ void HandleHeliDrop( BOOLEAN fPlayer )
 								HELIDROP, 0, FALSE);
 
 							// Change insertion code
-							heliMerc->ubStrategicInsertionCode =
+							heliMerc->deployment().strategicInsertionCode() =
 								INSERTION_CODE_GRIDNO;
-							heliMerc->usStrategicInsertionData =
+							heliMerc->deployment().strategicInsertionData() =
 								gsGridNoSweetSpot;
 
 							// HEADROCK HAM 3.5: Externalized!
@@ -1089,8 +1089,8 @@ SoldierID SpawnAirDropElite( INT32 sGridNo )
 		}
 	}
 
-	pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CHOPPER;
-	pSoldier->usStrategicInsertionData = sGridNo; // required, otherwise soldiers will spawn in map before jumping out of the heli
+	pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CHOPPER;
+	pSoldier->deployment().strategicInsertionData() = sGridNo; // required, otherwise soldiers will spawn in map before jumping out of the heli
 	UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	//AllTeamsLookForAll( NO_INTERRUPTS );
 
@@ -1234,9 +1234,9 @@ void HandleEnemyAirdrop( )
 								HELIDROP, 0, FALSE);
 
 							// Change insertion code
-							heliMerc->ubStrategicInsertionCode =
+							heliMerc->deployment().strategicInsertionCode() =
 								INSERTION_CODE_GRIDNO;
-							heliMerc->usStrategicInsertionData =
+							heliMerc->deployment().strategicInsertionData() =
 								gsGridNoSweetSpot;
 
 							// HEADROCK HAM 3.5: Externalized!

@@ -1527,11 +1527,11 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	//rain
 	// Reduce breath gain on 25%/rain intensity
 	// Lalien: only for soldiers that are in loaded sector,
-	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->bSectorZ )
+	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->deployment().sectorZ() )
 	{
 		if( sBreathPerAP < 0 && ( pSoldier->position().level()  || !FindStructure( pSoldier->position().gridNo(), STRUCTURE_ROOF )  )  && pSoldier->vitals().breath() > 1)
 		{
-			FLOAT weatherpenalty = gGameExternalOptions.dBreathGainReduction[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
+			FLOAT weatherpenalty = gGameExternalOptions.dBreathGainReduction[SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather];
 			
 			// Added a feature to reduce rain effect on regaining breath with Ranger trait - SANDRO
 			FLOAT appliedpenalty = 1.0f;

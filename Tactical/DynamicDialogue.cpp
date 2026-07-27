@@ -1276,7 +1276,7 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 			if ( soldierA )
 			{
 				opinionevent.usSector =
-					SECTOR( soldierA->sSectorX, soldierA->sSectorY );
+					SECTOR( soldierA->deployment().sectorX(), soldierA->deployment().sectorY() );
 				AddDynamicOpinionEvent_New( opinionevent );
 			}
 		}
@@ -1911,7 +1911,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 		}
 		// everybody other merc in the same sector can get updated if they are drugged too
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
-			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
+			 pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() &&
 			 pTeamSoldier->newdrugs.drinkstaken > 0.0 &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
 			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
@@ -1975,7 +1975,7 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 		}
 		// award event for every trainer in this sector
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
-			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
+			 pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() &&
 			  !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if he's training teammates in this stat
@@ -2022,7 +2022,7 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 		}
 		// everybody other merc in the same sector gets annoyed
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-			 pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && pSoldier->bSectorZ == sZ &&
+			 pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && pSoldier->deployment().sectorZ() == sZ &&
 			 !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			UINT32 rating = GetSoldierLeaderRating( pSoldier );
@@ -2054,7 +2054,7 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 		}
 		// everybody other merc in the same sector gets annoyed
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE &&
-			 pTeamSoldier->sSectorX == sX && pTeamSoldier->sSectorY == sY && pTeamSoldier->bSectorZ == sZ &&
+			 pTeamSoldier->deployment().sectorX() == sX && pTeamSoldier->deployment().sectorY() == sY && pTeamSoldier->deployment().sectorZ() == sZ &&
 			 (!fImpOnly || pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER) &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
 			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
@@ -2111,7 +2111,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 
 		// if fSameSector is TRUE then the teammate must be in the same sector
-		if ( gDynamicOpinionEvent[usEvent].fSameSector && (pTeamSoldier->sSectorX != pSoldierVictim->sSectorX || pTeamSoldier->sSectorY != pSoldierVictim->sSectorY || pTeamSoldier->bSectorZ != pSoldierVictim->bSectorZ) )
+		if ( gDynamicOpinionEvent[usEvent].fSameSector && (pTeamSoldier->deployment().sectorX() != pSoldierVictim->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != pSoldierVictim->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != pSoldierVictim->deployment().sectorZ()) )
 			continue;
 
 		// if fSameAssignment is TRUE then both mercs must be on the same assignment
@@ -2257,7 +2257,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if fSameSector is TRUE then the teammate must be in the same sector
-			if ( gDynamicOpinionEvent[usEvent].fSameSector && (pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ) )
+			if ( gDynamicOpinionEvent[usEvent].fSameSector && (pTeamSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ()) )
 				continue;
 
 			// if fSameAssignment is TRUE then both mercs must be on the same assignment

@@ -1294,8 +1294,8 @@ UINT32 UIHandleNewBadMerc( UI_EVENT *pUIEvent )
 					pSoldier->SetSoldierHeight(0);
 			}			
 
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-			pSoldier->usStrategicInsertionData = usMapPos;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() = usMapPos;
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			AllTeamsLookForAll( NO_INTERRUPTS );
 		}
@@ -1339,8 +1339,8 @@ UINT32 UIHandleNewBadMerc( UI_EVENT *pUIEvent )
 					}
 				}
 
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
-				//pSoldier->usStrategicInsertionData = gMapInformation.sSouthGridNo;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
+				//pSoldier->deployment().strategicInsertionData() = gMapInformation.sSouthGridNo;
 				UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 				AllTeamsLookForAll( NO_INTERRUPTS );
 			}
@@ -1360,8 +1360,8 @@ UINT32 UIHandleNewBadMerc( UI_EVENT *pUIEvent )
 				}
 				
 
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_SOUTH;
-				//pSoldier->usStrategicInsertionData = gMapInformation.sSouthGridNo;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_SOUTH;
+				//pSoldier->deployment().strategicInsertionData() = gMapInformation.sSouthGridNo;
 				UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 				AllTeamsLookForAll( NO_INTERRUPTS );
 			}
@@ -1695,7 +1695,7 @@ UINT32 UIHandleMOnTerrain( UI_EVENT *pUIEvent )
 		}
 		else if ( pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER ) )
 		{
-			pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+			pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 			fVehicleDriver = TRUE;
 		}
 	}
@@ -2130,7 +2130,7 @@ UINT32 UIHandleCWait( UI_EVENT *pUIEvent )
 	{
 		if( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
 		{
-			pSoldier = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+			pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		}
 
 		pInvTile = GetCurInteractiveTile( );
@@ -2292,7 +2292,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				// anv: if we selected vehicle driver, move his vehicle
 				if ( pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER ) )
 				{
-					pSoldier = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+					pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 					// anv: if shift is pressed, treat is as ram + move - flag has to be set for later add structure checks
 					if ( _KeyDown( SHIFT ) )
 					{
@@ -3850,9 +3850,9 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 							}
 							if( pSelectedSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 							{
-								SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSelectedSoldier->iVehicleId );
+								SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSelectedSoldier->deployment().vehicleId() );
 								INT8 bSeatIndex = GetSeatIndexFromSoldier( pSelectedSoldier );
-								if( gNewVehicle[ pVehicleList[ pSelectedSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
+								if( gNewVehicle[ pVehicleList[ pSelectedSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 								{
 									return( FALSE );
 								}
@@ -3951,7 +3951,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 
 	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
-		pSoldier = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 	}
 
 	// Is this a valid stance for our position?
@@ -6983,7 +6983,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 				GetJa2SoldierRepository().resolve(
 					gusUIFullTargetID.i);
 			if( pTSoldier &&
-				pSoldier->iVehicleId == pTSoldier->bVehicleID )
+				pSoldier->deployment().vehicleId() == pTSoldier->bVehicleID )
 			{
 				guiNewUICursor = ENTER_VEHICLE_UICURSOR;
 				return( 1 );

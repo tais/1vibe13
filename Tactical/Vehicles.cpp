@@ -472,9 +472,9 @@ BOOLEAN IsThisVehicleAccessibleToSoldier( SOLDIERTYPE *pSoldier, INT32 iId )
 	}
 
 	// any sector values off?
-	if( ( pSoldier->sSectorX != pVehicleList[ iId ].sSectorX ) ||
-			( pSoldier->sSectorY != pVehicleList[ iId ].sSectorY ) ||
-			( pSoldier->bSectorZ != pVehicleList[ iId ].sSectorZ ) )
+	if( ( pSoldier->deployment().sectorX() != pVehicleList[ iId ].sSectorX ) ||
+			( pSoldier->deployment().sectorY() != pVehicleList[ iId ].sSectorY ) ||
+			( pSoldier->deployment().sectorZ() != pVehicleList[ iId ].sSectorZ ) )
 	{
 		return( FALSE );
 	}
@@ -567,7 +567,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 		}
 		else
 		{
-			pVehicleSoldier->ubGroupID = pVehicleList[ iId ].ubMovementGroup;
+			pVehicleSoldier->deployment().groupId() = pVehicleList[ iId ].ubMovementGroup;
 		}
 	}
 
@@ -637,26 +637,26 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			{
 				RemoveCharacterFromSquads( pSoldier );
 			}
-			else if( pSoldier->bTeam == gbPlayerNum && pSoldier->ubGroupID != 0 )
+			else if( pSoldier->bTeam == gbPlayerNum && pSoldier->deployment().groupId() != 0 )
 			{
 				// Flugente 2012-08-15: had very weird behaviour here. The outcommented code below failed, because the group size wasn't 0, which then threw an Assert()-error.
 				// This happened in r5468 when assinging a merc on repair duty to the truck, switching back and forth between the two
 				// I'm fixing it by using RemovePlayerFromGroup(), which seems to be intended just for that. 
 				// However, I am at a complete loss as to why this piece of code only throws errors now, seems to me it hasn't changed in ages. Please correct if the error is actually somewhere else
-				RemovePlayerFromGroup( pSoldier->ubGroupID, pSoldier );
+				RemovePlayerFromGroup( pSoldier->deployment().groupId(), pSoldier );
 
 				// destroy group and set to zero
-				//RemoveGroup( pSoldier->ubGroupID );
-				//pSoldier->ubGroupID = 0;
+				//RemoveGroup( pSoldier->deployment().groupId() );
+				//pSoldier->deployment().groupId() = 0;
 			}
 
 			// set vehicle id
-			pSoldier->iVehicleId = iId;
+			pSoldier->deployment().vehicleId() = iId;
 
 			if( pSoldier->bTeam == gbPlayerNum )
 			{
 
-				if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != iId ) )
+				if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->deployment().vehicleId() != iId ) )
 				{
 					SetTimeOfAssignmentChangeForMerc( pSoldier );
 				}
@@ -742,26 +742,26 @@ void SetSoldierExitVehicleInsertionData( SOLDIERTYPE *pSoldier, INT32 iId, UINT8
 
 	if ( iId == iHelicopterVehicleId && !pSoldier->bInSector )
 	{
-	if( pSoldier->sSectorX	!= AIRPORT_X || pSoldier->sSectorY != AIRPORT_Y || pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorX()	!= AIRPORT_X || pSoldier->deployment().sectorY() != AIRPORT_Y || pSoldier->deployment().sectorZ() != 0 )
 	{
-		if( NumHostilesInSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) > 0 && iOldGroupID != 0 && gGameExternalOptions.ubSkyriderHotLZ == 2 )
+		if( NumHostilesInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) > 0 && iOldGroupID != 0 && gGameExternalOptions.ubSkyriderHotLZ == 2 )
 		{
 			pGroup = GetGroup( iOldGroupID );
 			if( pGroup->ubSectorX < pGroup->ubPrevX )
 			{
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_EAST;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_EAST;
 			}
 			else if( pGroup->ubSectorX > pGroup->ubPrevX )
 			{
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_WEST;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_WEST;
 			}
 			else if( pGroup->ubSectorY < pGroup->ubPrevY )
 			{
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_SOUTH;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_SOUTH;
 			}
 			else if( pGroup->ubSectorY > pGroup->ubPrevY )
 			{
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
 			}
 			else
 			{
@@ -772,14 +772,14 @@ void SetSoldierExitVehicleInsertionData( SOLDIERTYPE *pSoldier, INT32 iId, UINT8
 		else
 		{
 			// Not anything different here - just use center gridno......
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 		}
 	}
 	else
 	{
 		// This is drassen, make insertion gridno specific...
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		pSoldier->usStrategicInsertionData = gModSettings.iHeliSquadDropOff; //10125
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionData() = gModSettings.iHeliSquadDropOff; //10125
 	}
 	}
 }
@@ -813,11 +813,11 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 		{
 			fSoldierFound = TRUE;
 
-			iOldGroupID = pVehicleList[ iId ].pPassengers[ iCounter ]->ubGroupID;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->ubGroupID = 0;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->sSectorY = pVehicleList[ iId ].sSectorY;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->sSectorX = pVehicleList[ iId ].sSectorX;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->bSectorZ = ( INT8 )pVehicleList[ iId ].sSectorZ;
+			iOldGroupID = pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().groupId();
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().groupId() = 0;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorZ() = ( INT8 )pVehicleList[ iId ].sSectorZ;
 			pVehicleList[ iId ].pPassengers[ iCounter ] = NULL;
 
 
@@ -900,7 +900,7 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 				if ( pVehicleList[ iId ].fBetweenSectors )
 				{
 					// teleport it to the closer of its current and next sectors (it beats having it arrive empty later)
-					TeleportVehicleToItsClosestSector( iId, pVehicleSoldier->ubGroupID );
+					TeleportVehicleToItsClosestSector( iId, pVehicleSoldier->deployment().groupId() );
 				}
 
 				// Remove vehicle from squad.....
@@ -913,8 +913,8 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 				ChangeSoldiersAssignment( pVehicleSoldier, ASSIGNMENT_EMPTY );
 
 
-/* ARM Removed Feb. 17, 99 - causes pVehicleSoldier->ubGroupID to become 0, which will cause assert later on
-				RemovePlayerFromGroup( pVehicleSoldier->ubGroupID, pVehicleSoldier );
+/* ARM Removed Feb. 17, 99 - causes pVehicleSoldier->deployment().groupId() to become 0, which will cause assert later on
+				RemovePlayerFromGroup( pVehicleSoldier->deployment().groupId(), pVehicleSoldier );
 */
 
 /*
@@ -937,13 +937,13 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 		if ( pSoldier->vitals().health() >= OKLIFE )
 		{
 			// mark the sector as visited (flying around in the chopper doesn't, so this does it as soon as we get off it)
-			SetSectorFlag( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, SF_ALREADY_VISITED );
+			SetSectorFlag( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), SF_ALREADY_VISITED );
 		}
 
 	SetSoldierExitVehicleInsertionData( pSoldier, iId, iOldGroupID );
 
 	// Update in sector if this is the current sector.....
-		if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ )
+		if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 		{
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 		}
@@ -975,7 +975,7 @@ void RemoveSoldierFromVehicleBetweenSectors( pSoldier, iId )
 	// get his mvt groups position and set the squads to this
 	GetGroupPosition(&ubNextX, &ubNextY, &ubPrevX, &ubPrevY, &uiTraverseTime, &uiArriveTime, pVehicleList[ iId ].ubMovementGroup );
 
-	ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pSoldier->sSectorX ) , ( INT8 ) ( pSoldier->sSectorY ) );
+	ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pSoldier->deployment().sectorX() ) , ( INT8 ) ( pSoldier->deployment().sectorY() ) );
 
 	// assign to a group
 	AddPlayerToGroup( ubGroupId, pSoldier );
@@ -1039,7 +1039,7 @@ void RemoveSoldierFromVehicleBetweenSectors( pSoldier, iId )
 	// calculate how much longer we have to go on foot to get there
 	uiArriveTime = ( UINT32 )( ( ( 1.0 - flTripFractionCovered ) * ( float )iCurrentCostInTime ) + GetWorldTotalMin( ) );
 
-	SetGroupPosition( ubNextX, ubNextY, ubPrevX, ubPrevY, iCurrentCostInTime, uiArriveTime, pSoldier->ubGroupID );
+	SetGroupPosition( ubNextX, ubNextY, ubPrevX, ubPrevY, iCurrentCostInTime, uiArriveTime, pSoldier->deployment().groupId() );
 
 // ARM: if this is ever reactivated, there seem to be the following additional problems:
 	1) The soldier removed isn't showing any DEST.	Must set up his strategic path/destination.
@@ -1076,7 +1076,7 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// grab the id the character is
-		iId = pSoldier->iVehicleId;
+		iId = pSoldier->deployment().vehicleId();
 	}
 
 	// check if vehicle is valid
@@ -1141,7 +1141,7 @@ BOOLEAN CopyVehiclePathToSoldier( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// grab the id the character is
-		iId = pSoldier->iVehicleId;
+		iId = pSoldier->deployment().vehicleId();
 	}
 
 	// check if vehicle is valid
@@ -1164,7 +1164,7 @@ BOOLEAN CopyVehiclePathToSoldier( SOLDIERTYPE *pSoldier )
 	// ATE: NOT if we are the vehicle
 	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
-		pSoldier->ubGroupID = pVehicleList[ iId ].ubMovementGroup;
+		pSoldier->deployment().groupId() = pVehicleList[ iId ].ubMovementGroup;
 	}
 
 	// valid vehicle
@@ -1210,13 +1210,13 @@ BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// grab the id the character is
-		iId = pSoldier->iVehicleId;
+		iId = pSoldier->deployment().vehicleId();
 	}
 
 	if( pSoldier->pMercPath )
 	{
 		// clear soldier's path
-		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->ubGroupID );
+		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
 	}
 
 	// if no group, create one for vehicle
@@ -1241,7 +1241,7 @@ BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
 	CopyVehiclePathToSoldier( pSoldier );
 
 	// set up mvt group
-	pSoldier->ubGroupID = pVehicleList[ iId ].ubMovementGroup;
+	pSoldier->deployment().groupId() = pVehicleList[ iId ].ubMovementGroup;
 
 
 	return ( TRUE );
@@ -1308,8 +1308,8 @@ void UpdatePositionOfMercsInVehicle( INT32 iId )
 	{
 		if( pVehicleList[ iId ].pPassengers[ iCounter ] != NULL )
 		{
-			pVehicleList[ iId ].pPassengers[ iCounter ]->sSectorY = pVehicleList[ iId ].sSectorY;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->sSectorX = pVehicleList[ iId ].sSectorX;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
 			pVehicleList[ iId ].pPassengers[ iCounter ]->flags.fBetweenSectors = FALSE;
 		}
 	}
@@ -1610,7 +1610,7 @@ void SetDriver( INT32 iID, SoldierID ubID )
 			? GetJa2SoldierRepository().resolve(previousDriverId.i)
 			: nullptr;
 
-	if( prevDriver && prevDriver->iVehicleId == iID )
+	if( prevDriver && prevDriver->deployment().vehicleId() == iID )
 	{
 		if( prevDriver )
 		{
@@ -1664,7 +1664,7 @@ BOOLEAN PutSoldierInVehicle( SOLDIERTYPE *pSoldier, INT8 bVehicleId )
 
 	SOLDIERTYPE *pVehicleSoldier = NULL;
 
-	if( ( pSoldier->sSectorX != gWorldSectorX ) || ( pSoldier->sSectorY != gWorldSectorY ) || ( pSoldier->bSectorZ != 0 ) || ( bVehicleId	== iHelicopterVehicleId ) )
+	if( ( pSoldier->deployment().sectorX() != gWorldSectorX ) || ( pSoldier->deployment().sectorY() != gWorldSectorY ) || ( pSoldier->deployment().sectorZ() != 0 ) || ( bVehicleId	== iHelicopterVehicleId ) )
 	{
 		// add the soldier
 		return( AddSoldierToVehicle( pSoldier, bVehicleId ) );
@@ -1688,17 +1688,17 @@ BOOLEAN TakeSoldierOutOfVehicle( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( ( pSoldier->sSectorX != gWorldSectorX ) || ( pSoldier->sSectorY != gWorldSectorY ) || ( pSoldier->bSectorZ != 0 ) || !pSoldier->bInSector )
+	if( ( pSoldier->deployment().sectorX() != gWorldSectorX ) || ( pSoldier->deployment().sectorY() != gWorldSectorY ) || ( pSoldier->deployment().sectorZ() != 0 ) || !pSoldier->bInSector )
 	{
 		// add the soldier
-		return( RemoveSoldierFromVehicle( pSoldier, pSoldier->iVehicleId ) );
+		return( RemoveSoldierFromVehicle( pSoldier, pSoldier->deployment().vehicleId() ) );
 	}
 	else
 	{
 		// helicopter isn't a soldiertype instance
-		if( pSoldier->iVehicleId == iHelicopterVehicleId )
+		if( pSoldier->deployment().vehicleId() == iHelicopterVehicleId )
 		{
-			return( RemoveSoldierFromVehicle( pSoldier, pSoldier->iVehicleId ) );
+			return( RemoveSoldierFromVehicle( pSoldier, pSoldier->deployment().vehicleId() ) );
 		}
 		else
 		{
@@ -1779,7 +1779,7 @@ SOLDIERTYPE *GetVehicleSoldierPointerFromPassenger( SOLDIERTYPE *pSrcSoldier )
 		if ( pSoldier->bActive && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
 			// Check ubID....
-			if ( pSoldier->bVehicleID == pSrcSoldier->iVehicleId )
+			if ( pSoldier->bVehicleID == pSrcSoldier->deployment().vehicleId() )
 			{
 				return( pSoldier );
 			}
@@ -1829,10 +1829,10 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 		RemoveSoldierFromVehicle( pSoldier, pVehicle->bVehicleID );
 
 		// Were we the driver, and if so, pick another....
-		pSoldier->sInsertionGridNo = sGridNo;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		pSoldier->usStrategicInsertionData = pSoldier->sInsertionGridNo;
-		pSoldier->iVehicleId = -1;
+		pSoldier->deployment().insertionGrid() = sGridNo;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionData() = pSoldier->deployment().insertionGrid();
+		pSoldier->deployment().vehicleId() = -1;
 
 		//AllTeamsLookForAll( FALSE );
 		pSoldier->aiData.bOppList[ pVehicle->ubID ] = 1;
@@ -2903,7 +2903,7 @@ BOOLEAN CanSoldierDriveVehicle( SOLDIERTYPE *pSoldier, INT32 iVehicleId, BOOLEAN
 		return( FALSE );
 	}
 
-	if ( pSoldier->iVehicleId != iVehicleId )
+	if ( pSoldier->deployment().vehicleId() != iVehicleId )
 	{
 		// not in THIS vehicle!
 		return( FALSE );
@@ -3032,7 +3032,7 @@ BOOLEAN IsSoldierInThisVehicleSquad( SOLDIERTYPE *pSoldier, INT8 bSquadNumber )
 	}
 
 	// get vehicle ID
-	iVehicleId = pSoldier->iVehicleId;
+	iVehicleId = pSoldier->deployment().vehicleId();
 
 	// if in helicopter
 	if ( iVehicleId == iHelicopterVehicleId )
@@ -3062,7 +3062,7 @@ INT8 GetSeatIndexFromSoldier( SOLDIERTYPE *pSoldier )
 	SOLDIERTYPE *pVehicleSoldier;
 	INT32 iCounter;
 
-	iVehicleId = pSoldier->iVehicleId;
+	iVehicleId = pSoldier->deployment().vehicleId();
 
 	if( iVehicleId == (-1) )
 	{

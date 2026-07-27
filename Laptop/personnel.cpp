@@ -1271,7 +1271,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	else
 	{
 		// name of town, if any
-		bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+		bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 		if( bTownId != BLANK_SECTOR )
 		{
@@ -1356,7 +1356,7 @@ Moved so the name of the town will be in the same line as the name
 	else
 	{
 		// name of town, if any
-		bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+		bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 		if( bTownId != BLANK_SECTOR )
 		{

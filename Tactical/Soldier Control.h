@@ -1054,6 +1054,8 @@ public:
 	const SoldierEmploymentComponent& employment() const noexcept { return employment_; }
 	SoldierAssignmentComponent& assignment() noexcept { return assignment_; }
 	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
+	SoldierDeploymentComponent& deployment() noexcept { return deployment_; }
+	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1110,7 +1112,6 @@ public:
 	
 
 	UINT8			ubWaitActionToDo;
-	INT8				ubInsertionDirection;
 	INT8				bGunType;
 	SoldierID		ubOppNum;
 	INT16			sWeightCarriedAtTurnStart;
@@ -1125,11 +1126,6 @@ public:
 	// this stores possible stats lost due to critical hits
 	UINT8			ubCriticalStatDamage[ NUM_DAMAGABLE_STATS ];
 	/////////////////////////////////////////////////////////////////////////////////
-
-	//NEW MOVEMENT INFORMATION for Strategic Movement
-	UINT8			ubGroupID;		// The movement group the merc is currently part of.
-									// sSectorX and sSectorY will reflect the sector the
-									// merc was at last.
 
 	// WORLD POSITION STUFF
 	FLOAT			dXPos;
@@ -1150,9 +1146,6 @@ public:
 
 	UINT32			uiAIDelay;
 	INT16			sReloadDelay;
-
-	INT32			sInsertionGridNo;
-
 
 	UINT8			bSide;
 	INT8				bService;		// first aid, or other time consuming process
@@ -1200,9 +1193,6 @@ public:
 	UINT16			*pZBackground;
 	UINT16			usUnblitX, usUnblitY;
 	UINT16			usUnblitWidth, usUnblitHeight;
-
-	UINT8			ubStrategicInsertionCode;
-	INT32			usStrategicInsertionData;
 
 	
 	INT32			iLight;
@@ -1263,10 +1253,6 @@ public:
 	INT16			sZLevelOverride;
 	INT8				bMovedPriorToInterrupt;
 	INT32			iNextActionSpecialData;		// AI special action data record for the next action
-	INT16			sSectorX;									// X position on the Stategic Map
-	INT16			sSectorY;									// Y position on the Stategic Map
-	INT8				bSectorZ;									// Z sector location
-	INT32			iVehicleId;								// the id of the vehicle the char is in
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
 	UINT32			uiStartMovementTime;				// the time since the merc first started moving 
@@ -1290,7 +1276,6 @@ public:
 	UINT8				ubScheduleID;
 	INT32				sEndDoorOpenCodeData;//dnl ch53 121009
 	INT8					bAIScheduleProgress;
-	INT32				sOffWorldGridNo;
 	struct TAG_anitile	*pAniTile;	
 	UINT8				ubHiResDirection;
 	UINT8				ubHiResDesiredDirection;
@@ -1320,7 +1305,6 @@ public:
 	INT32				sSkillCheckGridNo;
 	SoldierID			ubLastEnemyCycledID;
 
-	UINT8				ubPrevSectorID;
 	UINT32				uiBattleSoundID;
 
 	UINT16				usValueGoneUp;
@@ -1334,19 +1318,14 @@ public:
 	INT8					bCurrentCivQuoteDelta;
 	UINT8				ubMiscSoldierFlags;
 	INT32				sLocationOfFadeStart;
-	UINT8				bUseExitGridForReentryDirection;
 
 	UINT32				uiTimeSinceLastSpoke;
-	INT32				sPreTraversalGridNo;
 	INT8					bPendingActionData5;
 
 	INT8					bDelayedStrategicMoraleMod;
 	UINT8				ubDoorOpeningNoise;
 
 	struct GROUP			*pGroup;
-	UINT8				ubLeaveHistoryCode;
-	UINT32				uiTimeSoldierWillArrive;
-
 
 	INT8					bCorpseQuoteTolerance;
 	INT32				iPositionSndID;	
@@ -1457,6 +1436,7 @@ private:
 	SoldierCamouflageComponent	camouflage_;
 	SoldierEmploymentComponent	employment_;
 	SoldierAssignmentComponent	assignment_;
+	SoldierDeploymentComponent	deployment_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

@@ -325,6 +325,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   conversion maps its eight historical fields and clears the three fields
   absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
   change.
+- Strategic sector, movement-group and vehicle membership, tactical insertion,
+  traversal origin, off-world staging, and arrival bookkeeping are now stored
+  by `SoldierDeploymentComponent`. The visitor still emits all fifteen values
+  at their original scattered POD positions and widths, and v101 conversion
+  maps every historical field into that owner. Strategic path and group
+  pointers remain serialization adapters. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

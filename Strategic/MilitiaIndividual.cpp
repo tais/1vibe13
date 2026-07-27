@@ -587,7 +587,7 @@ UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrig
 	// according to origin, we choose bodytype, skin, hair, fore- and surname
 	newmilitia.origin = aOrigin;
 
-	newmilitia.originsector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+	newmilitia.originsector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	newmilitia.sector = newmilitia.originsector;
 
 	newmilitia.bodytype = pSoldier->ubBodyType;
@@ -869,8 +869,8 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 
 					pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
 
-					StrategicPromoteMilitiaInSector( pSoldier->sSectorX, pSoldier->sSectorY, GREEN_MILITIA, 1 );
-					StrategicPromoteMilitiaInSector( pSoldier->sSectorX, pSoldier->sSectorY, REGULAR_MILITIA, 1 );
+					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), GREEN_MILITIA, 1 );
+					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), REGULAR_MILITIA, 1 );
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szIdividualMilitiaWebsiteText[18], militia.GetName( ) );
 				}
@@ -881,7 +881,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 
 					pSoldier->ubSoldierClass = SOLDIER_CLASS_REG_MILITIA;
 
-					StrategicPromoteMilitiaInSector( pSoldier->sSectorX, pSoldier->sSectorY, GREEN_MILITIA, 1 );
+					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), GREEN_MILITIA, 1 );
 
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szIdividualMilitiaWebsiteText[17], militia.GetName( ) );
 				}
@@ -896,7 +896,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 
 				pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
 
-				StrategicPromoteMilitiaInSector( pSoldier->sSectorX, pSoldier->sSectorY, REGULAR_MILITIA, 1 );
+				StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), REGULAR_MILITIA, 1 );
 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szIdividualMilitiaWebsiteText[18], militia.GetName( ) );
 			}
@@ -945,7 +945,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 	else if ( pSoldier->ubMilitiaKills + pSoldier->ubMilitiaAssists > 0 )
 	{
 		UINT8 ubMilitiaRank = SoldierClassToMilitiaRank( pSoldier->ubSoldierClass );
-		UINT8 ubPromotions = CheckOneMilitiaForPromotion( pSoldier->sSectorX, pSoldier->sSectorY, ubMilitiaRank, 2 * pSoldier->ubMilitiaKills + pSoldier->ubMilitiaAssists );
+		UINT8 ubPromotions = CheckOneMilitiaForPromotion( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ubMilitiaRank, 2 * pSoldier->ubMilitiaKills + pSoldier->ubMilitiaAssists );
 		if ( ubPromotions )
 		{
 			if ( ubPromotions == 2 )

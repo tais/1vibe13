@@ -1671,6 +1671,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierCamouflageComponent& camouflage = s.camouflage();
 	SoldierEmploymentComponent& employment = s.employment();
 	SoldierAssignmentComponent& assignment = s.assignment();
+	SoldierDeploymentComponent& deployment = s.deployment();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1685,11 +1686,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
 	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(s.sFractLife);
 	ar.i8(s.vitals().bleeding()); ar.i8(s.vitals().breath()); ar.i8(s.vitals().maximumBreath()); ar.i8(s.bStealthMode); ar.i16(s.sBreathRed);
-	ar.u8(s.ubWaitActionToDo); ar.i8(s.ubInsertionDirection); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
+	ar.u8(s.ubWaitActionToDo); ar.i8(deployment.insertionDirection()); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
 	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(s.sWeightCarriedAtTurnStart);
 	ar.i32(s.iHealableInjury); ar.boolean(s.fDoingSurgery); ar.slong(s.lUnregainableBreath);
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(s.ubCriticalStatDamage[i]);
-	ar.u8(s.ubGroupID); ar.u8(perception.movementNoiseDirections());
+	ar.u8(deployment.groupId()); ar.u8(perception.movementNoiseDirections());
 	ar.f32(s.dXPos); ar.f32(s.dYPos); ar.i16(s.sOldXPos); ar.i16(s.sOldYPos);
 	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
 	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
@@ -1697,7 +1698,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
-	ar.i32(s.sInsertionGridNo);
+	ar.i32(deployment.insertionGrid());
 	// The animation surface working set is runtime-only. The retired pointer
 	// transfers emitted no bytes, so resetting the inline owner preserves the
 	// established schema exactly.
@@ -1728,7 +1729,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
 	ar.ptr(s.pBackGround); ar.ptr(s.pZBackground);
 	ar.u16(s.usUnblitX); ar.u16(s.usUnblitY); ar.u16(s.usUnblitWidth); ar.u16(s.usUnblitHeight);
-	ar.u8(s.ubStrategicInsertionCode); ar.i32(s.usStrategicInsertionData);
+	ar.u8(deployment.strategicInsertionCode()); ar.i32(deployment.strategicInsertionData());
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
 	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
 	ar.i8(fireControl.bulletsLeft()); ar.u8(suppression.points());
@@ -1754,7 +1755,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
 	ar.i32(s.iNextActionSpecialData); ar.u8(employment.mercenaryType());
 	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());
-	ar.i16(s.sSectorX); ar.i16(s.sSectorY); ar.i8(s.bSectorZ); ar.i32(s.iVehicleId);
+	ar.i16(deployment.sectorX()); ar.i16(deployment.sectorY()); ar.i8(deployment.sectorZ()); ar.i32(deployment.vehicleId());
 	ar.ptr(s.pMercPath);
 	ar.u16(employment.medicalDeposit()); ar.u16(employment.lifeInsurance());
 	ar.u32(s.uiStartMovementTime); ar.u32(s.uiOptimumMovementTime); ar.u32(s.usLastUpdateTime);
@@ -1766,7 +1767,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
 	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(s.bAIScheduleProgress);
-	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
+	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(s.sOldGridNo);
 	ar.u16(s.usDontUpdateNewGridNoOnMoveAnimChange);
@@ -1780,17 +1781,17 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(s.bRegenerationCounter);
 	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
 	ar.u16(s.ubLastEnemyCycledID.i);
-	ar.u8(s.ubPrevSectorID); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
+	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(s.uiBattleSoundID); ar.u16(s.usValueGoneUp);
 	ar.u8(s.ubNumLocateCycles); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
 	ar.u32(s.uiMercChecksum);
 	ar.i8(s.bCurrentCivQuote); ar.i8(s.bCurrentCivQuoteDelta); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
-	ar.i32(s.sLocationOfFadeStart); ar.u8(s.bUseExitGridForReentryDirection);
-	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(employment.renewalQuoteCode()); ar.i32(s.sPreTraversalGridNo);
+	ar.i32(s.sLocationOfFadeStart); ar.u8(deployment.useExitGridForReentryDirection());
+	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
 	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(s.bPendingActionData5);
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
-	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.movement().moveSpeedOverride().i);
-	ar.u32(s.uiTimeSoldierWillArrive);
+	ar.ptr(s.pGroup); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
+	ar.u32(deployment.arrivalTime());
 	ar.i8(assignment.repairVehicleId()); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
 	ar.u32(employment.insuranceStartTime()); ar.i8(s.bCorpseQuoteTolerance); ar.i8(perception.deafnessTurns());
 	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
@@ -2867,9 +2868,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	{
 //		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
 		{
-			SaveGameHeader.sSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorX;
-			SaveGameHeader.sSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorY;
-			SaveGameHeader.bSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->bSectorZ;
+			SaveGameHeader.sSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorX();
+			SaveGameHeader.sSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorY();
+			SaveGameHeader.bSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorZ();
 		}
 	}
 	else
@@ -2892,9 +2893,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 			{
 				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
 				{
-					SaveGameHeader.sSectorX = pSoldier->sSectorX;
-					SaveGameHeader.sSectorY = pSoldier->sSectorY;
-					SaveGameHeader.bSectorZ = pSoldier->bSectorZ;
+					SaveGameHeader.sSectorX = pSoldier->deployment().sectorX();
+					SaveGameHeader.sSectorY = pSoldier->deployment().sectorY();
+					SaveGameHeader.bSectorZ = pSoldier->deployment().sectorZ();
 					fFoundAMerc = TRUE;
 					break;
 				}
@@ -7242,10 +7243,10 @@ BOOLEAN SetMercsInsertionGridNo( )
 			if( !TileIsOutOfBounds(soldier.position().gridNo()))
 			{
 				//set the insertion type to gridno
-				soldier.ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+				soldier.deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 
 				//set the insertion gridno
-				soldier.usStrategicInsertionData = soldier.position().gridNo();
+				soldier.deployment().strategicInsertionData() = soldier.position().gridNo();
 
 				//set the gridno
 				soldier.position().gridNo() = NOWHERE;
@@ -8855,9 +8856,9 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 	{
 		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
 		{
-			*psSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorX;
-			*psSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorY;
-			*pbSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->bSectorZ;
+			*psSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorX();
+			*psSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorY();
+			*pbSectorZ = Squad[ iCurrentTacticalSquad ][ 0 ]->deployment().sectorZ();
 		}
 	}
 	else
@@ -8882,9 +8883,9 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
 				{
 					//we found an alive, merc that is not moving
-					*psSectorX = pSoldier->sSectorX;
-					*psSectorY = pSoldier->sSectorY;
-					*pbSectorZ = pSoldier->bSectorZ;
+					*psSectorX = pSoldier->deployment().sectorX();
+					*psSectorY = pSoldier->deployment().sectorY();
+					*pbSectorZ = pSoldier->deployment().sectorZ();
 					fFoundAMerc = TRUE;
 					break;
 				}
@@ -8906,9 +8907,9 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 				if( pSoldier && pSoldier->bActive )
 				{
 					//we found an alive, merc that is not moving
-					*psSectorX = pSoldier->sSectorX;
-					*psSectorY = pSoldier->sSectorY;
-					*pbSectorZ = pSoldier->bSectorZ;
+					*psSectorX = pSoldier->deployment().sectorX();
+					*psSectorY = pSoldier->deployment().sectorY();
+					*pbSectorZ = pSoldier->deployment().sectorZ();
 					fFoundAMerc = TRUE;
 					break;
 				}

@@ -781,37 +781,37 @@ static void AssociateEnemiesWithStrategicGroups()
 	{
 		if ( gpEnemies[i].uiFlags & CELL_TANK && ubNumTanks )	//is this soldier a tank? and we still have some tanks to add? (since there might not be a static tank in sector) 
 		{
-			gpEnemies[ i ].pSoldier->ubGroupID = 0;
+			gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 			gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 			ubNumTanks--;
 		}
 		else if ( gpEnemies[i].uiFlags & CELL_JEEP && ubNumJeeps )
 		{
-			gpEnemies[i].pSoldier->ubGroupID = 0;
+			gpEnemies[i].pSoldier->deployment().groupId() = 0;
 			gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 			ubNumJeeps--;
 		}
 		else if ( gpEnemies[i].uiFlags & CELL_ENEMYROBOT && ubNumRobots )
 		{
-			gpEnemies[i].pSoldier->ubGroupID = 0;
+			gpEnemies[i].pSoldier->deployment().groupId() = 0;
 			gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 			ubNumRobots--;
 		}
 		else if ( gpEnemies[i].uiFlags & CELL_ELITE && ubNumElites )
 		{
-			gpEnemies[ i ].pSoldier->ubGroupID = 0;
+			gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 			gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 			ubNumElites--;
 		}
 		else if( gpEnemies[ i ].uiFlags & CELL_TROOP && ubNumTroops )
 		{
-			gpEnemies[ i ].pSoldier->ubGroupID = 0;
+			gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 			gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 			ubNumTroops--;
 		}
 		else if( gpEnemies[ i ].uiFlags & CELL_ADMIN && ubNumAdmins )
 		{
-			gpEnemies[ i ].pSoldier->ubGroupID = 0;
+			gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 			gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 			ubNumAdmins--;
 		}
@@ -847,42 +847,42 @@ static void AssociateEnemiesWithStrategicGroups()
 				{
 					if (ubNumTanks && ubNumTanksInGroup && gpEnemies[i].uiFlags & CELL_TANK ) //is there still a tank to assign and is this a cell for tank?
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumTanks--;
 						ubNumTanksInGroup--;
 					}
 					else if ( ubNumJeeps && ubNumJeepsInGroup && gpEnemies[i].uiFlags & CELL_JEEP )
 					{
-						gpEnemies[i].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[i].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 						ubNumJeeps--;
 						ubNumJeepsInGroup--;
 					}
 					else if ( ubNumRobots && ubNumRobotsInGroup && gpEnemies[i].uiFlags & CELL_ENEMYROBOT )
 					{
-						gpEnemies[i].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[i].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 						ubNumRobots--;
 						ubNumRobotsInGroup--;
 					}
 					else if (ubNumElites && ubNumElitesInGroup && gpEnemies[i].uiFlags & CELL_ELITE)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumElites--;
 						ubNumElitesInGroup--;
 					}
 					else if (ubNumTroops && ubNumTroopsInGroup && gpEnemies[i].uiFlags & CELL_TROOP)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumTroops--;
 						ubNumTroopsInGroup--;
 					}
 					else if (ubNumAdmins && ubNumAdminsInGroup && gpEnemies[i].uiFlags & CELL_ADMIN)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumAdmins--;
 						ubNumAdminsInGroup--;
@@ -913,42 +913,42 @@ static void AssociateEnemiesWithStrategicGroups()
 				{
 					if (ubNumTanks && ubNumTanksInGroup &&  gpEnemies[i].uiFlags & CELL_TANK)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumTanks--;
 						ubNumTanksInGroup--;
 					}
 					else if ( ubNumJeeps && ubNumJeepsInGroup &&  gpEnemies[i].uiFlags & CELL_JEEP )
 					{
-						gpEnemies[i].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[i].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 						ubNumJeeps--;
 						ubNumJeepsInGroup--;
 					}
 					else if ( ubNumRobots && ubNumRobotsInGroup &&  gpEnemies[i].uiFlags & CELL_ENEMYROBOT )
 					{
-						gpEnemies[i].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[i].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[i].uiFlags |= CELL_ASSIGNED;
 						ubNumRobots--;
 						ubNumRobotsInGroup--;
 					}
 					else if (ubNumElites && ubNumElitesInGroup &&  gpEnemies[i].uiFlags & CELL_ELITE)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumElites--;
 						ubNumElitesInGroup--;
 					}
 					else if (ubNumTroops && ubNumTroopsInGroup &&  gpEnemies[i].uiFlags & CELL_TROOP)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumTroops--;
 						ubNumTroopsInGroup--;
 					}
 					else if (ubNumAdmins && ubNumAdminsInGroup &&  gpEnemies[i].uiFlags & CELL_ADMIN)
 					{
-						gpEnemies[ i ].pSoldier->ubGroupID = pGroup->ubGroupID;
+						gpEnemies[ i ].pSoldier->deployment().groupId() = pGroup->ubGroupID;
 						gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
 						ubNumAdmins--;
 						ubNumAdminsInGroup--;
@@ -981,55 +981,55 @@ static void AssociateEnemiesWithStrategicGroups()
 			{
 				if ( gpEnemies[i].uiFlags & CELL_TANK && ubISNumTanks && ubNumTanks )
 				{
-					gpEnemies[ i ].pSoldier->ubGroupID = 0;
+					gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 					gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[ i ].pSoldier->sSectorX = SECTORX( pSectors[ ubCurrSI ] );
-					gpEnemies[ i ].pSoldier->sSectorY = SECTORY( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorX() = SECTORX( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorY() = SECTORY( pSectors[ ubCurrSI ] );
 					ubISNumTanks--;
 					ubNumTanks--;
 				}
 				else if ( gpEnemies[i].uiFlags & CELL_JEEP && ubISNumJeeps && ubNumJeeps )
 				{
-					gpEnemies[i].pSoldier->ubGroupID = 0;
+					gpEnemies[i].pSoldier->deployment().groupId() = 0;
 					gpEnemies[i].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[i].pSoldier->sSectorX = SECTORX( pSectors[ubCurrSI] );
-					gpEnemies[i].pSoldier->sSectorY = SECTORY( pSectors[ubCurrSI] );
+					gpEnemies[i].pSoldier->deployment().sectorX() = SECTORX( pSectors[ubCurrSI] );
+					gpEnemies[i].pSoldier->deployment().sectorY() = SECTORY( pSectors[ubCurrSI] );
 					ubISNumJeeps--;
 					ubNumJeeps--;
 				}
 				else if ( gpEnemies[i].uiFlags & CELL_ENEMYROBOT && ubISNumRobots && ubNumRobots )
 				{
-					gpEnemies[i].pSoldier->ubGroupID = 0;
+					gpEnemies[i].pSoldier->deployment().groupId() = 0;
 					gpEnemies[i].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[i].pSoldier->sSectorX = SECTORX( pSectors[ubCurrSI] );
-					gpEnemies[i].pSoldier->sSectorY = SECTORY( pSectors[ubCurrSI] );
+					gpEnemies[i].pSoldier->deployment().sectorX() = SECTORX( pSectors[ubCurrSI] );
+					gpEnemies[i].pSoldier->deployment().sectorY() = SECTORY( pSectors[ubCurrSI] );
 					ubISNumRobots--;
 					ubNumRobots--;
 				}
 				else if ( gpEnemies[i].uiFlags & CELL_ELITE && ubISNumElites && ubNumElites )
 				{
-					gpEnemies[ i ].pSoldier->ubGroupID = 0;
+					gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 					gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[ i ].pSoldier->sSectorX = SECTORX( pSectors[ ubCurrSI ] );
-					gpEnemies[ i ].pSoldier->sSectorY = SECTORY( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorX() = SECTORX( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorY() = SECTORY( pSectors[ ubCurrSI ] );
 					ubISNumElites--;
 					ubNumElites--;
 				}
 				else if( gpEnemies[ i ].uiFlags & CELL_TROOP && ubISNumTroops && ubNumTroops )
 				{
-					gpEnemies[ i ].pSoldier->ubGroupID = 0;
+					gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 					gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[ i ].pSoldier->sSectorX = SECTORX( pSectors[ ubCurrSI ] );
-					gpEnemies[ i ].pSoldier->sSectorY = SECTORY( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorX() = SECTORX( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorY() = SECTORY( pSectors[ ubCurrSI ] );
 					ubISNumTroops--;
 					ubNumTroops--;
 				}
 				else if( gpEnemies[ i ].uiFlags & CELL_ADMIN && ubISNumAdmins && ubNumAdmins )
 				{
-					gpEnemies[ i ].pSoldier->ubGroupID = 0;
+					gpEnemies[ i ].pSoldier->deployment().groupId() = 0;
 					gpEnemies[ i ].uiFlags |= CELL_ASSIGNED;
-					gpEnemies[ i ].pSoldier->sSectorX = SECTORX( pSectors[ ubCurrSI ] );
-					gpEnemies[ i ].pSoldier->sSectorY = SECTORY( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorX() = SECTORX( pSectors[ ubCurrSI ] );
+					gpEnemies[ i ].pSoldier->deployment().sectorY() = SECTORY( pSectors[ ubCurrSI ] );
 					ubISNumAdmins--;
 					ubNumAdmins--;
 				}
@@ -2044,8 +2044,8 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 		AssertMsg( 0, "Failed to create militia soldier for autoresolve." );
 	}
 	gpCivs[i].uiVObjectID = gpAR->iFaces;
-	gpCivs[i].pSoldier->sSectorX = sX;
-	gpCivs[i].pSoldier->sSectorY = sY;
+	gpCivs[i].pSoldier->deployment().sectorX() = sX;
+	gpCivs[i].pSoldier->deployment().sectorY() = sY;
 	swprintf( gpCivs[i].pSoldier->name, gpStrategicString[ STR_AR_MILITIA_NAME ] );
 }
 
@@ -2235,8 +2235,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateCreature( ADULTFEMALEMONSTER );
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = AF_CREATURE_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubAMCreatures; ++i, ++index )
@@ -2244,8 +2244,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateCreature( AM_MONSTER );
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = AM_CREATURE_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubYFCreatures; ++i, ++index )
@@ -2253,8 +2253,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateCreature( YAF_MONSTER );
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = YF_CREATURE_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubYMCreatures; ++i, ++index )
@@ -2262,8 +2262,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateCreature( YAM_MONSTER );
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = YM_CREATURE_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 	}
@@ -2276,8 +2276,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateCreature( BLOODCAT );
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = BLOODCAT_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, pDisplayBodyTypeInfoText[27] );
 		}
 
@@ -2286,8 +2286,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateZombie();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = ZOMBIE_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_PB_ZOMBIE] );
 		}
 
@@ -2305,8 +2305,8 @@ void CreateAutoResolveInterface()
 				gpEnemies[index].usIndex = BANDIT1_FACE + Random( BANDIT1_F_FACE - BANDIT1_FACE );
 			}
 
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_PB_BANDIT] );
 		}
 	}
@@ -2315,8 +2315,8 @@ void CreateAutoResolveInterface()
 		for (i = 0; i < gpAR->ubRobots; ++i, ++index)
 		{
 			gpEnemies[index].pSoldier = TacticalCreateEnemyRobot();
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ROBOT_NAME] );
 
 			// reuse madlab's robot's face
@@ -2337,8 +2337,8 @@ void CreateAutoResolveInterface()
 			{
 				gpEnemies[index].usIndex = ELITE_FACE;
 			}
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ELITE_NAME] );
 		}
 		for ( i = 0; i < gpAR->ubTroops; ++i, ++index )
@@ -2353,8 +2353,8 @@ void CreateAutoResolveInterface()
 			{
 				gpEnemies[index].usIndex = TROOP_FACE;
 			}
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_TROOP_NAME] );
 		}
 		for ( i = 0; i < gpAR->ubAdmins; ++i, ++index )
@@ -2369,8 +2369,8 @@ void CreateAutoResolveInterface()
 			{
 				gpEnemies[index].usIndex = ADMIN_FACE;
 			}
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ADMINISTRATOR_NAME] );
 		}
 
@@ -2379,8 +2379,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateEnemyTank();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = TANK_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_TANK_NAME] );
 		}
 
@@ -2389,8 +2389,8 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateEnemyJeep();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 			gpEnemies[index].usIndex = JEEP_FACE;
-			gpEnemies[index].pSoldier->sSectorX = gpAR->ubSectorX;
-			gpEnemies[index].pSoldier->sSectorY = gpAR->ubSectorY;
+			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
+			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
 			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_JEEP_NAME] );
 		}
 
@@ -2531,7 +2531,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				}
 				else if( gpAR->ubBattleStatus == BATTLE_VICTORY )
 				{ //merc is alive, so group them at the center gridno.
-					gpMercs[ i ].pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+					gpMercs[ i ].pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 					/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 					// SANDRO - records - autoresolve battles
 					if( gpMercs[ i ].pSoldier->ubProfile != NO_PROFILE )
@@ -2572,13 +2572,13 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		{
 			if( gpAR->ubBattleStatus == BATTLE_VICTORY && gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE )
 			{
-				if( gpMercs[ i ].pSoldier->ubGroupID != ubCurrentGroupID )
+				if( gpMercs[ i ].pSoldier->deployment().groupId() != ubCurrentGroupID )
 				{
-					ubCurrentGroupID = gpMercs[ i ].pSoldier->ubGroupID;
+					ubCurrentGroupID = gpMercs[ i ].pSoldier->deployment().groupId();
 
 					// look for NPCs to stop for, anyone is too tired to keep going, if all OK rebuild waypoints & continue movement
 					// NOTE: Only the first group found will stop for NPCs, it's just too much hassle to stop them all
-					PlayerGroupArrivedSafelyInSector( GetGroup( gpMercs[ i ].pSoldier->ubGroupID ), fFirstGroup );
+					PlayerGroupArrivedSafelyInSector( GetGroup( gpMercs[ i ].pSoldier->deployment().groupId() ), fFirstGroup );
 					fFirstGroup = FALSE;
 				}
 			}
@@ -2654,7 +2654,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				}
 
 				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpCivs[ i ].pSoldier, RandomGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
-				StrategicRemoveMilitiaFromSector( gpCivs[ i ].pSoldier->sSectorX, gpCivs[ i ].pSoldier->sSectorY, ubCurrentRank, 1 );
+				StrategicRemoveMilitiaFromSector( gpCivs[ i ].pSoldier->deployment().sectorX(), gpCivs[ i ].pSoldier->deployment().sectorY(), ubCurrentRank, 1 );
 
 				if( ProcessLoyalty() )
 					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_NATIVE_KILLED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
@@ -5968,7 +5968,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{
 						//Merc is active and alive, and not a vehicle or robot
-						if ( (pSoldier->sSectorX == sX) && (pSoldier->sSectorY == sY) && (pSoldier->bSectorZ == 0) )
+						if ( (pSoldier->deployment().sectorX() == sX) && (pSoldier->deployment().sectorY() == sY) && (pSoldier->deployment().sectorZ() == 0) )
 						{
 							++mercCnt;
 						}
@@ -6035,7 +6035,7 @@ void AutoResolveMilitiaDropAndPromote()
 					UpdateMilitia( militia );
 				}
 
-				StrategicRemoveMilitiaFromSector( gpCivs[i].pSoldier->sSectorX, gpCivs[i].pSoldier->sSectorY, ubCurrentRank, 1 );
+				StrategicRemoveMilitiaFromSector( gpCivs[i].pSoldier->deployment().sectorX(), gpCivs[i].pSoldier->deployment().sectorY(), ubCurrentRank, 1 );
 			}
 			else if ( gpCivs[i].pSoldier->vitals().health() >= OKLIFE / 2 )
 			{

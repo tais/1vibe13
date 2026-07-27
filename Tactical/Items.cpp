@@ -6798,7 +6798,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
 			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound = (UINT16) GetWorldDay();
-			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usSectorFound = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usSectorFound = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		}
 	}
 
@@ -7335,7 +7335,7 @@ BOOLEAN AutoPlaceObjectToWorld(SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT8 b
 	INT8 bLevel = 0;
 
 	// is this sector loaded?
-	if ( pSoldier && (pSoldier->sSectorX == gWorldSectorX) && (pSoldier->sSectorY == gWorldSectorY) && (pSoldier->bSectorZ == gbWorldSectorZ) )
+	if ( pSoldier && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 	{
 		sGridNo = pSoldier->position().gridNo();
 		bLevel = pSoldier->position().level();
@@ -7352,7 +7352,7 @@ BOOLEAN AutoPlaceObjectToWorld(SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT8 b
 				CreateDestroyMapInventoryPoolButtons(FALSE);
 			}
 
-			 ChangeSelectedMapSector(pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+			 ChangeSelectedMapSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 		}
 
 		// WANNE: This should fix the bug, that items get lost in the sector when switching between tactical sectors
@@ -7732,7 +7732,7 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
 			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound = (UINT16) GetWorldDay();
-			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usSectorFound = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+			KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usSectorFound = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		}
 	}
 
@@ -11812,7 +11812,7 @@ INT16 GetTotalVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 
 	if ( bLightLevel > NORMAL_LIGHTLEVEL_DAY )
 	{
-		if ( pSoldier->bSectorZ == 0 )
+		if ( pSoldier->deployment().sectorZ() == 0 )
 		{
 			bonus += GetNightVisionRangeBonus(pSoldier, bLightLevel);
 		}
@@ -11845,7 +11845,7 @@ INT16 GetTotalVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 	bonus += pSoldier->GetSightRangeBonus();
 
 	// SANDRO - STOMP traits - Scouting bonus for sight range with binoculars and similar
-	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->bSectorZ == 0 )
+	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->deployment().sectorZ() == 0 )
 	{
 		OBJECTTYPE *pObj = &( pSoldier->inv[HANDPOS]);
 		if (pObj->exists() == true) 
@@ -11951,7 +11951,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 	bonus = max( bonus_body, bonus_gun );
 
 	// SANDRO - STOMP traits - Scouting tunnel vision reduction with binoculars and similar
-	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->bSectorZ == 0 )
+	if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->deployment().sectorZ() == 0 )
 	{
 		OBJECTTYPE *pObj = &( pSoldier->inv[HANDPOS]);
 		if (pObj->exists() == true) 
@@ -13103,7 +13103,7 @@ OBJECTTYPE* FindNightGogglesInInv( SOLDIERTYPE * pSoldier, INT8 * bSlot, BOOLEAN
 	OBJECTTYPE*	pGoggles = 0;
 	// CHRISL:
 	// silversurfer: check if we are above ground, night vision is only useful there
-	if ( pSoldier->bSectorZ == 0 )
+	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		for (bLoop = (searchAllInventory ? HELMETPOS : HANDPOS); bLoop < NUM_INV_SLOTS; bLoop++) {
 			if ( pSoldier->inv[bLoop].exists() == true ) {
@@ -15405,7 +15405,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 				GetJa2SoldierRepository().resolve(
 					cnt );
 			// check if teamsoldier exists in this sector
-			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ )
+			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
 				continue;
 
 			// check if both soldiers are on the same level

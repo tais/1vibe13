@@ -356,9 +356,9 @@ BOOLEAN	AreAnyPlayerMercsStillInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSe
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(iCnt);
 		if( pSoldier->bActive )
 		{
-			if( pSoldier->sSectorX == sSectorX &&
-					pSoldier->sSectorY == sSectorY &&
-					pSoldier->bSectorZ == bSectorZ )
+			if( pSoldier->deployment().sectorX() == sSectorX &&
+					pSoldier->deployment().sectorY() == sSectorY &&
+					pSoldier->deployment().sectorZ() == bSectorZ )
 			{
 				return( TRUE );
 			}
@@ -2520,7 +2520,7 @@ BOOLEAN AreAllPlayerMercTraversingBetweenSectors()
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
-			pGroup = GetGroup( pSoldier->ubGroupID );
+			pGroup = GetGroup( pSoldier->deployment().groupId() );
 
 			if( pGroup != NULL )
 			{
@@ -2721,9 +2721,9 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive, in this sector, etc...
 		if( pSoldier->bActive	&&
-				pSoldier->sSectorX == 8 &&
-				pSoldier->sSectorY == 8 &&
-				pSoldier->bSectorZ == 0 &&
+				pSoldier->deployment().sectorX() == 8 &&
+				pSoldier->deployment().sectorY() == 8 &&
+				pSoldier->deployment().sectorZ() == 0 &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!pSoldier->flags.fBetweenSectors )
 		{

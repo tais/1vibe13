@@ -2247,10 +2247,10 @@ void DropKeysInKeyRing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 
 			}
 			else
 			{
-				if( pSoldier->sSectorX != gWorldSectorX || pSoldier->sSectorY != gWorldSectorY || pSoldier->bSectorZ != gbWorldSectorZ || fUseUnLoaded )
+				if( pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY || pSoldier->deployment().sectorZ() != gbWorldSectorZ || fUseUnLoaded )
 				{
 					// Set flag for item...
-					AddItemsToUnLoadedSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ , sGridNo, 1, &gTempObject , bLevel, WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, bVisible, FALSE );
+					AddItemsToUnLoadedSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() , sGridNo, 1, &gTempObject , bLevel, WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE, 0, bVisible, FALSE );
 				}
 				else
 				{

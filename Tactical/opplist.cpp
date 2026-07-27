@@ -326,9 +326,9 @@ INT16 AdjustMaxSightRangeForEnvEffects( SOLDIERTYPE *pSoldier, INT8 bLightLevel,
 	INT16 sNewDist = sDistVisible * gGameExternalOptions.ubBrightnessVisionMod[bLightLevel] / 100;
 
 	// Adjust it based on weather...
-	if ( !pSoldier->bSectorZ )
+	if ( !pSoldier->deployment().sectorZ() )
 	{
-		FLOAT weatherpenalty = gGameExternalOptions.dVisDistDecrease[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
+		FLOAT weatherpenalty = gGameExternalOptions.dVisDistDecrease[SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather];
 
 		FLOAT appliedpenalty = 1.0f;
 		if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) && (gGameOptions.fNewTraitSystem) )
@@ -1356,9 +1356,9 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
 	if( bSeatIndex != (-1) )
 	{	
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier ->iVehicleId );
+		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier ->deployment().vehicleId() );
 		// need to check this even if bSubjectDir is DIRECTION_IRRELEVANT
-		if( gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[ bSeatIndex ].fBlockedView )
+		if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[ bSeatIndex ].fBlockedView )
 		{
 			return( 0 );
 		}
@@ -1750,9 +1750,9 @@ INT8 DecideHearing( SOLDIERTYPE * pSoldier )
 	}
 
 	// adjust for weather
-	if ( !pSoldier->bSectorZ )
+	if ( !pSoldier->deployment().sectorZ() )
 	{
-		FLOAT weatherpenalty = gGameExternalOptions.dHearingReduction[SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].usWeather];
+		FLOAT weatherpenalty = gGameExternalOptions.dHearingReduction[SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].usWeather];
 
 		// Added a feature to reduce rain effect on regaining breath with Ranger trait - SANDRO
 		FLOAT appliedpenalty = 1.0f;
@@ -2664,13 +2664,13 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			else
 				DiffLevel = 1;
 				
-			if ( gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ 0 ].PlacementType != BLOODCAT_PLACEMENT_STATIC ||
-				gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ DiffLevel - 1 ].ubFactionAffiliation == NON_CIV_GROUP ||
-				gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ DiffLevel - 1 ].ubFactionAffiliation == QUEENS_CIV_GROUP )			
+			if ( gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ 0 ].PlacementType != BLOODCAT_PLACEMENT_STATIC ||
+				gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ DiffLevel - 1 ].ubFactionAffiliation == NON_CIV_GROUP ||
+				gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ DiffLevel - 1 ].ubFactionAffiliation == QUEENS_CIV_GROUP )
 			/*
-			if ( gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ 0 ].PlacementType != BLOODCAT_PLACEMENT_STATIC ||
-				gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ gGameOptions.ubDifficultyLevel - 1 ].ubFactionAffiliation == NON_CIV_GROUP ||
-				gBloodcatPlacements[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ gGameOptions.ubDifficultyLevel - 1 ].ubFactionAffiliation == QUEENS_CIV_GROUP )
+			if ( gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ 0 ].PlacementType != BLOODCAT_PLACEMENT_STATIC ||
+				gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ gGameOptions.ubDifficultyLevel - 1 ].ubFactionAffiliation == NON_CIV_GROUP ||
+				gBloodcatPlacements[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ gGameOptions.ubDifficultyLevel - 1 ].ubFactionAffiliation == QUEENS_CIV_GROUP )
 			*/
 			{
 				MakeBloodcatsHostile();
