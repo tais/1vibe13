@@ -1048,6 +1048,8 @@ public:
 	const SoldierPerceptionComponent& perception() const noexcept { return perception_; }
 	SoldierAwarenessComponent& awareness() noexcept { return awareness_; }
 	const SoldierAwarenessComponent& awareness() const noexcept { return awareness_; }
+	SoldierCamouflageComponent& camouflage() noexcept { return camouflage_; }
+	const SoldierCamouflageComponent& camouflage() const noexcept { return camouflage_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1305,7 +1307,6 @@ public:
 	INT8					bAIScheduleProgress;
 	INT32				sOffWorldGridNo;
 	struct TAG_anitile	*pAniTile;	
-	INT8					bCamo;
 	UINT8				ubHiResDirection;
 	UINT8				ubHiResDesiredDirection;
 	UINT8				ubLastFootPrintSound;
@@ -1383,14 +1384,6 @@ public:
 	INT32				lastFlankSpot;
 	INT8					sniper;
 	INT16				origDir;
-
-	INT8					wornCamo;
-	INT8					urbanCamo;	// Madd: new camo types
-	INT8					wornUrbanCamo;
-	INT8					desertCamo;	
-	INT8					wornDesertCamo;
-	INT8					snowCamo;	
-	INT8					wornSnowCamo;
 
 	// HEADROCK HAM 3.6: Added integer tracking the facility this character is using.
 	INT16		sFacilityTypeOperated;
@@ -1498,6 +1491,7 @@ private:
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;
 	SoldierAwarenessComponent	awareness_;
+	SoldierCamouflageComponent	camouflage_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

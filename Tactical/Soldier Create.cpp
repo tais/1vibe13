@@ -1001,22 +1001,22 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					if ( i != NO_SLOT && Random( 5 ) < SoldierDifficultyLevel( &Soldier ))
 					{
 						// start camouflaged
-						Soldier.bCamo = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].camobonus );
-						Soldier.urbanCamo = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].urbanCamobonus );
-						Soldier.desertCamo = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].desertCamobonus );
-						Soldier.snowCamo = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].snowCamobonus );
+						Soldier.camouflage().jungleApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].camobonus );
+						Soldier.camouflage().urbanApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].urbanCamobonus );
+						Soldier.camouflage().desertApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].desertCamobonus );
+						Soldier.camouflage().snowApplied() = (INT8)__min( gGameExternalOptions.bCamoKitArea, Item[Soldier.inv[ i ].usItem].snowCamobonus );
 
 						// silversurfer: With the new balance setting for kit camo we would probably not see camouflaged soldiers anymore
 						// (the default for gGameExternalOptions.bCamoKitArea is 5 which is less than the required 50 to be shown as camouflaged).
 						// So let's give him some bonus to worn camo if kit camo is too low.
-						if ( Soldier.bCamo > 0 )
-							Soldier.wornCamo = __max(0, ( 50 - Soldier.bCamo ) );
-						if ( Soldier.urbanCamo > 0 )
-							Soldier.wornUrbanCamo = __max(0, ( 50 - Soldier.urbanCamo ) );
-						if ( Soldier.desertCamo > 0 )
-							Soldier.wornDesertCamo = __max(0, ( 50 - Soldier.desertCamo ) );
-						if ( Soldier.snowCamo > 0 )
-							Soldier.wornSnowCamo = __max(0, ( 50 - Soldier.snowCamo ) );
+						if ( Soldier.camouflage().jungleApplied() > 0 )
+							Soldier.camouflage().jungleWorn() = __max(0, ( 50 - Soldier.camouflage().jungleApplied() ) );
+						if ( Soldier.camouflage().urbanApplied() > 0 )
+							Soldier.camouflage().urbanWorn() = __max(0, ( 50 - Soldier.camouflage().urbanApplied() ) );
+						if ( Soldier.camouflage().desertApplied() > 0 )
+							Soldier.camouflage().desertWorn() = __max(0, ( 50 - Soldier.camouflage().desertApplied() ) );
+						if ( Soldier.camouflage().snowApplied() > 0 )
+							Soldier.camouflage().snowWorn() = __max(0, ( 50 - Soldier.camouflage().snowApplied() ) );
 					}
 				}
 			}
@@ -1334,27 +1334,27 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 		{
 			// set camouflaged to 100 automatically
 			// silversurfer: No, set it to the new limit for camo kits.
-			pSoldier->bCamo = gGameExternalOptions.bCamoKitArea;	// 100
+			pSoldier->camouflage().jungleApplied() = gGameExternalOptions.bCamoKitArea;	// 100
 		}
 		//if ( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED ) )
 		//{
 		//	// set camouflaged to 100 automatically
-		//	pSoldier->bCamo = 100;
+		//	pSoldier->camouflage().jungleApplied() = 100;
 		//}
 		//if ( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_URBAN ) )
 		//{
 		//	// set camouflaged to 100 automatically
-		//	pSoldier->urbanCamo = 100;
+		//	pSoldier->camouflage().urbanApplied() = 100;
 		//}
 		//if ( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_DESERT ) )
 		//{
 		//	// set camouflaged to 100 automatically
-		//	pSoldier->desertCamo = 100;
+		//	pSoldier->camouflage().desertApplied() = 100;
 		//}
 		//if ( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_SNOW ) )
 		//{
 		//	// set camouflaged to 100 automatically
-		//	pSoldier->snowCamo = 100;
+		//	pSoldier->camouflage().snowApplied() = 100;
 		//}
 	}
 

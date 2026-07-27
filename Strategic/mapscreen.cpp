@@ -9739,7 +9739,7 @@ void BltCharInvPanel()
 		ApplyEquipmentBonuses(pSoldier);
 
 		// Display camo value
-		sgp_swprintf( sString, 32,L"%3d", max(0, min(max((pSoldier->bCamo + pSoldier->wornCamo), max((pSoldier->urbanCamo+pSoldier->wornUrbanCamo), max((pSoldier->desertCamo+pSoldier->wornDesertCamo), (pSoldier->snowCamo+pSoldier->wornSnowCamo)))),100)) );
+		sgp_swprintf( sString, 32,L"%3d", pSoldier->camouflage().strongestTotal() );
 		FindFontRightCoordinates(UI_CHARINV.Text.Camo.iX, UI_CHARINV.Text.Camo.iY, width, height, sString, BLOCKFONT2, &usX, &usY);
 		mprintf( usX, usY, sString );
 
@@ -9751,27 +9751,27 @@ void BltCharInvPanel()
 			CHAR16 pStrCamo[400];
 			swprintf( pStrCamo, L"" );
 			swprintf( pStr, L"");
-			if ((pSoldier->bCamo + pSoldier->wornCamo) > 0 )
+			if (pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Jungle) > 0)
 			{
-				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->bCamo, pSoldier->wornCamo, L"%", gzMiscItemStatsFasthelp[ 21 ]);
+				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->camouflage().jungleApplied(), pSoldier->camouflage().jungleWorn(), L"%", gzMiscItemStatsFasthelp[ 21 ]);
 				wcscat( pStr, pStrCamo);
 				swprintf( pStrCamo, L"" );
 			}
-			if ((pSoldier->urbanCamo + pSoldier->wornUrbanCamo) > 0 )
+			if (pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Urban) > 0)
 			{
-				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->urbanCamo, pSoldier->wornUrbanCamo, L"%", gzMiscItemStatsFasthelp[ 22 ]);
+				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->camouflage().urbanApplied(), pSoldier->camouflage().urbanWorn(), L"%", gzMiscItemStatsFasthelp[ 22 ]);
 				wcscat( pStr, pStrCamo);
 				swprintf( pStrCamo, L"" );
 			}
-			if ((pSoldier->desertCamo + pSoldier->wornDesertCamo) > 0 )
+			if (pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Desert) > 0)
 			{
-				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->desertCamo, pSoldier->wornDesertCamo, L"%", gzMiscItemStatsFasthelp[ 23 ]);
+				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->camouflage().desertApplied(), pSoldier->camouflage().desertWorn(), L"%", gzMiscItemStatsFasthelp[ 23 ]);
 				wcscat( pStr, pStrCamo);
 				swprintf( pStrCamo, L"" );
 			}
-			if ((pSoldier->snowCamo + pSoldier->wornSnowCamo) > 0 )
+			if (pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Snow) > 0)
 			{
-				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->snowCamo, pSoldier->wornSnowCamo, L"%", gzMiscItemStatsFasthelp[ 24 ] );
+				swprintf( pStrCamo, L"\n%d/%d%s %s", pSoldier->camouflage().snowApplied(), pSoldier->camouflage().snowWorn(), L"%", gzMiscItemStatsFasthelp[ 24 ] );
 				wcscat( pStr, pStrCamo);
 				swprintf( pStrCamo, L"" );
 			}

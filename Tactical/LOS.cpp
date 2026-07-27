@@ -388,7 +388,7 @@ inline INT8 GetJungleCamouflage( SOLDIERTYPE* pSoldier )
 	//	return 100;
 	//}
 	
-	return MINMAX100N(pSoldier->bCamo + pSoldier->wornCamo);
+	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Jungle);
 }
 inline INT8 GetDesertCamouflage( SOLDIERTYPE* pSoldier )
 {
@@ -397,7 +397,7 @@ inline INT8 GetDesertCamouflage( SOLDIERTYPE* pSoldier )
 	//	return 100;
 	//}
 	
-	return MINMAX100N(pSoldier->desertCamo + pSoldier->wornDesertCamo);
+	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Desert);
 }
 inline INT8 GetUrbanCamouflage( SOLDIERTYPE* pSoldier )
 {
@@ -406,7 +406,7 @@ inline INT8 GetUrbanCamouflage( SOLDIERTYPE* pSoldier )
 	//	return 100;
 	//}
 	
-	return MINMAX100N(pSoldier->urbanCamo + pSoldier->wornUrbanCamo);
+	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Urban);
 }
 // anv: added this
 inline INT8 GetSnowCamouflage( SOLDIERTYPE* pSoldier )
@@ -416,7 +416,7 @@ inline INT8 GetSnowCamouflage( SOLDIERTYPE* pSoldier )
 	//	return 100;
 	//}
 	
-	return MINMAX100N(pSoldier->snowCamo + pSoldier->wornSnowCamo);
+	return pSoldier->camouflage().total(SoldierCamouflageComponent::Terrain::Snow);
 }
 // should be in lightning, 0-100 definition of brightness
 inline UINT8 GetBrightness(const UINT8& ubLightLevel)

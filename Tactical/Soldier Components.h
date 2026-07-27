@@ -204,6 +204,53 @@ private:
 	UINT8 tilesSinceForget_ = 0;
 };
 
+// Canonical personal camouflage state. Applied kit and worn-equipment values
+// remain separate for each terrain family while totals and clamping live in one
+// place shared by sight calculations and presentation.
+class SoldierCamouflageComponent
+{
+public:
+	enum class Terrain : UINT8
+	{
+		Jungle,
+		Urban,
+		Desert,
+		Snow,
+	};
+
+	INT8& jungleApplied() noexcept { return jungleApplied_; }
+	const INT8& jungleApplied() const noexcept { return jungleApplied_; }
+	INT8& jungleWorn() noexcept { return jungleWorn_; }
+	const INT8& jungleWorn() const noexcept { return jungleWorn_; }
+	INT8& urbanApplied() noexcept { return urbanApplied_; }
+	const INT8& urbanApplied() const noexcept { return urbanApplied_; }
+	INT8& urbanWorn() noexcept { return urbanWorn_; }
+	const INT8& urbanWorn() const noexcept { return urbanWorn_; }
+	INT8& desertApplied() noexcept { return desertApplied_; }
+	const INT8& desertApplied() const noexcept { return desertApplied_; }
+	INT8& desertWorn() noexcept { return desertWorn_; }
+	const INT8& desertWorn() const noexcept { return desertWorn_; }
+	INT8& snowApplied() noexcept { return snowApplied_; }
+	const INT8& snowApplied() const noexcept { return snowApplied_; }
+	INT8& snowWorn() noexcept { return snowWorn_; }
+	const INT8& snowWorn() const noexcept { return snowWorn_; }
+
+	INT8 total(Terrain terrain) const noexcept;
+	INT8 strongestTotal() const noexcept;
+	INT16 appliedTotal() const noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 jungleApplied_ = 0;
+	INT8 jungleWorn_ = 0;
+	INT8 urbanApplied_ = 0;
+	INT8 urbanWorn_ = 0;
+	INT8 desertApplied_ = 0;
+	INT8 desertWorn_ = 0;
+	INT8 snowApplied_ = 0;
+	INT8 snowWorn_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

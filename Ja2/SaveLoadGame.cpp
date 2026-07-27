@@ -1668,6 +1668,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
 	SoldierAwarenessComponent& awareness = s.awareness();
+	SoldierCamouflageComponent& camouflage = s.camouflage();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1763,7 +1764,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
 	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(s.bAIScheduleProgress);
-	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(s.bCamo); ar.i32(s.movement().absoluteDestination());
+	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(s.sOldGridNo);
 	ar.u16(s.usDontUpdateNewGridNoOnMoveAnimChange);
@@ -1794,8 +1795,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
 	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(combatResult.earlierAttacker().i);
 	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
-	ar.i8(s.wornCamo); ar.i8(s.urbanCamo); ar.i8(s.wornUrbanCamo); ar.i8(s.desertCamo);
-	ar.i8(s.wornDesertCamo); ar.i8(s.snowCamo); ar.i8(s.wornSnowCamo);
+	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
+	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());
 	ar.i16(s.sFacilityTypeOperated); ar.i8(attackSelection.scopeMode());
 	ar.u8(s.ubMilitiaAssists); ar.i8(s.sNonNPCTraderID); ar.u16(s.usDragPersonID.i);
 	ar.i16(s.sDragCorpseID); ar.u16(s.usChatPartnerID.i);
@@ -8632,10 +8633,10 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 			if ( soldier )
 			{
 				UINT8 profile = soldier->ubProfile;
-				gCamoFace[profile].gCamoface = ( soldier->bCamo > 0 );
-				gCamoFace[profile].gUrbanCamoface = ( soldier->urbanCamo > 0 );
-				gCamoFace[profile].gDesertCamoface = ( soldier->desertCamo > 0 );
-				gCamoFace[profile].gSnowCamoface = ( soldier->snowCamo > 0 );
+				gCamoFace[profile].gCamoface = ( soldier->camouflage().jungleApplied() > 0 );
+				gCamoFace[profile].gUrbanCamoface = ( soldier->camouflage().urbanApplied() > 0 );
+				gCamoFace[profile].gDesertCamoface = ( soldier->camouflage().desertApplied() > 0 );
+				gCamoFace[profile].gSnowCamoface = ( soldier->camouflage().snowApplied() > 0 );
 
 				DeleteSoldierFace( soldier );
 				soldier->iFaceIndex = InitSoldierFace( soldier );

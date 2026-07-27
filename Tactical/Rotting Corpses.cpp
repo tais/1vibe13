@@ -936,10 +936,10 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->SkinPal );
 	SET_PALETTEREP_ID ( Corpse.PantsPal,	pSoldier->PantsPal );
 
-	int urban = pSoldier->urbanCamo + pSoldier->wornUrbanCamo;
-	int jungle = pSoldier->bCamo + pSoldier->wornCamo;
-	int desert = pSoldier->desertCamo + pSoldier->wornDesertCamo;
-	int snow = pSoldier->snowCamo + pSoldier->wornSnowCamo;
+	int urban = pSoldier->camouflage().urbanApplied() + pSoldier->camouflage().urbanWorn();
+	int jungle = pSoldier->camouflage().jungleApplied() + pSoldier->camouflage().jungleWorn();
+	int desert = pSoldier->camouflage().desertApplied() + pSoldier->camouflage().desertWorn();
+	int snow = pSoldier->camouflage().snowApplied() + pSoldier->camouflage().snowWorn();
 	int total = urban + jungle + desert + snow;
 
 	if ( GetWornStealth(pSoldier) >= 50 )
@@ -3146,23 +3146,23 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		}
 		else if ( pCorpse->def.usFlags & ROTTING_CORPSE_USE_CAMO_PALETTE )
 		{
-			pNewSoldier->bCamo = gGameExternalOptions.bCamoKitArea;
-			pNewSoldier->wornCamo = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
+			pNewSoldier->camouflage().jungleApplied() = gGameExternalOptions.bCamoKitArea;
+			pNewSoldier->camouflage().jungleWorn() = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
 		}
 		else if ( pCorpse->def.usFlags & ROTTING_CORPSE_USE_URBAN_CAMO_PALETTE )
 		{
-			pNewSoldier->urbanCamo = gGameExternalOptions.bCamoKitArea;
-			pNewSoldier->wornUrbanCamo = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
+			pNewSoldier->camouflage().urbanApplied() = gGameExternalOptions.bCamoKitArea;
+			pNewSoldier->camouflage().urbanWorn() = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
 		}
 		else if ( pCorpse->def.usFlags & ROTTING_CORPSE_USE_DESERT_CAMO_PALETTE )
 		{
-			pNewSoldier->desertCamo = gGameExternalOptions.bCamoKitArea;
-			pNewSoldier->wornDesertCamo = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
+			pNewSoldier->camouflage().desertApplied() = gGameExternalOptions.bCamoKitArea;
+			pNewSoldier->camouflage().desertWorn() = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
 		}
 		else if ( pCorpse->def.usFlags & ROTTING_CORPSE_USE_SNOW_CAMO_PALETTE )
 		{
-			pNewSoldier->snowCamo = gGameExternalOptions.bCamoKitArea;
-			pNewSoldier->wornSnowCamo = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
+			pNewSoldier->camouflage().snowApplied() = gGameExternalOptions.bCamoKitArea;
+			pNewSoldier->camouflage().snowWorn() = __max(0, ( 65 - gGameExternalOptions.bCamoKitArea ) );
 		}
 
 		// Reload palettes....

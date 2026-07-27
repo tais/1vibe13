@@ -306,6 +306,11 @@ adapter, so save and load can never drift out of order. Extra methods:
   values and one unsigned 8-bit value at their original four POD positions, and
   v101 conversion maps the original fields into that owner. No save, packet,
   map, XML, Lua, or installed-data bytes change.
+- Applied and equipment-derived jungle, urban, desert, and snow camouflage are
+  now stored by `SoldierCamouflageComponent`. The visitor still emits all eight
+  signed 8-bit values at their original POD positions, and v101 conversion maps
+  the original values into that owner while retaining the established kit-area
+  caps. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

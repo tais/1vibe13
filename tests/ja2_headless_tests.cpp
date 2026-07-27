@@ -7283,6 +7283,15 @@ int main( int, char** )
 		awareness.recordNewOpponent();
 		awareness.recordNewOpponent();
 		awareness.tilesSinceForget() = 201;
+		SoldierCamouflageComponent& camouflage = soldier.camouflage();
+		camouflage.jungleApplied() = 25;
+		camouflage.jungleWorn() = 30;
+		camouflage.urbanApplied() = 20;
+		camouflage.urbanWorn() = 45;
+		camouflage.desertApplied() = -20;
+		camouflage.desertWorn() = -90;
+		camouflage.snowApplied() = 15;
+		camouflage.snowWorn() = 10;
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7423,6 +7432,13 @@ int main( int, char** )
 		       constSoldier.awareness().hasNewOpponents() &&
 		       constSoldier.awareness().tilesSinceForget() == 201,
 		       "soldier awareness component owns visibility, render synchronization, discovery, and stale-memory distance" );
+		CHECK( constSoldier.camouflage().total(SoldierCamouflageComponent::Terrain::Jungle) == 55 &&
+		       constSoldier.camouflage().total(SoldierCamouflageComponent::Terrain::Urban) == 65 &&
+		       constSoldier.camouflage().total(SoldierCamouflageComponent::Terrain::Desert) == -100 &&
+		       constSoldier.camouflage().total(SoldierCamouflageComponent::Terrain::Snow) == 25 &&
+		       constSoldier.camouflage().strongestTotal() == 65 &&
+		       constSoldier.camouflage().appliedTotal() == 40,
+		       "soldier camouflage component owns applied and equipment totals for every terrain family" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7603,6 +7619,15 @@ int main( int, char** )
 		       copiedSoldier.awareness().newOpponentCount() == 2 &&
 		       copiedSoldier.awareness().tilesSinceForget() == 201,
 		       "soldier copies retain their owned persistent awareness state" );
+		CHECK( copiedSoldier.camouflage().jungleApplied() == 25 &&
+		       copiedSoldier.camouflage().jungleWorn() == 30 &&
+		       copiedSoldier.camouflage().urbanApplied() == 20 &&
+		       copiedSoldier.camouflage().urbanWorn() == 45 &&
+		       copiedSoldier.camouflage().desertApplied() == -20 &&
+		       copiedSoldier.camouflage().desertWorn() == -90 &&
+		       copiedSoldier.camouflage().snowApplied() == 15 &&
+		       copiedSoldier.camouflage().snowWorn() == 10,
+		       "soldier copies retain their owned persistent camouflage state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -7974,6 +7999,30 @@ int main( int, char** )
 		       awarenessLifecycle.newOpponentCount() == 0 &&
 		       awarenessLifecycle.tilesSinceForget() == 0,
 		       "awareness reset clears the complete player-knowledge domain" );
+
+		SoldierCamouflageComponent camouflageLifecycle;
+		camouflageLifecycle.jungleApplied() = 90;
+		camouflageLifecycle.jungleWorn() = 40;
+		camouflageLifecycle.urbanApplied() = 45;
+		camouflageLifecycle.urbanWorn() = 35;
+		camouflageLifecycle.desertApplied() = -80;
+		camouflageLifecycle.desertWorn() = -50;
+		CHECK( camouflageLifecycle.total(SoldierCamouflageComponent::Terrain::Jungle) == 100 &&
+		       camouflageLifecycle.total(SoldierCamouflageComponent::Terrain::Urban) == 80 &&
+		       camouflageLifecycle.total(SoldierCamouflageComponent::Terrain::Desert) == -100 &&
+		       camouflageLifecycle.strongestTotal() == 100 &&
+		       camouflageLifecycle.appliedTotal() == 55,
+		       "camouflage totals preserve signed effects while bounding terrain and display values" );
+		camouflageLifecycle.reset();
+		CHECK( camouflageLifecycle.jungleApplied() == 0 &&
+		       camouflageLifecycle.jungleWorn() == 0 &&
+		       camouflageLifecycle.urbanApplied() == 0 &&
+		       camouflageLifecycle.urbanWorn() == 0 &&
+		       camouflageLifecycle.desertApplied() == 0 &&
+		       camouflageLifecycle.desertWorn() == 0 &&
+		       camouflageLifecycle.snowApplied() == 0 &&
+		       camouflageLifecycle.snowWorn() == 0,
+		       "camouflage reset clears applied and equipment-derived state for every terrain family" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -8005,6 +8054,17 @@ int main( int, char** )
 		       !copiedSoldier.awareness().hasNewOpponents() &&
 		       !copiedSoldier.awareness().renderVisibilityChanged(),
 		       "soldier initialization resets the complete awareness domain" );
+		CHECK( copiedSoldier.camouflage().jungleApplied() == 0 &&
+		       copiedSoldier.camouflage().jungleWorn() == 0 &&
+		       copiedSoldier.camouflage().urbanApplied() == 0 &&
+		       copiedSoldier.camouflage().urbanWorn() == 0 &&
+		       copiedSoldier.camouflage().desertApplied() == 0 &&
+		       copiedSoldier.camouflage().desertWorn() == 0 &&
+		       copiedSoldier.camouflage().snowApplied() == 0 &&
+		       copiedSoldier.camouflage().snowWorn() == 0 &&
+		       copiedSoldier.camouflage().strongestTotal() == 0 &&
+		       copiedSoldier.camouflage().appliedTotal() == 0,
+		       "soldier initialization resets the complete camouflage domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -8148,6 +8208,14 @@ int main( int, char** )
 		legacySoldier->bLastRenderVisibleValue = -1;
 		legacySoldier->bNewOppCnt = 3;
 		legacySoldier->ubNumTilesMovesSinceLastForget = 202;
+		legacySoldier->bCamo = -1;
+		legacySoldier->wornCamo = -2;
+		legacySoldier->urbanCamo = -3;
+		legacySoldier->wornUrbanCamo = -4;
+		legacySoldier->desertCamo = -5;
+		legacySoldier->wornDesertCamo = -6;
+		legacySoldier->snowCamo = -7;
+		legacySoldier->wornSnowCamo = -8;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8194,6 +8262,15 @@ int main( int, char** )
 		       convertedSoldier.awareness().newOpponentCount() == 3 &&
 		       convertedSoldier.awareness().tilesSinceForget() == 202,
 		       "v101 soldier conversion retains visibility, render synchronization, discovery, and stale-memory distance" );
+		CHECK( convertedSoldier.camouflage().jungleApplied() == -1 &&
+		       convertedSoldier.camouflage().jungleWorn() == -2 &&
+		       convertedSoldier.camouflage().urbanApplied() == -3 &&
+		       convertedSoldier.camouflage().urbanWorn() == -4 &&
+		       convertedSoldier.camouflage().desertApplied() == -5 &&
+		       convertedSoldier.camouflage().desertWorn() == -6 &&
+		       convertedSoldier.camouflage().snowApplied() == -7 &&
+		       convertedSoldier.camouflage().snowWorn() == -8,
+		       "v101 soldier conversion retains all applied and equipment-derived camouflage values" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8356,6 +8433,14 @@ int main( int, char** )
 		savedSoldier.awareness().lastRenderedVisibility() = -1;
 		savedSoldier.awareness().newOpponentCount() = 4;
 		savedSoldier.awareness().tilesSinceForget() = 203;
+		savedSoldier.camouflage().jungleApplied() = 11;
+		savedSoldier.camouflage().jungleWorn() = 12;
+		savedSoldier.camouflage().urbanApplied() = -13;
+		savedSoldier.camouflage().urbanWorn() = 14;
+		savedSoldier.camouflage().desertApplied() = 15;
+		savedSoldier.camouflage().desertWorn() = -16;
+		savedSoldier.camouflage().snowApplied() = 17;
+		savedSoldier.camouflage().snowWorn() = 18;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8504,6 +8589,16 @@ int main( int, char** )
 		       loadedSoldier.awareness().newOpponentCount() == 4 &&
 		       loadedSoldier.awareness().tilesSinceForget() == 203,
 		       "soldier save/load round-trips awareness state at established POD positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.camouflage().jungleApplied() == 11 &&
+		       loadedSoldier.camouflage().jungleWorn() == 12 &&
+		       loadedSoldier.camouflage().urbanApplied() == -13 &&
+		       loadedSoldier.camouflage().urbanWorn() == 14 &&
+		       loadedSoldier.camouflage().desertApplied() == 15 &&
+		       loadedSoldier.camouflage().desertWorn() == -16 &&
+		       loadedSoldier.camouflage().snowApplied() == 17 &&
+		       loadedSoldier.camouflage().snowWorn() == 18,
+		       "soldier save/load round-trips camouflage state at established POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

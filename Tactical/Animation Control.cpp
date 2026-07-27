@@ -4030,10 +4030,10 @@ INT8	GetBodyTypePaletteSubstitutionCode( SOLDIERTYPE *pSoldier, UINT8 ubBodyType
 				return( 1 );
 			}
 
-			int urban = pSoldier->urbanCamo + pSoldier->wornUrbanCamo;
-			int jungle = pSoldier->bCamo + pSoldier->wornCamo;
-			int desert = pSoldier->desertCamo + pSoldier->wornDesertCamo;
-			int snow = pSoldier->snowCamo + pSoldier->wornSnowCamo;
+			int urban = pSoldier->camouflage().urbanApplied() + pSoldier->camouflage().urbanWorn();
+			int jungle = pSoldier->camouflage().jungleApplied() + pSoldier->camouflage().jungleWorn();
+			int desert = pSoldier->camouflage().desertApplied() + pSoldier->camouflage().desertWorn();
+			int snow = pSoldier->camouflage().snowApplied() + pSoldier->camouflage().snowWorn();
 			int total = urban + jungle + desert + snow;
 
 			// display camo depending on which is higher
