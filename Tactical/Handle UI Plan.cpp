@@ -8,6 +8,7 @@
 	#include "Animation Control.h"
 	#include "message.h"
 	#include "Soldier Create.h"
+	#include "SoldierRepository.h"
 	#include "Interface.h"
 
 UINT8						gubNumUIPlannedMoves			= 0;
@@ -245,9 +246,10 @@ void EndUIPlan(	)
 	//FIXME
 	for( cnt = MAX_NUM_SOLDIERS; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
-		pSoldier = MercPtrs[ cnt ];
+		pSoldier = GetJa2SoldierRepository().resolve(
+			static_cast<UINT32>(cnt));
 
-		if ( pSoldier->bActive )
+		if ( pSoldier && pSoldier->bActive )
 		{
 			if ( pSoldier->sPlannedTargetX != -1 )
 			{

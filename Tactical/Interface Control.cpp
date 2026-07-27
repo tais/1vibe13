@@ -46,6 +46,7 @@
 #include "Text.h"
 #include "Dialogue Control.h"
 #include "GameContext.h"
+#include "SoldierRepository.h"
 
 /*	I deleted here declaration of clock coords for tactical screen i will declare them
  *	in functions that Initialize coord for SMPanet and TEAMPanel
@@ -311,7 +312,10 @@ void SetUpInterface( )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			if ( gusSelectedSoldier->position().gridNo() != gsUIHandleShowMoveGridLocation )
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			if ( selectedSoldier &&
+				selectedSoldier->position().gridNo() != gsUIHandleShowMoveGridLocation )
 			{
 				if ( gfUIHandleShowMoveGrid == 2 )
 				{
@@ -321,7 +325,7 @@ void SetUpInterface( )
 				}
 				else
 				{
-					if ( gusSelectedSoldier->bStealthMode )
+					if ( selectedSoldier->bStealthMode )
 					{
 						AddTopmostToHead( gsUIHandleShowMoveGridLocation, GetSnapCursorIndex( FIRSTPOINTERS9 ) );
 						gpWorldLevelData[gsUIHandleShowMoveGridLocation].pTopmostHead->ubShadeLevel=DEFAULT_SHADE_LEVEL;
@@ -831,9 +835,12 @@ void RenderTopmostTacticalInterface( )
 		// Zero out any planned soldiers
 		for( cnt = MAX_NUM_SOLDIERS; cnt < TOTAL_SOLDIERS; cnt++ )
 		{
-			if ( MercPtrs[ cnt ]->bActive )
+			SOLDIERTYPE* plannedSoldier =
+				GetJa2SoldierRepository().resolve(
+					static_cast<UINT32>(cnt));
+			if ( plannedSoldier && plannedSoldier->bActive )
 			{
-				if ( MercPtrs[ cnt ]->sPlannedTargetX != -1 )
+				if ( plannedSoldier->sPlannedTargetX != -1 )
 				{
 					// Blit bogus target
 					if ( uiBogTarget == 0 )
@@ -844,11 +851,11 @@ void RenderTopmostTacticalInterface( )
 						AddVideoObject( &VObjectDesc, &uiBogTarget );
 					}
 
-					if ( GridNoOnScreen( MAPROWCOLTOPOS( ( MercPtrs[ cnt ]->sPlannedTargetY/CELL_Y_SIZE), ( MercPtrs[ cnt ]->sPlannedTargetX / CELL_X_SIZE ) ) ) )
+					if ( GridNoOnScreen( MAPROWCOLTOPOS( ( plannedSoldier->sPlannedTargetY/CELL_Y_SIZE), ( plannedSoldier->sPlannedTargetX / CELL_X_SIZE ) ) ) )
 					{
 						// GET SCREEN COORDINATES
-						sOffsetX = (MercPtrs[ cnt ]->sPlannedTargetX - gsRenderCenterX);
-						sOffsetY = (MercPtrs[ cnt ]->sPlannedTargetY - gsRenderCenterY);
+						sOffsetX = (plannedSoldier->sPlannedTargetX - gsRenderCenterX);
+						sOffsetY = (plannedSoldier->sPlannedTargetY - gsRenderCenterY);
 
 						FromCellToScreenCoordinates( sOffsetX, sOffsetY, &sTempX_S, &sTempY_S );
 

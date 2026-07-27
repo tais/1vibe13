@@ -66,6 +66,7 @@
 	#include "TacticalEntityHost.h"
 #include "Simulation Commands.h"
 #include "GameContext.h"
+#include "SoldierRepository.h"
 #include "LuaInitNPCs.h"
 #include "Luaglobal.h"
 
@@ -1767,8 +1768,13 @@ void HandleNPCTrigger( )
 					ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 					if (ubPlayerID != NOBODY)
 					{
-						InitiateConversation( pSoldier, MercPtrs[ ubPlayerID ], gubTargetApproach, gubTargetRecord );
-						return;
+						SOLDIERTYPE* player =
+							GetJa2SoldierRepository().resolve(ubPlayerID);
+						if (player)
+						{
+							InitiateConversation( pSoldier, player, gubTargetApproach, gubTargetRecord );
+							return;
+						}
 					}
 				}
 			}
@@ -2088,7 +2094,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				// look for all mercs on the same team,
 				for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 				{
-					pSoldier = cnt;
+					pSoldier =
+						GetJa2SoldierRepository().resolve(cnt.i);
+					if (!pSoldier)
+					{
+						continue;
+					}
 					// Are we in this sector, On the current squad?
 					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 					{
@@ -2385,7 +2396,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				// look for all mercs on the same team,
 				for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 				{
-					pSoldier = cnt;
+					pSoldier =
+						GetJa2SoldierRepository().resolve(cnt.i);
+					if (!pSoldier)
+					{
+						continue;
+					}
 					// Are we in this sector, On the current squad?
 					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 					{
@@ -3451,7 +3467,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						ubID = WhoIsThere2( sNearestPC, 0 );
 						if (ubID != NOBODY)
 						{
-							pSoldier2 = ubID;
+							pSoldier2 =
+								GetJa2SoldierRepository().resolve(
+									ubID.i);
 						}
 					}
 
@@ -3579,17 +3597,17 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					// Target a different merc....
 					if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_0 )
 					{
-						//pTarget = MercPtrs[ 0 ];
+						// The target is resolved from the configured interrogation tile below.
 						sGridNo = gModSettings.iMeanwhileInterrogatePOWGridNo[ 0 ];
 					}
 					else if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_1 )
 					{
-						//pTarget = MercPtrs[ 1 ];
+						// The target is resolved from the configured interrogation tile below.
 						sGridNo = gModSettings.iMeanwhileInterrogatePOWGridNo[ 1 ];
 					}
 					else //if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_2 )
 					{
-						//pTarget = MercPtrs[ 2 ];
+						// The target is resolved from the configured interrogation tile below.
 						sGridNo = gModSettings.iMeanwhileInterrogatePOWGridNo[ 2 ];
 					}
 
@@ -3600,7 +3618,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					}
 					else
 					{
-						pTarget = ubTargetID;
+						pTarget =
+							GetJa2SoldierRepository().resolve(
+								ubTargetID.i);
 					}
 
 					// Use a different approach....
@@ -3707,7 +3727,13 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						}
 						else
 						{
-							pTarget = ubTargetID;
+							pTarget =
+								GetJa2SoldierRepository().resolve(
+									ubTargetID.i);
+						}
+						if (!pTarget)
+						{
+							continue;
 						}
 
 						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_1;
@@ -3944,7 +3970,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 					for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 					{
-						pSoldier = cnt;
+						pSoldier =
+							GetJa2SoldierRepository().resolve(cnt.i);
+						if (!pSoldier)
+						{
+							continue;
+						}
 						// Are we in this sector, On the current squad?
 						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
 						{
@@ -4139,7 +4170,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							ubID = WhoIsThere2( sNearestPC, 0 );
 							if (ubID != NOBODY)
 							{
-								pSoldier2 = ubID;
+								pSoldier2 =
+									GetJa2SoldierRepository().resolve(
+										ubID.i);
 							}
 						}
 
@@ -4766,7 +4799,11 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 
 	for ( SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL )
 		{
 			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
@@ -5048,7 +5085,12 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 				cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 				for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 				{
-					pSoldier = cnt;
+					pSoldier =
+						GetJa2SoldierRepository().resolve(cnt.i);
+					if (!pSoldier)
+					{
+						continue;
+					}
 					if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
 					{
 						if (!pLier || (EffectiveWisdom( pSoldier ) + EffectiveLeadership( pSoldier ) > EffectiveWisdom( pLier ) + EffectiveLeadership( pSoldier ) ) )
@@ -5217,7 +5259,11 @@ void	DoneFadeInActionBasement( )
 	SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		// Are we in this sector, On the current squad?
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
 		{
@@ -5418,7 +5464,11 @@ void PerformJerryMiloAction301()
 	{
 		ubId = ubMercsPresent[ cnt ];
 		
-		TacticalCharacterDialogue( ubId, QUOTE_DEATH_RATE_REFUSAL );
+		pSoldier = GetJa2SoldierRepository().resolve(ubId.i);
+		if (pSoldier)
+		{
+			TacticalCharacterDialogue( pSoldier, QUOTE_DEATH_RATE_REFUSAL );
+		}
 	}
 
 	//Trigger Jerry Milo's script record 11 ( call action 302 )
@@ -5445,14 +5495,19 @@ void PerformJerryMiloAction302()
 		UINT8	ubIdOfMercWhoSaidQuote;
 
 		ubIdOfMercWhoSaidQuote = Random( usNumMercsPresent );
-		UINT8 ubId = ubMercsPresent[ ubIdOfMercWhoSaidQuote ];
+		SoldierID ubId = ubMercsPresent[ ubIdOfMercWhoSaidQuote ];
 
-		SOLDIERTYPE* pSoldier = MercPtrs[ ubId ];
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(ubId.i);
+		if (!pSoldier)
+		{
+			return;
+		}
 
 		TacticalCharacterDialogue( pSoldier, QUOTE_LAME_REFUSAL );
 
 		if( usNumMercsPresent == 1 )
-			ubProfileID = MercPtrs[ ubId ]->ubProfile;
+			ubProfileID = pSoldier->ubProfile;
 		else
 		{
 			BOOLEAN fDone=FALSE;
@@ -5468,7 +5523,13 @@ void PerformJerryMiloAction302()
 				}
 			}
 
-			ubProfileID = MercPtrs[ ubId ]->ubProfile;
+			SOLDIERTYPE* respondingSoldier =
+				GetJa2SoldierRepository().resolve(ubId.i);
+			if (!respondingSoldier)
+			{
+				return;
+			}
+			ubProfileID = respondingSoldier->ubProfile;
 		}
 
 		//Say the quote in 15 seconds
@@ -5602,7 +5663,13 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 	//loop through the mercs and see if there in range of the dealer
 	for( ubCnt=0; ubCnt<usNumMercsPresent; ++ubCnt )
 	{
-		pSoldier = &Menptr[ SoldierIdArray[ ubCnt ] ];
+		pSoldier =
+			GetJa2SoldierRepository().resolve(
+				SoldierIdArray[ubCnt].i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->flags.fMercAsleep &&
@@ -5617,7 +5684,13 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 	if( ubNumValidSoldiers > 0 )
 	{
 		UINT8 ubChosenMerc = (UINT8)Random( ubNumValidSoldiers );
-		TacticalCharacterDialogue( MercPtrs[ ValidSoldierIdArray[ ubChosenMerc ] ], (UINT16)uiQuoteNum );
+		SOLDIERTYPE* chosenMerc =
+			GetJa2SoldierRepository().resolve(
+				ValidSoldierIdArray[ubChosenMerc].i);
+		if (chosenMerc)
+		{
+			TacticalCharacterDialogue( chosenMerc, (UINT16)uiQuoteNum );
+		}
 	}
 
 	SetFactFalse( FACT_MERC_SAY_QUOTE_WHEN_TALK_MENU_CLOSES );
@@ -5814,8 +5887,13 @@ void HandleMercArrivesQuotesFromHeliCrashSequence()
 	uiCnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// look for all mercs on the same team, 
-	for ( pSoldier = MercPtrs[ uiCnt ]; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; uiCnt++,pSoldier++)
+	for ( ; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt )
 	{
+		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 		{
 			HandleMercArrivesQuotes( pSoldier );
@@ -5915,6 +5993,13 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 		//Assert( 0 );
 		return;
 	}
+	SOLDIERTYPE* namedSoldier =
+		GetJa2SoldierRepository().resolve(
+			static_cast<UINT8>(bID));
+	if (!namedSoldier)
+	{
+		return;
+	}
 /*	
 	if ( FileExists(LANGMESSAGEFILE) )
 	{
@@ -5922,18 +6007,18 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 		uiStartLoc = EDT_SIZE * 10;
 		LoadEncryptedDataFromFile(LANGMESSAGEFILE, sText, uiStartLoc, EDT_SIZE);	
 	
-		swprintf( zString, sText, Menptr[ bID ].name );
+		swprintf( zString, sText, namedSoldier->name );
 	}
 	else
 	{
 		//Create the string
-		swprintf( zString, zNewTacticalMessages[ TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA ], Menptr[ bID ].name );
+		swprintf( zString, zNewTacticalMessages[ TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA ], namedSoldier->name );
 	}
 */
 	#ifdef UBMODSHADYJOB   //See file builddefines.h
 		swprintf( zString, XMLTacticalMessages[0] ); //Shady Job
 	#else
-		swprintf( zString, zNewTacticalMessages[TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA], Menptr[ bID ].name ); //UB
+		swprintf( zString, zNewTacticalMessages[TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA], namedSoldier->name ); //UB
 	#endif
 	
 

@@ -341,6 +341,21 @@ set(ExplicitSoldierResolutionLibs
   TileEngine
   Utils
 )
+set(ExplicitSoldierResolutionSources
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Dialogue Control.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/DynamicDialogue.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI Plan.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Control.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Dialogue.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Items.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Panels.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Tactical Turns.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/TeamTurns.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Turn Based Input.cpp"
+)
+set_property(SOURCE ${ExplicitSoldierResolutionSources} APPEND PROPERTY
+  COMPILE_DEFINITIONS JA2_EXPLICIT_SOLDIER_RESOLUTION)
 foreach(lib IN LISTS Ja2_Libs)
   add_subdirectory(${lib})
 endforeach()

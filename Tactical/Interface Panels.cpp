@@ -66,6 +66,7 @@
 	// HEADROCK HAM 3.6: This is required for Stat Progress Bars
 	#include "Campaign.h"
 	#include "Food.h"	// added by Flugente
+#include "SoldierRepository.h"
 #include <language.hpp>
 
 //forward declarations of common classes to eliminate includes
@@ -584,8 +585,10 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 	SOLDIERTYPE* candidate = NULL;
 	if (gusSelectedSoldier != NOBODY)
 	{
-		SOLDIERTYPE* selected = gusSelectedSoldier;
-		if (selected->bActive && selected->bTeam == gbPlayerNum)
+		SOLDIERTYPE* selected =
+			GetJa2SoldierRepository().resolve(
+				gusSelectedSoldier.i);
+		if (selected && selected->bActive && selected->bTeam == gbPlayerNum)
 			candidate = selected;
 	}
 
@@ -593,7 +596,8 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 	{
 		for (UINT32 index = 0; index < TOTAL_SOLDIERS; ++index)
 		{
-			SOLDIERTYPE* soldier = MercPtrs[index];
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(index);
 			if (soldier && soldier->bActive && soldier->bTeam == gbPlayerNum)
 			{
 				candidate = soldier;
@@ -654,7 +658,12 @@ void CheckForDisabledForGiveItem( )
 		cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(cnt.i);
+			if (!pSoldier)
+			{
+				continue;
+			}
 			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
 			{
 				sDist = PythSpacesAway( currentMerc->position().gridNo(), pSoldier->position().gridNo() );
@@ -683,16 +692,23 @@ void CheckForDisabledForGiveItem( )
 		// OK buddy, check our currently selected merc and disable/enable if not close enough...
 		if ( ubSrcSoldier != NOBODY )
 		{
+			SOLDIERTYPE* sourceSoldier =
+				GetJa2SoldierRepository().resolve(
+					ubSrcSoldier.i);
+			if (!sourceSoldier)
+			{
+				return;
+			}
 			if ( currentMerc->ubID != ubSrcSoldier )
 			{
 				sDestGridNo = currentMerc->position().gridNo();
 				bDestLevel	= currentMerc->position().level();
 
 				// Get distance....
-				sDist = PythSpacesAway( ubSrcSoldier->position().gridNo(), sDestGridNo );
+				sDist = PythSpacesAway( sourceSoldier->position().gridNo(), sDestGridNo );
 
 				// Check LOS....
-				if ( SoldierTo3DLocationLineOfSightTest( ubSrcSoldier, sDestGridNo,  bDestLevel, 3, TRUE, CALC_FROM_ALL_DIRS )  )
+				if ( SoldierTo3DLocationLineOfSightTest( sourceSoldier, sDestGridNo,  bDestLevel, 3, TRUE, CALC_FROM_ALL_DIRS )  )
 				{
 					// UNCONSCIOUS GUYS ONLY 1 tile AWAY
 					if ( currentMerc->vitals().health() < CONSCIOUSNESS )
@@ -708,7 +724,7 @@ void CheckForDisabledForGiveItem( )
 					}
 				}
 				// anv: passengers in the same vehicle can pass items freely
-				else if ( ubSrcSoldier->iVehicleId != -1 && ubSrcSoldier->iVehicleId == currentMerc->iVehicleId )
+				else if ( sourceSoldier->iVehicleId != -1 && sourceSoldier->iVehicleId == currentMerc->iVehicleId )
 				{
 					gfSMDisableForItems = FALSE;
 				}
@@ -729,7 +745,8 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 {
 	gubSelectSMPanelToMerc = NOBODY;
 
-	SOLDIERTYPE* newMerc = ubNewID;
+	SOLDIERTYPE* newMerc =
+		GetJa2SoldierRepository().resolve(ubNewID.i);
 	if (ubNewID == NOBODY || !newMerc || !SetSMCurrentMerc(newMerc))
 	{
 		gusSMCurrentMerc = NOBODY;
@@ -4572,7 +4589,12 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 			INT8 bAssignment = GetSMCurrentMerc()->bAssignment;
 			for( SoldierID x = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; x <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++x )
 			{
-				SOLDIERTYPE *pSoldier = x;
+				SOLDIERTYPE *pSoldier =
+					GetJa2SoldierRepository().resolve(x.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 				/* Is DropPackFlag currently false and is there something in the backpack pocket?  If so, we haven't
 				dropped a pack yet and apparently want to*/
 				if(pSoldier->bAssignment == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.DropPackFlag)
@@ -5351,7 +5373,13 @@ BOOLEAN InitializeTEAMPanel(	)
 		{
 			if ( gTeamPanel[ cnt ].ubID != NOBODY )
 			{
-				HandleMouseOverSoldierFaceForContMove( gTeamPanel[ cnt ].ubID, TRUE );
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(
+						gTeamPanel[cnt].ubID.i);
+				if (soldier)
+				{
+					HandleMouseOverSoldierFaceForContMove( soldier, TRUE );
+				}
 			}
 		}
 
@@ -5426,7 +5454,13 @@ BOOLEAN ShutdownTEAMPanel( )
 
 		if ( gTeamPanel[ cnt ].ubID != NOBODY )
 		{
-			HandleMouseOverSoldierFaceForContMove( gTeamPanel[ cnt ].ubID, FALSE );
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(
+					gTeamPanel[cnt].ubID.i);
+			if (soldier)
+			{
+				HandleMouseOverSoldierFaceForContMove( soldier, FALSE );
+			}
 		}
 
 	}
@@ -5490,7 +5524,13 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			}
 			else
 			{
-				pSoldier = gTeamPanel[ cnt ].ubID;
+				pSoldier =
+					GetJa2SoldierRepository().resolve(
+						gTeamPanel[cnt].ubID.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 
 				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
 				{
@@ -5594,7 +5634,13 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 		// GET SOLDIER
 		if ( gTeamPanel[ cnt ].fOccupied )
 		{
-			pSoldier = gTeamPanel[ cnt ].ubID;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(
+					gTeamPanel[cnt].ubID.i);
+			if (!pSoldier)
+			{
+				continue;
+			}
 
 			// Update animations....
 			if ( pSoldier->flags.fClosePanel || pSoldier->flags.fClosePanelToDie )
@@ -6115,9 +6161,10 @@ void MercFacePanelMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		return;
 	}
 
-	pSoldier = ubSoldierID;
+	pSoldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
-	if ( !pSoldier->bActive )
+	if ( !pSoldier || !pSoldier->bActive )
 	{
 		return;
 	}
@@ -6154,6 +6201,8 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		return;
 	}
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 
 	if (iReason & MSYS_CALLBACK_REASON_INIT)
@@ -6161,7 +6210,7 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		return;
 	}
 
-	if ( !ubSoldierID->bActive )
+	if ( !soldier || !soldier->bActive )
 	{
 		return;
 	}
@@ -6174,13 +6223,9 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		//}
 		//else
 		{
-			SOLDIERTYPE *pSoldier;
-
-			pSoldier = ubSoldierID;
-
-			if ( pSoldier->aiData.bOppCnt > 0 )
+			if ( soldier->aiData.bOppCnt > 0 )
 			{	// Cycle....
-				CycleVisibleEnemies( pSoldier );
+				CycleVisibleEnemies( soldier );
 			}
 			else
 			{
@@ -6226,18 +6271,20 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		return;
 	}
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 	if (iReason & MSYS_CALLBACK_REASON_INIT)
 	{
 		return;
 	}
 
-	if ( !ubSoldierID->bActive )
+	if ( !soldier || !soldier->bActive )
 	{
 		return;
 	}
 
-	if (!OK_INTERRUPT_MERC(ubSoldierID))
+	if (!OK_INTERRUPT_MERC(soldier))
 	{
 		return;
 	}
@@ -6258,10 +6305,10 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				if ( !InOverheadMap( ) )
 				{
 					// If we can continue a move, do so!
-					if ( CheckForMercContMove( ubSoldierID ) )
+					if ( CheckForMercContMove( soldier ) )
 					{
 						// Continue
-						ContinueMercMovement( ubSoldierID );
+						ContinueMercMovement( soldier );
 						ErasePath( TRUE );
 					}
 					else
@@ -6269,13 +6316,19 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						// HEADROCK HAM 3.5: Shift-Click a merc's face will add him to the current selection.
 						if (!(IsJa2TacticalCombatActive()) && _KeyDown( SHIFT ) )
 						{
-							if ( ! (ubSoldierID->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
+							if ( ! (soldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
 							{
-								if ( OK_CONTROLLABLE_MERC( ubSoldierID ) && !( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
+								if ( OK_CONTROLLABLE_MERC( soldier ) && !( soldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 								{
 									//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s added", ubSoldierID->name );
-									gusSelectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
-									ubSoldierID->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+									SOLDIERTYPE* selectedSoldier =
+										GetJa2SoldierRepository().resolve(
+											gusSelectedSoldier.i);
+									if (selectedSoldier)
+									{
+										selectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+									}
+									soldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
 									EndMultiSoldierSelection( TRUE );
 								}
 							}
@@ -6283,10 +6336,16 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 							else
 							{
 								//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s removed", ubSoldierID->name );
-								ubSoldierID->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+								soldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
 								if (ubSoldierID != gusSelectedSoldier)
 								{
-									gusSelectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+									SOLDIERTYPE* selectedSoldier =
+										GetJa2SoldierRepository().resolve(
+											gusSelectedSoldier.i);
+									if (selectedSoldier)
+									{
+										selectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+									}
 								}
 								EndMultiSoldierSelection( TRUE );
 							}
@@ -6311,7 +6370,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		{
 			// Only if guy is not dead!
 			//if ( !( ubSoldierID->flags.uiStatusFlags & SOLDIER_DEAD ) && !AM_AN_EPC( ubSoldierID ) && !( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
-			if ( !( ubSoldierID->flags.uiStatusFlags & SOLDIER_DEAD ) && !AM_AN_EPC( ubSoldierID ) )
+			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) && !AM_AN_EPC( soldier ) )
 			{
 				gfSwitchPanel = TRUE;
 				gbNewPanel = SM_PANEL;
@@ -6329,8 +6388,9 @@ extern void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, 
 void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 {
 	BOOLEAN fSelect = FALSE;
+	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 
-	if( !ubID->bActive )
+	if( !soldier || !soldier->bActive )
 	{
 		return;
 	}
@@ -6343,14 +6403,14 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 
 
 	// ATE: No matter what we do... if below OKLIFE, just locate....
-	if ( ubID->vitals().health() < OKLIFE )
+	if ( soldier->vitals().health() < OKLIFE )
 	{
 		LocateSoldier( ubID, SETLOCATOR );
 		return;
 	}
 
 	// Flugente: frozen soldiers can't be selected
-	if ( ubID->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( soldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
 	{
 		LocateSoldier( ubID, SETLOCATOR );
 		return;
@@ -6362,7 +6422,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 		{
 			// Select merc
 			InternalSelectSoldier( ubID, TRUE, FALSE, TRUE);
-			ubID->flags.fFlashLocator = FALSE;
+			soldier->flags.fFlashLocator = FALSE;
 			ResetMultiSelection( );
 		}
 		else
@@ -6373,7 +6433,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 	}
 	else
 	{
-		if ( ubID->flags.fFlashLocator == FALSE )
+		if ( soldier->flags.fFlashLocator == FALSE )
 		{
 			if ( gGameSettings.fOptions[ TOPTION_OLD_SELECTION_METHOD ] )
 			{
@@ -6437,7 +6497,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 		if ( fSelect )
 		{
 			// Select merc, only if alive!
-			if ( !( ubID->flags.uiStatusFlags & SOLDIER_DEAD ) )
+			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
 			{
 				InternalSelectSoldier( ubID, TRUE, FALSE, TRUE );
 			}
@@ -6447,7 +6507,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 	ResetMultiSelection( );
 
 	// Handle locate select merc....
-	HandleMouseOverSoldierFaceForContMove( ubID, TRUE );
+	HandleMouseOverSoldierFaceForContMove( soldier, TRUE );
 
 }
 
@@ -6455,12 +6515,18 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 
 void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 {
-	RESETTIMECOUNTER( ubID->timeCounters.FlashSelCounter, FLASH_SELECTOR_DELAY );
+	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	if (!soldier)
+	{
+		return;
+	}
+
+	RESETTIMECOUNTER( soldier->timeCounters.FlashSelCounter, FLASH_SELECTOR_DELAY );
 
 	//LocateSoldier( ubID, FALSE );	// IC - this is already being done outside of this function :)
-	ubID->flags.fFlashLocator = TRUE;
+	soldier->flags.fFlashLocator = TRUE;
 	//gbPanelSelectedGuy = ubID;	IC - had to move this outside to make this function versatile
-	ubID->sLocatorFrame = 0;
+	soldier->sLocatorFrame = 0;
 
 	if ( ubLocatorSpeed == SHOW_LOCATOR_NORMAL )
 	{
@@ -6471,19 +6537,25 @@ void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 		//
 		//se
 		//
-			ubID->ubNumLocateCycles = 5;
+			soldier->ubNumLocateCycles = 5;
 		//
 	}
 	else
 	{
-		ubID->ubNumLocateCycles = 3;
+		soldier->ubNumLocateCycles = 3;
 	}
 }
 
 void EndRadioLocator( SoldierID ubID )
 {
-	ubID->flags.fFlashLocator = FALSE;
-	ubID->flags.fShowLocator = FALSE;
+	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	if (!soldier)
+	{
+		return;
+	}
+
+	soldier->flags.fFlashLocator = FALSE;
+	soldier->flags.fShowLocator = FALSE;
 }
 
 
@@ -6515,7 +6587,11 @@ void FinishAnySkullPanelAnimations( )
 	// run through list
 	for ( ; cnt2 <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt2 )
 	{
-		pTeamSoldier = cnt2;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt2.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() == 0 )
 		{
 			if ( pTeamSoldier->flags.fUIdeadMerc || pTeamSoldier->flags.fClosePanelToDie )
@@ -6768,9 +6844,10 @@ void TMFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	// Now use soldier ID values
 	ubSoldierID = gTeamPanel[ ubID ].ubID;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
-
-	if ( !ubSoldierID->bActive )
+	if ( !soldier || !soldier->bActive )
 	{
 		return;
 	}
@@ -6812,6 +6889,10 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if ( ubSoldierID == NOBODY )
 		return;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
+	if (!soldier)
+		return;
 
 	if (iReason == MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
@@ -6830,12 +6911,12 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason == MSYS_CALLBACK_REASON_RBUTTON_UP )
 	{
-		if ( !AM_A_ROBOT( ubSoldierID ) )
+		if ( !AM_A_ROBOT( soldier ) )
 		{
-			usOldHandItem = ubSoldierID->inv[HANDPOS].usItem;
+			usOldHandItem = soldier->inv[HANDPOS].usItem;
 			//SwapOutHandItem( ubSoldierID );
-			SwapHandItems( ubSoldierID );
-			ubSoldierID->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, ubSoldierID->inv[HANDPOS].usItem );
+			SwapHandItems( soldier );
+			soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inv[HANDPOS].usItem );
 			fInterfacePanelDirty = DIRTYLEVEL2;
 		}
 	}
@@ -6858,31 +6939,35 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if ( ubSoldierID == NOBODY )
 		return;
+	SOLDIERTYPE* soldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
+	if (!soldier)
+		return;
 
 	if (iReason == MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+		if ( soldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 		{
-			ExitVehicle( ubSoldierID );
+			ExitVehicle( soldier );
 		}
-		else if (UsingNewInventorySystem() && !AM_A_ROBOT(ubSoldierID))
+		else if (UsingNewInventorySystem() && !AM_A_ROBOT(soldier))
 		{
-			ubSoldierID->SwitchWeapons();
+			soldier->SwitchWeapons();
 		}
 	}
 
 	if (iReason == MSYS_CALLBACK_REASON_RBUTTON_UP )
 	{
-		if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+		if ( soldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 		{
 		}
 		else
 		{
-			if ( !AM_A_ROBOT( ubSoldierID ) )
+			if ( !AM_A_ROBOT( soldier ) )
 			{
-				usOldHandItem = ubSoldierID->inv[HANDPOS].usItem;
-				SwapHandItems( ubSoldierID );
-				ubSoldierID->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, ubSoldierID->inv[HANDPOS].usItem );
+				usOldHandItem = soldier->inv[HANDPOS].usItem;
+				SwapHandItems( soldier );
+				soldier->ReLoadSoldierAnimationDueToHandItemChange( usOldHandItem, soldier->inv[HANDPOS].usItem );
 				fInterfacePanelDirty = DIRTYLEVEL2;
 			}
 		}
@@ -6951,14 +7036,19 @@ BOOLEAN RemovePlayerFromTeamSlotGivenMercID( SoldierID ubMercID )
 void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 {
 	INT32	cnt;
-
-	// If we are a vehicle don't ever add.....
-	if ( ubID->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
+	if (!soldier)
 	{
 		return;
 	}
 
-	if ( !( ubID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+	// If we are a vehicle don't ever add.....
+	if ( soldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	{
+		return;
+	}
+
+	if ( !( soldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 	{
 		if ( !PlayerExistsInSlot( ubID ) )
 		{
@@ -6977,7 +7067,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 					fInterfacePanelDirty = DIRTYLEVEL2;
 
 					// Set ID to do open anim
-					ubID->flags.fUInewMerc						= TRUE;
+					soldier->flags.fUInewMerc						= TRUE;
 
 					break;
 				}
@@ -6987,14 +7077,14 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 	else
 	{
 		// anv: for passengers, position on team panel will be linked with seat in vehicle
-		if ( ubID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+		if ( soldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 		{
-			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubID->iVehicleId );
+			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( soldier->iVehicleId );
 			if( pVehicle != NULL )
 			{
-				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ ubID->iVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
+				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->iVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 				{
-					SOLDIERTYPE *pPassenger = pVehicleList[ ubID->iVehicleId ].pPassengers[ iCounter ];
+					SOLDIERTYPE *pPassenger = pVehicleList[ soldier->iVehicleId ].pPassengers[ iCounter ];
 					if( pPassenger != NULL && pPassenger->ubID == ubID )
 					{
 						gTeamPanel[ iCounter ].fOccupied = TRUE;
@@ -7007,7 +7097,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 						fInterfacePanelDirty = DIRTYLEVEL2;
 
 						// Set ID to do open anim
-						ubID->flags.fUInewMerc = TRUE;
+						soldier->flags.fUInewMerc = TRUE;
 	
 						return;
 					}
@@ -7070,14 +7160,19 @@ BOOLEAN RemovePlayerFromInterfaceTeamSlot( UINT8 ubPanelSlot )
 
 	if ( gTeamPanel[ ubPanelSlot ].fOccupied )
 	{
-		if ( !( gTeamPanel[ ubPanelSlot ].ubID->flags.uiStatusFlags & SOLDIER_DEAD ) )
-	{
-		// Set Id to close
-		gTeamPanel[ ubPanelSlot ].ubID->flags.fUICloseMerc		= TRUE;
-	}
+		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(
+			gTeamPanel[ ubPanelSlot ].ubID.i);
+		if (soldier)
+		{
+			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+			{
+				// Set Id to close
+				soldier->flags.fUICloseMerc = TRUE;
+			}
 
-		// Set face to inactive...
-		SetAutoFaceInActive( gTeamPanel[ ubPanelSlot ].ubID->iFaceIndex );
+			// Set face to inactive...
+			SetAutoFaceInActive( soldier->iFaceIndex );
+		}
 
 
 		gTeamPanel[ ubPanelSlot ].fOccupied = FALSE;
@@ -7229,7 +7324,12 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 		if ( gTeamPanel[ cnt ].fOccupied )
 		{
 			// Set Id to close
-			pTeamSoldier = gTeamPanel[ cnt ].ubID;
+			pTeamSoldier = GetJa2SoldierRepository().resolve(
+				gTeamPanel[ cnt ].ubID.i);
+			if (!pTeamSoldier)
+			{
+				continue;
+			}
 
 			if ( fOnlyRegularMercs )
 			{
@@ -7268,7 +7368,13 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 			//Select next squad
 			iCurrentSquad = CurrentSquad( );
 
-			pNewSoldier = FindNextActiveSquad( gusSelectedSoldier );
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			if (!selectedSoldier)
+			{
+				return pSoldier->ubID;
+			}
+			pNewSoldier = FindNextActiveSquad( selectedSoldier );
 
 			if ( pNewSoldier->bAssignment != iCurrentSquad )
 			{
@@ -7289,7 +7395,12 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 	{
 		if ( gTeamPanel[ cnt ].fOccupied )
 		{
-			pTeamSoldier = gTeamPanel[ cnt ].ubID;
+			pTeamSoldier = GetJa2SoldierRepository().resolve(
+				gTeamPanel[ cnt ].ubID.i);
+			if (!pTeamSoldier)
+			{
+				continue;
+			}
 
 			if ( fOnlyRegularMercs )
 			{
@@ -7394,7 +7505,12 @@ void KeyRingItemPanelButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 
 
-		pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(
+			gCharactersList[ bSelectedInfoChar ].usSolID);
+		if (!pSoldier)
+		{
+			return;
+		}
 		sStartYPosition = MAP_START_KEYRING_Y;
 		sWidth = 261;
 		sHeight = ( 359 - 107 );
@@ -8065,6 +8181,3 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 		}
 	}
 }*/
-
-
-

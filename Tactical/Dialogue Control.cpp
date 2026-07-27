@@ -52,6 +52,7 @@
 	#include "qarray.h"
 	#include "GameContext.h"
 	#include "CampaignProfileCodes.h"
+	#include "SoldierRepository.h"
 #include <vector>
 #include <queue>
 
@@ -696,8 +697,14 @@ void HandleDialogue( )
 							ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 							if (ubPlayerID != NOBODY)
 							{
-								InitiateConversation( pMorris, ubPlayerID, NPC_INITIAL_QUOTE, 0 );
-								gMercProfiles[ pMorris->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
+								SOLDIERTYPE* player =
+									GetJa2SoldierRepository().resolve(
+										ubPlayerID.i);
+								if (player)
+								{
+									InitiateConversation( pMorris, player, NPC_INITIAL_QUOTE, 0 );
+									gMercProfiles[ pMorris->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
+								}
 							}
 						}
 					}
@@ -713,7 +720,13 @@ void HandleDialogue( )
 						//loop through all the mercs
 						for( ubCnt=0; ubCnt<ubNumQualifiedMercs; ++ubCnt )
 						{
-							pSoldier = ubQualifiedSoldierIDArray[ ubCnt ];
+							pSoldier =
+								GetJa2SoldierRepository().resolve(
+									ubQualifiedSoldierIDArray[ubCnt].i);
+							if (!pSoldier)
+							{
+								continue;
+							}
 
 							TacticalCharacterDialogue( pSoldier, QUOTE_JOINING_CAUSE_LEARNED_TO_LIKE_BUDDY_ON_TEAM );
 							pSoldier->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_MORRIS;
@@ -749,10 +762,15 @@ void HandleDialogue( )
 					ubPlayerID = WhoIsThere2( sPlayerGridNo, 0 );
 					if (ubPlayerID != NOBODY)
 					{
-						InitiateConversation( pMike, MercPtrs[ ubPlayerID ], NPC_INITIAL_QUOTE, 0 );
-						gMercProfiles[ pMike->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
-						// JA2Gold: special hack value of 2 to prevent dialogue from coming up more than once
-						gfMikeShouldSayHi = 2;
+						SOLDIERTYPE* player =
+							GetJa2SoldierRepository().resolve(ubPlayerID);
+						if (player)
+						{
+							InitiateConversation( pMike, player, NPC_INITIAL_QUOTE, 0 );
+							gMercProfiles[ pMike->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
+							// JA2Gold: special hack value of 2 to prevent dialogue from coming up more than once
+							gfMikeShouldSayHi = 2;
+						}
 					}
 				}
 			}
@@ -1029,8 +1047,10 @@ void HandleDialogue( )
 			switch( iReason )
 			{
 				case( UPDATE_BOX_REASON_ADDSOLDIER ):
-					pUpdateSoldier = &Menptr[ QItem.uiSpecialEventData2 ];
-					if( pUpdateSoldier->bActive == TRUE )
+					pUpdateSoldier =
+						GetJa2SoldierRepository().resolve(
+							QItem.uiSpecialEventData2);
+					if( pUpdateSoldier && pUpdateSoldier->bActive == TRUE )
 					{
 						AddSoldierToUpdateBox( pUpdateSoldier );
 					}
@@ -1602,7 +1622,12 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		if ( pSoldier->CanRobotBeControlled( ) )
 		{
-			return( TacticalCharacterDialogue( pSoldier->ubRobotRemoteHolderID, usQuoteNum ) );
+			SOLDIERTYPE* controller =
+				GetJa2SoldierRepository().resolve(
+					pSoldier->ubRobotRemoteHolderID.i);
+			return controller
+				? TacticalCharacterDialogue(controller, usQuoteNum)
+				: FALSE;
 		}
 		else
 		{
@@ -1767,7 +1792,11 @@ void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSect
 	SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive &&
 			pSoldier->ubProfile != ausIgnoreProfile &&
 			pSoldier->sSectorX == aSectorX && pSoldier->sSectorY == aSectorY && pSoldier->bSectorZ == aSectorZ &&
@@ -1893,7 +1922,13 @@ BOOLEAN CharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32 iFaceI
 	{
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			AdditionalTacticalCharacterDialogue_CallsLua( gusSelectedSoldier, ADE_DIALOGUE_REACTION, ubCharacterNum, usQuoteNum, ( gMercProfiles[ubCharacterNum].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) ? 1 : 0 );
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(
+					gusSelectedSoldier.i);
+			if (selectedSoldier)
+			{
+				AdditionalTacticalCharacterDialogue_CallsLua( selectedSoldier, ADE_DIALOGUE_REACTION, ubCharacterNum, usQuoteNum, ( gMercProfiles[ubCharacterNum].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) ? 1 : 0 );
+			}
 		}
 	}
 	// if team members talk, anyone may answer
@@ -2078,8 +2113,11 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 		{
 			// This quote might spawn another quote from someone
 			iLoop = 0;
-			for ( pTeamSoldier = MercPtrs[ iLoop ]; iLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; iLoop++,pTeamSoldier++ )
+			for ( ; iLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++iLoop )
 			{
+				pTeamSoldier = GetJa2SoldierRepository().resolve(iLoop);
+				if (!pTeamSoldier)
+					continue;
 				if ( (pTeamSoldier->ubProfile != ubCharacterNum) && (OK_INSECTOR_MERC( pTeamSoldier )) && (SpacesAway( pSoldier->sGridNo, pTeamSoldier->sGridNo ) < 5) )
 				{
 					// if this merc disliked the whining character sufficiently and hasn't already retorted
@@ -2113,7 +2151,8 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 		&& iFaceIndex == -1
 		&& gusIDOfCivTrader != NOBODY )
 	{
-		SOLDIERTYPE* pShopkeeper = gusIDOfCivTrader;
+		SOLDIERTYPE* pShopkeeper =
+			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 
 		if ( pShopkeeper )
 		{
@@ -3109,22 +3148,38 @@ void HandleDialogueEnd( FACETYPE *pFace )
 							case QUOTE_CLOSE_CALL:					
 							case QUOTE_UNDER_HEAVY_FIRE:
 							case QUOTE_TAKEN_A_BREATING:
-								if( pSoldier->ubPreviousAttackerID != NOBODY && !( pSoldier->ubPreviousAttackerID->bDeafenedCounter > 0 ) )
-									PossiblyStartEnemyTaunt( pSoldier->ubPreviousAttackerID, TAUNT_RIPOSTE, pSoldier->ubID );
+							{
+								SOLDIERTYPE* previousAttacker =
+									GetJa2SoldierRepository().resolve(
+										pSoldier->ubPreviousAttackerID.i);
+								if( previousAttacker && !( previousAttacker->bDeafenedCounter > 0 ) )
+									PossiblyStartEnemyTaunt( previousAttacker, TAUNT_RIPOSTE, pSoldier->ubID );
 								break;
+							}
 							default:
 								// select random enemy, who we see, who sees us and isn't deaf
 								for( SoldierID cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID ; ++cnt )
 								{
-									if( cnt->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY 
-										&& pSoldier->ubID->aiData.bOppList[cnt] == SEEN_CURRENTLY && !( cnt->bDeafenedCounter > 0 ) )
+									SOLDIERTYPE* enemy =
+										GetJa2SoldierRepository().resolve(cnt.i);
+									if( enemy &&
+										enemy->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY
+										&& pSoldier->aiData.bOppList[cnt] == SEEN_CURRENTLY && !( enemy->bDeafenedCounter > 0 ) )
 									{
 										ubSeenEnemies[ubSeenEnemiesCnt] = cnt; 
 										ubSeenEnemiesCnt++;
 									}
 								}
 								if( ubSeenEnemiesCnt > 0 )
-									PossiblyStartEnemyTaunt( MercPtrs[ubSeenEnemies[ Random(ubSeenEnemiesCnt) ]], TAUNT_RIPOSTE, pSoldier->ubID );
+								{
+									SOLDIERTYPE* enemy =
+										GetJa2SoldierRepository().resolve(
+											ubSeenEnemies[Random(ubSeenEnemiesCnt)]);
+									if (enemy)
+									{
+										PossiblyStartEnemyTaunt( enemy, TAUNT_RIPOSTE, pSoldier->ubID );
+									}
+								}
 								}
 								break;
 						}
@@ -3292,13 +3347,17 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
-	// set up soldier ptr as first element in mercptrs list
+	// Walk the player team through repository-owned slots.
 	SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// run through list
 	for ( ; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
-		pTeamSoldier = id;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(id.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
 		{
@@ -3358,7 +3417,13 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 		}
 
 
-		TacticalCharacterDialogue( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ], usQuoteNum );
+		SOLDIERTYPE* chosenMerc =
+			GetJa2SoldierRepository().resolve(
+				ubMercsInSector[ubChosenMerc]);
+		if (chosenMerc)
+		{
+			TacticalCharacterDialogue( chosenMerc, usQuoteNum );
+		}
 	}
 
 }
@@ -3374,13 +3439,17 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
-	// set up soldier ptr as first element in mercptrs list
+	// Walk the player team through repository-owned slots.
 	SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		if ( pTeamSoldier->bActive )
 		{
 			// Add guy if he's a candidate...
@@ -3413,7 +3482,13 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		//	}
 		//}
 
-		TacticalCharacterDialogue( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ], usQuoteNum );
+		SOLDIERTYPE* chosenMerc =
+			GetJa2SoldierRepository().resolve(
+				ubMercsInSector[ubChosenMerc]);
+		if (chosenMerc)
+		{
+			TacticalCharacterDialogue( chosenMerc, usQuoteNum );
+		}
 	}
 }
 
@@ -3427,13 +3502,17 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
-	// set up soldier ptr as first element in mercptrs list
+	// Walk the player team through repository-owned slots.
 	SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
@@ -3456,7 +3535,13 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 		{
 			SetFactTrue( FACT_PLAYER_FOUND_ITEMS_MISSING );
 		}
-		TacticalCharacterDialogue( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ], usQuoteNum );
+		SOLDIERTYPE* chosenMerc =
+			GetJa2SoldierRepository().resolve(
+				ubMercsInSector[ubChosenMerc]);
+		if (chosenMerc)
+		{
+			TacticalCharacterDialogue( chosenMerc, usQuoteNum );
+		}
 
 	}
 
@@ -3473,11 +3558,14 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 
 	// Loop through all our guys and randomly say one from someone in our sector
 
-	// set up soldier ptr as first element in mercptrs list
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
@@ -3502,7 +3590,13 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 	if ( ubNumMercs > 0 )
 	{
 		ubChosenMerc = (UINT16)Random( ubNumMercs );
-		TacticalCharacterDialogue( MercPtrs[ ubMercsInSector[ ubChosenMerc ] ], usQuoteNum );
+		SOLDIERTYPE* chosenMerc =
+			GetJa2SoldierRepository().resolve(
+				ubMercsInSector[ubChosenMerc]);
+		if (chosenMerc)
+		{
+			TacticalCharacterDialogue( chosenMerc, usQuoteNum );
+		}
 	}
 }
 
@@ -3817,8 +3911,14 @@ BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 	cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID;
 
 	// look for all mercs on the same team, 
-	for ( pSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++,pSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{       
+		pSoldier = GetJa2SoldierRepository().resolve(
+			static_cast<UINT32>(cnt));
+		if (!pSoldier)
+		{
+			continue;
+		}
 		//if the merc is alive, in sector, etc...
 		if ( OK_CONTROLLABLE_MERC( pSoldier )  )
 		{

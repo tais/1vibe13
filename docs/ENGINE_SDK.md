@@ -266,10 +266,13 @@ legacy consumers are migrated. Strategic simulation no longer names either
 backing array directly, and its array-derived pointer walks now resolve stable
 numeric slots without relying on adjacent records. TacticalAI, TileEngine,
 Ja2 composition/save handling, Laptop, Utils, Editor, Lua, and Multiplayer have
-the same explicit-resolution compile ratchet; the broad Tactical gameplay
-library is the remaining migration domain. `Menptr` and `MercPtrs` remain
-backing storage during that migration, so numeric soldier slots and every
-external data format remain stable.
+the same explicit-resolution compile ratchet. Tactical input, turn
+coordination, dialogue, planning, interface control, panels, and item
+interaction now form the first ratcheted Tactical source cut. The remaining
+Tactical lifecycle, animation, and combat implementations are the outstanding
+migration domain. `Menptr` and `MercPtrs` remain backing storage during that
+migration, so numeric soldier slots and every external data format remain
+stable.
 
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,

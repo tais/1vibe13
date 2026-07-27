@@ -16,6 +16,7 @@
 	#include "Explosion Control.h"
 #include "CampaignProfileCodes.h"
 #include "GameContext.h"
+#include "SoldierRepository.h"
 #include "strategicmap.h"
 #include "random.h"
 #include "Reinforcement.h"
@@ -90,7 +91,12 @@ void HandleRPCDescription(	)
 			// run through list
 			for ( ; cnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt2 )
 			{
-				pTeamSoldier = cnt2;
+				pTeamSoldier =
+					GetJa2SoldierRepository().resolve(cnt2.i);
+				if (!pTeamSoldier)
+				{
+					continue;
+				}
 				// Add guy if he's a candidate...
 				if ( RPC_RECRUITED( pTeamSoldier ) )
 				{
@@ -126,7 +132,13 @@ void HandleRPCDescription(	)
 			{
 				ubChosenMerc = (UINT16)Random( ubNumMercs );
 
-				TacticalCharacterDialogueWithSpecialEvent( MercPtrs[ubMercsInSector[ubChosenMerc]], gTacticalStatus.ubGuideDescriptionToUse, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, 0, 0 );
+				SOLDIERTYPE* chosenMerc =
+					GetJa2SoldierRepository().resolve(
+						ubMercsInSector[ubChosenMerc]);
+				if (chosenMerc)
+				{
+					TacticalCharacterDialogueWithSpecialEvent( chosenMerc, gTacticalStatus.ubGuideDescriptionToUse, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, 0, 0 );
+				}
 			}
 		}
 
@@ -137,7 +149,12 @@ void HandleRPCDescription(	)
 			cnt2 = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 			for ( ; cnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt2 )
 			{
-				pTeamSoldier = cnt2;
+				pTeamSoldier =
+					GetJa2SoldierRepository().resolve(cnt2.i);
+				if (!pTeamSoldier)
+				{
+					continue;
+				}
 				if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
 					pTeamSoldier->sSectorX == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->sSectorY == gTacticalStatus.bGuideDescriptionSectorY &&
 					pTeamSoldier->bSectorZ == gbWorldSectorZ &&
@@ -239,7 +256,11 @@ void HandleTacticalEndTurn( )
 		SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+			if (!pSoldier)
+			{
+				continue;
+			}
 			if ( pSoldier->bActive && pSoldier->vitals().health() > 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				// Handle everything from getting breath back, to bleeding, etc
