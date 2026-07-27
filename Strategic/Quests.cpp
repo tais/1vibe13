@@ -653,7 +653,7 @@ BOOLEAN CheckNPCIsUnderFire( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	return( pNPC->aiData.bUnderFire != 0 );
+	return( pNPC->suppression().underFire() != 0 );
 }
 
 BOOLEAN NPCHeardShot( UINT8 ubProfileID )

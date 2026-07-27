@@ -1104,7 +1104,7 @@ void StartInterrupt( void )
 
 				if ( OK_INSECTOR_MERC( pSoldier ) )
 				{
-					if ( pSoldier->flags.fCloseCall )
+					if ( pSoldier->suppression().closeCall() )
 					{
 						if ( pSoldier->combatResult().hitsThisTurn() == 0 && !(pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
 						{
@@ -1112,7 +1112,7 @@ void StartInterrupt( void )
 							TacticalCharacterDialogue( pSoldier, QUOTE_CLOSE_CALL );
 							pSoldier->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
 						}
-						pSoldier->flags.fCloseCall = FALSE;
+						pSoldier->suppression().clearCloseCall();
 					}
 				}
 			}
@@ -1824,7 +1824,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 	// a soldier already engaged in a life & death battle is too busy doing his
 	// best to survive to worry about "getting the jump" on additional threats
-	if (pSoldier->aiData.bUnderFire)
+	if (pSoldier->suppression().underFire())
 	{
 		return(FALSE);
 	}
@@ -2089,7 +2089,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// if soldier is still in shock from recent injuries, that penalizes him
-	iPoints -= pSoldier->aiData.bShock;
+	iPoints -= pSoldier->suppression().shock();
 
 	ubDistance = (UINT8) PythSpacesAway( pSoldier->position().gridNo(), opponent->position().gridNo() );
 

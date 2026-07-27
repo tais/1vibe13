@@ -307,6 +307,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   flags/POD position, and the v101 converter maps the original fields into
   their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
   and installed data are unchanged.
+- Under-fire aging, shock, suppression points, AP loss, suppressor identity,
+  and close-call feedback are now stored by `SoldierSuppressionComponent`.
+  The visitor still emits them at their original AI-data, flags, and POD
+  positions, and v101 conversion maps each original field into that owner.
+  Current save bytes, multiplayer packets, maps, Lua, XML, and installed data
+  remain unchanged.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

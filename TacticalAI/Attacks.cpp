@@ -238,7 +238,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// determine return fire
-		if (pSoldier->aiData.bUnderFire &&
+		if (pSoldier->suppression().underFire() &&
 			!pSoldier->bBlindedCounter &&
 			pSoldier->combatResult().previousAttacker() == pOpponent->ubID)
 		{
@@ -1259,7 +1259,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			else if ((bKnowledge == SEEN_THIS_TURN || bKnowledge == SEEN_LAST_TURN || bKnowledge == HEARD_THIS_TURN || bKnowledge == HEARD_LAST_TURN) &&
 				!TileIsOutOfBounds(KnownLocation(pSoldier, pOpponent->ubID)) &&
 				CloseEnoughForGrenadeToss(pOpponent->position().gridNo(), KnownLocation(pSoldier, pOpponent->ubID)) &&
-				(usGrenade != NOTHING && ItemIsFlare(usGrenade) || pSoldier->aiData.bUnderFire || pSoldier->aiData.bShock))
+				(usGrenade != NOTHING && ItemIsFlare(usGrenade) || pSoldier->suppression().underFire() || pSoldier->suppression().shock()))
 			{
 				sOpponentTile[ubOpponentCnt] = KnownLocation(pSoldier, pOpponent->ubID);
 				bOpponentLevel[ubOpponentCnt] = KnownLevel(pSoldier, pOpponent->ubID);
@@ -1312,7 +1312,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	}
 
 	// don't spare when soldier is under attack or too many killed
-	if (pSoldier->aiData.bUnderFire ||
+	if (pSoldier->suppression().underFire() ||
 		TeamHighPercentKilled(pSoldier->bTeam) ||
 		CountTeamUnderAttack(pSoldier->bTeam, pSoldier->position().gridNo(), TACTICAL_RANGE / 2) > 0 ||
 		pSoldier->aiData.bOrders == STATIONARY ||
@@ -1324,7 +1324,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 	// militia always try to spare grenades unless under attack or using flares
 	if (pSoldier->bTeam == MILITIA_TEAM && 
-		!pSoldier->aiData.bUnderFire && 
+		!pSoldier->suppression().underFire() &&
 		!ItemIsFlare(usGrenade) &&
 		!fRocketLauncher)
 	{
@@ -3944,7 +3944,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
 					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->lastFlankSpot) && PythSpacesAway(pFriend->position().gridNo(), pFriend->lastFlankSpot) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->lastFlankSpot, pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
-					pFriend->aiData.bUnderFire && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->aiData.bUnderFire && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
+					pFriend->suppression().underFire() && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->suppression().underFire() && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{
 					sFriendSpot = pFriend->position().gridNo();

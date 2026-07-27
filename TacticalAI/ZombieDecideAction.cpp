@@ -53,7 +53,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Green Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	gubNPCPathCount = 0;
 
@@ -399,7 +399,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Yellow Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	// determine the most important noise heard, and its relative value
 	sNoiseGridNo = MostImportantNoiseHeard(pSoldier,&iNoiseValue, &fClimb, &fReachable);
@@ -581,7 +581,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Red Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	// if we have absolutely no action points, we can't do a thing under RED!
 	if (!pSoldier->bActionPoints)
@@ -609,7 +609,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("[crouch and rest]"));
 
 	// if our breath is running a bit low, and we're not in water or under fire
-	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->aiData.bUnderFire)
+	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->suppression().underFire())
 	{		
 		pSoldier->aiData.usActionData = NOWHERE;
 		return(AI_ACTION_NONE);
@@ -795,7 +795,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		// if cannot seek or help - hide
 		if( gfTurnBasedAI &&
 			pSoldier->bActionPoints == pSoldier->bInitialActionPoints &&
-			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->aiData.bUnderFire) )
+			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->suppression().underFire()) )
 		{
 			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);			
 
@@ -804,7 +804,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 				DebugAI( AI_MSG_INFO, pSoldier, String("found cover spot %d", pSoldier->aiData.usActionData));
 				return AI_ACTION_TAKE_COVER;
 			}
-			else if (pSoldier->aiData.bUnderFire)
+			else if (pSoldier->suppression().underFire())
 			{
 				pSoldier->aiData.usActionData = FindRetreatSpot(pSoldier);
 
@@ -853,7 +853,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 
 	// if not in combat or under fire, and we COULD have moved, just chose not to	
 	if( (pSoldier->aiData.bAlertStatus != STATUS_BLACK) &&
-		!pSoldier->aiData.bUnderFire &&
+		!pSoldier->suppression().underFire() &&
 		ubCanMove &&
 		(!gfTurnBasedAI || pSoldier->bActionPoints == pSoldier->bInitialActionPoints) &&
 		TileIsOutOfBounds(sClosestDisturbance) )
@@ -871,7 +871,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 
 	DebugAI( AI_MSG_INFO, pSoldier, String("[face the most important noise]"));
 
-	if( pSoldier->aiData.bUnderFire &&
+	if( pSoldier->suppression().underFire() &&
 		pSoldier->CheckInitialAP() &&
 		//pSoldier->bActionPoints == pSoldier->bInitialActionPoints &&
 		GetAPsToLook( pSoldier ) <= pSoldier->bActionPoints &&
@@ -920,7 +920,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_START, pSoldier, String("[Black Zombie]"));
 	LogDecideInfo(pSoldier);
 	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->bActionPoints, pSoldier->bInitialActionPoints, gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->aiData.bShock, CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
 
 	ATTACKTYPE BestStab, BestAttack;
 	BOOLEAN fAllowCoverCheck = FALSE;
@@ -1207,7 +1207,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		// if cannot seek or help - hide
 		if( gfTurnBasedAI &&
 			pSoldier->bActionPoints == pSoldier->bInitialActionPoints &&
-			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->aiData.bUnderFire) )
+			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->suppression().underFire()) )
 		{
 			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);						
 
@@ -1216,7 +1216,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 				DebugAI(AI_MSG_INFO, pSoldier, String("found hide spot %d", pSoldier->aiData.usActionData));
 				return AI_ACTION_TAKE_COVER;
 			}
-			else if (pSoldier->aiData.bUnderFire)
+			else if (pSoldier->suppression().underFire())
 			{
 				pSoldier->aiData.usActionData = FindRetreatSpot(pSoldier);
 				
@@ -1337,7 +1337,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 
 		case STATUS_YELLOW:
 			// if all enemies have been RED alerted, or we're under fire
-			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->aiData.bUnderFire)
+			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 			{
 				pSoldier->aiData.bAlertStatus = STATUS_RED;
 			}
@@ -1356,7 +1356,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 
 		case STATUS_GREEN:
 			// if all enemies have been RED alerted, or we're under fire
-			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->aiData.bUnderFire)
+			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 			{
 				pSoldier->aiData.bAlertStatus = STATUS_RED;
 			}

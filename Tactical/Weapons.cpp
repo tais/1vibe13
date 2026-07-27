@@ -2292,7 +2292,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			ubShockReductPercent = ubShockReductPercent * 3 / 2;
 		ubShockReductPercent = __min(50, ubShockReductPercent);
 
-		pSoldier->aiData.bShock -= pSoldier->aiData.bShock * ubShockReductPercent / 100;
+		pSoldier->suppression().shock() -= pSoldier->suppression().shock() * ubShockReductPercent / 100;
 	}
 
 	// CALC MUZZLE SWAY
@@ -3103,7 +3103,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			ubShockReductPercent = ubShockReductPercent * 3 / 2;
 		ubShockReductPercent = __min(50, ubShockReductPercent);
 
-		pSoldier->aiData.bShock -= pSoldier->aiData.bShock * ubShockReductPercent / 100;
+		pSoldier->suppression().shock() -= pSoldier->suppression().shock() * ubShockReductPercent / 100;
 	}
 
 	// DEDUCT APs
@@ -6542,7 +6542,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	SOLDIERTYPE* targetSoldier =
 		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	bLightLevel = LightTrueLevel(sGridNo, pSoldier->targeting().level());
-	usShockPenalty = pSoldier->aiData.bShock * AIM_PENALTY_PER_SHOCK;
+	usShockPenalty = pSoldier->suppression().shock() * AIM_PENALTY_PER_SHOCK;
 	iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
 	AIM_PENALTY_PER_TARGET_SHOCK = gGameExternalOptions.ubAimPenaltyPerTargetShock;
 	MIN_RANGE_FOR_FULL_COWER = gGameExternalOptions.usMinRangeForFullCoweringPenalty; 
@@ -7331,7 +7331,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	  iChance -= AIM_PENALTY_GASSED;
 	if (pSoldier->ubServiceCount > 0)
 	  iChance -= AIM_PENALTY_GETTINGAID;
-	if (pSoldier->aiData.bShock)
+	if (pSoldier->suppression().shock())
 	{
 		if (gGameExternalOptions.usMaxShooterCoweringPenalty > 0)
 		{
@@ -7406,13 +7406,13 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	{
 		if (pTarget != NULL)
 		{
-			if (pTarget->aiData.bShock )
+			if (pTarget->suppression().shock() )
 			{
 				if (gAnimControl[ pTarget->animationPlayback().state() ].ubHeight == ANIM_PRONE)
 				{
 					ubCoweringDivisor = gGameExternalOptions.ubCoweringPenaltyDivisorProne;
 
-					sCoweringPenalty = (pTarget->aiData.bShock * AIM_PENALTY_PER_TARGET_SHOCK);
+					sCoweringPenalty = (pTarget->suppression().shock() * AIM_PENALTY_PER_TARGET_SHOCK);
 					sCoweringPenalty = sCoweringPenalty / ubCoweringDivisor;
 					sCoweringPenalty = (sCoweringPenalty * __min(iSightRange,MIN_RANGE_FOR_FULL_COWER)) / MIN_RANGE_FOR_FULL_COWER;
 
@@ -7443,7 +7443,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 							break;
 					}
 
-					sCoweringPenalty = (pTarget->aiData.bShock * AIM_PENALTY_PER_TARGET_SHOCK);
+					sCoweringPenalty = (pTarget->suppression().shock() * AIM_PENALTY_PER_TARGET_SHOCK);
 					sCoweringPenalty = sCoweringPenalty / ubCoweringDivisor;
 					sCoweringPenalty = (sCoweringPenalty * __min(iSightRange,MIN_RANGE_FOR_FULL_COWER)) / MIN_RANGE_FOR_FULL_COWER;
 
@@ -9181,8 +9181,8 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iAttRating -= AIM_PENALTY_GETTINGAID;
 
 	// if attacker is still in shock
-	if (pAttacker->aiData.bShock)
-		iAttRating -= (pAttacker->aiData.bShock * AIM_PENALTY_PER_SHOCK);
+	if (pAttacker->suppression().shock())
+		iAttRating -= (pAttacker->suppression().shock() * AIM_PENALTY_PER_SHOCK);
 
 	// if the attacker is an A.I.M. mercenary
 	//if (pAttacker->characternum < MAX_AIM_MERCS)	// exclude Gus
@@ -9365,8 +9365,8 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iDefRating -= AIM_PENALTY_GETTINGAID;
 
 	// if defender is still in shock
-	if (pDefender->aiData.bShock)
-		iDefRating -= (pDefender->aiData.bShock * AIM_PENALTY_PER_SHOCK);
+	if (pDefender->suppression().shock())
+		iDefRating -= (pDefender->suppression().shock() * AIM_PENALTY_PER_SHOCK);
 
 	// If defender injured, reduce chance accordingly (by up to 2/3rds)
 	if ((iDefRating > 0) && (pDefender->vitals().health() < pDefender->vitals().maximumHealth()))
@@ -10287,9 +10287,9 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	}
 
 	// if shooter is still in shock
-	if (pSoldier->aiData.bShock)
+	if (pSoldier->suppression().shock())
 	{
-		iChance -= (pSoldier->aiData.bShock * AIM_PENALTY_PER_SHOCK);
+		iChance -= (pSoldier->suppression().shock() * AIM_PENALTY_PER_SHOCK);
 	}
 
 	// calculate actual range (in world units)
@@ -11359,10 +11359,10 @@ FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// SHOCK (SHOOTER)
-	if (pSoldier->aiData.bShock)
+	if (pSoldier->suppression().shock())
 	{
 		FLOAT fTempPenalty = gGameCTHConstants.BASE_SHOCK;
-		FLOAT fShockPercentage = (FLOAT)(pSoldier->aiData.bShock * 100) / gGameExternalOptions.ubMaxSuppressionShock;
+		FLOAT fShockPercentage = (FLOAT)(pSoldier->suppression().shock() * 100) / gGameExternalOptions.ubMaxSuppressionShock;
 
 		fBaseModifier += (fTempPenalty * fShockPercentage) / 100;
 	}
@@ -11722,10 +11722,10 @@ FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// SHOCK (SHOOTER)
-	if (pSoldier->aiData.bShock)
+	if (pSoldier->suppression().shock())
 	{
 		FLOAT fTempPenalty = gGameCTHConstants.AIM_SHOCK;
-		FLOAT fShockPercentage = (FLOAT)(pSoldier->aiData.bShock * 100) / gGameExternalOptions.ubMaxSuppressionShock;
+		FLOAT fShockPercentage = (FLOAT)(pSoldier->suppression().shock() * 100) / gGameExternalOptions.ubMaxSuppressionShock;
 			fAimModifier += (fTempPenalty * fShockPercentage) / 100;
 	}
 		

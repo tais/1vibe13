@@ -7327,6 +7327,13 @@ int main( int, char** )
 		damageDisplay.activateAt(13, -9);
 		damageDisplay.counter() = 2;
 		damageDisplay.direction() = -1;
+		SoldierSuppressionComponent& suppression = soldier.suppression();
+		suppression.underFire() = 2;
+		suppression.shock() = 9;
+		suppression.addPoints(4);
+		suppression.addActionPointLoss(6);
+		suppression.suppressor() = SoldierID{ 8 };
+		suppression.markCloseCall();
 		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 		animationIntent.requestHeight( ANIM_CROUCH );
 		animationIntent.queueFacingAnimation( WALKING, 4 );
@@ -7445,6 +7452,15 @@ int main( int, char** )
 		       constSoldier.damageDisplay().offsetY() == -9 &&
 		       constSoldier.damageDisplay().direction() == -1,
 		       "soldier damage-display component owns floating-number presentation state" );
+		CHECK( constSoldier.suppression().active() &&
+		       constSoldier.suppression().underFire() == 2 &&
+		       constSoldier.suppression().shock() == 9 &&
+		       constSoldier.suppression().points() == 4 &&
+		       constSoldier.suppression().actionPointsLost() == 6 &&
+		       constSoldier.suppression().hasSuppressor() &&
+		       constSoldier.suppression().suppressor() == SoldierID{ 8 } &&
+		       constSoldier.suppression().closeCall(),
+		       "soldier suppression component owns hostile-fire reaction state" );
 		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
 		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       constSoldier.animationIntent().hasPendingAnimation() &&
@@ -7587,6 +7603,13 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == -9 &&
 		       copiedSoldier.damageDisplay().direction() == -1,
 		       "soldier copies retain their owned persistent damage-display state" );
+		CHECK( copiedSoldier.suppression().underFire() == 2 &&
+		       copiedSoldier.suppression().shock() == 9 &&
+		       copiedSoldier.suppression().points() == 4 &&
+		       copiedSoldier.suppression().actionPointsLost() == 6 &&
+		       copiedSoldier.suppression().suppressor() == SoldierID{ 8 } &&
+		       copiedSoldier.suppression().closeCall(),
+		       "soldier copies retain their owned persistent suppression state" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
 		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
@@ -7700,6 +7723,40 @@ int main( int, char** )
 		displayLifecycle.clear();
 		CHECK( !displayLifecycle.displaying() && displayLifecycle.counter() == 0,
 		       "damage-display lifecycle clears its active cursor atomically" );
+
+		SoldierSuppressionComponent suppressionLifecycle;
+		suppressionLifecycle.underFire() = 3;
+		suppressionLifecycle.shock() = 7;
+		suppressionLifecycle.recordBullet(SoldierID{ 7 });
+		suppressionLifecycle.addPoints(4);
+		suppressionLifecycle.addActionPointLoss(250);
+		suppressionLifecycle.addActionPointLoss(10);
+		suppressionLifecycle.markCloseCall();
+		CHECK( suppressionLifecycle.points() == 5 &&
+		       suppressionLifecycle.actionPointsLost() == 255 &&
+		       suppressionLifecycle.suppressor() == SoldierID{ 7 } &&
+		       suppressionLifecycle.closeCall(),
+		       "suppression transitions coordinate bullet attribution and clamp accumulated AP loss" );
+		suppressionLifecycle.clearCloseCall();
+		CHECK( !suppressionLifecycle.closeCall(),
+		       "suppression close-call feedback has an explicit clear transition" );
+		suppressionLifecycle.markCloseCall();
+		suppressionLifecycle.beginTurn();
+		CHECK( suppressionLifecycle.underFire() == 3 &&
+		       suppressionLifecycle.shock() == 7 &&
+		       suppressionLifecycle.points() == 0 &&
+		       suppressionLifecycle.actionPointsLost() == 0 &&
+		       suppressionLifecycle.suppressor() == SoldierID{ 7 } &&
+		       !suppressionLifecycle.closeCall(),
+		       "beginning a turn clears per-attack suppression without discarding aged reaction state or attribution" );
+		suppressionLifecycle.reset();
+		CHECK( suppressionLifecycle.underFire() == 0 &&
+		       suppressionLifecycle.shock() == 0 &&
+		       suppressionLifecycle.points() == 0 &&
+		       suppressionLifecycle.actionPointsLost() == 0 &&
+		       suppressionLifecycle.suppressor() == NOBODY &&
+		       !suppressionLifecycle.closeCall(),
+		       "suppression reset clears the complete hostile-fire reaction domain" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7779,6 +7836,13 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == 0 &&
 		       copiedSoldier.damageDisplay().direction() == 0,
 		       "soldier initialization resets the complete damage-display domain" );
+		CHECK( copiedSoldier.suppression().underFire() == 0 &&
+		       copiedSoldier.suppression().shock() == 0 &&
+		       copiedSoldier.suppression().points() == 0 &&
+		       copiedSoldier.suppression().actionPointsLost() == 0 &&
+		       copiedSoldier.suppression().suppressor() == NOBODY &&
+		       !copiedSoldier.suppression().closeCall(),
+		       "soldier initialization resets the complete suppression domain" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
 		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
@@ -7839,6 +7903,12 @@ int main( int, char** )
 		legacySoldier->sDamageX = 15;
 		legacySoldier->sDamageY = -8;
 		legacySoldier->bDamageDir = -1;
+		legacySoldier->bUnderFire = 2;
+		legacySoldier->bShock = 9;
+		legacySoldier->ubSuppressionPoints = 5;
+		legacySoldier->ubAPsLostToSuppression = 12;
+		legacySoldier->ubSuppressorID = 8;
+		legacySoldier->fCloseCall = TRUE;
 		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
 			legacySoldier->sSpreadLocations[i] = 22001 + i;
 
@@ -7871,6 +7941,13 @@ int main( int, char** )
 		       convertedSoldier.damageDisplay().offsetY() == -8 &&
 		       convertedSoldier.damageDisplay().direction() == -1,
 		       "v101 soldier conversion retains floating damage-display presentation state" );
+		CHECK( convertedSoldier.suppression().underFire() == 2 &&
+		       convertedSoldier.suppression().shock() == 9 &&
+		       convertedSoldier.suppression().points() == 5 &&
+		       convertedSoldier.suppression().actionPointsLost() == 12 &&
+		       convertedSoldier.suppression().suppressor() == SoldierID{ 8 } &&
+		       convertedSoldier.suppression().closeCall(),
+		       "v101 soldier conversion retains suppression and hostile-fire reaction state" );
 	}
 
 	{
@@ -8041,6 +8118,12 @@ int main( int, char** )
 		savedSoldier.damageDisplay().displayFlag() = 2;
 		savedSoldier.damageDisplay().counter() = 3;
 		savedSoldier.damageDisplay().direction() = -1;
+		savedSoldier.suppression().underFire() = 2;
+		savedSoldier.suppression().shock() = 10;
+		savedSoldier.suppression().addPoints(6);
+		savedSoldier.suppression().addActionPointLoss(13);
+		savedSoldier.suppression().suppressor() = SoldierID{ 14 };
+		savedSoldier.suppression().markCloseCall();
 		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
 		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
 		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
@@ -8187,6 +8270,14 @@ int main( int, char** )
 		       loadedSoldier.damageDisplay().offsetY() == -12 &&
 		       loadedSoldier.damageDisplay().direction() == -1,
 		       "soldier save/load round-trips damage-display state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.suppression().underFire() == 2 &&
+		       loadedSoldier.suppression().shock() == 10 &&
+		       loadedSoldier.suppression().points() == 6 &&
+		       loadedSoldier.suppression().actionPointsLost() == 13 &&
+		       loadedSoldier.suppression().suppressor() == SoldierID{ 14 } &&
+		       loadedSoldier.suppression().closeCall(),
+		       "soldier save/load round-trips suppression state at established AI, flag, and POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
 		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&

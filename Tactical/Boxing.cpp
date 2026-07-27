@@ -81,7 +81,7 @@ void ExitBoxing( void )
 					DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: exit boxing"));
 					CancelAIAction( pSoldier, TRUE );
 					pSoldier->aiData.bAlertStatus = STATUS_GREEN;
-					pSoldier->aiData.bUnderFire = 0;
+					pSoldier->suppression().underFire() = 0;
 
 					// HEADROCK HAM 3.6: Make sure all boxers' APs have been reset to a reasonable number. Otherwise,
                     // the AI combatant may fail several conditions in subsequent functions, and fail to leave the ring

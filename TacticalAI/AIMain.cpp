@@ -895,7 +895,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 
 			if ( OK_INSECTOR_MERC( pMerc ) )
 			{
-				if ( pMerc->flags.fCloseCall )
+				if ( pMerc->suppression().closeCall() )
 				{
 					if ( !gTacticalStatus.fSomeoneHit && pMerc->combatResult().hitsThisTurn() == 0 && !(pMerc->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
 					{
@@ -903,7 +903,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 						TacticalCharacterDialogue( pMerc, QUOTE_CLOSE_CALL );
 						pMerc->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
 					}
-					pMerc->flags.fCloseCall = FALSE;
+					pMerc->suppression().clearCloseCall();
 				}
 			}
 		}
@@ -2878,7 +2878,7 @@ void ManChecksOnFriends(SOLDIERTYPE *pSoldier)
 		if (SoldierToSoldierLineOfSightTest(pSoldier, pFriend, TRUE, CALC_FROM_ALL_DIRS))
 		{
 			// if my friend is in battle or something is clearly happening there
-			if ((pFriend->aiData.bAlertStatus >= STATUS_RED) || pFriend->aiData.bUnderFire || (pFriend->vitals().health() < OKLIFE))
+			if ((pFriend->aiData.bAlertStatus >= STATUS_RED) || pFriend->suppression().underFire() || (pFriend->vitals().health() < OKLIFE))
 			{
 #ifdef DEBUGDECISIONS
 				STR16 tempstr;

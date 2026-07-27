@@ -997,6 +997,12 @@ the engine must not contain SDL types in its public domain model.
   coordinates cannot become combat state. Accumulated damage deliberately
   remains simulation-owned because torso-hit and death rules inspect it before
   the number is rendered.
+  `SoldierSuppressionComponent` owns the complementary hostile-fire reaction:
+  under-fire aging, shock, per-attack suppression points, accumulated AP loss,
+  suppressor identity, and close-call feedback. Combat, AI, turn handling, and
+  explosion paths now share this single owner, with named operations coupling
+  bullet attribution and bounded AP loss while preserving the established
+  point-accumulation behavior.
   Animation transition requests
   now follow the same rule through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,

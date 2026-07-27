@@ -6225,7 +6225,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	{
 		if( pSoldier->bActionPoints >0 )
 		{
-			//dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( pSoldier->bActionPoints + pSoldier->ubAPsLostToSuppression + pSoldier->u);
+			//dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( pSoldier->bActionPoints + pSoldier->suppression().actionPointsLost() + pSoldier->u);
 			dPercentage = (FLOAT)pSoldier->bActionPoints / (FLOAT) ( pSoldier->bInitialActionPoints);
 			dWidth = dPercentage * iBarWidth;
 			dWidth = __min (dWidth, iBarWidth);

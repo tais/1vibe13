@@ -1395,9 +1395,9 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		// print current ubSuppressionPoints counter
 		if( gGameExternalOptions.ubShowSuppressionCountAlt && pSoldier->vitals().health() >= OKLIFE )
 		{                               
-			if( pSoldier->ubSuppressionPoints >0 )
+			if( pSoldier->suppression().points() >0 )
 			{
-				PrintCounter( sSuppressionX, sSuppressionY, pSoldier->ubSuppressionPoints, widthSuppression, FONT_MCOLOR_LTGRAY,
+				PrintCounter( sSuppressionX, sSuppressionY, pSoldier->suppression().points(), widthSuppression, FONT_MCOLOR_LTGRAY,
 					gGameExternalOptions.ubShowSuppressionUseAsterisks ? PRINT_SCALE_ASTERISK_SUPPRESSION : PRINT_SCALE_PLAIN_NUMBER );
 			}
 		}

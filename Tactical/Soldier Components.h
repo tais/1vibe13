@@ -339,6 +339,45 @@ private:
 	INT16 accumulatedDamage_ = 0;
 };
 
+// Canonical reaction to hostile fire. This state is consumed by both combat
+// rules and AI decisions, so it is independent of generic AI scratch and
+// presentation-only feedback from the most recent attack.
+class SoldierSuppressionComponent
+{
+public:
+	INT8& underFire() noexcept { return underFire_; }
+	const INT8& underFire() const noexcept { return underFire_; }
+	INT8& shock() noexcept { return shock_; }
+	const INT8& shock() const noexcept { return shock_; }
+	UINT8& points() noexcept { return points_; }
+	const UINT8& points() const noexcept { return points_; }
+	UINT8& actionPointsLost() noexcept { return actionPointsLost_; }
+	const UINT8& actionPointsLost() const noexcept { return actionPointsLost_; }
+	SoldierID& suppressor() noexcept { return suppressor_; }
+	const SoldierID& suppressor() const noexcept { return suppressor_; }
+	INT8& closeCall() noexcept { return closeCall_; }
+	const INT8& closeCall() const noexcept { return closeCall_; }
+
+	bool active() const noexcept { return points_ != 0; }
+	bool hasSuppressor() const noexcept { return suppressor_ != NOBODY; }
+	void addPoints(UINT16 amount) noexcept;
+	void recordBullet(SoldierID suppressor) noexcept;
+	void addActionPointLoss(UINT16 amount) noexcept;
+	void markCloseCall() noexcept { closeCall_ = TRUE; }
+	void clearCloseCall() noexcept { closeCall_ = FALSE; }
+	void clearAttackPoints() noexcept { points_ = 0; }
+	void beginTurn() noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 underFire_ = 0;
+	INT8 shock_ = 0;
+	UINT8 points_ = 0;
+	UINT8 actionPointsLost_ = 0;
+	SoldierID suppressor_ = NOBODY;
+	INT8 closeCall_ = FALSE;
+};
+
 // Presentation payload for the floating tactical damage number. Simulation
 // damage and attribution stay in SoldierCombatResultComponent; this state only
 // tracks the animation cursor, screen offset, and display direction.

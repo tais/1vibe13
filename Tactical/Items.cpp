@@ -11975,7 +11975,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 			bonus < 100 )
 		{
 			// Calculates a "Flat" tunnel vision percentage
-			UINT8 ubNormalCoweringTunnelVision = (100 * pSoldier->aiData.bShock) / gGameExternalOptions.ubMaxSuppressionShock;
+			UINT8 ubNormalCoweringTunnelVision = (100 * pSoldier->suppression().shock()) / gGameExternalOptions.ubMaxSuppressionShock;
 
 			// Apply that percentage to the current tunnel vision
 			UINT16 usActualCoweringTunnelVision = bonus + (((100-bonus) * ubNormalCoweringTunnelVision) / 100);

@@ -317,7 +317,12 @@ history operations preserve killer and assister attribution as one transition.
 `SoldierDamageDisplayComponent` separately owns the floating-number cursor,
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render
-coordinates cannot leak into those rules. The
+coordinates cannot leak into those rules.
+`SoldierSuppressionComponent` owns under-fire aging, shock, per-attack
+suppression points, accumulated AP loss, suppressor identity, and close-call
+feedback. Combat, tactical AI, explosions, and turn transitions use the same
+hostile-fire boundary; named operations coordinate bullet attribution and
+clamp AP loss without changing the established suppression-point behavior. The
 `SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
@@ -333,7 +338,7 @@ allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
 to its canonical slot. The serializer keeps targeting, attack selection,
 fire-control, incoming combat results, damage-display presentation, and
-persistent animation values at their established byte positions and preserves
+suppression reaction state at their established byte positions and preserves
 both continuation mode `2` and hit phase `2` as 8-bit values rather than
 reducing them to boolean `1`. The retired cache-pointer
 visitors emitted no bytes; load now resets the inline cache directly. The
