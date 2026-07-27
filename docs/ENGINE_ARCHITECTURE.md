@@ -783,10 +783,12 @@ the engine must not contain SDL types in its public domain model.
   memory. These domains have also retired every implicit
   `SoldierID`-to-pointer conversion: lookups name the repository explicitly,
   and their targets compile with those legacy conversion operators deleted so
-  a regression fails at the call site. The Tactical gameplay library is the
-  remaining broad migration domain. The backing allocation, numeric slots,
-  save byte sequence, map records, Lua values, network packets, and mod data
-  remain unchanged.
+  a regression fails at the call site. The same ratchet now covers a coherent
+  Tactical control/UI cut: input routing, team turns, dialogue, planning,
+  interface control, panels, and item interaction. Tactical lifecycle,
+  animation, and combat implementations remain the outstanding migration
+  domain. The backing allocation, numeric slots, save byte sequence, map
+  records, Lua values, network packets, and mod data remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

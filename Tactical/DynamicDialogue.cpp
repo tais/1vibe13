@@ -27,6 +27,7 @@
 #include "connect.h"
 #include "Campaign.h"
 #include "Points.h"
+#include "SoldierRepository.h"
 
 #ifndef JA2UB
 #include "Meanwhile.h"
@@ -240,8 +241,12 @@ INT8	SoldierRelation( UINT8 usProfileA, UINT8 usProfileB )
 	if ( idA < 0 || idB < 0 )
 		return 0;
 
-	SOLDIERTYPE* pSoldierA = MercPtrs[idA];
-	SOLDIERTYPE* pSoldierB = MercPtrs[idB];
+	SOLDIERTYPE* pSoldierA =
+		GetJa2SoldierRepository().resolve(
+			static_cast<UINT16>(idA));
+	SOLDIERTYPE* pSoldierB =
+		GetJa2SoldierRepository().resolve(
+			static_cast<UINT16>(idB));
 
 	if ( !pSoldierA || !pSoldierB )
 		return 0;
@@ -487,7 +492,11 @@ void CreateSpeechEventsFromDynamicOpinionEvent( DynamicOpinionSpeechEvent aEvent
 				INT16 idInterjector = GetSoldierIDFromMercID( aEvent.data.ubProfileINTERJECTOR );
 				if ( idInterjector != NOBODY && idInterjector >= 0 )
 				{
-					if ( MercPtrs[idInterjector]->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+					SOLDIERTYPE* interjector =
+						GetJa2SoldierRepository().resolve(
+							static_cast<UINT16>(idInterjector));
+					if ( interjector &&
+						interjector->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
 						fIsImp = TRUE;
 
 					// if it's an IMP, we have a choice, otherwise pick one answer randomly
@@ -1260,10 +1269,14 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 
 			INT16 idA = GetSoldierIDFromMercID( usProfileA );
 
-			if ( idA >= 0 && MercPtrs[idA] )
+			SOLDIERTYPE* soldierA = idA >= 0
+				? GetJa2SoldierRepository().resolve(
+					static_cast<UINT16>(idA))
+				: NULL;
+			if ( soldierA )
 			{
-				opinionevent.usSector = SECTOR( MercPtrs[idA]->sSectorX, MercPtrs[idA]->sSectorY );
-
+				opinionevent.usSector =
+					SECTOR( soldierA->sSectorX, soldierA->sSectorY );
 				AddDynamicOpinionEvent_New( opinionevent );
 			}
 		}
@@ -1639,7 +1652,12 @@ void HandleDynamicOpinionsDailyRefresh( )
 	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		SOLDIERTYPE* pSoldier = bMercID;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
 			 !(pSoldier->bAssignment == IN_TRANSIT || AM_A_ROBOT(pSoldier) ||
 			 pSoldier->bAssignment == ASSIGNMENT_DEAD) )
@@ -1692,7 +1710,12 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 	bOtherID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 	for ( ; bOtherID <= bLastTeamID; ++bOtherID )
 	{
-		pOtherSoldier = bOtherID;
+		pOtherSoldier =
+			GetJa2SoldierRepository().resolve(bOtherID.i);
+		if (!pOtherSoldier)
+		{
+			continue;
+		}
 		// skip past ourselves and all inactive mercs
 		if ( bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
 			 !(pOtherSoldier->bAssignment == IN_TRANSIT ||
@@ -1708,7 +1731,12 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 				bThirdID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 				for ( ; bThirdID <= bLastTeamID; ++bThirdID )
 				{
-					pThirdSoldier = bThirdID;
+					pThirdSoldier =
+						GetJa2SoldierRepository().resolve(bThirdID.i);
+					if (!pThirdSoldier)
+					{
+						continue;
+					}
 					// skip past ourselves and all inactive mercs
 					if ( bThirdID != bMercID && bThirdID != bOtherID && pThirdSoldier->bActive && pThirdSoldier->ubProfile != NO_PROFILE &&
 						 !(pThirdSoldier->bAssignment == IN_TRANSIT ||
@@ -1738,7 +1766,13 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 		INT16 id = GetSoldierIDFromMercID( usProfile );
 		if ( id > -1 )
 		{
-			SOLDIERTYPE* pSoldierWhoGotPaid = MercPtrs[id];
+			SOLDIERTYPE* pSoldierWhoGotPaid =
+				GetJa2SoldierRepository().resolve(
+					static_cast<UINT16>(id));
+			if (!pSoldierWhoGotPaid)
+			{
+				return;
+			}
 
 			// only for AIM mercs
 			if ( pSoldierWhoGotPaid->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
@@ -1758,7 +1792,12 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 			SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 			for ( ; bMercID <= bLastTeamID; ++bMercID )
 			{
-				SOLDIERTYPE *pSoldier = bMercID;
+				SOLDIERTYPE *pSoldier =
+					GetJa2SoldierRepository().resolve(bMercID.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 				if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->ubProfile != usProfile &&
 					 !(pSoldier->bAssignment == IN_TRANSIT ||
 					 pSoldier->bAssignment == ASSIGNMENT_DEAD) )
@@ -1791,6 +1830,13 @@ void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon )
 
 	if ( leaderid != NOBODY )
 	{
+		SOLDIERTYPE* leader =
+			GetJa2SoldierRepository().resolve(leaderid);
+		if (!leader)
+		{
+			return;
+		}
+
 		// while it would be logical to also take civilian losses into account, this would lead to mercs always disapproving engaging hostile civilain factions like Kingpin and the Hicks
 		for ( UINT16 i = 0; i < CAMPAIGNHISTORY_SD_CIV; ++i )
 		{
@@ -1812,7 +1858,7 @@ void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon )
 		// if we've taken more losses than the enemy, our mercs will complain - even if we won. Our mercs don't seem to like phyrric victories...
 		if ( ourlosses > enemylosses && ourlosses > 75 )
 		{
-			HandleDynamicOpinionChange( MercPtrs[leaderid], OPINIONEVENT_WORSTCOMMANDEREVER, TRUE, TRUE );
+			HandleDynamicOpinionChange( leader, OPINIONEVENT_WORSTCOMMANDEREVER, TRUE, TRUE );
 		}
 		else
 		{
@@ -1823,7 +1869,7 @@ void HandleDynamicOpinionBattleFinished( BOOLEAN fBattleWon )
 			// the enemy patrol was of significant size (this is supposed to be given for huge battles only)
 			if ( fBattleWon && 2 * oursidesize < enemysidesize && 4 * ourlosses < enemylosses && enemylosses > 10 * gGameExternalOptions.iMaxEnemyGroupSize )
 			{
-				HandleDynamicOpinionChange( MercPtrs[leaderid], OPINIONEVENT_BESTCOMMANDEREVER, TRUE, TRUE );
+				HandleDynamicOpinionChange( leader, OPINIONEVENT_BESTCOMMANDEREVER, TRUE, TRUE );
 			}
 		}
 	}
@@ -1838,7 +1884,12 @@ void HandleDynamicOpinionRetreat( )
 	// we've found someone competent. Let's all blame him for this disaster!
 	if ( impid != NOBODY )
 	{
-		HandleDynamicOpinionChange( MercPtrs[impid], OPINIONEVENT_ORDEREDRETREAT, TRUE, TRUE );
+		SOLDIERTYPE* leader =
+			GetJa2SoldierRepository().resolve(impid);
+		if (leader)
+		{
+			HandleDynamicOpinionChange( leader, OPINIONEVENT_ORDEREDRETREAT, TRUE, TRUE );
+		}
 	}
 }
 
@@ -1852,7 +1903,12 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 	SoldierID	bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID)
 	{
-		SOLDIERTYPE* pTeamSoldier = bMercID;
+		SOLDIERTYPE* pTeamSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// everybody other merc in the same sector can get updated if they are drugged too
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
 			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
@@ -1911,7 +1967,12 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 	SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID)
 	{
-		SOLDIERTYPE* pTeamSoldier = bMercID;
+		SOLDIERTYPE* pTeamSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// award event for every trainer in this sector
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
 			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
@@ -1953,7 +2014,12 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		SOLDIERTYPE* pSoldier = bMercID;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		// everybody other merc in the same sector gets annoyed
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
 			 pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && pSoldier->bSectorZ == sZ &&
@@ -1980,7 +2046,12 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 	SoldierID				bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pTeamSoldier = bMercID;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// everybody other merc in the same sector gets annoyed
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE &&
 			 pTeamSoldier->sSectorX == sX && pTeamSoldier->sSectorY == sY && pTeamSoldier->bSectorZ == sZ &&
@@ -2013,8 +2084,10 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	if ( idVictim == NOBODY || idCause == NOBODY )
 		return NO_PROFILE;
 
-	SOLDIERTYPE* pSoldierVictim = idVictim;
-	SOLDIERTYPE* pSoldierCause = idCause;
+	SOLDIERTYPE* pSoldierVictim =
+		GetJa2SoldierRepository().resolve(idVictim.i);
+	SOLDIERTYPE* pSoldierCause =
+		GetJa2SoldierRepository().resolve(idCause.i);
 
 	if ( !pSoldierVictim || !pSoldierCause )
 		return NO_PROFILE;
@@ -2027,7 +2100,12 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	SoldierID				bLastTeamID = gTacticalStatus.Team[pSoldierVictim->bTeam].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pTeamSoldier = bMercID;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// only people that are here
 		if ( !pTeamSoldier->bActive || pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD || pTeamSoldier->bAssignment == ASSIGNMENT_POW || pTeamSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pTeamSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND )
 			continue;
@@ -2167,7 +2245,12 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 	SoldierID				bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
-		pTeamSoldier = bMercID;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(bMercID.i);
+		if (!pTeamSoldier)
+		{
+			continue;
+		}
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&

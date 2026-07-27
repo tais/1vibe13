@@ -75,6 +75,7 @@
 #include "TeamTurns.h"
 #include "Simulation Commands.h"
 #include "TacticalEntityHost.h"
+#include "SoldierRepository.h"
 #include <cstdint>
 #include "Map Screen Interface.h"	// added by Flugente for SquadNames
 #include "Keys.h"	// added by silversurfer for door handling from the side
@@ -1055,7 +1056,11 @@ void SetUIMouseCursor( )
 
 			if( GetMouseMapPos( &usMapPos) )
 			{
-				if ( gusSelectedSoldier != NOBODY && gusSelectedSoldier->position().level() == 0 )
+				SOLDIERTYPE* selectedSoldier =
+					GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i);
+				if ( selectedSoldier &&
+					selectedSoldier->position().level() == 0 )
 				{
 					// ATE: Is this place revealed?
 					if ( !InARoom( usMapPos, &usRoomNum ) || ( InARoom( usMapPos, &usRoomNum ) && gpWorldLevelData[ usMapPos ].uiFlags & MAPELEMENT_REVEALED ) )
@@ -1466,7 +1471,12 @@ UINT32 UIHandleEndTurn( UI_EVENT *pUIEvent )
 
 				for ( ; tcnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++tcnt )
 				{
-					tS = tcnt;
+					tS =
+						GetJa2SoldierRepository().resolve(tcnt.i);
+					if (!tS)
+					{
+						continue;
+					}
 					if ( tS->vitals().health() >= OKLIFE && tS->position().gridNo() != NOWHERE && tS->bInSector )
 					{
 						//loop through all the gridnos that we are interested in
@@ -2012,8 +2022,13 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 				// Are we over a guy?
 				if ( gfUIFullTargetFound )
 				{
+					SOLDIERTYPE* target =
+						GetJa2SoldierRepository().resolve(
+							gusUIFullTargetID.i);
 					// No, ok display message IF this is the first time at this gridno
-					if ( gsOutOfRangeGridNo != gusUIFullTargetID->position().gridNo() || gubOutOfRangeMerc != gusSelectedSoldier )
+					if ( target &&
+						(gsOutOfRangeGridNo != target->position().gridNo() ||
+						 gubOutOfRangeMerc != gusSelectedSoldier) )
 					{
 						// Display
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ OUT_OF_RANGE_STRING ] );
@@ -2021,7 +2036,7 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 						//PlayJA2Sample( TARGET_OUT_OF_RANGE, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 
 						// Set
-						gsOutOfRangeGridNo = gusUIFullTargetID->position().gridNo();
+						gsOutOfRangeGridNo = target->position().gridNo();
 						gubOutOfRangeMerc	= gusSelectedSoldier;
 					}
 				}
@@ -2115,7 +2130,7 @@ UINT32 UIHandleCWait( UI_EVENT *pUIEvent )
 	{
 		if( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
 		{
-			pSoldier = GetSoldierStructureForVehicle( gusSelectedSoldier->iVehicleId );
+			pSoldier = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
 		}
 
 		pInvTile = GetCurInteractiveTile( );
@@ -2205,7 +2220,12 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 			// TODO: Only our squad!
 			for (bLoop=gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop )
 			{
-				pSoldier = bLoop;
+				pSoldier =
+					GetJa2SoldierRepository().resolve(bLoop.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->bAssignment == CurrentSquad( ) && !pSoldier->flags.fMercAsleep )
 				{
 					// If we can't be controlled, returninvalid...
@@ -3072,7 +3092,9 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 			if ( gfUIFullTargetFound )
 			{
 				// Get target soldier, if one exists
-				pTSoldier = gusUIFullTargetID;
+				pTSoldier =
+					GetJa2SoldierRepository().resolve(
+						gusUIFullTargetID.i);
 			}
 
 			if ( pTSoldier != NULL )
@@ -3820,7 +3842,13 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 						// anv: don't switch if passengers are blocked from attacking
 						if( gusSelectedSoldier != NOBODY )
 						{
-							SOLDIERTYPE *pSelectedSoldier = gusSelectedSoldier;
+							SOLDIERTYPE *pSelectedSoldier =
+								GetJa2SoldierRepository().resolve(
+									gusSelectedSoldier.i);
+							if (!pSelectedSoldier)
+							{
+								return FALSE;
+							}
 							if( pSelectedSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 							{
 								SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSelectedSoldier->iVehicleId );
@@ -3915,7 +3943,12 @@ UINT32 UIHandleIETOnTerrain( UI_EVENT *pUIEvent )
 
 void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 {
-	SOLDIERTYPE *pSoldier = ubSoldierID;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
+	if (!pSoldier)
+	{
+		return;
+	}
 
 	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
@@ -4435,12 +4468,16 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		{
 			INT32 sNewGridNo;
 			UINT8	ubDirection;
-
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, MercPtrs[ ubMercID ] );
-			
-			if (!TileIsOutOfBounds(sNewGridNo))
+			SOLDIERTYPE* repairTarget =
+				GetJa2SoldierRepository().resolve(ubMercID);
+			if (repairTarget)
 			{
-				usMapPos = sNewGridNo;
+				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, repairTarget );
+
+				if (!TileIsOutOfBounds(sNewGridNo))
+				{
+					usMapPos = sNewGridNo;
+				}
 			}
 		}
 
@@ -4471,12 +4508,16 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		{
 			INT32 sNewGridNo;
 			UINT8	ubDirection;
-
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, MercPtrs[ ubMercID ] );
-			
-			if (!TileIsOutOfBounds(sNewGridNo))
+			SOLDIERTYPE* refuelTarget =
+				GetJa2SoldierRepository().resolve(ubMercID);
+			if (refuelTarget)
 			{
-				usMapPos = sNewGridNo;
+				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, refuelTarget );
+
+				if (!TileIsOutOfBounds(sNewGridNo))
+				{
+					usMapPos = sNewGridNo;
+				}
 			}
 		}
 
@@ -4644,7 +4685,14 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		// Check if we are on a target
 		if ( gfUIFullTargetFound )
 		{
-			sActionGridNo =	FindAdjacentGridEx( pSoldier, gusUIFullTargetID->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+			SOLDIERTYPE* target =
+				GetJa2SoldierRepository().resolve(
+					gusUIFullTargetID.i);
+			if (!target)
+			{
+				return bReturnCode;
+			}
+			sActionGridNo =	FindAdjacentGridEx( pSoldier, target->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 			if ( sActionGridNo == -1 )
 			{
 				sActionGridNo = sAdjustedGridNo;
@@ -4652,7 +4700,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 			/////////////////////////////////////////////////////////////////////////////////////////
 			// CHANGED BY SANDRO - REDUCE AP COST TO STEAL FOR MARTIAL ARTS AND HAND TO HAND NEW TRAITS
-			if (gusUIFullTargetID->bCollapsed && gGameExternalOptions.fEnhancedCloseCombatSystem)
+			if (target->bCollapsed && gGameExternalOptions.fEnhancedCloseCombatSystem)
 			{
 				sAPCost += (GetBasicAPsToPickupItem( pSoldier )); // stealing from collapsed soldiers is treated differently
 			}
@@ -4697,7 +4745,14 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			sActionGridNo =	FindAdjacentGridEx( pSoldier, gusUIFullTargetID->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+			SOLDIERTYPE* target =
+				GetJa2SoldierRepository().resolve(
+					gusUIFullTargetID.i);
+			if (!target)
+			{
+				return bReturnCode;
+			}
+			sActionGridNo =	FindAdjacentGridEx( pSoldier, target->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
 			if (!TileIsOutOfBounds(sActionGridNo))
 			{
@@ -4829,6 +4884,10 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	{
 		return( FALSE );
 	}
+	SOLDIERTYPE* fullTarget = gfUIFullTargetFound
+		? GetJa2SoldierRepository().resolve(
+			gusUIFullTargetID.i)
+		: NULL;
 
 	// LOOK IN GUY'S HAND TO CHECK LOCATION
 	usInHand = pSoldier->inv[HANDPOS].usItem;
@@ -4869,7 +4928,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			usMapPos = gusUIFullTargetID->position().gridNo();
+			if (!fullTarget)
+				return FALSE;
+			usMapPos = fullTarget->position().gridNo();
 		}
 
 		if ( IsRepairableStructAtGridNo( usMapPos, NULL ) && pSoldier->position().level() == 0 )
@@ -4886,7 +4947,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			usMapPos = gusUIFullTargetID->position().gridNo();
+			if (!fullTarget)
+				return FALSE;
+			usMapPos = fullTarget->position().gridNo();
 		}
 
 		if ( IsRefuelableStructAtGridNo( usMapPos, NULL ) && pSoldier->position().level() == 0 )
@@ -4903,7 +4966,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			usMapPos = gusUIFullTargetID->position().gridNo();
+			if (!fullTarget)
+				return FALSE;
+			usMapPos = fullTarget->position().gridNo();
 		}
 
 		if ( pSoldier->position().level() == 0 )
@@ -4930,7 +4995,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			usMapPos = gusUIFullTargetID->position().gridNo();
+			if (!fullTarget)
+				return FALSE;
+			usMapPos = fullTarget->position().gridNo();
 		}
 
 		UINT16 structindex;
@@ -4949,7 +5016,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		{
 			if ( gfUIFullTargetFound )
 			{
-				usMapPos = gusUIFullTargetID->position().gridNo();
+				if (!fullTarget)
+					return FALSE;
+				usMapPos = fullTarget->position().gridNo();
 
 				return( TRUE );
 			}
@@ -4972,7 +5041,8 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		{
 			if ( gfUIFullTargetFound )
 			{
-				if ( pSoldier->ubID != gusUIFullTargetID && gusUIFullTargetID->IsValidBloodDonor() )
+				if ( pSoldier->ubID != gusUIFullTargetID &&
+					fullTarget && fullTarget->IsValidBloodDonor() )
 					return( TRUE );
 			}
 		}
@@ -4986,7 +5056,8 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		{
 			if ( gfUIFullTargetFound )
 			{
-				if ( pSoldier->ubID != gusUIFullTargetID && gusUIFullTargetID->CanReceiveSplint() )
+				if ( pSoldier->ubID != gusUIFullTargetID &&
+					fullTarget && fullTarget->CanReceiveSplint() )
 					return( TRUE );
 			}
 		}
@@ -5000,7 +5071,9 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		{
 			if ( gfUIFullTargetFound )
 			{
-				usMapPos = gusUIFullTargetID->position().gridNo();
+				if (!fullTarget)
+					return FALSE;
+				usMapPos = fullTarget->position().gridNo();
 
 				return( TRUE );
 			}
@@ -5023,7 +5096,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 	}
 
 	// SEE IF THERE IS SOMEBODY HERE
-	if ( gfUIFullTargetFound && ubItemCursor != KNIFECURS )
+	if ( fullTarget && ubItemCursor != KNIFECURS )
 	{
 		fGuyHere = TRUE;
 
@@ -5054,7 +5127,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		}
 
 		// IF a guy's here, chack if they need medical help!
-		pTSoldier = gusUIFullTargetID;
+		pTSoldier = fullTarget;
 
 		// If we are a vehicle...
 		if ( ( pTSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT ) ) )
@@ -5612,7 +5685,11 @@ UINT32 UIHandleLCLook( UI_EVENT *pUIEvent )
 		cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+			if (!pSoldier)
+			{
+				continue;
+			}
 			if ( pSoldier->bActive && pSoldier->bInSector )
 			{
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -5681,7 +5758,16 @@ UINT32 UIHandleTOnTerrain( UI_EVENT *pUIEvent )
 	// Get distance away
 	if ( fValidTalkableGuy )
 	{
-		sTargetGridNo = ubTargID->position().gridNo();
+		SOLDIERTYPE* target =
+			GetJa2SoldierRepository().resolve(ubTargID.i);
+		if (target)
+		{
+			sTargetGridNo = target->position().gridNo();
+		}
+		else
+		{
+			fValidTalkableGuy = FALSE;
+		}
 	}
 
 	uiRange = PythSpacesAway( pSoldier->position().gridNo(), sTargetGridNo );
@@ -5931,7 +6017,11 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -5985,7 +6075,11 @@ BOOLEAN StopRubberBandedMercFromMoving(void)
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -6033,7 +6127,11 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -6057,7 +6155,11 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -6078,7 +6180,11 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -6164,7 +6270,8 @@ void ResetMultiSelection( )
 	SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		SOLDIERTYPE *pSoldier = cnt;
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
 			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -6216,7 +6323,11 @@ UINT32 UIHandleRubberBandOnTerrain( UI_EVENT *pUIEvent )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		// Check if this guy is OK to control....
 		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 		{
@@ -6245,7 +6356,11 @@ UINT32 UIHandleRubberBandOnTerrain( UI_EVENT *pUIEvent )
 	cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
+		if (!pSoldier)
+		{
+			continue;
+		}
 		// Check if this guy is OK to control....
 		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 		{
@@ -6444,12 +6559,20 @@ BOOLEAN IsValidTalkableNPCFromMouse( SoldierID *pubSoldierID, BOOLEAN fGive, BOO
 
 BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllowMercs, BOOLEAN fCheckCollapsed )
 {
-	SOLDIERTYPE *pSoldier = ubSoldierID;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 	BOOLEAN			fValidGuy = FALSE;
+	if (!pSoldier)
+	{
+		return FALSE;
+	}
 
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		if ( AM_A_ROBOT( gusSelectedSoldier ) )
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(
+				gusSelectedSoldier.i);
+		if ( !selectedSoldier || AM_A_ROBOT( selectedSoldier ) )
 		{
 			return( FALSE );
 		}
@@ -6857,8 +6980,11 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 		// unless we are over our own vehicle, then we can call vehicle menu
 		if( gfUIFullTargetFound )
 		{
-			pTSoldier = gusUIFullTargetID;
-			if( pSoldier->iVehicleId == pTSoldier->bVehicleID )
+			pTSoldier =
+				GetJa2SoldierRepository().resolve(
+					gusUIFullTargetID.i);
+			if( pTSoldier &&
+				pSoldier->iVehicleId == pTSoldier->bVehicleID )
 			{
 				guiNewUICursor = ENTER_VEHICLE_UICURSOR;
 				return( 1 );
@@ -6870,7 +6996,13 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 
 	if ( gfUIFullTargetFound	)
 	{
-		pTSoldier = gusUIFullTargetID;
+		pTSoldier =
+			GetJa2SoldierRepository().resolve(
+				gusUIFullTargetID.i);
+		if (!pTSoldier)
+		{
+			return 0;
+		}
 
 		// anv: added condition - make sure we won't put vehicle in another vehicle
 		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->bVisible != -1 && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
@@ -7108,7 +7240,13 @@ BOOLEAN SelectedGuyInBusyAnimation( )
 
 	if ( gusSelectedSoldier != NOBODY )
 	{
-		pSoldier = gusSelectedSoldier;
+		pSoldier =
+			GetJa2SoldierRepository().resolve(
+				gusSelectedSoldier.i);
+		if (!pSoldier)
+		{
+			return FALSE;
+		}
 
 		if ( pSoldier->usAnimState == LOB_ITEM ||
 			pSoldier->usAnimState == THROW_ITEM ||
@@ -7269,7 +7407,13 @@ BOOLEAN ValidQuickExchangePosition( )
 	// Check if we over a civ
 	if ( gfUIFullTargetFound )
 	{
-		pOverSoldier = gusUIFullTargetID;
+		pOverSoldier =
+			GetJa2SoldierRepository().resolve(
+				gusUIFullTargetID.i);
+		if (!pOverSoldier)
+		{
+			return FALSE;
+		}
 
 		//KM: Replaced this older if statement for the new one which allows exchanging with militia
 		//if ( ( pOverSoldier->bSide != gbPlayerNum ) && pOverSoldier->aiData.bNeutral	)
@@ -7393,7 +7537,7 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 					//
 					//ubGuyThere = WhoIsThere2( sIntSpot, pSoldier->position().level() );
 					// Is there a guy and is he prone?
-					//if ( ubGuyThere != NOBODY && ubGuyThere != pSoldier->ubID && gAnimControl[ MercPtrs[ ubGuyThere ]->usAnimState ].ubHeight == ANIM_PRONE )
+					//if ( ubGuyThere != NOBODY && ubGuyThere != pSoldier->ubID && the other soldier is prone )
 					//{
 					//	// It's a GO!
 					//	return( TRUE );
@@ -7441,7 +7585,11 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 					ubGuyThere = WhoIsThere2( sInBetween, pSoldier->position().level() );
 					if ( ubGuyThere != NOBODY && ubGuyThere != pSoldier->ubID )
 					{
-						if ( gAnimControl[ ubGuyThere->usAnimState ].ubHeight != ANIM_PRONE )
+						SOLDIERTYPE* blockingSoldier =
+							GetJa2SoldierRepository().resolve(
+								ubGuyThere.i);
+						if ( !blockingSoldier ||
+							gAnimControl[ blockingSoldier->usAnimState ].ubHeight != ANIM_PRONE )
 						{
 							return( FALSE );
 						}
@@ -7515,12 +7663,24 @@ BOOLEAN IsValidJumpLocation( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fChec
 
 						// If there's a guy on any of the two middle tiles, and he's not prone, we can't jump over him
 						ubGuyThere = WhoIsThere2( sInBetween, pSoldier->position().level() );
-						if ( ubGuyThere != NOBODY && ubGuyThere != pSoldier->ubID && gAnimControl[ ubGuyThere->usAnimState ].ubHeight != ANIM_PRONE )
+						SOLDIERTYPE* firstBlockingSoldier =
+							GetJa2SoldierRepository().resolve(
+								ubGuyThere.i);
+						if ( ubGuyThere != NOBODY &&
+							ubGuyThere != pSoldier->ubID &&
+							(!firstBlockingSoldier ||
+							 gAnimControl[ firstBlockingSoldier->usAnimState ].ubHeight != ANIM_PRONE) )
 						{
 							return( FALSE );
 						}
 						ubGuyThere = WhoIsThere2( sInBetween2, pSoldier->position().level() );
-						if ( ubGuyThere != NOBODY && ubGuyThere != pSoldier->ubID && gAnimControl[ ubGuyThere->usAnimState ].ubHeight != ANIM_PRONE )
+						SOLDIERTYPE* secondBlockingSoldier =
+							GetJa2SoldierRepository().resolve(
+								ubGuyThere.i);
+						if ( ubGuyThere != NOBODY &&
+							ubGuyThere != pSoldier->ubID &&
+							(!secondBlockingSoldier ||
+							 gAnimControl[ secondBlockingSoldier->usAnimState ].ubHeight != ANIM_PRONE) )
 						{
 							return( FALSE );
 						}

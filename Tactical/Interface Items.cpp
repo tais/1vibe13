@@ -23,6 +23,7 @@
 	#include "Interface Panels.h"
 	#include "Animation Control.h"
 	#include "Soldier Control.h"
+	#include "SoldierRepository.h"
 	#include "PATHAI.H"
 	#include "Weapons.h"
 	#include "lighting.h"
@@ -2357,7 +2358,15 @@ void addAmmoToPocketPopup( SOLDIERTYPE *pSoldier, INT16 sPocket, POPUP* popup )
 }
 
 POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
-	SOLDIERTYPE* pSelectedSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+	SOLDIERTYPE* pSelectedSoldier =
+		bSelectedInfoChar >= 0
+			? GetJa2SoldierRepository().resolve(
+				gCharactersList[bSelectedInfoChar].usSolID.i)
+			: nullptr;
+	if (!pSelectedSoldier)
+	{
+		return NULL;
+	}
 
 	if(	!(	
 		guiCurrentItemDescriptionScreen == MAP_SCREEN 
@@ -3544,7 +3553,12 @@ void DegradeNewlyAddedItems( )
 			// GET SOLDIER
 			if ( gTeamPanel[ cnt2 ].fOccupied )
 			{
-				pSoldier = gTeamPanel[ cnt2 ].ubID;
+				pSoldier = GetJa2SoldierRepository().resolve(
+					gTeamPanel[ cnt2 ].ubID.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 
 				UINT32 invsize = pSoldier->inv.size();
 				for ( UINT32 cnt = 0; cnt < invsize; ++cnt )
@@ -4430,7 +4444,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 		return;
 	}
 
-	pVehicle = GetSoldierStructureForVehicle ( pSoldier->ubID->iVehicleId );
+	pVehicle = GetSoldierStructureForVehicle ( pSoldier->iVehicleId );
 
 	if ( pVehicle == NULL )
 	{
@@ -5860,10 +5874,15 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 					}
 				}
 				BOOLEAN showAttachmentPopups = FALSE;
-				SOLDIERTYPE* pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+				SOLDIERTYPE* pSoldier =
+					bSelectedInfoChar >= 0
+						? GetJa2SoldierRepository().resolve(
+							gCharactersList[bSelectedInfoChar].usSolID.i)
+						: nullptr;
 
 				if(	guiCurrentItemDescriptionScreen == MAP_SCREEN 
 					&&	fShowMapInventoryPool 
+					&&	pSoldier
 					&&	( (pSoldier->sSectorX == sSelMapX )
 					&&	( pSoldier->sSectorY == sSelMapY )
 					&&	( pSoldier->bSectorZ == iCurrentMapSectorZ ) )
@@ -8867,8 +8886,13 @@ void DrawItemTileCursor( )
 	{
 		if ( gfUIFullTargetFound )
 		{
-			// Force mouse position to guy...
-			usMapPos = gusUIFullTargetID->position().gridNo();
+			SOLDIERTYPE* fullTarget =
+				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
+			if (fullTarget)
+			{
+				// Force mouse position to guy...
+				usMapPos = fullTarget->position().gridNo();
+			}
 		}
 
 		gusCurMousePos = usMapPos;
@@ -8936,11 +8960,11 @@ void DrawItemTileCursor( )
 			if ( UIHandleOnMerc( FALSE ) && usMapPos != GetItemPointerSoldier()->position().gridNo() )
 			{
 				// We are on a guy.. check if they can catch or not....
-				if ( gfUIFullTargetFound )
+				if ( gfUIFullTargetFound &&
+					(pSoldier = GetJa2SoldierRepository().resolve(
+						gusUIFullTargetID.i)) != nullptr )
 				{
 					// Get soldier
-					pSoldier = gusUIFullTargetID;
-
 					// Are they on our team?
 					// ATE: Can't be an EPC
 					if ( pSoldier->bTeam == gbPlayerNum && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
@@ -8986,7 +9010,9 @@ void DrawItemTileCursor( )
 		}
 		else
 		{
-			if ( gfUIFullTargetFound )
+			if ( gfUIFullTargetFound &&
+				(pSoldier = GetJa2SoldierRepository().resolve(
+					gusUIFullTargetID.i)) != nullptr )
 			{
 				UIHandleOnMerc( FALSE );
 
@@ -8995,7 +9021,7 @@ void DrawItemTileCursor( )
 				gubUIValidCatcherID			= gusUIFullTargetID;
 
 				// If this is a robot, change to say 'reload'
-				if ( gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_ROBOT )
+				if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
 				{
 					gfUIMouseOnValidCatcher = 3;
 				}
@@ -9015,9 +9041,9 @@ void DrawItemTileCursor( )
 
 
 					// Get AP cost
-					if ( gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_ROBOT )
+					if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
 					{
-						sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), gusUIFullTargetID );
+						sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), pSoldier );
 					}
 					else
 					{
@@ -9079,27 +9105,33 @@ void DrawItemTileCursor( )
 					{
 						if ( gfUIMouseOnValidCatcher )
 						{
-							switch( gAnimControl[ gubUIValidCatcherID->usAnimState ].ubHeight )
+							SOLDIERTYPE* validCatcher =
+								GetJa2SoldierRepository().resolve(
+									gubUIValidCatcherID.i);
+							if (validCatcher)
 							{
-								case ANIM_STAND:
+								switch( gAnimControl[ validCatcher->usAnimState ].ubHeight )
+								{
+									case ANIM_STAND:
 
-									sEndZ = 150;
-									break;
+										sEndZ = 150;
+										break;
 
-								case ANIM_CROUCH:
+									case ANIM_CROUCH:
 
-									sEndZ = 80;
-									break;
+										sEndZ = 80;
+										break;
 
-								case ANIM_PRONE:
+									case ANIM_PRONE:
 
-									sEndZ = 10;
-									break;
-							}
+										sEndZ = 10;
+										break;
+								}
 
-							if ( gubUIValidCatcherID->position().level() > 0 )
-							{
-								sEndZ = 0;
+								if ( validCatcher->position().level() > 0 )
+								{
+									sEndZ = 0;
+								}
 							}
 						}
 
@@ -9205,13 +9237,22 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	BOOLEAN			fGiveItem = FALSE;
 	INT32			sGridNo;
 	INT16			sDist;
+	SOLDIERTYPE* fullTarget = nullptr;
+	SOLDIERTYPE* giveTarget = nullptr;
 
 	if ( gfUIFullTargetFound )
 	{
-		// Force mouse position to guy...
-		usMapPos = gusUIFullTargetID->position().gridNo();
+		fullTarget =
+			GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
+		if (!fullTarget)
+		{
+			return( FALSE );
+		}
 
-		if ( gAnimControl[ gusUIFullTargetID->usAnimState ].uiFlags & ANIM_MOVING )
+		// Force mouse position to guy...
+		usMapPos = fullTarget->position().gridNo();
+
+		if ( gAnimControl[ fullTarget->usAnimState ].uiFlags & ANIM_MOVING )
 		{
 			return( FALSE );
 		}
@@ -9234,7 +9275,9 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 	// SEE IF WE ARE OVER A TALKABLE GUY!
 	if ( IsValidTalkableNPCFromMouse( &ubSoldierID, TRUE, FALSE, TRUE ) )
 	{
-		fGiveItem = TRUE;
+		giveTarget =
+			GetJa2SoldierRepository().resolve(ubSoldierID.i);
+		fGiveItem = giveTarget != nullptr;
 	}
 
 	// WANNE: Prevent duplication of items cheat-bug:
@@ -9259,10 +9302,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		usItem = gpItemPointer->usItem;
 
 		// If the target is a robot,
-		if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_ROBOT )
+		if ( giveTarget->flags.uiStatusFlags & SOLDIER_ROBOT )
 		{
 			// Charge APs to reload robot!
-			sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(),  ubSoldierID );
+			sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), giveTarget );
 		}
 		else
 		{
@@ -9299,10 +9342,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		if ( EnoughPoints( GetItemPointerSoldier(), sAPCost, 0, TRUE ) )
 		{
 			// If we are a robot, check if this is proper item to reload!
-			if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_ROBOT )
+			if ( giveTarget->flags.uiStatusFlags & SOLDIER_ROBOT )
 			{
 				// Check if we can reload robot....
-				if ( IsValidAmmoToReloadRobot( ubSoldierID, &gTempObject ) )
+				if ( IsValidAmmoToReloadRobot( giveTarget, &gTempObject ) )
 				{
 					 INT32 sActionGridNo;
 					 UINT8	ubDirection;
@@ -9310,7 +9353,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 					 // Walk up to him and reload!
 					 // See if we can get there to stab
-					 sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), ubSoldierID->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
+					 sActionGridNo =  FindAdjacentGridEx( GetItemPointerSoldier(), giveTarget->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
 					 if ( sActionGridNo != -1 && gbItemPointerSrcSlot != NO_SLOT )
 					 {
@@ -9353,16 +9396,16 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				//if (gbItemPointerSrcSlot != NO_SLOT )
 				{
 					// Give guy this item.....
-					SoldierGiveItem( GetItemPointerSoldier(), ubSoldierID, &gTempObject, gbItemPointerSrcSlot );
+					SoldierGiveItem( GetItemPointerSoldier(), giveTarget, &gTempObject, gbItemPointerSrcSlot );
 
 					gfDontChargeAPsToPickup = FALSE;
 					EndItemPointer( );
 
 					// If we are giving it to somebody not on our team....
-					if ( gMercProfiles[ubSoldierID->ubProfile].Type == PROFILETYPE_AIM ||
-						gMercProfiles[ubSoldierID->ubProfile].Type == PROFILETYPE_MERC ||
-						gMercProfiles[ubSoldierID->ubProfile].Type == PROFILETYPE_IMP
-						|| RPC_RECRUITED( ubSoldierID ) )
+					if ( gMercProfiles[giveTarget->ubProfile].Type == PROFILETYPE_AIM ||
+						gMercProfiles[giveTarget->ubProfile].Type == PROFILETYPE_MERC ||
+						gMercProfiles[giveTarget->ubProfile].Type == PROFILETYPE_IMP
+						|| RPC_RECRUITED( giveTarget ) )
 					{
 
 					}
@@ -9457,11 +9500,11 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		//if ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && gfUIFullTargetFound && gusUIFullTargetID->bTeam == gbPlayerNum && !AM_AN_EPC( gusUIFullTargetID ) && !( gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 
 		// And added this one instead:
-		if ( ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && gfUIFullTargetFound && gusUIFullTargetID->bTeam == gbPlayerNum && !AM_AN_EPC( gusUIFullTargetID ) ) && !( (!gGameExternalOptions.fVehicleInventory) && (gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE) ) )
+		if ( ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && fullTarget && fullTarget->bTeam == gbPlayerNum && !AM_AN_EPC( fullTarget ) ) && !( (!gGameExternalOptions.fVehicleInventory) && (fullTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) ) )
 		{
 			// OK, do the transfer...
 			{
-				pSoldier = gusUIFullTargetID;
+				pSoldier = fullTarget;
 
 				{
 					// Change to inventory....
@@ -9561,9 +9604,9 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 
 			// OK, CHECK FOR VALID THROW/CATCH
 			// IF OVER OUR GUY...
-			if ( gfUIFullTargetFound )
+			if ( fullTarget )
 			{
-				pSoldier = gusUIFullTargetID;
+				pSoldier = fullTarget;
 
 				// Kaiden: Vehicle Inventory change - Commented the following If Test:
 				//if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
@@ -10074,7 +10117,9 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 	//CHRISL: resize usPopupWidth based on popup stack location
 	if(UsingNewInventorySystem() == true || ubPosition == -1)
 	{
-		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && (MercPtrs[sID]->flags.uiStatusFlags & SOLDIER_VEHICLE)))
+		SOLDIERTYPE* popupSoldier =
+			GetJa2SoldierRepository().resolve(sID);
+		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && popupSoldier && (popupSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)))
 		{
 			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 2;
@@ -10666,7 +10711,21 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN)
 	{
-		SOLDIERTYPE* pSelected = gCharactersList[bSelectedInfoChar].usSolID;
+		SOLDIERTYPE* pSelected =
+			bSelectedInfoChar >= 0
+				? GetJa2SoldierRepository().resolve(
+					gCharactersList[bSelectedInfoChar].usSolID.i)
+				: nullptr;
+		if (!pSelected)
+		{
+			return;
+		}
+		SOLDIERTYPE* popupSoldier =
+			GetJa2SoldierRepository().resolve(ubID.i);
+		if (!popupSoldier)
+		{
+			return;
+		}
 
 		if( ( pSelected->sSectorX != sSelMapX ) ||
 				( pSelected->sSectorY != sSelMapY ) ||
@@ -10695,13 +10754,13 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					case IC_GUN:
 						if (Item[gpItemPointer->usItem].usItemClass == IC_AMMO) {
 							if (Weapon[gpItemPopupObject->usItem].ubCalibre == Magazine[Item[gpItemPointer->usItem].ubClassIndex].ubCalibre) {
-								ReloadGun( MercPtrs[ubID], gpItemPopupObject, gpItemPointer, uiItemPos );
+								ReloadGun( popupSoldier, gpItemPopupObject, gpItemPointer, uiItemPos );
 							}
 						}
 						break;
 					case IC_LAUNCHER:
 						if ( ValidLaunchable( gpItemPointer->usItem, gpItemPopupObject->usItem ) ) {
-							ReloadGun( MercPtrs[ubID], gpItemPopupObject, gpItemPointer, uiItemPos );
+							ReloadGun( popupSoldier, gpItemPopupObject, gpItemPointer, uiItemPos );
 						}
 						break;
 				}
@@ -10744,11 +10803,11 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				fTeamPanelDirty=TRUE;
 
 				// remember which gridno the object came from
-				sObjectSourceGridNo = ubID->position().gridNo();
+				sObjectSourceGridNo = popupSoldier->position().gridNo();
 				// and who owned it last
-				(void)SetItemPointerSoldier(ubID);
+				(void)SetItemPointerSoldier(popupSoldier);
 
-				ReevaluateItemHatches( ubID, FALSE );
+				ReevaluateItemHatches( popupSoldier, FALSE );
 			}
 
 				//Dirty interface
@@ -11605,14 +11664,18 @@ void RenderItemPickupMenu( )
 				}
 				else
 				{
+					SoldierID backpackOwnerId =
+						gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID;
+					SOLDIERTYPE* backpackOwner =
+						backpackOwnerId != NOBODY
+							? GetJa2SoldierRepository().resolve(backpackOwnerId.i)
+							: nullptr;
 					if (gGameExternalOptions.gfShowBackpackOwner &&
 						!gfStealing &&
 						Item[gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].object.usItem].usItemClass == IC_LBEGEAR &&
 						LoadBearingEquipment[Item[gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].object.usItem].ubClassIndex].lbeClass == BACKPACK &&
-						gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID != NOBODY &&
-						gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID)
-						//swprintf(pStr, L"%s (%s)", ShortItemNames[pObject->usItem], MercPtrs[gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID]->GetName());
-						swprintf(pStr, L"(%s)", gWorldItems[gItemPickupMenu.ItemPoolSlots[cnt]->iItemIndex].soldierID->GetName());
+						backpackOwner)
+						swprintf(pStr, L"(%s)", backpackOwner->GetName());
 					else
 						swprintf( pStr, L"%s", ShortItemNames[ pObject->usItem ] );
 				}
@@ -13026,7 +13089,8 @@ BOOLEAN LoadItemCursorFromSavedGame( HWFILE hFile )
 	}
 	else
 	{
-		(void)SetItemPointerSoldier(SaveStruct.ubSoldierID);
+		(void)SetItemPointerSoldier(
+			GetJa2SoldierRepository().resolve(SaveStruct.ubSoldierID.i));
 	}
 
 	// Inv slot
@@ -13098,7 +13162,8 @@ void UpdateItemHatches()
   {
 		if ( fShowInventoryFlag && bSelectedInfoChar >= 0 )
 		{
-			pSoldier = gCharactersList[ bSelectedInfoChar ].usSolID;
+			pSoldier = GetJa2SoldierRepository().resolve(
+				gCharactersList[ bSelectedInfoChar ].usSolID.i);
 		}
 	}
 	else
@@ -14818,7 +14883,12 @@ void UpdateMercBodyRegionHelpText( )
 		wcscpy( sString, L"" );
 
 		// valid soldier selected
-		pSoldier = gCharactersList[bSelectedInfoChar].usSolID;
+		pSoldier = GetJa2SoldierRepository().resolve(
+			gCharactersList[bSelectedInfoChar].usSolID.i);
+		if (!pSoldier)
+		{
+			return;
+		}
 
 		// health/energy/morale
 		if ( pSoldier->bAssignment != ASSIGNMENT_POW )

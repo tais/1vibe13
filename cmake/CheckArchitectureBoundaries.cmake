@@ -2264,6 +2264,66 @@ foreach(required_resolution_domain IN ITEMS
   endif()
 endforeach()
 
+# Tactical is migrating by coherent source cuts rather than enabling the
+# deleted-conversion ratchet for the entire legacy library at once. Keep this
+# control/UI/dialogue cut explicit in the root build and subject it to the same
+# named-array and contiguous-pointer checks as the fully migrated domains.
+string(REGEX MATCH
+  "set\\(ExplicitSoldierResolutionSources[^\\)]*\\)"
+  explicit_soldier_resolution_source_definition
+  "${root_cmake_contents}")
+if(NOT explicit_soldier_resolution_source_definition)
+  message(FATAL_ERROR
+    "Explicit Tactical SoldierID resolution source list is missing")
+endif()
+string(REGEX MATCH
+  "set_property\\(SOURCE[ \t\r\n]+\\$\\{ExplicitSoldierResolutionSources\\}[^\\)]*JA2_EXPLICIT_SOLDIER_RESOLUTION[^\\)]*\\)"
+  explicit_soldier_resolution_source_property
+  "${root_cmake_contents}")
+if(NOT explicit_soldier_resolution_source_property)
+  message(FATAL_ERROR
+    "Explicit Tactical SoldierID resolution sources lost their compile ratchet")
+endif()
+
+set(tactical_explicit_soldier_resolution_sources
+  "Tactical/Dialogue Control.cpp"
+  "Tactical/DynamicDialogue.cpp"
+  "Tactical/Handle UI Plan.cpp"
+  "Tactical/Handle UI.cpp"
+  "Tactical/Interface Control.cpp"
+  "Tactical/Interface Dialogue.cpp"
+  "Tactical/Interface Items.cpp"
+  "Tactical/Interface Panels.cpp"
+  "Tactical/Tactical Turns.cpp"
+  "Tactical/TeamTurns.cpp"
+  "Tactical/Turn Based Input.cpp")
+foreach(relative_source IN LISTS
+    tactical_explicit_soldier_resolution_sources)
+  string(FIND "${explicit_soldier_resolution_source_definition}"
+    "${relative_source}" tactical_resolution_source_position)
+  if(tactical_resolution_source_position EQUAL -1)
+    message(FATAL_ERROR
+      "${relative_source} lost the explicit SoldierID resolution compile ratchet")
+  endif()
+
+  set(source_file "${SOURCE_ROOT}/${relative_source}")
+  file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
+    direct_tactical_cut_soldier_pool_access "${contents}")
+  if(direct_tactical_cut_soldier_pool_access)
+    message(FATAL_ERROR
+      "Migrated Tactical code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
+  endif()
+  string(REGEX MATCH
+    "(p[A-Za-z0-9_]*Soldier[ \t]*\\+\\+|\\+\\+[ \t]*p[A-Za-z0-9_]*Soldier)"
+    contiguous_tactical_cut_soldier_walk "${contents}")
+  if(contiguous_tactical_cut_soldier_walk)
+    message(FATAL_ERROR
+      "Migrated Tactical code increments a soldier pointer in ${source_file}; traverse numeric slots through GetJa2SoldierRepository")
+  endif()
+endforeach()
+
 foreach(required_resolution_fragment IN ITEMS
     "JA2_EXPLICIT_SOLDIER_RESOLUTION"
     "SOLDIERTYPE* operator->() = delete;"
