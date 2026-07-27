@@ -4771,18 +4771,18 @@ void send_death( SOLDIERTYPE *pSoldier )
 {
 	death_struct nDeath;
 	nDeath.soldier_id = pSoldier->ubID;
-	nDeath.attacker_id = pSoldier->ubAttackerID;
+	nDeath.attacker_id = pSoldier->combatResult().currentAttacker();
 
 	// Translate soldier id for other clients if the soldier was one of ours
 	if(pSoldier->ubID<20)nDeath.soldier_id=nDeath.soldier_id+ubID_prefix;
 	
 	// if soldier died from bleeding
-	if(pSoldier->ubAttackerID >= NOBODY)
+	if(pSoldier->combatResult().currentAttacker() >= NOBODY)
 	{
-		if (pSoldier->ubPreviousAttackerID < NOBODY)
-			nDeath.attacker_id = pSoldier->ubPreviousAttackerID;
-		else if (pSoldier->ubNextToPreviousAttackerID < NOBODY)
-			nDeath.attacker_id = pSoldier->ubNextToPreviousAttackerID;
+		if (pSoldier->combatResult().previousAttacker() < NOBODY)
+			nDeath.attacker_id = pSoldier->combatResult().previousAttacker();
+		else if (pSoldier->combatResult().earlierAttacker() < NOBODY)
+			nDeath.attacker_id = pSoldier->combatResult().earlierAttacker();
 	}
 
 	SOLDIERTYPE * pAttacker =
@@ -4797,27 +4797,27 @@ void send_death( SOLDIERTYPE *pSoldier )
 	if(pAttacker)
 	{
 		// if attacker was one of our own mercs, use the last hostile attacker as the killer if there is one
-		if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->ubPreviousAttackerID < NOBODY)
+		if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->combatResult().previousAttacker() < NOBODY)
 		{
 			SOLDIERTYPE* candidate =
-				ResolveMerc(pSoldier->ubPreviousAttackerID.i);
+				ResolveMerc(pSoldier->combatResult().previousAttacker().i);
 			if ( candidate )
 				pAttacker = candidate;
 			// check if the new attacker was also a friendly...
-			if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->ubNextToPreviousAttackerID < NOBODY)
+			if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->combatResult().earlierAttacker() < NOBODY)
 			{
 				candidate =
 					ResolveMerc(
-						pSoldier->ubNextToPreviousAttackerID.i);
+						pSoldier->combatResult().earlierAttacker().i);
 				if ( candidate )
 					pAttacker = candidate;
 			}
 			// if its still a friendly, use the original attacker id...for posterity
 			// guy must snore too loudly if all his mates wanna kill him :)
-			if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->ubAttackerID != NOBODY)
+			if (pAttacker->bTeam == pSoldier->bTeam && pSoldier->combatResult().currentAttacker() != NOBODY)
 			{
 				candidate =
-					ResolveMerc(pSoldier->ubAttackerID.i);
+					ResolveMerc(pSoldier->combatResult().currentAttacker().i);
 				if ( candidate )
 					pAttacker = candidate;
 			}

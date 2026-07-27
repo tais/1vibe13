@@ -249,8 +249,8 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 		}
 
 		// display health change next time we are in tactical
-		pSoldier->flags.fDisplayDamage = TRUE;
-		pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
+		pSoldier->damageDisplay().displayFlag() = TRUE;
+		pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 	}
 
 	pSoldier->bExtraStrength += pSoldier->newdrugs.size[DRUG_EFFECT_STR];

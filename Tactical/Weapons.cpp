@@ -8116,9 +8116,9 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			iImpact = (iOrigImpact + 5) / 10;
 		}
 
-		if ( (AmmoTypes[ubAmmoType].numberOfBullets > 1 ) && (pTarget->bNumPelletsHitBy > 0) )
+		if ( (AmmoTypes[ubAmmoType].numberOfBullets > 1 ) && (pTarget->combatResult().pelletsHitBy() > 0) )
 		{
-			iImpact += (pTarget->bNumPelletsHitBy - 1)  / 2;
+			iImpact += (pTarget->combatResult().pelletsHitBy() - 1)  / 2;
 		}
 	}
 
@@ -8272,7 +8272,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 						iImpactForCrits = iImpact;
 					}
 					// special thing for hitting chest - allow cumulative damage to count
-					else if ( (iImpact + pTarget->sDamage) > (MIN_DAMAGE_FOR_BLOWN_AWAY + MIN_DAMAGE_FOR_INSTANT_KILL) )
+					else if ( (iImpact + pTarget->combatResult().accumulatedDamage()) > (MIN_DAMAGE_FOR_BLOWN_AWAY + MIN_DAMAGE_FOR_INSTANT_KILL) )
 					{
 						if( iImpact < pTarget->vitals().health() ) // Added check here to see the real impact in game if bigger than life - SANDRO
 							iImpact = pTarget->vitals().health() + Random( 10 );
@@ -8435,7 +8435,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									}
 								}
 							}
-							else if ( pTarget->bNumPelletsHitBy == 0 )
+							else if ( pTarget->combatResult().pelletsHitBy() == 0 )
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_HEAD_HIT], pTarget->GetName() );
 							}
@@ -8620,7 +8620,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 						gMercProfiles[ pTarget->ubProfile ].records.usTimesStatDamaged++;
 				}
 			}
-			else if ( ubHitLocation == AIM_SHOT_HEAD && pTarget->bNumPelletsHitBy == 0 )
+			else if ( ubHitLocation == AIM_SHOT_HEAD && pTarget->combatResult().pelletsHitBy() == 0 )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_HEAD_HIT], pTarget->GetName() );
 			}

@@ -310,7 +310,14 @@ single-shot, burst, and autofire transitions keep these paired modes
 consistent. Target selection remains separate, as do presentation-only sound
 and muzzle-flash handles. AI dual-wield spread generation is clamped after
 doubling its shot count, so it cannot write twelve locations into the
-established six-target buffer. The
+established six-target buffer.
+`SoldierCombatResultComponent` owns incoming attacker history, hit
+location/reason, per-turn hit and pellet counts, and accumulated damage. Named
+history operations preserve killer and assister attribution as one transition.
+`SoldierDamageDisplayComponent` separately owns the floating-number cursor,
+screen offset, and direction. Accumulated damage stays in the simulation
+component because existing torso-hit and death rules consume it; render
+coordinates cannot leak into those rules. The
 `SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
@@ -325,9 +332,10 @@ fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
 to its canonical slot. The serializer keeps targeting, attack selection,
-fire-control, and persistent animation values at their established byte
-positions and preserves both continuation mode `2` and hit phase `2` as 8-bit
-values rather than reducing them to boolean `1`. The retired cache-pointer
+fire-control, incoming combat results, damage-display presentation, and
+persistent animation values at their established byte positions and preserves
+both continuation mode `2` and hit phase `2` as 8-bit values rather than
+reducing them to boolean `1`. The retired cache-pointer
 visitors emitted no bytes; load now resets the inline cache directly. The
 unused legacy delayed-cause-merc byte is retained only at its save position and
 is no longer live soldier state. The v101 converter copies all six 32-bit

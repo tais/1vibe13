@@ -1009,22 +1009,19 @@ BOOLEAN ExecuteOverhead( )
             HandlePanelFaceAnimations( pSoldier );
 
             // Handle damage counters
-            if ( pSoldier->flags.fDisplayDamage )
+            if ( pSoldier->damageDisplay().displaying() )
             {
                 if ( TIMECOUNTERDONE( pSoldier->timeCounters.DamageCounter, DAMAGE_DISPLAY_DELAY ) )
                 {
-                    pSoldier->bDisplayDamageCount++;
-                    pSoldier->sDamageX+=1;
-                    pSoldier->sDamageY-=1;
+                    pSoldier->damageDisplay().advance();
 
                     RESETTIMECOUNTER( pSoldier->timeCounters.DamageCounter, DAMAGE_DISPLAY_DELAY );
                 }
 
-                if ( pSoldier->bDisplayDamageCount >= 8 )
+                if ( pSoldier->damageDisplay().expired() )
                 {
-                    pSoldier->bDisplayDamageCount = 0;
-                    pSoldier->sDamage = 0;
-                    pSoldier->flags.fDisplayDamage = FALSE;
+                    pSoldier->damageDisplay().clear();
+                    pSoldier->combatResult().accumulatedDamage() = 0;
 					// sevenfm: also zero damage info from this attack
 					pSoldier->runtime.combatFeedback.lastBulletImpact = 0;
 					pSoldier->runtime.combatFeedback.lastArmourProtection = 0;
@@ -3717,7 +3714,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 {
     SOLDIERTYPE *pKiller = NULL;
     SOLDIERTYPE *pAttacker = GetJa2SoldierRepository().resolve(
-        pSoldierOld->ubAttackerID.i);
+        pSoldierOld->combatResult().currentAttacker().i);
     BOOLEAN bVisible;
 
     pSoldierOld->flags.uiStatusFlags |= SOLDIER_DEAD;
@@ -3734,7 +3731,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 
 		if ( !(pSoldierOld->flags.uiStatusFlags & SOLDIER_VEHICLE) && !ARMED_VEHICLE( pSoldierOld ) )
         {
-            if ( pSoldierOld->ubAttackerID != NOBODY )
+            if ( pSoldierOld->combatResult().currentAttacker() != NOBODY )
             {
                 pKiller = pAttacker;
             }
@@ -3957,7 +3954,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 		// Are we looking at the queen?
 		else if ( pSoldierOld->ubProfile == QUEEN )
 		{
-				if ( pSoldierOld->ubAttackerID != NOBODY )
+				if ( pSoldierOld->combatResult().currentAttacker() != NOBODY )
 				{
 					pKiller = pAttacker;
 			}
@@ -3968,7 +3965,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         if ( ( pSoldierOld->ubBodyType != CROW ) && ( pSoldierOld->ubBodyType != COW ) )
         {
             // If the civilian's killer is known
-            if ( pSoldierOld->ubAttackerID != NOBODY )
+            if ( pSoldierOld->combatResult().currentAttacker() != NOBODY )
             {
                 // handle death of civilian..and if it was intentional
                 HandleMurderOfCivilian( pSoldierOld, pSoldierOld->flags.fIntendedTarget );
@@ -4054,7 +4051,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         {
             SOLDIERTYPE *pKiller = NULL;
 
-            if ( pSoldierOld->ubAttackerID != NOBODY )
+            if ( pSoldierOld->combatResult().currentAttacker() != NOBODY )
             {
                 pKiller = pAttacker;
 
@@ -4106,7 +4103,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 	}
 
     // killing crows/cows is not worth any experience!
-    if ( ( pSoldierOld->ubBodyType != CROW ) && ( pSoldierOld->ubBodyType != COW ) ) //&& pSoldierOld->ubLastDamageReason != TAKE_DAMAGE_BLOODLOSS ) // SANDRO - why not give exp for bleeding out?
+    if ( ( pSoldierOld->ubBodyType != CROW ) && ( pSoldierOld->ubBodyType != COW ) ) //&& pSoldierOld->combatResult().lastDamageReason() != TAKE_DAMAGE_BLOODLOSS ) // SANDRO - why not give exp for bleeding out?
     {
         SoldierID ubAssister = NOBODY;
 
@@ -4146,14 +4143,14 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         }
 
         // JA2 Gold: if previous and current attackers are the same, the next-to-previous attacker gets the assist
-        if (pSoldierOld->ubPreviousAttackerID == pSoldierOld->ubAttackerID)
+        if (pSoldierOld->combatResult().previousAttacker() == pSoldierOld->combatResult().currentAttacker())
         {
-            if (pSoldierOld->ubNextToPreviousAttackerID != pSoldierOld->ubAttackerID ) // SANDRO - carefully with this, if we are still one person don't do this
-                ubAssister = pSoldierOld->ubNextToPreviousAttackerID;
+            if (pSoldierOld->combatResult().earlierAttacker() != pSoldierOld->combatResult().currentAttacker() ) // SANDRO - carefully with this, if we are still one person don't do this
+                ubAssister = pSoldierOld->combatResult().earlierAttacker();
         }
         else
         {
-            ubAssister = pSoldierOld->ubPreviousAttackerID;
+            ubAssister = pSoldierOld->combatResult().previousAttacker();
         }
 
         // if it was assisted by a player's merc
@@ -4502,7 +4499,7 @@ UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked )
 {
     SOLDIERTYPE * pSoldier;
     SOLDIERTYPE * pAttacker = GetJa2SoldierRepository().resolve(
-        pAttacked->ubAttackerID.i);
+        pAttacked->combatResult().currentAttacker().i);
     UINT8 ubFirstProfile = NO_PROFILE;
 
     if ( pAttacked->ubCivilianGroup == NON_CIV_GROUP )
@@ -4519,7 +4516,7 @@ UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked )
             if ( pSoldier->ubCivilianGroup == pAttacked->ubCivilianGroup && pSoldier->ubBodyType != COW )
             {
                 // if in LOS of this guy's attacker
-                if ( (pAttacker && pSoldier->aiData.bOppList[pAttacked->ubAttackerID.i] == SEEN_CURRENTLY)
+                if ( (pAttacker && pSoldier->aiData.bOppList[pAttacked->combatResult().currentAttacker().i] == SEEN_CURRENTLY)
                         || ( PythSpacesAway( pSoldier->position().gridNo(), pAttacked->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pSoldier->position().gridNo(), pSoldier->position().level()) )
                         || ( pAttacker && PythSpacesAway( pSoldier->position().gridNo(), pAttacker->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pAttacker->position().gridNo(), pAttacker->position().level()) ) )
                 {
@@ -7263,7 +7260,7 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 						UINT16 usItemFlags = 0;
                         SOLDIERTYPE* attacker =
                             GetJa2SoldierRepository().resolve(
-                                pTeamSoldier->ubAttackerID.i);
+                                pTeamSoldier->combatResult().currentAttacker().i);
 						UINT8 size = pTeamSoldier->inv.size( );
 					for ( UINT8 cnt = 0; cnt < size; ++cnt )
 					{
@@ -8639,12 +8636,12 @@ BOOLEAN KillIncompacitatedEnemyInSector( )
                 // KIll......
                 // SANDRO - if the soldier is bleeding out, consider this damage as done by the last attacker
                 SoldierID usAttacker = NOBODY;
-                if ( pTeamSoldier->ubAttackerID != NOBODY )
-                    usAttacker = pTeamSoldier->ubAttackerID;
-                else if ( pTeamSoldier->ubPreviousAttackerID != NOBODY )
-                    usAttacker = pTeamSoldier->ubPreviousAttackerID;
-                else if ( pTeamSoldier->ubNextToPreviousAttackerID != NOBODY )
-                    usAttacker = pTeamSoldier->ubNextToPreviousAttackerID;
+                if ( pTeamSoldier->combatResult().currentAttacker() != NOBODY )
+                    usAttacker = pTeamSoldier->combatResult().currentAttacker();
+                else if ( pTeamSoldier->combatResult().previousAttacker() != NOBODY )
+                    usAttacker = pTeamSoldier->combatResult().previousAttacker();
+                else if ( pTeamSoldier->combatResult().earlierAttacker() != NOBODY )
+                    usAttacker = pTeamSoldier->combatResult().earlierAttacker();
 
                 pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, usAttacker, NOWHERE, 0, TRUE );
 
@@ -9989,7 +9986,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         pSoldier = MercSlots[ cnt ];
         if ( pSoldier )
         {
-            pSoldier->bNumPelletsHitBy = 0;
+            pSoldier->combatResult().pelletsHitBy() = 0;
             if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
             {
                 // 0verhaul:  This is an ugly hack.  I don't like it, but until I figure out a better solution
@@ -9997,21 +9994,12 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
                 pSoldier->animationActivity().clearHit();
             }
 
-            if (pSoldier->ubAttackerID != NOBODY )
-            {
-                if (pSoldier->ubPreviousAttackerID != pSoldier->ubAttackerID)
-                {
-                    pSoldier->ubNextToPreviousAttackerID = pSoldier->ubPreviousAttackerID;
-                }
-
-                pSoldier->ubPreviousAttackerID = pSoldier->ubAttackerID;
-
-                // Why not keep the attacker ID for a dead queen monster?
-                if ( pSoldier->vitals().health() != 0 && pSoldier->ubBodyType != QUEENMONSTER )
-                {
-                    pSoldier->ubAttackerID = NOBODY;
-                }
-            }
+            // Keep the attacker for a dead soldier or queen monster so death
+            // handling can still identify the killer.
+            const bool retainCurrent =
+                pSoldier->vitals().health() == 0 ||
+                pSoldier->ubBodyType == QUEENMONSTER;
+            pSoldier->combatResult().advanceAttackerHistory(retainCurrent);
         }
     }
 

@@ -1568,6 +1568,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	STRUCT_Flags& f = soldier.flags;
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
+	SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
 	ar.i8(f.bHasKeys);
@@ -1600,7 +1601,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fDieSoundUsed); ar.boolean(f.fUseLandingZoneForArrival); ar.boolean(f.fComplainedThatTired);
 	ar.boolean(animationActivity.realtimeNonInterruptible());
 	ar.u8(f.fHitByGasFlags);
-	ar.i8(f.fDisplayDamage); ar.i8(f.fCloseCall); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
+	ar.i8(damageDisplay.displayFlag()); ar.i8(f.fCloseCall); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
 	ar.boolean(animationActivity.fallClockwise()); ar.boolean(f.fDoingExternalDeath);
 	ar.boolean(fireControl.autofireLastStep()); ar.boolean(f.lastFlankLeft);
 	ar.u32(f.uiStatusFlags);
@@ -1662,6 +1663,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
+	SoldierCombatResultComponent& combatResult = s.combatResult();
+	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
@@ -1681,7 +1684,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(s.bCollapsed); ar.i8(s.bBreathCollapsed);
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
-	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(s.ubAttackerID.i); ar.u16(s.ubPreviousAttackerID.i);
+	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
 	ar.i32(s.sInsertionGridNo);
 	// The animation surface working set is runtime-only. The retired pointer
 	// transfers emitted no bytes, so resetting the inline owner preserves the
@@ -1721,16 +1724,16 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(s.sWalkToAttackMovementMode); ar.i32(s.sWalkToAttackGridNo); ar.i16(s.sWalkToAttackWalkToCost);
 	ar.i16(s.sLocatorOffX); ar.i16(s.sLocatorOffY); ar.ptr(s.pForcedShade);
-	ar.i8(s.bDisplayDamageCount); ar.u8(s.sWalkToAttackEndDirection);
-	ar.i16(s.sDamage); ar.i16(s.sDamageX); ar.i16(s.sDamageY); ar.i8(s.bDamageDir); ar.i8(fireControl.burstCounter());
+	ar.i8(damageDisplay.counter()); ar.u8(s.sWalkToAttackEndDirection);
+	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
 	ar.i16(s.usUIMovementMode); ar.i8(s.bUIInterfaceLevel);
 	ar.u8(s.ubProfile); ar.u8(s.ubQuoteRecord); ar.u8(s.ubQuoteActionID); ar.u8(s.ubBattleSoundID);
 	ar.u8(s.ubClosePanelFrame); ar.u8(s.ubDeadPanelFrame); ar.i8(s.bOpenPanelFrame);
 	ar.i16(s.sPanelFaceX); ar.i16(s.sPanelFaceY);
-	ar.i8(s.bNumHitsThisTurn); ar.u16(s.usQuoteSaidFlags); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);
+	ar.i8(combatResult.hitsThisTurn()); ar.u16(s.usQuoteSaidFlags); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);
 	ar.i8(s.bVocalVolume); ar.i8(s.animationActivity().fallDirection());
 	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.animationPlayback().subFlags());
-	ar.u8(attackSelection.shotLocation()); ar.u8(s.ubHitLocation); ar.u8(attackSelection.meleeLocation());
+	ar.u8(attackSelection.shotLocation()); ar.u8(combatResult.hitLocation()); ar.u8(attackSelection.meleeLocation());
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
 	ar.u8(s.ubPlannedUIAPCost); ar.i16(s.sPlannedTargetX); ar.i16(s.sPlannedTargetY);
 	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
@@ -1763,7 +1766,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubHoursOnAssignment); ar.u8(s.ubMercJustFired); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
 	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(s.bNoiseLevel); ar.i8(s.bRegenerationCounter);
-	ar.i8(s.bRegenBoostersUsedToday); ar.i8(s.bNumPelletsHitBy); ar.i32(s.sSkillCheckGridNo);
+	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
 	ar.u16(s.ubLastEnemyCycledID.i);
 	ar.u8(s.ubPrevSectorID); ar.u8(s.ubNumTilesMovesSinceLastForget); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(s.uiBattleSoundID); ar.u16(s.usValueGoneUp);
@@ -1778,9 +1781,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiTimeSoldierWillArrive);
 	ar.i8(s.bVehicleUnderRepairID); ar.i32(s.iTimeCanSignElsewhere); ar.i8(s.bHospitalPriceModifier);
 	ar.u32(s.uiStartTimeOfInsuranceContract); ar.i8(s.bCorpseQuoteTolerance); ar.i8(s.bDeafenedCounter);
-	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(s.ubLastDamageReason);
+	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
-	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(s.ubNextToPreviousAttackerID.i);
+	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(combatResult.earlierAttacker().i);
 	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
 	ar.i8(s.wornCamo); ar.i8(s.urbanCamo); ar.i8(s.wornUrbanCamo); ar.i8(s.desertCamo);
 	ar.i8(s.wornDesertCamo); ar.i8(s.snowCamo); ar.i8(s.wornSnowCamo);
@@ -6354,7 +6357,7 @@ if( g_lang == i18n::Lang::de ) {
 }
 
 				// JA2Gold: fix next-to-previous attacker value
-				soldier.ubNextToPreviousAttackerID = NOBODY;
+				soldier.combatResult().earlierAttacker() = NOBODY;
 			}
 		}
 	}

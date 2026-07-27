@@ -300,6 +300,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   spread array instead of only its first half. This is an in-memory ownership
   and old-conversion correctness change; it does not change the current save
   stream, multiplayer packets, or installed data.
+- Incoming attacker history, hit metadata, hit/pellet counters, and accumulated
+  damage are now stored by `SoldierCombatResultComponent`. Floating-number
+  flag, cursor, offsets, and direction are stored separately by
+  `SoldierDamageDisplayComponent`. The visitor emits every value at its former
+  flags/POD position, and the v101 converter maps the original fields into
+  their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
+  and installed data are unchanged.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

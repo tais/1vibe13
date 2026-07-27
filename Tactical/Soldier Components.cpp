@@ -127,6 +127,79 @@ void SoldierFireControlComponent::reset() noexcept
 	*this = SoldierFireControlComponent{};
 }
 
+void SoldierCombatResultComponent::recordHit(
+	SoldierID attacker,
+	UINT8 location) noexcept
+{
+	currentAttacker_ = attacker;
+	hitLocation_ = location;
+}
+
+void SoldierCombatResultComponent::advanceAttackerHistory(
+	bool retainCurrent) noexcept
+{
+	if (!hasCurrentAttacker())
+		return;
+
+	if (previousAttacker_ != currentAttacker_)
+		earlierAttacker_ = previousAttacker_;
+
+	previousAttacker_ = currentAttacker_;
+	if (!retainCurrent)
+		currentAttacker_ = NOBODY;
+}
+
+void SoldierCombatResultComponent::restorePreviousAttacker() noexcept
+{
+	if (previousAttacker_ != NOBODY)
+		currentAttacker_ = previousAttacker_;
+}
+
+void SoldierCombatResultComponent::clearAttackers() noexcept
+{
+	currentAttacker_ = NOBODY;
+	previousAttacker_ = NOBODY;
+	earlierAttacker_ = NOBODY;
+}
+
+void SoldierCombatResultComponent::reset() noexcept
+{
+	*this = SoldierCombatResultComponent{};
+}
+
+void SoldierDamageDisplayComponent::restart() noexcept
+{
+	displayFlag_ = TRUE;
+	counter_ = 0;
+}
+
+void SoldierDamageDisplayComponent::activateAt(
+	INT16 offsetX,
+	INT16 offsetY) noexcept
+{
+	restart();
+	offsetX_ = offsetX;
+	offsetY_ = offsetY;
+}
+
+void SoldierDamageDisplayComponent::advance() noexcept
+{
+	++counter_;
+	++offsetX_;
+	--offsetY_;
+}
+
+void SoldierDamageDisplayComponent::clear() noexcept
+{
+	displayFlag_ = FALSE;
+	counter_ = 0;
+}
+
+void SoldierDamageDisplayComponent::reset() noexcept
+{
+	*this = SoldierDamageDisplayComponent{};
+}
+
 void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
 {
 	clearPendingAnimation();

@@ -3082,7 +3082,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				!fCanBeSeen && NightLight() && CountFriendsFlankSameSpot(pSoldier, sClosestOpponent) && Chance(50) ||
 				ARMED_VEHICLE(pSoldier) ||																		// tanks don't need cover
 				ENEMYROBOT(pSoldier) || // robots don't try to be in cover
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->combatResult().previousAttacker() == BestShot.ubOpponent || pSoldier->combatResult().earlierAttacker() == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
 				Chance((BestShot.ubChanceToReallyHit + 100) / 2) ||											// 50% chance to fire without cover
 				//SoldierToSoldierLineOfSightTest(pSoldier, BestShot.ubOpponent, TRUE, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
 				LOS_Raised(pSoldier, bestShotOpponent, CALC_FROM_ALL_DIRS)) &&		// can see target after turning
@@ -3091,7 +3091,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				ARMED_VEHICLE(pSoldier) ||
 				ENEMYROBOT(pSoldier) ||
 				AnyCoverAtSpot(pSoldier, pSoldier->position().gridNo()) ||
-				pSoldier->aiData.bUnderFire && (pSoldier->ubPreviousAttackerID == BestShot.ubOpponent || pSoldier->ubNextToPreviousAttackerID == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
+				pSoldier->aiData.bUnderFire && (pSoldier->combatResult().previousAttacker() == BestShot.ubOpponent || pSoldier->combatResult().earlierAttacker() == BestShot.ubOpponent || bestShotOpponent->targeting().lastGridNo() == pSoldier->position().gridNo()) ||	// return fire
 				(PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget) <= 0 || Chance(100 * (GunRange(&pSoldier->inv[BestShot.bWeaponIn], pSoldier) / CELL_X_SIZE) / PythSpacesAway(pSoldier->position().gridNo(), BestShot.sTarget)))) &&
 				// check that we have spare ammo
 				(fExtraClip || pSoldier->inv[BestShot.bWeaponIn][0]->data.gun.ubGunShotsLeft >= gGameExternalOptions.ubAISuppressionMinimumMagSize))

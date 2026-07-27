@@ -699,8 +699,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// animal friend will refuse to attack animals
 		if (pSoldier->HasBackgroundFlag(BACKGROUND_ANIMALFRIEND) &&
 			(pTargetSoldier->ubBodyType == CROW || pTargetSoldier->ubBodyType == COW || pTargetSoldier->ubBodyType == BLOODCAT) &&
-			pSoldier->ubPreviousAttackerID != pTargetSoldier->ubID &&
-			pSoldier->ubNextToPreviousAttackerID != pTargetSoldier->ubID)
+			pSoldier->combatResult().previousAttacker() != pTargetSoldier->ubID &&
+			pSoldier->combatResult().earlierAttacker() != pTargetSoldier->ubID)
 		{
 			TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 			return(ITEM_HANDLE_REFUSAL);

@@ -897,7 +897,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 			{
 				if ( pMerc->flags.fCloseCall )
 				{
-					if ( !gTacticalStatus.fSomeoneHit && pMerc->bNumHitsThisTurn == 0 && !(pMerc->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
+					if ( !gTacticalStatus.fSomeoneHit && pMerc->combatResult().hitsThisTurn() == 0 && !(pMerc->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
 					{
 						// say close call quote!
 						TacticalCharacterDialogue( pMerc, QUOTE_CLOSE_CALL );

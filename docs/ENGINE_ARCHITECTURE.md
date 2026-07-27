@@ -988,7 +988,16 @@ the engine must not contain SDL types in its public domain model.
   autofire selection without mixing target choice or presentation-only sound
   and muzzle-flash handles into this simulation boundary. AI dual-wield spread
   generation is clamped after its shot count is doubled, preventing twelve
-  writes into the established six-target buffer. Animation transition requests
+  writes into the established six-target buffer.
+  `SoldierCombatResultComponent` separately owns incoming hit attribution:
+  current, previous, and earlier attackers, hit location and reason, per-turn
+  hit and pellet counts, and accumulated damage. Its history operations keep
+  killer and assister transitions atomic. Floating-number cursor, offset, and
+  direction state live in `SoldierDamageDisplayComponent`, so presentation
+  coordinates cannot become combat state. Accumulated damage deliberately
+  remains simulation-owned because torso-hit and death rules inspect it before
+  the number is rendered.
+  Animation transition requests
   now follow the same rule through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,
   UI turn origin, next-tile stopping, and post-stance continuation have one
@@ -1014,8 +1023,8 @@ the engine must not contain SDL types in its public domain model.
   no bytes, so load simply resets the inline working set. The unused legacy
   8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
   live state. The v101 conversion path now copies all six 32-bit spread targets
-  instead of only the first three.
-  Target values and all animation values remain at their established portable
+  instead of only the first three. Incoming combat and damage-display values,
+  target values, and all animation values remain at their established portable
   save positions. Map placements, Lua values, multiplayer packets, and content
   formats retain their existing schemas.
 

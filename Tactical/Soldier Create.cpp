@@ -2092,9 +2092,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	//pSoldier->aiData.bMorale = DEFAULT_MORALE;
 	pSoldier->aiData.bMorale = gMoraleSettings.ubDefaultMorale;
 
-	pSoldier->ubAttackerID = NOBODY;
-	pSoldier->ubPreviousAttackerID = NOBODY;
-	pSoldier->ubNextToPreviousAttackerID	 = NOBODY;
+	pSoldier->combatResult().clearAttackers();
 
 	//Set AI Delay!
 	pSoldier->uiAIDelay = 100;

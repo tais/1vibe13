@@ -1581,7 +1581,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							pSoldier->aiData.uiPendingActionData1 = pSoldier->position().direction();
 
 							// If we got a head shot...more chance of turning...
-							if ( pSoldier->ubHitLocation != AIM_SHOT_HEAD )
+							if ( pSoldier->combatResult().hitLocation() != AIM_SHOT_HEAD )
 							{
 								uiChance = Random( 100 );
 
@@ -3952,16 +3952,16 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 
 		// anv: enemy taunts after kill
 		SOLDIERTYPE *pKillerSoldier = NULL;
-		if(pSoldier->ubAttackerID != NOBODY)
+		if(pSoldier->combatResult().currentAttacker() != NOBODY)
 		{
 			pKillerSoldier =
-				GetJa2SoldierRepository().resolve( pSoldier->ubAttackerID );
+				GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 		}
 		if(pKillerSoldier == nullptr &&
-			pSoldier->ubPreviousAttackerID != NOBODY)
+			pSoldier->combatResult().previousAttacker() != NOBODY)
 		{
 			pKillerSoldier =
-				GetJa2SoldierRepository().resolve( pSoldier->ubPreviousAttackerID );
+				GetJa2SoldierRepository().resolve( pSoldier->combatResult().previousAttacker() );
 		}
 		if(pKillerSoldier != NULL)
 		{
@@ -4020,25 +4020,25 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		{
 			//////////////////////////////////////////////////////////////
 			// SANDRO - some changes here
-			SoldierID attackerId = pSoldier->ubAttackerID;
-			SoldierID assisterId = pSoldier->ubPreviousAttackerID;
+			SoldierID attackerId = pSoldier->combatResult().currentAttacker();
+			SoldierID assisterId = pSoldier->combatResult().previousAttacker();
 			// If attacker is nobody, and we died, then set the last attacker(if exists) as our killer
 			if ( attackerId == NOBODY )
 			{
 				if ( assisterId != NOBODY )
 				{
-					attackerId = pSoldier->ubPreviousAttackerID;
-					assisterId = pSoldier->ubNextToPreviousAttackerID;
+					attackerId = pSoldier->combatResult().previousAttacker();
+					assisterId = pSoldier->combatResult().earlierAttacker();
 				}
-				else if ( pSoldier->ubNextToPreviousAttackerID != NOBODY )
+				else if ( pSoldier->combatResult().earlierAttacker() != NOBODY )
 				{
-					attackerId = pSoldier->ubNextToPreviousAttackerID;
+					attackerId = pSoldier->combatResult().earlierAttacker();
 					assisterId = NOBODY;
 				}
 			}
 			else if ( assisterId == NOBODY )
 			{
-				assisterId = pSoldier->ubNextToPreviousAttackerID;
+				assisterId = pSoldier->combatResult().earlierAttacker();
 			}
 
 			//////////////////////////////////////////////////////////////
@@ -4047,10 +4047,10 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 			SOLDIERTYPE* assister =
 				GetJa2SoldierRepository().resolve( assisterId );
 			const SOLDIERTYPE* directAttacker =
-				GetJa2SoldierRepository().resolve( pSoldier->ubAttackerID );
+				GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 
 			{
-				// anv: note that attackerId can be already different from pSoldier->ubAttackerID
+				// anv: note that attackerId can be already different from pSoldier->combatResult().currentAttacker()
 				// IF this guy has an attacker and he's a good guy, play sound
 				if ( directAttacker != nullptr )
 				{
@@ -4457,7 +4457,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 			BOOLEAN		fDoFallback		= FALSE;
 			BOOLEAN		fAlwaysFallBack = FALSE; // added by SANDRO
 			SOLDIERTYPE* attacker =
-				GetJa2SoldierRepository().resolve( pSoldier->ubAttackerID );
+				GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 
 
 			// Lesh: lets fix dead humans fallback through obstacles

@@ -683,12 +683,12 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	BOOLEAN fIncrement = FALSE;
 	
 	// ubAttacker CAN be NOBODY...	Don't treat is as murder if NOBODY killed us...
-	if ( pSoldier->ubAttackerID == NOBODY )
+	if ( pSoldier->combatResult().currentAttacker() == NOBODY )
 	{
 		return;
 	}
 	SOLDIERTYPE* pKiller =
-		GetJa2SoldierRepository().resolve(pSoldier->ubAttackerID);
+		GetJa2SoldierRepository().resolve(pSoldier->combatResult().currentAttacker());
 	if (!pKiller)
 	{
 		return;

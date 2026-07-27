@@ -268,16 +268,16 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s|Roaming |Range: %d\n", pStrInfo, RoamingRange(pSoldier, &usOrigin));
 			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition);
 			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->bCollapsed, pSoldier->bBreathCollapsed);
-			if (pSoldier->ubPreviousAttackerID < NOBODY)
+			if (pSoldier->combatResult().previousAttacker() < NOBODY)
 			{
 				SOLDIERTYPE* previousAttacker =
 					GetJa2SoldierRepository().resolve(
-						pSoldier->ubPreviousAttackerID.i);
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i, previousAttacker->targeting().lastGridNo());
+						pSoldier->combatResult().previousAttacker().i);
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->combatResult().previousAttacker().i, previousAttacker->targeting().lastGridNo());
 			}
 			else
 			{
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i);
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->combatResult().previousAttacker().i);
 			}
 
 			swprintf(pStrInfo, L"%s|Visible %d |Moved %d\n", pStrInfo, pSoldier->bVisible, pSoldier->aiData.bMoved);
