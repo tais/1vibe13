@@ -860,7 +860,6 @@ public:
 	INT8											bGoBackToAimAfterHit;
 	BOOLEAN											fForceRenderColor;
 	BOOLEAN											fForceNoRenderPaletteCycle;
-	BOOLEAN											fStopPendingNextTile;
 	BOOLEAN											fUIMovementFast;
 	BOOLEAN											fForceShade;
 	BOOLEAN											fDeadSoundPlayed;
@@ -870,7 +869,6 @@ public:
 	BOOLEAN											fOpenPanel;
 	BOOLEAN											fIntendedTarget; // intentionally shot?
 	BOOLEAN											fPauseAllAnimation;
-	BOOLEAN											fContinueMoveAfterStanceChange;
 	BOOLEAN											fHoldAttackerUntilDone;
 	BOOLEAN											fWarnedAboutBleeding;
 	BOOLEAN											fDyingComment;
@@ -1072,6 +1070,8 @@ public:
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
+	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
+	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1151,9 +1151,6 @@ public:
 	INT8				bCollapsed;				// collapsed due to being out of APs
 	INT8				bBreathCollapsed;		// collapsed due to being out of APs
 
-	UINT8			ubDesiredHeight;
-	UINT16			usPendingAnimation;
-	UINT8			ubPendingStanceChange;
 	UINT16			usAnimState;
 
 	UINT32			uiAIDelay;
@@ -1300,7 +1297,6 @@ public:
 
 	INT8				bStartFallDir;
 
-	UINT8			ubPendingDirection;
 	UINT32			uiAnimSubFlags;
 
 	UINT8			bAimShotLocation;
@@ -1358,7 +1354,6 @@ public:
 	UINT8			ubDesiredSquadAssignment;
 	UINT8			ubNumTraversalsAllowedToMerge;
 
-	UINT16			usPendingAnimation2;
 	UINT8			ubCivilianGroup;
 
 
@@ -1438,7 +1433,6 @@ public:
 	UINT8				ubContractRenewalQuoteCode;
 	INT32				sPreTraversalGridNo;
 	UINT32				uiXRayActivatedTime;
-	INT8					bTurningFromUI;
 	INT8					bPendingActionData5;
 
 	INT8					bDelayedStrategicMoraleMod;
@@ -1583,6 +1577,7 @@ private:
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
+	SoldierAnimationIntentComponent	animationIntent_;
 
 public:
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is

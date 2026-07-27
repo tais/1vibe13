@@ -166,6 +166,74 @@ private:
 	BOOLEAN usesMoveSpeedOverride_ = FALSE;
 };
 
+// Canonical requests that bridge tactical decisions into animation playback.
+// The playback state itself remains separate: this component owns only queued
+// animations, stance/facing intent, and the movement continuation policy that
+// must survive until the requested transition completes.
+class SoldierAnimationIntentComponent
+{
+public:
+	UINT8& desiredHeight() noexcept { return desiredHeight_; }
+	const UINT8& desiredHeight() const noexcept { return desiredHeight_; }
+	UINT16& pendingAnimation() noexcept { return pendingAnimation_; }
+	const UINT16& pendingAnimation() const noexcept { return pendingAnimation_; }
+	UINT8& pendingStance() noexcept { return pendingStance_; }
+	const UINT8& pendingStance() const noexcept { return pendingStance_; }
+	UINT16& secondaryPendingAnimation() noexcept { return secondaryPendingAnimation_; }
+	const UINT16& secondaryPendingAnimation() const noexcept { return secondaryPendingAnimation_; }
+	UINT8& pendingDirection() noexcept { return pendingDirection_; }
+	const UINT8& pendingDirection() const noexcept { return pendingDirection_; }
+	INT8& turningFromUi() noexcept { return turningFromUi_; }
+	const INT8& turningFromUi() const noexcept { return turningFromUi_; }
+	BOOLEAN& stopPendingNextTile() noexcept { return stopPendingNextTile_; }
+	const BOOLEAN& stopPendingNextTile() const noexcept { return stopPendingNextTile_; }
+	UINT8& continuationMode() noexcept { return continuationMode_; }
+	const UINT8& continuationMode() const noexcept { return continuationMode_; }
+
+	bool hasDesiredHeight() const noexcept { return desiredHeight_ != NoDesiredHeight; }
+	bool hasPendingAnimation() const noexcept { return pendingAnimation_ != NoPendingAnimation; }
+	bool hasPendingStance() const noexcept { return pendingStance_ != NoPendingStance; }
+	bool hasSecondaryPendingAnimation() const noexcept { return secondaryPendingAnimation_ != NoPendingAnimation; }
+	bool hasPendingDirection() const noexcept { return pendingDirection_ != NoPendingDirection; }
+	bool continuesAfterStance() const noexcept { return continuationMode_ != 0; }
+
+	void requestHeight(UINT8 height) noexcept { desiredHeight_ = height; }
+	void clearDesiredHeight() noexcept { desiredHeight_ = NoDesiredHeight; }
+	void queueAnimation(UINT16 animation) noexcept { pendingAnimation_ = animation; }
+	void clearPendingAnimation() noexcept { pendingAnimation_ = NoPendingAnimation; }
+	void queueStance(UINT8 stance) noexcept { pendingStance_ = stance; }
+	void clearPendingStance() noexcept { pendingStance_ = NoPendingStance; }
+	void queueSecondaryAnimation(UINT16 animation) noexcept { secondaryPendingAnimation_ = animation; }
+	void clearSecondaryPendingAnimation() noexcept { secondaryPendingAnimation_ = NoPendingAnimation; }
+	void queueDirection(UINT8 direction) noexcept { pendingDirection_ = direction; }
+	void clearPendingDirection() noexcept { pendingDirection_ = NoPendingDirection; }
+	void queueFacingAnimation(UINT16 animation, UINT8 direction) noexcept;
+	void clearFacingAnimation() noexcept;
+	void markTurningFromUi() noexcept { turningFromUi_ = TRUE; }
+	void clearTurningFromUi() noexcept { turningFromUi_ = FALSE; }
+	void requestStopAtNextTile() noexcept { stopPendingNextTile_ = TRUE; }
+	void clearStopAtNextTile() noexcept { stopPendingNextTile_ = FALSE; }
+	void continueAfterStance(UINT8 mode = 1) noexcept { continuationMode_ = mode; }
+	void clearContinuation() noexcept { continuationMode_ = 0; }
+	void clearPendingAnimations() noexcept;
+	void reset() noexcept;
+
+private:
+	static constexpr UINT8 NoDesiredHeight = 255;
+	static constexpr UINT16 NoPendingAnimation = 32001;
+	static constexpr UINT8 NoPendingStance = 254;
+	static constexpr UINT8 NoPendingDirection = 253;
+
+	UINT8 desiredHeight_ = NoDesiredHeight;
+	UINT16 pendingAnimation_ = NoPendingAnimation;
+	UINT8 pendingStance_ = NoPendingStance;
+	UINT16 secondaryPendingAnimation_ = NoPendingAnimation;
+	UINT8 pendingDirection_ = NoPendingDirection;
+	INT8 turningFromUi_ = FALSE;
+	BOOLEAN stopPendingNextTile_ = FALSE;
+	UINT8 continuationMode_ = 0;
+};
+
 struct SoldierPendingActionRuntimeState
 {
 	// Debug/path scratch retained across the path-cost operation only.

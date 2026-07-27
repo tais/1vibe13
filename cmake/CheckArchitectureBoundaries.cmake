@@ -2222,6 +2222,129 @@ if(NOT serialized_soldier_movement_delay_flag_order OR
     "Soldier movement state moved in the portable save schema; keep its established byte positions while storage evolves")
 endif()
 
+# Animation transition requests now have one private owner, separate from
+# playback state. Do not return queued animation/stance/facing state to the
+# generic flags bucket or the public SOLDIERTYPE field list.
+foreach(retired_animation_intent_flag IN ITEMS
+  fStopPendingNextTile
+  fContinueMoveAfterStanceChange)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_animation_intent_flag}[ \t]*;"
+    retired_current_animation_intent_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_animation_intent_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags animation-intent field '${retired_animation_intent_flag}' returned; transition requests belong to SoldierAnimationIntentComponent")
+  endif()
+endforeach()
+
+foreach(retired_animation_intent_field IN ITEMS
+  ubDesiredHeight
+  usPendingAnimation
+  ubPendingStanceChange
+  usPendingAnimation2
+  ubPendingDirection
+  bTurningFromUI)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT8|UINT16|INT8)[ \t]+${retired_animation_intent_field}[ \t]*;"
+    retired_current_animation_intent_field
+    "${current_soldier_contents}")
+  if(retired_current_animation_intent_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE animation-intent field '${retired_animation_intent_field}' returned; queued transitions belong to SoldierAnimationIntentComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAnimationIntentComponent[ \t\r\n]+animationIntent_[ \t]*;"
+  soldier_animation_intent_owner
+  "${current_soldier_contents}")
+if(NOT soldier_animation_intent_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAnimationIntentComponent")
+endif()
+
+foreach(animation_intent_sentinel IN ITEMS
+  "UINT8;NoDesiredHeight;255"
+  "UINT16;NoPendingAnimation;32001"
+  "UINT8;NoPendingStance;254"
+  "UINT8;NoPendingDirection;253")
+  string(REPLACE ";" ";" animation_intent_sentinel_parts
+    "${animation_intent_sentinel}")
+  list(GET animation_intent_sentinel_parts 0 animation_intent_sentinel_type)
+  list(GET animation_intent_sentinel_parts 1 animation_intent_sentinel_name)
+  list(GET animation_intent_sentinel_parts 2 animation_intent_sentinel_value)
+  string(REGEX MATCH
+    "static constexpr ${animation_intent_sentinel_type}[ \t]+${animation_intent_sentinel_name}[ \t]*=[ \t]*${animation_intent_sentinel_value}[ \t]*;"
+    owned_animation_intent_sentinel
+    "${soldier_components_header_contents}")
+  if(NOT owned_animation_intent_sentinel)
+    message(FATAL_ERROR
+      "SoldierAnimationIntentComponent sentinel '${animation_intent_sentinel_name}' changed; keep legacy no-request values explicit")
+  endif()
+endforeach()
+
+foreach(owned_animation_intent_field IN ITEMS
+  "UINT8;desiredHeight;NoDesiredHeight"
+  "UINT16;pendingAnimation;NoPendingAnimation"
+  "UINT8;pendingStance;NoPendingStance"
+  "UINT16;secondaryPendingAnimation;NoPendingAnimation"
+  "UINT8;pendingDirection;NoPendingDirection"
+  "INT8;turningFromUi;FALSE"
+  "BOOLEAN;stopPendingNextTile;FALSE"
+  "UINT8;continuationMode;0")
+  string(REPLACE ";" ";" owned_animation_intent_parts
+    "${owned_animation_intent_field}")
+  list(GET owned_animation_intent_parts 0 owned_animation_intent_type)
+  list(GET owned_animation_intent_parts 1 owned_animation_intent_name)
+  list(GET owned_animation_intent_parts 2 owned_animation_intent_initializer)
+  string(REGEX MATCH
+    "${owned_animation_intent_type}[ \t]+${owned_animation_intent_name}_[ \t]*=[ \t]*${owned_animation_intent_initializer}[ \t]*;"
+    owned_soldier_animation_intent
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_animation_intent)
+    message(FATAL_ERROR
+      "SoldierAnimationIntentComponent no longer owns initialized '${owned_animation_intent_name}_' storage")
+  endif()
+endforeach()
+
+# Keep every transition value at its established save byte position. The
+# continuation mode intentionally uses raw u8 transfer: legacy code stores
+# mode 2 here, so boolean normalization would corrupt a live transition.
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fForceNoRenderPaletteCycle\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);"
+  serialized_soldier_animation_stop_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fPauseAllAnimation\\);[ \t]*ar\\.u8\\(animationIntent\\.continuationMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fHoldAttackerUntilDone\\);"
+  serialized_soldier_animation_continuation_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bBreathCollapsed\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.pendingAnimation\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingStance\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usAnimState\\);"
+  serialized_soldier_animation_primary_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.bStartFallDir\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.uiAnimSubFlags\\);"
+  serialized_soldier_animation_direction_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubDesiredSquadAssignment\\);[ \t]*ar\\.u8\\(s\\.ubNumTraversalsAllowedToMerge\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubCivilianGroup\\);"
+  serialized_soldier_animation_secondary_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiXRayActivatedTime\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
+  serialized_soldier_animation_ui_turn_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_animation_stop_order OR
+   NOT serialized_soldier_animation_continuation_order OR
+   NOT serialized_soldier_animation_primary_order OR
+   NOT serialized_soldier_animation_direction_order OR
+   NOT serialized_soldier_animation_secondary_order OR
+   NOT serialized_soldier_animation_ui_turn_order)
+  message(FATAL_ERROR
+    "Soldier animation intent moved in the portable save schema; keep each transition value at its established byte position")
+endif()
+
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
 # TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at

@@ -1574,9 +1574,8 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 	ubInsertionCode = pSoldier->ubStrategicInsertionCode;
 
 	// Remove any pending animations
-	pSoldier->usPendingAnimation = NO_PENDING_ANIMATION;
-	pSoldier->usPendingAnimation2 = NO_PENDING_ANIMATION;
-	pSoldier->ubPendingDirection = NO_PENDING_DIRECTION;
+	pSoldier->animationIntent().clearPendingAnimations();
+	pSoldier->animationIntent().clearPendingDirection();
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
 
 	//If we are not loading a saved game

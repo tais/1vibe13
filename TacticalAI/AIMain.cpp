@@ -845,11 +845,11 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 				{
 					// ATE: Put some ( MORE ) refinements on here....
 					// If we are trying to open door, or jump fence  don't continue until done...
-					if (!pSoldier->flags.fContinueMoveAfterStanceChange && !pSoldier->bEndDoorOpenCode)
+					if (!pSoldier->animationIntent().continuationMode() && !pSoldier->bEndDoorOpenCode)
 					{
 						//ATE: just a few more.....
 						// If we have ANY pending aninmation that is movement.....
-						if (pSoldier->usPendingAnimation != NO_PENDING_ANIMATION && (gAnimControl[pSoldier->usPendingAnimation].uiFlags & ANIM_MOVING))
+						if (pSoldier->animationIntent().pendingAnimation() != NO_PENDING_ANIMATION && (gAnimControl[pSoldier->animationIntent().pendingAnimation()].uiFlags & ANIM_MOVING))
 						{
 							// Don't do anything, we're waiting on a pending animation....
 						}
@@ -2471,12 +2471,12 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 				{
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_STAND)
 					{
-						pSoldier->ubDesiredHeight = ANIM_STAND;
+						pSoldier->animationIntent().desiredHeight() = ANIM_STAND;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER, 0, FALSE);
 					}
 					else if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_CROUCH)
 					{
-						pSoldier->ubDesiredHeight = ANIM_CROUCH;
+						pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_CROUCHED, 0, FALSE);
 					}
 				}
@@ -2484,7 +2484,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 				{
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight == ANIM_PRONE)
 					{
-						pSoldier->ubDesiredHeight = ANIM_PRONE;
+						pSoldier->animationIntent().desiredHeight() = ANIM_PRONE;
 						pSoldier->EVENT_InitNewSoldierAnim(END_COWER_PRONE, 0, FALSE);
 					}
 				}

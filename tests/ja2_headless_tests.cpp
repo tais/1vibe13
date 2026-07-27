@@ -3832,7 +3832,7 @@ int main( int, char** )
 		const UINT8 stanceTeam = GetJa2TacticalCurrentTeam();
 		RestoreJa2TacticalTurnState(ACTIVE | REALTIME, stanceTeam);
 		commandHostActor.usAnimState = WALKING;
-		commandHostActor.ubDesiredHeight = ANIM_STAND;
+		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
 		const UINT16 expectedMovingStance =
 			commandHostActor.GetMoveStateBasedOnStance(ANIM_CROUCH);
@@ -3880,7 +3880,7 @@ int main( int, char** )
 			movingStanceChanged.status ==
 				SimulationCommandDispatchStatus::Applied &&
 			commandHostActor.usUIMovementMode == expectedMovingStance &&
-			commandHostActor.ubDesiredHeight == ANIM_CROUCH &&
+			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
 			commandHostActor.usAnimState == START_SWAT &&
 			cachedMovingStanceHits == 1;
 		commandHostActor.AnimCache = previousAnimationCache;
@@ -3888,7 +3888,7 @@ int main( int, char** )
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
 		commandHostActor.usAnimState = STANDING;
-		commandHostActor.ubDesiredHeight = NO_DESIRED_HEIGHT;
+		commandHostActor.animationIntent().clearDesiredHeight();
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
 		CHECK( movingStanceOwnedByExecutor,
 		       "stance command executor owns real-time moving animation transitions" );
@@ -7273,6 +7273,14 @@ int main( int, char** )
 		movement.delayedFlags() = 5;
 		movement.stopReason() = 2;
 		movement.overrideMoveSpeedWith(SoldierID{ 4 });
+		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
+		animationIntent.requestHeight( ANIM_CROUCH );
+		animationIntent.queueFacingAnimation( WALKING, 4 );
+		animationIntent.queueStance( ANIM_PRONE );
+		animationIntent.queueSecondaryAnimation( RUNNING );
+		animationIntent.markTurningFromUi();
+		animationIntent.requestStopAtNextTile();
+		animationIntent.continueAfterStance( 2 );
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
@@ -7305,6 +7313,21 @@ int main( int, char** )
 		       constSoldier.movement().usesMoveSpeedOverride() &&
 		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier movement component owns tactical intent and contention state" );
+		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
+		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
+		       constSoldier.animationIntent().hasPendingAnimation() &&
+		       constSoldier.animationIntent().pendingAnimation() == WALKING &&
+		       constSoldier.animationIntent().hasPendingStance() &&
+		       constSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
+		       constSoldier.animationIntent().hasSecondaryPendingAnimation() &&
+		       constSoldier.animationIntent().secondaryPendingAnimation() == RUNNING &&
+		       constSoldier.animationIntent().hasPendingDirection() &&
+		       constSoldier.animationIntent().pendingDirection() == 4 &&
+		       constSoldier.animationIntent().turningFromUi() &&
+		       constSoldier.animationIntent().stopPendingNextTile() &&
+		       constSoldier.animationIntent().continuesAfterStance() &&
+		       constSoldier.animationIntent().continuationMode() == 2,
+		       "soldier animation-intent component owns queued transitions and continuation policy" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7357,6 +7380,15 @@ int main( int, char** )
 		       copiedSoldier.movement().usesMoveSpeedOverride() &&
 		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier copies retain their owned persistent movement state" );
+		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
+		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
+		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
+		       copiedSoldier.animationIntent().secondaryPendingAnimation() == RUNNING &&
+		       copiedSoldier.animationIntent().pendingDirection() == 4 &&
+		       copiedSoldier.animationIntent().turningFromUi() &&
+		       copiedSoldier.animationIntent().stopPendingNextTile() &&
+		       copiedSoldier.animationIntent().continuationMode() == 2,
+		       "soldier copies retain their owned persistent animation intent" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
 		       copiedSoldier.pathing().complete() &&
@@ -7367,11 +7399,29 @@ int main( int, char** )
 		copiedSoldier.movement().clearBlock();
 		copiedSoldier.movement().clearContinuedPath();
 		copiedSoldier.movement().clearMoveSpeedOverride();
+		copiedSoldier.animationIntent().clearDesiredHeight();
+		copiedSoldier.animationIntent().clearFacingAnimation();
+		copiedSoldier.animationIntent().queueAnimation( WALKING );
+		copiedSoldier.animationIntent().queueSecondaryAnimation( RUNNING );
+		copiedSoldier.animationIntent().clearPendingAnimations();
+		copiedSoldier.animationIntent().clearPendingStance();
+		copiedSoldier.animationIntent().clearTurningFromUi();
+		copiedSoldier.animationIntent().clearStopAtNextTile();
+		copiedSoldier.animationIntent().clearContinuation();
 		CHECK( !copiedSoldier.movement().delayed() &&
 		       !copiedSoldier.movement().blockedByAnotherMerc() &&
 		       !copiedSoldier.movement().continuedPathValid() &&
 		       !copiedSoldier.movement().usesMoveSpeedOverride(),
 		       "soldier movement component clears coordinated movement modes through named transitions" );
+		CHECK( !copiedSoldier.animationIntent().hasDesiredHeight() &&
+		       !copiedSoldier.animationIntent().hasPendingAnimation() &&
+		       !copiedSoldier.animationIntent().hasSecondaryPendingAnimation() &&
+		       !copiedSoldier.animationIntent().hasPendingStance() &&
+		       !copiedSoldier.animationIntent().hasPendingDirection() &&
+		       !copiedSoldier.animationIntent().turningFromUi() &&
+		       !copiedSoldier.animationIntent().stopPendingNextTile() &&
+		       !copiedSoldier.animationIntent().continuesAfterStance(),
+		       "soldier animation-intent component clears coordinated transition modes through named operations" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7409,6 +7459,15 @@ int main( int, char** )
 		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
 		       !copiedSoldier.movement().usesMoveSpeedOverride(),
 		       "soldier initialization resets the complete movement domain" );
+		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
+		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
+		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
+		       copiedSoldier.animationIntent().secondaryPendingAnimation() == NO_PENDING_ANIMATION &&
+		       copiedSoldier.animationIntent().pendingDirection() == NO_PENDING_DIRECTION &&
+		       !copiedSoldier.animationIntent().turningFromUi() &&
+		       !copiedSoldier.animationIntent().stopPendingNextTile() &&
+		       copiedSoldier.animationIntent().continuationMode() == 0,
+		       "soldier initialization resets the complete animation-intent domain" );
 	}
 
 	{
@@ -7543,6 +7602,13 @@ int main( int, char** )
 		savedSoldier.movement().delayedFlags() = 3;
 		savedSoldier.movement().stopReason() = 4;
 		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
+		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
+		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
+		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
+		savedSoldier.animationIntent().queueSecondaryAnimation( RUNNING );
+		savedSoldier.animationIntent().markTurningFromUi();
+		savedSoldier.animationIntent().requestStopAtNextTile();
+		savedSoldier.animationIntent().continueAfterStance( 2 );
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7608,6 +7674,18 @@ int main( int, char** )
 		       loadedSoldier.movement().usesMoveSpeedOverride() &&
 		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
 		       "soldier save/load round-trips component-owned movement speed state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
+		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&
+		       loadedSoldier.animationIntent().pendingStance() == ANIM_CROUCH &&
+		       loadedSoldier.animationIntent().secondaryPendingAnimation() == RUNNING &&
+		       loadedSoldier.animationIntent().pendingDirection() == 7,
+		       "soldier save/load round-trips component-owned queued animation transitions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.animationIntent().turningFromUi() &&
+		       loadedSoldier.animationIntent().stopPendingNextTile() &&
+		       loadedSoldier.animationIntent().continuationMode() == 2,
+		       "soldier save/load preserves animation continuation modes without boolean normalization" );
 	}
 
 	{

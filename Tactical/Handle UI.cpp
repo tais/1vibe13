@@ -1911,7 +1911,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						{
 							pSoldier->StopCoweringAnimation();
 							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
-							pSoldier->usPendingAnimation = usNewState;
+							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
 						pSoldier->flags.fUIMovementFast = 1;
@@ -1933,7 +1933,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						{
 							pSoldier->StopCoweringAnimation();
 							UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
-							pSoldier->usPendingAnimation = usNewState;
+							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
 						pSoldier->flags.fUIMovementFast = 0;
@@ -1948,7 +1948,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_CROUCH);
 						if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_CROUCH)
-							pSoldier->usPendingAnimation = usNewState;
+							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 					else
 					{
@@ -1962,7 +1962,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_PRONE);
 						if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ANIM_PRONE)
-							pSoldier->usPendingAnimation = usNewState;
+							pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 					else
 					{
@@ -3311,7 +3311,7 @@ UINT32 UIHandlePADJAdjustStance( UI_EVENT *pUIEvent )
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubNewStance);
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ubNewStance)
-						pSoldier->usPendingAnimation = usNewState;
+						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
 				else
 				{
@@ -5594,7 +5594,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 			}// arynn : fix lower ready weapon end_if	
 		}
 
-		pSoldier->bTurningFromUI = TRUE;
+		pSoldier->animationIntent().markTurningFromUi();
 
 		// ATE: Hard-code here previous event to ui busy event...
 		guiOldEvent = LA_BEGINUIOURTURNLOCK;
@@ -5648,7 +5648,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 				return( FALSE );
 		}
 
-		pSoldier->bTurningFromUI = TRUE;
+		pSoldier->animationIntent().markTurningFromUi();
 		guiOldEvent = LA_BEGINUIOURTURNLOCK;
 
 		// Setting "Last Target"
@@ -6465,9 +6465,9 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 	// ATE: Reset flag to go back to prone...
 	//pSoldier->flags.fTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
 	if (SpacesAway(pSoldier->position().gridNo(), usMapPos) == 3 )
-		pSoldier->usPendingAnimation = LONG_JUMP;
+		pSoldier->animationIntent().pendingAnimation() = LONG_JUMP;
 	else
-		pSoldier->usPendingAnimation = JUMP_OVER_BLOCKING_PERSON;
+		pSoldier->animationIntent().pendingAnimation() = JUMP_OVER_BLOCKING_PERSON;
 
 	return( GAME_SCREEN );
 }

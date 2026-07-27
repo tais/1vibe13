@@ -2530,9 +2530,9 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			{
 				if ((pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) &&
 					((pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE)))
-					pSoldier->usPendingAnimation = LOB_GRENADE_STANCE;
+					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
-					pSoldier->usPendingAnimation = LOB_ITEM;
+					pSoldier->animationIntent().pendingAnimation() = LOB_ITEM;
 			}
 			// Draw item depending on distance from buddy
 			else if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) < MIN_LOB_RANGE )
@@ -2540,17 +2540,17 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				//ddd maybe need to add check for throwing item class - grenade
 				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
 					( (pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE) ) )
-					pSoldier->usPendingAnimation = LOB_GRENADE_STANCE;
+					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
-					pSoldier->usPendingAnimation = LOB_ITEM;
+					pSoldier->animationIntent().pendingAnimation() = LOB_ITEM;
 			}
 			else			
 			{
 				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
 					( (pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE) ) )
-					pSoldier->usPendingAnimation = THROW_GRENADE_STANCE;
+					pSoldier->animationIntent().pendingAnimation() = THROW_GRENADE_STANCE;
 				else
-					pSoldier->usPendingAnimation = THROW_ITEM;
+					pSoldier->animationIntent().pendingAnimation() = THROW_ITEM;
 			}
 		}
 		break;
@@ -2596,11 +2596,11 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 
 			if (gbGrenadeRolling)
 			{
-				pSoldier->usPendingAnimation = THROW_ITEM_CROUCHED;
+				pSoldier->animationIntent().pendingAnimation() = THROW_ITEM_CROUCHED;
 			}
 			else
 			{
-				pSoldier->usPendingAnimation = THROW_ITEM_CROUCHED;
+				pSoldier->animationIntent().pendingAnimation() = THROW_ITEM_CROUCHED;
 			}
 		}
 		break;

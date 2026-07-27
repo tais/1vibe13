@@ -6595,7 +6595,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					{
 						pSoldier->StopCoweringAnimation();
 						UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
-						pSoldier->usPendingAnimation = usNewState;
+						pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 
 					pSoldier->flags.fUIMovementFast = 0;
@@ -6610,7 +6610,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					pSoldier->StopCoweringAnimation();
 					UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ubAnimHeight);
 					if (gAnimControl[pSoldier->usAnimState].ubEndHeight != ubAnimHeight)
-						pSoldier->usPendingAnimation = usNewState;
+						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
 				else if (pSoldier->bCollapsed && pSoldier->vitals().breath() >= OKBREATH)
 				{
@@ -8786,7 +8786,7 @@ void HandleTBSoldierRun( void )
 			{
 				pSoldier->StopCoweringAnimation();
 				UINT16 usNewState = pSoldier->GetNewSoldierStateFromNewStance(ANIM_STAND);
-				pSoldier->usPendingAnimation = usNewState;
+				pSoldier->animationIntent().pendingAnimation() = usNewState;
 			}
 
 			pSoldier->flags.fUIMovementFast = 1;

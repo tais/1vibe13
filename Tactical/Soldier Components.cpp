@@ -72,3 +72,26 @@ void SoldierMovementComponent::reset() noexcept
 {
 	*this = SoldierMovementComponent{};
 }
+
+void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
+{
+	clearPendingAnimation();
+	clearSecondaryPendingAnimation();
+}
+
+void SoldierAnimationIntentComponent::queueFacingAnimation(UINT16 animation, UINT8 direction) noexcept
+{
+	queueAnimation(animation);
+	queueDirection(direction);
+}
+
+void SoldierAnimationIntentComponent::clearFacingAnimation() noexcept
+{
+	clearPendingAnimation();
+	clearPendingDirection();
+}
+
+void SoldierAnimationIntentComponent::reset() noexcept
+{
+	*this = SoldierAnimationIntentComponent{};
+}

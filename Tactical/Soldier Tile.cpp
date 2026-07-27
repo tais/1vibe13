@@ -468,7 +468,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 					case ANIM_CROUCH:
 
 						// Change height to stand
-						pSoldier->flags.fContinueMoveAfterStanceChange = TRUE;
+						pSoldier->animationIntent().continueAfterStance();
 						SendChangeSoldierStanceEvent( pSoldier, ANIM_STAND );
 						break;
 				}
