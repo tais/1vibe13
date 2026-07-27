@@ -270,7 +270,7 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 	{
 		OBJECTTYPE* pUsedGun =
 			owner->GetUsedWeapon(
-				&( owner->inv[owner->ubAttackingHand] ) );
+				&( owner->inv[owner->attackSelection().hand()] ) );
 
 		ammotype = (*pUsedGun)[0]->data.gun.ubGunAmmoType;
 

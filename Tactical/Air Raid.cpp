@@ -290,7 +290,7 @@ BOOLEAN BeginAirRaid( )
 		gpRaidSoldier->bSide = 1;
 		gpRaidSoldier->ubID	= MAX_NUM_SOLDIERS - 1;
 		gpRaidSoldier->ubAttackerID = NOBODY;
-		gpRaidSoldier->usAttackingWeapon = HK21E;
+		gpRaidSoldier->attackSelection().weapon() = HK21E;
 		CreateItem(HK21E, 100, &gpRaidSoldier->inv[HANDPOS]);
 
 		// Determine how many dives this one will be....
@@ -827,7 +827,7 @@ static void DoDive(	)
 
 
 					gpRaidSoldier->targeting().targetId() = NOBODY;
-					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->usAttackingWeapon, 10, FALSE, FALSE );
+					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
 				}
 
 				// Do second one.... ( ll )
@@ -860,7 +860,7 @@ static void DoDive(	)
 					}
 
 					// For now use first position....
-					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->usAttackingWeapon, 10, FALSE, FALSE );
+					FireBulletGivenTarget( gpRaidSoldier, sStrafeX, sStrafeY, 0, gpRaidSoldier->attackSelection().weapon(), 10, FALSE, FALSE );
 				}
 
 			}
@@ -1342,7 +1342,7 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 //		sAirRaidSaveStruct.bTeam = gpRaidSoldier->bTeam;
 //		sAirRaidSaveStruct.bSide = gpRaidSoldier->bSide;
 //		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->ubAttackerID;
-//		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->usAttackingWeapon;
+//		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->attackSelection().weapon();
 //		sAirRaidSaveStruct.dXPos = gpRaidSoldier->dXPos;
 //		sAirRaidSaveStruct.dYPos = gpRaidSoldier->dYPos;
 //		sAirRaidSaveStruct.sX = gpRaidSoldier->sX;
@@ -1420,7 +1420,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 		gpRaidSoldier->bTeam = sAirRaidSaveStruct.bTeam;
 		gpRaidSoldier->bSide = sAirRaidSaveStruct.bSide;
 		gpRaidSoldier->ubAttackerID = sAirRaidSaveStruct.ubAttackerID;
-		gpRaidSoldier->usAttackingWeapon = sAirRaidSaveStruct.usAttackingWeapon;
+		gpRaidSoldier->attackSelection().weapon() = sAirRaidSaveStruct.usAttackingWeapon;
 		gpRaidSoldier->dXPos = sAirRaidSaveStruct.dXPos;
 		gpRaidSoldier->dYPos = sAirRaidSaveStruct.dYPos;
 		gpRaidSoldier->sX = sAirRaidSaveStruct.sX;

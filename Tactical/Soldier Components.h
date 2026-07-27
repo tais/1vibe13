@@ -198,6 +198,38 @@ private:
 	SoldierID targetId_ = NOBODY;
 };
 
+// Canonical weapon and aim selection for one tactical actor. Target geometry
+// belongs to SoldierTargetingComponent; this component owns how that target is
+// attacked so UI, AI, replay, and network adapters cannot diverge through
+// independent flat SOLDIERTYPE fields.
+class SoldierAttackSelectionComponent
+{
+public:
+	UINT8& hand() noexcept { return hand_; }
+	const UINT8& hand() const noexcept { return hand_; }
+	UINT16& weapon() noexcept { return weapon_; }
+	const UINT16& weapon() const noexcept { return weapon_; }
+	INT8& weaponMode() noexcept { return weaponMode_; }
+	const INT8& weaponMode() const noexcept { return weaponMode_; }
+	INT8& scopeMode() noexcept { return scopeMode_; }
+	const INT8& scopeMode() const noexcept { return scopeMode_; }
+	UINT8& shotLocation() noexcept { return shotLocation_; }
+	const UINT8& shotLocation() const noexcept { return shotLocation_; }
+	UINT8& meleeLocation() noexcept { return meleeLocation_; }
+	const UINT8& meleeLocation() const noexcept { return meleeLocation_; }
+
+	void selectWeapon(UINT8 hand, UINT16 weapon) noexcept;
+	void reset() noexcept;
+
+private:
+	UINT8 hand_ = 0;
+	UINT16 weapon_ = 0;
+	INT8 weaponMode_ = 0;
+	INT8 scopeMode_ = 0;
+	UINT8 shotLocation_ = 0;
+	UINT8 meleeLocation_ = 0;
+};
+
 // Canonical requests that bridge tactical decisions into animation playback.
 // The playback state itself remains separate: this component owns only queued
 // animations, stance/facing intent, and the movement continuation policy that

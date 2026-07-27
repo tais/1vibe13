@@ -976,7 +976,11 @@ the engine must not contain SDL types in its public domain model.
   have one private `SoldierTargetingComponent` owner. Tactical UI, AI,
   weapons, simulation commands, animation events, and multiplayer adapters all
   read and mutate that same component instead of independent public
-  `SOLDIERTYPE` fields. Animation transition requests now follow the same rule
+  `SOLDIERTYPE` fields. `SoldierAttackSelectionComponent` separately owns the
+  selected attacking hand and weapon, weapon and scope modes, and ranged and
+  melee body locations. This keeps target geometry independent from the means
+  of attack while giving UI, AI, weapons, simulation, and network ingress one
+  canonical selection. Animation transition requests now follow the same rule
   through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,
   UI turn origin, next-tile stopping, and post-stance continuation have one

@@ -4756,12 +4756,12 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		sAccuracy = (sAttack - sDefence + iRandom) / 10;
 
 		//Determine attacking weapon.
-		pAttacker->pSoldier->usAttackingWeapon = 0;
+		pAttacker->pSoldier->attackSelection().weapon() = 0;
 		if( pAttacker->bWeaponSlot != -1 )
 		{
 			pItem = &pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ];
 			if( Item[ pItem->usItem ].usItemClass & IC_WEAPON )
-				pAttacker->pSoldier->usAttackingWeapon = pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ].usItem;
+				pAttacker->pSoldier->attackSelection().weapon() = pAttacker->pSoldier->inv[ pAttacker->bWeaponSlot ].usItem;
 		}
 
         // WDS - make number of mercenaries, etc. be configurable

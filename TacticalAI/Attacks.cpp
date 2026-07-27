@@ -143,7 +143,7 @@ void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 		return;
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 //<DR>
 	pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
@@ -158,8 +158,8 @@ void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 //	DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 //	gfUIForceReExamineCursorData = TRUE;
 
-//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->bWeaponMode].usROF > 0;
-//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->bWeaponMode].ubBullets > 1;
+//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].usROF > 0;
+//	gfShowBurstLength = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[pSoldier->attackSelection().weaponMode()].ubBullets > 1;
 
 }
 //</SB>
@@ -210,15 +210,15 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 	sBestChanceToHit = sBestAimTime = sChanceToHit = ubBestChanceToGetThrough = ubBestFriendlyFireChance = ubChanceToReallyHit = 0;
 
 	// sevenfm: set attacking hand and target
-	pSoldier->ubAttackingHand = HANDPOS;
+	pSoldier->attackSelection().selectWeapon(
+		HANDPOS, pSoldier->inv[HANDPOS].usItem);
 	pSoldier->targeting().targetId() = NOBODY;
 
-	pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	std::map<INT8, OBJECTTYPE*> ObjList;
 	GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
-	pSoldier->bScopeMode = USE_BEST_SCOPE;
+	pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
 	pSoldier->bDoBurst = 0;
 	pSoldier->bDoAutofire = 0;
 
@@ -256,7 +256,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			bKnowledge != SEEN_LAST_TURN &&
 			bKnowledge != HEARD_THIS_TURN &&
 			bKnowledge != HEARD_LAST_TURN &&
-			!((bKnowledge == SEEN_2_TURNS_AGO || bKnowledge == SEEN_3_TURNS_AGO || bKnowledge == HEARD_2_TURNS_AGO) && Weapon[pSoldier->usAttackingWeapon].ubWeaponType == GUN_LMG))
+			!((bKnowledge == SEEN_2_TURNS_AGO || bKnowledge == SEEN_3_TURNS_AGO || bKnowledge == HEARD_2_TURNS_AGO) && Weapon[pSoldier->attackSelection().weapon()].ubWeaponType == GUN_LMG))
 		{
 			continue;	// next opponent
 		}
@@ -314,7 +314,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// no fire on unseen opponents with throwing knives
-		if ((Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE) &&
+		if ((Item[pSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE) &&
 			bPersonalKnowledge != SEEN_CURRENTLY &&
 			//!SoldierToSoldierLineOfSightTest(pSoldier, pOpponent, TRUE, CALC_FROM_ALL_DIRS))
 			!LOS_Raised(pSoldier, pOpponent, CALC_FROM_ALL_DIRS))
@@ -348,7 +348,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			!SoldierToVirtualSoldierLineOfSightTest(pSoldier, sTarget, bLevel, ANIM_STAND, TRUE, NO_DISTANCE_LIMIT) &&
 			!LocationToLocationLineOfSightTest(pSoldier->position().gridNo(), pSoldier->position().level(), sTarget, bLevel, TRUE, NO_DISTANCE_LIMIT) &&
 			!fReturnFire &&
-			!(InARoom(sTarget, NULL) && bLevel == 0 && Weapon[pSoldier->usAttackingWeapon].ubWeaponType == GUN_LMG) &&	// bPublicKnowledge == SEEN_CURRENTLY && 
+			!(InARoom(sTarget, NULL) && bLevel == 0 && Weapon[pSoldier->attackSelection().weapon()].ubWeaponType == GUN_LMG) &&	// bPublicKnowledge == SEEN_CURRENTLY &&
 			!(InARoom(sTarget, NULL) && bLevel == 0 && TeamPercentKilled(pSoldier->bTeam) > (100 - 20 * SoldierDifficultyLevel(pSoldier))) )
 		{
 			continue;
@@ -420,14 +420,14 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		//dnl ch69 130913 Hoping to optimize
 		// consider alternate holding mode and different scopes
 		// sevenfm: alt weapon holding scope mode is used only when ubAllowAlternativeWeaponHolding == 3
-		for(pSoldier->bScopeMode = (gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 ? USE_ALT_WEAPON_HOLD : USE_BEST_SCOPE); 
-			pSoldier->bScopeMode <= (gGameExternalOptions.fScopeModes ? NUM_SCOPE_MODES - 1 : USE_BEST_SCOPE); 
-			pSoldier->bScopeMode++)
+		for(pSoldier->attackSelection().scopeMode() = (gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 ? USE_ALT_WEAPON_HOLD : USE_BEST_SCOPE);
+			pSoldier->attackSelection().scopeMode() <= (gGameExternalOptions.fScopeModes ? NUM_SCOPE_MODES - 1 : USE_BEST_SCOPE);
+			pSoldier->attackSelection().scopeMode()++)
 		{
-			if(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD)
+			if(pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD)
 			{
 				//dnl ch71 180913 throwing knives cannot be used in fire from hip
-				if(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE)
+				if(Item[pSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE)
 					continue;
 
 				// sevenfm: hip firing allowed only for human bodytypes
@@ -435,7 +435,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 					continue;
 			}
 
-			if(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || (pSoldier->bScopeMode >= USE_BEST_SCOPE && ObjList[pSoldier->bScopeMode] != NULL))
+			if(pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD || (pSoldier->attackSelection().scopeMode() >= USE_BEST_SCOPE && ObjList[pSoldier->attackSelection().scopeMode()] != NULL))
 			{
 				usTrueState = pSoldier->animationPlayback().state();		// because is used in CalculateRaiseGunCost, CalcAimingLevelsAvailableWithAP, CalculateTurningCost
 				iTrueLastTarget = pSoldier->targeting().lastGridNo();	// because is used in MinAPsToShootOrStab
@@ -445,7 +445,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// sevenfm: take into account direction when checking stance
 				// sevenfm: shoot heavy guns in standing stance only when using hip fire
 				if (pSoldier->InternalIsValidStance(AIDirection(pSoldier->position().gridNo(), sTarget), ubStance) &&
-					(pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || !Weapon[pSoldier->usAttackingWeapon].HeavyGun || !ItemIsTwoHanded(pSoldier->usAttackingWeapon) || !gGameExternalOptions.ubAllowAlternativeWeaponHolding))
+					(pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD || !Weapon[pSoldier->attackSelection().weapon()].HeavyGun || !ItemIsTwoHanded(pSoldier->attackSelection().weapon()) || !gGameExternalOptions.ubAllowAlternativeWeaponHolding))
 				{
 					sStanceAPcost = GetAPsToChangeStance(pSoldier, ubStance);
 					if(sStanceAPcost)						
@@ -455,7 +455,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
-					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
+					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->attackSelection().weapon(), fAddingTurningCost);
 					usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTarget, 0);
 					if(fAddingTurningCost && fAddingRaiseGunCost)//dnl ch71 180913
 					{
@@ -492,14 +492,14 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 								iHitRate = sChanceToHit * (pSoldier->bActionPoints - (sMinAPcost - sRawAPCost)) / (sRawAPCost + sAimAPCost);
 								// sevenfm: take into account CTGT for every stance
 								if (iHitRate * ubChanceToGetThrough > iBestHitRate * ubBestChanceToGetThrough ||
-									(Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE) && sChanceToHit > sBestChanceToHit)// rather take best chance for throwing knives
+									(Item[pSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE) && sChanceToHit > sBestChanceToHit)// rather take best chance for throwing knives
 								{
 									iBestHitRate = iHitRate;
 									sBestAimTime = sAimTime;
 									sBestChanceToHit = sChanceToHit;
 									ubBestChanceToGetThrough = ubChanceToGetThrough;
 									ubBestFriendlyFireChance = ubFriendlyFireChance;
-									bScopeMode = pSoldier->bScopeMode;
+									bScopeMode = pSoldier->attackSelection().scopeMode();
 									sBestAPcost = sMinAPcost;
 									ubBestStance = ubStance;
 								}
@@ -511,7 +511,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				}
 
 				// no crouched/prone if we are tank/using throwing knife/hip firing
-				if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) || (Item[pSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE) )
+				if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD || ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) || (Item[pSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE) )
 					continue;
 
 				// --------- Crouched ---------
@@ -527,7 +527,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
-					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
+					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->attackSelection().weapon(), fAddingTurningCost);
 					usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTarget, 0);
 					if(fAddingTurningCost && fAddingRaiseGunCost)//dnl ch71 180913
 					{
@@ -569,7 +569,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 									sBestChanceToHit = sChanceToHit;
 									ubBestChanceToGetThrough = ubChanceToGetThrough;
 									ubBestFriendlyFireChance = ubFriendlyFireChance;
-									bScopeMode = pSoldier->bScopeMode;
+									bScopeMode = pSoldier->attackSelection().scopeMode();
 									sBestAPcost = sMinAPcost;
 									ubBestStance = ubStance;
 								}
@@ -598,7 +598,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 						pSoldier->targeting().lastGridNo() = NOWHERE;
 					}
 					GetAPChargeForShootOrStabWRTGunRaises(pSoldier, sTarget, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, 0);
-					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->usAttackingWeapon, fAddingTurningCost);
+					usTurningCost = CalculateTurningCost(pSoldier, pSoldier->attackSelection().weapon(), fAddingTurningCost);
 					usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTarget, 0);
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sTarget, 0, FALSE, 2);
 					sMinAPcost = sRawAPCost + usTurningCost + sStanceAPcost + usRaiseGunCost;
@@ -633,7 +633,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 									sBestChanceToHit = sChanceToHit;
 									ubBestChanceToGetThrough = ubChanceToGetThrough;
 									ubBestFriendlyFireChance = ubFriendlyFireChance;
-									bScopeMode = pSoldier->bScopeMode;
+									bScopeMode = pSoldier->attackSelection().scopeMode();
 									sBestAPcost = sMinAPcost;
 									ubBestStance = ubStance;
 								}
@@ -658,8 +658,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			continue;			// next opponent
 
 		// really limit knife throwing so it doesn't look wrong
-		if (Item[pSoldier->usAttackingWeapon].usItemClass == IC_THROWING_KNIFE &&
-			(ubChanceToReallyHit < 25 || (PythSpacesAway(pSoldier->position().gridNo(), sTarget) > CalcMaxTossRange(pSoldier, pSoldier->usAttackingWeapon, FALSE))))// Madd / 2 ) ) ) //dnl ch69 160913 was ubChanceToReallyHit < 30
+		if (Item[pSoldier->attackSelection().weapon()].usItemClass == IC_THROWING_KNIFE &&
+			(ubChanceToReallyHit < 25 || (PythSpacesAway(pSoldier->position().gridNo(), sTarget) > CalcMaxTossRange(pSoldier, pSoldier->attackSelection().weapon(), FALSE))))// Madd / 2 ) ) ) //dnl ch69 160913 was ubChanceToReallyHit < 30
 			continue; // don't bother... next opponent
 
 		// calculate this opponent's threat value (factor in my cover from him)
@@ -778,7 +778,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 	}
 
-	pSoldier->bScopeMode = USE_BEST_SCOPE; // better reset this back
+	pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE; // better reset this back
 }
 
 // JA2Gold: added
@@ -1739,8 +1739,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 	INT16 ubBestChanceToHit;
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
 
-	pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	// sevenfm: initialize
 	pBestStab->ubPossible = FALSE;
@@ -1980,7 +1980,7 @@ void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
 
 	//InitAttackType(pBestStab);		// set all structure fields to defaults//dnl ch69 150913
 
-	pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
+	pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
 
 	// determine which attack against which target has the greatest attack value
 
@@ -2170,7 +2170,7 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	}
 	*/
 
-	pObj = &(pSoldier->inv[pSoldier->ubAttackingHand]);
+	pObj = &(pSoldier->inv[pSoldier->attackSelection().hand()]);
 	usItem = pObj->usItem;
 
 	if ( Item[ usItem ].usItemClass & IC_THROWING_KNIFE )
@@ -2457,7 +2457,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 		iImpact = EffectiveStrength(pSoldier, FALSE) / 5; // 0 to 20 for strength, adjusted by damage taken
 
 		// NB martial artists don't get a bonus for using brass knuckles! - oh, they do in STOMP - SANDRO
-		if (pSoldier->usAttackingWeapon)
+		if (pSoldier->attackSelection().weapon())
 		{
 			if (gGameOptions.fNewTraitSystem)
 			{
@@ -2514,7 +2514,7 @@ INT32 EstimateStabDamage( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 u
 	{
 		if (gGameOptions.fNewTraitSystem)
 		{
-			if (!pSoldier->usAttackingWeapon || ItemIsBrassKnuckles(usItem))
+			if (!pSoldier->attackSelection().weapon() || ItemIsBrassKnuckles(usItem))
 			{
 				// add bonus for martial arts
 				if (HAS_SKILL_TRAIT(pSoldier, MARTIAL_ARTS_NT))
@@ -2818,7 +2818,7 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"CheckIfTossPossible");
 	INT16 ubMinAPcost;
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	if ( TANK( pSoldier ) )
 	{
@@ -2837,14 +2837,14 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				//dnl ch63 240813
 				// no rocket launcher (or empty) -- let's look for an underslung/attached GL and a launchable grenade!
 				INT8 bGunSlot = FindAIUsableObjClass(pSoldier, IC_GUN);
-				pSoldier->bWeaponMode = WM_ATTACHED_GL;// So that EnoughAmmo will check for a grenade not a bullet, also need in calculation during CalcBestThrow
+				pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;// So that EnoughAmmo will check for a grenade not a bullet, also need in calculation during CalcBestThrow
 				if(bGunSlot != NO_SLOT && IsGrenadeLauncherAttached(&pSoldier->inv[bGunSlot]) && (EnoughAmmo(pSoldier, FALSE, bGunSlot) || FindAmmoToReload(pSoldier, bGunSlot, NO_SLOT) != NO_SLOT))
 					pBestThrow->bWeaponIn = bGunSlot;
 				else
 				{
 					// no rocket launcher or attached GL, consider grenades
 					pBestThrow->bWeaponIn = FindThrowableGrenade(pSoldier);
-					pSoldier->bWeaponMode = WM_NORMAL;
+					pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 				}
 			}
 			else
@@ -2890,7 +2890,7 @@ void CheckIfTossPossible(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			RearrangePocket( pSoldier, HANDPOS, pBestThrow->bWeaponIn, TEMPORARILY );
 		}
 	}
-	pSoldier->bWeaponMode = WM_NORMAL;//dnl ch63 240813
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;//dnl ch63 240813
 }
 
 INT8 CountAdjacentSpreadTargets( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetLevel )
@@ -3789,7 +3789,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		return;
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	bGrenadeIn = FindThrowableGrenade(pSoldier, EXPLOSV_SMOKE);
 
@@ -3875,7 +3875,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 }
 
 void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
@@ -3894,7 +3894,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		return;
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	bGrenadeIn = FindThrowableGrenade(pSoldier, EXPLOSV_SMOKE);
 
@@ -4027,7 +4027,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 }
 
 // check if we can toss grenade at spot, and prepare attack data
@@ -4233,7 +4233,7 @@ void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTa
 		return;
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	bGrenadeIn = FindThrowableGrenade(pSoldier, ubGrenadeType);
 
@@ -4263,5 +4263,5 @@ void CheckTossGrenadeAt(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow, INT32 sTa
 		}
 	}
 
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 }

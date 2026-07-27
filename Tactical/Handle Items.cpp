@@ -117,8 +117,7 @@ struct AttackSelectionSnapshot
 
 	void restore(SOLDIERTYPE& soldier) const noexcept
 	{
-		soldier.ubAttackingHand = hand;
-		soldier.usAttackingWeapon = weapon;
+		soldier.attackSelection().selectWeapon(hand, weapon);
 		soldier.targeting().level() = targetLevel;
 	}
 };
@@ -134,8 +133,8 @@ bool DispatchBeginFireWeaponFromHandleItem(
 			SimulationCommandSource::LocalPlayer)
 		: TryDispatchSystemBeginSelectedFireWeaponCommand(
 			*soldier, targetGrid, soldier->targeting().level(),
-			soldier->targeting().cubeLevel(), soldier->ubAttackingHand,
-			soldier->usAttackingWeapon);
+			soldier->targeting().cubeLevel(), soldier->attackSelection().hand(),
+			soldier->attackSelection().weapon());
 	if (!dispatch.accepted()) rejectedSelection.restore(*soldier);
 	return dispatch.accepted();
 }
@@ -498,7 +497,7 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 
 	if ( pTargetSoldier != NULL )
 	{
-		if ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pTargetSoldier, pSoldier->bAimShotLocation ) < OK_CHANCE_TO_GET_THROUGH )
+		if ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pTargetSoldier, pSoldier->attackSelection().shotLocation() ) < OK_CHANCE_TO_GET_THROUGH )
 		{
 			fBadChangeToGetThrough = TRUE;
 		}
@@ -558,8 +557,8 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHandItem, BOOLEAN fFromUI )
 {
 	const AttackSelectionSnapshot rejectedFireSelection{
-		pSoldier->ubAttackingHand,
-		pSoldier->usAttackingWeapon,
+		pSoldier->attackSelection().hand(),
+		pSoldier->attackSelection().weapon(),
 		pSoldier->targeting().level()};
 	SOLDIERTYPE		*pTargetSoldier = NULL;
 	SoldierID		usSoldierIndex;
@@ -587,7 +586,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 	// here is where we would set a different value if the weapon mode is on
 	// "attached weapon"
-	pSoldier->usAttackingWeapon = usHandItem;
+	pSoldier->attackSelection().weapon() = usHandItem;
 
 	// sevenfm: set shift flag for auto-taking of next item from inventory
 	if( fFromUI && _KeyDown(SHIFT) )
@@ -796,7 +795,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].usItemClass == IC_GUN || Item[ usHandItem ].usItemClass == IC_THROWING_KNIFE )
 	{
 		// WEAPONS
-		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID,pSoldier->ubProfile));
+		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID,pSoldier->ubProfile));
 		if (ItemHasFingerPrintID(usHandItem))
 		{
 			// check imprint ID
@@ -804,12 +803,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
 			if (pSoldier->ubProfile != NO_PROFILE)
 			{
-				if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID != pSoldier->ubProfile )
+				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->ubProfile )
 				{
-					if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID == NO_PROFILE )
+					if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
 					{
 						// first shot using "virgin" gun... set imprint ID
-						pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID = pSoldier->ubProfile;
+						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = pSoldier->ubProfile;
 												
 						// this could be an NPC (Krott)
 						if (pSoldier->bTeam == gbPlayerNum)
@@ -844,11 +843,11 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 				// guaranteed not to be controlled by the player, so no feedback required
-				if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID != (NO_PROFILE + 1) )
+				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != (NO_PROFILE + 1) )
 				{
-					if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID == NO_PROFILE )
+					if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
 					{
-						pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID = (NO_PROFILE + 1);
+						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = (NO_PROFILE + 1);
 					}
 					else
 					{
@@ -970,7 +969,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 							// we have enough points to do this burst, roll the dice and see if we want to change						
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
 							pSoldier->bDoBurst = TRUE;
-							pSoldier->bWeaponMode = WM_BURST;
+							pSoldier->attackSelection().weaponMode() = WM_BURST;
 							pSoldier->bDoAutofire = 0;
 
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 26 ], pSoldier->GetName() );
@@ -1036,7 +1035,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				chanceToMisfireDry = __max(1, chanceToMisfireDry); //cap the misfire chance, no-one has reflexes this good
 
 				//CHRISL: Since LMGs can only use autofire, give them slightly better control over misfire
-				if(Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubWeaponClass == MGCLASS && Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubWeaponType == GUN_LMG){
+				if(Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponClass == MGCLASS && Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType == GUN_LMG){
 					chanceToMisfire = (INT32)(chanceToMisfire * .75f);
 					chanceToMisfireDry = (INT32)(chanceToMisfireDry * .75f);
 				}
@@ -1047,14 +1046,14 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"HandleItem: auto fire - Rolling dice");
 					roll = PreRandom(diceSides); // changed Random to PreRandom - SANDRO
 					//roll = rand();//Random(diceSides);
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
+					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
 
 					misfirePenalty = misfirePenaltyConst + (Chance(misfirePenaltyRand)?1:0); //apply the base integral cost and the fractional cost (in the form of probablilite)
 
 					pSoldier->bDoAutofire += misfirePenalty;
 					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
 				}
-				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
+				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
 				//note that we could misfire more bullets than we have rounds
 				//this represents the soldier running out of ammo and not noticing
 				//the max that can be lost this way is 1AP
@@ -1062,7 +1061,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->bDoAutofire -= misfirePenalty;
 				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
 
-				if((__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
+				if((__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
 				{
 					if (gGameExternalOptions.usBulletHideIntensity > 0)
 					{
@@ -1071,9 +1070,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 					else
 					{// More than 1 round
-						if (__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
+						if (__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft) - startAuto );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto );
 						}
 						// 1 round
 						else
@@ -1101,8 +1100,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			if ( Item[ usHandItem ].usItemClass != IC_THROWING_KNIFE )
 			{
-				pSoldier->ubAttackingHand = HANDPOS;
-				pSoldier->usAttackingWeapon = usHandItem;
+				pSoldier->attackSelection().selectWeapon(HANDPOS, usHandItem);
 				// If doing spread, set down the first gridno.....
 				if ( pSoldier->flags.fDoSpread )
 				{
@@ -2071,7 +2069,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].ubCursor == INVALIDCURS )
 	{
 		// Found detonator...
-		if ( HasAttachmentOfClass( &(pSoldier->inv[ pSoldier->ubAttackingHand ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) )
+		if ( HasAttachmentOfClass( &(pSoldier->inv[ pSoldier->attackSelection().hand() ] ), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) )
 		{
 			fDropBomb = TRUE;
 		}
@@ -2257,8 +2255,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// If this is a player guy, show message about no APS
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
-			pSoldier->ubAttackingHand = HANDPOS;
-			pSoldier->usAttackingWeapon = usHandItem;
+			pSoldier->attackSelection().selectWeapon(HANDPOS, usHandItem);
 			pSoldier->targeting().level()	= bLevel;
 
 			// Look at the cursor, if toss cursor...
@@ -2308,7 +2305,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].ubCursor == INVALIDCURS )
 	{
 		// Found detonator...
-		if ( HasAttachmentOfClass( &(pSoldier->inv[pSoldier->ubAttackingHand]), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire(usHandItem))
+		if ( HasAttachmentOfClass( &(pSoldier->inv[pSoldier->attackSelection().hand()]), (AC_DETONATOR | AC_REMOTEDET | AC_DEFUSE) ) || ItemIsTripwire(usHandItem))
 		{
 			StartBombMessageBox( pSoldier, sGridNo );
 
@@ -2400,7 +2397,7 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 					// sevenfm: take another item with same id from inventory, only REALTIME
                    HandleTakeNewBombFromInventory(pSoldier, &gTempObject);
 					// sevenfm: change cursor back to action if successfully taken new bomb
-					if ( gfShiftBombPlant && pSoldier->inv[ pSoldier->ubAttackingHand ].exists() )
+					if ( gfShiftBombPlant && pSoldier->inv[ pSoldier->attackSelection().hand() ].exists() )
 						guiPendingOverrideEvent = M_CHANGE_TO_ACTION;
 				}
 
@@ -6108,7 +6105,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 						gpWorldLevelData[ gsTempGridNo ].uiFlags |= MAPELEMENT_PLAYER_MINE_PRESENT;
                        HandleTakeNewBombFromInventory(gpTempSoldier, &gTempObject);
 						// sevenfm: change cursor back to action if successfully taken new bomb (also change mode back to action if using tripwire roll)
-						if ( gfShiftBombPlant && gpTempSoldier->inv[ gpTempSoldier->ubAttackingHand ].exists() )
+						if ( gfShiftBombPlant && gpTempSoldier->inv[ gpTempSoldier->attackSelection().hand() ].exists() )
 							guiPendingOverrideEvent = M_CHANGE_TO_ACTION;
 					}
 					else
@@ -7560,17 +7557,17 @@ INT32 FindNearestAvailableGridNoForItem( INT32 sSweetGridNo, INT8 ubRadius )
 
 BOOLEAN CanPlayerUseRocketRifle( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay )
 {
-	if (ItemHasFingerPrintID(pSoldier->inv[ pSoldier->ubAttackingHand ].usItem))
+	if (ItemHasFingerPrintID(pSoldier->inv[ pSoldier->attackSelection().hand() ].usItem))
 	{
 		// check imprint ID
 		// NB not-imprinted value is NO_PROFILE
 		// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
 		if (pSoldier->ubProfile != NO_PROFILE)
 		{
-			if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID != pSoldier->ubProfile )
+			if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->ubProfile )
 			{
 				// NOT a virgin gun...
-				if ( pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.ubImprintID != NO_PROFILE )
+				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != NO_PROFILE )
 				{
 					// access denied!
 					if (pSoldier->bTeam == gbPlayerNum)

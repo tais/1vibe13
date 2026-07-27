@@ -203,10 +203,10 @@ UINT8 ShootingStanceChange( SOLDIERTYPE * pSoldier, ATTACKTYPE * pAttack, INT8 b
 	bStanceNum = 0;
 	uiCurrChanceOfDamage = 0;
 
-	bSetScopeMode = pSoldier->bScopeMode;
-	pSoldier->bScopeMode = pAttack->bScopeMode;
+	bSetScopeMode = pSoldier->attackSelection().scopeMode();
+	pSoldier->attackSelection().scopeMode() = pAttack->bScopeMode;
 	bAPsAfterAttack = pSoldier->bActionPoints - MinAPsToAttack( pSoldier, pAttack->sTarget, ADDTURNCOST, pAttack->ubAimTime, 1);
-	pSoldier->bScopeMode = bSetScopeMode;
+	pSoldier->attackSelection().scopeMode() = bSetScopeMode;
 	if (bAPsAfterAttack < GetAPsCrouch(pSoldier, TRUE))
 	{
 		return( 0 );
@@ -5162,16 +5162,16 @@ BOOLEAN AICheckIsGLOperator(SOLDIERTYPE *pSoldier)
 
 	// check for attached GL
 	INT8 bGunSlot = FindAIUsableObjClass(pSoldier, IC_GUN);
-	INT8 bRealWeaponMode = pSoldier->bWeaponMode;
-	pSoldier->bWeaponMode = WM_ATTACHED_GL;		// So that EnoughAmmo will check for a grenade not a bullet
+	INT8 bRealWeaponMode = pSoldier->attackSelection().weaponMode();
+	pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;		// So that EnoughAmmo will check for a grenade not a bullet
 	if (bGunSlot != NO_SLOT &&
 		IsGrenadeLauncherAttached(&pSoldier->inv[bGunSlot]) &&
 		(EnoughAmmo(pSoldier, FALSE, bGunSlot) || FindAmmoToReload(pSoldier, bGunSlot, NO_SLOT) != NO_SLOT))
 	{
-		pSoldier->bWeaponMode = bRealWeaponMode;
+		pSoldier->attackSelection().weaponMode() = bRealWeaponMode;
 		return TRUE;
 	}
-	pSoldier->bWeaponMode = bRealWeaponMode;
+	pSoldier->attackSelection().weaponMode() = bRealWeaponMode;
 
 	return FALSE;
 }

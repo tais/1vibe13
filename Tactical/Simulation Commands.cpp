@@ -353,9 +353,9 @@ namespace
 					value.attackingHand >= NUM_INV_SLOTS ||
 					value.attackingWeapon >= MAXITEMS)
 					return CommandDisposition::Discard;
-				soldier->ubAttackingHand = value.attackingHand;
-				soldier->usAttackingWeapon =
-					static_cast<UINT16>(value.attackingWeapon);
+				soldier->attackSelection().selectWeapon(
+					value.attackingHand,
+					static_cast<UINT16>(value.attackingWeapon));
 				soldier->targeting().gridNo() = value.targetGrid;
 				soldier->targeting().level() = value.targetLevel;
 				soldier->targeting().cubeLevel() = value.targetCubeLevel;
@@ -377,7 +377,7 @@ namespace
 				soldier->targeting().gridNo() = value.targetGrid;
 				soldier->targeting().level() = value.targetLevel;
 				soldier->targeting().cubeLevel() = value.targetCubeLevel;
-				soldier->usAttackingWeapon =
+				soldier->attackSelection().weapon() =
 					static_cast<UINT16>(value.attackingWeapon);
 				SendBeginFireWeaponEvent(soldier, value.targetGrid);
 				return CommandDisposition::Applied;

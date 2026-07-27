@@ -287,6 +287,11 @@ adapter, so save and load can never drift out of order. Extra methods:
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity
   beside attacking weapon/mode. No save or multiplayer packet bytes change.
+- Attacking hand and weapon, weapon and scope mode, and ranged and melee aim
+  locations are now stored by `SoldierAttackSelectionComponent`. The visitor
+  retains their four established schema sites around visibility, hit location,
+  target identity, and facility state. Existing fire command and multiplayer
+  packet fields remain unchanged.
 - `slong(signed long&)` — pins `long` to **32 bits** on disk (`long` is 32-bit on
   Win32 but 64-bit on macOS/Linux).
 - `isLoading` — compile-time bool for the rare asymmetric spot (e.g. `vector`

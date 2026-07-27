@@ -7291,6 +7291,12 @@ int main( int, char** )
 		targeting.selectLocation(1280, 1, 3);
 		targeting.lastGridNo() = 1279;
 		targeting.selectSoldier(SoldierID{ 5 });
+		SoldierAttackSelectionComponent& attackSelection = soldier.attackSelection();
+		attackSelection.selectWeapon(SECONDHANDPOS, 321);
+		attackSelection.weaponMode() = WM_ATTACHED_UB_AUTO;
+		attackSelection.scopeMode() = USE_ALT_WEAPON_HOLD;
+		attackSelection.shotLocation() = AIM_SHOT_HEAD;
+		attackSelection.meleeLocation() = AIM_SHOT_LEGS;
 		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 		animationIntent.requestHeight( ANIM_CROUCH );
 		animationIntent.queueFacingAnimation( WALKING, 4 );
@@ -7366,6 +7372,13 @@ int main( int, char** )
 		       constSoldier.targeting().hasTargetSoldier() &&
 		       constSoldier.targeting().targetId() == SoldierID{ 5 },
 		       "soldier targeting component owns current target geometry and identity" );
+		CHECK( constSoldier.attackSelection().hand() == SECONDHANDPOS &&
+		       constSoldier.attackSelection().weapon() == 321 &&
+		       constSoldier.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO &&
+		       constSoldier.attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD &&
+		       constSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
+		       constSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
+		       "soldier attack-selection component owns weapon and aim choices" );
 		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
 		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       constSoldier.animationIntent().hasPendingAnimation() &&
@@ -7474,6 +7487,13 @@ int main( int, char** )
 		       copiedSoldier.targeting().lastGridNo() == 1279 &&
 		       copiedSoldier.targeting().targetId() == SoldierID{ 5 },
 		       "soldier copies retain their owned persistent targeting state" );
+		CHECK( copiedSoldier.attackSelection().hand() == SECONDHANDPOS &&
+		       copiedSoldier.attackSelection().weapon() == 321 &&
+		       copiedSoldier.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO &&
+		       copiedSoldier.attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD &&
+		       copiedSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
+		       copiedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
+		       "soldier copies retain their owned persistent attack selection" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
 		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
@@ -7599,6 +7619,13 @@ int main( int, char** )
 		       !copiedSoldier.targeting().hasTargetSoldier() &&
 		       copiedSoldier.targeting().targetId() == NOBODY,
 		       "soldier initialization resets the complete targeting domain" );
+		CHECK( copiedSoldier.attackSelection().hand() == 0 &&
+		       copiedSoldier.attackSelection().weapon() == 0 &&
+		       copiedSoldier.attackSelection().weaponMode() == 0 &&
+		       copiedSoldier.attackSelection().scopeMode() == 0 &&
+		       copiedSoldier.attackSelection().shotLocation() == 0 &&
+		       copiedSoldier.attackSelection().meleeLocation() == 0,
+		       "soldier initialization resets the complete attack-selection domain" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
 		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
@@ -7774,6 +7801,11 @@ int main( int, char** )
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
 		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
+		savedSoldier.attackSelection().selectWeapon(SECONDHANDPOS, 444);
+		savedSoldier.attackSelection().weaponMode() = WM_ATTACHED_GL_AUTO;
+		savedSoldier.attackSelection().scopeMode() = USE_SCOPE_3;
+		savedSoldier.attackSelection().shotLocation() = AIM_SHOT_HEAD;
+		savedSoldier.attackSelection().meleeLocation() = AIM_SHOT_LEGS;
 		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
 		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
 		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
@@ -7879,6 +7911,14 @@ int main( int, char** )
 		       loadedSoldier.targeting().lastGridNo() == 1479 &&
 		       loadedSoldier.targeting().targetId() == SoldierID{ 9 },
 		       "soldier save/load round-trips component-owned targeting state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.attackSelection().hand() == SECONDHANDPOS &&
+		       loadedSoldier.attackSelection().weapon() == 444 &&
+		       loadedSoldier.attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO &&
+		       loadedSoldier.attackSelection().scopeMode() == USE_SCOPE_3 &&
+		       loadedSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
+		       loadedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
+		       "soldier save/load round-trips component-owned attack selection at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
 		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&

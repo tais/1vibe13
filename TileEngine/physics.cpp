@@ -1936,7 +1936,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->ubAttackingHand] );
+	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)
@@ -2114,7 +2114,7 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 
 BOOLEAN GrenadeRollingPossible(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 *sXPos, INT16 *sYPos)
 {
-	if (!(pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO))
+	if (!(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO))
 	{		
 		UINT8 ubDirection = GetDirectionFromGridNo(sGridNo, pSoldier);
 		if (ubDirection % 2 == 1)//diagonal direction is disabled
@@ -2421,7 +2421,7 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	//MM: Replacement:
 	OBJECTTYPE *pObj = NULL;
 	usLauncher = 0;
-	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->ubAttackingHand] );
+	pObj = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 	if ( pObj != NULL )
 	{
 		if (Item[pObj->usItem].usItemClass == IC_LAUNCHER)

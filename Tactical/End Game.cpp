@@ -698,7 +698,7 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 			{
 //	 		GetJa2PendingTacticalCombatActions()++;
 				DebugAttackBusy( "Killing off a queen ally.\n");
-				pTeamSoldier->EVENT_SoldierGotHit( 0, 10000, 0, pTeamSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTeamSoldier->bAimShotLocation, 0, NOWHERE );
+				pTeamSoldier->EVENT_SoldierGotHit( 0, 10000, 0, pTeamSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTeamSoldier->attackSelection().shotLocation(), 0, NOWHERE );
 			}
 		}
 	}

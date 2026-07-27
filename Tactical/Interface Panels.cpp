@@ -970,9 +970,9 @@ void UpdateSMPanel( )
 
 
 	// Set Disable /Enable UI based on buddy's stats
-	if (ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->ImageNum != (UINT32) iBurstButtonImages[ GetSMCurrentMerc()->bWeaponMode ] )
+	if (ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->ImageNum != (UINT32) iBurstButtonImages[ GetSMCurrentMerc()->attackSelection().weaponMode() ] )
 	{
-		ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->bWeaponMode ];
+		ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->attackSelection().weaponMode() ];
 		ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags |= BUTTON_DIRTY;
 	}
 
@@ -5084,7 +5084,7 @@ void BtnBurstModeCallback(GUI_BUTTON *btn,INT32 reason)
 		if ( GetSMCurrentMerc() )
 			TryDispatchCycleWeaponModeCommandNow(
 				*GetSMCurrentMerc() );
-//		btn->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->bWeaponMode ];
+//		btn->ImageNum = iBurstButtonImages[ GetSMCurrentMerc()->attackSelection().weaponMode() ];
 //		btn->uiFlags |= BUTTON_DIRTY;
 
 	}
@@ -8127,17 +8127,17 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 /*void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInvPos, UINT16 usOldItem, UINT16 usNewItem )
 {
 	// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
-	if ( (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )&& !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ]) ) )
+	if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )&& !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ]) ) )
 	{
 		if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 		{
-			pSoldier->bWeaponMode = WM_NORMAL;
+			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 			pSoldier->bDoBurst = FALSE;
 			pSoldier->bDoAutofire = 0;
 		}
 		else
 		{
-			pSoldier->bWeaponMode = WM_AUTOFIRE;
+			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			pSoldier->bDoBurst = TRUE;
 			pSoldier->bDoAutofire = 1;
 		}
@@ -8168,13 +8168,13 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 		{
 			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 			{
-				pSoldier->bWeaponMode = WM_NORMAL;
+				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 				pSoldier->bDoBurst = FALSE;
 				pSoldier->bDoAutofire = 0;
 			}
 			else
 			{
-				pSoldier->bWeaponMode = WM_AUTOFIRE;
+				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 				pSoldier->bDoAutofire = 1;
 				pSoldier->bDoBurst = TRUE;
 			}

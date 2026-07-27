@@ -86,6 +86,18 @@ void SoldierTargetingComponent::reset() noexcept
 	*this = SoldierTargetingComponent{};
 }
 
+void SoldierAttackSelectionComponent::selectWeapon(
+	UINT8 hand, UINT16 weapon) noexcept
+{
+	hand_ = hand;
+	weapon_ = weapon;
+}
+
+void SoldierAttackSelectionComponent::reset() noexcept
+{
+	*this = SoldierAttackSelectionComponent{};
+}
+
 void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
 {
 	clearPendingAnimation();

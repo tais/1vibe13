@@ -3038,7 +3038,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						}
 
 						//ChangeSoldiersBodyType( LARVAE_MONSTER, TRUE );
-						//gusSelectedSoldier->usAttackingWeapon = TANK_CANNON;
+						//gusSelectedSoldier->attackSelection().weapon() = TANK_CANNON;
 						//LocateSoldier( gusSelectedSoldier, FALSE );
 						//EVENT_FireSoldierWeapon( gusSelectedSoldier, sMapPos );
 					}
@@ -4377,7 +4377,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						{
 							ReloadWeapon(
 								selectedSoldier,
-								selectedSoldier->ubAttackingHand);
+								selectedSoldier->attackSelection().hand());
 						}
 						else
 							HandleTBReload();
@@ -5532,7 +5532,7 @@ void ObliterateSector()
 			//	CreateAnimationTile( &AniParams );
 			//PlayJA2Sample( EXPLOSION_1, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 
-			pTSoldier->EVENT_SoldierGotHit( 1, 400, 0, pTSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->bAimShotLocation, 0, NOWHERE );
+			pTSoldier->EVENT_SoldierGotHit( 1, 400, 0, pTSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pTSoldier->attackSelection().shotLocation(), 0, NOWHERE );
 		}
 	}
 }

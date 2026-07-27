@@ -3057,15 +3057,15 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 			if (pOpponent->bActionPoints >= MinAPsToAttack(pOpponent, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(pOpponent->vitals().health()))
 				pOpponent->aiData.bAimTime = 1;
 
-			pOpponent->bAimShotLocation = AIM_SHOT_RANDOM;
+			pOpponent->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
 			{
 				if (Chance((6 + EffectiveDexterity(pOpponent, FALSE) / 10 + 5 * NUM_SKILL_TRAITS(pOpponent, MARTIAL_ARTS_NT)) * 100 / (100 + pSoldier->vitals().breath())))
-					pOpponent->bAimShotLocation = AIM_SHOT_HEAD;
+					pOpponent->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 				else if (Chance(pSoldier->vitals().breath() * EffectiveWisdom(pOpponent) / (100 + EffectiveDexterity(pOpponent, FALSE))))
-					pOpponent->bAimShotLocation = AIM_SHOT_LEGS;
+					pOpponent->attackSelection().shotLocation() = AIM_SHOT_LEGS;
 				else
-					pOpponent->bAimShotLocation = AIM_SHOT_TORSO;
+					pOpponent->attackSelection().shotLocation() = AIM_SHOT_TORSO;
 			}
 
 			HandleItem(pOpponent, pSoldier->position().gridNo(), pOpponent->position().level(), pOpponent->inv[HANDPOS].usItem, FALSE);
@@ -8846,9 +8846,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
     // SANDRO - modify suppression effectiveness based on weapon caliber (i.e. damage)
     INT16 sFinalSuppressionEffectiveness = gGameExternalOptions.sSuppressionEffectiveness;
 	pAttacker = GetJa2SoldierRepository().resolve(ubCausedAttacker.i);
-	if (pAttacker && pAttacker->inv[pAttacker->ubAttackingHand].exists() && Item[pAttacker->inv[pAttacker->ubAttackingHand].usItem].usItemClass == IC_GUN)
+	if (pAttacker && pAttacker->inv[pAttacker->attackSelection().hand()].exists() && Item[pAttacker->inv[pAttacker->attackSelection().hand()].usItem].usItemClass == IC_GUN)
     {
-		OBJECTTYPE *pWeapon = &pAttacker->inv[pAttacker->ubAttackingHand];
+		OBJECTTYPE *pWeapon = &pAttacker->inv[pAttacker->attackSelection().hand()];
 		UINT8 ubDamage = GetBasicDamage(pWeapon);
 		UINT8 ubAmmoType = (*pWeapon)[0]->data.gun.ubGunAmmoType;
 		UINT8 ubBullets = AmmoTypes[ubAmmoType].numberOfBullets;
@@ -8884,8 +8884,8 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
         }
 
         // add a small bonus to effectiveness based on weapon loudness
-		UINT8 ubGunVolume = Weapon[pAttacker->inv[pAttacker->ubAttackingHand].usItem].ubAttackVolume;
-		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inv[pAttacker->ubAttackingHand]))) / 100);
+		UINT8 ubGunVolume = Weapon[pAttacker->inv[pAttacker->attackSelection().hand()].usItem].ubAttackVolume;
+		ubGunVolume = __max(1, (ubGunVolume * GetPercentNoiseVolume(pAttacker->GetUsedWeapon(&pAttacker->inv[pAttacker->attackSelection().hand()]))) / 100);
         if ( ubGunVolume >= 50 )
         {
             if ( ubGunVolume < 70 ) // up to 5%
@@ -9267,9 +9267,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 DebugAttackBusy( String( "Attack busy %d due to suppression fire on %d\n", GetJa2PendingTacticalCombatActions(), pSoldier->ubID ));
 
 				// sevenfm: switch scope mode as alt holding can only be used in standing stance
-				if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD)
+				if (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD)
 				{
-					pSoldier->bScopeMode = USE_BEST_SCOPE;
+					pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
 				}
 
 				// sevenfm: stop dragging when changing stance/cowering under suppression
@@ -9338,10 +9338,10 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     if ( gTacticalStatus.bBoxingState == BOXING )
     {
         // should have a check for "in boxing ring", no?
-        if ( ( pSoldier->usAttackingWeapon != NOTHING && !ItemIsBrassKnuckles(pSoldier->usAttackingWeapon)) || !( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) || pSoldier->IsRiotShieldEquipped() )
+        if ( ( pSoldier->attackSelection().weapon() != NOTHING && !ItemIsBrassKnuckles(pSoldier->attackSelection().weapon())) || !( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) || pSoldier->IsRiotShieldEquipped() )
         {
             // someone's cheating!
-            if ( (Item[ pSoldier->usAttackingWeapon ].usItemClass == IC_BLADE || Item[ pSoldier->usAttackingWeapon ].usItemClass == IC_PUNCH) && (pTarget->flags.uiStatusFlags & SOLDIER_BOXER) )
+            if ( (Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_BLADE || Item[ pSoldier->attackSelection().weapon() ].usItemClass == IC_PUNCH) && (pTarget->flags.uiStatusFlags & SOLDIER_BOXER) )
             {
                 // knife or brass knuckles disqualify the player!
                 BoxingPlayerDisqualified( pSoldier, BAD_ATTACK );
@@ -9727,7 +9727,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
     if (pSoldier)
     {
         // reset attacking hand
-        pSoldier->ubAttackingHand = HANDPOS;
+        pSoldier->attackSelection().hand() = HANDPOS;
 
         // if there is a valid target, and our attack was noticed
         if ( pTarget && (pSoldier->flags.uiStatusFlags & SOLDIER_ATTACK_NOTICED) )
@@ -9936,26 +9936,26 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         EndMuzzleFlash( pSoldier );
     }
 
-    if ( pSoldier && (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO ))
+    if ( pSoldier && (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ))
     {
         if ( !Weapon[pSoldier->inv[HANDPOS].usItem].NoSemiAuto )
         {
             // change back to single shot
-            pSoldier->bWeaponMode = WM_NORMAL;
+            pSoldier->attackSelection().weaponMode() = WM_NORMAL;
             pSoldier->bDoAutofire = 0;
             pSoldier->bDoBurst = 0;
         }
         else
         {
             // change back to autofire
-            pSoldier->bWeaponMode = WM_AUTOFIRE;
+            pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
             pSoldier->bDoAutofire = 1;
             pSoldier->bDoBurst = TRUE;
         }
         if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-            pSoldier->bScopeMode = USE_ALT_WEAPON_HOLD;
+            pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
         else
-            pSoldier->bScopeMode = USE_BEST_SCOPE;
+            pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
         DirtyMercPanelInterface(pSoldier, DIRTYLEVEL2 );
     }

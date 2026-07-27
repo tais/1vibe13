@@ -1567,7 +1567,7 @@ UINT32 UIHandleTestHit( UI_EVENT *pUIEvent )
 
 		// GetJa2PendingTacticalCombatActions()++;
 		DebugAttackBusy( "Testing a hit.\n" );
-		pSoldier->EVENT_SoldierGotHit( 1, bDamage, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pSoldier->bAimShotLocation, 0, NOWHERE );
+		pSoldier->EVENT_SoldierGotHit( 1, bDamage, 10, pSoldier->position().direction(), 320, NOBODY, FIRE_WEAPON_NO_SPECIAL, pSoldier->attackSelection().shotLocation(), 0, NOWHERE );
 		// callahan update end - put everything as it was
 	}
 	return( GAME_SCREEN );
@@ -2957,7 +2957,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 		//	guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 	}
 
-	if (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+	if (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 	{
 		iHandleReturn = HandleItem( pSoldier, sTargetGridNo, bTargetLevel, GetAttachedGrenadeLauncher(pObj), TRUE );
 	}
@@ -3997,7 +3997,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			pSoldier->movement().clearContinuedPath();
 
 			//dnl ch71 180913 when we go to crouch or prone for now there is no alternative fire mode option
-			if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
+			if (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
 				gGameExternalOptions.ubAllowAlternativeWeaponHolding &&
 				pSoldier->inv[HANDPOS].exists() &&
 				Weapon[pSoldier->inv[HANDPOS].usItem].HeavyGun &&
@@ -4021,7 +4021,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			return;
 
 		// sevenfm: switch from alt weapon holding when changing stance in realtime
-		if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
+		if (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||
 			gGameExternalOptions.ubAllowAlternativeWeaponHolding &&
 			pSoldier->inv[HANDPOS].exists() &&
 			Weapon[pSoldier->inv[HANDPOS].usItem].HeavyGun &&
@@ -5491,7 +5491,7 @@ UINT32 UIHandleLCOnTerrain( UI_EVENT *pUIEvent )
 	}
 	else
 	{
-		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
+		if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, TRUE );
 		else
 			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, FALSE );
@@ -5603,7 +5603,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 	}
 	else
 	{
-		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
+		if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, TRUE );
 		else
 			usAnimState = PickSoldierReadyAnimation( pSoldier, FALSE, FALSE );
@@ -5621,7 +5621,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 		if( pSoldier->targeting().lastGridNo() != sXPos + (MAXCOL * sYPos ) && pTarget != NULL )
 			sAPCost = APBPConstants[AP_CHANGE_TARGET];
 
-		if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 ) 
+		if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 			sAPCost /= 2;*/
 
 		if( usAnimState != INVALID_ANIMATION )
@@ -5638,7 +5638,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 		if( usAnimState != INVALID_ANIMATION )
 		{
 			const bool alternativeHold =
-				pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD &&
+				pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD &&
 				gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3;
 			if (!TryDispatchSetWeaponReadyCommandNow(
 					*pSoldier,

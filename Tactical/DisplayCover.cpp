@@ -906,12 +906,12 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	UINT32 uiHitChance = 0;
 	UINT16 usGunRange = 0;
 	INT8 bTempTargetLevel = pSoldier->targeting().level();
-	UINT16 usTempAttackingWeapon = pSoldier->usAttackingWeapon;
+	UINT16 usTempAttackingWeapon = pSoldier->attackSelection().weapon();
 	SOLDIERTYPE* pFullTarget = gfUIFullTargetFound
 		? GetJa2SoldierRepository().resolve( gusUIFullTargetID )
 		: nullptr;
 
-	pSoldier->usAttackingWeapon = 0;
+	pSoldier->attackSelection().weapon() = 0;
 	//AXP 30.03.2007: Fix CtH calculation for first shot after changing aim level (roof/ground)
 	pSoldier->targeting().level() = (INT8)gsInterfaceLevel;
 
@@ -922,12 +922,12 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		OBJECTTYPE* pObjhand = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
 		UINT32 usItemClass = Item[pObjhand->usItem].usItemClass;
 
-		pSoldier->usAttackingWeapon = pObjhand->usItem;
+		pSoldier->attackSelection().weapon() = pObjhand->usItem;
 
 		// sevenfm: if using launcher or throwing knife, use CalcThrownChanceToHit
 		if (ubItemCursor == TRAJECTORYCURS || usItemClass == IC_THROWING_KNIFE)
 		{
-			uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->bAimShotLocation);
+			uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation());
 			usGunRange = CalcMaxTossRange(pSoldier, pObjhand->usItem, TRUE) * CELL_X_SIZE;
 			swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 		}
@@ -942,13 +942,13 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		}
 		else if (ubItemCursor == TOSSCURS)
 		{
-			uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->bAimShotLocation);
+			uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation());
 			usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inv[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
 			swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 		}
 		else
 		{
-			uiHitChance = CalcChanceToHitGun(pSoldier, sTargetGridNo, (INT8)(pSoldier->aiData.bShownAimTime), pSoldier->bAimShotLocation);
+			uiHitChance = CalcChanceToHitGun(pSoldier, sTargetGridNo, (INT8)(pSoldier->aiData.bShownAimTime), pSoldier->attackSelection().shotLocation());
 			// HEADROCK HAM B2.7: CTH approximation?
 			if (gGameExternalOptions.fApproximateCTH)
 			{
@@ -961,17 +961,17 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	}
 	else if (pSoldier->inv[HANDPOS].exists() && ubItemCursor == TOSSCURS)
 	{
-		pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
-		uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->bAimShotLocation);
+		pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
+		uiHitChance = CalcThrownChanceToHit(pSoldier, sTargetGridNo, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation());
 		usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inv[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
 		swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 	}
 	else if ((!pSoldier->inv[HANDPOS].exists() || Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH) && pFullTarget)
 	{
 		if (pSoldier->inv[HANDPOS].exists())
-			pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
+			pSoldier->attackSelection().weapon() = pSoldier->inv[HANDPOS].usItem;
 		else
-			pSoldier->usAttackingWeapon = 0;
+			pSoldier->attackSelection().weapon() = 0;
 		uiHitChance = CalcChanceToPunch(pSoldier, pFullTarget, pSoldier->aiData.bShownAimTime);
 		usGunRange = 15;
 		swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
@@ -982,7 +982,7 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	}
 
 	pSoldier->targeting().level() = bTempTargetLevel;
-	pSoldier->usAttackingWeapon = usTempAttackingWeapon;
+	pSoldier->attackSelection().weapon() = usTempAttackingWeapon;
 
 	//Display the msg
 	ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, zOutputString);
@@ -1701,7 +1701,7 @@ void CalculateWeapondata()
 	{
 		pObjPlatform = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);
 
-		if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{
 			pObjUsed = FindAttachment_GrenadeLauncher(&pSoldier->inv[HANDPOS]);
 			// GL weapon-mode can desync from the actual attachment; FindAttachment_*
@@ -1770,7 +1770,7 @@ void CalculateWeapondata()
 			if ( guninhand && gunrange > 0 && PythSpacesAway(sSelectedSoldierGridNo, sGridNo) <= gunrange )
 			{
 				pSoldier->targeting().level() = onRoof;
-				UINT32 uiHitChance = CalcChanceToHitGun(pSoldier, sGridNo, (INT8)(pSoldier->aiData.bShownAimTime), pSoldier->bAimShotLocation);
+				UINT32 uiHitChance = CalcChanceToHitGun(pSoldier, sGridNo, (INT8)(pSoldier->aiData.bShownAimTime), pSoldier->attackSelection().shotLocation());
 
 				if ( uiHitChance > 75 )
 					bOverlayType = MAX_COVER;
