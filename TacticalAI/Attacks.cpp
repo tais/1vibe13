@@ -31,6 +31,7 @@
 #include "Render Fun.h"
 #include "worldman.h"
 #include "WCheck.h"
+#include "SoldierRepository.h"
 
 // anv: for enemy taunts
 #include "Civ Quotes.h"
@@ -705,6 +706,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 		// if we can hurt the guy, OR probably not, but at least it's our best
 		// chance to actually hit him and maybe scare him, knock him down, etc.
+		SOLDIERTYPE* previousBestOpponent =
+			GetJa2SoldierRepository().resolve(pBestShot->ubOpponent.i);
 		if ((iAttackValue > 0) || (ubChanceToReallyHit > pBestShot->ubChanceToReallyHit))
 		{
 			// if there already was another viable target
@@ -715,17 +718,17 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 				//dnl ch62 180813 ignore firing into breathless targets if there are targets in better condition
 				// sevenfm: check that best opponent exists
-				if (pBestShot->ubOpponent != NOBODY &&
-					(pBestShot->ubOpponent->bCollapsed || pBestShot->ubOpponent->bBreathCollapsed) &&
-					pBestShot->ubOpponent->vitals().breath() < OKBREATH
-					&& pBestShot->ubOpponent->vitals().breath() < pOpponent->vitals().breath())
+				if (previousBestOpponent &&
+					(previousBestOpponent->bCollapsed || previousBestOpponent->bBreathCollapsed) &&
+					previousBestOpponent->vitals().breath() < OKBREATH
+					&& previousBestOpponent->vitals().breath() < pOpponent->vitals().breath())
 				{
 					iPercentBetter = PERCENT_TO_IGNORE_THREAT;
 				}
 
 				// sevenfm: if best opponent is dying and new opponent is ok, use new opponent
-				if (pBestShot->ubOpponent != NOBODY &&
-					pBestShot->ubOpponent->vitals().health() < OKLIFE &&
+				if (previousBestOpponent &&
+					previousBestOpponent->vitals().health() < OKLIFE &&
 					pOpponent->vitals().health() >= OKLIFE)
 				{
 					iPercentBetter = PERCENT_TO_IGNORE_THREAT;
@@ -734,8 +737,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 				// if this chance to really hit is more than 50% worse, and the other
 				// guy is conscious at all
 				if (iPercentBetter < -PERCENT_TO_IGNORE_THREAT &&
-					pBestShot->ubOpponent != NOBODY &&
-					pBestShot->ubOpponent->vitals().health() >= OKLIFE)
+					previousBestOpponent &&
+					previousBestOpponent->vitals().health() >= OKLIFE)
 				{
 					// then stick with the older guy as the better target
 					continue;
@@ -752,8 +755,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			}
 
 			// sevenfm: if new opponent is dying and best opponent is ok, ignore new opponent
-			if (pBestShot->ubOpponent != NOBODY &&
-				pBestShot->ubOpponent->vitals().health() >= OKLIFE &&
+			if (previousBestOpponent &&
+				previousBestOpponent->vitals().health() >= OKLIFE &&
 				pOpponent->vitals().health() < OKLIFE)
 			{
 				//DebugShot(pSoldier, String("new opponent is dying, best opponent is ok - skip"));
@@ -1056,12 +1059,6 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			continue;
 		}
 
-		/*
-		// if this soldier is inactive, at base, on assignment, or dead
-		if (!Menptr[ubLoop].bActive || !Menptr[ubLoop].bInSector || !Menptr[ubLoop].bLife)
-		continue;			// next soldier
-		*/
-
 		// if this man is neutral / NOT on the same side, he's not a friend
 		if (pFriend->aiData.bNeutral || (pSoldier->bSide != pFriend->bSide))
 		{
@@ -1350,6 +1347,12 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	for (ubLoop = 0; ubLoop < ubOpponentCnt; ubLoop++)
 	{
 		//NumMessage("Checking Guy#",ubOpponentID[ubLoop]);
+		SOLDIERTYPE* targetOpponent =
+			GetJa2SoldierRepository().resolve(ubOpponentID[ubLoop].i);
+		if (!targetOpponent)
+		{
+			continue;
+		}
 
 		// search all tiles within 2 squares of this opponent
 		ubSearchRange = MAX_TOSS_SEARCH_DIST;
@@ -1476,11 +1479,19 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					// if this opponent is close enough to the target gridno
 					if (usOppDist <= 3)
 					{
+						SOLDIERTYPE* affectedOpponent =
+							GetJa2SoldierRepository().resolve(ubOpponentID[ubLoop2].i);
+						if (!affectedOpponent)
+						{
+							continue;
+						}
+
 						// start with this opponents base threat value
 						iThreatValue = iOppThreatValue[ubLoop2];
 
 						// estimate how much damage this tossed item would do to him
-						iEstDamage = EstimateThrowDamage(pSoldier, bPayloadPocket, ubOpponentID[ubLoop2], sGridNo);
+						iEstDamage = EstimateThrowDamage(
+							pSoldier, bPayloadPocket, affectedOpponent, sGridNo);
 
 						if (usOppDist)
 						{
@@ -1493,7 +1504,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 						iTotalThreatValue += (iThreatValue * iEstDamage);
 
 						// only count opponents still standing worth shooting at (in range)
-						if (ubOpponentID[ubLoop2]->vitals().health() >= OKLIFE)
+						if (affectedOpponent->vitals().health() >= OKLIFE)
 						{
 							ubOppsInRange++;
 							if (usOppDist < 2)
@@ -1600,7 +1611,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 				// limit RPG use, unless can hit several enemies, shooting at tank or opponent is in a room
 				if (ItemIsRocketLauncher(usInHand) &&
 					ubOppsInRange < 2 &&
-					!ARMED_VEHICLE(ubOpponentID[ubLoop]) &&
+					!ARMED_VEHICLE(targetOpponent) &&
 					(!InARoom(sOpponentTile[ubLoop], NULL) || pSoldier->bTeam != ENEMY_TEAM))
 				{
 					continue;				// next gridno
@@ -1611,7 +1622,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					// calculate the maximum possible aiming time
 					ubMaxPossibleAimTime = CalcAimingLevelsAvailableWithAP(pSoldier, sGridNo, pSoldier->bActionPoints - sMinAPcost);//dnl ch63 250813
 					sRawAPCost = MinAPsToShootOrStab(pSoldier, sGridNo, ubMaxPossibleAimTime, FALSE);
-					ubChanceToHit = (UINT8)AICalcChanceToHitGun(pSoldier, sGridNo, ubMaxPossibleAimTime, AIM_SHOT_TORSO, pOpponent->position().level(), STANDING);//dnl ch59 130813
+					ubChanceToHit = (UINT8)AICalcChanceToHitGun(pSoldier, sGridNo, ubMaxPossibleAimTime, AIM_SHOT_TORSO, targetOpponent->position().level(), STANDING);//dnl ch59 130813
 				}
 				else
 				{
@@ -1687,12 +1698,15 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 	// this is try to minimize enemies wasting their (limited) toss attacks:	
 	UINT8 ubMinChanceToReallyHit;
+	SOLDIERTYPE* bestThrowOpponent =
+		GetJa2SoldierRepository().resolve(pBestThrow->ubOpponent.i);
 
 	if( usGrenade != NOTHING && ItemIsFlare(usGrenade) )
 	{
 		ubMinChanceToReallyHit = 30;
 	}
-	else if (EXPLOSIVE_GUN(usInHand) && !ARMED_VEHICLE(pSoldier) && (pBestThrow->ubOpponent == NOBODY || !ARMED_VEHICLE(pBestThrow->ubOpponent)))
+	else if (EXPLOSIVE_GUN(usInHand) && !ARMED_VEHICLE(pSoldier) &&
+		(!bestThrowOpponent || !ARMED_VEHICLE(bestThrowOpponent)))
 	{
 		ubMinChanceToReallyHit = 80;
 	}
@@ -1905,6 +1919,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 		// if we can hurt the guy, OR probably not, but at least it's our best
 		// chance to actually hit him and maybe scare him, knock him down, etc.
+		SOLDIERTYPE* previousBestOpponent =
+			GetJa2SoldierRepository().resolve(pBestStab->ubOpponent.i);
 		if ((iAttackValue > 0) || (ubChanceToReallyHit > pBestStab->ubChanceToReallyHit))
 		{
 			// if there already was another viable target
@@ -1916,8 +1932,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 				// if this chance to really hit is more than 50% worse, and the other
 				// guy is conscious at all
 				if (iPercentBetter < -PERCENT_TO_IGNORE_THREAT &&
-					pBestStab->ubOpponent != NOBODY &&
-					pBestStab->ubOpponent->vitals().health() >= OKLIFE)
+					previousBestOpponent &&
+					previousBestOpponent->vitals().health() >= OKLIFE)
 				{
 					// then stick with the older guy as the better target
 					continue;
@@ -3448,7 +3464,9 @@ UINT16 UnderFire::Count(INT8 bTeam)
 	UINT16 cnt = 0;
 	for (UINT16 i = 0; i < usUnderFireCnt; i++)
 	{
-		if (usUnderFireID[i]->bTeam == bTeam)
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(usUnderFireID[i].i);
+		if (soldier && soldier->bTeam == bTeam)
 			++cnt;
 	}
 	return(cnt);
@@ -3459,7 +3477,11 @@ UINT8 UnderFire::Chance(INT8 bTeam, INT8 bSide, BOOLEAN fCheckNeutral)
 	UINT8 cth = 0;
 	for (UINT16 i = 0; i < usUnderFireCnt; i++)
 	{
-		if ((usUnderFireID[i]->bTeam == bTeam || usUnderFireID[i]->bSide == bSide || fCheckNeutral && usUnderFireID[i]->aiData.bNeutral) &&
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(usUnderFireID[i].i);
+		if (soldier &&
+			(soldier->bTeam == bTeam || soldier->bSide == bSide ||
+				fCheckNeutral && soldier->aiData.bNeutral) &&
 			ubUnderFireCTH[i] > cth)
 		{
 			cth = ubUnderFireCTH[i];
@@ -3798,11 +3820,14 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 
 			INT32 sClosestThreat;
 			SoldierID ubClosestThreatID = pSoldier->ubPreviousAttackerID;
+			SOLDIERTYPE* closestThreat =
+				GetJa2SoldierRepository().resolve(ubClosestThreatID.i);
 
 			// try to find good spot for smoke
-			if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
+			if (closestThreat &&
+				!TileIsOutOfBounds(closestThreat->position().gridNo()))
 			{
-				sClosestThreat = ubClosestThreatID->position().gridNo();
+				sClosestThreat = closestThreat->position().gridNo();
 
 				sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 			}
@@ -3810,10 +3835,13 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			if (TileIsOutOfBounds(sTargetSpot))
 			{
 				ubClosestThreatID = ClosestSeenThreatID(pSoldier, uiThreatCnt, SEEN_LAST_TURN);
+				closestThreat =
+					GetJa2SoldierRepository().resolve(ubClosestThreatID.i);
 
-				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
+				if (closestThreat &&
+					!TileIsOutOfBounds(closestThreat->position().gridNo()))
 				{
-					sClosestThreat = ubClosestThreatID->position().gridNo();
+					sClosestThreat = closestThreat->position().gridNo();
 
 					sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 				}
@@ -3822,10 +3850,13 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			if (TileIsOutOfBounds(sTargetSpot))
 			{
 				ubClosestThreatID = ClosestKnownThreatID(pSoldier, uiThreatCnt);
+				closestThreat =
+					GetJa2SoldierRepository().resolve(ubClosestThreatID.i);
 
-				if (ubClosestThreatID != NOBODY && !TileIsOutOfBounds(ubClosestThreatID->position().gridNo()))
+				if (closestThreat &&
+					!TileIsOutOfBounds(closestThreat->position().gridNo()))
 				{
-					sClosestThreat = ubClosestThreatID->position().gridNo();
+					sClosestThreat = closestThreat->position().gridNo();
 
 					sTargetSpot = FindTossSpotInDirection(sSpot, bLevel, sClosestThreat, TRUE, TRUE);
 				}
@@ -3905,7 +3936,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			// Run through each friendly.
 			for ( SoldierID iCounter = gTacticalStatus.Team[pSoldier->bTeam].bFirstID; iCounter <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++iCounter)
 			{
-				pFriend = iCounter;
+				pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
 				// check that friend is alive and needs cover
 				if (pFriend &&

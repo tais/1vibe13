@@ -11,6 +11,7 @@
 	#include "Animation Control.h"
 	#include "strategic.h"
 	#include "Action Items.h"
+#include "SoldierRepository.h"
 
 //used by editor
 BOOLEAN gfShowPits = FALSE;
@@ -227,7 +228,12 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 			{
 				// OK, make guy fall...
 				// Set data to look for exit grid....
-				pSoldier = ubID;
+				pSoldier =
+					GetJa2SoldierRepository().resolve(ubID.i);
+				if (!pSoldier)
+				{
+					continue;
+				}
 
 				pSoldier->aiData.uiPendingActionData4 = sNewGridNo;
 
@@ -239,7 +245,12 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 
 void HandleFallIntoPitFromAnimation( SoldierID ubID )
 {
-	SOLDIERTYPE *pSoldier = ubID;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubID.i);
+	if (!pSoldier)
+	{
+		return;
+	}
 	EXITGRID ExitGrid;
 	INT32 sPitGridNo;
 	// OK, get exit grid...

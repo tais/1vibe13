@@ -775,18 +775,18 @@ the engine must not contain SDL types in its public domain model.
   creation, save/load, entity adoption/release, completed-state publication,
   and whole-record swaps now resolve or mutate records through this boundary.
   The repository validates slot bounds and canonical record bindings before
-  replacement or relocation. The Strategic simulation and the outer
-  application domains—Ja2 composition/save handling, Laptop, Utils, Editor,
-  the Lua bridge, and Multiplayer—no longer name either backing array
+  replacement or relocation. Strategic simulation, TacticalAI, TileEngine, and
+  the outer application domains—Ja2 composition/save handling, Laptop, Utils,
+  Editor, the Lua bridge, and Multiplayer—no longer name either backing array
   directly. Former raw-array and character-list pointer walks resolve each
   numeric slot independently and no longer assume contiguous `SOLDIERTYPE`
   memory. These domains have also retired every implicit
   `SoldierID`-to-pointer conversion: lookups name the repository explicitly,
   and their targets compile with those legacy conversion operators deleted so
-  a regression fails at the call site. Tactical gameplay, TacticalAI, and
-  TileEngine readers migrate in later cuts. The backing allocation, numeric
-  slots, save byte sequence, map records, Lua values, network packets, and mod
-  data remain unchanged.
+  a regression fails at the call site. The Tactical gameplay library is the
+  remaining broad migration domain. The backing allocation, numeric slots,
+  save byte sequence, map records, Lua values, network packets, and mod data
+  remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

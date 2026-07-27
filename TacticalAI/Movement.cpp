@@ -16,6 +16,7 @@
 	#include "Soldier Functions.h"		// added by Flugente
 #include "Simulation Commands.h"
 #include "connect.h"
+#include "SoldierRepository.h"
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
 class SOLDIERTYPE;
@@ -908,7 +909,10 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
 		return;
 	}
 
-	SOLDIERTYPE *pSoldier = ubWho;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubWho.i);
+	if ( !pSoldier )
+		return;
 
 /*
  // if we control the civilian
@@ -1096,10 +1100,12 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	iSector = pSoldier->sSectorX + pSoldier->sSectorY * MAP_WORLD_X;
 
 	// first start by scanning through opposing mercs and find out what directions are blocked.
-	for (ubLoop = 0,pOpponent = Menptr; ubLoop < MAXMERCS; ubLoop++,pOpponent++)
+	for (ubLoop = 0; ubLoop < MAXMERCS; ubLoop++)
 	{
+		pOpponent = GetJa2SoldierRepository().resolve(ubLoop);
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent->bActive || !pOpponent->bInSector || !pOpponent->vitals().health())
+		if (!pOpponent || !pOpponent->bActive ||
+			!pOpponent->bInSector || !pOpponent->vitals().health())
 		{
 			continue;			// next merc
 		}

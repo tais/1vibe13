@@ -12,6 +12,7 @@
 	#include "random.h"
 	// sevenfm
 	#include "PATHAI.H"
+#include "SoldierRepository.h"
 
 extern BOOLEAN	gfBasement;
 
@@ -3861,8 +3862,14 @@ SoldierID WhoIsThere2( INT32 sGridNo, INT8 bLevel )
 
 		while ( pStructure )
 		{
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(
+					pStructure->usStructureID);
 			// person must either have their pSoldier->sGridNo here or be non-passable
-			if ( (pStructure->fFlags & STRUCTURE_PERSON) && ( !(pStructure->fFlags & STRUCTURE_PASSABLE) || MercPtrs[ pStructure->usStructureID ]->position().gridNo() == sGridNo) )
+			if ( (pStructure->fFlags & STRUCTURE_PERSON) &&
+				soldier &&
+				( !(pStructure->fFlags & STRUCTURE_PASSABLE) ||
+					soldier->position().gridNo() == sGridNo) )
 			{
 				if ( ( bLevel == 0 && pStructure->sCubeOffset == 0 ) || (bLevel > 0 && pStructure->sCubeOffset > 0) )
 				{

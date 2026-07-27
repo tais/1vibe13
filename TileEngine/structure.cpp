@@ -34,6 +34,7 @@
 #include "renderworld.h"		// added by Flugente for SetRenderFlags( RENDER_FLAG_FULL );
 #include <vfs/Core/vfs.h>
 #include "XML_StructureData.hpp"
+#include "SoldierRepository.h"
 
 #ifdef COUNT_PATHS
 	extern UINT32 guiSuccessfulPathChecks;
@@ -635,17 +636,22 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 	INT32						sOtherGridNo;
 
 	BOOLEAN fIgnorePeople = (BOOLEAN)(sExclusionID == IGNORE_PEOPLE_STRUCTURE_ID);
+	SOLDIERTYPE* movingSoldier =
+		GetJa2SoldierRepository().resolve(sSoldierID.i);
+	SOLDIERTYPE* dragBuildSoldier =
+		GetJa2SoldierRepository().resolve(
+			gusTempDragBuildSoldierID.i);
 
 	BOOLEAN fVehicleIgnoreObstacles = (BOOLEAN)(sExclusionID == VEHICLE_IGNORE_OBSTACLES_STRUCTURE_ID);
-	if( gGameExternalOptions.ubCarsRammingMaxStructureArmour && sSoldierID != NOBODY && sSoldierID->usSoldierFlagMask2 & SOLDIER_RAM_THROUGH_OBSTACLES )
+	if( gGameExternalOptions.ubCarsRammingMaxStructureArmour && movingSoldier && movingSoldier->usSoldierFlagMask2 & SOLDIER_RAM_THROUGH_OBSTACLES )
 	{
 		fVehicleIgnoreObstacles = TRUE;
 	}
-	else if ( gGameExternalOptions.ubEnemyJeepsRammingMaxStructureArmour && sSoldierID != NOBODY && COMBAT_JEEP( sSoldierID ) )
+	else if ( gGameExternalOptions.ubEnemyJeepsRammingMaxStructureArmour && movingSoldier && COMBAT_JEEP( movingSoldier ) )
 	{
 		fVehicleIgnoreObstacles = TRUE;
 	}
-	else if ( gGameExternalOptions.ubTanksRammingMaxStructureArmour && sSoldierID != NOBODY && TANK( sSoldierID ) )
+	else if ( gGameExternalOptions.ubTanksRammingMaxStructureArmour && movingSoldier && TANK( movingSoldier ) )
 	{
 		fVehicleIgnoreObstacles = TRUE;
 	}
@@ -722,30 +728,33 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 				{
 					// anv: drive through people 
 					if ( pExistingStructure->usStructureID < TOTAL_SOLDIERS )
-					{	
-						SOLDIERTYPE *pSoldier = MercPtrs[ pExistingStructure->usStructureID ];
+					{
+						SOLDIERTYPE *pSoldier =
+							GetJa2SoldierRepository().resolve(
+								pExistingStructure->usStructureID);
 						// but not monsters and such (they can't fall down due to lack of animations)
 						// also make sure AI won't flatten their allies
-						if( !( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) && 
-							((!ARMED_VEHICLE( sSoldierID ) && gGameExternalOptions.fAllowCarsDrivingOverPeople) ||
-							(ARMED_VEHICLE( sSoldierID ) && gGameExternalOptions.fAllowTanksDrivingOverPeople)) &&
-							( sSoldierID->bTeam == gbPlayerNum || sSoldierID->bTeam != pSoldier->bTeam ) )
+						if( pSoldier && movingSoldier &&
+							!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) &&
+							((!ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowCarsDrivingOverPeople) ||
+							(ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowTanksDrivingOverPeople)) &&
+							( movingSoldier->bTeam == gbPlayerNum || movingSoldier->bTeam != pSoldier->bTeam ) )
 						{
 							pExistingStructure = pExistingStructure->pNext;
 							// damage people when driving on them
 							if( fAddingForReal )
 							{	
-								if ( TANK( sSoldierID ) )
+								if ( TANK( movingSoldier ) )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
-								else if( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE && sSoldierID->IsFastMovement() )
+								else if( gAnimControl[ pSoldier->usAnimState ].ubEndHeight == ANIM_PRONE && movingSoldier->IsFastMovement() )
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(5), Random(100)+Random(100), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(5), Random(100)+Random(100), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 								else
 								{
-									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), sSoldierID->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
+									pSoldier->EVENT_SoldierGotHit( 0, Random(10)+5, Random(200)+Random(200), movingSoldier->position().direction(), 0, sSoldierID, FIRE_WEAPON_VEHICLE_TRAUMA, 0, 0, pSoldier->position().gridNo() );
 								}
 							}
 							continue;
@@ -761,9 +770,10 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 					else
 					{
 						// only if structure is weak enough
-						if ( (!ARMED_VEHICLE( sSoldierID ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubCarsRammingMaxStructureArmour) ||
-							 (COMBAT_JEEP( sSoldierID ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubEnemyJeepsRammingMaxStructureArmour) ||
-							(TANK( sSoldierID ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubTanksRammingMaxStructureArmour) )
+						if ( movingSoldier &&
+							(!ARMED_VEHICLE( movingSoldier ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubCarsRammingMaxStructureArmour ||
+							 COMBAT_JEEP( movingSoldier ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubEnemyJeepsRammingMaxStructureArmour ||
+							 TANK( movingSoldier ) && gubMaterialArmour[pExistingStructure->pDBStructureRef->pDBStructure->ubArmour] < gGameExternalOptions.ubTanksRammingMaxStructureArmour) )
 						{
 							// when not just plotting path, really destroy structure
 							if( fAddingForReal )
@@ -900,9 +910,14 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 					// anv: check if we try to add soldier hit by a vehicle under vehicle
 					if( sSoldierID != NOBODY && pExistingStructure->usStructureID < TOTAL_SOLDIERS )
 					{
-						if( MercPtrs[ pExistingStructure->usStructureID ] != NULL && MercPtrs[ pExistingStructure->usStructureID ]->flags.uiStatusFlags & SOLDIER_VEHICLE )
-						{						
-							if( sSoldierID->flags.fInNonintAnim == TRUE || gAnimControl[ sSoldierID->usAnimState ].ubEndHeight == ANIM_PRONE )
+						SOLDIERTYPE* existingSoldier =
+							GetJa2SoldierRepository().resolve(
+								pExistingStructure->usStructureID);
+						if( existingSoldier && existingSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						{
+							if( movingSoldier &&
+								(movingSoldier->flags.fInNonintAnim == TRUE ||
+									gAnimControl[movingSoldier->usAnimState].ubEndHeight == ANIM_PRONE) )
 							{
 								pExistingStructure = pExistingStructure->pNext;
 								continue;
@@ -933,7 +948,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 			{
 				// Flugente: we allow this if this structure is being dragged by a soldier, otherwise we can't move containers our of rooms (and are likely to unintenionally bar rooms)
 				if (pExistingStructure->fFlags & STRUCTURE_OPENABLE
-					&& !( gusTempDragBuildSoldierID != NOBODY && gusTempDragBuildSoldierID->sDragGridNo ) )
+					&& !( dragBuildSoldier && dragBuildSoldier->sDragGridNo ) )
 				{
 					// don't allow two openable structures in the same tile or things will screw
 					// up on an interface level
@@ -1805,6 +1820,8 @@ INT8 DamageStructure( STRUCTURE * pStructure, UINT8 ubDamage, UINT8 ubReason, IN
 	// do damage to a structure; returns TRUE if the structure should be removed
 	STRUCTURE			*pBase;
 	UINT8				ubArmour;
+	SOLDIERTYPE* owner =
+		GetJa2SoldierRepository().resolve(ubOwner.i);
 	
 	CHECKF( pStructure );
 	if (pStructure->fFlags & STRUCTURE_PERSON || pStructure->fFlags & STRUCTURE_CORPSE)
@@ -1951,9 +1968,9 @@ INT8 DamageStructure( STRUCTURE * pStructure, UINT8 ubDamage, UINT8 ubReason, IN
 			gpWorldLevelData[ tmpgridno ].uiFlags |= MAPELEMENT_STRUCTURE_DAMAGED;
 
 			// handle structure revenge - damage to vehicle - to be resolved after movement
-			if ( ubOwner != NOBODY && !ARMED_VEHICLE( ubOwner ) )
+			if ( owner && !ARMED_VEHICLE( owner ) )
 			{
-				ubOwner->SoldierTakeDelayedDamage(0, Random(max(0,(ubBaseArmour-10)/5)) + max(0,(ubBaseArmour-10)/5), 0, TAKE_DAMAGE_STRUCTURE_EXPLOSION, NOBODY, ubOwner->position().gridNo(), 0, TRUE);
+				owner->SoldierTakeDelayedDamage(0, Random(max(0,(ubBaseArmour-10)/5)) + max(0,(ubBaseArmour-10)/5), 0, TAKE_DAMAGE_STRUCTURE_EXPLOSION, NOBODY, owner->position().gridNo(), 0, TRUE);
 			}
 			
 			// recompile = TRUE means that we destroyed something

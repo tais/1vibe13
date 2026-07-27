@@ -51,6 +51,7 @@
 	#include "Map Screen Helicopter.h"
 	#include "Drugs And Alcohol.h"	// added by Flugente for DoesMercHavePersonality( ... )
 	#include "SaveLoadGame.h"
+	#include "SoldierRepository.h"
 	
 #ifdef JA2UB
 #include "Ja25_Tactical.h"
@@ -912,9 +913,13 @@ UINT8 CalcDesireToTalk( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach )
 		SoldierID id = GetSoldierIDFromMercID( ubMerc );
 		if ( id != NOBODY )
 		{
-			if ( DoesMercHavePersonality( id, CHAR_TRAIT_ASSERTIVE ) )
+			SOLDIERTYPE* merc =
+				GetJa2SoldierRepository().resolve(id.i);
+			if ( DoesMercHavePersonality(
+				merc, CHAR_TRAIT_ASSERTIVE ) )
 				iPersonalVal += 50;
-			else if ( DoesMercHavePersonality( id, CHAR_TRAIT_MALICIOUS ) )
+			else if ( DoesMercHavePersonality(
+				merc, CHAR_TRAIT_MALICIOUS ) )
 				iPersonalVal -= 50;
 		}
 	}
@@ -2652,10 +2657,16 @@ UINT8 NPCTryToInitiateConv( SOLDIERTYPE * pNPC )
 	{
 		return( AI_ACTION_NONE );
 	}
-	if (PythSpacesAway( pNPC->position().gridNo(), MercPtrs[pNPC->aiData.usActionData]->position().gridNo() ) < CONVO_DIST)
+	SOLDIERTYPE* desiredMerc =
+		GetJa2SoldierRepository().resolve(
+			pNPC->aiData.usActionData);
+	if (desiredMerc &&
+		PythSpacesAway( pNPC->position().gridNo(),
+			desiredMerc->position().gridNo() ) < CONVO_DIST)
 	{
 		// initiate conversation!
-		Converse( pNPC->ubProfile, MercPtrs[pNPC->aiData.usActionData]->ubProfile, NPC_INITIATING_CONV, 0 );
+		Converse( pNPC->ubProfile, desiredMerc->ubProfile,
+			NPC_INITIATING_CONV, 0 );
 		// after talking, wait a while before moving anywhere else
 		return( AI_ACTION_WAIT );
 	}
@@ -2936,7 +2947,8 @@ void TriggerClosestMercWhoCanSeeNPC( UINT8 ubNPC, NPCQuoteInfo *pQuotePtr )
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) && pTeamSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
 		{
@@ -2956,11 +2968,18 @@ void TriggerClosestMercWhoCanSeeNPC( UINT8 ubNPC, NPCQuoteInfo *pQuotePtr )
 		// If 64, do something special
 		if ( pQuotePtr->ubTriggerNPCRec == QUOTE_RESPONSE_TO_MIGUEL_SLASH_QUOTE_MERC_OR_RPC_LETGO )
 		{
-			TacticalCharacterDialogueWithSpecialEvent( ubMercsInSector[ ubChosenMerc ], pQuotePtr->ubTriggerNPCRec, DIALOGUE_SPECIAL_EVENT_PCTRIGGERNPC, 57, 6 );
+			TacticalCharacterDialogueWithSpecialEvent(
+				GetJa2SoldierRepository().resolve(
+					ubMercsInSector[ubChosenMerc].i),
+				pQuotePtr->ubTriggerNPCRec,
+				DIALOGUE_SPECIAL_EVENT_PCTRIGGERNPC, 57, 6 );
 		}
 		else
 		{
-			TacticalCharacterDialogue( ubMercsInSector[ ubChosenMerc ], pQuotePtr->ubTriggerNPCRec );
+			TacticalCharacterDialogue(
+				GetJa2SoldierRepository().resolve(
+					ubMercsInSector[ubChosenMerc].i),
+				pQuotePtr->ubTriggerNPCRec );
 		}
 	}
 
@@ -3678,7 +3697,8 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 	// run through list
 	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
 		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->aiData.bOppCnt > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
 		{

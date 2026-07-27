@@ -337,6 +337,8 @@ set(ExplicitSoldierResolutionLibs
   Ja2
   Laptop
   Strategic
+  TacticalAI
+  TileEngine
   Utils
 )
 foreach(lib IN LISTS Ja2_Libs)

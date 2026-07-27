@@ -27,6 +27,7 @@
 	#include "GameSettings.h"
 	#include "Soldier Profile.h"
 	#include "Rotting Corpses.h"	// sevenfm
+	#include "SoldierRepository.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -605,7 +606,12 @@ UINT8 NumberOfTeamMatesAdjacent( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		if ( sTempGridNo != sGridNo )
 		{
 			ubWhoIsThere = WhoIsThere2( sTempGridNo, pSoldier->position().level() );
-			if ( ubWhoIsThere != NOBODY && ubWhoIsThere != pSoldier->ubID && ubWhoIsThere->bTeam == pSoldier->bTeam )
+			SOLDIERTYPE* adjacentSoldier =
+				GetJa2SoldierRepository().resolve(ubWhoIsThere.i);
+			if ( ubWhoIsThere != NOBODY &&
+				ubWhoIsThere != pSoldier->ubID &&
+				adjacentSoldier &&
+				adjacentSoldier->bTeam == pSoldier->bTeam )
 			{
 				ubCount++;
 			}

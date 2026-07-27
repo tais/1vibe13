@@ -22,6 +22,7 @@
 	#include "Map Information.h"	// added by Shadooow
 #include "connect.h"
 #include "PATHAI.H"
+#include "SoldierRepository.h"
 
 
 //forward declarations of common classes to eliminate includes
@@ -557,9 +558,14 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 						{
 							SOLDIERTYPE *pSoldier;
 
-							pSoldier = pObject->ubLastTargetTakenDamage;
+							pSoldier =
+								GetJa2SoldierRepository().resolve(
+									pObject->ubLastTargetTakenDamage.i);
 
-							bLevel = pSoldier->position().level();
+							if (pSoldier)
+							{
+								bLevel = pSoldier->position().level();
+							}
 						}
 
 						// ATE; If an armed object, don't add....
@@ -598,7 +604,14 @@ BOOLEAN	PhysicsUpdateLife( REAL_OBJECT *pObject, real DeltaTime )
 				pObject->fCatchAnimOn = FALSE;
 
 				// Get intended target
-				pSoldier = MercPtrs[ pObject->uiActionData ];
+				pSoldier =
+					GetJa2SoldierRepository().resolve(
+						pObject->uiActionData);
+				if (!pSoldier)
+				{
+					pObject->fCatchAnimOn = FALSE;
+					return FALSE;
+				}
 
 				// Catch anim.....
 				switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
@@ -2487,7 +2500,13 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 				// Flugente: if this fails, something is very wrong indeed
 				Assert(usStructureID<TOTAL_SOLDIERS);
 
-				pSoldier = MercPtrs[ usStructureID ];
+				pSoldier =
+					GetJa2SoldierRepository().resolve(
+						usStructureID);
+				if (!pSoldier)
+				{
+					return;
+				}
 
 				// silversurfer: Don't hurt civilians. Throwing objects at civilians to kill them is a lame exploit.
 				if ( pSoldier->aiData.bNeutral )
@@ -2516,7 +2535,13 @@ BOOLEAN CheckForCatchObject( REAL_OBJECT *pObject )
 	{
 		if ( pObject->ubActionCode == THROW_TARGET_MERC_CATCH )
 		{
-			pSoldier = MercPtrs[ pObject->uiActionData ];
+			pSoldier =
+				GetJa2SoldierRepository().resolve(
+					pObject->uiActionData);
+			if (!pSoldier)
+			{
+				return FALSE;
+			}
 
 			// Is it a guy?
 			// Are we close to this guy?
@@ -2564,7 +2589,12 @@ BOOLEAN AttemptToCatchObject( REAL_OBJECT *pObject )
 	UINT8				ubChanceToCatch;
 
 	// Get intended target
-	pSoldier = MercPtrs[ pObject->uiActionData ];
+	pSoldier =
+		GetJa2SoldierRepository().resolve(pObject->uiActionData);
+	if (!pSoldier)
+	{
+		return FALSE;
+	}
 
 	// OK, get chance to catch
 	// base it on...? CC? Dexterity?
@@ -2594,7 +2624,12 @@ BOOLEAN DoCatchObject( REAL_OBJECT *pObject )
 	UINT16			usItem;
 
 	// Get intended target
-	pSoldier = MercPtrs[ pObject->uiActionData ];
+	pSoldier =
+		GetJa2SoldierRepository().resolve(pObject->uiActionData);
+	if (!pSoldier)
+	{
+		return FALSE;
+	}
 
 	// Catch anim.....
 	switch( gAnimControl[ pSoldier->usAnimState ].ubHeight )
@@ -2654,6 +2689,8 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 	BOOLEAN		fCanDelayExplosion = FALSE;
 	BOOLEAN		fGoodStatus = FALSE;
 	BOOLEAN		fDelayedExplosion = FALSE;
+	SOLDIERTYPE* owner =
+		GetJa2SoldierRepository().resolve(pObject->ubOwner.i);
 
 	if (is_networked && is_client)
 	{
@@ -2745,7 +2782,7 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 				(*pObj)[0]->data.misc.bDelay = 1;
 
 				// for non-player grenades, add turn so player could disarm grenade or run away
-				if ( pObject->ubOwner != NOBODY && pObject->ubOwner->bTeam != gbPlayerNum )
+				if ( owner && owner->bTeam != gbPlayerNum )
 				{
 					(*pObj)[0]->data.misc.bDelay++;
 				}
@@ -2771,9 +2808,9 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 			// All teams look for this...
 			NotifySoldiersToLookforItems( );
 
-			if ( pObject->ubOwner != NOBODY && !fGoodStatus )
+			if ( owner && !fGoodStatus )
 			{
-				pObject->ubOwner->DoMercBattleSound( (INT8)( BATTLE_SOUND_CURSE1 ) );
+				owner->DoMercBattleSound( (INT8)( BATTLE_SOUND_CURSE1 ) );
 			}
 		}
 	}
@@ -2784,7 +2821,7 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 
 	// Flugente: additional dialogue
 	// any merc nearby that can see this can warn us
-	if ( ( *pObj )[0]->data.misc.bDelay > 0 && pObject->ubOwner != NOBODY )//&& MercPtrs[pObject->ubOwner]->bTeam != gbPlayerNum )
+	if ( ( *pObj )[0]->data.misc.bDelay > 0 && owner )
 	{
 		AdditionalTacticalCharacterDialogue_AllInSectorRadiusCall( NO_PROFILE, ADE_GRENADEWARNING, pObj->usItem, 0, 0, pObject->sGridNo, 5 );
 	}

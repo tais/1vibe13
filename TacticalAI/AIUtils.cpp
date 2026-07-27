@@ -28,6 +28,7 @@
 
 #include "GameInitOptionsScreen.h"
 #include "Simulation Commands.h"
+#include "SoldierRepository.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // SANDRO - In this file, all APBPConstants[AP_CROUCH] and APBPConstants[AP_PRONE] were changed to GetAPsCrouch() and GetAPsProne()
@@ -896,10 +897,13 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 	{
 		// randomly select one of the remaining friends in the list
 		ubFriendID = ubFriendIDs[PreRandom(ubFriendCount)];
+		SOLDIERTYPE* selectedFriend =
+			GetJa2SoldierRepository().resolve(ubFriendID.i);
 
 		// if our movement range is NOT restricted, or this friend's within range
 		// use distance - 1, because there must be at least 1 tile 1 space closer
-		if (SpacesAway(usOrigin,Menptr[ubFriendID].position().gridNo()) - 1 <= usMaxDist)
+		if (selectedFriend &&
+			SpacesAway(usOrigin, selectedFriend->position().gridNo()) - 1 <= usMaxDist)
 		{
 			// should be close enough, try to find a legal->pathing.sDestination within 1 tile
 
@@ -925,10 +929,10 @@ INT16 RandomFriendWithin(SOLDIERTYPE *pSoldier)
 				fDirChecked[ubDirection] = TRUE;
 
 				// determine the gridno 1 tile away from current friend in this direction
-				usDest = NewGridNo(Menptr[ubFriendID].position().gridNo(),DirectionInc(ubDirection));
+				usDest = NewGridNo(selectedFriend->position().gridNo(), DirectionInc(ubDirection));
 
 				// if that's out of bounds, ignore it & check next direction
-				if (usDest == Menptr[ubFriendID].position().gridNo())
+				if (usDest == selectedFriend->position().gridNo())
 				{
 					continue;
 				}
@@ -1719,9 +1723,10 @@ INT32 ClosestPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 
 	for ( ; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop)
 	{
-		pTargetSoldier = ubLoop;
+		pTargetSoldier = GetJa2SoldierRepository().resolve(ubLoop.i);
 
-		if (!pTargetSoldier->bActive || !pTargetSoldier->bInSector)
+		if (!pTargetSoldier ||
+			!pTargetSoldier->bActive || !pTargetSoldier->bInSector)
 		{
 			continue;
 		}
@@ -1776,9 +1781,10 @@ INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 	SoldierID ubLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 	for ( ; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop )
 	{
-		pTargetSoldier = ubLoop;
+		pTargetSoldier = GetJa2SoldierRepository().resolve(ubLoop.i);
 
-		if (!pTargetSoldier->bActive || !pTargetSoldier->bInSector)
+		if (!pTargetSoldier ||
+			!pTargetSoldier->bActive || !pTargetSoldier->bInSector)
 			continue;
 				
 		// if not conscious, skip him
@@ -2037,7 +2043,8 @@ BOOLEAN GuySawEnemy( SOLDIERTYPE * pSoldier, UINT8 ubMax )
 			// consider guys in this team, which isn't on our side
 			for ( SoldierID ubIDLoop = gTacticalStatus.Team[ ubTeamLoop ].bFirstID; ubIDLoop <= gTacticalStatus.Team[ ubTeamLoop ].bLastID; ++ubIDLoop )
 			{
-				pOpponent = ubIDLoop;
+				pOpponent =
+					GetJa2SoldierRepository().resolve(ubIDLoop.i);
 
 				// if this merc is inactive, at base, on assignment, or dead
 				if (!pOpponent)
@@ -2192,7 +2199,11 @@ INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
 			continue;
 		}
 
-		pTargetSoldier = ubLoop;
+		pTargetSoldier = GetJa2SoldierRepository().resolve(ubLoop.i);
+		if (!pTargetSoldier)
+		{
+			continue;
+		}
 
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
@@ -3174,9 +3185,10 @@ BOOLEAN ArmySeesOpponents( void )
 
 	for ( SoldierID cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bOppCnt > 0 )
+		if ( pSoldier &&
+			pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bOppCnt > 0 )
 		{
 			return( TRUE );
 		}
@@ -3233,7 +3245,7 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 	// begin loop through all MERCs.
 	for ( cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
-		pSoldier = MercPtrs[ cnt ];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		ubSoldierTacticalThreat = CalcStraightThreatValue( pSoldier );
 		// Player-controlled Mercs are 1.5 times more threatening than AIs
 		if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
@@ -3257,7 +3269,7 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 	// begin loop through all Militia.
 	for ( cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; cnt++ )
 	{
-		pSoldier = MercPtrs[ cnt ];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		ubSoldierTacticalThreat = CalcStraightThreatValue( pSoldier );
 		
 		// Assess Threat
@@ -3277,7 +3289,7 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 	// begin loop through all Enemies.
 	for ( cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++ )
 	{
-		pSoldier = MercPtrs[ cnt ];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		ubSoldierTacticalThreat = CalcStraightThreatValue( pSoldier );
 		
 		// Assess Threat
@@ -3320,9 +3332,10 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 	{
 		for ( cnt = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
+			if (pSoldier &&
+				pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 
 
@@ -3332,9 +3345,10 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 		}
 		for ( cnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
+			if (pSoldier &&
+				pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 				// This assertion can be safely removed, assuming the program does what it should. It simply checks
 				// whether the "opponent" is on the same team being checked. That should be avoided when calling this
@@ -3353,9 +3367,10 @@ BOOLEAN TeamSeesOpponent( INT8 bTeam, SOLDIERTYPE * pOpponent )
 	{
 		for ( cnt = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 		{
-			pSoldier = cnt;
+			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
+			if (pSoldier &&
+				pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
 			{
 				// This assertion can be safely removed, assuming the program does what it should. It simply checks
 				// whether the "opponent" is on the same team being checked. That should be avoided when calling this
@@ -3456,7 +3471,7 @@ SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 	// go through each soldier, looking for "friends" (soldiers on same team)
 	for ( SoldierID uiLoop = gTacticalStatus.Team[ auTeam ].bFirstID; uiLoop <= gTacticalStatus.Team[ auTeam ].bLastID; ++uiLoop)
 	{
-		pFriend = uiLoop;
+		pFriend = GetJa2SoldierRepository().resolve(uiLoop.i);
 
 		// if this merc is inactive, not in sector, or dead
 		if (!pFriend)
@@ -3508,7 +3523,7 @@ SoldierID GetClosestWoundedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 	// go through each soldier, looking for "friends" (soldiers on same team)
 	for ( SoldierID uiLoop = gTacticalStatus.Team[ auTeam ].bFirstID; uiLoop <= gTacticalStatus.Team[ auTeam ].bLastID; ++uiLoop)
 	{
-		pFriend = uiLoop;
+		pFriend = GetJa2SoldierRepository().resolve(uiLoop.i);
 
 		// if this merc is inactive, not in sector, or dead
 		if (!pFriend)
@@ -3556,7 +3571,7 @@ SoldierID GetClosestMedicSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT8 
 	// go through each soldier, looking for "friends" (soldiers on same team)
 	for ( SoldierID uiLoop = gTacticalStatus.Team[ auTeam ].bFirstID; uiLoop <= gTacticalStatus.Team[ auTeam ].bLastID; ++uiLoop)
 	{
-		pFriend = uiLoop;
+		pFriend = GetJa2SoldierRepository().resolve(uiLoop.i);
 
 		// if this merc is inactive, not in sector, or dead
 		if (!pFriend)
@@ -3623,7 +3638,11 @@ UINT16 CountFriendsInDirection( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID ; iCounter <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID ; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
+		if (!pFriend)
+		{
+			continue;
+		}
 		ubFriendDir = GetDirectionFromCenterCellXYGridNo(sTargetGridNo, pFriend->position().gridNo());
 
 		if (pFriend != pSoldier &&
@@ -3655,10 +3674,10 @@ UINT16 CountNearbyFriends( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDistanc
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID ; iCounter <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID ; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 		// Make sure that character is alive, not too shocked, and conscious, and of higher experience level
 		// than the character being suppressed.
-		if (pFriend != pSoldier && pFriend->bActive && pFriend->vitals().health() >= OKLIFE &&
+		if (pFriend && pFriend != pSoldier && pFriend->bActive && pFriend->vitals().health() >= OKLIFE &&
 			PythSpacesAway( sGridNo, pFriend->position().gridNo() ) <= ubDistance )
 		{
 			ubFriendCount++;
@@ -3964,7 +3983,7 @@ BOOLEAN WeAttack(INT8 bTeam)
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[bTeam].bFirstID; iCounter <= gTacticalStatus.Team[bTeam].bLastID; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
 		if (pFriend &&
 			pFriend->bActive &&
@@ -3988,9 +4007,9 @@ UINT8 CountNearbyFriendsLastAttackHit( SOLDIERTYPE *pSoldier, INT32 sGridNo, UIN
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID ; iCounter <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID ; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
-		if (pFriend != pSoldier &&
+		if (pFriend && pFriend != pSoldier &&
 			pFriend->bActive &&
 			pFriend->vitals().health() >= OKLIFE &&
 			pFriend->aiData.bOrders > ONGUARD &&
@@ -4028,7 +4047,7 @@ UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[pSoldier->bTeam].bFirstID; iCounter <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
 		if (pFriend &&
 			pFriend != pSoldier &&
@@ -4110,10 +4129,10 @@ UINT8 CountFriendsBlack( SOLDIERTYPE *pSoldier, INT32 sClosestOpponent )
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID ; iCounter <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID ; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
 		// Make sure that character is alive, not too shocked, and conscious
-		if (pFriend != pSoldier && 
+		if (pFriend && pFriend != pSoldier &&
 			pFriend->bActive && 
 			pFriend->vitals().health() >= OKLIFE)
 		{
@@ -4149,7 +4168,7 @@ UINT16 CountTeamUnderAttack(INT8 bTeam, INT32 sGridNo, INT16 sDistance)
 	// Run through each friendly.
 	for ( SoldierID iCounter = gTacticalStatus.Team[bTeam].bFirstID; iCounter <= gTacticalStatus.Team[bTeam].bLastID; ++iCounter )
 	{
-		pFriend = iCounter;
+		pFriend = GetJa2SoldierRepository().resolve(iCounter.i);
 
 		if (pFriend &&
 			pFriend->bActive &&
@@ -4401,9 +4420,10 @@ UINT16 CountTeamSeeSoldier( INT8 bTeam, SOLDIERTYPE *pSoldier )
 
 	for ( SoldierID cnt = gTacticalStatus.Team[bTeam].bFirstID; cnt <= gTacticalStatus.Team[bTeam].bLastID; ++cnt )
 	{
-		pFriend = cnt;
+		pFriend = GetJa2SoldierRepository().resolve(cnt.i);
 
-		if ( pFriend->bActive &&
+		if ( pFriend &&
+			 pFriend->bActive &&
 			 pFriend->bInSector &&
 			 pFriend->vitals().health() >= OKLIFE &&
 			 !pFriend->bCollapsed &&

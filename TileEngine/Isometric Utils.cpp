@@ -10,6 +10,7 @@
 #include "Map Information.h"
 #include "Meanwhile.h"
 #include "strategicmap.h"
+#include "SoldierRepository.h"
 
 UINT32 guiForceRefreshMousePositionCalculation = 0;
 
@@ -1350,7 +1351,7 @@ BOOLEAN GridNoNearPlayerMercs( INT32 sGridNo, INT16 sRadius )
 	SoldierID lastid = gTacticalStatus.Team[ OUR_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 		{
 			if ( PythSpacesAway(sGridNo, pTeamSoldier->position().gridNo()) < sRadius )

@@ -31,6 +31,7 @@
 #include "Dialogue Control.h"
 #include "connect.h"
 #include "Text.h"
+#include "SoldierRepository.h"
 
 extern BOOLEAN gfHiddenInterrupt;
 extern void LogDecideInfo(SOLDIERTYPE *pSoldier);
@@ -1023,7 +1024,6 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 
 				if (BestStab.ubPossible && pSoldier->ubSoldierClass == SOLDIER_CLASS_ZOMBIE)
 				{
-					//ScreenMsg( FONT_LTGREEN, MSG_INTERFACE, L"[%d] can attack %s", pSoldier->ubID, MercPtrs[BestStab.ubOpponent]->GetName());
 					// now we KNOW FOR SURE that we will do something (stab, at least)
 					NPCDoesAct(pSoldier);
 					ubBestAttackAction = AI_ACTION_KNIFE_MOVE;
@@ -1066,16 +1066,19 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 		DebugAI( AI_MSG_INFO, pSoldier, String("prepare attack, AP cost %d CTH %d", BestAttack.ubAPCost, BestAttack.ubChanceToReallyHit));
 
 		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
+		SOLDIERTYPE* attackOpponent =
+			GetJa2SoldierRepository().resolve(
+				BestAttack.ubOpponent.i);
 
 		// sevenfm: dynamically decide stab location
-		if( BestAttack.ubOpponent != NOBODY )
+		if( attackOpponent )
 		{
 			UINT32	uiRoll;
 			UINT8	ubChanceHead = 0;
 			UINT16	usRealCTH = BestAttack.ubChanceToReallyHit;
 
 			// attack to head randomly
-			if( gAnimControl[ MercPtrs[BestAttack.ubOpponent]->usAnimState ].ubEndHeight != ANIM_PRONE )
+			if( gAnimControl[attackOpponent->usAnimState].ubEndHeight != ANIM_PRONE )
 			{	
 				ubChanceHead = 6;
 				ubChanceHead += usRealCTH / 2;
