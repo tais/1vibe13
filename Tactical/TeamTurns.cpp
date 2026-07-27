@@ -1467,9 +1467,9 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					// Continue
 					selectedSoldier->AdjustNoAPToFinishMove( FALSE );
 
-					if ( selectedSoldier->position().gridNo() != selectedSoldier->pathing.sFinalDestination )
+					if ( selectedSoldier->position().gridNo() != selectedSoldier->pathing().finalDestinationGrid() )
 					{
-						selectedSoldier->EVENT_GetNewSoldierPath( selectedSoldier->pathing.sFinalDestination, selectedSoldier->usUIMovementMode );
+						selectedSoldier->EVENT_GetNewSoldierPath( selectedSoldier->pathing().finalDestinationGrid(), selectedSoldier->usUIMovementMode );
 					}
 					else
 					{
@@ -1935,7 +1935,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 			// if the soldier is behind him and not very close, forget it
 			bDir = atan8( pSoldier->sX, pSoldier->sY, pOpponent->sX, pOpponent->sY );
-			if ( gOppositeDirection[ pSoldier->pathing.bDesiredDirection ] == bDir )
+			if ( gOppositeDirection[ pSoldier->pathing().desiredDirection() ] == bDir )
 			{
 				// directly behind; allow interrupts only within # of tiles equal to level
 				if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > EffectiveExpLevel( pSoldier ) )

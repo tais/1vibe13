@@ -978,7 +978,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			}
 
 			// ignore blacklisted spot
-			if ( sGridNo == pSoldier->pathing.sBlackList )
+			if ( sGridNo == pSoldier->pathing().blackListGrid() )
 			{
 				continue;
 			}
@@ -1441,7 +1441,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 				continue;
 			}
 
-			if ( sGridNo == pSoldier->pathing.sBlackList )
+			if ( sGridNo == pSoldier->pathing().blackListGrid() )
 			{
 				continue;
 			}
@@ -1625,7 +1625,7 @@ INT32 FindNearestUngassedLand(SOLDIERTYPE *pSoldier)
 				fFoundReachable = TRUE;
 
 				// ignore blacklisted spot
-				if (sGridNo == pSoldier->pathing.sBlackList)
+				if (sGridNo == pSoldier->pathing().blackListGrid())
 				{
 					continue;
 				}
@@ -1769,7 +1769,7 @@ INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
 				fFoundReachable = TRUE;
 
 				// ignore blacklisted spot
-				if (sGridNo == pSoldier->pathing.sBlackList)
+				if (sGridNo == pSoldier->pathing().blackListGrid())
 				{
 					continue;
 				}
@@ -1984,7 +1984,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 			{
 
 				// ignore blacklisted spot
-				if ( sGridNo == pSoldier->pathing.sBlackList )
+				if ( sGridNo == pSoldier->pathing().blackListGrid() )
 				{
 					continue;
 				}
@@ -2525,7 +2525,7 @@ INT32 FindRouteBackOntoMap( SOLDIERTYPE * pSoldier, INT32 sDestGridNo )
 	// well, let's TRY just taking a path to the place we're supposed to go...
 	if ( FindBestPath( pSoldier, sDestGridNo, pSoldier->position().level(), WALKING, COPYROUTE, 0 ) )
 	{
-		pSoldier->pathing.bPathStored = TRUE;
+		pSoldier->pathing().stored() = TRUE;
 		return( sDestGridNo );
 	}
 	else
@@ -2751,7 +2751,7 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 				continue;
 			}
 
-			if ( sGridNo == pSoldier->pathing.sBlackList )
+			if ( sGridNo == pSoldier->pathing().blackListGrid() )
 			{
 				continue;
 			}
@@ -2925,7 +2925,7 @@ INT32 FindClosestClimbPoint (SOLDIERTYPE *pSoldier, BOOLEAN fClimbUp )
 					continue;
 				}
 
-				if ( sGridNo == pSoldier->pathing.sBlackList )
+				if ( sGridNo == pSoldier->pathing().blackListGrid() )
 				{
 					continue;
 				}			
@@ -3243,7 +3243,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 				continue;
 			}
 
-			if (sGridNo == pSoldier->pathing.sBlackList)
+			if (sGridNo == pSoldier->pathing().blackListGrid())
 			{
 				continue;
 			}
@@ -3503,7 +3503,7 @@ INT32 FindRetreatSpot(SOLDIERTYPE *pSoldier)
 				continue;
 			}
 
-			if (sGridNo == pSoldier->pathing.sBlackList)
+			if (sGridNo == pSoldier->pathing().blackListGrid())
 			{
 				continue;
 			}

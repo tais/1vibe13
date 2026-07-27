@@ -1401,7 +1401,7 @@ void InternalSoldierInSectorSleep( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
 
-	//pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
 	if ( AM_AN_EPC( pSoldier ) )
 	{
@@ -1440,7 +1440,7 @@ void SoldierInSectorIncompaciated( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
 
-	//pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
 	pSoldier->EVENT_InitNewSoldierAnim( STAND_FALLFORWARD_STOP, 1, TRUE );
 }
@@ -1474,7 +1474,7 @@ void SoldierInSectorPatient( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
 
-	//pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
@@ -1507,7 +1507,7 @@ void SoldierInSectorDoctor( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
 
-	//pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
@@ -1540,7 +1540,7 @@ void SoldierInSectorRepair( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	pSoldier->EVENT_SetSoldierDirection( ubNewDirection );
 	pSoldier->EVENT_SetSoldierDesiredDirection( ubNewDirection );
 
-	//pSoldier->pathing.bDesiredDirection = pSoldier->ubDirection;
+	//pSoldier->pathing().desiredDirection() = pSoldier->ubDirection;
 
 	if ( !IS_MERC_BODY_TYPE( pSoldier ) )
 	{
@@ -1772,9 +1772,9 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 			//pSoldier->EVENT_InitNewSoldierAnim( pSoldier->usAnimState, pSoldier->usAniCode, TRUE );
 
 			// if the merc had a final destination, get the merc walking there
-			//if( pSoldier->pathing.sFinalDestination != pSoldier->sGridNo )
+			//if( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )
 			//{
-			//	pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode );
+			//	pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
 			//}
 		}
 	}

@@ -284,8 +284,12 @@ established save byte positions. Current tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot
 paths. Old-save conversion and explicit persistence retain the established
-field order. Neither component changes content, map, packet, Lua, or save
-schemas.
+field order. The remaining fixed-capacity tactical route now follows the same
+rule through `SoldierPathingComponent`: destinations, cursor, directions,
+lookup flags, and blacklist have one private owner and reset boundary instead
+of a public `STRUCT_Pathing`. Its reference accessors preserve hot-path
+mutation while the portable serializer retains the established byte sequence.
+None of these components changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

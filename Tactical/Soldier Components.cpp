@@ -31,3 +31,15 @@ void SoldierPositionComponent::reset() noexcept
 	level_ = 0;
 	direction_ = 0;
 }
+
+void SoldierPathingComponent::clearRoute() noexcept
+{
+	pathSize_ = 0;
+	pathIndex_ = 0;
+	stored_ = 0;
+}
+
+void SoldierPathingComponent::reset() noexcept
+{
+	*this = SoldierPathingComponent{};
+}

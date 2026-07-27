@@ -964,11 +964,13 @@ the engine must not contain SDL types in its public domain model.
   serializer emits those values in their established save byte positions.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
-  `SOLDIERTYPE` and its pathing record. The component is independent of the
-  legacy soldier declaration; old-save conversion and the explicit serializer
-  still emit each value at its established byte position. Map placements, Lua
-  values, multiplayer packets, and content formats retain their existing
-  schemas.
+  `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement
+  cursor, fixed-capacity direction list, lookup flags, and blacklist now have
+  one private `SoldierPathingComponent` owner as well. Both components are
+  independent of the legacy soldier declaration; old-save conversion and the
+  explicit serializer still emit every value at its established byte position.
+  Map placements, Lua values, multiplayer packets, and content formats retain
+  their existing schemas.
 
 ## Compatibility policy
 

@@ -3889,14 +3889,14 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				INT16 sLoop;
 				INT32 sLastSeenSpot = NOWHERE;
 
-				DebugAI(AI_MSG_INFO, pSoldier, String("found path to %d, path size %d ", sClosestDisturbance, pSoldier->pathing.usPathDataSize));
+				DebugAI(AI_MSG_INFO, pSoldier, String("found path to %d, path size %d ", sClosestDisturbance, pSoldier->pathing().pathSize()));
 				DebugAI(AI_MSG_INFO, pSoldier, String("check path for seen spots"));
 
 				sCheckGridNo = pSoldier->position().gridNo();
 
-				for (sLoop = pSoldier->pathing.usPathIndex; sLoop < pSoldier->pathing.usPathDataSize; sLoop++)
+				for (sLoop = pSoldier->pathing().pathIndex(); sLoop < pSoldier->pathing().pathSize(); sLoop++)
 				{
-					sCheckGridNo = NewGridNo(sCheckGridNo, DirectionInc((UINT8)(pSoldier->pathing.usPathingData[sLoop])));
+					sCheckGridNo = NewGridNo(sCheckGridNo, DirectionInc((UINT8)(pSoldier->pathing().path()[sLoop])));
 
 					if (SoldierToVirtualSoldierLineOfSightTest(pSoldier, sCheckGridNo, pSoldier->position().level(), ANIM_STAND, TRUE, CALC_FROM_ALL_DIRS))
 					{
@@ -6121,13 +6121,13 @@ INT16 ubMinAPCost;
 					INT16 sLoop;
 					INT32 sCoverSpot = NOWHERE;
 
-					DebugAI(AI_MSG_INFO, pSoldier, String("found path to %d, path size %d ", sClosestDisturbance, pSoldier->pathing.usPathDataSize));
+					DebugAI(AI_MSG_INFO, pSoldier, String("found path to %d, path size %d ", sClosestDisturbance, pSoldier->pathing().pathSize()));
 
 					sCheckGridNo = pSoldier->position().gridNo();
 
-					for (sLoop = pSoldier->pathing.usPathIndex; sLoop < pSoldier->pathing.usPathDataSize; sLoop++)
+					for (sLoop = pSoldier->pathing().pathIndex(); sLoop < pSoldier->pathing().pathSize(); sLoop++)
 					{
-						sCheckGridNo = NewGridNo(sCheckGridNo, DirectionInc((UINT8)(pSoldier->pathing.usPathingData[sLoop])));
+						sCheckGridNo = NewGridNo(sCheckGridNo, DirectionInc((UINT8)(pSoldier->pathing().path()[sLoop])));
 
 						if (!TileIsOutOfBounds(sCheckGridNo) &&
 							PythSpacesAway(pSoldier->position().gridNo(), sCheckGridNo) < TACTICAL_RANGE / 2 &&
@@ -6960,8 +6960,8 @@ L_NEWAIM:
 						if (fLimitOneStep)
 						{
 							DebugAI(AI_MSG_INFO, pSoldier, String("boxer: limit movement to one step"));
-							pSoldier->aiData.usActionData = pSoldier->position().gridNo() + DirectionInc((UINT8)pSoldier->pathing.usPathingData[0]);
-							pSoldier->pathing.sFinalDestination = pSoldier->aiData.usActionData;
+							pSoldier->aiData.usActionData = pSoldier->position().gridNo() + DirectionInc((UINT8)pSoldier->pathing().path()[0]);
+							pSoldier->pathing().finalDestinationGrid() = pSoldier->aiData.usActionData;
 						}
 
 						//pSoldier->aiData.bNextAction = AI_ACTION_END_TURN;
@@ -10259,7 +10259,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )
 					{
 						pSoldier->aiData.usActionData = pSoldier->position().gridNo();
-						pSoldier->pathing.sFinalDestination = pSoldier->aiData.usActionData;
+						pSoldier->pathing().finalDestinationGrid() = pSoldier->aiData.usActionData;
 
 						pSoldier->aiData.bNextAction = AI_ACTION_FIRE_GUN;
 						pSoldier->aiData.usNextActionData = BestAttack.sTarget;

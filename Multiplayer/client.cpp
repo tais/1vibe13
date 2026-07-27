@@ -1206,9 +1206,9 @@ void send_path (  SOLDIERTYPE *pSoldier, INT32 sDestGridNo, UINT16 usMovementAni
 		SNetPath.sAtGridNo=pSoldier->position().gridNo();
 				
 		SNetPath.ubNewState=usMovementAnim;
-		SNetPath.usCurrentPathIndex=pSoldier->pathing.usPathIndex;
-		memcpy(SNetPath.usPathData, pSoldier->pathing.usPathingData, sizeof(UINT16)*30);
-		SNetPath.usPathDataSize=pSoldier->pathing.usPathDataSize;
+		SNetPath.usCurrentPathIndex=pSoldier->pathing().pathIndex();
+		memcpy(SNetPath.usPathData, pSoldier->pathing().path(), sizeof(UINT16)*30);
+		SNetPath.usPathDataSize=pSoldier->pathing().pathSize();
 		SNetPath.sDestGridNo=sDestGridNo;
 			
 		client->RPC("sendPATH",(const char*)&SNetPath, (int)sizeof(EV_S_SENDPATHTONETWORK)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);

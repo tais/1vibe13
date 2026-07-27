@@ -1,6 +1,7 @@
 #ifndef TACTICAL_SOLDIER_COMPONENTS_H
 #define TACTICAL_SOLDIER_COMPONENTS_H
 
+#include "Overhead Types.h"
 #include "types.h"
 
 #include <functional>
@@ -52,6 +53,60 @@ private:
 	INT32 gridNo_ = 0;
 	INT8 level_ = 0;
 	UINT8 direction_ = 0;
+};
+
+// Canonical tactical route ownership. The fixed-capacity path and its cursor
+// deliberately retain the established JA2 representation, while private
+// storage prevents unrelated SOLDIERTYPE fields from becoming a second route
+// authority.
+class SoldierPathingComponent
+{
+public:
+	using Path = UINT16[MAX_PATH_LIST_SIZE];
+
+	INT8& desiredDirection() noexcept { return desiredDirection_; }
+	const INT8& desiredDirection() const noexcept { return desiredDirection_; }
+	INT16& destinationX() noexcept { return destinationX_; }
+	const INT16& destinationX() const noexcept { return destinationX_; }
+	INT16& destinationY() noexcept { return destinationY_; }
+	const INT16& destinationY() const noexcept { return destinationY_; }
+	INT32& destinationGrid() noexcept { return destinationGrid_; }
+	const INT32& destinationGrid() const noexcept { return destinationGrid_; }
+	INT32& finalDestinationGrid() noexcept { return finalDestinationGrid_; }
+	const INT32& finalDestinationGrid() const noexcept { return finalDestinationGrid_; }
+	INT8& stopped() noexcept { return stopped_; }
+	const INT8& stopped() const noexcept { return stopped_; }
+	INT8& needsLook() noexcept { return needsLook_; }
+	const INT8& needsLook() const noexcept { return needsLook_; }
+	Path& path() noexcept { return path_; }
+	const Path& path() const noexcept { return path_; }
+	UINT16& pathSize() noexcept { return pathSize_; }
+	const UINT16& pathSize() const noexcept { return pathSize_; }
+	UINT16& pathIndex() noexcept { return pathIndex_; }
+	const UINT16& pathIndex() const noexcept { return pathIndex_; }
+	INT32& blackListGrid() noexcept { return blackListGrid_; }
+	const INT32& blackListGrid() const noexcept { return blackListGrid_; }
+	INT8& stored() noexcept { return stored_; }
+	const INT8& stored() const noexcept { return stored_; }
+
+	bool empty() const noexcept { return pathSize_ == 0; }
+	bool complete() const noexcept { return pathIndex_ >= pathSize_; }
+	void clearRoute() noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 desiredDirection_ = 0;
+	INT16 destinationX_ = 0;
+	INT16 destinationY_ = 0;
+	INT32 destinationGrid_ = 0;
+	INT32 finalDestinationGrid_ = 0;
+	INT8 stopped_ = 0;
+	INT8 needsLook_ = 0;
+	Path path_{};
+	UINT16 pathSize_ = 0;
+	UINT16 pathIndex_ = 0;
+	INT32 blackListGrid_ = 0;
+	INT8 stored_ = 0;
 };
 
 struct SoldierPendingActionRuntimeState

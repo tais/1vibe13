@@ -1045,27 +1045,6 @@ public:
 	//UINT8												ubSkillTrait3; // added by SANDRO
 };
 
-class STRUCT_Pathing//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	// WALKING STUFF
-	INT8												bDesiredDirection;
-	INT16												sDestXPos;
-	INT16												sDestYPos;
-	//INT32												sDesiredDest;//apparently not used
-	INT32												sDestination;
-	INT32												sFinalDestination;
-	INT8												bStopped;
-	INT8												bNeedToLook;
-	// PATH STUFF
-	UINT16											usPathingData[ MAX_PATH_LIST_SIZE ];
-	UINT16											usPathDataSize;
-	UINT16											usPathIndex;	
-	INT32												sBlackList;
-	INT8												bPathStored;	// good for AI to reduct redundancy
-};
-
 enum class BackgroundVectorTypes;
 
 class SOLDIERTYPE//last edited at version 102
@@ -1092,6 +1071,8 @@ public:
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
+	SoldierPathingComponent& pathing() noexcept { return pathing_; }
+	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1616,10 +1597,9 @@ public:
 private:
 	SoldierVitalsComponent	vitals_;
 	SoldierPositionComponent	position_;
+	SoldierPathingComponent	pathing_;
 
 public:
-	STRUCT_Pathing			pathing;
-
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is
 	// deliberately outside the serialized POD and sub-structure field lists.
 	SoldierRuntimeComponents runtime;

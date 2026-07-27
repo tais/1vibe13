@@ -1850,7 +1850,7 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Statistics//last edited at version 102"
   current_soldier_stats_begin)
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_Pathing//last edited at version 102"
+  "enum class BackgroundVectorTypes;"
   current_soldier_stats_end)
 string(FIND "${soldier_control_header_contents}"
   "class SOLDIERTYPE//last edited at version 102"
@@ -1863,7 +1863,7 @@ if(current_soldier_stats_begin EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/statistics declarations for the vitals ownership check")
+    "Could not locate current soldier/statistics declarations for the soldier-component ownership check")
 endif()
 math(EXPR current_soldier_stats_length
   "${current_soldier_stats_end} - ${current_soldier_stats_begin}")
@@ -1943,20 +1943,13 @@ if(NOT serialized_soldier_breath_order OR
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
-# cut. STRUCT_Pathing retains route state only; SOLDIERTYPE privately owns one
-# independent SoldierPositionComponent.
-math(EXPR current_soldier_pathing_length
-  "${current_soldier_begin} - ${current_soldier_stats_end}")
-string(SUBSTRING "${soldier_control_header_contents}"
-  ${current_soldier_stats_end} ${current_soldier_pathing_length}
-  current_soldier_pathing_contents)
-string(REGEX MATCH
-  "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+bLevel[ \t]*;"
-  retired_current_pathing_level
-  "${current_soldier_pathing_contents}")
-if(retired_current_pathing_level)
+# cut. The old route sub-structure must not return as a second public owner.
+string(FIND "${soldier_control_header_contents}"
+  "STRUCT_Pathing"
+  retired_current_pathing_type)
+if(NOT retired_current_pathing_type EQUAL -1)
   message(FATAL_ERROR
-    "Retired STRUCT_Pathing field 'bLevel' returned; canonical elevation belongs to SoldierPositionComponent")
+    "Retired STRUCT_Pathing returned; canonical route state belongs to SoldierPathingComponent")
 endif()
 
 foreach(retired_position_field IN ITEMS sGridNo ubDirection)
@@ -1996,11 +1989,56 @@ foreach(owned_position_field IN ITEMS
 endforeach()
 string(REGEX MATCH
   "SOLDIERTYPE[ \t]*&[ \t]*soldier_"
-  soldier_position_back_reference
+  soldier_component_back_reference
   "${soldier_components_header_contents}")
-if(soldier_position_back_reference)
+if(soldier_component_back_reference)
   message(FATAL_ERROR
-    "SoldierPositionComponent must own its values independently; do not restore a SOLDIERTYPE back-reference facade")
+    "Soldier components must own their values independently; do not restore a SOLDIERTYPE back-reference facade")
+endif()
+
+# Route data is a private, independently resettable component. Callers retain
+# allocation-free reference access while direct public pathing storage cannot
+# return to SOLDIERTYPE.
+string(REGEX MATCH
+  "SoldierPathingComponent[ \t\r\n]+pathing_[ \t]*;"
+  soldier_pathing_owner
+  "${current_soldier_contents}")
+if(NOT soldier_pathing_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierPathingComponent")
+endif()
+
+foreach(owned_pathing_field IN ITEMS
+  "INT8;desiredDirection"
+  "INT16;destinationX"
+  "INT16;destinationY"
+  "INT32;destinationGrid"
+  "INT32;finalDestinationGrid"
+  "INT8;stopped"
+  "INT8;needsLook"
+  "UINT16;pathSize"
+  "UINT16;pathIndex"
+  "INT32;blackListGrid"
+  "INT8;stored")
+  string(REPLACE ";" ";" owned_pathing_parts "${owned_pathing_field}")
+  list(GET owned_pathing_parts 0 owned_pathing_type)
+  list(GET owned_pathing_parts 1 owned_pathing_name)
+  string(REGEX MATCH
+    "${owned_pathing_type}[ \t]+${owned_pathing_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_pathing
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_pathing)
+    message(FATAL_ERROR
+      "SoldierPathingComponent no longer owns '${owned_pathing_name}_'; do not recreate public SOLDIERTYPE route storage")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "Path[ \t]+path_[ \t]*\\{\\}[ \t]*;"
+  owned_soldier_path
+  "${soldier_components_header_contents}")
+if(NOT owned_soldier_path)
+  message(FATAL_ERROR
+    "SoldierPathingComponent must own the fixed-capacity route path")
 endif()
 
 # Preserve all three established save positions: grid/facing remain after the
@@ -2011,13 +2049,29 @@ string(REGEX MATCH
   serialized_soldier_grid_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(p\\.sDestination\\);[ \t]*ar\\.i32\\(p\\.sFinalDestination\\);[ \t\r\n]*ar\\.i8\\(soldier\\.position\\(\\)\\.level\\(\\)\\);[ \t]*ar\\.i8\\(p\\.bStopped\\);"
+  "ar\\.i32\\(p\\.destinationGrid\\(\\)\\);[ \t]*ar\\.i32\\(p\\.finalDestinationGrid\\(\\)\\);[ \t\r\n]*ar\\.i8\\(soldier\\.position\\(\\)\\.level\\(\\)\\);[ \t]*ar\\.i8\\(p\\.stopped\\(\\)\\);"
   serialized_soldier_level_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_grid_direction_order OR
    NOT serialized_soldier_level_order)
   message(FATAL_ERROR
     "Soldier position moved in the portable save schema; keep grid, elevation, and facing in their established byte order")
+endif()
+
+# Preserve the complete established pathing byte order independently of the
+# component's in-memory layout.
+string(REGEX MATCH
+  "ar\\.i8\\(p\\.desiredDirection\\(\\)\\);[ \t]*ar\\.i16\\(p\\.destinationX\\(\\)\\);[ \t]*ar\\.i16\\(p\\.destinationY\\(\\)\\);[ \t\r\n]*ar\\.i32\\(p\\.destinationGrid\\(\\)\\);[ \t]*ar\\.i32\\(p\\.finalDestinationGrid\\(\\)\\);"
+  serialized_soldier_pathing_destination_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(p\\.stopped\\(\\)\\);[ \t]*ar\\.i8\\(p\\.needsLook\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < MAX_PATH_LIST_SIZE; \\+\\+i\\) ar\\.u16\\(p\\.path\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(p\\.pathSize\\(\\)\\);[ \t]*ar\\.u16\\(p\\.pathIndex\\(\\)\\);[ \t\r\n]*ar\\.i32\\(p\\.blackListGrid\\(\\)\\);[ \t]*ar\\.i8\\(p\\.stored\\(\\)\\);"
+  serialized_soldier_pathing_route_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_pathing_destination_order OR
+   NOT serialized_soldier_pathing_route_order)
+  message(FATAL_ERROR
+    "Soldier pathing moved in the portable save schema; keep its established byte order while storage evolves")
 endif()
 
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The

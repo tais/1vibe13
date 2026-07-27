@@ -2471,7 +2471,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					if (!movement) return GAME_SCREEN;
 					SetUIBusy( pSoldier->ubID );
 
-					if ( pSoldier->pathing.usPathDataSize > 5 )
+					if ( pSoldier->pathing().pathSize() > 5 )
 					{
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
 					}
@@ -2952,7 +2952,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	if ( ( IsJa2TacticalCombatActive() ) )
 	{
 		// Reset some flags for cont move...
-		pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+		pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 		pSoldier->bGoodContPath			= FALSE;
 		//	guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 	}
@@ -3994,7 +3994,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 			if (!TryDispatchChangeStanceCommandNow( *pSoldier, bNewStance ))
 				return;
 
-			pSoldier->pathing.sFinalDestination = pSoldier->position().gridNo();
+			pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
 			pSoldier->bGoodContPath			= FALSE;
 
 			//dnl ch71 180913 when we go to crouch or prone for now there is no alternative fire mode option
@@ -4846,7 +4846,7 @@ INT16 APsToTurnAround(SOLDIERTYPE *pSoldier, INT16 sAdjustedGridNo)
 	UINT8 ubDirection = (UINT8)GetDirectionFromGridNo( sAdjustedGridNo, pSoldier );
 
 	// If new direction is not the same than the old direction
-	if ( pSoldier->pathing.bDesiredDirection != ubDirection)
+	if ( pSoldier->pathing().desiredDirection() != ubDirection)
 	{
 		if ( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY ) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
 		{

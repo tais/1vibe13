@@ -1936,9 +1936,9 @@ void SaveNPCInformationToProfileStruct( )
 			else
 			{
 				// If the NPC is moving, save the final destination, else save the current location
-				if ( pSoldier->pathing.sFinalDestination != pSoldier->sGridNo )
+				if ( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )
 				{
-					pProfile->usStrategicInsertionData = pSoldier->pathing.sFinalDestination;
+					pProfile->usStrategicInsertionData = pSoldier->pathing().finalDestinationGrid();
 				}
 				else
 				{
@@ -2044,7 +2044,7 @@ void LoadNPCInformationFromProfileStruct()
 				continue;
 
 			//If the NPC was supposed to do something when they reached their target destination
-			if( pSoldier->sGridNo == pSoldier->pathing.sFinalDestination )
+			if( pSoldier->sGridNo == pSoldier->pathing().finalDestinationGrid() )
 			{
 				if (pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST )
 				{
@@ -2062,9 +2062,9 @@ void LoadNPCInformationFromProfileStruct()
 				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 				{
 					//Set the NPC's destination
-					pSoldier->pathing.sDestination = gMercProfiles[ cnt ].sGridNo;
-					pSoldier->pathing.sDestXPos = sXPos;
-					pSoldier->pathing.sDestYPos = sYPos;
+					pSoldier->pathing().destinationGrid() = gMercProfiles[ cnt ].sGridNo;
+					pSoldier->pathing().destinationX() = sXPos;
+					pSoldier->pathing().destinationY() = sYPos;
 
 					// We have moved to a diferent sector and are returning to it, therefore the merc should be in the final dest
 					EVENT_SetSoldierPositionAndMaybeFinalDestAndMaybeNotDestination( pSoldier, (FLOAT) sX, (FLOAT) sY, FALSE, TRUE );

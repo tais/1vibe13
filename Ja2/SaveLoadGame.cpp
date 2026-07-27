@@ -1640,14 +1640,14 @@ template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 
 template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_Pathing& p = soldier.pathing;
+	SoldierPathingComponent& p = soldier.pathing();
 	int i;
-	ar.i8(p.bDesiredDirection); ar.i16(p.sDestXPos); ar.i16(p.sDestYPos);
-	ar.i32(p.sDestination); ar.i32(p.sFinalDestination);
-	ar.i8(soldier.position().level()); ar.i8(p.bStopped); ar.i8(p.bNeedToLook);
-	for (i = 0; i < MAX_PATH_LIST_SIZE; ++i) ar.u16(p.usPathingData[i]);
-	ar.u16(p.usPathDataSize); ar.u16(p.usPathIndex);
-	ar.i32(p.sBlackList); ar.i8(p.bPathStored);
+	ar.i8(p.desiredDirection()); ar.i16(p.destinationX()); ar.i16(p.destinationY());
+	ar.i32(p.destinationGrid()); ar.i32(p.finalDestinationGrid());
+	ar.i8(soldier.position().level()); ar.i8(p.stopped()); ar.i8(p.needsLook());
+	for (i = 0; i < MAX_PATH_LIST_SIZE; ++i) ar.u16(p.path()[i]);
+	ar.u16(p.pathSize()); ar.u16(p.pathIndex());
+	ar.i32(p.blackListGrid()); ar.i8(p.stored());
 }
 
 template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )

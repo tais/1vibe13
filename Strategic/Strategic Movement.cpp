@@ -2035,7 +2035,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				pSoldier->ubInsertionDirection = ubInsertionDirection;
 
 				// ATE: Removed, may 21 - sufficient to use insertion direction...
-				//pSoldier->pathing.bDesiredDirection = ubInsertionDirection;
+				//pSoldier->pathing().desiredDirection() = ubInsertionDirection;
 
 				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
 
@@ -2057,7 +2057,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 					curr->pSoldier->ubInsertionDirection = ubInsertionDirection;
 
 					// ATE: Removed, may 21 - sufficient to use insertion direction...
-					// curr->pSoldier->pathing.bDesiredDirection = ubInsertionDirection;
+					// curr->pSoldier->pathing().desiredDirection() = ubInsertionDirection;
 
 					curr->pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
 

@@ -423,11 +423,11 @@ namespace
 
 				for (std::size_t index = 0;
 					index < TacticalReplicatedPathCapacity; ++index)
-					soldier->pathing.usPathingData[index] = value.path[index];
-				soldier->pathing.sDestination = value.destinationGrid;
-				soldier->pathing.sFinalDestination = value.destinationGrid;
-				soldier->pathing.usPathIndex = value.currentPathIndex;
-				soldier->pathing.usPathDataSize = value.pathSize;
+					soldier->pathing().path()[index] = value.path[index];
+				soldier->pathing().destinationGrid() = value.destinationGrid;
+				soldier->pathing().finalDestinationGrid() = value.destinationGrid;
+				soldier->pathing().pathIndex() = value.currentPathIndex;
+				soldier->pathing().pathSize() = value.pathSize;
 
 				SendGetNewSoldierPathEvent(
 					soldier, value.destinationGrid, value.movementState);
@@ -459,7 +459,7 @@ namespace
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
 				soldier->flags.fDelayedMovement = FALSE;
-				soldier->pathing.sFinalDestination = soldier->position().gridNo();
+				soldier->pathing().finalDestinationGrid() = soldier->position().gridNo();
 				soldier->StopSoldier();
 				return CommandDisposition::Applied;
 			}

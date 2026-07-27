@@ -636,23 +636,6 @@ void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->bShownAimTime = src.bShownAimTime;
 }
 
-void STRUCT_Pathing::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	memcpy( &(this->usPathingData), &(src.usPathingData), sizeof(UINT16)* MAX_PATH_LIST_SIZE );
-	this->bDesiredDirection = src.bDesiredDirection;
-	this->sDestXPos = src.sDestXPos;
-	this->sDestYPos = src.sDestYPos;
-	//this->sDesiredDest = src.sDesiredDest;//apparently not used
-	this->sDestination = src.sDestination;
-	this->sFinalDestination = src.sFinalDestination;
-	this->bStopped = src.bStopped;
-	this->bNeedToLook = src.bNeedToLook;
-	this->usPathDataSize = src.usPathDataSize;
-	this->usPathIndex = src.usPathIndex;
-	this->sBlackList = src.sBlackList;
-	this->bPathStored = src.bPathStored;	// good for AI to reduct redundancy
-}
-
 // Conversion operator
 SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 {
@@ -664,7 +647,18 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		timeCounters.ConvertFrom_101_To_102( src );
 		//drugs.ConvertFrom_101_To_102( src );
 		stats.ConvertFrom_101_To_102( src );
-		pathing.ConvertFrom_101_To_102( src );
+		memcpy( pathing().path(), src.usPathingData, sizeof(src.usPathingData) );
+		pathing().desiredDirection() = src.bDesiredDirection;
+		pathing().destinationX() = src.sDestXPos;
+		pathing().destinationY() = src.sDestYPos;
+		pathing().destinationGrid() = src.sDestination;
+		pathing().finalDestinationGrid() = src.sFinalDestination;
+		pathing().stopped() = src.bStopped;
+		pathing().needsLook() = src.bNeedToLook;
+		pathing().pathSize() = src.usPathDataSize;
+		pathing().pathIndex() = src.usPathIndex;
+		pathing().blackListGrid() = src.sBlackList;
+		pathing().stored() = src.bPathStored;
 		position().level() = src.bLevel;
 		inv = src.inv;
 
@@ -1132,7 +1126,7 @@ void SOLDIERTYPE::initialize( )
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
 	position().reset();
-	memset( &pathing, 0, sizeof(STRUCT_Pathing) );
+	pathing().reset();
 
 	// sevenfm:initialize additional data
 	this->InitializeExtraData();
@@ -3505,7 +3499,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				 || usNewState == SWATTING_WK || usNewState == START_SWAT )
 			{
 				// CHECK FOR SIDEWAYS!
-				if ( !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && this->position().direction() == gPurpendicularDirection[this->position().direction()][this->pathing.usPathingData[this->pathing.usPathIndex]] )
+				if ( !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && this->position().direction() == gPurpendicularDirection[this->position().direction()][this->pathing().path()[this->pathing().pathIndex()]] )
 				{
 					// We are perpendicular!
 					// SANDRO - wait wait wait!!! We need to determine if gonna sidestep with weapon raised
@@ -3580,12 +3574,12 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			//***08.12.2008*** added roll animation ;) ddd			
 			else if ( usNewState == CRAWLING
 					  && this->position().direction() ==
-					  gPurpendicularDirection[this->position().direction()][this->pathing.usPathingData
-					  [this->pathing.usPathIndex]] )
+					  gPurpendicularDirection[this->position().direction()][this->pathing().path()
+					  [this->pathing().pathIndex()]] )
 			{
-				if ( QuickestDirection( this->position().direction(), this->pathing.usPathingData[this->pathing.usPathIndex] ) > 0 )
+				if ( QuickestDirection( this->position().direction(), this->pathing().path()[this->pathing().pathIndex()] ) > 0 )
 					usNewState = ROLL_PRONE_R;
-				else if ( QuickestDirection( this->position().direction(), this->pathing.usPathingData[this->pathing.usPathIndex] ) < 0 )
+				else if ( QuickestDirection( this->position().direction(), this->pathing().path()[this->pathing().pathIndex()] ) < 0 )
 					usNewState = ROLL_PRONE_L;
 
 				if ( usNewState != CRAWLING )
@@ -3724,7 +3718,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 					{
 						// Change desired direction
 						// Just change direction
-						this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing.usPathingData[this->pathing.usPathIndex], FALSE, this->usAnimState );
+						this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, this->usAnimState );
 					}
 
 					//check for services
@@ -3795,7 +3789,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	uiOldAnimFlags = gAnimControl[this->usAnimState].uiFlags;
 	uiNewAnimFlags = gAnimControl[usNewState].uiFlags;
 
-	usNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8) this->pathing.usPathingData[this->pathing.usPathIndex] ) );
+	usNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8) this->pathing().path()[this->pathing().pathIndex()] ) );
 
 
 	// CHECKING IF WE HAVE A HIT FINISH BUT NO DEATH IS DONE WITH A SPECIAL ANI CODE
@@ -4168,15 +4162,15 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 										  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
 										  this->flags.fPastXDest = FALSE;
 										  this->flags.fPastYDest = FALSE;
-										  this->pathing.usPathDataSize = 0;
-										  this->pathing.usPathIndex = 0;
-										  this->pathing.usPathingData[this->pathing.usPathDataSize] = this->position().direction();
-										  this->pathing.usPathDataSize++;
-										  this->pathing.usPathingData[this->pathing.usPathDataSize] = this->position().direction();
-										  this->pathing.usPathDataSize++;
-										  this->pathing.sFinalDestination = usNewGridNo;
+										  this->pathing().pathSize() = 0;
+										  this->pathing().pathIndex() = 0;
+										  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
+										  this->pathing().pathSize()++;
+										  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
+										  this->pathing().pathSize()++;
+										  this->pathing().finalDestinationGrid() = usNewGridNo;
 										  // Set direction
-										  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing.usPathingData[this->pathing.usPathIndex], FALSE, JUMP_OVER_BLOCKING_PERSON );
+										  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, JUMP_OVER_BLOCKING_PERSON );
 		}
 			break;
 
@@ -4194,17 +4188,17 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 						  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
 						  this->flags.fPastXDest = FALSE;
 						  this->flags.fPastYDest = FALSE;
-						  this->pathing.usPathDataSize = 0;
-						  this->pathing.usPathIndex = 0;
-						  this->pathing.usPathingData[this->pathing.usPathDataSize] = this->position().direction();
-						  this->pathing.usPathDataSize++;
-						  this->pathing.usPathingData[this->pathing.usPathDataSize] = this->position().direction();
-						  this->pathing.usPathDataSize++;
-						  this->pathing.usPathingData[this->pathing.usPathDataSize] = this->position().direction();
-						  this->pathing.usPathDataSize++;
-						  this->pathing.sFinalDestination = usNewGridNo;
+						  this->pathing().pathSize() = 0;
+						  this->pathing().pathIndex() = 0;
+						  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
+						  this->pathing().pathSize()++;
+						  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
+						  this->pathing().pathSize()++;
+						  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
+						  this->pathing().pathSize()++;
+						  this->pathing().finalDestinationGrid() = usNewGridNo;
 						  // Set direction
-						  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing.usPathingData[this->pathing.usPathIndex], FALSE, LONG_JUMP );
+						  this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, LONG_JUMP );
 		}
 			break;
 
@@ -4494,12 +4488,12 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYP
 
 	if ( fUpdateDest )
 	{
-		this->pathing.sDestination = sNewGridNo;
+		this->pathing().destinationGrid() = sNewGridNo;
 	}
 
 	if ( fUpdateFinalDest )
 	{
-		this->pathing.sFinalDestination = sNewGridNo;
+		this->pathing().finalDestinationGrid() = sNewGridNo;
 	}
 
 	// HEADROCK HAM 4: TODO: Figure out whether this has any influence in-game?
@@ -4631,10 +4625,10 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		{
 			if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 			{
-				if ( sNewGridNo != this->pathing.sDestination )
+				if ( sNewGridNo != this->pathing().destinationGrid() )
 				{
 					// THIS MUST be our new one......MAKE IT SO
-					sNewGridNo = this->pathing.sDestination;
+					sNewGridNo = this->pathing().destinationGrid();
 				}
 
 				// Now check this baby....
@@ -5060,7 +5054,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 			if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
 			{
 				// Force our direction!
-				this->EVENT_SetSoldierDirection( this->pathing.bDesiredDirection );
+				this->EVENT_SetSoldierDirection( this->pathing().desiredDirection() );
 				this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, gAnimControl[this->usAnimState].ubEndHeight ), 0, FALSE );
 			}
 			else
@@ -5074,7 +5068,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 					this->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_OFF;
 
 					// Force our direction!
-					this->EVENT_SetSoldierDirection( this->pathing.bDesiredDirection );
+					this->EVENT_SetSoldierDirection( this->pathing().desiredDirection() );
 
 					this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, gAnimControl[this->usAnimState].ubEndHeight ), 0, FALSE );
 				}
@@ -7102,7 +7096,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 		}
 
 		sMercGridNo = this->position().gridNo();
-		this->position().gridNo() = this->pathing.sDestination;
+		this->position().gridNo() = this->pathing().destinationGrid();
 
 		// Check if path is good before copying it into guy's path...
 		if ( !(uiDist = FindBestPath( this, sDestGridNo, this->position().level(), this->usUIMovementMode, COPYROUTE, fFlags )) )
@@ -7116,25 +7110,25 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 		//uiDist =  FindBestPath( this, sDestGridNo, this->position().level(), this->usUIMovementMode, COPYROUTE, fFlags );
 
 		this->position().gridNo() = sMercGridNo;
-		this->pathing.sFinalDestination = sDestGridNo;
+		this->pathing().finalDestinationGrid() = sDestGridNo;
 
 		if ( uiDist > 0 )
 		{
 			// Add one to path data size....
 			if ( fAdvancePath )
 			{
-				memcpy( usPathingData, this->pathing.usPathingData, sizeof(usPathingData) );
+				memcpy( usPathingData, this->pathing().path(), sizeof(usPathingData) );
 				ubPathingMaxDirection = (UINT8)usPathingData[MAX_PATH_LIST_SIZE - 1];
-				memcpy( &(this->pathing.usPathingData[1]), usPathingData, sizeof(usPathingData)-sizeof(UINT16) );
+				memcpy( &(this->pathing().path()[1]), usPathingData, sizeof(usPathingData)-sizeof(UINT16) );
 
 				// If we have reach the max, go back one sFinalDest....
-				if ( this->pathing.usPathDataSize == MAX_PATH_LIST_SIZE )
+				if ( this->pathing().pathSize() == MAX_PATH_LIST_SIZE )
 				{
-					//this->pathing.sFinalDestination = NewGridNo( (INT16)this->pathing.sFinalDestination, DirectionInc( gOppositeDirection[ ubPathingMaxDirection ] ) );
+					//this->pathing().finalDestinationGrid() = NewGridNo( (INT16)this->pathing().finalDestinationGrid(), DirectionInc( gOppositeDirection[ ubPathingMaxDirection ] ) );
 				}
 				else
 				{
-					++this->pathing.usPathDataSize;
+					++this->pathing().pathSize();
 				}
 			}
 
@@ -7176,13 +7170,13 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier %d: Get new path", this->ubID ) );
 
 		// Set final destination
-		this->pathing.sFinalDestination = sDestGridNo;
+		this->pathing().finalDestinationGrid() = sDestGridNo;
 		this->flags.fPastXDest = 0;
 		this->flags.fPastYDest = 0;
 
 
 		// CHECK IF FIRST TILE IS FREE
-		sNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8)this->pathing.usPathingData[this->pathing.usPathIndex] ) );
+		sNewGridNo = NewGridNo( this->position().gridNo(), DirectionInc( (UINT8)this->pathing().path()[this->pathing().pathIndex()] ) );
 
 		// If true, we're OK, if not, WAIT for a guy to pass!
 		// If we are in deep water, we can only swim!
@@ -7254,7 +7248,7 @@ void SOLDIERTYPE::StopSoldier( void )
 	}
 
 	// Set destination
-	this->pathing.sFinalDestination = this->position().gridNo();
+	this->pathing().finalDestinationGrid() = this->position().gridNo();
 
 }
 
@@ -7423,9 +7417,9 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BO
 	ConvertGridNoToCenterCellXY( sNewGridNo, &sXPos, &sYPos );
 
 	// Save new dest gridno, x, y
-	this->pathing.sDestination = sNewGridNo;
-	this->pathing.sDestXPos = sXPos;
-	this->pathing.sDestYPos = sYPos;
+	this->pathing().destinationGrid() = sNewGridNo;
+	this->pathing().destinationX() = sXPos;
+	this->pathing().destinationY() = sYPos;
 
 	this->bMovementDirection = (INT8)usNewDirection;
 
@@ -7449,7 +7443,7 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BO
 
 		// CHange actual and desired direction....
 		this->EVENT_SetSoldierDirection( ubPerpDirection );
-		this->pathing.bDesiredDirection = this->position().direction();
+		this->pathing().desiredDirection() = this->position().direction();
 	}
 	else
 	{
@@ -7566,7 +7560,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 		ubNewDirection = gOppositeDirection[ubNewDirection];
 	}
 	
-	pSoldier->pathing.bDesiredDirection = (INT8)ubNewDirection;
+	pSoldier->pathing().desiredDirection() = (INT8)ubNewDirection;
 
 	// If we are prone, goto crouched first!
 	// ONly if we are stationary, and only if directions are differnet!
@@ -7581,7 +7575,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 		pSoldier->AdjustNoAPToFinishMove( FALSE );
 	}
 
-	if ( pSoldier->pathing.bDesiredDirection != pSoldier->position().direction() )
+	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
 		if ( (gAnimControl[usAnimState].uiFlags & (ANIM_BREATH | ANIM_OK_CHARGE_AP_FOR_TURN | ANIM_FIREREADY | ANIM_TURNING) || usForceAnimState != INVALID_ANIMATION) && !fInitalMove && !pSoldier->flags.fDontChargeTurningAPs )
 		{
@@ -7640,7 +7634,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 			{
 				// Set this beasty of a flag to allow us to go back down to prone if we choose!
 				// ATE: Alrighty, set flag to go back down only if we are not moving anywhere
-				//if ( pSoldier->pathing.sDestination == pSoldier->sGridNo )
+				//if ( pSoldier->pathing().destinationGrid() == pSoldier->sGridNo )
 				if ( !fInitalMove )
 				{
 					pSoldier->flags.bTurningFromPronePosition = TURNING_FROM_PRONE_ON;
@@ -7654,9 +7648,9 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 	}
 
 	// Set desired direction for the extended directions...
-	pSoldier->ubHiResDesiredDirection = ubExtDirection[pSoldier->pathing.bDesiredDirection];
+	pSoldier->ubHiResDesiredDirection = ubExtDirection[pSoldier->pathing().desiredDirection()];
 
-	if ( pSoldier->pathing.bDesiredDirection != pSoldier->position().direction() )
+	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
 		if ( pSoldier->flags.uiStatusFlags & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( pSoldier ) )
 		{
@@ -7673,11 +7667,11 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 	{
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE )
 		{
-			pSoldier->bTurningIncrement = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing.bDesiredDirection );
+			pSoldier->bTurningIncrement = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
 		}
 		else
 		{
-			pSoldier->bTurningIncrement = (INT8)QuickestDirection( pSoldier->position().direction(), pSoldier->pathing.bDesiredDirection );
+			pSoldier->bTurningIncrement = (INT8)QuickestDirection( pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
 		}
 	}
 
@@ -7911,11 +7905,11 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 			{
 				// Stop the merc
 				this->EVENT_StopMerc( this->position().gridNo(), this->position().direction() );
-				this->pathing.sFinalDestination = NOWHERE;
+				this->pathing().finalDestinationGrid() = NOWHERE;
 			}
 
 			// Reset destination
-			//this->pathing.sFinalDestination = this->sGridNo;
+			//this->pathing().finalDestinationGrid() = this->sGridNo;
 		}
 
 		this->bTilesMoved = 0;
@@ -8205,10 +8199,10 @@ void SOLDIERTYPE::TurnSoldier( void )
 	//else	// Lesh: patch for "Bug: Enemy turns around in turn based mode!"
 	{
 		// in case of errors in turning tasks
-		if ( this->pathing.bDesiredDirection > 7 || this->pathing.bDesiredDirection < 0 )
+		if ( this->pathing().desiredDirection() > 7 || this->pathing().desiredDirection() < 0 )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "TurnSoldier() Warinig: Invalid desired direction for non-vehicle unit" ) );
-			this->pathing.bDesiredDirection = this->position().direction();
+			this->pathing().desiredDirection() = this->position().direction();
 		}
 	}
 	// Lesh: patch ended
@@ -8229,7 +8223,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 	if ( this->flags.fTurningToShoot )
 	{
-		if ( this->position().direction() == this->pathing.bDesiredDirection )
+		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			if ( ((gAnimControl[this->usAnimState].uiFlags & ANIM_FIREREADY) &&
 				this->flags.bTurningFromPronePosition == TURNING_FROM_PRONE_OFF) ||
@@ -8280,7 +8274,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 	if ( this->flags.fTurningToFall )
 	{
-		if ( this->position().direction() == this->pathing.bDesiredDirection )
+		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			SelectFallAnimation( this );
 			this->flags.fTurningToFall = FALSE;
@@ -8289,7 +8283,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 	if ( this->flags.fTurningUntilDone && (this->ubPendingStanceChange != NO_PENDING_STANCE) )
 	{
-		if ( this->position().direction() == this->pathing.bDesiredDirection )
+		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			SendChangeSoldierStanceEvent( this, this->ubPendingStanceChange );
 			this->ubPendingStanceChange = NO_PENDING_STANCE;
@@ -8299,7 +8293,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 	if ( this->flags.fTurningUntilDone && (this->usPendingAnimation != NO_PENDING_ANIMATION) )
 	{
-		if ( this->position().direction() == this->pathing.bDesiredDirection )
+		if ( this->position().direction() == this->pathing().desiredDirection() )
 		{
 			UINT16 usPendingAnimation;
 
@@ -8312,7 +8306,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	}
 
 	// Don't do anything if we are at dest direction!
-	if ( this->position().direction() == this->pathing.bDesiredDirection )
+	if ( this->position().direction() == this->pathing().desiredDirection() )
 	{
 		if ( ARMED_VEHICLE( this ) )
 		{
@@ -8474,7 +8468,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	else
 	{
 		// Get new direction
-		//sDirection = this->ubDirection + QuickestDirection( this->ubDirection, this->pathing.bDesiredDirection );
+		//sDirection = this->ubDirection + QuickestDirection( this->ubDirection, this->pathing().desiredDirection() );
 		sDirection = this->position().direction() + this->bTurningIncrement;
 		if ( sDirection > NORTHWEST )
 		{
@@ -8499,7 +8493,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			INT32 iId = this->bVehicleID;
 
 			// check which side vehicle turned
-			INT16 bDirectionChange = QuickestDirection( this->position().direction(), this->pathing.bDesiredDirection );
+			INT16 bDirectionChange = QuickestDirection( this->position().direction(), this->pathing().desiredDirection() );
 
 			// Loop through passengers and update each guy's rotation
 			for ( INT32 iCounter = 0; iCounter < gNewVehicle[pVehicleList[iId].ubVehicleType].iNewSeatingCapacities; iCounter++ )
@@ -8507,7 +8501,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 				if ( pVehicleList[iId].pPassengers[iCounter] != NULL )
 				{
 					pVehicleList[iId].pPassengers[iCounter]->flags.fDontChargeTurningAPs = TRUE;
-					pVehicleList[iId].pPassengers[iCounter]->EVENT_SetSoldierDesiredDirection( (pVehicleList[iId].pPassengers[iCounter]->pathing.bDesiredDirection + bDirectionChange + NUM_WORLD_DIRECTIONS) % NUM_WORLD_DIRECTIONS );
+					pVehicleList[iId].pPassengers[iCounter]->EVENT_SetSoldierDesiredDirection( (pVehicleList[iId].pPassengers[iCounter]->pathing().desiredDirection() + bDirectionChange + NUM_WORLD_DIRECTIONS) % NUM_WORLD_DIRECTIONS );
 				}
 			}
 			UpdateAllVehiclePassengersGridNo( this );
@@ -8549,7 +8543,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		// If we are a creature, or multi-tiled, cancel AI action.....?
 		else if ( this->flags.uiStatusFlags & SOLDIER_MULTITILE )
 		{
-			this->pathing.bDesiredDirection = this->position().direction();
+			this->pathing().desiredDirection() = this->position().direction();
 		}
 	}
 }
@@ -9580,9 +9574,9 @@ void SOLDIERTYPE::BeginSoldierClimbFence( void )
 	INT8							bDirection;
 
 	// Make sure we hop the correct fence to follow our path!
-	if ( this->pathing.usPathIndex < this->pathing.usPathDataSize )
+	if ( this->pathing().pathIndex() < this->pathing().pathSize() )
 	{
-		bDirection = (INT8) this->pathing.usPathingData[this->pathing.usPathIndex];
+		bDirection = (INT8) this->pathing().path()[this->pathing().pathIndex()];
 	}
 	else
 	{
@@ -9612,9 +9606,9 @@ void SOLDIERTYPE::BeginSoldierClimbWindow( void )
 	INT8	bDirection;
 
 	// Make sure we hop the correct fence to follow our path!
-	if ( this->pathing.usPathIndex < this->pathing.usPathDataSize )
+	if ( this->pathing().pathIndex() < this->pathing().pathSize() )
 	{
-		bDirection = (INT8) this->pathing.usPathingData[this->pathing.usPathIndex];
+		bDirection = (INT8) this->pathing().path()[this->pathing().pathIndex()];
 	}
 	else
 	{
@@ -11466,7 +11460,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		case EAST:
 		case SOUTHEAST:
 
-			if ( dXPos >= this->pathing.sDestXPos )
+			if ( dXPos >= this->pathing().destinationX() )
 			{
 				fStop = TRUE;
 			}
@@ -11476,7 +11470,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		case WEST:
 		case SOUTHWEST:
 
-			if ( dXPos <= this->pathing.sDestXPos )
+			if ( dXPos <= this->pathing().destinationX() )
 			{
 				fStop = TRUE;
 			}
@@ -11492,12 +11486,12 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 
 		if ( fStop )
 		{
-			//dXPos = this->pathing.sDestXPos;
+			//dXPos = this->pathing().destinationX();
 			this->flags.fPastXDest = TRUE;
 
-			if ( this->position().gridNo() == this->pathing.sFinalDestination )
+			if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
-				dXPos = this->pathing.sDestXPos;
+				dXPos = this->pathing().destinationX();
 			}
 		}
 	}
@@ -11518,7 +11512,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		case NORTHEAST:
 		case NORTHWEST:
 
-			if ( dYPos <= this->pathing.sDestYPos )
+			if ( dYPos <= this->pathing().destinationY() )
 			{
 				fStop = TRUE;
 			}
@@ -11528,7 +11522,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		case SOUTHWEST:
 		case SOUTHEAST:
 
-			if ( dYPos >= this->pathing.sDestYPos )
+			if ( dYPos >= this->pathing().destinationY() )
 			{
 				fStop = TRUE;
 			}
@@ -11544,12 +11538,12 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 
 		if ( fStop )
 		{
-			//dYPos = this->pathing.sDestYPos;
+			//dYPos = this->pathing().destinationY();
 			this->flags.fPastYDest = TRUE;
 
-			if ( this->position().gridNo() == this->pathing.sFinalDestination )
+			if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
-				dYPos = this->pathing.sDestYPos;
+				dYPos = this->pathing().destinationY();
 			}
 		}
 	}
@@ -12107,7 +12101,7 @@ void AdjustForFastTurnAnimation( SOLDIERTYPE *pSoldier )
 	// ATE: Mod: Only fastturn for OUR guys!
 	if ( gAnimControl[pSoldier->usAnimState].uiFlags & ANIM_FASTTURN && pSoldier->bTeam == gbPlayerNum && !(pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT) )
 	{
-		if ( pSoldier->position().direction() != pSoldier->pathing.bDesiredDirection )
+		if ( pSoldier->position().direction() != pSoldier->pathing().desiredDirection() )
 		{
 			pSoldier->sAniDelay = FAST_TURN_ANIM_SPEED;
 		}
@@ -12508,7 +12502,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginGiveItem( void )
 	if ( VerifyGiveItem( this, &pTSoldier ) )
 	{
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
-		this->pathing.bDesiredDirection = this->aiData.bPendingActionData3;
+		this->pathing().desiredDirection() = this->aiData.bPendingActionData3;
 		this->position().direction() = this->aiData.bPendingActionData3;
 
 		// begin animation
@@ -14038,7 +14032,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 		// OK, if we are stopped at our destination, cancel pending action...
 		if ( fFromSightingEnemy )
 		{
-			if ( this->aiData.ubPendingAction != NO_PENDING_ACTION && this->position().gridNo() == this->pathing.sFinalDestination )
+			if ( this->aiData.ubPendingAction != NO_PENDING_ACTION && this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
 				this->aiData.ubPendingAction = NO_PENDING_ACTION;
 			}
@@ -14092,7 +14086,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	this->flags.bTurningFromPronePosition = 0;
 
 	// Cancel path data!
-	this->pathing.usPathIndex = this->pathing.usPathDataSize = 0;
+	this->pathing().pathIndex() = this->pathing().pathSize() = 0;
 
 	// Set ext tile waiting flag off!
 	this->flags.fDelayedMovement = FALSE;
@@ -14101,8 +14095,8 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	this->bReverse = FALSE;
 
 	this->EVENT_SetSoldierPosition( (FLOAT)sX, (FLOAT)sY );
-	this->pathing.sDestXPos = (INT16)this->dXPos;
-	this->pathing.sDestYPos = (INT16)this->dYPos;
+	this->pathing().destinationX() = (INT16)this->dXPos;
+	this->pathing().destinationY() = (INT16)this->dYPos;
 	this->EVENT_SetSoldierDirection( bDirection );
 
 	if ( gAnimControl[this->usAnimState].uiFlags & ANIM_MOVING )
@@ -14121,7 +14115,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	}
 
 	// Turn off multi-move speed override....
-	if ( this->position().gridNo() == this->pathing.sFinalDestination )
+	if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 	{
 		this->flags.fUseMoverrideMoveSpeed = FALSE;
 	}
@@ -14391,7 +14385,7 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 	INT16		sAPCost;
 	INT32 sGridNo;
 
-	sGridNo = pSoldier->pathing.sFinalDestination;
+	sGridNo = pSoldier->pathing().finalDestinationGrid();
 
 	// Can we afford this?
 	if ( pSoldier->bGoodContPath )
@@ -23216,14 +23210,14 @@ void SOLDIERTYPE::ChangeToFlybackAnimation( UINT8 flyBackDirection )
 	this->flags.fPastYDest = 0;
 
 	// Set path....
-	this->pathing.usPathDataSize = 0;
-	this->pathing.usPathIndex = 0;
-	this->pathing.usPathingData[this->pathing.usPathDataSize] = gOppositeDirection[this->position().direction()];
-	this->pathing.usPathDataSize++;
-	this->pathing.usPathingData[this->pathing.usPathDataSize] = gOppositeDirection[this->position().direction()];
-	this->pathing.usPathDataSize++;
-	this->pathing.sFinalDestination = sNewGridNo;
-	this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing.usPathingData[this->pathing.usPathIndex], FALSE, FLYBACK_HIT );
+	this->pathing().pathSize() = 0;
+	this->pathing().pathIndex() = 0;
+	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
+	this->pathing().pathSize()++;
+	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
+	this->pathing().pathSize()++;
+	this->pathing().finalDestinationGrid() = sNewGridNo;
+	this->EVENT_InternalSetSoldierDestination( (UINT8) this->pathing().path()[this->pathing().pathIndex()], FALSE, FLYBACK_HIT );
 
 	// Get a new direction based on direction
 	this->EVENT_InitNewSoldierAnim( FLYBACK_HIT, 0, FALSE );
@@ -23263,12 +23257,12 @@ void SOLDIERTYPE::ChangeToFallbackAnimation( UINT8 fallBackDirection )
 	this->flags.fPastYDest = 0;
 
 	// Set path....
-	this->pathing.usPathDataSize = 0;
-	this->pathing.usPathIndex = 0;
-	this->pathing.usPathingData[this->pathing.usPathDataSize] = gOppositeDirection[this->position().direction()];
-	this->pathing.usPathDataSize++;
-	this->pathing.sFinalDestination = sNewGridNo;
-	this->EVENT_InternalSetSoldierDestination( this->pathing.usPathingData[this->pathing.usPathIndex], FALSE, FALLBACK_HIT_STAND );
+	this->pathing().pathSize() = 0;
+	this->pathing().pathIndex() = 0;
+	this->pathing().path()[this->pathing().pathSize()] = gOppositeDirection[this->position().direction()];
+	this->pathing().pathSize()++;
+	this->pathing().finalDestinationGrid() = sNewGridNo;
+	this->EVENT_InternalSetSoldierDestination( this->pathing().path()[this->pathing().pathIndex()], FALSE, FALLBACK_HIT_STAND );
 
 	// Get a new direction based on direction
 	this->EVENT_InitNewSoldierAnim( FALLBACK_HIT_STAND, 0, FALSE );

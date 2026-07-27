@@ -2704,7 +2704,7 @@ void SoldierPickupItem(
 			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, TRUE, TRUE );
 
 			// Say it only if we don;t have to go too far!
-			if ( pSoldier->pathing.usPathDataSize > 5 )
+			if ( pSoldier->pathing().pathSize() > 5 )
 			{
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
 			}

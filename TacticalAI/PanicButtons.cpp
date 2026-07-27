@@ -392,7 +392,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 						if (LegalNPCDestination(pSoldier,sPanicTriggerGridNo,ENSURE_PATH,NOWATER,0))
 						{
 							pSoldier->aiData.usActionData = sPanicTriggerGridNo;
-							pSoldier->pathing.bPathStored = TRUE;
+							pSoldier->pathing().stored() = TRUE;
 
 #ifdef DEBUGDECISIONS
 							sprintf(tempstr,"%s - GETTING CLOSER to PANIC TRIGGER at grid %d (Trigger at %d)", pSoldier->name,pSoldier->aiData.usActionData,sPanicTriggerGridNo);

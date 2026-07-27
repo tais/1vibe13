@@ -40,11 +40,11 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 	if ((sGridNo < 0) || (sGridNo >= GRIDSIZE))
 	{
 #ifdef RECORDNET
-		fprintf(NetDebugFile,"LegalNPC->pathing.sDestination: ERROR - rcvd invalid gridno %d",GridNo);
+		fprintf(NetDebugFile,"LegalNPCDestination: ERROR - rcvd invalid gridno %d",GridNo);
 #endif
 
 #ifdef BETAVERSION
-		NumMessage("LegalNPC->pathing.sDestination: ERROR - rcvd invalid gridno ",GridNo);
+		NumMessage("LegalNPCDestination: ERROR - rcvd invalid gridno ",GridNo);
 #endif
 
 		return(FALSE);
@@ -69,7 +69,7 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 			//!InGas( pSoldier, sGridNo ) &&
 			//!FindBombNearby(pSoldier, sGridNo, DAY_VISION_RANGE/8 ) &&
 			sGridNo != pSoldier->position().gridNo() &&
-			sGridNo != pSoldier->pathing.sBlackList )
+			sGridNo != pSoldier->pathing().blackListGrid() )
 	{
 		// if water's a problem, and gridno is in a water tile (bridges are OK)
 		if (!ubWaterOK && Water(sGridNo, pSoldier->position().level()))
@@ -109,7 +109,7 @@ int LegalNPCDestination(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubPathMode, 
 
 			default				:
 #ifdef BETAVERSION
-				NumMessage("LegalNPC->pathing.sDestination: ERROR - illegal pathMode = ",ubPathMode);
+				NumMessage("LegalNPCDestination: ERROR - illegal pathMode = ",ubPathMode);
 #endif
 				return(FALSE);
 		}
@@ -135,17 +135,17 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		DebugAI( tempstr );
 #endif
 
-		pSoldier->pathing.bPathStored = TRUE;	// optimization - Ian
+		pSoldier->pathing().stored() = TRUE;	// optimization - Ian
 
 		// Make him go to it. A retained command is already owned by the
 		// authoritative queue, even though the destination changes next frame.
 		const SimulationCommandDispatchResult movement =
 			NewDest(pSoldier, sGridNo);
 
-		// make sure that it worked (check that pSoldier->pathing.sDestination == pSoldier->sGridNo)
+		// make sure that the component accepted the requested destination
 		if (movement.accepted() &&
 			(!movement.processed() ||
-				pSoldier->pathing.sDestination == sGridNo))
+				pSoldier->pathing().destinationGrid() == sGridNo))
 		{
 			ubSuccess = TRUE;
 		}
@@ -215,10 +215,10 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 					NewDest(pSoldier, sGridNo);
 
 
-				// make sure that it worked (check that pSoldier->pathing.sDestination == pSoldier->sGridNo)
+				// make sure that the component accepted the requested destination
 				if (movement.accepted() &&
 					(!movement.processed() ||
-						pSoldier->pathing.sDestination == sGridNo))
+						pSoldier->pathing().destinationGrid() == sGridNo))
 					ubSuccess = TRUE;
 				else
 					ubGottaCancel = TRUE;
@@ -315,7 +315,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  // the way there, at least do our best to get close
  if (LegalNPCDestination(pSoldier,sPatrolPoint,ENSURE_PATH,WATEROK,0))
 	{
-	pSoldier->pathing.bPathStored = TRUE;	 // optimization - Ian
+	pSoldier->pathing().stored() = TRUE;	 // optimization - Ian
 	pSoldier->aiData.usActionData = sPatrolPoint;
 	}
  else
@@ -405,7 +405,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	// the way there, at least do our best to get close
 	if (LegalNPCDestination(pSoldier,sPatrolPoint,ENSURE_PATH,WATEROK,0))
 	{
-		pSoldier->pathing.bPathStored = TRUE;	 // optimization - Ian
+		pSoldier->pathing().stored() = TRUE;	 // optimization - Ian
 		pSoldier->aiData.usActionData = sPatrolPoint;
 	}
 	else
@@ -455,7 +455,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 
 	// 0verhaul:	Make sure to clear the stored path since this always calculates a new one.
 	// This is needed if the path cannot be found.
-	pSoldier->pathing.bPathStored = FALSE;
+	pSoldier->pathing().stored() = FALSE;
 
 	if ( bReserveAPs == -1 )
 	{
@@ -531,7 +531,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 		//if ( CREATURE_OR_BLOODCAT( pSoldier ) )
 		//{
 		//	// we tried to get close, failed; abort!
-		//	pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize = 0;
+		//	pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize() = 0;
 		//	return( NOWHERE );
 		//}
 		//else
@@ -586,7 +586,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 				AINumMessage("Couldn't find OK destination around grid #",sDesGrid);
 #endif
 
-				pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize = 0;
+				pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize() = 0;
 				return(NOWHERE);
 			}
 
@@ -600,7 +600,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 
 #ifdef DEBUGDECISIONS
  AINumMessage("Chosen legal destination is gridno ",sDesGrid);
- AINumMessage("Tracing along path, pathRouteToGo = ",pSoldier->pathing.usPathIndex);
+ AINumMessage("Tracing along path, pathRouteToGo = ",pSoldier->pathing().pathIndex());
 #endif
 
  sGoToGrid = pSoldier->position().gridNo();		// start back where soldier is standing now
@@ -618,13 +618,13 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 
 	sTempDest = pSoldier->position().gridNo();
 
- for (sLoop = 0; sLoop < (pSoldier->pathing.usPathDataSize - pSoldier->pathing.usPathIndex); sLoop++)
+ for (sLoop = 0; sLoop < (pSoldier->pathing().pathSize() - pSoldier->pathing().pathIndex()); sLoop++)
 	{
 	// what is the next gridno in the path?
 
-	 //sTempDest = NewGridNo( sGoToGrid,DirectionInc( (INT16) (pSoldier->pathing.usPathingData[sLoop] + 1) ) );
-	 //sTempDest = NewGridNo( sGoToGrid,DirectionInc( (UINT8) (pSoldier->pathing.usPathingData[sLoop]) ) );
-	sTempDest = NewGridNo( sTempDest,DirectionInc( (UINT8) (pSoldier->pathing.usPathingData[sLoop]) ) );		
+	 //sTempDest = NewGridNo( sGoToGrid,DirectionInc( (INT16) (pSoldier->pathing().path()[sLoop] + 1) ) );
+	 //sTempDest = NewGridNo( sGoToGrid,DirectionInc( (UINT8) (pSoldier->pathing().path()[sLoop]) ) );
+	sTempDest = NewGridNo( sTempDest,DirectionInc( (UINT8) (pSoldier->pathing().path()[sLoop]) ) );
 
 	// this should NEVER be out of bounds
 	if (sTempDest == sGoToGrid)
@@ -680,7 +680,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 			}
 
 		// ATE: Direction here?
-		sAPCost += EstimateActionPointCost( pSoldier, sTempDest, (INT8) pSoldier->pathing.usPathingData[sLoop], pSoldier->usUIMovementMode, (INT8) sLoop, (INT8) pSoldier->pathing.usPathDataSize );
+		sAPCost += EstimateActionPointCost( pSoldier, sTempDest, (INT8) pSoldier->pathing().path()[sLoop], pSoldier->usUIMovementMode, (INT8) sLoop, (INT8) pSoldier->pathing().pathSize() );
 
 		bAPsLeft = pSoldier->bActionPoints - sAPCost;
 	}
@@ -721,7 +721,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
    AIPopMessage(tempstr);
 #endif
 
-	pSoldier->pathing.usPathIndex = pSoldier->pathing.usPathDataSize = 0;
+	pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize() = 0;
 	return(NOWHERE);			 // then go nowhere
 	}
  else
@@ -729,15 +729,15 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
    // possible optimization - stored path IS good if we're going all the way
    if (sGoToGrid == sDesGrid)
 	{
-	 pSoldier->pathing.bPathStored = TRUE;
-		pSoldier->pathing.sFinalDestination = sGoToGrid;
+	 pSoldier->pathing().stored() = TRUE;
+		pSoldier->pathing().finalDestinationGrid() = sGoToGrid;
 	}
-	else if ( pSoldier->pathing.usPathIndex == 0 )
+	else if ( pSoldier->pathing().pathIndex() == 0 )
 	{
 		// we can hack this surely! -- CJC
-	 pSoldier->pathing.bPathStored = TRUE;
-		pSoldier->pathing.sFinalDestination = sGoToGrid;
-		pSoldier->pathing.usPathDataSize = sLoop + 1;
+	 pSoldier->pathing().stored() = TRUE;
+		pSoldier->pathing().finalDestinationGrid() = sGoToGrid;
+		pSoldier->pathing().pathSize() = sLoop + 1;
 	}
 
 #ifdef DEBUGDECISIONS
@@ -789,10 +789,10 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	/*
 	// SANDRO - hack! interrupt issue - we don't want to recalculate our path if no new situation and we are already on move
 	// i.e. in case we interrupted a soldier who has no idea about us seeing him, he should move along as if nothing is happening
-	if ( pSoldier->aiData.bNewSituation == NOT_NEW_SITUATION && pSoldier->aiData.bActionInProgress && !TileIsOutOfBounds(pSoldier->pathing.sFinalDestination ))
+	if ( pSoldier->aiData.bNewSituation == NOT_NEW_SITUATION && pSoldier->aiData.bActionInProgress && !TileIsOutOfBounds(pSoldier->pathing().finalDestinationGrid() ))
 	{
 		// just set our path to previously decided final destination
-		NewDest(pSoldier,pSoldier->pathing.sFinalDestination);
+		NewDest(pSoldier,pSoldier->pathing().finalDestinationGrid());
 		return;	
 	}
 	*/
@@ -823,10 +823,10 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 #endif
 	}
 
-	usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ] ) );
+	usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) );
 
 	// Find out how much it takes to move here!
-	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing.usPathingData[ pSoldier->pathing.usPathIndex ], pSoldier->usUIMovementMode, (INT8) pSoldier->pathing.usPathIndex, (INT8) pSoldier->pathing.usPathDataSize );
+	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], pSoldier->usUIMovementMode, (INT8) pSoldier->pathing().pathIndex(), (INT8) pSoldier->pathing().pathSize() );
 
 	if (pSoldier->bActionPoints >= bAPCost)
 	{
