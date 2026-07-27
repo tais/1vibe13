@@ -298,6 +298,80 @@ private:
 	UINT8 barrelCounter_ = 0;
 };
 
+// Canonical result of incoming combat. This keeps the current/previous
+// attacker chain and hit metadata together without mixing it with outgoing
+// target selection or damage-number presentation.
+class SoldierCombatResultComponent
+{
+public:
+	SoldierID& currentAttacker() noexcept { return currentAttacker_; }
+	const SoldierID& currentAttacker() const noexcept { return currentAttacker_; }
+	SoldierID& previousAttacker() noexcept { return previousAttacker_; }
+	const SoldierID& previousAttacker() const noexcept { return previousAttacker_; }
+	SoldierID& earlierAttacker() noexcept { return earlierAttacker_; }
+	const SoldierID& earlierAttacker() const noexcept { return earlierAttacker_; }
+	UINT8& hitLocation() noexcept { return hitLocation_; }
+	const UINT8& hitLocation() const noexcept { return hitLocation_; }
+	UINT8& lastDamageReason() noexcept { return lastDamageReason_; }
+	const UINT8& lastDamageReason() const noexcept { return lastDamageReason_; }
+	INT8& hitsThisTurn() noexcept { return hitsThisTurn_; }
+	const INT8& hitsThisTurn() const noexcept { return hitsThisTurn_; }
+	INT8& pelletsHitBy() noexcept { return pelletsHitBy_; }
+	const INT8& pelletsHitBy() const noexcept { return pelletsHitBy_; }
+	INT16& accumulatedDamage() noexcept { return accumulatedDamage_; }
+	const INT16& accumulatedDamage() const noexcept { return accumulatedDamage_; }
+
+	bool hasCurrentAttacker() const noexcept { return currentAttacker_ != NOBODY; }
+	void recordHit(SoldierID attacker, UINT8 location) noexcept;
+	void advanceAttackerHistory(bool retainCurrent) noexcept;
+	void restorePreviousAttacker() noexcept;
+	void clearAttackers() noexcept;
+	void reset() noexcept;
+
+private:
+	SoldierID currentAttacker_ = NOBODY;
+	SoldierID previousAttacker_ = NOBODY;
+	SoldierID earlierAttacker_ = NOBODY;
+	UINT8 hitLocation_ = 0;
+	UINT8 lastDamageReason_ = 0;
+	INT8 hitsThisTurn_ = 0;
+	INT8 pelletsHitBy_ = 0;
+	INT16 accumulatedDamage_ = 0;
+};
+
+// Presentation payload for the floating tactical damage number. Simulation
+// damage and attribution stay in SoldierCombatResultComponent; this state only
+// tracks the animation cursor, screen offset, and display direction.
+class SoldierDamageDisplayComponent
+{
+public:
+	INT8& displayFlag() noexcept { return displayFlag_; }
+	const INT8& displayFlag() const noexcept { return displayFlag_; }
+	INT8& counter() noexcept { return counter_; }
+	const INT8& counter() const noexcept { return counter_; }
+	INT16& offsetX() noexcept { return offsetX_; }
+	const INT16& offsetX() const noexcept { return offsetX_; }
+	INT16& offsetY() noexcept { return offsetY_; }
+	const INT16& offsetY() const noexcept { return offsetY_; }
+	INT8& direction() noexcept { return direction_; }
+	const INT8& direction() const noexcept { return direction_; }
+
+	bool displaying() const noexcept { return displayFlag_ != 0; }
+	bool expired() const noexcept { return counter_ >= 8; }
+	void restart() noexcept;
+	void activateAt(INT16 offsetX, INT16 offsetY) noexcept;
+	void advance() noexcept;
+	void clear() noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 displayFlag_ = 0;
+	INT8 counter_ = 0;
+	INT16 offsetX_ = 0;
+	INT16 offsetY_ = 0;
+	INT8 direction_ = 0;
+};
+
 // Canonical requests that bridge tactical decisions into animation playback.
 // The playback state itself remains separate: this component owns only queued
 // animations, stance/facing intent, and the movement continuation policy that

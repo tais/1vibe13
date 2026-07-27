@@ -2377,7 +2377,7 @@ string(REGEX MATCH
   serialized_soldier_attack_hand_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);[ \t\r\n]*ar\\.u8\\(attackSelection\\.shotLocation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubHitLocation\\);[ \t]*ar\\.u8\\(attackSelection\\.meleeLocation\\(\\)\\);"
+  "ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);[ \t\r\n]*ar\\.u8\\(attackSelection\\.shotLocation\\(\\)\\);[ \t]*ar\\.u8\\(combatResult\\.hitLocation\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.meleeLocation\\(\\)\\);"
   serialized_soldier_attack_location_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2527,7 +2527,7 @@ string(REGEX MATCH
   serialized_soldier_fire_bullets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bDamageDir\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.usUIMovementMode\\);"
+  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.usUIMovementMode\\);"
   serialized_soldier_fire_burst_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2535,7 +2535,7 @@ string(REGEX MATCH
   serialized_soldier_fire_targets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.ubNextToPreviousAttackerID\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(s\\.numFlanks\\);"
+  "ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(s\\.numFlanks\\);"
   serialized_soldier_fire_autofire_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2573,6 +2573,200 @@ endif()
 if(NOT serialized_soldier_fire_barrel_order)
   message(FATAL_ERROR
     "Soldier multi-barrel cursor moved in the portable save schema")
+endif()
+
+# Incoming combat attribution and outcome state now have one private simulation
+# owner. The floating-number cursor is a separate presentation component so
+# screen offsets cannot become part of combat rules.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*INT8[ \t]+fDisplayDamage[ \t]*;"
+  retired_current_damage_display_flag
+  "${current_soldier_flags_contents}")
+if(retired_current_damage_display_flag)
+  message(FATAL_ERROR
+    "Retired STRUCT_Flags damage-display field 'fDisplayDamage' returned; presentation state belongs to SoldierDamageDisplayComponent")
+endif()
+
+foreach(retired_combat_result_field IN ITEMS
+  ubAttackerID
+  ubPreviousAttackerID
+  ubNextToPreviousAttackerID
+  ubHitLocation
+  ubLastDamageReason
+  bNumHitsThisTurn
+  bNumPelletsHitBy
+  sDamage)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(SoldierID|UINT8|INT8|INT16)[ \t]+${retired_combat_result_field}[ \t]*;"
+    retired_current_combat_result_field
+    "${current_soldier_contents}")
+  if(retired_current_combat_result_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE combat-result field '${retired_combat_result_field}' returned; incoming combat state belongs to SoldierCombatResultComponent")
+  endif()
+endforeach()
+
+foreach(retired_damage_display_field IN ITEMS
+  bDisplayDamageCount
+  sDamageX
+  sDamageY
+  bDamageDir)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|INT16)[ \t]+${retired_damage_display_field}[ \t]*;"
+    retired_current_damage_display_field
+    "${current_soldier_contents}")
+  if(retired_current_damage_display_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE damage-display field '${retired_damage_display_field}' returned; floating-number presentation belongs to SoldierDamageDisplayComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierCombatResultComponent[ \t\r\n]+combatResult_[ \t]*;"
+  soldier_combat_result_owner
+  "${current_soldier_contents}")
+string(REGEX MATCH
+  "SoldierDamageDisplayComponent[ \t\r\n]+damageDisplay_[ \t]*;"
+  soldier_damage_display_owner
+  "${current_soldier_contents}")
+if(NOT soldier_combat_result_owner OR NOT soldier_damage_display_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own separate private combat-result and damage-display components")
+endif()
+
+foreach(owned_combat_result_field IN ITEMS
+  "SoldierID;currentAttacker;NOBODY"
+  "SoldierID;previousAttacker;NOBODY"
+  "SoldierID;earlierAttacker;NOBODY"
+  "UINT8;hitLocation;0"
+  "UINT8;lastDamageReason;0"
+  "INT8;hitsThisTurn;0"
+  "INT8;pelletsHitBy;0"
+  "INT16;accumulatedDamage;0")
+  string(REPLACE ";" ";" owned_combat_result_parts
+    "${owned_combat_result_field}")
+  list(GET owned_combat_result_parts 0 owned_combat_result_type)
+  list(GET owned_combat_result_parts 1 owned_combat_result_name)
+  list(GET owned_combat_result_parts 2 owned_combat_result_initializer)
+  string(REGEX MATCH
+    "${owned_combat_result_type}[ \t]+${owned_combat_result_name}_[ \t]*=[ \t]*${owned_combat_result_initializer}[ \t]*;"
+    owned_soldier_combat_result
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_combat_result)
+    message(FATAL_ERROR
+      "SoldierCombatResultComponent no longer owns initialized '${owned_combat_result_name}_' storage")
+  endif()
+endforeach()
+
+foreach(owned_damage_display_field IN ITEMS
+  "INT8;displayFlag;0"
+  "INT8;counter;0"
+  "INT16;offsetX;0"
+  "INT16;offsetY;0"
+  "INT8;direction;0")
+  string(REPLACE ";" ";" owned_damage_display_parts
+    "${owned_damage_display_field}")
+  list(GET owned_damage_display_parts 0 owned_damage_display_type)
+  list(GET owned_damage_display_parts 1 owned_damage_display_name)
+  list(GET owned_damage_display_parts 2 owned_damage_display_initializer)
+  string(REGEX MATCH
+    "${owned_damage_display_type}[ \t]+${owned_damage_display_name}_[ \t]*=[ \t]*${owned_damage_display_initializer}[ \t]*;"
+    owned_soldier_damage_display
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_damage_display)
+    message(FATAL_ERROR
+      "SoldierDamageDisplayComponent no longer owns initialized '${owned_damage_display_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierCombatResultComponent& combatResult() noexcept"
+  soldier_combat_result_accessor)
+string(FIND "${soldier_control_header_contents}"
+  "SoldierDamageDisplayComponent& damageDisplay() noexcept"
+  soldier_damage_display_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "combatResult().reset();"
+  soldier_combat_result_reset)
+string(FIND "${soldier_control_source_contents}"
+  "damageDisplay().reset();"
+  soldier_damage_display_reset)
+string(FIND "${soldier_components_header_contents}"
+  "void recordHit(SoldierID attacker, UINT8 location) noexcept;"
+  soldier_combat_result_record_hit)
+string(FIND "${soldier_components_header_contents}"
+  "void advanceAttackerHistory(bool retainCurrent) noexcept;"
+  soldier_combat_result_advance_history)
+string(FIND "${soldier_components_header_contents}"
+  "void restorePreviousAttacker() noexcept;"
+  soldier_combat_result_restore_history)
+string(FIND "${soldier_components_header_contents}"
+  "void activateAt(INT16 offsetX, INT16 offsetY) noexcept;"
+  soldier_damage_display_activate)
+string(FIND "${soldier_components_header_contents}"
+  "void advance() noexcept;"
+  soldier_damage_display_advance)
+string(FIND "${soldier_components_header_contents}"
+  "bool expired() const noexcept"
+  soldier_damage_display_expired)
+if(soldier_combat_result_accessor EQUAL -1 OR
+   soldier_damage_display_accessor EQUAL -1 OR
+   soldier_combat_result_reset EQUAL -1 OR
+   soldier_damage_display_reset EQUAL -1 OR
+   soldier_combat_result_record_hit EQUAL -1 OR
+   soldier_combat_result_advance_history EQUAL -1 OR
+   soldier_combat_result_restore_history EQUAL -1 OR
+   soldier_damage_display_activate EQUAL -1 OR
+   soldier_damage_display_advance EQUAL -1 OR
+   soldier_damage_display_expired EQUAL -1)
+  message(FATAL_ERROR
+    "Combat-result and damage-display components must retain their accessors, reset boundaries, and coordinated lifecycle operations")
+endif()
+
+# This ownership cut must not move a byte. Pin the former flag and every POD
+# position independently, including attacker history and accumulated damage.
+string(REGEX MATCH
+  "ar\\.u8\\(f\\.fHitByGasFlags\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);"
+  serialized_soldier_damage_display_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiAIDelay\\);[ \t]*ar\\.i16\\(s\\.sReloadDelay\\);[ \t]*ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(s\\.sInsertionGridNo\\);"
+  serialized_soldier_attacker_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sLocatorOffX\\);[ \t]*ar\\.i16\\(s\\.sLocatorOffY\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.sWalkToAttackEndDirection\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
+  serialized_soldier_damage_display_payload_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sPanelFaceX\\);[ \t]*ar\\.i16\\(s\\.sPanelFaceY\\);[ \t\r\n]*ar\\.i8\\(combatResult\\.hitsThisTurn\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usQuoteSaidFlags\\);"
+  serialized_soldier_hits_this_turn_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);[ \t\r\n]*ar\\.u8\\(attackSelection\\.shotLocation\\(\\)\\);[ \t]*ar\\.u8\\(combatResult\\.hitLocation\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.meleeLocation\\(\\)\\);"
+  serialized_soldier_hit_location_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bRegenBoostersUsedToday\\);[ \t]*ar\\.i8\\(combatResult\\.pelletsHitBy\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sSkillCheckGridNo\\);"
+  serialized_soldier_pellet_hits_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(s\\.sLastTwoLocations\\[i\\]\\);"
+  serialized_soldier_damage_reason_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.uiTimeSinceLastBleedGrunt\\);[ \t]*ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);"
+  serialized_soldier_earlier_attacker_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_damage_display_flag_order OR
+   NOT serialized_soldier_attacker_order OR
+   NOT serialized_soldier_damage_display_payload_order OR
+   NOT serialized_soldier_hits_this_turn_order OR
+   NOT serialized_soldier_hit_location_order OR
+   NOT serialized_soldier_pellet_hits_order OR
+   NOT serialized_soldier_damage_reason_order OR
+   NOT serialized_soldier_earlier_attacker_order)
+  message(FATAL_ERROR
+    "Soldier combat-result or damage-display state moved in the portable save schema; keep every value at its established byte position")
 endif()
 
 # Animation transition requests now have one private owner, separate from
@@ -2894,7 +3088,7 @@ string(REGEX MATCH
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(f\\.fDisplayDamage\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
+  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

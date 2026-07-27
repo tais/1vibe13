@@ -504,7 +504,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fFlashPortrait = src.fFlashPortrait;
 	this->fBeginFade = src.fBeginFade;
 	this->fPrevInWater = src.fPrevInWater;
-	this->fDisplayDamage = src.fDisplayDamage;
 	this->fUIMovementFast = src.fUIMovementFast;
 	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
 	this->fClosePanel = src.fClosePanel;
@@ -623,8 +622,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		}
 		//member classes
 		fireControl().reset();
+		combatResult().reset();
+		damageDisplay().reset();
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
+		damageDisplay().displayFlag() = src.fDisplayDamage;
 		fireControl().spreadIndex() = src.fDoSpread;
 		fireControl().autofireLastStep() = src.autofireLastStep;
 		animationActivity().turningFromProneMode() = src.bTurningFromPronePosition;
@@ -749,8 +751,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->uiAIDelay = src.uiAIDelay;
 		this->sReloadDelay = src.sReloadDelay;
-		this->ubAttackerID = static_cast<UINT16>( src.ubAttackerID );
-		this->ubPreviousAttackerID = static_cast<UINT16>( src.ubPreviousAttackerID );
+		this->combatResult().currentAttacker() = static_cast<UINT16>( src.ubAttackerID );
+		this->combatResult().previousAttacker() = static_cast<UINT16>( src.ubPreviousAttackerID );
 
 		this->sInsertionGridNo = src.sInsertionGridNo;
 
@@ -837,11 +839,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sLocatorOffY = src.sLocatorOffY;
 		this->pForcedShade = src.pForcedShade;
 
-		this->bDisplayDamageCount = src.bDisplayDamageCount;
-		this->sDamage = src.sDamage;
-		this->sDamageX = src.sDamageX;
-		this->sDamageY = src.sDamageY;
-		this->bDamageDir = src.bDamageDir;
+		this->damageDisplay().counter() = src.bDisplayDamageCount;
+		this->combatResult().accumulatedDamage() = src.sDamage;
+		this->damageDisplay().offsetX() = src.sDamageX;
+		this->damageDisplay().offsetY() = src.sDamageY;
+		this->damageDisplay().direction() = src.bDamageDir;
 		this->fireControl().burstCounter() = src.bDoBurst;
 		this->usUIMovementMode = src.usUIMovementMode;
 		this->bUIInterfaceLevel = src.bUIInterfaceLevel;
@@ -858,7 +860,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sPanelFaceX = src.sPanelFaceX;
 		this->sPanelFaceY = src.sPanelFaceY;
 
-		this->bNumHitsThisTurn = src.bNumHitsThisTurn;
+		this->combatResult().hitsThisTurn() = src.bNumHitsThisTurn;
 		this->usQuoteSaidFlags = src.usQuoteSaidFlags;
 		this->bLastSkillCheck = src.bLastSkillCheck;
 		this->ubSkillCheckAttempts = src.ubSkillCheckAttempts;
@@ -871,7 +873,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationPlayback().subFlags() = src.uiAnimSubFlags;
 
 		this->attackSelection().shotLocation() = src.bAimShotLocation;
-		this->ubHitLocation = src.ubHitLocation;
+		this->combatResult().hitLocation() = src.ubHitLocation;
 
 
 
@@ -973,7 +975,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bNoiseLevel = src.bNoiseLevel;
 		this->bRegenerationCounter = src.bRegenerationCounter;
 		this->bRegenBoostersUsedToday = src.bRegenBoostersUsedToday;
-		this->bNumPelletsHitBy = src.bNumPelletsHitBy;
+		this->combatResult().pelletsHitBy() = src.bNumPelletsHitBy;
 		this->sSkillCheckGridNo = src.sSkillCheckGridNo;
 		this->ubLastEnemyCycledID = static_cast<UINT16>( src.ubLastEnemyCycledID );
 
@@ -1021,9 +1023,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bDeafenedCounter = src.bDeafenedCounter;
 		this->iPositionSndID = src.iPositionSndID;
 		this->iTuringSoundID = src.iTuringSoundID;
-		this->ubLastDamageReason = src.ubLastDamageReason;
+		this->combatResult().lastDamageReason() = src.ubLastDamageReason;
 		this->uiTimeSinceLastBleedGrunt = src.uiTimeSinceLastBleedGrunt;
-		this->ubNextToPreviousAttackerID = static_cast<UINT16>( src.ubNextToPreviousAttackerID );
+		this->combatResult().earlierAttacker() = static_cast<UINT16>( src.ubNextToPreviousAttackerID );
 		this->fireControl().autofireShots() = src.bDoAutofire;
 		this->numFlanks = src.numFlanks;
 		this->lastFlankSpot = src.lastFlankSpot;
@@ -1136,6 +1138,8 @@ void SOLDIERTYPE::initialize( )
 	targeting().reset();
 	attackSelection().reset();
 	fireControl().reset();
+	combatResult().reset();
+	damageDisplay().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
@@ -1147,14 +1151,11 @@ void SOLDIERTYPE::initialize( )
 	// Initialize all SoldierID fields to NOBODY. 0 is a valid value!
 	this->ubID = NOBODY;
 	this->ubOppNum = NOBODY;
-	this->ubAttackerID = NOBODY;
-	this->ubPreviousAttackerID = NOBODY;
 	this->ubServicePartner = NOBODY;
 	this->ubSuppressorID = NOBODY;
 	this->ubAutoBandagingMedic = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
-	this->ubNextToPreviousAttackerID = NOBODY;
 	this->usDragPersonID = NOBODY;
 	this->usChatPartnerID = NOBODY;
 }
@@ -2997,11 +2998,11 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		//FREEUP GETTING HIT FLAG
 		// pSoldier->animationActivity().hitPhase() = FALSE;
 
-		if ( pSoldier->vitals().health() == 0 && pSoldier->ubPreviousAttackerID != NOBODY ) // SANDRO added check
+		if ( pSoldier->vitals().health() == 0 ) // SANDRO added check
 		{
 			//ATE: Set previous attacker's value!
 			// This is so that the killer can say their killed quote....
-			pSoldier->ubAttackerID = pSoldier->ubPreviousAttackerID;
+			pSoldier->combatResult().restorePreviousAttacker();
 		}
 	}
 }
@@ -5769,12 +5770,8 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		attacker->aiData.bLastAttackHit = TRUE;
 	}
 
-	// Set attacker's ID
-	this->ubAttackerID = ubAttackerID;
-
-
-	// ATE; Save hit location info...( for later anim determination stuff )
-	this->ubHitLocation = ubHitLocation;
+	// Keep the attacker and hit location as one combat-result transition.
+	this->combatResult().recordHit(ubAttackerID, ubHitLocation);
 
 	// handle morale for heavy damage attacks
 	if ( sDamage > 25 )
@@ -6107,7 +6104,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// OK, If we are a vehicle.... damage vehicle...( people inside... )
 	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
-		this->SoldierTakeDamage( ANIM_CROUCH, sDamage, sBreathLoss, ubReason, this->ubAttackerID, NOWHERE, FALSE, TRUE );
+		this->SoldierTakeDamage( ANIM_CROUCH, sDamage, sBreathLoss, ubReason, this->combatResult().currentAttacker(), NOWHERE, FALSE, TRUE );
 		return;
 	}
 
@@ -6123,7 +6120,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// DEDUCT LIFE
-	ubCombinedLoss = this->SoldierTakeDamage( ANIM_CROUCH, sDamage, sBreathLoss, ubReason, this->ubAttackerID, NOWHERE, FALSE, TRUE );
+	ubCombinedLoss = this->SoldierTakeDamage( ANIM_CROUCH, sDamage, sBreathLoss, ubReason, this->combatResult().currentAttacker(), NOWHERE, FALSE, TRUE );
 
 	// ATE: OK, Let's check our ASSIGNMENT state,
 	// If anything other than on a squad or guard, make them guard....
@@ -8031,7 +8028,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// Reset quote flags for under heavy fire and close call!
 		this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_BEING_PUMMELED);
 		this->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
-		this->bNumHitsThisTurn = 0;
+		this->combatResult().hitsThisTurn() = 0;
 		this->ubSuppressionPoints = 0;
 
 		// HEADROCK HAM 3.5: After considerable testing, suppression is now cleared after every attack. Total APs lost
@@ -10037,7 +10034,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	SOLDIERTYPE* attacker =
 		GetJa2SoldierRepository().resolve( ubAttacker );
 
-	this->ubLastDamageReason = ubReason;
+	this->combatResult().lastDamageReason() = ubReason;
 		
 	// Flugente: dynamic opinions
 	if (attacker != nullptr)
@@ -10334,7 +10331,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 
 	if ( fShowDamage )
 	{
-		this->sDamage += sLifeDeduct;
+		this->combatResult().accumulatedDamage() += sLifeDeduct;
 	}
 
 	// Truncate life
@@ -10450,18 +10447,18 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			INT16 sOffsetX, sOffsetY;
 
 			// Set Damage display counter
-			this->flags.fDisplayDamage = TRUE;
-			this->bDisplayDamageCount = 0;
+			this->damageDisplay().displayFlag() = TRUE;
+			this->damageDisplay().counter() = 0;
 			if ( this->ubBodyType == QUEENMONSTER )
 			{
-			this->sDamageX = 0;
-			this->sDamageY = 0;
+			this->damageDisplay().offsetX() = 0;
+			this->damageDisplay().offsetY() = 0;
 			}
 			else
 			{
 			GetSoldierAnimOffsets( this, &sOffsetX, &sOffsetY );
-			this->sDamageX = sOffsetX;
-			this->sDamageY = sOffsetY;
+			this->damageDisplay().offsetX() = sOffsetX;
+			this->damageDisplay().offsetY() = sOffsetY;
 			}
 			*/
 			// sevenfm: moved code to function
@@ -10522,7 +10519,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		sTestTwo = 2 * max(sLifeDeduct, (sBreathLoss / 100));
 		
 		const SOLDIERTYPE* lastAttacker =
-			GetJa2SoldierRepository().resolve( this->ubAttackerID );
+			GetJa2SoldierRepository().resolve( this->combatResult().currentAttacker() );
 		if (lastAttacker != nullptr && lastAttacker->ubBodyType == BLOODCAT)
 		{
 			// bloodcat boost, let them make people drop items more
@@ -10656,15 +10653,15 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// Check attacker!
 			if ( ubAttacker != NOBODY && ubAttacker != this->ubID )
 			{
-				this->bNumHitsThisTurn++;
+				this->combatResult().hitsThisTurn()++;
 
-				if ( (this->bNumHitsThisTurn >= 3) && (this->vitals().health() - this->bOldLife > 20) )
+				if ( (this->combatResult().hitsThisTurn() >= 3) && (this->vitals().health() - this->bOldLife > 20) )
 				{
-					if ( Random( 100 ) < (UINT16)((40 * (this->bNumHitsThisTurn - 2))) )
+					if ( Random( 100 ) < (UINT16)((40 * (this->combatResult().hitsThisTurn() - 2))) )
 					{
 						DelayedTacticalCharacterDialogue( this, QUOTE_TAKEN_A_BREATING );
 						this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_BEING_PUMMELED;
-						this->bNumHitsThisTurn = 0;
+						this->combatResult().hitsThisTurn() = 0;
 					}
 				}
 			}
@@ -13668,14 +13665,14 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 			}
 
 			// display healing done
-			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (usLifeReturned / 100);
+			pVictim->damageDisplay().displayFlag() = TRUE;
+			pVictim->combatResult().accumulatedDamage() -= (usLifeReturned / 100);
 		}
 		else // this shouldn't even happen, but we still want to have it here for sure
 		{
 			// display healing done
-			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
+			pVictim->damageDisplay().displayFlag() = TRUE;
+			pVictim->combatResult().accumulatedDamage() -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
 
 			pVictim->vitals().health() = pVictim->vitals().maximumHealth();
 			pVictim->iHealableInjury = 0;
@@ -19531,8 +19528,8 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 			UseKitPoints( &(this->inv[HANDPOS]), (UINT16)(uiPointsUsed * gGameExternalOptions.dEnemyMedicMedKitDrainFactor), this );
 
 			// healing done will be displayed the next time the player sees this soldier
-			pSoldier->flags.fDisplayDamage = TRUE;
-			pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
+			pSoldier->damageDisplay().displayFlag() = TRUE;
+			pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 
 			// alert both soldiers
 			this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
@@ -19579,8 +19576,8 @@ BOOLEAN		SOLDIERTYPE::AIDoctorSelf( )
 		UseKitPoints( &(this->inv[HANDPOS]), (UINT16)(uiPointsUsed * gGameExternalOptions.dEnemyMedicMedKitDrainFactor), this );
 
 		// healing done will be displayed the next time the player sees this soldier
-		this->flags.fDisplayDamage = TRUE;
-		this->sDamage -= this->vitals().health() - oldlife;
+		this->damageDisplay().displayFlag() = TRUE;
+		this->combatResult().accumulatedDamage() -= this->vitals().health() - oldlife;
 
 		// alert ourself
 		this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
@@ -22006,12 +22003,12 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 	if ( !fBandagedBleed )
 	{
 		// SANDRO - if the soldier is bleeding out, consider this damage as done by the last attacker
-		if ( pSoldier->ubAttackerID != NOBODY )
-			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->ubAttackerID, NOWHERE, 0, TRUE );
-		else if ( pSoldier->ubPreviousAttackerID != NOBODY )
-			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->ubPreviousAttackerID, NOWHERE, 0, TRUE );
-		else if ( pSoldier->ubNextToPreviousAttackerID != NOBODY )
-			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->ubNextToPreviousAttackerID, NOWHERE, 0, TRUE );
+		if ( pSoldier->combatResult().currentAttacker() != NOBODY )
+			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->combatResult().currentAttacker(), NOWHERE, 0, TRUE );
+		else if ( pSoldier->combatResult().previousAttacker() != NOBODY )
+			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->combatResult().previousAttacker(), NOWHERE, 0, TRUE );
+		else if ( pSoldier->combatResult().earlierAttacker() != NOBODY )
+			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, pSoldier->combatResult().earlierAttacker(), NOWHERE, 0, TRUE );
 		else
 			pSoldier->SoldierTakeDamage( ANIM_CROUCH, 1, 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );
 	}
@@ -25759,25 +25756,20 @@ void SetDamageDisplayCounter( SOLDIERTYPE* pSoldier )
 {
 	INT16 sOffsetX, sOffsetY;
 
-	if ( pSoldier->flags.fDisplayDamage )
+	if ( pSoldier->damageDisplay().displaying() )
 	{
-		pSoldier->bDisplayDamageCount = 0;
+		pSoldier->damageDisplay().restart();
 		return;
 	}
 
-	pSoldier->flags.fDisplayDamage = TRUE;
-	pSoldier->bDisplayDamageCount = 0;
-
 	if ( pSoldier->ubBodyType == QUEENMONSTER )
 	{
-		pSoldier->sDamageX = 0;
-		pSoldier->sDamageY = 0;
+		pSoldier->damageDisplay().activateAt(0, 0);
 	}
 	else
 	{
 		GetSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );
-		pSoldier->sDamageX = sOffsetX;
-		pSoldier->sDamageY = sOffsetY;
+		pSoldier->damageDisplay().activateAt(sOffsetX, sOffsetY);
 	}
 }
 
@@ -26031,14 +26023,14 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 			}
 
 			// display healing done
-			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (iLifeReturned / 100);
+			pVictim->damageDisplay().displayFlag() = TRUE;
+			pVictim->combatResult().accumulatedDamage() -= (iLifeReturned / 100);
 		}
 		else // this shouldn't even happen, but we still want to have it here for sure
 		{
 			// display healing done
-			pVictim->flags.fDisplayDamage = TRUE;
-			pVictim->sDamage -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
+			pVictim->damageDisplay().displayFlag() = TRUE;
+			pVictim->combatResult().accumulatedDamage() -= (pVictim->vitals().maximumHealth() - pVictim->vitals().health());
 
 			pVictim->vitals().health() = pVictim->vitals().maximumHealth();
 			pVictim->iHealableInjury = 0;

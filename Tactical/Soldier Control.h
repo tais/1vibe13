@@ -902,7 +902,6 @@ public:
  	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 
-	INT8												fDisplayDamage;
 	INT8												fCloseCall;
 	INT8												fPastXDest;
 	INT8												fPastYDest;
@@ -1057,6 +1056,10 @@ public:
 	const SoldierAttackSelectionComponent& attackSelection() const noexcept { return attackSelection_; }
 	SoldierFireControlComponent& fireControl() noexcept { return fireControl_; }
 	const SoldierFireControlComponent& fireControl() const noexcept { return fireControl_; }
+	SoldierCombatResultComponent& combatResult() noexcept { return combatResult_; }
+	const SoldierCombatResultComponent& combatResult() const noexcept { return combatResult_; }
+	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
+	const SoldierDamageDisplayComponent& damageDisplay() const noexcept { return damageDisplay_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
@@ -1145,8 +1148,6 @@ public:
 
 	UINT32			uiAIDelay;
 	INT16			sReloadDelay;
-	SoldierID		ubAttackerID;
-	SoldierID		ubPreviousAttackerID;
 
 	INT32			sInsertionGridNo;
 
@@ -1228,12 +1229,7 @@ public:
 	INT16			sLocatorOffY;
 	PIXEL			*pForcedShade;
 
-	INT8				bDisplayDamageCount;
 	UINT8			sWalkToAttackEndDirection;//shadooow: stores direction of merc at the destination grid
-	INT16			sDamage;
-	INT16			sDamageX;
-	INT16			sDamageY;
-	INT8				bDamageDir;
 	INT16			usUIMovementMode;
 	INT8				bUIInterfaceLevel;
 
@@ -1250,15 +1246,12 @@ public:
 	INT16			sPanelFaceY;
 
 	// QUOTE STUFF
-	INT8				bNumHitsThisTurn;
 	UINT16			usQuoteSaidFlags;
 	INT8				bLastSkillCheck;
 	INT8				ubSkillCheckAttempts;
 
 	INT8				bVocalVolume;	// verbal sounds need to differ in volume
 
-
-	UINT8			ubHitLocation;
 
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
@@ -1360,7 +1353,6 @@ public:
 	INT8					bNoiseLevel;
 	INT8					bRegenerationCounter;					// Flugente: not used anymore!
 	INT8					bRegenBoostersUsedToday;				// Flugente: not used anymore!
-	INT8					bNumPelletsHitBy;
 	INT32				sSkillCheckGridNo;
 	SoldierID			ubLastEnemyCycledID;
 
@@ -1403,10 +1395,8 @@ public:
 	INT8					bDeafenedCounter;
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
-	UINT8				ubLastDamageReason;
 	INT32				sLastTwoLocations[2];
 	INT32				uiTimeSinceLastBleedGrunt;
-	SoldierID			ubNextToPreviousAttackerID;
 	INT8					numFlanks;
 	INT32				lastFlankSpot;
 	INT8					sniper;
@@ -1528,6 +1518,8 @@ private:
 	SoldierTargetingComponent	targeting_;
 	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierFireControlComponent	fireControl_;
+	SoldierCombatResultComponent	combatResult_;
+	SoldierDamageDisplayComponent	damageDisplay_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;

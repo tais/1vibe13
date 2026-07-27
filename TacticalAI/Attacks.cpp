@@ -240,7 +240,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		// determine return fire
 		if (pSoldier->aiData.bUnderFire &&
 			!pSoldier->bBlindedCounter &&
-			pSoldier->ubPreviousAttackerID == pOpponent->ubID)
+			pSoldier->combatResult().previousAttacker() == pOpponent->ubID)
 		{
 			fReturnFire = TRUE;
 		}
@@ -3818,7 +3818,7 @@ void CheckTossSelfSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			INT8	 bTargetLevel = bLevel;
 
 			INT32 sClosestThreat;
-			SoldierID ubClosestThreatID = pSoldier->ubPreviousAttackerID;
+			SoldierID ubClosestThreatID = pSoldier->combatResult().previousAttacker();
 			SOLDIERTYPE* closestThreat =
 				GetJa2SoldierRepository().resolve(ubClosestThreatID.i);
 

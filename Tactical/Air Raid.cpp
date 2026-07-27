@@ -289,7 +289,7 @@ BOOLEAN BeginAirRaid( )
 		gpRaidSoldier->bTeam = 1;
 		gpRaidSoldier->bSide = 1;
 		gpRaidSoldier->ubID	= MAX_NUM_SOLDIERS - 1;
-		gpRaidSoldier->ubAttackerID = NOBODY;
+		gpRaidSoldier->combatResult().currentAttacker() = NOBODY;
 		gpRaidSoldier->attackSelection().weapon() = HK21E;
 		CreateItem(HK21E, 100, &gpRaidSoldier->inv[HANDPOS]);
 
@@ -1341,7 +1341,7 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 //		sAirRaidSaveStruct.bLevel = gpRaidSoldier->position().level();
 //		sAirRaidSaveStruct.bTeam = gpRaidSoldier->bTeam;
 //		sAirRaidSaveStruct.bSide = gpRaidSoldier->bSide;
-//		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->ubAttackerID;
+//		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->combatResult().currentAttacker();
 //		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->attackSelection().weapon();
 //		sAirRaidSaveStruct.dXPos = gpRaidSoldier->dXPos;
 //		sAirRaidSaveStruct.dYPos = gpRaidSoldier->dYPos;
@@ -1419,7 +1419,7 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 		gpRaidSoldier->position().level() = sAirRaidSaveStruct.bLevel;
 		gpRaidSoldier->bTeam = sAirRaidSaveStruct.bTeam;
 		gpRaidSoldier->bSide = sAirRaidSaveStruct.bSide;
-		gpRaidSoldier->ubAttackerID = sAirRaidSaveStruct.ubAttackerID;
+		gpRaidSoldier->combatResult().currentAttacker() = sAirRaidSaveStruct.ubAttackerID;
 		gpRaidSoldier->attackSelection().weapon() = sAirRaidSaveStruct.usAttackingWeapon;
 		gpRaidSoldier->dXPos = sAirRaidSaveStruct.dXPos;
 		gpRaidSoldier->dYPos = sAirRaidSaveStruct.dYPos;

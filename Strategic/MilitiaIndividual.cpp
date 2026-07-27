@@ -313,8 +313,8 @@ void ApplyMilitiaHealthRatioToTactical()
 			pSoldier->vitals().health() = min( pSoldier->vitals().maximumHealth(), ( militia.healthratio / 100.0f ) * pSoldier->vitals().maximumHealth() );
 
 			// healing done will be displayed the next time the player sees this soldier
-			pSoldier->flags.fDisplayDamage = TRUE;
-			pSoldier->sDamage -= pSoldier->vitals().health() - oldlife;
+			pSoldier->damageDisplay().displayFlag() = TRUE;
+			pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 
 			// while we're here, update kills and assists too
 			militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );

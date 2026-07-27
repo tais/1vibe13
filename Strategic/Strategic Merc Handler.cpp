@@ -76,9 +76,9 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 		}
 
 		//add to the history log the fact that the merc died and the circumstances
-		if( pSoldier->ubAttackerID != NOBODY )
+		if( pSoldier->combatResult().currentAttacker() != NOBODY )
 		{
-			pKiller = GetJa2SoldierRepository().resolve(pSoldier->ubAttackerID);
+			pKiller = GetJa2SoldierRepository().resolve(pSoldier->combatResult().currentAttacker());
 		}
 
 		// CJC Nov 11, 2002

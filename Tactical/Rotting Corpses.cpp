@@ -1084,7 +1084,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	else
 	{
 		const SOLDIERTYPE* attacker =
-			GetJa2SoldierRepository().resolve( pSoldier->ubAttackerID );
+			GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 		const bool killedByOurTeam =
 			attacker != nullptr && attacker->bTeam == OUR_TEAM;
 

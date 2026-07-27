@@ -1106,7 +1106,7 @@ void StartInterrupt( void )
 				{
 					if ( pSoldier->flags.fCloseCall )
 					{
-						if ( pSoldier->bNumHitsThisTurn == 0 && !(pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
+						if ( pSoldier->combatResult().hitsThisTurn() == 0 && !(pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
 						{
 							// say close call quote!
 							TacticalCharacterDialogue( pSoldier, QUOTE_CLOSE_CALL );

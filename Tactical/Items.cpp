@@ -9301,7 +9301,7 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 
 			if ( GetJa2PendingTacticalCombatActions() )
 			{
-				IgniteExplosion( pSoldier->ubAttackerID, sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->combatResult().currentAttacker(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
 			}
 			else
 			{

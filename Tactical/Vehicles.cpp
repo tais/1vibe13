@@ -2103,7 +2103,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 	}
 
 	//Show damage
-	pSoldier->sDamage += sDmg;
+	pSoldier->combatResult().accumulatedDamage() += sDmg;
 
 	if ( pSoldier->bInSector && pSoldier->bVisible != -1 )
 	{
@@ -2114,13 +2114,13 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 			INT16 sMercScreenX, sMercScreenY, sOffsetX, sOffsetY;
 
 			// Set Damage display counter
-			pSoldier->flags.fDisplayDamage = TRUE;
-			pSoldier->bDisplayDamageCount = 0;
+			pSoldier->damageDisplay().displayFlag() = TRUE;
+			pSoldier->damageDisplay().counter() = 0;
 
 			GetSoldierScreenPos( pSoldier, &sMercScreenX, &sMercScreenY );
 			GetSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );
-			pSoldier->sDamageX = sOffsetX;
-			pSoldier->sDamageY = sOffsetY;
+			pSoldier->damageDisplay().offsetX() = sOffsetX;
+			pSoldier->damageDisplay().offsetY() = sOffsetY;
 		}
 	}
 

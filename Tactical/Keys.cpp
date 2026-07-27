@@ -692,7 +692,7 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			PlayJA2Sample( DOOR_ELECTRICITY, RATE_11025, SoundVolume( MIDVOLUME, pDoor->sGridNo ), 1, SoundDir( pDoor->sGridNo ) );
 
 	 // Set attacker's ID
-	 pSoldier->ubAttackerID = pSoldier->ubID;
+	 pSoldier->combatResult().currentAttacker() = pSoldier->ubID;
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
 		// GetJa2PendingTacticalCombatActions()++;
@@ -707,7 +707,7 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			PlayJA2Sample( DOOR_ELECTRICITY, RATE_11025, SoundVolume( MIDVOLUME, pDoor->sGridNo ), 1, SoundDir( pDoor->sGridNo ) );
 
 	 // Set attacker's ID
-	 pSoldier->ubAttackerID = pSoldier->ubID;
+	 pSoldier->combatResult().currentAttacker() = pSoldier->ubID;
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
 		//	GetJa2PendingTacticalCombatActions()++;

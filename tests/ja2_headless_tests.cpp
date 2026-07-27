@@ -7315,6 +7315,18 @@ int main( int, char** )
 		fireControl.initialMuzzleOffsetX() = 4.0f;
 		fireControl.initialMuzzleOffsetY() = -5.0f;
 		fireControl.barrelCounter() = 2;
+		SoldierCombatResultComponent& combatResult = soldier.combatResult();
+		combatResult.recordHit(SoldierID{ 6 }, AIM_SHOT_HEAD);
+		combatResult.previousAttacker() = SoldierID{ 5 };
+		combatResult.earlierAttacker() = SoldierID{ 4 };
+		combatResult.lastDamageReason() = 7;
+		combatResult.hitsThisTurn() = 3;
+		combatResult.pelletsHitBy() = 4;
+		combatResult.accumulatedDamage() = 27;
+		SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
+		damageDisplay.activateAt(13, -9);
+		damageDisplay.counter() = 2;
+		damageDisplay.direction() = -1;
 		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 		animationIntent.requestHeight( ANIM_CROUCH );
 		animationIntent.queueFacingAnimation( WALKING, 4 );
@@ -7417,6 +7429,22 @@ int main( int, char** )
 			SoldierFireControlComponent::clampSpreadTargetCount(12) ==
 				SoldierFireControlComponent::SpreadTargetCapacity,
 			"soldier fire control caps dual-wield spread targets at persistent capacity" );
+		CHECK( constSoldier.combatResult().hasCurrentAttacker() &&
+		       constSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
+		       constSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
+		       constSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
+		       constSoldier.combatResult().hitLocation() == AIM_SHOT_HEAD &&
+		       constSoldier.combatResult().lastDamageReason() == 7 &&
+		       constSoldier.combatResult().hitsThisTurn() == 3 &&
+		       constSoldier.combatResult().pelletsHitBy() == 4 &&
+		       constSoldier.combatResult().accumulatedDamage() == 27,
+		       "soldier combat-result component owns incoming hit attribution and outcome state" );
+		CHECK( constSoldier.damageDisplay().displaying() &&
+		       constSoldier.damageDisplay().counter() == 2 &&
+		       constSoldier.damageDisplay().offsetX() == 13 &&
+		       constSoldier.damageDisplay().offsetY() == -9 &&
+		       constSoldier.damageDisplay().direction() == -1,
+		       "soldier damage-display component owns floating-number presentation state" );
 		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
 		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       constSoldier.animationIntent().hasPendingAnimation() &&
@@ -7544,6 +7572,21 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 2,
 		       "soldier copies retain their owned persistent fire-control state" );
+		CHECK( copiedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
+		       copiedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
+		       copiedSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
+		       copiedSoldier.combatResult().hitLocation() == AIM_SHOT_HEAD &&
+		       copiedSoldier.combatResult().lastDamageReason() == 7 &&
+		       copiedSoldier.combatResult().hitsThisTurn() == 3 &&
+		       copiedSoldier.combatResult().pelletsHitBy() == 4 &&
+		       copiedSoldier.combatResult().accumulatedDamage() == 27,
+		       "soldier copies retain their owned persistent combat-result state" );
+		CHECK( copiedSoldier.damageDisplay().displaying() &&
+		       copiedSoldier.damageDisplay().counter() == 2 &&
+		       copiedSoldier.damageDisplay().offsetX() == 13 &&
+		       copiedSoldier.damageDisplay().offsetY() == -9 &&
+		       copiedSoldier.damageDisplay().direction() == -1,
+		       "soldier copies retain their owned persistent damage-display state" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
 		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
@@ -7625,6 +7668,38 @@ int main( int, char** )
 		       !copiedSoldier.animationActivity().realtimeNonInterruptible() &&
 		       !copiedSoldier.animationActivity().tryingToFall(),
 		       "soldier animation-activity component clears coordinated lifecycle modes through named operations" );
+		SoldierCombatResultComponent attackerHistory;
+		attackerHistory.previousAttacker() = SoldierID{ 6 };
+		attackerHistory.earlierAttacker() = SoldierID{ 5 };
+		attackerHistory.recordHit(SoldierID{ 7 }, AIM_SHOT_LEGS);
+		attackerHistory.advanceAttackerHistory(false);
+		CHECK( attackerHistory.currentAttacker() == NOBODY &&
+		       attackerHistory.previousAttacker() == SoldierID{ 7 } &&
+		       attackerHistory.earlierAttacker() == SoldierID{ 6 } &&
+		       attackerHistory.hitLocation() == AIM_SHOT_LEGS,
+		       "combat-result history advances attribution and optionally releases the current attacker atomically" );
+		attackerHistory.restorePreviousAttacker();
+		attackerHistory.advanceAttackerHistory(false);
+		CHECK( attackerHistory.currentAttacker() == NOBODY &&
+		       attackerHistory.previousAttacker() == SoldierID{ 7 } &&
+		       attackerHistory.earlierAttacker() == SoldierID{ 6 },
+		       "repeated hits by one attacker preserve the distinct earlier assister" );
+		attackerHistory.restorePreviousAttacker();
+		CHECK( attackerHistory.currentAttacker() == SoldierID{ 7 },
+		       "combat-result history can restore the killer after a delayed death" );
+
+		SoldierDamageDisplayComponent displayLifecycle;
+		displayLifecycle.activateAt(20, -3);
+		for (INT8 i = 0; i < 8; ++i)
+			displayLifecycle.advance();
+		CHECK( displayLifecycle.expired() &&
+		       displayLifecycle.counter() == 8 &&
+		       displayLifecycle.offsetX() == 28 &&
+		       displayLifecycle.offsetY() == -11,
+		       "damage-display lifecycle advances its counter and screen offsets together" );
+		displayLifecycle.clear();
+		CHECK( !displayLifecycle.displaying() && displayLifecycle.counter() == 0,
+		       "damage-display lifecycle clears its active cursor atomically" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7689,6 +7764,21 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetY() == 0.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 0,
 		       "soldier initialization resets the complete fire-control domain" );
+		CHECK( copiedSoldier.combatResult().currentAttacker() == NOBODY &&
+		       copiedSoldier.combatResult().previousAttacker() == NOBODY &&
+		       copiedSoldier.combatResult().earlierAttacker() == NOBODY &&
+		       copiedSoldier.combatResult().hitLocation() == 0 &&
+		       copiedSoldier.combatResult().lastDamageReason() == 0 &&
+		       copiedSoldier.combatResult().hitsThisTurn() == 0 &&
+		       copiedSoldier.combatResult().pelletsHitBy() == 0 &&
+		       copiedSoldier.combatResult().accumulatedDamage() == 0,
+		       "soldier initialization resets the complete combat-result domain" );
+		CHECK( !copiedSoldier.damageDisplay().displaying() &&
+		       copiedSoldier.damageDisplay().counter() == 0 &&
+		       copiedSoldier.damageDisplay().offsetX() == 0 &&
+		       copiedSoldier.damageDisplay().offsetY() == 0 &&
+		       copiedSoldier.damageDisplay().direction() == 0,
+		       "soldier initialization resets the complete damage-display domain" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
 		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
@@ -7736,6 +7826,19 @@ int main( int, char** )
 		legacySoldier->bBulletsLeft = 3;
 		legacySoldier->bDoBurst = 4;
 		legacySoldier->bDoAutofire = 8;
+		legacySoldier->ubAttackerID = 6;
+		legacySoldier->ubPreviousAttackerID = 5;
+		legacySoldier->ubNextToPreviousAttackerID = 4;
+		legacySoldier->ubHitLocation = AIM_SHOT_HEAD;
+		legacySoldier->ubLastDamageReason = 7;
+		legacySoldier->bNumHitsThisTurn = 3;
+		legacySoldier->bNumPelletsHitBy = 2;
+		legacySoldier->sDamage = 26;
+		legacySoldier->fDisplayDamage = 2;
+		legacySoldier->bDisplayDamageCount = 3;
+		legacySoldier->sDamageX = 15;
+		legacySoldier->sDamageY = -8;
+		legacySoldier->bDamageDir = -1;
 		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
 			legacySoldier->sSpreadLocations[i] = 22001 + i;
 
@@ -7753,6 +7856,21 @@ int main( int, char** )
 		       convertedSoldier.fireControl().spreadLocations()[4] == 22005 &&
 		       convertedSoldier.fireControl().spreadLocations()[5] == 22006,
 		       "v101 soldier conversion retains the complete fire-control spread array" );
+		CHECK( convertedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
+		       convertedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
+		       convertedSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
+		       convertedSoldier.combatResult().hitLocation() == AIM_SHOT_HEAD &&
+		       convertedSoldier.combatResult().lastDamageReason() == 7 &&
+		       convertedSoldier.combatResult().hitsThisTurn() == 3 &&
+		       convertedSoldier.combatResult().pelletsHitBy() == 2 &&
+		       convertedSoldier.combatResult().accumulatedDamage() == 26,
+		       "v101 soldier conversion retains incoming combat attribution and outcome state" );
+		CHECK( convertedSoldier.damageDisplay().displayFlag() == 2 &&
+		       convertedSoldier.damageDisplay().counter() == 3 &&
+		       convertedSoldier.damageDisplay().offsetX() == 15 &&
+		       convertedSoldier.damageDisplay().offsetY() == -8 &&
+		       convertedSoldier.damageDisplay().direction() == -1,
+		       "v101 soldier conversion retains floating damage-display presentation state" );
 	}
 
 	{
@@ -7912,6 +8030,17 @@ int main( int, char** )
 		savedSoldier.fireControl().initialMuzzleOffsetX() = 3.5f;
 		savedSoldier.fireControl().initialMuzzleOffsetY() = -4.5f;
 		savedSoldier.fireControl().barrelCounter() = 3;
+		savedSoldier.combatResult().recordHit(SoldierID{ 12 }, AIM_SHOT_HEAD);
+		savedSoldier.combatResult().previousAttacker() = SoldierID{ 11 };
+		savedSoldier.combatResult().earlierAttacker() = SoldierID{ 10 };
+		savedSoldier.combatResult().lastDamageReason() = 8;
+		savedSoldier.combatResult().hitsThisTurn() = 4;
+		savedSoldier.combatResult().pelletsHitBy() = 5;
+		savedSoldier.combatResult().accumulatedDamage() = 29;
+		savedSoldier.damageDisplay().activateAt(17, -12);
+		savedSoldier.damageDisplay().displayFlag() = 2;
+		savedSoldier.damageDisplay().counter() = 3;
+		savedSoldier.damageDisplay().direction() = -1;
 		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
 		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
 		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
@@ -8041,6 +8170,23 @@ int main( int, char** )
 		       loadedSoldier.fireControl().initialMuzzleOffsetY() == -4.5f &&
 		       loadedSoldier.fireControl().barrelCounter() == 3,
 		       "soldier save/load round-trips fire-control state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.combatResult().currentAttacker() == SoldierID{ 12 } &&
+		       loadedSoldier.combatResult().previousAttacker() == SoldierID{ 11 } &&
+		       loadedSoldier.combatResult().earlierAttacker() == SoldierID{ 10 } &&
+		       loadedSoldier.combatResult().hitLocation() == AIM_SHOT_HEAD &&
+		       loadedSoldier.combatResult().lastDamageReason() == 8 &&
+		       loadedSoldier.combatResult().hitsThisTurn() == 4 &&
+		       loadedSoldier.combatResult().pelletsHitBy() == 5 &&
+		       loadedSoldier.combatResult().accumulatedDamage() == 29,
+		       "soldier save/load round-trips combat-result state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.damageDisplay().displayFlag() == 2 &&
+		       loadedSoldier.damageDisplay().counter() == 3 &&
+		       loadedSoldier.damageDisplay().offsetX() == 17 &&
+		       loadedSoldier.damageDisplay().offsetY() == -12 &&
+		       loadedSoldier.damageDisplay().direction() == -1,
+		       "soldier save/load round-trips damage-display state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
 		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&

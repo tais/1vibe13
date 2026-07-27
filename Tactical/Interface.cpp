@@ -1585,7 +1585,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 
 			// If not a radio position, adjust if we are getting hit, to be lower!
 			// If we are getting hit, lower them!
-			if (pSoldier->flags.fDisplayDamage || *psY < gsVIEWPORT_WINDOW_START_Y)
+			if (pSoldier->damageDisplay().displayFlag() || *psY < gsVIEWPORT_WINDOW_START_Y)
 			{
 				*psX = sMercScreenX - (80 / 2) - pSoldier->sLocatorOffX;
 				*psY = sMercScreenY;

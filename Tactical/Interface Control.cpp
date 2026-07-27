@@ -1374,15 +1374,15 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		// coordinates for damage counter
 		if ( pSoldier->ubBodyType == QUEENMONSTER )
 		{
-			sDamageX = sMercScreenX + pSoldier->sDamageX - pSoldier->sBoundingBoxOffsetX;
-			sDamageY = sMercScreenY + pSoldier->sDamageY - pSoldier->sBoundingBoxOffsetY;
+			sDamageX = sMercScreenX + pSoldier->damageDisplay().offsetX() - pSoldier->sBoundingBoxOffsetX;
+			sDamageY = sMercScreenY + pSoldier->damageDisplay().offsetY() - pSoldier->sBoundingBoxOffsetY;
 			sDamageX += 25;
 			sDamageY += 10;
 		}
 		else
 		{
-			sDamageX = pSoldier->sDamageX + (INT16)(sMercScreenX + ( 2 * 30 / 3 )	);
-			sDamageY = pSoldier->sDamageY + (INT16)(sMercScreenY - 5 );
+			sDamageX = pSoldier->damageDisplay().offsetX() + (INT16)(sMercScreenX + ( 2 * 30 / 3 )	);
+			sDamageY = pSoldier->damageDisplay().offsetY() + (INT16)(sMercScreenY - 5 );
 			sDamageX -= sOffsetX;
 			sDamageY -= sOffsetY;
 			// if showing suppression - move damage counter higher on screen
@@ -1402,7 +1402,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		if ( pSoldier->flags.fDisplayDamage )
+		if ( pSoldier->damageDisplay().displayFlag() )
 		{
 			// Display damage
 			SetFont( TINYFONT1 );
@@ -1415,11 +1415,11 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 			else
 				hitCount = gGameExternalOptions.ubEnemyHitCount;
 
-			if( pSoldier->sDamage < 0 )
+			if( pSoldier->combatResult().accumulatedDamage() < 0 )
 			{								
 				// Flugente: it is possible that someone might regain negative damage as zombies can regenerate health through bleeding
 				SetFontForeground( FONT_MCOLOR_LTGREEN );
-				swprintf( pStr, L"+%d ", -pSoldier->sDamage );
+				swprintf( pStr, L"+%d ", -pSoldier->combatResult().accumulatedDamage() );
 				gprintfdirty( sDamageX, sDamageY, pStr );
 				mprintf( sDamageX, sDamageY, pStr );
 				widthDamage += StringPixLength ( pStr, TINYFONT1 );
@@ -1430,17 +1430,17 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 				switch (hitCount)
 				{
 				case 0:				// show damage as usual
-					if( pSoldier->sDamage > 0 )
+					if( pSoldier->combatResult().accumulatedDamage() > 0 )
 					{
-						//PrintCounter( sDamageX, sDamageY, pSoldier->sDamage, widthDamage, FONT_MCOLOR_WHITE, PRINT_SCALE_PLAIN_NUMBER );
-						swprintf( pStr, L"-%d ", pSoldier->sDamage );
+						//PrintCounter( sDamageX, sDamageY, pSoldier->combatResult().accumulatedDamage(), widthDamage, FONT_MCOLOR_WHITE, PRINT_SCALE_PLAIN_NUMBER );
+						swprintf( pStr, L"-%d ", pSoldier->combatResult().accumulatedDamage() );
 						gprintfdirty( sDamageX, sDamageY, pStr );
 						mprintf( sDamageX, sDamageY, pStr );
 						widthDamage += StringPixLength ( pStr, TINYFONT1 );
 					}
 				break;
 				case 1:				// show ? indicator
-					if( pSoldier->sDamage != 0 )
+					if( pSoldier->combatResult().accumulatedDamage() != 0 )
 					{
 						swprintf( pStr, L"%s ", gzHiddenHitCountStr[0] );
 						gprintfdirty( sDamageX, sDamageY, pStr );
@@ -1451,10 +1451,10 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 				case 2:				// do not show anything
 					break;
 				case 3:				// show white asterisks
-					PrintCounter( sDamageX, sDamageY, pSoldier->sDamage, widthDamage, FONT_MCOLOR_WHITE, PRINT_SCALE_ASTERISK_DAMAGE );
+					PrintCounter( sDamageX, sDamageY, pSoldier->combatResult().accumulatedDamage(), widthDamage, FONT_MCOLOR_WHITE, PRINT_SCALE_ASTERISK_DAMAGE );
 					break;
 				case 4:				// show red asterisks
-					PrintCounter( sDamageX, sDamageY, pSoldier->sDamage, widthDamage, FONT_MCOLOR_DKRED, PRINT_SCALE_ASTERISK_DAMAGE );
+					PrintCounter( sDamageX, sDamageY, pSoldier->combatResult().accumulatedDamage(), widthDamage, FONT_MCOLOR_DKRED, PRINT_SCALE_ASTERISK_DAMAGE );
 					break;
 				default:
 					break;

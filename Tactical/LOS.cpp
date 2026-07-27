@@ -3042,7 +3042,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			if ( pBullet->usFlags & BULLET_FLAG_BUCKSHOT ) 
 			{
 				// if just one pellet hits the target, record it as successful hit, ignore the rest
-				if ( pTarget->bNumPelletsHitBy == 0 )
+				if ( pTarget->combatResult().pelletsHitBy() == 0 )
 					gMercProfiles[ pFirer->ubProfile ].records.usShotsHit++;
 			}
 			else
@@ -3056,7 +3056,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 
 		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->ubID == pFirer->targeting().targetId() ) )
 		{
-			pTarget->bNumPelletsHitBy++;
+			pTarget->combatResult().pelletsHitBy()++;
 		}
 
 		//////////////////////////////////////////////////////////////////////////////////////////////
@@ -3164,7 +3164,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		if ( pBullet->usFlags & BULLET_FLAG_BUCKSHOT ) 
 		{
 			// SANDRO - if just one pellet hits the target, record it as being wounded, ignore the rest
-			if ( pTarget->bNumPelletsHitBy == 0 )
+			if ( pTarget->combatResult().pelletsHitBy() == 0 )
 				gMercProfiles[ pTarget->ubProfile ].records.usTimesWoundedShot++;
 		}
 		else
@@ -4912,7 +4912,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 					GetJa2SoldierRepository().resolve(
 						pFirer->targeting().targetId() );
 				if ( target )
-					target->bNumPelletsHitBy = 0;
+					target->combatResult().pelletsHitBy() = 0;
 			}
 		}
 		weapon=NULL;
@@ -5422,7 +5422,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 						GetJa2SoldierRepository().resolve(
 							pFirer->targeting().targetId() );
 					if ( target )
-						target->bNumPelletsHitBy = 0;
+						target->combatResult().pelletsHitBy() = 0;
 				}
 				usBulletFlags |= BULLET_FLAG_BUCKSHOT;
 
@@ -5448,7 +5448,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 					GetJa2SoldierRepository().resolve(
 						pFirer->targeting().targetId() );
 				if ( target )
-					target->bNumPelletsHitBy = 0;
+					target->combatResult().pelletsHitBy() = 0;
 			}
 		}
 		weapon=NULL;

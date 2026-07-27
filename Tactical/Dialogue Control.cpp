@@ -3151,7 +3151,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 							{
 								SOLDIERTYPE* previousAttacker =
 									GetJa2SoldierRepository().resolve(
-										pSoldier->ubPreviousAttackerID.i);
+										pSoldier->combatResult().previousAttacker().i);
 								if( previousAttacker && !( previousAttacker->bDeafenedCounter > 0 ) )
 									PossiblyStartEnemyTaunt( previousAttacker, TAUNT_RIPOSTE, pSoldier->ubID );
 								break;
