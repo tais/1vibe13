@@ -1361,7 +1361,7 @@ void send_fire( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	SBeginFireWeapon.sTargetGridNo = sTargetGridNo;
 	SBeginFireWeapon.bTargetLevel = pSoldier->targeting().level();
 	SBeginFireWeapon.bTargetCubeLevel = pSoldier->targeting().cubeLevel();
-	SBeginFireWeapon.uiUniqueId = pSoldier->usAttackingWeapon;
+	SBeginFireWeapon.uiUniqueId = pSoldier->attackSelection().weapon();
 		
 
 	client->RPC("sendFIRE",(const char*)&SBeginFireWeapon, (int)sizeof(EV_S_BEGINFIREWEAPON)*8, HIGH_PRIORITY, RELIABLE, 0, UNASSIGNED_SYSTEM_ADDRESS, true, 0, UNASSIGNED_NETWORK_ID,0);

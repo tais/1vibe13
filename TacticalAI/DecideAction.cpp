@@ -716,7 +716,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	// disable reverse movement mode
 	pSoldier->bReverse = FALSE;
 	// sevenfm: initialize data
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	BOOLEAN fCivilian = (PTR_CIVILIAN && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || pSoldier->aiData.bNeutral || (pSoldier->ubBodyType >= FATCIV && pSoldier->ubBodyType <= CRIPPLECIV) ) );
 	BOOLEAN fCivilianOrMilitia = PTR_CIV_OR_MILITIA;
@@ -1585,7 +1585,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 	// disable reverse movement mode
 	pSoldier->bReverse = FALSE;
 	// sevenfm: initialize data
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	if (fCivilian || (gGameExternalOptions.fAllNamedNpcsDecideAction && pSoldier->ubProfile != NO_PROFILE))
 	{
@@ -2521,7 +2521,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	// disable reverse movement mode
 	pSoldier->bReverse = FALSE;
 	// sevenfm: initialize data
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	// if we have absolutely no action points, we can't do a thing under RED!
 	if ( pSoldier->bActionPoints <= 0 ) //Action points can be negative
@@ -2842,7 +2842,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))
 					{
 						DebugAI(AI_MSG_INFO, pSoldier, String("set attached GL mode"));
-						pSoldier->bWeaponMode = WM_ATTACHED_GL;
+						pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
 					}
 
 					// stand up before throwing if needed
@@ -2960,7 +2960,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		{
 			// SNIPER!
 			// sevenfm: set bAimShotLocation
-			pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+			pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 			CheckIfShotPossible(pSoldier, &BestShot);
 			SOLDIERTYPE* bestShotOpponent =
 				GetJa2SoldierRepository().resolve(BestShot.ubOpponent.i);
@@ -2979,7 +2979,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				pSoldier->aiData.usActionData = BestShot.sTarget;
 				//POSSIBLE STRUCTURE CHANGE PROBLEM. GOTTHARD 7/14/08
 				pSoldier->aiData.bAimTime = BestShot.ubAimTime;
-				pSoldier->bScopeMode = BestShot.bScopeMode;
+				pSoldier->attackSelection().scopeMode() = BestShot.bScopeMode;
 				// check if using sniper rifle
 				if (Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE)
 					ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SNIPER]);
@@ -3111,7 +3111,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				pSoldier->aiData.bAimTime = BestShot.ubAimTime;
 				pSoldier->bDoAutofire = 0;
 				pSoldier->bDoBurst = 1;
-				pSoldier->bScopeMode = BestShot.bScopeMode;
+				pSoldier->attackSelection().scopeMode() = BestShot.bScopeMode;
 
 				INT16 ubBurstAPs = 0;
 				FLOAT dTotalRecoil = 0;
@@ -3148,19 +3148,19 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						dTotalRecoil += AICalcRecoilForShot(pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire);
 						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier);
 					} while (pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->ubAttackingHand][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
+						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
 						pSoldier->bDoAutofire <= 30 &&
 						(dTotalRecoil <= 20.0f || pSoldier->bDoAutofire < ubMinAuto));
 				}
 				else
 				{
-					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
+					ubAutoPenalty = GetAutoPenalty(&pSoldier->inv[pSoldier->attackSelection().hand()], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE);
 					do
 					{
 						pSoldier->bDoAutofire++;
 						ubBurstAPs = CalcAPsToAutofire(pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier);
 					} while (pSoldier->bActionPoints >= BestShot.ubAPCost + sActualAimAP + ubBurstAPs + sReserveAP &&
-						pSoldier->inv[pSoldier->ubAttackingHand][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
+						pSoldier->inv[pSoldier->attackSelection().hand()][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire &&
 						pSoldier->bDoAutofire <= 30 &&
 						(ubAutoPenalty * pSoldier->bDoAutofire <= 80 || pSoldier->bDoAutofire < ubMinAuto));
 				}
@@ -4966,7 +4966,7 @@ INT16 ubMinAPCost;
 	// disable reverse movement mode
 	pSoldier->bReverse = FALSE;
 	// sevenfm: initialize data
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	// sevenfm: stop flanking when we see enemy
 	if( AICheckIsFlanking(pSoldier) )
@@ -5489,7 +5489,7 @@ INT16 ubMinAPCost;
 	// if we are able attack
 	if (bCanAttack)
 	{
-		pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+		pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 
 		//////////////////////////////////////////////////////////////////////////
 		// FIRE A GUN AT AN OPPONENT
@@ -6347,7 +6347,7 @@ INT16 ubMinAPCost;
 		// default settings
 		//POSSIBLE STRUCTURE CHANGE PROBLEM, NOT CURRENTLY CHANGED. GOTTHARD 7/14/08		
 		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
-		pSoldier->bScopeMode = BestAttack.bScopeMode;
+		pSoldier->attackSelection().scopeMode() = BestAttack.bScopeMode;
 		pSoldier->bDoBurst			= 0;
 
 		// HEADROCK HAM 3.6: bAimTime represents how MANY aiming levels are used, not how much APs they cost necessarily.
@@ -6455,7 +6455,7 @@ L_NEWAIM:
 						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire );
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
 					}
-					while(	pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn
+					while(	pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				} 
 				else 
 				{
@@ -6464,7 +6464,7 @@ L_NEWAIM:
 						pSoldier->bDoAutofire++;
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints(), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
 					}
-					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->bDoAutofire <= 80);//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					while(	pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[ BestAttack.bWeaponIn ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty(&pSoldier->inv[ BestAttack.bWeaponIn ], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE)*pSoldier->bDoAutofire <= 80);//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->bDoAutofire--;
@@ -6737,9 +6737,9 @@ L_NEWAIM:
 			pSoldier->bDoAutofire = bDoAutofire;
 			pSoldier->bDoBurst = bDoBurst;
 			if(bDoAutofire > 1)
-				pSoldier->bWeaponMode = WM_AUTOFIRE;
+				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			else
-				pSoldier->bWeaponMode = WM_BURST;
+				pSoldier->attackSelection().weaponMode() = WM_BURST;
 		}
 
 		DebugAI(AI_MSG_INFO, pSoldier, String("prepare attack at target %d level %d aim %d ap %d cth %d opponent %d", BestAttack.sTarget, BestAttack.bTargetLevel, BestAttack.ubAimTime, BestAttack.ubAPCost, BestAttack.ubChanceToReallyHit, BestAttack.ubOpponent));
@@ -6773,7 +6773,7 @@ L_NEWAIM:
 			if (IsGrenadeLauncherAttached(&pSoldier->inv[HANDPOS]))	//dnl ch63 240813
 			{
 				DebugAI(AI_MSG_INFO, pSoldier, String("using attached GL"));
-					pSoldier->bWeaponMode = WM_ATTACHED_GL;
+					pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
 				}
 
 				// stand up before throwing if needed
@@ -7500,7 +7500,7 @@ INT8 ArmedVehicleDecideAction( SOLDIERTYPE *pSoldier )
 	// disable reverse movement mode
 	pSoldier->bReverse = FALSE;
 	// sevenfm: initialize data
-	pSoldier->bWeaponMode = WM_NORMAL;
+	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
 	switch ( pSoldier->aiData.bAlertStatus )
 	{
@@ -8565,7 +8565,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			pSoldier->aiData.usActionData = BestShot.sTarget;
 			//POSSIBLE STRUCTURE CHANGE PROBLEM. GOTTHARD 7/14/08
 			pSoldier->aiData.bAimTime = BestShot.ubAimTime;
-			pSoldier->bScopeMode = BestShot.bScopeMode;
+			pSoldier->attackSelection().scopeMode() = BestShot.bScopeMode;
 			// sevenfm: disabled for vehicles
 			//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SNIPER] );
 			return(AI_ACTION_FIRE_GUN);
@@ -9762,7 +9762,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	// if we are able attack
 	if ( bCanAttack )
 	{
-		pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+		pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 
 		//////////////////////////////////////////////////////////////////////////
 		// FIRE A GUN AT AN OPPONENT
@@ -10098,7 +10098,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		// default settings
 		//POSSIBLE STRUCTURE CHANGE PROBLEM, NOT CURRENTLY CHANGED. GOTTHARD 7/14/08		
 		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
-		pSoldier->bScopeMode = BestAttack.bScopeMode;
+		pSoldier->attackSelection().scopeMode() = BestAttack.bScopeMode;
 		pSoldier->bDoBurst = 0;
 
 		// HEADROCK HAM 3.6: bAimTime represents how MANY aiming levels are used, not how much APs they cost necessarily.
@@ -10170,14 +10170,14 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 						pSoldier->bDoAutofire++;
 						dTotalRecoil += AICalcRecoilForShot( pSoldier, &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire );
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestShot.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
-					} while ( pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn
+					} while ( pSoldier->bActionPoints >= BestShot.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && dTotalRecoil <= 10.0f );//dnl ch64 260813 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn
 				}
 				else {
 					do
 					{
 						pSoldier->bDoAutofire++;
 						ubBurstAPs = CalcAPsToAutofire( pSoldier->CalcActionPoints( ), &(pSoldier->inv[BestAttack.bWeaponIn]), pSoldier->bDoAutofire, pSoldier );
-					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );//dnl ch64 130913 pSoldier->ubAttackingHand is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
+					} while ( pSoldier->bActionPoints >= BestAttack.ubAPCost + ubBurstAPs + sActualAimAP && pSoldier->inv[BestAttack.bWeaponIn][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && GetAutoPenalty( &pSoldier->inv[BestAttack.bWeaponIn], gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE )*pSoldier->bDoAutofire <= 80 );//dnl ch64 130913 pSoldier->attackSelection().hand() is wrong because decision is to use BestAttack.bWeaponIn, also missing sActualAimTime
 				}
 
 				pSoldier->bDoAutofire--;
@@ -10289,9 +10289,9 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			pSoldier->bDoAutofire = bDoAutofire;
 			pSoldier->bDoBurst = bDoBurst;
 			if ( bDoAutofire > 1 )
-				pSoldier->bWeaponMode = WM_AUTOFIRE;
+				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			else
-				pSoldier->bWeaponMode = WM_BURST;
+				pSoldier->attackSelection().weaponMode() = WM_BURST;
 		}
 				
 		{
@@ -10335,7 +10335,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 			}
 
 			if ( ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE && IsGrenadeLauncherAttached( &pSoldier->inv[HANDPOS] ) )//dnl ch63 240813
-				pSoldier->bWeaponMode = WM_ATTACHED_GL;
+				pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
 
 			return(ubBestAttackAction);
 		}

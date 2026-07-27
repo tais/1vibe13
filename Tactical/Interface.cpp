@@ -2404,7 +2404,7 @@ BOOLEAN DrawCTHIndicator()
 	SOLDIERTYPE *pTarget;
 	GetSoldier( &pSoldier, gusSelectedSoldier );
 
-	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+	OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 
 	// Create a Background Rect for us to draw our indicator on. With NCTH, the size and position of this rectangle
 	// is equal exactly to the size of the tactical screen viewport. Unlike the OCTH indicator, the NCTH one can grow
@@ -2568,14 +2568,14 @@ BOOLEAN DrawCTHIndicator()
 
 	/////////////////////////////////////////////
 	// Factor in Weapon "Effective Range".
-	UINT16 sEffRange = Weapon[Item[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubClassIndex].usRange + GetRangeBonus(&(pSoldier->inv[ pSoldier->ubAttackingHand ]));
+	UINT16 sEffRange = Weapon[Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubClassIndex].usRange + GetRangeBonus(&(pSoldier->inv[ pSoldier->attackSelection().hand() ]));
 	FLOAT iRangeRatio = __max(1.0f, (FLOAT)(d2DDistance / sEffRange));
 	FLOAT iDistanceRatio = (FLOAT)(d2DDistance / gGameCTHConstants.NORMAL_SHOOTING_DISTANCE);
 	
 	/////////////////////////////////////////////
 	// Factor in Gun Accuracy.
 	
-	INT16 sAccuracy = GetGunAccuracy( &(pSoldier->inv[ pSoldier->ubAttackingHand ]) );
+	INT16 sAccuracy = GetGunAccuracy( &(pSoldier->inv[ pSoldier->attackSelection().hand() ]) );
 
 	sAccuracy = __max(0, sAccuracy);
 	sAccuracy = __min(100, sAccuracy);
@@ -2870,7 +2870,7 @@ BOOLEAN DrawCTHIndicator()
 			ubNumBullets = pSoldier->bDoAutofire;
 
 			// How many bullets are left in the gun?
-			UINT32 uiBulletsLeft = pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft;
+			UINT32 uiBulletsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 			if (pSoldier->IsValidSecondHandBurst()) 
 			{
 				uiBulletsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), uiBulletsLeft );
@@ -2920,7 +2920,7 @@ BOOLEAN DrawCTHIndicator()
 		else
 		{
 			// Number of COLORED bullets to display is the number of bullets we want to fire.
-			ubNumBullets = GetShotsPerBurst( &(pSoldier->inv[ pSoldier->ubAttackingHand ]) );
+			ubNumBullets = GetShotsPerBurst( &(pSoldier->inv[ pSoldier->attackSelection().hand() ]) );
 
 			// Display no more than X bullets on screen!
 			uiMaxBulletsToDisplay = __min(ubNumBullets, 15);
@@ -5885,7 +5885,7 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 		ShowExactInfo( pSoldier, pTargetSoldier) )
 	{
 		// show armour
-		switch( pSoldier->bAimShotLocation )
+		switch( pSoldier->attackSelection().shotLocation() )
 		{
 		case AIM_SHOT_HEAD:
 			if( pTargetSoldier->inv[HELMETPOS].exists() )
@@ -5915,7 +5915,7 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 		if( gGameExternalOptions.ubAdditionalNCTHCursorInfo > 1 )
 		{
 			// show item in hands
-			if( pSoldier->bAimShotLocation == AIM_SHOT_TORSO )
+			if( pSoldier->attackSelection().shotLocation() == AIM_SHOT_TORSO )
 			{
 				if( pTargetSoldier->inv[HANDPOS].exists() )
 				{
@@ -5933,7 +5933,7 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 				}
 			}
 			// show items in head slots
-			else if( pSoldier->bAimShotLocation == AIM_SHOT_HEAD )
+			else if( pSoldier->attackSelection().shotLocation() == AIM_SHOT_HEAD )
 			{
 				if( pTargetSoldier->inv[HEAD2POS].exists() )
 				{
@@ -5978,7 +5978,7 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 		SetFontForeground( FONT_YELLOW );
 		// show armour
 		usItemID = 0;
-		switch( pSelectedSoldier->bAimShotLocation )
+		switch( pSelectedSoldier->attackSelection().shotLocation() )
 		{
 		case AIM_SHOT_HEAD:
 			if( pTargetSoldier->inv[HELMETPOS].exists() )
@@ -6001,7 +6001,7 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 			}
 			else
 			{	// show general armour type
-				switch( pSelectedSoldier->bAimShotLocation )
+				switch( pSelectedSoldier->attackSelection().shotLocation() )
 				{
 				case AIM_SHOT_HEAD:
 					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", gzTooltipStrings[STR_TT_HELMET] );
@@ -6022,7 +6022,7 @@ void GetEnemyInfoString( SOLDIERTYPE* pSelectedSoldier, SOLDIERTYPE* pTargetSold
 	else
 	{						
 		if( gfUIBodyHitLocation &&
-			pSelectedSoldier->bAimShotLocation == AIM_SHOT_HEAD )
+			pSelectedSoldier->attackSelection().shotLocation() == AIM_SHOT_HEAD )
 		{
 			// show face items
 			SetFontForeground( FONT_ORANGE );
@@ -6545,20 +6545,20 @@ void NCTHDrawScopeModeIcon( SOLDIERTYPE* pSoldier, INT16 sNewX, INT16 sNewY )
 			std::map<INT8, OBJECTTYPE*> ObjList;
 			GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
 
-			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD )
+			if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
 			{		
 				BltVideoObjectFromIndex( FRAME_BUFFER, uiItemInfoAdvancedIcon, 56, sNewX, sNewY+1, VO_BLT_TRANSSHADOW, NULL );
 			}
-			else if (ObjList[pSoldier->bScopeMode] != NULL && IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_SCOPE ) )
+			else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL && IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_SCOPE ) )
 			{					
 				BltVideoObjectFromIndex( FRAME_BUFFER, uiItemInfoAdvancedIcon, 54, sNewX, sNewY+1, VO_BLT_TRANSSHADOW, NULL );
 			}
 			// improved iron sights are attachable iron sights (the 'normal' iron sight is the gun itself)
-			else if (ObjList[pSoldier->bScopeMode] != NULL &&  IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_IRONSIGHT ) )
+			else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL &&  IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_IRONSIGHT ) )
 			{
 				BltVideoObjectFromIndex( FRAME_BUFFER, uiItemInfoAdvancedIcon, 52, sNewX, sNewY-1, VO_BLT_TRANSSHADOW, NULL );
 			}
-			else if (ObjList[pSoldier->bScopeMode] != NULL && IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_SIGHT ) )
+			else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL && IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_SIGHT ) )
 			{
 				BltVideoObjectFromIndex( FRAME_BUFFER, uiItemInfoAdvancedIcon, 53, sNewX, sNewY, VO_BLT_TRANSSHADOW, NULL );
 			}
@@ -6606,7 +6606,7 @@ void NCTHShowMounted( SOLDIERTYPE* pSoldier, PIXEL* ptrBuf, UINT32 uiPitch, INT1
 {
 	if( gGameExternalOptions.ubImprovedNCTHCursor > 2 )
 	{
-		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+		OBJECTTYPE* pWeapon = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 		INVTYPE	*pItem = &Item[ pWeapon->usItem ];
 		PIXEL usCMountedBar	= Get16BPPColor( FROMRGB( 192, 0, 0 ) );
 		PIXEL usCMountedBorder	= Get16BPPColor( FROMRGB( 10, 10, 10 ) );

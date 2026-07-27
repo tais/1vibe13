@@ -1056,6 +1056,8 @@ public:
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
 	SoldierTargetingComponent& targeting() noexcept { return targeting_; }
 	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
+	SoldierAttackSelectionComponent& attackSelection() noexcept { return attackSelection_; }
+	const SoldierAttackSelectionComponent& attackSelection() const noexcept { return attackSelection_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
@@ -1101,7 +1103,6 @@ public:
 	INT8				bGunType;
 	SoldierID		ubOppNum;
 	INT8				bLastRenderVisibleValue;
-	UINT8			ubAttackingHand;
 	INT16			sWeightCarriedAtTurnStart;
 	
 	/////////////////////////////////////////////////////////////////////////////////
@@ -1269,9 +1270,7 @@ public:
 	INT8				bVocalVolume;	// verbal sounds need to differ in volume
 
 
-	UINT8			bAimShotLocation;
 	UINT8			ubHitLocation;
-	UINT8			bAimMeleeLocation;
 
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
@@ -1333,8 +1332,6 @@ public:
 
 	UINT8				ubScheduleID;
 	INT32				sEndDoorOpenCodeData;//dnl ch53 121009
-	UINT16				usAttackingWeapon;
-	INT8					bWeaponMode;
 	INT8					bAIScheduleProgress;
 	INT32				sOffWorldGridNo;
 	struct TAG_anitile	*pAniTile;	
@@ -1444,8 +1441,6 @@ public:
 	//INT16	filler;
 
 	// Flugente: Is this the correct position?
-	INT8			bScopeMode;
-
 	///////////////////////////////////////////////////////
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
 	UINT8		ubMilitiaAssists;		// Flugente: stores militia assists
@@ -1546,6 +1541,7 @@ private:
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
 	SoldierTargetingComponent	targeting_;
+	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;

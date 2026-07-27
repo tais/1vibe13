@@ -993,7 +993,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	if (bCanAttack)
 	{
 		DebugAI( AI_MSG_INFO, pSoldier, String("[attack]"));
-		pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+		pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 
 		// nothing (else) to attack with so let's try hand-to-hand
 		bWeaponIn = FindObj( pSoldier, NOTHING, HANDPOS, NUM_INV_SLOTS );
@@ -1092,17 +1092,17 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 
 			if (uiRoll > 100 - ubChanceHead)
 			{
-				pSoldier->bAimShotLocation = AIM_SHOT_HEAD;
+				pSoldier->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 				DebugAI( AI_MSG_INFO, pSoldier, String("aim at head"));
 			}
 			else
 			{
-				pSoldier->bAimShotLocation = AIM_SHOT_TORSO;
+				pSoldier->attackSelection().shotLocation() = AIM_SHOT_TORSO;
 				DebugAI( AI_MSG_INFO, pSoldier, String("aim at torso"));
 			}
 		}
 
-		DebugAI( AI_MSG_INFO, pSoldier, String("AimTime %d AimShotLocation %d", pSoldier->aiData.bAimTime, pSoldier->bAimShotLocation));
+		DebugAI( AI_MSG_INFO, pSoldier, String("AimTime %d AimShotLocation %d", pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation()));
 
 		// swap weapon to hand if necessary
 		if (BestAttack.bWeaponIn != HANDPOS)

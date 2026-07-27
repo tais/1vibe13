@@ -2297,13 +2297,103 @@ string(REGEX MATCH
   serialized_soldier_target_geometry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.usAttackingWeapon\\);[ \t]*ar\\.i8\\(s\\.bWeaponMode\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(s\\.bAIScheduleProgress\\);"
+  "ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);[ \t]*ar\\.i8\\(s\\.bAIScheduleProgress\\);"
   serialized_soldier_target_identity_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_target_geometry_order OR
    NOT serialized_soldier_target_identity_order)
   message(FATAL_ERROR
     "Soldier targeting state moved in the portable save schema; keep geometry and identity at their established byte positions")
+endif()
+
+# The selected attacking hand/weapon, fire and scope mode, and aimed body
+# locations now have one private owner. Candidate attacks and compatibility
+# records retain similarly named fields, but current SOLDIERTYPE must not grow
+# a parallel set of mutable attack-selection values.
+foreach(retired_attack_selection_field IN ITEMS
+  ubAttackingHand
+  usAttackingWeapon
+  bWeaponMode
+  bScopeMode
+  bAimShotLocation
+  bAimMeleeLocation)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT8|UINT16|INT8)[ \t]+${retired_attack_selection_field}[ \t]*;"
+    retired_current_attack_selection_field
+    "${current_soldier_contents}")
+  if(retired_current_attack_selection_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE attack-selection field '${retired_attack_selection_field}' returned; weapon and aim choice belongs to SoldierAttackSelectionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAttackSelectionComponent[ \t\r\n]+attackSelection_[ \t]*;"
+  soldier_attack_selection_owner
+  "${current_soldier_contents}")
+if(NOT soldier_attack_selection_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAttackSelectionComponent")
+endif()
+
+foreach(owned_attack_selection_field IN ITEMS
+  "UINT8;hand"
+  "UINT16;weapon"
+  "INT8;weaponMode"
+  "INT8;scopeMode"
+  "UINT8;shotLocation"
+  "UINT8;meleeLocation")
+  string(REPLACE ";" ";" owned_attack_selection_parts
+    "${owned_attack_selection_field}")
+  list(GET owned_attack_selection_parts 0 owned_attack_selection_type)
+  list(GET owned_attack_selection_parts 1 owned_attack_selection_name)
+  string(REGEX MATCH
+    "${owned_attack_selection_type}[ \t]+${owned_attack_selection_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_attack_selection
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_attack_selection)
+    message(FATAL_ERROR
+      "SoldierAttackSelectionComponent no longer owns initialized '${owned_attack_selection_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierAttackSelectionComponent& attackSelection() noexcept"
+  soldier_attack_selection_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "attackSelection().reset();"
+  soldier_attack_selection_reset)
+if(soldier_attack_selection_accessor EQUAL -1 OR
+   soldier_attack_selection_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAttackSelectionComponent must remain directly accessible to application adapters and reset with its soldier")
+endif()
+
+# The component changes ownership only. Keep all four existing schema sites:
+# hand beside visibility, aimed locations around hit location, weapon/mode
+# beside target identity, and scope mode beside the facility field.
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bLastRenderVisibleValue\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
+  serialized_soldier_attack_hand_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);[ \t\r\n]*ar\\.u8\\(attackSelection\\.shotLocation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubHitLocation\\);[ \t]*ar\\.u8\\(attackSelection\\.meleeLocation\\(\\)\\);"
+  serialized_soldier_attack_location_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubScheduleID\\);[ \t]*ar\\.i32\\(s\\.sEndDoorOpenCodeData\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);[ \t\r\n]*ar\\.u16\\(attackSelection\\.weapon\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.weaponMode\\(\\)\\);[ \t]*ar\\.u16\\(targeting\\.targetId\\(\\)\\.i\\);"
+  serialized_soldier_attack_weapon_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.sFacilityTypeOperated\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubMilitiaAssists\\);"
+  serialized_soldier_attack_scope_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_attack_hand_order OR
+   NOT serialized_soldier_attack_location_order OR
+   NOT serialized_soldier_attack_weapon_order OR
+   NOT serialized_soldier_attack_scope_order)
+  message(FATAL_ERROR
+    "Soldier attack-selection state moved in the portable save schema; keep every value at its established byte position")
 endif()
 
 # Animation transition requests now have one private owner, separate from

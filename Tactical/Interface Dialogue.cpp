@@ -3678,7 +3678,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						pTarget->flags.uiStatusFlags |= SOLDIER_NPC_SHOOTING;
 						pSoldier->flags.uiStatusFlags |= SOLDIER_NPC_SHOOTING;
 
-						pSoldier->bAimShotLocation = AIM_SHOT_HEAD;
+						pSoldier->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 
 						// Add gun to inventory.....
 						CreateItem( (UINT16) (DESERTEAGLE), 100, &( pSoldier->inv[ HANDPOS ] ) );

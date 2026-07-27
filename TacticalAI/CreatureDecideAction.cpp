@@ -1123,7 +1123,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	// FIRE A GUN AT AN OPPONENT
 	//////////////////////////////////////////////////////////////////////////
 
-	pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+	pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 
 	bWeaponIn = FindObjClass( pSoldier, IC_GUN );
 
@@ -1355,11 +1355,11 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 		if ( ubBestAttackAction == AI_ACTION_FIRE_GUN && BestAttack.ubChanceToReallyHit > 50 )
 		{
-			pSoldier->bAimShotLocation = AIM_SHOT_HEAD;
+			pSoldier->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 		}
 		else
 		{
-			pSoldier->bAimShotLocation = AIM_SHOT_RANDOM;
+			pSoldier->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 		}
 
 #ifdef DEBUGDECISIONS

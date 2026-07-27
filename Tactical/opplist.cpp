@@ -7509,7 +7509,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 		return;
 	}
 
-	if (AmmoTypes[pAttacker->inv[pAttacker->ubAttackingHand][0]->data.gun.ubGunAmmoType].dart)
+	if (AmmoTypes[pAttacker->inv[pAttacker->attackSelection().hand()][0]->data.gun.ubGunAmmoType].dart)
 	{
 		// rarely noticed
 		if (SkillCheck(pDefender, NOTICE_DART_CHECK, 0) < 0)

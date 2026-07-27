@@ -709,7 +709,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bGunType = src.bGunType;
 		this->ubOppNum = static_cast<UINT16>( src.ubOppNum );
 		this->bLastRenderVisibleValue = src.bLastRenderVisibleValue;
-		this->ubAttackingHand = src.ubAttackingHand;
+		this->attackSelection().hand() = src.ubAttackingHand;
 		this->sWeightCarriedAtTurnStart = src.sWeightCarriedAtTurnStart;
 
 		this->bVisible = src.bVisible;			// to render or not to render...
@@ -877,7 +877,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationIntent().pendingDirection() = src.ubPendingDirection;
 		this->animationPlayback().subFlags() = src.uiAnimSubFlags;
 
-		this->bAimShotLocation = src.bAimShotLocation;
+		this->attackSelection().shotLocation() = src.bAimShotLocation;
 		this->ubHitLocation = src.ubHitLocation;
 
 
@@ -934,8 +934,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubScheduleID = src.ubScheduleID;
 		this->sEndDoorOpenCodeData = src.sEndDoorOpenCodeData;
 		this->movement().blockedDirection() = src.bBlockedByAnotherMercDirection;
-		this->usAttackingWeapon = src.usAttackingWeapon;
-		this->bWeaponMode = src.bWeaponMode;
+		this->attackSelection().weapon() = src.usAttackingWeapon;
+		this->attackSelection().weaponMode() = src.bWeaponMode;
 		this->targeting().targetId() = static_cast<UINT16>( src.ubTargetID );
 		this->bAIScheduleProgress = src.bAIScheduleProgress;
 		this->sOffWorldGridNo = src.sOffWorldGridNo;
@@ -1049,7 +1049,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->snowCamo = __min( gGameExternalOptions.bCamoKitArea, src.snowCamo );
 		this->wornSnowCamo = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornSnowCamo );
 
-		this->bScopeMode = USE_BEST_SCOPE;
+		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
 		this->ubMilitiaAssists = 0;
 
@@ -1141,6 +1141,7 @@ void SOLDIERTYPE::initialize( )
 	pathing().reset();
 	movement().reset();
 	targeting().reset();
+	attackSelection().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
@@ -4972,7 +4973,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 		return;
 	}
 
-	//switch ( this->inv[ this->ubAttackingHand ][0]->data.gun.ubGunAmmoType )
+	//switch ( this->inv[ this->attackSelection().hand() ][0]->data.gun.ubGunAmmoType )
 	//{
 	//	case AMMO_SLEEP_DART:
 	//		this->flags.fMuzzleFlash = FALSE;
@@ -5008,7 +5009,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 
 	//dnl ch72 2509134
 	UINT16 usItem;
-	if ( this->bWeaponMode == WM_ATTACHED_GL || this->bWeaponMode == WM_ATTACHED_GL_BURST || this->bWeaponMode == WM_ATTACHED_GL_AUTO )
+	if ( this->attackSelection().weaponMode() == WM_ATTACHED_GL || this->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || this->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		usItem = GetAttachedGrenadeLauncher( &this->inv[HANDPOS] );
 	else
 		usItem = this->inv[HANDPOS].usItem;
@@ -5665,13 +5666,13 @@ UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOL
 	else
 	{
 		// if our gun is in alternative holding (hip rifle/one-hand pistol) and we are going to shoulder
-		if ( (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING)) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && !fAltWeaponHolding && !Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].HeavyGun )
+		if ( (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING)) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && !fAltWeaponHolding && !Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].HeavyGun )
 		{
 			return(READY_RIFLE_STAND);
 		}
 		// this is a specific situation when we have a gun in standard holding (shouldered rifle/two-hand pistol) and was told to go to alternative holding
 		else if ( (gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_FIREREADY | ANIM_FIRE)) && !(gAnimControl[pSoldier->animationPlayback().state()].uiFlags & (ANIM_ALT_WEAPON_HOLDING))
-				  && fAltWeaponHolding && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 && pSoldier->bScopeMode == -1 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND
+				  && fAltWeaponHolding && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 && pSoldier->attackSelection().scopeMode() == -1 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND
 				  && ((!ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && !pSoldier->IsValidSecondHandShot( ) && !pSoldier->MercInWater( )) || ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem)) )
 		{
 			return(READY_ALTERNATIVE_STAND);
@@ -5692,7 +5693,7 @@ UINT16 PickSoldierReadyAnimation( SOLDIERTYPE *pSoldier, BOOLEAN fEndReady, BOOL
 				{
 					if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding )
 					{
-						if ( fAltWeaponHolding || (Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].HeavyGun && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem)) )
+						if ( fAltWeaponHolding || (Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].HeavyGun && ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem)) )
 						{
 							return(READY_ALTERNATIVE_STAND);
 						}
@@ -5835,7 +5836,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 
 	else if ( Item[usWeaponIndex].usItemClass & (IC_GUN | IC_THROWING_KNIFE) &&
 		attacker != nullptr &&
-		AmmoTypes[ attacker->inv[ attacker->ubAttackingHand ][0]->data.gun.ubGunAmmoType ].explosionSize <= 1 )
+		AmmoTypes[ attacker->inv[ attacker->attackSelection().hand() ][0]->data.gun.ubGunAmmoType ].explosionSize <= 1 )
 	{
 		if ( ubSpecial == FIRE_WEAPON_SLEEP_DART_SPECIAL )
 		{
@@ -6029,11 +6030,11 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			}
 		}
 	}
-	// marke added one 'or' for explosive ammo. variation of: AmmoTypes[this->inv[this->ubAttackingHand ][0]->data.gun.ubGunAmmoType].explosionSize > 1
+	// marke added one 'or' for explosive ammo. variation of: AmmoTypes[this->inv[this->attackSelection().hand() ][0]->data.gun.ubGunAmmoType].explosionSize > 1
 	//  extracting attacker's ammo type
 	else if ( Item[usWeaponIndex].usItemClass & IC_EXPLOSV ||
 		(attacker != nullptr &&
-		 AmmoTypes[attacker->inv[attacker->ubAttackingHand][0]->data.gun.ubGunAmmoType].explosionSize > 1) )
+		 AmmoTypes[attacker->inv[attacker->attackSelection().hand()][0]->data.gun.ubGunAmmoType].explosionSize > 1) )
 	{
 		INT8 bDeafValue;
 
@@ -12647,7 +12648,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 			case ANIM_CROUCH:
 							
 				// WE ARE SEEN
-				if ( this->bWeaponMode == WM_ATTACHED_BAYONET && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND)
+				if ( this->attackSelection().weaponMode() == WM_ATTACHED_BAYONET && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 				{
 					// if this attack happens directly after running, the attack is slightly more powerful due to extra force
 					if (this->animationPlayback().state() == RUNNING || this->animationPlayback().state() == RUNNING_W_PISTOL)
@@ -12694,7 +12695,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 
 			case ANIM_PRONE:
 				
-				if (this->bWeaponMode == WM_ATTACHED_BAYONET && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND)
+				if (this->attackSelection().weaponMode() == WM_ATTACHED_BAYONET && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 				{
 					// if this attack happens directly after running, the attack is slightly more powerful due to extra force
 					if (this->animationPlayback().state() == RUNNING || this->animationPlayback().state() == RUNNING_W_PISTOL)
@@ -12947,12 +12948,12 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						if ( gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 						{
 							// if we aim for legs, always use kick
-							if ( this->bAimMeleeLocation == AIM_SHOT_LEGS && !(ubDirection & 1) && !nokick )
+							if ( this->attackSelection().meleeLocation() == AIM_SHOT_LEGS && !(ubDirection & 1) && !nokick )
 							{
 								this->EVENT_InitNewSoldierAnim( FOCUSED_HTH_KICK, 0, FALSE );
 							}
 							// if we aim for head, always use punch animation
-							else if ( this->bAimMeleeLocation == AIM_SHOT_HEAD || (ubDirection & 1) )
+							else if ( this->attackSelection().meleeLocation() == AIM_SHOT_HEAD || (ubDirection & 1) )
 							{
 								this->EVENT_InitNewSoldierAnim( FOCUSED_PUNCH, 0, FALSE );
 							}
@@ -12968,7 +12969,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						else // if crouching enemy
 						{
 							// random if aiming on head, favor kick though
-							if ( this->bAimShotLocation == AIM_SHOT_HEAD || (ubDirection & 1) || nokick )
+							if ( this->attackSelection().shotLocation() == AIM_SHOT_HEAD || (ubDirection & 1) || nokick )
 							{
 								if ( nokick || Random( 20 ) > 12 || (ubDirection & 1) )
 									this->EVENT_InitNewSoldierAnim( FOCUSED_PUNCH, 0, FALSE );
@@ -12987,12 +12988,12 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						if ( gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 						{
 							// if we aim for legs, always use kick
-							if ( this->bAimMeleeLocation == AIM_SHOT_LEGS && !(ubDirection & 1) && !nokick )
+							if ( this->attackSelection().meleeLocation() == AIM_SHOT_LEGS && !(ubDirection & 1) && !nokick )
 							{
 								this->EVENT_InitNewSoldierAnim( HTH_KICK, 0, FALSE );
 							}
 							// if we aim for head, always use punch animation
-							else if ( this->bAimMeleeLocation == AIM_SHOT_HEAD || (ubDirection & 1) )
+							else if ( this->attackSelection().meleeLocation() == AIM_SHOT_HEAD || (ubDirection & 1) )
 							{
 								this->EVENT_InitNewSoldierAnim( PUNCH, 0, FALSE );
 							}
@@ -13008,7 +13009,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						else // if crouching enemy
 						{
 							// random if aiming on head, favor kick though
-							if ( this->bAimMeleeLocation == AIM_SHOT_HEAD || (ubDirection & 1) || nokick )
+							if ( this->attackSelection().meleeLocation() == AIM_SHOT_HEAD || (ubDirection & 1) || nokick )
 							{
 								if ( nokick || Random( 20 ) > 12 || (ubDirection & 1) )
 									this->EVENT_InitNewSoldierAnim( PUNCH, 0, FALSE );
@@ -14146,13 +14147,13 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 	if ( Weapon[usNewItem].ubShotsPerBurst == 0 && !Weapon[this->inv[HANDPOS].usItem].NoSemiAuto )
 	{
 		this->bDoBurst = FALSE;
-		this->bWeaponMode = WM_NORMAL;
+		this->attackSelection().weaponMode() = WM_NORMAL;
 		this->bDoAutofire = 0;
 	}
 	else if ( Weapon[usNewItem].NoSemiAuto )
 	{
 		this->bDoBurst = TRUE;
-		this->bWeaponMode = WM_AUTOFIRE;
+		this->attackSelection().weaponMode() = WM_AUTOFIRE;
 		this->bDoAutofire = 1;
 	}
 
@@ -14162,13 +14163,13 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 		OBJECTTYPE* pRifleGrenadeDeviceObj = FindAttachment_GrenadeLauncher( &(this->inv[HANDPOS]) );
 
 		if ( pRifleGrenadeDeviceObj && FindLaunchableAttachment( &(this->inv[HANDPOS]), pRifleGrenadeDeviceObj->usItem ) )
-			this->bWeaponMode = WM_ATTACHED_GL;
+			this->attackSelection().weaponMode() = WM_ATTACHED_GL;
 	}
 
 	if (ItemIsTwoHanded(usNewItem) && Weapon[usNewItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-		this->bScopeMode = USE_ALT_WEAPON_HOLD;
+		this->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
 	else
-		this->bScopeMode = USE_BEST_SCOPE;
+		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
 	// Flugente: use lowest valid barrel configuration
 	this->usBarrelMode = 1;
@@ -14215,7 +14216,7 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 				{
 					if ( (*it).second != NULL )
 					{
-						bScopeMode = (*it).first;
+						attackSelection().scopeMode() = (*it).first;
 					}
 					else
 						break;
@@ -15004,14 +15005,16 @@ BOOLEAN	SOLDIERTYPE::IsWeaponMounted( void )
 // Flugente: return weapon currently used
 OBJECTTYPE* SOLDIERTYPE::GetUsedWeapon( OBJECTTYPE * pObj )
 {
-	if ( bWeaponMode == WM_ATTACHED_UB || bWeaponMode == WM_ATTACHED_UB_BURST || bWeaponMode == WM_ATTACHED_UB_AUTO )
+	if ( attackSelection().weaponMode() == WM_ATTACHED_UB ||
+		 attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
+		 attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
 	{
 		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon( pObj, IC_GUN );
 
 		if ( pObjUnderBarrel )
 			return(pObjUnderBarrel);
 	}
-	else  if ( bWeaponMode == WM_ATTACHED_BAYONET )
+	else if ( attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
 	{
 		OBJECTTYPE* pObjUnderBarrel = FindAttachedWeapon( pObj, IC_BLADE );
 
@@ -15024,14 +15027,16 @@ OBJECTTYPE* SOLDIERTYPE::GetUsedWeapon( OBJECTTYPE * pObj )
 
 UINT16 SOLDIERTYPE::GetUsedWeaponNumber( OBJECTTYPE * pObj )
 {
-	if ( bWeaponMode == WM_ATTACHED_UB || bWeaponMode == WM_ATTACHED_UB_BURST || bWeaponMode == WM_ATTACHED_UB_AUTO )
+	if ( attackSelection().weaponMode() == WM_ATTACHED_UB ||
+		 attackSelection().weaponMode() == WM_ATTACHED_UB_BURST ||
+		 attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
 	{
 		UINT16 weaponnr = GetAttachedWeapon( pObj, IC_GUN );
 
 		if ( weaponnr != NONE )
 			return(weaponnr);
 	}
-	else if ( bWeaponMode == WM_ATTACHED_BAYONET )
+	else if ( attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
 	{
 		UINT16 weaponnr = GetAttachedWeapon( pObj, IC_BLADE );
 
@@ -23361,7 +23366,7 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		// OK, set UI
 		//		GetJa2PendingTacticalCombatActions()++;
 		// reset attacking item (hand)
-		pSoldier->usAttackingWeapon = 0;
+		pSoldier->attackSelection().weapon() = 0;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting STEAL attack, attack count now %d", GetJa2PendingTacticalCombatActions() ) );
 		DebugAttackBusy( String( "!!!!!!! Starting STEAL attack, attack count now %d\n", GetJa2PendingTacticalCombatActions() ) );
 
@@ -23669,7 +23674,7 @@ BOOLEAN SOLDIERTYPE::IsValidShotFromHip( INT16 bAimTime, INT32 iTrgGridNo )
 	else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 	{
 		// we don't care about the stance here, as the player should know what he's doing, we just care about his fire mode selected
-		if ( this->bScopeMode != USE_ALT_WEAPON_HOLD )
+		if ( this->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 		{
 			return(FALSE);
 		}
@@ -23726,7 +23731,7 @@ BOOLEAN SOLDIERTYPE::IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo )
 	else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 	{
 		// we don't care about the stance here, as the player should know what he's doing, we just care about his fire mode selected
-		if ( this->bScopeMode != USE_ALT_WEAPON_HOLD )
+		if ( this->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 		{
 			return(FALSE);
 		}
@@ -24386,7 +24391,7 @@ void SOLDIERTYPE::BreakWindow(void)
 		(ItemIsCrowbar(this->inv[HANDPOS].usItem) &&	Item[this->inv[HANDPOS].usItem].usItemClass & (IC_PUNCH) ||
 		Item[this->inv[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(this->inv[HANDPOS].usItem) && ItemIsMetal(this->inv[HANDPOS].usItem) ))
 	{
-		this->usAttackingWeapon = this->inv[HANDPOS].usItem;
+		this->attackSelection().weapon() = this->inv[HANDPOS].usItem;
 		this->aiData.bAction = AI_ACTION_KNIFE_STAB;
 		this->aiData.usActionData = this->position().gridNo();
 		this->aiData.ubPendingAction = NO_PENDING_ACTION;
@@ -25278,7 +25283,7 @@ BOOLEAN AIDecideHipOrShoulderStance( SOLDIERTYPE * pSoldier, INT32 iGridNo )
 {
 	// TO DO: this should be much more sophisticated
 
-	UINT16 usInHand = pSoldier->usAttackingWeapon;
+	UINT16 usInHand = pSoldier->attackSelection().weapon();
 
 	// not 2-handed or not standing 
 	if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ANIM_STAND || !ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) )

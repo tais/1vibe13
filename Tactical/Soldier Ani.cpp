@@ -426,7 +426,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					//Loop around in the animation if we still have burst rounds to fire
 					if (pSoldier->bDoBurst && !(pSoldier->IsValidSecondHandBurst())
 						&& ( pSoldier->bDoBurst <= ( (pSoldier->bDoAutofire)?(pSoldier->bDoAutofire):(GetShotsPerBurst( pObjHand ))	) 
-						|| (( pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst)) ))
+						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst)) ))
 					{
 						if(pSoldier->animationPlayback().state() == STANDING_BURST || pSoldier->animationPlayback().state() == CROUCHED_BURST || pSoldier->animationPlayback().state() == PRONE_BURST || pSoldier->animationPlayback().state() == BURST_ALTERNATIVE_STAND && pSoldier->animationPlayback().code() == 33) //we are standing, crounching or prone, firing the fast shot
 							pSoldier->animationPlayback().code() = 3;
@@ -448,8 +448,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
-					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+					OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
+					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 					//DIGICRAB: Burst Sound
 					//This code is stolen from Tactical\Weapons.c - UseGun(...)
 					if (pSoldier->bDoBurst && pSoldier->iBurstSoundID == NO_SAMPLE && Weapon[ usedGun ].sSound != 0 && Item[ usedGun ].usItemClass != IC_THROWING_KNIFE )
@@ -461,7 +461,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							INT32 uiSound;
 
 							uiSound = Weapon [	usedGun ].silencedSound;
-							//if ( Weapon[ pSoldier->usAttackingWeapon ].ubCalibre == AMMO9 || Weapon[ pSoldier->usAttackingWeapon ].ubCalibre == AMMO38 || Weapon[ pSoldier->usAttackingWeapon ].ubCalibre == AMMO57 )
+							//if ( Weapon[ pSoldier->attackSelection().weapon() ].ubCalibre == AMMO9 || Weapon[ pSoldier->attackSelection().weapon() ].ubCalibre == AMMO38 || Weapon[ pSoldier->attackSelection().weapon() ].ubCalibre == AMMO57 )
 							//{
 							//	uiSound = S_SILENCER_1;
 							//}
@@ -615,7 +615,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 441:
 				// CODE: Show muzzle flash
 				{
-					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->ubAttackingHand]);
+					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 					if (IsFlashSuppressor(pObjAttHand, pSoldier) || (*pObjAttHand)[0]->data.gun.bGunAmmoStatus < 0)
 					{
 						pSoldier->flags.fMuzzleFlash = FALSE;
@@ -829,19 +829,19 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[HANDPOS] );
 
-					if ( ( pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst) )
+					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst) )
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gl max burst size reached");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->bWeaponMode != WM_ATTACHED_GL_BURST && !(pSoldier->IsValidSecondHandBurst()) && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(pSoldier->bDoAutofire):(GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && !(pSoldier->IsValidSecondHandBurst()) && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(pSoldier->bDoAutofire):(GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gun max burst size reached");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->bWeaponMode != WM_ATTACHED_GL_BURST && pSoldier->IsValidSecondHandBurst() && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(2*pSoldier->bDoAutofire):(2*GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->IsValidSecondHandBurst() && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(2*pSoldier->bDoAutofire):(2*GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because dual max burst size reached");
 						fStop = TRUE;
@@ -849,7 +849,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// CHECK IF WE HAVE AMMO LEFT, IF NOT, END ANIMATION!
-					if ( !EnoughAmmo( pSoldier, FALSE, pSoldier->ubAttackingHand ) )
+					if ( !EnoughAmmo( pSoldier, FALSE, pSoldier->attackSelection().hand() ) )
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because not enough ammo");
 						fStop = TRUE;
@@ -1089,8 +1089,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 459:
 
 				// CODE: CHANGE ATTACKING TO FIRST HAND
-				pSoldier->ubAttackingHand = HANDPOS;
-				pSoldier->usAttackingWeapon = pSoldier->inv[pSoldier->ubAttackingHand].usItem;
+				pSoldier->attackSelection().selectWeapon(
+					HANDPOS, pSoldier->inv[HANDPOS].usItem);
 				// Adjust fReloading to FALSE
 				pSoldier->flags.fReloading = FALSE;
 				break;
@@ -1098,8 +1098,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 458:
 
 				// CODE: CHANGE ATTACKING TO SECOND HAND
-				pSoldier->ubAttackingHand = SECONDHANDPOS;
-				pSoldier->usAttackingWeapon = pSoldier->inv[pSoldier->ubAttackingHand].usItem;
+				pSoldier->attackSelection().selectWeapon(
+					SECONDHANDPOS, pSoldier->inv[SECONDHANDPOS].usItem);
 				// Adjust fReloading to FALSE
 				pSoldier->flags.fReloading = FALSE;
 				break;
@@ -2797,7 +2797,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Knife throw sound...
 				// anv: possiblity to use custom sounds for throwing knives
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3003,7 +3003,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Swoosh
 				// anv: possiblity to use custom sounds for melee weapons
 				{
-					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+					UINT16 usedWeapon = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 					if ( Weapon[ usedWeapon ].sSound != 0 )
 					{
 						PlayJA2Sample( Weapon[ usedWeapon ].sSound, 44100-Random(5000)-Random(5000)-Random(5000), SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
@@ -3474,7 +3474,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 1101:
 				// SANDRO - dual burst check for repeating animation
 			{
-				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->ubAttackingHand] );
+				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 
 				if (pSoldier->bDoBurst && ( pSoldier->bDoBurst <= ( (pSoldier->bDoAutofire)?(2*pSoldier->bDoAutofire):(2*GetShotsPerBurst( pObjHand ))	) ))
 				{
@@ -3531,10 +3531,10 @@ BOOLEAN ShouldMercSayHappyWithGunQuote( SOLDIERTYPE *pSoldier )
 		}
 
 		// is it a gun?
-		if ( Item[ pSoldier->usAttackingWeapon ].usItemClass & IC_GUN )
+		if ( Item[ pSoldier->attackSelection().weapon() ].usItemClass & IC_GUN )
 		{
 			// Is our weapon powerfull enough?
-			if ( Weapon[ pSoldier->usAttackingWeapon ].ubDeadliness > MIN_DEADLINESS_FOR_LIKE_GUN_QUOTE )
+			if ( Weapon[ pSoldier->attackSelection().weapon() ].ubDeadliness > MIN_DEADLINESS_FOR_LIKE_GUN_QUOTE )
 			{
 				// 20 % chance?
 				if ( Chance( 20 ) )
@@ -3967,13 +3967,13 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		{
 			if( pSoldier->animationPlayback().state() == JFK_HITDEATH )
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_HEAD_POP, pSoldier->ubID );
-			else if( Item[pKillerSoldier->usAttackingWeapon].usItemClass & IC_GUN )
+			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_GUN )
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_GUNFIRE, pSoldier->ubID );
-			else if( Item[pKillerSoldier->usAttackingWeapon].usItemClass & IC_BLADE )
+			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_BLADE )
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_BLADE, pSoldier->ubID );
-			else if( Item[pKillerSoldier->usAttackingWeapon].usItemClass & IC_PUNCH )
+			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_PUNCH )
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_HTH, pSoldier->ubID );
-			else if( Item[pKillerSoldier->usAttackingWeapon].usItemClass & IC_THROWING_KNIFE )
+			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE )
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_THROWING_KNIFE, pSoldier ->ubID);
 			else
 				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL, pSoldier->ubID );
@@ -4472,7 +4472,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 			if ( attacker != nullptr && gGameOptions.fNewTraitSystem )
 			{
 				if ( HAS_SKILL_TRAIT( attacker, MARTIAL_ARTS_NT ) &&
-					(!attacker->usAttackingWeapon ||
+					(!attacker->attackSelection().weapon() ||
 					 ItemIsBrassKnuckles(attacker->inv[HANDPOS].usItem)) )
 				{
 					fAlwaysFallBack = TRUE;
@@ -4722,7 +4722,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 	OBJECTTYPE *pObjHand;
 	BOOLEAN outOfAmmo;
 
-	if(pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO)
+	if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)
 		pObjHand = FindAttachment_GrenadeLauncher(&pSoldier->inv[HANDPOS]);
 	else
 		pObjHand = pSoldier->GetUsedWeapon(&pSoldier->inv[HANDPOS]);

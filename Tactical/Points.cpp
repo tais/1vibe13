@@ -1882,7 +1882,7 @@ INT16 MinAPsToAttack(SOLDIERTYPE *pSoldier, INT32 sGridno, UINT8 ubAddTurningCos
 	INT16						sAPCost = 0;
 	UINT32						uiItemClass;
 
-	if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 	{
 		INT16 glItem;
 		// look for an attached grenade launcher
@@ -2106,11 +2106,11 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 		// SANDRO - alternative weapon holding feature
 		if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
 		{
-			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) ))
+			if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) ))
 			{
 				fAddingRaiseGunCost = TRUE;
 			}
-			else if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) || !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ))
+			else if ( pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_ALT_WEAPON_HOLDING ) || !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags &( ANIM_FIREREADY | ANIM_FIRE ) ) ))
 			{
 				fAddingRaiseGunCost = TRUE;
 			}
@@ -2222,7 +2222,7 @@ UINT16 CalculateRaiseGunCost(SOLDIERTYPE *pSoldier, BOOLEAN fAddingRaiseGunCost,
 		{
 			if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )//dnl ch69 130913 condition (&& pSoldier->bTeam == gbPlayerNum) must be out because prevent AI from doing alternate weapon holding
 			{
-				if ( pSoldier->bScopeMode == -1 )
+				if ( pSoldier->attackSelection().scopeMode() == -1 )
 					fAltFireMode = TRUE;
 			}
 			else if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 1 )
@@ -2259,7 +2259,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 	//UINT16 usRange;
 
 	UINT16 usUBItem = 0;
-	if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 	{
 		usItem = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS] );//UNDER_GLAUNCHER;
 		usUBItem = usItem;
@@ -2297,7 +2297,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		//usRange = GetRangeFromGridNoDiff( pSoldier->sGridNo, sGridNo );
 	}
 
-	if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 	{
 		INT16 glItem;
 		OBJECTTYPE	GrenadeLauncher;
@@ -2327,7 +2327,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		if ( HAS_SKILL_TRAIT( pSoldier, HEAVY_WEAPONS_NT ) && gGameOptions.fNewTraitSystem )
 		{
 //			bAPCost = (INT16)((bAPCost * (100 - gSkillTraitValues.ubHWGrenadeLaunchersAPsReduction * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) ) / 100)+ 0.5); 
-			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->bWeaponMode ) + 0.5f);
+			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
 		}
 	}
 	else if ( pSoldier->IsValidSecondHandShot( ) )
@@ -2337,8 +2337,8 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		// SANDRO - gunslinger check for firing speed
 //		if ( HAS_SKILL_TRAIT( pSoldier, GUNSLINGER_NT ) && gGameOptions.fNewTraitSystem )
 //		{
-			INT16 bcst1 = (INT16)(BaseAPsToShootOrStab( bFullAPs, bAimSkill, &(pSoldier->inv[HANDPOS]), pSoldier ) * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->bWeaponMode ) + 0.5f);
-			INT16 bcst2 = (INT16)(BaseAPsToShootOrStab( bFullAPs, bAimSkill, &(pSoldier->inv[SECONDHANDPOS]), pSoldier ) * GetAttackAPTraitMultiplier( pSoldier, pSecondObjUsed, pSoldier->bWeaponMode ) + 0.5f);
+			INT16 bcst1 = (INT16)(BaseAPsToShootOrStab( bFullAPs, bAimSkill, &(pSoldier->inv[HANDPOS]), pSoldier ) * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
+			INT16 bcst2 = (INT16)(BaseAPsToShootOrStab( bFullAPs, bAimSkill, &(pSoldier->inv[SECONDHANDPOS]), pSoldier ) * GetAttackAPTraitMultiplier( pSoldier, pSecondObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
 //			if ( Weapon[ usItem ].ubWeaponType == GUN_PISTOL )
 //				bcst1 = (INT16)((bcst1 * ( 100 - gSkillTraitValues.ubGSFiringSpeedBonusPistols) / 100)+ 0.5);
 //			if ( Weapon[ pSoldier->inv[SECONDHANDPOS].usItem ].ubWeaponType == GUN_PISTOL ) 
@@ -2376,7 +2376,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 		if ( gGameOptions.fNewTraitSystem )
 		{
 			// silversurfer: new function to handle all modifiers
-			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->bWeaponMode ) + 0.5f);
+			bAPCost = (INT16)(bAPCost * GetAttackAPTraitMultiplier( pSoldier, pObjUsed, pSoldier->attackSelection().weaponMode() ) + 0.5f);
 
 /*			// Decreased APs needed for LMG - Auto Weapons
 			if (Weapon[usUBItem].ubWeaponType == GUN_LMG && (pSoldier->bDoBurst || pSoldier->bDoAutofire) && ( HAS_SKILL_TRAIT( pSoldier, AUTO_WEAPONS_NT ) ) )
@@ -2500,7 +2500,7 @@ INT16 MinAPsToShootOrStab(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 bAimTime, 
 	// sevenfm: add unjam AP cost	
 	if( Item[usUBItem].usItemClass == IC_GUN &&
 		!EXPLOSIVE_GUN( usUBItem ) &&
-		!(pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO) &&
+		!(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) &&
 		(*pObjUsed)[0]->data.gun.bGunAmmoStatus < 0) 
 	{
 		bAPCost += APBPConstants[AP_UNJAM];
@@ -2684,7 +2684,7 @@ BOOLEAN EnoughAmmo( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay, INT8 bInvPos )
 {
 	if ( pSoldier->inv[ bInvPos ].exists() == true )
 	{
-		if ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{
 			UINT16 glItem = GetAttachedGrenadeLauncher( &(pSoldier->inv[bInvPos]));
 			OBJECTTYPE* pAttachment = FindLaunchableAttachment( &(pSoldier->inv[bInvPos]), glItem);
@@ -2784,7 +2784,7 @@ void DeductAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE* pObj )
 		if (ItemIsCannon(pObj->usItem))
 		{
 		}
-		else if ( Item[ pObj->usItem ].usItemClass == IC_GUN && !ItemIsCannon(pObj->usItem) && pSoldier->bWeaponMode != WM_ATTACHED_GL && pSoldier->bWeaponMode != WM_ATTACHED_GL_BURST && pSoldier->bWeaponMode != WM_ATTACHED_GL_AUTO )
+		else if ( Item[ pObj->usItem ].usItemClass == IC_GUN && !ItemIsCannon(pObj->usItem) && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_AUTO )
 		{
 			// Flugente: check for underbarrel weapons and use that object if necessary
 			OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( pObj );
@@ -2817,7 +2817,7 @@ void DeductAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE* pObj )
 				gCampaignStats.AddConsumption(CAMPAIGN_CONSUMED_AMMO, (FLOAT)(Item[(*pObjUsed)[0]->data.gun.usGunAmmoItem].ubWeight) / (FLOAT)(Magazine[ Item[ (*pObjUsed)[0]->data.gun.usGunAmmoItem ].ubClassIndex ].ubMagSize ) );
 			}
 		}
-		else if ( Item[ pObj->usItem ].usItemClass == IC_LAUNCHER || ItemIsCannon(pObj->usItem) || pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO )
+		else if ( Item[ pObj->usItem ].usItemClass == IC_LAUNCHER || ItemIsCannon(pObj->usItem) || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
 		{
 			OBJECTTYPE* pAttachment = FindAttachmentByClass( pObj, IC_GRENADE );
 			if ( !pAttachment->exists() )
@@ -2841,7 +2841,7 @@ void DeductAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE* pObj )
 						pObj->RemoveAttachment( pAttachment);
 					}
 				}
-				else if ( (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO ) && GetExpMagSize(pAttachment) > 1 )
+				else if ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) && GetExpMagSize(pAttachment) > 1 )
 				{
 					(*pAttachment)[0]->data.objectStatus -= (INT8) ceil((double)( 100 / GetExpMagSize(pAttachment) )) ;
 
@@ -3284,7 +3284,7 @@ INT16 GetAPsToReadyWeapon( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 
 	// Don't check the ready APs of an attached underbarrel launcher; the cost of raising a weapon
 	// should not change with firing mode as it creates an unfun opportunity for micro-optimization
-	/*if(pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO)//dnl ch72 250913
+	/*if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)//dnl ch72 250913
 		usItem = GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS]);
 	else*/
 		usItem = pSoldier->inv[HANDPOS].usItem;
@@ -3346,7 +3346,7 @@ INT16 GetAPsToReadyWeapon( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 				if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding )
 				{
 					// If we are told to go to the alt weapon holding mode
-					if ( gAnimControl[ usAnimState ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) || (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && usAnimState == INVALID_ANIMATION) )//dnl ch71 180913
+					if ( gAnimControl[ usAnimState ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) || (pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && usAnimState == INVALID_ANIMATION) )//dnl ch71 180913
 					{
 						if (ItemIsTwoHanded(usItem))
 						{
@@ -4130,7 +4130,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	INT32 iBPcost = 0;
 
 	// Get weapon total weight
-	INT16 sWeaponWeight = CalculateObjectWeight(&pSoldier->inv[pSoldier->ubAttackingHand]);
+	INT16 sWeaponWeight = CalculateObjectWeight(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 
 	// Make the weight impact exponential, so lightweight guns cost very little or nearly no energy, 
 	// but as the gun weight goes up, the impact raises dramatically	
@@ -4177,9 +4177,9 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	// APPLY MODIFIERS FOR STANCE AND BIPOD
 	dModifier = 0;
 	// Alternative weapon holding?
-	if (( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) || (fEstimate && pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD) )
+	if (( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING ) || (fEstimate && pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD) )
 	{
-		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem)) // firing from hip is not nearly ?n effort
+		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem)) // firing from hip is not nearly ?n effort
 			dModifier += 80; // only 20% cost if on hip
 		else // holding pistol in one hand is worse in this case							
 			dModifier -= 25; // increased cost by 25%
@@ -4188,7 +4188,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 90; // only 10% of the regular cost if prone or rested	
-		if ( GetBipodBonus(&pSoldier->inv[pSoldier->ubAttackingHand]) > 0)
+		if ( GetBipodBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]) > 0)
 			iBPcost = 0; // with bipod on top, there is no bp cost
 	}
 	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
@@ -4202,7 +4202,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	iBPcost = max(0, iBPcost);
 
 	// What the hell, can't shoulder these, return some crazy breath cost
-	if ( Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding && (!(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING) || (fEstimate && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )) )
+	if ( Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding && (!(gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING) || (fEstimate && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )) )
 	{
 		iBPcost = (iBPcost + 25) * 5;
 	}
@@ -4257,7 +4257,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 		return 0;
 	if ( pSoldier == NULL )
 		return 0;
-	if ( Item[pSoldier->inv[pSoldier->ubAttackingHand].usItem].usItemClass != IC_GUN && Item[pSoldier->inv[pSoldier->ubAttackingHand].usItem].usItemClass != IC_LAUNCHER )
+	if ( Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass != IC_GUN && Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass != IC_LAUNCHER )
 		return 0;
 	if ( ARMED_VEHICLE( pSoldier ) || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
 		return 0;
@@ -4270,12 +4270,12 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	// Impact indirectly speaks of the size of the bullet, and thus strength of the backforce, theoretically.. so take it to the account.
 	// (Other than that, we have nothing to base our calculation on by now, the solution would be to make a new tag in weapons.xml, but that's modder-unfriendly.)
 	// silversurfer: Let's use the function that is designed for that.
-	//INT32 iKickPower = (INT32)(Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubImpact);
-	INT32 iKickPower = (INT32)GetBasicDamage(&pSoldier->inv[pSoldier->ubAttackingHand]);
+	//INT32 iKickPower = (INT32)(Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubImpact);
+	INT32 iKickPower = (INT32)GetBasicDamage(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 
 	// get weapon total weight
 	// Weapon weight here actually helps us, since it absorbs the power of the backforce.
-	INT16 sWeaponWeight = CalculateObjectWeight(&pSoldier->inv[pSoldier->ubAttackingHand]);
+	INT16 sWeaponWeight = CalculateObjectWeight(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 	
 	// --------------------------
 	// CALCULATE BASIC KICK POWER
@@ -4290,7 +4290,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	iKickPower = iKickPower * (100 - sWeaponWeight) / 100;
 
 	// If one-handed gun, reduce it a bit, since the whole thing is somewhat different.
-	if ( !ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem) )
+	if ( !ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem) )
 		iKickPower = iKickPower * 3 / 4; // -25%
 
 	// ::: overview :::
@@ -4335,7 +4335,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	// Alternative weapon holding?
 	if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_ALT_WEAPON_HOLDING )
 	{
-		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem)) // firing from hip makes the kicking rather diminishing
+		if (ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem)) // firing from hip makes the kicking rather diminishing
 			dModifier += 80; // only 20% of the regular kick power 
 		else // holding pistol in one hand is worse in this case							
 			dModifier -= 33; // plus 33% power
@@ -4344,7 +4344,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() || ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE ) )
 	{
 		dModifier += 40; // only 60% of the regular kick power if prone		
-		dModifier += (2 * GetBipodBonus(&pSoldier->inv[pSoldier->ubAttackingHand])); // minus up to 20% for bipod	
+		dModifier += (2 * GetBipodBonus(&pSoldier->inv[pSoldier->attackSelection().hand()])); // minus up to 20% for bipod
 	}
 	else if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH )
 		dModifier += 20; // only 80% of the regular kick power if crouching
@@ -4363,7 +4363,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	{					
 		// per every shot after the first one, the power increases by an amount based on the weapon steadiness (autopenalty - reduction of it)
 		// the additional kick factor is 5% base + half the auto penalty, but is itself also reduced by the above adjustments
-		INT16 sSteadiness = Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].AutoPenalty - GetAutoToHitBonus(&pSoldier->inv[pSoldier->ubAttackingHand], FALSE );
+		INT16 sSteadiness = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].AutoPenalty - GetAutoToHitBonus(&pSoldier->inv[pSoldier->attackSelection().hand()], FALSE );
 		dModifier = (INT32)((3 + (sSteadiness / 2)) * (100 - dModifier) / 100); 
 		if ( dModifier > 0 )
 		{

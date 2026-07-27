@@ -3841,7 +3841,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				INVTYPE		*pItemShown = pItem;
 				if ( pItem->usItemClass == IC_GUN && pSoldier )
 				{
-					if ( pSoldier->bWeaponMode == WM_ATTACHED_UB || pSoldier->bWeaponMode == WM_ATTACHED_UB_BURST || pSoldier->bWeaponMode == WM_ATTACHED_UB_AUTO )
+					if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO )
 					{
 						OBJECTTYPE  *pObjectUnderBarrel = FindAttachedWeapon( pObject, IC_GUN );
 
@@ -3861,7 +3861,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 							pItemShown = pItemUnderBarrel;
 						}
 					}
-					else if ( pSoldier->bWeaponMode == WM_ATTACHED_BAYONET )
+					else if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )
 					{
 						OBJECTTYPE  *pObjectUnderBarrel = FindAttachedWeapon( pObject, IC_BLADE );
 
@@ -3998,7 +3998,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 
 			// display symbol if we are leaning our weapon on something
 			// display only if eapon resting is allowed, display is allowed, item is a gun/launcher, we are a person, we hold the gun in our hand, and we are resting the gun
-			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inv[pSoldier->ubAttackingHand]) == pObject && pSoldier->IsWeaponMounted() )
+			if ( gGameExternalOptions.fWeaponResting && pItem->usItemClass & (IC_GUN | IC_LAUNCHER) && pSoldier &&  &(pSoldier->inv[pSoldier->attackSelection().hand()]) == pObject && pSoldier->IsWeaponMounted() )
 			{
 				SetRGBFontForeground( 95, 160, 154 );
 												
@@ -4059,7 +4059,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 				std::map<INT8, OBJECTTYPE*> ObjList;
 				GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
 				
-				if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD )
+				if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
 				{		
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiItemInfoAdvancedIcon, 56, sNewX, sNewY, VO_BLT_TRANSSHADOW, NULL );
 
@@ -4070,12 +4070,12 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 						RestoreExternBackgroundRect( sNewX, sNewY, 15, 15 );
 					}
 				}
-				else if (ObjList[pSoldier->bScopeMode] != NULL && IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_SCOPE ) )
+				else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL && IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_SCOPE ) )
 				{					
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiItemInfoAdvancedIcon, 54, sNewX, sNewY, VO_BLT_TRANSSHADOW, NULL );
 
 					SetFontForeground( FONT_ORANGE );
-					FLOAT scopemagfactor = Item[ObjList[pSoldier->bScopeMode]->usItem].scopemagfactor;
+					FLOAT scopemagfactor = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].scopemagfactor;
 
 					INT16 sMagX = sNewX + 9;
 
@@ -4097,7 +4097,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 					gprintfinvalidate( sMagX, sNewY, pStr );
 				}
 				// improved iron sights are attachable iron sights (the 'normal' iron sight is the gun itself)
-				else if (ObjList[pSoldier->bScopeMode] != NULL &&  IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_IRONSIGHT ) )
+				else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL &&  IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_IRONSIGHT ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiItemInfoAdvancedIcon, 52, sNewX, sNewY, VO_BLT_TRANSSHADOW, NULL );
 
@@ -4117,7 +4117,7 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 					mprintf( sMagX, sNewY, pStr );
 					gprintfinvalidate( sMagX, sNewY, pStr );
 				}
-				else if (ObjList[pSoldier->bScopeMode] != NULL && IsAttachmentClass(ObjList[pSoldier->bScopeMode]->usItem, AC_SIGHT ) )
+				else if (ObjList[pSoldier->attackSelection().scopeMode()] != NULL && IsAttachmentClass(ObjList[pSoldier->attackSelection().scopeMode()]->usItem, AC_SIGHT ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiItemInfoAdvancedIcon, 53, sNewX, sNewY, VO_BLT_TRANSSHADOW, NULL );
 
@@ -4160,58 +4160,58 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 			{
 				sNewY = sY + 13; // rather arbitrary
 
-				if ( pSoldier->bWeaponMode == WM_NORMAL )
+				if ( pSoldier->attackSelection().weaponMode() == WM_NORMAL )
 				{
 					swprintf( pStr, L"" );
 					SetFontForeground( FONT_RED );
 				}
-				else if ( pSoldier->bWeaponMode == WM_BURST )
+				else if ( pSoldier->attackSelection().weaponMode() == WM_BURST )
 				{
 					swprintf( pStr, New113Message[MSG113_BRST] );
 					SetFontForeground( FONT_RED );
 				}
-				else if(pSoldier->bWeaponMode == WM_AUTOFIRE)
+				else if(pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE)
 				{
 					swprintf( pStr, New113Message[MSG113_AUTO] );
 					SetFontForeground( FONT_RED );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_GL)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL)
 				{
 					swprintf( pStr, New113Message[MSG113_GL] );
 					SetFontForeground( FONT_YELLOW );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST)
 				{
 					swprintf( pStr, New113Message[MSG113_GL_BRST] );
 					SetFontForeground( FONT_YELLOW );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)
 				{
 					swprintf( pStr, New113Message[MSG113_GL_AUTO] );
 					SetFontForeground( FONT_YELLOW );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_UB)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB)
 				{
 					swprintf( pStr, New113Message[MSG113_UB] );
 					SetFontForeground( FONT_ORANGE );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_UB_BURST)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST)
 				{
 					swprintf( pStr, New113Message[MSG113_UB_BRST] );
 					SetFontForeground( FONT_ORANGE );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_UB_AUTO)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO)
 				{
 					swprintf( pStr, New113Message[MSG113_UB_AUTO] );
 					SetFontForeground( FONT_ORANGE );
 				}
-				else if(pSoldier->bWeaponMode == WM_ATTACHED_BAYONET)
+				else if(pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET)
 				{
 					swprintf( pStr, New113Message[MSG113_BAYONET] );
 					SetFontForeground( FONT_ORANGE );
 				}
 
-				if ( ( ( pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO ) ||
+				if ( ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) ||
 					( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_LAUNCHER && !ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem)) ) &&
 					pSoldier->usGLDelayMode )
 				{
@@ -4240,13 +4240,13 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 
 			// SANDRO - display BRST/AUTO on the second weapon too, if we are going to fire dual bursts
 			if ( pSoldier && pObject == &(pSoldier->inv[SECONDHANDPOS] ) && 
-				(pSoldier->bWeaponMode == WM_BURST || pSoldier->bWeaponMode == WM_AUTOFIRE) && 
+				(pSoldier->attackSelection().weaponMode() == WM_BURST || pSoldier->attackSelection().weaponMode() == WM_AUTOFIRE) &&
 				Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_GUN &&
 				!ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) &&
 				pSoldier->IsValidSecondHandBurst() )
 			{
 				sNewY = sY + 13; // rather arbitrary
-				if ( pSoldier->bWeaponMode == WM_BURST )
+				if ( pSoldier->attackSelection().weaponMode() == WM_BURST )
 				{
 					swprintf( pStr, New113Message[MSG113_BRST] );
 					SetFontForeground( FONT_RED );

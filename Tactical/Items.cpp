@@ -3826,7 +3826,7 @@ INT8 FindAmmoToReload( SOLDIERTYPE * pSoldier, INT8 bWeaponIn, INT8 bExcludeSlot
 		return( NO_SLOT );
 	}
 
-	if (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO)//dnl ch63 230813
+	if (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO)//dnl ch63 230813
 	{
 		pObj = FindAttachment_GrenadeLauncher(&pSoldier->inv[bWeaponIn]);
 		AssertMsg(pObj, "FindAmmoToReload: could not find attached grenade launcher.");
@@ -5133,7 +5133,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						// if that grenade is of the same type as the item we attached, adjust firing mode
 						if ( pRiflefileGrenade && pRiflefileGrenade->usItem == attachmentObject.usItem )
 						{
-							pSoldier->bWeaponMode = WM_ATTACHED_GL;
+							pSoldier->attackSelection().weaponMode() = WM_ATTACHED_GL;
 						}
 					}
 				}
@@ -6808,20 +6808,20 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 		//Madd: added code for nosemiauto tag
 		if (!Weapon[ Item[pObj->usItem].ubClassIndex ].NoSemiAuto)
 		{
-			pSoldier->bWeaponMode = WM_NORMAL;
+			pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 			pSoldier->bDoBurst = FALSE;
 			pSoldier->bDoAutofire = FALSE;
 		}
 		else
 		{
-			pSoldier->bWeaponMode = WM_AUTOFIRE;
+			pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 			pSoldier->bDoBurst = TRUE;
 			pSoldier->bDoAutofire = TRUE;
 		}
 		if (ItemIsTwoHanded(pObj->usItem) && Weapon[pObj->usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-			pSoldier->bScopeMode = USE_ALT_WEAPON_HOLD;
+			pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
 		else
-			pSoldier->bScopeMode = USE_BEST_SCOPE;
+			pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
     }
     // Lesh: end
 
@@ -8731,26 +8731,26 @@ BOOLEAN OBJECTTYPE::RemoveAttachment( OBJECTTYPE * pAttachment, OBJECTTYPE * pNe
 	if (pSoldier != NULL)
 	{
 		// if in attached weapon mode and don't have weapon with GL attached in hand, reset weapon mode
-		if ( ( (pSoldier->bWeaponMode == WM_ATTACHED_GL || pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST || pSoldier->bWeaponMode == WM_ATTACHED_GL_AUTO ) && !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ] ) ) ) ||
-			 ( (pSoldier->bWeaponMode == WM_ATTACHED_UB || pSoldier->bWeaponMode == WM_ATTACHED_UB_BURST || pSoldier->bWeaponMode == WM_ATTACHED_UB_AUTO ) && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_GUN   ) ) ||
-			 ( (pSoldier->bWeaponMode == WM_ATTACHED_BAYONET )																							   && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_BLADE ) ) ) 
+		if ( ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) && !IsGrenadeLauncherAttached( &(pSoldier->inv[ HANDPOS ] ) ) ) ||
+			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO ) && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_GUN   ) ) ||
+			 ( (pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET )																							   && !IsWeaponAttached( &(pSoldier->inv[ HANDPOS ]), IC_BLADE ) ) )
 		{
 			if ( !Weapon[pSoldier->inv[ HANDPOS ].usItem].NoSemiAuto )
 			{
-				pSoldier->bWeaponMode = WM_NORMAL;
+				pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 				pSoldier->bDoBurst = FALSE;
 				pSoldier->bDoAutofire = 0;
 			}
 			else
 			{
-				pSoldier->bWeaponMode = WM_AUTOFIRE;
+				pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
 				pSoldier->bDoBurst = TRUE;
 				pSoldier->bDoAutofire = 1;
 			}
 			if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
-				pSoldier->bScopeMode = USE_ALT_WEAPON_HOLD;
+				pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;
 			else
-				pSoldier->bScopeMode = USE_BEST_SCOPE;
+				pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
 		}
 	}
 
@@ -10466,8 +10466,8 @@ INT16 GetAimBonus( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, INT32 iRange, INT1
 			GetScopeLists(pSoldier, pObj, ObjList);
 		
 			// only use scope mode if gun is in hand, otherwise an error might occur!
-			if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD)
-				bonus = BonusReduceMore( GetItemAimBonus( &Item[ObjList[pSoldier->bScopeMode]->usItem], iRange, ubAimTime ), (*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+			if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD)
+				bonus = BonusReduceMore( GetItemAimBonus( &Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem], iRange, ubAimTime ), (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 		}
 		else
 			bonus = BonusReduceMore( GetItemAimBonus( &Item[pObj->usItem], iRange, ubAimTime ), (*pObj)[0]->data.objectStatus );
@@ -10753,16 +10753,16 @@ INT32 GetObjectModifier( SOLDIERTYPE* pSoldier, OBJECTTYPE *pObj, UINT8 ubStance
 		if ( gGameExternalOptions.fScopeModes && pSoldier && Item[pObj->usItem].usItemClass & IC_GUN )
 		{
 			// only apply boni if we are not hip-firing
-			if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+			if ( pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			{
 				std::map<INT8, OBJECTTYPE*> ObjList;
 				GetScopeLists(pSoldier, pObj, ObjList);
 
 				// only use scope mode if gun is in hand, otherwise an error might occur!
-				if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->bScopeMode] != NULL )
+				if ( (&pSoldier->inv[HANDPOS]) == pObj && ObjList[pSoldier->attackSelection().scopeMode()] != NULL )
 					// Do not apply weapon bonus/penalty because this will be added one step below. We don't want to apply it twice.
-					if ( pObj->usItem != ObjList[pSoldier->bScopeMode]->usItem )
-						iModifier += GetItemModifier(ObjList[pSoldier->bScopeMode], ubRef, usType);
+					if ( pObj->usItem != ObjList[pSoldier->attackSelection().scopeMode()]->usItem )
+						iModifier += GetItemModifier(ObjList[pSoldier->attackSelection().scopeMode()], ubRef, usType);
 			}
 		}
 	}
@@ -11100,8 +11100,8 @@ INT16 GetPercentAPReduction( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
 				GetScopeLists(pSoldier, pObj, ObjList);
 
 				// only use scope mode if gun is in hand, otherwise an error might occur!
-				if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
-					bonus += BonusReduceMore( Item[ObjList[pSoldier->bScopeMode]->usItem].percentapreduction, (*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+				if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+					bonus += BonusReduceMore( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].percentapreduction, (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 			}
 		}
 		else
@@ -11346,9 +11346,9 @@ INT16 GetVisionRangeBonus( SOLDIERTYPE * pSoldier )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
-						sScopebonus += BonusReduceMore( Item[ObjList[pSoldier->bScopeMode]->usItem].visionrangebonus, (*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+						sScopebonus += BonusReduceMore( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].visionrangebonus, (*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
 			}
 			else
@@ -11461,11 +11461,11 @@ INT16 GetNightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore(
-								NightBonusScale( Item[ObjList[pSoldier->bScopeMode]->usItem].nightvisionrangebonus, bLightLevel ),
-								(*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+								NightBonusScale( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].nightvisionrangebonus, bLightLevel ),
+								(*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
 			}
 			else
@@ -11567,11 +11567,11 @@ INT16 GetCaveVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
 						sScopebonus += BonusReduceMore(
-								NightBonusScale( Item[ObjList[pSoldier->bScopeMode]->usItem].cavevisionrangebonus, bLightLevel ),
-								(*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+								NightBonusScale( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].cavevisionrangebonus, bLightLevel ),
+								(*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
 			}
 			else
@@ -11679,11 +11679,11 @@ INT16 GetDayVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
-						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->bScopeMode]->usItem].dayvisionrangebonus
+						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].dayvisionrangebonus
 								* lightlevelmultiplier, lightleveldivisor ),
-								(*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+								(*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
 			}
 			else
@@ -11780,11 +11780,11 @@ INT16 GetBrightLightVisionRangeBonus( SOLDIERTYPE * pSoldier, UINT8 bLightLevel 
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
-						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->bScopeMode]->usItem].brightlightvisionrangebonus
+						sScopebonus += BonusReduceMore( idiv( Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].brightlightvisionrangebonus
 									* (NORMAL_LIGHTLEVEL_DAY - bLightLevel), NORMAL_LIGHTLEVEL_DAY ),
-									(*ObjList[pSoldier->bScopeMode])[0]->data.objectStatus );
+									(*ObjList[pSoldier->attackSelection().scopeMode()])[0]->data.objectStatus );
 				}
 			}
 			else
@@ -11933,9 +11933,9 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 					GetScopeLists(pSoldier, pObj, ObjList);
 		
 					// only use scope mode if gun is in hand, otherwise an error might occur!
-					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+					if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 						// now apply the bonus from the scope we use
-						bonus_gun += Item[ObjList[pSoldier->bScopeMode]->usItem].percenttunnelvision;
+						bonus_gun += Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].percenttunnelvision;
 				}
 			}
 			else
@@ -13194,8 +13194,8 @@ INT16 GetMinRangeForAimBonus( SOLDIERTYPE* pSoldier, OBJECTTYPE * pObj )
 			GetScopeLists(pSoldier, pObj, ObjList);
 		
 			// only use scope mode if gun is in hand, otherwise an error might occur!
-			if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
-				bonus = Item[ObjList[pSoldier->bScopeMode]->usItem].minrangeforaimbonus;
+			if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+				bonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].minrangeforaimbonus;
 		}
 		else
 			bonus = Item[pObj->usItem].minrangeforaimbonus;
@@ -13230,9 +13230,9 @@ FLOAT GetScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj, FLO
 		GetScopeLists(pSoldier, pObj, ObjList);
 		
 		// only use scope mode if gun is in hand, otherwise an error might occur!
-		if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+		if ( (&pSoldier->inv[HANDPOS]) == pObj  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			// now apply the bonus from the scope we use
-			BestFactor = Item[ObjList[pSoldier->bScopeMode]->usItem].scopemagfactor;
+			BestFactor = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].scopemagfactor;
 
 		return __max(1.0f, BestFactor);
 	}		
@@ -13261,9 +13261,9 @@ FLOAT GetBestScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj,
 {
 	// Flugente: if this weapon is an underbarrel weapon, use the 'carrier' weapon instead
 	OBJECTTYPE* pObjUsed = pObj;
-	if ( pObj == pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->ubAttackingHand] ) )
+	if ( pObj == pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] ) )
 	{
-		pObjUsed = &pSoldier->inv[pSoldier->ubAttackingHand];
+		pObjUsed = &pSoldier->inv[pSoldier->attackSelection().hand()];
 	}
 		
 	FLOAT BestFactor = 1.0;
@@ -13290,9 +13290,9 @@ FLOAT GetBestScopeMagnificationFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj,
 		GetScopeLists(pSoldier, pObjUsed, ObjList);
 		
 		// only use scope mode if gun is in hand, otherwise an error might occur!
-		if ( (&pSoldier->inv[HANDPOS]) == pObjUsed  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+		if ( (&pSoldier->inv[HANDPOS]) == pObjUsed  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			// now apply the bonus from the scope we use
-			CurrentFactor =  max(1.0f, Item[ObjList[pSoldier->bScopeMode]->usItem].scopemagfactor);
+			CurrentFactor =  max(1.0f, Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].scopemagfactor);
 		else
 			CurrentFactor = 1.0f;
 
@@ -13430,7 +13430,7 @@ FLOAT GetScopeModeProjectionFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj )
 			if ( IsAttachmentClass(iter->usItem, AC_SCOPE|AC_SIGHT|AC_IRONSIGHT) )
 			{
 				// ignore sight if not using it
-				if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD || iter->usItem != ObjList[pSoldier->bScopeMode]->usItem )
+				if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD || iter->usItem != ObjList[pSoldier->attackSelection().scopeMode()]->usItem )
 					continue;
 			}
 
@@ -13475,7 +13475,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	BOOLEAN fTwoHanded, fUsingBipod;
 
 	UINT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
-	rangeMultiplier = GetScopeRangeMultiplier(pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], (FLOAT)uiRange);
+	rangeMultiplier = GetScopeRangeMultiplier(pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], (FLOAT)uiRange);
 
 	// HEADROCK HAM 4: This function has been radically altered AGAIN for the NCTH project.
 	// Weapons can now have a tag that defines how many aim clicks they should have. Under the NCTH
@@ -13485,11 +13485,11 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	// out how much it should have using its class and range.
 
 	// Read from item
-	aimLevels = Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubAimLevels;
-	fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem);
-	weaponRange = ( Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->ubAttackingHand]) ) / 10000;
-	weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->ubAttackingHand]);
-	weaponType = Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubWeaponType;
+	aimLevels = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubAimLevels;
+	fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
+	weaponRange = ( Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]) ) / 10000;
+	weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]);
+	weaponType = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
 	fUsingBipod = FALSE;
 
 	// SANDRO - throwing knives are a special case, allow 2 aiming clicks for them
@@ -13497,7 +13497,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	{
 		aimLevels = 2;
 
-		if ( Item[pSoldier->inv[pSoldier->ubAttackingHand].usItem].usItemClass == IC_THROWING_KNIFE )
+		if ( Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
 		{
 			// minus the bonus for Throwing trait
 			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) )
@@ -13545,7 +13545,7 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
  	}
 
 	// SANDRO - scopes are not gonna give us any aim levels when firing from hip etc.
-	if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD ) 
+	if ( pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 	{
 		// HEADROCK HAM 4: This modifier from the weapon and its attachments replaces the generic bipod bonus.
 		UINT8 stance = gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight;
@@ -13554,15 +13554,15 @@ UINT8 AllowedAimingLevelsNCTH( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
 			stance = ANIM_PRONE;
 
-		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], stance, ITEMMODIFIER_AIMLEVELS );
-		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
+		INT32 moda = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], stance, ITEMMODIFIER_AIMLEVELS );
+		INT32 modb = GetObjectModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight, ITEMMODIFIER_AIMLEVELS );
 		aimLevels += (INT32) ((gGameExternalOptions.ubProneModifierPercentage * moda + (100 - gGameExternalOptions.ubProneModifierPercentage) * modb)/100); 
 	}
 
-	aimLevels += GetAimLevelsTraitModifier( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand]);
+	aimLevels += GetAimLevelsTraitModifier( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()]);
 
 	// however, the alternative stance, reduces number of aim levels on its own
-	if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD ) 
+	if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD )
 	{
 		aimLevels = (aimLevels * (100 - gGameExternalOptions.ubAltWeaponHoldingAimLevelsReduced) + 50) / 100; // round up
 	}
@@ -13585,7 +13585,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 
 	INT32 uiRange = GetRangeInCellCoordsFromGridNoDiff( pSoldier->position().gridNo(), sGridNo );
 
-	weaponType = Weapon[pSoldier->inv[pSoldier->ubAttackingHand].usItem].ubWeaponType;
+	weaponType = Weapon[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].ubWeaponType;
 
 	if ( gGameExternalOptions.fAimLevelRestriction ) // Extra aiming on/off 
 	{
@@ -13596,7 +13596,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			// SANDRO - throwing knives are a special case, allow two aiming clicks for them
 			if( weaponType == NOT_GUN ) 
 			{
-				if ( Item[pSoldier->inv[pSoldier->ubAttackingHand].usItem].usItemClass == IC_THROWING_KNIFE )
+				if ( Item[pSoldier->inv[pSoldier->attackSelection().hand()].usItem].usItemClass == IC_THROWING_KNIFE )
 				{
 					aimLevels = 2;
 					if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) )
@@ -13616,12 +13616,12 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			BOOLEAN fTwoHanded, fUsingBipod;
 			
 			// Read weapon data
-			fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->ubAttackingHand].usItem);
+			fTwoHanded = ItemIsTwoHanded(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
 
-			UINT16 usRange = GetModifiedGunRange(pSoldier->inv[pSoldier->ubAttackingHand].usItem);
+			UINT16 usRange = GetModifiedGunRange(pSoldier->inv[pSoldier->attackSelection().hand()].usItem);
 
-			weaponRange = ( usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->ubAttackingHand]) ) / 10000;
-			weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->ubAttackingHand]);
+			weaponRange = ( usRange * GetPercentRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]) ) / 10000;
+			weaponRange += GetRangeBonus(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 			fUsingBipod = FALSE;
 
 			maxAimWithoutBipod = 4;
@@ -13732,12 +13732,12 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			if ( gGameExternalOptions.fWeaponResting && pSoldier->IsWeaponMounted() )
 				stance = ANIM_PRONE;
 
-			if (GetBipodBonus(&pSoldier->inv[pSoldier->ubAttackingHand])>0 && stance == ANIM_PRONE )
+			if (GetBipodBonus(&pSoldier->inv[pSoldier->attackSelection().hand()])>0 && stance == ANIM_PRONE )
 			{
 				fUsingBipod = TRUE;
 			}
 			// SANDRO - scopes are not gonna give us any aim levels when firing from hip etc.
-			if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+			if ( pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			{
 				// don't break compatibility, let the users choose
 				if (gGameExternalOptions.iAimLevelsCompatibilityOption != 0)
@@ -13749,22 +13749,22 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 				//I've externalized the scope types.
 				else if ( gGameExternalOptions.fAimLevelsDependOnDistance )
 				{
-					if ( gGameExternalOptions.fScopeModes && pSoldier && (&pSoldier->inv[pSoldier->ubAttackingHand])->exists() == true && Item[(&pSoldier->inv[pSoldier->ubAttackingHand])->usItem].usItemClass == IC_GUN)
+					if ( gGameExternalOptions.fScopeModes && pSoldier && (&pSoldier->inv[pSoldier->attackSelection().hand()])->exists() == true && Item[(&pSoldier->inv[pSoldier->attackSelection().hand()])->usItem].usItemClass == IC_GUN)
 					{
 						// Flugente: check for scope mode
 						std::map<INT8, OBJECTTYPE*> ObjList;
-						GetScopeLists(pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand], ObjList);
+						GetScopeLists(pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()], ObjList);
 			
 						// only use scope mode if gun is in hand, otherwise an error might occur!
-						if ( (&pSoldier->inv[HANDPOS]) == &pSoldier->inv[pSoldier->ubAttackingHand] && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
-							sScopeBonus = Item[ObjList[pSoldier->bScopeMode]->usItem].aimbonus;
+						if ( (&pSoldier->inv[HANDPOS]) == &pSoldier->inv[pSoldier->attackSelection().hand()] && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+							sScopeBonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].aimbonus;
 					}
 					else
-						sScopeBonus = GetBaseScopeAimBonus( &pSoldier->inv[pSoldier->ubAttackingHand], uiRange );
+						sScopeBonus = GetBaseScopeAimBonus( &pSoldier->inv[pSoldier->attackSelection().hand()], uiRange );
 				}
 				else
 				{
-					sScopeBonus = GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand]);
+					sScopeBonus = GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()]);
 				}
 
 				if ( sScopeBonus >= gGameExternalOptions.sVeryHighPowerScope ) 
@@ -13804,14 +13804,14 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 		}
 		else // JA2 1.13 Basic aiming restrictions (8 levels for 10x scope, 6 levels for 7x scope)
 		{
-			OBJECTTYPE* pAttackingWeapon = &pSoldier->inv[pSoldier->ubAttackingHand];
+			OBJECTTYPE* pAttackingWeapon = &pSoldier->inv[pSoldier->attackSelection().hand()];
 			if ( !IsScoped( pAttackingWeapon ) )
 			{
 				// No scope. 4 Allowed.
 				aimLevels = 4;
 			}
 			// SANDRO - scopes are not gonna give us any aim levels when firing from hip etc.
-			else if ( pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
+			else if ( pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
 			{
 				//CHRRISL: yeah, this doesn't work.  GetMinRangeForAimBonus returns a range value in units while GetBaseScopeAimBonus returns a small number.
 				//	The result is that if fAimLevelsDependOnDistance is false, all scopes are going to grant +4 aim clicks which is definitely not what
@@ -13831,8 +13831,8 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 						GetScopeLists(pSoldier, pAttackingWeapon, ObjList);
 			
 						// only use scope mode if gun is in hand, otherwise an error might occur!
-						if ( (&pSoldier->inv[HANDPOS]) == pAttackingWeapon  && ObjList[pSoldier->bScopeMode] != NULL && pSoldier->bScopeMode != USE_ALT_WEAPON_HOLD )
-							sScopeBonus = Item[ObjList[pSoldier->bScopeMode]->usItem].aimbonus;
+						if ( (&pSoldier->inv[HANDPOS]) == pAttackingWeapon  && ObjList[pSoldier->attackSelection().scopeMode()] != NULL && pSoldier->attackSelection().scopeMode() != USE_ALT_WEAPON_HOLD )
+							sScopeBonus = Item[ObjList[pSoldier->attackSelection().scopeMode()]->usItem].aimbonus;
 					}
 					else
 						sScopeBonus = gGameExternalOptions.fAimLevelsDependOnDistance ? GetBaseScopeAimBonus( pAttackingWeapon, uiRange ) : GetBaseScopeAimBonus( pAttackingWeapon, 25000 );
@@ -13871,7 +13871,7 @@ UINT8 AllowedAimingLevels(SOLDIERTYPE * pSoldier, INT32 sGridNo)
 			}
 
 			// SANDRO - if using alternative weapon holding, we reduce the aim levels available
-			if ( pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && gGameExternalOptions.fScopeModes )
+			if ( pSoldier->attackSelection().scopeMode() == USE_ALT_WEAPON_HOLD && gGameExternalOptions.fScopeModes )
 			{
 				aimLevels /= 2;
 			}
@@ -14648,7 +14648,7 @@ UINT16 OldWayOfCalculatingScopeBonus(SOLDIERTYPE *pSoldier)
 	// Yes, this may look stupid, maybe it IS stupid, but this is purely an option
 	// to use code that was checked in before.
 	// Please, do not trash it again.
-	return max(0, GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->ubAttackingHand])
+	return max(0, GetMinRangeForAimBonus( pSoldier, &pSoldier->inv[pSoldier->attackSelection().hand()])
 		* gGameExternalOptions.iAimLevelsCompatibilityOption / gGameExternalOptions.ubStraightSightRange);
 }
 

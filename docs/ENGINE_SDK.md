@@ -297,7 +297,11 @@ mutating generic flags. `SoldierTargetingComponent` owns the selected target
 grid, elevation, cube level, previous target grid, and target soldier identity.
 The application UI, AI, weapons, simulation-command, animation-event, and
 multiplayer adapters use this one private owner; packages still receive only
-stable pointer-free tactical identities and snapshots. The
+stable pointer-free tactical identities and snapshots.
+`SoldierAttackSelectionComponent` owns the selected attacking hand and weapon,
+weapon and scope modes, and ranged and melee body locations. It is distinct
+from target geometry and from the later mutable firing sequence, so every
+producer chooses how to attack through one boundary. The
 `SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
@@ -311,10 +315,11 @@ change coordinated hit, fall, pause, and interruptibility state together.
 fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
-to its canonical slot. The serializer keeps targeting and persistent animation
-values at their established byte positions and preserves both continuation
-mode `2` and hit phase `2` as 8-bit values rather than reducing them to boolean
-`1`. The retired cache-pointer visitors emitted no bytes; load now resets the
+to its canonical slot. The serializer keeps targeting, attack selection, and
+persistent animation values at their established byte positions and preserves
+both continuation mode `2` and hit phase `2` as 8-bit values rather than
+reducing them to boolean `1`. The retired cache-pointer visitors emitted no
+bytes; load now resets the
 inline cache directly. The unused legacy delayed-cause-merc byte is retained
 only at its save position and is no longer live soldier state. None of these
 components changes content, map, packet, Lua, or save schemas.

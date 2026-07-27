@@ -139,7 +139,7 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 				pSoldier->bDoAutofire++;
 				sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime);
 			}
-			while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && pSoldier->inv[ pSoldier->ubAttackingHand ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && gbNumBurstLocations >= pSoldier->bDoAutofire);
+			while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && gbNumBurstLocations >= pSoldier->bDoAutofire);
 			pSoldier->bDoAutofire--;
 
 			ubShotsPerBurst = pSoldier->bDoAutofire;
@@ -150,7 +150,7 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 	}
 	else
 	{
-		if ( pSoldier->bWeaponMode == WM_ATTACHED_GL_BURST )
+		if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST )
 			ubShotsPerBurst = Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst;
 		else
 			ubShotsPerBurst = GetShotsPerBurst(&pSoldier->inv[ HANDPOS ]);
