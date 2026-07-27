@@ -973,6 +973,12 @@ the engine must not contain SDL types in its public domain model.
   preserve the intentionally independent breath, sleep-drug, and strategic
   fatigue lifecycles while the serializer retains every established field
   position and width.
+  `SoldierPerceptionComponent` separately owns sensory range, directional
+  movement-noise memory, heard-noise elevation, blindness and deafness
+  lifetimes, and X-ray activation time. Named operations expose the recovery
+  edge that must refresh sight, bound blindness extensions, and keep per-turn
+  noise cleanup independent from longer-lived effects. Opponent-list knowledge
+  and render visibility remain outside this boundary.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

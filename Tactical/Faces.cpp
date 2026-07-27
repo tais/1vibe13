@@ -2106,7 +2106,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// If blind...
-			if (pSoldier->bBlindedCounter > 0)
+			if (pSoldier->perception().isBlinded())
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 6);
 				bNumRightIcons++;

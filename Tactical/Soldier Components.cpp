@@ -53,6 +53,55 @@ void SoldierCollapseComponent::reset() noexcept
 	*this = SoldierCollapseComponent{};
 }
 
+bool SoldierPerceptionComponent::hasHeardMovementFrom(UINT8 direction) const noexcept
+{
+	return direction < 8 &&
+		(movementNoiseDirections_ & (1u << direction)) != 0;
+}
+
+void SoldierPerceptionComponent::rememberMovementFrom(UINT8 direction) noexcept
+{
+	if (direction < 8)
+	{
+		movementNoiseDirections_ |= static_cast<UINT8>(1u << direction);
+	}
+}
+
+bool SoldierPerceptionComponent::extendBlindnessToAtLeast(INT32 turns) noexcept
+{
+	if (blindnessTurns_ < turns)
+	{
+		blindnessTurns_ = static_cast<INT8>(turns);
+		return true;
+	}
+
+	return false;
+}
+
+bool SoldierPerceptionComponent::ageBlindness() noexcept
+{
+	if (blindnessTurns_ <= 0)
+	{
+		return false;
+	}
+
+	--blindnessTurns_;
+	return blindnessTurns_ == 0;
+}
+
+void SoldierPerceptionComponent::ageDeafness() noexcept
+{
+	if (deafnessTurns_ > 0)
+	{
+		--deafnessTurns_;
+	}
+}
+
+void SoldierPerceptionComponent::reset() noexcept
+{
+	*this = SoldierPerceptionComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

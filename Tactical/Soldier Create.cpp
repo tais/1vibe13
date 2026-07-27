@@ -2101,7 +2101,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 
 	// Set update time to new speed
 	pSoldier->animationIntent().clearDesiredHeight();
-	pSoldier->bViewRange					= NORMAL_VIEW_RANGE;
+	pSoldier->perception().viewRange()					= NORMAL_VIEW_RANGE;
 	pSoldier->bInSector					= FALSE;
 	pSoldier->position().gridNo()					= NOWHERE;
 	pSoldier->iMuzFlash					= -1;
@@ -2130,7 +2130,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->bCurrentCivQuoteDelta		= 0;
 	pSoldier->uiBattleSoundID			= NO_SAMPLE;
 	pSoldier->aiData.ubXRayedBy			= NOBODY;
-	pSoldier->uiXRayActivatedTime		= 0;
+	pSoldier->perception().deactivateXray();
 	pSoldier->fireControl().bulletsLeft()				= 0;
 	pSoldier->bVehicleUnderRepairID		= -1;
 	pSoldier->sFacilityTypeOperated		= -1; // HEADROCK HAM 3.6: Facility Operated

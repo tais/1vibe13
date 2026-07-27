@@ -396,7 +396,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	iActualMorale += pSoldier->newdrugs.size[DRUG_EFFECT_MORALE];
 
 	// sevenfm: bonus 20% to morale when using walkman
-	if (FindWalkman(pSoldier) != NO_SLOT && pSoldier->bDeafenedCounter == 0)
+	if (FindWalkman(pSoldier) != NO_SLOT && pSoldier->perception().deafnessTurns() == 0)
 	{
 		if (pSoldier->ubProfile != NO_PROFILE && gMercProfiles[pSoldier->ubProfile].bDisability == DEAF)
 			iActualMorale += iActualMorale / 10;

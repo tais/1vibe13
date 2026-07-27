@@ -1044,6 +1044,8 @@ public:
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
 	const SoldierCollapseComponent& collapseState() const noexcept { return collapseState_; }
+	SoldierPerceptionComponent& perception() noexcept { return perception_; }
+	const SoldierPerceptionComponent& perception() const noexcept { return perception_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1123,9 +1125,6 @@ public:
 									// sSectorX and sSectorY will reflect the sector the
 									// merc was at last.
 
-	UINT8			ubMovementNoiseHeard;// 8 flags by direction
-
-
 	// WORLD POSITION STUFF
 	FLOAT			dXPos;
 	FLOAT			dYPos;
@@ -1150,7 +1149,6 @@ public:
 
 
 	UINT8			bSide;
-	UINT8			bViewRange;
 	INT8 			bNewOppCnt;
 	INT8				bService;		// first aid, or other time consuming process
 	
@@ -1331,8 +1329,6 @@ public:
 	UINT8				ubMilitiaKills;
 	
 
-	INT8					bBlindedCounter;
-
 	UINT8				ubHoursOnAssignment;						// used for assignments handled only every X hours
 
 	UINT8				ubMercJustFired;		// the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
@@ -1341,7 +1337,6 @@ public:
 	UINT16				usQuoteSaidExtFlags;
 
 	UINT8				ubPendingActionInterrupted;
-	INT8					bNoiseLevel;
 	INT8					bRegenerationCounter;					// Flugente: not used anymore!
 	INT8					bRegenBoostersUsedToday;				// Flugente: not used anymore!
 	INT32				sSkillCheckGridNo;
@@ -1367,7 +1362,6 @@ public:
 	UINT32				uiTimeSinceLastSpoke;
 	UINT8				ubContractRenewalQuoteCode;
 	INT32				sPreTraversalGridNo;
-	UINT32				uiXRayActivatedTime;
 	INT8					bPendingActionData5;
 
 	INT8					bDelayedStrategicMoraleMod;
@@ -1383,7 +1377,6 @@ public:
 	INT8					bHospitalPriceModifier;
 	UINT32				uiStartTimeOfInsuranceContract;
 	INT8					bCorpseQuoteTolerance;
-	INT8					bDeafenedCounter;
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
 	INT32				sLastTwoLocations[2];
@@ -1505,6 +1498,7 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
+	SoldierPerceptionComponent	perception_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

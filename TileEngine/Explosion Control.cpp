@@ -1845,9 +1845,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				}
 				else // 10% chance to be blinded
 				{
-					if (pSoldier->bBlindedCounter < ubStatLoss )
+					if (pSoldier->perception().extendBlindnessToAtLeast(ubStatLoss))
 					{
-						pSoldier->bBlindedCounter = ubStatLoss ;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_BLINDED_BY_BLAST], pSoldier->GetName() );
 					}
 				}

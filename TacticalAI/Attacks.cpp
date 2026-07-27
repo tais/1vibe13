@@ -239,7 +239,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 
 		// determine return fire
 		if (pSoldier->suppression().underFire() &&
-			!pSoldier->bBlindedCounter &&
+			!pSoldier->perception().blindnessTurns() &&
 			pSoldier->combatResult().previousAttacker() == pOpponent->ubID)
 		{
 			fReturnFire = TRUE;
@@ -261,7 +261,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// sevenfm: blind soldier can only attack seen/heard personally
-		if (pSoldier->bBlindedCounter > 0 &&
+		if (pSoldier->perception().isBlinded() &&
 			bPersonalKnowledge != SEEN_THIS_TURN &&
 			bPersonalKnowledge != HEARD_THIS_TURN)
 		{
@@ -906,7 +906,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		if (IsRoofPresentAtGridNo(pSoldier->position().gridNo()) && pSoldier->position().level() == 0 || gfCaves || gfBasement)
 			return;
 
-		if (pSoldier->bBlindedCounter > 0)
+		if (pSoldier->perception().isBlinded())
 			return;
 
 		usGrenade = pSoldier->inv[bPayloadPocket].usItem;
@@ -923,7 +923,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		if (gfCaves || gfBasement)
 			return;
 
-		if (pSoldier->bBlindedCounter > 0)
+		if (pSoldier->perception().isBlinded())
 			return;
 
 		//dnl ch63 240813 Check if grenade is already attach or find one in pockets
@@ -950,7 +950,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 	{
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"calcbestthrow: buddy's got a rocket launcher");
 
-		if (pSoldier->bBlindedCounter > 0)
+		if (pSoldier->perception().isBlinded())
 			return;
 
 		// put in hand
@@ -1108,7 +1108,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 		}
 
 		// blinded soldier can only attack recently seen/heard opponents
-		if (pSoldier->bBlindedCounter > 0 &&
+		if (pSoldier->perception().isBlinded() &&
 			bPersonalKnowledge != SEEN_CURRENTLY &&
 			bPersonalKnowledge != SEEN_THIS_TURN &&
 			bPersonalKnowledge != HEARD_THIS_TURN)

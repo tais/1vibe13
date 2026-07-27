@@ -294,6 +294,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   signed 8-bit values at their original positions, and v101 conversion maps
   the original fields into that owner. No save or multiplayer packet bytes
   change.
+- View range, directional movement-noise memory, heard-noise elevation,
+  blindness/deafness durations, and X-ray activation time are now stored by
+  `SoldierPerceptionComponent`. The visitor emits the five 8-bit values and one
+  32-bit timestamp at their original POD positions, and v101 conversion maps
+  the original fields into that owner. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

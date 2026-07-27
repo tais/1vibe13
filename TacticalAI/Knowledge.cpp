@@ -218,7 +218,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	// if any "misc. noise" was also heard recently	
 	if (!TileIsOutOfBounds(pSoldier->aiData.sNoiseGridno))
 	{
-		if ( pSoldier->bNoiseLevel != pSoldier->position().level() || PythSpacesAway( pSoldier->position().gridNo(), pSoldier->aiData.sNoiseGridno ) >= 6 || SoldierTo3DLocationLineOfSightTest( pSoldier, pSoldier->aiData.sNoiseGridno, pSoldier->bNoiseLevel, 0, FALSE, NO_DISTANCE_LIMIT ) == 0 )
+		if ( pSoldier->perception().heardNoiseLevel() != pSoldier->position().level() || PythSpacesAway( pSoldier->position().gridNo(), pSoldier->aiData.sNoiseGridno ) >= 6 || SoldierTo3DLocationLineOfSightTest( pSoldier, pSoldier->aiData.sNoiseGridno, pSoldier->perception().heardNoiseLevel(), 0, FALSE, NO_DISTANCE_LIMIT ) == 0 )
 		{
 			// calculate how far this noise was, and its relative "importance"
 			iDistAway = SpacesAway(pSoldier->position().gridNo(),pSoldier->aiData.sNoiseGridno);
@@ -228,7 +228,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 			{
 				iBestValue = iNoiseValue;
 				sBestGridNo = pSoldier->aiData.sNoiseGridno;
-				bBestLevel = pSoldier->bNoiseLevel;
+				bBestLevel = pSoldier->perception().heardNoiseLevel();
 			}
 		}
 		else

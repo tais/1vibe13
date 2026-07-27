@@ -3152,7 +3152,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 								SOLDIERTYPE* previousAttacker =
 									GetJa2SoldierRepository().resolve(
 										pSoldier->combatResult().previousAttacker().i);
-								if( previousAttacker && !( previousAttacker->bDeafenedCounter > 0 ) )
+								if( previousAttacker && !( previousAttacker->perception().isDeafened() ) )
 									PossiblyStartEnemyTaunt( previousAttacker, TAUNT_RIPOSTE, pSoldier->ubID );
 								break;
 							}
@@ -3164,7 +3164,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 										GetJa2SoldierRepository().resolve(cnt.i);
 									if( enemy &&
 										enemy->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY
-										&& pSoldier->aiData.bOppList[cnt] == SEEN_CURRENTLY && !( enemy->bDeafenedCounter > 0 ) )
+										&& pSoldier->aiData.bOppList[cnt] == SEEN_CURRENTLY && !( enemy->perception().isDeafened() ) )
 									{
 										ubSeenEnemies[ubSeenEnemiesCnt] = cnt; 
 										ubSeenEnemiesCnt++;

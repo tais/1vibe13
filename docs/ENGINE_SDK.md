@@ -288,7 +288,13 @@ uses the established owner-authoritative packet field.
 collapse, recovery turns, the sleep-drug counter, and strategic fatigue
 collapse. Named transitions keep those related states coherent without
 coupling the independent timers; old-save conversion and explicit persistence
-retain all five established byte positions and widths. Current tactical grid,
+retain all five established byte positions and widths.
+`SoldierPerceptionComponent` separately owns view range, directional
+movement-noise memory, heard-noise elevation, blindness/deafness lifetimes, and
+X-ray activation time. Its named operations preserve the exact sight-recovery
+edge and per-turn noise cleanup while persistence retains all six original
+positions and widths. Opponent lists and render visibility are intentionally
+separate. Current tactical grid,
 elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot

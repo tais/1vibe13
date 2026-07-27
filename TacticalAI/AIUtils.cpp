@@ -412,7 +412,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 
 				// use swatting when blinded
 				if (IS_MERC_BODY_TYPE(pSoldier) &&
-					pSoldier->bBlindedCounter > 0)
+					pSoldier->perception().isBlinded())
 				{
 					return SWATTING;
 				}
@@ -1287,7 +1287,7 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 	{
 		// test this gridno, too
 		sGridNo = pSoldier->aiData.sNoiseGridno;
-		bLevel = pSoldier->bNoiseLevel;
+		bLevel = pSoldier->perception().heardNoiseLevel();
 
 		// if we are there (at the noise gridno)
 		if (sGridNo == pSoldier->position().gridNo())
@@ -3707,7 +3707,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	}
 
 	// sevenfm: retreat, also when blinded
-	if (pSoldier->RetreatCounterValue() > 0 || pSoldier->bBlindedCounter > 0)
+	if (pSoldier->RetreatCounterValue() > 0 || pSoldier->perception().isBlinded())
 	{
 		return MORALE_WORRIED;
 	}
