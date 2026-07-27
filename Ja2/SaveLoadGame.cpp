@@ -5979,7 +5979,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	SOLDIERTYPE	*pTeamSoldier;
 	for (SoldierID bLoop = gTacticalStatus.Team[gbPlayerNum].bFirstID; bLoop <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++bLoop)
 	{
-		pTeamSoldier = bLoop;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(bLoop.i);
 
 		// silversurfer: added additional check to only remove the flags when there is no boxing activity going on at the moment.
 		// WANNE: This should fix the bug if any merc are still under PC control. This could happen after boxing in SAN MONA.
@@ -8362,7 +8362,8 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 		ClearContractRehireSoldier();
 	else
 		(void)SetContractRehireSoldier(
-			sGeneralInfo.sContractRehireSoldierID);
+			GetJa2SoldierRepository().resolve(
+				sGeneralInfo.sContractRehireSoldierID.i));
 
 	memcpy( &gGameOptions, &sGeneralInfo.GameOptions, sizeof( GAME_OPTIONS ) );
 #ifndef BMP_RANDOM//dnl ch55 111009
@@ -8382,7 +8383,9 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 	if( sGeneralInfo.ubSMCurrentMercID == NOBODY)
 		(void)SetSMCurrentMerc(NULL);
 	else
-		(void)SetSMCurrentMerc(sGeneralInfo.ubSMCurrentMercID);
+		(void)SetSMCurrentMerc(
+			GetJa2SoldierRepository().resolve(
+				sGeneralInfo.ubSMCurrentMercID.i));
 
 	//Set the interface panel to the team panel
 	ShutdownCurrentPanel( );
@@ -8601,16 +8604,18 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 		SoldierID bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 		for ( ; Soldier <= bLastTeamID; ++Soldier)
 		{
-			if ( Soldier )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(Soldier.i);
+			if ( soldier )
 			{
-				UINT8 profile = Soldier->ubProfile;
-				gCamoFace[profile].gCamoface = ( Soldier->bCamo > 0 );
-				gCamoFace[profile].gUrbanCamoface = ( Soldier->urbanCamo > 0 );
-				gCamoFace[profile].gDesertCamoface = ( Soldier->desertCamo > 0 );
-				gCamoFace[profile].gSnowCamoface = ( Soldier->snowCamo > 0 );
+				UINT8 profile = soldier->ubProfile;
+				gCamoFace[profile].gCamoface = ( soldier->bCamo > 0 );
+				gCamoFace[profile].gUrbanCamoface = ( soldier->urbanCamo > 0 );
+				gCamoFace[profile].gDesertCamoface = ( soldier->desertCamo > 0 );
+				gCamoFace[profile].gSnowCamoface = ( soldier->snowCamo > 0 );
 
-				DeleteSoldierFace( Soldier );
-				Soldier->iFaceIndex = InitSoldierFace( Soldier );
+				DeleteSoldierFace( soldier );
+				soldier->iFaceIndex = InitSoldierFace( soldier );
 			}
 		}
 	}
@@ -8870,7 +8875,8 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			//loop through all the mercs and find one that is moving
 			for ( ; sSoldierCnt <= bLastTeamID; ++sSoldierCnt )
 			{
-				pSoldier = sSoldierCnt;
+				pSoldier =
+					GetJa2SoldierRepository().resolve(sSoldierCnt.i);
 				if( pSoldier && pSoldier->bActive )
 				{
 					//we found an alive, merc that is not moving

@@ -9,6 +9,7 @@
 	#include "sysutil.h"
 	#include "Soldier Profile.h"
 	#include "Soldier Control.h"
+	#include "SoldierRepository.h"
 	#include "Interface Items.h"
 	#include "Overhead.h"
 	#include "WordWrap.h"
@@ -2522,7 +2523,11 @@ INT8 AimMemberHireMerc()
 	if( sSoldierID == NOBODY )
 		return( FALSE );
 
-	sSoldierID->bTypeOfLastContract = bTypeOfContract;
+	SOLDIERTYPE* hiredSoldier =
+		GetJa2SoldierRepository().resolve(sSoldierID.i);
+	if ( !hiredSoldier )
+		return( FALSE );
+	hiredSoldier->bTypeOfLastContract = bTypeOfContract;
 
 
 	//add an entry in the finacial page for the hiring of the merc

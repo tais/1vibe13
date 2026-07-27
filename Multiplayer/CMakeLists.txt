@@ -17,6 +17,9 @@ add_library(Multiplayer STATIC
   "netshim/netshim.cpp"
 )
 
+target_compile_definitions(Multiplayer PRIVATE
+  JA2_EXPLICIT_SOLDIER_RESOLUTION)
+
 target_include_directories(Multiplayer PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}
   "netshim"

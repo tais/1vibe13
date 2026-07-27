@@ -21,6 +21,7 @@
 	#include "Assignments.h"
 	#include "gameloop.h"
 	#include "Soldier Add.h"
+	#include "SoldierRepository.h"
 	#include "Interface Items.h"
 	#include "Weapons.h"
 	#include "strategicmap.h"
@@ -518,19 +519,24 @@ void EnterPersonnel( void )
 
 	// Fill in the current team list
 	maxCurrentTeamIndex = -1;
-    SOLDIERTYPE *pTeamSoldier = MercPtrs[ 0 ];
-	for (SoldierID idx = gTacticalStatus.Team[ pTeamSoldier->bTeam ].bFirstID; 
-	     idx <= gTacticalStatus.Team[ pTeamSoldier->bTeam ].bLastID; 
+	SOLDIERTYPE *pTeamSoldier =
+		GetJa2SoldierRepository().resolve(0);
+	if ( !pTeamSoldier )
+		return;
+	for (SoldierID idx = gTacticalStatus.Team[ pTeamSoldier->bTeam ].bFirstID;
+	     idx <= gTacticalStatus.Team[ pTeamSoldier->bTeam ].bLastID;
 		 ++idx)
 	{
-        pTeamSoldier = idx; 
-				
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(idx.i);
+
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
 		//if ((pTeamSoldier->bActive) && 
 		//	!(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)  && 
 		//	/*(pTeamSoldier->vitals().health() > 0 ) && */  !AM_A_ROBOT(pTeamSoldier)  )
 
-		if ((pTeamSoldier->bActive) && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))				
+		if (pTeamSoldier && (pTeamSoldier->bActive) &&
+			!(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
 		{		
 			currentTeamList[++maxCurrentTeamIndex] = idx;
 		}
@@ -769,11 +775,15 @@ void RenderPersonnelStats( INT32 iId, INT32 iSlot )
 // -> bei departed Merc wird die MercId anstatt der fortlaufenden ID übergeben!!
 void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFired, BOOLEAN fOther )
 {
+	SOLDIERTYPE* activeSoldier =
+		GetJa2SoldierRepository().resolve(iSlot);
 	// Get the profile id (from profileId or slotId)
 	INT32 profileId = iId;
 	if (profileId == NOBODY)
 	{
-		profileId = MercPtrs[iSlot]->ubProfile;
+		if ( !activeSoldier )
+			return;
+		profileId = activeSoldier->ubProfile;
 	}
 
 	if ( profileId < 0 )
@@ -798,7 +808,8 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		}
 		
 		// TODO: Check if needed!
-		if( MercPtrs[iSlot]->flags.uiStatusFlags & SOLDIER_VEHICLE ) 
+		if( activeSoldier &&
+			activeSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
 			return;
 		}
@@ -831,7 +842,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 
 	if (fCurrentTeamMode) 
 	{
-		if( MercPtrs[iSlot]->vitals().health() <= 0 )
+		if( activeSoldier && activeSoldier->vitals().health() <= 0 )
 		{
 			hFaceHandle->pShades[ 0 ]		= Create16BPPPaletteShaded( hFaceHandle->pPaletteEntry, DEAD_MERC_COLOR_RED, DEAD_MERC_COLOR_GREEN, DEAD_MERC_COLOR_BLUE, TRUE );
 			//set the red pallete to the face
@@ -1238,7 +1249,9 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	{
 		return;
 	}
-	pSoldier = Id;
+	pSoldier = GetJa2SoldierRepository().resolve(Id.i);
+	if ( !pSoldier )
+		return;
 
 	SetFont(CHAR_NAME_FONT);
 	SetFontForeground(PERS_TEXT_FONT_COLOR);
@@ -1381,7 +1394,10 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 	CHAR16	apStr[5000];
 	CHAR16 sString[50];
 	INT16 sX, sY;
-	const SOLDIERTYPE *pSoldier = iId;
+	const SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(iId.i);
+	if ( !pSoldier )
+		return;
 	const BOOLEAN fAmIaRobot = AM_A_ROBOT( pSoldier );
 	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
 
@@ -2082,7 +2098,10 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 {
 	INT32 iCounter=0;
 	INT16 sX, sY;
-	SOLDIERTYPE *pSoldier = iId;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(iId.i);
+	if ( !pSoldier )
+		return;
 	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
 
 	// SANDRO - remove the regions
@@ -2458,18 +2477,25 @@ void CreateDestroyButtonsForPersonnelDepartures( void )
 
 INT32 GetNumberOfMercsOnPlayersTeam( void )
 {
-	SOLDIERTYPE *pTeamSoldier, *pSoldier;
+	SOLDIERTYPE *pTeamSoldier;
 	INT32 cnt=0;
 	INT32 iCounter = 0;
 
 	// grab number on team
-	pSoldier = MercPtrs[0];
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve(0);
+	if ( !pSoldier )
+		return 0;
 
 	// no soldiers
 
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++, pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID;
+		cnt++ )
 	{
-		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) )
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			( pTeamSoldier->vitals().health() > 0 ) )
 			iCounter++;
 	}
 
@@ -2536,7 +2562,11 @@ void DisplayPicturesOfCurrentTeam( void )
 			return;
 		} // if
 
-		SOLDIERTYPE *pSoldier = currentTeamList[currentOnSreenIndex];
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(
+				currentTeamList[currentOnSreenIndex].i);
+		if ( !pSoldier )
+			continue;
 		
 		if ( pSoldier->ubProfile >= 0 )
 		{
@@ -2593,7 +2623,14 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			currentTeamIndex = iPortraitId + currentTeamFirstIndex;
 			fReDrawScreenFlag = TRUE;
 			// if the selected merc is valid, and they are a POW, change to the inventory display
-			if( currentTeamIndex != -1 && currentTeamList[currentTeamIndex]->bAssignment == ASSIGNMENT_POW && gubPersonnelInfoState == PERSONNEL_INV_BTN ) {
+			SOLDIERTYPE* selectedSoldier =
+				currentTeamIndex != -1
+					? GetJa2SoldierRepository().resolve(
+						currentTeamList[currentTeamIndex].i)
+					: NULL;
+			if( selectedSoldier &&
+				selectedSoldier->bAssignment == ASSIGNMENT_POW &&
+				gubPersonnelInfoState == PERSONNEL_INV_BTN ) {
 				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
 		} else {
@@ -2637,7 +2674,14 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			guiSliderPosition = 0;
 
 			//if the selected merc is valid, and they are a POW, change to the inventory display
-			if( currentTeamIndex != -1 && currentTeamList[currentTeamIndex]->bAssignment == ASSIGNMENT_POW && gubPersonnelInfoState == PERSONNEL_INV_BTN) {
+			SOLDIERTYPE* selectedSoldier =
+				currentTeamIndex != -1
+					? GetJa2SoldierRepository().resolve(
+						currentTeamList[currentTeamIndex].i)
+					: NULL;
+			if( selectedSoldier &&
+				selectedSoldier->bAssignment == ASSIGNMENT_POW &&
+				gubPersonnelInfoState == PERSONNEL_INV_BTN) {
 				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
 		}
@@ -2740,7 +2784,9 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 	// render the bar for the character
 	RenderSliderBarForPersonnelInventory( );
 
-	pSoldier = iId;
+	pSoldier = GetJa2SoldierRepository().resolve(iId.i);
+	if ( !pSoldier )
+		return;
 
 	//if this is a robot, dont display any inventory
 	if( AM_A_ROBOT( pSoldier ) )
@@ -3002,7 +3048,11 @@ INT32 GetNumberOfInventoryItemsOnCurrentMerc( void )
 	if (!fCurrentTeamMode)
 		return( 0 );
 
-	SOLDIERTYPE *pSoldier = currentTeamList[currentTeamIndex];
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(
+			currentTeamList[currentTeamIndex].i);
+	if ( !pSoldier )
+		return 0;
 
 	INT32 ubCount = 0;
 	UINT8 invsize = pSoldier->inv.size();
@@ -3115,17 +3165,13 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 	INT32 cnt=0;
 	INT32 iCostOfTeam = 0;
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
-	// not active?..return cost of zero
-
 	// run through active soldiers
-	for ( pSoldier = MercPtrs[ 0 ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
-		pSoldier = MercPtrs[cnt];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( ( pSoldier->bActive) && ( pSoldier->vitals().health() > 0 ) )
+		if( pSoldier && ( pSoldier->bActive) &&
+			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3172,17 +3218,14 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 //	INT32 iId =0;
 	INT32 iCost = 0;
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
-	// not active?..return cost of zero
-
 	// run through active soldiers
-	for ( pSoldier = MercPtrs[ 0 ]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
-		pSoldier = MercPtrs[cnt];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( ( pSoldier->bActive ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->vitals().health() > 0 ) )
+		if( pSoldier && ( pSoldier->bActive ) &&
+			!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3242,17 +3285,14 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 //	INT32 iId =0;
 	INT32 iCost = 0;
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
-	// not active?..return cost of zero
-
 	// run through active soldiers
-	for ( pSoldier = MercPtrs[0]; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 	{
-		pSoldier = MercPtrs[cnt];
+		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( ( pSoldier->bActive) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pSoldier->vitals().health() > 0 ) )
+		if( pSoldier && ( pSoldier->bActive) &&
+			!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
 			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
@@ -3674,17 +3714,17 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	// will return the id value of the merc on the players team with highest in this stat
 	INT32 iId = NOBODY;
 	INT32 iValue =0;
-	SOLDIERTYPE *pTeamSoldier, *pSoldier;
+	SOLDIERTYPE *pTeamSoldier;
 	INT32 cnt=0;
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
-
 	// run through active soldiers
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
-		if( ( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			( pTeamSoldier->vitals().health() > 0 ) &&
+			!AM_A_ROBOT( pTeamSoldier ) )
 		{
 			switch( iStat )
 			{
@@ -3796,17 +3836,17 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	// will return the id value of the merc on the players team with highest in this stat
 	SoldierID iId = NOBODY;
 	INT32 iValue =999999;
-	SOLDIERTYPE *pTeamSoldier, *pSoldier;
+	SOLDIERTYPE *pTeamSoldier;
 	INT32 cnt=0;
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
-
 	// run through active soldiers
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
-		if(( pTeamSoldier->bActive) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && ( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			( pTeamSoldier->vitals().health() > 0 ) &&
+			!AM_A_ROBOT( pTeamSoldier ) )
 		{
 
 			switch( iStat )
@@ -3920,19 +3960,19 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 {
 	// will return the id value of the merc on the players team with highest in this stat
 	// -1 means error
-	SOLDIERTYPE *pTeamSoldier, *pSoldier;
+	SOLDIERTYPE *pTeamSoldier;
 	INT32 cnt=0;
 	INT32 iTotalStatValue = 0;
 	INT8	bNumberOfPows = 0;
 	UINT8	ubNumberOfMercsInCalculation = 0;
 
 
-	// first grunt
-	pSoldier = MercPtrs[0];
-
 	// run through active soldiers
-	for ( pTeamSoldier = MercPtrs[ cnt ]; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++,pTeamSoldier++)
+	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
+		if ( !pTeamSoldier )
+			continue;
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
@@ -4296,8 +4336,15 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
+		SOLDIERTYPE* currentSoldier =
+			fCurrentTeamMode
+				? GetJa2SoldierRepository().resolve(iId.i)
+				: NULL;
+		if ( fCurrentTeamMode && !currentSoldier )
+			continue;
 		if (fCurrentTeamMode) {
-				swprintf( sString, L"%s", iId->GetName() );
+			swprintf( sString, L"%s",
+				currentSoldier->GetName() );
 		} else {
 			// get name
 			swprintf( sString, L"%s", gMercProfiles[ iDepartedId ].zNickname );
@@ -4309,7 +4356,8 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 0:
 				// health
 				if (fCurrentTeamMode) {
-						iStat = iId->vitals().maximumHealth();
+					iStat =
+						currentSoldier->vitals().maximumHealth();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLife;
 				}
@@ -4317,7 +4365,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 1:
 				// agility
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bAgility;
+					iStat = currentSoldier->stats.bAgility;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
 				}
@@ -4325,7 +4373,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 2:
 				// dexterity
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bDexterity;
+					iStat = currentSoldier->stats.bDexterity;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
 				}
@@ -4333,7 +4381,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 3:
 				// strength
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bStrength;
+					iStat = currentSoldier->stats.bStrength;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
 				}
@@ -4341,7 +4389,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 4:
 				// leadership
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bLeadership;
+					iStat = currentSoldier->stats.bLeadership;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
 				}
@@ -4349,7 +4397,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 5:
 				// wisdom
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bWisdom;
+					iStat = currentSoldier->stats.bWisdom;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
 				}
@@ -4357,7 +4405,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 6:
 				// exper
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bExpLevel;
+					iStat = currentSoldier->stats.bExpLevel;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
 				}
@@ -4365,7 +4413,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 7:
 				//mrkmanship
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMarksmanship;
+					iStat = currentSoldier->stats.bMarksmanship;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
 				}
@@ -4373,7 +4421,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 8:
 				// mech
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMechanical;
+					iStat = currentSoldier->stats.bMechanical;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
 				}
@@ -4381,7 +4429,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 9:
 				// exp
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bExplosive;
+					iStat = currentSoldier->stats.bExplosive;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
 				}
@@ -4389,7 +4437,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 10:
 				// med
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMedical;
+					iStat = currentSoldier->stats.bMedical;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;
 				}
@@ -4463,9 +4511,16 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			SetFontForeground( PERS_TEXT_FONT_COLOR );
 		}
 
+		SOLDIERTYPE* currentSoldier =
+			fCurrentTeamMode
+				? GetJa2SoldierRepository().resolve(iId.i)
+				: NULL;
+		if ( fCurrentTeamMode && !currentSoldier )
+			continue;
 		if (fCurrentTeamMode)
 		{
-			swprintf( sString, L"%s", iId->GetName() );
+			swprintf( sString, L"%s",
+				currentSoldier->GetName() );
 		}
 		else
 		{
@@ -4479,7 +4534,8 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 0:
 				// health
 				if (fCurrentTeamMode) {
-					iStat = iId->vitals().maximumHealth();
+					iStat =
+						currentSoldier->vitals().maximumHealth();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLife;
 				}
@@ -4487,7 +4543,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 1:
 				// agility
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bAgility;
+					iStat = currentSoldier->stats.bAgility;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
 				}
@@ -4495,7 +4551,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 2:
 				// dexterity
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bDexterity;
+					iStat = currentSoldier->stats.bDexterity;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
 				}
@@ -4503,7 +4559,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 3:
 				// strength
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bStrength;
+					iStat = currentSoldier->stats.bStrength;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
 				}
@@ -4511,7 +4567,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 4:
 				// leadership
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bLeadership;
+					iStat = currentSoldier->stats.bLeadership;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
 				}
@@ -4519,7 +4575,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 5:
 				// wisdom
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bWisdom;
+					iStat = currentSoldier->stats.bWisdom;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
 				}
@@ -4527,7 +4583,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 6:
 				// exper
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bExpLevel;
+					iStat = currentSoldier->stats.bExpLevel;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
 				}
@@ -4535,7 +4591,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 7:
 				//mrkmanship
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMarksmanship;
+					iStat = currentSoldier->stats.bMarksmanship;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
 				}
@@ -4543,7 +4599,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 8:
 				// mech
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMechanical;
+					iStat = currentSoldier->stats.bMechanical;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
 				}
@@ -4551,7 +4607,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 9:
 				// exp
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bExplosive;
+					iStat = currentSoldier->stats.bExplosive;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
 				}
@@ -4559,7 +4615,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 10:
 				// med
 				if (fCurrentTeamMode) {
-					iStat = iId->stats.bMedical;
+					iStat = currentSoldier->stats.bMedical;
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;
 				}
@@ -5894,21 +5950,24 @@ void UpDateStateOfStartButton( void )
 	// if in current mercs and the currently selected guy is valid, enable button, else disable it
 	if (fCurrentTeamMode && currentTeamIndex != -1)
 	{
-			for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
-				EnableButton( giPersonnelATMStartButton[ i ] );
+		for ( int i = 0; i < PERSONNEL_NUM_BTN; ++i )
+			EnableButton( giPersonnelATMStartButton[ i ] );
 
-			SoldierID iId = currentTeamList[currentTeamIndex];
+		SoldierID iId = currentTeamList[currentTeamIndex];
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(iId.i);
 
-			if (iId != NOBODY && iId->bAssignment == ASSIGNMENT_POW )
+		if (iId != NOBODY && soldier &&
+			soldier->bAssignment == ASSIGNMENT_POW )
+		{
+			DisableButton( giPersonnelATMStartButton[ PERSONNEL_INV_BTN ] );
+
+			if ( gubPersonnelInfoState == PERSONNEL_INV_BTN )
 			{
-					DisableButton( giPersonnelATMStartButton[ PERSONNEL_INV_BTN ] );
-
-					if ( gubPersonnelInfoState == PERSONNEL_INV_BTN )
-					{
-						gubPersonnelInfoState = PERSONNEL_STAT_BTN;
-						fPausedReDrawScreenFlag = TRUE;
-					}
+				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
+				fPausedReDrawScreenFlag = TRUE;
 			}
+		}
 	}
 	else
 	{
@@ -5929,7 +5988,8 @@ void DisplayAmountOnCurrentMerc( void )
 		pSoldier = NULL;
 	} else {
 		// set soldier
-		pSoldier = currentTeamList[currentTeamIndex];
+		pSoldier = GetJa2SoldierRepository().resolve(
+			currentTeamList[currentTeamIndex].i);
 	}
 
 	sString = FormatMoney( GetFundsOnMerc( pSoldier ) );
@@ -5982,7 +6042,15 @@ void HandlePersonnelKeyboard( void )
 						guiSliderPosition = 0;
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
-						if( currentTeamIndex != -1 && currentTeamList[currentTeamIndex]->bAssignment == ASSIGNMENT_POW && gubPersonnelInfoState == PERSONNEL_INV_BTN)
+						SOLDIERTYPE* selectedSoldier =
+							currentTeamIndex != -1
+								? GetJa2SoldierRepository().resolve(
+									currentTeamList[currentTeamIndex].i)
+								: NULL;
+						if( selectedSoldier &&
+							selectedSoldier->bAssignment ==
+								ASSIGNMENT_POW &&
+							gubPersonnelInfoState == PERSONNEL_INV_BTN)
 							gubPersonnelInfoState = PERSONNEL_EMPLOYMENT_BTN;
 
 						fPausedReDrawScreenFlag = TRUE;
@@ -6003,7 +6071,15 @@ void HandlePersonnelKeyboard( void )
 						guiSliderPosition = 0;
 
 						//if the selected merc is valid, and they are a POW, change to the inventory display
-						if( currentTeamIndex != -1 && currentTeamList[currentTeamIndex]->bAssignment == ASSIGNMENT_POW && gubPersonnelInfoState == PERSONNEL_INV_BTN)
+						SOLDIERTYPE* selectedSoldier =
+							currentTeamIndex != -1
+								? GetJa2SoldierRepository().resolve(
+									currentTeamList[currentTeamIndex].i)
+								: NULL;
+						if( selectedSoldier &&
+							selectedSoldier->bAssignment ==
+								ASSIGNMENT_POW &&
+							gubPersonnelInfoState == PERSONNEL_INV_BTN)
 							gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 						
 						fPausedReDrawScreenFlag = TRUE;
@@ -6151,7 +6227,10 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		}
 	}
 
-	SOLDIERTYPE *pSoldier = iId;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(iId.i);
+	if ( !pSoldier )
+		return;
 	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
 	const STRUCT_Records *pRecords = &pMercProfile->records;
 
@@ -6249,32 +6328,32 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
-					uiDailyCost = gMercProfiles[ Menptr[ iId ].ubProfile ].uiBiWeeklySalary / 14;
+					uiDailyCost = pMercProfile->uiBiWeeklySalary / 14;
 				}
 				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
-					uiDailyCost = gMercProfiles[ Menptr[ iId ].ubProfile ].uiWeeklySalary / 7;
+					uiDailyCost = pMercProfile->uiWeeklySalary / 7;
 				}
 				else
 				{
-					uiDailyCost = gMercProfiles[ Menptr[ iId ].ubProfile ].sSalary;
+					uiDailyCost = pMercProfile->sSalary;
 				}
 
-//				swprintf( sString, L"%d",uiDailyCost * Menptr[ iId ].iTotalContractLength );
-				swprintf( sString, L"%d", gMercProfiles[ Menptr[ iId ].ubProfile ].uiTotalCostToDate );
+//				swprintf( sString, L"%d",uiDailyCost * pSoldier->iTotalContractLength );
+				swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
 			}
 			else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
 			{
-//					swprintf( sString, L"%d",gMercProfiles[ Menptr[ iId ].ubProfile ].sSalary * gMercProfiles[ Menptr[ iId ].ubProfile ].iMercMercContractLength );
-					swprintf( sString, L"%d", gMercProfiles[ Menptr[ iId ].ubProfile ].uiTotalCostToDate );
+//					swprintf( sString, L"%d",pMercProfile->sSalary * pMercProfile->iMercMercContractLength );
+					swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
 			}
 			else
 			{
 				//Display a $0 amount
 //				swprintf( sString, L"0" );
 
-				swprintf( sString, L"%d", gMercProfiles[ Menptr[ iId ].ubProfile ].uiTotalCostToDate );
+				swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
 			}
 */
 				swprintf( sString, L"%s", FormatMoney(pMercProfile->uiTotalCostToDate).data() );
@@ -8339,7 +8418,10 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 	const SoldierID lastid = gTacticalStatus.Team[gbPlayerNum].bLastID;
 	for ( ; id <= lastid; ++id)
 	{
-		pTeamSoldier = id;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(id.i);
+		if ( !pTeamSoldier )
+			continue;
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{

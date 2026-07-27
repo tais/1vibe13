@@ -242,7 +242,7 @@ inline SoldierID MPEncodeSoldierID( SoldierID ubID )
 // Wire SoldierIDs arrive via raw memcpy, so the clamping SoldierID ctor never
 // runs on them -- ubID.i can be a fully out-of-range 0..65535. Normalise any
 // such value to NOBODY here (the receive boundary) so that, combined with the
-// NULL-returning MercPtrs[] conversion in Overhead Types.h, an out-of-range
+// NULL-returning legacy SoldierID conversion, an out-of-range
 // wire id can never index past the array; it simply resolves to a NULL
 // SOLDIERTYPE* downstream and every existing "pSoldier == NULL" guard fires.
 inline SoldierID MPDecodeSoldierID( SoldierID ubID )

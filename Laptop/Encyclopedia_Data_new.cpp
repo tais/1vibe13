@@ -354,7 +354,7 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 *| variable name										| Type									|Index = person?					|Usage
 *|:---------------------------------------------------- | :------------------------------------ | :-------------------------------: | :------------------------------------------------------------
 *|1a. gMercProfiles[ NUM_PROFILES ]						|MERCPROFILESTRUCT, huge object			| yes for most, but not for all		| Used to create soldiers, can be used to get Name, Descriptions, Pictures. Each index is potentially a group of people (e.g. 200, vehicles and epc). On the other hand most profiles are unique to a soldier.
-*|1b. Menptr[ NUM_PROFILES ]							|SOLDIERTYPE, huge struct				| YES								| On tactical those are the people / vehicles / monsters / EPCs. Can provide a reference to a profile. Most likely they are destroyed upon unloading the map, to be recreated with potentially different profiles. Therfore not usable here.
+*|1b. Tactical soldier records							|SOLDIERTYPE, huge struct				| YES								| On tactical those are the people / vehicles / monsters / EPCs. Can provide a reference to a profile. Most likely they are destroyed upon unloading the map, to be recreated with potentially different profiles. Therfore not usable here.
 *|2a. AimMercArray[ NUM_PROFILES ]						|UINT8, IDs for gMercProfiles			| YES								| Used for AIM website. Aim members are on beginning of array, empty spots have (UNIT8)-1.
 *|2b. gAimAvailability[ NUM_PROFILES ]					|AIM_AVAILABLE, stuct					| YES								| Used for AIM website to get bio text and profile ID.
 *|3a. gubMercArray[ NUM_PROFILES ]						|UINT8, IDs for gMercProfiles			| YES								| Used for MERC website. MERC mebers are on beginning of array, empty spots have (UNIT8)-1.
@@ -383,7 +383,7 @@ INT16 GetNextPreviousCharacter( INT16 curChar, BOOLEAN next, ENC_DATA_FILTER_CHA
 			notFound = TRUE;//no AIM, no MERC
 			break;
 		case ENC_DATA_FILTER_C_OTHER :		// vehicles and electronic 'chars'
-			//if( notFound && IsMercHireable( i ) && i != 254 && Menptr[i].iVehicleId )
+			//if( notFound && IsMercHireable( i ) && i != 254 && soldier.iVehicleId )
 			//	return i;
 			if( (filterSubClass == 0 || filterSubClass == 1) && gMercProfiles[i].Type == PROFILETYPE_VEHICLE )
 				return i;

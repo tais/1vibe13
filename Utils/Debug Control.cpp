@@ -64,7 +64,7 @@ void LiveMessage( const CHAR8 *strMessage)
 {
 	SGP_LOG(s_LiveLog.id, strMessage);
 }
-void MPDebugMsg( CHAR8 *strMessage)
+void MPDebugMsg( const CHAR8 *strMessage)
 {
 	static vfs::Log& mpMsg = *vfs::Log::create(L"MPDebug.txt", true);
 	mpMsg << strMessage << vfs::Log::endl;

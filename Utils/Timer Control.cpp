@@ -12,6 +12,7 @@
 #include <Engine/Adapters/Legacy/PlatformTime.h>
 
 #include "Soldier Control.h"
+#include "SoldierRepository.h"
 #include "connect.h"
 
 #include <algorithm>
@@ -195,8 +196,10 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 			MapScreenMessage(162, 0, L"guiBaseJA2Clock overflow detected!");
 			for (UINT32 cnt = 0; cnt < TOTAL_SOLDIERS; cnt++)
 			{
-				if (MercPtrs[cnt])
-					MercPtrs[cnt]->ResetSoldierChangeStatTimer();
+				SOLDIERTYPE* soldier =
+					GetJa2SoldierRepository().resolve(cnt);
+				if (soldier)
+					soldier->ResetSoldierChangeStatTimer();
 			}
 		}
 
@@ -221,9 +224,17 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 		{
 			for ( UINT32 cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; cnt <= (UINT32)gTacticalStatus.Team[ gbPlayerNum ].bLastID; cnt++ )
 			{
-				SOLDIERTYPE* pSoldier = MercPtrs[ cnt ];
-				UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
-				UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
+				SOLDIERTYPE* pSoldier =
+					GetJa2SoldierRepository().resolve(cnt);
+				if ( pSoldier )
+				{
+					UpdateTimeCounter(
+						pSoldier->timeCounters.PortraitFlashCounter,
+						iTimeLeft );
+					UpdateTimeCounter(
+						pSoldier->timeCounters.PanelAnimateCounter,
+						iTimeLeft );
+				}
 			}
 		}
 		else

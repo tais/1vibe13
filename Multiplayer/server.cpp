@@ -35,6 +35,7 @@
 #include "network.h"
 #include "message.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "fresh_header.h"
 #include "Debug Control.h"
 #include "MPXmlTeams.hpp"
@@ -224,7 +225,11 @@ void sendHIT(RPCParameters *rpcParameters)
 
 	// MP wire guard: the attacker id is raw wire data; the slot can be empty or
 	// the sentinel NOBODY -- never deref unchecked (mp_audit_findings.json)
-	SOLDIERTYPE* pAtt = ( hit->ubAttackerID != NOBODY ) ? (SOLDIERTYPE*)hit->ubAttackerID : NULL;
+	SOLDIERTYPE* pAtt =
+		hit->ubAttackerID != NOBODY
+			? GetJa2SoldierRepository().resolve(
+				hit->ubAttackerID.i)
+			: NULL;
 	if ( pAtt != NULL )
 	{
 		int team = pAtt->bTeam;
@@ -379,9 +384,14 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 {
 	EV_S_STRUCTUREHIT* miss = (EV_S_STRUCTUREHIT*)rpcParameters->input;
 	
-	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
+	SOLDIERTYPE* attacker =
+		miss->ubAttackerID != NOBODY
+			? GetJa2SoldierRepository().resolve(
+				miss->ubAttackerID.i)
+			: NULL;
+	if ( attacker )
 	{
-		int team = miss->ubAttackerID->bTeam;
+		int team = attacker->bTeam;
 		
 		// AI
 		if (team == 1) 
@@ -404,9 +414,14 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 	EV_S_WINDOWHIT* miss = (EV_S_WINDOWHIT*)rpcParameters->input;
 	
 
-	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
+	SOLDIERTYPE* attacker =
+		miss->ubAttackerID != NOBODY
+			? GetJa2SoldierRepository().resolve(
+				miss->ubAttackerID.i)
+			: NULL;
+	if ( attacker )
 	{
-		int team = miss->ubAttackerID->bTeam;
+		int team = attacker->bTeam;
 		
 		// AI
 		if (team == 1) 
@@ -428,9 +443,14 @@ void sendMISS(RPCParameters *rpcParameters)
 {
 	EV_S_MISS* miss = (EV_S_MISS*)rpcParameters->input;
 
-	if ( miss->ubAttackerID != NOBODY && ((SOLDIERTYPE*)miss->ubAttackerID) != NULL )
+	SOLDIERTYPE* attacker =
+		miss->ubAttackerID != NOBODY
+			? GetJa2SoldierRepository().resolve(
+				miss->ubAttackerID.i)
+			: NULL;
+	if ( attacker )
 	{
-		int team = miss->ubAttackerID->bTeam;
+		int team = attacker->bTeam;
 		
 		// AI
 		if (team == 1) 

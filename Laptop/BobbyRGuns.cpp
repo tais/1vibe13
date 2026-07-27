@@ -12,6 +12,7 @@
 	#include "LaptopSave.h"
 	#include "finances.h"
 	#include "Overhead.h"
+	#include "SoldierRepository.h"
 	#include "Weapons.h"
 	#include "GameSettings.h"
 	#include "Points.h"
@@ -3720,8 +3721,9 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 	//loop through all the mercs on the team
 	for( id = ubFirstID; id <= ubLastID; ++id )
 	{
-		SOLDIERTYPE *pSoldier = id;
-		if( pSoldier->bActive )
+		SOLDIERTYPE *pSoldier =
+			GetJa2SoldierRepository().resolve(id.i);
+		if( pSoldier && pSoldier->bActive )
 		{
 			//loop through all the pockets on the merc
 			UINT8 invsize = pSoldier->inv.size();

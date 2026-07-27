@@ -7,6 +7,7 @@
 	#include "Isometric Utils.h"
 	#include "renderworld.h"
 	#include "GameSettings.h"
+	#include "SoldierRepository.h"
 	#include "math.h"
 
 #define	SOUND_FAR_VOLUME_MOD	25
@@ -579,8 +580,10 @@ UINT32 PlaySoldierJA2Sample( SoldierID usID, UINT32 usNum, UINT32 usRate, UINT32
 {
 	if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 	{
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve(usID.i);
 		// CHECK IF GUY IS ON SCREEN BEFORE PLAYING!
-		if ( ( usID->bVisible != -1 ) || !fCheck )
+		if ( soldier && ( soldier->bVisible != -1 || !fCheck ) )
 		{
 			return( PlayJA2Sample( usNum, usRate, CalculateSoundEffectsVolume( ubVolume ), ubLoops, uiPan ) );
 		}
@@ -1080,7 +1083,8 @@ void SetPositionSndsVolumeAndPanning()
 
 					if ( pPositionSnd->uiFlags & POSITION_SOUND_FROM_SOLDIER )
 					{
-						pSoldier = MercPtrs[ pPositionSnd->uiData ];
+						pSoldier = GetJa2SoldierRepository().resolve(
+							pPositionSnd->uiData);
 
 						if ( pSoldier != NULL && pSoldier->bVisible == -1 )
 						{
