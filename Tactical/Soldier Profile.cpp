@@ -1619,8 +1619,8 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		pNewSoldier->stats.bMechanical										= pSoldier->stats.bMechanical;
 		pNewSoldier->stats.bExplosive											= pSoldier->stats.bExplosive;
 		pNewSoldier->stats.bScientific										= pSoldier->stats.bScientific;
-		pNewSoldier->bLastRenderVisibleValue				= pSoldier->bLastRenderVisibleValue;
-		pNewSoldier->bVisible												= pSoldier->bVisible;
+		pNewSoldier->awareness().lastRenderedVisibility()				= pSoldier->awareness().lastRenderedVisibility();
+		pNewSoldier->awareness().visibility()												= pSoldier->awareness().visibility();
 		// added by SANDRO - insta-healable injury zero on soldier creation
 		pNewSoldier->iHealableInjury = pSoldier->iHealableInjury; 
 		
@@ -1648,7 +1648,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		
 		if ( ubTeam == gbPlayerNum )
 		{
-			pNewSoldier->bVisible= 1;
+			pNewSoldier->awareness().markVisible();
 		}
 
 		//CHRISL: Rather then resorting the profile, which recreates all the items, what if we simply try and sort the

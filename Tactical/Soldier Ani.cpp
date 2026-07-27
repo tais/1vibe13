@@ -1553,7 +1553,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 
 						// only locate if the enemy is visible or he's aiming at a player
-						if ( pSoldier->bVisible != -1 ||
+						if ( pSoldier->awareness().visibility() != -1 ||
 							(target != nullptr && target->bTeam == gbPlayerNum) )
 						{
 							LocateGridNo( pSoldier->targeting().gridNo() );
@@ -1933,13 +1933,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 													{
 														if ( Random( 10 ) == 1 )
 														{
-															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->bVisible == -1 )
+															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->awareness().visibility() == -1 )
 															{
 																// DO this every 10th time or so...
 																if ( Random( 100 ) < 10 )
 																{
 																	// Play sound
-																	if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+																	if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 																		PlayJA2SampleFromFile(	pAnimDef->zSoundFile, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 																}
 															}
@@ -1947,7 +1947,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 															{
 
 																// Play sound
-																if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+																if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 																	PlayJA2SampleFromFile( pAnimDef->zSoundFile, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 															}
 														}
@@ -1956,13 +1956,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 													{
 														if ( Random( 4 ) == 1 )
 														{
-															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->bVisible == -1 )
+															if ( ( IsJa2TacticalCombatActive() ) && pSoldier->awareness().visibility() == -1 )
 															{
 																// DO this every 10th time or so...
 																if ( Random( 100 ) < 10 )
 																{
 																	// Play sound
-																	if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+																	if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 																		PlayJA2SampleFromFile(	pAnimDef->zSoundFile, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 																}
 															}
@@ -1970,7 +1970,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 															{
 
 																// Play sound
-																if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+																if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 																	PlayJA2SampleFromFile( pAnimDef->zSoundFile, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 															}
 														}
@@ -1978,7 +1978,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 													else
 													{
 														// Play sound
-														if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+														if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 															PlayJA2SampleFromFile( pAnimDef->zSoundFile, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 													}
 												}
@@ -2544,7 +2544,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						HandleSystemNewAISituation( pSoldier, TRUE );
 
 						// sevenfm: update tree visibility after changing stance
-						if (//pSoldier->bVisible != -1 && 
+						if (//pSoldier->awareness().visibility() != -1 &&
 							pSoldier->bTeam != OUR_TEAM &&
 							(pSoldier->bTeam != MILITIA_TEAM || !gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa))
 							UpdateTreeVisibility();
@@ -2785,7 +2785,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						if ( usSoundID != 0 )
 						{
-							if (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
+							if (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE))
 								PlayJA2Sample( usSoundID, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 						}
 					}
@@ -3218,7 +3218,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: Drop item at gridno
 				if ( pSoldier->pTempObject != NULL )
 				{
-					if ( pSoldier->bVisible != -1 )
+					if ( pSoldier->awareness().visibility() != -1 )
 					{
 						if (Water(pSoldier->aiData.sPendingActionData2, pSoldier->position().level()))
 						{
@@ -3376,7 +3376,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				break;
 
 			case 778:
-				if (!pSoldier->bStealthMode && (pSoldier->bVisible == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE)))
+				if (!pSoldier->bStealthMode && (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE)))
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
@@ -4069,7 +4069,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							ReBuildCharactersList( );
 						}
 					}
-					else if ( pSoldier->bVisible == TRUE )
+					else if ( pSoldier->awareness().visibility() == TRUE )
 					{
 						// We were a visible enemy, say laugh!
 						if ( attacker != nullptr && Random(3) == 0 &&

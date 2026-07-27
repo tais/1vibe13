@@ -143,6 +143,67 @@ private:
 	INT8 deafnessTurns_ = 0;
 };
 
+// Canonical tactical awareness state. This owns whether the player currently
+// knows where the soldier is, the last visibility consumed by rendering, the
+// count of newly discovered opponents, and the movement distance used to age
+// stale opponent knowledge. Sensory capability remains in
+// SoldierPerceptionComponent; opponent lists remain in the AI data adapter.
+class SoldierAwarenessComponent
+{
+public:
+	INT8& visibility() noexcept { return visibility_; }
+	const INT8& visibility() const noexcept { return visibility_; }
+	INT8& lastRenderedVisibility() noexcept { return lastRenderedVisibility_; }
+	const INT8& lastRenderedVisibility() const noexcept { return lastRenderedVisibility_; }
+	INT8& newOpponentCount() noexcept { return newOpponentCount_; }
+	const INT8& newOpponentCount() const noexcept { return newOpponentCount_; }
+	UINT8& tilesSinceForget() noexcept { return tilesSinceForget_; }
+	const UINT8& tilesSinceForget() const noexcept { return tilesSinceForget_; }
+
+	bool visibleNow() const noexcept { return visibility_ == TRUE; }
+	bool fullyHidden() const noexcept { return visibility_ == -1; }
+	bool fadingOut() const noexcept { return visibility_ == -2; }
+	bool locationKnown() const noexcept { return visibility_ >= 0; }
+	bool renderVisibilityChanged() const noexcept
+	{
+		return visibility_ != lastRenderedVisibility_;
+	}
+	bool hasNewOpponents() const noexcept { return newOpponentCount_ != 0; }
+	void markVisible() noexcept { visibility_ = TRUE; }
+	void markHidden() noexcept { visibility_ = -1; }
+	void markIndeterminate() noexcept { visibility_ = 0; }
+	void beginFadeOut() noexcept { visibility_ = -2; }
+	void syncRenderedVisibility() noexcept { lastRenderedVisibility_ = visibility_; }
+	void setVisibilityAndRendered(INT8 visibility) noexcept
+	{
+		visibility_ = visibility;
+		lastRenderedVisibility_ = visibility;
+	}
+	void recordNewOpponent() noexcept
+	{
+		if (newOpponentCount_ < 127)
+		{
+			++newOpponentCount_;
+		}
+	}
+	void clearNewOpponents() noexcept { newOpponentCount_ = 0; }
+	void recordTileForMemory() noexcept
+	{
+		if (tilesSinceForget_ < 255)
+		{
+			++tilesSinceForget_;
+		}
+	}
+	void resetForgetDistance() noexcept { tilesSinceForget_ = 0; }
+	void reset() noexcept;
+
+private:
+	INT8 visibility_ = 0;
+	INT8 lastRenderedVisibility_ = 0;
+	INT8 newOpponentCount_ = 0;
+	UINT8 tilesSinceForget_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

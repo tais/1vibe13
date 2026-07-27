@@ -979,6 +979,13 @@ the engine must not contain SDL types in its public domain model.
   edge that must refresh sight, bound blindness extensions, and keep per-turn
   noise cleanup independent from longer-lived effects. Opponent-list knowledge
   and render visibility remain outside this boundary.
+  `SoldierAwarenessComponent` owns the complementary player-knowledge state:
+  current tactical visibility, the last visibility consumed by rendering, new
+  opponent discovery count, and movement distance used to expire stale
+  knowledge. Named visible, hidden, indeterminate, fade, render-sync, discovery,
+  and forget-distance operations replace scattered magic-state mutations; both
+  counters saturate rather than wrapping. Per-observer opponent lists remain in
+  the TacticalAI adapter.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

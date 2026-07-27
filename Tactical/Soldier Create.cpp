@@ -659,12 +659,12 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		{
 			Soldier.flags.uiStatusFlags |= SOLDIER_PC;
 			Soldier.bTeam = gbPlayerNum;
-			Soldier.bVisible = 1;
+			Soldier.awareness().markVisible();
 		}
 		else if ( pCreateStruct->fPlayerPlan )
 		{
 			Soldier.flags.uiStatusFlags |= SOLDIER_PC;
-			Soldier.bVisible = 1;
+			Soldier.awareness().markVisible();
 		}
 		else
 		{
@@ -739,7 +739,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// if WE_SEE_WHAT_MILITIA_SEES
 			if ( Soldier.bTeam == MILITIA_TEAM )
 			{
-				Soldier.bVisible = 1;
+				Soldier.awareness().markVisible();
 			}
 		}
 
@@ -2084,7 +2084,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->initialize();
 
 	// Set default values
-	pSoldier->bVisible = -1;
+	pSoldier->awareness().markHidden();
 	pSoldier->iFaceIndex	 = -1;
 
 	// Set morale default
@@ -2109,7 +2109,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->animationIntent().clearPendingStance();
 	pSoldier->animationIntent().clearPendingDirection();
 	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
-	pSoldier->bLastRenderVisibleValue	= -1;
+	pSoldier->awareness().syncRenderedVisibility();
 	pSoldier->vitals().breath()					= 99;
 	pSoldier->vitals().maximumBreath()					= 100;
 	pSoldier->bActive					= TRUE;

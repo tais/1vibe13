@@ -3179,7 +3179,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					(!(s->flags.uiStatusFlags & SOLDIER_PC) ||
 						blockingSoldier->bSide == s->bSide ||
 						blockingSoldier->aiData.bNeutral ||
-						blockingSoldier->bVisible >= 0 ||
+						blockingSoldier->awareness().visibility() >= 0 ||
 						SoldierToSoldierLineOfSightTest(
 							s, blockingSoldier, TRUE,
 							CALC_FROM_ALL_DIRS)))

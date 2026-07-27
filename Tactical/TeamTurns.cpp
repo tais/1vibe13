@@ -754,7 +754,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 	}
 	EndDeadlockMsg( );
 
-	if (pSoldier->bVisible != -1 )
+	if (pSoldier->awareness().visibility() != -1 )
 	{
 		SlideTo( pSoldier->ubID, SETLOCATOR);
 	}

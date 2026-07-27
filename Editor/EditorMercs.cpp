@@ -584,8 +584,7 @@ void AddMercToWorld( INT32 iMapIndex )
 		//Create the soldier, but don't place it yet.
 		if ( pSoldier = TacticalCreateSoldier( &gTempDetailedPlacement, &ubID ) )
 		{
-			pSoldier->bVisible = 1;
-			pSoldier->bLastRenderVisibleValue = 1;
+			pSoldier->awareness().setVisibilityAndRendered(1);
 			//Set up the soldier in the list, so we can track the soldier in the
 			//future (saving, loading, strategic AI)
 			pNode = AddBasicPlacementToSoldierInitList( &gTempBasicPlacement );
@@ -1601,7 +1600,7 @@ void IndicateSelectedMerc( INT16 sID )
 						gpSelected = gSoldierInitHead;
 					continue;
 				}
-				if( gpSelected->pSoldier && gpSelected->pSoldier->bVisible == 1 )
+				if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 )
 				{ //we have found a visible soldier, so select him.
 					break;
 				}
@@ -1692,7 +1691,7 @@ void IndicateSelectedMerc( INT16 sID )
 					gpSelected = gSoldierInitHead;
 				continue;
 			}
-			if( gpSelected->pSoldier && gpSelected->pSoldier->bVisible == 1 && gpSelected->pSoldier->bTeam == bTeam )
+			if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 && gpSelected->pSoldier->bTeam == bTeam )
 			{ //we have found a visible soldier on the desired team, so select him.
 				break;
 			}
@@ -1705,7 +1704,7 @@ void IndicateSelectedMerc( INT16 sID )
 			return;
 		if( gpSelected == prev	)
 		{ //we have cycled through the list already, so choose the same guy (if he is on the desired team)...
-			if( !gpSelected->pSoldier || gpSelected->pSoldier->bVisible != 1 || gpSelected->pSoldier->bTeam != bTeam )
+			if( !gpSelected->pSoldier || gpSelected->pSoldier->awareness().visibility() != 1 || gpSelected->pSoldier->bTeam != bTeam )
 			{
 				SetMercEditability( TRUE );
 				SetMercEditingMode( MERC_TEAMMODE );
@@ -3217,7 +3216,7 @@ void RenderMercStrings()
 	curr = gSoldierInitHead;
 	while( curr )
 	{
-		if( curr->pSoldier && curr->pSoldier->bVisible == 1 )
+		if( curr->pSoldier && curr->pSoldier->awareness().visibility() == 1 )
 		{ //Render the health text
 			pSoldier = curr->pSoldier;
 			GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, FALSE );
@@ -3376,8 +3375,7 @@ void SetMercTeamVisibility( INT8 bTeam, BOOLEAN fVisible )
 		{
 			if( curr->pSoldier )
 			{
-				curr->pSoldier->bLastRenderVisibleValue = bVisible;
-				curr->pSoldier->bVisible = bVisible;
+				curr->pSoldier->awareness().setVisibilityAndRendered(bVisible);
 			}
 		}
 		curr = curr->next;
@@ -3826,8 +3824,7 @@ void PasteMercPlacement( INT32 iMapIndex )
 		//Create the soldier, but don't place it yet.
 		if ( pSoldier = TacticalCreateSoldier( &tempDetailedPlacement, &ubID ) )
 		{
-			pSoldier->bVisible = 1;
-			pSoldier->bLastRenderVisibleValue = 1;
+			pSoldier->awareness().setVisibilityAndRendered(1);
 			//Set up the soldier in the list, so we can track the soldier in the
 			//future (saving, loading, strategic AI)
 			pNode = AddBasicPlacementToSoldierInitList( &gTempBasicPlacement );

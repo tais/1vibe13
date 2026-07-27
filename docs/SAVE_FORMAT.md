@@ -300,6 +300,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   32-bit timestamp at their original POD positions, and v101 conversion maps
   the original fields into that owner. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- Current tactical visibility, last-rendered visibility, new-opponent count, and
+  movement distance used to expire stale knowledge are now stored by
+  `SoldierAwarenessComponent`. The visitor still emits the three signed 8-bit
+  values and one unsigned 8-bit value at their original four POD positions, and
+  v101 conversion maps the original fields into that owner. No save, packet,
+  map, XML, Lua, or installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

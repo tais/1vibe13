@@ -1091,7 +1091,7 @@ BOOLEAN ExecuteOverhead( )
                         if ( bShadeLevel >= ( SHADE_MIN - 3 ) )
                         {
                             pSoldier->flags.fBeginFade = FALSE;
-                            pSoldier->bVisible = -1;
+                            pSoldier->awareness().markHidden();
                             // Set levelnode shade level....
                             if ( pSoldier->pLevelNode )
                             {
@@ -1130,11 +1130,11 @@ BOOLEAN ExecuteOverhead( )
             }
 
             // Check if we have a new visiblity and shade accordingly down
-            if ( pSoldier->bLastRenderVisibleValue != pSoldier->bVisible    )
+            if ( pSoldier->awareness().renderVisibilityChanged() )
             {
                 HandleCrowShadowVisibility( pSoldier );
                 // Check for fade out....
-                if ( pSoldier->bVisible == -1 && pSoldier->bLastRenderVisibleValue >= 0 )
+                if ( pSoldier->awareness().fullyHidden() && pSoldier->awareness().lastRenderedVisibility() >= 0 )
                 {                       
                     if (!TileIsOutOfBounds(pSoldier->position().gridNo()))
                     {
@@ -1144,10 +1144,10 @@ BOOLEAN ExecuteOverhead( )
                     pSoldier->sLocationOfFadeStart = pSoldier->position().gridNo();
                     // OK, re-evaluate guy's roof marker
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), FALSE, FALSE );
-                    pSoldier->bVisible = -2;
+                    pSoldier->awareness().beginFadeOut();
                 }
                 // Check for fade in.....
-                if ( pSoldier->bVisible != -1 && pSoldier->bLastRenderVisibleValue == -1 && pSoldier->bTeam != gbPlayerNum )
+                if ( !pSoldier->awareness().fullyHidden() && pSoldier->awareness().lastRenderedVisibility() == -1 && pSoldier->bTeam != gbPlayerNum )
                 {
                     pSoldier->ubFadeLevel = ( SHADE_MIN - 3 );
                     pSoldier->flags.fBeginFade  = 2;
@@ -1157,14 +1157,14 @@ BOOLEAN ExecuteOverhead( )
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), TRUE, FALSE );
                 }
             }
-            pSoldier->bLastRenderVisibleValue = pSoldier->bVisible;
+            pSoldier->awareness().syncRenderedVisibility();
 
             // Handle stationary polling...
             if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove )
             {
                 // Are are stationary....
                 // Were we once moving...?
-                if ( pSoldier->flags.fSoldierWasMoving && pSoldier->bVisible > -1 )
+                if ( pSoldier->flags.fSoldierWasMoving && pSoldier->awareness().locationKnown() )
                 {
                     pSoldier->flags.fSoldierWasMoving = FALSE;
 
@@ -2008,7 +2008,7 @@ static void HandleLocateToGuyAsHeWalks( SOLDIERTYPE *pSoldier )
     else
     {
         // Others if visible...
-        if ( pSoldier->bVisible != -1 )
+        if ( pSoldier->awareness().visibility() != -1 )
         {
             // ATE: If we are visible, and have not already removed roofs, goforit
             if ( pSoldier->position().level() > 0 )
@@ -2471,14 +2471,11 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                     // Forgetful guy might forget his path
 					if ( (pSoldier->bTeam == gbPlayerNum) && DoesMercHaveDisability( pSoldier, FORGETFUL ) )
                     {
-                        if ( pSoldier->ubNumTilesMovesSinceLastForget < 255 )
-                        {
-                            pSoldier->ubNumTilesMovesSinceLastForget++;
-                        }
+                        pSoldier->awareness().recordTileForMemory();
 
-                        if ( pSoldier->pathing().pathIndex() > 2 && (Random( 100 ) == 0) && pSoldier->ubNumTilesMovesSinceLastForget > 200 )
+                        if ( pSoldier->pathing().pathIndex() > 2 && (Random( 100 ) == 0) && pSoldier->awareness().tilesSinceForget() > 200 )
                         {
-                            pSoldier->ubNumTilesMovesSinceLastForget = 0;
+                            pSoldier->awareness().resetForgetDistance();
 
                             TacticalCharacterDialogue( pSoldier, QUOTE_PERSONALITY_TRAIT );
                             pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
@@ -2748,7 +2745,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             {
                 pSoldier->pLevelNode->ubShadeLevel = pSoldier->ubFadeLevel;
             }
-            pSoldier->bVisible = -1;
+            pSoldier->awareness().markHidden();
 
         }
     }
@@ -3715,10 +3712,8 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
     SOLDIERTYPE *pKiller = NULL;
     SOLDIERTYPE *pAttacker = GetJa2SoldierRepository().resolve(
         pSoldierOld->combatResult().currentAttacker().i);
-    BOOLEAN bVisible;
-
     pSoldierOld->flags.uiStatusFlags |= SOLDIER_DEAD;
-    bVisible = pSoldierOld->bVisible;
+    const INT8 bVisibility = pSoldierOld->awareness().visibility();
 
     VerifyPublicOpplistDueToDeath( pSoldierOld );
 
@@ -3750,7 +3745,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
     {
         SOLDIERTYPE * pOther;
         // ATE: Added string to player
-        if ( bVisible != -1 && pSoldierOld->ubProfile != NO_PROFILE )
+        if ( bVisibility != -1 && pSoldierOld->ubProfile != NO_PROFILE )
         {
             ScreenMsg( FONT_RED, MSG_INTERFACE, pMercDeadString[ 0 ], pSoldierOld->GetName() );
         }
@@ -5043,7 +5038,7 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
             {
                 SOLDIERTYPE* person =
                     GetJa2SoldierRepository().resolve(bPerson.i);
-                if ( ( person->bVisible >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
+                if ( ( person->awareness().visibility() >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
                     return( FALSE );                 // if someone there it's NOT OK
             }
             else
@@ -5180,7 +5175,7 @@ static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGr
             {
                 SOLDIERTYPE* person =
                     GetJa2SoldierRepository().resolve(bPerson.i);
-                if ( ( person->bVisible >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
+                if ( ( person->awareness().visibility() >= 0) || ( gTacticalStatus.uiFlags & SHOW_ALL_MERCS ) )
                     return( FALSE );                 // if someone there it's NOT OK
             }
             else
@@ -7988,7 +7983,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
 				// try to find first active, OK enemy
 				if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
 				{
-					if ( enemySoldier->bVisible != -1 )
+					if ( enemySoldier->awareness().visibility() != -1 )
 				{
 					fEnemiesFound = TRUE;
 
@@ -8021,7 +8016,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
             // try to find first active, OK enemy
             if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
             {
-                if (enemySoldier->bVisible != -1)
+                if (enemySoldier->awareness().visibility() != -1)
                 {
                     fEnemiesFound = TRUE;
 
@@ -9017,7 +9012,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                     fCower = true; 
 
                     // If soldier is visible on-screen, report to player that they are cowering.
-                    if ( pSoldier->bVisible != -1 )
+                    if ( pSoldier->awareness().visibility() != -1 )
                         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113HAMMessage[0], pSoldier->GetName() );             
 
 					// Flugente: if we are Buns, and we have PTSD, this shock causes us to switch to a different personality
@@ -9184,7 +9179,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                 if (pSoldier->actionPoints().current() > APBPConstants[AP_MIN_LIMIT] && pSoldier->actionPoints().current() - sPointsLost <= APBPConstants[AP_MIN_LIMIT])
                 {
                     // And soldier is visible
-                    if ( pSoldier->bVisible != -1 )
+                    if ( pSoldier->awareness().visibility() != -1 )
                     {
                         // "Soldier is pinned down!"
                         ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113HAMMessage[1], pSoldier->GetName() );
@@ -9495,7 +9490,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
 
             CivilianGroupMemberChangesSides( pTarget );
 
-            if (pTarget->ubProfile != NO_PROFILE && pTarget->vitals().health() >= OKLIFE && pTarget->bVisible == TRUE)
+            if (pTarget->ubProfile != NO_PROFILE && pTarget->vitals().health() >= OKLIFE && pTarget->awareness().visibility() == TRUE)
             {
                 // trigger quote!
                 PauseAITemporarily();
@@ -10120,7 +10115,7 @@ void HandleBloodForNewGridNo( SOLDIERTYPE *pSoldier )
         if ( bBlood >= 0 )
         {
             // this handles all soldiers' dropping blood during movement
-            DropBlood( pSoldier, bBlood, pSoldier->bVisible );
+            DropBlood( pSoldier, bBlood, pSoldier->awareness().visibility() );
         }
     }
 }
@@ -11432,7 +11427,7 @@ void CheckChatPartners()
 						pSoldier->usChatPartnerID.i)
 					: nullptr;
 
-				if ( pSoldier && pSoldier->bVisible && chatPartner && chatPartner->bVisible )
+				if ( pSoldier && pSoldier->awareness().visibility() && chatPartner && chatPartner->awareness().visibility() )
 				{
 					INT16 sScreenX, sScreenY;
 
@@ -11991,7 +11986,7 @@ void UpdateFastForwardMode(SOLDIERTYPE* pSoldier, INT8 bAction)
 	// fast forward mode is only possible in turnbased combat only for invisible opponents
 	if (!(IsJa2TacticalTurnBasedCombat()) ||
 		pSoldier->flags.uiStatusFlags & SOLDIER_PC ||
-		pSoldier->bVisible == TRUE ||
+		pSoldier->awareness().visibility() == TRUE ||
 		GetJa2TacticalCurrentTeam() == gbPlayerNum ||
 		gTacticalStatus.bBoxingState != NOT_BOXING ||
 		gTacticalStatus.uiFlags & ENGAGED_IN_CONV ||

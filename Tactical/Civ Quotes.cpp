@@ -1138,7 +1138,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 	}*/
 
 	// only visible enemies taunt (unless set otherwise)
-	if ( ( pCiv->bVisible == -1 ) && ( gTauntsSettings.fTauntOnlyVisibleEnemies == TRUE ) )
+	if ( ( pCiv->awareness().visibility() == -1 ) && ( gTauntsSettings.fTauntOnlyVisibleEnemies == TRUE ) )
 	{
 		return;
 	}

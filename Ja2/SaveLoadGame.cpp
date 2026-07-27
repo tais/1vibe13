@@ -1667,6 +1667,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
+	SoldierAwarenessComponent& awareness = s.awareness();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1677,12 +1678,12 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
-	ar.i8(s.bOldLife); ar.i8(s.bVisible); ar.i8(s.bActive); ar.i8(s.bTeam);
+	ar.i8(s.bOldLife); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
 	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(s.sFractLife);
 	ar.i8(s.vitals().bleeding()); ar.i8(s.vitals().breath()); ar.i8(s.vitals().maximumBreath()); ar.i8(s.bStealthMode); ar.i16(s.sBreathRed);
 	ar.u8(s.ubWaitActionToDo); ar.i8(s.ubInsertionDirection); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
-	ar.i8(s.bLastRenderVisibleValue); ar.u8(attackSelection.hand()); ar.i16(s.sWeightCarriedAtTurnStart);
+	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(s.sWeightCarriedAtTurnStart);
 	ar.i32(s.iHealableInjury); ar.boolean(s.fDoingSurgery); ar.slong(s.lUnregainableBreath);
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(s.ubCriticalStatDamage[i]);
 	ar.u8(s.ubGroupID); ar.u8(perception.movementNoiseDirections());
@@ -1698,7 +1699,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	// transfers emitted no bytes, so resetting the inline owner preserves the
 	// established schema exactly.
 	if (Ar::isLoading) s.animationCache().release(s.ubID);
-	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(s.bNewOppCnt); ar.i8(s.bService);
+	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(s.bService);
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
@@ -1776,7 +1777,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(s.bRegenerationCounter);
 	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
 	ar.u16(s.ubLastEnemyCycledID.i);
-	ar.u8(s.ubPrevSectorID); ar.u8(s.ubNumTilesMovesSinceLastForget); ar.i8(s.animationActivity().turningIncrement());
+	ar.u8(s.ubPrevSectorID); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(s.uiBattleSoundID); ar.u16(s.usValueGoneUp);
 	ar.u8(s.ubNumLocateCycles); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
 	ar.u32(s.uiMercChecksum);

@@ -3982,7 +3982,7 @@ UINT8 CalcChanceToGetThrough( BULLET * pBullet )
 					// ignore intervening target if not visible; PCs are always visible so AI will never skip them on that
 					// basis
 					if ( !fIntended && target &&
-						 target->bVisible == TRUE )
+						 target->awareness().visibility() == TRUE )
 					{
 						// in actually moving the bullet, we consider only count friends as targets if the bullet is unaimed
 						// (buckshot), if they are the intended target, or beyond the range of automatic friendly fire hits
@@ -7267,7 +7267,7 @@ void MoveBullet( INT32 iBullet )
 							iNumLocalStructures++;
 						}
 					}
-					else if (pSoldier->bVisible == TRUE &&
+					else if (pSoldier->awareness().visibility() == TRUE &&
 							PositionAllowsHit(pBullet, pStructure) &&
 							(pBullet->fAimed && pBullet->iLoop > MIN_DIST_FOR_HIT_FRIENDS || 
 							!pBullet->fAimed && pBullet->iLoop > MIN_DIST_FOR_HIT_FRIENDS_UNAIMED ||

@@ -2237,7 +2237,7 @@ string(REGEX MATCH
   serialized_soldier_movement_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);"
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);"
   serialized_soldier_view_range_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2264,6 +2264,113 @@ if(NOT serialized_soldier_movement_noise_order OR
    NOT serialized_soldier_deafness_order)
   message(FATAL_ERROR
     "Soldier perception state moved in the portable save schema; keep all six values at their established POD positions")
+endif()
+
+# Player-facing tactical visibility, the last value consumed by rendering,
+# newly discovered opponents, and movement used to expire stale knowledge now
+# have one owner. Sensory capability remains in SoldierPerceptionComponent and
+# the per-observer opponent lists remain in the AI adapter.
+foreach(retired_awareness_field IN ITEMS
+  "INT8;bVisible"
+  "INT8;bLastRenderVisibleValue"
+  "INT8;bNewOppCnt"
+  "UINT8;ubNumTilesMovesSinceLastForget")
+  string(REPLACE ";" ";" retired_awareness_parts
+    "${retired_awareness_field}")
+  list(GET retired_awareness_parts 0 retired_awareness_type)
+  list(GET retired_awareness_parts 1 retired_awareness_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_awareness_type}[ \t]+${retired_awareness_name}[ \t]*;"
+    retired_current_awareness_field
+    "${current_soldier_contents}")
+  if(retired_current_awareness_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE awareness field '${retired_awareness_name}' returned; player knowledge belongs to SoldierAwarenessComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAwarenessComponent[ \t\r\n]+awareness_[ \t]*;"
+  soldier_awareness_owner
+  "${current_soldier_contents}")
+if(NOT soldier_awareness_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAwarenessComponent")
+endif()
+
+foreach(owned_awareness_field IN ITEMS
+  "INT8;visibility;0"
+  "INT8;lastRenderedVisibility;0"
+  "INT8;newOpponentCount;0"
+  "UINT8;tilesSinceForget;0")
+  string(REPLACE ";" ";" owned_awareness_parts
+    "${owned_awareness_field}")
+  list(GET owned_awareness_parts 0 owned_awareness_type)
+  list(GET owned_awareness_parts 1 owned_awareness_name)
+  list(GET owned_awareness_parts 2 owned_awareness_initializer)
+  string(REGEX MATCH
+    "${owned_awareness_type}[ \t]+${owned_awareness_name}_[ \t]*=[ \t]*${owned_awareness_initializer}[ \t]*;"
+    owned_soldier_awareness_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_awareness_field)
+    message(FATAL_ERROR
+      "SoldierAwarenessComponent no longer owns initialized '${owned_awareness_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierAwarenessComponent& awareness() noexcept"
+  soldier_awareness_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "awareness().reset();"
+  soldier_awareness_reset)
+foreach(required_awareness_operation IN ITEMS
+  "void markVisible() noexcept"
+  "void markHidden() noexcept"
+  "void markIndeterminate() noexcept"
+  "void beginFadeOut() noexcept"
+  "void syncRenderedVisibility() noexcept"
+  "void setVisibilityAndRendered(INT8 visibility) noexcept"
+  "void recordNewOpponent() noexcept"
+  "void clearNewOpponents() noexcept"
+  "void recordTileForMemory() noexcept"
+  "void resetForgetDistance() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_awareness_operation}"
+    soldier_awareness_operation)
+  if(soldier_awareness_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAwarenessComponent lost required lifecycle operation '${required_awareness_operation}'")
+  endif()
+endforeach()
+if(soldier_awareness_accessor EQUAL -1 OR
+   soldier_awareness_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAwarenessComponent must remain directly accessible and reset with its soldier")
+endif()
+
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bOldLife\\);[ \t]*ar\\.i8\\(awareness\\.visibility\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bActive\\);[ \t]*ar\\.i8\\(s\\.bTeam\\);"
+  serialized_soldier_awareness_visibility_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.ubOppNum\\.i\\);[ \t\r\n]*ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
+  serialized_soldier_awareness_render_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bService\\);"
+  serialized_soldier_awareness_discovery_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);"
+  serialized_soldier_awareness_forget_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_awareness_visibility_order OR
+   NOT serialized_soldier_awareness_render_order OR
+   NOT serialized_soldier_awareness_discovery_order OR
+   NOT serialized_soldier_awareness_forget_order)
+  message(FATAL_ERROR
+    "Soldier awareness state moved in the portable save schema; keep all four values at their established POD positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
@@ -2682,7 +2789,7 @@ endif()
 # hand beside visibility, aimed locations around hit location, weapon/mode
 # beside target identity, and scope mode beside the facility field.
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bLastRenderVisibleValue\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
+  "ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
   serialized_soldier_attack_hand_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3420,7 +3527,7 @@ endforeach()
 # schema. The state/subflag positions are also pinned above where they neighbor
 # queued intent; these expressions cover the remaining playback values.
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
   serialized_soldier_animation_cursor_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3556,7 +3663,7 @@ string(REGEX MATCH
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(s\\.ubNumTilesMovesSinceLastForget\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
+  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
   serialized_soldier_animation_turn_increment_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_turn_activity_order OR

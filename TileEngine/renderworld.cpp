@@ -1809,7 +1809,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			if (GetJa2TacticalCurrentTeam() == gbPlayerNum)
 			{
 				// Shade differently depending on visiblity
-				if (pSoldier->bLastRenderVisibleValue == 0)
+				if (pSoldier->awareness().lastRenderedVisibility() == 0)
 				{
 					bGlowShadeOffset = 10;
 				}
@@ -1883,7 +1883,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			//{
 			//  pSelSoldier = gusSelectedSoldier;
 			// Shade differently depending on visiblity
-			//  if ( pSoldier->bVisible == 0 || ( pSelSoldier->aiData.bOppList[ pSoldier->ubID ] == 0  ) )
+			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->aiData.bOppList[ pSoldier->ubID ] == 0  ) )
 			//  {
 			// Shade gray
 			//      pShadeTable = pSoldier->pGlowShades[ gpGlowFramePointer[ gsCurrentGlowFrame ] + 10 ];
@@ -2776,7 +2776,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								}
 
 								// Skip if we cannot see the guy!
-								if (pSoldier->bLastRenderVisibleValue == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS))
+								if (pSoldier->awareness().lastRenderedVisibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS))
 								{
 									pNode = pNode->pNext;
 									continue;
@@ -3549,7 +3549,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 											{
 												// Flugente: draw riot shield UNDER the soldier
 												if ( pSoldier &&
-													pSoldier->bVisible != -1 &&
+													pSoldier->awareness().visibility() != -1 &&
 													( pSoldier->position().direction() == NORTH ||
 														pSoldier->position().direction() == NORTHWEST ||
 														pSoldier->position().direction() == WEST )
@@ -3625,7 +3625,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 												// Flugente: draw riot shield OVER the soldier
 												if ( pSoldier &&
-													pSoldier->bVisible != -1 &&
+													pSoldier->awareness().visibility() != -1 &&
 													( pSoldier->position().direction() == EAST ||
 														pSoldier->position().direction() == SOUTHEAST ||
 														pSoldier->position().direction() == SOUTH ||

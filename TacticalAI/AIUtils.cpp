@@ -6242,7 +6242,7 @@ BOOLEAN CheckSuppressionDirection(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, IN
 		if (pFriend &&
 			pFriend != pSoldier &&
 			pFriend->bActive &&
-			pFriend->bVisible == TRUE &&
+			pFriend->awareness().visibility() == TRUE &&
 			pFriend->vitals().health() >= OKLIFE &&
 			(pFriend->bSide == pSoldier->bSide || CONSIDERED_NEUTRAL(pSoldier, pFriend)) &&
 			(pFriend->position().level() == pSoldier->position().level() || pFriend->position().level() == bTargetLevel) &&

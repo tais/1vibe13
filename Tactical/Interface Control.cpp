@@ -1350,7 +1350,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		gGameExternalOptions.ubShowMoraleCount == 2 )
 		printSuppression = TRUE;
 
-	if (!TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bVisible != -1 )
+	if (!TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->awareness().visibility() != -1 )
 	{
 		GetSoldierScreenPos( pSoldier, &sMercScreenX, &sMercScreenY );
 		GetSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );

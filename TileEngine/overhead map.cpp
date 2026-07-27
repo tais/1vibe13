@@ -353,7 +353,7 @@ BOOLEAN GetClosestMercInOverheadMap( INT32 sSweetGridNo, SOLDIERTYPE **ppReturne
 			if( sGridNo >=0 && sGridNo < WORLD_MAX && sGridNo >= leftmost && sGridNo < ( leftmost + WORLD_COLS ) )
 			{
 				// Go on sweet stop
-		if ( gpWorldLevelData[ sGridNo ].pMercHead != NULL && gpWorldLevelData[ sGridNo ].pMercHead->pSoldier->bVisible != -1 )
+		if ( gpWorldLevelData[ sGridNo ].pMercHead != NULL && gpWorldLevelData[ sGridNo ].pMercHead->pSoldier->awareness().visibility() != -1 )
 				{
 					uiRange = GetRangeInCellCoordsFromGridNoDiff( sSweetGridNo, sGridNo );
 
@@ -1463,7 +1463,7 @@ void RenderOverheadOverlays()
 		sY -= 5;
 		//sScreenY -= 7;	//height of doll
 		
-		if( !gfTacticalPlacementGUIActive && pSoldier->bLastRenderVisibleValue == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
+		if( !gfTacticalPlacementGUIActive && pSoldier->awareness().lastRenderedVisibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
 		{
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
@@ -1930,7 +1930,7 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 						sY = sTempPosY_S - sHeight - 8; // 8 height of doll guy
 
 						// RENDER!
-						if ( pSoldier->bLastRenderVisibleValue == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS)	)
+						if ( pSoldier->awareness().lastRenderedVisibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS)	)
 						{
 
 						}

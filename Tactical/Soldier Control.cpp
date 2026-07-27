@@ -722,11 +722,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubInsertionDirection = src.ubInsertionDirection;
 		this->bGunType = src.bGunType;
 		this->ubOppNum = static_cast<UINT16>( src.ubOppNum );
-		this->bLastRenderVisibleValue = src.bLastRenderVisibleValue;
+		this->awareness().lastRenderedVisibility() = src.bLastRenderVisibleValue;
 		this->attackSelection().hand() = src.ubAttackingHand;
 		this->sWeightCarriedAtTurnStart = src.sWeightCarriedAtTurnStart;
 
-		this->bVisible = src.bVisible;			// to render or not to render...
+		this->awareness().visibility() = src.bVisible;			// to render or not to render...
 
 		this->bActive = src.bActive;
 		this->bTeam = src.bTeam;				// Team identifier
@@ -767,7 +767,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		animationCache().reset();
 
 		this->bSide = src.bSide;
-		this->bNewOppCnt = src.bNewOppCnt;
+		this->awareness().newOpponentCount() = src.bNewOppCnt;
 		this->bService = src.bService;		// first aid, or other time consuming process
 
 		this->animationPlayback().code() = src.usAniCode;
@@ -983,7 +983,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubLastEnemyCycledID = static_cast<UINT16>( src.ubLastEnemyCycledID );
 
 		this->ubPrevSectorID = src.ubPrevSectorID;
-		this->ubNumTilesMovesSinceLastForget = src.ubNumTilesMovesSinceLastForget;
+		this->awareness().tilesSinceForget() = src.ubNumTilesMovesSinceLastForget;
 		this->animationActivity().turningIncrement() = src.bTurningIncrement;
 		this->uiBattleSoundID = src.uiBattleSoundID;
 
@@ -1136,6 +1136,7 @@ void SOLDIERTYPE::initialize( )
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
+	awareness().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -1880,7 +1881,7 @@ void HandleCrowShadowVisibility( SOLDIERTYPE *pSoldier )
 		{
 			if ( pSoldier->pAniTile != NULL )
 			{
-				if ( pSoldier->bLastRenderVisibleValue != -1 )
+				if ( pSoldier->awareness().lastRenderedVisibility() != -1 )
 				{
 					HideAniTile( pSoldier->pAniTile, FALSE );
 				}
@@ -5088,7 +5089,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 
 					if (this->bTeam != gbPlayerNum)
 					{
-						if (this->bVisible != -1)
+						if (this->awareness().visibility() != -1)
 						{
 							LocateSoldier(this->ubID, DONTSETLOCATOR);
 						}
@@ -5511,7 +5512,7 @@ BOOLEAN SOLDIERTYPE::InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndR
 	// weapon raising sound
 	if (fReturnVal &&
 		!fEndReady &&
-		this->bVisible >= 0 &&
+		this->awareness().visibility() >= 0 &&
 		!WeaponReady(this) &&
 		this->inv[HANDPOS].exists() &&
 		this->inv[HANDPOS].usItem &&
@@ -6157,7 +6158,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// IAN ADDED THIS SAT JUNE 14th : HAVE TO SHOW VICTIM!
-	if ( IsJa2TacticalTurnBasedCombat() && this->bVisible != -1 && this->bTeam == gbPlayerNum )
+	if ( IsJa2TacticalTurnBasedCombat() && this->awareness().visibility() != -1 && this->bTeam == gbPlayerNum )
 		LocateSoldier( this->ubID, DONTSETLOCATOR );
 
 
@@ -7780,7 +7781,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 				{
 					if ( iBlood != NOBLOOD )
 					{
-						DropBlood( this, (INT8)iBlood, this->bVisible );
+						DropBlood( this, (INT8)iBlood, this->awareness().visibility() );
 					}
 				}
 			}
@@ -9110,7 +9111,7 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 	{
 		if ( (IsJa2TacticalTurnBasedCombat()) || gTacticalStatus.fAutoBandageMode )
 		{
-			if ( ((pSoldier->bVisible == -1 && pSoldier->bVisible == pSoldier->bLastRenderVisibleValue) || gTacticalStatus.fAutoBandageMode) && pSoldier->animationPlayback().state() != MONSTER_UP )
+			if ( ((pSoldier->awareness().visibility() == -1 && pSoldier->awareness().visibility() == pSoldier->awareness().lastRenderedVisibility()) || gTacticalStatus.fAutoBandageMode) && pSoldier->animationPlayback().state() != MONSTER_UP )
 			{
 				if ( pSoldier->fireControl().burstCounter() && !PTR_OURTEAM )
 				{
@@ -9932,7 +9933,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 
 		if ( pSoldier->bInSector )
 		{
-			if ( pSoldier->bVisible != -1 )
+			if ( pSoldier->awareness().visibility() != -1 )
 			{
 				if ( ubReason != TAKE_DAMAGE_BLOODLOSS )
 				{
@@ -10429,7 +10430,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// start the stopwatch - the blood is gushing!
 	this->dNextBleed = CalcSoldierNextBleed( this );
 
-	if ( this->bInSector && this->bVisible != -1 )
+	if ( this->bInSector && this->awareness().visibility() != -1 )
 	{
 		// If we are already dead, don't show damage!
 		if ( bOldLife != 0 && fShowDamage && sLifeDeduct != 0 && sLifeDeduct < 1000 )
@@ -10483,7 +10484,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			// ATE: if our guy, make visible....
 			if ( this->bTeam == gbPlayerNum )
 			{
-				bVisible = 1;
+				awareness().markVisible();
 			}
 			//if this soldier was an enemy
 			// Kaiden Added for UB reveal All items after combat feature!
@@ -10496,7 +10497,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 			if ( UsingNewAttachmentSystem() == true )
 				ReduceAttachmentsOnGunForNonPlayerChars( this, &( this->inv[SECONDHANDPOS] ) );
 
-			AddItemToPool( this->position().gridNo(), &( this->inv[SECONDHANDPOS] ), bVisible, this->position().level(), usItemFlags, -1 ); //Madd: added usItemFlags to function arguments
+			AddItemToPool( this->position().gridNo(), &( this->inv[SECONDHANDPOS] ), awareness().visibility(), this->position().level(), usItemFlags, -1 ); //Madd: added usItemFlags to function arguments
 			DeleteObj( &( this->inv[SECONDHANDPOS] ) );
 		}
 	}
@@ -10553,7 +10554,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 				// ATE: if our guy, make visible....
 				if ( this->bTeam == gbPlayerNum )
 				{
-					bVisible = 1;
+					awareness().markVisible();
 				}
 				//if this soldier was an enemy
 				// Kaiden Added for UB reveal All items after combat feature!
@@ -10566,7 +10567,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 				if ( UsingNewAttachmentSystem() == true )
 					ReduceAttachmentsOnGunForNonPlayerChars( this, &( this->inv[HANDPOS] ) );
 
-				AddItemToPool( this->position().gridNo(), &( this->inv[HANDPOS] ), bVisible, this->position().level(), usItemFlags, -1 ); //Madd: added usItemFlags to function arguments
+				AddItemToPool( this->position().gridNo(), &( this->inv[HANDPOS] ), awareness().visibility(), this->position().level(), usItemFlags, -1 ); //Madd: added usItemFlags to function arguments
 				DeleteObj( &( this->inv[HANDPOS] ) );
 			}
 		}
@@ -10586,7 +10587,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		{
 			if ( this->bInSector )
 			{
-				DropBlood( this, ubBlood, this->bVisible );
+				DropBlood( this, ubBlood, this->awareness().visibility() );
 			}
 		}
 	}
@@ -22179,7 +22180,7 @@ void HandlePlacingRoofMarker( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fSet
 	LEVELNODE *pRoofNode;
 	LEVELNODE *pNode;
 
-	if ( pSoldier->bVisible == -1 && fSet )
+	if ( pSoldier->awareness().visibility() == -1 && fSet )
 	{
 		return;
 	}
@@ -26476,7 +26477,7 @@ void SOLDIERTYPE::StartRadioAnimation(void)
 {
 	if (this->ubBodyType != REGMALE && this->ubBodyType != BIGMALE ||
 		Water(this->position().gridNo(), this->position().level()) ||
-		this->bVisible != TRUE)
+		this->awareness().visibility() != TRUE)
 	{
 		return;
 	}

@@ -102,6 +102,11 @@ void SoldierPerceptionComponent::reset() noexcept
 	*this = SoldierPerceptionComponent{};
 }
 
+void SoldierAwarenessComponent::reset() noexcept
+{
+	*this = SoldierAwarenessComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

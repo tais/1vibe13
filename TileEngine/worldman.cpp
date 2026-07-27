@@ -4265,7 +4265,7 @@ void UpdateTreeVisibility()
 							pOpponent = MercSlots[uiLoop];
 
 							if (pOpponent &&
-								pOpponent->bVisible != -1 &&
+								pOpponent->awareness().visibility() != -1 &&
 								!TileIsOutOfBounds(pOpponent->position().gridNo()) &&
 								(PythSpacesAway(sSpot, pOpponent->position().gridNo()) <= 2 && AIDirection(sSpot, pOpponent->position().gridNo()) == 0 ||
 								PythSpacesAway(sSpot, pOpponent->position().gridNo()) <= 6 && AIDirection(sSpot, pOpponent->position().gridNo()) == 7 ||
