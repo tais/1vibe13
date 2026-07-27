@@ -7392,7 +7392,7 @@ static int l_CheckSoldierAssignment(lua_State* L)
 
 		INT32 squad = -1;
 		if (pSoldier)
-			squad = pSoldier->bAssignment;
+			squad = pSoldier->assignment().current();
 
 		lua_pushinteger(L, squad);
 	}
@@ -8195,7 +8195,7 @@ static int l_CheckMercPtrsAssignment(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			INT32 squad = GetJa2SoldierRepository().resolve(ubID)->bAssignment;
+			INT32 squad = GetJa2SoldierRepository().resolve(ubID)->assignment().current();
 			lua_pushinteger(L, squad);
 		}
 	}

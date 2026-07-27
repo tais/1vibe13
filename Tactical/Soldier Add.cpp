@@ -1746,15 +1746,15 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				{
 					InternalSoldierInSectorSleep( pSoldier, pSoldier->sInsertionGridNo, FALSE );
 				}
-				else if ( IS_DOCTOR(pSoldier->bAssignment) || pSoldier->bAssignment == DOCTOR_MILITIA )
+				else if ( IS_DOCTOR(pSoldier->assignment().current()) || pSoldier->assignment().current() == DOCTOR_MILITIA )
 				{
 					SoldierInSectorDoctor( pSoldier, pSoldier->sInsertionGridNo );
 				}
-				else if ( IS_PATIENT(pSoldier->bAssignment) )
+				else if ( IS_PATIENT(pSoldier->assignment().current()) )
 				{
 					SoldierInSectorPatient( pSoldier, pSoldier->sInsertionGridNo );
 				}
-				else if ( IS_REPAIR(pSoldier->bAssignment) )
+				else if ( IS_REPAIR(pSoldier->assignment().current()) )
 				{
 					SoldierInSectorRepair( pSoldier, pSoldier->sInsertionGridNo );
 				}
@@ -1795,7 +1795,7 @@ BOOLEAN IsMercOnTeam(UINT8 ubMercID, BOOLEAN aAlreadyInCountry, BOOLEAN aAlive)
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier->ubProfile == ubMercID && pTeamSoldier->bActive )
 		{
-			if ( aAlreadyInCountry && pTeamSoldier->bAssignment == IN_TRANSIT )
+			if ( aAlreadyInCountry && pTeamSoldier->assignment().current() == IN_TRANSIT )
 				continue;
 
 			if ( aAlive && pTeamSoldier->vitals().health() <= 0 )

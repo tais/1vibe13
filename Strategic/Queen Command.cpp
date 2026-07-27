@@ -291,7 +291,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
 		if ( pTeamSoldier->bActive && !pTeamSoldier->flags.fBetweenSectors  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
-			 !(pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD || pTeamSoldier->bAssignment == ASSIGNMENT_POW || pTeamSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pTeamSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) &&
+			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) &&
 			 (pTeamSoldier->sSectorX == sSectorX && pTeamSoldier->sSectorY == sSectorY && pTeamSoldier->bSectorZ == sSectorZ) )
 		{
 			++teammemberspresent;
@@ -2902,12 +2902,12 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 	}
 
 	// can't capture mercs on mini event adventures
-	if (pSoldier->bAssignment == ASSIGNMENT_MINIEVENT)
+	if (pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT)
 	{
 		return;
 	}
 	
-	if (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
+	if (pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 	{
 		return;
 	}
@@ -2932,7 +2932,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 
 		// Change to POW....
 		//-add him to a POW assignment/group
-		if ((pSoldier->bAssignment != ASSIGNMENT_POW))
+		if ((pSoldier->assignment().current() != ASSIGNMENT_POW))
 		{
 			SetTimeOfAssignmentChangeForMerc(pSoldier);
 		}

@@ -966,13 +966,13 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 	if ( AM_A_ROBOT( pSoldier ) )
 		return(FALSE);
 
-	if ( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if ( pSoldier->assignment().current() == ASSIGNMENT_POW )
 		return(FALSE);
 
-	if( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT )
+	if( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT )
 		return( FALSE );
 
-	if( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
+	if( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		return( FALSE );
 
 	CHAR16					gzQuoteStr[500];
@@ -1659,8 +1659,8 @@ void HandleDynamicOpinionsDailyRefresh( )
 			continue;
 		}
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-			 !(pSoldier->bAssignment == IN_TRANSIT || AM_A_ROBOT(pSoldier) ||
-			 pSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pSoldier->assignment().current() == IN_TRANSIT || AM_A_ROBOT(pSoldier) ||
+			 pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// or each profile, check wether everyone else is a friend of someone else we hate
 			CheckForFriendsofHated( pSoldier );
@@ -1700,7 +1700,7 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 	SOLDIERTYPE *pThirdSoldier;
 
 	// make sure we ourselves aren't in transit
-	if ( !pSoldier->bActive || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->bAssignment == IN_TRANSIT || pSoldier->bAssignment == ASSIGNMENT_DEAD )
+	if ( !pSoldier->bActive || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD )
 		return;
 
 	bMercID = pSoldier->ubID;
@@ -1718,8 +1718,8 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 		}
 		// skip past ourselves and all inactive mercs
 		if ( bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
-			 !(pOtherSoldier->bAssignment == IN_TRANSIT ||
-			 pOtherSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pOtherSoldier->assignment().current() == IN_TRANSIT ||
+			 pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			bOpinion = SoldierRelation( pSoldier, pOtherSoldier );
 
@@ -1739,8 +1739,8 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 					}
 					// skip past ourselves and all inactive mercs
 					if ( bThirdID != bMercID && bThirdID != bOtherID && pThirdSoldier->bActive && pThirdSoldier->ubProfile != NO_PROFILE &&
-						 !(pThirdSoldier->bAssignment == IN_TRANSIT ||
-						 pThirdSoldier->bAssignment == ASSIGNMENT_DEAD) )
+						 !(pThirdSoldier->assignment().current() == IN_TRANSIT ||
+						 pThirdSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 					{
 						bSecondOpinion = SoldierRelation( pThirdSoldier, pOtherSoldier );
 
@@ -1799,8 +1799,8 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 					continue;
 				}
 				if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->ubProfile != usProfile &&
-					 !(pSoldier->bAssignment == IN_TRANSIT ||
-					 pSoldier->bAssignment == ASSIGNMENT_DEAD) )
+					 !(pSoldier->assignment().current() == IN_TRANSIT ||
+					 pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 				{
 					// only for AIM mercs
 					if ( pSoldier->ubProfile == NO_PROFILE || pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
@@ -1913,8 +1913,8 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
 			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
 			 pTeamSoldier->newdrugs.drinkstaken > 0.0 &&
-			 !(pTeamSoldier->bAssignment == IN_TRANSIT ||
-			 pTeamSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
+			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// both mercs drink together, they opinion either improve or worsen
 			// added a few chance calls, because this can lead to an absurd amount of events
@@ -1976,10 +1976,10 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 		// award event for every trainer in this sector
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
 			 pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ &&
-			  !(pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			  !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if he's training teammates in this stat
-			if ( (pTeamSoldier->bAssignment == TRAIN_TEAMMATE) && (pTeamSoldier->bTrainStat == trainstat) && (EnoughTimeOnAssignment( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+			if ( (pTeamSoldier->assignment().current() == TRAIN_TEAMMATE) && (pTeamSoldier->assignment().trainingStat() == trainstat) && (EnoughTimeOnAssignment( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
 			{
 				AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, OPINIONEVENT_TEACHER );
 			}
@@ -2023,7 +2023,7 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 		// everybody other merc in the same sector gets annoyed
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
 			 pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && pSoldier->bSectorZ == sZ &&
-			 !(pSoldier->bAssignment == IN_TRANSIT || pSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			UINT32 rating = GetSoldierLeaderRating( pSoldier );
 
@@ -2056,8 +2056,8 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE &&
 			 pTeamSoldier->sSectorX == sX && pTeamSoldier->sSectorY == sY && pTeamSoldier->bSectorZ == sZ &&
 			 (!fImpOnly || pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER) &&
-			 !(pTeamSoldier->bAssignment == IN_TRANSIT ||
-			 pTeamSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
+			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// only add if not already in list
 			if ( std::find( aTaboo.begin( ), aTaboo.end( ), pTeamSoldier->ubProfile ) == aTaboo.end( ) )
@@ -2107,7 +2107,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 		}
 		// only people that are here
-		if ( !pTeamSoldier->bActive || pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD || pTeamSoldier->bAssignment == ASSIGNMENT_POW || pTeamSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pTeamSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND )
+		if ( !pTeamSoldier->bActive || pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND )
 			continue;
 
 		// if fSameSector is TRUE then the teammate must be in the same sector
@@ -2115,7 +2115,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 
 		// if fSameAssignment is TRUE then both mercs must be on the same assignment
-		if ( gDynamicOpinionEvent[usEvent].fSameAssignment && pTeamSoldier->bAssignment != pSoldierVictim->bAssignment )
+		if ( gDynamicOpinionEvent[usEvent].fSameAssignment && pTeamSoldier->assignment().current() != pSoldierVictim->assignment().current() )
 			continue;
 
 		// if fAwake is TRUE then only awake mercs count
@@ -2123,7 +2123,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 
 		// if fSquadsOnly is TRUE then only mercs in combat squads count
-		if ( gDynamicOpinionEvent[usEvent].fSquadsOnly && pTeamSoldier->bAssignment >= ON_DUTY )
+		if ( gDynamicOpinionEvent[usEvent].fSquadsOnly && pTeamSoldier->assignment().current() >= ON_DUTY )
 			continue;
 
 		// exclude victim and cause
@@ -2254,14 +2254,14 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
-			 !(pTeamSoldier->bAssignment == IN_TRANSIT || pTeamSoldier->bAssignment == ASSIGNMENT_DEAD) )
+			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if fSameSector is TRUE then the teammate must be in the same sector
 			if ( gDynamicOpinionEvent[usEvent].fSameSector && (pTeamSoldier->sSectorX != pSoldier->sSectorX || pTeamSoldier->sSectorY != pSoldier->sSectorY || pTeamSoldier->bSectorZ != pSoldier->bSectorZ) )
 				continue;
 
 			// if fSameAssignment is TRUE then both mercs must be on the same assignment
-			if ( gDynamicOpinionEvent[usEvent].fSameAssignment && pTeamSoldier->bAssignment != pSoldier->bAssignment )
+			if ( gDynamicOpinionEvent[usEvent].fSameAssignment && pTeamSoldier->assignment().current() != pSoldier->assignment().current() )
 				continue;
 
 			// if fAwake is TRUE then only awake mercs count
@@ -2269,7 +2269,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				continue;
 
 			// if fSquadsOnly is TRUE then only mercs in combat squads count
-			if ( gDynamicOpinionEvent[usEvent].fSquadsOnly && pTeamSoldier->bAssignment >= ON_DUTY )
+			if ( gDynamicOpinionEvent[usEvent].fSquadsOnly && pTeamSoldier->assignment().current() >= ON_DUTY )
 				continue;
 
 			usEventUsed = usEvent;
@@ -2367,7 +2367,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_DISEASE_DISGUSTING:
 				// not if the other guy is a doctor, is currently used as a doctor, or has disease themself
-				if ( IS_DOCTOR(pTeamSoldier->bAssignment) || pTeamSoldier->bAssignment == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || pTeamSoldier->HasDisease(TRUE, FALSE, FALSE) )
+				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) || pTeamSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR || HAS_SKILL_TRAIT( pTeamSoldier, DOCTOR_NT ) || pTeamSoldier->HasDisease(TRUE, FALSE, FALSE) )
 					continue;
 				break;
 

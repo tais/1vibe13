@@ -421,7 +421,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 										// Select guy
 										if(	GetSoldier( &pSoldier, gusUIFullTargetID ) && gpItemPointer == NULL )
 										{
-											if( pSoldier->bAssignment >= ON_DUTY )
+											if( pSoldier->assignment().current() >= ON_DUTY )
 											{
 												// do nothing
 												fClickHoldIntercepted = FALSE;
@@ -708,7 +708,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 													// Select guy
 													if(	GetSoldier( &pSoldier, gusUIFullTargetID ) && ( gpItemPointer == NULL ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 													{
-														if( pSoldier->bAssignment >= ON_DUTY )
+														if( pSoldier->assignment().current() >= ON_DUTY )
 														{
 															PopupAssignmentMenuInTactical( pSoldier );
 														}
@@ -922,7 +922,7 @@ void	QueryTBRightButton( UINT32 *puiNewEvent )
 								// Select guy
 								if(	GetSoldier( &pSoldier, gusUIFullTargetID ) && ( gpItemPointer == NULL ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 								{
-									//if( pSoldier->bAssignment >= ON_DUTY )
+									//if( pSoldier->assignment().current() >= ON_DUTY )
 									{
 										PopupAssignmentMenuInTactical( pSoldier );
 										fClickHoldIntercepted = TRUE;
@@ -2411,15 +2411,15 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 
 									pNewSoldier = FindNextActiveSquad( selectedSoldier );
 
-									if ( pNewSoldier->bAssignment != iCurrentSquad )
+									if ( pNewSoldier->assignment().current() != iCurrentSquad )
 									{
 										HandleLocateSelectMerc( pNewSoldier->ubID, LOCATEANDSELECT_MERC );
 
-										if ( gGameExternalOptions.fUseXMLSquadNames && pNewSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size() ) )
-											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE_STRING ], gSquadNameVector[pNewSoldier->bAssignment].c_str() );
+										if ( gGameExternalOptions.fUseXMLSquadNames && pNewSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector.size() ) )
+											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE_STRING ], gSquadNameVector[pNewSoldier->assignment().current()].c_str() );
 										else
 											//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( CurrentSquad( ) + 1 ) );
-											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( pNewSoldier->bAssignment + 1 ) );
+											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( pNewSoldier->assignment().current() + 1 ) );
 
 										// Center to guy....
 										//LocateSoldier( gusSelectedSoldier, SETLOCATOR );
@@ -4189,7 +4189,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						{
 							continue;
 						}
-						if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+						if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 						{
 							if ( pTeamSoldier->inv[HEAD1POS].exists() || pTeamSoldier->inv[HEAD2POS].exists() )
 							{
@@ -4221,7 +4221,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						}
 						else
 						{
-							if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+							if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 							{
 								SwapGogglesUniformly( pTeamSoldier, fToNightVision );
 							}
@@ -7512,7 +7512,7 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 		RemovePlayerFromGroup( ubGroupID, targetSlot );
 		AddPlayerToGroup( ubGroupID, sourceSlot );
 		AddPlayerToGroup( ubGroupID, targetSlot );
-		SortSquadByID( sourceSlot->bAssignment );
+		SortSquadByID( sourceSlot->assignment().current() );
 		RebuildCurrentSquad( );
 
 		// don't forget to renew selection of merc
@@ -7928,7 +7928,7 @@ void HandleTBToggleStealthAll( void )
 		{
 			continue;
 		}
-		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad( ) )
+		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			if ( pTeamSoldier->bStealthMode )
 				fStealthOn = TRUE;
@@ -7946,7 +7946,7 @@ void HandleTBToggleStealthAll( void )
 		{
 			continue;
 		}
-		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			if (TryDispatchSetStealthModeCommandNow(
 					*pTeamSoldier, fStealthOn != FALSE))
@@ -8147,7 +8147,7 @@ void HandleTBSwapGoogles( void )
 		}
 		else
 		{
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad( ) && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				SwapGoggles(pTeamSoldier);
 			}
@@ -8254,7 +8254,7 @@ void HandleTBReloadAll( void )
 			{
 				continue;
 			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				// Search for gun in soldier inventory
 				UINT32 invsize = pTeamSoldier->inv.size();
@@ -8318,7 +8318,7 @@ void HandleTBReloadAll( void )
 			{
 				continue;
 			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				// Search for ammo in soldier inventory
 				UINT32 invsize = pTeamSoldier->inv.size();
@@ -8467,7 +8467,7 @@ void HandleTBReloadAll( void )
 			{
 				continue;
 			}
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->bAssignment == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad() && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				if ( (Item[pTeamSoldier->inv[HANDPOS].usItem].usItemClass & (IC_GUN | IC_LAUNCHER)) )
 				{
@@ -8693,8 +8693,8 @@ void HandleTBDropBackpacks( void )
 				OK_INTERRUPT_MERC( pTeamSoldier ) &&
 				!AM_A_ROBOT( pTeamSoldier ) &&
 				EnoughPoints( pTeamSoldier, sAPCost, iBPCost, FALSE ) &&
-				//pTeamSoldier->bAssignment == pSoldier->bAssignment &&
-				pTeamSoldier->bAssignment < ON_DUTY &&
+				//pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
+				pTeamSoldier->assignment().current() < ON_DUTY &&
 				pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
 				!pTeamSoldier->flags.DropPackFlag )
 			{
@@ -8735,8 +8735,8 @@ void HandleTBPickUpBackpacks( void )
 				OK_INTERRUPT_MERC( pTeamSoldier ) &&
 				!AM_A_ROBOT( pTeamSoldier ) &&
 				EnoughPoints(pTeamSoldier, sAPCost, iBPCost, FALSE) &&
-				//pTeamSoldier->bAssignment == pSoldier->bAssignment &&
-				pTeamSoldier->bAssignment < ON_DUTY &&
+				//pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
+				pTeamSoldier->assignment().current() < ON_DUTY &&
 				!pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
 				pTeamSoldier->flags.DropPackFlag )
 			{				
@@ -10005,7 +10005,7 @@ void HandleTBPickUpBackpacks(BOOLEAN fAll)
 				!AM_A_ROBOT(pTeamSoldier) &&
 				//!pTeamSoldier->IsBoxer() &&
 				EnoughPoints(pTeamSoldier, sAPCost, iBPCost, FALSE) &&
-				(fAll || pTeamSoldier->bAssignment == pSoldier->bAssignment) &&
+				(fAll || pTeamSoldier->assignment().current() == pSoldier->assignment().current()) &&
 				!pTeamSoldier->inv[BPACKPOCKPOS].exists() &&
 				pTeamSoldier->flags.DropPackFlag)
 			{

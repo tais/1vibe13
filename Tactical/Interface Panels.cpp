@@ -4586,7 +4586,7 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 		//CHRISL: Added "SHIFT-LMB" option to drop packs for all members of current squad
 		if ( _KeyDown( SHIFT ) )
 		{
-			INT8 bAssignment = GetSMCurrentMerc()->bAssignment;
+			INT8 bAssignment = GetSMCurrentMerc()->assignment().current();
 			for( SoldierID x = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; x <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++x )
 			{
 				SOLDIERTYPE *pSoldier =
@@ -4597,13 +4597,13 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 				}
 				/* Is DropPackFlag currently false and is there something in the backpack pocket?  If so, we haven't
 				dropped a pack yet and apparently want to*/
-				if(pSoldier->bAssignment == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.DropPackFlag)
+				if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.DropPackFlag)
 				{
 					ChangeDropPackStatus(pSoldier, TRUE);
 				}
 				/* Is DropPackFlag currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
 				must want to retreive a backpack we previously dropped.*/
-				else if(pSoldier->bAssignment == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == false && pSoldier->flags.DropPackFlag)
+				else if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == false && pSoldier->flags.DropPackFlag)
 				{
 					ChangeDropPackStatus(pSoldier, FALSE);
 				}
@@ -7227,10 +7227,10 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 			if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector )
 			{
 				// IF on duty....
-				if( ( pSoldier->bAssignment ==	CurrentSquad( ) )|| ( SoldierIsDeadAndWasOnSquad( pSoldier, ( INT8 )( CurrentSquad( ) ) ) ) )
+				if( ( pSoldier->assignment().current() ==	CurrentSquad( ) )|| ( SoldierIsDeadAndWasOnSquad( pSoldier, ( INT8 )( CurrentSquad( ) ) ) ) )
 				{
 
-					if( pSoldier->bAssignment == ASSIGNMENT_DEAD )
+					if( pSoldier->assignment().current() == ASSIGNMENT_DEAD )
 					{
 						pSoldier->flags.fUICloseMerc = FALSE;
 					}
@@ -7341,14 +7341,14 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
 			}
 			else
 			{
-				if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
@@ -7376,13 +7376,13 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 			}
 			pNewSoldier = FindNextActiveSquad( selectedSoldier );
 
-			if ( pNewSoldier->bAssignment != iCurrentSquad )
+			if ( pNewSoldier->assignment().current() != iCurrentSquad )
 			{
-				if ( gGameExternalOptions.fUseXMLSquadNames && pNewSoldier->bAssignment < min(ON_DUTY, (INT8)gSquadNameVector.size()) )
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[MSG_SQUAD_ACTIVE_STRING], gSquadNameVector[pNewSoldier->bAssignment].c_str() );
+				if ( gGameExternalOptions.fUseXMLSquadNames && pNewSoldier->assignment().current() < min(ON_DUTY, (INT8)gSquadNameVector.size()) )
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[MSG_SQUAD_ACTIVE_STRING], gSquadNameVector[pNewSoldier->assignment().current()].c_str() );
 				else
 					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( CurrentSquad( ) + 1 ) );
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( pNewSoldier->bAssignment + 1 ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( pNewSoldier->assignment().current() + 1 ) );
 
 				return( pNewSoldier->ubID );
 			}
@@ -7412,14 +7412,14 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->bAssignment < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
 			}
 			else
 			{
-				if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->bAssignment == pTeamSoldier->bAssignment )
+				if ( OK_CONTROLLABLE_MERC( pTeamSoldier) && OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}

@@ -824,7 +824,7 @@ BOOLEAN DisplayMercFace( UINT8 ubMercID)
 	}
 
 	//else if the merc is currently a POW or, the merc was fired as a pow
-	else if( pMerc->bMercStatus == MERC_FIRED_AS_A_POW || ( pSoldier &&	pSoldier->bAssignment == ASSIGNMENT_POW ) )
+	else if( pMerc->bMercStatus == MERC_FIRED_AS_A_POW || ( pSoldier &&	pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 	{
 		ShadowVideoSurfaceRect( FRAME_BUFFER, MERC_FACE_X, MERC_FACE_Y, MERC_FACE_X + MERC_FACE_WIDTH, MERC_FACE_Y + MERC_FACE_HEIGHT);
 		DisplayWrappedString(MERC_FACE_X, MERC_FACE_Y+MERC_PORTRAIT_TEXT_OFFSET_Y, MERC_FACE_WIDTH, 2, FONT14ARIAL, 145, pPOWStrings[0], FONT_MCOLOR_BLACK, FALSE, CENTER_JUSTIFIED);

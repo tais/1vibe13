@@ -253,11 +253,11 @@ void DecayTacticalMoraleModifiers( void )
 		//if the merc is active, in Arulco
 		// CJC: decay modifiers while asleep! or POW!
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-															!(pSoldier->bAssignment == IN_TRANSIT ||
-																	pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+															!(pSoldier->assignment().current() == IN_TRANSIT ||
+																	pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{
 			// only let morale mod decay if it is positive while merc is a POW
-			if ( pSoldier->bAssignment == ASSIGNMENT_POW && pSoldier->aiData.bTacticalMoraleMod < 0 )
+			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->aiData.bTacticalMoraleMod < 0 )
 			{
 				continue;
 			}
@@ -280,7 +280,7 @@ void DecayTacticalMoraleModifiers( void )
 				{
 					if (pSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pSoldier->ubGroupID ))
  					{
-						if ( NumberOfPeopleInSquad( pSoldier->bAssignment ) == 1 )
+						if ( NumberOfPeopleInSquad( pSoldier->assignment().current() ) == 1 )
 						{
 							fHandleNervous = TRUE;
 						}
@@ -361,11 +361,11 @@ void DecayStrategicMoraleModifiers( void )
 		//if the merc is active, in Arulco
 		// CJC: decay modifiers while asleep! or POW!
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-															!(pSoldier->bAssignment == IN_TRANSIT ||
-																pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+															!(pSoldier->assignment().current() == IN_TRANSIT ||
+																pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{
 			// only let morale mod decay if it is positive while merc is a POW
-			if ( pSoldier->bAssignment == ASSIGNMENT_POW && pSoldier->aiData.bStrategicMoraleMod < 0 )
+			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->aiData.bStrategicMoraleMod < 0 )
 			{
 				continue;
 			}
@@ -413,7 +413,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	{
 		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
 		{
-			if (cnt == (UINT16)pSoldier->sFacilityTypeOperated && // Soldier is operating this facility
+			if (cnt == (UINT16)pSoldier->assignment().facilityType() && // Soldier is operating this facility
 				GetSoldierFacilityAssignmentIndex( pSoldier ) != -1) 
 			{
 				UINT8 ubFacilityType = (UINT8)cnt;
@@ -466,9 +466,9 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 		return;
 	}
 
-	if ( ( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-			( pSoldier->bAssignment == IN_TRANSIT ) )
+	if ( ( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+			( pSoldier->assignment().current() == IN_TRANSIT ) )
 	{
 		return;
 	}
@@ -1173,10 +1173,10 @@ void HourlyMoraleUpdate( void )
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, in Arulco, and conscious, not POW
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-																!(pSoldier->bAssignment == IN_TRANSIT ||
+																!(pSoldier->assignment().current() == IN_TRANSIT ||
 																pSoldier->flags.fMercAsleep == TRUE ||
-																pSoldier->bAssignment == ASSIGNMENT_DEAD ||
-																pSoldier->bAssignment == ASSIGNMENT_POW) )
+																pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
+																pSoldier->assignment().current() == ASSIGNMENT_POW) )
 		{
 			// calculate the guy's opinion of the people he is with
 			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
@@ -1208,10 +1208,10 @@ void HourlyMoraleUpdate( void )
 					GetJa2SoldierRepository().resolve(bOtherID.i);
 				// skip past ourselves and all inactive mercs
 				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
-					!(pOtherSoldier->bAssignment == IN_TRANSIT ||
+					!(pOtherSoldier->assignment().current() == IN_TRANSIT ||
 						pOtherSoldier->flags.fMercAsleep == TRUE ||
-						pOtherSoldier->bAssignment == ASSIGNMENT_DEAD ||
-						pOtherSoldier->bAssignment == ASSIGNMENT_POW))
+						pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD ||
+						pOtherSoldier->assignment().current() == ASSIGNMENT_POW))
 				{
 					if (fSameGroupOnly)
 					{
@@ -1373,9 +1373,9 @@ void HandleSnitchCheck( void )
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, in Arulco, not POW, not a vehicle
 		if ( pSoldier && pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
-			!(pSoldier->bAssignment == IN_TRANSIT ||
-			pSoldier->bAssignment == ASSIGNMENT_DEAD ||
-			pSoldier->bAssignment == ASSIGNMENT_POW ||
+			!(pSoldier->assignment().current() == IN_TRANSIT ||
+			pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
+			pSoldier->assignment().current() == ASSIGNMENT_POW ||
 			pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{
 			// calculate the guy's opinion of the people he is with
@@ -1399,9 +1399,9 @@ void HandleSnitchCheck( void )
 					GetJa2SoldierRepository().resolve(bOtherID.i);
 				// skip past ourselves and all inactive mercs
 				if ( bOtherID != bMercID && pOtherSoldier && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
-					!(pOtherSoldier->bAssignment == IN_TRANSIT ||
-					pOtherSoldier->bAssignment == ASSIGNMENT_DEAD ||
-					pOtherSoldier->bAssignment == ASSIGNMENT_POW ||
+					!(pOtherSoldier->assignment().current() == IN_TRANSIT ||
+					pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD ||
+					pOtherSoldier->assignment().current() == ASSIGNMENT_POW ||
 					pOtherSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
 					if ( fSameGroupOnly )
@@ -1590,9 +1590,9 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 		if ( ProfileHasSkillTrait( ubSnitchProfile, SNITCH_NT ) &&
 			ubSnitchProfile != ubTargetProfile && ubSnitchProfile != ubSecondaryTargetProfile
 			&& pSnitch->bActive && ubSnitchProfile != NO_PROFILE &&
-			!(pSnitch->bAssignment == IN_TRANSIT ||
-			pSnitch->bAssignment == ASSIGNMENT_DEAD ||
-			pSnitch->bAssignment == ASSIGNMENT_POW) )
+			!(pSnitch->assignment().current() == IN_TRANSIT ||
+			pSnitch->assignment().current() == ASSIGNMENT_DEAD ||
+			pSnitch->assignment().current() == ASSIGNMENT_POW) )
 		{
 			if ( fSameGroupOnly )
 			{
@@ -1627,7 +1627,7 @@ void RememberSnitchableEvent( UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProf
 				SoldierRelation( pSnitch, pSoldier )*gSkillTraitValues.fSNTSnitchOpinionAboutMercBonusModifier +
 				gMercProfiles[ubSnitchProfile].bLeadership*gSkillTraitValues.fSNTSnitchLeadershipBonusModifer);
 
-			if ( pSoldier->bAssignment == pSnitch->bAssignment )
+			if ( pSoldier->assignment().current() == pSnitch->assignment().current() )
 			{
 				sSnitchingChance += gSkillTraitValues.bSNTSameAssignmentBonus;
 			}
@@ -1742,7 +1742,7 @@ BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier )
 			continue;
 		}
 		// Are we actually here?
-		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->bAssignment == VEHICLE ) )
+		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue;

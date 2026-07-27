@@ -120,14 +120,14 @@ void HandleDisease()
 					FLOAT modifier = 1.0f;
 
 					// if both are in the same squad or vehicle, chance is increased
-					if (pTeamSoldier->bAssignment == pSoldier->bAssignment &&
-						 (pSoldier->bAssignment < ON_DUTY ||
-						 (pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId == pTeamSoldier->iVehicleId)))
+					if (pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
+						 (pSoldier->assignment().current() < ON_DUTY ||
+						 (pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId == pTeamSoldier->iVehicleId)))
 					{
 						modifier = 1.5;
 					}
 					// doctor-patient relations increase chance even more
-					else if (IS_PATIENT(pTeamSoldier->bAssignment) && IS_PATIENT(pSoldier->bAssignment))
+					else if (IS_PATIENT(pTeamSoldier->assignment().current()) && IS_PATIENT(pSoldier->assignment().current()))
 					{
 						modifier = 4;
 					}

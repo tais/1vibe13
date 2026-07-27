@@ -318,6 +318,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   widths, and v101 conversion maps the original fields into that owner. Hire
   requests, profiles, and all save, packet, map, XML, Lua, and installed-data
   bytes remain unchanged.
+- Current and previous duty, training choice, assignment timing, squad-merge
+  state, repair/facility context, item-moving sector, and mini-event time are
+  now stored by `SoldierAssignmentComponent`. The visitor still emits the
+  eleven values at their original scattered POD positions and widths. v101
+  conversion maps its eight historical fields and clears the three fields
+  absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
+  change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

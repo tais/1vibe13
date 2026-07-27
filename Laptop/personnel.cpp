@@ -1262,10 +1262,10 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 		return;
 	}
 
-	if( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 	}
-	else if( pSoldier->bAssignment == IN_TRANSIT )
+	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 	}
 	else
@@ -1305,10 +1305,10 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	//Display the mercs name
 	mprintf( sX + iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y, sString );
 
-	if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < std::min<size_t>(ON_DUTY, gSquadNameVector.size() ) )
-		swprintf( sString, L"%s", gSquadNameVector[pSoldier->bAssignment].c_str() );
+	if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < std::min<size_t>(ON_DUTY, gSquadNameVector.size() ) )
+		swprintf( sString, L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
 	else
-		swprintf( sString, L"%s", pPersonnelAssignmentStrings[pSoldier->bAssignment]);
+		swprintf( sString, L"%s", pPersonnelAssignmentStrings[pSoldier->assignment().current()]);
 
 	// nick name - assignment
 	FindFontCenterCoordinates(IMAGE_BOX_X-5,0,IMAGE_BOX_WIDTH + 90 , 0,sString,CHAR_NAME_FONT, &sX, &sY );
@@ -1344,12 +1344,12 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 Moved so the name of the town will be in the same line as the name
 
 
-	if( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 //		FindFontCenterCoordinates(IMAGE_BOX_X-5,0,IMAGE_BOX_WIDTH, 0,pPOWStrings[ 1 ],CHAR_NAME_FONT, &sX, &sY );
 //	mprintf(sX+iSlot*IMAGE_BOX_WIDTH, CHAR_NAME_Y+20,pPOWStrings[ 1 ] );
 	}
-	else if( pSoldier->bAssignment == IN_TRANSIT )
+	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		return;
 	}
@@ -1428,7 +1428,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 		{
 		case 0:
 			// health
-			if ( pSoldier->bAssignment != ASSIGNMENT_POW )
+			if ( pSoldier->assignment().current() != ASSIGNMENT_POW )
 			{
 				// Flugente: stats can have gone up or down, find out which 
 				const INT16 change = pMercProfile->bLifeDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH]);
@@ -2629,7 +2629,7 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						currentTeamList[currentTeamIndex].i)
 					: NULL;
 			if( selectedSoldier &&
-				selectedSoldier->bAssignment == ASSIGNMENT_POW &&
+				selectedSoldier->assignment().current() == ASSIGNMENT_POW &&
 				gubPersonnelInfoState == PERSONNEL_INV_BTN ) {
 				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
@@ -2680,7 +2680,7 @@ void PersonnelPortraitCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						currentTeamList[currentTeamIndex].i)
 					: NULL;
 			if( selectedSoldier &&
-				selectedSoldier->bAssignment == ASSIGNMENT_POW &&
+				selectedSoldier->assignment().current() == ASSIGNMENT_POW &&
 				gubPersonnelInfoState == PERSONNEL_INV_BTN) {
 				gubPersonnelInfoState = PERSONNEL_STAT_BTN;
 			}
@@ -3434,7 +3434,7 @@ INT32 GetIdOfDepartedMercWithHighestStat( INT32 iStat )
 
 				//if the soldier is a pow, dont use the health cause it aint known
 			pSoldier = FindSoldierByProfileID( (UINT8)cnt, FALSE );
-			if( pSoldier && pSoldier->bAssignment == ASSIGNMENT_POW )
+			if( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW )
 			{
 				continue;
 			}
@@ -3606,7 +3606,7 @@ INT32 GetIdOfDepartedMercWithLowestStat( INT32 iStat )
 			// health
 
 			pSoldier = FindSoldierByProfileID( (UINT8)cnt, FALSE );
-			if( pSoldier && pSoldier->bAssignment == ASSIGNMENT_POW )
+			if( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW )
 			{
 				continue;
 			}
@@ -3730,7 +3730,7 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 			{
 				case 0:
 			// health
-						if( pTeamSoldier->bAssignment == ASSIGNMENT_POW )
+						if( pTeamSoldier->assignment().current() == ASSIGNMENT_POW )
 						{
 							continue;
 						}
@@ -3854,7 +3854,7 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 				case 0:
 			// health
 
-					if( pTeamSoldier->bAssignment == ASSIGNMENT_POW )
+					if( pTeamSoldier->assignment().current() == ASSIGNMENT_POW )
 					{
 						continue;
 					}
@@ -3984,7 +3984,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 			// health
 
 						//if this is a pow, dont count his stats
-						if( pTeamSoldier->bAssignment == ASSIGNMENT_POW )
+						if( pTeamSoldier->assignment().current() == ASSIGNMENT_POW )
 						{
 							bNumberOfPows++;
 							continue;
@@ -5958,7 +5958,7 @@ void UpDateStateOfStartButton( void )
 			GetJa2SoldierRepository().resolve(iId.i);
 
 		if (iId != NOBODY && soldier &&
-			soldier->bAssignment == ASSIGNMENT_POW )
+			soldier->assignment().current() == ASSIGNMENT_POW )
 		{
 			DisableButton( giPersonnelATMStartButton[ PERSONNEL_INV_BTN ] );
 
@@ -6048,7 +6048,7 @@ void HandlePersonnelKeyboard( void )
 									currentTeamList[currentTeamIndex].i)
 								: NULL;
 						if( selectedSoldier &&
-							selectedSoldier->bAssignment ==
+							selectedSoldier->assignment().current() ==
 								ASSIGNMENT_POW &&
 							gubPersonnelInfoState == PERSONNEL_INV_BTN)
 							gubPersonnelInfoState = PERSONNEL_EMPLOYMENT_BTN;
@@ -6077,7 +6077,7 @@ void HandlePersonnelKeyboard( void )
 									currentTeamList[currentTeamIndex].i)
 								: NULL;
 						if( selectedSoldier &&
-							selectedSoldier->bAssignment ==
+							selectedSoldier->assignment().current() ==
 								ASSIGNMENT_POW &&
 							gubPersonnelInfoState == PERSONNEL_INV_BTN)
 							gubPersonnelInfoState = PERSONNEL_STAT_BTN;
@@ -6262,7 +6262,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				INT32 iTimeLeftOnContract = CalcTimeLeftOnMercContract( pSoldier );
 
 				//if the merc is in transit
-				if( pSoldier->bAssignment == IN_TRANSIT )
+				if( pSoldier->assignment().current() == IN_TRANSIT )
 				{
 					//and if the time left on the contract is greater than the contract time
 					if( iTimeLeftOnContract > (INT32)( pSoldier->employment().totalLength() * uiMinutesInDay ) )

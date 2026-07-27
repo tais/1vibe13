@@ -1848,7 +1848,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 
 	// don't let mercs on assignment get interrupts
-	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->bAssignment >= ON_DUTY)
+	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->assignment().current() >= ON_DUTY)
 	{
 		return( FALSE );
 	}
@@ -2196,7 +2196,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
 	{
-		if ( pSoldier->bAssignment >= ON_DUTY )
+		if ( pSoldier->assignment().current() >= ON_DUTY )
 		{
 			// make sure don't get interrupts!
 			iPoints = -10;

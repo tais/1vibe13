@@ -1182,7 +1182,7 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 	}
 
 	//If the merc is currently being held captive, get out
-	if (pSoldier->bAssignment == ASSIGNMENT_POW)
+	if (pSoldier->assignment().current() == ASSIGNMENT_POW)
 	{
 		return( 0 );
 	}
@@ -1570,7 +1570,7 @@ BOOLEAN MercIsInsurable( SOLDIERTYPE *pSoldier )
 		{
 			// who aren't currently being held POW
 			// POWs are also uninsurable - if already insured, that insurance IS valid but no new contracts or extension allowed
-			if (pSoldier->bAssignment != ASSIGNMENT_POW)
+			if (pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				return(TRUE);
 			}
@@ -1830,7 +1830,7 @@ INT32	CalcStartDayOfInsurance( SOLDIERTYPE *pSoldier )
 	UINT32	uiDayToStartInsurance=0;
 
 	//if the soldier was just hired ( in transit ), and the game didnt just start
-	if( pSoldier->bAssignment == IN_TRANSIT && !DidGameJustStart() )
+	if( pSoldier->assignment().current() == IN_TRANSIT && !DidGameJustStart() )
 	{
 		uiDayToStartInsurance = GetWorldDay( );
 	}

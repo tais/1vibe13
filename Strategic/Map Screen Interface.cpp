@@ -558,7 +558,7 @@ void ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( UINT8 ubMiliti
 
 		if (ubMilitiaType == TOWN_MILITIA)
 		{
-			if( pSoldier->bAssignment == TRAIN_TOWN )
+			if( pSoldier->assignment().current() == TRAIN_TOWN )
 			{
 				if ( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE )
 				{
@@ -592,7 +592,7 @@ void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, 
 
 		if( ubMilitiaType == TOWN_MILITIA )
 		{
-			if( pSoldier->bAssignment == TRAIN_TOWN )
+			if( pSoldier->assignment().current() == TRAIN_TOWN )
 			{
 				if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == 0 ) )
 				{
@@ -629,7 +629,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 				// However, different vehicles CAN plot together, since they all travel at the same rates now
 
 				// if anchor guy is IN a vehicle
-				if( pSoldier->bAssignment == VEHICLE )
+				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					if ( !CanSoldierMoveWithVehicleId( pSoldier2, pSoldier->iVehicleId ) )
 					{
@@ -647,7 +647,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 					}
 				}
 				// if this guy is IN a vehicle
-				else if( pSoldier2->bAssignment == VEHICLE )
+				else if( pSoldier2->assignment().current() == VEHICLE )
 				{
 					if ( !CanSoldierMoveWithVehicleId( pSoldier, pSoldier2->iVehicleId ) )
 					{
@@ -665,7 +665,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 					}
 				}
 				// reject those not a squad (vehicle handled above)
-				else if( pSoldier2->bAssignment >= ON_DUTY )
+				else if( pSoldier2->assignment().current() >= ON_DUTY )
 				{
 					ResetEntryForSelectedList( iCounter );
 				}
@@ -707,7 +707,7 @@ void SelectUnselectedMercsWhoMustMoveWithThisGuy( void )
 				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				// if on a squad or in a vehicle
-				if ( ( pSoldier->bAssignment < ON_DUTY ) || ( pSoldier->bAssignment == VEHICLE ) )
+				if ( ( pSoldier->assignment().current() < ON_DUTY ) || ( pSoldier->assignment().current() == VEHICLE ) )
 				{
 					// and a member of that squad or vehicle is selected
 					if ( AnyMercInSameSquadOrVehicleIsSelected( pSoldier ) )
@@ -735,30 +735,30 @@ BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier )
 				pSoldier2 = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 				// if they have the same assignment
-				if( pSoldier->bAssignment == pSoldier2->bAssignment )
+				if( pSoldier->assignment().current() == pSoldier2->assignment().current() )
 				{
 					// same squad?
-					if ( pSoldier->bAssignment < ON_DUTY )
+					if ( pSoldier->assignment().current() < ON_DUTY )
 					{
 						return ( TRUE );
 					}
 
 					// same vehicle?
-					if ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId == pSoldier2->iVehicleId ) )
+					if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == pSoldier2->iVehicleId ) )
 					{
 						return ( TRUE );
 					}
 				}
 
 				// target guy is in a vehicle, and this guy IS that vehicle
-				if( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier2->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+				if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier2->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 						( pSoldier->iVehicleId == pSoldier2->bVehicleID ) )
 				{
 					return ( TRUE );
 				}
 
 				// this guy is in a vehicle, and the target guy IS that vehicle
-				if( ( pSoldier2->bAssignment == VEHICLE ) && ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+				if( ( pSoldier2->assignment().current() == VEHICLE ) && ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 						( pSoldier2->iVehicleId == pSoldier->bVehicleID ) )
 				{
 					return ( TRUE );
@@ -1166,7 +1166,7 @@ void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, I
 			bSelectedDestChar = -1;
 			bSelectedContractChar = -1;
 			bSelectedAssignChar = bCharacter;
-			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
+			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->assignment().current() != ASSIGNMENT_POW ) )
 			{
 				fShowAssignmentMenu = TRUE;
 			}
@@ -1195,7 +1195,7 @@ void ActivateSoldierPopup( SOLDIERTYPE *pSoldier, UINT8 ubPopupType, INT16 xp, I
 			bSelectedAssignChar = -1;
 			RebuildContractBoxForMerc( pSoldier );
 
-			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->bAssignment != ASSIGNMENT_POW ) )
+			if( ( pSoldier->vitals().health() > 0 ) &&( pSoldier->assignment().current() != ASSIGNMENT_POW ) )
 			{
 				fShowContractMenu = TRUE;
 			}
@@ -1557,7 +1557,7 @@ void HandleLeavingOfEquipmentInCurrentSector( SoldierID uiMercId )
 		return;
 
 	INT8 sectorz = pSoldier->bSectorZ;
-	if ( SPY_LOCATION( pSoldier->bAssignment ) )
+	if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		sectorz = max( 0, sectorz - 10 ); 
 
 	const auto x = pSoldier->sSectorX;
@@ -1986,7 +1986,7 @@ void UpdateCharRegionHelpText( void )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 		// health/energy/morale
-		if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
+		if( pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND )
 		{
 			if ( pSoldier->vitals().health() != 0 )
 			{
@@ -2603,13 +2603,13 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 			}
 
 			// only exchanges between those is the same squad or vehicle are permitted
-			if ( pNewSoldier->bAssignment != pOldSoldier->bAssignment )
+			if ( pNewSoldier->assignment().current() != pOldSoldier->assignment().current() )
 			{
 				return( FALSE );
 			}
 
 			// if in vehicles, make sure it's the same one
-			if ( ( pNewSoldier->bAssignment == VEHICLE ) && ( pNewSoldier->iVehicleId != pOldSoldier->iVehicleId ) )
+			if ( ( pNewSoldier->assignment().current() == VEHICLE ) && ( pNewSoldier->iVehicleId != pOldSoldier->iVehicleId ) )
 			{
 				return( FALSE );
 			}
@@ -3309,7 +3309,7 @@ BOOLEAN AllSoldiersInSquadSelected( INT32 iSquadNumber )
 	// is everyone on this squad moving?
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( pSoldierMovingList[ iCounter ]->bAssignment == ( INT8 )iSquadNumber )
+		if( pSoldierMovingList[ iCounter ]->assignment().current() == ( INT8 )iSquadNumber )
 		{
 			if( fSoldierIsMoving[ iCounter ] == FALSE )
 			{
@@ -3417,7 +3417,7 @@ INT32 HowManyMovingSoldiersInVehicle( INT32 iVehicleId )
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
 		// is he in the right vehicle
-		if( ( pSoldierMovingList[ iCounter ]->bAssignment == VEHICLE )&&( pSoldierMovingList[ iCounter ]->iVehicleId == iVehicleId ) )
+		if( ( pSoldierMovingList[ iCounter ]->assignment().current() == VEHICLE )&&( pSoldierMovingList[ iCounter ]->iVehicleId == iVehicleId ) )
 		{
 			// if he moving?
 			if ( fSoldierIsMoving[ iCounter ] )
@@ -3438,7 +3438,7 @@ INT32 HowManyMovingSoldiersInSquad( INT32 iSquadNumber )
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
 		// is he in the right squad
-		if( pSoldierMovingList[ iCounter ]->bAssignment == iSquadNumber )
+		if( pSoldierMovingList[ iCounter ]->assignment().current() == iSquadNumber )
 		{
 			// if he moving?
 			if ( fSoldierIsMoving[ iCounter ] )
@@ -3682,7 +3682,7 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if( ( pSoldier->bActive ) &&
-					( pSoldier->bAssignment != IN_TRANSIT ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->bAssignment ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
+					( pSoldier->assignment().current() != IN_TRANSIT ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->assignment().current() ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 					( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == sSectorZ ) )
 			{
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -3699,16 +3699,16 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 				{
 					// alive, not aboard Skyrider (airborne or not!)
 					if ( ( pSoldier->vitals().health() >= OKLIFE ) &&
-							( ( pSoldier->bAssignment != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) )
+							( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) )
 					{
 						// add soldier
 						AddSoldierToMovingLists( pSoldier );
 
 						// if on a squad,
-						if ( pSoldier->bAssignment < ON_DUTY )
+						if ( pSoldier->assignment().current() < ON_DUTY )
 						{
 							// add squad (duplicates ok, they're ignored inside the function)
-							AddSquadToMovingLists( pSoldier->bAssignment );
+							AddSquadToMovingLists( pSoldier->assignment().current() );
 						}
 					}
 				}
@@ -3905,7 +3905,7 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			if( pSoldierMovingList[ iCountB ]->bAssignment == iSquadMovingList[ iCount ] )
+			if( pSoldierMovingList[ iCountB ]->assignment().current() == iSquadMovingList[ iCount ] )
 			{
 				// add mercs in squads
 				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
@@ -3993,7 +3993,7 @@ void AddStringsToMoveBox( void )
 		// now add all the grunts in it
 		for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 		{
-			if( ( pSoldierMovingList[ iCountB ]->bAssignment == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->iVehicleId == iVehicleMovingList[ iCount ] ) )
+			if( ( pSoldierMovingList[ iCountB ]->assignment().current() == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->iVehicleId == iVehicleMovingList[ iCount ] ) )
 			{
 				// add mercs in vehicles
 				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
@@ -4051,7 +4051,7 @@ void AddStringsToMoveBox( void )
 	for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 	{
 		// not on duty, not in a vehicle
-		if( ( pSoldierMovingList[ iCount ]->bAssignment >= ON_DUTY ) && ( pSoldierMovingList[ iCount ]->bAssignment != VEHICLE ) )
+		if( ( pSoldierMovingList[ iCount ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCount ]->assignment().current() != VEHICLE ) )
 		{
 			if ( fFirstOne )
 			{
@@ -4072,11 +4072,11 @@ void AddStringsToMoveBox( void )
 			// add OTHER soldiers (not on duty nor in a vehicle)
 			if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCount ] ) == TRUE )
 			{
-				swprintf( sString, L" *%s ( %s )*", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->bAssignment ] );
+				swprintf( sString, L" *%s ( %s )*", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
 			}
 			else
 			{
-				swprintf( sString, L" %s ( %s )", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->bAssignment ] );
+				swprintf( sString, L" %s ( %s )", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
 			}
 			AddMonoString(&hStringHandle, sString );
 		}
@@ -4244,7 +4244,7 @@ void BuildMouseRegionsForMoveBox( void )
 			// Squad soldiers
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				if( pSoldierMovingList[ iCountB ]->bAssignment == iSquadMovingList[ iCount ] )
+				if( pSoldierMovingList[ iCountB ]->assignment().current() == iSquadMovingList[ iCount ] )
 				{
 					tlx = iBoxXPosition;
 					tly = iBoxYPosition + iFontHeight * iCounter;
@@ -4386,7 +4386,7 @@ void BuildMouseRegionsForMoveBox( void )
 			// Soldiers inside a vehicle
 			for( iCountB = 0; iCountB < giNumberOfSoldiersInSectorMoving; iCountB++ )
 			{
-				if( ( pSoldierMovingList[ iCountB ]->bAssignment == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->iVehicleId == iVehicleMovingList[ iCount ] ) )
+				if( ( pSoldierMovingList[ iCountB ]->assignment().current() == VEHICLE ) &&( pSoldierMovingList[ iCountB ]->iVehicleId == iVehicleMovingList[ iCount ] ) )
 				{
 					tlx = iBoxXPosition;
 					tly = iBoxYPosition + iFontHeight * iCounter;
@@ -4467,7 +4467,7 @@ void BuildMouseRegionsForMoveBox( void )
 		for( iCount = 0; iCount < giNumberOfSoldiersInSectorMoving; iCount++ )
 		{
 			// this guy is not in a squad or vehicle
-			if( ( pSoldierMovingList[ iCount ]->bAssignment >= ON_DUTY )&&( pSoldierMovingList[ iCount ]->bAssignment != VEHICLE ) )
+			if( ( pSoldierMovingList[ iCount ]->assignment().current() >= ON_DUTY )&&( pSoldierMovingList[ iCount ]->assignment().current() != VEHICLE ) )
 			{
 				// this line gets place only once...
 				if( !fDefinedOtherRegion )
@@ -4696,7 +4696,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					// change him to NOT move instead
 
-					if( pSoldier->bAssignment == VEHICLE )
+					if( pSoldier->assignment().current() == VEHICLE )
 					{
 						// if he's the only one left moving in the vehicle, deselect whole vehicle
 						if( HowManyMovingSoldiersInVehicle( pSoldier->iVehicleId ) == 1 )
@@ -4710,13 +4710,13 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 							DeselectSoldierForMovement( pSoldier );
 						}
 					}
-					else if( pSoldier->bAssignment < ON_DUTY )
+					else if( pSoldier->assignment().current() < ON_DUTY )
 					{
 						// if he's the only one left moving in the squad, deselect whole squad
-						if( HowManyMovingSoldiersInSquad( pSoldier->bAssignment ) == 1 )
+						if( HowManyMovingSoldiersInSquad( pSoldier->assignment().current() ) == 1 )
 						{
 							// whole squad stays
-							DeselectSquadForMovement( pSoldier->bAssignment );
+							DeselectSquadForMovement( pSoldier->assignment().current() );
 						}
 						else
 						{
@@ -4738,16 +4738,16 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 						// change him to move instead
 						SelectSoldierForMovement( pSoldier );
 
-						if( pSoldier->bAssignment < ON_DUTY )
+						if( pSoldier->assignment().current() < ON_DUTY )
 						{
 							// if everyone in the squad is now selected, select the squad itself
-							if( AllSoldiersInSquadSelected( pSoldier->bAssignment ) )
+							if( AllSoldiersInSquadSelected( pSoldier->assignment().current() ) )
 							{
-								SelectSquadForMovement( pSoldier->bAssignment );
+								SelectSquadForMovement( pSoldier->assignment().current() );
 							}
 						}
 /* ARM: it's more flexible without this - player can take the vehicle along or not without having to exit it.
-						else if( pSoldier->bAssignment == VEHICLE )
+						else if( pSoldier->assignment().current() == VEHICLE )
 						{
 							// his vehicle MUST also go while he's moving, but not necessarily others on board
 							SelectVehicleForMovement( pSoldier->iVehicleId, VEHICLE_ONLY );
@@ -4825,7 +4825,7 @@ void SelectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->bAssignment >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->bAssignment != VEHICLE ) )
+		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->assignment().current() != VEHICLE ) )
 		{
 			if ( CanMoveBoxSoldierMoveStrategically( pSoldierMovingList[ iCounter ], FALSE ) )
 			{
@@ -4853,7 +4853,7 @@ void DeselectAllOtherSoldiersInList( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->bAssignment >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->bAssignment != VEHICLE ) )
+		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && ( pSoldierMovingList[ iCounter ]->assignment().current() != VEHICLE ) )
 		{
 			fSoldierIsMoving[ iCounter ] = FALSE;
 		}
@@ -4881,17 +4881,17 @@ void HandleMoveoutOfSectorMovementTroops( void )
 		fCheckForCompatibleSquad = FALSE;
 
 		// if he is on a valid squad
-		if( pSoldier->bAssignment < ON_DUTY )
+		if( pSoldier->assignment().current() < ON_DUTY )
 		{
 			// if he and his squad are parting ways (soldier is staying behind, but squad is leaving, or vice versa)
-			if( fSoldierIsMoving[ iCounter ] != IsSquadSelectedForMovement( pSoldier->bAssignment ) )
+			if( fSoldierIsMoving[ iCounter ] != IsSquadSelectedForMovement( pSoldier->assignment().current() ) )
 			{
 				// split the guy from his squad to any other compatible squad
 				fCheckForCompatibleSquad = TRUE;
 			}
 		}
 		// if in a vehicle
-		else if( pSoldier->bAssignment == VEHICLE )
+		else if( pSoldier->assignment().current() == VEHICLE )
 		{
 			// if he and his vehicle are parting ways (soldier is staying behind, but vehicle is leaving, or vice versa)
 			if( fSoldierIsMoving[ iCounter ] != IsVehicleSelectedForMovement( pSoldier->iVehicleId ) )
@@ -5012,7 +5012,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 	{
 		INT8 pbErrorNumber = -1;
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
-		INT8 bSquadValue = pSoldier->bAssignment;
+		INT8 bSquadValue = pSoldier->assignment().current();
 		if (bSquadValue == VEHICLE)
 		{
 			for (INT8 bCounter = 0; bCounter < NUMBER_OF_SQUADS; ++bCounter)
@@ -5089,7 +5089,7 @@ BOOLEAN AllOtherSoldiersInListAreSelected( void )
 
 	for( iCounter = 0; iCounter < giNumberOfSoldiersInSectorMoving; iCounter++ )
 	{
-		if( ( pSoldierMovingList[ iCounter ]->bAssignment >= ON_DUTY ) && (	pSoldierMovingList[ iCounter ]->bAssignment >= VEHICLE ) )
+		if( ( pSoldierMovingList[ iCounter ]->assignment().current() >= ON_DUTY ) && (	pSoldierMovingList[ iCounter ]->assignment().current() >= VEHICLE ) )
 		{
 			if( fSoldierIsMoving[ iCounter ] == FALSE )
 			{
@@ -6427,14 +6427,14 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	}
 
 	// a POW?
-	if( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 		*pbErrorNumber = 5;
 		return( FALSE );
 	}
 
 	// mini event/rebel command?
-	if ( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND )
+	if ( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND )
 	{
 		*pbErrorNumber = 29;
 		return( FALSE );
@@ -6471,7 +6471,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 			return( FALSE );
 		}
 	}
-	else if (pSoldier->bAssignment == VEHICLE && VehicleIdIsValid(pSoldier->iVehicleId))
+	else if (pSoldier->assignment().current() == VEHICLE && VehicleIdIsValid(pSoldier->iVehicleId))
 	{
 		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle(pSoldier->iVehicleId);
 
@@ -6579,7 +6579,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	}
 
 	// on assignment, other than just in a VEHICLE?
-	if( ( pSoldier->bAssignment >= ON_DUTY ) && ( pSoldier->bAssignment != VEHICLE ) )
+	if( ( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) )
 	{
 		*pbErrorNumber = 3;
 		return( FALSE );
@@ -6599,8 +6599,8 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	if ( AM_A_ROBOT( pSoldier ) )
 	{
 		// going alone?
-		if ( ( ( pSoldier->bAssignment == VEHICLE ) && ( !IsRobotControllerInVehicle( pSoldier->iVehicleId ) ) ) ||
-				( ( pSoldier->bAssignment	< ON_DUTY ) && ( !IsRobotControllerInSquad( pSoldier->bAssignment ) ) ) )
+		if ( ( ( pSoldier->assignment().current() == VEHICLE ) && ( !IsRobotControllerInVehicle( pSoldier->iVehicleId ) ) ) ||
+				( ( pSoldier->assignment().current()	< ON_DUTY ) && ( !IsRobotControllerInSquad( pSoldier->assignment().current() ) ) ) )
 		{
 			*pbErrorNumber = 49;
 			return( FALSE );
@@ -6610,8 +6610,8 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// going alone?
-		if ( ( ( pSoldier->bAssignment == VEHICLE ) && ( GetNumberOfNonEPCsInVehicle( pSoldier->iVehicleId ) == 0 ) ) ||
-				( ( pSoldier->bAssignment	< ON_DUTY ) && ( NumberOfNonEPCsInSquad( pSoldier->bAssignment ) == 0 ) ) )
+		if ( ( ( pSoldier->assignment().current() == VEHICLE ) && ( GetNumberOfNonEPCsInVehicle( pSoldier->iVehicleId ) == 0 ) ) ||
+				( ( pSoldier->assignment().current()	< ON_DUTY ) && ( NumberOfNonEPCsInSquad( pSoldier->assignment().current() ) == 0 ) ) )
 		{
 			// are they male or female
 			if( gMercProfiles[ pSoldier->ubProfile ].bSex == MALE )
@@ -6680,7 +6680,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 		// IS a vehicle - use vehicle's group
 		ubGroup = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
 	}
-	else if( pSoldier->bAssignment == VEHICLE )
+	else if( pSoldier->assignment().current() == VEHICLE )
 	{
 		// IN a vehicle - use vehicle's group
 		ubGroup = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
@@ -6718,7 +6718,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 				// IS a vehicle
 				ubCurrentGroup = pVehicleList[ pCurrentSoldier->bVehicleID ].ubMovementGroup;
 			}
-			else if( pCurrentSoldier->bAssignment == VEHICLE )
+			else if( pCurrentSoldier->assignment().current() == VEHICLE )
 			{
 				// IN a vehicle
 				ubCurrentGroup = pVehicleList[ pCurrentSoldier->iVehicleId ].ubMovementGroup;
@@ -6852,7 +6852,7 @@ BOOLEAN CanSoldierMoveWithVehicleId( SOLDIERTYPE *pSoldier, INT32 iVehicle1Id )
 	Assert( iVehicle1Id != -1 );
 
 	// if soldier is IN a vehicle
-	if( pSoldier->bAssignment == VEHICLE )
+	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		iVehicle2Id = pSoldier->iVehicleId;
 	}

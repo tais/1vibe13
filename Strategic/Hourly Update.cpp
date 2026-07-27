@@ -377,7 +377,7 @@ void HourlyLarryUpdate()
 			const std::vector<INT16> drugItems = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_ITEMS);
 			const std::vector<INT16> drugTypes = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_TYPES);
 
-			if ( pSoldier->bAssignment < ON_DUTY && !pSoldier->flags.fBetweenSectors && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
+			if ( pSoldier->assignment().current() < ON_DUTY && !pSoldier->flags.fBetweenSectors && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
 			{
 				// Flugente: reworked this for the new drug system. We now loop over our entire inventory
 				INT8 invsize = (INT8)pSoldier->inv.size();										// remember inventorysize, so we don't call size() repeatedly
@@ -656,7 +656,7 @@ void HourlyDisabilityUpdate( )
 				// only do this if we are rather healed
 				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().maximumHealth() > 0 && (FLOAT)(pSoldier->vitals().health()) / (FLOAT)(pSoldier->vitals().maximumHealth()) > 0.9f
 					 && !pSoldier->flags.fBetweenSectors && !gTacticalStatus.fEnemyInSector
-					 && !IS_PATIENT( pSoldier->bAssignment ) && pSoldier->bAssignment != IN_TRANSIT )
+					 && !IS_PATIENT( pSoldier->assignment().current() ) && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					// anv: snitches stop mercs from getting wasted
 					BOOLEAN fSnitchStoppedBehaviour = FALSE;
@@ -767,10 +767,10 @@ void HourlyStealUpdate()
 			&& !pSoldier->flags.fBetweenSectors
 			&& pSoldier->bActive
 			&& !pSoldier->flags.fMercAsleep
-			&& pSoldier->bAssignment != IN_TRANSIT
-			&& pSoldier->bAssignment != ASSIGNMENT_POW
-			&& pSoldier->bAssignment != ASSIGNMENT_MINIEVENT
-			&& pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
+			&& pSoldier->assignment().current() != IN_TRANSIT
+			&& pSoldier->assignment().current() != ASSIGNMENT_POW
+			&& pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
+			&& pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 			&& !( ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == pSoldier->bSectorZ ) ) && ( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) ) )
 		{
 			UINT8 ubSectorId = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
@@ -781,7 +781,7 @@ void HourlyStealUpdate()
 				continue;
 
 			INT8 sectorz = pSoldier->bSectorZ;
-			if ( SPY_LOCATION( pSoldier->bAssignment ) )
+			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 				sectorz = max( 0, sectorz - 10 );
 
 			// only works in surface sectors
@@ -797,11 +797,11 @@ void HourlyStealUpdate()
 				// note - snitches stop others, but can scrounge themselves (if they have scrounging specifically set in background...)
 				if ( pOtherSoldier
 					&& !pOtherSoldier->flags.fBetweenSectors
-					&& pOtherSoldier->bAssignment != IN_TRANSIT
-					&& pOtherSoldier->bAssignment != ASSIGNMENT_POW
-					&& pOtherSoldier->bAssignment != ASSIGNMENT_MINIEVENT
-					&& pOtherSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
-					&& !SPY_LOCATION( pOtherSoldier->bAssignment )
+					&& pOtherSoldier->assignment().current() != IN_TRANSIT
+					&& pOtherSoldier->assignment().current() != ASSIGNMENT_POW
+					&& pOtherSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
+					&& pOtherSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
+					&& !SPY_LOCATION( pOtherSoldier->assignment().current() )
 					&& pOtherSoldier->bActive
 					&& !pOtherSoldier->flags.fMercAsleep
 					&& pSoldier->ubProfile != pOtherSoldier->ubProfile )
@@ -883,7 +883,7 @@ void HourlyStealUpdate()
 			{
 				// we were caught. Since we have guns and the locals don't, they can't do much apart from being pissed
 				// of course if we do that while covert, the locals won't 'know' it was us
-				if ( !SPY_LOCATION( pSoldier->bAssignment ) )
+				if ( !SPY_LOCATION( pSoldier->assignment().current() ) )
 				{
 					// we were caught. Since we have guns and the locals don't, they can't do much apart from being pissed
 					// lower loyalty in closest town the player has ever controlled (the penalty is lowered by distance)
@@ -1098,7 +1098,7 @@ void HourlyFactoryUpdate()
 								pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 								if ( pSoldier->bActive && ( pSoldier->sSectorX == SECTORX( sector ) ) && ( pSoldier->sSectorY == SECTORY( sector ) ) && ( pSoldier->bSectorZ == 0 ) )
 								{
-									if ( pSoldier->sFacilityTypeOperated == cnt )
+									if ( pSoldier->assignment().facilityType() == cnt )
 									{
 										isstaffed = true;
 
@@ -1290,7 +1290,7 @@ void HourlyGatheringInformation()
 	for ( ; cnt <= bLastTeamID; ++cnt )
 	{
 		pSoldier = soldiers.resolve( cnt );
-		if( ( pSoldier->bActive ) && ( pSoldier->bAssignment == SNITCH_GATHER_RUMOURS || pSoldier->bAssignment == FACILITY_GATHER_RUMOURS ) )
+		if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() == SNITCH_GATHER_RUMOURS || pSoldier->assignment().current() == FACILITY_GATHER_RUMOURS ) )
 		{
 			HandleGatheringInformationBySoldier( pSoldier );
 		}

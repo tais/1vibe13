@@ -1942,7 +1942,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			fRaiseName = TRUE;
 		}
 		// anv: if soldier is in vehicle, write its name instead of "vehicle"
-		else if ( pSoldier->bAssignment == VEHICLE )
+		else if ( pSoldier->assignment().current() == VEHICLE )
 		{
 			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", GetSoldierStructureForVehicle( pSoldier->iVehicleId )->GetName() );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
@@ -1950,21 +1950,21 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( pSoldier->bAssignment >= ON_DUTY )
+		else if ( pSoldier->assignment().current() >= ON_DUTY )
 		{
 			SetFontForeground( FONT_YELLOW );
-			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", pAssignmentStrings[ pSoldier->bAssignment ] );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", pAssignmentStrings[ pSoldier->assignment().current() ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->bAssignment < ON_DUTY && pSoldier->bAssignment != CurrentSquad() && !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
+		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->assignment().current() < ON_DUTY && pSoldier->assignment().current() != CurrentSquad() && !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
 		{
-			if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < gSquadNameVector.size() )
-				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gSquadNameVector[pSoldier->bAssignment].c_str() );
+			if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < gSquadNameVector.size() )
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gSquadNameVector[pSoldier->assignment().current()].c_str() );
 			else
-				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gzLateLocalizedString[ 34 ], ( pSoldier->bAssignment + 1 ) );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gzLateLocalizedString[ 34 ], ( pSoldier->assignment().current() + 1 ) );
 
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
@@ -1982,7 +1982,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 		else
 		{
-			if ( pSoldier->bAssignment >= ON_DUTY && pSoldier->bAssignment != VEHICLE )
+			if ( pSoldier->assignment().current() >= ON_DUTY && pSoldier->assignment().current() != VEHICLE )
 			{
 				SetFontForeground( FONT_YELLOW );
 			}

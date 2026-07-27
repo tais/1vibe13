@@ -452,7 +452,7 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 	// find which squad this guy is, then set selected squad to this guy
 	if ( pSrcSoldier->bTeam == gbPlayerNum && GetJa2TacticalCurrentTeam() == gbPlayerNum )
 	{
-		SetCurrentSquad( pSrcSoldier->bAssignment, FALSE );
+		SetCurrentSquad( pSrcSoldier->assignment().current(), FALSE );
 
 	SelectSoldier( pSrcSoldier->ubID, FALSE, FALSE );
 	}
@@ -1905,7 +1905,7 @@ void HandleStuffForNPCEscorted( UINT8 ubNPC )
 			pSoldier = FindSoldierByProfileID( MARY, TRUE );
 			if ( pSoldier )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ MARY ].zNickname, ( pSoldier->bAssignment + 1 ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ MARY ].zNickname, ( pSoldier->assignment().current() + 1 ) );
 			}
 
 			if ( gubQuest[ QUEST_ESCORT_TOURISTS ] == QUESTNOTSTARTED )
@@ -1920,7 +1920,7 @@ void HandleStuffForNPCEscorted( UINT8 ubNPC )
 			pSoldier = FindSoldierByProfileID( JOHN, TRUE );
 			if ( pSoldier )
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ JOHN ].zNickname, ( pSoldier->bAssignment + 1 ) );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ JOHN ].zNickname, ( pSoldier->assignment().current() + 1 ) );
 			}
 
 			if ( gubQuest[ QUEST_ESCORT_TOURISTS ] == QUESTNOTSTARTED )
@@ -2101,7 +2101,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						continue;
 					}
 					// Are we in this sector, On the current squad?
-					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
 					{
 						gfTacticalTraversal = TRUE;
 						SetGroupSectorValue( gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ, pSoldier->ubGroupID );
@@ -3976,7 +3976,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							continue;
 						}
 						// Are we in this sector, On the current squad?
-						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
+						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
 							TriggerNPCRecord( pSoldier->ubProfile, 2 );
@@ -4803,7 +4803,7 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL )
 		{
 			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
 			{
@@ -4970,10 +4970,10 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 					}
 
 					// OK, update UI with message that we have been recruited
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ ubProfile ].zNickname, ( pSoldier->bAssignment + 1 ) );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NOW_BING_ESCORTED_STR ], gMercProfiles[ ubProfile ].zNickname, ( pSoldier->assignment().current() + 1 ) );
 
 					// Change Squads....
-					SetCurrentSquad( pSoldier->bAssignment, FALSE );
+					SetCurrentSquad( pSoldier->assignment().current(), FALSE );
 
 					HandleStuffForNPCEscorted( ubProfile );
 				}
@@ -5264,7 +5264,7 @@ void	DoneFadeInActionBasement( )
 			continue;
 		}
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			break;
 		}

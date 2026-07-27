@@ -281,8 +281,8 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	else
 	{
 		curr = pGroup->pPlayerList;
-		pSoldier->ubNumTraversalsAllowedToMerge = curr->pSoldier->ubNumTraversalsAllowedToMerge;
-		pSoldier->ubDesiredSquadAssignment = curr->pSoldier->ubDesiredSquadAssignment;
+		pSoldier->assignment().mergeTraversalAllowance() = curr->pSoldier->assignment().mergeTraversalAllowance();
+		pSoldier->assignment().desiredSquad() = curr->pSoldier->assignment().desiredSquad();
 		while( curr->next )
 		{
 			if( curr->ubProfileID == pSoldier->ubProfile )
@@ -1741,9 +1741,9 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 		curr = pGroup->pPlayerList;
 		if( curr )
 		{
-			if( curr->pSoldier->bAssignment < ON_DUTY )
+			if( curr->pSoldier->assignment().current() < ON_DUTY )
 			{
-				ResetDeadSquadMemberList( curr->pSoldier->bAssignment );
+				ResetDeadSquadMemberList( curr->pSoldier->assignment().current() );
 			}
 		}
 
@@ -1987,14 +1987,14 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				if ( GroupAtFinalDestination( pGroup ) && ( pGroup->ubSectorZ == 0 ) && !fNeverLeft )
 				{
 					// if assigned to a squad
-					if( pGroup->pPlayerList->pSoldier->bAssignment < ON_DUTY )
+					if( pGroup->pPlayerList->pSoldier->assignment().current() < ON_DUTY )
 					{
 						// squad
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->bAssignment < gSquadNameVector.size() )
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[pGroup->pPlayerList->pSoldier->bAssignment].c_str(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
+						if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->assignment().current() < gSquadNameVector.size() )
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
 						else
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ pGroup->pPlayerList->pSoldier->bAssignment ], pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ pGroup->pPlayerList->pSoldier->assignment().current() ], pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
 					}
 					else
 					{
@@ -2363,7 +2363,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
+			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
 				if ( ( pSoldier->sSectorX == ubSectorX ) && ( pSoldier->sSectorY == ubSectorY ) && ( pSoldier->bSectorZ - 10 == ubSectorZ ) )
 				{
@@ -3351,7 +3351,7 @@ INT32 GetSectorMvtTimeForGroup( UINT8 ubSector, UINT8 ubDirection, GROUP *pGroup
 				while ( curr )
 				{
 					pSoldier = curr->pSoldier;
-					if ( pSoldier->bAssignment != VEHICLE )
+					if ( pSoldier->assignment().current() != VEHICLE )
 					{
 						//Soldier is on foot and travelling. Factor encumbrance into movement rate.
 						iEncumbrance = CalculateCarriedWeight( pSoldier );
@@ -5386,7 +5386,7 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
-					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
+					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
 						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->ubProfile != NO_PROFILE )
 						{
@@ -5640,10 +5640,10 @@ BOOLEAN HandlePlayerGroupEnteringSectorToCheckForNPCsOfNote( GROUP *pGroup )
 	// build string for squad
 	GetSectorIDString( sSectorX, sSectorY, bSectorZ, wSectorName, FALSE );
 
-	if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector .size()) )
-		swprintf( sString, pLandMarkInSectorString[ 1 ], gSquadNameVector[pGroup->pPlayerList->pSoldier->bAssignment].c_str(), wSectorName );
+	if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector .size()) )
+		swprintf( sString, pLandMarkInSectorString[ 1 ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), wSectorName );
 	else
-		swprintf( sString, pLandMarkInSectorString[ 0 ], pGroup->pPlayerList->pSoldier->bAssignment + 1, wSectorName );
+		swprintf( sString, pLandMarkInSectorString[ 0 ], pGroup->pPlayerList->pSoldier->assignment().current() + 1, wSectorName );
 
 	if ( GroupAtFinalDestination( pGroup ) )
 	{
@@ -5793,12 +5793,12 @@ BOOLEAN GroupHasInTransitDeadOrPOWMercs( GROUP *pGroup )
 	{
 		if ( pPlayer->pSoldier )
 		{
-			if( ( pPlayer->pSoldier->bAssignment == IN_TRANSIT ) ||
-				( pPlayer->pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-				( pPlayer->pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-				( pPlayer->pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
-				SPY_LOCATION( pPlayer->pSoldier->bAssignment ) ||
-				( pPlayer->pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+			if( ( pPlayer->pSoldier->assignment().current() == IN_TRANSIT ) ||
+				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
+				SPY_LOCATION( pPlayer->pSoldier->assignment().current() ) ||
+				( pPlayer->pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 			{
 				// yup!
 				return( TRUE );
@@ -5877,7 +5877,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->sSectorX == ubSectorNumX &&
 			pSoldier->sSectorY == ubSectorNumY &&
-			pSoldier->bAssignment < ON_DUTY &&
+			pSoldier->assignment().current() < ON_DUTY &&
 			!pSoldier->flags.fMercAsleep &&
 			HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) )
 		{
@@ -5897,7 +5897,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->bAssignment ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			if ( pSoldier->sSectorX == ubSectorNumX && pSoldier->sSectorY == ubSectorNumY && pSoldier->bSectorZ == 10 )
 			{

@@ -2390,10 +2390,10 @@ void DrawCharBars( void )
 
 		// skip POWs, dead guys, mini events
 		if( ( pSoldier->vitals().health() == 0 ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+				( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 		{
 			return;
 		}
@@ -2811,7 +2811,7 @@ void DrawCharHealth( INT16 sCharNum )
 
 	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNum].usSolID);
 
-	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
+	if( pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND )
 	{
 		// find starting X coordinate by centering all 3 substrings together, then print them separately (different colors)!
 		sgp_swprintf( sString, 32,L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
@@ -2987,7 +2987,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 
 	// Assignment
-	if( pSoldier->bAssignment == VEHICLE )
+	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		// show vehicle type
 	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ] );
@@ -2995,10 +2995,10 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 	else
 	{
-		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size()) )
-			sgp_swprintf( sString, 32,L"%s", gSquadNameVector[pSoldier->bAssignment].c_str() );
+		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector.size()) )
+			sgp_swprintf( sString, 32,L"%s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
 		else
-			wcscpy( sString, pAssignmentStrings[ pSoldier->bAssignment ] );
+			wcscpy( sString, pAssignmentStrings[ pSoldier->assignment().current() ] );
 	}
 
 	{
@@ -3013,28 +3013,28 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// second assignment line
 
 	// HEADROCK HAM 3.6: Operating a facility?
-	if (pSoldier->sFacilityTypeOperated != -1)
+	if (pSoldier->assignment().facilityType() != -1)
 	{
-		UINT8 ubFacilityType = (UINT8)pSoldier->sFacilityTypeOperated;
+		UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 		// Print sector ID string
 		GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, sString );
 		wcscat( sString, L": " );
 		wcscat( sString, gFacilityTypes[ubFacilityType].szFacilityShortName );
-		//wcscpy(sString, gFacilityTypes[ pSoldier->sFacilityTypeOperated ].szFacilityName);
+		//wcscpy(sString, gFacilityTypes[ pSoldier->assignment().facilityType() ].szFacilityName);
 	}
 
 	// train self / teammate / by other ?
-	else if( ( pSoldier->bAssignment == TRAIN_SELF ) || ( pSoldier->bAssignment == TRAIN_TEAMMATE ) || ( pSoldier->bAssignment == TRAIN_BY_OTHER ) )
+	else if( ( pSoldier->assignment().current() == TRAIN_SELF ) || ( pSoldier->assignment().current() == TRAIN_TEAMMATE ) || ( pSoldier->assignment().current() == TRAIN_BY_OTHER ) )
 	{
-		wcscpy(sString, pAttributeMenuStrings[pSoldier->bTrainStat]);
+		wcscpy(sString, pAttributeMenuStrings[pSoldier->assignment().trainingStat()]);
 	}
 	// train town?
-	else if( pSoldier->bAssignment == TRAIN_TOWN )
+	else if( pSoldier->assignment().current() == TRAIN_TOWN )
 	{
 		wcscpy(sString,pTownNames[GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
 	}
 	// repairing?
-	else if( pSoldier->bAssignment == REPAIR )
+	else if( pSoldier->assignment().current() == REPAIR )
 	{
 		if ( pSoldier->flags.fFixingRobot )
 		{
@@ -3046,11 +3046,11 @@ void DrawCharacterInfo(INT16 sCharNumber)
 			// SAM site
 			wcscpy( sString, pRepairStrings[ 1 ] );
 		}
-		else if ( pSoldier->bVehicleUnderRepairID != -1 )
+		else if ( pSoldier->assignment().repairVehicleId() != -1 )
 		{
 			// vehicle
-		//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->bVehicleUnderRepairID ].ubVehicleType ] );
-			wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->bVehicleUnderRepairID ].ubVehicleType ].NewShortVehicleStrings );		
+		//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->assignment().repairVehicleId() ].ubVehicleType ] );
+			wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->assignment().repairVehicleId() ].ubVehicleType ].NewShortVehicleStrings );
 		}
 		else
 		{
@@ -3059,7 +3059,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		}
 	}
 	// in transit?
-	else if( pSoldier->bAssignment == IN_TRANSIT )
+	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		// show ETA
 		ConvertMinTimeToETADayHourMinString( pSoldier->uiTimeSoldierWillArrive, sString );
@@ -3119,7 +3119,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		iTimeRemaining = pSoldier->employment().endTime()-GetWorldTotalMin();
 
 		//if the merc is in transit
-		if( pSoldier->bAssignment == IN_TRANSIT )
+		if( pSoldier->assignment().current() == IN_TRANSIT )
 		{
 			//and if the ttime left on the cotract is greater then the contract time
 			if( iTimeRemaining > (INT32)( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY ) )
@@ -3257,7 +3257,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 */
 
 	// morale
-	if( pSoldier->bAssignment != ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() != ASSIGNMENT_POW )
 	{
 		if ( pSoldier->vitals().health() != 0 )
 		{
@@ -3306,7 +3306,7 @@ BOOLEAN CharacterIsInTransitAndHasItemPickedUp( INT8 bCharacterNumber )
 	}
 
 	// character in transit?
-	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharacterNumber ].usSolID)->bAssignment != IN_TRANSIT )
+	if( GetJa2SoldierRepository().resolve(gCharactersList[ bCharacterNumber ].usSolID)->assignment().current() != IN_TRANSIT )
 	{
 		// nope
 		return( FALSE );
@@ -3564,7 +3564,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 		// plotting for a character...
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
-		if( pSoldier->bAssignment == VEHICLE )
+		if( pSoldier->assignment().current() == VEHICLE )
 		{
 			ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
 			pGroup = GetGroup( ubGroupId );
@@ -4089,8 +4089,8 @@ void DisplayCharacterList()
 			else if ( pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY &&  pSoldier->bSectorZ == iCurrentMapSectorZ )
 			{
 				// mobile ?
-				if( ( pSoldier->bAssignment < ON_DUTY ) ||
-						( pSoldier->bAssignment == VEHICLE ) )
+				if( ( pSoldier->assignment().current() < ON_DUTY ) ||
+						( pSoldier->assignment().current() == VEHICLE ) )
 					ubForegroundColor = FONT_YELLOW;
 				else
 					ubForegroundColor = FONT_MAP_DKYELLOW;
@@ -6284,9 +6284,9 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 		}
 	}
 
-	if ( pSoldier->bAssignment >= TRAIN_SELF &&
-		pSoldier->bAssignment <= TRAIN_BY_OTHER &&
-		pSoldier->bAssignment != TRAIN_TEAMMATE )
+	if ( pSoldier->assignment().current() >= TRAIN_SELF &&
+		pSoldier->assignment().current() <= TRAIN_BY_OTHER &&
+		pSoldier->assignment().current() != TRAIN_TEAMMATE )
 	{
 		// HEADROCK HAM 3.6: Draw militia training progress bar
 		UINT32 uiDestBuffer;
@@ -6310,14 +6310,14 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 		UINT16 usMaxProgress = 100;
 		UINT8 sMapX = (UINT8)pSoldier->sSectorX;
 		UINT8 sMapY = (UINT8)pSoldier->sSectorY;
-		if ( pSoldier->bAssignment == TRAIN_TOWN )
+		if ( pSoldier->assignment().current() == TRAIN_TOWN )
 		{
 			ubProgress = SectorInfo[SECTOR(sMapX, sMapY)].ubMilitiaTrainingPercentDone;
 			usMaxProgress = 100;
 		}
-		else if ( pSoldier->bAssignment == TRAIN_SELF || 	pSoldier->bAssignment == TRAIN_BY_OTHER )
+		else if ( pSoldier->assignment().current() == TRAIN_SELF || 	pSoldier->assignment().current() == TRAIN_BY_OTHER )
 		{
-			switch (pSoldier->bTrainStat)
+			switch (pSoldier->assignment().trainingStat())
 			{
 				case STRENGTH:
 					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sStrengthGain+1;
@@ -10806,7 +10806,7 @@ void SetUpCursorForStrategicMap( void )
 			{
 				// set cursor based on foot or vehicle
 				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
-				if( ( pSoldier->bAssignment != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 				{
 					ChangeMapScreenMaskCursor( CURSOR_STRATEGIC_FOOT );
 				}
@@ -11383,7 +11383,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			fPlotForMilitia = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) )//&& !SPY_LOCATION( pSoldier->bAssignment ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) )//&& !SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -11439,7 +11439,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			fPlotForMilitia = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->bAssignment ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->assignment().current() ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -11530,7 +11530,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 			// if alive (dead guys keep going, use remove menu instead),
 			// and it's between sectors and it can be reassigned (non-vehicles)
-			if ( ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->flags.fBetweenSectors ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->flags.fBetweenSectors ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				// can't reassign mercs while between sectors
 				DoScreenIndependantMessageBox( pMapErrorString[ 41 ], MSG_BOX_FLAG_OK, NULL );
@@ -11564,7 +11564,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 				fShowAssignmentMenu = TRUE;
 
-				if( ( pSoldier->vitals().health() == 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+				if( ( pSoldier->vitals().health() == 0 ) || ( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 				{
 					fShowRemoveMenu = TRUE;
 				}
@@ -11622,7 +11622,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
       		fShownAssignmentMenu = FALSE;
 
 			// if not dead or POW, select his sector
-			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) && ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 			{
 				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
 			}
@@ -11640,7 +11640,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 						pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 						// if on a squad or in a vehicle
-						if ( ( pSoldier->bAssignment < ON_DUTY ) || ( pSoldier->bAssignment == VEHICLE ) )
+						if ( ( pSoldier->assignment().current() < ON_DUTY ) || ( pSoldier->assignment().current() == VEHICLE ) )
 						{
 							// and a member of that squad or vehicle is selected
 							if ( AnyMercInSameSquadOrVehicleIsSelected( pSoldier ) )
@@ -11779,7 +11779,7 @@ void TeamListDestinationRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 				MakeMapModesSuitableForDestPlotting( ( INT8 ) iValue + FIRSTmercTOdisplay );
 
 				// check if person is in a vehicle
-				if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->bAssignment == VEHICLE )
+				if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->assignment().current() == VEHICLE )
 				{
 					// if he's in the helicopter
 					if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->iVehicleId == iHelicopterVehicleId )
@@ -13035,7 +13035,7 @@ void EnableDisableTeamListRegionsAndHelpText( void )
 				MSYS_EnableRegion( &gTeamListAssignmentRegion[ bCharNum ] );
 
 				// POW or dead ?
-				if ( ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->bAssignment == ASSIGNMENT_POW ) ||
+				if ( ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->assignment().current() == ASSIGNMENT_POW ) ||
 						( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->vitals().health() == 0 ) )
 				{
 					// "Remove Merc"
@@ -13305,9 +13305,9 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 			// clicked on last sector, reset plotting mode
 
 			// if he's IN a vehicle or IS a vehicle
-			if( ( pSoldier->bAssignment == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
-				if( pSoldier->bAssignment == VEHICLE )
+				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					// IN a vehicle
 					iVehicleId = pSoldier->iVehicleId;
@@ -13389,9 +13389,9 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 
 
 			// if he's IN a vehicle or IS a vehicle
-			if( ( pSoldier->bAssignment == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
-				if( pSoldier->bAssignment == VEHICLE )
+				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					// IN a vehicle
 					iVehicleId = pSoldier->iVehicleId;
@@ -13676,7 +13676,7 @@ void UpDateStatusOfContractBox( void )
 
 		if( selectedSoldier &&
 			( selectedSoldier->vitals().health() == 0 ||
-				selectedSoldier->bAssignment == ASSIGNMENT_POW ) )
+				selectedSoldier->assignment().current() == ASSIGNMENT_POW ) )
 		{
 			ForceUpDateOfBox( ghRemoveMercAssignBox );
 		}
@@ -14816,24 +14816,24 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						continue;
 
 					if( !fReverse &&
-						( first->bAssignment > second->bAssignment ) &&
+						( first->assignment().current() > second->assignment().current() ) &&
 						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
 					else if( fReverse &&
-						( first->bAssignment < second->bAssignment ) &&
+						( first->assignment().current() < second->assignment().current() ) &&
 						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
-					else if( ( first->bAssignment == second->bAssignment ) &&
+					else if( ( first->assignment().current() == second->assignment().current() ) &&
 						( iCounterA < iCounter ) )
 					{
 						// same assignment
 
 						// if it's in a vehicle
-						if( first->bAssignment == VEHICLE )
+						if( first->assignment().current() == VEHICLE )
 						{
 							// then also compare vehicle IDs
 							if( ( first->iVehicleId > second->iVehicleId ) &&
@@ -15317,10 +15317,10 @@ BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 
 	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bCharNumber ].usSolID);
 
-	if( ( pSoldier->bAssignment == IN_TRANSIT ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
+	if( ( pSoldier->assignment().current() == IN_TRANSIT ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
 				// Kaiden: Vehicle Inventory change - Commented the following line
 				// ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
 				// And added this instead:
@@ -15458,8 +15458,8 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 
 	// if a vehicle, in transit, or a POW
 	if( /*( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||*/
-			( pSoldier->bAssignment == IN_TRANSIT ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+			( pSoldier->assignment().current() == IN_TRANSIT ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 	{
 		// can't extend contracts at this time
 		return (FALSE);
@@ -15500,14 +15500,14 @@ BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier )
 
 	// if a vehicle, robot, in transit, or a POW
 	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) ||
-			( pSoldier->bAssignment == IN_TRANSIT ) || ( pSoldier->bAssignment == ASSIGNMENT_POW ) || ( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) || ( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
+			( pSoldier->assignment().current() == IN_TRANSIT ) || ( pSoldier->assignment().current() == ASSIGNMENT_POW ) || ( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) || ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 	{
 		// can't change the sleep status of such mercs
 		return ( FALSE );
 	}
 
 	// if dead
-	if( ( pSoldier->vitals().health() <= 0 ) || ( pSoldier->bAssignment == ASSIGNMENT_DEAD ) )
+	if( ( pSoldier->vitals().health() <= 0 ) || ( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 	{
 		return ( FALSE );
 	}
@@ -15651,10 +15651,10 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
-							if ( pSoldier->bAssignment == VEHICLE )
+							if ( pSoldier->assignment().current() == VEHICLE )
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
-								if ( (pSelected->bAssignment == VEHICLE && pSoldier->iVehicleId == pSelected->iVehicleId) ||
+								if ( (pSelected->assignment().current() == VEHICLE && pSoldier->iVehicleId == pSelected->iVehicleId) ||
 									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->iVehicleId == pSelected->bVehicleID ) ||
 									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->iVehicleId == pSoldier->bVehicleID ) )
 								{
@@ -15663,20 +15663,20 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 								}
 							}
 
-							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
-								(pSoldier->bAssignment == TRAIN_TEAMMATE || pSoldier->bAssignment == TRAIN_BY_OTHER) &&
+							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
+								(pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_BY_OTHER) &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
-								if (pSoldier->bTrainStat == pSelected->bTrainStat)
+								if (pSoldier->assignment().trainingStat() == pSelected->assignment().trainingStat())
 								{
 									SetEntryInSelectedCharacterList( iCounter );
 								}
 							}
 								
-							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
+							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
@@ -15706,7 +15706,7 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							SOLDIERTYPE * pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 							// if on a squad, or in a vehicle, or IS a vehicle
-							if ( pSoldier->bAssignment == VEHICLE )
+							if ( pSoldier->assignment().current() == VEHICLE )
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
 								if ( pSoldier->iVehicleId == pSelected->iVehicleId ||
@@ -15718,20 +15718,20 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 								}
 							}
 
-							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
-								(pSoldier->bAssignment == TRAIN_TEAMMATE || pSoldier->bAssignment == TRAIN_BY_OTHER) &&
+							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
+								(pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_BY_OTHER) &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
-								if (pSoldier->bTrainStat == pSelected->bTrainStat)
+								if (pSoldier->assignment().trainingStat() == pSelected->assignment().trainingStat())
 								{
 									ResetEntryForSelectedList( iCounter );
 								}
 							}
 								
-							else if ( pSoldier->bAssignment == pSelected->bAssignment &&
+							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
 								pSoldier->sSectorX == pSelected->sSectorX &&
 								pSoldier->sSectorY == pSelected->sSectorY &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
@@ -15923,7 +15923,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 				{
 					pVehicleList[ pSoldier->bVehicleID ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->bVehicleID ].pMercPath );
 				}
-				else if( pSoldier->bAssignment == VEHICLE )
+				else if( pSoldier->assignment().current() == VEHICLE )
 				{
 					pVehicleList[ pSoldier->iVehicleId ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->iVehicleId ].pMercPath );
 				}
@@ -15958,7 +15958,7 @@ void CancelPathsOfAllSelectedCharacters()
 			if ( GetLengthOfMercPath( pSoldier ) > 0 )
 			{
 				// if he's in the chopper, but player can't redirect it
-				if ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) && ( CanHelicopterFly( ) == FALSE ) )
+				if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) && ( CanHelicopterFly( ) == FALSE ) )
 				{
 					if ( !fSkyriderMsgShown )
 					{
@@ -16054,7 +16054,7 @@ INT16 CalcLocationValueForChar( INT32 iCounter )
 	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 	// don't reveal location of POWs!
-	if( pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND )
+	if( pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND )
 	{
 		sLocValue = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
 		// underground: add 1000 per sublevel
@@ -16092,7 +16092,7 @@ void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 
 		TurnOnShowTeamsMode( );
 
-		if ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
 		{
 			if ( gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS )
 			{
@@ -16145,19 +16145,19 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 		}
 
 		// POWs, dead guys, guys in transit can't move
-		if ( ( pSoldier->bAssignment == IN_TRANSIT ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-			SPY_LOCATION( pSoldier->bAssignment ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-			( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
+		if ( ( pSoldier->assignment().current() == IN_TRANSIT ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+			SPY_LOCATION( pSoldier->assignment().current() ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+			( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
 			( pSoldier->vitals().health() == 0 ) )
 		{
 			continue;
 		}
 
 		// don't count mercs aboard Skyrider
-		if ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
 		{
 			continue;
 		}
@@ -16657,8 +16657,8 @@ void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void )
 			if ( pSoldier->flags.fMercAsleep )
 			{
 				// and on foot or driving
-				if ( ( pSoldier->bAssignment < ON_DUTY ) ||
-						( ( pSoldier->bAssignment == VEHICLE ) && SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, FALSE ) ) )
+				if ( ( pSoldier->assignment().current() < ON_DUTY ) ||
+						( ( pSoldier->assignment().current() == VEHICLE ) && SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, FALSE ) ) )
 				{
 					// we should be guaranteed that he CAN wake up to get this far, so report errors, but don't force it
 					fSuccess = SetMercAwake( pSoldier, TRUE, FALSE );
@@ -16712,22 +16712,22 @@ void HandlePostAutoresolveMessages()
 
 void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 {
-	if ( pSoldier->bAssignment == VEHICLE )
+	if ( pSoldier->assignment().current() == VEHICLE )
 	{
 	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ] );
 		wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].NewShortVehicleStrings);	
 	}
 	else
 	{
-		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->bAssignment < min(ON_DUTY, gSquadNameVector.size() ) )
-			sgp_swprintf( sString, 32,L" %s", gSquadNameVector[pSoldier->bAssignment].c_str() );
-		else if(pSoldier->bVehicleID != 0 && pSoldier->bAssignment == ASSIGNMENT_DEAD)
+		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector.size() ) )
+			sgp_swprintf( sString, 32,L" %s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
+		else if(pSoldier->bVehicleID != 0 && pSoldier->assignment().current() == ASSIGNMENT_DEAD)
 			wcscpy(sString, L"Wrecked");
 		else
-			wcscpy(sString, pAssignmentStrings[ pSoldier->bAssignment ] );
+			wcscpy(sString, pAssignmentStrings[ pSoldier->assignment().current() ] );
 	}
 	// If soldier is working at a facility, add an asterisk.
-	if (pSoldier->sFacilityTypeOperated != -1)
+	if (pSoldier->assignment().facilityType() != -1)
 	{
 		wcscat(sString, L"*");
 	}
@@ -16739,7 +16739,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	CHAR16 pTempString[32];
 
 
-	if( pSoldier->bAssignment == IN_TRANSIT )
+	if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		// show blank
 		wcscpy( sString, L"--" );
@@ -16747,22 +16747,22 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	else
 	{
 		// Flugente: if we have intel on a POW, DO show their location
-		if ( pSoldier->bAssignment == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ))
+		if ( pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ))
 		{
 			// POW - location unknown
 			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
 		}
-		else if ( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT )
+		else if ( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT )
 		{
 			// mini event - unknown location, use the same string as POWs
 			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
 		}
-		else if (pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
+		else if (pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		{
 			// on a rebel command mission
 			sgp_swprintf( sString, 32,L"%s%s*", pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX] );
 		}
-		else if ( SPY_LOCATION( pSoldier->bAssignment ) )
+		else if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			swprintf( pTempString, L"%s%s%s",
 				pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX], pMapDepthIndex[max(0, pSoldier->bSectorZ - 10)] );
@@ -16799,17 +16799,17 @@ void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] 
 	wcscpy( sString, L"" );
 
 	// if dead or POW - has no destination (no longer part of a group, for that matter)
-	if( ( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
-		( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-		( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-		( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
-		SPY_LOCATION( pSoldier->bAssignment ) ||
+	if( ( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
+		( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+		( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+		( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
+		SPY_LOCATION( pSoldier->assignment().current() ) ||
 		( pSoldier->vitals().health() == 0 ) )
 	{
 		return;
 	}
 
-	if( pSoldier->bAssignment == IN_TRANSIT )
+	if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		// show the sector he'll be arriving in
 		iSectorX = gsMercArriveSectorX;
@@ -16869,7 +16869,7 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 		iMinsRemaining = pSoldier->employment().endTime() - GetWorldTotalMin();
 
 		//if the merc is in transit
-		if( pSoldier->bAssignment == IN_TRANSIT )
+		if( pSoldier->assignment().current() == IN_TRANSIT )
 		{
 			//and if the time left on the cotract is greater then the contract time
 			if( iMinsRemaining > (INT32)( pSoldier->employment().totalLength() * NUM_MIN_IN_DAY ) )
@@ -17069,12 +17069,12 @@ void RestorePreviousPaths( void )
 					ppMovePath = &( pVehicleList[ pSoldier->bVehicleID ].pMercPath );
 					ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
 				}
-				else if( pSoldier->bAssignment == VEHICLE )
+				else if( pSoldier->assignment().current() == VEHICLE )
 				{
 					ppMovePath = &( pVehicleList[ pSoldier->iVehicleId ].pMercPath );
 					ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
 				}
-				else if( pSoldier->bAssignment < ON_DUTY )
+				else if( pSoldier->assignment().current() < ON_DUTY )
 				{
 					ppMovePath = &( pSoldier->pMercPath );
 					ubGroupId = pSoldier->ubGroupID;
@@ -17167,7 +17167,7 @@ void SelectAllCharactersInSquad( INT8 bSquadNumber )
 
 			// if this guy is on that squad or in a vehicle which is assigned to that squad
 			// NOTE: There's no way to select everyone aboard Skyrider with this function...
-			if ( ( pSoldier->bAssignment == bSquadNumber ) || IsSoldierInThisVehicleSquad( pSoldier, bSquadNumber ) )
+			if ( ( pSoldier->assignment().current() == bSquadNumber ) || IsSoldierInThisVehicleSquad( pSoldier, bSquadNumber ) )
 			{
 				if ( fFirstOne )
 				{
@@ -17416,7 +17416,7 @@ INT32 GetTotalContractExpenses ( void )
 				}
 			}
 		}
-		else if(pSoldier->bAssignment != ASSIGNMENT_DEAD && pSoldier->bAssignment != ASSIGNMENT_POW)
+		else if(pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_POW)
 		{
 			iTotalCost += gMercProfiles[ pSoldier->ubProfile ].sSalary;
 		}

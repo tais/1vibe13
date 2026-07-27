@@ -731,11 +731,11 @@ void InitTacticalPlacementGUI()
 		if( pSoldier && pSoldier->bActive && !pSoldier->flags.fBetweenSectors &&
 			CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) &&
 				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
-				pSoldier->bAssignment != ASSIGNMENT_POW &&
-				pSoldier->bAssignment != ASSIGNMENT_MINIEVENT &&
-				pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND &&
+				pSoldier->assignment().current() != ASSIGNMENT_POW &&
+				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
+				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 				!( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) &&
-				pSoldier->bAssignment != IN_TRANSIT )
+				pSoldier->assignment().current() != IN_TRANSIT )
 		{
 			++giPlacements;
 		}
@@ -751,11 +751,11 @@ void InitTacticalPlacementGUI()
 			GetJa2SoldierRepository().resolve(i.i);
 		if( pSoldier && pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
 			CurrentBattleSectorIs( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) &&
-				pSoldier->bAssignment != ASSIGNMENT_POW &&
-				pSoldier->bAssignment != ASSIGNMENT_MINIEVENT &&
-				pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND &&
+				pSoldier->assignment().current() != ASSIGNMENT_POW &&
+				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
+				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 				!( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) &&
-				pSoldier->bAssignment != IN_TRANSIT &&
+				pSoldier->assignment().current() != IN_TRANSIT &&
 				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
 		{
 			// Flugente: if options allow it and we entered this sector - in combat - via helicopter, then allow us free selection of our entry point, and drop us from the helicopter

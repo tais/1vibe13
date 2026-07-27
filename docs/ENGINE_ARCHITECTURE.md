@@ -999,6 +999,12 @@ the engine must not contain SDL types in its public domain model.
   personnel, insurance, contract, dialogue, tactical, and AI code now share
   that owner. Profile economics and the transient `MERC_HIRE_STRUCT` request
   remain separate adapters.
+  `SoldierAssignmentComponent` owns the complementary strategic duty
+  lifecycle: current and previous assignments, training choice and elapsed
+  time, squad-merge intent, and assignment-specific facility, repair,
+  item-moving, and mini-event context. Strategic position, travel path, and
+  vehicle occupancy remain separate domains. Named subsidiary-context clears
+  prevent a duty change from retaining stale repair or facility state.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

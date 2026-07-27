@@ -915,7 +915,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia2");
 
 	// HEADROCK HAM 3.6: Which kind of militia are we training?
 	UINT8 ubMilitiaType = 0;
-	if (pSoldier->bAssignment == TRAIN_TOWN)
+	if (pSoldier->assignment().current() == TRAIN_TOWN)
 		ubMilitiaType = TOWN_MILITIA;
 	else
 		return;
@@ -1011,7 +1011,7 @@ void HandleInterfaceMessageForContinuingTrainingMilitia( SOLDIERTYPE *pSoldier )
 DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 
 	if (!pSoldier || gMilitiaTrainingPrompt.active() ||
-		pSoldier->bAssignment != TRAIN_TOWN)
+		pSoldier->assignment().current() != TRAIN_TOWN)
 		return;
 
 	const INT16 sSectorX = pSoldier->sSectorX;
@@ -1124,7 +1124,7 @@ void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue )
 	SOLDIERTYPE* trainer =
 		gMilitiaTrainingPrompt.trainer.resolve();
 	if (!trainer ||
-		trainer->bAssignment != TRAIN_TOWN ||
+		trainer->assignment().current() != TRAIN_TOWN ||
 		trainer->sSectorX != gMilitiaTrainingPrompt.sectorX ||
 		trainer->sSectorY != gMilitiaTrainingPrompt.sectorY)
 	{
@@ -1506,9 +1506,9 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 		// HEADROCK HAM 3.6: Separated Mobiles from Garrisons.
 		// silversurfer: We only want to set assignments done if it's the SAME assignment as the trainer's.
 		//if ( ubMilitiaType == TOWN_MILITIA)
-		if ( pTrainer->bAssignment == pSoldier->bAssignment )
+		if ( pTrainer->assignment().current() == pSoldier->assignment().current() )
 		{
-			if( /*( pSoldier->bAssignment == TRAIN_TOWN ) &&*/ ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
+			if( /*( pSoldier->assignment().current() == TRAIN_TOWN ) &&*/ ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
 			{
 				// done assignment
 				AssignmentDone( pSoldier, FALSE, FALSE );
@@ -1516,7 +1516,7 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 		}
 /*		else
 		{
-			if( ( pSoldier->bAssignment == TRAIN_MOBILE ) && ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
+			if( ( pSoldier->assignment().current() == TRAIN_MOBILE ) && ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
 			{
 				// done assignment
 				AssignmentDone( pSoldier, FALSE, FALSE );
@@ -1547,7 +1547,7 @@ void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE
 
 		// is the merc's sector already in the list?
 		// silversurfer: Doesn't matter if it's the same sector. We can have different assignments in the same sector so add the soldier to the list if he's on a different assignment.
-		if( sCurrentSector == sSector && pCurrentSoldier->bAssignment == pSoldier->bAssignment )
+		if( sCurrentSector == sSector && pCurrentSoldier->assignment().current() == pSoldier->assignment().current() )
 		{
 			// already here
 			return;
@@ -1797,7 +1797,7 @@ void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitia
 		{
 			if (ubMilitiaType == TOWN_MILITIA)
 			{
-				if( pSoldier->bAssignment == TRAIN_TOWN )
+				if( pSoldier->assignment().current() == TRAIN_TOWN )
 				{
 					if( ( SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) == ubSector ) && ( pSoldier->bSectorZ == 0 ) )
 					{
@@ -1925,7 +1925,7 @@ UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
 		pCheckedTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->bAssignment == TRAIN_TOWN) )
+		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->assignment().current() == TRAIN_TOWN) )
 		{
 			if (pCheckedTrainer->sSectorX == sMapX && pCheckedTrainer->sSectorY == sMapY && pCheckedTrainer->bSectorZ == bMapZ )
 			{

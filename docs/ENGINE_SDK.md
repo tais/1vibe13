@@ -308,7 +308,12 @@ fields and XML data remain the content-facing API. Current
 classification, deposits, insurance, renewal/dismissal bookkeeping, signing
 eligibility, and the hospital modifier. Laptop, strategic, tactical, AI, and
 persistence adapters use the same owner; mercenary profiles and hire requests
-retain their existing content- and command-facing structures. Current
+retain their existing content- and command-facing structures.
+`SoldierAssignmentComponent` separately owns current/previous duty, training,
+time on assignment, squad-merge intent, and the facility, repair, item-move,
+and mini-event context belonging to that duty. Strategic travel and sector
+location remain independent; existing assignment constants and gameplay
+entry points are unchanged. Current
 tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot

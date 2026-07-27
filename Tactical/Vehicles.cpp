@@ -556,7 +556,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 
 		// ATE: OK funcky stuff here!
 		// We have now a guy on a squad group, remove him!
-		RemovePlayerFromGroup( SquadMovementGroups[ pVehicleSoldier->bAssignment ], pVehicleSoldier	);
+		RemovePlayerFromGroup( SquadMovementGroups[ pVehicleSoldier->assignment().current() ], pVehicleSoldier	);
 
 		// I really have vehicles.\
 		// ONLY add to vehicle group once!
@@ -625,7 +625,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			// add person in
 			pVehicleList[ iId ].pPassengers[ ubFinalSeatIndex ] = pSoldier;
 
-			if( pSoldier->bAssignment == VEHICLE )
+			if( pSoldier->assignment().current() == VEHICLE )
 			{
 				TakeSoldierOutOfVehicle( pSoldier );
 				// NOTE: This will leave the soldier on a squad.	Must be done PRIOR TO and in AS WELL AS the call
@@ -633,7 +633,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			}
 
 			// if in a squad, remove from squad, if not, check if in vehicle, if so remove, if not, then check if in mvt group..if so, move and destroy group
-			if( pSoldier->bTeam == gbPlayerNum && pSoldier->bAssignment < ON_DUTY )
+			if( pSoldier->bTeam == gbPlayerNum && pSoldier->assignment().current() < ON_DUTY )
 			{
 				RemoveCharacterFromSquads( pSoldier );
 			}
@@ -656,7 +656,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			if( pSoldier->bTeam == gbPlayerNum )
 			{
 
-				if( ( pSoldier->bAssignment != VEHICLE ) || ( pSoldier->iVehicleId != iId ) )
+				if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != iId ) )
 				{
 					SetTimeOfAssignmentChangeForMerc( pSoldier );
 				}
@@ -723,7 +723,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
 				if ( pSoldier->bTeam == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
 				{
-					SetCurrentSquad( pVehicleSoldier->bAssignment, TRUE );
+					SetCurrentSquad( pVehicleSoldier->assignment().current(), TRUE );
 				}
 			}
 
@@ -1061,7 +1061,7 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 	}
 
 	// check if character is in fact in a vehicle
-	if( ( pSoldier->bAssignment != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+	if( ( pSoldier->assignment().current() != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
 	{
 		// now clear soldier's path
 		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
@@ -1128,7 +1128,7 @@ BOOLEAN CopyVehiclePathToSoldier( SOLDIERTYPE *pSoldier )
 	}
 
 	// check if character is in fact in a vehicle
-	if( ( pSoldier->bAssignment != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+	if( ( pSoldier->assignment().current() != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
 	{
 		return( FALSE );
 	}
@@ -1197,7 +1197,7 @@ BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
 #endif // RELEASE_WITH_DEBUG_INFO
 
 		// check if character is in fact in a vehicle
-	if( ( pSoldier->bAssignment != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+	if( ( pSoldier->assignment().current() != VEHICLE ) && ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
 	{
 		return( FALSE );
 	}
@@ -1683,7 +1683,7 @@ BOOLEAN PutSoldierInVehicle( SOLDIERTYPE *pSoldier, INT8 bVehicleId )
 BOOLEAN TakeSoldierOutOfVehicle( SOLDIERTYPE *pSoldier )
 {
 	// if not in vehicle, don't take out, not much point, now is there?
-	if( pSoldier->bAssignment != VEHICLE )
+	if( pSoldier->assignment().current() != VEHICLE )
 	{
 		return( FALSE );
 	}
@@ -1866,7 +1866,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 		{
 			if( gGameExternalOptions.fPassengerLeavingSwitchToNewSquad )
 			{
-				SetCurrentSquad( pSoldier->bAssignment, TRUE );
+				SetCurrentSquad( pSoldier->assignment().current(), TRUE );
 
 				SelectSoldier( pSoldier->ubID, FALSE, TRUE );
 			}
@@ -2897,7 +2897,7 @@ BOOLEAN CanSoldierDriveVehicle( SOLDIERTYPE *pSoldier, INT32 iVehicleId, BOOLEAN
 {
 	Assert( pSoldier );
 
-	if ( pSoldier->bAssignment != VEHICLE )
+	if ( pSoldier->assignment().current() != VEHICLE )
 	{
 		// not in a vehicle!
 		return( FALSE );
@@ -3026,7 +3026,7 @@ BOOLEAN IsSoldierInThisVehicleSquad( SOLDIERTYPE *pSoldier, INT8 bSquadNumber )
 	Assert( ( bSquadNumber >= 0 ) && ( bSquadNumber < NUMBER_OF_SQUADS ) );
 
 	// not in a vehicle?
-	if( pSoldier->bAssignment != VEHICLE )
+	if( pSoldier->assignment().current() != VEHICLE )
 	{
 		return( FALSE );
 	}
@@ -3045,7 +3045,7 @@ BOOLEAN IsSoldierInThisVehicleSquad( SOLDIERTYPE *pSoldier, INT8 bSquadNumber )
 	Assert( pVehicleSoldier );
 
 	// check squad vehicle is on
-	if ( pVehicleSoldier->bAssignment != bSquadNumber )
+	if ( pVehicleSoldier->assignment().current() != bSquadNumber )
 	{
 		return( FALSE );
 	}

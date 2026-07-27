@@ -276,7 +276,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				RemovePlayerFromGroup(	pCharacter->ubGroupID , pCharacter );
 
 				// character not on a reserved group
-				if( ( pCharacter->bAssignment >= ON_DUTY ) && ( pCharacter->bAssignment != VEHICLE ) )
+				if( ( pCharacter->assignment().current() >= ON_DUTY ) && ( pCharacter->assignment().current() != VEHICLE ) )
 				{
 					// get the group from the character
 					pGroup = GetGroup( pCharacter->ubGroupID );
@@ -293,7 +293,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 
 
-			if( ( pCharacter->bAssignment == VEHICLE ) && ( pCharacter->iVehicleId == iHelicopterVehicleId ) && ( pCharacter->iVehicleId != -1 ) )
+			if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->iVehicleId == iHelicopterVehicleId ) && ( pCharacter->iVehicleId != -1 ) )
 			{
 				// if creating a new squad from guys exiting the chopper
 				fNewSquad = SquadIsEmpty( bSquadValue );
@@ -321,7 +321,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 					}
 				}
 			}
-			else if( ( pCharacter->bAssignment == VEHICLE ) && ( pCharacter->iVehicleId != -1 ) )
+			else if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->iVehicleId != -1 ) )
 			{
 				fExitingVehicleToSquad = TRUE;
 				// remove from vehicle
@@ -356,7 +356,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 			// assign here
 			Squad[ bSquadValue ][ bCounter ] = pCharacter;
 
-			if( ( pCharacter->bAssignment != bSquadValue ) )
+			if( ( pCharacter->assignment().current() != bSquadValue ) )
 			{
 				// check to see if we should wake them up
 				if ( pCharacter->flags.fMercAsleep )
@@ -369,9 +369,9 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 			// set squad value
 			ChangeSoldiersAssignment( pCharacter, bSquadValue );
-			if ( pCharacter->bOldAssignment < ON_DUTY )
+			if ( pCharacter->assignment().previous() < ON_DUTY )
 			{
-				pCharacter->bOldAssignment = bSquadValue;
+				pCharacter->assignment().previous() = bSquadValue;
 			}
 
 			// if current tactical squad...update panel
@@ -393,7 +393,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				SetCurrentSquad( bSquadValue, TRUE );
 			}
 
-			if ( SPY_LOCATION( pCharacter->bOldAssignment ) )
+			if ( SPY_LOCATION( pCharacter->assignment().previous() ) )
 			{
 				pCharacter->usSoldierFlagMask2 |= SOLDIER_CONCEALINSERTION;
 			}
@@ -928,7 +928,7 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 	{
 		SOLDIERTYPE* selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-		if( selectedSoldier->bAssignment != iCurrentTacticalSquad )
+		if( selectedSoldier->assignment().current() != iCurrentTacticalSquad )
 		{
 			// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
 			SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->ubID, FALSE, TRUE );
@@ -1371,22 +1371,22 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( FALSE );
 	}
 
-	if( pSoldier->bAssignment == IN_TRANSIT )
+	if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		return( FALSE );
 	}
 
-	if( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 		return( FALSE );
 	}
 
-	if( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT )
+	if( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT )
 	{
 		return( FALSE );
 	}
 
-	if( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND)
+	if( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 	{
 		return( FALSE );
 	}

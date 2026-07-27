@@ -312,6 +312,57 @@ private:
 	UINT32 insuranceStartTime_ = 0;
 };
 
+// Canonical strategic assignment state. The active and previous assignment,
+// training/facility context, elapsed time, squad merge intent, and the
+// assignment-specific repair, item-move, and mini-event values share one
+// lifecycle owner. Strategic position and travel remain separate.
+class SoldierAssignmentComponent
+{
+public:
+	INT8& current() noexcept { return current_; }
+	const INT8& current() const noexcept { return current_; }
+	INT8& previous() noexcept { return previous_; }
+	const INT8& previous() const noexcept { return previous_; }
+	INT8& trainingStat() noexcept { return trainingStat_; }
+	const INT8& trainingStat() const noexcept { return trainingStat_; }
+	UINT32& lastChangeMinute() noexcept { return lastChangeMinute_; }
+	const UINT32& lastChangeMinute() const noexcept { return lastChangeMinute_; }
+	UINT8& desiredSquad() noexcept { return desiredSquad_; }
+	const UINT8& desiredSquad() const noexcept { return desiredSquad_; }
+	UINT8& mergeTraversalAllowance() noexcept { return mergeTraversalAllowance_; }
+	const UINT8& mergeTraversalAllowance() const noexcept { return mergeTraversalAllowance_; }
+	UINT8& hours() noexcept { return hours_; }
+	const UINT8& hours() const noexcept { return hours_; }
+	INT8& repairVehicleId() noexcept { return repairVehicleId_; }
+	const INT8& repairVehicleId() const noexcept { return repairVehicleId_; }
+	INT16& facilityType() noexcept { return facilityType_; }
+	const INT16& facilityType() const noexcept { return facilityType_; }
+	UINT8& itemMoveSectorId() noexcept { return itemMoveSectorId_; }
+	const UINT8& itemMoveSectorId() const noexcept { return itemMoveSectorId_; }
+	UINT16& miniEventHoursRemaining() noexcept { return miniEventHoursRemaining_; }
+	const UINT16& miniEventHoursRemaining() const noexcept { return miniEventHoursRemaining_; }
+
+	bool isAssignedTo(INT8 assignment) const noexcept { return current_ == assignment; }
+	bool hasAssignmentHours() const noexcept { return hours_ != 0; }
+	bool hasMiniEventTime() const noexcept { return miniEventHoursRemaining_ != 0; }
+	void clearRepairVehicle() noexcept { repairVehicleId_ = -1; }
+	void clearFacility() noexcept { facilityType_ = -1; }
+	void reset() noexcept;
+
+private:
+	INT8 current_ = 0;
+	INT8 previous_ = 0;
+	INT8 trainingStat_ = 0;
+	UINT32 lastChangeMinute_ = 0;
+	UINT8 desiredSquad_ = 0;
+	UINT8 mergeTraversalAllowance_ = 0;
+	UINT8 hours_ = 0;
+	INT8 repairVehicleId_ = 0;
+	INT16 facilityType_ = 0;
+	UINT8 itemMoveSectorId_ = 0;
+	UINT16 miniEventHoursRemaining_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

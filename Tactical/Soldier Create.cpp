@@ -1310,9 +1310,9 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	pSoldier->ubBodyType								= pProfile->ubBodyType;
 	pSoldier->ubCivilianGroup						= pProfile->ubCivilianGroup;
 	//OK set initial duty
-//	pSoldier->bAssignment=ON_DUTY;
+//	pSoldier->assignment().current()=ON_DUTY;
 
-	pSoldier->bOldAssignment = NO_ASSIGNMENT;
+	pSoldier->assignment().previous() = NO_ASSIGNMENT;
 	for ( INT8 bCnt = 0; bCnt < 30; ++bCnt )
 	{
 		pSoldier->stats.ubSkillTraits[ bCnt ] = pProfile->bSkillTraits[ bCnt ];	
@@ -2132,8 +2132,8 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->aiData.ubXRayedBy			= NOBODY;
 	pSoldier->perception().deactivateXray();
 	pSoldier->fireControl().bulletsLeft()				= 0;
-	pSoldier->bVehicleUnderRepairID		= -1;
-	pSoldier->sFacilityTypeOperated		= -1; // HEADROCK HAM 3.6: Facility Operated
+	pSoldier->assignment().clearRepairVehicle();
+	pSoldier->assignment().clearFacility(); // HEADROCK HAM 3.6: Facility Operated
 	pSoldier->usChatPartnerID			= NOBODY;
 
 	// sevenfm: initialize additional data

@@ -1632,7 +1632,7 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 		if( pSoldier != NULL )
 		{
 			// better really be in there!
-			Assert ( pSoldier->bAssignment == VEHICLE );
+			Assert ( pSoldier->assignment().current() == VEHICLE );
 			Assert ( pSoldier->iVehicleId == iHelicopterVehicleId );
 
 			fAnyoneAboard = TRUE;
@@ -3002,7 +3002,7 @@ BOOLEAN SoldierAboardAirborneHeli( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier );
 
 	// if not in a vehicle, or not aboard the helicopter
-	if ( ( pSoldier->bAssignment != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) )
+	if ( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) )
 	{
 		return( FALSE );
 	}

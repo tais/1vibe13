@@ -285,7 +285,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->bAssignment != ASSIGNMENT_HOSPITAL
+		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
 			 && pSoldier->sSectorX == pNPC->sSectorX && pSoldier->sSectorY == pNPC->sSectorY && pSoldier->bSectorZ == pNPC->bSectorZ )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
@@ -1819,7 +1819,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->bActive && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
 			pSoldier->sSectorX == sQuestSectorX && pSoldier->sSectorY == sQuestsSectorY && !pSoldier->flags.fBetweenSectors && pSoldier->bTeam == gbPlayerNum &&
-			pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
+			pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
 		{
 			if ( pSoldier->ubProfile != bException )
 			{

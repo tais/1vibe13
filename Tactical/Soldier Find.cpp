@@ -119,7 +119,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 			// It's our own merc
 			MercFlags |= OWNED_MERC;
 
-			if ( pSoldier->bAssignment < ON_DUTY )
+			if ( pSoldier->assignment().current() < ON_DUTY )
 			{
 				MercFlags |= ONDUTY_MERC;
 			}

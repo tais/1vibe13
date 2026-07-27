@@ -277,7 +277,7 @@ static void DoneFadeOutKilledQueen( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->bAssignment == CurrentSquad( ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			gfTacticalTraversal = TRUE;
 			SetGroupSectorValue( VICTORY_X, VICTORY_Y, 0, pSoldier->ubGroupID );

@@ -2343,7 +2343,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		DrawTextToScreen(sText, x+55, y+150+22, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// draw assignment
-		swprintf( sText, szRebelCommandText[RCT_MISSION_AGENT_ASSIGNMENT], pAssignmentStrings[mercs[agentIndex[index]]->bAssignment]);
+		swprintf( sText, szRebelCommandText[RCT_MISSION_AGENT_ASSIGNMENT], pAssignmentStrings[mercs[agentIndex[index]]->assignment().current()]);
 		DrawTextToScreen(sText, x+55, y+150+34, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// draw contract
@@ -2604,7 +2604,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 			canStartMission = FALSE;
 			swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_START_LOW_LOYALTY]);
 		}
-		else if (mercs[agentIndex[index]]->bAssignment == ASSIGNMENT_POW || mercs[agentIndex[index]]->bAssignment == ASSIGNMENT_MINIEVENT || mercs[agentIndex[index]]->bAssignment == ASSIGNMENT_REBELCOMMAND)
+		else if (mercs[agentIndex[index]]->assignment().current() == ASSIGNMENT_POW || mercs[agentIndex[index]]->assignment().current() == ASSIGNMENT_MINIEVENT || mercs[agentIndex[index]]->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		{
 			canStartMission = FALSE;
 			swprintf(sText, szRebelCommandText[RCT_MISSION_CANT_START_AGENT_UNAVAILABLE]);

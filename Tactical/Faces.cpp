@@ -837,7 +837,7 @@ void SetAutoFaceInActive(INT32 iFaceIndex )
 				pFace->ubSoldierID.i);
 
 			// IF we are in tactical
-			if ( pSoldier->bAssignment == iCurrentTacticalSquad && GetCurrentScreen() == GAME_SCREEN )
+			if ( pSoldier->assignment().current() == iCurrentTacticalSquad && GetCurrentScreen() == GAME_SCREEN )
 			{
 				// Make the interfac panel dirty..
 				// This will dirty the panel next frame...
@@ -994,7 +994,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 
 			if ( ( faceSoldier->vitals().health() < OKLIFE ) ||
 					( faceSoldier->flags.fMercAsleep == TRUE ) ||
-					( faceSoldier->bAssignment == ASSIGNMENT_POW ) )
+					( faceSoldier->assignment().current() == ASSIGNMENT_POW ) )
 			{
 				return;
 			}
@@ -2177,7 +2177,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: icons for radio operator actions (not the assignment)
-			if (pSoldier->bAssignment != RADIO_SCAN)
+			if (pSoldier->assignment().current() != RADIO_SCAN)
 			{
 				if (pSoldier->usSoldierFlagMask & (SOLDIER_RADIO_OPERATOR_SCANNING | SOLDIER_RADIO_OPERATOR_LISTENING))
 				{
@@ -2228,7 +2228,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Assignments
-			switch (pSoldier->bAssignment)
+			switch (pSoldier->assignment().current())
 			{
 			CASE_DOCTOR:
 			case DOCTOR_MILITIA:
@@ -2238,7 +2238,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 				fShowCustomText = TRUE;
 
-				if (pSoldier->bAssignment == DOCTOR_MILITIA)
+				if (pSoldier->assignment().current() == DOCTOR_MILITIA)
 				{
 					// show percentage that we can heal
 					swprintf(sString, L"%3.1f/%3.1f", (FLOAT)(sPtsAvailable * gGameExternalOptions.dIndividualMilitiaDoctorHealModifier), (FLOAT)(usMaximumPts * gGameExternalOptions.dIndividualMilitiaDoctorHealModifier));
@@ -2274,13 +2274,13 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				fShowNumber = TRUE;
 				fShowMaximum = TRUE;
 
-				switch (pSoldier->bAssignment)
+				switch (pSoldier->assignment().current())
 				{
 				case(TRAIN_SELF) :
-					sPtsAvailable = GetSoldierTrainingPts(pSoldier, pSoldier->bTrainStat, &usMaximumPts);
+					sPtsAvailable = GetSoldierTrainingPts(pSoldier, pSoldier->assignment().trainingStat(), &usMaximumPts);
 					break;
 				case(TRAIN_BY_OTHER) :
-					sPtsAvailable = GetSoldierStudentPts(pSoldier, pSoldier->bTrainStat, &usMaximumPts);
+					sPtsAvailable = GetSoldierStudentPts(pSoldier, pSoldier->assignment().trainingStat(), &usMaximumPts);
 					break;
 				case(TRAIN_TOWN) :
 				case DRILL_MILITIA:
@@ -2290,7 +2290,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 					usMaximumPts = (usMaximumPts + 5) / 10;
 					break;
 				case(TRAIN_TEAMMATE) :
-					sPtsAvailable = GetBonusTrainingPtsDueToInstructor(pSoldier, NULL, pSoldier->bTrainStat, &usMaximumPts);
+					sPtsAvailable = GetBonusTrainingPtsDueToInstructor(pSoldier, NULL, pSoldier->assignment().trainingStat(), &usMaximumPts);
 					break;
 				case TRAIN_WORKERS:
 					fShowMaximum = FALSE;
@@ -2312,7 +2312,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				fShowMaximum = TRUE;
 
 				// check if we are repairing a vehicle
-				if (pSoldier->bVehicleUnderRepairID != -1)
+				if (pSoldier->assignment().repairVehicleId() != -1)
 				{
 					// reduce to a multiple of VEHICLE_REPAIR_POINTS_DIVISOR.	This way skill too low will show up as 0 repair pts.
 					sPtsAvailable -= (sPtsAvailable % VEHICLE_REPAIR_POINTS_DIVISOR);
@@ -2340,7 +2340,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 				fShowCustomText = TRUE;
 
-				GetShortSectorString(SECTORX(pSoldier->usItemMoveSectorID), SECTORY(pSoldier->usItemMoveSectorID), sString);
+				GetShortSectorString(SECTORX(pSoldier->assignment().itemMoveSectorId()), SECTORY(pSoldier->assignment().itemMoveSectorId()), sString);
 				break;
 
 			case FACILITY_INTERROGATE_PRISONERS:
@@ -2970,9 +2970,9 @@ void HandleAutoFaces( )
 				}
 
 				// Check if assignment is idfferent....
-				if ( pSoldier->bAssignment != pFace->bOldAssignment )
+				if ( pSoldier->assignment().current() != pFace->bOldAssignment )
 				{
-						pFace->bOldAssignment = pSoldier->bAssignment;
+						pFace->bOldAssignment = pSoldier->assignment().current();
 						fRerender = TRUE;
 				}
 

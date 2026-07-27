@@ -2701,7 +2701,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		// ADD 1/10 of man's current health (0-10)
 		iThreatValue += (pEnemy->vitals().health() / 10);
 
-		if (pEnemy->bAssignment < ON_DUTY )
+		if (pEnemy->assignment().current() < ON_DUTY )
 		{
 			// ADD 1/4 of man's protection percentage (0-25)
 			iThreatValue += ArmourPercent( pEnemy ) / 4;
@@ -3416,7 +3416,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 		// ADD 1/10 of man's current health (0-10)
 		iThreatValue += (pEnemy->vitals().health() / 10);
 
-		if (pEnemy->bAssignment < ON_DUTY )
+		if (pEnemy->assignment().current() < ON_DUTY )
 		{
 			// ADD 1/4 of man's protection percentage (0-25)
 			iThreatValue += ArmourPercent( pEnemy ) / 4;

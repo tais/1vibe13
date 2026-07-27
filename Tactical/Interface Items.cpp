@@ -14891,7 +14891,7 @@ void UpdateMercBodyRegionHelpText( )
 		}
 
 		// health/energy/morale
-		if ( pSoldier->bAssignment != ASSIGNMENT_POW )
+		if ( pSoldier->assignment().current() != ASSIGNMENT_POW )
 		{
 			if ( pSoldier->vitals().health() != 0 )
 			{

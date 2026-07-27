@@ -113,7 +113,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
 		return;
 
-	if( pSoldier->bAssignment == ASSIGNMENT_POW )
+	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 	{
 		ScreenMsg( FONT_ORANGE, MSG_BETAVERSION, L"ERROR: StatChange: %s improving stats while POW! ubStat %d", pSoldier->GetName(), ubStat );
 		return;
@@ -690,12 +690,12 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 				TacticalCharacterDialogueWithSpecialEventEx( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_DISPLAY_STAT_CHANGE, fChangeTypeIncrease, sPtsChanged, ubStat );
 
 				//Madd: option to make mercs quiet during training / doctoring / repairing
-				if ( ((pSoldier->bAssignment == TRAIN_BY_OTHER || pSoldier->bAssignment == TRAIN_TEAMMATE || pSoldier->bAssignment == TRAIN_SELF || 
-							pSoldier->bAssignment == FACILITY_STAFF || pSoldier->bAssignment == TRAIN_TOWN 
-							|| pSoldier->bAssignment == TRAIN_WORKERS || pSoldier->bAssignment == DRILL_MILITIA )
+				if ( ((pSoldier->assignment().current() == TRAIN_BY_OTHER || pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_SELF ||
+							pSoldier->assignment().current() == FACILITY_STAFF || pSoldier->assignment().current() == TRAIN_TOWN
+							|| pSoldier->assignment().current() == TRAIN_WORKERS || pSoldier->assignment().current() == DRILL_MILITIA )
 							&& !gGameSettings.fOptions[TOPTION_QUIET_TRAINING]) ||
-					 (IS_REPAIR(pSoldier->bAssignment) && !gGameSettings.fOptions[TOPTION_QUIET_REPAIRING]) ||
-					 ((IS_DOCTOR(pSoldier->bAssignment) || pSoldier->bAssignment == DOCTOR_MILITIA ) && !gGameSettings.fOptions[TOPTION_QUIET_DOCTORING]))
+					 (IS_REPAIR(pSoldier->assignment().current()) && !gGameSettings.fOptions[TOPTION_QUIET_REPAIRING]) ||
+					 ((IS_DOCTOR(pSoldier->assignment().current()) || pSoldier->assignment().current() == DOCTOR_MILITIA ) && !gGameSettings.fOptions[TOPTION_QUIET_DOCTORING]))
 
 					 TacticalCharacterDialogue( pSoldier, QUOTE_EXPERIENCE_GAIN );
 			}
@@ -872,7 +872,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 			return;
 
 		// ignore POWs - shouldn't ever be getting this far
-		if( pSoldier->bAssignment == ASSIGNMENT_POW )
+		if( pSoldier->assignment().current() == ASSIGNMENT_POW )
 		{
 			return;
 		}

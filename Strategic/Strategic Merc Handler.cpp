@@ -165,7 +165,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	//Set the fact that the merc is DEAD!!
 	gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_IS_DEAD;
 
-	if( pSoldier->bAssignment != ASSIGNMENT_DEAD )
+	if( pSoldier->assignment().current() != ASSIGNMENT_DEAD )
 	{
 		SetTimeOfAssignmentChangeForMerc( pSoldier );
 	}
@@ -219,7 +219,7 @@ void MercDailyUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
-		if ( ( pSoldier->bActive )&&( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
+		if ( ( pSoldier->bActive )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			//CJC: Reset dialogue flags for quotes that can be said once/day
 			pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_ANNOYING_MERC );
@@ -347,15 +347,15 @@ void MercDailyUpdate()
 		}
 		else
 		{
-			if( ( pSoldier->bActive ) && ( pSoldier->bAssignment == ASSIGNMENT_POW ) )
+			if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 			{
 				pSoldier->employment().endTime() += 1440;
 			}
 		}
 
 		// if active, here, & alive (POW is ok, don't care)
-		if( ( pSoldier->bActive ) && ( pSoldier->bAssignment != ASSIGNMENT_DEAD ) &&
-																( pSoldier->bAssignment != IN_TRANSIT ) )
+		if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) &&
+																( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			// increment the "man days" played counter for each such merc in the player's employment
 			gStrategicStatus.uiManDaysPlayed++;
@@ -367,7 +367,7 @@ void MercDailyUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
-		if ( ( pSoldier->bActive )&&( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
+		if ( ( pSoldier->bActive )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			//if its a MERC merc, determine if the merc should leave ( because player refused to pay for merc )
 			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
@@ -796,7 +796,7 @@ void MercComplainAboutEquipment( UINT8 ubProfile )
 
 	if ( pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE )
 	{
-		if ( pSoldier->flags.fMercAsleep != TRUE && pSoldier->bAssignment < ON_DUTY )
+		if ( pSoldier->flags.fMercAsleep != TRUE && pSoldier->assignment().current() < ON_DUTY )
 		{
 			//ATE: Double check that this problem still exists!
 			if ( SoldierHasWorseEquipmentThanUsedTo( pSoldier ) )
@@ -840,7 +840,7 @@ void UpdateBuddyAndHatedCounters( void )
 		fSameGroupOnly = FALSE;
 
 		//if the merc is active and on a combat assignment
-		if ( pSoldier->bActive && pSoldier->bAssignment < ON_DUTY )
+		if ( pSoldier->bActive && pSoldier->assignment().current() < ON_DUTY )
 		{
 			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
 
@@ -858,7 +858,7 @@ void UpdateBuddyAndHatedCounters( void )
 				pOtherSoldier = GetJa2SoldierRepository().resolve(bOtherID);
 				// is this guy in the same sector and on active duty (or in the same moving group)
 
-				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->bAssignment < ON_DUTY )
+				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->assignment().current() < ON_DUTY )
 				{
 					if (fSameGroupOnly)
 					{

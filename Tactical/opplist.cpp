@@ -6110,7 +6110,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				continue; // skip
 			}
 
-			if ( bTeam == gbPlayerNum && (pSoldier->bAssignment == ASSIGNMENT_POW || pSoldier->bAssignment == ASSIGNMENT_MINIEVENT || pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND) )
+			if ( bTeam == gbPlayerNum && (pSoldier->assignment().current() == ASSIGNMENT_POW || pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) )
 			{
 				// POWs should not be processed for noise
 				continue;
@@ -6496,7 +6496,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 		iEffVolume -= 5;
 	}
 
-	//if (pSoldier->bAssignment == SLEEPING )
+	//if (pSoldier->assignment().current() == SLEEPING )
 	if( pSoldier->flags.fMercAsleep )
 	{
 		// decrease effective volume since we're asleep!

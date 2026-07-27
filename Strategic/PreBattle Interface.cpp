@@ -2295,10 +2295,10 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but off-duty (includes mercs inside vehicles!)
-			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->bAssignment >= ON_DUTY ) )
+			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().current() >= ON_DUTY ) )
 			{
 				// if in a vehicle, pull him out
-				if( pSoldier->bAssignment == VEHICLE )
+				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					if ( fExitVehicles )
 					{
@@ -2332,8 +2332,8 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 				Assert( fSuccess );
 
 				// clear any desired squad assignments
-				pSoldier->ubNumTraversalsAllowedToMerge = 0;
-				pSoldier->ubDesiredSquadAssignment = NO_ASSIGNMENT;
+				pSoldier->assignment().mergeTraversalAllowance() = 0;
+				pSoldier->assignment().desiredSquad() = NO_ASSIGNMENT;
 
 				// stand him up
 				MakeSoldiersTacticalAnimationReflectAssignment( pSoldier );
@@ -2544,11 +2544,11 @@ BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier->bActive );
 
 	if( !pSoldier->flags.fBetweenSectors &&
-			pSoldier->bAssignment != IN_TRANSIT &&
-			pSoldier->bAssignment != ASSIGNMENT_POW &&
-			pSoldier->bAssignment != ASSIGNMENT_DEAD &&
-			pSoldier->bAssignment != ASSIGNMENT_MINIEVENT &&
-			pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND &&
+			pSoldier->assignment().current() != IN_TRANSIT &&
+			pSoldier->assignment().current() != ASSIGNMENT_POW &&
+			pSoldier->assignment().current() != ASSIGNMENT_DEAD &&
+			pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
+			pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
 			// Robot is involved if it has a valid controller with it, uninvolved otherwise
 			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->ubRobotRemoteHolderID != NOBODY ) ) &&

@@ -102,6 +102,7 @@
 #include "TacticalWorldItemHost.h"
 #include "TacticalWorldObserverHost.h"
 #include "interface Dialogue.h"
+#include "Assignments.h"
 #include "Merc Contract.h"
 #include "PreBattle Interface.h"
 #include "Game Clock.h"
@@ -7308,6 +7309,18 @@ int main( int, char** )
 		employment.timeCanSignElsewhere() = 13000;
 		employment.hospitalPriceModifier() = -2;
 		employment.insuranceStartTime() = 11000;
+		SoldierAssignmentComponent& assignment = soldier.assignment();
+		assignment.current() = TRAIN_TEAMMATE;
+		assignment.previous() = ON_DUTY;
+		assignment.trainingStat() = STRENGTH;
+		assignment.lastChangeMinute() = 11900;
+		assignment.desiredSquad() = 3;
+		assignment.mergeTraversalAllowance() = 4;
+		assignment.hours() = 6;
+		assignment.repairVehicleId() = 2;
+		assignment.facilityType() = 5;
+		assignment.itemMoveSectorId() = 47;
+		assignment.miniEventHoursRemaining() = 12;
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7472,6 +7485,20 @@ int main( int, char** )
 		       constSoldier.employment().hospitalPriceModifier() == -2 &&
 		       constSoldier.employment().insuranceStartTime() == 11000,
 		       "soldier employment component owns contract, classification, deposit, insurance, and renewal state" );
+		CHECK( constSoldier.assignment().isAssignedTo(TRAIN_TEAMMATE) &&
+		       constSoldier.assignment().previous() == ON_DUTY &&
+		       constSoldier.assignment().trainingStat() == STRENGTH &&
+		       constSoldier.assignment().lastChangeMinute() == 11900 &&
+		       constSoldier.assignment().desiredSquad() == 3 &&
+		       constSoldier.assignment().mergeTraversalAllowance() == 4 &&
+		       constSoldier.assignment().hours() == 6 &&
+		       constSoldier.assignment().hasAssignmentHours() &&
+		       constSoldier.assignment().repairVehicleId() == 2 &&
+		       constSoldier.assignment().facilityType() == 5 &&
+		       constSoldier.assignment().itemMoveSectorId() == 47 &&
+		       constSoldier.assignment().miniEventHoursRemaining() == 12 &&
+		       constSoldier.assignment().hasMiniEventTime(),
+		       "soldier assignment component owns strategic duty and its subsidiary context" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7677,6 +7704,18 @@ int main( int, char** )
 		       copiedSoldier.employment().hospitalPriceModifier() == -2 &&
 		       copiedSoldier.employment().insuranceStartTime() == 11000,
 		       "soldier copies retain their owned persistent employment state" );
+		CHECK( copiedSoldier.assignment().current() == TRAIN_TEAMMATE &&
+		       copiedSoldier.assignment().previous() == ON_DUTY &&
+		       copiedSoldier.assignment().trainingStat() == STRENGTH &&
+		       copiedSoldier.assignment().lastChangeMinute() == 11900 &&
+		       copiedSoldier.assignment().desiredSquad() == 3 &&
+		       copiedSoldier.assignment().mergeTraversalAllowance() == 4 &&
+		       copiedSoldier.assignment().hours() == 6 &&
+		       copiedSoldier.assignment().repairVehicleId() == 2 &&
+		       copiedSoldier.assignment().facilityType() == 5 &&
+		       copiedSoldier.assignment().itemMoveSectorId() == 47 &&
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 12,
+		       "soldier copies retain their owned persistent assignment state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -8100,6 +8139,35 @@ int main( int, char** )
 		       employmentLifecycle.hospitalPriceModifier() == 0 &&
 		       employmentLifecycle.insuranceStartTime() == 0,
 		       "employment reset clears the complete strategic contract lifecycle" );
+
+		SoldierAssignmentComponent assignmentLifecycle;
+		assignmentLifecycle.current() = TRAIN_BY_OTHER;
+		assignmentLifecycle.hours() = 2;
+		assignmentLifecycle.miniEventHoursRemaining() = 3;
+		assignmentLifecycle.repairVehicleId() = 4;
+		assignmentLifecycle.facilityType() = 5;
+		CHECK( assignmentLifecycle.isAssignedTo(TRAIN_BY_OTHER) &&
+		       assignmentLifecycle.hasAssignmentHours() &&
+		       assignmentLifecycle.hasMiniEventTime(),
+		       "assignment exposes named duty and elapsed-time queries" );
+		assignmentLifecycle.clearRepairVehicle();
+		assignmentLifecycle.clearFacility();
+		CHECK( assignmentLifecycle.repairVehicleId() == -1 &&
+		       assignmentLifecycle.facilityType() == -1,
+		       "assignment clears subsidiary repair and facility context through named transitions" );
+		assignmentLifecycle.reset();
+		CHECK( assignmentLifecycle.current() == 0 &&
+		       assignmentLifecycle.previous() == 0 &&
+		       assignmentLifecycle.trainingStat() == 0 &&
+		       assignmentLifecycle.lastChangeMinute() == 0 &&
+		       assignmentLifecycle.desiredSquad() == 0 &&
+		       assignmentLifecycle.mergeTraversalAllowance() == 0 &&
+		       assignmentLifecycle.hours() == 0 &&
+		       assignmentLifecycle.repairVehicleId() == 0 &&
+		       assignmentLifecycle.facilityType() == 0 &&
+		       assignmentLifecycle.itemMoveSectorId() == 0 &&
+		       assignmentLifecycle.miniEventHoursRemaining() == 0,
+		       "assignment reset clears the complete strategic duty lifecycle" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -8158,6 +8226,18 @@ int main( int, char** )
 		       copiedSoldier.employment().hospitalPriceModifier() == 0 &&
 		       copiedSoldier.employment().insuranceStartTime() == 0,
 		       "soldier initialization resets the complete employment domain" );
+		CHECK( copiedSoldier.assignment().current() == 0 &&
+		       copiedSoldier.assignment().previous() == 0 &&
+		       copiedSoldier.assignment().trainingStat() == 0 &&
+		       copiedSoldier.assignment().lastChangeMinute() == 0 &&
+		       copiedSoldier.assignment().desiredSquad() == 0 &&
+		       copiedSoldier.assignment().mergeTraversalAllowance() == 0 &&
+		       copiedSoldier.assignment().hours() == 0 &&
+		       copiedSoldier.assignment().repairVehicleId() == 0 &&
+		       copiedSoldier.assignment().facilityType() == 0 &&
+		       copiedSoldier.assignment().itemMoveSectorId() == 0 &&
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 0,
+		       "soldier initialization resets the complete assignment domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -8324,6 +8404,14 @@ int main( int, char** )
 		legacySoldier->iTimeCanSignElsewhere = 13001;
 		legacySoldier->bHospitalPriceModifier = -3;
 		legacySoldier->uiStartTimeOfInsuranceContract = 11001;
+		legacySoldier->bAssignment = TRAIN_BY_OTHER;
+		legacySoldier->bOldAssignment = ON_DUTY;
+		legacySoldier->bTrainStat = STRENGTH;
+		legacySoldier->uiLastAssignmentChangeMin = 11901;
+		legacySoldier->ubDesiredSquadAssignment = 4;
+		legacySoldier->ubNumTraversalsAllowedToMerge = 5;
+		legacySoldier->ubHoursOnAssignment = 7;
+		legacySoldier->bVehicleUnderRepairID = -1;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8347,6 +8435,9 @@ int main( int, char** )
 			legacySoldier->sSpreadLocations[i] = 22001 + i;
 
 		SOLDIERTYPE convertedSoldier;
+		convertedSoldier.assignment().facilityType() = 9;
+		convertedSoldier.assignment().itemMoveSectorId() = 48;
+		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
@@ -8395,6 +8486,18 @@ int main( int, char** )
 		       convertedSoldier.employment().hospitalPriceModifier() == -3 &&
 		       convertedSoldier.employment().insuranceStartTime() == 11001,
 		       "v101 soldier conversion retains the complete employment and insurance lifecycle" );
+		CHECK( convertedSoldier.assignment().current() == TRAIN_BY_OTHER &&
+		       convertedSoldier.assignment().previous() == ON_DUTY &&
+		       convertedSoldier.assignment().trainingStat() == STRENGTH &&
+		       convertedSoldier.assignment().lastChangeMinute() == 11901 &&
+		       convertedSoldier.assignment().desiredSquad() == 4 &&
+		       convertedSoldier.assignment().mergeTraversalAllowance() == 5 &&
+		       convertedSoldier.assignment().hours() == 7 &&
+		       convertedSoldier.assignment().repairVehicleId() == -1 &&
+		       convertedSoldier.assignment().facilityType() == 0 &&
+		       convertedSoldier.assignment().itemMoveSectorId() == 0 &&
+		       convertedSoldier.assignment().miniEventHoursRemaining() == 0,
+		       "v101 soldier conversion retains legacy assignment state and clears fields absent from v101" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8580,6 +8683,17 @@ int main( int, char** )
 		savedSoldier.employment().timeCanSignElsewhere() = 23000;
 		savedSoldier.employment().hospitalPriceModifier() = -4;
 		savedSoldier.employment().insuranceStartTime() = 21000;
+		savedSoldier.assignment().current() = TRAIN_SELF;
+		savedSoldier.assignment().previous() = TRAIN_TEAMMATE;
+		savedSoldier.assignment().trainingStat() = STRENGTH;
+		savedSoldier.assignment().lastChangeMinute() = 21900;
+		savedSoldier.assignment().desiredSquad() = 5;
+		savedSoldier.assignment().mergeTraversalAllowance() = 6;
+		savedSoldier.assignment().hours() = 8;
+		savedSoldier.assignment().repairVehicleId() = 3;
+		savedSoldier.assignment().facilityType() = 7;
+		savedSoldier.assignment().itemMoveSectorId() = 48;
+		savedSoldier.assignment().miniEventHoursRemaining() = 14;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8755,6 +8869,19 @@ int main( int, char** )
 		       loadedSoldier.employment().hospitalPriceModifier() == -4 &&
 		       loadedSoldier.employment().insuranceStartTime() == 21000,
 		       "soldier save/load round-trips employment state at every established POD position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.assignment().current() == TRAIN_SELF &&
+		       loadedSoldier.assignment().previous() == TRAIN_TEAMMATE &&
+		       loadedSoldier.assignment().trainingStat() == STRENGTH &&
+		       loadedSoldier.assignment().lastChangeMinute() == 21900 &&
+		       loadedSoldier.assignment().desiredSquad() == 5 &&
+		       loadedSoldier.assignment().mergeTraversalAllowance() == 6 &&
+		       loadedSoldier.assignment().hours() == 8 &&
+		       loadedSoldier.assignment().repairVehicleId() == 3 &&
+		       loadedSoldier.assignment().facilityType() == 7 &&
+		       loadedSoldier.assignment().itemMoveSectorId() == 48 &&
+		       loadedSoldier.assignment().miniEventHoursRemaining() == 14,
+		       "soldier save/load round-trips assignment state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

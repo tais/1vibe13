@@ -866,11 +866,11 @@ namespace MiniEventHelpers
 		{
 			if (globalSearch || ((*iter)->sSectorX == sectorX && (*iter)->sSectorY == sectorY && (*iter)->bSectorZ == sectorZ))
 			{
-				if ((*iter)->bAssignment == assignment)
+				if ((*iter)->assignment().current() == assignment)
 				{
 					foundMercs.push_back(*iter);
 				}
-				else if (assignment == ON_DUTY && (*iter)->bAssignment < ON_DUTY)
+				else if (assignment == ON_DUTY && (*iter)->assignment().current() < ON_DUTY)
 				{
 					foundMercs.push_back(*iter);
 				}
@@ -1006,7 +1006,7 @@ namespace MiniEventHelpers
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
-			if ((*iter)->ubProfile == profileId && (*iter)->flags.fBetweenSectors && (*iter)->bAssignment != VEHICLE)
+			if ((*iter)->ubProfile == profileId && (*iter)->flags.fBetweenSectors && (*iter)->assignment().current() != VEHICLE)
 			{
 				lua_pushboolean(LS, true);
 				return 1;
@@ -1125,7 +1125,7 @@ namespace MiniEventHelpers
 		{
 			if ((*iter)->ubProfile == profileId)
 			{
-				lua_pushinteger(LS, (*iter)->ubHoursRemainingOnMiniEvent);
+				lua_pushinteger(LS, (*iter)->assignment().miniEventHoursRemaining());
 				return 1;
 			}
 		}
@@ -1343,7 +1343,7 @@ namespace MiniEventHelpers
 
 			TakeSoldierOutOfVehicle(merc);
 			RemoveCharacterFromSquads(merc);
-			merc->ubHoursRemainingOnMiniEvent = hoursOnMiniEvent;
+			merc->assignment().miniEventHoursRemaining() = hoursOnMiniEvent;
 			merc->bSectorZ += MINI_EVENT_Z_OFFSET;
 			merc->vitals().bleeding() = 0;
 			SetTimeOfAssignmentChangeForMerc(merc);
@@ -1522,9 +1522,9 @@ void MiniEventsLua(UINT32 eventId)
 
 		if (pSoldier && pSoldier->bActive
 			&& pSoldier->vitals().health() > 0
-			&& pSoldier->bAssignment != IN_TRANSIT
-			&& pSoldier->bAssignment != ASSIGNMENT_POW
-			&& pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
+			&& pSoldier->assignment().current() != IN_TRANSIT
+			&& pSoldier->assignment().current() != ASSIGNMENT_POW
+			&& pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
 		{
 			gAllMercs.push_back(pSoldier);
@@ -1542,7 +1542,7 @@ void MiniEventsLua(UINT32 eventId)
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
-			if (merc && merc->bActive && merc->bAssignment != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
+			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);
 				std::string str(ws.begin(), ws.end());
@@ -1561,7 +1561,7 @@ void MiniEventsLua(UINT32 eventId)
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
-			if (merc && merc->bActive && merc->bAssignment != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
+			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);
 				std::string str(ws.begin(), ws.end());

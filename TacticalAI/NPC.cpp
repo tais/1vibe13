@@ -2602,7 +2602,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 			}
 
 			// only look for active mercs
-			if (pMerc->bAssignment >= ON_DUTY )
+			if (pMerc->assignment().current() >= ON_DUTY )
 			{
 				continue;
 			}

@@ -1670,6 +1670,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAwarenessComponent& awareness = s.awareness();
 	SoldierCamouflageComponent& camouflage = s.camouflage();
 	SoldierEmploymentComponent& employment = s.employment();
+	SoldierAssignmentComponent& assignment = s.assignment();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1752,15 +1753,15 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bMovedPriorToInterrupt);
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
 	ar.i32(s.iNextActionSpecialData); ar.u8(employment.mercenaryType());
-	ar.i8(s.bAssignment); ar.i8(s.bOldAssignment); ar.i8(s.bTrainStat);
+	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());
 	ar.i16(s.sSectorX); ar.i16(s.sSectorY); ar.i8(s.bSectorZ); ar.i32(s.iVehicleId);
 	ar.ptr(s.pMercPath);
 	ar.u16(employment.medicalDeposit()); ar.u16(employment.lifeInsurance());
 	ar.u32(s.uiStartMovementTime); ar.u32(s.uiOptimumMovementTime); ar.u32(s.usLastUpdateTime);
 	ar.u32(s.uiSoldierUpdateNumber); ar.u8(s.ubSoldierUpdateType); ar.i32(s.sScheduledStop);
-	ar.i32(employment.insuranceStartDay()); ar.u32(s.uiLastAssignmentChangeMin); ar.i32(employment.insuranceLengthDays());
+	ar.i32(employment.insuranceStartDay()); ar.u32(assignment.lastChangeMinute()); ar.i32(employment.insuranceLengthDays());
 	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
-	ar.u8(s.ubDesiredSquadAssignment); ar.u8(s.ubNumTraversalsAllowedToMerge);
+	ar.u8(assignment.desiredSquad()); ar.u8(assignment.mergeTraversalAllowance());
 	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
 	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
@@ -1774,7 +1775,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.ubAutoBandagingMedic.i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(perception.blindnessTurns());
-	ar.u8(s.ubHoursOnAssignment); ar.u8(employment.justFired()); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
+	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
 	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(s.bRegenerationCounter);
 	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
@@ -1790,7 +1791,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
 	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(s.uiTimeSoldierWillArrive);
-	ar.i8(s.bVehicleUnderRepairID); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
+	ar.i8(assignment.repairVehicleId()); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
 	ar.u32(employment.insuranceStartTime()); ar.i8(s.bCorpseQuoteTolerance); ar.i8(perception.deafnessTurns());
 	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
@@ -1798,7 +1799,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
 	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
 	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());
-	ar.i16(s.sFacilityTypeOperated); ar.i8(attackSelection.scopeMode());
+	ar.i16(assignment.facilityType()); ar.i8(attackSelection.scopeMode());
 	ar.u8(s.ubMilitiaAssists); ar.i8(s.sNonNPCTraderID); ar.u16(s.usDragPersonID.i);
 	ar.i16(s.sDragCorpseID); ar.u16(s.usChatPartnerID.i);
 	ar.i16(s.bExtraStrength); ar.i16(s.bExtraDexterity); ar.i16(s.bExtraAgility); ar.i16(s.bExtraWisdom);
@@ -1806,13 +1807,13 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.bFoodLevel); ar.i32(s.bDrinkLevel);
 	ar.u8(s.usStarveDamageHealth); ar.u8(s.usStarveDamageStrength);
 	ar.i16(s.bOverTurnAPS); ar.i32(s.sMTActionGridNo); ar.u8(s.usMultiTurnAction);
-	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(s.usItemMoveSectorID); ar.u8(s.usAISkillUse);
+	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(s.usAISkillUse);
 	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(s.usSkillCounter[i]);
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(s.usSkillCooldown[i]);
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(s.sDiseasePoints[i]);
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(s.sDiseaseFlag[i]);
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
-	ar.u16(s.ubHoursRemainingOnMiniEvent);
+	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
 	ar.i32(s.sFocusGridNo); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(s.usDisabilityFlagMask); ar.i32(s.sDragGridNo);
@@ -2864,7 +2865,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 	}
 	else if( Squad[ iCurrentTacticalSquad ][ 0 ] && iCurrentTacticalSquad != NO_CURRENT_SQUAD )
 	{
-//		if( Squad[ iCurrentTacticalSquad ][ 0 ]->bAssignment != IN_TRANSIT )
+//		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
 		{
 			SaveGameHeader.sSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorX;
 			SaveGameHeader.sSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorY;
@@ -2889,7 +2890,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 			if (!pSoldier) continue;
 			if( pSoldier->bActive )
 			{
-				if ( pSoldier->bAssignment != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
 				{
 					SaveGameHeader.sSectorX = pSoldier->sSectorX;
 					SaveGameHeader.sSectorY = pSoldier->sSectorY;
@@ -5870,7 +5871,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 			for ( UINT16 ubID = 0; ubID < MAXMERCS; ++ubID )
 			{
 				GetJa2SoldierRepository().record(
-					ubID).bVehicleUnderRepairID = -1;
+					ubID).assignment().clearRepairVehicle();
 			}
 		}
 
@@ -6359,7 +6360,7 @@ if( g_lang == i18n::Lang::de ) {
 				// Fix neutral flags
 				if ( guiCurrentSaveGameVersion < 94 )
 				{
-					if ( soldier.bTeam == OUR_TEAM && soldier.aiData.bNeutral && soldier.bAssignment != ASSIGNMENT_POW )
+					if ( soldier.bTeam == OUR_TEAM && soldier.aiData.bNeutral && soldier.assignment().current() != ASSIGNMENT_POW )
 					{
 						// turn off neutral flag
 						soldier.aiData.bNeutral = FALSE;
@@ -8852,7 +8853,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 	}
 	else if( iCurrentTacticalSquad != NO_CURRENT_SQUAD && Squad[ iCurrentTacticalSquad ][ 0 ] )
 	{
-		if( Squad[ iCurrentTacticalSquad ][ 0 ]->bAssignment != IN_TRANSIT )
+		if( Squad[ iCurrentTacticalSquad ][ 0 ]->assignment().current() != IN_TRANSIT )
 		{
 			*psSectorX = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorX;
 			*psSectorY = Squad[ iCurrentTacticalSquad ][ 0 ]->sSectorY;
@@ -8878,7 +8879,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			// Test for null if tactical slot initialization failed.
 			if( pSoldier && pSoldier->bActive )
 			{
-				if ( pSoldier->bAssignment != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
 				{
 					//we found an alive, merc that is not moving
 					*psSectorX = pSoldier->sSectorX;

@@ -1405,7 +1405,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 				( pSoldier->sSectorX == sMapX) &&
 				( pSoldier->sSectorY == sMapY) &&
 				( pSoldier->bSectorZ == iCurrentMapSectorZ ) &&
-				( ( pSoldier->bAssignment < ON_DUTY ) || ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) ) &&
+				( ( pSoldier->assignment().current() < ON_DUTY ) || ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId != iHelicopterVehicleId ) ) ) &&
 				( pSoldier->vitals().health() > 0) &&
 				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
 		{
@@ -1459,17 +1459,17 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				( pSoldier->sSectorX == sMapX) &&
 				( pSoldier->sSectorY == sMapY) &&
-				( ( pSoldier->bSectorZ == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->bAssignment) && ( pSoldier->bSectorZ - 10 == iCurrentMapSectorZ ) ) ) &&
-				( pSoldier->bAssignment >= ON_DUTY ) && ( pSoldier->bAssignment != VEHICLE ) &&
-				( pSoldier->bAssignment != IN_TRANSIT ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_POW ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_MINIEVENT ) &&
-				( pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND ) &&
+				( ( pSoldier->bSectorZ == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->assignment().current()) && ( pSoldier->bSectorZ - 10 == iCurrentMapSectorZ ) ) ) &&
+				( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) &&
+				( pSoldier->assignment().current() != IN_TRANSIT ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_POW ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) &&
+				( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 				( pSoldier->vitals().health() > 0 ) &&
 				( !PlayerIDGroupInMotion( pSoldier->ubGroupID ) ) )
 		{
 			// skip mercs inside the helicopter if we're showing airspace level - they show up inside chopper icon instead
-			if ( (gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS) || (pSoldier->bAssignment != VEHICLE) || (pSoldier->iVehicleId != iHelicopterVehicleId) )
+			if ( (gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS) || (pSoldier->assignment().current() != VEHICLE) || (pSoldier->iVehicleId != iHelicopterVehicleId) )
 			{
 				++sNumberOfAssigned;
 			}
@@ -2021,7 +2021,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	}
 
 	// is the character in transit?..then leave
-	if( pCharacter->bAssignment == IN_TRANSIT )
+	if( pCharacter->assignment().current() == IN_TRANSIT )
 	{
 		// leave
 		return;
@@ -2030,22 +2030,22 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 
 	if( pCharacter->bSectorZ != 0 )
 	{
-		if( pCharacter->bAssignment >= ON_DUTY )
+		if( pCharacter->assignment().current() >= ON_DUTY )
 		{
 			// not on the surface, character won't move until they reach surface..info player of this fact
 			MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pCharacter->name, gsUndergroundString[0] );
 		}
 		else	// squad
 		{
-			if ( gGameExternalOptions.fUseXMLSquadNames && pCharacter->bAssignment < gSquadNameVector.size() )
-				MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", gSquadNameVector[pCharacter->bAssignment].c_str(), gsUndergroundString[0] );
+			if ( gGameExternalOptions.fUseXMLSquadNames && pCharacter->assignment().current() < gSquadNameVector.size() )
+				MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", gSquadNameVector[pCharacter->assignment().current()].c_str(), gsUndergroundString[0] );
 			else
-				MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pLongAssignmentStrings[ pCharacter->bAssignment ], gsUndergroundString[0] );
+				MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pLongAssignmentStrings[ pCharacter->assignment().current() ], gsUndergroundString[0] );
 		}
 		return;
 	}
 
-	if( ( pCharacter->bAssignment == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
 		SetUpMvtGroupForVehicle( pCharacter );
 	}
@@ -2061,7 +2061,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	pCharacter->pMercPath = MoveToBeginningOfPathList( pCharacter->pMercPath );
 
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->bAssignment == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
 		MoveCharactersPathToVehicle( pCharacter );
 	}
@@ -2136,7 +2136,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 			pVehicle = &( pVehicleList[ pCharacter->bVehicleID ] );
 		}
 		// or in a vehicle
-		else if( pCharacter->bAssignment == VEHICLE )
+		else if( pCharacter->assignment().current() == VEHICLE )
 		{
 			pVehicle = &( pVehicleList[ pCharacter->iVehicleId ] );
 		}
@@ -2181,7 +2181,7 @@ void CancelPathForCharacter( SOLDIERTYPE *pCharacter )
 
 
 	// if he's in a vehicle, clear out the vehicle, too
-	if( pCharacter->bAssignment == VEHICLE )
+	if( pCharacter->assignment().current() == VEHICLE )
 	{
 		CancelPathForVehicle( &( pVehicleList[ pCharacter->iVehicleId ] ), TRUE );
 	}
@@ -2345,7 +2345,7 @@ void DisplaySoldierPath( SOLDIERTYPE *pCharacter )
 
 /* ARM: Hopefully no longer required once using GetSoldierMercPathPtr() ???
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->bAssignment == VEHICLE )||( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE )||( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 	{
 		// get the real path from vehicle's structure and copy it into this soldier's
 		CopyVehiclePathToSoldier( pCharacter );
@@ -7075,11 +7075,11 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// POWs, dead guys, guys in transit, sleeping, and really hurt guys can't scout!
-		if ( ( pSoldier->bAssignment == IN_TRANSIT ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_POW ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
-				( pSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) ||
+		if ( ( pSoldier->assignment().current() == IN_TRANSIT ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_POW ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
+				( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
 				( pSoldier->flags.fMercAsleep == TRUE ) ||
 				( pSoldier->vitals().health() < OKLIFE ) )
 		{
@@ -7087,7 +7087,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// don't count mercs aboard Skyrider
-		if ( ( pSoldier->bAssignment == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
 		{
 			continue;
 		}
@@ -7229,7 +7229,7 @@ UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSector
 			pSoldier = gCharactersList[ iCounter ].usSolID;
 
 			if( pSoldier->bActive && ( pSoldier->vitals().health() > 0 ) &&
-					( pSoldier->bAssignment != ASSIGNMENT_POW ) && ( pSoldier->bAssignment != IN_TRANSIT ) )
+					( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 			{
 				if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) )
 					ubNumberOnTeam++;
