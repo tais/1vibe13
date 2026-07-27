@@ -886,14 +886,14 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 	gCamoFace[pSoldier->ubProfile].gDesertCamoface = FALSE;
 	gCamoFace[pSoldier->ubProfile].gSnowCamoface = FALSE;
 
-	appliedCamo[0] = pSoldier->bCamo;
-	appliedCamo[1] = pSoldier->urbanCamo;
-	appliedCamo[2] = pSoldier->desertCamo;
-	appliedCamo[3] = pSoldier->snowCamo;
-/*	wornCamo[0] = pSoldier->wornCamo;
-	wornCamo[1] = pSoldier->wornUrbanCamo;
-	wornCamo[2] = pSoldier->wornDesertCamo;
-	wornCamo[3] = pSoldier->wornSnowCamo;*/
+	appliedCamo[0] = pSoldier->camouflage().jungleApplied();
+	appliedCamo[1] = pSoldier->camouflage().urbanApplied();
+	appliedCamo[2] = pSoldier->camouflage().desertApplied();
+	appliedCamo[3] = pSoldier->camouflage().snowApplied();
+/*	wornCamo[0] = pSoldier->camouflage().jungleWorn();
+	wornCamo[1] = pSoldier->camouflage().urbanWorn();
+	wornCamo[2] = pSoldier->camouflage().desertWorn();
+	wornCamo[3] = pSoldier->camouflage().snowWorn();*/
 	
 	for(INT8 loop = 0; loop < 4; loop ++)
 	{

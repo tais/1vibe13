@@ -1186,21 +1186,21 @@ void HourlyCamouflageUpdate( void )
 			// may be a little awkward solution with chances, but can work
 			if (gGameOptions.fNewTraitSystem)
 			{
-				if( pSoldier->bCamo > 0 )
+				if( pSoldier->camouflage().jungleApplied() > 0 )
 				{
 					// first limit camo to valid values
-					pSoldier->bCamo = __min( gGameExternalOptions.bCamoKitArea, pSoldier->bCamo );
+					pSoldier->camouflage().jungleApplied() = __min( gGameExternalOptions.bCamoKitArea, pSoldier->camouflage().jungleApplied() );
 
 					if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 					{
-						pSoldier->bCamo -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
+						pSoldier->camouflage().jungleApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 					}
 					else
-						pSoldier->bCamo -= 1;	// 2
+						pSoldier->camouflage().jungleApplied() -= 1;	// 2
 
-					if (pSoldier->bCamo <= 0)
+					if (pSoldier->camouflage().jungleApplied() <= 0)
 					{
-						pSoldier->bCamo = 0;
+						pSoldier->camouflage().jungleApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->name );
 
@@ -1213,21 +1213,21 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( pSoldier->urbanCamo > 0 )
+				if( pSoldier->camouflage().urbanApplied() > 0 )
 				{
 					// first limit camo to valid values
-					pSoldier->urbanCamo = __min( gGameExternalOptions.bCamoKitArea, pSoldier->urbanCamo );
+					pSoldier->camouflage().urbanApplied() = __min( gGameExternalOptions.bCamoKitArea, pSoldier->camouflage().urbanApplied() );
 
 					if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 					{
-						pSoldier->urbanCamo -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
+						pSoldier->camouflage().urbanApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 					}
 					else
-						pSoldier->urbanCamo -= 1;	// 2
+						pSoldier->camouflage().urbanApplied() -= 1;	// 2
 
-					if (pSoldier->urbanCamo <= 0)
+					if (pSoldier->camouflage().urbanApplied() <= 0)
 					{
-						pSoldier->urbanCamo = 0;
+						pSoldier->camouflage().urbanApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->name );
 
@@ -1240,21 +1240,21 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( pSoldier->desertCamo > 0 )
+				if( pSoldier->camouflage().desertApplied() > 0 )
 				{
 					// first limit camo to valid values
-					pSoldier->desertCamo = __min( gGameExternalOptions.bCamoKitArea, pSoldier->desertCamo );
+					pSoldier->camouflage().desertApplied() = __min( gGameExternalOptions.bCamoKitArea, pSoldier->camouflage().desertApplied() );
 
 					if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 					{
-						pSoldier->desertCamo -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
+						pSoldier->camouflage().desertApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 					}
 					else
-						pSoldier->desertCamo -= 1;	// 2
+						pSoldier->camouflage().desertApplied() -= 1;	// 2
 
-					if (pSoldier->desertCamo <= 0)
+					if (pSoldier->camouflage().desertApplied() <= 0)
 					{
-						pSoldier->desertCamo = 0;
+						pSoldier->camouflage().desertApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->name );
 
@@ -1267,21 +1267,21 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( pSoldier->snowCamo > 0 )
+				if( pSoldier->camouflage().snowApplied() > 0 )
 				{
 					// first limit camo to valid values
-					pSoldier->snowCamo = __min( gGameExternalOptions.bCamoKitArea, pSoldier->snowCamo );
+					pSoldier->camouflage().snowApplied() = __min( gGameExternalOptions.bCamoKitArea, pSoldier->camouflage().snowApplied() );
 
 					if ( HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 					{
-						pSoldier->snowCamo -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
+						pSoldier->camouflage().snowApplied() -= (Chance( __max( 0, 100 - gSkillTraitValues.ubSVCamoWornountSpeedReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT ) ) ) ? 1 : 0);
 					}
 					else
-						pSoldier->snowCamo -= 1;	// 2
+						pSoldier->camouflage().snowApplied() -= 1;	// 2
 
-					if (pSoldier->snowCamo <= 0)
+					if (pSoldier->camouflage().snowApplied() <= 0)
 					{
-						pSoldier->snowCamo = 0;
+						pSoldier->camouflage().snowApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->name );
 
@@ -1299,12 +1299,12 @@ void HourlyCamouflageUpdate( void )
 			{
 				// if the merc has non-zero camo, degrade it by 1%
 				// SANDRO - different types of Camouflaged trait have been merged together
-				if( ( pSoldier->bCamo > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
+				if( ( pSoldier->camouflage().jungleApplied() > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
 				{
-					pSoldier->bCamo -= 1;	// 2
-					if (pSoldier->bCamo <= 0)
+					pSoldier->camouflage().jungleApplied() -= 1;	// 2
+					if (pSoldier->camouflage().jungleApplied() <= 0)
 					{
-						pSoldier->bCamo = 0;
+						pSoldier->camouflage().jungleApplied() = 0;
 						camoWoreOff = TRUE;
 						// ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->name );
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->name );
@@ -1318,12 +1318,12 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( ( pSoldier->urbanCamo > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
+				if( ( pSoldier->camouflage().urbanApplied() > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
 				{
-					pSoldier->urbanCamo -= 1;	// 2
-					if (pSoldier->urbanCamo <= 0)
+					pSoldier->camouflage().urbanApplied() -= 1;	// 2
+					if (pSoldier->camouflage().urbanApplied() <= 0)
 					{
-						pSoldier->urbanCamo = 0;
+						pSoldier->camouflage().urbanApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->name );
 
@@ -1336,12 +1336,12 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( ( pSoldier->desertCamo > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
+				if( ( pSoldier->camouflage().desertApplied() > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
 				{
-					pSoldier->desertCamo -= 1;	// 2
-					if (pSoldier->desertCamo <= 0)
+					pSoldier->camouflage().desertApplied() -= 1;	// 2
+					if (pSoldier->camouflage().desertApplied() <= 0)
 					{
-						pSoldier->desertCamo = 0;
+						pSoldier->camouflage().desertApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->name );
 
@@ -1354,12 +1354,12 @@ void HourlyCamouflageUpdate( void )
 						}
 					}
 				}
-				if( ( pSoldier->snowCamo > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
+				if( ( pSoldier->camouflage().snowApplied() > 0) && ( !( HAS_SKILL_TRAIT( pSoldier, CAMOUFLAGED_OT) ) ) )
 				{
-					pSoldier->snowCamo -= 1;	// 2
-					if (pSoldier->snowCamo <= 0)
+					pSoldier->camouflage().snowApplied() -= 1;	// 2
+					if (pSoldier->camouflage().snowApplied() <= 0)
 					{
-						pSoldier->snowCamo = 0;
+						pSoldier->camouflage().snowApplied() = 0;
 						camoWoreOff = TRUE;
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->name );
 

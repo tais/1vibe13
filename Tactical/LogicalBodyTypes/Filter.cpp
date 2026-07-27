@@ -157,16 +157,16 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = pSoldier->ubCivilianGroup;
 					break;
 				case REQ_CAMO:
-					cmp_val = pSoldier->bCamo;
+					cmp_val = pSoldier->camouflage().jungleApplied();
 					break;
 				case REQ_URBANCAMO:
-					cmp_val = pSoldier->urbanCamo;
+					cmp_val = pSoldier->camouflage().urbanApplied();
 					break;
 				case REQ_DESERTCAMO:
-					cmp_val = pSoldier->desertCamo;
+					cmp_val = pSoldier->camouflage().desertApplied();
 					break;
 				case REQ_SNOWCAMO:
-					cmp_val = pSoldier->snowCamo;
+					cmp_val = pSoldier->camouflage().snowApplied();
 					break;
 				case REQ_EXPLEVEL:
 					cmp_val = pSoldier->stats.bExpLevel;

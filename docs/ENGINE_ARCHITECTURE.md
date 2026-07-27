@@ -986,6 +986,12 @@ the engine must not contain SDL types in its public domain model.
   and forget-distance operations replace scattered magic-state mutations; both
   counters saturate rather than wrapping. Per-observer opponent lists remain in
   the TacticalAI adapter.
+  `SoldierCamouflageComponent` owns the applied and equipment-derived
+  camouflage values for jungle, urban, desert, and snow terrain. Shared
+  operations now provide the signed, bounded terrain total used by line of
+  sight, the strongest non-negative total displayed by tactical and strategic
+  UI, and the applied-only total used by camouflage kits. Item definitions and
+  their XML representation remain unchanged.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

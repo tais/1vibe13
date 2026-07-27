@@ -2373,6 +2373,94 @@ if(NOT serialized_soldier_awareness_visibility_order OR
     "Soldier awareness state moved in the portable save schema; keep all four values at their established POD positions")
 endif()
 
+# Applied and equipment-derived camouflage for all four terrain families now
+# have one owner. Item definitions remain independent content data; only the
+# per-soldier values and their shared calculations belong here.
+foreach(retired_camouflage_field IN ITEMS
+  bCamo
+  wornCamo
+  urbanCamo
+  wornUrbanCamo
+  desertCamo
+  wornDesertCamo
+  snowCamo
+  wornSnowCamo)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_camouflage_field}[ \t]*;"
+    retired_current_camouflage_field
+    "${current_soldier_contents}")
+  if(retired_current_camouflage_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE camouflage field '${retired_camouflage_field}' returned; personal camouflage belongs to SoldierCamouflageComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierCamouflageComponent[ \t\r\n]+camouflage_[ \t]*;"
+  soldier_camouflage_owner
+  "${current_soldier_contents}")
+if(NOT soldier_camouflage_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierCamouflageComponent")
+endif()
+
+foreach(owned_camouflage_field IN ITEMS
+  jungleApplied
+  jungleWorn
+  urbanApplied
+  urbanWorn
+  desertApplied
+  desertWorn
+  snowApplied
+  snowWorn)
+  string(REGEX MATCH
+    "INT8[ \t]+${owned_camouflage_field}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_camouflage_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_camouflage_field)
+    message(FATAL_ERROR
+      "SoldierCamouflageComponent no longer owns initialized '${owned_camouflage_field}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierCamouflageComponent& camouflage() noexcept"
+  soldier_camouflage_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "camouflage().reset();"
+  soldier_camouflage_reset)
+foreach(required_camouflage_operation IN ITEMS
+  "INT8 total(Terrain terrain) const noexcept;"
+  "INT8 strongestTotal() const noexcept;"
+  "INT16 appliedTotal() const noexcept;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_camouflage_operation}"
+    soldier_camouflage_operation)
+  if(soldier_camouflage_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierCamouflageComponent lost required aggregate operation '${required_camouflage_operation}'")
+  endif()
+endforeach()
+if(soldier_camouflage_accessor EQUAL -1 OR
+   soldier_camouflage_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierCamouflageComponent must remain directly accessible and reset with its soldier")
+endif()
+
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  serialized_soldier_camouflage_applied_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i16\\(s\\.origDir\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.jungleWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.desertApplied\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.desertWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sFacilityTypeOperated\\);"
+  serialized_soldier_camouflage_equipment_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_camouflage_applied_order OR
+   NOT serialized_soldier_camouflage_equipment_order)
+  message(FATAL_ERROR
+    "Soldier camouflage state moved in the portable save schema; keep all eight signed bytes at their established POD positions")
+endif()
+
 # Current tactical grid, elevation, and facing have completed the same storage
 # cut. The old route sub-structure must not return as a second public owner.
 string(FIND "${soldier_control_header_contents}"
@@ -2606,7 +2694,7 @@ string(REGEX MATCH
   serialized_soldier_movement_block_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(s\\.bCamo\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
   serialized_soldier_movement_destination_order
   "${save_load_game_contents}")
 string(REGEX MATCH

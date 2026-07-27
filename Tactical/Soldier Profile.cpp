@@ -1626,8 +1626,8 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		
 		// WANNE: Fix a vanilla bug: When a soldier changed team (e.g. getting hostile), he lost his camouflage.
 		// Fixed by Tron (Stracciatella): Revision: 7055
-		pNewSoldier->bCamo													= pSoldier->bCamo;
-		if (pNewSoldier->bCamo != 0)
+		pNewSoldier->camouflage().jungleApplied()													= pSoldier->camouflage().jungleApplied();
+		if (pNewSoldier->camouflage().jungleApplied() != 0)
 		{
 			pNewSoldier->CreateSoldierPalettes();
 		}

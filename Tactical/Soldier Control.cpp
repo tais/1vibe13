@@ -1033,17 +1033,17 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sniper = src.sniper;
 		this->origDir = src.origDir;
 
-		this->bCamo = __min( gGameExternalOptions.bCamoKitArea, src.bCamo );
-		this->wornCamo = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornCamo );
+		this->camouflage().jungleApplied() = __min( gGameExternalOptions.bCamoKitArea, src.bCamo );
+		this->camouflage().jungleWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornCamo );
 
-		this->urbanCamo = __min( gGameExternalOptions.bCamoKitArea, src.urbanCamo );	// Madd: new camo types
-		this->wornUrbanCamo = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornUrbanCamo );
+		this->camouflage().urbanApplied() = __min( gGameExternalOptions.bCamoKitArea, src.urbanCamo );	// Madd: new camo types
+		this->camouflage().urbanWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornUrbanCamo );
 
-		this->desertCamo = __min( gGameExternalOptions.bCamoKitArea, src.desertCamo );
-		this->wornDesertCamo = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornDesertCamo );
+		this->camouflage().desertApplied() = __min( gGameExternalOptions.bCamoKitArea, src.desertCamo );
+		this->camouflage().desertWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornDesertCamo );
 
-		this->snowCamo = __min( gGameExternalOptions.bCamoKitArea, src.snowCamo );
-		this->wornSnowCamo = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornSnowCamo );
+		this->camouflage().snowApplied() = __min( gGameExternalOptions.bCamoKitArea, src.snowCamo );
+		this->camouflage().snowWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornSnowCamo );
 
 		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
@@ -1137,6 +1137,7 @@ void SOLDIERTYPE::initialize( )
 	collapseState().reset();
 	perception().reset();
 	awareness().reset();
+	camouflage().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();

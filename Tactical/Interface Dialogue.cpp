@@ -5945,7 +5945,7 @@ void HandleTexBecomingCamoed()
 	if( pSoldier != NULL )
 	{
 		//make him camoed
-		pSoldier->bCamo = gGameExternalOptions.bCamoKitArea;	// 100
+		pSoldier->camouflage().jungleApplied() = gGameExternalOptions.bCamoKitArea;	// 100
 		pSoldier->CreateSoldierPalettes(  );
 	}
 

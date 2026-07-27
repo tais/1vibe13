@@ -2929,7 +2929,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			ApplyEquipmentBonuses(GetSMCurrentMerc());
 
 			// Display cammo value!
-			swprintf( sString, L"%3d", max(0, min(max((GetSMCurrentMerc()->bCamo + GetSMCurrentMerc()->wornCamo), max((GetSMCurrentMerc()->urbanCamo+GetSMCurrentMerc()->wornUrbanCamo), max((GetSMCurrentMerc()->desertCamo+GetSMCurrentMerc()->wornDesertCamo), (GetSMCurrentMerc()->snowCamo+GetSMCurrentMerc()->wornSnowCamo)))),100)) );
+			swprintf( sString, L"%3d", GetSMCurrentMerc()->camouflage().strongestTotal() );
 			FindFontRightCoordinates(SM_CAMMO_X, SM_CAMMO_Y ,SM_PERCENT_WIDTH ,SM_PERCENT_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 			
@@ -2969,27 +2969,27 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		CHAR16 pStrCamo[400];
 		swprintf( pStrCamo, L"" );
 		swprintf( pStr, L"");
-		if ((GetSMCurrentMerc()->bCamo + GetSMCurrentMerc()->wornCamo) > 0 )
+		if (GetSMCurrentMerc()->camouflage().total(SoldierCamouflageComponent::Terrain::Jungle) > 0)
 		{
-			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->bCamo, GetSMCurrentMerc()->wornCamo, L"%", gzMiscItemStatsFasthelp[ 21 ]);
+			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->camouflage().jungleApplied(), GetSMCurrentMerc()->camouflage().jungleWorn(), L"%", gzMiscItemStatsFasthelp[ 21 ]);
 			wcscat( pStr, pStrCamo);
 			swprintf( pStrCamo, L"" );
 		}
-		if ((GetSMCurrentMerc()->urbanCamo + GetSMCurrentMerc()->wornUrbanCamo) > 0 )
+		if (GetSMCurrentMerc()->camouflage().total(SoldierCamouflageComponent::Terrain::Urban) > 0)
 		{
-			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->urbanCamo, GetSMCurrentMerc()->wornUrbanCamo, L"%", gzMiscItemStatsFasthelp[ 22 ]);
+			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->camouflage().urbanApplied(), GetSMCurrentMerc()->camouflage().urbanWorn(), L"%", gzMiscItemStatsFasthelp[ 22 ]);
 			wcscat( pStr, pStrCamo);
 			swprintf( pStrCamo, L"" );
 		}
-		if ((GetSMCurrentMerc()->desertCamo + GetSMCurrentMerc()->wornDesertCamo) > 0 )
+		if (GetSMCurrentMerc()->camouflage().total(SoldierCamouflageComponent::Terrain::Desert) > 0)
 		{
-			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->desertCamo, GetSMCurrentMerc()->wornDesertCamo, L"%", gzMiscItemStatsFasthelp[ 23 ]);
+			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->camouflage().desertApplied(), GetSMCurrentMerc()->camouflage().desertWorn(), L"%", gzMiscItemStatsFasthelp[ 23 ]);
 			wcscat( pStr, pStrCamo);
 			swprintf( pStrCamo, L"" );
 		}
-		if ((GetSMCurrentMerc()->snowCamo + GetSMCurrentMerc()->wornSnowCamo) > 0 )
+		if (GetSMCurrentMerc()->camouflage().total(SoldierCamouflageComponent::Terrain::Snow) > 0)
 		{
-			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->snowCamo, GetSMCurrentMerc()->wornSnowCamo, L"%", gzMiscItemStatsFasthelp[ 24 ] );
+			swprintf( pStrCamo, L"\n%d/%d%s %s", GetSMCurrentMerc()->camouflage().snowApplied(), GetSMCurrentMerc()->camouflage().snowWorn(), L"%", gzMiscItemStatsFasthelp[ 24 ] );
 			wcscat( pStr, pStrCamo);
 			swprintf( pStrCamo, L"" );
 		}

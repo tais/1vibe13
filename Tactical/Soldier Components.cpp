@@ -107,6 +107,47 @@ void SoldierAwarenessComponent::reset() noexcept
 	*this = SoldierAwarenessComponent{};
 }
 
+INT8 SoldierCamouflageComponent::total(Terrain terrain) const noexcept
+{
+	INT16 value = 0;
+	switch (terrain)
+	{
+		case Terrain::Jungle:
+			value = jungleApplied_ + jungleWorn_;
+			break;
+		case Terrain::Urban:
+			value = urbanApplied_ + urbanWorn_;
+			break;
+		case Terrain::Desert:
+			value = desertApplied_ + desertWorn_;
+			break;
+		case Terrain::Snow:
+			value = snowApplied_ + snowWorn_;
+			break;
+	}
+
+	return static_cast<INT8>(std::clamp<INT16>(value, -100, 100));
+}
+
+INT8 SoldierCamouflageComponent::strongestTotal() const noexcept
+{
+	return std::max<INT8>(
+		0,
+		std::max(
+			std::max(total(Terrain::Jungle), total(Terrain::Urban)),
+			std::max(total(Terrain::Desert), total(Terrain::Snow))));
+}
+
+INT16 SoldierCamouflageComponent::appliedTotal() const noexcept
+{
+	return jungleApplied_ + urbanApplied_ + desertApplied_ + snowApplied_;
+}
+
+void SoldierCamouflageComponent::reset() noexcept
+{
+	*this = SoldierCamouflageComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

@@ -299,6 +299,11 @@ the last visibility consumed by rendering, newly discovered opponent count, and
 movement distance used to age stale knowledge. Its named visibility, fade,
 render-sync, discovery, and forget transitions preserve the tactical state
 machine while keeping per-observer opponent lists in the AI adapter. Current
+`SoldierCamouflageComponent` owns the applied and equipment-derived values for
+all four established terrain families. Its bounded terrain and strongest-total
+queries give line-of-sight and UI code one definition of effective camouflage,
+while its applied-only total preserves camouflage-kit behavior. Existing item
+fields and XML data remain the content-facing API. Current
 tactical grid, elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot
