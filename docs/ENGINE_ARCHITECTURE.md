@@ -783,19 +783,17 @@ the engine must not contain SDL types in its public domain model.
   memory. These domains have also retired every implicit
   `SoldierID`-to-pointer conversion: lookups name the repository explicitly,
   and their targets compile with those legacy conversion operators deleted so
-  a regression fails at the call site. The Tactical ratchet now spans control
-  and UI plus a broad combat/animation cut: soldier control and animation,
-  item handling, AP calculation, LOS, sight/noise/interrupt processing,
-  corpses, boxing, and structure helpers. It also covers a broad
-  repository-facing lifecycle and roster group: air raids, auto-bandage,
-  disease, campaign/endgame handling, preserved enemy state, hiring, soldier
-  initialization and profiles, squads, vehicles, tooltips, sector traversal,
-  and the Unfinished Business tactical rules. Remaining Tactical sources
-  continue to use the compatibility boundary while they migrate
-  incrementally, but no production Tactical source outside `Overhead.cpp`
-  may name either backing array. The backing allocation, numeric slots, save
-  byte sequence, map records, Lua values, network packets, and mod data remain
-  unchanged.
+  a regression fails at the call site. Every top-level production Tactical
+  translation unit except the central compatibility owner, `Overhead.cpp`,
+  now has the same deleted-conversion compile ratchet. This includes input and
+  UI, combat, animation, items, soldier lifecycle and creation, roster
+  handling, morale and food, projectiles and weapons, shopkeepers, save
+  traversal, vehicles, sector entry, and the Unfinished Business tactical
+  rules. The source list is globbed and excludes only `Overhead.cpp`, so a
+  newly added top-level Tactical source receives the ratchet automatically.
+  No production Tactical source outside that owner may name either backing
+  array. The backing allocation, numeric slots, save byte sequence, map
+  records, Lua values, network packets, and mod data remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

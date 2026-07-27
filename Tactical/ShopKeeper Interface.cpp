@@ -1,4 +1,5 @@
 #include "builddefines.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "types.h"
 	#include "ShopKeeper Interface.h"
@@ -758,11 +759,13 @@ BOOLEAN EnterShopKeeperInterface()
 	//ADB if we are here, we must be able to talk with an extended ear (CheckIfRadioIsEquipped())
 	//but if we are physically too far away, we don't have extended arms!
 
-	SOLDIERTYPE* pSoldier = gusSelectedSoldier;
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	SOLDIERTYPE* pShopkeeper = NULL;
 	
 	if ( gusIDOfCivTrader != NOBODY )
-		pShopkeeper = gusIDOfCivTrader;
+		pShopkeeper =
+			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 	else
 		pShopkeeper = FindSoldierByProfileID( armsDealerInfo[gbSelectedArmsDealerID].ubShopKeeperID, FALSE );
 
@@ -817,7 +820,10 @@ BOOLEAN EnterShopKeeperInterface()
 	}
 
 	// make sure current merc is close enough and eligible to talk to the shopkeeper.
-	AssertMsg( CanMercInteractWithSelectedShopkeeper( gusSelectedSoldier ), "Selected merc can't interact with shopkeeper.  Send save AM-1");
+	AssertMsg(
+		CanMercInteractWithSelectedShopkeeper(
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i)),
+		"Selected merc can't interact with shopkeeper.  Send save AM-1");
 
 	// Create a video surface to blt corner of the tactical screen that still shines through
 	vs_desc.fCreateFlags = VSURFACE_CREATE_DEFAULT | VSURFACE_SYSTEM_MEM_USAGE;
@@ -879,7 +885,7 @@ BOOLEAN EnterShopKeeperInterface()
 	gubNumberMercsInArray = 0;
 	for( SoldierID ubCnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; ubCnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++ubCnt )
 	{
-		pSoldier = ubCnt;
+		pSoldier = GetJa2SoldierRepository().resolve(ubCnt.i);
 
 		if( pSoldier->bActive && ( pSoldier->ubProfile != NO_PROFILE ) &&
 			!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
@@ -1018,7 +1024,8 @@ BOOLEAN EnterShopKeeperInterface()
 		{
 			//add the item back to the current PC into the slot it came from
 			//ADB screw slot, slot is (used to be, before it was deleted) only ever, so autoplace it
-			AutoPlaceObject(GetSMCurrentMerc()->ubID, &gItemToAdd.ItemObject, FALSE);
+			AutoPlaceObject(
+				GetSMCurrentMerc(), &gItemToAdd.ItemObject, FALSE);
 		}
 
 		//Clear the contents of the structure
@@ -1168,7 +1175,9 @@ BOOLEAN ExitShopKeeperInterface()
 		SoldierID bSoldierID = RandomSoldierIdFromNewMercsOnPlayerTeam();
 		if( bSoldierID != NOBODY )
 		{
-			TacticalCharacterDialogue( bSoldierID, QUOTE_JA2UB_LAPTOP_FIXED );
+			TacticalCharacterDialogue(
+				GetJa2SoldierRepository().resolve(bSoldierID.i),
+				QUOTE_JA2UB_LAPTOP_FIXED);
 		}
 
 		gJa25SaveStruct.uiJa25GeneralFlags |= JA_GF__PLAYER_SAID_LAPTOP_FIXED_QUOTE;
@@ -1463,7 +1472,8 @@ BOOLEAN RenderShopKeeperInterface()
 	// Flugente: if this is a non-NPC dealer, we instead show their body in their current animation
 	else if ( gusIDOfCivTrader != NOBODY )
 	{
-		SOLDIERTYPE* pSoldier = gusIDOfCivTrader;
+		SOLDIERTYPE* pSoldier =
+			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 
 		if ( pSoldier )
 		{
@@ -2459,7 +2469,10 @@ void EnterShopKeeperInterfaceScreen_NonNPC( INT8 ubArmsDealerID, SoldierID aMerc
 
 	// Flugente: additional dialogue
 	if ( gusSelectedSoldier != NOBODY )
-		AdditionalTacticalCharacterDialogue_CallsLua( gusSelectedSoldier, ADE_MERCHANT_CHAT, ubArmsDealerID >= 0 ? (UINT32)ubArmsDealerID : 0 );
+		AdditionalTacticalCharacterDialogue_CallsLua(
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i),
+			ADE_MERCHANT_CHAT,
+			ubArmsDealerID >= 0 ? (UINT32)ubArmsDealerID : 0);
 
 	LeaveTacticalScreen( SHOPKEEPER_SCREEN );
 }
@@ -3651,7 +3664,15 @@ void DisplayPlayersOfferArea()
 					SoldierID sSoldierID = GetSoldierIDFromMercID( PlayersOfferArea[ sCnt ].ubIdOfMercWhoOwnsTheItem );
 					Assert(sSoldierID != NOBODY);
 
-					PlayersOfferArea[ sCnt ].ItemObject[0]->data.money.uiMoneyAmount = sSoldierID->inv[ PlayersOfferArea[ sCnt ].bSlotIdInOtherLocation ][0]->data.money.uiMoneyAmount;
+					SOLDIERTYPE* owner =
+						GetJa2SoldierRepository().resolve(
+							sSoldierID.i);
+					PlayersOfferArea[ sCnt ].ItemObject[0]
+						->data.money.uiMoneyAmount =
+						owner->inv[
+							PlayersOfferArea[sCnt]
+								.bSlotIdInOtherLocation
+						][0]->data.money.uiMoneyAmount;
 					PlayersOfferArea[ sCnt ].uiItemPrice = PlayersOfferArea[ sCnt ].ItemObject[0]->data.money.uiMoneyAmount;
 				}
 			}
@@ -6476,15 +6497,18 @@ void IfMercOwnedCopyItemToMercInv( INVENTORY_IN_SLOT *pInv )
 		// get soldier
 		SoldierID sSoldierID = GetSoldierIDFromMercID( pInv->ubIdOfMercWhoOwnsTheItem );
 		Assert( sSoldierID != NOBODY );
-		Assert( CanMercInteractWithSelectedShopkeeper( sSoldierID ) );
+		SOLDIERTYPE* owner =
+			GetJa2SoldierRepository().resolve(sSoldierID.i);
+		Assert( CanMercInteractWithSelectedShopkeeper( owner ) );
 
 		// then it better be a valid slot #
-		Assert( pInv->bSlotIdInOtherLocation < (INT8)(sSoldierID->inv.size()) );
+		Assert(
+			pInv->bSlotIdInOtherLocation < (INT8)(owner->inv.size()) );
 		// and it better have a valid merc who owned it
 		Assert( pInv->ubIdOfMercWhoOwnsTheItem != NO_PROFILE );
 		
 		//Copy the object back into that merc's original inventory slot
-		sSoldierID->inv[ pInv->bSlotIdInOtherLocation ] = pInv->ItemObject;
+		owner->inv[ pInv->bSlotIdInOtherLocation ] = pInv->ItemObject;
 	}
 }
 
@@ -6502,13 +6526,15 @@ void IfMercOwnedRemoveItemFromMercInv2( UINT8 ubOwnerProfileId, INT16 bOwnerSlot
 		Assert( ubOwnerProfileId != NO_PROFILE );
 		SoldierID sSoldierID = GetSoldierIDFromMercID( ubOwnerProfileId );
 		Assert( sSoldierID != NOBODY );
+		SOLDIERTYPE* owner =
+			GetJa2SoldierRepository().resolve(sSoldierID.i);
 		// then it better be a valid slot #
-		Assert( bOwnerSlotId < (INT8)(sSoldierID->inv.size() ));
+		Assert( bOwnerSlotId < (INT8)(owner->inv.size() ));
 
-		Assert( CanMercInteractWithSelectedShopkeeper( sSoldierID ) );
+		Assert( CanMercInteractWithSelectedShopkeeper( owner ) );
 
 		//remove the object from that merc's original inventory slot
-		DeleteObj(&(sSoldierID->inv[bOwnerSlotId]));
+		DeleteObj(&(owner->inv[bOwnerSlotId]));
 	}
 }
 
@@ -6529,13 +6555,15 @@ BOOLEAN SKITryToReturnInvToOwnerOrCurrentMerc( INVENTORY_IN_SLOT *pInv )
 
 		// For owners of repaired items, this checks that owner is still hired, in sector,
 		// on current squad, close enough to the shopkeeper, etc.
-		if ( !CanMercInteractWithSelectedShopkeeper( sSoldierID ) )
+		SOLDIERTYPE* owner =
+			GetJa2SoldierRepository().resolve(sSoldierID.i);
+		if ( !CanMercInteractWithSelectedShopkeeper( owner ) )
 		{
 			return(FALSE);
 		}
 
 		// Try to find a place to put in its owner's inventory (regardless of which merc is currently displayed!)
-		if ( SKITryToAddInvToMercsInventory( pInv, sSoldierID ) )
+		if ( SKITryToAddInvToMercsInventory( pInv, owner ) )
 		{
 			return( TRUE );
 		}
@@ -6608,7 +6636,8 @@ BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
 	Assert( gbSelectedArmsDealerID != -1 );
 
 	if ( gusIDOfCivTrader != NOBODY )
-		pShopkeeper = gusIDOfCivTrader;
+		pShopkeeper =
+			GetJa2SoldierRepository().resolve(gusIDOfCivTrader.i);
 	else
 		pShopkeeper = FindSoldierByProfileID( armsDealerInfo[gbSelectedArmsDealerID].ubShopKeeperID, FALSE );
 
@@ -6754,7 +6783,8 @@ void DealWithItemsStillOnTheTable()
 	}
 	else
 	{
-		pDropSoldier = gusSelectedSoldier;
+		pDropSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	}
 
 	// this guy HAS to be valid!
@@ -6997,7 +7027,9 @@ void SelectArmsDealersDropItemToGroundRegionCallBack(MOUSE_REGION * pRegion, INT
 		}
 		else
 		{
-			pDropSoldier = gusSelectedSoldier;
+			pDropSoldier =
+				GetJa2SoldierRepository().resolve(
+					gusSelectedSoldier.i);
 		}
 
 		//if we don't have an item, pick one up
@@ -7065,7 +7097,10 @@ UINT32 EvaluateInvSlot( INVENTORY_IN_SLOT *pInvSlot )
 	if( gbSelectedArmsDealerID == ARMS_DEALER_MICKY )
 	{
 		SoldierID sSoldierID = GetSoldierIDFromMercID( armsDealerInfo[ gbSelectedArmsDealerID ].ubShopKeeperID );
-		if( ( sSoldierID != NOBODY ) && ( GetDrunkLevel( sSoldierID ) == DRUNK ) )
+		if( ( sSoldierID != NOBODY ) &&
+			( GetDrunkLevel(
+				GetJa2SoldierRepository().resolve(sSoldierID.i)) ==
+				DRUNK ) )
 		{
 			//Micky is DRUNK, pays more!
 			dPriceModifier = armsDealerInfo[ gbSelectedArmsDealerID ].dSellModifier;

@@ -2267,8 +2267,10 @@ endforeach()
 # Overhead.cpp still owns the fixed compatibility allocation while the final
 # storage cut is prepared. No other production Tactical source may name those
 # arrays, even if it has not yet enabled the stricter deleted-conversion
-# ratchet. This keeps the remaining migration surface to implicit SoldierID
-# conveniences rather than allowing new direct storage dependencies.
+# ratchet. All non-owner top-level Tactical translation units also compile
+# with the implicit SoldierID pointer conversions deleted, so this source scan
+# guards direct storage access and contiguous pointer walks independently of
+# compiler configuration.
 file(GLOB tactical_soldier_pool_consumers
   "${SOURCE_ROOT}/Tactical/*.cpp")
 foreach(source_file IN LISTS tactical_soldier_pool_consumers)
@@ -2283,95 +2285,37 @@ foreach(source_file IN LISTS tactical_soldier_pool_consumers)
     message(FATAL_ERROR
       "Tactical code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
   endif()
+  string(REGEX MATCH
+    "(p[A-Za-z0-9_]*Soldier[ \t]*\\+\\+|\\+\\+[ \t]*p[A-Za-z0-9_]*Soldier([^A-Za-z0-9_.-]|$))"
+    contiguous_tactical_soldier_walk "${contents}")
+  if(contiguous_tactical_soldier_walk)
+    message(FATAL_ERROR
+      "Tactical code increments a soldier pointer in ${source_file}; traverse numeric slots through GetJa2SoldierRepository")
+  endif()
 endforeach()
 
-# Tactical is migrating by coherent source cuts rather than enabling the
-# deleted-conversion ratchet for the entire legacy library at once. Keep the
-# migrated control, combat, lifecycle, roster, and UI sources explicit in the
-# root build and subject them to the same named-array and contiguous-pointer
-# checks as the fully migrated domains.
-string(REGEX MATCH
-  "set\\(ExplicitSoldierResolutionSources[^\\)]*\\)"
-  explicit_soldier_resolution_source_definition
-  "${root_cmake_contents}")
-if(NOT explicit_soldier_resolution_source_definition)
-  message(FATAL_ERROR
-    "Explicit Tactical SoldierID resolution source list is missing")
-endif()
+foreach(tactical_resolution_fragment IN ITEMS
+    "file(GLOB ExplicitSoldierResolutionSources"
+    "Tactical/*.cpp"
+    "list(REMOVE_ITEM ExplicitSoldierResolutionSources"
+    "Tactical/Overhead.cpp")
+  string(FIND "${root_cmake_contents}"
+    "${tactical_resolution_fragment}"
+    tactical_resolution_fragment_position)
+  if(tactical_resolution_fragment_position EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical SoldierID resolution coverage lost '${tactical_resolution_fragment}'")
+  endif()
+endforeach()
+
 string(REGEX MATCH
   "set_property\\(SOURCE[ \t\r\n]+\\$\\{ExplicitSoldierResolutionSources\\}[^\\)]*JA2_EXPLICIT_SOLDIER_RESOLUTION[^\\)]*\\)"
   explicit_soldier_resolution_source_property
   "${root_cmake_contents}")
 if(NOT explicit_soldier_resolution_source_property)
   message(FATAL_ERROR
-    "Explicit Tactical SoldierID resolution sources lost their compile ratchet")
+    "Non-owner Tactical sources lost their explicit SoldierID resolution compile ratchet")
 endif()
-
-set(tactical_explicit_soldier_resolution_sources
-  "Tactical/Air Raid.cpp"
-  "Tactical/Auto Bandage.cpp"
-  "Tactical/Boxing.cpp"
-  "Tactical/Campaign.cpp"
-  "Tactical/Civ Quotes.cpp"
-  "Tactical/Dialogue Control.cpp"
-  "Tactical/Disease.cpp"
-  "Tactical/DisplayCover.cpp"
-  "Tactical/DynamicDialogue.cpp"
-  "Tactical/End Game.cpp"
-  "Tactical/Enemy Soldier Save.cpp"
-  "Tactical/Handle Items.cpp"
-  "Tactical/Handle UI Plan.cpp"
-  "Tactical/Handle UI.cpp"
-  "Tactical/Interface Control.cpp"
-  "Tactical/Interface Dialogue.cpp"
-  "Tactical/Interface Items.cpp"
-  "Tactical/Interface Panels.cpp"
-  "Tactical/Items.cpp"
-  "Tactical/Ja25_Tactical.cpp"
-  "Tactical/LOS.cpp"
-  "Tactical/Merc Hiring.cpp"
-  "Tactical/Minigame.cpp"
-  "Tactical/Points.cpp"
-  "Tactical/Rotting Corpses.cpp"
-  "Tactical/Soldier Ani.cpp"
-  "Tactical/Soldier Control.cpp"
-  "Tactical/Soldier Init List.cpp"
-  "Tactical/Soldier Profile.cpp"
-  "Tactical/SoldierTooltips.cpp"
-  "Tactical/Squads.cpp"
-  "Tactical/Strategic Exit GUI.cpp"
-  "Tactical/Structure Wrap.cpp"
-  "Tactical/Tactical Turns.cpp"
-  "Tactical/TeamTurns.cpp"
-  "Tactical/Turn Based Input.cpp"
-  "Tactical/Vehicles.cpp"
-  "Tactical/opplist.cpp")
-foreach(relative_source IN LISTS
-    tactical_explicit_soldier_resolution_sources)
-  string(FIND "${explicit_soldier_resolution_source_definition}"
-    "${relative_source}" tactical_resolution_source_position)
-  if(tactical_resolution_source_position EQUAL -1)
-    message(FATAL_ERROR
-      "${relative_source} lost the explicit SoldierID resolution compile ratchet")
-  endif()
-
-  set(source_file "${SOURCE_ROOT}/${relative_source}")
-  file(READ "${source_file}" contents)
-  string(REGEX MATCH
-    "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
-    direct_tactical_cut_soldier_pool_access "${contents}")
-  if(direct_tactical_cut_soldier_pool_access)
-    message(FATAL_ERROR
-      "Migrated Tactical code accesses legacy soldier arrays in ${source_file}; use GetJa2SoldierRepository")
-  endif()
-  string(REGEX MATCH
-    "(p[A-Za-z0-9_]*Soldier[ \t]*\\+\\+|\\+\\+[ \t]*p[A-Za-z0-9_]*Soldier)"
-    contiguous_tactical_cut_soldier_walk "${contents}")
-  if(contiguous_tactical_cut_soldier_walk)
-    message(FATAL_ERROR
-      "Migrated Tactical code increments a soldier pointer in ${source_file}; traverse numeric slots through GetJa2SoldierRepository")
-  endif()
-endforeach()
 
 foreach(required_resolution_fragment IN ITEMS
     "JA2_EXPLICIT_SOLDIER_RESOLUTION"

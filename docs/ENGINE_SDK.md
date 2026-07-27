@@ -266,19 +266,14 @@ legacy consumers are migrated. Strategic simulation no longer names either
 backing array directly, and its array-derived pointer walks now resolve stable
 numeric slots without relying on adjacent records. TacticalAI, TileEngine,
 Ja2 composition/save handling, Laptop, Utils, Editor, Lua, and Multiplayer have
-the same explicit-resolution compile ratchet. Tactical input, turn
-coordination, dialogue, planning, interface control, and panels are joined by
-a broad combat/animation cut covering soldier control and animation, item
-handling, AP calculation, LOS, sight/noise/interrupt processing, corpses,
-boxing, and structure helpers. The ratchet also covers Tactical lifecycle and
-roster consumers including air raids, auto-bandage, disease, campaign/endgame
-handling, preserved enemy state, hiring, soldier initialization and profiles,
-squads, vehicles, tooltips, sector traversal, and the Unfinished Business
-tactical rules. Remaining Tactical sources continue through the compatibility
-boundary during migration, but no production Tactical source outside
-`Overhead.cpp` may name either backing array. `Menptr` and `MercPtrs` remain
-backing storage, so numeric soldier slots and every external data format remain
-stable.
+the same explicit-resolution compile ratchet. Every top-level production
+Tactical translation unit except the central compatibility owner,
+`Overhead.cpp`, now compiles with implicit `SoldierID` pointer conversions
+deleted. The globbed source coverage automatically includes newly added
+top-level Tactical sources, while architecture checks reject direct array
+access or contiguous soldier-pointer walks outside the owner. `Menptr` and
+`MercPtrs` remain backing storage, so numeric soldier slots and every external
+data format remain stable.
 
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,

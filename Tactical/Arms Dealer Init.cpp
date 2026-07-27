@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "SoldierRepository.h"
 	#include <cstdlib>
 	#include "Arms Dealer Init.h"
 	#include "DEBUG.H"
@@ -1702,7 +1703,7 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 	// not if this isn't a proper profile
 	if ( usProfileID == NO_PROFILE )
 	{
-		pSoldier = aMercID;
+		pSoldier = GetJa2SoldierRepository().resolve(aMercID.i);
 
 		if ( pSoldier && pSoldier->sNonNPCTraderID > 0 )
 			bArmsDealer = pSoldier->sNonNPCTraderID;

@@ -1,4 +1,5 @@
 	#include "builddefines.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include <stdio.h>
 	#include "sgp_logger.h"
@@ -594,7 +595,10 @@ void	 SetAutoFaceActiveFromSoldier( UINT32 uiDisplayBuffer, UINT32 uiRestoreBuff
 		return;
 	}
 
-	SetAutoFaceActive( uiDisplayBuffer, uiRestoreBuffer, ubSoldierID->iFaceIndex, usFaceX, usFaceY );
+	SetAutoFaceActive(
+		uiDisplayBuffer, uiRestoreBuffer,
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex,
+		usFaceX, usFaceY);
 }
 
 void GetFaceRelativeCoordinates( FACETYPE *pFace, UINT16 *pusEyesX, UINT16 *pusEyesY, UINT16 *pusMouthX, UINT16 *pusMouthY )
@@ -785,7 +789,8 @@ void InternalSetAutoFaceActive( UINT32 uiDisplayBuffer, UINT32 uiRestoreBuffer, 
 	// Are we a soldier?
 	if ( pFace->ubSoldierID != NOBODY )
 	{
-		pFace->bOldSoldierLife = pFace->ubSoldierID->vitals().health();
+		pFace->bOldSoldierLife = GetJa2SoldierRepository()
+			.resolve(pFace->ubSoldierID.i)->vitals().health();
 	}
 }
 
@@ -795,7 +800,8 @@ void SetAutoFaceInActiveFromSoldier( SoldierID ubSoldierID )
 	// Check for valid soldier
 	CHECKV( ubSoldierID != NOBODY );
 
-	SetAutoFaceInActive( ubSoldierID->iFaceIndex );
+	SetAutoFaceInActive(
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex);
 }
 
 
@@ -827,7 +833,8 @@ void SetAutoFaceInActive(INT32 iFaceIndex )
 		//
 		if ( pFace->ubSoldierID != NOBODY )
 		{
-			pSoldier = pFace->ubSoldierID;
+			pSoldier = GetJa2SoldierRepository().resolve(
+				pFace->ubSoldierID.i);
 
 			// IF we are in tactical
 			if ( pSoldier->bAssignment == iCurrentTacticalSquad && GetCurrentScreen() == GAME_SCREEN )
@@ -980,11 +987,14 @@ void BlinkAutoFace( INT32 iFaceIndex )
 		// CHECK IF BUDDY IS DEAD, UNCONSCIOUS, ASLEEP, OR POW!
 		if ( pFace->ubSoldierID != NOBODY )
 		{
-			uiFaceShade = GetFaceShade(pFace->ubSoldierID, pFace, FALSE);
+			SOLDIERTYPE* faceSoldier =
+				GetJa2SoldierRepository().resolve(
+					pFace->ubSoldierID.i);
+			uiFaceShade = GetFaceShade(faceSoldier, pFace, FALSE);
 
-			if ( ( pFace->ubSoldierID->vitals().health() < OKLIFE ) ||
-					( pFace->ubSoldierID->flags.fMercAsleep == TRUE ) ||
-					( pFace->ubSoldierID->bAssignment == ASSIGNMENT_POW ) )
+			if ( ( faceSoldier->vitals().health() < OKLIFE ) ||
+					( faceSoldier->flags.fMercAsleep == TRUE ) ||
+					( faceSoldier->bAssignment == ASSIGNMENT_POW ) )
 			{
 				return;
 			}
@@ -1120,13 +1130,16 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 	 {
 		 if ( pFace->ubSoldierID != NOBODY )
 		 {
-			 if ( pFace->ubSoldierID->vitals().health() >= OKLIFE )
+			 SOLDIERTYPE* faceSoldier =
+				 GetJa2SoldierRepository().resolve(
+					 pFace->ubSoldierID.i);
+			 if ( faceSoldier->vitals().health() >= OKLIFE )
 			 {
 				 // Lock buffer
 				 pDestBuf = LockVideoSurface( uiBuffer, &uiDestPitchBYTES );
 				 SetClippingRegionAndImageWidth( uiDestPitchBYTES, sFaceX-2, sFaceY-1, sFaceX + pFace->usFaceWidth + 4, sFaceY + pFace->usFaceHeight + 4 );
 
-				 if ( pFace->ubSoldierID->bStealthMode )
+				 if ( faceSoldier->bStealthMode )
 				 {
 					 usLineColor = Get16BPPColor( FROMRGB( 158, 158, 12 ) );
 				 }
@@ -1269,7 +1282,10 @@ void MouthAutoFace( INT32 iFaceIndex )
 							// Set shade
 							if (pFace->ubSoldierID != NOBODY)
 							{
-								uiFaceShade = GetFaceShade(pFace->ubSoldierID, pFace, FALSE);
+								uiFaceShade = GetFaceShade(
+									GetJa2SoldierRepository().resolve(
+										pFace->ubSoldierID.i),
+									pFace, FALSE);
 							}
 
 							HandleRenderFaceAdjustments( pFace, TRUE, FALSE, 0, pFace->usFaceX, pFace->usFaceY, pFace->usEyesX, pFace->usEyesY, uiFaceShade);
@@ -1400,7 +1416,8 @@ BOOLEAN RenderAutoFaceFromSoldier( SoldierID ubSoldierID )
 	// Check for valid soldier
 	CHECKF( ubSoldierID != NOBODY );
 
-	return( RenderAutoFace( ubSoldierID->iFaceIndex ) );
+	return( RenderAutoFace(
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex ) );
 }
 
 //---------------------------------------LEGION-------------------------------
@@ -1661,7 +1678,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	// BLIT HATCH
 	if ( pFace->ubSoldierID != NOBODY )
 	{
-		pSoldier = pFace->ubSoldierID;
+		pSoldier = GetJa2SoldierRepository().resolve(
+			pFace->ubSoldierID.i);
 
 		UINT8 faceProfileId = gMercProfiles[pSoldier->ubProfile].ubFaceIndex;
 		BOOLEAN isIMP = gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP;
@@ -1937,7 +1955,13 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			}
 
-			if ( pSoldier->bInSector && ( ( ( GetJa2TacticalCurrentTeam() != OUR_TEAM ) || !OK_INTERRUPT_MERC(	pSoldier ) ) && !gfHiddenInterrupt ) || ( ( gfSMDisableForItems && !gfInItemPickupMenu ) && gusSMCurrentMerc == pSoldier && gsCurInterfacePanel == SM_PANEL ) )
+			if ( pSoldier->bInSector &&
+				( ( ( GetJa2TacticalCurrentTeam() != OUR_TEAM ) ||
+					!OK_INTERRUPT_MERC( pSoldier ) ) &&
+					!gfHiddenInterrupt ) ||
+				( ( gfSMDisableForItems && !gfInItemPickupMenu ) &&
+					gusSMCurrentMerc == pSoldier->ubID &&
+					gsCurInterfacePanel == SM_PANEL ) )
 			{
 				// Blit hatch!
 				BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -2654,7 +2678,10 @@ BOOLEAN RenderAutoFace( INT32 iFaceIndex )
 	// Set shade
 	if ( pFace->ubSoldierID != NOBODY )
 	{
-		uiFaceShade = GetFaceShade(pFace->ubSoldierID, pFace, FALSE);
+		uiFaceShade = GetFaceShade(
+			GetJa2SoldierRepository().resolve(
+				pFace->ubSoldierID.i),
+			pFace, FALSE);
 		SetFaceShade(pFace, uiFaceShade);
 	}
 
@@ -2692,7 +2719,10 @@ BOOLEAN ExternRenderFaceFromSoldier( UINT32 uiBuffer, SoldierID ubSoldierID, INT
 	// Check for valid soldier
 	CHECKF( ubSoldierID != NOBODY );
 
-	return( ExternRenderFace( uiBuffer, ubSoldierID->iFaceIndex, sX, sY ) );
+	return( ExternRenderFace(
+		uiBuffer,
+		GetJa2SoldierRepository().resolve(ubSoldierID.i)->iFaceIndex,
+		sX, sY) );
 }
 
 
@@ -2718,7 +2748,10 @@ BOOLEAN ExternRenderFace( UINT32 uiBuffer, INT32 iFaceIndex, INT16 sX, INT16 sY 
 	UINT32 uiFaceShade = FLASH_PORTRAIT_NOSHADE;
 	if ( pFace->ubSoldierID != NOBODY )
 	{
-		uiFaceShade = GetFaceShade(pFace->ubSoldierID, pFace, TRUE);
+		uiFaceShade = GetFaceShade(
+			GetJa2SoldierRepository().resolve(
+				pFace->ubSoldierID.i),
+			pFace, TRUE);
 		SetFaceShade(pFace, uiFaceShade);
 	}
 
@@ -2880,7 +2913,8 @@ void HandleAutoFaces( )
 			if ( pFace->ubSoldierID != NOBODY )
 			{
 				// Get Life now
-				pSoldier	= pFace->ubSoldierID;
+				pSoldier = GetJa2SoldierRepository().resolve(
+					pFace->ubSoldierID.i);
 				bLife		= pSoldier->vitals().health();
 				bInSector = pSoldier->bInSector;
 				bAPs		= pSoldier->bActionPoints;

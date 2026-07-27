@@ -1,4 +1,5 @@
 #include <Button System.h>
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 #include "Animation Control.h"
 #include "Soldier Find.h"
@@ -170,6 +171,8 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 	static BOOLEAN	fCanCheckForSpeechAdvance = FALSE;
 	static INT32		sMoveClickGridNo					= 0;
 	SoldierID usSubjectSoldier = gusSelectedSoldier;
+	SOLDIERTYPE* subjectSoldier =
+		GetJa2SoldierRepository().resolve(usSubjectSoldier.i);
 
 	// LEFT MOUSE BUTTON
 	if ( gViewportRegion.uiFlags & MSYS_MOUSE_IN_AREA )
@@ -181,14 +184,16 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			if ( gusSelectedSoldier->pTempObject != NULL )
+			if ( subjectSoldier->pTempObject != NULL )
 			{
 				return;
 			}
-			if ( gusSelectedSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
+			if ( subjectSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
 			{
-				pVehicle = GetSoldierStructureForVehicle( usSubjectSoldier->iVehicleId );
+				pVehicle = GetSoldierStructureForVehicle(
+					subjectSoldier->iVehicleId);
 				usSubjectSoldier = pVehicle->ubID;
+				subjectSoldier = pVehicle;
 			}
 		}
 
@@ -292,7 +297,9 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 												if ( usSubjectSoldier != NOBODY )
 												{
-													if ( ( fResult = UIOKMoveDestination( usSubjectSoldier, usMapPos ) ) == 1 )
+												if ( ( fResult = UIOKMoveDestination(
+													subjectSoldier,
+													usMapPos ) ) == 1 )
 													{
 														if ( gsCurrentActionPoints != 0 )
 														{
@@ -344,7 +351,11 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 						if(	FindSoldierFromMouse( &usSoldierIndex, &uiMercFlags ) )
 						{
 							// Select guy
-							if ( (uiMercFlags & SELECTED_MERC) && !( uiMercFlags & UNCONSCIOUS_MERC ) && !( usSoldierIndex->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+							if ( (uiMercFlags & SELECTED_MERC) &&
+								!( uiMercFlags & UNCONSCIOUS_MERC ) &&
+								!( GetJa2SoldierRepository()
+									.resolve(usSoldierIndex.i)->flags
+									.uiStatusFlags & SOLDIER_VEHICLE ) )
 							{
 								*puiNewEvent = M_CHANGE_TO_ADJPOS_MODE;
 							}
@@ -430,7 +441,8 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 									//if ( gAnimControl[ gusSelectedSoldier->usAnimState ].uiFlags & ANIM_STATIONARY )
 									//if ( gusSelectedSoldier->usAnimState == WALKING )
 									{
-										usSubjectSoldier->flags.fUIMovementFast = TRUE;
+										subjectSoldier->flags.fUIMovementFast =
+											TRUE;
 										*puiNewEvent = C_MOVE_MERC;
 									}
 								}
@@ -574,13 +586,14 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 													if ( usSubjectSoldier != NOBODY )
 													{
-														if ( usSubjectSoldier->usAnimState != RUNNING )
+													if ( subjectSoldier->usAnimState != RUNNING )
 														{
 															*puiNewEvent = C_MOVE_MERC;
 														}
 														else
 														{
-															usSubjectSoldier->flags.fUIMovementFast = 2;
+														subjectSoldier->flags
+															.fUIMovementFast = 2;
 															*puiNewEvent = C_MOVE_MERC;
 														}
 													}
@@ -659,7 +672,10 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																				// OK, if we have a selected guy.. make him part too....
 																				if ( gusSelectedSoldier != NOBODY )
 																				{
-																					gusSelectedSoldier->flags.uiStatusFlags |= (SOLDIER_MULTI_SELECTED );
+																					GetJa2SoldierRepository()
+																						.resolve(gusSelectedSoldier.i)
+																						->flags.uiStatusFlags |=
+																						SOLDIER_MULTI_SELECTED;
 																				}
 																			}
 
@@ -689,12 +705,15 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																			// Say Confimation...
 																			if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
 																				pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
-																		}
+																			}
 
 																		// OK, if we have a selected guy.. make him part too....
 																		if ( gusSelectedSoldier != NOBODY )
 																		{
-																			gusSelectedSoldier->flags.uiStatusFlags |= (SOLDIER_MULTI_SELECTED );
+																			GetJa2SoldierRepository()
+																				.resolve(gusSelectedSoldier.i)
+																				->flags.uiStatusFlags |=
+																				SOLDIER_MULTI_SELECTED;
 																		}
 
 																		gfIgnoreOnSelectedGuy = TRUE;
@@ -771,7 +790,9 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 																			if ( usSubjectSoldier != NOBODY )
 																			{
-																				if ( ( fResult = UIOKMoveDestination( usSubjectSoldier, usMapPos ) ) == 1 )
+																				if ( ( fResult = UIOKMoveDestination(
+																					subjectSoldier,
+																					usMapPos ) ) == 1 )
 																				{
 																					if ( gfUIAllMoveOn )
 																					{
@@ -996,7 +1017,10 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 								if ( gfUICanBeginAllMoveCycle )
 								{
 									// ATE: Here, check if we can do this....
-									if ( !UIOKMoveDestination( gusSelectedSoldier, usMapPos ) )
+									if ( !UIOKMoveDestination(
+											GetJa2SoldierRepository().resolve(
+												gusSelectedSoldier.i),
+											usMapPos ) )
 									{
 										ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANT_MOVE_THERE_STR ] );
 										gfRTClickLeftHoldIntercepted = TRUE;
@@ -1020,7 +1044,9 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 						{
 							gfBeginBurstSpreadTracking = FALSE;
 							gfRTClickLeftHoldIntercepted = TRUE;
-							gusSelectedSoldier->flags.fDoSpread				= FALSE;
+							GetJa2SoldierRepository()
+								.resolve(gusSelectedSoldier.i)
+								->flags.fDoSpread = FALSE;
 							fClickHoldIntercepted = TRUE;
 							*puiNewEvent = A_END_ACTION;
 							gCurrentUIMode = MOVE_MODE;
@@ -1213,7 +1239,9 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 										case MOVE_MODE:
 										case TALKCURSOR_MODE:
 											// anv: don't switch if passengers are blocked from attacking
-											pSoldier = gusSelectedSoldier;
+											pSoldier =
+												GetJa2SoldierRepository().resolve(
+													gusSelectedSoldier.i);
 											if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 											{
 												SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
@@ -1468,7 +1496,14 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 				{
 					if( gfUIFullTargetFound )
 					{
-						if ( IsValidTalkableNPC( gusUIFullTargetID, FALSE, FALSE, FALSE ) && !_KeyDown( SHIFT ) && !AM_AN_EPC( pSoldier ) && gusUIFullTargetID->bTeam != ENEMY_TEAM && !ValidQuickExchangePosition( ) )
+						if ( IsValidTalkableNPC(
+								gusUIFullTargetID, FALSE, FALSE, FALSE ) &&
+							!_KeyDown( SHIFT ) &&
+							!AM_AN_EPC( pSoldier ) &&
+							GetJa2SoldierRepository()
+								.resolve(gusUIFullTargetID.i)->bTeam !=
+								ENEMY_TEAM &&
+							!ValidQuickExchangePosition( ) )
 						{
 							uiMoveTargetSoldierId = gusUIFullTargetID;
 							*puiNewEvent = T_CHANGE_TO_TALKING;
@@ -1515,7 +1550,9 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 				{
 					guiUITargetSoldierId = gusUIFullTargetID;
 
-					if ( gusUIFullTargetID->bTeam != gbPlayerNum )
+					if ( GetJa2SoldierRepository()
+							.resolve(gusUIFullTargetID.i)->bTeam !=
+						gbPlayerNum )
 					{
 						fOnValidGuy = TRUE;
 					}
@@ -2009,15 +2046,20 @@ void HandleMouseRTWheel( void )
 		{
 			//change stance ->DOWN
 			if ( _KeyDown( ALT ) )
-			{	
+			{
 				if ( (gusSelectedSoldier != NOBODY) && ( gpItemPointer == NULL ) )
-					GotoLowerStance(gusSelectedSoldier);
+					GotoLowerStance(
+						GetJa2SoldierRepository().resolve(
+							gusSelectedSoldier.i));
 				return;
 			}
 
 			if ( gusSelectedSoldier != NOBODY )
 			{ //Select prev merc
-				bID = FindPrevActiveAndAliveMerc( gusSelectedSoldier, TRUE, TRUE );
+				bID = FindPrevActiveAndAliveMerc(
+					GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i),
+					TRUE, TRUE);
 				HandleLocateSelectMerc( bID, LOCATEANDSELECT_MERC );
 				// Center to guy....
 				LocateSoldier( gusSelectedSoldier, SETLOCATOR );
@@ -2027,16 +2069,21 @@ void HandleMouseRTWheel( void )
 		{
 			//change stance ->UP
 			if ( _KeyDown( ALT ) )
-			{	
+			{
 				if ( (gusSelectedSoldier != NOBODY) && ( gpItemPointer == NULL ) )
-					GotoHeigherStance( gusSelectedSoldier );
+					GotoHeigherStance(
+						GetJa2SoldierRepository().resolve(
+							gusSelectedSoldier.i));
 				return;
 			}
 
 			//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"wheel %d", gViewportRegion.WheelState);
 			if ( gusSelectedSoldier != NOBODY )
 			{ //Select next merc
-				bID = FindNextMercInTeamPanel( gusSelectedSoldier, FALSE, FALSE );
+				bID = FindNextMercInTeamPanel(
+					GetJa2SoldierRepository().resolve(
+						gusSelectedSoldier.i),
+					FALSE, FALSE);
 				HandleLocateSelectMerc( bID, LOCATEANDSELECT_MERC );
 				// Center to guy....
 				LocateSoldier( gusSelectedSoldier, SETLOCATOR );
@@ -2055,7 +2102,8 @@ void HandleMouseRTMButton( UINT32 *puiNewEvent )
 		if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 			( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 			TryDispatchCycleWeaponModeCommandNow(
-				*gusSelectedSoldier );
+				*GetJa2SoldierRepository().resolve(
+					gusSelectedSoldier.i) );
 			}
 	else
 		*puiNewEvent = LC_LOOK;
@@ -2135,7 +2183,8 @@ void HandleMouseRTX2Button( UINT32 *puiNewEvent )
 	{
 		if ( gusSelectedSoldier != NOBODY )
 			TryDispatchReloadWeaponCommandNow(
-				*gusSelectedSoldier,
+				*GetJa2SoldierRepository().resolve(
+					gusSelectedSoldier.i),
 				true );
 	}
 	else
@@ -2215,7 +2264,8 @@ void HandleRTToggleFireMode( void )
 	if ( ( gpItemPointer == NULL ) && ( gusSelectedSoldier != NOBODY ) &&
 		( ( gsCurInterfacePanel != SM_PANEL ) || ( ButtonList[ iSMPanelButtons[ BURSTMODE_BUTTON ] ]->uiFlags & BUTTON_ENABLED ) ) )
 		TryDispatchCycleWeaponModeCommandNow(
-			*gusSelectedSoldier );
+			*GetJa2SoldierRepository().resolve(
+				gusSelectedSoldier.i) );
 }
 void HandleRTLocateSoldier( void )
 {

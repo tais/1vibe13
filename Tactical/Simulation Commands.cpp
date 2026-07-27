@@ -1,4 +1,5 @@
 #include "Simulation Commands.h"
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 #include <array>
@@ -2270,7 +2271,10 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 		SoldierID targetId = WhoIsThere2(
 			soldier.aiData.sPendingActionData2,
 			soldier.bTargetLevel);
-		if (targetId != NOBODY) target = targetId;
+		if (targetId != NOBODY)
+		{
+			target = GetJa2SoldierRepository().resolve(targetId.i);
+		}
 	}
 
 	const INT32 rawDirection = soldier.aiData.bPendingActionData3;

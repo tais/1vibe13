@@ -1,4 +1,5 @@
 	#include <string.h>
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "SaveSerializer.h"
 	#include "worlddef.h"
@@ -236,7 +237,9 @@ void LocateBullet( INT32 iBulletIndex )
 	// Check if a bad guy fired!
 	if ( gBullets[ iBulletIndex ].ubFirerID != NOBODY )
 	{
-		if ( gBullets[ iBulletIndex ].ubFirerID->bSide == gbPlayerNum )
+		if ( GetJa2SoldierRepository()
+				.resolve(gBullets[iBulletIndex].ubFirerID.i)->bSide ==
+			gbPlayerNum )
 		{
 			if ( !gBullets[ iBulletIndex ].fLocated )
 			{
@@ -674,7 +677,8 @@ BOOLEAN LoadBulletStructureFromSavedGameFile( HWFILE hFile )
 		//Set some parameters
 		gBullets[usCnt].uiLastUpdate = 0;
 		if( gBullets[usCnt].ubFirerID != NOBODY )
-			gBullets[usCnt].pFirer = gBullets[usCnt].ubFirerID;
+			gBullets[usCnt].pFirer = GetJa2SoldierRepository().resolve(
+				gBullets[usCnt].ubFirerID.i);
 		else
 			gBullets[usCnt].pFirer = NULL;
 

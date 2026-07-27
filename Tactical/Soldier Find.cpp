@@ -1,4 +1,5 @@
 	#include "DEBUG.H"
+	#include "SoldierRepository.h"
 	#include "worlddef.h"
 	#include "worldman.h"
 	#include "renderworld.h"
@@ -100,7 +101,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	SOLDIERTYPE *pSoldier;
 
 	// Get pSoldier!
-	pSoldier = ubID;
+	pSoldier = GetJa2SoldierRepository().resolve(ubID.i);
 
 	// Find out and set flags
 	if ( ubID == gusSelectedSoldier )
@@ -508,13 +509,14 @@ SOLDIERTYPE * SimpleFindSoldier( INT32 sGridNo, INT8 bLevel )
 	}
 	else
 	{
-		return( ubID );
+		return( GetJa2SoldierRepository().resolve(ubID.i) );
 	}
 }
 
 BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 {
-	SOLDIERTYPE *pSoldier = ubSoldierID;
+	SOLDIERTYPE *pSoldier =
+		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
 
 	// CHECK IF ACTIVE!
@@ -783,7 +785,8 @@ BOOLEAN GridNoOnScreen( INT32 sGridNo )
 
 BOOLEAN SoldierOnScreen( SoldierID usID )
 {
-	return( GridNoOnScreen( usID->position().gridNo() ) );
+	return( GridNoOnScreen(
+		GetJa2SoldierRepository().resolve(usID.i)->position().gridNo() ) );
 }
 
 

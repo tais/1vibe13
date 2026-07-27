@@ -1,4 +1,5 @@
 	#include "SkillCheck.h"
+	#include "SoldierRepository.h"
 	#include "Soldier Profile.h"
 	#include "random.h"
 	#include "Items.h"
@@ -946,7 +947,8 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			SoldierID iLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 			for ( ; iLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++iLoop )
 			{
-				pTeamSoldier = iLoop;
+				pTeamSoldier =
+					GetJa2SoldierRepository().resolve(iLoop.i);
 				if ( OK_INSECTOR_MERC( pTeamSoldier ) )
 				{
 					if ( SpacesAway( pSoldier->position().gridNo(), pTeamSoldier->position().gridNo() ) < 15 )

@@ -1,4 +1,5 @@
 	#include "Items.h"
+	#include "SoldierRepository.h"
 	#include "Handle Items.h"
 	#include "Overhead.h"
 	#include "tiledef.h"
@@ -680,7 +681,8 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 						soldierID = gWorldItems[ iItemIndex ].object[0]->data.misc.ubBombOwner - 2; // undo the hack
 						if ( soldierID < NOBODY )
 						{
-							pSoldier = soldierID;
+							pSoldier = GetJa2SoldierRepository().resolve(
+								soldierID.i);
 						}
 					}
 				}

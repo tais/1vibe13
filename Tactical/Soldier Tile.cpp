@@ -1,4 +1,5 @@
 	#include "Render Fun.h"
+	#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 	#include "DEBUG.H"
 	#include "Overhead Types.h"
@@ -100,8 +101,11 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, INT8 bVal
 
 	if ( ubPerson != NOBODY )
 	{
+		SOLDIERTYPE* blockingPerson =
+			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// if they are our own team members ( both )
-		if ( ubPerson->bTeam == gbPlayerNum && pSoldier->bTeam == gbPlayerNum )
+		if ( blockingPerson->bTeam == gbPlayerNum &&
+			pSoldier->bTeam == gbPlayerNum )
 		{
 			// Here we have another guy.... save his stats so we can use them for
 			// speed determinations....
@@ -211,6 +215,8 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 	if ( ubPerson != NOBODY )
 	{
+		SOLDIERTYPE* blockingPerson =
+			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// If this us?
 		if ( ubPerson != pSoldier->ubID )
 		{
@@ -224,7 +230,8 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 				// Are we only temporarily blocked?
 				// Check if our final destination is = our gridno
-				if ( ( ubPerson->pathing.sFinalDestination == ubPerson->position().gridNo() )	)
+				if ( ( blockingPerson->pathing.sFinalDestination ==
+					blockingPerson->position().gridNo() )	)
 				{
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
@@ -232,12 +239,16 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 				{
 					// OK, if buddy who is blocking us is trying to move too...
 					// And we are in opposite directions...
-					if ( ubPerson->flags.fBlockedByAnotherMerc && ubPerson->bBlockedByAnotherMercDirection == gOppositeDirection[ bDirection ] )
+					if ( blockingPerson->flags.fBlockedByAnotherMerc &&
+						blockingPerson->bBlockedByAnotherMercDirection ==
+							gOppositeDirection[ bDirection ] )
 					{
 						// OK, try and get a path around buddy....
 						// We have to temporarily make buddy stopped...
-						sTempDestGridNo = ubPerson->pathing.sFinalDestination;
-						ubPerson->pathing.sFinalDestination = ubPerson->position().gridNo();
+						sTempDestGridNo =
+							blockingPerson->pathing.sFinalDestination;
+						blockingPerson->pathing.sFinalDestination =
+							blockingPerson->position().gridNo();
 
 						if ( PlotPath( pSoldier, pSoldier->pathing.sFinalDestination, NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->bActionPoints ) )
 						{
@@ -245,7 +256,8 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 							// OK, make guy go here...
 							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode );
 							// Restore final dest....
-							ubPerson->pathing.sFinalDestination = sTempDestGridNo;
+							blockingPerson->pathing.sFinalDestination =
+								sTempDestGridNo;
 							pSoldier->flags.fBlockedByAnotherMerc = FALSE;
 
 							// Is the next tile blocked too?
@@ -269,18 +281,23 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 
 									// Swap now!
-									ubPerson->flags.fBlockedByAnotherMerc = FALSE;
+									blockingPerson->flags.fBlockedByAnotherMerc =
+										FALSE;
 
 									// Restore final dest....
-									ubPerson->pathing.sFinalDestination = sTempDestGridNo;
+									blockingPerson->pathing.sFinalDestination =
+										sTempDestGridNo;
 
 									// Swap merc positions.....
-									SwapMercPositions( pSoldier, ubPerson );
+									SwapMercPositions(
+										pSoldier, blockingPerson);
 
 									// With these two guys swapped, they should try and continue on their way....
 									// Start them both again along their way...
 									pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing.sFinalDestination, pSoldier->usUIMovementMode );
-									ubPerson->EVENT_GetNewSoldierPath( ubPerson->pathing.sFinalDestination, ubPerson->usUIMovementMode );
+									blockingPerson->EVENT_GetNewSoldierPath(
+										blockingPerson->pathing.sFinalDestination,
+										blockingPerson->usUIMovementMode);
 								}
 						}
 					}
@@ -292,14 +309,15 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 				//return( MOVE_TILE_STATIONARY_BLOCKED );
 				// ATE: OK, put some smartshere...
 				// If we are waiting for more than a few times, change to stationary...
-				if ( ubPerson->flags.fDelayedMovement >= 105 )
+				if ( blockingPerson->flags.fDelayedMovement >= 105 )
 				{
 					// Set to special 'I want to walk through people' value
 					pSoldier->flags.fDelayedMovement = 150;
 
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
-				if ( ubPerson->position().gridNo() == ubPerson->pathing.sFinalDestination )
+				if ( blockingPerson->position().gridNo() ==
+					blockingPerson->pathing.sFinalDestination )
 				{
 					return( MOVE_TILE_STATIONARY_BLOCKED );
 				}
@@ -638,9 +656,21 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				{
 					// with person who is in the way?
 					ubPerson = WhoIsThere2( pSoldier->sDelayedMovementCauseGridNo, pSoldier->position().level() );
+					SOLDIERTYPE* blockingPerson =
+						GetJa2SoldierRepository().resolve(ubPerson.i);
 
 					// if either on a mission from god, or two AI guys not on stationary...
-					if ( ubPerson != NOBODY && ( pSoldier->ubQuoteRecord != 0 || ( pSoldier->bTeam != gbPlayerNum && pSoldier->aiData.bOrders != STATIONARY && ubPerson->bTeam != gbPlayerNum && ubPerson->aiData.bOrders != STATIONARY ) || (pSoldier->bTeam == gbPlayerNum && gTacticalStatus.fAutoBandageMode && !(ubPerson->bTeam == CIV_TEAM && ubPerson->aiData.bOrders == STATIONARY ) ) ) )
+					if ( ubPerson != NOBODY &&
+						( pSoldier->ubQuoteRecord != 0 ||
+							( pSoldier->bTeam != gbPlayerNum &&
+								pSoldier->aiData.bOrders != STATIONARY &&
+								blockingPerson->bTeam != gbPlayerNum &&
+								blockingPerson->aiData.bOrders != STATIONARY ) ||
+							( pSoldier->bTeam == gbPlayerNum &&
+								gTacticalStatus.fAutoBandageMode &&
+								!( blockingPerson->bTeam == CIV_TEAM &&
+									blockingPerson->aiData.bOrders ==
+										STATIONARY ) ) ) )
 					{
 						// Swap now!
 						//ubPerson->flags.fBlockedByAnotherMerc = FALSE;
@@ -649,7 +679,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 						//ubPerson->pathing.sFinalDestination = sTempDestGridNo;
 
 						// Swap merc positions.....
-						SwapMercPositions( pSoldier, ubPerson );
+						SwapMercPositions( pSoldier, blockingPerson );
 
 						// With these two guys swapped, we should try to continue on our way....
 						pSoldier->flags.fDelayedMovement = FALSE;

@@ -2169,7 +2169,9 @@ BOOLEAN InternalTacticalRemoveSoldier( SoldierID usSoldierIndex, BOOLEAN fRemove
 		gfUISelectiveTargetFound = FALSE;
 	}
 
-	return TacticalRemoveSoldierPointer(usSoldierIndex, fRemoveVehicle );
+	return TacticalRemoveSoldierPointer(
+		GetJa2SoldierRepository().resolve(usSoldierIndex.i),
+		fRemoveVehicle);
 }
 
 BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehicle )

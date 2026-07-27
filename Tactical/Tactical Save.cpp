@@ -1,4 +1,5 @@
 	#include "types.h"
+	#include "SoldierRepository.h"
 	#include "MemMan.h"
 	#include "message.h"
 	#include "Items.h"
@@ -1169,7 +1170,8 @@ void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 
 		for( SoldierID uiCounter = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; uiCounter <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCounter )
 		{
-			pSoldier = uiCounter;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(uiCounter.i);
 			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() > 0 && pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == bSectorZ )
 			{
 				if ( FindBestPath( pSoldier, sGridNo2, pSoldier->position().level(), WALKING, NO_COPYROUTE, 0 ) )
@@ -2122,7 +2124,7 @@ SoldierID GetSoldierIDFromAnyMercID(UINT8 ubMercID)
 	// look for all mercs on the same team,
 	for ( ; cnt <= ubLastTeamID; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pTeamSoldier->bActive )
 		{
 			if ( pTeamSoldier->ubProfile == ubMercID )
@@ -2535,7 +2537,8 @@ BOOLEAN SetSectorFlag( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet
 
 			for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 			{
-				SOLDIERTYPE *pSoldier = id;
+				SOLDIERTYPE *pSoldier =
+					GetJa2SoldierRepository().resolve(id.i);
 
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
 					pSoldier->sSectorX == sMapX && pSoldier->sSectorY == sMapY && pSoldier->bSectorZ == bMapZ && !pSoldier->flags.fBetweenSectors &&

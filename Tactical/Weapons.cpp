@@ -1,4 +1,5 @@
 #include <Engine/Adapters/Legacy/LegacyXmlDocument.h>
+#include "SoldierRepository.h"
 #include "TacticalWorldAdapter.h"
 
 	#include "sgp.h"
@@ -2267,6 +2268,8 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &(pSoldier->inv[HANDPOS]) );
 	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->ubAttackingHand ] );
+	SOLDIERTYPE* pAttackTarget =
+		GetJa2SoldierRepository().resolve(pSoldier->ubTargetID.i);
 
 	// sevenfm: reduce shock when firing gun, for autofire shots - apply once
 	SOLDIERTYPE* pTarget = SimpleFindSoldier(sTargetGridNo, pSoldier->bTargetLevel);
@@ -2608,7 +2611,12 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// HEADROCK: Actually, it's 1 for the first shot. Works fine regardless though.
 		// HEADROCK HAM 4: Extra experience gain now given when the target is hit. This part only gives basic points
 		// for the attack (FAILURE type).
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (IsJa2TacticalCombatActive() ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
+		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY &&
+			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
+			(IsJa2TacticalCombatActive() ) &&
+			( SoldierToSoldierBodyPartChanceToGetThrough(
+				pSoldier, pAttackTarget,
+				pSoldier->bAimShotLocation ) > 0 ) )
 		{
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 2.0f;
@@ -2619,11 +2627,15 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				dExpGain = (dExpGain * 2) / 3;
 			}
 
-			if ( pSoldier->ubTargetID->ubBodyType == COW || pSoldier->ubTargetID->ubBodyType == CROW )
+			if ( pAttackTarget->ubBodyType == COW ||
+				pAttackTarget->ubBodyType == CROW )
 			{
 				dExpGain /= 2;
 			}
-			else if ( pSoldier->ubTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier->ubTargetID ) || TANK( pSoldier->ubTargetID ) )
+			else if ( pAttackTarget->flags.uiStatusFlags &
+					SOLDIER_VEHICLE ||
+				AM_A_ROBOT( pAttackTarget ) ||
+				TANK( pAttackTarget ) )
 			{
 				// no exp from shooting a vehicle that you can't damage and can't move!
 				dExpGain = 0;
@@ -2657,11 +2669,15 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 5.0f;
 
-			if ( pSoldier->ubTargetID->ubBodyType == COW || pSoldier->ubTargetID->ubBodyType == CROW )
+			if ( pAttackTarget->ubBodyType == COW ||
+				pAttackTarget->ubBodyType == CROW )
 			{
 				dExpGain /= 2;
 			}
-			else if ( pSoldier->ubTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier->ubTargetID ) || TANK( pSoldier->ubTargetID ) )
+			else if ( pAttackTarget->flags.uiStatusFlags &
+					SOLDIER_VEHICLE ||
+				AM_A_ROBOT( pAttackTarget ) ||
+				TANK( pAttackTarget ) )
 			{
 				// no exp from shooting a vehicle that you can't damage and can't move!
 				dExpGain = 0;
@@ -2768,14 +2784,21 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 		if ( ubMerc != NOBODY )
 		{
-			if ( gAnimControl[ ubMerc->usAnimState ].ubHeight != ANIM_PRONE )
+			SOLDIERTYPE* exhaustTarget =
+				GetJa2SoldierRepository().resolve(ubMerc.i);
+			if ( gAnimControl[ exhaustTarget->usAnimState ].ubHeight !=
+				ANIM_PRONE )
 			{
 				// Increment attack counter...
 //				GetJa2PendingTacticalCombatActions()++;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->position().direction(), 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
+				exhaustTarget->EVENT_SoldierGotHit(
+					MINI_GRENADE, 10, 200,
+					pSoldier->position().direction(), 0,
+					pSoldier->ubID, 0, ANIM_CROUCH, 0,
+					sNewGridNo);
 			}
 		}
 	}
@@ -3054,6 +3077,8 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// sevenfm:for PlayWeaponSound
 	OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon(&(pSoldier->inv[HANDPOS]));
 	OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->ubAttackingHand]);
+	SOLDIERTYPE* pAttackTarget =
+		GetJa2SoldierRepository().resolve(pSoldier->ubTargetID.i);
 
 	usItemNum = pSoldier->usAttackingWeapon;
 
@@ -3338,7 +3363,12 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 		// NB bDoBurst will be 2 at this point for the first shot since it was incremented
 		// above
-		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY && (!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) && (IsJa2TacticalCombatActive() ) && ( SoldierToSoldierBodyPartChanceToGetThrough( pSoldier, pSoldier->ubTargetID, pSoldier->bAimShotLocation ) > 0 ) )
+		if ( PTR_OURTEAM && pSoldier->ubTargetID != NOBODY &&
+			(!pSoldier->bDoBurst || pSoldier->bDoBurst == 2 ) &&
+			(IsJa2TacticalCombatActive() ) &&
+			( SoldierToSoldierBodyPartChanceToGetThrough(
+				pSoldier, pAttackTarget,
+				pSoldier->bAimShotLocation ) > 0 ) )
 		{
 			if ( fGonnaHit )
 			{
@@ -3365,11 +3395,15 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				usExpGain = (usExpGain * 2) / 3;
 			}
 
-			if ( pSoldier->ubTargetID->ubBodyType == COW || pSoldier->ubTargetID->ubBodyType == CROW )
+			if ( pAttackTarget->ubBodyType == COW ||
+				pAttackTarget->ubBodyType == CROW )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pSoldier->ubTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier->ubTargetID ) || TANK( pSoldier->ubTargetID ) )
+			else if ( pAttackTarget->flags.uiStatusFlags &
+					SOLDIER_VEHICLE ||
+				AM_A_ROBOT( pAttackTarget ) ||
+				TANK( pAttackTarget ) )
 			{
 				// no exp from shooting a vehicle that you can't damage and can't move!
 				usExpGain = 0;
@@ -3435,11 +3469,15 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			usExpGain += 10;
 
-			if ( pSoldier->ubTargetID->ubBodyType == COW || pSoldier->ubTargetID->ubBodyType == CROW )
+			if ( pAttackTarget->ubBodyType == COW ||
+				pAttackTarget->ubBodyType == CROW )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pSoldier->ubTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier->ubTargetID ) || TANK( pSoldier->ubTargetID ) )
+			else if ( pAttackTarget->flags.uiStatusFlags &
+					SOLDIER_VEHICLE ||
+				AM_A_ROBOT( pAttackTarget ) ||
+				TANK( pAttackTarget ) )
 			{
 				// no exp from shooting a vehicle that you can't damage and can't move!
 				usExpGain = 0;
@@ -3588,14 +3626,21 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 		if ( ubMerc != NOBODY )
 		{
-			if ( gAnimControl[ ubMerc->usAnimState ].ubHeight != ANIM_PRONE )
+			SOLDIERTYPE* exhaustTarget =
+				GetJa2SoldierRepository().resolve(ubMerc.i);
+			if ( gAnimControl[ exhaustTarget->usAnimState ].ubHeight !=
+				ANIM_PRONE )
 			{
 				// Increment attack counter...
 //				GetJa2PendingTacticalCombatActions()++;
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Exaust from LAW", GetJa2PendingTacticalCombatActions() ) );
 				DebugAttackBusy( "Incrementing Attack: Exaust from LAW\n" );
 
-				ubMerc->EVENT_SoldierGotHit( MINI_GRENADE, 10, 200, pSoldier->position().direction(), 0, pSoldier->ubID, 0, ANIM_CROUCH, 0, sNewGridNo );
+				exhaustTarget->EVENT_SoldierGotHit(
+					MINI_GRENADE, 10, 200,
+					pSoldier->position().direction(), 0,
+					pSoldier->ubID, 0, ANIM_CROUCH, 0,
+					sNewGridNo);
 			}
 		}
 	}
@@ -3900,15 +3945,15 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_BLADE, pSoldier->ubID ); 
 
 			// if it was another team shooting at someone under our control
-			if ( (pSoldier->bTeam != pTargetSoldier->ubID->bTeam ) )
+			if ( pSoldier->bTeam != pTargetSoldier->bTeam )
 			{
 				if (pTargetSoldier->bTeam == gbPlayerNum)
 				{
 				 // AGILITY GAIN (10):  Target avoids a knife attack
 				 // Snap: stat gains should match stat requirements
-				 StatChange( pTargetSoldier->ubID, DEXTAMT, 15, FALSE);
-				 StatChange( pTargetSoldier->ubID, AGILAMT, 5, FALSE);
-				 StatChange( pTargetSoldier->ubID, STRAMT, 5, FALSE);
+				 StatChange( pTargetSoldier, DEXTAMT, 15, FALSE);
+				 StatChange( pTargetSoldier, AGILAMT, 5, FALSE);
+				 StatChange( pTargetSoldier, STRAMT, 5, FALSE);
 				}
 			}
 			// 0verhaul:  Another case that is handled by the animation transition system.
@@ -3937,11 +3982,15 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			usExpGain += 10;
 
-			if ( pSoldier->ubTargetID->ubBodyType == COW || pSoldier->ubTargetID->ubBodyType == CROW )
+			if ( pTargetSoldier->ubBodyType == COW ||
+				pTargetSoldier->ubBodyType == CROW )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pSoldier->ubTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier->ubTargetID ) || TANK( pSoldier->ubTargetID ) )
+			else if ( pTargetSoldier->flags.uiStatusFlags &
+					SOLDIER_VEHICLE ||
+				AM_A_ROBOT( pTargetSoldier ) ||
+				TANK( pTargetSoldier ) )
 			{
 				// no exp from shooting a vehicle that you can't damage and can't move!
 				usExpGain = 0;
@@ -4751,7 +4800,8 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		}
 		else
 		{
-			pTargetSoldier = ubTargetID;
+			pTargetSoldier =
+				GetJa2SoldierRepository().resolve(ubTargetID.i);
 		}
 
 		if ( pTargetSoldier && pTargetSoldier->bTeam == pSoldier->bTeam )
@@ -4766,17 +4816,19 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		{
 			usNumTargets++;
 		}
-			// search for an opponent near the target gridno
-			for ( bLoop = 0; bLoop < NUM_WORLD_DIRECTIONS; bLoop++ )
+		// search for an opponent near the target gridno
+		for ( bLoop = 0; bLoop < NUM_WORLD_DIRECTIONS; bLoop++ )
+		{
+			ubTargetID = WhoIsThere2( NewGridNo( pSoldier->sTargetGridNo, DirectionInc( bLoop ) ), pSoldier->bTargetLevel );
+			pTargetSoldier = NULL;
+			if ( ubTargetID != NOBODY )
 			{
-				ubTargetID = WhoIsThere2( NewGridNo( pSoldier->sTargetGridNo, DirectionInc( bLoop ) ), pSoldier->bTargetLevel );
-				pTargetSoldier = NULL;
-				if ( ubTargetID != NOBODY )
+				pTargetSoldier =
+					GetJa2SoldierRepository().resolve(
+						ubTargetID.i);
+				if ( pTargetSoldier->bTeam != pSoldier->bTeam )
 				{
-					pTargetSoldier = ubTargetID;
-					if ( pTargetSoldier->bTeam != pSoldier->bTeam )
-					{
-						usNumTargets++;
+					usNumTargets++;
 				}
 			}
 		}
@@ -5110,7 +5162,10 @@ BOOLEAN DoSpecialEffectAmmoMiss( SoldierID ubAttackerID, UINT16 usWeaponIndex, I
 	// Flugente: check for underbarrel weapons and use that object if necessary
 	if ( ubAttackerID != NOBODY )
 	{
-		OBJECTTYPE* pObj = ubAttackerID->GetUsedWeapon( &ubAttackerID->inv[ ubAttackerID->ubAttackingHand ] );
+		SOLDIERTYPE* attacker =
+			GetJa2SoldierRepository().resolve(ubAttackerID.i);
+		OBJECTTYPE* pObj = attacker->GetUsedWeapon(
+			&attacker->inv[attacker->ubAttackingHand]);
 
 		ubAmmoType = (*pObj)[0]->data.gun.ubGunAmmoType;
 		usItem     = (*pObj).usItem;
@@ -5273,14 +5328,16 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// Get attacker
 	if ( ubAttackerID != NOBODY )
 	{
-		pSoldier		= ubAttackerID;
+		pSoldier =
+			GetJa2SoldierRepository().resolve(ubAttackerID.i);
 
 		// Flugente: check for underbarrel weapons and use that object if necessary
 		pObj			= pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->ubAttackingHand] );
 	}
 
 	// Get Target
-	pTargetSoldier	= usSoldierID;
+	pTargetSoldier =
+		GetJa2SoldierRepository().resolve(usSoldierID.i);
 
 	MakeNoise( ubAttackerID, pTargetSoldier->position().gridNo(), pTargetSoldier->position().level(), gpWorldLevelData[pTargetSoldier->position().gridNo()].ubTerrainID, Weapon[ usWeaponIndex ].ubHitVolume, NOISE_BULLET_IMPACT );
 
@@ -5396,9 +5453,10 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	// Flugente: check for underbarrel weapons and use that object if necessary
 	if ( ubAttackerID != NOBODY )
 	{
-		pObj = ubAttackerID->GetUsedWeapon( &ubAttackerID->inv[ubAttackerID->ubAttackingHand] );
-
-		pAttacker = ubAttackerID;
+		pAttacker =
+			GetJa2SoldierRepository().resolve(ubAttackerID.i);
+		pObj = pAttacker->GetUsedWeapon(
+			&pAttacker->inv[pAttacker->ubAttackingHand]);
 	}
 
 	// HEADROCK HAM 5: Define differently for fragments
@@ -5420,14 +5478,18 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 	{
 		if ( pAttacker->ubOppNum != NOBODY )
 		{
+			SOLDIERTYPE* opponent =
+				GetJa2SoldierRepository().resolve(
+					pAttacker->ubOppNum.i);
 			// if it was another team shooting at someone under our control
-			if ( pAttacker->bTeam != pAttacker->ubOppNum->bTeam )
+			if ( pAttacker->bTeam != opponent->bTeam )
 			{
 				// if OPPONENT is under our control
-				if ( pAttacker->ubOppNum->bTeam == gbPlayerNum )
+				if ( opponent->bTeam == gbPlayerNum )
 				{
 					// AGILITY GAIN: Opponent "dodged" a bullet shot at him (it missed)
-					StatChange( pAttacker->ubOppNum, AGILAMT, 5, FROM_FAILURE );
+					StatChange(
+						opponent, AGILAMT, 5, FROM_FAILURE);
 				}
 			}
 		}
@@ -5460,9 +5522,11 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 		// marke need another attacker id assignment
 		SOLDIERTYPE				*pSoldier = NULL;
 
-	    // Get attacker
+		// Get attacker
 		if ( ubAttackerID != NOBODY )
-			pSoldier = ubAttackerID;
+			pSoldier =
+				GetJa2SoldierRepository().resolve(
+					ubAttackerID.i);
 
 		UINT8 usDirection = DIRECTION_IRRELEVANT;
 		if ( pSoldier )
@@ -5563,13 +5627,15 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 			case MGCLASS:
 
 				// Guy has missed, play random sound
-				if (  ubAttackerID != NOBODY && ubAttackerID->bTeam == gbPlayerNum )
+				if ( ubAttackerID != NOBODY &&
+					pAttacker->bTeam == gbPlayerNum )
 				{
-					if ( !ubAttackerID->bDoBurst )
+					if ( !pAttacker->bDoBurst )
 					{
 						if ( Random( 40 ) == 0 )
 						{
-							ubAttackerID->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+							pAttacker->DoMercBattleSound(
+								BATTLE_SOUND_CURSE1);
 						}
 					}
 				}
@@ -5832,7 +5898,8 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				// ATE: Show misses...( if our team )
 				if ( gGameSettings.fOptions[ TOPTION_SHOW_MISSES ] )
 				{
-					if ( ubAttackerID != NOBODY && ubAttackerID->bTeam == gbPlayerNum )
+					if ( ubAttackerID != NOBODY &&
+						pAttacker->bTeam == gbPlayerNum )
 					{
 						LocateGridNo( sGridNo );
 					}
@@ -5844,7 +5911,10 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 			if( pBullet->pFirer != NULL && pBullet->pFirer->ubOppNum != NOBODY )
 			{
 				SoldierID OpponentID = pBullet->pFirer->ubOppNum;
-				INT8 Team = OpponentID->bTeam;
+				SOLDIERTYPE* opponent =
+					GetJa2SoldierRepository().resolve(
+						OpponentID.i);
+				INT8 Team = opponent->bTeam;
 				SoldierID ShooterID = pBullet->pFirer->ubID;
 
 				if( Item[ pBullet->pFirer->usAttackingWeapon ].usItemClass & IC_GUN )
@@ -5856,20 +5926,31 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 							gbPublicOpplist[Team][ShooterID] != SEEN_THIS_TURN &&
 							gTacticalStatus.Team[Team].bMenInSector > 1)
 						{
-							PossiblyStartEnemyTaunt(OpponentID, TAUNT_GOT_MISSED_GUNFIRE, ShooterID);
+							PossiblyStartEnemyTaunt(
+								opponent,
+								TAUNT_GOT_MISSED_GUNFIRE,
+								ShooterID);
 						}
 					}
-					else if (OpponentID->aiData.bOppList[ShooterID] == SEEN_CURRENTLY)
+					else if (opponent->aiData.bOppList[ShooterID] ==
+						SEEN_CURRENTLY)
 					{
-						PossiblyStartEnemyTaunt(OpponentID, TAUNT_GOT_MISSED_GUNFIRE, ShooterID);
+						PossiblyStartEnemyTaunt(
+							opponent,
+							TAUNT_GOT_MISSED_GUNFIRE,
+							ShooterID);
 					}
 
 					PossiblyStartEnemyTaunt( pBullet->pFirer, TAUNT_MISS_GUNFIRE, OpponentID);
 				}
 				else if( Item[ pBullet->pFirer->usAttackingWeapon ].usItemClass & IC_THROWING_KNIFE )
 				{
-					if( OpponentID->aiData.bOppList[ShooterID] == SEEN_CURRENTLY )
-						PossiblyStartEnemyTaunt(OpponentID, TAUNT_GOT_MISSED_THROWING_KNIFE, ShooterID);
+					if( opponent->aiData.bOppList[ShooterID] ==
+						SEEN_CURRENTLY )
+						PossiblyStartEnemyTaunt(
+							opponent,
+							TAUNT_GOT_MISSED_THROWING_KNIFE,
+							ShooterID);
 
 					PossiblyStartEnemyTaunt( pBullet->pFirer, TAUNT_MISS_THROWING_KNIFE, OpponentID);
 				}
@@ -6089,6 +6170,8 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	// Find a target in the tile
 	ubTargetID = WhoIsThere2( sGridNo, pSoldier->bTargetLevel ); // Target ubID
+	SOLDIERTYPE* targetSoldier =
+		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	pTarget = SimpleFindSoldier( sGridNo, pSoldier->bTargetLevel ); // Target Pointer
 
 	UINT8 stance = gAnimControl[ pSoldier->usAnimState ].ubEndHeight;
@@ -6113,7 +6196,9 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	if (ubTargetID != NOBODY && (pSoldier->aiData.bOppList[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY))
 	{
-		iSightRange = SoldierToSoldierLineOfSightTest( pSoldier, ubTargetID, TRUE, NO_DISTANCE_LIMIT, pSoldier->bAimShotLocation, false );
+		iSightRange = SoldierToSoldierLineOfSightTest(
+			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
+			pSoldier->bAimShotLocation, false );
 	}
 	if (iSightRange == 0) 
 	{	
@@ -6124,7 +6209,9 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	{	
 		// Can't see the target but we still need to know what the sight range would be if we could so we can deal with cover penalties
 		if (ubTargetID != NOBODY)
-			iSightRange = SoldierToSoldierLineOfSightTest( pSoldier, ubTargetID, TRUE, NO_DISTANCE_LIMIT, pSoldier->bAimShotLocation, false, true );
+			iSightRange = SoldierToSoldierLineOfSightTest(
+				pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
+				pSoldier->bAimShotLocation, false, true );
 		fCantSeeTarget = true;
 	}
 
@@ -6452,6 +6539,8 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	iGunCondition = WEAPON_STATUS_MOD( (*pInHand)[0]->data.gun.bGunStatus );
 	usInHand = pSoldier->usAttackingWeapon;
 	ubTargetID = WhoIsThere2( sGridNo, pSoldier->bTargetLevel );
+	SOLDIERTYPE* targetSoldier =
+		GetJa2SoldierRepository().resolve(ubTargetID.i);
 	bLightLevel = LightTrueLevel(sGridNo, pSoldier->bTargetLevel);
 	usShockPenalty = pSoldier->aiData.bShock * AIM_PENALTY_PER_SHOCK;
 	iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
@@ -6477,7 +6566,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	iScopeVisionRangeBonus = GetTotalVisionRangeBonus(pSoldier, bLightLevel);	// not an actual range value, simply a modifier for range calculations
 
 	if (ubTargetID != NOBODY && ( pSoldier->aiData.bOppList[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY ) )
-		iSightRange = SoldierToSoldierLineOfSightTest( pSoldier, ubTargetID, TRUE, NO_DISTANCE_LIMIT, pSoldier->bAimShotLocation, false );
+		iSightRange = SoldierToSoldierLineOfSightTest(
+			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
+			pSoldier->bAimShotLocation, false );
 
 	if (iSightRange == 0)
 	{
@@ -6490,7 +6581,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	{	
 		// Can't see the target but we still need to know what the sight range would be if we could so we can deal with cover penalties
 		if (ubTargetID != NOBODY)
-			iSightRange = SoldierToSoldierLineOfSightTest( pSoldier, ubTargetID, TRUE, NO_DISTANCE_LIMIT, pSoldier->bAimShotLocation, false, true );
+			iSightRange = SoldierToSoldierLineOfSightTest(
+				pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
+				pSoldier->bAimShotLocation, false, true );
 		fCantSeeTarget = true;
 		fCoverObscured = false;
 	}
@@ -8832,23 +8925,28 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	if ( ubAttackerID == NOBODY )
 		return;
 
-	pAttacker = ubAttackerID;
+	pAttacker =
+		GetJa2SoldierRepository().resolve(ubAttackerID.i);
 
 	if ( pAttacker->ubOppNum != NOBODY )
 	{
+		SOLDIERTYPE* opponent =
+			GetJa2SoldierRepository().resolve(
+				pAttacker->ubOppNum.i);
 		// if it was another team shooting at someone under our control
-		if ( (pAttacker->bTeam != pAttacker->ubOppNum->bTeam ) )
+		if ( pAttacker->bTeam != opponent->bTeam )
 		{
 			// if OPPONENT is under our control
-			if (pAttacker->ubOppNum->bTeam == gbPlayerNum )
+			if ( opponent->bTeam == gbPlayerNum )
 			{
 				// AGILITY GAIN: Opponent "dodged" a bullet shot at him (it missed)
-				StatChange( pAttacker->ubOppNum, AGILAMT, 5, FROM_FAILURE );
+				StatChange(
+					opponent, AGILAMT, 5, FROM_FAILURE);
 			}
 		}
 	}
 
-	switch(  Weapon[ ubAttackerID->usAttackingWeapon ].ubWeaponClass )
+	switch( Weapon[pAttacker->usAttackingWeapon].ubWeaponClass )
 	{
 		case HANDGUNCLASS:
 		case RIFLECLASS:
@@ -8857,11 +8955,12 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 		case MGCLASS:
 
 			// Guy has missed, play random sound
-			if (  ubAttackerID->bTeam == gbPlayerNum )
+			if ( pAttacker->bTeam == gbPlayerNum )
 			{
 				if ( Random(40) == 0 )
 				{
-					ubAttackerID->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
+					pAttacker->DoMercBattleSound(
+						BATTLE_SOUND_CURSE1);
 				}
 			}
 			fDoMissForGun = TRUE;
@@ -8904,7 +9003,9 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 		// PLAY SOUND AND FLING DEBRIS
 		// RANDOMIZE SOUND SYSTEM
 
-		if ( !DoSpecialEffectAmmoMiss( ubAttackerID, ubAttackerID->usAttackingWeapon, NOWHERE, 0, 0, 0, TRUE, TRUE, 0 ) )
+		if ( !DoSpecialEffectAmmoMiss(
+				ubAttackerID, pAttacker->usAttackingWeapon,
+				NOWHERE, 0, 0, 0, TRUE, TRUE, 0 ) )
 		{
 			PlayJA2Sample( MISS_1 + Random(8), RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 		}
@@ -8928,17 +9029,26 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	if ( pAttacker != NULL && pAttacker->ubOppNum != NOBODY )
 	{
 		SoldierID OpponentID = pAttacker->ubOppNum;
+		SOLDIERTYPE* opponent =
+			GetJa2SoldierRepository().resolve(OpponentID.i);
 
 		if( Item[ pAttacker->usAttackingWeapon ].usItemClass & IC_GUN )
 		{
-			if(OpponentID->aiData.bOppList[ pAttacker->ubID ] == SEEN_CURRENTLY )
-				PossiblyStartEnemyTaunt( OpponentID, TAUNT_GOT_MISSED_GUNFIRE, pAttacker->ubID );
+			if(opponent->aiData.bOppList[ pAttacker->ubID ] ==
+				SEEN_CURRENTLY )
+				PossiblyStartEnemyTaunt(
+					opponent, TAUNT_GOT_MISSED_GUNFIRE,
+					pAttacker->ubID);
 			PossiblyStartEnemyTaunt( pAttacker, TAUNT_MISS_GUNFIRE, OpponentID );
 		}
 		else if( Item[ pAttacker->usAttackingWeapon ].usItemClass & IC_THROWING_KNIFE )
 		{
-			if( OpponentID->aiData.bOppList[ pAttacker->ubID ] == SEEN_CURRENTLY )
-				PossiblyStartEnemyTaunt( OpponentID, TAUNT_GOT_MISSED_THROWING_KNIFE, pAttacker->ubID );
+			if( opponent->aiData.bOppList[ pAttacker->ubID ] ==
+				SEEN_CURRENTLY )
+				PossiblyStartEnemyTaunt(
+					opponent,
+					TAUNT_GOT_MISSED_THROWING_KNIFE,
+					pAttacker->ubID);
 			PossiblyStartEnemyTaunt( pAttacker, TAUNT_MISS_THROWING_KNIFE, OpponentID );
 		}
 	}

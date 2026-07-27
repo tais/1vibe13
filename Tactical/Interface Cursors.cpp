@@ -1,4 +1,5 @@
 	#include "sgp.h"
+	#include "SoldierRepository.h"
 	#include "mousesystem.h"
 	#include "Handle UI.h"
 	#include "Cursors.h"
@@ -330,7 +331,8 @@ BOOLEAN DrawUICursor( )
 				// If we are over a target, jump to that....
 				if ( gfUIFullTargetFound )
 				{
-					gusTargetDropPos = gusUIFullTargetID->position().gridNo();
+					gusTargetDropPos = GetJa2SoldierRepository()
+						.resolve(gusUIFullTargetID.i)->position().gridNo();
 				}
 
 				// Put tile on the floor
@@ -349,7 +351,8 @@ BOOLEAN DrawUICursor( )
 			// ATE; Is the current guy in steath mode?
 			if ( gusSelectedSoldier != NOBODY )
 			{
-				if ( gusSelectedSoldier->bStealthMode )
+				if ( GetJa2SoldierRepository()
+						.resolve(gusSelectedSoldier.i)->bStealthMode )
 				{
 					usTileCursor = FIRSTPOINTERS9;
 				}
@@ -362,7 +365,8 @@ BOOLEAN DrawUICursor( )
 				// ATE; Is the current guy in steath mode?
 				if ( gusSelectedSoldier != NOBODY )
 				{
-					if ( gusSelectedSoldier->bStealthMode )
+					if ( GetJa2SoldierRepository()
+							.resolve(gusSelectedSoldier.i)->bStealthMode )
 					{
 						usTileCursor = FIRSTPOINTERS10;
 					}
