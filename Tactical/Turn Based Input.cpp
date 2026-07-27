@@ -2339,9 +2339,9 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 			INT32 iTime = GetJA2Clock( );
 			UINT8	ubLevel;
 
-			for ( i = 0; i < 1000; i++ )
+			for ( i = 0; selectedSoldier && i < 1000; i++ )
 			{
-				CalculateLaunchItemChanceToGetThrough( gusSelectedSoldier, &(gusSelectedSoldier->inv[ HANDPOS ] ), usMapPos, 0, 0, &sGridNo, TRUE, (INT8 *)&ubLevel, TRUE );
+				CalculateLaunchItemChanceToGetThrough( selectedSoldier, &(selectedSoldier->inv[ HANDPOS ] ), usMapPos, 0, 0, &sGridNo, TRUE, (INT8 *)&ubLevel, TRUE );
 			}
 
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_TESTVERSION, L"Physics 100 times: %d", ( GetJA2Clock( ) - iTime )	);
