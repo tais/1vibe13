@@ -3312,12 +3312,16 @@ int main( int, char** )
 
 	{
 		GameContext& compiledContext = GetGameContext();
+		Ja2SoldierRepository& soldierRepository = compiledContext.soldiers();
+		soldierRepository.initializeSlots();
 		CHECK( compiledContext.runtime().hasSimulationCommandExecutor() &&
 		       &compiledContext.runtime().simulationCommandExecutor() !=
 		           &NullSimulationCommandExecutor::instance(),
 		       "production composition binds one runtime-owned tactical command executor" );
 		CHECK( &compiledContext.soldiers() == &GetJa2SoldierRepository() &&
-		       compiledContext.soldiers().capacity() == TOTAL_SOLDIERS,
+		       compiledContext.soldiers().capacity() == TOTAL_SOLDIERS &&
+		       soldierRepository.resolve( 0 ) ==
+		           &soldierRepository.record( 0 ),
 		       "application composition owns the bound JA2 soldier repository" );
 		compiledContext.screenController().reset( 7 );
 		compiledContext.screenController().transitionTo(
@@ -3552,14 +3556,15 @@ int main( int, char** )
 			SimulationCommandSource::System } };
 		const TacticalWorldSession::Snapshot previousCommandWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
-		SOLDIERTYPE* const previousCommandActor = MercPtrs[0];
+		const SOLDIERTYPE previousCommandActor = soldierRepository.record( 0 );
+		SOLDIERTYPE& commandHostActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousCommandEntity =
 			GetJa2TacticalEntityId( 0 );
-		SOLDIERTYPE commandHostActor;
-		commandHostActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		commandHostActor.uiUniqueSoldierIdValue = 0x12345678u;
-		commandHostActor.bActive = TRUE;
-		commandHostActor.bInSector = TRUE;
+		SOLDIERTYPE commandHostActorFixture;
+		commandHostActorFixture.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		commandHostActorFixture.uiUniqueSoldierIdValue = 0x12345678u;
+		commandHostActorFixture.bActive = TRUE;
+		commandHostActorFixture.bInSector = TRUE;
 		NotifyJa2TacticalWorldUnloaded();
 		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -3677,13 +3682,16 @@ int main( int, char** )
 		NotifyJa2TacticalWorldLoaded(
 			previousCommandWorldSession.worldGeneration != 0
 				? previousCommandWorldSession.worldGeneration : 1 );
-		MercPtrs[0] = &commandHostActor;
+		const bool commandHostActorInstalled =
+			soldierRepository.replace( 0, commandHostActorFixture ) ==
+				&commandHostActor;
 		const bool commandHostActorAdopted =
+			commandHostActorInstalled &&
 			AdoptJa2TacticalEntity( commandHostActor );
 		const TacticalActorSnapshot* commandHostInitialState =
 			compiledContext.runtime().tacticalEntityDirectory().state(
 				TacticalEntityId{ 0, 0x12345678u } );
-		CHECK( commandHostActorAdopted &&
+		CHECK( commandHostActorInstalled && commandHostActorAdopted &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 0x12345678u } ) &&
 		       ResolveJa2TacticalEntity( TacticalEntityId{ 0, 0x12345678u } ) ==
 		           &commandHostActor &&
@@ -4642,9 +4650,10 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "receipt reserve saturation fixture drains all retained terminal results" );
 		(void)ReleaseJa2TacticalEntity( commandHostActor );
-		MercPtrs[0] = previousCommandActor;
-		if ( previousCommandEntity.valid() && previousCommandActor )
-			(void)AdoptJa2TacticalEntity( *previousCommandActor );
+		SOLDIERTYPE* const restoredCommandActor =
+			soldierRepository.replace( 0, previousCommandActor );
+		if ( previousCommandEntity.valid() && restoredCommandActor )
+			(void)AdoptJa2TacticalEntity( *restoredCommandActor );
 		RestoreJa2TacticalWorldSession( previousCommandWorldSession );
 
 		const auto tacticalWorld =
@@ -4716,46 +4725,31 @@ int main( int, char** )
 		           ( TacticalWorldSession::Snapshot::Turn{ true, true, 3 } ),
 		       "tactical world composition transfers pre-runtime state without a generation mirror" );
 
-		SOLDIERTYPE* previousSlot = MercPtrs[0];
+		const SOLDIERTYPE previousWorldActor = soldierRepository.record( 0 );
+		SOLDIERTYPE& worldActor = soldierRepository.record( 0 );
 		const TacticalEntityId previousWorldEntity =
 			GetJa2TacticalEntityId( 0 );
-		const INT8 previousActive = Menptr[0].bActive;
-		const INT8 previousInSector = Menptr[0].bInSector;
-		const SoldierID previousId = Menptr[0].ubID;
-		const UINT32 previousIncarnation = Menptr[0].uiUniqueSoldierIdValue;
-		const INT8 previousTeam = Menptr[0].bTeam;
-		const UINT8 previousProfile = Menptr[0].ubProfile;
-		const INT32 previousGrid = Menptr[0].position().gridNo();
-		const INT8 previousLevel = Menptr[0].position().level();
-		const UINT8 previousDirection = Menptr[0].position().direction();
-		const UINT16 previousAnimation = Menptr[0].usAnimState;
-		const INT16 previousActionPoints = Menptr[0].bActionPoints;
-		const INT8 previousLife = Menptr[0].vitals().health();
-		const INT8 previousMaximumLife = Menptr[0].vitals().maximumHealth();
-		const INT8 previousBreath = Menptr[0].vitals().breath();
-		const INT8 previousMaximumBreath = Menptr[0].vitals().maximumBreath();
 		const TacticalWorldSession::Snapshot previousWorldSession =
 			compiledContext.runtime().tacticalWorldSession().snapshot();
 		const UINT32 previousTacticalProjectionFlags =
 			CaptureJa2TacticalStatusFlags();
 		const UINT8 previousTacticalProjectionTeam = GetJa2TacticalCurrentTeam();
-		MercPtrs[0] = &Menptr[0];
-		Menptr[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		Menptr[0].uiUniqueSoldierIdValue = 701;
-		Menptr[0].bActive = TRUE;
-		Menptr[0].bInSector = TRUE;
-		Menptr[0].bTeam = 1;
-		Menptr[0].ubProfile = 12;
-		Menptr[0].position().gridNo() = 345;
-		Menptr[0].position().level() = 1;
-		Menptr[0].position().direction() = 3;
-		Menptr[0].usAnimState = STANDING;
-		Menptr[0].bActionPoints = 72;
-		Menptr[0].vitals().health() = 76;
-		Menptr[0].vitals().maximumHealth() = 80;
-		Menptr[0].vitals().breath() = 64;
-		Menptr[0].vitals().maximumBreath() = 90;
-		const bool worldActorAdopted = AdoptJa2TacticalEntity( Menptr[0] );
+		worldActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		worldActor.uiUniqueSoldierIdValue = 701;
+		worldActor.bActive = TRUE;
+		worldActor.bInSector = TRUE;
+		worldActor.bTeam = 1;
+		worldActor.ubProfile = 12;
+		worldActor.position().gridNo() = 345;
+		worldActor.position().level() = 1;
+		worldActor.position().direction() = 3;
+		worldActor.usAnimState = STANDING;
+		worldActor.bActionPoints = 72;
+		worldActor.vitals().health() = 76;
+		worldActor.vitals().maximumHealth() = 80;
+		worldActor.vitals().breath() = 64;
+		worldActor.vitals().maximumBreath() = 90;
+		const bool worldActorAdopted = AdoptJa2TacticalEntity( worldActor );
 		const TacticalActorSnapshot* adoptedWorldActorState =
 			compiledContext.runtime().tacticalEntityDirectory().state(
 				TacticalEntityId{ 0, 701 } );
@@ -4769,36 +4763,36 @@ int main( int, char** )
 		       "legacy pool actors publish liveness and public state through the runtime-owned directory" );
 		Ja2TacticalEntityReference liveCallbackActor;
 		const bool callbackActorCaptured =
-			liveCallbackActor.capture( &Menptr[0] ) &&
+			liveCallbackActor.capture( &worldActor ) &&
 			liveCallbackActor.identity() ==
 				( TacticalEntityId{ 0, 701 } ) &&
-			liveCallbackActor.resolve() == &Menptr[0];
+			liveCallbackActor.resolve() == &worldActor;
 		const bool dialogueDestinationCaptured =
-			SetDialogueDestinationSoldier( &Menptr[0] ) &&
-			GetDialogueDestinationSoldier() == &Menptr[0];
+			SetDialogueDestinationSoldier( &worldActor ) &&
+			GetDialogueDestinationSoldier() == &worldActor;
 		const bool contractRehireCaptured =
-			SetContractRehireSoldier( &Menptr[0] ) &&
-			GetContractRehireSoldier() == &Menptr[0];
+			SetContractRehireSoldier( &worldActor ) &&
+			GetContractRehireSoldier() == &worldActor;
 		const bool traversalActorCaptured =
-			CaptureTacticalTraversalChosenSoldier( &Menptr[0] ) &&
-			ResolveTacticalTraversalChosenSoldier() == &Menptr[0];
+			CaptureTacticalTraversalChosenSoldier( &worldActor ) &&
+			ResolveTacticalTraversalChosenSoldier() == &worldActor;
 		SOLDIERTYPE* consumedCallbackActor =
 			liveCallbackActor.consume();
 		Ja2TacticalEntityReference releasedCallbackActor;
 		const bool releasedCallbackCaptured =
-			releasedCallbackActor.capture( &Menptr[0] );
+			releasedCallbackActor.capture( &worldActor );
 		ResetTacticalInventoryUiActorContexts();
 		const bool inventoryUiActorsCaptured =
-			SetSMCurrentMerc( &Menptr[0] ) &&
-			SetItemPointerSoldier( &Menptr[0] ) &&
-			SetItemDescSoldier( &Menptr[0] ) &&
-			SetAttachSoldier( &Menptr[0] ) &&
-			SetItemPopupSoldier( &Menptr[0] ) &&
-			SetItemPickupActor( &Menptr[0] ) &&
-			SetItemPickupOpponent( &Menptr[0] ) &&
+			SetSMCurrentMerc( &worldActor ) &&
+			SetItemPointerSoldier( &worldActor ) &&
+			SetItemDescSoldier( &worldActor ) &&
+			SetAttachSoldier( &worldActor ) &&
+			SetItemPopupSoldier( &worldActor ) &&
+			SetItemPickupActor( &worldActor ) &&
+			SetItemPickupOpponent( &worldActor ) &&
 			GetJa2TacticalInventoryUiSession().actorContextCount() == 7;
 		const bool callbackActorReleased =
-			ReleaseJa2TacticalEntity( Menptr[0] );
+			ReleaseJa2TacticalEntity( worldActor );
 		const bool releasedCallbackRejected =
 			releasedCallbackActor.resolve() == nullptr;
 		const bool releasedDialogueDestinationRejected =
@@ -4819,9 +4813,9 @@ int main( int, char** )
 			!GetItemPopupSoldier() &&
 			!GetItemPickupActor() &&
 			!GetItemPickupOpponent();
-		Menptr[0].uiUniqueSoldierIdValue = 703;
+		worldActor.uiUniqueSoldierIdValue = 703;
 		const bool replacementInventoryActorAdopted =
-			AdoptJa2TacticalEntity( Menptr[0] );
+			AdoptJa2TacticalEntity( worldActor );
 		const bool replacementInventoryActorRejected =
 			!GetSMCurrentMerc() &&
 			!GetItemPointerSoldier() &&
@@ -4831,17 +4825,17 @@ int main( int, char** )
 			!GetItemPickupActor() &&
 			!GetItemPickupOpponent();
 		const bool replacementInventoryActorReleased =
-			ReleaseJa2TacticalEntity( Menptr[0] );
+			ReleaseJa2TacticalEntity( worldActor );
 		ResetTacticalInventoryUiActorContexts();
-		Menptr[0].uiUniqueSoldierIdValue = 701;
+		worldActor.uiUniqueSoldierIdValue = 701;
 		ResetMercContractActorContexts();
 		ResetTacticalTraversalContext();
 		const bool callbackActorReadopted =
-			AdoptJa2TacticalEntity( Menptr[0] );
+			AdoptJa2TacticalEntity( worldActor );
 		CHECK( callbackActorCaptured &&
 		       dialogueDestinationCaptured &&
 		       contractRehireCaptured &&
-		       consumedCallbackActor == &Menptr[0] &&
+		       consumedCallbackActor == &worldActor &&
 		       !liveCallbackActor.valid() &&
 		       releasedCallbackCaptured && callbackActorReleased &&
 		       releasedCallbackRejected &&
@@ -4856,30 +4850,31 @@ int main( int, char** )
 		       replacementInventoryActorReleased &&
 		       callbackActorReadopted,
 		       "delayed callbacks and inventory UI roles reject released and reused actor incarnations" );
-		SOLDIERTYPE* const previousSwapTargetPointer = MercPtrs[1];
-		const SOLDIERTYPE previousSwapTarget = Menptr[1];
-		Menptr[1] = Menptr[0];
-		MercPtrs[1] = &Menptr[1];
-		Menptr[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
-		Menptr[1].uiUniqueSoldierIdValue = 702;
-		Menptr[1].position().gridNo() = 678;
-		const bool swapTargetAdopted = AdoptJa2TacticalEntity( Menptr[1] );
+		SOLDIERTYPE& swapTarget = soldierRepository.record( 1 );
+		const SOLDIERTYPE previousSwapTarget = swapTarget;
+		const bool swapTargetInstalled =
+			soldierRepository.replace( 1, worldActor ) == &swapTarget;
+		swapTarget.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		swapTarget.uiUniqueSoldierIdValue = 702;
+		swapTarget.position().gridNo() = 678;
+		const bool swapTargetAdopted =
+			swapTargetInstalled && AdoptJa2TacticalEntity( swapTarget );
 		const bool entitySlotsSwapped = SwapJa2TacticalEntitySlots( 0, 1 );
 		const bool swappedEntitiesResolvable =
 			GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 702 } ) &&
 			GetJa2TacticalEntityId( 1 ) == ( TacticalEntityId{ 1, 701 } ) &&
-			ResolveJa2TacticalEntity( TacticalEntityId{ 0, 702 } ) == &Menptr[0] &&
-			ResolveJa2TacticalEntity( TacticalEntityId{ 1, 701 } ) == &Menptr[1] &&
-			Menptr[0].position().gridNo() == 678 && Menptr[1].position().gridNo() == 345;
+			ResolveJa2TacticalEntity( TacticalEntityId{ 0, 702 } ) == &worldActor &&
+			ResolveJa2TacticalEntity( TacticalEntityId{ 1, 701 } ) == &swapTarget &&
+			worldActor.position().gridNo() == 678 && swapTarget.position().gridNo() == 345;
 		const bool entitySlotsRestored = SwapJa2TacticalEntitySlots( 0, 1 );
-		CHECK( swapTargetAdopted && entitySlotsSwapped && swappedEntitiesResolvable &&
+		CHECK( swapTargetInstalled && swapTargetAdopted &&
+		       entitySlotsSwapped && swappedEntitiesResolvable &&
 		       entitySlotsRestored &&
 		       GetJa2TacticalEntityId( 0 ) == ( TacticalEntityId{ 0, 701 } ) &&
 		       !SwapJa2TacticalEntitySlots( 0, 0 ) &&
 		       !SwapJa2TacticalEntitySlots( TOTAL_SOLDIERS, 0 ),
 		       "whole-record portrait swaps rebuild authoritative tactical entity identities" );
-		Menptr[1] = previousSwapTarget;
-		MercPtrs[1] = previousSwapTargetPointer;
+		(void)soldierRepository.replace( 1, previousSwapTarget );
 		RebuildJa2TacticalEntityDirectory();
 
 		RebuildJa2StrategicGroupDirectory();
@@ -5152,8 +5147,8 @@ int main( int, char** )
 
 		NotifyJa2TacticalTeamTurnBegan(
 			CaptureJa2TacticalWorld().worldGeneration );
-		Menptr[0].position().gridNo() = 346;
-		Menptr[0].vitals().health() = 75;
+		worldActor.position().gridNo() = 346;
+		worldActor.vitals().health() = 75;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5225,7 +5220,7 @@ int main( int, char** )
 		           deliveredLiveDelta.events[2] ).currentLife == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
-		Menptr[0].uiUniqueSoldierIdValue = 0;
+		worldActor.uiUniqueSoldierIdValue = 0;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5246,7 +5241,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
 
-		Menptr[0].uiUniqueSoldierIdValue = 701;
+		worldActor.uiUniqueSoldierIdValue = 701;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5270,7 +5265,7 @@ int main( int, char** )
 		const RuntimeMessagePublishResult saturatedFiller =
 			saturatedTacticalMessages.publish(
 				RuntimeMessageRequest{ "test.queue-fill", "test.headless", {} } );
-		Menptr[0].position().gridNo() = 347;
+		worldActor.position().gridNo() = 347;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedTacticalMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5382,7 +5377,7 @@ int main( int, char** )
 
 		RuntimeMessageBus saturatedChunkMessages(
 			1, TacticalWorldDeltaChunkHeaderBytes + 4 );
-		Menptr[0].position().gridNo() = 348;
+		worldActor.position().gridNo() = 348;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( saturatedChunkMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		CHECK( saturatedChunkMessages.queued() == 1 && observerDiagnostics.lastUpdate ==
@@ -5464,30 +5459,16 @@ int main( int, char** )
 		       replayAfterObservation.size() == replayBeforeObservation.size() &&
 		       compiledContext.commandJournal().droppedCount() ==
 		           replayDroppedBeforeObservation &&
-		       MercPtrs[0] == &Menptr[0] &&
-		       Menptr[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       Menptr[0].uiUniqueSoldierIdValue == 701 && Menptr[0].position().gridNo() == 348 &&
-		       Menptr[0].vitals().health() == 75,
+		       soldierRepository.resolve( 0 ) == &worldActor &&
+		       worldActor.ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       worldActor.uiUniqueSoldierIdValue == 701 && worldActor.position().gridNo() == 348 &&
+		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
-		(void)ReleaseJa2TacticalEntity( Menptr[0] );
-		Menptr[0].bActive = previousActive;
-		Menptr[0].bInSector = previousInSector;
-		Menptr[0].ubID = previousId;
-		Menptr[0].uiUniqueSoldierIdValue = previousIncarnation;
-		Menptr[0].bTeam = previousTeam;
-		Menptr[0].ubProfile = previousProfile;
-		Menptr[0].position().gridNo() = previousGrid;
-		Menptr[0].position().level() = previousLevel;
-		Menptr[0].position().direction() = previousDirection;
-		Menptr[0].usAnimState = previousAnimation;
-		Menptr[0].bActionPoints = previousActionPoints;
-		Menptr[0].vitals().health() = previousLife;
-		Menptr[0].vitals().maximumHealth() = previousMaximumLife;
-		Menptr[0].vitals().breath() = previousBreath;
-		Menptr[0].vitals().maximumBreath() = previousMaximumBreath;
-		MercPtrs[0] = previousSlot;
-		if ( previousWorldEntity.valid() && previousSlot )
-			(void)AdoptJa2TacticalEntity( *previousSlot );
+		(void)ReleaseJa2TacticalEntity( worldActor );
+		SOLDIERTYPE* const restoredWorldActor =
+			soldierRepository.replace( 0, previousWorldActor );
+		if ( previousWorldEntity.valid() && restoredWorldActor )
+			(void)AdoptJa2TacticalEntity( *restoredWorldActor );
 		RestoreJa2TacticalWorldSession( previousWorldSession );
 
 		RuntimeMessageBus tacticalDeltaMessages( 1, 256 );

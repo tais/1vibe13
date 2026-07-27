@@ -763,11 +763,10 @@ the engine must not contain SDL types in its public domain model.
   incarnation counter has been deleted; pre-composition allocations transfer
   the fallback directory's sequence directly when `EngineRuntime` is bound.
 - `Ja2SoldierRepository` is the application-owned live-storage seam paired with
-  that directory. `GameContext` owns the repository; the existing fixed
-  `Menptr` records and `MercPtrs` slot table are consumed only by its
-  compatibility implementation. Their two temporary allocation definitions
-  remain in `Overhead.cpp` until the final storage-ownership cut, but tactical
-  traversal no longer reads them directly. Repository binding is independent
+  that directory. `GameContext` owns the repository, and its fixed record
+  allocation and slot table are private implementation storage in
+  `SoldierRepository.cpp`; the former process-global declarations and
+  `Overhead.cpp` definitions no longer exist. Repository binding is independent
   from the tactical-entity directory binding, so legacy domains can depend on
   the narrower storage adapter without importing runtime entity-host concerns.
   Its bound-repository gateway is an inline pointer load, and bounded
@@ -779,24 +778,19 @@ the engine must not contain SDL types in its public domain model.
   The repository validates slot bounds and canonical record bindings before
   replacement or relocation. Strategic simulation, TacticalAI, TileEngine, and
   the outer application domains—Ja2 composition/save handling, Laptop, Utils,
-  Editor, the Lua bridge, and Multiplayer—no longer name either backing array
+  Editor, the Lua bridge, and Multiplayer—cannot name the backing storage
   directly. Former raw-array and character-list pointer walks resolve each
   numeric slot independently and no longer assume contiguous `SOLDIERTYPE`
-  memory. These domains have also retired every implicit
-  `SoldierID`-to-pointer conversion: lookups name the repository explicitly,
-  and their targets compile with those legacy conversion operators deleted so
-  a regression fails at the call site. Every top-level production Tactical
-  translation unit, including `Overhead.cpp`, now has the same
-  deleted-conversion compile ratchet. This includes input and
-  UI, combat, animation, items, soldier lifecycle and creation, roster
-  handling, morale and food, projectiles and weapons, shopkeepers, save
+  memory. Every implicit `SoldierID`-to-pointer conversion has been removed
+  from the value type itself, so lookups must name the repository explicitly
+  in every target without a transitional compile definition. This includes
+  input and UI, combat, animation, items, soldier lifecycle and creation,
+  roster handling, morale and food, projectiles and weapons, shopkeepers, save
   traversal, vehicles, sector entry, and the Unfinished Business tactical
-  rules. The source list is globbed without exclusions, so a newly added
-  top-level Tactical source receives the ratchet automatically. No production
-  Tactical code may consume either backing array directly; only the temporary
-  definitions remain. The backing allocation, numeric slots, save byte
-  sequence, map records, Lua values, network packets, and mod data remain
-  unchanged.
+  rules. Architecture checks cover production sources and the headless
+  harness, rejecting retired global names and contiguous soldier-pointer
+  walks. The fixed capacity, numeric slots, save byte sequence, map records,
+  Lua values, network packets, and mod data remain unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

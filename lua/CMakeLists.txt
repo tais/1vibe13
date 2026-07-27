@@ -9,8 +9,6 @@ add_library(Lua STATIC
 "lua_tactical.cpp"
 "lwstring.cpp"
 )
-target_compile_definitions(Lua PRIVATE
-  JA2_EXPLICIT_SOLDIER_RESOLUTION)
 target_include_directories(Lua PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 # Pull in the Lua C library built from source in the top-level CMakeLists (its
 # include dir supplies lua.h/lauxlib.h/lualib.h/luaconf.h -- the stale 5.1

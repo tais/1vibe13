@@ -262,19 +262,16 @@ connects this pointer-free runtime identity to JA2's current fixed soldier
 records. The repository is not part of the SDK and does not expose
 `SOLDIERTYPE` to packages. It centralizes bounded slot resolution,
 whole-record creation/replacement, save/load access, and record swaps while
-legacy consumers are migrated. Strategic simulation no longer names either
-backing array directly, and its array-derived pointer walks now resolve stable
-numeric slots without relying on adjacent records. TacticalAI, TileEngine,
-Ja2 composition/save handling, Laptop, Utils, Editor, Lua, and Multiplayer have
-the same explicit-resolution compile ratchet. Every top-level production
-Tactical translation unit, including `Overhead.cpp`, now compiles with implicit
-`SoldierID` pointer conversions deleted. The globbed source coverage
-automatically includes newly added top-level Tactical sources, while
-architecture checks reject direct array access or contiguous soldier-pointer
-walks. `Overhead.cpp` retains only the two temporary backing-allocation
-definitions for the final ownership cut; `Menptr` and `MercPtrs` otherwise
-remain repository-private compatibility storage, so numeric soldier slots and
-every external data format remain stable.
+legacy consumers are migrated. Its fixed records and slot table are private to
+`SoldierRepository.cpp`; no process-global storage declaration remains.
+Strategic simulation and the other application domains resolve stable numeric
+slots without relying on adjacent records. `SoldierID` itself no longer has
+pointer conversion operators, so explicit repository resolution applies
+unconditionally to TacticalAI, TileEngine, Ja2 composition/save handling,
+Laptop, Utils, Editor, Lua, Multiplayer, and every Tactical translation unit.
+Architecture checks reject retired global names and contiguous soldier-pointer
+walks across production code and the headless harness. Numeric soldier slots
+and every external data format remain stable.
 
 Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,

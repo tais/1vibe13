@@ -332,19 +332,6 @@ set(Ja2_Libs
   TileEngine
   Utils
 )
-set(ExplicitSoldierResolutionLibs
-  Editor
-  Ja2
-  Laptop
-  Strategic
-  TacticalAI
-  TileEngine
-  Utils
-)
-file(GLOB ExplicitSoldierResolutionSources
-  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/*.cpp")
-set_property(SOURCE ${ExplicitSoldierResolutionSources} APPEND PROPERTY
-  COMPILE_DEFINITIONS JA2_EXPLICIT_SOLDIER_RESOLUTION)
 foreach(lib IN LISTS Ja2_Libs)
   add_subdirectory(${lib})
 endforeach()
@@ -380,10 +367,6 @@ foreach(lib IN LISTS CampaignNeutralLibs)
   set(common_target "ja2_campaign_neutral_${lib_lower}")
   add_library(${common_target} OBJECT ${${lib}CommonSrc})
   target_compile_definitions(${common_target} PRIVATE ${debugFlags})
-  if("${lib}" IN_LIST ExplicitSoldierResolutionLibs)
-    target_compile_definitions(${common_target} PRIVATE
-      JA2_EXPLICIT_SOLDIER_RESOLUTION)
-  endif()
   target_link_libraries(${common_target} PRIVATE JA2::RuntimeAdapter)
   set_target_properties(${common_target} PROPERTIES
     FOLDER "Campaign-neutral legacy objects")
@@ -436,12 +419,6 @@ foreach(app IN LISTS ApplicationTargets)
         $<TARGET_OBJECTS:ja2_engine_legacy_adapters>)
     endif()
     target_compile_definitions(${game_library} PRIVATE ${compilationFlags} ${debugFlags})
-    if("${lib}" IN_LIST ExplicitSoldierResolutionLibs)
-      # Migrated domains compile SoldierID without the legacy pointer
-      # conveniences so new code cannot bypass Ja2SoldierRepository.
-      target_compile_definitions(${game_library} PRIVATE
-        JA2_EXPLICIT_SOLDIER_RESOLUTION)
-    endif()
     target_link_libraries(${game_library} PUBLIC JA2::RuntimeAdapter)
 
 	# Cinematics.cpp is compiled as part of Utils and directly consumes both
