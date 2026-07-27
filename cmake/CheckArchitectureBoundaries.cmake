@@ -2559,6 +2559,129 @@ if(NOT serialized_soldier_animation_turn_activity_order OR
     "Soldier animation activity moved in the portable save schema; keep every lifecycle value at its established byte position")
 endif()
 
+# Animation surfaces are runtime resources, not serialized soldier state. The
+# former public AnimCache contained two raw owning pointers inside the memcpy
+# prefix, so ordinary SOLDIERTYPE copies aliased allocations and teardown could
+# double-free them. Keep the live cache private, inline, and slot-bound.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*AnimationSurfaceCacheType[ \t]+AnimCache[ \t]*;"
+  retired_current_animation_cache
+  "${current_soldier_contents}")
+if(retired_current_animation_cache)
+  message(FATAL_ERROR
+    "Retired public SOLDIERTYPE AnimCache returned; runtime surface storage belongs to SoldierAnimationCacheComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierAnimationCacheComponent[ \t\r\n]+animationCache_[ \t]*;"
+  soldier_animation_cache_owner
+  "${current_soldier_contents}")
+if(NOT soldier_animation_cache_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAnimationCacheComponent")
+endif()
+
+set(animation_cache_header
+  "${SOURCE_ROOT}/Tactical/Animation Cache.h")
+set(animation_cache_source
+  "${SOURCE_ROOT}/Tactical/Animation Cache.cpp")
+file(READ "${animation_cache_header}" animation_cache_header_contents)
+file(READ "${animation_cache_source}" animation_cache_source_contents)
+string(FIND "${animation_cache_header_contents}"
+  "class SoldierAnimationCacheComponent"
+  animation_cache_component_begin)
+string(FIND "${animation_cache_header_contents}"
+  "extern UINT32 guiCacheSize;"
+  animation_cache_component_end)
+if(animation_cache_component_begin EQUAL -1 OR
+   animation_cache_component_end EQUAL -1 OR
+   animation_cache_component_end LESS animation_cache_component_begin)
+  message(FATAL_ERROR
+    "Could not locate SoldierAnimationCacheComponent for its storage ownership check")
+endif()
+math(EXPR animation_cache_component_length
+  "${animation_cache_component_end} - ${animation_cache_component_begin}")
+string(SUBSTRING "${animation_cache_header_contents}"
+  ${animation_cache_component_begin}
+  ${animation_cache_component_length}
+  animation_cache_component_contents)
+
+foreach(inline_animation_cache_storage IN ITEMS
+  "std::array<UINT16,[ \t]*MAX_CACHE_SIZE>[ \t]+surfaces_"
+  "std::array<INT16,[ \t]*MAX_CACHE_SIZE>[ \t]+hits_"
+  "UINT8[ \t]+size_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${inline_animation_cache_storage}[ \t]*;"
+    owned_inline_animation_cache_storage
+    "${animation_cache_component_contents}")
+  if(NOT owned_inline_animation_cache_storage)
+    message(FATAL_ERROR
+      "SoldierAnimationCacheComponent lost fixed-capacity inline storage; do not restore per-soldier cache allocation")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(UINT16|INT16)[ \t]*\\*"
+  animation_cache_raw_pointer
+  "${animation_cache_component_contents}")
+if(animation_cache_raw_pointer)
+  message(FATAL_ERROR
+    "SoldierAnimationCacheComponent contains a raw surface/cache pointer; keep its working set inline and copy-safe")
+endif()
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])(MemAlloc|MemFree)[ \t\r\n]*\\("
+  animation_cache_heap_allocation
+  "${animation_cache_source_contents}")
+if(animation_cache_heap_allocation)
+  message(FATAL_ERROR
+    "Animation Cache.cpp returned to per-soldier heap allocation; the fixed-capacity component must remain allocation-free")
+endif()
+string(FIND "${animation_cache_source_contents}"
+  "soldier.i < MAX_NUM_SOLDIERS"
+  animation_cache_owner_bounds_check)
+if(animation_cache_owner_bounds_check EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAnimationCacheComponent must reject NOBODY before indexing the global per-soldier surface history")
+endif()
+
+string(REGEX MATCHALL
+  "reset\\(\\)[ \t]*;"
+  animation_cache_reset_calls
+  "${animation_cache_component_contents}")
+list(LENGTH animation_cache_reset_calls
+  animation_cache_reset_call_count)
+if(animation_cache_reset_call_count LESS 3)
+  message(FATAL_ERROR
+    "SoldierAnimationCacheComponent copies must start empty so cloned soldiers cannot release another slot's surfaces")
+endif()
+
+string(REGEX MATCH
+  "if[ \t]*\\(Ar::isLoading\\)[ \t]*s\\.animationCache\\(\\)\\.release\\(s\\.ubID\\)[ \t]*;"
+  runtime_animation_cache_load_reset
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.[A-Za-z0-9_]+\\([^;\r\n]*(animationCache|AnimCache)"
+  serialized_runtime_animation_cache
+  "${save_load_game_contents}")
+if(NOT runtime_animation_cache_load_reset OR
+   serialized_runtime_animation_cache)
+  message(FATAL_ERROR
+    "The runtime animation cache must reset on soldier load and must not consume bytes in the portable schema")
+endif()
+
+file(READ "${SOURCE_ROOT}/Ja2/SoldierRepository.cpp"
+  soldier_repository_cache_contents)
+string(REGEX MATCHALL
+  "\\.swapStorage\\("
+  repository_animation_cache_swaps
+  "${soldier_repository_cache_contents}")
+list(LENGTH repository_animation_cache_swaps
+  repository_animation_cache_swap_count)
+if(repository_animation_cache_swap_count LESS 6)
+  message(FATAL_ERROR
+    "Whole-record replacement/swap must retain the animation cache with its canonical slot and global usage-history identity")
+endif()
+
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
 # TacticalStatusType, and the TURNBASED/INCOMBAT bits are composed only at

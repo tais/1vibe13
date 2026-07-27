@@ -39,8 +39,10 @@ public:
 	void initializeSlots() noexcept;
 
 	// Whole-record mutation is deliberately centralized. Callers retain the
-	// established SOLDIERTYPE copy semantics while the repository validates
-	// that the reusable slot still points at its canonical backing record.
+	// established persistent SOLDIERTYPE copy semantics while the repository
+	// validates that the reusable slot still points at its canonical backing
+	// record. Runtime animation surface ownership stays with the slot because
+	// the legacy usage-history table is indexed by that identity.
 	SOLDIERTYPE* replace(
 		std::size_t slot, const SOLDIERTYPE& soldier) noexcept;
 	bool swapRecords(std::uint16_t firstSlot, std::uint16_t secondSlot);

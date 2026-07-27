@@ -3857,39 +3857,53 @@ int main( int, char** )
 		movingStanceSurfaceState.uiNumFramesPerDir = 1;
 		movingStanceSurfaceState.hVideoObject = &movingStanceVideoObject;
 		movingStanceSurfaceState.bProfile = -1;
-		UINT16 cachedMovingStanceSurface = movingStanceSurface;
-		INT16 cachedMovingStanceHits = 0;
-		const AnimationSurfaceCacheType previousAnimationCache =
-			commandHostActor.AnimCache;
 		const UINT16 previousAnimationSurface =
 			commandHostActor.animationPlayback().surface();
-		// The data-free host has no animation assets. Seed only the surface lookup
-		// and one inert eight-direction surface that ChangeSoldierState requires
-		// so the production transition remains under test without loading game
-		// data or entering font-backed missing-asset diagnostics.
-		commandHostActor.AnimCache.usCachedSurfaces =
-			&cachedMovingStanceSurface;
-		commandHostActor.AnimCache.sCacheHits = &cachedMovingStanceHits;
-		commandHostActor.AnimCache.ubCacheSize = 1;
+		// The data-free host has no animation assets. Seed one inert
+		// eight-direction surface so the production cache and transition remain
+		// under test without entering font-backed missing-asset diagnostics.
+		commandHostActor.animationCache().reset();
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult movingStanceChanged =
 			TryDispatchChangeStanceCommandNow(
 				commandHostActor, ANIM_CROUCH,
 				SimulationCommandSource::System );
+		const bool animationCacheHit =
+			commandHostActor.animationCache().contains(
+				movingStanceSurface ) &&
+			commandHostActor.animationCache().acquire(
+				commandHostActor.ubID, movingStanceSurface,
+				commandHostActor.animationPlayback().state() ) &&
+			commandHostActor.animationCache().hitCount(
+				movingStanceSurface ) == 1;
+		const SOLDIERTYPE copiedCacheOwner = commandHostActor;
+		const bool copiedCacheStartsEmpty =
+			copiedCacheOwner.animationCache().empty();
+		const bool repositoryRetainsSlotCache =
+			soldierRepository.replace( 0, commandHostActor ) ==
+				&commandHostActor &&
+			commandHostActor.animationCache().contains(
+				movingStanceSurface );
 		const bool movingStanceOwnedByExecutor =
 			movingStanceChanged.status ==
 				SimulationCommandDispatchStatus::Applied &&
 			commandHostActor.usUIMovementMode == expectedMovingStance &&
 			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
-			commandHostActor.animationPlayback().state() == START_SWAT &&
-			cachedMovingStanceHits == 1;
-		commandHostActor.AnimCache = previousAnimationCache;
+			commandHostActor.animationPlayback().state() == START_SWAT;
+		commandHostActor.animationCache().reset();
+		ClearAnimationSurfacesUsageHistory( commandHostActor.ubID );
 		commandHostActor.animationPlayback().surface() = previousAnimationSurface;
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
 		commandHostActor.animationPlayback().state() = STANDING;
 		commandHostActor.animationIntent().clearDesiredHeight();
 		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
+		CHECK( animationCacheHit,
+		       "inline soldier animation cache acquires surfaces and records bounded hits" );
+		CHECK( copiedCacheStartsEmpty,
+		       "copied soldiers do not alias or inherit runtime animation surface ownership" );
+		CHECK( repositoryRetainsSlotCache,
+		       "whole-record replacement retains animation surface ownership with its canonical slot" );
 		CHECK( movingStanceOwnedByExecutor,
 		       "stance command executor owns real-time moving animation transitions" );
 
@@ -7386,6 +7400,11 @@ int main( int, char** )
 		       constSoldier.animationActivity().fallDirection() == 6 &&
 		       constSoldier.animationActivity().turningIncrement() == -1,
 		       "soldier animation-activity component owns coordinated turn, hit, fall, and AP lifecycle state" );
+		SoldierAnimationCacheComponent invalidOwnerCache;
+		invalidOwnerCache.initialize( NOBODY );
+		CHECK( invalidOwnerCache.empty() &&
+		       !invalidOwnerCache.acquire( NOBODY, 0, STANDING ),
+		       "animation cache rejects the invalid sentinel owner without indexing global soldier history" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,

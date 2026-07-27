@@ -3404,7 +3404,7 @@ BOOLEAN ResetAllAnimationCache( )
     for ( cnt = 0; cnt < soldiers.capacity(); ++cnt )
     {
         SOLDIERTYPE& soldier = soldiers.record(cnt);
-        InitAnimationCache( soldier.ubID, &soldier.AnimCache );
+        soldier.animationCache().initialize( soldier.ubID );
     }
 
     return( TRUE );

@@ -619,6 +619,10 @@ void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 {
 	if ( (void*)this != (void*)&src ) {
+		if ( !animationCache().empty() )
+		{
+			animationCache().release( ubID );
+		}
 		//member classes
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
@@ -748,7 +752,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sInsertionGridNo = src.sInsertionGridNo;
 
 
-		this->AnimCache = src.AnimCache; // will be 9 bytes once changed to pointers
+		// Old saves contain only meaningless process-local cache pointers.
+		animationCache().reset();
 
 		this->bSide = src.bSide;
 		this->bViewRange = src.bViewRange;
@@ -1111,6 +1116,14 @@ UINT32 SOLDIERTYPE::GetChecksum( )
 //  Note that the constructor does this automatically.
 void SOLDIERTYPE::initialize( )
 {
+	// Members after endOfPOD are constructed before this function runs. On a
+	// reused live record, release its slot-indexed surface locks before the POD
+	// identity is cleared. A brand-new soldier has an empty cache, so ubID is
+	// never read before initialization.
+	if ( !animationCache().empty() )
+	{
+		animationCache().release( ubID );
+	}
 	memset( (void*)this, 0, SIZEOF_SOLDIERTYPE_POD );
 	inv.clear( );
 	ai_masterplan_ = 0;
@@ -1130,6 +1143,7 @@ void SOLDIERTYPE::initialize( )
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
+	animationCache().reset();
 
 	// sevenfm:initialize additional data
 	this->InitializeExtraData();
@@ -2478,12 +2492,8 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 		{
 			this->pKeyRing = NULL;
 		}
-		// Create frame cache
-		if ( InitAnimationCache( usSoldierID, &(this->AnimCache) ) == FALSE )
-		{
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed animation cache creation" ) );
-			break;
-		}
+		// Initialize the allocation-free animation surface working set.
+		this->animationCache().initialize( usSoldierID );
 
 		if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 		{
@@ -2659,11 +2669,9 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 			DeletePositionSnd( this->iPositionSndID );
 		}
 
-		// Free any animations we may have locked...
-		UnLoadCachedAnimationSurfaces( this->ubID, &(this->AnimCache) );
-
-		// Free Animation cache
-		DeleteAnimationCache( this->ubID, &(this->AnimCache) );
+		// Release any globally shared surfaces locked by this soldier slot and
+		// clear its inline working set.
+		this->animationCache().release( this->ubID );
 
 		// Soldier is not active
 		this->bActive = FALSE;
