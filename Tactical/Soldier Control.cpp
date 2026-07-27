@@ -696,6 +696,12 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->collapseState().tactical() = src.bCollapsed;
 		this->collapseState().breathTriggered() = src.bBreathCollapsed;
 		this->collapseState().fatigue() = src.fMercCollapsedFlag;
+		this->perception().movementNoiseDirections() = src.ubMovementNoiseHeard;
+		this->perception().viewRange() = src.bViewRange;
+		this->perception().blindnessTurns() = src.bBlindedCounter;
+		this->perception().heardNoiseLevel() = src.bNoiseLevel;
+		this->perception().xrayActivatedAt() = src.uiXRayActivatedTime;
+		this->perception().deafnessTurns() = src.bDeafenedCounter;
 
 
 		this->pKeyRing = src.pKeyRing;
@@ -726,7 +732,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bTeam = src.bTeam;				// Team identifier
 
 		this->ubGroupID = src.ubGroupID;		//the movement group the merc is currently part of.
-		this->ubMovementNoiseHeard = src.ubMovementNoiseHeard;// 8 flags by direction
 
 
 		this->dXPos = src.dXPos;
@@ -762,7 +767,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		animationCache().reset();
 
 		this->bSide = src.bSide;
-		this->bViewRange = src.bViewRange;
 		this->bNewOppCnt = src.bNewOppCnt;
 		this->bService = src.bService;		// first aid, or other time consuming process
 
@@ -961,7 +965,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubMilitiaKills = src.ubMilitiaKills;
 
 
-		this->bBlindedCounter = src.bBlindedCounter;
 
 		this->ubHoursOnAssignment = src.ubHoursOnAssignment;						// used for assignments handled only every X hours
 
@@ -973,7 +976,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().continuedPathGrid() = src.sContPathLocation;
 		this->movement().continuedPathValid() = src.bGoodContPath;
 		this->ubPendingActionInterrupted = src.ubPendingActionInterrupted;
-		this->bNoiseLevel = src.bNoiseLevel;
 		this->bRegenerationCounter = src.bRegenerationCounter;
 		this->bRegenBoostersUsedToday = src.bRegenBoostersUsedToday;
 		this->combatResult().pelletsHitBy() = src.bNumPelletsHitBy;
@@ -1004,7 +1006,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->uiTimeSinceLastSpoke = src.uiTimeSinceLastSpoke;
 		this->ubContractRenewalQuoteCode = src.ubContractRenewalQuoteCode;
 		this->sPreTraversalGridNo = src.sPreTraversalGridNo;
-		this->uiXRayActivatedTime = src.uiXRayActivatedTime;
 		this->animationIntent().turningFromUi() = src.bTurningFromUI;
 		this->bPendingActionData5 = src.bPendingActionData5;
 
@@ -1021,7 +1022,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bHospitalPriceModifier = src.bHospitalPriceModifier;
 		this->uiStartTimeOfInsuranceContract = src.uiStartTimeOfInsuranceContract;
 		this->bCorpseQuoteTolerance = src.bCorpseQuoteTolerance;
-		this->bDeafenedCounter = src.bDeafenedCounter;
 		this->iPositionSndID = src.iPositionSndID;
 		this->iTuringSoundID = src.iTuringSoundID;
 		this->combatResult().lastDamageReason() = src.ubLastDamageReason;
@@ -1135,6 +1135,7 @@ void SOLDIERTYPE::initialize( )
 	vitals().reset();
 	actionPoints().reset();
 	collapseState().reset();
+	perception().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -5850,7 +5851,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		else if ( ubSpecial == FIRE_WEAPON_BLINDED_BY_SPIT_SPECIAL )
 		{
 			// blinded!!
-			if ( (this->bBlindedCounter == 0) )
+			if ( this->perception().blindnessTurns() == 0 )
 			{
 				// say quote
 				if ( this->flags.uiStatusFlags & SOLDIER_PC )
@@ -5860,7 +5861,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 				DecayIndividualOpplist( this );
 			}
 			// will always increase counter by at least 1
-			this->bBlindedCounter += (sDamage / 8) + 1;
+			this->perception().addBlindness((sDamage / 8) + 1);
 
 			// Dirty panel
 			fInterfacePanelDirty = DIRTYLEVEL2;
@@ -5869,7 +5870,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		else if ( ubSpecial == FIRE_WEAPON_BLINDED_SPECIAL )
 		{
 			// blinded!!
-			if ( (this->bBlindedCounter == 0) )
+			if ( this->perception().blindnessTurns() == 0 )
 			{
 				// say quote
 				if ( this->flags.uiStatusFlags & SOLDIER_PC )
@@ -5879,7 +5880,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 				DecayIndividualOpplist( this );
 			}
 
-			this->bBlindedCounter += 2 * Random( 3 ) + 2;
+			this->perception().addBlindness(2 * Random( 3 ) + 2);
 
 			// Dirty panel
 			fInterfacePanelDirty = DIRTYLEVEL2;
@@ -6039,14 +6040,14 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 		switch ( ubSpecial )
 		{
 		case FIRE_WEAPON_BLINDED_AND_DEAFENED:
-			this->bDeafenedCounter = bDeafValue;
+			this->perception().setDeafness(bDeafValue);
 			//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Soldier is blinded and deafened" );
 
 			// if soldier in building OR underground
 			if ( InBuilding( sLocationGrid ) || (gbWorldSectorZ) )
 			{
 				// deal max special damage
-				this->bBlindedCounter = (INT8)Explosive[Item[usWeaponIndex].ubClassIndex].ubDuration;
+				this->perception().setBlindness((INT8)Explosive[Item[usWeaponIndex].ubClassIndex].ubDuration);
 				// say quote
 				if ( this->flags.uiStatusFlags & SOLDIER_PC )
 				{
@@ -6056,10 +6057,10 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			else if ( NightTime( ) ) // if soldier outside at night
 			{
 				// halve effect
-				this->bBlindedCounter = (INT8)Explosive[Item[usWeaponIndex].ubClassIndex].ubDuration / 2;
-				if ( this->bBlindedCounter == 0 )
-					this->bBlindedCounter = 1;
-				this->bDeafenedCounter /= 2;
+				this->perception().setBlindness((INT8)Explosive[Item[usWeaponIndex].ubClassIndex].ubDuration / 2);
+				if ( this->perception().blindnessTurns() == 0 )
+					this->perception().setBlindness(1);
+				this->perception().halveDeafness();
 				// say quote
 				if ( this->flags.uiStatusFlags & SOLDIER_PC )
 				{
@@ -6077,7 +6078,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 
 		case FIRE_WEAPON_DEAFENED:
 			//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Soldier is deafened" );		
-			this->bDeafenedCounter = bDeafValue;
+			this->perception().setDeafness(bDeafValue);
 			PossiblyStartEnemyTaunt( this, TAUNT_GOT_DEAFENED, ubAttackerID );
 			break;
 		};
@@ -7836,23 +7837,16 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 				this->flags.uiStatusFlags &= (~SOLDIER_GASSED);
 		}
 
-		if ( this->bBlindedCounter > 0 )
+		if ( this->perception().ageBlindness() )
 		{
-			this->bBlindedCounter--;
-			if ( this->bBlindedCounter == 0 )
-			{
-				// we can SEE!!!!!
-				HandleSight( this, SIGHT_LOOK );
-				// Dirty panel
-				fInterfacePanelDirty = DIRTYLEVEL2;
-			}
+			// we can SEE!!!!!
+			HandleSight( this, SIGHT_LOOK );
+			// Dirty panel
+			fInterfacePanelDirty = DIRTYLEVEL2;
 		}
 
 
-		if ( this->bDeafenedCounter > 0 )
-		{
-			this->bDeafenedCounter--;
-		}
+		this->perception().ageDeafness();
 
 		// ATE: To get around a problem...
 		// If an AI guy, and we have 0 life, and are still at higher hieght,
@@ -7928,7 +7922,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 				VerifyAndDecayOpplist( this );
 
 				// turn off xray
-				if ( this->uiXRayActivatedTime )
+				if ( this->perception().xrayActive() )
 				{
 					TurnOffXRayEffects( this );
 				}
@@ -8045,7 +8039,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		this->runtime.combatFeedback.lastBulletImpact = 0;
 		this->runtime.combatFeedback.lastArmourProtection = 0;
 
-		this->ubMovementNoiseHeard = 0;
+		this->perception().clearMovementDirections();
 
 		// If soldier has new APs, reset flags!
 		if ( this->actionPoints().current() > 0 )

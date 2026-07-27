@@ -94,6 +94,55 @@ private:
 	BOOLEAN fatigue_ = FALSE;
 };
 
+// Canonical sensory state and short-lived perception effects. View range,
+// directional movement-noise memory, heard-noise elevation, blindness,
+// deafness, and X-ray lifetime share one reset boundary without owning the
+// opponent list or presentation visibility.
+class SoldierPerceptionComponent
+{
+public:
+	UINT8& movementNoiseDirections() noexcept { return movementNoiseDirections_; }
+	const UINT8& movementNoiseDirections() const noexcept { return movementNoiseDirections_; }
+	UINT8& viewRange() noexcept { return viewRange_; }
+	const UINT8& viewRange() const noexcept { return viewRange_; }
+	INT8& blindnessTurns() noexcept { return blindnessTurns_; }
+	const INT8& blindnessTurns() const noexcept { return blindnessTurns_; }
+	INT8& heardNoiseLevel() noexcept { return heardNoiseLevel_; }
+	const INT8& heardNoiseLevel() const noexcept { return heardNoiseLevel_; }
+	UINT32& xrayActivatedAt() noexcept { return xrayActivatedAt_; }
+	const UINT32& xrayActivatedAt() const noexcept { return xrayActivatedAt_; }
+	INT8& deafnessTurns() noexcept { return deafnessTurns_; }
+	const INT8& deafnessTurns() const noexcept { return deafnessTurns_; }
+
+	bool isBlinded() const noexcept { return blindnessTurns_ > 0; }
+	bool isDeafened() const noexcept { return deafnessTurns_ > 0; }
+	bool xrayActive() const noexcept { return xrayActivatedAt_ != 0; }
+	bool hasHeardMovementFrom(UINT8 direction) const noexcept;
+	void rememberMovementFrom(UINT8 direction) noexcept;
+	void clearMovementDirections() noexcept { movementNoiseDirections_ = 0; }
+	void addBlindness(INT16 turns) noexcept
+	{
+		blindnessTurns_ = static_cast<INT8>(blindnessTurns_ + turns);
+	}
+	void setBlindness(INT8 turns) noexcept { blindnessTurns_ = turns; }
+	bool extendBlindnessToAtLeast(INT32 turns) noexcept;
+	bool ageBlindness() noexcept;
+	void setDeafness(INT8 turns) noexcept { deafnessTurns_ = turns; }
+	void halveDeafness() noexcept { deafnessTurns_ /= 2; }
+	void ageDeafness() noexcept;
+	void activateXrayAt(UINT32 worldSeconds) noexcept { xrayActivatedAt_ = worldSeconds; }
+	void deactivateXray() noexcept { xrayActivatedAt_ = 0; }
+	void reset() noexcept;
+
+private:
+	UINT8 movementNoiseDirections_ = 0;
+	UINT8 viewRange_ = 0;
+	INT8 blindnessTurns_ = 0;
+	INT8 heardNoiseLevel_ = 0;
+	UINT32 xrayActivatedAt_ = 0;
+	INT8 deafnessTurns_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

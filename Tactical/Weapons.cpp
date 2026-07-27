@@ -4122,7 +4122,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				// sevenfm: bonus for boxers for attack from the back
 				if (iHitChance < 100 &&
 					(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
-					!pSoldier->bBlindedCounter &&
+					!pSoldier->perception().blindnessTurns() &&
 					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 					(pTargetSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
 					pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK)
@@ -8445,8 +8445,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 							{
 								if (PreRandom(gGameExternalOptions.ubChanceBlindedByHeadshot) == 0)
 								{
-									if (pTarget->bBlindedCounter < iImpact / 10 )
-										pTarget->bBlindedCounter = iImpact / 10;
+									pTarget->perception().extendBlindnessToAtLeast(iImpact / 10);
 								}
 							}
 
@@ -9574,7 +9573,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// sevenfm: reduce chance if defender is blind
-	if ((IS_MERC_BODY_TYPE(pDefender) || IS_CIV_BODY_TYPE(pDefender)) && (pDefender->bBlindedCounter || !SoldierToSoldierLineOfSightTest(pDefender, pAttacker, TRUE, CALC_FROM_ALL_DIRS)))
+	if ((IS_MERC_BODY_TYPE(pDefender) || IS_CIV_BODY_TYPE(pDefender)) && (pDefender->perception().blindnessTurns() || !SoldierToSoldierLineOfSightTest(pDefender, pAttacker, TRUE, CALC_FROM_ALL_DIRS)))
 	{
 		iDefRating = iDefRating / 4;
 	}
@@ -9657,7 +9656,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		(pAttacker->flags.uiStatusFlags & SOLDIER_BOXER) &&
 		(pDefender->flags.uiStatusFlags & SOLDIER_BOXER) &&
 		iChance < 100 &&
-		!pAttacker->bBlindedCounter &&
+		!pAttacker->perception().blindnessTurns() &&
 		gAnimControl[pDefender->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 		(AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == pDefender->position().direction() ||
 		AIDirection(pAttacker->position().gridNo(), pDefender->position().gridNo()) == gOneCDirection[pDefender->position().direction()] ||
@@ -9667,7 +9666,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	}
 
 	// sevenfm: reduce chance if attacker is blind
-	if (IS_MERC_BODY_TYPE(pDefender) && (pAttacker->bBlindedCounter || !SoldierToSoldierLineOfSightTest(pAttacker, pDefender, TRUE, CALC_FROM_ALL_DIRS)))
+	if (IS_MERC_BODY_TYPE(pDefender) && (pAttacker->perception().blindnessTurns() || !SoldierToSoldierLineOfSightTest(pAttacker, pDefender, TRUE, CALC_FROM_ALL_DIRS)))
 	{
 		iChance = iChance / 4;
 	}

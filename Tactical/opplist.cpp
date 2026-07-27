@@ -1334,7 +1334,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		return( DistanceSmellable( pSoldier, pSubject ) );
 	}
 
-	if (pSoldier->bBlindedCounter > 0)
+	if (pSoldier->perception().isBlinded())
 	{
 		// we're bliiiiiiiiind!!!
 		return( 0 );
@@ -4055,7 +4055,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 	{
 		// replace the soldier's team's public noise with his
 		gsPublicNoiseGridNo[ubTeamToRadioTo] 	= pSoldier->aiData.sNoiseGridno;
-		gbPublicNoiseLevel[ubTeamToRadioTo] 	= pSoldier->bNoiseLevel;
+		gbPublicNoiseLevel[ubTeamToRadioTo] 	= pSoldier->perception().heardNoiseLevel();
 		gubPublicNoiseVolume[ubTeamToRadioTo] 	= pSoldier->aiData.ubNoiseVolume;
 	}
 
@@ -6260,7 +6260,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 				ubNoiseDir = GetDirectionFromCenterCellXYGridNo(pSoldier->position().gridNo(), sGridNo);
 
 				// check the 'noise heard & reported' bit for that soldier & direction
-				if ( ubNoiseType != NOISE_MOVEMENT || bTeam != OUR_TEAM || (pSoldier->aiData.bInterruptDuelPts != NO_INTERRUPT) || !(pSoldier->ubMovementNoiseHeard & (1 << ubNoiseDir) ) )
+				if ( ubNoiseType != NOISE_MOVEMENT || bTeam != OUR_TEAM || (pSoldier->aiData.bInterruptDuelPts != NO_INTERRUPT) || !pSoldier->perception().hasHeardMovementFrom(ubNoiseDir) )
 				{
 					if (ubEffVolume > ubLoudestEffVolume)
 					{
@@ -6301,7 +6301,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 
 					if ( listener && ubNoiseType == NOISE_MOVEMENT)
 					{
-						listener->ubMovementNoiseHeard |= (1 << ubNoiseDir);
+						listener->perception().rememberMovementFrom(ubNoiseDir);
 					}
 
 				}
@@ -6312,7 +6312,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 					if (pDoorStatus && pDoorStatus->ubFlags & DOOR_HAS_TIN_CAN)
 						BeginMultiPurposeLocator(sGridNo, bLevel, (INT8)(IsJa2TacticalTurnBasedCombat()));
 				}
-				//if ( !(pSoldier->ubMovementNoiseHeard & (1 << ubNoiseDir) ) )
+				//if ( !(pSoldier->perception().movementNoiseDirections() & (1 << ubNoiseDir) ) )
 			}
 #ifdef REPORTTHEIRNOISE
 			else	// debugging: report noise heard by other team's soldiers
@@ -6402,7 +6402,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 	INT32 iEffVolume, iDistance;
 
 	// Lesh: deafness
-	if ( pSoldier->bDeafenedCounter > 0 )
+	if ( pSoldier->perception().isDeafened() )
 	{
 		return( 0 );
 	}
@@ -6690,7 +6690,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
-				pSoldier->bNoiseLevel = bLevel;
+				pSoldier->perception().heardNoiseLevel() = bLevel;
 
 				// no matter how loud noise was, don't remember it for more than 12 turns!
 				pSoldier->aiData.ubNoiseVolume = min(ubVolumeScaled, MAX_MISC_NOISE_DURATION);
@@ -6739,7 +6739,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
-				pSoldier->bNoiseLevel = bLevel;
+				pSoldier->perception().heardNoiseLevel() = bLevel;
 
 				// no matter how loud noise was, don't remember it for more than 12 turns!
 				pSoldier->aiData.ubNoiseVolume = min(ubVolumeScaled, MAX_MISC_NOISE_DURATION);
@@ -6850,7 +6850,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
-				pSoldier->bNoiseLevel = bLevel;
+				pSoldier->perception().heardNoiseLevel() = bLevel;
 
 				// no matter how loud noise was, don't remember it for more than 12 turns!
 				pSoldier->aiData.ubNoiseVolume = min(ubVolumeScaled, MAX_MISC_NOISE_DURATION);
@@ -6867,7 +6867,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
-				pSoldier->bNoiseLevel = bLevel;
+				pSoldier->perception().heardNoiseLevel() = bLevel;
 
 				// no matter how loud noise was, don't remember it for more than 12 turns!
 				pSoldier->aiData.ubNoiseVolume = min(ubVolumeScaled, MAX_MISC_NOISE_DURATION);

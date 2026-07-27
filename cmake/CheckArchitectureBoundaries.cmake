@@ -2135,7 +2135,7 @@ string(REGEX MATCH
   serialized_soldier_tactical_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeOfLastContractUpdate\\);[ \t]*ar\\.i8\\(s\\.bTypeOfLastContract\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(s\\.bBlindedCounter\\);"
+  "ar\\.u32\\(s\\.uiTimeOfLastContractUpdate\\);[ \t]*ar\\.i8\\(s\\.bTypeOfLastContract\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);"
   serialized_soldier_collapse_duration_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_fatigue_collapse_order OR
@@ -2143,6 +2143,127 @@ if(NOT serialized_soldier_fatigue_collapse_order OR
    NOT serialized_soldier_collapse_duration_order)
   message(FATAL_ERROR
     "Soldier collapse state moved in the portable save schema; keep its flag and POD values at their established positions")
+endif()
+
+# View range, movement-noise direction memory, heard-noise elevation,
+# blindness/deafness duration, and X-ray lifetime now have one sensory owner.
+# Keep opponent-list knowledge and presentation visibility outside this domain.
+foreach(retired_perception_field IN ITEMS
+  "UINT8;ubMovementNoiseHeard"
+  "UINT8;bViewRange"
+  "INT8;bBlindedCounter"
+  "INT8;bNoiseLevel"
+  "UINT32;uiXRayActivatedTime"
+  "INT8;bDeafenedCounter")
+  string(REPLACE ";" ";" retired_perception_parts
+    "${retired_perception_field}")
+  list(GET retired_perception_parts 0 retired_perception_type)
+  list(GET retired_perception_parts 1 retired_perception_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_perception_type}[ \t]+${retired_perception_name}[ \t]*;"
+    retired_current_perception_field
+    "${current_soldier_contents}")
+  if(retired_current_perception_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE perception field '${retired_perception_name}' returned; sensory state belongs to SoldierPerceptionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierPerceptionComponent[ \t\r\n]+perception_[ \t]*;"
+  soldier_perception_owner
+  "${current_soldier_contents}")
+if(NOT soldier_perception_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierPerceptionComponent")
+endif()
+
+foreach(owned_perception_field IN ITEMS
+  "UINT8;movementNoiseDirections;0"
+  "UINT8;viewRange;0"
+  "INT8;blindnessTurns;0"
+  "INT8;heardNoiseLevel;0"
+  "UINT32;xrayActivatedAt;0"
+  "INT8;deafnessTurns;0")
+  string(REPLACE ";" ";" owned_perception_parts
+    "${owned_perception_field}")
+  list(GET owned_perception_parts 0 owned_perception_type)
+  list(GET owned_perception_parts 1 owned_perception_name)
+  list(GET owned_perception_parts 2 owned_perception_initializer)
+  string(REGEX MATCH
+    "${owned_perception_type}[ \t]+${owned_perception_name}_[ \t]*=[ \t]*${owned_perception_initializer}[ \t]*;"
+    owned_soldier_perception_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_perception_field)
+    message(FATAL_ERROR
+      "SoldierPerceptionComponent no longer owns initialized '${owned_perception_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierPerceptionComponent& perception() noexcept"
+  soldier_perception_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "perception().reset();"
+  soldier_perception_reset)
+string(FIND "${soldier_components_header_contents}"
+  "void clearMovementDirections() noexcept"
+  soldier_perception_clear_noise)
+string(FIND "${soldier_components_header_contents}"
+  "bool extendBlindnessToAtLeast(INT32 turns) noexcept"
+  soldier_perception_extend_blindness)
+string(FIND "${soldier_components_header_contents}"
+  "bool ageBlindness() noexcept;"
+  soldier_perception_age_blindness)
+string(FIND "${soldier_components_header_contents}"
+  "void ageDeafness() noexcept;"
+  soldier_perception_age_deafness)
+string(FIND "${soldier_components_header_contents}"
+  "void activateXrayAt(UINT32 worldSeconds) noexcept"
+  soldier_perception_activate_xray)
+if(soldier_perception_accessor EQUAL -1 OR
+   soldier_perception_reset EQUAL -1 OR
+   soldier_perception_clear_noise EQUAL -1 OR
+   soldier_perception_extend_blindness EQUAL -1 OR
+   soldier_perception_age_blindness EQUAL -1 OR
+   soldier_perception_age_deafness EQUAL -1 OR
+   soldier_perception_activate_xray EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierPerceptionComponent must retain its accessor, reset boundary, and explicit sensory lifecycle operations")
+endif()
+
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubGroupID\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);[ \t\r\n]*ar\\.f32\\(s\\.dXPos\\);"
+  serialized_soldier_movement_noise_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);"
+  serialized_soldier_view_range_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubHoursOnAssignment\\);"
+  serialized_soldier_blindness_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubPendingActionInterrupted\\);[ \t]*ar\\.i8\\(perception\\.heardNoiseLevel\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bRegenerationCounter\\);"
+  serialized_soldier_heard_noise_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
+  serialized_soldier_xray_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiStartTimeOfInsuranceContract\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
+  serialized_soldier_deafness_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_movement_noise_order OR
+   NOT serialized_soldier_view_range_order OR
+   NOT serialized_soldier_blindness_order OR
+   NOT serialized_soldier_heard_noise_order OR
+   NOT serialized_soldier_xray_order OR
+   NOT serialized_soldier_deafness_order)
+  message(FATAL_ERROR
+    "Soldier perception state moved in the portable save schema; keep all six values at their established POD positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
@@ -3222,7 +3343,7 @@ string(REGEX MATCH
   serialized_soldier_animation_secondary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiXRayActivatedTime\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
+  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
   serialized_soldier_animation_ui_turn_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_stop_order OR
@@ -3299,7 +3420,7 @@ endforeach()
 # schema. The state/subflag positions are also pinned above where they neighbor
 # queued intent; these expressions cover the remaining playback values.
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(s\\.bViewRange\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bNewOppCnt\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
   serialized_soldier_animation_cursor_order
   "${save_load_game_contents}")
 string(REGEX MATCH

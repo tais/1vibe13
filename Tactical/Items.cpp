@@ -10241,7 +10241,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 			}
 		}
 	}
-	pSoldier->uiXRayActivatedTime = GetWorldTotalSeconds();
+	pSoldier->perception().activateXrayAt(GetWorldTotalSeconds());
 }
 
 void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
@@ -10276,7 +10276,7 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 			}
 		}
 	}
-	pSoldier->uiXRayActivatedTime = GetWorldTotalSeconds();
+	pSoldier->perception().activateXrayAt(GetWorldTotalSeconds());
 }
 
 void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
@@ -10284,7 +10284,7 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 	SOLDIERTYPE *	pSoldier2;
 	UINT32				uiSlot;
 
-	if ( !pSoldier->uiXRayActivatedTime )
+	if ( !pSoldier->perception().xrayActive() )
 	{
 		return;
 	}
@@ -10303,7 +10303,7 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 			}
 		}
 	}
-	pSoldier->uiXRayActivatedTime = 0;
+	pSoldier->perception().deactivateXray();
 }
 
 

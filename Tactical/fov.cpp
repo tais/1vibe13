@@ -333,7 +333,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 		return;
 	}
 
-	if (pSoldier->bBlindedCounter > 0)
+	if (pSoldier->perception().isBlinded())
 	{
 		return;
 	}
@@ -365,7 +365,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	}
 	else
 	{
-		range = pSoldier->bViewRange;
+		range = pSoldier->perception().viewRange();
 
 		// Flugente: adjust sightrange
 		range = (UINT8)( (range * (100 + pSoldier->GetSightRangeBonus()) ) / 100);

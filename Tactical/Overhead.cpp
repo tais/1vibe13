@@ -2440,7 +2440,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             if ( !fDontContinue )
             {
 
-                if ( (pSoldier->bBlindedCounter > 0) && (pSoldier->animationPlayback().state() == RUNNING) && (Random( 5 ) == 0) &&
+                if ( (pSoldier->perception().isBlinded()) && (pSoldier->animationPlayback().state() == RUNNING) && (Random( 5 ) == 0) &&
                         OKFallDirection( pSoldier, (pSoldier->position().gridNo() + DirectionInc( pSoldier->position().direction() ) ), pSoldier->position().level(), pSoldier->position().direction(), pSoldier->animationPlayback().state() ) )
                 {
                     // 20% chance of falling over!

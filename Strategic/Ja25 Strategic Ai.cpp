@@ -2420,7 +2420,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 		{
 			// send soldier to centre of map, roughly
 			pSoldier->aiData.sNoiseGridno = sGridNoToGoto;
-			pSoldier->bNoiseLevel = 0;
+			pSoldier->perception().heardNoiseLevel() = 0;
 			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION / 2;
 
 			pSoldier->aiData.bAlertStatus = STATUS_YELLOW;

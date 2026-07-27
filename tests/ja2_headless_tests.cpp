@@ -7269,6 +7269,14 @@ int main( int, char** )
 		collapseState.turns() = 2;
 		collapseState.sleepDrugCounter() = 7;
 		collapseState.markFatigueCollapse();
+		SoldierPerceptionComponent& perception = soldier.perception();
+		perception.rememberMovementFrom(2);
+		perception.rememberMovementFrom(6);
+		perception.viewRange() = 14;
+		perception.setBlindness(5);
+		perception.heardNoiseLevel() = 1;
+		perception.activateXrayAt(12345);
+		perception.setDeafness(3);
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7394,6 +7402,14 @@ int main( int, char** )
 		       constSoldier.collapseState().sleepDrugCounter() == 7 &&
 		       constSoldier.collapseState().fatigueCollapsed(),
 		       "soldier collapse component owns tactical and strategic incapacitation state" );
+		CHECK( constSoldier.perception().hasHeardMovementFrom(2) &&
+		       constSoldier.perception().hasHeardMovementFrom(6) &&
+		       constSoldier.perception().viewRange() == 14 &&
+		       constSoldier.perception().blindnessTurns() == 5 &&
+		       constSoldier.perception().heardNoiseLevel() == 1 &&
+		       constSoldier.perception().xrayActivatedAt() == 12345 &&
+		       constSoldier.perception().deafnessTurns() == 3,
+		       "soldier perception component owns sensory range, memory, effects, and X-ray lifetime" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7561,6 +7577,14 @@ int main( int, char** )
 		       copiedSoldier.collapseState().sleepDrugCounter() == 7 &&
 		       copiedSoldier.collapseState().fatigueCollapsed(),
 		       "soldier copies retain their owned persistent collapse state" );
+		CHECK( copiedSoldier.perception().hasHeardMovementFrom(2) &&
+		       copiedSoldier.perception().hasHeardMovementFrom(6) &&
+		       copiedSoldier.perception().viewRange() == 14 &&
+		       copiedSoldier.perception().blindnessTurns() == 5 &&
+		       copiedSoldier.perception().heardNoiseLevel() == 1 &&
+		       copiedSoldier.perception().xrayActivatedAt() == 12345 &&
+		       copiedSoldier.perception().deafnessTurns() == 3,
+		       "soldier copies retain their owned persistent perception state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -7831,6 +7855,56 @@ int main( int, char** )
 		       collapseLifecycle.sleepDrugCounter() == 0 &&
 		       !collapseLifecycle.fatigueCollapsed(),
 		       "collapse reset clears the complete incapacitation domain" );
+
+		SoldierPerceptionComponent perceptionLifecycle;
+		perceptionLifecycle.rememberMovementFrom(1);
+		perceptionLifecycle.rememberMovementFrom(5);
+		perceptionLifecycle.rememberMovementFrom(8);
+		perceptionLifecycle.viewRange() = 16;
+		perceptionLifecycle.setBlindness(2);
+		perceptionLifecycle.addBlindness(2);
+		const bool ignoredShorterBlindness =
+			perceptionLifecycle.extendBlindnessToAtLeast(3);
+		const bool acceptedLongerBlindness =
+			perceptionLifecycle.extendBlindnessToAtLeast(6);
+		perceptionLifecycle.setDeafness(4);
+		perceptionLifecycle.halveDeafness();
+		perceptionLifecycle.heardNoiseLevel() = 1;
+		perceptionLifecycle.activateXrayAt(9876);
+		CHECK( perceptionLifecycle.hasHeardMovementFrom(1) &&
+		       perceptionLifecycle.hasHeardMovementFrom(5) &&
+		       !perceptionLifecycle.hasHeardMovementFrom(8) &&
+		       perceptionLifecycle.viewRange() == 16 &&
+		       perceptionLifecycle.blindnessTurns() == 6 &&
+		       !ignoredShorterBlindness &&
+		       acceptedLongerBlindness &&
+		       perceptionLifecycle.deafnessTurns() == 2 &&
+		       perceptionLifecycle.isDeafened() &&
+		       perceptionLifecycle.heardNoiseLevel() == 1 &&
+		       perceptionLifecycle.xrayActive(),
+		       "perception lifecycle coordinates directional memory and bounded sensory effects" );
+		CHECK( !perceptionLifecycle.ageBlindness() &&
+		       perceptionLifecycle.blindnessTurns() == 5,
+		       "perception blindness aging reports only the recovery transition" );
+		perceptionLifecycle.setBlindness(1);
+		CHECK( perceptionLifecycle.ageBlindness() &&
+		       !perceptionLifecycle.isBlinded(),
+		       "perception blindness aging reports the exact sight-recovery edge" );
+		perceptionLifecycle.ageDeafness();
+		perceptionLifecycle.clearMovementDirections();
+		perceptionLifecycle.deactivateXray();
+		CHECK( perceptionLifecycle.deafnessTurns() == 1 &&
+		       perceptionLifecycle.movementNoiseDirections() == 0 &&
+		       !perceptionLifecycle.xrayActive(),
+		       "perception turn operations age and clear independent sensory state" );
+		perceptionLifecycle.reset();
+		CHECK( perceptionLifecycle.movementNoiseDirections() == 0 &&
+		       perceptionLifecycle.viewRange() == 0 &&
+		       !perceptionLifecycle.isBlinded() &&
+		       perceptionLifecycle.heardNoiseLevel() == 0 &&
+		       !perceptionLifecycle.xrayActive() &&
+		       !perceptionLifecycle.isDeafened(),
+		       "perception reset clears the complete sensory domain" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7848,6 +7922,13 @@ int main( int, char** )
 		       copiedSoldier.collapseState().sleepDrugCounter() == 0 &&
 		       !copiedSoldier.collapseState().fatigueCollapsed(),
 		       "soldier initialization resets the complete collapse domain" );
+		CHECK( copiedSoldier.perception().movementNoiseDirections() == 0 &&
+		       copiedSoldier.perception().viewRange() == 0 &&
+		       !copiedSoldier.perception().isBlinded() &&
+		       copiedSoldier.perception().heardNoiseLevel() == 0 &&
+		       !copiedSoldier.perception().xrayActive() &&
+		       !copiedSoldier.perception().isDeafened(),
+		       "soldier initialization resets the complete perception domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -7981,6 +8062,12 @@ int main( int, char** )
 		legacySoldier->bTurnsCollapsed = 3;
 		legacySoldier->bSleepDrugCounter = 6;
 		legacySoldier->fMercCollapsedFlag = TRUE;
+		legacySoldier->ubMovementNoiseHeard = (1u << 2) | (1u << 6);
+		legacySoldier->bViewRange = 15;
+		legacySoldier->bBlindedCounter = 5;
+		legacySoldier->bNoiseLevel = 1;
+		legacySoldier->uiXRayActivatedTime = 12346;
+		legacySoldier->bDeafenedCounter = 4;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8014,6 +8101,14 @@ int main( int, char** )
 		       convertedSoldier.collapseState().sleepDrugCounter() == 6 &&
 		       convertedSoldier.collapseState().fatigueCollapsed(),
 		       "v101 soldier conversion retains tactical and strategic collapse state" );
+		CHECK( convertedSoldier.perception().hasHeardMovementFrom(2) &&
+		       convertedSoldier.perception().hasHeardMovementFrom(6) &&
+		       convertedSoldier.perception().viewRange() == 15 &&
+		       convertedSoldier.perception().blindnessTurns() == 5 &&
+		       convertedSoldier.perception().heardNoiseLevel() == 1 &&
+		       convertedSoldier.perception().xrayActivatedAt() == 12346 &&
+		       convertedSoldier.perception().deafnessTurns() == 4,
+		       "v101 soldier conversion retains sensory range, memory, effects, and X-ray lifetime" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8165,6 +8260,13 @@ int main( int, char** )
 		savedSoldier.collapseState().turns() = 4;
 		savedSoldier.collapseState().sleepDrugCounter() = 8;
 		savedSoldier.collapseState().markFatigueCollapse();
+		savedSoldier.perception().rememberMovementFrom(3);
+		savedSoldier.perception().rememberMovementFrom(7);
+		savedSoldier.perception().viewRange() = 17;
+		savedSoldier.perception().setBlindness(6);
+		savedSoldier.perception().heardNoiseLevel() = 1;
+		savedSoldier.perception().activateXrayAt(12347);
+		savedSoldier.perception().setDeafness(5);
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8298,6 +8400,15 @@ int main( int, char** )
 		       loadedSoldier.collapseState().sleepDrugCounter() == 8 &&
 		       loadedSoldier.collapseState().fatigueCollapsed(),
 		       "soldier save/load round-trips collapse state at established flags and POD positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.perception().hasHeardMovementFrom(3) &&
+		       loadedSoldier.perception().hasHeardMovementFrom(7) &&
+		       loadedSoldier.perception().viewRange() == 17 &&
+		       loadedSoldier.perception().blindnessTurns() == 6 &&
+		       loadedSoldier.perception().heardNoiseLevel() == 1 &&
+		       loadedSoldier.perception().xrayActivatedAt() == 12347 &&
+		       loadedSoldier.perception().deafnessTurns() == 5,
+		       "soldier save/load round-trips perception state at established POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

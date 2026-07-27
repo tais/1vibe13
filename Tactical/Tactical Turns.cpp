@@ -272,7 +272,7 @@ void HandleTacticalEndTurn( )
 					HandlePlayerServices( pSoldier );
 
 					// if time is up, turn off xray
-					if ( pSoldier->uiXRayActivatedTime && uiTime > pSoldier->uiXRayActivatedTime + XRAY_TIME )
+					if ( pSoldier->perception().xrayActive() && uiTime > pSoldier->perception().xrayActivatedAt() + XRAY_TIME )
 					{
 						TurnOffXRayEffects( pSoldier );
 					}
