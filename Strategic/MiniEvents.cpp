@@ -332,7 +332,7 @@ namespace MiniEventHelpers
 				
 				if (amount < 0)
 				{
-					merc->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] -= amount;
+					merc->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] -= amount;
 					gMercProfiles[merc->ubProfile].bLifeMax = merc->vitals().maximumHealth();
 					gMercProfiles[merc->ubProfile].bLife = min(gMercProfiles[merc->ubProfile].bLife, gMercProfiles[merc->ubProfile].bLifeMax);
 					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
@@ -351,7 +351,7 @@ namespace MiniEventHelpers
 
 				if (amount < 0)
 				{
-					merc->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH] -= amount;
+					merc->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] -= amount;
 					gMercProfiles[merc->ubProfile].bStrength = merc->stats.bStrength;
 					merc->usValueGoneUp &= ~( STRENGTH_INCREASE );
 				}
@@ -369,7 +369,7 @@ namespace MiniEventHelpers
 
 				if (amount < 0)
 				{
-					merc->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] -= amount;
+					merc->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] -= amount;
 					gMercProfiles[merc->ubProfile].bAgility = merc->stats.bAgility;
 					merc->usValueGoneUp &= ~( AGIL_INCREASE );
 				}
@@ -387,7 +387,7 @@ namespace MiniEventHelpers
 
 				if (amount < 0)
 				{
-					merc->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY] -= amount;
+					merc->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] -= amount;
 					gMercProfiles[merc->ubProfile].bDexterity = merc->stats.bDexterity;
 					merc->usValueGoneUp &= ~( DEX_INCREASE );
 				}
@@ -405,7 +405,7 @@ namespace MiniEventHelpers
 
 				if (amount < 0)
 				{
-					merc->ubCriticalStatDamage[DAMAGED_STAT_WISDOM] -= amount;
+					merc->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] -= amount;
 					gMercProfiles[merc->ubProfile].bWisdom = merc->stats.bWisdom;
 					merc->usValueGoneUp &= ~( WIS_INCREASE );
 				}

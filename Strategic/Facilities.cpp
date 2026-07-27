@@ -1208,7 +1208,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bStrength += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_STRENGTH ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] -= Result;
 							}
 							else
 							{
@@ -1260,7 +1260,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bAgility += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_AGILITY ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] -= Result;
 							}
 							else
 							{
@@ -1312,7 +1312,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bDexterity += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_DEXTERITY ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] -= Result;
 							}
 							else
 							{
@@ -1364,7 +1364,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bWisdom += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_WISDOM ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] -= Result;
 							}
 							else
 							{
@@ -1417,7 +1417,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->vitals().health() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_HEALTH ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_HEALTH ] -= Result;
 							}
 							else
 							{
@@ -1489,7 +1489,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bMarksmanship += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_MARKSMANSHIP ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MARKSMANSHIP ] -= Result;
 							}
 							else
 							{
@@ -1541,7 +1541,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bLeadership += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_LEADERSHIP ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_LEADERSHIP ] -= Result;
 							}
 							else
 							{
@@ -1593,7 +1593,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bMechanical += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_MECHANICAL ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MECHANICAL ] -= Result;
 							}
 							else
 							{
@@ -1645,7 +1645,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bMedical += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_MEDICAL ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MEDICAL ] -= Result;
 							}
 							else
 							{
@@ -1697,7 +1697,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							pSoldier->stats.bExplosive += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
-								pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_EXPLOSIVES ] -= Result;
+								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_EXPLOSIVES ] -= Result;
 							}
 							else
 							{
@@ -1852,45 +1852,45 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								// WISDOM decrease
 								if ( pSoldier->stats.bWisdom > 5 )
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_WISDOM ] += 5;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] += 5;
 									pSoldier->stats.bWisdom -= 5;
 								}
 								else
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_WISDOM ] += (pSoldier->stats.bWisdom - 1);
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] += (pSoldier->stats.bWisdom - 1);
 									pSoldier->stats.bWisdom = 1;
 								}
 								// DEXTERITY decrease
 								if ( pSoldier->stats.bDexterity > 5 )
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_DEXTERITY ] += 5;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] += 5;
 									pSoldier->stats.bDexterity -= 5;
 								}
 								else
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_DEXTERITY ] += (pSoldier->stats.bDexterity - 1);
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] += (pSoldier->stats.bDexterity - 1);
 									pSoldier->stats.bDexterity = 1;
 								}
 								// STRENGTH decrease
 								if ( pSoldier->stats.bStrength > 5 )
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_STRENGTH ] += 5;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] += 5;
 									pSoldier->stats.bStrength -= 5;
 								}
 								else
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_STRENGTH ] += (pSoldier->stats.bStrength - 1);
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] += (pSoldier->stats.bStrength - 1);
 									pSoldier->stats.bStrength = 1;
 								}
 								// AGILITY decrease
 								if ( pSoldier->stats.bAgility > 5 )
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_AGILITY ] += 5;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] += 5;
 									pSoldier->stats.bAgility -= 5;
 								}
 								else
 								{
-									pSoldier->ubCriticalStatDamage[ DAMAGED_STAT_AGILITY ] += (pSoldier->stats.bAgility - 1);
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] += (pSoldier->stats.bAgility - 1);
 									pSoldier->stats.bAgility = 1;
 								}
 							}

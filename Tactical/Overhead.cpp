@@ -6188,7 +6188,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
                         uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
 
                         // Determine if they are all banagded
-                        if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->iHealableInjury >= 100 && pTeamSoldier->fDoingSurgery)) // check for surgery added by SANDRO
+                        if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->vitals().healableInjury() >= 100 && pTeamSoldier->vitals().undergoingSurgery())) // check for surgery added by SANDRO
                         {
                             if ( fThrowMessage ) // throw message "all bandaged" only if there was something to bandage - SANDRO
                                 ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_ALL_BANDAGED_STR ], pTargetSoldier->GetName() );
@@ -6273,7 +6273,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
                     uiPointsUsed = pTeamSoldier->SoldierDressWound( pTargetSoldier, usKitPts, usKitPts );
 
                     // Determine if they are all banagded
-                    if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->iHealableInjury >= 100 && pTeamSoldier->fDoingSurgery)) // check for surgery added by SANDRO
+                    if ( !pTargetSoldier->vitals().bleeding() && pTargetSoldier->vitals().health() >= OKLIFE && !(pTargetSoldier->vitals().healableInjury() >= 100 && pTeamSoldier->vitals().undergoingSurgery())) // check for surgery added by SANDRO
                     {
                         if ( fThrowMessage ) // throw message "all bandaged" only if there was something to bandage - SANDRO
                             ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MERC_IS_ALL_BANDAGED_STR ], pTargetSoldier->GetName() );
@@ -6299,7 +6299,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
                         else
                         {
                             // SANDRO - on surgery, only search for medic bags
-                            if (pTeamSoldier->fDoingSurgery)
+                            if (pTeamSoldier->vitals().undergoingSurgery())
                             {
                                 bSlot = FindMedKit ( pTeamSoldier );
                             }
@@ -7858,9 +7858,9 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                     if ( pTeamSoldier->vitals().health() < OKLIFE )
                     {
                         // SANDRO - the insta-healable value for doctor trait check
-                        pTeamSoldier->iHealableInjury -= ((OKLIFE - pTeamSoldier->vitals().health()) * 100);
-                        if (pTeamSoldier->iHealableInjury < 0)
-                            pTeamSoldier->iHealableInjury = 0;
+                        pTeamSoldier->vitals().healableInjury() -= ((OKLIFE - pTeamSoldier->vitals().health()) * 100);
+                        if (pTeamSoldier->vitals().healableInjury() < 0)
+                            pTeamSoldier->vitals().healableInjury() = 0;
 
                         pTeamSoldier->vitals().health() = OKLIFE;
                     }

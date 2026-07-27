@@ -1622,7 +1622,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		pNewSoldier->awareness().lastRenderedVisibility()				= pSoldier->awareness().lastRenderedVisibility();
 		pNewSoldier->awareness().visibility()												= pSoldier->awareness().visibility();
 		// added by SANDRO - insta-healable injury zero on soldier creation
-		pNewSoldier->iHealableInjury = pSoldier->iHealableInjury; 
+		pNewSoldier->vitals().healableInjury() = pSoldier->vitals().healableInjury();
 		
 		// WANNE: Fix a vanilla bug: When a soldier changed team (e.g. getting hostile), he lost his camouflage.
 		// Fixed by Tron (Stracciatella): Revision: 7055

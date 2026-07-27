@@ -1834,7 +1834,7 @@ void HandleInitialEventsInHeliCrash()
 		if( pSoldier->bActive )
 		{
 			pSoldier->vitals().health() -= ( 3 + Random( 5 ) );
-			pSoldier->sBreathRed = ( 15 + Random( 15 ) ) * 100;
+			pSoldier->vitals().breathReduction() = ( 15 + Random( 15 ) ) * 100;
 			pSoldier->actionPoints().current() = 0;
 		}
 	}

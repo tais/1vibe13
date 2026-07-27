@@ -1680,7 +1680,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					if ( ubStatLoss > 0 )
 					{
 						pSoldier->stats.bWisdom -= ubStatLoss;
-						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_WISDOM] += ubStatLoss;
+						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
@@ -1713,7 +1713,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					if ( ubStatLoss > 0 )
 					{
 						pSoldier->stats.bDexterity -= ubStatLoss;
-						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY] += ubStatLoss;
+						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
@@ -1747,7 +1747,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					{
 						pSoldier->stats.bStrength -= ubStatLoss;
 						// added this for healing lost stats feature
-						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH] += ubStatLoss;
+						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
@@ -1781,7 +1781,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					{
 						pSoldier->stats.bAgility -= ubStatLoss;
 						// added this for healing lost stats feature
-						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] += ubStatLoss;
+						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
@@ -1819,7 +1819,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					{
 						pSoldier->vitals().maximumHealth() -= ubStatLoss;
 						pSoldier->vitals().bleeding() -= ubStatLoss;
-						pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] += ubStatLoss;
+						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
@@ -4056,7 +4056,7 @@ void HandleExplosionQueue( void )
 							pSoldier->stats.bAgility -= bStatLoss;
 
 							// SANDRO - added this for healing lost stats feature
-							pSoldier->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] += bStatLoss;
+							pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
 							if ( pSoldier->ubProfile != NO_PROFILE )
 							{

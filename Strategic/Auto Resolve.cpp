@@ -735,9 +735,9 @@ static void RefreshMerc( SOLDIERTYPE *pSoldier )
 {
 	pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 	pSoldier->vitals().bleeding() = 0;
-	pSoldier->iHealableInjury = 0; // added by SANDRO
+	pSoldier->vitals().healableInjury() = 0; // added by SANDRO
 	pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 100;
-	pSoldier->sBreathRed = 0;
+	pSoldier->vitals().breathReduction() = 0;
 	if( gpAR->pRobotCell)
 	{
 		gpAR->pRobotCell->pSoldier->UpdateRobotControllerGivenRobot(	);
@@ -4931,9 +4931,9 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		// SANDRO - added the insta-healable value for doctor trait
 		else if ((IS_MERC_BODY_TYPE( pTarget->pSoldier ) || IS_CIV_BODY_TYPE( pTarget->pSoldier )) && ( gGameOptions.fNewTraitSystem ))
 		{
-			pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
-			if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
-				pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
+			pTarget->pSoldier->vitals().healableInjury() += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
+			if (pTarget->pSoldier->vitals().healableInjury() > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
+				pTarget->pSoldier->vitals().healableInjury() = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
 		}
 		///////////////////////////////////////////////////////////////
 		//Adjust the soldiers stats based on the damage.
@@ -4952,8 +4952,8 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		if( !pTarget->pSoldier->vitals().health() )
 		{
 			// SANDRO - added check to erase insta-healable amount of HPs if dead
-			if (pTarget->pSoldier->iHealableInjury > 0)
-			{ pTarget->pSoldier->iHealableInjury = 0; } 
+			if (pTarget->pSoldier->vitals().healableInjury() > 0)
+			{ pTarget->pSoldier->vitals().healableInjury() = 0; }
 
 			gpAR->fRenderAutoResolve = TRUE;
 			#ifdef INVULNERABILITY
@@ -5253,9 +5253,9 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	// SANDRO - added the insta-healable value for doctor trait
 	else if ((IS_MERC_BODY_TYPE( pTarget->pSoldier ) || IS_CIV_BODY_TYPE( pTarget->pSoldier )) && ( gGameOptions.fNewTraitSystem ))
 	{
-		pTarget->pSoldier->iHealableInjury += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
-		if (pTarget->pSoldier->iHealableInjury > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
-			pTarget->pSoldier->iHealableInjury = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
+		pTarget->pSoldier->vitals().healableInjury() += ((pTarget->pSoldier->vitals().health() - iNewLife) * 100);
+		if (pTarget->pSoldier->vitals().healableInjury() > ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100))
+			pTarget->pSoldier->vitals().healableInjury() = ((pTarget->pSoldier->vitals().maximumHealth() - pTarget->pSoldier->vitals().health()) * 100);
 	}
 	///////////////////////////////////////////////////////////////
 	//Adjust the soldiers stats based on the damage.
@@ -5272,8 +5272,8 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	if( !pTarget->pSoldier->vitals().health() )
 	{
 		// SANDRO - added check to erase insta-healable amount of HPs if dead
-		if (pTarget->pSoldier->iHealableInjury > 0)
-		{ pTarget->pSoldier->iHealableInjury = 0; } 
+		if (pTarget->pSoldier->vitals().healableInjury() > 0)
+		{ pTarget->pSoldier->vitals().healableInjury() = 0; }
 
 		gpAR->fRenderAutoResolve = TRUE;
 		if( pTarget->uiFlags & CELL_MERC )
@@ -5406,7 +5406,7 @@ BOOLEAN IsBattleOver()
 				{
 					gpMercs[ i ].pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
 					gpMercs[ i ].pSoldier->vitals().health() = 0;
-					gpMercs[ i ].pSoldier->iHealableInjury = 0; // added by SANDRO
+					gpMercs[ i ].pSoldier->vitals().healableInjury() = 0; // added by SANDRO
 					--gpAR->ubAliveMercs;
 				}
 			}

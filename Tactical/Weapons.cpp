@@ -8409,7 +8409,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 							{
 								pTarget->stats.bWisdom -= bStatLoss;
 								// SANDRO - added this for healing lost stats feature
-								pTarget->ubCriticalStatDamage[DAMAGED_STAT_WISDOM] += bStatLoss;
+								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += bStatLoss;
 
 								if (pTarget->ubProfile != NO_PROFILE)
 								{
@@ -8467,7 +8467,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									pTarget->vitals().maximumHealth() -= bStatLoss;
 									pTarget->vitals().bleeding() -= bStatLoss;
 									// SANDRO - added this for healing lost stats feature
-									pTarget->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] += bStatLoss;
+									pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] += bStatLoss;
 
 									if (pTarget->ubProfile != NO_PROFILE)
 									{
@@ -8504,7 +8504,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									{
 										pTarget->stats.bDexterity -= bStatLoss;
 										// SANDRO - added this for healing lost stats feature
-										pTarget->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY] += bStatLoss;
+										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += bStatLoss;
 
 										if (pTarget->ubProfile != NO_PROFILE)
 										{
@@ -8541,7 +8541,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									{
 										pTarget->stats.bStrength -= bStatLoss;
 										// SANDRO - added this for healing lost stats feature
-										pTarget->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH] += bStatLoss;
+										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += bStatLoss;
 
 										if (pTarget->ubProfile != NO_PROFILE)
 										{
@@ -8579,7 +8579,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 							{
 								pTarget->stats.bAgility -= bStatLoss;
 								// SANDRO - added this for healing lost stats feature
-								pTarget->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] += bStatLoss;
+								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
 								if (pTarget->ubProfile != NO_PROFILE)
 								{

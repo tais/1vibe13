@@ -664,13 +664,13 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 			if ( fChangeTypeIncrease && (bDamagedStatToRaise != -1) )
 			{
 				INT16 ptstolower = sPtsChanged;
-				UINT8 oldctrpts = pSoldier->ubCriticalStatDamage[ bDamagedStatToRaise ];
+				UINT8 oldctrpts = pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ];
 
-				if (pSoldier->ubCriticalStatDamage[ bDamagedStatToRaise ] > 0)
+				if (pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ] > 0)
 				{
-					pSoldier->ubCriticalStatDamage[ bDamagedStatToRaise ] = max( 0, (pSoldier->ubCriticalStatDamage[ bDamagedStatToRaise ] - ptstolower));
+					pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ] = max( 0, (pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ] - ptstolower));
 
-					ptstolower -= oldctrpts - pSoldier->ubCriticalStatDamage[ bDamagedStatToRaise ];
+					ptstolower -= oldctrpts - pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ];
 				}
 								
 				if ( bDamagedStatToRaise == DAMAGED_STAT_STRENGTH && pSoldier->usStarveDamageStrength > 0 )

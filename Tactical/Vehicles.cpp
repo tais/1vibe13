@@ -243,7 +243,7 @@ void SetVehicleValuesIntoSoldierType( SOLDIERTYPE *pVehicle )
 	pVehicle->ubProfile = pVehicleList[ pVehicle->bVehicleID ].ubProfileID;
 
 	// Init fuel!
-	pVehicle->sBreathRed = 10000;
+	pVehicle->vitals().breathReduction() = 10000;
 	pVehicle->vitals().breath()	= 100;
 
 	pVehicle->employment().mercenaryType() = MERC_TYPE__VEHICLE;
@@ -2885,7 +2885,7 @@ void AddVehicleFuelToSave( )
 	 if( pVehicleSoldier )
 		{
 		// Init fuel!
-		pVehicleSoldier->sBreathRed = 10000;
+		pVehicleSoldier->vitals().breathReduction() = 10000;
 		pVehicleSoldier->vitals().breath()	= 100;
 		}
 	}

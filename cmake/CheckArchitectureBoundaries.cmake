@@ -1843,9 +1843,10 @@ if(NOT legacy_plot_source_grid_occurrence_count EQUAL 1)
     "sPlotSrcGrid must exist only in the v101 compatibility record; current runtime path scratch belongs to SoldierRuntimeComponents")
 endif()
 
-# Serialized soldier vitals have completed the next storage cut. Their
-# historical byte positions remain in the explicit field serializer, but the
-# live values must have exactly one in-memory owner: SoldierVitalsComponent.
+# Serialized soldier vitals and recovery state have completed the next storage
+# cut. Their historical byte positions remain in the explicit field serializer,
+# but the live values must have exactly one in-memory owner:
+# SoldierVitalsComponent.
 string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Statistics//last edited at version 102"
   current_soldier_stats_begin)
@@ -1908,9 +1909,23 @@ foreach(retired_stat_field IN ITEMS bLife bLifeMax)
       "Retired STRUCT_Statistics field '${retired_stat_field}' returned; canonical health belongs to SoldierVitalsComponent")
   endif()
 endforeach()
-foreach(retired_vital_field IN ITEMS bBleeding bBreath bBreathMax)
+foreach(retired_vital_field IN ITEMS
+  bBleeding
+  bBreath
+  bBreathMax
+  bOldLife
+  sFractLife
+  sBreathRed
+  iHealableInjury
+  fDoingSurgery
+  lUnregainableBreath
+  ubCriticalStatDamage
+  dNextBleed
+  bRegenerationCounter
+  bRegenBoostersUsedToday
+  uiTimeSinceLastBleedGrunt)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+${retired_vital_field}[ \t]*;"
+    "(^|[^A-Za-z0-9_])${retired_vital_field}([^A-Za-z0-9_]|$)"
     retired_current_soldier_vital
     "${current_soldier_contents}")
   if(retired_current_soldier_vital)
@@ -1931,37 +1946,142 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
   soldier_components_header_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   soldier_control_source_contents)
-foreach(owned_vital_field IN ITEMS
-  health
-  maximumHealth
-  breath
-  maximumBreath
-  bleeding)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.cpp"
+  soldier_components_source_contents)
+foreach(owned_vital_pattern IN ITEMS
+  "INT8[ \t]+health_[ \t]*=[ \t]*0"
+  "INT8[ \t]+maximumHealth_[ \t]*=[ \t]*0"
+  "INT8[ \t]+breath_[ \t]*=[ \t]*0"
+  "INT8[ \t]+maximumBreath_[ \t]*=[ \t]*0"
+  "INT8[ \t]+bleeding_[ \t]*=[ \t]*0"
+  "INT8[ \t]+previousHealth_[ \t]*=[ \t]*0"
+  "INT16[ \t]+fractionalHealth_[ \t]*=[ \t]*0"
+  "INT16[ \t]+breathReduction_[ \t]*=[ \t]*0"
+  "INT32[ \t]+healableInjury_[ \t]*=[ \t]*0"
+  "BOOLEAN[ \t]+undergoingSurgery_[ \t]*=[ \t]*FALSE"
+  "signed[ \t]+long[ \t]+unregainableBreath_[ \t]*=[ \t]*0"
+  "CriticalStatDamage[ \t]+criticalStatDamage_[ \t]*=[ \t]*\\{\\}"
+  "FLOAT[ \t]+nextBleedAt_[ \t]*=[ \t]*0"
+  "INT8[ \t]+regenerationCounter_[ \t]*=[ \t]*0"
+  "INT8[ \t]+regenerationBoostersUsedToday_[ \t]*=[ \t]*0"
+  "INT32[ \t]+lastBleedGruntAt_[ \t]*=[ \t]*0")
   string(REGEX MATCH
-    "INT8[ \t]+${owned_vital_field}_[ \t]*=[ \t]*0[ \t]*;"
+    "${owned_vital_pattern}"
     owned_soldier_vital
     "${soldier_components_header_contents}")
   if(NOT owned_soldier_vital)
     message(FATAL_ERROR
-      "SoldierVitalsComponent no longer owns '${owned_vital_field}_'; do not recreate a compatibility facade")
+      "SoldierVitalsComponent lost initialized owned storage matching '${owned_vital_pattern}'; do not recreate a compatibility facade")
   endif()
 endforeach()
 
+foreach(vital_accessor IN ITEMS
+  health
+  maximumHealth
+  breath
+  maximumBreath
+  bleeding
+  previousHealth
+  fractionalHealth
+  breathReduction
+  healableInjury
+  undergoingSurgery
+  unregainableBreath
+  criticalStatDamage
+  nextBleedAt
+  regenerationCounter
+  regenerationBoostersUsedToday
+  lastBleedGruntAt)
+  string(REGEX MATCH
+    "${vital_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_vital_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_vital_accessor)
+    message(FATAL_ERROR
+      "SoldierVitalsComponent lost the '${vital_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(vital_operation IN ITEMS
+  "bool hasHealableInjury() const noexcept"
+  "bool isUndergoingSurgery() const noexcept"
+  "void snapshotHealth() noexcept"
+  "void beginSurgery() noexcept"
+  "void finishSurgery() noexcept"
+  "void clearCriticalStatDamage() noexcept"
+  "void applyLifeDeduction(INT16 lifeDeduction)"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${vital_operation}"
+    owned_soldier_vital_operation)
+  if(owned_soldier_vital_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierVitalsComponent lost required lifecycle operation '${vital_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierVitalsComponent{};"
+  soldier_vitals_default_reset)
+string(REGEX MATCHALL
+  "vitals\\(\\)\\.reset\\(\\);"
+  soldier_vitals_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_vitals_reset_sites soldier_vitals_reset_site_count)
+if(soldier_vitals_default_reset EQUAL -1 OR
+   soldier_vitals_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierVitalsComponent must reset as one value during both v101 conversion and current soldier initialization")
+endif()
+
 # Preserve the established save byte order independently of the new in-memory
-# layout: bleeding/breath/max-breath remain in the POD field list, while
-# health/max-health remain immediately after experience level in XferStats.
+# layout. Health/max-health remain immediately after experience level in
+# XferStats; every other vital remains at its scattered historical POD site and
+# keeps its established visitor width.
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   save_load_game_contents)
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.vitals\\(\\)\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(s\\.vitals\\(\\)\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(s\\.vitals\\(\\)\\.maximumBreath\\(\\)\\);"
+  "ar\\.i8\\(vitals\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumBreath\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bStealthMode\\);[ \t]*ar\\.i16\\(vitals\\.breathReduction\\(\\)\\);"
   serialized_soldier_breath_order
   "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.i8\\(s\\.bExpLevel\\);[ \t]*ar\\.i8\\(vitals\\.health\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumHealth\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bStrength\\);"
   serialized_soldier_health_order
   "${save_load_game_contents}")
+string(FIND "${save_load_game_contents}"
+  "ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);"
+  serialized_soldier_previous_health_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(vitals.fractionalHealth());"
+  serialized_soldier_fractional_health_position)
+string(FIND "${save_load_game_contents}"
+  "ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());"
+  serialized_soldier_injury_position)
+string(FIND "${save_load_game_contents}"
+  "for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);"
+  serialized_soldier_critical_damage_position)
+string(FIND "${save_load_game_contents}"
+  "ar.i8(s.bTilesMoved); ar.f32(vitals.nextBleedAt());"
+  serialized_soldier_next_bleed_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
+  serialized_soldier_regeneration_counter_position)
+string(FIND "${save_load_game_contents}"
+  "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);"
+  serialized_soldier_regeneration_booster_position)
+string(FIND "${save_load_game_contents}"
+  "ar.i32(vitals.lastBleedGruntAt()); ar.u16(combatResult.earlierAttacker().i);"
+  serialized_soldier_bleed_grunt_position)
 if(NOT serialized_soldier_breath_order OR
-   NOT serialized_soldier_health_order)
+   NOT serialized_soldier_health_order OR
+   serialized_soldier_previous_health_position EQUAL -1 OR
+   serialized_soldier_fractional_health_position EQUAL -1 OR
+   serialized_soldier_injury_position EQUAL -1 OR
+   serialized_soldier_critical_damage_position EQUAL -1 OR
+   serialized_soldier_next_bleed_position EQUAL -1 OR
+   serialized_soldier_regeneration_counter_position EQUAL -1 OR
+   serialized_soldier_regeneration_booster_position EQUAL -1 OR
+   serialized_soldier_bleed_grunt_position EQUAL -1)
   message(FATAL_ERROR
     "Soldier vitals moved in the portable save schema; keep their established byte order while storage evolves")
 endif()
@@ -2033,7 +2153,7 @@ if(soldier_action_point_begin_turn EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubBodyType\\);[ \t\r\n]*ar\\.i16\\(actionPoints\\.current\\(\\)\\);[ \t]*ar\\.i16\\(actionPoints\\.initial\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.bOldLife\\);"
+  "ar\\.u8\\(s\\.ubBodyType\\);[ \t\r\n]*ar\\.i16\\(actionPoints\\.current\\(\\)\\);[ \t]*ar\\.i16\\(actionPoints\\.initial\\(\\)\\);[ \t\r\n]*ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);"
   serialized_soldier_action_point_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_action_point_order)
@@ -2245,7 +2365,7 @@ string(REGEX MATCH
   serialized_soldier_blindness_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubPendingActionInterrupted\\);[ \t]*ar\\.i8\\(perception\\.heardNoiseLevel\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bRegenerationCounter\\);"
+  "ar\\.u8\\(s\\.ubPendingActionInterrupted\\);[ \t]*ar\\.i8\\(perception\\.heardNoiseLevel\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.regenerationCounter\\(\\)\\);"
   serialized_soldier_heard_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2350,7 +2470,7 @@ if(soldier_awareness_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bOldLife\\);[ \t]*ar\\.i8\\(awareness\\.visibility\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bActive\\);[ \t]*ar\\.i8\\(s\\.bTeam\\);"
+  "ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.visibility\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bActive\\);[ \t]*ar\\.i8\\(s\\.bTeam\\);"
   serialized_soldier_awareness_visibility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3680,7 +3800,7 @@ string(REGEX MATCH
   serialized_soldier_hit_location_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bRegenBoostersUsedToday\\);[ \t]*ar\\.i8\\(combatResult\\.pelletsHitBy\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sSkillCheckGridNo\\);"
+  "ar\\.i8\\(vitals\\.regenerationBoostersUsedToday\\(\\)\\);[ \t]*ar\\.i8\\(combatResult\\.pelletsHitBy\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sSkillCheckGridNo\\);"
   serialized_soldier_pellet_hits_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3688,7 +3808,7 @@ string(REGEX MATCH
   serialized_soldier_damage_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.uiTimeSinceLastBleedGrunt\\);[ \t]*ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);"
+  "ar\\.i32\\(vitals\\.lastBleedGruntAt\\(\\)\\);[ \t]*ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);"
   serialized_soldier_earlier_attacker_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_damage_display_flag_order OR

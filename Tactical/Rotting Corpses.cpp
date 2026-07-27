@@ -3044,7 +3044,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		}
 			
 		pNewSoldier->actionPoints().beginTurn(60);
-		pNewSoldier->sBreathRed				= 0;
+		pNewSoldier->vitals().breathReduction()				= 0;
 
 		pNewSoldier->deployment().insertionDirection()	= pCorpse->def.ubDirection;
 

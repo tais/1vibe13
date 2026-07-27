@@ -1664,6 +1664,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 {
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
+	SoldierVitalsComponent& vitals = s.vitals();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1682,14 +1683,14 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
-	ar.i8(s.bOldLife); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);
+	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
-	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(s.sFractLife);
-	ar.i8(s.vitals().bleeding()); ar.i8(s.vitals().breath()); ar.i8(s.vitals().maximumBreath()); ar.i8(s.bStealthMode); ar.i16(s.sBreathRed);
+	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(vitals.fractionalHealth());
+	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(s.bStealthMode); ar.i16(vitals.breathReduction());
 	ar.u8(s.ubWaitActionToDo); ar.i8(deployment.insertionDirection()); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
 	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(s.sWeightCarriedAtTurnStart);
-	ar.i32(s.iHealableInjury); ar.boolean(s.fDoingSurgery); ar.slong(s.lUnregainableBreath);
-	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(s.ubCriticalStatDamage[i]);
+	ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());
+	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);
 	ar.u8(deployment.groupId()); ar.u8(perception.movementNoiseDirections());
 	ar.f32(s.dXPos); ar.f32(s.dYPos); ar.i16(s.sOldXPos); ar.i16(s.sOldYPos);
 	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
@@ -1712,7 +1713,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceX()[i]);
 	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceY()[i]);
 	ar.f32(fireControl.initialMuzzleOffsetX()); ar.f32(fireControl.initialMuzzleOffsetY());
-	ar.i8(s.bTilesMoved); ar.f32(s.dNextBleed);
+	ar.i8(s.bTilesMoved); ar.f32(vitals.nextBleedAt());
 	ar.u8(s.ubTilesMovedPerRTBreathUpdate); ar.u16(s.usLastMovementAnimPerRTBreathUpdate);
 	ar.i16(s.sLocatorFrame); ar.i32(s.iFaceIndex);
 	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.u16(s.usFrontArcFullTileList[i]);
@@ -1778,8 +1779,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
 	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
-	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(s.bRegenerationCounter);
-	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
+	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());
+	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
 	ar.u16(s.ubLastEnemyCycledID.i);
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(s.uiBattleSoundID); ar.u16(s.usValueGoneUp);
@@ -1796,7 +1797,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(employment.insuranceStartTime()); ar.i8(s.bCorpseQuoteTolerance); ar.i8(perception.deafnessTurns());
 	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
-	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(combatResult.earlierAttacker().i);
+	ar.i32(vitals.lastBleedGruntAt()); ar.u16(combatResult.earlierAttacker().i);
 	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
 	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
 	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());

@@ -3128,7 +3128,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 				else if (ItemIsMedicalKit(usItem) && (NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery)
 					&& (pTSoldier->bTeam == OUR_TEAM || pTSoldier->bTeam == MILITIA_TEAM) 
 					&& (IS_MERC_BODY_TYPE( pTSoldier ) || IS_CIV_BODY_TYPE( pTSoldier )) 
-					&& GetGameContext().options().fNewTraitSystem && pTSoldier->iHealableInjury >= 100
+					&& GetGameContext().options().fNewTraitSystem && pTSoldier->vitals().healableInjury() >= 100
 					&& pTSoldier->ubID != pSoldier->ubID && gTacticalStatus.ubLastRequesterSurgeryTargetID != pTSoldier->ubID )
 				{
 					CHAR16	zStr[200];
@@ -3141,7 +3141,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 	
 					fDidRequester = TRUE;
 
-					INT32 healwithout_bloodbag = pTSoldier->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
+					INT32 healwithout_bloodbag = pTSoldier->vitals().healableInjury() * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 	
 					// Flugente: if we wouldn't really heal anything due to the wound being too small, tell us so
 					if ( !pTSoldier->vitals().bleeding() && healwithout_bloodbag <= 0 )
@@ -3154,7 +3154,7 @@ UINT32 UIHandleCAMercShoot( UI_EVENT *pUIEvent )
 						// Flugente: check whether we have a bloodbag we can use
 						INT32 healwith_bloodbag = -1;
 						if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pSoldier->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
-							healwith_bloodbag = pTSoldier->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
+							healwith_bloodbag = pTSoldier->vitals().healableInjury() * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 
 						if ( healwith_bloodbag > healwithout_bloodbag )
 						{
@@ -5143,7 +5143,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 
 		// SANDRO - doctor with medical bag trying to do the surgery
 		if ((NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) && ItemIsMedicalKit(pSoldier->inv[ HANDPOS ].usItem) && GetGameContext().options().fNewTraitSystem
-			&& (pTSoldier->vitals().health() != pTSoldier->vitals().maximumHealth()) && (pTSoldier->iHealableInjury >= 100))
+			&& (pTSoldier->vitals().health() != pTSoldier->vitals().maximumHealth()) && (pTSoldier->vitals().healableInjury() >= 100))
 		{
 			// should come a question first if you really want to do the surgery
 			return( TRUE );

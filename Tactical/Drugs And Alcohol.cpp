@@ -234,13 +234,13 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 		//SANDRO - Insta-healable injury reduction
 		if ( pSoldier->newdrugs.size[DRUG_EFFECT_HP] > 0 )
 		{
-			pSoldier->iHealableInjury = max( 0, (pSoldier->iHealableInjury - (100 * pSoldier->newdrugs.size[DRUG_EFFECT_HP])) );
+			pSoldier->vitals().healableInjury() = max( 0, (pSoldier->vitals().healableInjury() - (100 * pSoldier->newdrugs.size[DRUG_EFFECT_HP])) );
 		}
 
 		if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
 		{
 			pSoldier->vitals().bleeding() = 0;
-			pSoldier->iHealableInjury = 0;
+			pSoldier->vitals().healableInjury() = 0;
 		}
 		else if ( pSoldier->vitals().bleeding() + pSoldier->vitals().health() > pSoldier->vitals().maximumHealth() )
 		{

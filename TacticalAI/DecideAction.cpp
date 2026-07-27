@@ -1014,7 +1014,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 			}
 		}
 		// if we are not a medic, but are wounded, seek a medic
-		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
+		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
 			SOLDIERTYPE* person =
@@ -1776,7 +1776,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			}
 		}
 		// if we are not a medic, but are wounded, seek a medic
-		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
+		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
 			SOLDIERTYPE* person =
@@ -3410,7 +3410,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			}
 		}
 		// if we are not a medic, but are wounded, seek a medic
-		else if ( pSoldier->iHealableInjury >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
+		else if ( pSoldier->vitals().healableInjury() >= gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 		{
 			SoldierID ubPerson = GetClosestMedicSoldierID( pSoldier, gGameExternalOptions.sEnemyMedicsSearchRadius / 2, pSoldier->bTeam);
 			SOLDIERTYPE* person =
@@ -10434,7 +10434,7 @@ void LogDecideInfo(SOLDIERTYPE *pSoldier)
 	DebugAI(AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale, pSoldier->aiData.bMorale));
 	DebugAI(AI_MSG_INFO, pSoldier, String("Spot %d level %d opponents %d", pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->aiData.bOppCnt));
-	DebugAI(AI_MSG_INFO, pSoldier, String("ubServiceCount %d ubServicePartner %d fDoingSurgery %d", pSoldier->ubServiceCount, pSoldier->ubServicePartner, pSoldier->fDoingSurgery));
+	DebugAI(AI_MSG_INFO, pSoldier, String("ubServiceCount %d ubServicePartner %d fDoingSurgery %d", pSoldier->ubServiceCount, pSoldier->ubServicePartner, pSoldier->vitals().undergoingSurgery()));
 	if (pSoldier->IsCowering())
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("Cowering"));

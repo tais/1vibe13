@@ -669,21 +669,21 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	{
 		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
-			if (pSoldier->vitals().health() < pSoldier->bOldLife)
+			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{
 				// got injured, maybe call
-				if ((pSoldier->bOldLife == pSoldier->vitals().maximumHealth()) && (pSoldier->bOldLife - pSoldier->vitals().health() > 10))
+				if ((pSoldier->vitals().previousHealth() == pSoldier->vitals().maximumHealth()) && (pSoldier->vitals().previousHealth() - pSoldier->vitals().health() > 10))
 				{
 					// hurt for first time!
 					pSoldier->aiData.usActionData = CALL_CRIPPLED;
-					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
+					pSoldier->vitals().snapshotHealth();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 				else if (pSoldier->vitals().maximumHealth() / pSoldier->vitals().health() > 2)
 				{
 					// crippled, 1/3 or less health!
 					pSoldier->aiData.usActionData = CALL_ATTACKED;
-					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
+					pSoldier->vitals().snapshotHealth();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 			}
@@ -946,16 +946,16 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	{
 		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
 		{
-			if (pSoldier->vitals().health() < pSoldier->bOldLife)
+			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{
 				// got injured, maybe call
 				/*
 				// don't call when crippled and have target... save breath for attacking!
-				if ((pSoldier->bOldLife == pSoldier->vitals().maximumHealth()) && (pSoldier->bOldLife - pSoldier->vitals().health() > 10))
+				if ((pSoldier->vitals().previousHealth() == pSoldier->vitals().maximumHealth()) && (pSoldier->vitals().previousHealth() - pSoldier->vitals().health() > 10))
 				{
 					// hurt for first time!
 					pSoldier->aiData.usActionData = CALL_CRIPPLED;
-					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
+					pSoldier->vitals().snapshotHealth();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 				else
@@ -964,7 +964,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 				{
 					// crippled, 1/3 or less health!
 					pSoldier->aiData.usActionData = CALL_ATTACKED;
-					pSoldier->bOldLife = pSoldier->vitals().health();	// don't want to call more than once
+					pSoldier->vitals().snapshotHealth();	// don't want to call more than once
 					return(AI_ACTION_CREATURE_CALL);
 				}
 			}

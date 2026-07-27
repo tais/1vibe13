@@ -960,16 +960,16 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		// Snap: kill the overflow bug already!
 		// NB: normally, sBreathRed == (100 - bBreath)*APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL]
 		const INT16 BREATH_RED_MAX = 100 * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL];
-		if ( pSoldier->sBreathRed + iBPCost < 0 )
+		if ( pSoldier->vitals().breathReduction() + iBPCost < 0 )
 		{
-			pSoldier->sBreathRed = 0;
+			pSoldier->vitals().breathReduction() = 0;
 		}
-		else if ( pSoldier->sBreathRed + iBPCost > BREATH_RED_MAX )
+		else if ( pSoldier->vitals().breathReduction() + iBPCost > BREATH_RED_MAX )
 		{
 			// Snap: moved this up, because it had no effect below
 			// Take off 1 AP per 5 (negative) breath...
 			//CHRISL: Need to adjust this so that AP lose is based on AP_MAXIMUM
-			pSoldier->actionPoints().current() -= (INT16)( (float)( pSoldier->sBreathRed + iBPCost - BREATH_RED_MAX )
+			pSoldier->actionPoints().current() -= (INT16)( (float)( pSoldier->vitals().breathReduction() + iBPCost - BREATH_RED_MAX )
 									/ (float)( 5 * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL])
 									* (float)(4 * (float)APBPConstants[AP_MAXIMUM] / 100));
 			// HEADROCK HAM 3.1: This may be the problem with suppression - it limits the lower APs to 0, which breaks
@@ -979,15 +979,15 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				pSoldier->actionPoints().current() = APBPConstants[AP_MIN_LIMIT];
 			}
 
-			pSoldier->sBreathRed = BREATH_RED_MAX;
+			pSoldier->vitals().breathReduction() = BREATH_RED_MAX;
 		}
 		else
 		{
-			pSoldier->sBreathRed += iBPCost;
+			pSoldier->vitals().breathReduction() += iBPCost;
 		}
 
 		// Get new breath
-		bNewBreath = ( pSoldier->vitals().maximumBreath() * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL] - pSoldier->sBreathRed )
+		bNewBreath = ( pSoldier->vitals().maximumBreath() * APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL] - pSoldier->vitals().breathReduction() )
 					/ APBPConstants[BP_RATIO_RED_PTS_TO_NORMAL];
 
 		// Snap: This should never happen...
@@ -1431,17 +1431,17 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 		HandleBPEffectDueToDrugs( pSoldier, &sBreathChange );
 
 		// SANDRO - Penalty for breath regain for being hit by Martial artist
-		if ((pSoldier->lUnregainableBreath > 0) && (sBreathChange < 0) && gGameOptions.fNewTraitSystem)
+		if ((pSoldier->vitals().unregainableBreath() > 0) && (sBreathChange < 0) && gGameOptions.fNewTraitSystem)
 		{
-			if (pSoldier->lUnregainableBreath >= (0 - sBreathChange))
+			if (pSoldier->vitals().unregainableBreath() >= (0 - sBreathChange))
 			{
-				pSoldier->lUnregainableBreath += sBreathChange;
+				pSoldier->vitals().unregainableBreath() += sBreathChange;
 				sBreathChange = 0;
 			}
 			else
 			{
-				sBreathChange += (INT16)(pSoldier->lUnregainableBreath);
-				pSoldier->lUnregainableBreath = 0;
+				sBreathChange += (INT16)(pSoldier->vitals().unregainableBreath());
+				pSoldier->vitals().unregainableBreath() = 0;
 			}
 		}
 

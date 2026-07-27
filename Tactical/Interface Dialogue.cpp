@@ -4657,7 +4657,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					// ice cream truck?
 					pSoldier = FindSoldierByProfileID( PROF_ICECREAM, TRUE );
 				}
-				else if ( pSoldier->sBreathRed == 10000 )
+				else if ( pSoldier->vitals().breathReduction() == 10000 )
 				{
 					pSoldier2 = FindSoldierByProfileID( PROF_ICECREAM, TRUE );
 					if ( pSoldier2 )
@@ -4668,7 +4668,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				}
 				if ( pSoldier )
 				{
-					pSoldier->sBreathRed = 10000;
+					pSoldier->vitals().breathReduction() = 10000;
 					pSoldier->vitals().breath()	= 100;
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 50 ] );
 				}
@@ -4741,7 +4741,7 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 	for (UINT8 index = 0; index < NUM_DAMAGABLE_STATS; ++index)
 	{
 		// charge additional $150 for every damaged stat point
-		uiCost += (150 * pSoldier->ubCriticalStatDamage[index]);
+		uiCost += (150 * pSoldier->vitals().criticalStatDamage()[index]);
 	}
 
 	if ( pSoldier->vitals().health() < OKLIFE )

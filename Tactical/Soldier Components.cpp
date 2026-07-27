@@ -4,6 +4,14 @@
 
 bool SoldierVitalsComponent::alive() const noexcept { return health() > 0; }
 
+void SoldierVitalsComponent::clearCriticalStatDamage() noexcept
+{
+	for (UINT8& damage : criticalStatDamage_)
+	{
+		damage = 0;
+	}
+}
+
 void SoldierVitalsComponent::applyLifeDeduction(INT16 lifeDeduction)
 {
 	if (lifeDeduction > health())
@@ -18,11 +26,7 @@ void SoldierVitalsComponent::applyLifeDeduction(INT16 lifeDeduction)
 
 void SoldierVitalsComponent::reset() noexcept
 {
-	health_ = 0;
-	maximumHealth_ = 0;
-	breath_ = 0;
-	maximumBreath_ = 0;
-	bleeding_ = 0;
+	*this = SoldierVitalsComponent{};
 }
 
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept

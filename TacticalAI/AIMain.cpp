@@ -2706,7 +2706,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			}
 			pSoldier->ubServiceCount = 0;
 			pSoldier->ubServicePartner = NOBODY;
-			pSoldier->fDoingSurgery = FALSE;
+			pSoldier->vitals().finishSurgery();
 			ActionDone(pSoldier);
 			break;
 

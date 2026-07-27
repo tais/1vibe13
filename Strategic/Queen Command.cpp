@@ -2895,7 +2895,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 	if ( AM_AN_EPC( pSoldier ) || AM_A_ROBOT(pSoldier))
 	{
 		pSoldier->vitals().health() = 0;
-		pSoldier->iHealableInjury = 0; // added by SANDRO
+		pSoldier->vitals().healableInjury() = 0; // added by SANDRO
 		BOOLEAN fMadeCorpse;
 		HandleSoldierDeath( pSoldier, &fMadeCorpse );
 		return;
@@ -3020,11 +3020,11 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		}
 		
 		// SANDRO - make the lost life insta-healable
-		pSoldier->iHealableInjury = ((pSoldier->vitals().maximumHealth() - pSoldier->vitals().health()) * 100);
+		pSoldier->vitals().healableInjury() = ((pSoldier->vitals().maximumHealth() - pSoldier->vitals().health()) * 100);
 
 		// make him quite exhausted when found
 		pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath() = 50;
-		pSoldier->sBreathRed = 0;
+		pSoldier->vitals().breathReduction() = 0;
 		pSoldier->collapseState().clearFatigueCollapse();
 
 

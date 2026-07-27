@@ -815,7 +815,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.position().direction()						= pCreateStruct->ubDirection;
 
 		Soldier.deployment().insertionGrid()				= pCreateStruct->sInsertionGridNo;
-		Soldier.bOldLife						= Soldier.vitals().maximumHealth();
+		Soldier.vitals().previousHealth()						= Soldier.vitals().maximumHealth();
 
 		// set custom side for civilian group
 		if (Soldier.bTeam == CIV_TEAM &&
@@ -1303,7 +1303,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	pSoldier->stats.bScientific								= pProfile->bScientific;
 
 	// added by SANDRO - insta-healable injury zero on soldier creation
-	pSoldier->iHealableInjury = 0; 
+	pSoldier->vitals().healableInjury() = 0;
 
 	pSoldier->bVocalVolume							= MIDVOLUME;
 	pSoldier->animationPlayback().subFlags()						= pProfile->uiBodyTypeSubFlags;
@@ -1739,7 +1739,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->vitals().health()								= pCreateStruct->bLife;
 	pSoldier->vitals().maximumHealth()							= pCreateStruct->bLifeMax;
 	// added by SANDRO - insta-healable injury zero on soldier creation
-	pSoldier->iHealableInjury = 0; 
+	pSoldier->vitals().healableInjury() = 0;
 	pSoldier->stats.bAgility							= pCreateStruct->bAgility;
 	pSoldier->stats.bDexterity						= pCreateStruct->bDexterity;
 	pSoldier->stats.bExpLevel							= pCreateStruct->bExpLevel;
@@ -2918,7 +2918,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 		s->vitals().health() = s->vitals().maximumHealth();
 
 	// added by SANDRO - insta-healable injury zero on soldier creation
-	s->iHealableInjury = 0; 
+	s->vitals().healableInjury() = 0;
 
 	s->ubScheduleID		=	spp->ubScheduleID;
 
@@ -2989,7 +2989,7 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 	s->vitals().maximumHealth()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->vitals().health()				= s->vitals().maximumHealth();
 	// added by SANDRO - insta-healable injury zero on soldier creation
-	s->iHealableInjury = 0;
+	s->vitals().healableInjury() = 0;
 	s->stats.bAgility				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->stats.bDexterity			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->stats.bMarksmanship	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));

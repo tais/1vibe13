@@ -7262,6 +7262,20 @@ int main( int, char** )
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
 		vitals.breath() = 60;
+		vitals.maximumBreath() = 95;
+		vitals.bleeding() = 8;
+		vitals.previousHealth() = 74;
+		vitals.fractionalHealth() = 37;
+		vitals.breathReduction() = 420;
+		vitals.healableInjury() = 1600;
+		vitals.beginSurgery();
+		vitals.unregainableBreath() = 222;
+		vitals.criticalStatDamage()[DAMAGED_STAT_HEALTH] = 4;
+		vitals.criticalStatDamage()[DAMAGED_STAT_AGILITY] = 6;
+		vitals.nextBleedAt() = 2.5f;
+		vitals.regenerationCounter() = -1;
+		vitals.regenerationBoostersUsedToday() = 2;
+		vitals.lastBleedGruntAt() = 12340;
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7443,11 +7457,31 @@ int main( int, char** )
 		animationActivity.beginFall( 6 );
 		animationActivity.fallClockwise() = TRUE;
 		animationActivity.turningIncrement() = -1;
-		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
-		       "soldier vitals component owns the canonical serialized fields" );
+		CHECK( vitals.alive() &&
+		       vitals.hasHealableInjury() &&
+		       vitals.isUndergoingSurgery() &&
+		       soldier.vitals().health() == 75 &&
+		       soldier.vitals().breath() == 60,
+		       "soldier vitals component owns health, breath, and recovery state" );
 		const SOLDIERTYPE& constSoldier = soldier;
-		CHECK( constSoldier.vitals().health() == 75 && constSoldier.vitals().maximumHealth() == 90,
-		       "const soldier access reads the canonical vitals component" );
+		CHECK( constSoldier.vitals().health() == 75 &&
+		       constSoldier.vitals().maximumHealth() == 90 &&
+		       constSoldier.vitals().breath() == 60 &&
+		       constSoldier.vitals().maximumBreath() == 95 &&
+		       constSoldier.vitals().bleeding() == 8 &&
+		       constSoldier.vitals().previousHealth() == 74 &&
+		       constSoldier.vitals().fractionalHealth() == 37 &&
+		       constSoldier.vitals().breathReduction() == 420 &&
+		       constSoldier.vitals().healableInjury() == 1600 &&
+		       constSoldier.vitals().isUndergoingSurgery() &&
+		       constSoldier.vitals().unregainableBreath() == 222 &&
+		       constSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] == 4 &&
+		       constSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] == 6 &&
+		       constSoldier.vitals().nextBleedAt() == 2.5f &&
+		       constSoldier.vitals().regenerationCounter() == -1 &&
+		       constSoldier.vitals().regenerationBoostersUsedToday() == 2 &&
+		       constSoldier.vitals().lastBleedGruntAt() == 12340,
+		       "const soldier access reads the complete canonical vitals component" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7673,16 +7707,50 @@ int main( int, char** )
 		CHECK( !vitals.alive() && vitals.health() == 0,
 		       "soldier vitals component clamps lethal damage to zero" );
 		vitals.health() = 42;
+		vitals.snapshotHealth();
+		vitals.health() = 41;
+		vitals.finishSurgery();
+		vitals.clearCriticalStatDamage();
+		CHECK( vitals.previousHealth() == 42 &&
+		       !vitals.isUndergoingSurgery() &&
+		       vitals.criticalStatDamage()[DAMAGED_STAT_HEALTH] == 0 &&
+		       vitals.criticalStatDamage()[DAMAGED_STAT_AGILITY] == 0,
+		       "soldier vitals component coordinates turn snapshots, surgery, and critical-damage recovery" );
+		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
 		vitals.maximumBreath() = 91;
 		vitals.bleeding() = 7;
+		vitals.previousHealth() = 41;
+		vitals.fractionalHealth() = 38;
+		vitals.breathReduction() = 421;
+		vitals.healableInjury() = 1700;
+		vitals.beginSurgery();
+		vitals.unregainableBreath() = 223;
+		vitals.criticalStatDamage()[DAMAGED_STAT_DEXTERITY] = 5;
+		vitals.criticalStatDamage()[DAMAGED_STAT_STRENGTH] = 7;
+		vitals.nextBleedAt() = 3.5f;
+		vitals.regenerationCounter() = -2;
+		vitals.regenerationBoostersUsedToday() = 3;
+		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
 		CHECK( copiedSoldier.vitals().health() == 42 &&
 		       copiedSoldier.vitals().maximumHealth() == 84 &&
 		       copiedSoldier.vitals().breath() == 63 &&
 		       copiedSoldier.vitals().maximumBreath() == 91 &&
-		       copiedSoldier.vitals().bleeding() == 7,
+		       copiedSoldier.vitals().bleeding() == 7 &&
+		       copiedSoldier.vitals().previousHealth() == 41 &&
+		       copiedSoldier.vitals().fractionalHealth() == 38 &&
+		       copiedSoldier.vitals().breathReduction() == 421 &&
+		       copiedSoldier.vitals().healableInjury() == 1700 &&
+		       copiedSoldier.vitals().isUndergoingSurgery() &&
+		       copiedSoldier.vitals().unregainableBreath() == 223 &&
+		       copiedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] == 5 &&
+		       copiedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] == 7 &&
+		       copiedSoldier.vitals().nextBleedAt() == 3.5f &&
+		       copiedSoldier.vitals().regenerationCounter() == -2 &&
+		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
+		       copiedSoldier.vitals().lastBleedGruntAt() == 12341,
 		       "soldier copies retain their owned persistent vitals" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
@@ -8252,7 +8320,19 @@ int main( int, char** )
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
 		       copiedSoldier.vitals().breath() == 0 &&
 		       copiedSoldier.vitals().maximumBreath() == 0 &&
-		       copiedSoldier.vitals().bleeding() == 0,
+		       copiedSoldier.vitals().bleeding() == 0 &&
+		       copiedSoldier.vitals().previousHealth() == 0 &&
+		       copiedSoldier.vitals().fractionalHealth() == 0 &&
+		       copiedSoldier.vitals().breathReduction() == 0 &&
+		       copiedSoldier.vitals().healableInjury() == 0 &&
+		       !copiedSoldier.vitals().isUndergoingSurgery() &&
+		       copiedSoldier.vitals().unregainableBreath() == 0 &&
+		       copiedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] == 0 &&
+		       copiedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] == 0 &&
+		       copiedSoldier.vitals().nextBleedAt() == 0.0f &&
+		       copiedSoldier.vitals().regenerationCounter() == 0 &&
+		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 0 &&
+		       copiedSoldier.vitals().lastBleedGruntAt() == 0,
 		       "soldier initialization resets the complete vitals domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
@@ -8459,6 +8539,18 @@ int main( int, char** )
 		legacySoldier->bDoAutofire = 8;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
+		legacySoldier->bOldLife = 72;
+		legacySoldier->sFractLife = 35;
+		legacySoldier->bLife = 70;
+		legacySoldier->bLifeMax = 88;
+		legacySoldier->bBleeding = 9;
+		legacySoldier->bBreath = 61;
+		legacySoldier->bBreathMax = 93;
+		legacySoldier->sBreathRed = 444;
+		legacySoldier->dNextBleed = 12.5f;
+		legacySoldier->bRegenerationCounter = -2;
+		legacySoldier->bRegenBoostersUsedToday = 3;
+		legacySoldier->uiTimeSinceLastBleedGrunt = 12348;
 		legacySoldier->bCollapsed = TRUE;
 		legacySoldier->bBreathCollapsed = TRUE;
 		legacySoldier->bTurnsCollapsed = 3;
@@ -8543,10 +8635,31 @@ int main( int, char** )
 			legacySoldier->sSpreadLocations[i] = 22001 + i;
 
 		SOLDIERTYPE convertedSoldier;
+		convertedSoldier.vitals().healableInjury() = 900;
+		convertedSoldier.vitals().beginSurgery();
+		convertedSoldier.vitals().unregainableBreath() = 333;
+		convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] = 8;
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
 		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
+		       convertedSoldier.vitals().fractionalHealth() == 35 &&
+		       convertedSoldier.vitals().health() == 70 &&
+		       convertedSoldier.vitals().maximumHealth() == 88 &&
+		       convertedSoldier.vitals().bleeding() == 9 &&
+		       convertedSoldier.vitals().breath() == 61 &&
+		       convertedSoldier.vitals().maximumBreath() == 93 &&
+		       convertedSoldier.vitals().breathReduction() == 444 &&
+		       convertedSoldier.vitals().nextBleedAt() == 12.5f &&
+		       convertedSoldier.vitals().regenerationCounter() == -2 &&
+		       convertedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
+		       convertedSoldier.vitals().lastBleedGruntAt() == 12348 &&
+		       convertedSoldier.vitals().healableInjury() == 0 &&
+		       !convertedSoldier.vitals().isUndergoingSurgery() &&
+		       convertedSoldier.vitals().unregainableBreath() == 0 &&
+		       convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 0,
+		       "v101 soldier conversion maps established vitals and clears fields absent from that schema" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -8764,6 +8877,18 @@ int main( int, char** )
 		savedSoldier.vitals().breath() = 62;
 		savedSoldier.vitals().maximumBreath() = 94;
 		savedSoldier.vitals().bleeding() = 11;
+		savedSoldier.vitals().previousHealth() = 69;
+		savedSoldier.vitals().fractionalHealth() = 43;
+		savedSoldier.vitals().breathReduction() = 445;
+		savedSoldier.vitals().healableInjury() = 1800;
+		savedSoldier.vitals().beginSurgery();
+		savedSoldier.vitals().unregainableBreath() = 334;
+		savedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] = 6;
+		savedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] = 9;
+		savedSoldier.vitals().nextBleedAt() = 13.5f;
+		savedSoldier.vitals().regenerationCounter() = -3;
+		savedSoldier.vitals().regenerationBoostersUsedToday() = 4;
+		savedSoldier.vitals().lastBleedGruntAt() = 12349;
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -8946,7 +9071,19 @@ int main( int, char** )
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
 		       loadedSoldier.vitals().breath() == 62 &&
 		       loadedSoldier.vitals().maximumBreath() == 94 &&
-		       loadedSoldier.vitals().bleeding() == 11,
+		       loadedSoldier.vitals().bleeding() == 11 &&
+		       loadedSoldier.vitals().previousHealth() == 69 &&
+		       loadedSoldier.vitals().fractionalHealth() == 43 &&
+		       loadedSoldier.vitals().breathReduction() == 445 &&
+		       loadedSoldier.vitals().healableInjury() == 1800 &&
+		       loadedSoldier.vitals().isUndergoingSurgery() &&
+		       loadedSoldier.vitals().unregainableBreath() == 334 &&
+		       loadedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] == 6 &&
+		       loadedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 9 &&
+		       loadedSoldier.vitals().nextBleedAt() == 13.5f &&
+		       loadedSoldier.vitals().regenerationCounter() == -3 &&
+		       loadedSoldier.vitals().regenerationBoostersUsedToday() == 4 &&
+		       loadedSoldier.vitals().lastBleedGruntAt() == 12349,
 		       "soldier save/load round-trips vitals state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&

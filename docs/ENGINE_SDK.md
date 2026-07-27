@@ -277,13 +277,18 @@ Inside the JA2 application, transient soldier state is also being separated by
 behavior. Pending-action scratch and deferred work, combat-feedback counters,
 and quick-item retention are owned by a resettable runtime component rather
 than independent flat `SOLDIERTYPE` fields. This component is not exposed
-through the SDK and is deliberately absent from soldier persistence. Serialized
-health, maximum health, breath, maximum breath, and bleeding are now privately
-owned by `SoldierVitalsComponent`; the explicit serializer retains their
-established save byte positions. `SoldierActionPointComponent` separately owns
-the current and turn-start tactical AP budgets. Named turn setup, snapshot, and
-clear transitions keep that pair coherent, while network reconciliation still
-uses the established owner-authoritative packet field.
+through the SDK and is deliberately absent from soldier persistence.
+`SoldierVitalsComponent` privately owns the application soldier's complete
+persistent health, breath, wound, and recovery lifecycle: current/max values,
+previous-turn and fractional health, breath reduction, treatable injury and
+surgery state, unrecoverable breath, critical-stat damage, bleed scheduling and
+sound throttling, and the retired regeneration save slots. Named snapshot,
+surgery, damage-recovery, life-deduction, and reset transitions keep the domain
+coherent; the explicit serializer retains every established position and width.
+`SoldierActionPointComponent` separately owns the current and turn-start
+tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
+pair coherent, while network reconciliation still uses the established
+owner-authoritative packet field.
 `SoldierCollapseComponent` independently owns tactical and breath-triggered
 collapse, recovery turns, the sleep-drug counter, and strategic fatigue
 collapse. Named transitions keep those related states coherent without
