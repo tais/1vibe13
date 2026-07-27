@@ -109,6 +109,63 @@ private:
 	INT8 stored_ = 0;
 };
 
+// Canonical tactical movement intent and contention state. Route geometry
+// belongs to SoldierPathingComponent; this component owns the mutable state
+// used while executing that route around reservations and other soldiers.
+class SoldierMovementComponent
+{
+public:
+	UINT8& delayCounter() noexcept { return delayCounter_; }
+	const UINT8& delayCounter() const noexcept { return delayCounter_; }
+	INT32& delayedCauseGrid() noexcept { return delayedCauseGrid_; }
+	const INT32& delayedCauseGrid() const noexcept { return delayedCauseGrid_; }
+	INT32& reservedGrid() noexcept { return reservedGrid_; }
+	const INT32& reservedGrid() const noexcept { return reservedGrid_; }
+	BOOLEAN& blockedByAnotherMerc() noexcept { return blockedByAnotherMerc_; }
+	const BOOLEAN& blockedByAnotherMerc() const noexcept { return blockedByAnotherMerc_; }
+	INT8& blockedDirection() noexcept { return blockedDirection_; }
+	const INT8& blockedDirection() const noexcept { return blockedDirection_; }
+	INT32& absoluteDestination() noexcept { return absoluteDestination_; }
+	const INT32& absoluteDestination() const noexcept { return absoluteDestination_; }
+	INT32& continuedPathGrid() noexcept { return continuedPathGrid_; }
+	const INT32& continuedPathGrid() const noexcept { return continuedPathGrid_; }
+	INT8& continuedPathValid() noexcept { return continuedPathValid_; }
+	const INT8& continuedPathValid() const noexcept { return continuedPathValid_; }
+	UINT8& delayedFlags() noexcept { return delayedFlags_; }
+	const UINT8& delayedFlags() const noexcept { return delayedFlags_; }
+	UINT8& stopReason() noexcept { return stopReason_; }
+	const UINT8& stopReason() const noexcept { return stopReason_; }
+	SoldierID& moveSpeedOverride() noexcept { return moveSpeedOverride_; }
+	const SoldierID& moveSpeedOverride() const noexcept { return moveSpeedOverride_; }
+	BOOLEAN& usesMoveSpeedOverride() noexcept { return usesMoveSpeedOverride_; }
+	const BOOLEAN& usesMoveSpeedOverride() const noexcept { return usesMoveSpeedOverride_; }
+
+	bool delayed() const noexcept { return delayCounter_ != 0; }
+	void waitForGrid(INT32 gridNo, UINT8 counter) noexcept;
+	void clearDelay() noexcept { delayCounter_ = 0; }
+	void blockInDirection(INT8 direction) noexcept;
+	void clearBlock() noexcept { blockedByAnotherMerc_ = FALSE; }
+	void setContinuedPath(INT32 gridNo) noexcept;
+	void clearContinuedPath() noexcept { continuedPathValid_ = FALSE; }
+	void overrideMoveSpeedWith(SoldierID soldier) noexcept;
+	void clearMoveSpeedOverride() noexcept { usesMoveSpeedOverride_ = FALSE; }
+	void reset() noexcept;
+
+private:
+	UINT8 delayCounter_ = 0;
+	INT32 delayedCauseGrid_ = 0;
+	INT32 reservedGrid_ = 0;
+	BOOLEAN blockedByAnotherMerc_ = FALSE;
+	INT8 blockedDirection_ = 0;
+	INT32 absoluteDestination_ = 0;
+	INT32 continuedPathGrid_ = 0;
+	INT8 continuedPathValid_ = FALSE;
+	UINT8 delayedFlags_ = 0;
+	UINT8 stopReason_ = 0;
+	SoldierID moveSpeedOverride_{};
+	BOOLEAN usesMoveSpeedOverride_ = FALSE;
+};
+
 struct SoldierPendingActionRuntimeState
 {
 	// Debug/path scratch retained across the path-cost operation only.

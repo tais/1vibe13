@@ -289,7 +289,13 @@ rule through `SoldierPathingComponent`: destinations, cursor, directions,
 lookup flags, and blacklist have one private owner and reset boundary instead
 of a public `STRUCT_Pathing`. Its reference accessors preserve hot-path
 mutation while the portable serializer retains the established byte sequence.
-None of these components changes content, map, packet, Lua, or save schemas.
+`SoldierMovementComponent` now owns the complementary route-execution domain:
+delayed-tile counters and causes, movement reservation, merc contention,
+scripted and continued destinations, stop reason, and coordinated speed
+override. Paired transitions have named operations rather than independently
+mutating generic flags. The unused legacy delayed-cause-merc byte is retained
+only at its save position and is no longer live soldier state. None of these
+components changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

@@ -966,9 +966,16 @@ the engine must not contain SDL types in its public domain model.
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement
   cursor, fixed-capacity direction list, lookup flags, and blacklist now have
-  one private `SoldierPathingComponent` owner as well. Both components are
-  independent of the legacy soldier declaration; old-save conversion and the
-  explicit serializer still emit every value at its established byte position.
+  one private `SoldierPathingComponent` owner as well. Tactical route
+  execution has a separate private `SoldierMovementComponent`: delayed-tile
+  state, reservations, merc contention, scripted and continued destinations,
+  stop reason, and coordinated speed override no longer live in the generic
+  flag bucket or distant public fields. Named operations update paired state
+  such as a blocker and direction together. These components are independent
+  of the legacy soldier declaration; old-save conversion and the explicit
+  serializer still emit every value at its established byte position. The
+  unused legacy 8-bit delayed-cause-merc slot remains a zero compatibility byte
+  rather than live state.
   Map placements, Lua values, multiplayer packets, and content formats retain
   their existing schemas.
 

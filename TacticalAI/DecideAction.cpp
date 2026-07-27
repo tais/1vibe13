@@ -145,7 +145,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			else
 			{
 				pSoldier->aiData.usActionData = usGridNo1;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			// fall through
@@ -236,7 +236,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 					pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
 				}
 				pSoldier->aiData.usActionData = usGridNo2;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			break;
@@ -261,7 +261,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			else
 			{
 				pSoldier->aiData.usActionData = usGridNo1;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			// fall through
@@ -380,7 +380,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 					pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
 				}
 				pSoldier->aiData.usActionData = usGridNo2;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			break;
@@ -402,7 +402,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		{
 			// move!
 			pSoldier->aiData.usActionData = usGridNo1;
-			pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		}
 		break;
@@ -431,7 +431,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			else
 			{
 				// move!
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 
@@ -451,7 +451,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			{
 				pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
 				pSoldier->bAIScheduleProgress++;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			break;
@@ -481,7 +481,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			MoveSoldierFromAwayToMercSlot( pSoldier );
 			pSoldier->aiData.usActionData = usGridNo1;
 			pSoldier->bAIScheduleProgress++;
-			pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		case 1:
 			if (pSoldier->position().gridNo() == usGridNo1)
@@ -496,7 +496,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			else
 			{
 				pSoldier->aiData.usActionData = usGridNo1;
-				pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
 			}
 			break;
@@ -514,7 +514,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		else
 		{
 			pSoldier->aiData.usActionData = pSoldier->sInitialGridNo;
-			pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		}
 		break;
@@ -535,7 +535,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		else
 		{
 			pSoldier->aiData.usActionData = usGridNo1;
-			pSoldier->sAbsoluteFinalDestination = pSoldier->aiData.usActionData;
+			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		}
 		break;

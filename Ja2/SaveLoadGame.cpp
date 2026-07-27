@@ -1563,10 +1563,12 @@ template<class Ar> static void XferAIData( Ar& ar, STRUCT_AIData& a )
 	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.u8(a.ubInterruptCounter[i]);
 }
 
-template<class Ar> static void XferFlags( Ar& ar, STRUCT_Flags& f )
+template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
+	STRUCT_Flags& f = soldier.flags;
+	SoldierMovementComponent& movement = soldier.movement();
 	ar.i8(f.bHasKeys);
-	ar.boolean(f.fDelayedMovement); ar.boolean(f.fTurnInProgress); ar.boolean(f.fBeginFade);
+	ar.u8(movement.delayCounter()); ar.boolean(f.fTurnInProgress); ar.boolean(f.fBeginFade);
 	ar.i8(f.bTurningFromPronePosition);
 	ar.boolean(f.fDontChargeReadyAPs); ar.boolean(f.fPrevInWater);
 	ar.i8(f.bGoBackToAimAfterHit);
@@ -1583,7 +1585,7 @@ template<class Ar> static void XferFlags( Ar& ar, STRUCT_Flags& f )
 	ar.boolean(f.fUICloseMerc); ar.boolean(f.fUIFirstTimeNOAP); ar.boolean(f.fUIFirstTimeUNCON);
 	ar.boolean(f.fReloading); ar.boolean(f.fPauseAim); ar.boolean(f.fInMissionExitNode);
 	ar.boolean(f.fBetweenSectors); ar.boolean(f.fReactingFromBeingShot);
-	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(f.fBlockedByAnotherMerc);
+	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(movement.blockedByAnotherMerc());
 	ar.boolean(f.fContractPriceHasIncreased); ar.boolean(f.fFixingSAMSite); ar.boolean(f.fFixingRobot);
 	ar.boolean(f.fSignedAnotherContract); ar.boolean(f.fDontChargeTurningAPs);
 	ar.boolean(f.fChangingStanceDueToSuppression); ar.boolean(f.fForcedToStayAwake); ar.boolean(f.fDoSpread);
@@ -1591,7 +1593,7 @@ template<class Ar> static void XferFlags( Ar& ar, STRUCT_Flags& f )
 	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(f.fMuzzleFlash); ar.boolean(f.fMercCollapsedFlag);
 	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
 	ar.boolean(f.fDontChargeAPsForStanceChange); ar.boolean(f.fSoldierWasMoving);
-	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(f.fUseMoverrideMoveSpeed);
+	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
 	ar.boolean(f.fDieSoundUsed); ar.boolean(f.fUseLandingZoneForArrival); ar.boolean(f.fComplainedThatTired);
 	ar.boolean(f.fRTInNonintAnim);
 	ar.u8(f.fHitByGasFlags);
@@ -1653,6 +1655,7 @@ template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
 template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 {
 	int i;
+	UINT8 retiredDelayedMovementCauseMerc = 0;
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
 	ar.u8(s.ubBodyType);
@@ -1678,7 +1681,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	if (Ar::isLoading) s.AnimCache.ubCacheSize = 0;
 	ar.u8(s.bSide); ar.u8(s.bViewRange); ar.i8(s.bNewOppCnt); ar.i8(s.bService);
 	ar.u16(s.usAniCode); ar.u16(s.usAniFrame); ar.i16(s.sAniDelay);
-	ar.u8(s.ubDelayedMovementCauseMerc); ar.i32(s.sDelayedMovementCauseGridNo); ar.i32(s.sReservedMovementGridNo);
+	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(s.sTargetGridNo); ar.i8(s.bTargetLevel); ar.i8(s.bTargetCubeLevel); ar.i32(s.sLastTarget);
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetX[i]);
 	for (i = 0; i < 2; ++i) ar.f32(s.dPrevMuzzleOffsetY[i]);
@@ -1738,9 +1741,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubDesiredSquadAssignment); ar.u8(s.ubNumTraversalsAllowedToMerge);
 	ar.u16(s.usPendingAnimation2); ar.u8(s.ubCivilianGroup);
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
-	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.bBlockedByAnotherMercDirection);
+	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
 	ar.u16(s.usAttackingWeapon); ar.i8(s.bWeaponMode); ar.u16(s.ubTargetID.i); ar.i8(s.bAIScheduleProgress);
-	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(s.bCamo); ar.i32(s.sAbsoluteFinalDestination);
+	ar.i32(s.sOffWorldGridNo); ar.ptr(s.pAniTile); ar.i8(s.bCamo); ar.i32(s.movement().absoluteDestination());
 	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(s.sOldGridNo);
 	ar.u16(s.usDontUpdateNewGridNoOnMoveAnimChange);
@@ -1750,20 +1753,20 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiTimeOfLastContractUpdate); ar.i8(s.bTypeOfLastContract); ar.i8(s.bTurnsCollapsed);
 	ar.i8(s.bSleepDrugCounter); ar.u8(s.ubMilitiaKills); ar.i8(s.bBlindedCounter);
 	ar.u8(s.ubHoursOnAssignment); ar.u8(s.ubMercJustFired); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
-	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.sContPathLocation); ar.i8(s.bGoodContPath);
+	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(s.bNoiseLevel); ar.i8(s.bRegenerationCounter);
 	ar.i8(s.bRegenBoostersUsedToday); ar.i8(s.bNumPelletsHitBy); ar.i32(s.sSkillCheckGridNo);
 	ar.u16(s.ubLastEnemyCycledID.i);
 	ar.u8(s.ubPrevSectorID); ar.u8(s.ubNumTilesMovesSinceLastForget); ar.i8(s.bTurningIncrement);
 	ar.u32(s.uiBattleSoundID); ar.u16(s.usValueGoneUp);
-	ar.u8(s.ubNumLocateCycles); ar.u8(s.ubDelayedMovementFlags); ar.u16(s.ubCTGTTargetID.i);
+	ar.u8(s.ubNumLocateCycles); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
 	ar.u32(s.uiMercChecksum);
-	ar.i8(s.bCurrentCivQuote); ar.i8(s.bCurrentCivQuoteDelta); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.ubReasonCantFinishMove);
+	ar.i8(s.bCurrentCivQuote); ar.i8(s.bCurrentCivQuoteDelta); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(s.sLocationOfFadeStart); ar.u8(s.bUseExitGridForReentryDirection);
 	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(s.ubContractRenewalQuoteCode); ar.i32(s.sPreTraversalGridNo);
 	ar.u32(s.uiXRayActivatedTime); ar.i8(s.bTurningFromUI); ar.i8(s.bPendingActionData5);
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
-	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.bOverrideMoveSpeed.i);
+	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(s.uiTimeSoldierWillArrive);
 	ar.i8(s.bVehicleUnderRepairID); ar.i32(s.iTimeCanSignElsewhere); ar.i8(s.bHospitalPriceModifier);
 	ar.u32(s.uiStartTimeOfInsuranceContract); ar.i8(s.bCorpseQuoteTolerance); ar.i8(s.bDeafenedCounter);
@@ -1814,7 +1817,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	}
 
 	XferAIData(ar, this->aiData);
-	XferFlags(ar, this->flags);
+	XferFlags(ar, *this);
 	XferTimeChanges(ar, this->timeChanges);
 	XferTimeCounters(ar, this->timeCounters);
 	XferDrugs(ar, this->newdrugs);
@@ -1869,7 +1872,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		if ( !this->inv.Load(hFile) ) return(FALSE);
 
 		XferAIData(ar, this->aiData);
-		XferFlags(ar, this->flags);
+		XferFlags(ar, *this);
 		XferTimeChanges(ar, this->timeChanges);
 		XferTimeCounters(ar, this->timeCounters);
 		XferDrugs(ar, this->newdrugs);

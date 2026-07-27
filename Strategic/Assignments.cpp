@@ -9408,7 +9408,7 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 	if ( pSoldier->bAssignment == ASSIGNMENT_HOSPITAL )
 	{
 		// hack - reset AbsoluteFinalDestination in case it was left non-nowhere
-		pSoldier->sAbsoluteFinalDestination = NOWHERE;
+		pSoldier->movement().absoluteDestination() = NOWHERE;
 	}
 
 	if ( fSayQuote )

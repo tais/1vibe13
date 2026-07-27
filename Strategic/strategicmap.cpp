@@ -6540,9 +6540,9 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 				{
 					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->position().gridNo();
 				}
-				else if ( !TileIsOutOfBounds( pSoldier->sAbsoluteFinalDestination ) )
+				else if ( !TileIsOutOfBounds( pSoldier->movement().absoluteDestination() ) )
 				{
-					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->sAbsoluteFinalDestination;
+					gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = pSoldier->movement().absoluteDestination();
 				}
 				else
 				{

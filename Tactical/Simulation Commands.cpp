@@ -458,7 +458,7 @@ namespace
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier) return CommandDisposition::Discard;
-				soldier->flags.fDelayedMovement = FALSE;
+				soldier->movement().clearDelay();
 				soldier->pathing().finalDestinationGrid() = soldier->position().gridNo();
 				soldier->StopSoldier();
 				return CommandDisposition::Applied;

@@ -485,7 +485,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSoldierWasMoving = src.fSoldierWasMoving;
 	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
-	this->fUseMoverrideMoveSpeed = src.fUseMoverrideMoveSpeed;
 	this->fDieSoundUsed = src.fDieSoundUsed;
 	this->fUseLandingZoneForArrival = src.fUseLandingZoneForArrival;
 	this->fFallClockwise = src.fFallClockwise;
@@ -494,7 +493,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
 	this->fPastXDest = src.fPastXDest;
 	this->fPastYDest = src.fPastYDest;
-	this->fBlockedByAnotherMerc = src.fBlockedByAnotherMerc;
 	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
 	this->fContractPriceHasIncreased = src.fContractPriceHasIncreased;
 	this->fFixingSAMSite = src.fFixingSAMSite;
@@ -526,7 +524,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fCloseCall = src.fCloseCall;
 	this->fDoSpread = src.fDoSpread;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
-	this->fDelayedMovement = src.fDelayedMovement;
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
 	this->fInMissionExitNode = src.fInMissionExitNode;
@@ -643,6 +640,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//member classes
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
+		movement().delayCounter() = src.fDelayedMovement;
+		movement().blockedByAnotherMerc() = src.fBlockedByAnotherMerc;
+		movement().usesMoveSpeedOverride() = src.fUseMoverrideMoveSpeed;
 		timeChanges.ConvertFrom_101_To_102( src );
 		timeCounters.ConvertFrom_101_To_102( src );
 		//drugs.ConvertFrom_101_To_102( src );
@@ -759,9 +759,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->usAniFrame = src.usAniFrame;
 		this->sAniDelay = src.sAniDelay;
 
-		this->ubDelayedMovementCauseMerc = src.ubDelayedMovementCauseMerc;
-		this->sDelayedMovementCauseGridNo = src.sDelayedMovementCauseGridNo;
-		this->sReservedMovementGridNo = src.sReservedMovementGridNo;
+		this->movement().delayedCauseGrid() = src.sDelayedMovementCauseGridNo;
+		this->movement().reservedGrid() = src.sReservedMovementGridNo;
 
 
 		this->sTargetGridNo = src.sTargetGridNo;
@@ -929,14 +928,14 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->ubScheduleID = src.ubScheduleID;
 		this->sEndDoorOpenCodeData = src.sEndDoorOpenCodeData;
-		this->bBlockedByAnotherMercDirection = src.bBlockedByAnotherMercDirection;
+		this->movement().blockedDirection() = src.bBlockedByAnotherMercDirection;
 		this->usAttackingWeapon = src.usAttackingWeapon;
 		this->bWeaponMode = src.bWeaponMode;
 		this->ubTargetID = static_cast<UINT16>( src.ubTargetID );
 		this->bAIScheduleProgress = src.bAIScheduleProgress;
 		this->sOffWorldGridNo = src.sOffWorldGridNo;
 		this->pAniTile = src.pAniTile;
-		this->sAbsoluteFinalDestination = src.sAbsoluteFinalDestination;
+		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
 		this->ubHiResDirection = src.ubHiResDirection;
 		this->ubHiResDesiredDirection = src.ubHiResDesiredDirection;
 		this->ubLastFootPrintSound = src.ubLastFootPrintSound;
@@ -970,8 +969,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubTurnsUntilCanSayHeardNoise = src.ubTurnsUntilCanSayHeardNoise;
 		this->usQuoteSaidExtFlags = src.usQuoteSaidExtFlags;
 
-		this->sContPathLocation = src.sContPathLocation;
-		this->bGoodContPath = src.bGoodContPath;
+		this->movement().continuedPathGrid() = src.sContPathLocation;
+		this->movement().continuedPathValid() = src.bGoodContPath;
 		this->ubPendingActionInterrupted = src.ubPendingActionInterrupted;
 		this->bNoiseLevel = src.bNoiseLevel;
 		this->bRegenerationCounter = src.bRegenerationCounter;
@@ -988,7 +987,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->usValueGoneUp = src.usValueGoneUp;
 		this->ubNumLocateCycles = src.ubNumLocateCycles;
-		this->ubDelayedMovementFlags = src.ubDelayedMovementFlags;
+		this->movement().delayedFlags() = src.ubDelayedMovementFlags;
 		this->ubCTGTTargetID = static_cast<UINT16>( src.ubCTGTTargetID );
 
 		this->uiMercChecksum = src.uiMercChecksum;
@@ -996,7 +995,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bCurrentCivQuote = src.bCurrentCivQuote;
 		this->bCurrentCivQuoteDelta = src.bCurrentCivQuoteDelta;
 		this->ubMiscSoldierFlags = src.ubMiscSoldierFlags;
-		this->ubReasonCantFinishMove = src.ubReasonCantFinishMove;
+		this->movement().stopReason() = src.ubReasonCantFinishMove;
 
 		this->sLocationOfFadeStart = src.sLocationOfFadeStart;
 		this->bUseExitGridForReentryDirection = src.bUseExitGridForReentryDirection;
@@ -1013,7 +1012,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->pGroup = src.pGroup;
 		this->ubLeaveHistoryCode = src.ubLeaveHistoryCode;
-		this->bOverrideMoveSpeed = static_cast<UINT16>( src.bOverrideMoveSpeed );
+		this->movement().moveSpeedOverride() = static_cast<UINT16>( src.bOverrideMoveSpeed );
 
 		this->uiTimeSoldierWillArrive = src.uiTimeSoldierWillArrive;
 		this->bVehicleUnderRepairID = src.bVehicleUnderRepairID;
@@ -1127,6 +1126,7 @@ void SOLDIERTYPE::initialize( )
 	vitals().reset();
 	position().reset();
 	pathing().reset();
+	movement().reset();
 
 	// sevenfm:initialize additional data
 	this->InitializeExtraData();
@@ -1142,7 +1142,6 @@ void SOLDIERTYPE::initialize( )
 	this->ubAutoBandagingMedic = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
-	this->bOverrideMoveSpeed = NOBODY;
 	this->ubNextToPreviousAttackerID = NOBODY;
 	this->usDragPersonID = NOBODY;
 	this->usChatPartnerID = NOBODY;
@@ -1852,7 +1851,7 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 	if ( !fSet )
 	{
 		// return reason to default value
-		this->ubReasonCantFinishMove = REASON_STOPPED_NO_APS;
+		this->movement().stopReason() = REASON_STOPPED_NO_APS;
 	}
 }
 
@@ -4325,7 +4324,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			// Increment this for almost all animations except some movement ones...
 			// That's because this represents ANY animation other than the one we began when the pending action was started
 			// ATE: Added to ignore this count if we are waiting for someone to move out of our way...
-			if ( usNewState != START_SWAT && usNewState != END_SWAT && !(gAnimControl[usNewState].uiFlags & ANIM_NOCHANGE_PENDINGCOUNT) && !this->flags.fDelayedMovement && !(this->flags.uiStatusFlags & SOLDIER_ENGAGEDINACTION) )
+			if ( usNewState != START_SWAT && usNewState != END_SWAT && !(gAnimControl[usNewState].uiFlags & ANIM_NOCHANGE_PENDINGCOUNT) && !this->movement().delayed() && !(this->flags.uiStatusFlags & SOLDIER_ENGAGEDINACTION) )
 			{
 				this->aiData.ubPendingActionAnimCount++;
 			}
@@ -7067,11 +7066,11 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	if (usMoveAnimState == RUNNING && this->bReverse)
 		usMoveAnimState = WALKING;
 
-	this->bGoodContPath = FALSE;
+	this->movement().clearContinuedPath();
 
-	if ( this->flags.fDelayedMovement )
+	if ( this->movement().delayed() )
 	{
-		if ( this->ubDelayedMovementFlags & DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE )
+		if ( this->movement().delayedFlags() & DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE )
 		{
 			fFlags = PATH_THROUGH_PEOPLE;
 		}
@@ -7079,7 +7078,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 		{
 			fFlags = PATH_IGNORE_PERSON_AT_DEST;
 		}
-		this->flags.fDelayedMovement = FALSE;
+		this->movement().clearDelay();
 	}
 
 	if ( gfGetNewPathThroughPeople )
@@ -9134,13 +9133,13 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 	// Default stats soldier to same as normal soldier.....
 	pStatsSoldier = pSoldier;
 
-	if ( pSoldier->flags.fUseMoverrideMoveSpeed )
+	if ( pSoldier->movement().usesMoveSpeedOverride() )
 	{
-		if (pSoldier->bOverrideMoveSpeed < NOBODY)
+		if (pSoldier->movement().moveSpeedOverride() < NOBODY)
 		{
 			SOLDIERTYPE* overrideSoldier =
 				GetJa2SoldierRepository().resolve(
-					pSoldier->bOverrideMoveSpeed );
+					pSoldier->movement().moveSpeedOverride() );
 			if ( overrideSoldier != nullptr )
 			{
 				pStatsSoldier = overrideSoldier;
@@ -14010,7 +14009,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 		// Pause this guy from no APS
 		this->AdjustNoAPToFinishMove( TRUE );
 
-		this->ubReasonCantFinishMove = REASON_STOPPED_SIGHT;
+		this->movement().stopReason() = REASON_STOPPED_SIGHT;
 
 		// ATE; IF turning to shoot, stop!
 		// ATE: We want to do this only for enemies, not items....
@@ -14074,7 +14073,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	ConvertGridNoToCenterCellXY(sGridNo, &sX, &sY);
 
 	//Cancel pending events
-	if ( !this->flags.fDelayedMovement )
+	if ( !this->movement().delayed() )
 	{
 		this->usPendingAnimation = NO_PENDING_ANIMATION;
 		this->usPendingAnimation2 = NO_PENDING_ANIMATION;
@@ -14089,7 +14088,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	this->pathing().pathIndex() = this->pathing().pathSize() = 0;
 
 	// Set ext tile waiting flag off!
-	this->flags.fDelayedMovement = FALSE;
+	this->movement().clearDelay();
 
 	// Turn off reverse...
 	this->bReverse = FALSE;
@@ -14117,7 +14116,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	// Turn off multi-move speed override....
 	if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 	{
-		this->flags.fUseMoverrideMoveSpeed = FALSE;
+		this->movement().clearMoveSpeedOverride();
 	}
 
 	// Unset UI!
@@ -14388,9 +14387,9 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 	sGridNo = pSoldier->pathing().finalDestinationGrid();
 
 	// Can we afford this?
-	if ( pSoldier->bGoodContPath )
+	if ( pSoldier->movement().continuedPathValid() )
 	{
-		sGridNo = pSoldier->sContPathLocation;
+		sGridNo = pSoldier->movement().continuedPathGrid();
 	}
 	else
 	{

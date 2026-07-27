@@ -1850,6 +1850,12 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Statistics//last edited at version 102"
   current_soldier_stats_begin)
 string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_Flags//last edited at version 102"
+  current_soldier_flags_begin)
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_TimeChanges//last edited at version 102"
+  current_soldier_flags_end)
+string(FIND "${soldier_control_header_contents}"
   "enum class BackgroundVectorTypes;"
   current_soldier_stats_end)
 string(FIND "${soldier_control_header_contents}"
@@ -1858,17 +1864,24 @@ string(FIND "${soldier_control_header_contents}"
 string(FIND "${soldier_control_header_contents}"
   "#define SIZEOF_SOLDIERTYPE_POD"
   current_soldier_end)
-if(current_soldier_stats_begin EQUAL -1 OR
+if(current_soldier_flags_begin EQUAL -1 OR
+   current_soldier_flags_end EQUAL -1 OR
+   current_soldier_stats_begin EQUAL -1 OR
    current_soldier_stats_end EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/statistics declarations for the soldier-component ownership check")
+    "Could not locate current soldier/flags/statistics declarations for the soldier-component ownership check")
 endif()
+math(EXPR current_soldier_flags_length
+  "${current_soldier_flags_end} - ${current_soldier_flags_begin}")
 math(EXPR current_soldier_stats_length
   "${current_soldier_stats_end} - ${current_soldier_stats_begin}")
 math(EXPR current_soldier_length
   "${current_soldier_end} - ${current_soldier_begin}")
+string(SUBSTRING "${soldier_control_header_contents}"
+  ${current_soldier_flags_begin} ${current_soldier_flags_length}
+  current_soldier_flags_contents)
 string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_stats_begin} ${current_soldier_stats_length}
   current_soldier_stats_contents)
@@ -2072,6 +2085,141 @@ if(NOT serialized_soldier_pathing_destination_order OR
    NOT serialized_soldier_pathing_route_order)
   message(FATAL_ERROR
     "Soldier pathing moved in the portable save schema; keep its established byte order while storage evolves")
+endif()
+
+# Tactical movement execution now has one private owner as well. Do not
+# recreate its wait/collision state in the generic flags bucket or as distant
+# public SOLDIERTYPE fields.
+foreach(retired_movement_flag IN ITEMS
+  fDelayedMovement
+  fBlockedByAnotherMerc
+  fUseMoverrideMoveSpeed)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_movement_flag}[ \t]*;"
+    retired_current_movement_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_movement_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags movement field '${retired_movement_flag}' returned; tactical movement state belongs to SoldierMovementComponent")
+  endif()
+endforeach()
+
+foreach(retired_movement_field IN ITEMS
+  ubDelayedMovementCauseMerc
+  sDelayedMovementCauseGridNo
+  sReservedMovementGridNo
+  bBlockedByAnotherMercDirection
+  sAbsoluteFinalDestination
+  sContPathLocation
+  bGoodContPath
+  ubDelayedMovementFlags
+  ubReasonCantFinishMove
+  bOverrideMoveSpeed)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT8|INT8|INT32|SoldierID)[ \t]+${retired_movement_field}[ \t]*;"
+    retired_current_movement_field
+    "${current_soldier_contents}")
+  if(retired_current_movement_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE movement field '${retired_movement_field}' returned; tactical movement state belongs to SoldierMovementComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierMovementComponent[ \t\r\n]+movement_[ \t]*;"
+  soldier_movement_owner
+  "${current_soldier_contents}")
+if(NOT soldier_movement_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierMovementComponent")
+endif()
+
+foreach(owned_movement_field IN ITEMS
+  "UINT8;delayCounter"
+  "INT32;delayedCauseGrid"
+  "INT32;reservedGrid"
+  "BOOLEAN;blockedByAnotherMerc"
+  "INT8;blockedDirection"
+  "INT32;absoluteDestination"
+  "INT32;continuedPathGrid"
+  "INT8;continuedPathValid"
+  "UINT8;delayedFlags"
+  "UINT8;stopReason"
+  "SoldierID;moveSpeedOverride"
+  "BOOLEAN;usesMoveSpeedOverride")
+  string(REPLACE ";" ";" owned_movement_parts "${owned_movement_field}")
+  list(GET owned_movement_parts 0 owned_movement_type)
+  list(GET owned_movement_parts 1 owned_movement_name)
+  string(REGEX MATCH
+    "${owned_movement_type}[ \t]+${owned_movement_name}_[ \t]*(=[ \t]*(0|FALSE)|\\{\\})[ \t]*;"
+    owned_soldier_movement
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_movement)
+    message(FATAL_ERROR
+      "SoldierMovementComponent no longer owns initialized '${owned_movement_name}_' storage")
+  endif()
+endforeach()
+
+# Movement storage is independent of schema layout. Keep each value at its
+# established flag/POD byte position; the unused 8-bit cause-merc slot remains
+# an explicit zero-valued compatibility byte rather than live soldier state.
+string(REGEX MATCH
+  "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);"
+  serialized_soldier_movement_delay_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fCheckForNewlyAddedItems\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fContractPriceHasIncreased\\);"
+  serialized_soldier_movement_block_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);[ \t]*ar\\.boolean\\(movement\\.usesMoveSpeedOverride\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDieSoundUsed\\);"
+  serialized_soldier_movement_speed_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "UINT8[ \t]+retiredDelayedMovementCauseMerc[ \t]*=[ \t]*0[ \t]*;"
+  serialized_soldier_retired_movement_cause
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(retiredDelayedMovementCauseMerc\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.delayedCauseGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.reservedGrid\\(\\)\\);"
+  serialized_soldier_movement_wait_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubScheduleID\\);[ \t]*ar\\.i32\\(s\\.sEndDoorOpenCodeData\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
+  serialized_soldier_movement_block_direction_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(s\\.bCamo\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  serialized_soldier_movement_destination_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.usQuoteSaidExtFlags\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.continuedPathGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.continuedPathValid\\(\\)\\);"
+  serialized_soldier_movement_continued_path_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubNumLocateCycles\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.delayedFlags\\(\\)\\);[ \t]*ar\\.u16\\(s\\.ubCTGTTargetID\\.i\\);"
+  serialized_soldier_movement_delayed_flags_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bCurrentCivQuote\\);[ \t]*ar\\.i8\\(s\\.bCurrentCivQuoteDelta\\);[ \t]*ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  serialized_soldier_movement_stop_reason_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(s\\.ubLeaveHistoryCode\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
+  serialized_soldier_movement_speed_override_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_movement_delay_flag_order OR
+   NOT serialized_soldier_movement_block_flag_order OR
+   NOT serialized_soldier_movement_speed_flag_order OR
+   NOT serialized_soldier_retired_movement_cause OR
+   NOT serialized_soldier_movement_wait_order OR
+   NOT serialized_soldier_movement_block_direction_order OR
+   NOT serialized_soldier_movement_destination_order OR
+   NOT serialized_soldier_movement_continued_path_order OR
+   NOT serialized_soldier_movement_delayed_flags_order OR
+   NOT serialized_soldier_movement_stop_reason_order OR
+   NOT serialized_soldier_movement_speed_override_order)
+  message(FATAL_ERROR
+    "Soldier movement state moved in the portable save schema; keep its established byte positions while storage evolves")
 endif()
 
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The

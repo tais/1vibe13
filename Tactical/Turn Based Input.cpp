@@ -5876,7 +5876,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 			{
 				pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_MOVE_TO_CLIMB;
 				pTMilitiaSoldier->aiData.usNextActionData = sClimbSpot;
-				pTMilitiaSoldier->sAbsoluteFinalDestination = sMoveSpot;
+				pTMilitiaSoldier->movement().absoluteDestination() = sMoveSpot;
 
 				BeginMultiPurposeLocator(sClimbSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}

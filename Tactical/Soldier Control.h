@@ -852,7 +852,6 @@ public:
 public:
 	// flags from before the changes to the memory structure
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-	BOOLEAN											fDelayedMovement;
 	BOOLEAN											fTurnInProgress;
 	BOOLEAN											fBeginFade;
 	INT8											bTurningFromPronePosition;
@@ -896,7 +895,6 @@ public:
 	BOOLEAN											fBetweenSectors;	//set when the group isn't actually in a sector.
 	BOOLEAN											fReactingFromBeingShot;
 	BOOLEAN											fCheckForNewlyAddedItems;
-	BOOLEAN											fBlockedByAnotherMerc;
 	BOOLEAN											fContractPriceHasIncreased;
 	BOOLEAN											fFixingSAMSite;
 	BOOLEAN											fFixingRobot;
@@ -916,7 +914,6 @@ public:
 	BOOLEAN											fDontChargeAPsForStanceChange;
 	BOOLEAN											fSoldierWasMoving;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
-	BOOLEAN											fUseMoverrideMoveSpeed;
 	BOOLEAN											fDieSoundUsed;
 	BOOLEAN											fUseLandingZoneForArrival;
  	BOOLEAN											fComplainedThatTired;
@@ -1073,6 +1070,8 @@ public:
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
+	SoldierMovementComponent& movement() noexcept { return movement_; }
+	const SoldierMovementComponent& movement() const noexcept { return movement_; }
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
 	// The format of this structure affects what is written into and read from various
@@ -1175,12 +1174,6 @@ public:
 	UINT16			usAniCode;
 	UINT16			usAniFrame;
 	INT16			sAniDelay;
-
-	// MOVEMENT TO NEXT TILE HANDLING STUFF
-	UINT8			ubDelayedMovementCauseMerc;
-	INT32			sDelayedMovementCauseGridNo;
-	INT32			sReservedMovementGridNo;
-
 
 	// Weapon Stuff
 	INT32			sTargetGridNo;
@@ -1375,7 +1368,6 @@ public:
 
 	UINT8				ubScheduleID;
 	INT32				sEndDoorOpenCodeData;//dnl ch53 121009
-	INT8					bBlockedByAnotherMercDirection;
 	UINT16				usAttackingWeapon;
 	INT8					bWeaponMode;
 	SoldierID			ubTargetID;
@@ -1383,7 +1375,6 @@ public:
 	INT32				sOffWorldGridNo;
 	struct TAG_anitile	*pAniTile;	
 	INT8					bCamo;
-	INT32				sAbsoluteFinalDestination;
 	UINT8				ubHiResDirection;
 	UINT8				ubHiResDesiredDirection;
 	UINT8				ubLastFootPrintSound;
@@ -1417,8 +1408,6 @@ public:
 	UINT8				ubTurnsUntilCanSayHeardNoise;
 	UINT16				usQuoteSaidExtFlags;
 
-	INT32				sContPathLocation;//dnl ch53 was UINT16
-	INT8					bGoodContPath;
 	UINT8				ubPendingActionInterrupted;
 	INT8					bNoiseLevel;
 	INT8					bRegenerationCounter;					// Flugente: not used anymore!
@@ -1435,7 +1424,6 @@ public:
 	UINT16				usValueGoneUp;
 
 	UINT8				ubNumLocateCycles;
-	UINT8				ubDelayedMovementFlags;
 	SoldierID			ubCTGTTargetID;
 
 	UINT32				uiMercChecksum;
@@ -1443,8 +1431,6 @@ public:
 	INT8					bCurrentCivQuote;
 	INT8					bCurrentCivQuoteDelta;
 	UINT8				ubMiscSoldierFlags;
-	UINT8				ubReasonCantFinishMove;
-
 	INT32				sLocationOfFadeStart;
 	UINT8				bUseExitGridForReentryDirection;
 
@@ -1460,8 +1446,6 @@ public:
 
 	struct GROUP			*pGroup;
 	UINT8				ubLeaveHistoryCode;
-	SoldierID			bOverrideMoveSpeed;
-
 	UINT32				uiTimeSoldierWillArrive;
 
 
@@ -1598,6 +1582,7 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
+	SoldierMovementComponent	movement_;
 
 public:
 	// Runtime-only state is grouped by behavior and reset as one boundary. It is
