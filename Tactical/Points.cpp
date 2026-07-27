@@ -1021,7 +1021,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 			pOpponent = GetJa2SoldierRepository().resolve( uCnt );
 			if ( pOpponent == NULL)
 				continue;			// not here or not even breathing -> next!
-			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->bCollapsed || !pOpponent->bActive )
+			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->collapseState().tactical() || !pOpponent->bActive )
 				continue;			// not here or not even breathing -> next!
 			if ( pSoldier->bTeam == pOpponent->bTeam )
 				continue;			// same team? -> next!
@@ -1325,7 +1325,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 		if (pSoldier->actionPoints().current() > APBPConstants[MAX_AP_CARRIED])
 		{
 			// SANDRO - don't reduce the APs if collapsed
-			if ( pSoldier->bCollapsed || pSoldier->bBreathCollapsed )
+			if ( pSoldier->collapseState().tactical() || pSoldier->collapseState().breathTriggered() )
 				sUnusedAPs = pSoldier->actionPoints().current();
 			else
 				sUnusedAPs = pSoldier->actionPoints().current() - APBPConstants[MAX_AP_CARRIED];
@@ -3237,7 +3237,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH) )
+	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH) )
 	{
 		if( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid() || pSoldier->movement().continuedPathValid()	)
 		{
@@ -3755,7 +3755,7 @@ INT16 GetAPsToStealItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT
 	// ADD APS TO PICKUP
 	/////////////////////////////////////////////////////////////////////////////////////////
 	// CHANGED BY SANDRO - REDUCE AP COST TO STEAL FOR MARTIAL ARTS AND HAND TO HAND
-	if (pTargetSoldier != NULL && pTargetSoldier->bCollapsed && gGameExternalOptions.fEnhancedCloseCombatSystem)
+	if (pTargetSoldier != NULL && pTargetSoldier->collapseState().tactical() && gGameExternalOptions.fEnhancedCloseCombatSystem)
 	{
 		sAPCost += (GetBasicAPsToPickupItem( pSoldier )); // stealing from collapsed soldiers is treated differently
 	}

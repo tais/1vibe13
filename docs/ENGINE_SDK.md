@@ -283,7 +283,12 @@ owned by `SoldierVitalsComponent`; the explicit serializer retains their
 established save byte positions. `SoldierActionPointComponent` separately owns
 the current and turn-start tactical AP budgets. Named turn setup, snapshot, and
 clear transitions keep that pair coherent, while network reconciliation still
-uses the established owner-authoritative packet field. Current tactical grid,
+uses the established owner-authoritative packet field.
+`SoldierCollapseComponent` independently owns tactical and breath-triggered
+collapse, recovery turns, the sleep-drug counter, and strategic fatigue
+collapse. Named transitions keep those related states coherent without
+coupling the independent timers; old-save conversion and explicit persistence
+retain all five established byte positions and widths. Current tactical grid,
 elevation, and facing
 are privately owned by `SoldierPositionComponent` as the next persistent
 storage domain, with zero-cost reference accessors for the application hot

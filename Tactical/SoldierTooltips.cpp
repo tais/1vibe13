@@ -267,7 +267,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			INT32 usOrigin;
 			swprintf(pStrInfo, L"%s|Roaming |Range: %d\n", pStrInfo, RoamingRange(pSoldier, &usOrigin));
 			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition);
-			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->bCollapsed, pSoldier->bBreathCollapsed);
+			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->collapseState().tactical(), pSoldier->collapseState().breathTriggered());
 			if (pSoldier->combatResult().previousAttacker() < NOBODY)
 			{
 				SOLDIERTYPE* previousAttacker =

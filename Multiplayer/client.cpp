@@ -4756,7 +4756,7 @@ void recieveSTATE(RPCParameters *rpcParameters)
 
 		// MP echo guard: already collapsed locally -- don't stand him up and replay
 		// the fall (anim + thump + AP/BP) when the owner's collapse echo arrives. (audit [27])
-		if ( pSoldier->bCollapsed &&
+		if ( pSoldier->collapseState().tactical() &&
 			gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE &&
 			gAnimControl[ new_state->usNewState ].ubEndHeight == ANIM_PRONE &&
 			gAnimControl[ new_state->usNewState ].ubHeight != ANIM_PRONE )
@@ -5247,7 +5247,7 @@ void UpdateSoldierFromNetwork  (RPCParameters *rpcParameters)
 	{
 		pSoldier->EVENT_SetSoldierDesiredDirection( SUpdateNetworkSoldier->ubDirection );
 	}
-	if(gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != SUpdateNetworkSoldier->ubNewStance && pSoldier->bCollapsed != TRUE)
+	if(gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != SUpdateNetworkSoldier->ubNewStance && pSoldier->collapseState().tactical() != TRUE)
 	{
 		pSoldier->ChangeSoldierStance( SUpdateNetworkSoldier->ubNewStance );
 	}

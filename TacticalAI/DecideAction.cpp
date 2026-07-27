@@ -2558,8 +2558,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		!fCivilian &&
 		ubCanMove &&
 		pSoldier->vitals().health() >= OKLIFE &&
-		!pSoldier->bCollapsed &&
-		!pSoldier->bBreathCollapsed &&
+		!pSoldier->collapseState().tactical() &&
+		!pSoldier->collapseState().breathTriggered() &&
 		pSoldier->IsCowering())
 	{
 		return AI_ACTION_STOP_COWERING;
@@ -2569,8 +2569,8 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	if (SoldierAI(pSoldier) &&
 		pSoldier->actionPoints().current() > 0 &&
 		pSoldier->vitals().health() >= OKLIFE &&
-		!pSoldier->bCollapsed &&
-		!pSoldier->bBreathCollapsed &&
+		!pSoldier->collapseState().tactical() &&
+		!pSoldier->collapseState().breathTriggered() &&
 		pSoldier->IsGivingAid())
 	{
 		return AI_ACTION_STOP_MEDIC;
@@ -4992,8 +4992,8 @@ INT16 ubMinAPCost;
 		!fCivilian &&
 		ubCanMove &&
 		pSoldier->vitals().health() >= OKLIFE &&
-		!pSoldier->bCollapsed &&
-		!pSoldier->bBreathCollapsed &&
+		!pSoldier->collapseState().tactical() &&
+		!pSoldier->collapseState().breathTriggered() &&
 		pSoldier->IsCowering())
 	{
 		return AI_ACTION_STOP_COWERING;
@@ -5003,8 +5003,8 @@ INT16 ubMinAPCost;
 	if (SoldierAI(pSoldier) &&
 		pSoldier->actionPoints().current() > 0 &&
 		pSoldier->vitals().health() >= OKLIFE &&
-		!pSoldier->bCollapsed &&
-		!pSoldier->bBreathCollapsed &&
+		!pSoldier->collapseState().tactical() &&
+		!pSoldier->collapseState().breathTriggered() &&
 		pSoldier->IsGivingAid())
 	{
 		return AI_ACTION_STOP_MEDIC;

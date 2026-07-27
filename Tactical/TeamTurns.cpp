@@ -1805,7 +1805,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// soldiers out of breath are about to fall over, no interrupt
-	if (pSoldier->vitals().breath() < OKBREATH || pSoldier->bCollapsed )
+	if (pSoldier->vitals().breath() < OKBREATH || pSoldier->collapseState().tactical() )
 	{
 		return(FALSE);
 	}
@@ -1829,7 +1829,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		return(FALSE);
 	}
 
-	if (pSoldier->bCollapsed)
+	if (pSoldier->collapseState().tactical())
 	{
 		return( FALSE );
 	}
@@ -2676,7 +2676,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 					{
 						continue;
 					}
-					if ( pOpponent->bActive && pOpponent->bInSector && (pOpponent->vitals().health() >= OKLIFE) && (pOpponent->vitals().breath() >= OKBREATH) && !(pOpponent->bCollapsed) )
+					if ( pOpponent->bActive && pOpponent->bInSector && (pOpponent->vitals().health() >= OKLIFE) && (pOpponent->vitals().breath() >= OKBREATH) && !(pOpponent->collapseState().tactical()) )
 					{
 						if ( ubInterruptType == NOISEINTERRUPT )
 						{

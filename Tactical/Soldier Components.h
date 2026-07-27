@@ -56,6 +56,44 @@ private:
 	INT16 initial_ = 0;
 };
 
+// Canonical tactical and strategic collapse lifecycle. Tactical
+// incapacitation, breath-collapse staging, recovery duration, sleep-drug
+// duration, and strategic fatigue collapse share one explicit reset boundary
+// without conflating them with health or the action-point budget.
+class SoldierCollapseComponent
+{
+public:
+	INT8& tactical() noexcept { return tactical_; }
+	const INT8& tactical() const noexcept { return tactical_; }
+	INT8& breathTriggered() noexcept { return breathTriggered_; }
+	const INT8& breathTriggered() const noexcept { return breathTriggered_; }
+	INT8& turns() noexcept { return turns_; }
+	const INT8& turns() const noexcept { return turns_; }
+	INT8& sleepDrugCounter() noexcept { return sleepDrugCounter_; }
+	const INT8& sleepDrugCounter() const noexcept { return sleepDrugCounter_; }
+	BOOLEAN& fatigue() noexcept { return fatigue_; }
+	const BOOLEAN& fatigue() const noexcept { return fatigue_; }
+
+	bool collapsed() const noexcept { return tactical_ != FALSE; }
+	bool breathCollapsed() const noexcept { return breathTriggered_ != FALSE; }
+	bool fatigueCollapsed() const noexcept { return fatigue_ != FALSE; }
+	void collapse() noexcept { tactical_ = TRUE; }
+	void clearTactical() noexcept { tactical_ = FALSE; }
+	void recover() noexcept;
+	void markBreathCollapse() noexcept { breathTriggered_ = TRUE; }
+	void clearBreathCollapse() noexcept { breathTriggered_ = FALSE; }
+	void markFatigueCollapse() noexcept { fatigue_ = TRUE; }
+	void clearFatigueCollapse() noexcept { fatigue_ = FALSE; }
+	void reset() noexcept;
+
+private:
+	INT8 tactical_ = FALSE;
+	INT8 breathTriggered_ = FALSE;
+	INT8 turns_ = 0;
+	INT8 sleepDrugCounter_ = 0;
+	BOOLEAN fatigue_ = FALSE;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

@@ -3623,7 +3623,7 @@ UINT32 UIHandleHCOnTerrain( UI_EVENT *pUIEvent )
 	}
 
 	// If we are out of breath, no cursor...
-	if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
+	if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->collapseState().tactical() )
 	{
 		guiNewUICursor = INVALID_ACTION_UICURSOR;
 	}
@@ -3957,7 +3957,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 	// Is this a valid stance for our position?
 	if ( !IsValidStance( pSoldier, bNewStance ) )
 	{
-		if ( pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH )
+		if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pSoldier->GetName() );
 		}
@@ -3969,7 +3969,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ ROBOT_NO_STANCE_CHANGE_STR ] );
 		}
-		else if ( pSoldier->bCollapsed )
+		else if ( pSoldier->collapseState().tactical() )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, pMessageStrings[ MSG_CANT_CHANGE_STANCE ], pSoldier->GetName() );
 		}
@@ -4699,7 +4699,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 			/////////////////////////////////////////////////////////////////////////////////////////
 			// CHANGED BY SANDRO - REDUCE AP COST TO STEAL FOR MARTIAL ARTS AND HAND TO HAND NEW TRAITS
-			if (target->bCollapsed && gGameExternalOptions.fEnhancedCloseCombatSystem)
+			if (target->collapseState().tactical() && gGameExternalOptions.fEnhancedCloseCombatSystem)
 			{
 				sAPCost += (GetBasicAPsToPickupItem( pSoldier )); // stealing from collapsed soldiers is treated differently
 			}
@@ -5547,7 +5547,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 	// Make sure the merc is not collapsed!
 	if (!(IsValidStance(pSoldier, ANIM_CROUCH) || IsValidStance(pSoldier, ANIM_STAND)) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
 	{
-		if ( pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH )
+		if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pSoldier->GetName() );
 		}
@@ -6589,7 +6589,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 		return( FALSE );
 	}
 
-	if ( pSoldier->bCollapsed && fCheckCollapsed )
+	if ( pSoldier->collapseState().tactical() && fCheckCollapsed )
 	{
 		return( FALSE );
 	}
@@ -6714,7 +6714,7 @@ BOOLEAN HandleTalkInit(	)
 				}
 			}
 
-			if ( pTSoldier->bCollapsed )
+			if ( pTSoldier->collapseState().tactical() )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 21 ], pTSoldier->GetName() );
 				return( FALSE );

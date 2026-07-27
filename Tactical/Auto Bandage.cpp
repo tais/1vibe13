@@ -318,7 +318,7 @@ static BOOLEAN CreateAutoBandageString( void )
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
 			ubDoctor[ubDoctors] = pSoldier->ubID;
 			++ubDoctors;
@@ -478,7 +478,7 @@ void AutoBandage( BOOLEAN fStart )
 				}
 
 				// ATE: Make everyone stand up!
-				if ( pSoldier->vitals().health() >= OKLIFE && !pSoldier->bCollapsed )
+				if ( pSoldier->vitals().health() >= OKLIFE && !pSoldier->collapseState().tactical() )
 				{
 					if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_STAND )
 					{

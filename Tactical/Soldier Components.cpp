@@ -42,6 +42,17 @@ void SoldierActionPointComponent::reset() noexcept
 	*this = SoldierActionPointComponent{};
 }
 
+void SoldierCollapseComponent::recover() noexcept
+{
+	tactical_ = FALSE;
+	turns_ = 0;
+}
+
+void SoldierCollapseComponent::reset() noexcept
+{
+	*this = SoldierCollapseComponent{};
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
 	gridNo_ = 0;

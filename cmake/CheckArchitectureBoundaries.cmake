@@ -2041,6 +2041,110 @@ if(NOT serialized_soldier_action_point_order)
     "Soldier action-point budgets moved in the portable save schema; keep both INT16 values at their established positions")
 endif()
 
+# Tactical collapse, breath staging, recovery duration, sleep-drug duration,
+# and strategic fatigue collapse now have one owner separate from vitals and
+# AP. Preserve their independent behavior and established serialized sites.
+foreach(retired_collapse_field IN ITEMS
+  bCollapsed
+  bBreathCollapsed
+  bTurnsCollapsed
+  bSleepDrugCounter)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_collapse_field}[ \t]*;"
+    retired_current_collapse_field
+    "${current_soldier_contents}")
+  if(retired_current_collapse_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE collapse field '${retired_collapse_field}' returned; incapacitation state belongs to SoldierCollapseComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*BOOLEAN[ \t]+fMercCollapsedFlag[ \t]*;"
+  retired_current_fatigue_collapse_flag
+  "${current_soldier_flags_contents}")
+if(retired_current_fatigue_collapse_flag)
+  message(FATAL_ERROR
+    "Retired STRUCT_Flags fatigue-collapse field returned; incapacitation state belongs to SoldierCollapseComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierCollapseComponent[ \t\r\n]+collapseState_[ \t]*;"
+  soldier_collapse_owner
+  "${current_soldier_contents}")
+if(NOT soldier_collapse_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierCollapseComponent")
+endif()
+
+foreach(owned_collapse_field IN ITEMS
+  "INT8;tactical;FALSE"
+  "INT8;breathTriggered;FALSE"
+  "INT8;turns;0"
+  "INT8;sleepDrugCounter;0"
+  "BOOLEAN;fatigue;FALSE")
+  string(REPLACE ";" ";" owned_collapse_parts
+    "${owned_collapse_field}")
+  list(GET owned_collapse_parts 0 owned_collapse_type)
+  list(GET owned_collapse_parts 1 owned_collapse_name)
+  list(GET owned_collapse_parts 2 owned_collapse_initializer)
+  string(REGEX MATCH
+    "${owned_collapse_type}[ \t]+${owned_collapse_name}_[ \t]*=[ \t]*${owned_collapse_initializer}[ \t]*;"
+    owned_soldier_collapse_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_collapse_field)
+    message(FATAL_ERROR
+      "SoldierCollapseComponent no longer owns initialized '${owned_collapse_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierCollapseComponent& collapseState() noexcept"
+  soldier_collapse_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "collapseState().reset();"
+  soldier_collapse_reset)
+string(FIND "${soldier_components_header_contents}"
+  "void collapse() noexcept"
+  soldier_collapse_transition)
+string(FIND "${soldier_components_header_contents}"
+  "void recover() noexcept;"
+  soldier_recovery_transition)
+string(FIND "${soldier_components_header_contents}"
+  "void markBreathCollapse() noexcept"
+  soldier_breath_collapse_transition)
+string(FIND "${soldier_components_header_contents}"
+  "void markFatigueCollapse() noexcept"
+  soldier_fatigue_collapse_transition)
+if(soldier_collapse_accessor EQUAL -1 OR
+   soldier_collapse_reset EQUAL -1 OR
+   soldier_collapse_transition EQUAL -1 OR
+   soldier_recovery_transition EQUAL -1 OR
+   soldier_breath_collapse_transition EQUAL -1 OR
+   soldier_fatigue_collapse_transition EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierCollapseComponent must retain its accessor, reset boundary, and explicit tactical/strategic collapse transitions")
+endif()
+
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(f\\.fMuzzleFlash\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
+  serialized_soldier_fatigue_collapse_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bOverTerrainType\\);[ \t]*ar\\.i8\\(s\\.bOldOverTerrainType\\);[ \t]*ar\\.i8\\(collapseState\\.tactical\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.breathTriggered\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);"
+  serialized_soldier_tactical_collapse_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u32\\(s\\.uiTimeOfLastContractUpdate\\);[ \t]*ar\\.i8\\(s\\.bTypeOfLastContract\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(s\\.bBlindedCounter\\);"
+  serialized_soldier_collapse_duration_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_fatigue_collapse_order OR
+   NOT serialized_soldier_tactical_collapse_order OR
+   NOT serialized_soldier_collapse_duration_order)
+  message(FATAL_ERROR
+    "Soldier collapse state moved in the portable save schema; keep its flag and POD values at their established positions")
+endif()
+
 # Current tactical grid, elevation, and facing have completed the same storage
 # cut. The old route sub-structure must not return as a second public owner.
 string(FIND "${soldier_control_header_contents}"
@@ -3106,7 +3210,7 @@ string(REGEX MATCH
   serialized_soldier_animation_continuation_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bBreathCollapsed\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.pendingAnimation\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingStance\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.state\\(\\)\\);"
+  "ar\\.i8\\(collapseState\\.breathTriggered\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.pendingAnimation\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingStance\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.state\\(\\)\\);"
   serialized_soldier_animation_primary_order
   "${save_load_game_contents}")
 string(REGEX MATCH

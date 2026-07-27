@@ -4392,7 +4392,7 @@ BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
 		}
 
 		// if opponent is collapsed/breath collapsed
-		if ( pOpponent->bCollapsed || pOpponent->bBreathCollapsed )
+		if ( pOpponent->collapseState().tactical() || pOpponent->collapseState().breathTriggered() )
 		{
 			continue;
 		}
@@ -4426,8 +4426,8 @@ UINT16 CountTeamSeeSoldier( INT8 bTeam, SOLDIERTYPE *pSoldier )
 			 pFriend->bActive &&
 			 pFriend->bInSector &&
 			 pFriend->vitals().health() >= OKLIFE &&
-			 !pFriend->bCollapsed &&
-			 !pFriend->bBreathCollapsed )
+			 !pFriend->collapseState().tactical() &&
+			 !pFriend->collapseState().breathTriggered() )
 		{
 			if ( pFriend->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY ||
 				 pFriend->aiData.bOppList[pSoldier->ubID] == SEEN_THIS_TURN )

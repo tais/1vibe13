@@ -890,7 +890,6 @@ public:
 	BOOLEAN											fSoldierUpdatedFromNetwork;
 	BOOLEAN											fSayAmmoQuotePending;
 	BOOLEAN											fMuzzleFlash;
-	BOOLEAN											fMercCollapsedFlag;
 	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
 	BOOLEAN											fMercAsleep;
 	BOOLEAN											fSoldierWasMoving;
@@ -1043,6 +1042,8 @@ public:
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
+	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
+	const SoldierCollapseComponent& collapseState() const noexcept { return collapseState_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1141,9 +1142,6 @@ public:
 	INT16			sRoomNo;
 	INT8				bOverTerrainType;
 	INT8				bOldOverTerrainType;
-
-	INT8				bCollapsed;				// collapsed due to being out of APs
-	INT8				bBreathCollapsed;		// collapsed due to being out of APs
 
 	UINT32			uiAIDelay;
 	INT16			sReloadDelay;
@@ -1330,8 +1328,6 @@ public:
 	SoldierID			ubRobotRemoteHolderID;
 	UINT32				uiTimeOfLastContractUpdate;
 	INT8					bTypeOfLastContract;
-	INT8					bTurnsCollapsed;
-	INT8					bSleepDrugCounter;
 	UINT8				ubMilitiaKills;
 	
 
@@ -1508,6 +1504,7 @@ public:
 private:
 	SoldierVitalsComponent	vitals_;
 	SoldierActionPointComponent	actionPoints_;
+	SoldierCollapseComponent	collapseState_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

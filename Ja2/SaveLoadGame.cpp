@@ -1568,6 +1568,7 @@ template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
 	STRUCT_Flags& f = soldier.flags;
+	SoldierCollapseComponent& collapseState = soldier.collapseState();
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
@@ -1597,7 +1598,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fSignedAnotherContract); ar.boolean(animationActivity.turningCostWaived());
 	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(f.fForcedToStayAwake); ar.boolean(fireControl.spreadIndex());
 	ar.boolean(f.fIsSoldierMoving); ar.boolean(f.fIsSoldierDelayed); ar.boolean(f.fSoldierUpdatedFromNetwork);
-	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(f.fMuzzleFlash); ar.boolean(f.fMercCollapsedFlag);
+	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(f.fMuzzleFlash); ar.boolean(collapseState.fatigue());
 	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
 	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(f.fSoldierWasMoving);
 	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
@@ -1664,6 +1665,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
+	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1686,7 +1688,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.f32(s.dXPos); ar.f32(s.dYPos); ar.i16(s.sOldXPos); ar.i16(s.sOldYPos);
 	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
 	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
-	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(s.bCollapsed); ar.i8(s.bBreathCollapsed);
+	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(collapseState.tactical()); ar.i8(collapseState.breathTriggered());
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
@@ -1766,8 +1768,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sBoundingBoxWidth); ar.i16(s.sBoundingBoxHeight); ar.i16(s.sBoundingBoxOffsetX); ar.i16(s.sBoundingBoxOffsetY);
 	ar.u32(s.uiTimeSameBattleSndDone); ar.i8(s.bOldBattleSnd); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);
 	ar.u16(s.ubAutoBandagingMedic.i); ar.u16(s.ubRobotRemoteHolderID.i);
-	ar.u32(s.uiTimeOfLastContractUpdate); ar.i8(s.bTypeOfLastContract); ar.i8(s.bTurnsCollapsed);
-	ar.i8(s.bSleepDrugCounter); ar.u8(s.ubMilitiaKills); ar.i8(s.bBlindedCounter);
+	ar.u32(s.uiTimeOfLastContractUpdate); ar.i8(s.bTypeOfLastContract); ar.i8(collapseState.turns());
+	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(s.bBlindedCounter);
 	ar.u8(s.ubHoursOnAssignment); ar.u8(s.ubMercJustFired); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
 	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(s.bNoiseLevel); ar.i8(s.bRegenerationCounter);

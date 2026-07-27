@@ -1560,7 +1560,7 @@ static UINT32 AutoBandageMercs()
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
 		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
-			!gpMercs[ i ].pSoldier->bCollapsed &&
+			!gpMercs[ i ].pSoldier->collapseState().tactical() &&
 				gpMercs[ i ].pSoldier->stats.bMedical > 0 &&
 				( bSlot = FindObjClass( gpMercs[ i ].pSoldier, IC_MEDKIT ) ) != NO_SLOT )
 		{
@@ -1597,7 +1597,7 @@ static UINT32 AutoBandageMercs()
 	iBest = 0;
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE && !gpMercs[ i ].pSoldier->bCollapsed && gpMercs[ i ].pSoldier->stats.bMedical > 0 )
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE && !gpMercs[ i ].pSoldier->collapseState().tactical() && gpMercs[ i ].pSoldier->stats.bMedical > 0 )
 		{
 			if( gpMercs[ i ].pSoldier->stats.bMedical > gpMercs[ iBest ].pSoldier->stats.bMedical )
 			{
@@ -2890,7 +2890,7 @@ void DetermineBandageButtonState()
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
 		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
-			!gpMercs[ i ].pSoldier->bCollapsed &&
+			!gpMercs[ i ].pSoldier->collapseState().tactical() &&
 				gpMercs[ i ].pSoldier->stats.bMedical > 0 )
 		{
 			fFound = TRUE;

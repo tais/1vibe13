@@ -3864,7 +3864,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						// Make sure the merc is not collapsed!
 						if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 						{
-							if ( pjSoldier->bCollapsed && pjSoldier->vitals().breath() < OKBREATH )
+							if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
 							{
 								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
 							}
@@ -5952,7 +5952,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
 		// If we are out of breath, no cursor...
-		if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
+		if ( pSoldier->vitals().breath() < OKBREATH && pSoldier->collapseState().tactical() )
 		{
 			return;
 		}
@@ -6118,7 +6118,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
 		// If we are out of breath, no cursor...
-		if( pSoldier->vitals().breath() < OKBREATH && pSoldier->bCollapsed )
+		if( pSoldier->vitals().breath() < OKBREATH && pSoldier->collapseState().tactical() )
 		{
 			return;
 		}
@@ -6612,7 +6612,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight != ubAnimHeight)
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 				}
-				else if (pSoldier->bCollapsed && pSoldier->vitals().breath() >= OKBREATH)
+				else if (pSoldier->collapseState().tactical() && pSoldier->vitals().breath() >= OKBREATH)
 				{
 					pSoldier->BeginSoldierGetup();
 				}
@@ -7801,7 +7801,7 @@ void HandleTBJump( void )
 					// Make sure the merc is not collapsed!
 					if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 					{
-						if ( pjSoldier->bCollapsed && pjSoldier->vitals().breath() < OKBREATH )
+						if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->GetName() );
 						return;
 					}

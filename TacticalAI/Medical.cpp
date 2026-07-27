@@ -208,7 +208,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 	}
 
 	// they must have oklife or more, not be collapsed, have some level of medical competence, and have a med kit of some sort
-	if ( (pSoldier->vitals().health() >= OKLIFE) && !(pSoldier->bCollapsed) && (pSoldier->stats.bMedical > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
+	if ( (pSoldier->vitals().health() >= OKLIFE) && !(pSoldier->collapseState().tactical()) && (pSoldier->stats.bMedical > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
 	{
 		return( TRUE );
 	}
@@ -529,7 +529,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 			continue; // NEXT!!!
 		}
 
-		if (pMedic->vitals().health() >= OKLIFE && !(pMedic->bCollapsed) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
+		if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
 		{
 			fDoctorHasBeenFound = TRUE;
 		}

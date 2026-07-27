@@ -495,7 +495,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fFixingSAMSite = src.fFixingSAMSite;
 	this->fFixingRobot = src.fFixingRobot;
 	this->fSignedAnotherContract = src.fSignedAnotherContract;
-	this->fMercCollapsedFlag = src.fMercCollapsedFlag;
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
 	this->fForceShade = src.fForceShade;
@@ -694,6 +693,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubBodyType = src.ubBodyType;
 		this->actionPoints().current() = src.bActionPoints;
 		this->actionPoints().initial() = src.bInitialActionPoints;
+		this->collapseState().tactical() = src.bCollapsed;
+		this->collapseState().breathTriggered() = src.bBreathCollapsed;
+		this->collapseState().fatigue() = src.fMercCollapsedFlag;
 
 
 		this->pKeyRing = src.pKeyRing;
@@ -741,8 +743,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sRoomNo = src.sRoomNo;
 		this->bOverTerrainType = src.bOverTerrainType;
 		this->bOldOverTerrainType = src.bOldOverTerrainType;
-		this->bCollapsed = src.bCollapsed;					// collapsed due to being out of APs
-		this->bBreathCollapsed = src.bBreathCollapsed;					// collapsed due to being out of APs
 
 
 		this->animationIntent().desiredHeight() = src.ubDesiredHeight;
@@ -956,8 +956,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
 		this->uiTimeOfLastContractUpdate = src.uiTimeOfLastContractUpdate;
 		this->bTypeOfLastContract = src.bTypeOfLastContract;
-		this->bTurnsCollapsed = src.bTurnsCollapsed;
-		this->bSleepDrugCounter = src.bSleepDrugCounter;
+		this->collapseState().turns() = src.bTurnsCollapsed;
+		this->collapseState().sleepDrugCounter() = src.bSleepDrugCounter;
 		this->ubMilitiaKills = src.ubMilitiaKills;
 
 
@@ -1134,6 +1134,7 @@ void SOLDIERTYPE::initialize( )
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
 	actionPoints().reset();
+	collapseState().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -1988,7 +1989,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 		return(0);
 
 	// people with sleep dart drug who have collapsed get no APs
-	if ( (this->bSleepDrugCounter > 0) && this->bCollapsed )
+	if ( (this->collapseState().sleepDrugCounter() > 0) && this->collapseState().tactical() )
 		return(0);
 
 	//CHRISL: Update this calucalation to give a default range of 40-100
@@ -3604,14 +3605,14 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		if ( usNewState == JUMPUPWALL || usNewState == JUMPDOWNWALL || usNewState == CLIMBUPROOF || usNewState == CLIMBDOWNROOF || usNewState == HOPFENCE || usNewState == JUMPWINDOWS )
 		{
 			// Check for breath collapse if a given animation like
-			if ( this->CheckForBreathCollapse( ) || this->bCollapsed )
+			if ( this->CheckForBreathCollapse( ) || this->collapseState().tactical() )
 			{
 				// UNset UI
 				UnSetUIBusy( this->ubID );
 
 				SoldierCollapse( this );
 
-				this->bBreathCollapsed = FALSE;
+				this->collapseState().clearBreathCollapse();
 
 				return(FALSE);
 
@@ -3709,14 +3710,14 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 						}
 						else
 						{
-							if ( this->bBreathCollapsed )
+							if ( this->collapseState().breathTriggered() )
 							{
 								// UNset UI
 								UnSetUIBusy( this->ubID );
 
 								SoldierCollapse( this );
 
-								this->bBreathCollapsed = FALSE;
+								this->collapseState().clearBreathCollapse();
 							}
 							return(FALSE);
 						}
@@ -5835,7 +5836,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			UINT32	uiChance;
 
 			// put the drug in!
-			this->bSleepDrugCounter = 10;
+			this->collapseState().sleepDrugCounter() = 10;
 
 			uiChance = SleepDartSuccumbChance( this );
 
@@ -7028,10 +7029,10 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	UINT8							fFlags = 0;
 
 	//shadooow: if collapsed and enough breath, get up first and wait for new input
-	if (this->bCollapsed && this->vitals().breath() >= OKBREATH)
+	if (this->collapseState().tactical() && this->vitals().breath() >= OKBREATH)
 	{
 		this->BeginSoldierGetup();
-		if(!this->bCollapsed) return FALSE;
+		if(!this->collapseState().tactical()) return FALSE;
 	}
 
 	// Ifd this code, make true if a player
@@ -7093,7 +7094,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	// ATE: Some stuff here for realtime, going through interface....
 	if ( (!(IsJa2TacticalCombatActive()) && (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_MOVING) && fFromUI == 1) || fFromUI == 2 )
 	{
-		if ( this->bCollapsed )
+		if ( this->collapseState().tactical() )
 		{
 			return(FALSE);
 		}
@@ -9768,7 +9769,7 @@ UINT32 SleepDartSuccumbChance( SOLDIERTYPE * pSoldier )
 	}
 
 	// add in a bonus based on how long it's been since shot... highest chance at the beginning
-	uiChance += (10 - pSoldier->bSleepDrugCounter);
+	uiChance += (10 - pSoldier->collapseState().sleepDrugCounter());
 
 	return(uiChance);
 }
@@ -9800,7 +9801,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 		return;
 	}
 #endif
-	if ( this->bCollapsed )
+	if ( this->collapseState().tactical() )
 	{
 		// anv: only get up if we're not blocked by anything (like vehicle)
 		BOOLEAN fEnoughPlace = TRUE;
@@ -9841,7 +9842,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 				fEnoughPlace = OkayToAddStructureToWorld( this->position().gridNo(), this->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[this->position().direction()]]), this->ubID, FALSE, NOBODY );
 		}
 
-		if ( this->vitals().health() >= OKLIFE && this->vitals().breath() >= OKBREATH && (this->bSleepDrugCounter == 0) && fEnoughPlace )
+		if ( this->vitals().health() >= OKLIFE && this->vitals().breath() >= OKBREATH && (this->collapseState().sleepDrugCounter() == 0) && fEnoughPlace )
 		{
 			// get up you hoser!
 
@@ -9857,8 +9858,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 				}
 			}
 
-			this->bCollapsed = FALSE;
-			this->bTurnsCollapsed = 0;
+			this->collapseState().recover();
 
 			if ( IS_MERC_BODY_TYPE( this ) )
 			{
@@ -9895,10 +9895,10 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 		}
 		else
 		{
-			this->bTurnsCollapsed++;
+			this->collapseState().turns()++;
 			if ( (gTacticalStatus.bBoxingState == BOXING) && (this->flags.uiStatusFlags & SOLDIER_BOXER) )
 			{
-				if ( this->bTurnsCollapsed > 1 )
+				if ( this->collapseState().turns() > 1 )
 				{
 					// We have a winnah!  But it isn't this boxer!
 					EndBoxingMatch( this );
@@ -9906,7 +9906,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 			}
 		}
 	}
-	else if ( this->bSleepDrugCounter > 0 )
+	else if ( this->collapseState().sleepDrugCounter() > 0 )
 	{
 		UINT32 uiChance;
 
@@ -9920,9 +9920,9 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 		}
 	}
 
-	if ( this->bSleepDrugCounter > 0 )
+	if ( this->collapseState().sleepDrugCounter() > 0 )
 	{
-		this->bSleepDrugCounter--;
+		this->collapseState().sleepDrugCounter()--;
 	}
 }
 
@@ -9955,13 +9955,13 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 			// silversurfer: fix for the deadlock that could happen when the victim was running through a gas cloud that lead to his death.
 			// If he is near death the next check will make him collapse. If he is really dead then he won't move anywhere anyway
 			// so it should be safe to stop him here.
-			if ( pSoldier->vitals().health() < OKLIFE && !pSoldier->bCollapsed )
+			if ( pSoldier->vitals().health() < OKLIFE && !pSoldier->collapseState().tactical() )
 			{
 				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 			}
 
 			// Check for < OKLIFE
-			if ( pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().health() != 0 && !pSoldier->bCollapsed )
+			if ( pSoldier->vitals().health() < OKLIFE && pSoldier->vitals().health() != 0 && !pSoldier->collapseState().tactical() )
 			{
 				SoldierCollapse( pSoldier );
 			}
@@ -12564,7 +12564,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 
 		if ( target != nullptr &&
 			((target->vitals().health() < OKLIFE && target->vitals().health() > 0) ||
-			 (target->vitals().breath() < OKBREATH && target->bCollapsed)) )
+			 (target->vitals().breath() < OKBREATH && target->collapseState().tactical())) )
 		{
 			this->aiData.uiPendingActionData4 = ubTargetID;
 
@@ -12883,7 +12883,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 						// FINISH HIM!
 						HandleTakeDamageDeath( pTSoldier, oldlife, TAKE_DAMAGE_BLOODLOSS );
 					}
-					else if ( pTSoldier->vitals().health() < OKLIFE && !pTSoldier->bCollapsed )
+					else if ( pTSoldier->vitals().health() < OKLIFE && !pTSoldier->collapseState().tactical() )
 					{
 						// let the target collapse...
 						SoldierCollapse( pTSoldier );
@@ -13310,7 +13310,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 		pTSoldier->ubServiceCount++;
 
 		// If target and doer are no the same guy...
-		if ( pTSoldier->ubID != this->ubID && !pTSoldier->bCollapsed )
+		if ( pTSoldier->ubID != this->ubID && !pTSoldier->collapseState().tactical() )
 		{
 			pTSoldier->SoldierGotoStationaryStance( );
 		}
@@ -14471,13 +14471,13 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 
 	//}
 
-	if ( this->vitals().breath() == 0 && !this->bCollapsed && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
+	if ( this->vitals().breath() == 0 && !this->collapseState().tactical() && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
 	{
 		if ( !(this->ubServiceCount) ) // added by SANDRO (we don't want to collapse when on surgery)
 		{
 			// Collapse!
 			// OK, Set a flag, because we may still be in the middle of an animation what is not interruptable...
-			this->bBreathCollapsed = TRUE;
+			this->collapseState().markBreathCollapse();
 
 			return(TRUE);
 		}
@@ -14530,7 +14530,7 @@ BOOLEAN SOLDIERTYPE::InternalIsValidStance( INT8 bDirection, INT8 bNewStance )
 	}
 
 
-	if ( this->bCollapsed )
+	if ( this->collapseState().tactical() )
 	{
 		//CHRISL: Changes from ADB rev 1475.
 		if ( bNewStance == ANIM_CROUCH )
@@ -15256,7 +15256,7 @@ void	SOLDIERTYPE::InventoryExplosion( void )
 		// FINISH HIM!
 		HandleTakeDamageDeath( this, oldlife, TAKE_DAMAGE_BLOODLOSS );
 	}
-	else if ( vitals().health() < OKLIFE && !bCollapsed )
+	else if ( vitals().health() < OKLIFE && !collapseState().collapsed() )
 	{
 		// let the target collapse...
 		SoldierCollapse( this );
@@ -16562,7 +16562,7 @@ BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 
 UINT32		SOLDIERTYPE::GetSurrenderStrength( )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 value = 100 + 10 * EffectiveExpLevel( this ) + EffectiveStrength( this, FALSE ) + 3 * EffectiveMarksmanship( this ) + EffectiveLeadership( this ) / 4;
@@ -16691,7 +16691,7 @@ UINT8	SOLDIERTYPE::GetMultiTurnAction( )
 void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 {
 	// check wether we can perform any action at all
-	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->bCollapsed )
+	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->collapseState().tactical() )
 		return;
 
 	// wether an action is possible or not depends on action itself (there are actions without a gridno)
@@ -16742,7 +16742,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		return FALSE;
 
 	// check wether we can perform any action at all
-	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( this->position().gridNo() ) || this->bCollapsed )
+	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( this->position().gridNo() ) || this->collapseState().tactical() )
 	{
 		CancelMultiTurnAction( FALSE );
 		return FALSE;
@@ -18066,7 +18066,7 @@ BOOLEAN	SOLDIERTYPE::CanUseSkill( INT8 iSkill, BOOLEAN fAPCheck, INT32 sGridNo )
 {
 	if ( fAPCheck )
 	{
-		if ( this->bCollapsed )
+		if ( this->collapseState().tactical() )
 			return FALSE;
 	}
 
@@ -19385,7 +19385,7 @@ BOOLEAN SOLDIERTYPE::IsSpotting( )
 
 BOOLEAN SOLDIERTYPE::CanSpot( INT32 sTargetGridNo )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return FALSE;
 
 	// additional checks if we want to know wether we can target a specific location
@@ -19510,7 +19510,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 			}
 
 			// sevenfm: change target to stationary
-			if (pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH && !pSoldier->bCollapsed)
+			if (pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH && !pSoldier->collapseState().tactical())
 				pSoldier->SoldierGotoStationaryStance();
 
 			// AI medics always perform surgery
@@ -20381,7 +20381,7 @@ BOOLEAN	SOLDIERTYPE::IsCrouchedAgainstCoverFromDir( UINT8 aDirection )
 // Flugente: fortification
 FLOAT	SOLDIERTYPE::GetConstructionPoints( )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->bCollapsed || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 val = EffectiveStrength( this, FALSE );
@@ -21537,7 +21537,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 
 	if ( this->vitals().health() < OKLIFE
 		|| this->flags.fMercAsleep
-		|| this->bCollapsed
+		|| this->collapseState().tactical()
 		|| ( this->usSoldierFlagMask & SOLDIER_POW )
 		|| this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 20
 		|| usID == NOBODY )
@@ -21551,7 +21551,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 		|| pSoldier->bTeam != ENEMY_TEAM
 		|| pSoldier->ubProfile != NO_PROFILE
 		|| pSoldier->vitals().health() != pSoldier->vitals().maximumHealth()
-		|| pSoldier->bCollapsed
+		|| pSoldier->collapseState().tactical()
 		|| ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
 		|| !SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass )
 		|| !SeemsLegit( pSoldier->ubID ) )
@@ -22016,7 +22016,7 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 void SoldierCollapse( SOLDIERTYPE *pSoldier )
 {
 	// already down and lying -- don't replay the fall (MP echo / double-collapse; audit [27])
-	if ( pSoldier->bCollapsed && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
+	if ( pSoldier->collapseState().tactical() && gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight == ANIM_PRONE )
 		return;
 	BOOLEAN fMerc = FALSE;
 
@@ -22042,7 +22042,7 @@ void SoldierCollapse( SOLDIERTYPE *pSoldier )
 		break;
 	}
 
-	pSoldier->bCollapsed = TRUE;
+	pSoldier->collapseState().collapse();
 
 	pSoldier->usUIMovementMode = CRAWLING;
 
@@ -22713,7 +22713,7 @@ void SOLDIERTYPE::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection 
 		// we found someone we can handcuff
 		// check wether we will be successful
 		BOOLEAN success = FALSE;
-		if ( pSoldier->flags.fMercAsleep || pSoldier->bCollapsed )
+		if ( pSoldier->flags.fMercAsleep || pSoldier->collapseState().tactical() )
 			success = TRUE;
 		else
 		{
@@ -22866,7 +22866,7 @@ void SOLDIERTYPE::EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirecti
 				BOOLEAN success = TRUE;
 
 				// if the other guy is not on our side, and he is concious, he resists
-				if ( this->bSide != pSoldier->bSide && !pSoldier->bCollapsed )
+				if ( this->bSide != pSoldier->bSide && !pSoldier->collapseState().tactical() )
 				{
 					// wether we are sucessful depends on dexterity, and his alert status (he gets a malus on green state)
 					UINT32 attackervalue = 30 + 4 * EffectiveExpLevel( this ) + EffectiveDexterity( this, FALSE ) + 20 * HAS_SKILL_TRAIT( this, STEALTHY_NT );
@@ -23475,7 +23475,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[0] );
 				}
 				// not possible if this guy is incapitated
-				else if ( pTSoldier->bCollapsed || pTSoldier->bBreathCollapsed || pTSoldier->vitals().health() < OKLIFE )
+				else if ( pTSoldier->collapseState().tactical() || pTSoldier->collapseState().breathTriggered() || pTSoldier->vitals().health() < OKLIFE )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[1] );
 				}
@@ -25057,7 +25057,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 				GetJa2SoldierRepository().resolve( uCnt );
 			if ( pInterrupter == NULL )
 				continue;			// not valid
-			if (pInterrupter->vitals().health() < OKLIFE || pInterrupter->bCollapsed || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->actionPoints().current() < 4)
+			if (pInterrupter->vitals().health() < OKLIFE || pInterrupter->collapseState().tactical() || !pInterrupter->bActive || !pInterrupter->bInSector || pInterrupter->actionPoints().current() < 4)
 				continue;			// not active
 			if (pInterrupter->vitals().breath() < OKBREATH && pInterrupter->bTeam != OUR_TEAM)
 				continue;			// BOB: prevent NPCs from getting interrupts when out of breath
@@ -25191,7 +25191,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 							continue;			// not valid
 						if ( pTeammate->bTeam != pInterrupter->bTeam )
 							continue;			// little paranoya check here
-						if ( pTeammate->vitals().health() < OKLIFE || pTeammate->bCollapsed || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->actionPoints().current() < 4 )
+						if ( pTeammate->vitals().health() < OKLIFE || pTeammate->collapseState().tactical() || !pTeammate->bActive || !pTeammate->bInSector || pTeammate->actionPoints().current() < 4 )
 							continue;			// not active
 
 						// check if we haven't been added to the list already
@@ -26126,7 +26126,7 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 		return;
 
 	// target must unharmed
-	if ( pTarget->bCollapsed || pTarget->bBreathCollapsed || pTarget->vitals().health() < pTarget->vitals().maximumHealth() )
+	if ( pTarget->collapseState().tactical() || pTarget->collapseState().breathTriggered() || pTarget->vitals().health() < pTarget->vitals().maximumHealth() )
 		return;
 
 	// target must be friendly
@@ -26421,7 +26421,7 @@ BOOLEAN SOLDIERTYPE::IsCowering(void)
 
 BOOLEAN SOLDIERTYPE::IsUnconscious(void)
 {
-	if (this->bCollapsed && this->vitals().breath() < OKBREATH)
+	if (this->collapseState().tactical() && this->vitals().breath() < OKBREATH)
 		return TRUE;
 
 	return FALSE;
