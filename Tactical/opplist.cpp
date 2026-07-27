@@ -2444,7 +2444,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 							{
 								DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: NPC: Angel code"));
 								CancelAIAction( pSoldier, TRUE );
-								pSoldier->sAbsoluteFinalDestination = NOWHERE;
+								pSoldier->movement().absoluteDestination() = NOWHERE;
 								pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 								TriggerNPCRecord( ANGEL, 20 );
 								// trigger Angel to walk off afterwards
@@ -4602,7 +4602,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Delayed Movement:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fDelayedMovement );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->movement().delayCounter() );
 		if ( gubWatchedLocPoints[ pSoldier->ubID ][ 0 ] > 0 )
 		{
 			gprintf( 350, LINE_HEIGHT * ubLine, L"Watch %d/%d for %d pts",

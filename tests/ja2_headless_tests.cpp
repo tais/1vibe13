@@ -3803,7 +3803,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		commandHostActor.position().gridNo() = 77;
 		commandHostActor.pathing().finalDestinationGrid() = 99;
-		commandHostActor.flags.fDelayedMovement = TRUE;
+		commandHostActor.movement().delayCounter() = TRUE;
 		commandHostActor.usAnimState = STANDING;
 		const SimulationCommandDispatchResult movementStopped =
 			TryDispatchStopMovementCommandNow(
@@ -3819,7 +3819,7 @@ int main( int, char** )
 		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostActor.bStealthMode == TRUE &&
 		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
-		       commandHostActor.flags.fDelayedMovement == FALSE &&
+		       !commandHostActor.movement().delayed() &&
 		       commandHostActor.pathing().finalDestinationGrid() == commandHostActor.position().gridNo() &&
 		       facingQueued.status == SimulationCommandDispatchStatus::Applied &&
 		       commandHostExecutedState &&
@@ -7264,6 +7264,15 @@ int main( int, char** )
 		pathing.pathIndex() = 1;
 		pathing.blackListGrid() = 1300;
 		pathing.stored() = 1;
+		SoldierMovementComponent& movement = soldier.movement();
+		movement.waitForGrid(1250, 9);
+		movement.reservedGrid() = 1251;
+		movement.blockInDirection(3);
+		movement.absoluteDestination() = 1260;
+		movement.setContinuedPath(1270);
+		movement.delayedFlags() = 5;
+		movement.stopReason() = 2;
+		movement.overrideMoveSpeedWith(SoldierID{ 4 });
 		CHECK( vitals.alive() && soldier.vitals().health() == 75 && soldier.vitals().breath() == 60,
 		       "soldier vitals component owns the canonical serialized fields" );
 		const SOLDIERTYPE& constSoldier = soldier;
@@ -7282,6 +7291,20 @@ int main( int, char** )
 		       !constSoldier.pathing().empty() &&
 		       !constSoldier.pathing().complete(),
 		       "soldier pathing component owns the canonical tactical route" );
+		CHECK( constSoldier.movement().delayed() &&
+		       constSoldier.movement().delayCounter() == 9 &&
+		       constSoldier.movement().delayedCauseGrid() == 1250 &&
+		       constSoldier.movement().reservedGrid() == 1251 &&
+		       constSoldier.movement().blockedByAnotherMerc() &&
+		       constSoldier.movement().blockedDirection() == 3 &&
+		       constSoldier.movement().absoluteDestination() == 1260 &&
+		       constSoldier.movement().continuedPathValid() &&
+		       constSoldier.movement().continuedPathGrid() == 1270 &&
+		       constSoldier.movement().delayedFlags() == 5 &&
+		       constSoldier.movement().stopReason() == 2 &&
+		       constSoldier.movement().usesMoveSpeedOverride() &&
+		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
+		       "soldier movement component owns tactical intent and contention state" );
 		vitals.maximumHealth() = 80;
 		vitals.applyLifeDeduction( 20 );
 		CHECK( vitals.health() == 55,
@@ -7321,12 +7344,34 @@ int main( int, char** )
 		       copiedSoldier.pathing().blackListGrid() == 1300 &&
 		       copiedSoldier.pathing().stored() == 1,
 		       "soldier copies retain their owned persistent pathing state" );
+		CHECK( copiedSoldier.movement().delayCounter() == 9 &&
+		       copiedSoldier.movement().delayedCauseGrid() == 1250 &&
+		       copiedSoldier.movement().reservedGrid() == 1251 &&
+		       copiedSoldier.movement().blockedByAnotherMerc() &&
+		       copiedSoldier.movement().blockedDirection() == 3 &&
+		       copiedSoldier.movement().absoluteDestination() == 1260 &&
+		       copiedSoldier.movement().continuedPathValid() &&
+		       copiedSoldier.movement().continuedPathGrid() == 1270 &&
+		       copiedSoldier.movement().delayedFlags() == 5 &&
+		       copiedSoldier.movement().stopReason() == 2 &&
+		       copiedSoldier.movement().usesMoveSpeedOverride() &&
+		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
+		       "soldier copies retain their owned persistent movement state" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
 		       copiedSoldier.pathing().complete() &&
 		       copiedSoldier.pathing().pathIndex() == 0 &&
 		       copiedSoldier.pathing().stored() == 0,
 		       "soldier pathing component clears route cursors and cached-route state together" );
+		copiedSoldier.movement().clearDelay();
+		copiedSoldier.movement().clearBlock();
+		copiedSoldier.movement().clearContinuedPath();
+		copiedSoldier.movement().clearMoveSpeedOverride();
+		CHECK( !copiedSoldier.movement().delayed() &&
+		       !copiedSoldier.movement().blockedByAnotherMerc() &&
+		       !copiedSoldier.movement().continuedPathValid() &&
+		       !copiedSoldier.movement().usesMoveSpeedOverride(),
+		       "soldier movement component clears coordinated movement modes through named transitions" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -7351,6 +7396,19 @@ int main( int, char** )
 		       copiedSoldier.pathing().blackListGrid() == 0 &&
 		       copiedSoldier.pathing().stored() == 0,
 		       "soldier initialization resets the complete pathing domain" );
+		CHECK( copiedSoldier.movement().delayCounter() == 0 &&
+		       copiedSoldier.movement().delayedCauseGrid() == 0 &&
+		       copiedSoldier.movement().reservedGrid() == 0 &&
+		       !copiedSoldier.movement().blockedByAnotherMerc() &&
+		       copiedSoldier.movement().blockedDirection() == 0 &&
+		       copiedSoldier.movement().absoluteDestination() == 0 &&
+		       copiedSoldier.movement().continuedPathGrid() == 0 &&
+		       !copiedSoldier.movement().continuedPathValid() &&
+		       copiedSoldier.movement().delayedFlags() == 0 &&
+		       copiedSoldier.movement().stopReason() == 0 &&
+		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
+		       !copiedSoldier.movement().usesMoveSpeedOverride(),
+		       "soldier initialization resets the complete movement domain" );
 	}
 
 	{
@@ -7477,6 +7535,14 @@ int main( int, char** )
 		savedSoldier.pathing().pathIndex() = 1;
 		savedSoldier.pathing().blackListGrid() = 1444;
 		savedSoldier.pathing().stored() = 1;
+		savedSoldier.movement().waitForGrid(1451, 12);
+		savedSoldier.movement().reservedGrid() = 1452;
+		savedSoldier.movement().blockInDirection(6);
+		savedSoldier.movement().absoluteDestination() = 1460;
+		savedSoldier.movement().setContinuedPath(1470);
+		savedSoldier.movement().delayedFlags() = 3;
+		savedSoldier.movement().stopReason() = 4;
+		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -7516,6 +7582,32 @@ int main( int, char** )
 		       loadedSoldier.pathing().blackListGrid() == 1444 &&
 		       loadedSoldier.pathing().stored() == 1,
 		       "soldier save/load round-trips component-owned persistent state through the established schema" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().delayCounter() == 12,
+		       "soldier save/load round-trips the component-owned movement delay counter" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().delayedCauseGrid() == 1451,
+		       "soldier save/load round-trips the component-owned movement delay cause" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().reservedGrid() == 1452,
+		       "soldier save/load round-trips the component-owned movement reservation" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().blockedByAnotherMerc() &&
+		       loadedSoldier.movement().blockedDirection() == 6,
+		       "soldier save/load round-trips component-owned movement contention state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().absoluteDestination() == 1460 &&
+		       loadedSoldier.movement().continuedPathValid() &&
+		       loadedSoldier.movement().continuedPathGrid() == 1470,
+		       "soldier save/load round-trips component-owned movement destination state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().delayedFlags() == 3 &&
+		       loadedSoldier.movement().stopReason() == 4,
+		       "soldier save/load round-trips component-owned movement result state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movement().usesMoveSpeedOverride() &&
+		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
+		       "soldier save/load round-trips component-owned movement speed state" );
 	}
 
 	{

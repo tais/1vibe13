@@ -2953,7 +2953,7 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 	{
 		// Reset some flags for cont move...
 		pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
-		pSoldier->bGoodContPath			= FALSE;
+		pSoldier->movement().clearContinuedPath();
 		//	guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 	}
 
@@ -3553,8 +3553,7 @@ BOOLEAN SelectedMercCanAffordMove(	)
 		else
 		{
 			// OK, remember where we were trying to get to.....
-			pSoldier->sContPathLocation = usMapPos;
-			pSoldier->bGoodContPath			= TRUE;
+			pSoldier->movement().setContinuedPath(usMapPos);
 		}
 	}
 
@@ -3995,7 +3994,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 				return;
 
 			pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
-			pSoldier->bGoodContPath			= FALSE;
+			pSoldier->movement().clearContinuedPath();
 
 			//dnl ch71 180913 when we go to crouch or prone for now there is no alternative fire mode option
 			if (pSoldier->bScopeMode == USE_ALT_WEAPON_HOLD && bNewStance != ANIM_STAND ||

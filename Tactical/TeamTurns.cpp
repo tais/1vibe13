@@ -1462,7 +1462,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				// If we can continue a move, do so!
 				if ( selectedSoldier &&
 					selectedSoldier->flags.fNoAPToFinishMove &&
-					pSoldier->ubReasonCantFinishMove != REASON_STOPPED_SIGHT )
+					pSoldier->movement().stopReason() != REASON_STOPPED_SIGHT )
 				{
 					// Continue
 					selectedSoldier->AdjustNoAPToFinishMove( FALSE );

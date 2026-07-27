@@ -2572,7 +2572,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 							if ( !( gAnimControl[ pSoldier->usAnimState ].uiFlags & ( ANIM_MOVING ) ) )
 							{								
-								if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+								if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 								{
 									DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: end door open code"));
 									CancelAIAction( pSoldier, FORCE );

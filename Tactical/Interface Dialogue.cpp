@@ -1862,7 +1862,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	pSoldier->ubQuoteActionID = ActionIDForMovementRecord( ubTargetNPC, ubQuoteNum );
 
 	// Set absolute dest
-	pSoldier->sAbsoluteFinalDestination = usGridNo;
+	pSoldier->movement().absoluteDestination() = usGridNo;
 
 	// handle this guy's AI right away so that we can get him moving
 	pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
@@ -3983,7 +3983,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							TriggerNPCRecord( pSoldier->ubProfile, 2 );
 							pSoldier->bHospitalPriceModifier = gbHospitalPriceModifier;
 							// make sure this person doesn't have an absolute dest any more
-							pSoldier->sAbsoluteFinalDestination = NOWHERE;
+							pSoldier->movement().absoluteDestination() = NOWHERE;
 						}
 					}
 

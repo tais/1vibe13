@@ -1568,7 +1568,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 	ConvertGridNoToCenterCellXY(sGridNo, &sWorldX, &sWorldY);
 
 	// Set reserved location!
-	pSoldier->sReservedMovementGridNo = NOWHERE;
+	pSoldier->movement().reservedGrid() = NOWHERE;
 
 	// Save OLD insertion code.. as this can change...
 	ubInsertionCode = pSoldier->ubStrategicInsertionCode;

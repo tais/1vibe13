@@ -43,3 +43,32 @@ void SoldierPathingComponent::reset() noexcept
 {
 	*this = SoldierPathingComponent{};
 }
+
+void SoldierMovementComponent::waitForGrid(INT32 gridNo, UINT8 counter) noexcept
+{
+	delayedCauseGrid_ = gridNo;
+	delayCounter_ = counter;
+}
+
+void SoldierMovementComponent::blockInDirection(INT8 direction) noexcept
+{
+	blockedByAnotherMerc_ = TRUE;
+	blockedDirection_ = direction;
+}
+
+void SoldierMovementComponent::setContinuedPath(INT32 gridNo) noexcept
+{
+	continuedPathGrid_ = gridNo;
+	continuedPathValid_ = TRUE;
+}
+
+void SoldierMovementComponent::overrideMoveSpeedWith(SoldierID soldier) noexcept
+{
+	moveSpeedOverride_ = soldier;
+	usesMoveSpeedOverride_ = TRUE;
+}
+
+void SoldierMovementComponent::reset() noexcept
+{
+	*this = SoldierMovementComponent{};
+}

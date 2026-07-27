@@ -8509,7 +8509,7 @@ static int l_AnimMercPtsrsAbsoluteFinalDestination(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->bInSector && GridNo != NOWHERE)
-			pSoldier->sAbsoluteFinalDestination = GridNo;
+			pSoldier->movement().absoluteDestination() = GridNo;
 	}
 	return 0;
 }

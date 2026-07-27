@@ -480,7 +480,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 		if ( InARoom( pSoldier->aiData.sPatrolGrid[0], &usRoomRequired ) )
 		{
 			// make sure this doesn't interfere with pathing for scripts			
-			if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+			if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 			{
 				usRoomRequired = 0;
 			}

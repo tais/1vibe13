@@ -167,7 +167,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 					pSoldier->aiData.uiPendingActionData1 = pSoldier->iNextActionSpecialData;
 				}
 			}			
-			else if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+			else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 			{
 				if ( ACTING_ON_SCHEDULE( pSoldier ) )
 				{
@@ -177,7 +177,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 				{
 					pSoldier->aiData.bAction = AI_ACTION_WALK;
 				}
-				pSoldier->aiData.usActionData = pSoldier->sAbsoluteFinalDestination;
+				pSoldier->aiData.usActionData = pSoldier->movement().absoluteDestination();
 			}
 			else
 			{

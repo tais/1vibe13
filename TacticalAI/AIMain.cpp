@@ -752,30 +752,30 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	{
 
 		// an old action was in progress; continue it
-		if (pSoldier->aiData.bAction >= FIRST_MOVEMENT_ACTION && pSoldier->aiData.bAction <= LAST_MOVEMENT_ACTION && !pSoldier->flags.fDelayedMovement)
+		if (pSoldier->aiData.bAction >= FIRST_MOVEMENT_ACTION && pSoldier->aiData.bAction <= LAST_MOVEMENT_ACTION && !pSoldier->movement().delayed())
 		{
 			if (pSoldier->pathing().pathIndex() == pSoldier->pathing().pathSize())
 			{
 				INT8 bEscapeDirection = NOWHERE;
 
-				if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+				if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 				{
-					if ( !ACTING_ON_SCHEDULE( pSoldier ) &&  SpacesAway( pSoldier->position().gridNo(), pSoldier->sAbsoluteFinalDestination ) < 4 )
+					if ( !ACTING_ON_SCHEDULE( pSoldier ) &&  SpacesAway( pSoldier->position().gridNo(), pSoldier->movement().absoluteDestination() ) < 4 )
 					{
 						// This is close enough... reached final destination for NPC system move
-						if ( pSoldier->sAbsoluteFinalDestination != pSoldier->position().gridNo() )
+						if ( pSoldier->movement().absoluteDestination() != pSoldier->position().gridNo() )
 						{
 							// update NPC records to replace our final dest with this location
-							ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->position().gridNo() );
+							ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->movement().absoluteDestination(), pSoldier->position().gridNo() );
 						}
-						pSoldier->sAbsoluteFinalDestination = pSoldier->position().gridNo();
+						pSoldier->movement().absoluteDestination() = pSoldier->position().gridNo();
 						// change action data so that we consider this our final destination below
 						pSoldier->aiData.usActionData = pSoldier->position().gridNo();
 					}
 
-					if ( pSoldier->sAbsoluteFinalDestination == pSoldier->position().gridNo() )
+					if ( pSoldier->movement().absoluteDestination() == pSoldier->position().gridNo() )
 					{
-						pSoldier->sAbsoluteFinalDestination = NOWHERE;
+						pSoldier->movement().absoluteDestination() = NOWHERE;
 
 						if ( !ACTING_ON_SCHEDULE( pSoldier ) && pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST )
 						{
@@ -1380,7 +1380,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		pSoldier->aiData.bAction			= AI_ACTION_NONE;
 		pSoldier->aiData.usActionData		= NOWHERE;
 		pSoldier->aiData.bActionInProgress	= FALSE;
-		pSoldier->flags.fDelayedMovement	= FALSE;
+		pSoldier->movement().clearDelay();
 
 		/*
 		if ( pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_STANCE || pSoldier->aiData.bLastAction == AI_ACTION_COWER || pSoldier->aiData.bLastAction == AI_ACTION_STOP_COWERING )
@@ -1706,7 +1706,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 				pSoldier->aiData.uiPendingActionData1 = pSoldier->iNextActionSpecialData;
 			}
 		}		
-		else if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+		else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 		{
 			if ( ACTING_ON_SCHEDULE( pSoldier ) )
 			{
@@ -1716,7 +1716,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			{
 				pSoldier->aiData.bAction = AI_ACTION_WALK;
 			}
-			pSoldier->aiData.usActionData = pSoldier->sAbsoluteFinalDestination;
+			pSoldier->aiData.usActionData = pSoldier->movement().absoluteDestination();
 		}
 		else
 		{
@@ -1766,7 +1766,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			// perform the chosen action
 			pSoldier->aiData.bActionInProgress = ExecuteAction(pSoldier); // if started, mark us as busy
 			
-			if ( !pSoldier->aiData.bActionInProgress && !TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+			if ( !pSoldier->aiData.bActionInProgress && !TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 			{
 				// turn based... abort this guy's turn
 				EndAIGuysTurn( pSoldier );
@@ -2105,7 +2105,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             // optimization - Ian (if up-to-date path is known, do not check again)
             if (!pSoldier->pathing().stored())
             {			
-                if ( (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) || gTacticalStatus.fAutoBandageMode) && !(IsJa2TacticalCombatActive()) )
+                if ( (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()) || gTacticalStatus.fAutoBandageMode) && !(IsJa2TacticalCombatActive()) )
                 {
                     // NPC system move, allow path through
                     if (LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, PATH_THROUGH_PEOPLE ))
@@ -2127,15 +2127,15 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                 if ( !pSoldier->pathing().stored() )
                 {
                     // Check if we were told to move by NPC stuff				
-                    if ( !TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination) && !(IsJa2TacticalCombatActive()) )
+                    if ( !TileIsOutOfBounds(pSoldier->movement().absoluteDestination()) && !(IsJa2TacticalCombatActive()) )
                     {
                         //ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"AI %s failed to get path for dialogue-related move!", pSoldier->name );
 
                         // Are we close enough?
-                        if ( !ACTING_ON_SCHEDULE( pSoldier ) && SpacesAway( pSoldier->position().gridNo(), pSoldier->sAbsoluteFinalDestination ) < 4 )
+                        if ( !ACTING_ON_SCHEDULE( pSoldier ) && SpacesAway( pSoldier->position().gridNo(), pSoldier->movement().absoluteDestination() ) < 4 )
                         {
                             // This is close enough...
-                            ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->sAbsoluteFinalDestination, pSoldier->position().gridNo() );
+                            ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->movement().absoluteDestination(), pSoldier->position().gridNo() );
                             NPCGotoGridNo( pSoldier->ubProfile, pSoldier->position().gridNo(), (UINT8) (pSoldier->ubQuoteRecord - 1) );
                         }
                         else

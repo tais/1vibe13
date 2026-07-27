@@ -2119,7 +2119,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->bActive					= TRUE;
 	pSoldier->flags.fShowLocator			= FALSE;
 	pSoldier->sLastTarget				= NOWHERE;
-	pSoldier->sAbsoluteFinalDestination = NOWHERE;
+	pSoldier->movement().absoluteDestination() = NOWHERE;
 	pSoldier->sZLevelOverride			= -1;
 	pSoldier->ubServicePartner			= NOBODY;
 	pSoldier->ubAttackingHand			= HANDPOS;

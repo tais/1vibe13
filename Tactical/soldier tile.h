@@ -23,7 +23,7 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce );
 
 BOOLEAN SwapMercPositions( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2 );
 
-void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, INT8 bValue );
+void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bValue );
 
 BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLEAN fShow );
 

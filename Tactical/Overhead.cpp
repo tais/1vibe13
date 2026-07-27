@@ -1693,7 +1693,7 @@ BOOLEAN ExecuteOverhead( )
                                     // In case this is an AI person with the path-stored flag set,
                                     // turn it OFF since we have exhausted our stored path
                                     pSoldier->pathing().stored() = FALSE;
-                                    if (!TileIsOutOfBounds(pSoldier->sAbsoluteFinalDestination))
+                                    if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
                                     {
                                         // We have not made it to our dest... but it's better to let the AI handle this itself,
                                         // on the very next fram

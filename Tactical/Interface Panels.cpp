@@ -4391,9 +4391,9 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 
 			sGridNo = pSoldier->pathing().finalDestinationGrid();
 
-			if ( pSoldier->bGoodContPath )
+			if ( pSoldier->movement().continuedPathValid() )
 			{
-				sGridNo = pSoldier->sContPathLocation;
+				sGridNo = pSoldier->movement().continuedPathGrid();
 			}
 
 			// While our mouse is here, draw a path!

@@ -3239,7 +3239,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 
 	if( pSoldier->vitals().health() >= OKLIFE && !(pSoldier->bCollapsed && pSoldier->vitals().breath() < OKBREATH) )
 	{
-		if( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid() || pSoldier->bGoodContPath	)
+		if( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid() || pSoldier->movement().continuedPathValid()	)
 		{
 			// OK< check if we are the selected guy!
 			if ( pSoldier->ubID == gusSelectedSoldier )
@@ -3248,9 +3248,9 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 				{
 					sGridNo = pSoldier->pathing().finalDestinationGrid();
 
-					if ( pSoldier->bGoodContPath )
+					if ( pSoldier->movement().continuedPathValid() )
 					{
-						sGridNo = pSoldier->sContPathLocation;
+						sGridNo = pSoldier->movement().continuedPathGrid();
 					}
 
 					// Do a check if we can afford move here!
