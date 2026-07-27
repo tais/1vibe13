@@ -998,7 +998,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 			// sevenfm: avoid moving into light
 			if (InLightAtNight(sGridNo, pSoldier->position().level()) &&
 				!InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level()) &&
-				!pSoldier->aiData.bUnderFire)
+				!pSoldier->suppression().underFire())
 			{
 				continue;
 			}

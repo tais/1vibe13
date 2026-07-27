@@ -404,7 +404,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 				// use walking mode if no enemy known
 				if (pSoldier->aiData.bAlertStatus < STATUS_RED &&
 					TileIsOutOfBounds(sClosestThreat) &&
-					!pSoldier->aiData.bUnderFire &&
+					!pSoldier->suppression().underFire() &&
 					(bAction == AI_ACTION_SEEK_FRIEND || bAction == AI_ACTION_SEEK_NOISE || bAction == AI_ACTION_TAKE_COVER))
 				{
 					return WALKING;
@@ -442,8 +442,8 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					if (!InLightAtNight(pSoldier->position().gridNo(), pSoldier->position().level()) &&
 						pSoldier->aiData.bAlertStatus == STATUS_RED &&
 						iRCD < 4 &&
-						!pSoldier->aiData.bUnderFire &&
-						pSoldier->aiData.bShock == 0 &&
+						!pSoldier->suppression().underFire() &&
+						pSoldier->suppression().shock() == 0 &&
 						!GuySawEnemy(pSoldier) &&
 						(NightTime() || gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight <= ANIM_CROUCH) &&
 						CountNearbyFriends(pSoldier, pSoldier->position().gridNo(), TACTICAL_RANGE / 4) < 3 &&
@@ -457,9 +457,9 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					// use swatting for taking cover
 					if (pSoldier->aiData.bAlertStatus >= STATUS_RED &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8 &&
-						(pSoldier->aiData.bUnderFire && iRCD < 4 ||
-						pSoldier->aiData.bShock > 2 * iRCD ||
-						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE) &&
+						(pSoldier->suppression().underFire() && iRCD < 4 ||
+						pSoldier->suppression().shock() > 2 * iRCD ||
+						pSoldier->suppression().shock() > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE) &&
 						!pSoldier->aiData.bLastAttackHit &&
 						bAction == AI_ACTION_TAKE_COVER)
 					{
@@ -468,8 +468,8 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 
 					// use SWATTING when under fire 
 					if (pSoldier->aiData.bAlertStatus >= STATUS_RED &&
-						(pSoldier->aiData.bShock > iRCD && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 2 ||
-						pSoldier->aiData.bShock > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4) &&
+						(pSoldier->suppression().shock() > iRCD && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 2 ||
+						pSoldier->suppression().shock() > 0 && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4) &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) < 3 * sDistanceVisible / 2 &&
 						gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight <= ANIM_CROUCH &&
 						!pSoldier->aiData.bLastAttackHit &&
@@ -486,7 +486,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						pSoldier->aiData.bAlertStatus >= STATUS_YELLOW &&
 						(pSoldier->aiData.bOrders == SNIPER ||
 						pSoldier->aiData.bOrders == STATIONARY ||
-						(GuySawEnemy(pSoldier) || pSoldier->aiData.bShock > 0) && iRCD < 4) &&
+						(GuySawEnemy(pSoldier) || pSoldier->suppression().shock() > 0) && iRCD < 4) &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4 &&
 						(bAction == AI_ACTION_SEEK_OPPONENT ||
 						bAction == AI_ACTION_GET_CLOSER ||
@@ -502,7 +502,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 						pSoldier->aiData.bAlertStatus >= STATUS_YELLOW &&
 						(pSoldier->aiData.bOrders == SNIPER ||
 						pSoldier->aiData.bOrders == STATIONARY ||
-						pSoldier->aiData.bShock > 0 && iRCD < 4) &&
+						pSoldier->suppression().shock() > 0 && iRCD < 4) &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 4 &&
 						(bAction == AI_ACTION_SEEK_OPPONENT ||
 						bAction == AI_ACTION_GET_CLOSER ||
@@ -514,7 +514,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					}
 
 					// use running for taking cover when not under attack
-					if (!pSoldier->aiData.bUnderFire &&
+					if (!pSoldier->suppression().underFire() &&
 						bAction == AI_ACTION_TAKE_COVER &&
 						pSoldier->bInitialActionPoints > APBPConstants[AP_MINIMUM] &&
 						(!InARoom(pSoldier->position().gridNo(), NULL) || PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > sDistanceVisible * 2) &&
@@ -533,22 +533,22 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 					{
 						if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)
 						{
-							if (WeaponReady(pSoldier) && !pSoldier->aiData.bUnderFire && pSoldier->aiData.bAlertStatus == STATUS_BLACK)
+							if (WeaponReady(pSoldier) && !pSoldier->suppression().underFire() && pSoldier->aiData.bAlertStatus == STATUS_BLACK)
 								return WALKING;
 							else
 								return RUNNING;
 						}
 						else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_CROUCH)
 						{
-							if (WeaponReady(pSoldier) && !pSoldier->aiData.bUnderFire && pSoldier->aiData.bAlertStatus == STATUS_BLACK ||
-								pSoldier->aiData.bUnderFire && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
+							if (WeaponReady(pSoldier) && !pSoldier->suppression().underFire() && pSoldier->aiData.bAlertStatus == STATUS_BLACK ||
+								pSoldier->suppression().underFire() && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
 								return SWATTING;
 							else
 								return RUNNING;
 						}
 						else if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 						{
-							if (pSoldier->aiData.bUnderFire && !pSoldier->aiData.bLastAttackHit && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
+							if (pSoldier->suppression().underFire() && !pSoldier->aiData.bLastAttackHit && PythSpacesAway(pSoldier->position().gridNo(), sClosestThreat) > (INT16)TACTICAL_RANGE / 8)
 								return SWATTING;
 							else
 								return RUNNING;
@@ -2121,7 +2121,7 @@ INT32 ClosestReachableFriendInTrouble(SOLDIERTYPE *pSoldier, BOOLEAN * pfClimbin
 		fCallHelp = FALSE;
 
 		// if this friend is under fire or he called for help recently
-		if (pFriend->aiData.bUnderFire || (pFriend->ubID == gTacticalStatus.Team[pFriend->bTeam].ubLastMercToRadio && GuySawEnemy(pFriend)))
+		if (pFriend->suppression().underFire() || (pFriend->ubID == gTacticalStatus.Team[pFriend->bTeam].ubLastMercToRadio && GuySawEnemy(pFriend)))
 		{
 			fCallHelp = TRUE;
 		}
@@ -2627,7 +2627,7 @@ INT8 CalcMorale(SOLDIERTYPE *pSoldier)
 
 
 	// if soldier is currently not under fire
-	if (!pSoldier->aiData.bUnderFire)
+	if (!pSoldier->suppression().underFire())
 		bMoraleCategory++;
 
 
@@ -2723,7 +2723,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 		iThreatValue -= ((100 - pEnemy->vitals().breath()) / 10);
 
 		// SUBTRACT man's current shock value
-		iThreatValue -= pEnemy->aiData.bShock;
+		iThreatValue -= pEnemy->suppression().shock();
 	}
 
 	// if I have a specifically defined spot where I'm at (sometime I don't!)	
@@ -2839,7 +2839,7 @@ INT16 RoamingRange(SOLDIERTYPE *pSoldier, INT32 * pusFromGridNo)
 		// JA2 GOLD: give non-NPCs a 5 tile roam range for cover in combat when being shot at
 		// anv: and tanks who are technically NPCs
 	case STATIONARY:
-		if ((pSoldier->ubProfile != NO_PROFILE && !ARMED_VEHICLE(pSoldier)) || (pSoldier->aiData.bAlertStatus < STATUS_BLACK && !(pSoldier->aiData.bUnderFire)))
+		if ((pSoldier->ubProfile != NO_PROFILE && !ARMED_VEHICLE(pSoldier)) || (pSoldier->aiData.bAlertStatus < STATUS_BLACK && !(pSoldier->suppression().underFire())))
 		{
 			return(0);
 		}
@@ -3438,7 +3438,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 		iThreatValue -= ((100 - pEnemy->vitals().breath()) / 10);
 
 		// SUBTRACT man's current shock value
-		iThreatValue -= pEnemy->aiData.bShock;
+		iThreatValue -= pEnemy->suppression().shock();
 	}
 
 	// if this man is conscious
@@ -3910,7 +3910,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 		bMoraleCategory--;
 	}
 	// if not under fire - attack
-	if( !pSoldier->aiData.bUnderFire )
+	if( !pSoldier->suppression().underFire() )
 	{
 		bMoraleCategory++;
 	}
@@ -3945,7 +3945,7 @@ INT8 CalcMoraleNew(SOLDIERTYPE *pSoldier)
 	bMoraleCategory = min(bMoraleCategory, max(MORALE_WORRIED, ((pSoldier->aiData.bOrders == SEEKENEMY ? pSoldier->aiData.bMorale + 20 : pSoldier->aiData.bMorale) * 100 / (100 + pSoldier->ShockLevelPercent())) / 20));
 
 	// prevent hopeless morale when not under attack
-	if (bMoraleCategory == MORALE_HOPELESS && !pSoldier->aiData.bUnderFire)
+	if (bMoraleCategory == MORALE_HOPELESS && !pSoldier->suppression().underFire())
 	{
 		bMoraleCategory = MORALE_WORRIED;
 	}
@@ -4174,7 +4174,7 @@ UINT16 CountTeamUnderAttack(INT8 bTeam, INT32 sGridNo, INT16 sDistance)
 			pFriend->bActive &&
 			pFriend->vitals().health() >= OKLIFE &&
 			PythSpacesAway(sGridNo, pFriend->position().gridNo()) <= sDistance &&
-			(pFriend->aiData.bUnderFire || pFriend->aiData.bShock > 0))
+			(pFriend->suppression().underFire() || pFriend->suppression().shock() > 0))
 		{
 			ubFriendCount++;
 		}
@@ -5008,7 +5008,7 @@ BOOLEAN AllowDeepWaterFlanking(SOLDIERTYPE *pSoldier)
 		pSoldier->aiData.bOrders == SEEKENEMY &&
 		(pSoldier->aiData.bAttitude == CUNNINGSOLO || gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT(pSoldier, ATHLETICS_NT)) &&
 		pSoldier->aiData.bAlertStatus >= STATUS_RED &&
-		!pSoldier->aiData.bUnderFire &&
+		!pSoldier->suppression().underFire() &&
 		!GuySawEnemy(pSoldier))
 	{
 		return TRUE;

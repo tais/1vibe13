@@ -1536,15 +1536,17 @@ BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 // nothing, cleared to NULL on load; the game re-derives them via
 // InitializeExtraData / palette+world rebuild). SoldierID is serialized through
 // its public UINT16 member `.i`.
-template<class Ar> static void XferAIData( Ar& ar, STRUCT_AIData& a )
+template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 {
+	STRUCT_AIData& a = soldier.aiData;
+	SoldierSuppressionComponent& suppression = soldier.suppression();
 	int i;
 	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.i8(a.bOppList[i]);
 	ar.i8(a.bLastAction); ar.i8(a.bAction); ar.i32(a.usActionData);
 	ar.i8(a.bNextAction); ar.i32(a.usNextActionData);
 	ar.i8(a.bActionInProgress); ar.i8(a.bAlertStatus); ar.i8(a.bOppCnt); ar.i8(a.bNeutral);
 	ar.i8(a.bNewSituation); ar.i8(a.bNextTargetLevel); ar.i8(a.bOrders); ar.i8(a.bAttitude);
-	ar.i8(a.bUnderFire); ar.i8(a.bShock); ar.i8(a.bUnderEscort); ar.i8(a.bBypassToGreen);
+	ar.i8(suppression.underFire()); ar.i8(suppression.shock()); ar.i8(a.bUnderEscort); ar.i8(a.bBypassToGreen);
 	ar.u8(a.ubLastMercToRadio);
 	ar.i8(a.bDominantDir); ar.i8(a.bPatrolCnt); ar.i8(a.bNextPatrolPnt);
 	for (i = 0; i < MAXPATROLGRIDS; ++i) ar.i32(a.sPatrolGrid[i]);
@@ -1568,6 +1570,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	STRUCT_Flags& f = soldier.flags;
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
+	SoldierSuppressionComponent& suppression = soldier.suppression();
 	SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
@@ -1601,7 +1604,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fDieSoundUsed); ar.boolean(f.fUseLandingZoneForArrival); ar.boolean(f.fComplainedThatTired);
 	ar.boolean(animationActivity.realtimeNonInterruptible());
 	ar.u8(f.fHitByGasFlags);
-	ar.i8(damageDisplay.displayFlag()); ar.i8(f.fCloseCall); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
+	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
 	ar.boolean(animationActivity.fallClockwise()); ar.boolean(f.fDoingExternalDeath);
 	ar.boolean(fireControl.autofireLastStep()); ar.boolean(f.lastFlankLeft);
 	ar.u32(f.uiStatusFlags);
@@ -1664,6 +1667,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
 	SoldierCombatResultComponent& combatResult = s.combatResult();
+	SoldierSuppressionComponent& suppression = s.suppression();
 	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	ar.u16(s.ubID.i);
 	ar.wstr(s.name, 10);
@@ -1719,7 +1723,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubStrategicInsertionCode); ar.i32(s.usStrategicInsertionData);
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
 	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
-	ar.i8(fireControl.bulletsLeft()); ar.u8(s.ubSuppressionPoints);
+	ar.i8(fireControl.bulletsLeft()); ar.u8(suppression.points());
 	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(s.sWalkToAttackMovementMode); ar.i32(s.sWalkToAttackGridNo); ar.i16(s.sWalkToAttackWalkToCost);
@@ -1748,7 +1752,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiStartMovementTime); ar.u32(s.uiOptimumMovementTime); ar.u32(s.usLastUpdateTime);
 	ar.u32(s.uiSoldierUpdateNumber); ar.u8(s.ubSoldierUpdateType); ar.i32(s.sScheduledStop);
 	ar.i32(s.iStartOfInsuranceContract); ar.u32(s.uiLastAssignmentChangeMin); ar.i32(s.iTotalLengthOfInsuranceContract);
-	ar.u8(s.ubSoldierClass); ar.u8(s.ubAPsLostToSuppression); ar.u16(s.ubSuppressorID.i);
+	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(s.ubDesiredSquadAssignment); ar.u8(s.ubNumTraversalsAllowedToMerge);
 	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
 	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
@@ -1827,7 +1831,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 		return(FALSE);
 	}
 
-	XferAIData(ar, this->aiData);
+	XferAIData(ar, *this);
 	XferFlags(ar, *this);
 	XferTimeChanges(ar, this->timeChanges);
 	XferTimeCounters(ar, this->timeCounters);
@@ -1882,7 +1886,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		//load OO data like inventory
 		if ( !this->inv.Load(hFile) ) return(FALSE);
 
-		XferAIData(ar, this->aiData);
+		XferAIData(ar, *this);
 		XferFlags(ar, *this);
 		XferTimeChanges(ar, this->timeChanges);
 		XferTimeCounters(ar, this->timeCounters);

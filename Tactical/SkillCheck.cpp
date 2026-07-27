@@ -1043,7 +1043,7 @@ INT16 CalcTrapDetectLevel( SOLDIERTYPE * pSoldier, BOOLEAN fExamining )
 	}
 
 	// if substantially bleeding, or still in serious shock, randomly lower value
-	if ((pSoldier->vitals().bleeding() > 20) || (pSoldier->aiData.bShock > 1))
+	if ((pSoldier->vitals().bleeding() > 20) || (pSoldier->suppression().shock() > 1))
 	{
 		bDetectLevel -= (INT8) PreRandom(3);
 	}

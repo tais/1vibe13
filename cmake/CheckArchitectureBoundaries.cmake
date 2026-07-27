@@ -1850,6 +1850,9 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Statistics//last edited at version 102"
   current_soldier_stats_begin)
 string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_AIData//last edited at version 102"
+  current_soldier_ai_begin)
+string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Flags//last edited at version 102"
   current_soldier_flags_begin)
 string(FIND "${soldier_control_header_contents}"
@@ -1864,21 +1867,27 @@ string(FIND "${soldier_control_header_contents}"
 string(FIND "${soldier_control_header_contents}"
   "#define SIZEOF_SOLDIERTYPE_POD"
   current_soldier_end)
-if(current_soldier_flags_begin EQUAL -1 OR
+if(current_soldier_ai_begin EQUAL -1 OR
+   current_soldier_flags_begin EQUAL -1 OR
    current_soldier_flags_end EQUAL -1 OR
    current_soldier_stats_begin EQUAL -1 OR
    current_soldier_stats_end EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/flags/statistics declarations for the soldier-component ownership check")
+    "Could not locate current soldier/AI/flags/statistics declarations for the soldier-component ownership check")
 endif()
+math(EXPR current_soldier_ai_length
+  "${current_soldier_flags_begin} - ${current_soldier_ai_begin}")
 math(EXPR current_soldier_flags_length
   "${current_soldier_flags_end} - ${current_soldier_flags_begin}")
 math(EXPR current_soldier_stats_length
   "${current_soldier_stats_end} - ${current_soldier_stats_begin}")
 math(EXPR current_soldier_length
   "${current_soldier_end} - ${current_soldier_begin}")
+string(SUBSTRING "${soldier_control_header_contents}"
+  ${current_soldier_ai_begin} ${current_soldier_ai_length}
+  current_soldier_ai_contents)
 string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_flags_begin} ${current_soldier_flags_length}
   current_soldier_flags_contents)
@@ -2523,7 +2532,7 @@ string(REGEX MATCH
   serialized_soldier_fire_recoil_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubSuppressionPoints\\);"
+  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);"
   serialized_soldier_fire_bullets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2726,7 +2735,7 @@ endif()
 # This ownership cut must not move a byte. Pin the former flag and every POD
 # position independently, including attacker history and accumulated damage.
 string(REGEX MATCH
-  "ar\\.u8\\(f\\.fHitByGasFlags\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);"
+  "ar\\.u8\\(f\\.fHitByGasFlags\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);"
   serialized_soldier_damage_display_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2767,6 +2776,161 @@ if(NOT serialized_soldier_damage_display_flag_order OR
    NOT serialized_soldier_earlier_attacker_order)
   message(FATAL_ERROR
     "Soldier combat-result or damage-display state moved in the portable save schema; keep every value at its established byte position")
+endif()
+
+# Hostile-fire reaction state is shared by combat rules and tactical AI, not
+# generic AI scratch or presentation flags. Keep its six persistent values in
+# one private component while retaining every established serializer position.
+foreach(retired_suppression_ai_field IN ITEMS bUnderFire bShock)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_suppression_ai_field}[ \t]*;"
+    retired_current_suppression_ai_field
+    "${current_soldier_ai_contents}")
+  if(retired_current_suppression_ai_field)
+    message(FATAL_ERROR
+      "Retired STRUCT_AIData suppression field '${retired_suppression_ai_field}' returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*INT8[ \t]+fCloseCall[ \t]*;"
+  retired_current_suppression_close_call
+  "${current_soldier_flags_contents}")
+if(retired_current_suppression_close_call)
+  message(FATAL_ERROR
+    "Retired STRUCT_Flags suppression field 'fCloseCall' returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+endif()
+
+foreach(retired_suppression_field IN ITEMS
+  ubSuppressionPoints
+  ubAPsLostToSuppression)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*UINT8[ \t]+${retired_suppression_field}[ \t]*;"
+    retired_current_suppression_field
+    "${current_soldier_contents}")
+  if(retired_current_suppression_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE suppression field '${retired_suppression_field}' returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*SoldierID[ \t]+ubSuppressorID[ \t]*;"
+  retired_current_suppressor_field
+  "${current_soldier_contents}")
+if(retired_current_suppressor_field)
+  message(FATAL_ERROR
+    "Retired flat SOLDIERTYPE suppressor identity returned; hostile-fire reaction belongs to SoldierSuppressionComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierSuppressionComponent[ \t\r\n]+suppression_[ \t]*;"
+  soldier_suppression_owner
+  "${current_soldier_contents}")
+if(NOT soldier_suppression_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierSuppressionComponent")
+endif()
+
+foreach(owned_suppression_field IN ITEMS
+  "INT8;underFire;0"
+  "INT8;shock;0"
+  "UINT8;points;0"
+  "UINT8;actionPointsLost;0"
+  "SoldierID;suppressor;NOBODY"
+  "INT8;closeCall;FALSE")
+  string(REPLACE ";" ";" owned_suppression_parts
+    "${owned_suppression_field}")
+  list(GET owned_suppression_parts 0 owned_suppression_type)
+  list(GET owned_suppression_parts 1 owned_suppression_name)
+  list(GET owned_suppression_parts 2 owned_suppression_initializer)
+  string(REGEX MATCH
+    "${owned_suppression_type}[ \t]+${owned_suppression_name}_[ \t]*=[ \t]*${owned_suppression_initializer}[ \t]*;"
+    owned_soldier_suppression_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_suppression_field)
+    message(FATAL_ERROR
+      "SoldierSuppressionComponent no longer owns initialized '${owned_suppression_name}_' storage")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierSuppressionComponent& suppression() noexcept"
+  soldier_suppression_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "suppression().reset();"
+  soldier_suppression_reset)
+string(FIND "${soldier_components_header_contents}"
+  "void recordBullet(SoldierID suppressor) noexcept;"
+  soldier_suppression_record_bullet)
+string(FIND "${soldier_components_header_contents}"
+  "void addPoints(UINT16 amount) noexcept;"
+  soldier_suppression_add_points)
+string(FIND "${soldier_components_header_contents}"
+  "void addActionPointLoss(UINT16 amount) noexcept;"
+  soldier_suppression_add_ap_loss)
+string(FIND "${soldier_components_header_contents}"
+  "void beginTurn() noexcept;"
+  soldier_suppression_begin_turn)
+if(soldier_suppression_accessor EQUAL -1 OR
+   soldier_suppression_reset EQUAL -1 OR
+   soldier_suppression_record_bullet EQUAL -1 OR
+   soldier_suppression_add_points EQUAL -1 OR
+   soldier_suppression_add_ap_loss EQUAL -1 OR
+   soldier_suppression_begin_turn EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierSuppressionComponent must retain its accessor, reset boundary, and coordinated hostile-fire transitions")
+endif()
+
+string(REGEX MATCH
+  "template<class Ar>[ \t]+static void XferAIData\\([ \t]*Ar& ar, SOLDIERTYPE& soldier[ \t]*\\)"
+  serialized_soldier_suppression_ai_owner
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(a\\.bNewSituation\\);[ \t]*ar\\.i8\\(a\\.bNextTargetLevel\\);[ \t]*ar\\.i8\\(a\\.bOrders\\);[ \t]*ar\\.i8\\(a\\.bAttitude\\);[ \t\r\n]*ar\\.i8\\(suppression\\.underFire\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.shock\\(\\)\\);[ \t]*ar\\.i8\\(a\\.bUnderEscort\\);[ \t]*ar\\.i8\\(a\\.bBypassToGreen\\);"
+  serialized_soldier_suppression_ai_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);"
+  serialized_soldier_suppression_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiTimeOfLastRandomAction\\);"
+  serialized_soldier_suppression_points_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubSoldierClass\\);[ \t]*ar\\.u8\\(suppression\\.actionPointsLost\\(\\)\\);[ \t]*ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(s\\.ubDesiredSquadAssignment\\);"
+  serialized_soldier_suppression_ap_source_order
+  "${save_load_game_contents}")
+string(REGEX MATCHALL
+  "XferAIData\\(ar, \\*this\\)"
+  serialized_soldier_ai_owner_calls
+  "${save_load_game_contents}")
+list(LENGTH serialized_soldier_ai_owner_calls
+  serialized_soldier_ai_owner_call_count)
+if(NOT serialized_soldier_suppression_ai_owner)
+  message(FATAL_ERROR
+    "XferAIData must receive the owning SOLDIERTYPE so component-owned AI fields can retain their schema positions")
+endif()
+if(NOT serialized_soldier_suppression_ai_order)
+  message(FATAL_ERROR
+    "Soldier under-fire or shock state moved in the portable AI-data save schema")
+endif()
+if(NOT serialized_soldier_suppression_flag_order)
+  message(FATAL_ERROR
+    "Soldier close-call state moved in the portable flags save schema")
+endif()
+if(NOT serialized_soldier_suppression_points_order)
+  message(FATAL_ERROR
+    "Soldier suppression points moved in the portable POD save schema")
+endif()
+if(NOT serialized_soldier_suppression_ap_source_order)
+  message(FATAL_ERROR
+    "Soldier suppression AP loss or suppressor identity moved in the portable POD save schema")
+endif()
+if(NOT serialized_soldier_ai_owner_call_count EQUAL 2)
+  message(FATAL_ERROR
+    "Both soldier save and load paths must visit component-owned AI data through SOLDIERTYPE")
 endif()
 
 # Animation transition requests now have one private owner, separate from
@@ -3088,7 +3252,7 @@ string(REGEX MATCH
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fCloseCall\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
+  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

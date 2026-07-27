@@ -696,7 +696,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
  ////////////////////////////////////////////////////////////////////////
 
  // if our breath is running a bit low, and we're not in water or under fire
- if ((pSoldier->vitals().breath() < 25) /*&& !bInWater*/ && !pSoldier->aiData.bUnderFire)
+ if ((pSoldier->vitals().breath() < 25) /*&& !bInWater*/ && !pSoldier->suppression().underFire())
 	{
 #ifdef DEBUGDECISIONS
 	STR16 tempstr;
@@ -1588,7 +1588,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 			case STATUS_YELLOW:
 				// if all enemies have been RED alerted, or we're under fire
-				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->aiData.bUnderFire)
+				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 				{
 					pSoldier->aiData.bAlertStatus = STATUS_RED;
 				}
@@ -1607,7 +1607,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 			case STATUS_GREEN:
 				// if all enemies have been RED alerted, or we're under fire
-				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->aiData.bUnderFire)
+				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 				{
 					pSoldier->aiData.bAlertStatus = STATUS_RED;
 				}

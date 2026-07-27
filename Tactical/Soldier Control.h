@@ -796,8 +796,6 @@ public:
 	INT8				bNextTargetLevel;
 	INT8				bOrders;
 	INT8				bAttitude;
-	INT8				bUnderFire;
-	INT8				bShock;
 	INT8				bUnderEscort;
 	INT8				bBypassToGreen;
 	UINT8			ubLastMercToRadio;
@@ -902,7 +900,6 @@ public:
  	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 
-	INT8												fCloseCall;
 	INT8												fPastXDest;
 	INT8												fPastYDest;
 	BOOLEAN					 fDoingExternalDeath;
@@ -1058,6 +1055,8 @@ public:
 	const SoldierFireControlComponent& fireControl() const noexcept { return fireControl_; }
 	SoldierCombatResultComponent& combatResult() noexcept { return combatResult_; }
 	const SoldierCombatResultComponent& combatResult() const noexcept { return combatResult_; }
+	SoldierSuppressionComponent& suppression() noexcept { return suppression_; }
+	const SoldierSuppressionComponent& suppression() const noexcept { return suppression_; }
 	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
 	const SoldierDamageDisplayComponent& damageDisplay() const noexcept { return damageDisplay_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
@@ -1213,8 +1212,6 @@ public:
 	INT16			sX;
 	INT16			sY;
 
-	UINT8			ubSuppressionPoints;
-
 	// STUFF FOR RANDOM ANIMATIONS
 	UINT32			uiTimeOfLastRandomAction;
 	INT16			usLastRandomAnim;
@@ -1296,8 +1293,6 @@ public:
 	INT32			iTotalLengthOfInsuranceContract;
 
 	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
-	UINT8			ubAPsLostToSuppression;
-	SoldierID		ubSuppressorID;
 
 	//Squad merging vars
 	UINT8			ubDesiredSquadAssignment;
@@ -1519,6 +1514,7 @@ private:
 	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierFireControlComponent	fireControl_;
 	SoldierCombatResultComponent	combatResult_;
+	SoldierSuppressionComponent	suppression_;
 	SoldierDamageDisplayComponent	damageDisplay_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;

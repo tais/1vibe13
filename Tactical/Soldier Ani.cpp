@@ -2500,7 +2500,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// {
 					//	pSoldier->animationActivity().suppressionStanceChange() = FALSE;
 					//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - end of suppression stance change") );
-					//	ReduceAttackBusyCount( pSoldier->ubSuppressorID, FALSE );
+					//	ReduceAttackBusyCount( pSoldier->suppression().suppressor(), FALSE );
 					// }
 
 					if ( pSoldier->animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&

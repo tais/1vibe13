@@ -167,6 +167,38 @@ void SoldierCombatResultComponent::reset() noexcept
 	*this = SoldierCombatResultComponent{};
 }
 
+void SoldierSuppressionComponent::addPoints(UINT16 amount) noexcept
+{
+	// Preserve the established UINT8 accumulation semantics.
+	points_ += amount;
+}
+
+void SoldierSuppressionComponent::recordBullet(SoldierID suppressor) noexcept
+{
+	addPoints(1);
+	suppressor_ = suppressor;
+}
+
+void SoldierSuppressionComponent::addActionPointLoss(UINT16 amount) noexcept
+{
+	actionPointsLost_ = static_cast<UINT8>(
+		std::min<UINT32>(
+			255,
+			static_cast<UINT32>(actionPointsLost_) + amount));
+}
+
+void SoldierSuppressionComponent::beginTurn() noexcept
+{
+	points_ = 0;
+	actionPointsLost_ = 0;
+	closeCall_ = FALSE;
+}
+
+void SoldierSuppressionComponent::reset() noexcept
+{
+	*this = SoldierSuppressionComponent{};
+}
+
 void SoldierDamageDisplayComponent::restart() noexcept
 {
 	displayFlag_ = TRUE;

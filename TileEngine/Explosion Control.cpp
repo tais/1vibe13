@@ -1595,7 +1595,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 		// "lightly" shot at.
 		if (gGameExternalOptions.usExplosionSuppressionEffect > 0)
 		{
-			pSoldier->ubSuppressionPoints += (PreRandom(6) * gGameExternalOptions.usExplosionSuppressionEffect) / 100;
+			pSoldier->suppression().addPoints(
+				(PreRandom(6) * gGameExternalOptions.usExplosionSuppressionEffect) / 100);
 		}
 		// then no effect
 		return( FALSE );
@@ -1874,10 +1875,13 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 // HEADROCK HAM 3.3: Explosions cause suppression based on distance.
 	if (gGameExternalOptions.usExplosionSuppressionEffect > 0)
 	{
-		pSoldier->ubSuppressionPoints += ((__max(0,((Explosive[Item[usItem].ubClassIndex].ubRadius * 3) - uiDist)))* gGameExternalOptions.usExplosionSuppressionEffect) / 100;
+		pSoldier->suppression().addPoints(
+			((__max(0, ((Explosive[Item[usItem].ubClassIndex].ubRadius * 3) - uiDist))) *
+			  gGameExternalOptions.usExplosionSuppressionEffect) / 100);
 		if (fFlashbang && (gbWorldSectorZ || fInBuilding) && (UINT16)uiDist <= usHalfExplosionRadius)
 		{
-			pSoldier->ubSuppressionPoints += (15 * gGameExternalOptions.usExplosionSuppressionEffect) / 100;
+			pSoldier->suppression().addPoints(
+				(15 * gGameExternalOptions.usExplosionSuppressionEffect) / 100);
 		}
 	}
 

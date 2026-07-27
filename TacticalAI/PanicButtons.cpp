@@ -82,7 +82,7 @@ void MakeClosestEnemyChosenOne()
 		}
 
 		// if this guy is still in serious shock
-		if (pSoldier->aiData.bShock > 2)
+		if (pSoldier->suppression().shock() > 2)
 		{
 			continue;	// next soldier
 		}

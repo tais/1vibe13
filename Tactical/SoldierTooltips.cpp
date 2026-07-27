@@ -273,11 +273,11 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				SOLDIERTYPE* previousAttacker =
 					GetJa2SoldierRepository().resolve(
 						pSoldier->combatResult().previousAttacker().i);
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->combatResult().previousAttacker().i, previousAttacker->targeting().lastGridNo());
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->suppression().underFire(), pSoldier->combatResult().previousAttacker().i, previousAttacker->targeting().lastGridNo());
 			}
 			else
 			{
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->combatResult().previousAttacker().i);
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d\n", pStrInfo, pSoldier->suppression().underFire(), pSoldier->combatResult().previousAttacker().i);
 			}
 
 			swprintf(pStrInfo, L"%s|Visible %d |Moved %d\n", pStrInfo, pSoldier->bVisible, pSoldier->aiData.bMoved);
@@ -370,7 +370,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_MORALE], pStrInfo, pSoldier->aiData.bMorale );
 			//Moa: show shock and suppression values in debug tooltip
 			if ( gGameExternalOptions.fEnableSoldierTooltipShock )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_SHOCK], pStrInfo, pSoldier->aiData.bShock );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_SHOCK], pStrInfo, pSoldier->suppression().shock() );
 			// sevenfm: ubSuppressionPoints always show 0 because this value is cleared after each attack
 			// changed this to ubLastSuppression - it stores suppression points from last attack
 			if ( gGameExternalOptions.fEnableSoldierTooltipSuppressionPoints )
@@ -378,7 +378,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			// sevenfm: show additional suppression info
 			if ( gGameExternalOptions.fEnableSoldierTooltipSuppressionInfo )
 			{				 
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_SUPPRESSION_AP], pStrInfo, pSoldier->ubAPsLostToSuppression );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_SUPPRESSION_AP], pStrInfo, pSoldier->suppression().actionPointsLost() );
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_SUPPRESSION_TOLERANCE], pStrInfo, CalcSuppressionTolerance( pSoldier ) );
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_EFFECTIVE_SHOCK], pStrInfo, CalcEffectiveShockLevel( pSoldier ) );
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_AI_MORALE], pStrInfo, pSoldier->aiData.bAIMorale );

@@ -2768,7 +2768,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// actually hit him!
 	// take this out for now at least... no longer certain that he was awarded a suppression pt
 	// when the bullet got near him
-	//pTarget->ubSuppressionPoints--;
+	//pTarget->suppression().points()--;
 
 	if ( pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE || (pTarget->ubBodyType == COW || pTarget->ubBodyType == CROW || pTarget->ubBodyType == BLOODCAT) )
 	{
@@ -7281,7 +7281,7 @@ void MoveBullet( INT32 iBullet )
 					// this might be a close call
 					if ( pBullet->pFirer != nullptr && pSoldier->bTeam == gbPlayerNum && pBullet->pFirer->bTeam != gbPlayerNum && sDesiredLevel == pSoldier->position().level() )
 					{
-						pSoldier->flags.fCloseCall = TRUE;
+						pSoldier->suppression().markCloseCall();
 					}
 
 					if ( IS_MERC_BODY_TYPE( pSoldier ) )
@@ -7314,11 +7314,10 @@ void MoveBullet( INT32 iBullet )
 									}
 									// else fall through
 								default:
-									pSoldier->ubSuppressionPoints++;
-									pSoldier->ubSuppressorID =
+									pSoldier->suppression().recordBullet(
 										pBullet->pFirer != nullptr
 											? pBullet->ubFirerID
-											: NOBODY;
+											: NOBODY);
 									break;
 								}
 							}
@@ -7407,11 +7406,10 @@ void MoveBullet( INT32 iBullet )
 										}
 										// else fall through
 									default:
-										pTarget->ubSuppressionPoints++;
-										pTarget->ubSuppressorID =
+										pTarget->suppression().recordBullet(
 											pBullet->pFirer != nullptr
 												? pBullet->ubFirerID
-												: NOBODY;
+												: NOBODY);
 										break;
 									}
 								}

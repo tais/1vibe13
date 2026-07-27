@@ -8914,9 +8914,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
         // friendly fire at a certain distance. As of HAM 3.2, it also happens with nearby explosions.
         // The number of points accumulated resets to 0 at the end of this function.
 
-        if (pSoldier && IS_MERC_BODY_TYPE( pSoldier) && pSoldier->vitals().health() >= OKLIFE && pSoldier->ubSuppressionPoints > 0)
+        if (pSoldier && IS_MERC_BODY_TYPE( pSoldier) && pSoldier->vitals().health() >= OKLIFE && pSoldier->suppression().points() > 0)
         {
-            DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: soldier id = %d, life = %d, suppression points = %d",pSoldier->ubID,pSoldier->vitals().health(), pSoldier->ubSuppressionPoints));
+            DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: soldier id = %d, life = %d, suppression points = %d",pSoldier->ubID,pSoldier->vitals().health(), pSoldier->suppression().points()));
             DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: calc suppression tolerance"));
 
 			// sevenfm: set attack spot as watched location
@@ -8940,7 +8940,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // Points we have, the most APs we're going to lose. Tolerance mitigates this by making the graph angle
             // more shallow. 
             // The relation between AP Loss and Suppression Points is LINEAR.
-            sPointsLost = ( ( (pSoldier->ubSuppressionPoints * APBPConstants[AP_SUPPRESSION_MOD]) / (bTolerance + 6) ) * 2 + 1 ) / 2;
+            sPointsLost = ( ( (pSoldier->suppression().points() * APBPConstants[AP_SUPPRESSION_MOD]) / (bTolerance + 6) ) * 2 + 1 ) / 2;
 
             // Flugente: added ini options for suppression effectiveness for player team and everybody else
             if ( pSoldier->bTeam == gbPlayerNum )
@@ -8969,9 +8969,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             if (usLimitSuppressionAPsLostPerTurn > 0)
             {
                 // Flugente: apply a bit of safety here (beware of underflow)
-                if (pSoldier->ubAPsLostToSuppression + sPointsLost > usLimitSuppressionAPsLostPerTurn)
+                if (pSoldier->suppression().actionPointsLost() + sPointsLost > usLimitSuppressionAPsLostPerTurn)
                 {
-                    sPointsLost = __max(0, usLimitSuppressionAPsLostPerTurn - pSoldier->ubAPsLostToSuppression);
+                    sPointsLost = __max(0, usLimitSuppressionAPsLostPerTurn - pSoldier->suppression().actionPointsLost());
                 }
             }
 
@@ -8995,9 +8995,9 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 
                     // Make sure total shock doesn't go TOO high. Maximum is around 30, including previous shock 
                     // from suppression and/or wounds. It is possible to breach the maximum after a good suppressive attack.
-					if (pSoldier->aiData.bShock < gGameExternalOptions.ubMaxSuppressionShock)
+					if (pSoldier->suppression().shock() < gGameExternalOptions.ubMaxSuppressionShock)
 					{
-						pSoldier->aiData.bShock = min(127, pSoldier->aiData.bShock + bShockValue);
+						pSoldier->suppression().shock() = min(127, pSoldier->suppression().shock() + bShockValue);
 					}
 					// Else, original shock was already over the limit. No more shock is added.
 
@@ -9213,10 +9213,10 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // Remember how many APs were lost. This prevents us from losing more and more APs without receiving
             // extra suppression. Note that a specific HAM setting will reset this value after every attack,
             // but also resets ubSuppressionPoints.
-            pSoldier->ubAPsLostToSuppression = __min(255, pSoldier->ubAPsLostToSuppression + sPointsLost);
+            pSoldier->suppression().addActionPointLoss(sPointsLost);
 
             DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: check for quote"));
-            if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->ubSuppressionPoints > 8) && (pSoldier->ubID == ubTargetedMerc) )
+            if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->suppression().points() > 8) && (pSoldier->ubID == ubTargetedMerc) )
             {
                 if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_BEING_PUMMELED ) )
                 {
@@ -9245,7 +9245,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
                     //GetJa2PendingTacticalCombatActions()++;
 
                     // make sure suppressor ID is the same!
-                    pSoldier->ubSuppressorID = ubCausedAttacker;
+                    pSoldier->suppression().suppressor() = ubCausedAttacker;
                 }
 
                 // AI people will have to have their actions canceled
@@ -9280,7 +9280,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             }
 
 			// sevenfm: update suppression, AP values for displaying above soldier
-			pSoldier->runtime.combatFeedback.lastSuppression = pSoldier->ubSuppressionPoints;
+			pSoldier->runtime.combatFeedback.lastSuppression = pSoldier->suppression().points();
 			pSoldier->runtime.combatFeedback.lastActionPoints = sPointsLost;
 
 			// add suppression values from hit to shock values calculated in this function
@@ -9307,7 +9307,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             // the attack. ubAPsLostToSuppression is only cleared at the end of the turn, but no longer plays a role
             // in affecting the number of APs lost, so it is largely irrelevant now.
 
-            pSoldier->ubSuppressionPoints = 0;
+            pSoldier->suppression().clearAttackPoints();
 
         } // end of examining one soldier
     } // end of loop
@@ -9797,7 +9797,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
                     NoticeUnseenAttacker( pSoldier, pTarget, 0 );
                 }
                 // "under fire" lasts for 2 turns
-                pTarget->aiData.bUnderFire = 2;
+                pTarget->suppression().underFire() = 2;
             }
 
         }
@@ -10314,7 +10314,7 @@ void InitializeTacticalStatusAtBattleStart( )
     for ( cnt = gTacticalStatus.Team[ 0 ].bFirstID; cnt <= gTacticalStatus.Team[ 0 ].bLastID; ++cnt )
     {
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-        pSoldier->aiData.bShock = 0;
+        pSoldier->suppression().shock() = 0;
         pSoldier->bTilesMoved = 0;
     }
 
@@ -10698,7 +10698,7 @@ INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
         pLeader = GetJa2SoldierRepository().resolve(iCounter.i);
         // Make sure that character is alive, not too shocked, and conscious, and of higher experience level
         // than the character being suppressed.
-        if (pLeader != pSoldier && pLeader->bActive && pLeader->aiData.bShock < pLeader->stats.bLeadership/5 && 
+        if (pLeader != pSoldier && pLeader->bActive && pLeader->suppression().shock() < pLeader->stats.bLeadership/5 &&
                 pLeader->vitals().health() >= OKLIFE )
         {
             bLevelDifference = pLeader->stats.bExpLevel - pSoldier->stats.bExpLevel;
@@ -10735,7 +10735,7 @@ INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
             }
         }
         // Incapacitated or heavily suppressed friends will not be good for our tolerance!
-        else if ( (pLeader->aiData.bShock > pSoldier->aiData.bShock || pLeader->vitals().health() < OKLIFE) )
+        else if ( (pLeader->suppression().shock() > pSoldier->suppression().shock() || pLeader->vitals().health() < OKLIFE) )
         {
             sEffectiveRangeToLeader = PythSpacesAway( pSoldier->position().gridNo(), pLeader->position().gridNo() );
             // If they are no more than 5 tiles away,
@@ -11716,7 +11716,7 @@ void KillOnePrisoner( SECTORINFO *pSectorInfo )
 
 INT8 CalcEffectiveShockLevel( SOLDIERTYPE * pSoldier )
 {
-	INT8 bShockForCower = pSoldier->aiData.bShock;
+	INT8 bShockForCower = pSoldier->suppression().shock();
 	if ( gGameOptions.fNewTraitSystem )
 	{
 		// Squadleader's resistance to cowering

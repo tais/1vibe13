@@ -510,7 +510,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fClosePanelToDie = src.fClosePanelToDie;
 	this->fDeadPanel = src.fDeadPanel;
 	this->fOpenPanel = src.fOpenPanel;
-	this->fCloseCall = src.fCloseCall;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
@@ -567,8 +566,6 @@ void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->bNextTargetLevel = src.bNextTargetLevel;
 	this->bOrders = src.bOrders;
 	this->bAttitude = src.bAttitude;
-	this->bUnderFire = src.bUnderFire;
-	this->bShock = src.bShock;
 	this->bUnderEscort = src.bUnderEscort;
 	this->bBypassToGreen = src.bBypassToGreen;
 	this->ubLastMercToRadio = src.ubLastMercToRadio;
@@ -623,9 +620,13 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//member classes
 		fireControl().reset();
 		combatResult().reset();
+		suppression().reset();
 		damageDisplay().reset();
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
+		suppression().underFire() = src.bUnderFire;
+		suppression().shock() = src.bShock;
+		suppression().closeCall() = src.fCloseCall;
 		damageDisplay().displayFlag() = src.fDisplayDamage;
 		fireControl().spreadIndex() = src.fDoSpread;
 		fireControl().autofireLastStep() = src.autofireLastStep;
@@ -823,7 +824,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationPlayback().previousCode() = src.sOldAniCode;
 
 		this->fireControl().bulletsLeft() = src.bBulletsLeft;
-		this->ubSuppressionPoints = src.ubSuppressionPoints;
+		this->suppression().points() = src.ubSuppressionPoints;
 
 		this->uiTimeOfLastRandomAction = src.uiTimeOfLastRandomAction;
 		this->usLastRandomAnim = src.usLastRandomAnim;
@@ -915,8 +916,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->iTotalLengthOfInsuranceContract = src.iTotalLengthOfInsuranceContract;
 
 		this->ubSoldierClass = src.ubSoldierClass;									//admin, elite, troop (creature types?)
-		this->ubAPsLostToSuppression = src.ubAPsLostToSuppression;
-		this->ubSuppressorID = static_cast<UINT16>( src.ubSuppressorID );
+		this->suppression().actionPointsLost() = src.ubAPsLostToSuppression;
+		this->suppression().suppressor() = static_cast<UINT16>( src.ubSuppressorID );
 
 		this->ubDesiredSquadAssignment = src.ubDesiredSquadAssignment;
 		this->ubNumTraversalsAllowedToMerge = src.ubNumTraversalsAllowedToMerge;
@@ -1139,6 +1140,7 @@ void SOLDIERTYPE::initialize( )
 	attackSelection().reset();
 	fireControl().reset();
 	combatResult().reset();
+	suppression().reset();
 	damageDisplay().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
@@ -1152,7 +1154,6 @@ void SOLDIERTYPE::initialize( )
 	this->ubID = NOBODY;
 	this->ubOppNum = NOBODY;
 	this->ubServicePartner = NOBODY;
-	this->ubSuppressorID = NOBODY;
 	this->ubAutoBandagingMedic = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
@@ -7736,13 +7737,13 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 
 	INT32 iBlood;
 
-	if ( this->aiData.bUnderFire )
+	if ( this->suppression().underFire() )
 	{
 		// UnderFire now starts at 2 for "under fire this turn",
 		// down to 1 for "under fire last turn", to 0.
-		this->aiData.bUnderFire--;
+		this->suppression().underFire()--;
 
-		if ( !this->aiData.bUnderFire )
+		if ( !this->suppression().underFire() )
 			this->usSoldierFlagMask2 &= ~SOLDIER_TAKEN_LARGE_HIT;
 	}
 
@@ -7794,15 +7795,15 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 	if ( this->vitals().health() )
 	{
 		// reduce the effects of any residual shock from past injuries by half
-		this->aiData.bShock /= 2;
+		this->suppression().shock() /= 2;
 
 		// sevenfm: increase morale for AI soldiers
 		if (this->ubProfile == NO_PROFILE &&
 			!(this->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
 			!AM_A_ROBOT(this) &&
 			!ARMED_VEHICLE(this) &&
-			this->aiData.bShock == 0 &&
-			!this->aiData.bUnderFire &&
+			this->suppression().shock() == 0 &&
+			!this->suppression().underFire() &&
 			this->aiData.bMorale < 80 + 2 * this->stats.bExpLevel)
 		{
 			this->aiData.bMorale = __min(80 + 2 * this->stats.bExpLevel, this->aiData.bMorale + 2 + this->stats.bExpLevel / 5);
@@ -8029,11 +8030,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_BEING_PUMMELED);
 		this->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
 		this->combatResult().hitsThisTurn() = 0;
-		this->ubSuppressionPoints = 0;
 
 		// HEADROCK HAM 3.5: After considerable testing, suppression is now cleared after every attack. Total APs lost
 		// is cleared every turn (here) and only acts as reference now (no effect on AP loss).
-		this->ubAPsLostToSuppression = 0;
+		this->suppression().beginTurn();
 		this->runtime.combatFeedback.lastShock = 0;
 		this->runtime.combatFeedback.lastSuppression = 0;
 		this->runtime.combatFeedback.lastActionPoints = 0;
@@ -8043,8 +8043,6 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		this->runtime.combatFeedback.lastMoraleFromHit = 0;
 		this->runtime.combatFeedback.lastBulletImpact = 0;
 		this->runtime.combatFeedback.lastArmourProtection = 0;
-
-		this->flags.fCloseCall = FALSE;
 
 		this->ubMovementNoiseHeard = 0;
 
@@ -10430,7 +10428,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	// Add shock
 	if ( !AM_A_ROBOT( this ) )
 	{
-		this->aiData.bShock += ubCombinedLoss;
+		this->suppression().shock() += ubCombinedLoss;
 		this->runtime.combatFeedback.lastShockFromHit += ubCombinedLoss;
 	}
 
@@ -25128,8 +25126,8 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			if ( pInterrupter->ubServiceCount > 0 )
 				uiReactionTime = (uiReactionTime * (100 + AIM_PENALTY_GETTINGAID) / 100);
 
-			if ( pInterrupter->aiData.bShock )
-				uiReactionTime = (uiReactionTime * (100 + (pInterrupter->aiData.bShock * 20)) / 100); // this is severe, 20% per point
+			if ( pInterrupter->suppression().shock() )
+				uiReactionTime = (uiReactionTime * (100 + (pInterrupter->suppression().shock() * 20)) / 100); // this is severe, 20% per point
 
 			// Phlegmatic characters has slightly longer reaction time			
 			if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_PHLEGMATIC ) )
@@ -26402,7 +26400,7 @@ UINT8 SOLDIERTYPE::ShockLevelPercent(void)
 	if (gGameExternalOptions.ubMaxSuppressionShock == 0)
 		return 0;
 
-	return min(100, 100 * this->aiData.bShock / gGameExternalOptions.ubMaxSuppressionShock);
+	return min(100, 100 * this->suppression().shock() / gGameExternalOptions.ubMaxSuppressionShock);
 }
 
 BOOLEAN SOLDIERTYPE::TakenLargeHit(void)
