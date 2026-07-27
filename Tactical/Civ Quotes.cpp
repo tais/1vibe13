@@ -10,6 +10,7 @@
 #include "Encrypted File.h"
 #include "MessageBoxScreen.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "Render Dirty.h"
 #include "MercTextBox.h"
 #include "ai.h"
@@ -1098,7 +1099,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 	SOLDIERTYPE *pTarget = NULL;
 	if( uiTargetID != NOBODY )
 	{
-		pTarget = MercPtrs[uiTargetID];
+		pTarget = GetJa2SoldierRepository().resolve(uiTargetID);
 	}
 	if (is_networked)	// No taunts in multiplayer
 		return;

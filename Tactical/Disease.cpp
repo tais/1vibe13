@@ -6,6 +6,7 @@
 #include "Disease.h"
 
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "random.h"
 #include "Assignments.h"
 #include <mapscreen.h>
@@ -64,10 +65,12 @@ void HandleDisease()
 
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT32 uiCnt = 0;
+	auto& soldiers = GetJa2SoldierRepository();
 
 	// increase existing diseases
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = soldiers.resolve(uiCnt);
 		if ( pSoldier->bActive )
 		{
 			for ( int i = 0; i < NUM_DISEASES; ++i )
@@ -96,18 +99,20 @@ void HandleDisease()
 	}
 
 	// chance for infection due to proximity to other mercs
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = soldiers.resolve(uiCnt);
 		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
 		{
 			// loop over all other soldiers and determine the chance that they will infect us
 			SOLDIERTYPE *pTeamSoldier = NULL;
 			UINT32 uiCnt2 = 0;
-						
+
 			// chance for infection due to proximity to other mercs
-			for ( uiCnt2 = 0, pTeamSoldier = MercPtrs[uiCnt2]; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2, ++pTeamSoldier )
+			for ( uiCnt2 = 0; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2 )
 			{
-				if ( pTeamSoldier->bActive && pTeamSoldier != pSoldier 
+				pTeamSoldier = soldiers.resolve(uiCnt2);
+				if ( pTeamSoldier->bActive && pTeamSoldier != pSoldier
 					 && pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ
 					 && pTeamSoldier->vitals().health() > 0 )
 				{
@@ -161,8 +166,9 @@ void HandleDisease()
 	}
 
 	// chance for infection due sector
-	for ( uiCnt = 0, pSoldier = MercPtrs[uiCnt]; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt, ++pSoldier )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
+		pSoldier = soldiers.resolve(uiCnt);
 		if ( pSoldier->bActive )
 		{
 			UINT8 ubSector = (UINT8)SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );

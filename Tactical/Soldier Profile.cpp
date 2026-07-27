@@ -10,6 +10,7 @@
 	#include "random.h"
 	#include "Soldier Ani.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Soldier Profile.h"
 	#include "Game Clock.h"
 	#include "Assignments.h"
@@ -1527,7 +1528,7 @@ SOLDIERTYPE * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnl
 
 	for (ubLoop = 0; ubLoop < ubLoopLimit; ubLoop++)
 	{
-		pSoldier = MercPtrs[ubLoop];
+		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 
 		if (pSoldier->bActive && pSoldier->ubProfile == ubProfileID)
 		{
@@ -1602,7 +1603,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 	if ( TacticalCreateSoldier( &MercCreateStruct, &ubID ) )
 	{
-		pNewSoldier = MercPtrs[ ubID ];
+		pNewSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 		// Copy vital stats back!
 		pNewSoldier->vitals().health()													= pSoldier->vitals().health();
@@ -2712,7 +2713,8 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 
 	for ( SoldierID uiLoop = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID; uiLoop <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++uiLoop )
 	{
-		pTeammate = uiLoop;
+		pTeammate =
+			GetJa2SoldierRepository().resolve(uiLoop.i);
 		if ( pTeammate == NULL )
 		{
 			continue;

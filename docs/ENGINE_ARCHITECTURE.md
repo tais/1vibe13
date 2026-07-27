@@ -786,10 +786,16 @@ the engine must not contain SDL types in its public domain model.
   a regression fails at the call site. The Tactical ratchet now spans control
   and UI plus a broad combat/animation cut: soldier control and animation,
   item handling, AP calculation, LOS, sight/noise/interrupt processing,
-  corpses, boxing, and structure helpers. Remaining Tactical sources continue
-  to use the compatibility boundary while they migrate incrementally. The
-  backing allocation, numeric slots, save byte sequence, map records, Lua
-  values, network packets, and mod data remain unchanged.
+  corpses, boxing, and structure helpers. It also covers a broad
+  repository-facing lifecycle and roster group: air raids, auto-bandage,
+  disease, campaign/endgame handling, preserved enemy state, hiring, soldier
+  initialization and profiles, squads, vehicles, tooltips, sector traversal,
+  and the Unfinished Business tactical rules. Remaining Tactical sources
+  continue to use the compatibility boundary while they migrate
+  incrementally, but no production Tactical source outside `Overhead.cpp`
+  may name either backing array. The backing allocation, numeric slots, save
+  byte sequence, map records, Lua values, network packets, and mod data remain
+  unchanged.
 - `TacticalInventoryUiSession` owns the actor identities retained by the
   selected-merc panel, item cursor, item description and attachment view,
   stack/keyring popup, and pickup/stealing menu. The application host resolves

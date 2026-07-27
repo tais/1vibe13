@@ -3,6 +3,7 @@
 #include "types.h"
 #include "strategicmap.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "Isometric Utils.h"
 #include "Soldier Add.h"
 #include "Soldier Create.h"
@@ -1887,7 +1888,9 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 		UINT16 tacticalmilitia = 0;
 		for ( SoldierID i = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; i <= gTacticalStatus.Team[MILITIA_TEAM ].bLastID; ++i )
 		{
-			if ( i->bInSector && i->bActive )
+			SOLDIERTYPE* militia =
+				GetJa2SoldierRepository().resolve(i.i);
+			if ( militia->bInSector && militia->bActive )
 				++tacticalmilitia;
 		}
 
@@ -2413,7 +2416,8 @@ BOOLEAN LoadSoldierInitListLinks( HWFILE hfile )
 						ubSoldierID >= gTacticalStatus.Team[ CIV_TEAM ].bFirstID &&
 						ubSoldierID <= gTacticalStatus.Team[ CIV_TEAM ].bLastID )
 					{ //only enemies and creatures.
-						curr->pSoldier = MercPtrs[ ubSoldierID ];
+						curr->pSoldier =
+							GetJa2SoldierRepository().resolve(ubSoldierID);
 					}
 				}
 				curr = curr->next;
@@ -2743,7 +2747,9 @@ BOOLEAN ValidateSoldierInitLinks( UINT8 ubCode )
 	{
 		if( curr->pSoldier )
 		{
-			if( curr->pSoldier->ubID < 20 && !MercPtrs[ curr->pSoldier->ubID ]->bActive )
+			if( curr->pSoldier->ubID < 20 &&
+				!GetJa2SoldierRepository()
+					.resolve(curr->pSoldier->ubID)->bActive )
 			{
 				uiNumInvalids++;
 			}
@@ -2823,7 +2829,8 @@ BOOLEAN NewWayOfLoadingEnemySoldierInitListLinks( HWFILE hfile )
 					if( ubSoldierID >= gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID &&
 						ubSoldierID <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID )
 					{ //only enemies and creatures.
-						curr->pSoldier = MercPtrs[ ubSoldierID ];
+						curr->pSoldier =
+							GetJa2SoldierRepository().resolve(ubSoldierID);
 					}
 				}
 				curr = curr->next;
@@ -2870,7 +2877,8 @@ BOOLEAN NewWayOfLoadingCivilianInitListLinks( HWFILE hfile )
 					if( ubSoldierID >= gTacticalStatus.Team[ CIV_TEAM ].bFirstID &&
 						ubSoldierID <= gTacticalStatus.Team[ CIV_TEAM ].bLastID )
 					{ //only enemies and creatures.
-						curr->pSoldier = MercPtrs[ ubSoldierID ];
+						curr->pSoldier =
+							GetJa2SoldierRepository().resolve(ubSoldierID);
 					}
 				}
 				curr = curr->next;
@@ -2917,7 +2925,8 @@ BOOLEAN LookAtButDontProcessEnemySoldierInitListLinks( HWFILE hfile )
 					if( ubSoldierID >= gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID &&
 						ubSoldierID <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID )
 					{ //only enemies and creatures.
-						curr->pSoldier = MercPtrs[ ubSoldierID ];
+						curr->pSoldier =
+							GetJa2SoldierRepository().resolve(ubSoldierID);
 					}
 				}
 				curr = curr->next;
@@ -3203,7 +3212,8 @@ void SectorAddAssassins( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 	SoldierID  lastid = gTacticalStatus.Team[ CIV_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
 		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->sSectorX == sMapX && pTeamSoldier->sSectorY == sMapY && pTeamSoldier->bSectorZ == sMapZ )
 			++numberofcivs;
@@ -3275,7 +3285,8 @@ void SectorAddPrisonersofWar( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 	SoldierID  lastid = gTacticalStatus.Team[ CIV_TEAM ].bLastID;
 	for ( ; cnt < lastid; ++cnt )
 	{
-		pTeamSoldier = cnt;
+		pTeamSoldier =
+			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
 		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->sSectorX == sMapX && pTeamSoldier->sSectorY == sMapY && pTeamSoldier->bSectorZ == sMapZ )
 			++numberofcivs;

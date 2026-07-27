@@ -4,6 +4,7 @@
 #include "Isometric Utils.h"
 #include "GameSettings.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "Game Clock.h"
 #include "Text.h"
 #include "lighting.h"
@@ -123,9 +124,15 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// get the distance to enemy's tile from the selected merc
 		if ( gusSelectedSoldier != NOBODY && gusUIFullTargetID != NOBODY )
 		{
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			SOLDIERTYPE* targetSoldier =
+				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
 			//CHRISL: Changed the second parameter to use the same information as the 'F' hotkey uses.
 			//iRangeToTarget = GetRangeInCellCoordsFromGridNoDiff( gusSelectedSoldier->sGridNo, sSoldierGridNo ) / 10;
-			iRangeToTarget = GetRangeInCellCoordsFromGridNoDiff( gusSelectedSoldier->position().gridNo(), gusUIFullTargetID->position().gridNo() ) / 10;
+			iRangeToTarget = GetRangeInCellCoordsFromGridNoDiff(
+				selectedSoldier->position().gridNo(),
+				targetSoldier->position().gridNo()) / 10;
 		}
 		// WANNE: If we want to show the tooltip of milita and no merc is present in the sector
 		else
@@ -137,14 +144,20 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		// SANDRO - don't use this if detail set to debug!
 		if ( gGameExternalOptions.gfAllowUDTRange && gGameExternalOptions.ubSoldierTooltipDetailLevel != DL_Debug && !(gTacticalStatus.uiFlags & SHOW_ALL_MERCS) )
 		{
-			uiMaxTooltipDistance = (UINT32)( gusSelectedSoldier->GetMaxDistanceVisible(gusUIFullTargetID->position().gridNo(), 0, CALC_FROM_WANTED_DIR) * (gGameExternalOptions.ubUDTModifier));
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			SOLDIERTYPE* targetSoldier =
+				GetJa2SoldierRepository().resolve(gusUIFullTargetID.i);
+			uiMaxTooltipDistance = (UINT32)( selectedSoldier->GetMaxDistanceVisible(targetSoldier->position().gridNo(), 0, CALC_FROM_WANTED_DIR) * (gGameExternalOptions.ubUDTModifier));
 			uiMaxTooltipDistance /= 100;
 		}
 		//SCORE: Otherwise if we're using dynamics then do this
 		// SANDRO - don't use this if detail set to debug!
 		else if ( gGameExternalOptions.fEnableDynamicSoldierTooltips && gGameExternalOptions.ubSoldierTooltipDetailLevel != DL_Debug && !(gTacticalStatus.uiFlags & SHOW_ALL_MERCS) )
 		{
-			OBJECTTYPE* pObject = &(gusSelectedSoldier->inv[HANDPOS]);
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			OBJECTTYPE* pObject = &(selectedSoldier->inv[HANDPOS]);
 			for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end(); ++iter) {
 				if ( Item[iter->usItem].visionrangebonus > 0 && iter->exists())
 				{
@@ -165,16 +178,18 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		//If we're using original settings and no scope, we do this
 		if (gGameExternalOptions.fEnableDynamicSoldierTooltips && fMercIsUsingScope == 0 && !gGameExternalOptions.gfAllowUDTRange)
 		{
-				// add 10% to max tooltip viewing distance per level of the merc
-				// sevenfm: fixed incorrect integer calculation
-				uiMaxTooltipDistance = (INT32)( uiMaxTooltipDistance * ( 1 + ( (FLOAT)( EffectiveExpLevel( gusSelectedSoldier ) ) / 10.0 ) ) ); // SANDRO - changed to effective level calc
+			SOLDIERTYPE* selectedSoldier =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+			// add 10% to max tooltip viewing distance per level of the merc
+			// sevenfm: fixed incorrect integer calculation
+			uiMaxTooltipDistance = (INT32)( uiMaxTooltipDistance * ( 1 + ( (FLOAT)( EffectiveExpLevel( selectedSoldier ) ) / 10.0 ) ) ); // SANDRO - changed to effective level calc
 
 				// sevenfm: this calculation doesn't make sense: disabled
 				//if ( gGameExternalOptions.gfAllowLimitedVision )
 				//	uiMaxTooltipDistance *= 1 - (gGameExternalOptions.ubVisDistDecreasePerRainIntensity / 100);
 
-				if ( !(Item[gusSelectedSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus > 0) &&
-					!(Item[gusSelectedSoldier->inv[HEAD2POS].usItem].nightvisionrangebonus > 0) &&
+				if ( !(Item[selectedSoldier->inv[HEAD1POS].usItem].nightvisionrangebonus > 0) &&
+					!(Item[selectedSoldier->inv[HEAD2POS].usItem].nightvisionrangebonus > 0) &&
  					!DayTime() )
 				{
 					// if night reduce max tooltip viewing distance by a factor of 4 if merc is not wearing NVG
@@ -255,7 +270,10 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->bCollapsed, pSoldier->bBreathCollapsed);
 			if (pSoldier->ubPreviousAttackerID < NOBODY)
 			{
-				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i, pSoldier->ubPreviousAttackerID->sLastTarget);
+				SOLDIERTYPE* previousAttacker =
+					GetJa2SoldierRepository().resolve(
+						pSoldier->ubPreviousAttackerID.i);
+				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d AttackerTarget %d\n", pStrInfo, pSoldier->aiData.bUnderFire, pSoldier->ubPreviousAttackerID.i, previousAttacker->sLastTarget);
 			}
 			else
 			{
@@ -289,19 +307,23 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s---Public list (not neutral)---\n", pStrInfo);
 			for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 			{
+				SOLDIERTYPE* opponent =
+					GetJa2SoldierRepository().resolve(oppID);
 				if (gbPublicOpplist[pSoldier->bTeam][oppID] != NOT_HEARD_OR_SEEN &&
-					!MercPtrs[oppID]->aiData.bNeutral)
+					!opponent->aiData.bNeutral)
 				{
-					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, MercPtrs[oppID]->GetName(), SeenStr(gbPublicOpplist[pSoldier->bTeam][oppID]));
+					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(gbPublicOpplist[pSoldier->bTeam][oppID]));
 				}
 			}
 			swprintf(pStrInfo, L"%s---Soldier list (not neutral)---\n", pStrInfo);
 			for (UINT16 oppID = 0; oppID < MAX_NUM_SOLDIERS; oppID++)
 			{
+				SOLDIERTYPE* opponent =
+					GetJa2SoldierRepository().resolve(oppID);
 				if (pSoldier->aiData.bOppList[oppID] != NOT_HEARD_OR_SEEN &&
-					!MercPtrs[oppID]->aiData.bNeutral)
+					!opponent->aiData.bNeutral)
 				{
-					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, MercPtrs[oppID]->GetName(), SeenStr(pSoldier->aiData.bOppList[oppID]));
+					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(pSoldier->aiData.bOppList[oppID]));
 				}
 			}
 			swprintf(pStrInfo, L"%s|What I know %d\n", pStrInfo, WhatIKnowThatPublicDont(pSoldier, FALSE));
@@ -313,7 +335,8 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		if ( ubTooltipDetailLevel < DL_Full)
 		{
 			// Get the current selected merc
-			SOLDIERTYPE* pMerc = gusSelectedSoldier;
+			SOLDIERTYPE* pMerc =
+				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
 			if ( pMerc->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
 			{

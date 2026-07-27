@@ -16,6 +16,7 @@
 	#include "MercTextBox.h"
 	#include "renderworld.h"
 	#include "Overhead.h"
+#include "SoldierRepository.h"
 	#include "Cursor Control.h"
 	#include "input.h"
 	#include "english.h"
@@ -173,7 +174,8 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 	}
 
 	// anv: vehicle always move with all passengers inside
-	if( gusSelectedSoldier->bAssignment == VEHICLE )
+	if( GetJa2SoldierRepository()
+		.resolve(gusSelectedSoldier.i)->bAssignment == VEHICLE )
 	{
 		gExitDialog.fSingleMoveDisabled		= TRUE;
 		gExitDialog.fSingleMoveOn			= FALSE;
@@ -188,7 +190,9 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		INT32 cnt = 0;
 		for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
 		{
-			if( OK_INSECTOR_MERC( id ) )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(id.i);
+			if( OK_INSECTOR_MERC( soldier ) )
 				cnt++;
 		}
 		if( cnt != 1 )
@@ -213,7 +217,11 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		gExitDialog.fGotoSector							= TRUE;
 	}
 
-	gExitDialog.ubNumPeopleOnSquad				= NumberOfPlayerControllableMercsInSquad( gusSelectedSoldier->bAssignment );
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+	gExitDialog.ubNumPeopleOnSquad =
+		NumberOfPlayerControllableMercsInSquad(
+			selectedSoldier->bAssignment);
 
 	//Determine
 	for( SoldierID id = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; id <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++id )
@@ -223,12 +231,12 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 			continue;
 		}
 
-		pSoldier = id;
+		pSoldier = GetJa2SoldierRepository().resolve(id.i);
 		if( !pSoldier->flags.fBetweenSectors &&
 				pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				( pSoldier->bAssignment != gusSelectedSoldier->bAssignment || 
-				( pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != gusSelectedSoldier->iVehicleId ) ) &&
+				( pSoldier->bAssignment != selectedSoldier->bAssignment ||
+				( pSoldier->bAssignment == VEHICLE && pSoldier->iVehicleId != selectedSoldier->iVehicleId ) ) &&
 				pSoldier->bAssignment != ASSIGNMENT_POW && pSoldier->bAssignment != IN_TRANSIT && pSoldier->bAssignment != ASSIGNMENT_DEAD && pSoldier->bAssignment != ASSIGNMENT_MINIEVENT && pSoldier->bAssignment != ASSIGNMENT_REBELCOMMAND
 				&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 		{ //KM:	We need to determine if there are more than one squad (meaning other concious mercs in a different squad or assignment)
@@ -242,7 +250,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 
 	// Double check that ...
 	// if we are a EPC and are the selected guy, make single move off and disable it....
-	if ( AM_AN_EPC( gusSelectedSoldier ) )
+	if ( AM_AN_EPC( selectedSoldier ) )
 	{
 		// Check if there are more than one in this squad
 		if ( gExitDialog.ubNumPeopleOnSquad > 1 )
@@ -265,9 +273,11 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 			{
 				continue;
 			}
-			if( id->bAssignment == gusSelectedSoldier->bAssignment )
+			SOLDIERTYPE* soldier =
+				GetJa2SoldierRepository().resolve(id.i);
+			if( soldier->bAssignment == selectedSoldier->bAssignment )
 			{
-				if( AM_AN_EPC( id ) )
+				if( AM_AN_EPC( soldier ) )
 				{
 					ubNumEPCs++;
 					//record the slot of the epc.	If there are more than one EPCs, then
@@ -404,7 +414,7 @@ void DoneFadeOutWarpCallback( void )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
 		{
@@ -541,12 +551,14 @@ void UpdateSectorExitMenu( )
 
 	if ( gExitDialog.fSingleMoveDisabled )
 	{
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		DisableButton( gExitDialog.uiSingleMoveButton );
 		MSYS_DisableRegion(&(gExitDialog.SingleRegion) );
 		if( gExitDialog.fSelectedMercIsEPC )
 		{ //EPCs cannot leave the sector alone and must be escorted
 			CHAR16 str[ 256 ];
-			swprintf( str, pExitingSectorHelpText[ EXIT_GUI_ESCORTED_CHARACTERS_MUST_BE_ESCORTED_HELPTEXT ], gusSelectedSoldier->name );
+			swprintf( str, pExitingSectorHelpText[ EXIT_GUI_ESCORTED_CHARACTERS_MUST_BE_ESCORTED_HELPTEXT ], selectedSoldier->name );
 			SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
 			SetRegionFastHelpText( &gExitDialog.SingleRegion, str );
 		}
@@ -555,28 +567,30 @@ void UpdateSectorExitMenu( )
 			//isn't an EPC, but the other merc is.	That means that this merc cannot leave the sector alone
 			//as he would isolate the EPC.
 			CHAR16 str[ 256 ];
+			SOLDIERTYPE* isolatedEpc = GetJa2SoldierRepository().resolve(
+				gExitDialog.bSingleMoveWillIsolateEPC);
 			if( !gExitDialog.fSquadHasMultipleEPCs )
 			{
-				if( gMercProfiles[ gusSelectedSoldier->ubProfile ].bSex == MALE )
+				if( gMercProfiles[ selectedSoldier->ubProfile ].bSex == MALE )
 				{ //male singular
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_SINGULAR ], gusSelectedSoldier->name,
-										MercPtrs[ gExitDialog.bSingleMoveWillIsolateEPC ]->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_SINGULAR ], selectedSoldier->name,
+										isolatedEpc->name );
 				}
 				else
 				{ //female singular
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_SINGULAR ], gusSelectedSoldier->name,
-										MercPtrs[ gExitDialog.bSingleMoveWillIsolateEPC ]->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_SINGULAR ], selectedSoldier->name,
+										isolatedEpc->name );
 				}
 			}
 			else
 			{
-				if( gMercProfiles[ gusSelectedSoldier->ubProfile ].bSex == MALE )
+				if( gMercProfiles[ selectedSoldier->ubProfile ].bSex == MALE )
 				{ //male plural
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_PLURAL ], gusSelectedSoldier->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_PLURAL ], selectedSoldier->name );
 				}
 				else
 				{ //female plural
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_PLURAL ], gusSelectedSoldier->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_PLURAL ], selectedSoldier->name );
 				}
 			}
 			SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
@@ -586,9 +600,11 @@ void UpdateSectorExitMenu( )
 	else
 	{
 		CHAR16 str[ 256 ];
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		EnableButton( gExitDialog.uiSingleMoveButton );
 		MSYS_EnableRegion(&(gExitDialog.SingleRegion) );
-		swprintf( str, pExitingSectorHelpText[ EXIT_GUI_SINGLE_TRAVERSAL_WILL_SEPARATE_SQUADS_HELPTEXT ], gusSelectedSoldier->name );
+		swprintf( str, pExitingSectorHelpText[ EXIT_GUI_SINGLE_TRAVERSAL_WILL_SEPARATE_SQUADS_HELPTEXT ], selectedSoldier->name );
 		SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
 		SetRegionFastHelpText( &gExitDialog.SingleRegion, str );
 	}
@@ -758,12 +774,14 @@ void RemoveSectorExitMenu( BOOLEAN fOk )
 		gfIgnoreScrolling = FALSE;
 
 		// if we are an EPC, don't allow this if nobody else on squad
-		if ( fOk && AM_AN_EPC( gusSelectedSoldier ) )
+		SOLDIERTYPE* selectedSoldier =
+			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
+		if ( fOk && AM_AN_EPC( selectedSoldier ) )
 		{
 			// Check if there are more than one in this squad
 			if ( gExitDialog.ubNumPeopleOnSquad == 0 )
 			{
-				swprintf(	Str, pMessageStrings[	MSG_EPC_CANT_TRAVERSE ], gusSelectedSoldier->name );
+				swprintf(	Str, pMessageStrings[	MSG_EPC_CANT_TRAVERSE ], selectedSoldier->name );
 
 				DoMessageBox( MSG_BOX_BASIC_STYLE, Str, GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 				return;

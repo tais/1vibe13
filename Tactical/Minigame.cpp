@@ -13,6 +13,7 @@
 #include "random.h"
 #include "Handle UI.h"
 #include "Overhead.h"
+#include "SoldierRepository.h"
 #include "Sound Control.h"
 #include "himage.h"
 #include "vobject.h"
@@ -2027,8 +2028,9 @@ UINT32 MiniGame_Handle_Pong()
 				}
 
 				UINT16				bMercID = 0;
-				for ( pSoldier = MercPtrs[bMercID]; bMercID < TOTAL_SOLDIERS; ++bMercID, ++pSoldier )
+				for ( ; bMercID < TOTAL_SOLDIERS; ++bMercID )
 				{
+					pSoldier = GetJa2SoldierRepository().resolve(bMercID);
 					// everybody other merc in the same sector gets annoyed
 					if ( bMercID != gusSelectedSoldier && pSoldier->bActive && pSoldier->bInSector )
 					{						

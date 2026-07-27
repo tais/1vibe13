@@ -114,22 +114,6 @@ void ResetMilitia()
 
 	// 0verhaul:  Instead of relying on the "changes made" flag, which isn't even saved in a saved game and therefore not
 	// reliable, we'll just do this the hard way, by taking inventory.
-//	gfStrategicMilitiaChangesMade = FALSE;
-//	for (UINT32 cnt = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; cnt <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; cnt++)
-//	{
-//		if (!MercPtrs[cnt]->bActive)
-//		{
-//			continue;
-//		}
-//
-//		switch (MercPtrs[cnt]->ubSoldierClass)
-//		{
-//		case SOLDIER_CLASS_GREEN_MILITIA: ubNumGreen++; break;
-//		case SOLDIER_CLASS_REG_MILITIA: ubNumReg++; break;
-//		case SOLDIER_CLASS_ELITE_MILITIA: ubNumVet++; break;
-//		default: ;
-//		}
-//	}
 //	if (MilitiaInSectorOfRank(gWorldSectorX, gWorldSectorY, GREEN_MILITIA) != ubNumGreen ||
 //		MilitiaInSectorOfRank(gWorldSectorX, gWorldSectorY, REGULAR_MILITIA) != ubNumReg ||
 //		MilitiaInSectorOfRank(gWorldSectorX, gWorldSectorY, ELITE_MILITIA) != ubNumVet)
@@ -305,20 +289,6 @@ void PrepareMilitiaForTactical( BOOLEAN fPrepareAll)
 		AddSoldierInitListMilitia( ubGreen, ubRegs, ubElites );
 	}
 
-//	for( i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; i++ )
-//	{
-//		if( MercPtrs[ i ]->bInSector )
-//		{
-//			MercPtrs[ i ]->bOrders = SEEKENEMY;
-////			MercPtrs[ i ]->bAttitude = AGGRESSIVE;
-//		}
-//	}
-
-	//for (int i=0; i<TOTAL_SOLDIERS; i++)
-	{
-		//CHRISL: What's this assert for?
-		//Assert( !MercPtrs[i]->bActive || !MercPtrs[i]->bInSector || !TileIsOutOfBounds(MercPtrs[i]->sGridNo));
-	}
 }
 
 void HandleMilitiaPromotions( void )
