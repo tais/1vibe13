@@ -1665,6 +1665,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	int i;
 	UINT8 retiredDelayedMovementCauseMerc = 0;
 	SoldierVitalsComponent& vitals = s.vitals();
+	SoldierServiceComponent& service = s.service();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1704,7 +1705,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	// transfers emitted no bytes, so resetting the inline owner preserves the
 	// established schema exactly.
 	if (Ar::isLoading) s.animationCache().release(s.ubID);
-	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(s.bService);
+	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
@@ -1725,7 +1726,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_SOLDIER_SHADES; ++i) ar.ptr(s.pShades[i]);
 	for (i = 0; i < 20; ++i) ar.ptr(s.pGlowShades[i]);
 	ar.ptr(s.pCurrentShade);
-	ar.u8(s.ubFadeLevel); ar.u8(s.ubServiceCount); ar.u16(s.ubServicePartner.i);
+	ar.u8(s.ubFadeLevel); ar.u8(service.providerCount()); ar.u16(service.partner().i);
 	ar.ptr(s.pThrowParams); ar.i8(s.bReverse);
 	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
 	ar.ptr(s.pBackGround); ar.ptr(s.pZBackground);
@@ -1774,7 +1775,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.usDontUpdateNewGridNoOnMoveAnimChange);
 	ar.i16(s.sBoundingBoxWidth); ar.i16(s.sBoundingBoxHeight); ar.i16(s.sBoundingBoxOffsetX); ar.i16(s.sBoundingBoxOffsetY);
 	ar.u32(s.uiTimeSameBattleSndDone); ar.i8(s.bOldBattleSnd); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);
-	ar.u16(s.ubAutoBandagingMedic.i); ar.u16(s.ubRobotRemoteHolderID.i);
+	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(s.ubTurnsUntilCanSayHeardNoise);

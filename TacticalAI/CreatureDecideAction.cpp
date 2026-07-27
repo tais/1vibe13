@@ -1164,7 +1164,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 								BestShot.ubOpponent.i);
 						if (bestOpponent &&
 							(bestOpponent->vitals().health() < OKLIFE) &&
-							!bestOpponent->bService)
+							!bestOpponent->service().active())
 						{
 							// if our attitude is NOT aggressive
 							if (pSoldier->aiData.bAttitude != AGGRESSIVE)

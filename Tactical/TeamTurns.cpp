@@ -2126,7 +2126,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 		iPoints -= 2;
 	}
 
-	if (pSoldier->ubServicePartner != NOBODY)
+	if (pSoldier->service().hasPartner())
 	{
 		// distracted by being bandaged/doing bandaging
 		iPoints -= 2;

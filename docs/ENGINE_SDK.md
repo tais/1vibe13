@@ -285,6 +285,12 @@ surgery state, unrecoverable breath, critical-stat damage, bleed scheduling and
 sound throttling, and the retired regeneration save slots. Named snapshot,
 surgery, damage-recovery, life-deduction, and reset transitions keep the domain
 coherent; the explicit serializer retains every established position and width.
+`SoldierServiceComponent` separately owns the persisted service marker, patient
+provider count, provider-to-patient identity, and automatic-bandage medic
+reservation. Named relationship transitions give tactical AI, medical actions,
+and presentation one authority while guarding provider-count removal from
+underflow. The face UI keeps only its old-value render cache, and persistence
+retains all four established positions and widths.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

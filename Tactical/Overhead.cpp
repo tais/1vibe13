@@ -3590,10 +3590,10 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
     {
         if (gTacticalStatus.fAutoBandageMode)
         {
-            if ( pSoldier->ubAutoBandagingMedic != NOBODY )
+            if ( pSoldier->service().hasAutoBandagingMedic() )
             {
                 SOLDIERTYPE* medic = GetJa2SoldierRepository().resolve(
-                    pSoldier->ubAutoBandagingMedic.i);
+                    pSoldier->service().autoBandagingMedic().i);
 				DebugAI(AI_MSG_INFO, medic, String("CancelAIAction: stop autobandaging in HandlePlayerTeamMemberDeath"));
                 CancelAIAction( medic, TRUE );
             }
@@ -6179,7 +6179,7 @@ void HandleTeamServices( UINT8 ubTeamNum )
                     pTargetSoldier =
                         GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 
-                    if ( pTargetSoldier->ubServiceCount )
+                    if ( pTargetSoldier->service().hasProviders() )
                     {
                         BOOLEAN fThrowMessage = (pTargetSoldier->vitals().bleeding() ? TRUE : FALSE); // added by SANDRO
 
@@ -6264,7 +6264,7 @@ void HandlePlayerServices( SOLDIERTYPE *pTeamSoldier )
                 pTargetSoldier =
                     GetJa2SoldierRepository().resolve(usSoldierIndex.i);
 
-                if ( pTargetSoldier->ubServiceCount )
+                if ( pTargetSoldier->service().hasProviders() )
                 {
                     BOOLEAN fThrowMessage = (pTargetSoldier->vitals().bleeding() ? TRUE : FALSE); // added by SANDRO
 

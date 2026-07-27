@@ -2117,7 +2117,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->targeting().lastGridNo()				= NOWHERE;
 	pSoldier->movement().absoluteDestination() = NOWHERE;
 	pSoldier->sZLevelOverride			= -1;
-	pSoldier->ubServicePartner			= NOBODY;
+	pSoldier->service().finishProviding();
 	pSoldier->attackSelection().hand()			= HANDPOS;
 	pSoldier->animationPlayback().state()				= STANDING;
 	pSoldier->aiData.bInterruptDuelPts	= NO_INTERRUPT;

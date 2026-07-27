@@ -292,6 +292,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   fields present in that record and clears the later injury, surgery,
   unrecoverable-breath, and critical-damage fields. No save, packet, map, XML,
   Lua, or installed-data bytes change.
+- Tactical service activity, patient provider count, provider-to-patient
+  identity, and the automatic-bandage medic reservation are now stored by
+  `SoldierServiceComponent`. The visitor emits the signed activity byte,
+  unsigned provider-count byte, and both 16-bit `SoldierID` values at their
+  original scattered positions; v101 conversion maps its four narrower legacy
+  fields into that owner. No save, packet, map, XML, Lua, or installed-data
+  bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original
