@@ -615,7 +615,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 
 							if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 							{
-								if ( pSoldier->bDoBurst )
+								if ( pSoldier->fireControl().burstCounter() )
 								{
 									pSoldier->sEndGridNo = usMapPos;
 
@@ -623,7 +623,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 
 									if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo )
 									{
-										pSoldier->flags.fDoSpread = TRUE;
+										pSoldier->fireControl().spreadIndex() = TRUE;
 
 										PickBurstLocations( pSoldier );
 
@@ -631,7 +631,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 									}
 									else
 									{
-										pSoldier->flags.fDoSpread = FALSE;
+										pSoldier->fireControl().spreadIndex() = FALSE;
 									}
 
 									fClickHoldIntercepted = TRUE;
@@ -777,7 +777,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 												if (GetSoldier(&pSoldier, gusSelectedSoldier))
 												{
 													//shadooow: this fixes merc randomly shooting in different direction than assigned
-													pSoldier->flags.fDoSpread = 0;
+													pSoldier->fireControl().spreadIndex() = 0;
 												}
 												*puiNewEvent = CA_MERC_SHOOT;
 												break;
@@ -853,7 +853,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 		{
 			if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 			{
-				pSoldier->flags.fDoSpread = FALSE;
+				pSoldier->fireControl().spreadIndex() = FALSE;
 			}
 			gfBeginBurstSpreadTracking = FALSE;
 		}
@@ -1011,7 +1011,7 @@ void	QueryTBRightButton( UINT32 *puiNewEvent )
 							{
 								gfBeginBurstSpreadTracking = FALSE;
 								gfRTClickLeftHoldIntercepted = TRUE;
-								selectedSoldier->flags.fDoSpread				= FALSE;
+								selectedSoldier->fireControl().spreadIndex()				= FALSE;
 								fClickHoldIntercepted = TRUE;
 								*puiNewEvent = A_END_ACTION;
 								gCurrentUIMode = MOVE_MODE;
@@ -1376,17 +1376,17 @@ void GetTBMousePositionInput( UINT32 *puiNewEvent )
 			// DONOT CANCEL IF BURST
 			if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 			{
-				if ( pSoldier->bDoBurst )
+				if ( pSoldier->fireControl().burstCounter() )
 				{
 					pSoldier->sEndGridNo = usMapPos;
 
 					if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo && fLeftButtonDown )
 					{
-						pSoldier->flags.fDoSpread = TRUE;
+						pSoldier->fireControl().spreadIndex() = TRUE;
 						gfBeginBurstSpreadTracking = TRUE;
 					}
 
-					if ( pSoldier->flags.fDoSpread )
+					if ( pSoldier->fireControl().spreadIndex() )
 					{
 						// Accumulate gridno
 						AccumulateBurstLocation( usMapPos );
@@ -2132,7 +2132,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 			gfRTClickLeftHoldIntercepted = TRUE;
 			if ( selectedSoldier )
 			{
-				selectedSoldier->flags.fDoSpread = FALSE;
+				selectedSoldier->fireControl().spreadIndex() = FALSE;
 			}
 
 			// Before anything, delete popup box!

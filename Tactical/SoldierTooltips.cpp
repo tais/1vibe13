@@ -99,7 +99,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 	// EDIT: commented this out because with default autofire bullets> 1 it will confuse players
 	//SOLDIERTYPE *pShooter;
 	//GetSoldier( &pShooter, gusSelectedSoldier );
-	//if(gfUICtHBar && pShooter && pShooter->bDoAutofire > 1)
+	//if(gfUICtHBar && pShooter && pShooter->fireControl().autofireShots() > 1)
 	//	return;
 
 	if ( gfKeyState[ALT] && pSoldier &&

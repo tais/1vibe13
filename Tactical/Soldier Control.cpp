@@ -512,7 +512,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fDeadPanel = src.fDeadPanel;
 	this->fOpenPanel = src.fOpenPanel;
 	this->fCloseCall = src.fCloseCall;
-	this->fDoSpread = src.fDoSpread;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
@@ -531,7 +530,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fBetweenSectors = src.fBetweenSectors;	//set when the group isn't actually in a sector.
 	this->fFlashLocator = src.fFlashLocator;
 	this->fShowLocator = src.fShowLocator;
-	this->autofireLastStep = src.autofireLastStep;
 	this->lastFlankLeft = src.lastFlankLeft;
 	this->uiStatusFlags = src.uiStatusFlags;
 }
@@ -624,8 +622,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 			animationCache().release( ubID );
 		}
 		//member classes
+		fireControl().reset();
 		aiData.ConvertFrom_101_To_102( src );
 		flags.ConvertFrom_101_To_102( src );
+		fireControl().spreadIndex() = src.fDoSpread;
+		fireControl().autofireLastStep() = src.autofireLastStep;
 		animationActivity().turningFromProneMode() = src.bTurningFromPronePosition;
 		animationActivity().readyCostWaived() = src.fDontChargeReadyAPs;
 		animationActivity().postHitStance() = src.fGoBackToAimAfterHit;
@@ -671,7 +672,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		memcpy( &(this->pShades), &(src.pShades), sizeof(UINT16)* NUM_SOLDIER_SHADES ); // Shading tables
 		memcpy( &(this->pGlowShades), &(src.pGlowShades), sizeof(UINT16)* 20 ); //
 		memcpy( &(this->pEffectShades), &(src.pEffectShades), sizeof(UINT16)* NUM_SOLDIER_EFFECTSHADES ); // Shading tables for effects
-		memcpy( &(this->sSpreadLocations), &(src.sSpreadLocations), sizeof(INT16)* MAX_BURST_SPREAD_TARGETS );
+		memcpy(
+			fireControl().spreadLocations(), src.sSpreadLocations,
+			sizeof(src.sSpreadLocations));
 		memcpy( &(this->usFrontArcFullTileList), &(src.usFrontArcFullTileList), sizeof(UINT16)* MAX_FULLTILE_DIRECTIONS );
 		memcpy( &(this->usFrontArcFullTileGridNos), &(src.usFrontArcFullTileGridNos), sizeof(INT16)* MAX_FULLTILE_DIRECTIONS );
 		memcpy( &(this->HeadPal), &(src.HeadPal), sizeof(PaletteRepID) );	// 30
@@ -773,16 +776,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->targeting().cubeLevel() = src.bTargetCubeLevel;
 		this->targeting().lastGridNo() = src.sLastTarget;
 
-		// HEADROCK HAM 4: TODO: Added four new variables to soldiertype. MAke sure they don't screw it all up!
-		this->dPrevMuzzleOffsetX[0] = 0.0;
-		this->dPrevMuzzleOffsetX[1] = 0.0;
-		this->dPrevMuzzleOffsetY[0] = 0.0;
-		this->dPrevMuzzleOffsetY[1] = 0.0;
-		this->dPrevCounterForceX[0] = 0.0;
-		this->dPrevCounterForceX[1] = 0.0;
-		this->dPrevCounterForceY[0] = 0.0;
-		this->dPrevCounterForceY[1] = 0.0;
-
 		this->bTilesMoved = src.bTilesMoved;
 		this->dNextBleed = src.dNextBleed;
 
@@ -827,7 +820,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationPlayback().previousState() = src.usOldAniState;
 		this->animationPlayback().previousCode() = src.sOldAniCode;
 
-		this->bBulletsLeft = src.bBulletsLeft;
+		this->fireControl().bulletsLeft() = src.bBulletsLeft;
 		this->ubSuppressionPoints = src.ubSuppressionPoints;
 
 		this->uiTimeOfLastRandomAction = src.uiTimeOfLastRandomAction;
@@ -849,7 +842,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sDamageX = src.sDamageX;
 		this->sDamageY = src.sDamageY;
 		this->bDamageDir = src.bDamageDir;
-		this->bDoBurst = src.bDoBurst;
+		this->fireControl().burstCounter() = src.bDoBurst;
 		this->usUIMovementMode = src.usUIMovementMode;
 		this->bUIInterfaceLevel = src.bUIInterfaceLevel;
 
@@ -1031,7 +1024,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubLastDamageReason = src.ubLastDamageReason;
 		this->uiTimeSinceLastBleedGrunt = src.uiTimeSinceLastBleedGrunt;
 		this->ubNextToPreviousAttackerID = static_cast<UINT16>( src.ubNextToPreviousAttackerID );
-		this->bDoAutofire = src.bDoAutofire;
+		this->fireControl().autofireShots() = src.bDoAutofire;
 		this->numFlanks = src.numFlanks;
 		this->lastFlankSpot = src.lastFlankSpot;
 		this->sniper = src.sniper;
@@ -1142,6 +1135,7 @@ void SOLDIERTYPE::initialize( )
 	movement().reset();
 	targeting().reset();
 	attackSelection().reset();
+	fireControl().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
@@ -5002,7 +4996,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	//this->targeting().lastGridNo() = sTargetGridNo;
 	this->targeting().targetId() = WhoIsThere2( sTargetGridNo, this->targeting().level() );
 
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting attack, bullets left %d", this->bBulletsLeft ) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting attack, bullets left %d", this->fireControl().bulletsLeft() ) );
 
 	// Convert our grid-not into an XY
 	ConvertGridNoToXY( sTargetGridNo, &sTargetXPos, &sTargetYPos );
@@ -5053,7 +5047,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 
 	// IF WE ARE AN NPC, SLIDE VIEW TO SHOW WHO IS SHOOTING
 	{
-		//if ( this->flags.fDoSpread )
+		//if ( this->fireControl().spreadIndex() )
 		//{
 		// If we are spreading burst, goto right away!
 		//this->EVENT_InitNewSoldierAnim( SelectFireAnimation( this, gAnimControl[ this->animationPlayback().state() ].ubEndHeight ), 0, FALSE );
@@ -5159,7 +5153,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 
 	if ( pSoldier->ubBodyType == ROBOTNOWEAPON )
 	{
-		if ( pSoldier->bDoBurst > 0 )
+		if ( pSoldier->fireControl().burstCounter() > 0 )
 		{
 			return(ROBOT_BURST_SHOOT);
 		}
@@ -5209,7 +5203,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 		{
 			return(BURST_DUAL_STAND);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->bDoBurst )
+		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_STAND);
 		}
@@ -5235,7 +5229,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 			}
 
 
-			if ( pSoldier->bDoBurst > 0 )
+			if ( pSoldier->fireControl().burstCounter() > 0 )
 			{
 				if ( fDoLowShot )
 				{
@@ -5290,17 +5284,17 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 
 	case ANIM_CROUCH:
 
-		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->bDoBurst > 0 && pSoldier->IsValidSecondHandBurst( ) )
+		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->fireControl().burstCounter() > 0 && pSoldier->IsValidSecondHandBurst( ) )
 		{
 			return(BURST_DUAL_CROUCH);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->bDoBurst )
+		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_CROUCH);
 		}
 		else
 		{
-			if ( pSoldier->bDoBurst > 0 )
+			if ( pSoldier->fireControl().burstCounter() > 0 )
 			{
 				return(CROUCHED_BURST);
 			}
@@ -5313,17 +5307,17 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 
 	case ANIM_PRONE:
 
-		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->bDoBurst > 0 && pSoldier->IsValidSecondHandBurst( ) )
+		if ( pSoldier->IsValidSecondHandShot( ) && pSoldier->fireControl().burstCounter() > 0 && pSoldier->IsValidSecondHandBurst( ) )
 		{
 			return(BURST_DUAL_PRONE);
 		}
-		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->bDoBurst )
+		else if ( pSoldier->IsValidSecondHandShot( ) && !pSoldier->fireControl().burstCounter() )
 		{
 			return(SHOOT_DUAL_PRONE);
 		}
 		else
 		{
-			if ( pSoldier->bDoBurst > 0 )
+			if ( pSoldier->fireControl().burstCounter() > 0 )
 			{
 				return(PRONE_BURST);
 			}
@@ -9128,7 +9122,7 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 		{
 			if ( ((pSoldier->bVisible == -1 && pSoldier->bVisible == pSoldier->bLastRenderVisibleValue) || gTacticalStatus.fAutoBandageMode) && pSoldier->animationPlayback().state() != MONSTER_UP )
 			{
-				if ( pSoldier->bDoBurst && !PTR_OURTEAM )
+				if ( pSoldier->fireControl().burstCounter() && !PTR_OURTEAM )
 				{
 					pSoldier->animationPlayback().delay() = 50;
 				}
@@ -13095,8 +13089,8 @@ void SOLDIERTYPE::EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDir
 	//{
 	//	GetJa2PendingTacticalCombatActions()++;
 	//}
-	//	this->bBulletsLeft = 1;
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting knifethrow attack, bullets left %d", this->bBulletsLeft ) );
+	//	this->fireControl().bulletsLeft() = 1;
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "!!!!!!! Starting knifethrow attack, bullets left %d", this->fireControl().bulletsLeft() ) );
 	DebugAttackBusy( String( "Begin knife throwing attack: ATB  %d\n", GetJa2PendingTacticalCombatActions() ) );
 
 	// SANDRO - new animation for throwing for big mercs by PasHancock
@@ -14146,15 +14140,13 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 	// ( we could be on, then change gun that does not have burst )
 	if ( Weapon[usNewItem].ubShotsPerBurst == 0 && !Weapon[this->inv[HANDPOS].usItem].NoSemiAuto )
 	{
-		this->bDoBurst = FALSE;
+		this->fireControl().selectSingleShot();
 		this->attackSelection().weaponMode() = WM_NORMAL;
-		this->bDoAutofire = 0;
 	}
 	else if ( Weapon[usNewItem].NoSemiAuto )
 	{
-		this->bDoBurst = TRUE;
+		this->fireControl().selectAutofire();
 		this->attackSelection().weaponMode() = WM_AUTOFIRE;
-		this->bDoAutofire = 1;
 	}
 
 	// Flugente: if using a rifle grenade device, and a grenade i equipped, only grenade launching is allowed
@@ -17333,7 +17325,7 @@ INT8 SOLDIERTYPE::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubT
 			modifier += gSkillTraitValues.bCtHModifierPistols; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && this->bDoBurst == 0 && this->bDoAutofire == 0 )
+			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
 				modifier += gSkillTraitValues.ubGSBonusCtHPistols * NUM_SKILL_TRAITS( this, GUNSLINGER_NT ); // +10% per trait
 		}
 		else if ( Weapon[usItem].ubWeaponType == GUN_M_PISTOL )
@@ -17341,7 +17333,7 @@ INT8 SOLDIERTYPE::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubT
 			modifier += gSkillTraitValues.bCtHModifierMachinePistols; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && ((this->bDoBurst == 0 && this->bDoAutofire == 0) || !gSkillTraitValues.ubGSCtHMPExcludeAuto) )
+			if ( HAS_SKILL_TRAIT( this, GUNSLINGER_NT ) && ((this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0) || !gSkillTraitValues.ubGSCtHMPExcludeAuto) )
 				modifier += gSkillTraitValues.ubGSBonusCtHMachinePistols * NUM_SKILL_TRAITS( this, GUNSLINGER_NT ); // +5% per trait
 		}
 		// Added CtH bonus for Machinegunner skill on assault rifles, SMGs and LMGs
@@ -17372,7 +17364,7 @@ INT8 SOLDIERTYPE::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubT
 			modifier += gSkillTraitValues.bCtHModifierSniperRifles; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->bDoBurst == 0 && this->bDoAutofire == 0 )
+			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
 				modifier += gSkillTraitValues.ubSNBonusCtHSniperRifles * NUM_SKILL_TRAITS( this, SNIPER_NT ); // +5% per trait
 		}
 		// Added CtH bonus for Ranger skill on rifles and shotguns
@@ -17381,11 +17373,11 @@ INT8 SOLDIERTYPE::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubT
 			modifier += gSkillTraitValues.bCtHModifierRifles; // -5% for untrained mercs.
 
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, RANGER_NT ) && this->bDoBurst == 0 && this->bDoAutofire == 0 )
+			if ( HAS_SKILL_TRAIT( this, RANGER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
 				modifier += gSkillTraitValues.ubRABonusCtHRifles * NUM_SKILL_TRAITS( this, RANGER_NT ); // +5% per trait
 			//CHRISL: Why wouldn't sniper training include standard rifles which are often used as "poor-man sniper rifles"
 			// this bonus is applied only on single shots!
-			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->bDoBurst == 0 && this->bDoAutofire == 0 )
+			if ( HAS_SKILL_TRAIT( this, SNIPER_NT ) && this->fireControl().burstCounter() == 0 && this->fireControl().autofireShots() == 0 )
 				modifier += gSkillTraitValues.ubSNBonusCtHRifles * NUM_SKILL_TRAITS( this, SNIPER_NT ); // +5% per trait
 		}
 		else if ( Weapon[usItem].ubWeaponType == GUN_SHOTGUN )
@@ -17429,7 +17421,7 @@ INT8 SOLDIERTYPE::GetTraitCTHModifier( UINT16 usItem, INT16 ubAimTime, UINT8 ubT
 			// Aggressive - bonus on bursts/autofire
 			else if ( DoesMercHavePersonality( this, CHAR_TRAIT_AGGRESSIVE ) )
 			{
-				if ( (this->bDoBurst || this->bDoAutofire) && !ubAimTime )
+				if ( (this->fireControl().burstCounter() || this->fireControl().autofireShots()) && !ubAimTime )
 					modifier += 10;
 			}
 			// Show-off - better performance if some babes around to impress
@@ -23563,7 +23555,7 @@ BOOLEAN SOLDIERTYPE::IsValidSecondHandShot( void )
 {
 	if ( Item[this->inv[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
 		 !ItemIsTwoHanded(this->inv[SECONDHANDPOS].usItem) &&
-		 (!this->bDoBurst || this->IsValidSecondHandBurst( )) &&
+		 (!this->fireControl().burstCounter() || this->IsValidSecondHandBurst( )) &&
 		 !ItemIsGrenadeLauncher(this->inv[HANDPOS].usItem) &&
 		 Item[this->inv[HANDPOS].usItem].usItemClass == IC_GUN &&
 		 !ItemIsTwoHanded(this->inv[HANDPOS].usItem) &&
@@ -23582,13 +23574,13 @@ BOOLEAN SOLDIERTYPE::IsValidSecondHandBurst( void )
 	if ( Item[this->inv[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
 		 !ItemIsTwoHanded(this->inv[SECONDHANDPOS].usItem) &&
 		 !ItemIsGrenadeLauncher(this->inv[HANDPOS].usItem) &&
-		 this->bDoBurst &&
+		 this->fireControl().burstCounter() &&
 		 Item[this->inv[HANDPOS].usItem].usItemClass == IC_GUN &&
 		 !ItemIsTwoHanded(this->inv[HANDPOS].usItem) &&
 		 this->inv[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE &&
 		 this->inv[SECONDHANDPOS][0]->data.gun.ubGunShotsLeft > 0 )
 	{
-		if ( this->bDoAutofire )
+		if ( this->fireControl().autofireShots() )
 		{
 			// if second gun cannot use autofire mode
 			if ( !IsGunAutofireCapable( &this->inv[SECONDHANDPOS] ) )
@@ -23615,7 +23607,7 @@ BOOLEAN SOLDIERTYPE::IsValidSecondHandShotForReloadingPurposes( void )
 	// should be maintained as same as function above with line
 	// about ammo taken out!
 	if ( Item[this->inv[SECONDHANDPOS].usItem].usItemClass == IC_GUN &&
-		 //!this->bDoBurst &&
+		 //!this->fireControl().burstCounter() &&
 		 !ItemIsGrenadeLauncher(this->inv[HANDPOS].usItem) &&
 		 Item[this->inv[HANDPOS].usItem].usItemClass == IC_GUN &&
 		 this->inv[SECONDHANDPOS][0]->data.gun.bGunStatus >= USABLE //&&
@@ -25303,7 +25295,7 @@ BOOLEAN AIDecideHipOrShoulderStance( SOLDIERTYPE * pSoldier, INT32 iGridNo )
 
 	INT8 bChanceHip = 0;
 
-	if ( pSoldier->bDoBurst > 0 )
+	if ( pSoldier->fireControl().burstCounter() > 0 )
 		bChanceHip += 25;
 	if ( Weapon[usInHand].ubWeaponType == GUN_LMG )
 		bChanceHip += 30;

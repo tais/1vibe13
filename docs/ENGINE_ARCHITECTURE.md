@@ -980,8 +980,16 @@ the engine must not contain SDL types in its public domain model.
   selected attacking hand and weapon, weapon and scope modes, and ranged and
   melee body locations. This keeps target geometry independent from the means
   of attack while giving UI, AI, weapons, simulation, and network ingress one
-  canonical selection. Animation transition requests now follow the same rule
-  through `SoldierAnimationIntentComponent`: requested
+  canonical selection. `SoldierFireControlComponent` then owns the mutable
+  firing sequence: burst and autofire progress, bullets in flight, the
+  one-based spread cursor and its six fixed targets, recoil and counterforce
+  history, initial muzzle offsets, the autofire UI edge state, and the active
+  multi-barrel cursor. Named operations coordinate single-shot, burst, and
+  autofire selection without mixing target choice or presentation-only sound
+  and muzzle-flash handles into this simulation boundary. AI dual-wield spread
+  generation is clamped after its shot count is doubled, preventing twelve
+  writes into the established six-target buffer. Animation transition requests
+  now follow the same rule through `SoldierAnimationIntentComponent`: requested
   height, primary and secondary queued animations, queued stance and facing,
   UI turn origin, next-tile stopping, and post-stance continuation have one
   private reset boundary. Accepted transitions advance through a separate
@@ -1005,7 +1013,8 @@ the engine must not contain SDL types in its public domain model.
   longer normalized to boolean `1`. Retired cache-pointer transfers emitted
   no bytes, so load simply resets the inline working set. The unused legacy
   8-bit delayed-cause-merc slot remains a zero compatibility byte rather than
-  live state.
+  live state. The v101 conversion path now copies all six 32-bit spread targets
+  instead of only the first three.
   Target values and all animation values remain at their established portable
   save positions. Map placements, Lua values, multiplayer packets, and content
   formats retain their existing schemas.

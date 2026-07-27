@@ -127,25 +127,25 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 	// Get shots per burst
 	//DIGICRAB: Burst UnCap
 	//if we fire more than MAX_BURST_SPREAD_TARGETS bullets, make sure there's no buffer overflow
-	if(pSoldier->bDoAutofire)
+	if(pSoldier->fireControl().autofireShots())
 	{
 		INT16	sAPCosts;
 
-		if ( pSoldier->bDoAutofire <= gbNumBurstLocations )
+		if ( pSoldier->fireControl().autofireShots() <= gbNumBurstLocations )
 		{
-			pSoldier->bDoAutofire = 1;
+			pSoldier->fireControl().autofireShots() = 1;
 			do
 			{
-				pSoldier->bDoAutofire++;
+				pSoldier->fireControl().autofireShots()++;
 				sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime);
 			}
-			while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire && gbNumBurstLocations >= pSoldier->bDoAutofire);
-			pSoldier->bDoAutofire--;
+			while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && gbNumBurstLocations >= pSoldier->fireControl().autofireShots());
+			pSoldier->fireControl().autofireShots()--;
 
-			ubShotsPerBurst = pSoldier->bDoAutofire;
+			ubShotsPerBurst = pSoldier->fireControl().autofireShots();
 		}
 		else if ( gbNumBurstLocations > 0 )
-			ubShotsPerBurst = pSoldier->bDoAutofire; // / gbNumBurstLocations;
+			ubShotsPerBurst = pSoldier->fireControl().autofireShots(); // / gbNumBurstLocations;
 
 	}
 	else
@@ -156,11 +156,12 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 			ubShotsPerBurst = GetShotsPerBurst(&pSoldier->inv[ HANDPOS ]);
 	}
 
-	ubShotsPerBurst = __min( ubShotsPerBurst, MAX_BURST_SPREAD_TARGETS);
+	ubShotsPerBurst =
+		SoldierFireControlComponent::clampSpreadTargetCount(ubShotsPerBurst);
 
 	if (ubShotsPerBurst == 1)
 	{
-		pSoldier->flags.fDoSpread = FALSE;
+		pSoldier->fireControl().spreadIndex() = FALSE;
 		return;
 	}
 
@@ -175,15 +176,15 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 		ubLocationNum = (UINT8)( dAccumulator );
 
 		// Add to merc location
-		pSoldier->sSpreadLocations[ cnt ] = gsBurstLocations[ ubLocationNum ].sGridNo;
-		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickBurstLocations: loc#%d = %d", cnt, pSoldier->sSpreadLocations[ cnt ]));
+		pSoldier->fireControl().spreadLocations()[ cnt ] = gsBurstLocations[ ubLocationNum ].sGridNo;
+		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("PickBurstLocations: loc#%d = %d", cnt, pSoldier->fireControl().spreadLocations()[ cnt ]));
 		// Acculuate index value
 		dAccumulator += dStep;
 	}
 
 	for (; cnt < MAX_BURST_SPREAD_TARGETS; cnt++)
 	{
-		pSoldier->sSpreadLocations[ cnt ] = 0;
+		pSoldier->fireControl().spreadLocations()[ cnt ] = 0;
 	}
 
 	// OK, they have been added
@@ -202,13 +203,16 @@ void AIPickBurstLocations( SOLDIERTYPE *pSoldier, INT8 bTargets, SOLDIERTYPE *pT
 	// Get shots per burst
 	//DIGICRAB: Burst UnCap
 	//if we fire more than MAX_BURST_SPREAD_TARGETS bullets, make sure there's no buffer overflow
-	if(pSoldier->bDoAutofire)
-		ubShotsPerBurst = __min(pSoldier->bDoAutofire,MAX_BURST_SPREAD_TARGETS);
+	if(pSoldier->fireControl().autofireShots())
+		ubShotsPerBurst = __min(pSoldier->fireControl().autofireShots(),MAX_BURST_SPREAD_TARGETS);
 	else
 		ubShotsPerBurst = __min(GetShotsPerBurst (&pSoldier->inv[ HANDPOS ]),MAX_BURST_SPREAD_TARGETS);
 
 	if ( pSoldier->IsValidSecondHandBurst() )
 		ubShotsPerBurst = ubShotsPerBurst*2;
+
+	ubShotsPerBurst =
+		SoldierFireControlComponent::clampSpreadTargetCount(ubShotsPerBurst);
 
 	if ( ubShotsPerBurst <= 0 )
 		ubShotsPerBurst = 1;
@@ -225,7 +229,7 @@ void AIPickBurstLocations( SOLDIERTYPE *pSoldier, INT8 bTargets, SOLDIERTYPE *pT
 		ubLocationNum = (UINT8)( dAccululator );
 
 		// Add to merc location
-		pSoldier->sSpreadLocations[ cnt ] = pTargets[ubLocationNum]->position().gridNo();
+		pSoldier->fireControl().spreadLocations()[ cnt ] = pTargets[ubLocationNum]->position().gridNo();
 
 		// Acculuate index value
 		dAccululator += dStep;
@@ -233,7 +237,7 @@ void AIPickBurstLocations( SOLDIERTYPE *pSoldier, INT8 bTargets, SOLDIERTYPE *pT
 
 	for (; cnt < MAX_BURST_SPREAD_TARGETS; cnt++)
 	{
-		pSoldier->sSpreadLocations[ cnt ] = 0;
+		pSoldier->fireControl().spreadLocations()[ cnt ] = 0;
 	}
 	// OK, they have been added
 }

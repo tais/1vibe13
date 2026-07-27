@@ -90,7 +90,7 @@ INT32	CreateBullet( SoldierID ubFirerID, BOOLEAN fFake, UINT16 usFlags,UINT16 fr
 	else
 	{
 		pBullet->fReal = TRUE;
-//		gBullets[ iBullet ].pFirer->bBulletsLeft++;
+//		gBullets[ iBullet ].pFirer->fireControl().bulletsLeft()++;
 		// HEADROCK HAM 5: Do not create for explosives.
 		if (!(Item[fromItem].usItemClass & IC_EXPLOSV))
 		{
@@ -190,9 +190,9 @@ void RemoveBullet( INT32 iBullet )
 		gBullets[ iBullet ].fToDelete = TRUE;
 
 		// decrement reference to bullet in the firer
-//		gBullets[ iBullet ].pFirer->bBulletsLeft--;
-//		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Ending bullet, bullets left %d", gBullets[ iBullet ].pFirer->bBulletsLeft ) );
-//		DebugAttackBusy( String( "Deleting a bullet for %d.	Total count now %d\n", gBullets[ iBullet].ubFirerID, gBullets[ iBullet ].pFirer->bBulletsLeft) );
+//		gBullets[ iBullet ].pFirer->fireControl().bulletsLeft()--;
+//		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("!!!!!!! Ending bullet, bullets left %d", gBullets[ iBullet ].pFirer->fireControl().bulletsLeft() ) );
+//		DebugAttackBusy( String( "Deleting a bullet for %d.	Total count now %d\n", gBullets[ iBullet].ubFirerID, gBullets[ iBullet ].pFirer->fireControl().bulletsLeft()) );
 		// Nah, just decrement the attack busy count and be done with it
 		DebugAttackBusy( String( "Deleting a bullet for %d.\n", gBullets[ iBullet].ubFirerID ) );
 		// HEADROCK HAM 5: Fragments do not need reducing.

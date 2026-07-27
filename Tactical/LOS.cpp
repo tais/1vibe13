@@ -3214,7 +3214,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	SWeaponHit.fHit					= TRUE;
 	SWeaponHit.ubLocation			= ubHitLocation;
 
-	if ( pFirer != nullptr && pFirer->bDoBurst && (ubSpecial == FIRE_WEAPON_NO_SPECIAL) )
+	if ( pFirer != nullptr && pFirer->fireControl().burstCounter() && (ubSpecial == FIRE_WEAPON_NO_SPECIAL) )
 	{
 		// the animation required by the bullet hit (head explosion etc) overrides the
 		// hit-by-a-burst animation
@@ -4865,14 +4865,14 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 	}
 	// HEADROCK HAM B2.5: Set tracer effect on/off for individual bullets in a Tracer Magazine, as part of the
 	// New Tracer System.
-	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 		&& AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 	{
 		UINT16 iBulletsLeft, iBulletsPerTracer;
 		iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
-		if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+		if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 		{
 			fTracer = TRUE;
 		}
@@ -4881,7 +4881,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 			fTracer = FALSE;
 		}
 	}
-	else if ( AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->bDoBurst || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
+	else if ( AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->fireControl().burstCounter() || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
 	{
 		//usBulletFlags |= BULLET_FLAG_TRACER;
 		fTracer = TRUE;
@@ -5141,7 +5141,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 
 		pBullet->ddHorizAngle = ddHorizAngle;
 
-		if (ubLoop == 0 && (pFirer->bDoBurst < 2 || (fSecondHandBurst && pFirer->bDoBurst == 2)))
+		if (ubLoop == 0 && (pFirer->fireControl().burstCounter() < 2 || (fSecondHandBurst && pFirer->fireControl().burstCounter() == 2)))
 		{
 			pBullet->fAimed = TRUE;
 		}
@@ -5194,16 +5194,16 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 		pBullet->iDistanceLimit = iDistance;
 		// HEADROCK HAM BETA2.5: New method for signifying whether a bullet is a tracer or not, using an individual
 		// bullet structure flag. Hehehehe, I think this is kind of reverting to old code, isn't it?
-		if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+		if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 			&& AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 		{
 			UINT16 iBulletsLeft, iBulletsPerTracer;
 			iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-			iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+			iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
 			// Is this specific bullet a tracer? - based on how many tracers there are per regular bullets in
 			// a tracer magazine (INI-settable).
-			if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+			if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 			{
 				pBullet->fTracer = TRUE;
 			}
@@ -5226,7 +5226,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 		}
 		else
 		{
-			//			if (ubLoop + 1 > pFirer->bBulletsLeft)
+			//			if (ubLoop + 1 > pFirer->fireControl().bulletsLeft())
 			//			{
 			//				// this is an error!!
 			//				ubLoop = ubLoop;
@@ -5364,14 +5364,14 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 	}
 	// HEADROCK HAM B2.5: Set tracer effect on/off for individual bullets in a Tracer Magazine, as part of the
 	// New Tracer System.
-	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 		&& AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 	{
 		UINT16 iBulletsLeft, iBulletsPerTracer;
 		iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
-		if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+		if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 		{
 			fTracer = TRUE;
 		}
@@ -5380,7 +5380,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			fTracer = FALSE;
 		}
 	}
-	else if ( AmmoTypes[ pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->bDoBurst || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
+	else if ( AmmoTypes[ pFirer->inv[pFirer->attackSelection().hand()][0]->data.gun.ubGunAmmoType ].tracerEffect && (pFirer->fireControl().burstCounter() || gGameSettings.fOptions[ TOPTION_TRACERS_FOR_SINGLE_FIRE ]) )
 	{
 		//usBulletFlags |= BULLET_FLAG_TRACER;
 		fTracer = TRUE;
@@ -5669,7 +5669,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 
 		pBullet->ddHorizAngle = ddHorizAngle;
 
-		if (ubLoop == 0 && pFirer->bDoBurst < 2 || (fSecondHandBurst && pFirer->bDoBurst == 2))
+		if (ubLoop == 0 && pFirer->fireControl().burstCounter() < 2 || (fSecondHandBurst && pFirer->fireControl().burstCounter() == 2))
 		{
 			pBullet->fAimed = TRUE;
 		}
@@ -5722,16 +5722,16 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 		pBullet->iDistanceLimit = iDistance;
 		// HEADROCK HAM BETA2.5: New method for signifying whether a bullet is a tracer or not, using an individual
 		// bullet structure flag. Hehehehe, I think this is kind of reverting to old code, isn't it?
-		if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+		if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 			&& AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 		{
 			UINT16 iBulletsLeft, iBulletsPerTracer;
 			iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-			iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+			iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
 			// Is this specific bullet a tracer? - based on how many tracers there are per regular bullets in
 			// a tracer magazine (INI-settable).
-			if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+			if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 			{
 				pBullet->fTracer = TRUE;
 			}
@@ -5748,7 +5748,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 		}
 		else
 		{
-			//			if (ubLoop + 1 > pFirer->bBulletsLeft)
+			//			if (ubLoop + 1 > pFirer->fireControl().bulletsLeft())
 			//			{
 			//				// this is an error!!
 			//				ubLoop = ubLoop;
@@ -6050,14 +6050,14 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 	// no option to use fire bursts or autofire yet
 	/*// HEADROCK HAM B2.5: Set tracer effect on/off for individual bullets in a Tracer Magazine, as part of the
 	// New Tracer System.
-	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+	else if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 		&& AmmoTypes[ (*pObjAttHand)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 	{
 		UINT16 iBulletsLeft, iBulletsPerTracer;
 		iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+		iBulletsLeft = (*pObjAttHand)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
-		if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+		if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 		{
 			fTracer = TRUE;
 		}
@@ -6314,7 +6314,7 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 
 		pBullet->ddHorizAngle = ddHorizAngle;
 
-		/*if (ubLoop == 0 && pFirer->bDoBurst < 2)
+		/*if (ubLoop == 0 && pFirer->fireControl().burstCounter() < 2)
 		{
 			pBullet->fAimed = TRUE;
 		}
@@ -6370,16 +6370,16 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 
 		// HEADROCK HAM BETA2.5: New method for signifying whether a bullet is a tracer or not, using an individual
 		// bullet structure flag. Hehehehe, I think this is kind of reverting to old code, isn't it?
-		/*if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->bDoAutofire > 0 || pFirer->bDoBurst > 0)
+		/*if (gGameExternalOptions.ubRealisticTracers > 0 && gGameExternalOptions.ubNumBulletsPerTracer > 0 && (pFirer->fireControl().autofireShots() > 0 || pFirer->fireControl().burstCounter() > 0)
 			&& AmmoTypes[ (*pObj)[0]->data.gun.ubGunAmmoType ].tracerEffect )
 		{
 			UINT16 iBulletsLeft, iBulletsPerTracer;
 			iBulletsPerTracer = gGameExternalOptions.ubNumBulletsPerTracer;
-			iBulletsLeft = (*pObj)[0]->data.gun.ubGunShotsLeft + pFirer->bDoBurst;
+			iBulletsLeft = (*pObj)[0]->data.gun.ubGunShotsLeft + pFirer->fireControl().burstCounter();
 
 			// Is this specific bullet a tracer? - based on how many tracers there are per regular bullets in
 			// a tracer magazine (INI-settable).
-			if ((((iBulletsLeft - (pFirer->bDoBurst - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->bDoBurst) / iBulletsPerTracer)) == 1)
+			if ((((iBulletsLeft - (pFirer->fireControl().burstCounter() - 1)) / iBulletsPerTracer) - ((iBulletsLeft - pFirer->fireControl().burstCounter()) / iBulletsPerTracer)) == 1)
 			{
 				pBullet->fTracer = TRUE;
 			}
@@ -6965,8 +6965,8 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		UINT16 oldAttackingWeapon = pFirer->attackSelection().weapon();
 		UINT8 oldAttackingHand = pFirer->attackSelection().hand();
 		SoldierID oldTargetID = pFirer->targeting().targetId();
-		INT8 oldBurst = pFirer->bDoBurst;
-		INT8 oldAutofire = pFirer->bDoAutofire;
+		INT8 oldBurst = pFirer->fireControl().burstCounter();
+		INT8 oldAutofire = pFirer->fireControl().autofireShots();
 
 		//UINT16 usItem = GLOCK_17;
 		UINT16 usItem = MINIMI;
@@ -6979,8 +6979,7 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 
 		pFirer->attackSelection().selectWeapon(HANDPOS, usItem);
 		pFirer->targeting().targetId() = NOBODY;
-		pFirer->bDoBurst = 0;
-		pFirer->bDoAutofire = 0;
+		pFirer->fireControl().selectSingleShot();
 
 		// HEADROCK HAM 4: Changed argument from "Hitby"->"Aperture". Value 0->100.
 		INT8 retVal = FireBulletGivenTarget(pFirer, dEndX, dEndY, dEndZ, usItem, (UsingNewCTHSystem() ? 100 : 0), FALSE, TRUE);
@@ -6989,8 +6988,8 @@ INT8 ChanceToGetThrough(SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOAT dE
 		pFirer->attackSelection().selectWeapon(
 			oldAttackingHand, oldAttackingWeapon);
 		pFirer->targeting().targetId() = oldTargetID;
-		pFirer->bDoBurst = oldBurst;
-		pFirer->bDoAutofire = oldAutofire;
+		pFirer->fireControl().burstCounter() = oldBurst;
+		pFirer->fireControl().autofireShots() = oldAutofire;
 
 		return retVal;
 	}
@@ -8765,7 +8764,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	// As you'll see, this allows the shooter to readjust the weapon WHILE it is firing, rather than randomize
 	// muzzle movements every time.
 	
-	if (pShooter->bDoBurst <= 1 || (fSecondHandBurst && pShooter->bDoBurst == 2))
+	if (pShooter->fireControl().burstCounter() <= 1 || (fSecondHandBurst && pShooter->fireControl().burstCounter() == 2))
 	{
 
 		///////////////////////////////////////////////////////////////////////////////////////////
@@ -8796,20 +8795,20 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 			CalcTargetMovementOffset( pShooter, pTarget, pWeapon, &dMuzzleOffsetX, ddOrigHorizAngle, (INT32)iAperture );
 		}
 
-		pShooter->dInitialMuzzleOffsetX = dMuzzleOffsetX;
-		pShooter->dInitialMuzzleOffsetY = dMuzzleOffsetY;
+		pShooter->fireControl().initialMuzzleOffsetX() = dMuzzleOffsetX;
+		pShooter->fireControl().initialMuzzleOffsetY() = dMuzzleOffsetY;
 
 		/////////////////////////////////////////////
 		// First shot in a burst/auto volley
 
-		if (pShooter->bDoBurst == 1 || pShooter->bDoAutofire > 1 || (fSecondHandBurst && pShooter->bDoBurst == 2))
+		if (pShooter->fireControl().burstCounter() == 1 || pShooter->fireControl().autofireShots() > 1 || (fSecondHandBurst && pShooter->fireControl().burstCounter() == 2))
 		{
 			// A shooter does not get to exercise counter-force on the first few bullets in a volley.
 			// These commands reset the counter-force.
-			pShooter->dPrevCounterForceX[0] = 0.0;
-			pShooter->dPrevCounterForceX[1] = 0.0;
-			pShooter->dPrevCounterForceY[0] = 0.0;
-			pShooter->dPrevCounterForceY[1] = 0.0;
+			pShooter->fireControl().previousCounterForceX()[0] = 0.0;
+			pShooter->fireControl().previousCounterForceX()[1] = 0.0;
+			pShooter->fireControl().previousCounterForceY()[0] = 0.0;
+			pShooter->fireControl().previousCounterForceY()[1] = 0.0;
 
 			////////////////////////////////////////////////////////////////////////////////////////////
 			// STEP 4: Pre-Compensating for Future Recoil
@@ -8838,13 +8837,13 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 		// in the volley.
 		if ( fSecondHandBurst )
 		{
-			dMuzzleOffsetX = pShooter->dPrevMuzzleOffsetX[1];
-			dMuzzleOffsetY = pShooter->dPrevMuzzleOffsetY[1];
+			dMuzzleOffsetX = pShooter->fireControl().previousMuzzleOffsetX()[1];
+			dMuzzleOffsetY = pShooter->fireControl().previousMuzzleOffsetY()[1];
 		}
 		else
 		{
-			dMuzzleOffsetX = pShooter->dPrevMuzzleOffsetX[0];
-			dMuzzleOffsetY = pShooter->dPrevMuzzleOffsetY[0];
+			dMuzzleOffsetX = pShooter->fireControl().previousMuzzleOffsetX()[0];
+			dMuzzleOffsetY = pShooter->fireControl().previousMuzzleOffsetY()[0];
 		}
 
 		////////////////////////////////////////////////////////////////////////////////////////////
@@ -8864,7 +8863,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	// At this point, basic muzzle deviation is fully calculated. For Autofire/Burst volleys, the next bullet
 	// in the volley will actually inherit these values and behave accordingly. For this purpose, we store
 	// the Muzzle Offset values in our shooter's data.
-	if ( pShooter->bDoBurst > 0 )
+	if ( pShooter->fireControl().burstCounter() > 0 )
 	{
 		// If this is the first shot in a burst/autofire volley, subsequent shots will inherit the same Muzzle
 		// Direction from this shot. In other words, when we reach the second (or later) bullet in the volley,
@@ -8874,23 +8873,23 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 		// the first shot was off-center.
 		if ( fSecondHandBurst )
 		{
-			pShooter->dPrevMuzzleOffsetX[1] = dMuzzleOffsetX;
-			pShooter->dPrevMuzzleOffsetY[1] = dMuzzleOffsetY;
+			pShooter->fireControl().previousMuzzleOffsetX()[1] = dMuzzleOffsetX;
+			pShooter->fireControl().previousMuzzleOffsetY()[1] = dMuzzleOffsetY;
 		}
 		else
 		{
-			pShooter->dPrevMuzzleOffsetX[0] = dMuzzleOffsetX;
-			pShooter->dPrevMuzzleOffsetY[0] = dMuzzleOffsetY;
+			pShooter->fireControl().previousMuzzleOffsetX()[0] = dMuzzleOffsetX;
+			pShooter->fireControl().previousMuzzleOffsetY()[0] = dMuzzleOffsetY;
 		}
 	}
 	else
 	{
 		// Single-shot fire does not require storing Muzzle Offset for later use. The next fired bullet will calculate
 		// its own offsets. To be on the safe side, we reset the Muzzle Offset values stored in the shooter's data.
-		pShooter->dPrevMuzzleOffsetX[0] = 0;
-		pShooter->dPrevMuzzleOffsetX[1] = 0;
-		pShooter->dPrevMuzzleOffsetY[0] = 0;
-		pShooter->dPrevMuzzleOffsetY[1] = 0;
+		pShooter->fireControl().previousMuzzleOffsetX()[0] = 0;
+		pShooter->fireControl().previousMuzzleOffsetX()[1] = 0;
+		pShooter->fireControl().previousMuzzleOffsetY()[0] = 0;
+		pShooter->fireControl().previousMuzzleOffsetY()[1] = 0;
 	}
 
 	UINT16 uiRange = GunRange(pWeapon, pShooter);
@@ -8982,19 +8981,19 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 			swprintf(szUpDown, L"down");
 		}	
 
-		if (pShooter->bDoBurst == 0 || pShooter->bDoBurst == 1)
+		if (pShooter->fireControl().burstCounter() == 0 || pShooter->fireControl().burstCounter() == 1)
 		{
-			ScreenMsg( FONT_MCOLOR_LTRED, MSG_INTERFACE, L"%d. Shot aperture %2.1f, Accuracy %2.1f, goes %2.1f %s and %2.1f %s", pShooter->bDoBurst, iAperture, iBulletDev, dShotOffsetX, szLeftRight, dShotOffsetY, szUpDown );
+			ScreenMsg( FONT_MCOLOR_LTRED, MSG_INTERFACE, L"%d. Shot aperture %2.1f, Accuracy %2.1f, goes %2.1f %s and %2.1f %s", pShooter->fireControl().burstCounter(), iAperture, iBulletDev, dShotOffsetX, szLeftRight, dShotOffsetY, szUpDown );
 		}
 		else
 		{
-			if ((pShooter->bDoBurst-1)%3 == 0)
+			if ((pShooter->fireControl().burstCounter()-1)%3 == 0)
 			{
-				ScreenMsg( FONT_MCOLOR_LTRED, MSG_INTERFACE, L"%d. MO: %2.1f, %2.1f - SO: %2.1f, %2.1f - CF: %2.1f, %2.1f", pShooter->bDoBurst, dMuzzleOffsetX, dMuzzleOffsetY, dShotOffsetX, dShotOffsetY, pShooter->dPrevCounterForceX, pShooter->dPrevCounterForceY );
+				ScreenMsg( FONT_MCOLOR_LTRED, MSG_INTERFACE, L"%d. MO: %2.1f, %2.1f - SO: %2.1f, %2.1f - CF: %2.1f, %2.1f", pShooter->fireControl().burstCounter(), dMuzzleOffsetX, dMuzzleOffsetY, dShotOffsetX, dShotOffsetY, pShooter->fireControl().previousCounterForceX(), pShooter->fireControl().previousCounterForceY() );
 			}
 			else
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d. MO: %2.1f, %2.1f - SO: %2.1f, %2.1f - CF: %2.1f, %2.1f", pShooter->bDoBurst, dMuzzleOffsetX, dMuzzleOffsetY, dShotOffsetX, dShotOffsetY, pShooter->dPrevCounterForceX, pShooter->dPrevCounterForceY  );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d. MO: %2.1f, %2.1f - SO: %2.1f, %2.1f - CF: %2.1f, %2.1f", pShooter->fireControl().burstCounter(), dMuzzleOffsetX, dMuzzleOffsetY, dShotOffsetX, dShotOffsetY, pShooter->fireControl().previousCounterForceX(), pShooter->fireControl().previousCounterForceY()  );
 			}
 		}
 	}
@@ -10036,10 +10035,10 @@ void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMu
 	FLOAT dCounterForceY = 0.0f;
 	
 	UINT32 uiIntendedBullets;
-	if ( pShooter->bDoAutofire > 0 )
+	if ( pShooter->fireControl().autofireShots() > 0 )
 	{
 		// Autofire. The number of bullets to be fired equals to the value of bDoAutofire
-		uiIntendedBullets = pShooter->bDoAutofire;
+		uiIntendedBullets = pShooter->fireControl().autofireShots();
 	}
 	else
 	{
@@ -10223,13 +10222,13 @@ void CalcPreRecoilOffset( SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, FLOAT *dMu
 	// volley.
 	if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
 	{
-		pShooter->dPrevCounterForceX[1] = dCounterForceX;
-		pShooter->dPrevCounterForceY[1] = dCounterForceY;
+		pShooter->fireControl().previousCounterForceX()[1] = dCounterForceX;
+		pShooter->fireControl().previousCounterForceY()[1] = dCounterForceY;
 	}
 	else
 	{
-		pShooter->dPrevCounterForceX[0] = dCounterForceX;
-		pShooter->dPrevCounterForceY[0] = dCounterForceY;
+		pShooter->fireControl().previousCounterForceX()[0] = dCounterForceX;
+		pShooter->fireControl().previousCounterForceY()[0] = dCounterForceY;
 	}
 
 }
@@ -10262,7 +10261,7 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	FLOAT bGunRecoilY;
 
 	if( fSecondHandBurst )
-		GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, (pShooter->bDoBurst/2) );
+		GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, (pShooter->fireControl().burstCounter()/2) );
 	else
 	{
 		// silversurfer: We need to count differently for primary weapon depending on single or dual wielding guns.
@@ -10270,11 +10269,11 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 		// For dual wielding the primary counts 1, 3, 5, 7... and the secondary gets the even numbers.
 		if ( pShooter->IsValidSecondHandBurst() )
 		{
-			GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, (pShooter->bDoBurst / 2 + pShooter->bDoBurst % 2) );
+			GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, (pShooter->fireControl().burstCounter() / 2 + pShooter->fireControl().burstCounter() % 2) );
 		}
 		else
 		{
-			GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, pShooter->bDoBurst );
+			GetRecoil( pShooter, pWeapon, &bGunRecoilX, &bGunRecoilY, pShooter->fireControl().burstCounter() );
 		}
 	}
 
@@ -10287,13 +10286,13 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	// These variables will hold the amount of X/Y force our shooter exerts to try to fight recoil.
 	if ( fSecondHandBurst )
 	{
-		dAppliedCounterForceX = pShooter->dPrevCounterForceX[1];
-		dAppliedCounterForceY = pShooter->dPrevCounterForceY[1];
+		dAppliedCounterForceX = pShooter->fireControl().previousCounterForceX()[1];
+		dAppliedCounterForceY = pShooter->fireControl().previousCounterForceY()[1];
 	}
 	else
 	{
-		dAppliedCounterForceX = pShooter->dPrevCounterForceX[0];
-		dAppliedCounterForceY = pShooter->dPrevCounterForceY[0];
+		dAppliedCounterForceX = pShooter->fireControl().previousCounterForceX()[0];
+		dAppliedCounterForceY = pShooter->fireControl().previousCounterForceY()[0];
 	}
 
 	BOOLEAN fTracer = WasPrevBulletATracer( pShooter, pWeapon );
@@ -10312,10 +10311,10 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	// Instead of assuming we're on a uiCounterForceFrequency round, we need to verify exactly where we are in the uiCounterForceFrequency
 	//	sequence.
 	INT32 uiIntendedBullets;
-	if ( pShooter->bDoAutofire > 0 )
+	if ( pShooter->fireControl().autofireShots() > 0 )
 	{
 		// Autofire. The number of bullets to be fired equals to the value of bDoAutofire
-		uiIntendedBullets = pShooter->bDoAutofire;
+		uiIntendedBullets = pShooter->fireControl().autofireShots();
 	}
 	else
 	{
@@ -10386,21 +10385,21 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	// For more explanation read the comments inside the following function:
 	if ( fSecondHandBurst )
 	{
-		dAppliedCounterForceX = pShooter->dPrevCounterForceX[1];
-		dAppliedCounterForceY = pShooter->dPrevCounterForceY[1];
+		dAppliedCounterForceX = pShooter->fireControl().previousCounterForceX()[1];
+		dAppliedCounterForceY = pShooter->fireControl().previousCounterForceY()[1];
 		// CALCULATE FOR X
-		dCounterForceChangeX = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetX / dDistanceRatio, bGunRecoilX, pShooter->dPrevCounterForceX[1], uiIntendedBullets ); 
+		dCounterForceChangeX = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetX / dDistanceRatio, bGunRecoilX, pShooter->fireControl().previousCounterForceX()[1], uiIntendedBullets );
 		// CALCULATE FOR Y
-		dCounterForceChangeY = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetY / dDistanceRatio, bGunRecoilY, pShooter->dPrevCounterForceY[1], uiIntendedBullets ); 
+		dCounterForceChangeY = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetY / dDistanceRatio, bGunRecoilY, pShooter->fireControl().previousCounterForceY()[1], uiIntendedBullets );
 	}
 	else
 	{
-		dAppliedCounterForceX = pShooter->dPrevCounterForceX[0];
-		dAppliedCounterForceY = pShooter->dPrevCounterForceY[0];
+		dAppliedCounterForceX = pShooter->fireControl().previousCounterForceX()[0];
+		dAppliedCounterForceY = pShooter->fireControl().previousCounterForceY()[0];
 		// CALCULATE FOR X
-		dCounterForceChangeX = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetX / dDistanceRatio, bGunRecoilX, pShooter->dPrevCounterForceX[0], uiIntendedBullets ); 
+		dCounterForceChangeX = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetX / dDistanceRatio, bGunRecoilX, pShooter->fireControl().previousCounterForceX()[0], uiIntendedBullets );
 		// CALCULATE FOR Y
-		dCounterForceChangeY = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetY / dDistanceRatio, bGunRecoilY, pShooter->dPrevCounterForceY[0], uiIntendedBullets ); 
+		dCounterForceChangeY = CalcCounterForceChange( pShooter, uiCounterForceAccuracy, dCounterForceMax, *dMuzzleOffsetY / dDistanceRatio, bGunRecoilY, pShooter->fireControl().previousCounterForceY()[0], uiIntendedBullets );
 	}
 
 	dAppliedCounterForceX += dCounterForceChangeX;
@@ -10425,13 +10424,13 @@ void CalcRecoilOffset( SOLDIERTYPE *pShooter, FLOAT *dMuzzleOffsetX, FLOAT *dMuz
 	// shooter can recalculate.
 	if ( fSecondHandBurst )
 	{
-		pShooter->dPrevCounterForceX[1] = dAppliedCounterForceX;
-		pShooter->dPrevCounterForceY[1] = dAppliedCounterForceY;
+		pShooter->fireControl().previousCounterForceX()[1] = dAppliedCounterForceX;
+		pShooter->fireControl().previousCounterForceY()[1] = dAppliedCounterForceY;
 	}
 	else
 	{
-		pShooter->dPrevCounterForceX[0] = dAppliedCounterForceX;
-		pShooter->dPrevCounterForceY[0] = dAppliedCounterForceY;
+		pShooter->fireControl().previousCounterForceX()[0] = dAppliedCounterForceX;
+		pShooter->fireControl().previousCounterForceY()[0] = dAppliedCounterForceY;
 	}
 
 	dAppliedCounterForceX += (FLOAT)bGunRecoilX;
@@ -10688,7 +10687,7 @@ FLOAT CalcCounterForceChange( SOLDIERTYPE * pShooter, UINT32 uiCounterForceAccur
 				// fire that many bullets?
 				UINT32 uiRoundsRemaining;
 				if ( pShooter->attackSelection().hand() == SECONDHANDPOS && pShooter->IsValidSecondHandBurst() )
-					uiRoundsRemaining = uiIntendedBullets - (pShooter->bDoBurst/2);
+					uiRoundsRemaining = uiIntendedBullets - (pShooter->fireControl().burstCounter()/2);
 				else
 				{
 					// silversurfer: We need to count differently for primary weapon depending on single or dual wielding guns.
@@ -10696,11 +10695,11 @@ FLOAT CalcCounterForceChange( SOLDIERTYPE * pShooter, UINT32 uiCounterForceAccur
 					// For dual wielding the primary counts 1, 3, 5, 7... and the secondary gets the even numbers.
 					if ( pShooter->IsValidSecondHandBurst() )
 					{
-						uiRoundsRemaining = uiIntendedBullets - (pShooter->bDoBurst / 2 + pShooter->bDoBurst % 2);
+						uiRoundsRemaining = uiIntendedBullets - (pShooter->fireControl().burstCounter() / 2 + pShooter->fireControl().burstCounter() % 2);
 					}
 					else
 					{
-						uiRoundsRemaining = uiIntendedBullets - pShooter->bDoBurst;
+						uiRoundsRemaining = uiIntendedBullets - pShooter->fireControl().burstCounter();
 					}
 				}
 

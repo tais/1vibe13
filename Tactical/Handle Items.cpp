@@ -864,7 +864,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( !EnoughAmmo( pSoldier, fFromUI, HANDPOS ) )
 			{
 				//ATE: Reflect that we need to reset for bursting
-				pSoldier->flags.fDoSpread = FALSE;
+				pSoldier->fireControl().spreadIndex() = FALSE;
 				return( ITEM_HANDLE_NOAMMO );
 			}
 
@@ -895,7 +895,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( fFromUI && IsJa2TacticalTurnBasedCombat() )
 		{
 			// Don't do if no spread!
-			if ( !pSoldier->flags.fDoSpread )
+			if ( !pSoldier->fireControl().spreadIndex() )
 			{
 				if ( !HandleCheckForBadChangeToGetThrough( pSoldier, pTargetSoldier, sTargetGridNo , bLevel ) )
 				{
@@ -949,28 +949,27 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				// psychos might possibly switch to burst if they can
 				// Changed by ADB, rev 1513
-				//if ( !pSoldier->bDoBurst && IsGunBurstCapable( pSoldier, HANDPOS, FALSE ) )
+				//if ( !pSoldier->fireControl().burstCounter() && IsGunBurstCapable( pSoldier, HANDPOS, FALSE ) )
 				// SANDRO - messed this a little.. decrease morale a bit when we would like to go psycho,
 				// but have not a gun capable for it
-				if ( PreRandom( 3 + pSoldier->aiData.bAimTime ) == 0 && !pSoldier->bDoBurst )
+				if ( PreRandom( 3 + pSoldier->aiData.bAimTime ) == 0 && !pSoldier->fireControl().burstCounter() )
 				{
 					if ( IsGunBurstCapable( &pSoldier->inv[HANDPOS], FALSE, pSoldier ) )
 					{
 						// chance of firing burst if we have points... chance decreasing when ordered to do aimed shot
 
 						// temporarily set burst to true to calculate action points
-						pSoldier->bDoBurst = TRUE;
+						pSoldier->fireControl().burstCounter() = TRUE;
 						sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
 						// reset burst mode to false (which is what it was at originally)
-						pSoldier->bDoBurst = FALSE;
+						pSoldier->fireControl().burstCounter() = FALSE;
 
 						if ( EnoughPoints( pSoldier, sAPCost, 0, FALSE ) )
 						{
 							// we have enough points to do this burst, roll the dice and see if we want to change						
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
-							pSoldier->bDoBurst = TRUE;
+							pSoldier->fireControl().selectBurst();
 							pSoldier->attackSelection().weaponMode() = WM_BURST;
-							pSoldier->bDoAutofire = 0;
 
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 26 ], pSoldier->GetName() );
 						}
@@ -984,7 +983,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 			}
 
-			if(pSoldier->bDoAutofire && (IsJa2TacticalTurnBasedCombat())) //this is the code that introduces uncertainty into full-auto bursts
+			if(pSoldier->fireControl().autofireShots() && (IsJa2TacticalTurnBasedCombat())) //this is the code that introduces uncertainty into full-auto bursts
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->stats.bMarksmanship));
 				//UINT32 diceSides = RAND_MAX;
@@ -1014,7 +1013,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				UINT32 misfirePenaltyConst = (GetAutofireShotsPerFiveAPs(&pSoldier->inv[HANDPOS]))/5;
 				UINT32 misfirePenaltyRand = ((GetAutofireShotsPerFiveAPs(&pSoldier->inv[HANDPOS]))%5)*20; //this is the remainder translated to a probability
 				UINT32 misfirePenalty;
-				UINT32 startAuto = pSoldier->bDoAutofire;
+				UINT32 startAuto = pSoldier->fireControl().autofireShots();
 				//UINT32 startAPcost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, 0 );
 				UINT32 roll;
 
@@ -1046,22 +1045,22 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"HandleItem: auto fire - Rolling dice");
 					roll = PreRandom(diceSides); // changed Random to PreRandom - SANDRO
 					//roll = rand();//Random(diceSides);
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
+					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Rolled %d vs %d", roll, ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 
 					misfirePenalty = misfirePenaltyConst + (Chance(misfirePenaltyRand)?1:0); //apply the base integral cost and the fractional cost (in the form of probablilite)
 
-					pSoldier->bDoAutofire += misfirePenalty;
+					pSoldier->fireControl().autofireShots() += misfirePenalty;
 					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
 				}
-				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire)?chanceToMisfire:chanceToMisfireDry));
+				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 				//note that we could misfire more bullets than we have rounds
 				//this represents the soldier running out of ammo and not noticing
 				//the max that can be lost this way is 1AP
 
-				pSoldier->bDoAutofire -= misfirePenalty;
+				pSoldier->fireControl().autofireShots() -= misfirePenalty;
 				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
 
-				if((__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
+				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
 				{
 					if (gGameExternalOptions.usBulletHideIntensity > 0)
 					{
@@ -1070,9 +1069,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 					else
 					{// More than 1 round
-						if (__min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
+						if (__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto > 1)
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->bDoAutofire,pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 62 ], pSoldier->GetName(), __min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto );
 						}
 						// 1 round
 						else
@@ -1102,16 +1101,16 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				pSoldier->attackSelection().selectWeapon(HANDPOS, usHandItem);
 				// If doing spread, set down the first gridno.....
-				if ( pSoldier->flags.fDoSpread )
+				if ( pSoldier->fireControl().spreadIndex() )
 				{
-					if ( pSoldier->sSpreadLocations[ 0 ] != 0 )
+					if ( pSoldier->fireControl().spreadLocations()[ 0 ] != 0 )
 					{
 						if (!DispatchBeginFireWeaponFromHandleItem(
-								pSoldier, pSoldier->sSpreadLocations[ 0 ], fFromUI,
+								pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ], fFromUI,
 								rejectedFireSelection ))
 							return ITEM_HANDLE_OK;
 						if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) )
-							send_fire( pSoldier, pSoldier->sSpreadLocations[ 0 ] );
+							send_fire( pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ] );
 
 						//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handle Items.cpp: SendBeginFireWeaponEvent" );
 					}
@@ -1188,7 +1187,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		else
 		{
 			//CHRISL: Need to reset this as it doesn't automatically get reset when we don't have enough APs to shot
-			pSoldier->flags.fDoSpread = FALSE;
+			pSoldier->fireControl().spreadIndex() = FALSE;
 			return( ITEM_HANDLE_NOAPS );
 		}
 

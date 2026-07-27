@@ -226,11 +226,11 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 									}
 									else
 									{
-										if ( pSoldier->bDoBurst )
+										if ( pSoldier->fireControl().burstCounter() )
 										{
 											pSoldier->sStartGridNo = usMapPos;
 											ResetBurstLocations( );
-											pSoldier->bDoAutofire = 6;
+											pSoldier->fireControl().autofireShots() = 6;
 											*puiNewEvent = A_CHANGE_TO_CONFIM_ACTION;
 										}
 										else
@@ -478,7 +478,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 							case CONFIRM_ACTION_MODE:
 								if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 								{
-									if ( pSoldier->bDoBurst )
+									if ( pSoldier->fireControl().burstCounter() )
 									{
 										pSoldier->sEndGridNo = usMapPos;
 
@@ -486,7 +486,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 										if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo )
 										{
-											pSoldier->flags.fDoSpread = TRUE;
+											pSoldier->fireControl().spreadIndex() = TRUE;
 
 											PickBurstLocations( pSoldier );
 
@@ -494,7 +494,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 										}
 										else
 										{
-											pSoldier->flags.fDoSpread = FALSE;
+											pSoldier->fireControl().spreadIndex() = FALSE;
 										}
 										gfRTClickLeftHoldIntercepted = TRUE;
 									}
@@ -626,7 +626,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 													if (GetSoldier(&pSoldier, gusSelectedSoldier))
 													{
 														//shadooow: this fixes merc randomly shooting in different direction than assigned
-														pSoldier->flags.fDoSpread = 0;
+														pSoldier->fireControl().spreadIndex() = 0;
 													}
 													*puiNewEvent = CA_MERC_SHOOT;
 													//	}
@@ -958,7 +958,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 		{
 			if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 			{
-				pSoldier->flags.fDoSpread = FALSE;
+				pSoldier->fireControl().spreadIndex() = FALSE;
 			}
 			gfBeginBurstSpreadTracking = FALSE;
 		}
@@ -1046,7 +1046,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 							gfRTClickLeftHoldIntercepted = TRUE;
 							GetJa2SoldierRepository()
 								.resolve(gusSelectedSoldier.i)
-								->flags.fDoSpread = FALSE;
+								->fireControl().spreadIndex() = FALSE;
 							fClickHoldIntercepted = TRUE;
 							*puiNewEvent = A_END_ACTION;
 							gCurrentUIMode = MOVE_MODE;
@@ -1594,18 +1594,18 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 			// DONOT CANCEL IF BURST
 			if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 			{
-				if ( pSoldier->bDoBurst )
+				if ( pSoldier->fireControl().burstCounter() )
 				{
 					pSoldier->sEndGridNo = usMapPos;
 
 
 					if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo && fLeftButtonDown )
 					{
-						pSoldier->flags.fDoSpread = TRUE;
+						pSoldier->fireControl().spreadIndex() = TRUE;
 						gfBeginBurstSpreadTracking = TRUE;
 					}
 
-					if ( pSoldier->flags.fDoSpread )
+					if ( pSoldier->fireControl().spreadIndex() )
 					{
 						// Accumulate gridno
 						AccumulateBurstLocation( usMapPos );

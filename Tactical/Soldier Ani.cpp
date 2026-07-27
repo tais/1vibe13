@@ -424,9 +424,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					//DIGICRAB: Burst UnCap
 					//Loop around in the animation if we still have burst rounds to fire
-					if (pSoldier->bDoBurst && !(pSoldier->IsValidSecondHandBurst())
-						&& ( pSoldier->bDoBurst <= ( (pSoldier->bDoAutofire)?(pSoldier->bDoAutofire):(GetShotsPerBurst( pObjHand ))	) 
-						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst)) ))
+					if (pSoldier->fireControl().burstCounter() && !(pSoldier->IsValidSecondHandBurst())
+						&& ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand ))	)
+						|| (( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() <= Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst)) ))
 					{
 						if(pSoldier->animationPlayback().state() == STANDING_BURST || pSoldier->animationPlayback().state() == CROUCHED_BURST || pSoldier->animationPlayback().state() == PRONE_BURST || pSoldier->animationPlayback().state() == BURST_ALTERNATIVE_STAND && pSoldier->animationPlayback().code() == 33) //we are standing, crounching or prone, firing the fast shot
 							pSoldier->animationPlayback().code() = 3;
@@ -434,14 +434,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							pSoldier->animationPlayback().code() = 14;
 						else if(pSoldier->animationPlayback().state() == TANK_BURST)//dnl ch64 280813 fix 6 round burst limitation
 						{
-							if(pSoldier->bDoBurst < pSoldier->bDoAutofire)//!!! this will be fine as long you not decide to equip tank with other weapons add limitted ammo, weapon jam, etc.
+							if(pSoldier->fireControl().burstCounter() < pSoldier->fireControl().autofireShots())//!!! this will be fine as long you not decide to equip tank with other weapons add limitted ammo, weapon jam, etc.
 								pSoldier->animationPlayback().code() = 4;
 							else
 								pSoldier->animationPlayback().code() = 34;
 						}
 						else if(pSoldier->animationPlayback().state() == ROBOT_BURST_SHOOT)	//silversurfer: Bugfix JaggZilla #532 6 round burst limitation
 						{
-							if(pSoldier->bDoBurst < pSoldier->bDoAutofire)
+							if(pSoldier->fireControl().burstCounter() < pSoldier->fireControl().autofireShots())
 								pSoldier->animationPlayback().code() = 4;
 							else
 								pSoldier->animationPlayback().code() = 34;
@@ -452,7 +452,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 					//DIGICRAB: Burst Sound
 					//This code is stolen from Tactical\Weapons.c - UseGun(...)
-					if (pSoldier->bDoBurst && pSoldier->iBurstSoundID == NO_SAMPLE && Weapon[ usedGun ].sSound != 0 && Item[ usedGun ].usItemClass != IC_THROWING_KNIFE )
+					if (pSoldier->fireControl().burstCounter() && pSoldier->iBurstSoundID == NO_SAMPLE && Weapon[ usedGun ].sSound != 0 && Item[ usedGun ].usItemClass != IC_THROWING_KNIFE )
 					{
 						// Switch on silencer...
 						INT16 noisefactor = GetPercentNoiseVolume( pObjUsed );
@@ -829,19 +829,19 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[HANDPOS] );
 
-					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->bDoBurst > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst) )
+					if ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST && pSoldier->fireControl().burstCounter() > Weapon[GetAttachedGrenadeLauncher(&pSoldier->inv[HANDPOS])].ubShotsPerBurst) )
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gl max burst size reached");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && !(pSoldier->IsValidSecondHandBurst()) && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(pSoldier->bDoAutofire):(GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && !(pSoldier->IsValidSecondHandBurst()) && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(pSoldier->fireControl().autofireShots()):(GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because gun max burst size reached");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
 					}
-					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->IsValidSecondHandBurst() && (pSoldier->bDoBurst > ((pSoldier->bDoAutofire)?(2*pSoldier->bDoAutofire):(2*GetShotsPerBurst( pObjHand )))))
+					else if (pSoldier->attackSelection().weaponMode() != WM_ATTACHED_GL_BURST && pSoldier->IsValidSecondHandBurst() && (pSoldier->fireControl().burstCounter() > ((pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand )))))
 					{
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because dual max burst size reached");
 						fStop = TRUE;
@@ -860,7 +860,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 					// Why only check for a jam on the first bullet?
-					else if (pSoldier->bDoBurst == 1)
+					else if (pSoldier->fireControl().burstCounter() == 1)
 					{
 						// CHECK FOR GUN JAM
 						bWeaponJammed = CheckForGunJam( pSoldier );
@@ -871,7 +871,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							fFreeUpAttacker = TRUE;
 							// stop shooting!
 							// Yeah, but what does this have to do with that?
-							//							pSoldier->bBulletsLeft = 0;
+							//							pSoldier->fireControl().bulletsLeft() = 0;
 
 							// OK, Stop burst sound...
 							if ( pSoldier->iBurstSoundID != NO_SAMPLE )
@@ -900,14 +900,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					if ( fStop )
 					{
-						if(pSoldier->bDoAutofire) //reset the autofire cursor after firing
+						if(pSoldier->fireControl().autofireShots()) //reset the autofire cursor after firing
 						{
-							pSoldier->flags.autofireLastStep = FALSE;
-							pSoldier->bDoAutofire = 1;
+							pSoldier->fireControl().autofireLastStep() = FALSE;
+							pSoldier->fireControl().autofireShots() = 1;
 						}
 
-						pSoldier->flags.fDoSpread = FALSE;
-						pSoldier->bDoBurst = 1;
+						pSoldier->fireControl().spreadIndex() = FALSE;
+						pSoldier->fireControl().burstCounter() = 1;
 						// pSoldier->flags.fBurstCompleted = TRUE;
 						if ( fFreeUpAttacker )
 						{
@@ -967,11 +967,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// MOVETO CURRENT SPREAD LOCATION
-					if ( pSoldier->flags.fDoSpread )
+					if ( pSoldier->fireControl().spreadIndex() )
 					{
-						if ( pSoldier->sSpreadLocations[ pSoldier->flags.fDoSpread - 1 ] != 0 )
+						if ( pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] != 0 )
 						{
-							pSoldier->EVENT_SetSoldierDirection( (INT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldier->sSpreadLocations[ pSoldier->flags.fDoSpread - 1 ] ) );
+							pSoldier->EVENT_SetSoldierDirection( (INT8)GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldier->fireControl().spreadLocations()[ pSoldier->fireControl().spreadIndex() - 1 ] ) );
 							pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 						}
 					}
@@ -981,8 +981,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 449:
 
 				//CODE: FINISH BURST
-				pSoldier->flags.fDoSpread = FALSE;
-				pSoldier->bDoBurst = 1;
+				pSoldier->fireControl().spreadIndex() = FALSE;
+				pSoldier->fireControl().burstCounter() = 1;
 				//				pSoldier->flags.fBurstCompleted = TRUE;
 				break;
 
@@ -1391,7 +1391,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					pSoldier->animationPlayback().code() += 4;
 
 					// Reduce by a bullet...
-					//						pSoldier->bBulletsLeft--;
+					//						pSoldier->fireControl().bulletsLeft()--;
 
 					PlayJA2Sample( S_DRYFIRE1, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 
@@ -3476,7 +3476,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			{
 				OBJECTTYPE* pObjHand = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 
-				if (pSoldier->bDoBurst && ( pSoldier->bDoBurst <= ( (pSoldier->bDoAutofire)?(2*pSoldier->bDoAutofire):(2*GetShotsPerBurst( pObjHand ))	) ))
+				if (pSoldier->fireControl().burstCounter() && ( pSoldier->fireControl().burstCounter() <= ( (pSoldier->fireControl().autofireShots())?(2*pSoldier->fireControl().autofireShots()):(2*GetShotsPerBurst( pObjHand ))	) ))
 				{
 					if ( pSoldier->animationPlayback().state() == BURST_DUAL_PRONE )
 						pSoldier->animationPlayback().code() = 2;

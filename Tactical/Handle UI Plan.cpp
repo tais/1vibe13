@@ -283,7 +283,7 @@ void SelectPausedFireAnimation( SOLDIERTYPE *pSoldier )
 	{
 		case ANIM_STAND:
 
-			if ( pSoldier->bDoBurst > 0 )
+			if ( pSoldier->fireControl().burstCounter() > 0 )
 			{
 				if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_ALT_WEAPON_HOLDING ) )
 				{

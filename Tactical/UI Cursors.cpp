@@ -400,7 +400,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 		INT8 bMaxAim;
 		if ( IsJa2TacticalTurnBasedCombat() )
 		{
-			if(pSoldier->bDoAutofire)
+			if(pSoldier->fireControl().autofireShots())
 			{
 				// sevenfm: change number of autofire bullets only once when switching cursor to action mode or changing firing mode
 				if( !gfAutofireInitBulletNum ) 
@@ -425,24 +425,24 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 					do
 					{
-						pSoldier->bDoAutofire++;
+						pSoldier->fireControl().autofireShots()++;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, bMaxAim);
 					} // sevenfm: removed (sAPCosts <= sCurAPCosts) because EnoughPoints() is enough
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && usShotsLeft >= pSoldier->bDoAutofire && pSoldier->bDoAutofire <= ubMaxBullets );
-					pSoldier->bDoAutofire--;
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && usShotsLeft >= pSoldier->fireControl().autofireShots() && pSoldier->fireControl().autofireShots() <= ubMaxBullets );
+					pSoldier->fireControl().autofireShots()--;
 
 					gfAutofireInitBulletNum = TRUE;
 				}
 
 				gfUIAutofireBulletCount = TRUE;
-				gsBulletCount = pSoldier->bDoAutofire;
+				gsBulletCount = pSoldier->fireControl().autofireShots();
 				gsTotalBulletCount = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 				if (pSoldier->IsValidSecondHandBurst()) 
 				{
 					gsTotalBulletCount = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), gsTotalBulletCount );
 				}
 
-				if(pSoldier->flags.autofireLastStep) //set the orange tint on the numbers if we at the last step
+				if(pSoldier->fireControl().autofireLastStep()) //set the orange tint on the numbers if we at the last step
 					gTintBulletCounts = TRUE;
 				else
 					gTintBulletCounts = FALSE;
@@ -456,9 +456,9 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			gfUIDisplayActionPointsCenter = TRUE;
 
 
-			while(!EnoughPoints( pSoldier, gsCurrentActionPoints, 0 , FALSE ) && pSoldier->bDoAutofire > 1) //oops, we don't have enough points if we are in auto-fire try to decrease bulletcount
+			while(!EnoughPoints( pSoldier, gsCurrentActionPoints, 0 , FALSE ) && pSoldier->fireControl().autofireShots() > 1) //oops, we don't have enough points if we are in auto-fire try to decrease bulletcount
 			{
-				pSoldier->bDoAutofire--;
+				pSoldier->fireControl().autofireShots()--;
 				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiData.bShownAimTime ) );
 			}
 
@@ -549,7 +549,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					// Reset counter
 					RESETCOUNTER( TARGETREFINE );
 
-					if ( pSoldier->bDoBurst )
+					if ( pSoldier->fireControl().burstCounter() )
 					{
 						pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
 					}
@@ -610,9 +610,9 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			//gfCannotGetThrough = FALSE;
 		}
 
-		if ( pSoldier->flags.fDoSpread && pSoldier->bDoAutofire) //approximate spread-auto costs
+		if ( pSoldier->fireControl().spreadIndex() && pSoldier->fireControl().autofireShots()) //approximate spread-auto costs
 		{
-			if(gbNumBurstLocations > pSoldier->bDoAutofire)
+			if(gbNumBurstLocations > pSoldier->fireControl().autofireShots())
 			{
 				INT16	sAPCosts;
 				UINT16 usShotsLeft = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
@@ -623,11 +623,11 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 				do
 				{
-					pSoldier->bDoAutofire++;
+					pSoldier->fireControl().autofireShots()++;
 					sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime);
 				}
-				while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && usShotsLeft >= pSoldier->bDoAutofire && gbNumBurstLocations >= pSoldier->bDoAutofire);
-				pSoldier->bDoAutofire--;
+				while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && usShotsLeft >= pSoldier->fireControl().autofireShots() && gbNumBurstLocations >= pSoldier->fireControl().autofireShots());
+				pSoldier->fireControl().autofireShots()--;
 
 				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime );
 			}
@@ -636,7 +636,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 		if ( fMaxPointLimitHit )
 		{
 			// Check if we're in burst mode!
-			if ( pSoldier->bDoBurst )
+			if ( pSoldier->fireControl().burstCounter() )
 			{
 				usCursor = ACTION_TARGETREDBURST_UICURSOR;
 			}
@@ -649,9 +649,9 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				usCursor = ACTION_TARGETRED_UICURSOR;
 			}
 		}
-		else if ( pSoldier->bDoBurst )
+		else if ( pSoldier->fireControl().burstCounter() )
 		{
-			if ( pSoldier->flags.fDoSpread )
+			if ( pSoldier->fireControl().spreadIndex() )
 			{
 				usCursor = ACTION_TARGETREDBURST_UICURSOR;
 			}
@@ -662,8 +662,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 				// HEADROCK HAM B1: Burst cursor now shows multiple CTH bars (one for each bullet)
 				// and also a Targetted Bodypart indicator.
-				//if(pSoldier->bDoAutofire == 0 && gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
-				if(pSoldier->bDoAutofire == 0)
+				//if(pSoldier->fireControl().autofireShots() == 0 && gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
+				if(pSoldier->fireControl().autofireShots() == 0)
 				{
 					if(UsingNewCTHSystem() == true)
 					{
@@ -709,7 +709,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							UINT8 i, saveDoBurst;
 							// Save original burst value (should be 1 always, before the burst has been fired, but
 							// this is just a failsafe
-							saveDoBurst = pSoldier->bDoBurst;
+							saveDoBurst = pSoldier->fireControl().burstCounter();
 
 							// For each bullet in the burst
 							for (i=0;i<gbCtHBurstCount;i++)
@@ -734,10 +734,10 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 								// Increase burst size, so that the next time we run CalcChanceToHitGun we'll get a lower
 								// result, based on our Burst Penalty
-								pSoldier->bDoBurst++;
+								pSoldier->fireControl().burstCounter()++;
 							}
 							// Reset original burst status
-							pSoldier->bDoBurst = saveDoBurst;
+							pSoldier->fireControl().burstCounter() = saveDoBurst;
 							// Activate CTH bar display
 							gfUICtHBar = TRUE;
 						}
@@ -767,8 +767,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				// HEADROCK HAM B2: Now autofire will show both its starting CTH and the CTH of the last
 				// bullet in the volley.
 				
-				//else if(pSoldier->bDoAutofire > 0 && gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
-				else if(pSoldier->bDoAutofire > 0)
+				//else if(pSoldier->fireControl().autofireShots() > 0 && gGameSettings.fOptions[ TOPTION_CTH_CURSOR ])
+				else if(pSoldier->fireControl().autofireShots() > 0)
 				{
 					if(UsingNewCTHSystem() == true)
 					{
@@ -832,8 +832,8 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							// Fool the CTH formula into thinking we're already firing the last bullet in the volley,
 							// by artificially altering bDoBurst (which tracks actual burst progression). The CTH formula
 							// calculates Auto Penalty based on bDoBurst - (Autopen * (bDoBurst-1), basically).
-							UINT8 saveDoBurst = pSoldier->bDoBurst;
-							pSoldier->bDoBurst = pSoldier->bDoAutofire;
+							UINT8 saveDoBurst = pSoldier->fireControl().burstCounter();
+							pSoldier->fireControl().burstCounter() = pSoldier->fireControl().autofireShots();
 							
 							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
 							// HEADROCK HAM B2.7: CTH approximation?
@@ -844,7 +844,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 							pSoldier->targeting().level() = bTempTargetLevel;
 							// Return Burst State to original value
-							pSoldier->bDoBurst = saveDoBurst;
+							pSoldier->fireControl().burstCounter() = saveDoBurst;
 
 							// CTH for the last bullet is entered into this array and later displayed.
 							gbCtH[1] = (gbCtH[1]+uiHitChance)/2;
@@ -1337,16 +1337,16 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 
 	}
 
-	if(gusUIFullTargetID == NOBODY && pSoldier->bDoAutofire && !pSoldier->flags.fDoSpread)	//reset autofire if we move the mouse off the target, however don't reset it if we are spread-bursting
+	if(gusUIFullTargetID == NOBODY && pSoldier->fireControl().autofireShots() && !pSoldier->fireControl().spreadIndex())	//reset autofire if we move the mouse off the target, however don't reset it if we are spread-bursting
 	{
 		if(IsJa2TacticalTurnBasedCombat())
 		{
-			pSoldier->bDoAutofire = 1;
+			pSoldier->fireControl().autofireShots() = 1;
 			// sevenfm: init autofire bullet num next time when the cursor will be on target
 			gfAutofireInitBulletNum = FALSE;
 		}
 
-		pSoldier->flags.autofireLastStep = FALSE;
+		pSoldier->fireControl().autofireLastStep() = FALSE;
 	}
 
 	//if ( IsJa2TacticalTurnBased() && !(IsJa2TacticalCombatActive() ) )
@@ -1371,7 +1371,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 
 		if ( gfCannotGetThrough )
 		{
-			if ( pSoldier->bDoBurst )
+			if ( pSoldier->fireControl().burstCounter() )
 			{
 				return(	ACTION_NOCHANCE_BURST_UICURSOR );
 			}
@@ -1395,7 +1395,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 		{
 			return(	FLASH_THROW_UICURSOR );
 		}
-		else if ( pSoldier->bDoBurst )
+		else if ( pSoldier->fireControl().burstCounter() )
 		{
 			//return( ACTION_FIRSTAID_RED );
 			return(	ACTION_FLASH_BURST_UICURSOR );
@@ -1413,7 +1413,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 		{
 			return(	GOOD_THROW_UICURSOR );
 		}
-		else if ( pSoldier->bDoBurst )
+		else if ( pSoldier->fireControl().burstCounter() )
 		{
 			//return( ACTION_FIRSTAID_RED );
 			return( ACTION_TARGETBURST_UICURSOR );
@@ -1600,7 +1600,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 	}
 	// HEADROCK HAM B2: Now shows targetted bodypart for ALL firing modes. Note that the external toggle is not
 	// taken into account yet.
-	//	if ( fDisplay && !pSoldier->bDoAutofire )
+	//	if ( fDisplay && !pSoldier->fireControl().autofireShots() )
 	if ( fDisplay )
 	{
 		if ( gfUIFullTargetFound )
@@ -1615,13 +1615,13 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 
 				wcscpy( gzLocation, TacticalStr[ CROW_HIT_LOCATION_STR ] );
 
-				if ( !pSoldier->bDoBurst )
+				if ( !pSoldier->fireControl().burstCounter() )
 					gfUIBodyHitLocation = TRUE;
 				// HEADROCK: This'll toggle whether the bodypart targetting indicator shows up in the burst/auto
 				// CTH cursors.
-				else if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
+				else if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
 					gfUIBodyHitLocation = TRUE;
-				else if ( pSoldier->bDoBurst && pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
+				else if ( pSoldier->fireControl().burstCounter() && pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
 					gfUIBodyHitLocation = TRUE;
 				return;
 			}
@@ -1644,37 +1644,37 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 					{
 						wcscpy( gzLocation, TacticalStr[ HEAD_HIT_LOCATION_STR ] );
 					}
-					if ( !pSoldier->bDoBurst )
+					if ( !pSoldier->fireControl().burstCounter() )
 						gfUIBodyHitLocation = TRUE;
 					// HEADROCK: This'll toggle whether the bodypart targetting indicator shows up in the burst/auto
 					// CTH cursors.
-					else if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
+					else if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
 						gfUIBodyHitLocation = TRUE;
-					else if ( pSoldier->bDoBurst && pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
+					else if ( pSoldier->fireControl().burstCounter() && pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
 						gfUIBodyHitLocation = TRUE;
 					break;
 
 				case AIM_SHOT_TORSO:
 					wcscpy( gzLocation, TacticalStr[ TORSO_HIT_LOCATION_STR ] );
-					if ( !pSoldier->bDoBurst )
+					if ( !pSoldier->fireControl().burstCounter() )
 						gfUIBodyHitLocation = TRUE;
 					// HEADROCK: This'll toggle whether the bodypart targetting indicator shows up in the burst/auto
 					// CTH cursors.
-					else if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
+					else if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
 						gfUIBodyHitLocation = TRUE;
-					else if ( pSoldier->bDoBurst && pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
+					else if ( pSoldier->fireControl().burstCounter() && pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
 						gfUIBodyHitLocation = TRUE;
 					break;
 
 				case AIM_SHOT_LEGS:
 					wcscpy( gzLocation, TacticalStr[ LEGS_HIT_LOCATION_STR ] );
-					if ( !pSoldier->bDoBurst )
+					if ( !pSoldier->fireControl().burstCounter() )
 						gfUIBodyHitLocation = TRUE;
 					// HEADROCK: This'll toggle whether the bodypart targetting indicator shows up in the burst/auto
 					// CTH cursors.
-					else if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
+					else if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 2) )
 						gfUIBodyHitLocation = TRUE;
-					else if ( pSoldier->bDoBurst && pSoldier->bDoAutofire && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
+					else if ( pSoldier->fireControl().burstCounter() && pSoldier->fireControl().autofireShots() && (gGameExternalOptions.ubNewCTHBars == 1 || gGameExternalOptions.ubNewCTHBars == 3) )
 					gfUIBodyHitLocation = TRUE;
 					break;
 			}
@@ -2502,7 +2502,7 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 	{
 		// GOTO DIRECTLY TO USING ITEM
 		// ( only if not burst mode.. )
-		if ( !pSoldier->bDoBurst )
+		if ( !pSoldier->fireControl().burstCounter() )
 		{
 			guiPendingOverrideEvent = CA_MERC_SHOOT;
 		}
@@ -2618,12 +2618,12 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 		case TARGETCURS:
 
 			// CHECK IF GUY HAS IN HAND A WEAPON
-			if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire && !gGameExternalOptions.bAimedBurstEnabled)
+			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && !gGameExternalOptions.bAimedBurstEnabled)
 			{
 				// Do nothing for aimed burst deactivated
 				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
 			}
-			else if(pSoldier->bDoAutofire)
+			else if(pSoldier->fireControl().autofireShots())
 			{
 				// aiming in auto mode using hotkey for mousewheel not working
 				if( gfKeyState[ COMMA ] && gGameExternalOptions.bAimedBurstEnabled )
@@ -2699,21 +2699,21 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
 
-					if(pSoldier->flags.autofireLastStep)
+					if(pSoldier->fireControl().autofireLastStep())
 					{
-						pSoldier->bDoAutofire = 1;						//reset the bullet counter
-						pSoldier->flags.autofireLastStep = FALSE;
+						pSoldier->fireControl().autofireShots() = 1;						//reset the bullet counter
+						pSoldier->fireControl().autofireLastStep() = FALSE;
 						return;
 					}
 
 
-					if(usShotsLeft > pSoldier->bDoAutofire )
+					if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 					{
 						//Calculate how many bullets we need to fire to add at least one more AP
 						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
-						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->bDoAutofire)	//Increment the bullet count until we run out of APs or we spend the whole AP
+						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 						{
-							pSoldier->bDoAutofire++;
+							pSoldier->fireControl().autofireShots()++;
 							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 						}
 
@@ -2723,25 +2723,25 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 						do
 						{
-							pSoldier->bDoAutofire++;
+							pSoldier->fireControl().autofireShots()++;
 							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 						}
-						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->bDoAutofire);
-						pSoldier->bDoAutofire--;
+						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
+						pSoldier->fireControl().autofireShots()--;
 
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 
 						if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 						{
-							pSoldier->flags.autofireLastStep = TRUE;
-							pSoldier->bDoAutofire--;
+							pSoldier->fireControl().autofireLastStep() = TRUE;
+							pSoldier->fireControl().autofireShots()--;
 						}
 						else
-							pSoldier->flags.autofireLastStep = FALSE; //both last step conditions are false
+							pSoldier->fireControl().autofireLastStep() = FALSE; //both last step conditions are false
 					}
 					else
 					{
-						pSoldier->flags.autofireLastStep = TRUE;
+						pSoldier->fireControl().autofireLastStep() = TRUE;
 					}
 				}
 			}
@@ -3094,7 +3094,7 @@ void HandleUICursorRTFeedback( SOLDIERTYPE *pSoldier )
 	{
 		case TARGETCURS:
 
-			if ( pSoldier->bDoBurst )
+			if ( pSoldier->fireControl().burstCounter() )
 			{
 				//BeginDisplayTimedCursor( ACTION_TARGETREDBURST_UICURSOR, 500 );
 			}
@@ -3173,15 +3173,15 @@ BOOLEAN CanSoldierAffordBurstBullets( SOLDIERTYPE *pSoldier, INT16 usMapPos )
 	INT16		sAPCosts;
 	INT8		bSaveDoAutofire;
 
-	if ( pSoldier->bDoAutofire < 1 )
+	if ( pSoldier->fireControl().autofireShots() < 1 )
 	{
-		pSoldier->bDoAutofire = 1;
+		pSoldier->fireControl().autofireShots() = 1;
 		return FALSE;
 	}
 	
-	if ( pSoldier->bDoAutofire > pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft )
+	if ( pSoldier->fireControl().autofireShots() > pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft )
 	{
-		pSoldier->bDoAutofire = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
+		pSoldier->fireControl().autofireShots() = pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft;
 		return FALSE;
 	}
 
@@ -3225,24 +3225,24 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				}
 			}
 
-			if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire )
+			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() )
 			{
 			}
-			else if( pSoldier->bDoAutofire )
+			else if( pSoldier->fireControl().autofireShots() )
 			{
 				// AUTOFIRE section
 				INT16 sCurAPCosts, sFutureAPCost;
 
-				if(pSoldier->flags.autofireLastStep)
+				if(pSoldier->fireControl().autofireLastStep())
 				{
-					pSoldier->flags.autofireLastStep = FALSE;
+					pSoldier->fireControl().autofireLastStep() = FALSE;
 				}
 
 				// change burst length until AP difference is shown
 				sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 				do
 				{
-					pSoldier->bDoAutofire += sDelta;
+					pSoldier->fireControl().autofireShots() += sDelta;
 					sFutureAPCost = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 				} while ( CanSoldierAffordBurstBullets( pSoldier, sMapPos ) && (sFutureAPCost - sCurAPCosts) == 0 );
 				
@@ -3250,15 +3250,15 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				sFutureAPCost = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 				while ( CanSoldierAffordBurstBullets( pSoldier, sMapPos ) && (sFutureAPCost - sCurAPCosts) == 0 )
 				{
-					pSoldier->bDoAutofire += 1;	// now it goes as future burst length
+					pSoldier->fireControl().autofireShots() += 1;	// now it goes as future burst length
 					sFutureAPCost = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 				}
 
 				// display red numbers, if it is last possible burst ap spenditure
-				pSoldier->flags.autofireLastStep = !CanSoldierAffordBurstBullets( pSoldier, sMapPos );
+				pSoldier->fireControl().autofireLastStep() = !CanSoldierAffordBurstBullets( pSoldier, sMapPos );
 				
 				// restore last iteration bullet count (before ap difference)
-				pSoldier->bDoAutofire--;
+				pSoldier->fireControl().autofireShots()--;
 			}
 			else
 			{
@@ -3419,24 +3419,24 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 		case TARGETCURS:
 
 			// CHECK IF GUY HAS IN HAND A WEAPON
-			if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire)
+			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots())
 			{
 				// Do nothing!
 				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
 			}
-			else if(pSoldier->bDoAutofire)
+			else if(pSoldier->fireControl().autofireShots())
 			{
 				INT16	sCurAPCosts;
 
-				if(pSoldier->bDoAutofire==1 && sDelta<0) return;
+				if(pSoldier->fireControl().autofireShots()==1 && sDelta<0) return;
 
-				if(pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->bDoAutofire )
+				if(pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots() )
 				{
 					//Calculate how many bullets we need to fire to add at least one more AP
 					sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->bDoAutofire)	//Increment the bullet count until we run out of APs or we spend the whole AP
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 					{
-						pSoldier->bDoAutofire++;
+						pSoldier->fireControl().autofireShots()++;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 					}
 
@@ -3446,31 +3446,31 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 
 					do
 					{
-						pSoldier->bDoAutofire+=sDelta;
+						pSoldier->fireControl().autofireShots()+=sDelta;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 					}
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->bDoAutofire);
-					pSoldier->bDoAutofire--;
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots());
+					pSoldier->fireControl().autofireShots()--;
 
 					sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, 0);
 
 					if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 					{
-						pSoldier->flags.autofireLastStep = TRUE;
-						pSoldier->bDoAutofire--;
+						pSoldier->fireControl().autofireLastStep() = TRUE;
+						pSoldier->fireControl().autofireShots()--;
 					}
 					else
-						pSoldier->flags.autofireLastStep = FALSE; //both last step conditions are false
+						pSoldier->fireControl().autofireLastStep() = FALSE; //both last step conditions are false
 				}
 				else
 				{
 					if(sDelta<0) 
 					{
-						pSoldier->flags.autofireLastStep = FALSE;
-					pSoldier->bDoAutofire--;
+						pSoldier->fireControl().autofireLastStep() = FALSE;
+					pSoldier->fireControl().autofireShots()--;
 					}
 					else
-					pSoldier->flags.autofireLastStep = TRUE;
+					pSoldier->fireControl().autofireLastStep() = TRUE;
 				}
 			}
 			else //single shoot
@@ -3663,20 +3663,20 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 	{
 		case TARGETCURS:
 			{
-				if(pSoldier->bDoAutofire && (gfKeyState[ ALT ] || brstmode) ) //add bullets to autofire
+				if(pSoldier->fireControl().autofireShots() && (gfKeyState[ ALT ] || brstmode) ) //add bullets to autofire
 				{
 					INT16	sCurAPCosts;
 
-					if(pSoldier->bDoAutofire==1 && sDelta<0)
+					if(pSoldier->fireControl().autofireShots()==1 && sDelta<0)
 						return;
 
-					if(usShotsLeft > pSoldier->bDoAutofire )
+					if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 					{
 						//Calculate how many bullets we need to fire to add at least one more AP
 						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
-						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->bDoAutofire)	//Increment the bullet count until we run out of APs or we spend the whole AP
+						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 						{
-							pSoldier->bDoAutofire++;
+							pSoldier->fireControl().autofireShots()++;
 							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 						}
 
@@ -3686,31 +3686,31 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 
 						do
 						{
-							pSoldier->bDoAutofire+=sDelta;
+							pSoldier->fireControl().autofireShots()+=sDelta;
 							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 						}
-						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->bDoAutofire);
-						pSoldier->bDoAutofire--;
+						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
+						pSoldier->fireControl().autofireShots()--;
 
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 
 						if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 						{
-							pSoldier->flags.autofireLastStep = TRUE;
-							pSoldier->bDoAutofire--;
+							pSoldier->fireControl().autofireLastStep() = TRUE;
+							pSoldier->fireControl().autofireShots()--;
 						}
 						else
-							pSoldier->flags.autofireLastStep = FALSE; //both last step conditions are false
+							pSoldier->fireControl().autofireLastStep() = FALSE; //both last step conditions are false
 					}
 					else
 					{
 						if(sDelta<0) 
 						{
-							pSoldier->flags.autofireLastStep = FALSE;
-						pSoldier->bDoAutofire--;
+							pSoldier->fireControl().autofireLastStep() = FALSE;
+						pSoldier->fireControl().autofireShots()--;
 						}
 						else
-						pSoldier->flags.autofireLastStep = TRUE;
+						pSoldier->fireControl().autofireLastStep() = TRUE;
 					}
 
 					return;
@@ -3891,24 +3891,24 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 		case TARGETCURS:
 
 			// CHECK IF GUY HAS IN HAND A WEAPON
-			if ( pSoldier->bDoBurst && !pSoldier->bDoAutofire)
+			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots())
 			{
 				// Do nothing!
 				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
 			}
-			else if(pSoldier->bDoAutofire)
+			else if(pSoldier->fireControl().autofireShots())
 			{
 				INT16	sCurAPCosts;
 
-				if(pSoldier->bDoAutofire==1 && sDelta<0) return;
+				if(pSoldier->fireControl().autofireShots()==1 && sDelta<0) return;
 
-				if(usShotsLeft > pSoldier->bDoAutofire )
+				if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 				{
 					//Calculate how many bullets we need to fire to add at least one more AP
 					sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->bDoAutofire)	//Increment the bullet count until we run out of APs or we spend the whole AP
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 					{
-						pSoldier->bDoAutofire++;
+						pSoldier->fireControl().autofireShots()++;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 					}
 
@@ -3918,31 +3918,31 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 
 					do
 					{
-						pSoldier->bDoAutofire+=sDelta;
+						pSoldier->fireControl().autofireShots()+=sDelta;
 						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 					}
-					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->bDoAutofire);
-					pSoldier->bDoAutofire--;
+					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
+					pSoldier->fireControl().autofireShots()--;
 
 					sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
 
 					if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 					{
-						pSoldier->flags.autofireLastStep = TRUE;
-						pSoldier->bDoAutofire--;
+						pSoldier->fireControl().autofireLastStep() = TRUE;
+						pSoldier->fireControl().autofireShots()--;
 					}
 					else
-						pSoldier->flags.autofireLastStep = FALSE; //both last step conditions are false
+						pSoldier->fireControl().autofireLastStep() = FALSE; //both last step conditions are false
 				}
 				else
 				{
 					if(sDelta<0) 
 					{
-						pSoldier->flags.autofireLastStep = FALSE;
-					pSoldier->bDoAutofire--;
+						pSoldier->fireControl().autofireLastStep() = FALSE;
+					pSoldier->fireControl().autofireShots()--;
 					}
 					else
-					pSoldier->flags.autofireLastStep = TRUE;
+					pSoldier->fireControl().autofireLastStep() = TRUE;
 				}
 			}
 			else //single shoot

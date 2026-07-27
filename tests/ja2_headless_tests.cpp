@@ -7297,6 +7297,24 @@ int main( int, char** )
 		attackSelection.scopeMode() = USE_ALT_WEAPON_HOLD;
 		attackSelection.shotLocation() = AIM_SHOT_HEAD;
 		attackSelection.meleeLocation() = AIM_SHOT_LEGS;
+		SoldierFireControlComponent& fireControl = soldier.fireControl();
+		fireControl.selectAutofire(7);
+		fireControl.bulletsLeft() = 3;
+		fireControl.spreadIndex() = 2;
+		fireControl.autofireLastStep() = TRUE;
+		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
+			fireControl.spreadLocations()[i] = 1281 + i;
+		fireControl.previousMuzzleOffsetX()[0] = 1.25f;
+		fireControl.previousMuzzleOffsetX()[1] = 2.5f;
+		fireControl.previousMuzzleOffsetY()[0] = -1.5f;
+		fireControl.previousMuzzleOffsetY()[1] = -3.0f;
+		fireControl.previousCounterForceX()[0] = 0.5f;
+		fireControl.previousCounterForceX()[1] = 1.0f;
+		fireControl.previousCounterForceY()[0] = -0.75f;
+		fireControl.previousCounterForceY()[1] = -1.25f;
+		fireControl.initialMuzzleOffsetX() = 4.0f;
+		fireControl.initialMuzzleOffsetY() = -5.0f;
+		fireControl.barrelCounter() = 2;
 		SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 		animationIntent.requestHeight( ANIM_CROUCH );
 		animationIntent.queueFacingAnimation( WALKING, 4 );
@@ -7379,6 +7397,26 @@ int main( int, char** )
 		       constSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
 		       constSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier attack-selection component owns weapon and aim choices" );
+		CHECK( constSoldier.fireControl().bursting() &&
+		       constSoldier.fireControl().burstCounter() == 1 &&
+		       constSoldier.fireControl().autofiring() &&
+		       constSoldier.fireControl().autofireShots() == 7 &&
+		       constSoldier.fireControl().bulletsLeft() == 3 &&
+		       constSoldier.fireControl().spreadIndex() == 2 &&
+		       constSoldier.fireControl().autofireLastStep() &&
+		       constSoldier.fireControl().spreadLocations()[0] == 1281 &&
+		       constSoldier.fireControl().spreadLocations()[5] == 1286 &&
+		       constSoldier.fireControl().previousMuzzleOffsetX()[1] == 2.5f &&
+		       constSoldier.fireControl().previousCounterForceY()[1] == -1.25f &&
+		       constSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
+		       constSoldier.fireControl().initialMuzzleOffsetY() == -5.0f &&
+		       constSoldier.fireControl().barrelCounter() == 2,
+		       "soldier fire-control component owns volley selection and execution state" );
+		CHECK(
+			SoldierFireControlComponent::clampSpreadTargetCount(4) == 4 &&
+			SoldierFireControlComponent::clampSpreadTargetCount(12) ==
+				SoldierFireControlComponent::SpreadTargetCapacity,
+			"soldier fire control caps dual-wield spread targets at persistent capacity" );
 		CHECK( constSoldier.animationIntent().hasDesiredHeight() &&
 		       constSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       constSoldier.animationIntent().hasPendingAnimation() &&
@@ -7494,6 +7532,18 @@ int main( int, char** )
 		       copiedSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
 		       copiedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier copies retain their owned persistent attack selection" );
+		CHECK( copiedSoldier.fireControl().burstCounter() == 1 &&
+		       copiedSoldier.fireControl().autofireShots() == 7 &&
+		       copiedSoldier.fireControl().bulletsLeft() == 3 &&
+		       copiedSoldier.fireControl().spreadIndex() == 2 &&
+		       copiedSoldier.fireControl().autofireLastStep() &&
+		       copiedSoldier.fireControl().spreadLocations()[0] == 1281 &&
+		       copiedSoldier.fireControl().spreadLocations()[5] == 1286 &&
+		       copiedSoldier.fireControl().previousMuzzleOffsetY()[1] == -3.0f &&
+		       copiedSoldier.fireControl().previousCounterForceX()[1] == 1.0f &&
+		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
+		       copiedSoldier.fireControl().barrelCounter() == 2,
+		       "soldier copies retain their owned persistent fire-control state" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == ANIM_CROUCH &&
 		       copiedSoldier.animationIntent().pendingAnimation() == WALKING &&
 		       copiedSoldier.animationIntent().pendingStance() == ANIM_PRONE &&
@@ -7626,6 +7676,19 @@ int main( int, char** )
 		       copiedSoldier.attackSelection().shotLocation() == 0 &&
 		       copiedSoldier.attackSelection().meleeLocation() == 0,
 		       "soldier initialization resets the complete attack-selection domain" );
+		CHECK( copiedSoldier.fireControl().burstCounter() == 0 &&
+		       copiedSoldier.fireControl().autofireShots() == 0 &&
+		       copiedSoldier.fireControl().bulletsLeft() == 0 &&
+		       copiedSoldier.fireControl().spreadIndex() == 0 &&
+		       !copiedSoldier.fireControl().autofireLastStep() &&
+		       copiedSoldier.fireControl().spreadLocations()[0] == 0 &&
+		       copiedSoldier.fireControl().spreadLocations()[5] == 0 &&
+		       copiedSoldier.fireControl().previousMuzzleOffsetX()[1] == 0.0f &&
+		       copiedSoldier.fireControl().previousCounterForceY()[1] == 0.0f &&
+		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 0.0f &&
+		       copiedSoldier.fireControl().initialMuzzleOffsetY() == 0.0f &&
+		       copiedSoldier.fireControl().barrelCounter() == 0,
+		       "soldier initialization resets the complete fire-control domain" );
 		CHECK( copiedSoldier.animationIntent().desiredHeight() == NO_DESIRED_HEIGHT &&
 		       copiedSoldier.animationIntent().pendingAnimation() == NO_PENDING_ANIMATION &&
 		       copiedSoldier.animationIntent().pendingStance() == NO_PENDING_STANCE &&
@@ -7664,6 +7727,32 @@ int main( int, char** )
 		       copiedSoldier.animationActivity().fallDirection() == 0 &&
 		       copiedSoldier.animationActivity().turningIncrement() == 0,
 		       "soldier initialization resets the complete animation-activity domain" );
+	}
+
+	{
+		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		legacySoldier->fDoSpread = TRUE;
+		legacySoldier->autofireLastStep = TRUE;
+		legacySoldier->bBulletsLeft = 3;
+		legacySoldier->bDoBurst = 4;
+		legacySoldier->bDoAutofire = 8;
+		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
+			legacySoldier->sSpreadLocations[i] = 22001 + i;
+
+		SOLDIERTYPE convertedSoldier;
+		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
+		       convertedSoldier.fireControl().autofireLastStep() &&
+		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
+		       convertedSoldier.fireControl().burstCounter() == 4 &&
+		       convertedSoldier.fireControl().autofireShots() == 8 &&
+		       convertedSoldier.fireControl().spreadLocations()[0] == 22001 &&
+		       convertedSoldier.fireControl().spreadLocations()[1] == 22002 &&
+		       convertedSoldier.fireControl().spreadLocations()[2] == 22003 &&
+		       convertedSoldier.fireControl().spreadLocations()[3] == 22004 &&
+		       convertedSoldier.fireControl().spreadLocations()[4] == 22005 &&
+		       convertedSoldier.fireControl().spreadLocations()[5] == 22006,
+		       "v101 soldier conversion retains the complete fire-control spread array" );
 	}
 
 	{
@@ -7806,6 +7895,23 @@ int main( int, char** )
 		savedSoldier.attackSelection().scopeMode() = USE_SCOPE_3;
 		savedSoldier.attackSelection().shotLocation() = AIM_SHOT_HEAD;
 		savedSoldier.attackSelection().meleeLocation() = AIM_SHOT_LEGS;
+		savedSoldier.fireControl().selectAutofire(9);
+		savedSoldier.fireControl().bulletsLeft() = 4;
+		savedSoldier.fireControl().spreadIndex() = TRUE;
+		savedSoldier.fireControl().autofireLastStep() = TRUE;
+		for (UINT8 i = 0; i < SoldierFireControlComponent::SpreadTargetCapacity; ++i)
+			savedSoldier.fireControl().spreadLocations()[i] = 1501 + i;
+		savedSoldier.fireControl().previousMuzzleOffsetX()[0] = 1.5f;
+		savedSoldier.fireControl().previousMuzzleOffsetX()[1] = 2.75f;
+		savedSoldier.fireControl().previousMuzzleOffsetY()[0] = -1.25f;
+		savedSoldier.fireControl().previousMuzzleOffsetY()[1] = -2.5f;
+		savedSoldier.fireControl().previousCounterForceX()[0] = 0.25f;
+		savedSoldier.fireControl().previousCounterForceX()[1] = 0.75f;
+		savedSoldier.fireControl().previousCounterForceY()[0] = -0.5f;
+		savedSoldier.fireControl().previousCounterForceY()[1] = -1.0f;
+		savedSoldier.fireControl().initialMuzzleOffsetX() = 3.5f;
+		savedSoldier.fireControl().initialMuzzleOffsetY() = -4.5f;
+		savedSoldier.fireControl().barrelCounter() = 3;
 		savedSoldier.animationIntent().requestHeight( ANIM_PRONE );
 		savedSoldier.animationIntent().queueFacingAnimation( SWATTING, 7 );
 		savedSoldier.animationIntent().queueStance( ANIM_CROUCH );
@@ -7919,6 +8025,22 @@ int main( int, char** )
 		       loadedSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
 		       loadedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier save/load round-trips component-owned attack selection at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.fireControl().burstCounter() == 1 &&
+		       loadedSoldier.fireControl().autofireShots() == 9 &&
+		       loadedSoldier.fireControl().bulletsLeft() == 4 &&
+		       loadedSoldier.fireControl().spreadIndex() == TRUE &&
+		       loadedSoldier.fireControl().autofireLastStep() &&
+		       loadedSoldier.fireControl().spreadLocations()[0] == 1501 &&
+		       loadedSoldier.fireControl().spreadLocations()[5] == 1506 &&
+		       loadedSoldier.fireControl().previousMuzzleOffsetX()[1] == 2.75f &&
+		       loadedSoldier.fireControl().previousMuzzleOffsetY()[1] == -2.5f &&
+		       loadedSoldier.fireControl().previousCounterForceX()[1] == 0.75f &&
+		       loadedSoldier.fireControl().previousCounterForceY()[1] == -1.0f &&
+		       loadedSoldier.fireControl().initialMuzzleOffsetX() == 3.5f &&
+		       loadedSoldier.fireControl().initialMuzzleOffsetY() == -4.5f &&
+		       loadedSoldier.fireControl().barrelCounter() == 3,
+		       "soldier save/load round-trips fire-control state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.animationIntent().desiredHeight() == ANIM_PRONE &&
 		       loadedSoldier.animationIntent().pendingAnimation() == SWATTING &&

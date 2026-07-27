@@ -1356,7 +1356,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		//{
 		//	ResetJa2TacticalCombatActions();
 		//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Setting attack busy count to 0 due to Action Done" ) );
-		//	pSoldier->bBulletsLeft = 0;
+		//	pSoldier->fireControl().bulletsLeft() = 0;
 		//}
 
 		// cancel any turning & movement by making current settings desired ones

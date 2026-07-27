@@ -301,7 +301,16 @@ stable pointer-free tactical identities and snapshots.
 `SoldierAttackSelectionComponent` owns the selected attacking hand and weapon,
 weapon and scope modes, and ranged and melee body locations. It is distinct
 from target geometry and from the later mutable firing sequence, so every
-producer chooses how to attack through one boundary. The
+producer chooses how to attack through one boundary.
+`SoldierFireControlComponent` owns that mutable firing sequence: burst and
+autofire progress, bullets in flight, the one-based spread cursor and six
+fixed spread targets, recoil and counterforce history, initial muzzle offsets,
+the autofire UI edge state, and the active multi-barrel cursor. Named
+single-shot, burst, and autofire transitions keep these paired modes
+consistent. Target selection remains separate, as do presentation-only sound
+and muzzle-flash handles. AI dual-wield spread generation is clamped after
+doubling its shot count, so it cannot write twelve locations into the
+established six-target buffer. The
 `SoldierAnimationIntentComponent` owns the next
 persistent domain: desired stance height, both queued animations, queued stance
 and facing, UI turn origin, next-tile stopping, and the post-stance continuation
@@ -315,14 +324,15 @@ change coordinated hit, fall, pause, and interruptibility state together.
 fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
-to its canonical slot. The serializer keeps targeting, attack selection, and
-persistent animation values at their established byte positions and preserves
-both continuation mode `2` and hit phase `2` as 8-bit values rather than
-reducing them to boolean `1`. The retired cache-pointer visitors emitted no
-bytes; load now resets the
-inline cache directly. The unused legacy delayed-cause-merc byte is retained
-only at its save position and is no longer live soldier state. None of these
-components changes content, map, packet, Lua, or save schemas.
+to its canonical slot. The serializer keeps targeting, attack selection,
+fire-control, and persistent animation values at their established byte
+positions and preserves both continuation mode `2` and hit phase `2` as 8-bit
+values rather than reducing them to boolean `1`. The retired cache-pointer
+visitors emitted no bytes; load now resets the inline cache directly. The
+unused legacy delayed-cause-merc byte is retained only at its save position and
+is no longer live soldier state. The v101 converter copies all six 32-bit
+spread targets rather than half of that legacy array. None of these components
+changes content, map, packet, Lua, or save schemas.
 
 Every `EngineRuntime` owns a bounded `TacticalWorldItemDirectory`. It grows
 only through activated slots, fails closed when its incarnation space is

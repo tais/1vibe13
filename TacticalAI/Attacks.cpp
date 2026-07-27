@@ -153,7 +153,7 @@ void ResetWeaponMode( SOLDIERTYPE * pSoldier )
 //	gfDisplayFullCountRing = FALSE;
 //	gfDisplayFullCountRingBurst = FALSE;
 //</DR>
-//	pSoldier->bDoBurst = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[WM_NORMAL].usROF > 0;
+//	pSoldier->fireControl().burstCounter() = Weapon[Item[pSoldier->inv[HANDPOS].usItem].ubClassIndex].mode[WM_NORMAL].usROF > 0;
 
 //	DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 //	gfUIForceReExamineCursorData = TRUE;
@@ -219,8 +219,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 	std::map<INT8, OBJECTTYPE*> ObjList;
 	GetScopeLists(pSoldier, &pSoldier->inv[HANDPOS], ObjList);
 	pSoldier->attackSelection().scopeMode() = USE_BEST_SCOPE;
-	pSoldier->bDoBurst = 0;
-	pSoldier->bDoAutofire = 0;
+	pSoldier->fireControl().selectSingleShot();
 
 	// determine which attack against which target has the greatest attack value
 	for (uiLoop = 0; uiLoop < guiNumMercSlots; uiLoop++)
@@ -3188,7 +3187,7 @@ INT16 CalcSpreadBurst( SOLDIERTYPE * pSoldier, INT16 sFirstTarget, INT8 bTargetL
 			}
 		}
 		AIPickBurstLocations( pSoldier, bTargets, pTargets );
-		pSoldier->flags.fDoSpread = TRUE;
+		pSoldier->fireControl().spreadIndex() = TRUE;
 	}
 	return( sFirstTarget );
 }

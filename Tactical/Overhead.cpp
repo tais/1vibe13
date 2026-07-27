@@ -9560,7 +9560,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
                 if ( Item[ pTarget->inv[ HANDPOS ].usItem ].usItemClass == IC_GUN )
                 {
                     // Toggle burst capable...
-                    if ( !pTarget->bDoBurst )
+                    if ( !pTarget->fireControl().burstCounter() )
                     {
                         // Changed by ADB, 1513
                         //if ( IsGunBurstCapable( pTarget, HANDPOS , FALSE ) )
@@ -9942,15 +9942,13 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
         {
             // change back to single shot
             pSoldier->attackSelection().weaponMode() = WM_NORMAL;
-            pSoldier->bDoAutofire = 0;
-            pSoldier->bDoBurst = 0;
+            pSoldier->fireControl().selectSingleShot();
         }
         else
         {
             // change back to autofire
             pSoldier->attackSelection().weaponMode() = WM_AUTOFIRE;
-            pSoldier->bDoAutofire = 1;
-            pSoldier->bDoBurst = TRUE;
+            pSoldier->fireControl().selectAutofire();
         }
         if (ItemIsTwoHanded(pSoldier->inv[ HANDPOS ].usItem) && Weapon[pSoldier->inv[ HANDPOS ].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
             pSoldier->attackSelection().scopeMode() = USE_ALT_WEAPON_HOLD;

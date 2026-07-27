@@ -193,10 +193,9 @@ static_assert(
 
 #define MAX_FULLTILE_DIRECTIONS 3
 
-//DIGICRAB: Burst UnCap
-//move the size of the spread target buffer to a define
-//so that we can increase it if we can stand breaking the saves
-#define MAX_BURST_SPREAD_TARGETS 6
+// DIGICRAB: Burst UnCap. Keep the legacy spelling as a source-compatible
+// alias; persistent capacity is now owned by SoldierFireControlComponent.
+#define MAX_BURST_SPREAD_TARGETS SoldierFireControlComponent::SpreadTargetCapacity
 
 #define		TURNING_FROM_PRONE_OFF						0
 #define		TURNING_FROM_PRONE_ON						1	
@@ -888,7 +887,6 @@ public:
 	BOOLEAN											fFixingRobot;
 	BOOLEAN											fSignedAnotherContract; 
 	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
-	BOOLEAN											fDoSpread;
 	BOOLEAN											fIsSoldierMoving;							// ie.	Record time is on
 	BOOLEAN											fIsSoldierDelayed;						//Is the soldier delayed Soldier 
 	BOOLEAN											fSoldierUpdatedFromNetwork;
@@ -909,7 +907,6 @@ public:
 	INT8												fPastXDest;
 	INT8												fPastYDest;
 	BOOLEAN					 fDoingExternalDeath;
-	BOOLEAN					autofireLastStep;
 	BOOLEAN lastFlankLeft;
 	UINT32											uiStatusFlags;
 
@@ -1058,6 +1055,8 @@ public:
 	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
 	SoldierAttackSelectionComponent& attackSelection() noexcept { return attackSelection_; }
 	const SoldierAttackSelectionComponent& attackSelection() const noexcept { return attackSelection_; }
+	SoldierFireControlComponent& fireControl() noexcept { return fireControl_; }
+	const SoldierFireControlComponent& fireControl() const noexcept { return fireControl_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
@@ -1157,15 +1156,6 @@ public:
 	INT8 			bNewOppCnt;
 	INT8				bService;		// first aid, or other time consuming process
 	
-	// HEADROCK HAM 4: the muzzle offset of the shooter's previous bullet. (NCTH)
-	FLOAT			dPrevMuzzleOffsetX[2];
-	FLOAT			dPrevMuzzleOffsetY[2];
-	// HEADROCK HAM 4: Two more values. These record the shooter's previous Counter Force applied on the gun.
-	FLOAT			dPrevCounterForceX[2];
-	FLOAT			dPrevCounterForceY[2];
-	// CHRISL: Track initial offsets for autofire
-	FLOAT			dInitialMuzzleOffsetX;
-	FLOAT			dInitialMuzzleOffsetY;
 
 	INT8				bTilesMoved;
 	FLOAT			dNextBleed;
@@ -1222,7 +1212,6 @@ public:
 	INT16			sX;
 	INT16			sY;
 
-	INT8				bBulletsLeft;
 	UINT8			ubSuppressionPoints;
 
 	// STUFF FOR RANDOM ANIMATIONS
@@ -1245,7 +1234,6 @@ public:
 	INT16			sDamageX;
 	INT16			sDamageY;
 	INT8				bDamageDir;
-	INT8				bDoBurst;
 	INT16			usUIMovementMode;
 	INT8				bUIInterfaceLevel;
 
@@ -1278,7 +1266,6 @@ public:
 	INT16			sPlannedTargetX;
 	INT16			sPlannedTargetY;
 
-	INT32			sSpreadLocations[ MAX_BURST_SPREAD_TARGETS ];
 	INT32			sStartGridNo;	
 	INT32			sEndGridNo;	
 	INT32			sForcastGridno;
@@ -1420,7 +1407,6 @@ public:
 	INT32				sLastTwoLocations[2];
 	INT32				uiTimeSinceLastBleedGrunt;
 	SoldierID			ubNextToPreviousAttackerID;
-	UINT8				bDoAutofire;
 	INT8					numFlanks;
 	INT32				lastFlankSpot;
 	INT8					sniper;
@@ -1494,7 +1480,6 @@ public:
 	// Flugente: modifiers to fire modes
 	UINT8	usGLDelayMode;			// if > 0, delay GL grenade explosions
 	UINT8	usBarrelMode;			// states how many barrels we are currently using as modifier for our fire mode
-	UINT8	usBarrelCounter;		// states which barrel we are currently firing from (used during the firing process)
 
 	// Flugente: focus skill gridno
 	INT32	sFocusGridNo;
@@ -1542,6 +1527,7 @@ private:
 	SoldierMovementComponent	movement_;
 	SoldierTargetingComponent	targeting_;
 	SoldierAttackSelectionComponent	attackSelection_;
+	SoldierFireControlComponent	fireControl_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;

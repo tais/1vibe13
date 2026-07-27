@@ -230,6 +230,74 @@ private:
 	UINT8 meleeLocation_ = 0;
 };
 
+// Canonical state for selecting and executing one firing volley. Weapon and
+// aim choice belong to SoldierAttackSelectionComponent; this component owns
+// burst/autofire progress, spread targets, recoil history, and multi-barrel
+// bookkeeping that must evolve together once firing begins.
+class SoldierFireControlComponent
+{
+public:
+	static constexpr UINT8 SpreadTargetCapacity = 6;
+	using OffsetHistory = FLOAT[2];
+	using SpreadLocations = INT32[SpreadTargetCapacity];
+
+	INT8& burstCounter() noexcept { return burstCounter_; }
+	const INT8& burstCounter() const noexcept { return burstCounter_; }
+	UINT8& autofireShots() noexcept { return autofireShots_; }
+	const UINT8& autofireShots() const noexcept { return autofireShots_; }
+	INT8& bulletsLeft() noexcept { return bulletsLeft_; }
+	const INT8& bulletsLeft() const noexcept { return bulletsLeft_; }
+	BOOLEAN& spreadIndex() noexcept { return spreadIndex_; }
+	const BOOLEAN& spreadIndex() const noexcept { return spreadIndex_; }
+	BOOLEAN& autofireLastStep() noexcept { return autofireLastStep_; }
+	const BOOLEAN& autofireLastStep() const noexcept { return autofireLastStep_; }
+	SpreadLocations& spreadLocations() noexcept { return spreadLocations_; }
+	const SpreadLocations& spreadLocations() const noexcept { return spreadLocations_; }
+	OffsetHistory& previousMuzzleOffsetX() noexcept { return previousMuzzleOffsetX_; }
+	const OffsetHistory& previousMuzzleOffsetX() const noexcept { return previousMuzzleOffsetX_; }
+	OffsetHistory& previousMuzzleOffsetY() noexcept { return previousMuzzleOffsetY_; }
+	const OffsetHistory& previousMuzzleOffsetY() const noexcept { return previousMuzzleOffsetY_; }
+	OffsetHistory& previousCounterForceX() noexcept { return previousCounterForceX_; }
+	const OffsetHistory& previousCounterForceX() const noexcept { return previousCounterForceX_; }
+	OffsetHistory& previousCounterForceY() noexcept { return previousCounterForceY_; }
+	const OffsetHistory& previousCounterForceY() const noexcept { return previousCounterForceY_; }
+	FLOAT& initialMuzzleOffsetX() noexcept { return initialMuzzleOffsetX_; }
+	const FLOAT& initialMuzzleOffsetX() const noexcept { return initialMuzzleOffsetX_; }
+	FLOAT& initialMuzzleOffsetY() noexcept { return initialMuzzleOffsetY_; }
+	const FLOAT& initialMuzzleOffsetY() const noexcept { return initialMuzzleOffsetY_; }
+	UINT8& barrelCounter() noexcept { return barrelCounter_; }
+	const UINT8& barrelCounter() const noexcept { return barrelCounter_; }
+
+	bool bursting() const noexcept { return burstCounter_ != 0; }
+	bool autofiring() const noexcept { return autofireShots_ != 0; }
+	static constexpr UINT8 clampSpreadTargetCount(UINT16 requested) noexcept
+	{
+		return requested > SpreadTargetCapacity
+			? SpreadTargetCapacity
+			: static_cast<UINT8>(requested);
+	}
+	void selectSingleShot() noexcept;
+	void selectBurst() noexcept;
+	void selectAutofire(UINT8 shots = 1) noexcept;
+	void clearSpreadTargets() noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 burstCounter_ = 0;
+	UINT8 autofireShots_ = 0;
+	INT8 bulletsLeft_ = 0;
+	BOOLEAN spreadIndex_ = FALSE;
+	BOOLEAN autofireLastStep_ = FALSE;
+	SpreadLocations spreadLocations_{};
+	OffsetHistory previousMuzzleOffsetX_{};
+	OffsetHistory previousMuzzleOffsetY_{};
+	OffsetHistory previousCounterForceX_{};
+	OffsetHistory previousCounterForceY_{};
+	FLOAT initialMuzzleOffsetX_ = 0.0f;
+	FLOAT initialMuzzleOffsetY_ = 0.0f;
+	UINT8 barrelCounter_ = 0;
+};
+
 // Canonical requests that bridge tactical decisions into animation playback.
 // The playback state itself remains separate: this component owns only queued
 // animations, stance/facing intent, and the movement continuation policy that
