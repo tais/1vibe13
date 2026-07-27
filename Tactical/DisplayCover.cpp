@@ -20,6 +20,7 @@
 #include "soldier profile type.h"
 #include "Interface Cursors.h"	// added by Flugente for UICursorDefines
 #include "Rebel Command.h"
+#include "SoldierRepository.h"
 
 
 //*******	Local Defines **************************************************
@@ -551,10 +552,11 @@ void DisplayCover( BOOLEAN forceUpdate )
 
 void CalculateCoverFromEnemies()
 {
-	if ( gusSelectedSoldier == NOBODY || gusSelectedSoldier->bActive == false )
+	SOLDIERTYPE* pSoldier =
+		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
+	if ( pSoldier == nullptr || pSoldier->bActive == false )
 		return;
 
-	SOLDIERTYPE* pSoldier = gusSelectedSoldier;
 	const INT8 OurSoldierStealth = GetStealth(pSoldier);
 	const INT8 OurSoldierLBESightAdjustment = GetSightAdjustmentBasedOnLBE(pSoldier);
 
@@ -648,10 +650,11 @@ void CalculateCoverFromEnemies()
 
 void CalculateCover()
 {
-	if ( gusSelectedSoldier == NOBODY || gusSelectedSoldier->bActive == false )
+	SOLDIERTYPE* selectedSoldier =
+		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
+	if ( selectedSoldier == nullptr ||
+		 selectedSoldier->bActive == false )
 		return;
-
-	SOLDIERTYPE* pSoldier = gusSelectedSoldier;
 
 	for ( auto& cell : gCoverViewArea )
 	{
@@ -663,7 +666,7 @@ void CalculateCover()
 			continue;
 
 		onRoof = IsTheRoofVisible(sGridNo);
-		if ( !NewOKDestination(pSoldier, sGridNo, false, onRoof) )
+		if ( !NewOKDestination(selectedSoldier, sGridNo, false, onRoof) )
 			continue;
 
 		// reset cover value
@@ -674,7 +677,10 @@ void CalculateCover()
 			SoldierID cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 			for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 			{
-				pSoldier = cnt;
+				SOLDIERTYPE* pSoldier =
+					GetJa2SoldierRepository().resolve( cnt );
+				if ( pSoldier == nullptr )
+					continue;
 				if ( pSoldier->bActive && pSoldier->bInSector )
 				{
 					if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
@@ -690,7 +696,7 @@ void CalculateCover()
 		}
 		else // single view from your merc
 		{
-			CalculateCoverFromSoldier(pSoldier, sGridNo, onRoof, bOverlayType);
+			CalculateCoverFromSoldier(selectedSoldier, sGridNo, onRoof, bOverlayType);
 		}
 
 		// we use different enums for our merc's sight to avoid confusing inverse sight
@@ -901,6 +907,9 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 	UINT16 usGunRange = 0;
 	INT8 bTempTargetLevel = pSoldier->bTargetLevel;
 	UINT16 usTempAttackingWeapon = pSoldier->usAttackingWeapon;
+	SOLDIERTYPE* pFullTarget = gfUIFullTargetFound
+		? GetJa2SoldierRepository().resolve( gusUIFullTargetID )
+		: nullptr;
 
 	pSoldier->usAttackingWeapon = 0;
 	//AXP 30.03.2007: Fix CtH calculation for first shot after changing aim level (roof/ground)
@@ -924,8 +933,8 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		}
 		else if (usItemClass == IC_BLADE)
 		{
-			if (gfUIFullTargetFound && MercPtrs[gusUIFullTargetID])
-				uiHitChance = CalcChanceToStab(pSoldier, MercPtrs[gusUIFullTargetID], pSoldier->aiData.bShownAimTime);
+			if (pFullTarget)
+				uiHitChance = CalcChanceToStab(pSoldier, pFullTarget, pSoldier->aiData.bShownAimTime);
 			else
 				uiHitChance = 0;
 			usGunRange = 15;
@@ -957,13 +966,13 @@ void DisplayRangeToTarget(SOLDIERTYPE *pSoldier, INT32 sTargetGridNo)
 		usGunRange = CalcMaxTossRange(pSoldier, pSoldier->inv[HANDPOS].usItem, TRUE) * CELL_X_SIZE;
 		swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 	}
-	else if ((!pSoldier->inv[HANDPOS].exists() || Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH) && gfUIFullTargetFound && MercPtrs[gusUIFullTargetID])
+	else if ((!pSoldier->inv[HANDPOS].exists() || Item[pSoldier->inv[HANDPOS].usItem].usItemClass == IC_PUNCH) && pFullTarget)
 	{
 		if (pSoldier->inv[HANDPOS].exists())
 			pSoldier->usAttackingWeapon = pSoldier->inv[HANDPOS].usItem;
 		else
 			pSoldier->usAttackingWeapon = 0;
-		uiHitChance = CalcChanceToPunch(pSoldier, MercPtrs[gusUIFullTargetID], pSoldier->aiData.bShownAimTime);
+		uiHitChance = CalcChanceToPunch(pSoldier, pFullTarget, pSoldier->aiData.bShownAimTime);
 		usGunRange = 15;
 		swprintf(zOutputString, gzDisplayCoverText[DC_MSG__GUN_RANGE_INFORMATION], usRange / 10, usGunRange / 10, uiHitChance);
 	}
@@ -1151,7 +1160,8 @@ void CalculateMines()
 			return;
 	}
 
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
+	const INT32& sSelectedSoldierGridNo =
+		pSoldier->position().gridNo();
 
 	for ( auto& cell : gCoverViewArea )
 	{
@@ -1383,7 +1393,8 @@ void CalculateTraitRange()
 			return;
 	}
 
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
+	const INT32& sSelectedSoldierGridNo =
+		pSoldier->position().gridNo();
 
 
 	for ( auto& cell : gCoverViewArea )
@@ -1493,7 +1504,8 @@ void CalculateTrackerRange()
 
 
 	const UINT16 range = gSkillTraitValues.usSVTrackerMaxRange * trackerskill;
-	const INT32& sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
+	const INT32& sSelectedSoldierGridNo =
+		pSoldier->position().gridNo();
 
 	for ( auto& cell : gCoverViewArea )
 	{
@@ -1649,7 +1661,8 @@ void CalculateWeapondata()
 		return;
 
 	const BOOLEAN guninhand = WeaponInHand(pSoldier);
-	const INT32 sSelectedSoldierGridNo = gusSelectedSoldier->position().gridNo();
+	const INT32 sSelectedSoldierGridNo =
+		pSoldier->position().gridNo();
 
 	if ( TileIsOutOfBounds(sSelectedSoldierGridNo) )
 		return;

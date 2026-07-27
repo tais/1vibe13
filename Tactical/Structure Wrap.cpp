@@ -8,6 +8,7 @@
 	#include "strategicmap.h"
 	#include "Rotting Corpses.h"
 	#include "WorldDat.h"	// added by Flugente
+	#include "SoldierRepository.h"
 
 extern BOOLEAN DoesSAMExistHere( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, INT32 sGridNo );
 
@@ -530,11 +531,14 @@ BOOLEAN IsRepairableStructAtGridNo( INT32 sGridNo, UINT16 * pubID )
 
 	if ( ubMerc != NOBODY )
 	{
-		if (MercPtrs[ubMerc]->flags.uiStatusFlags & SOLDIER_ROBOT)
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve( ubMerc );
+		if ( soldier && soldier->flags.uiStatusFlags & SOLDIER_ROBOT )
 		{
 			return( 1 );
 		}
-		else if ( MercPtrs[ ubMerc ]->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		else if ( soldier &&
+				  soldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
 			return( 2 );
 		}
@@ -566,7 +570,10 @@ BOOLEAN IsRefuelableStructAtGridNo( INT32 sGridNo, UINT16 * pubID )
 
 	if ( ubMerc != NOBODY )
 	{
-		if ( MercPtrs[ ubMerc ]->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		SOLDIERTYPE* soldier =
+			GetJa2SoldierRepository().resolve( ubMerc );
+		if ( soldier &&
+			 soldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
 			return( TRUE );
 		}

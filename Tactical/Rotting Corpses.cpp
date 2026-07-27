@@ -49,6 +49,7 @@
 	#include "PreBattle Interface.h"	// added by Flugente
 	#include "Strategic Town Loyalty.h"	// added by Flugente
 #include "GameInitOptionsScreen.h"
+#include "SoldierRepository.h"
 
 //forward declarations of common classes to eliminate includes
 class OBJECTTYPE;
@@ -1082,6 +1083,11 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	}
 	else
 	{
+		const SOLDIERTYPE* attacker =
+			GetJa2SoldierRepository().resolve( pSoldier->ubAttackerID );
+		const bool killedByOurTeam =
+			attacker != nullptr && attacker->bTeam == OUR_TEAM;
+
 		// OK, Place what objects this guy was carrying on the ground!
 		UINT32 invsize = pSoldier->inv.size();
 		for ( cnt = 0; cnt < invsize; ++cnt )
@@ -1107,7 +1113,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 						// HEADROCK HAM B2.8: Now also reveals equipment dropped by militia, if requirement is met.
 						if( pSoldier->bTeam == ENEMY_TEAM ||
 							( gGameExternalOptions.ubMilitiaDropEquipment == 2 && pSoldier->bTeam == MILITIA_TEAM ) ||
-							( gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && pSoldier->ubAttackerID->bTeam != OUR_TEAM ))
+							( gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && !killedByOurTeam ))
 						{
 							//add a flag to the item so when all enemies are killed, we can run through and reveal all the enemies items
 							usItemFlags |= WORLD_ITEM_DROPPED_FROM_ENEMY;
@@ -1139,7 +1145,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 
 						// HEADROCK HAM B2.8: Militia will drop items only if allowed.
 						if (!(gGameExternalOptions.ubMilitiaDropEquipment == 0 && pSoldier->bTeam == MILITIA_TEAM ) &&
-							!(gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && pSoldier->ubAttackerID->bTeam == OUR_TEAM ))
+							!(gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && killedByOurTeam ))
 						{
 							AddItemToPool( pSoldier->position().gridNo(), pObj, bVisible , pSoldier->position().level(), usItemFlags, -1 );
 						}
@@ -1266,7 +1272,11 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 
 	if ( TacticalCreateSoldier( &MercCreateStruct, &iNewIndex ) != NULL )
 	{
-		pSoldier = MercPtrs[ iNewIndex ];
+		pSoldier = GetJa2SoldierRepository().resolve( iNewIndex );
+		if ( pSoldier == nullptr )
+		{
+			return;
+		}
 
 		sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pCorpse->def.sGridNo, 2, &ubDirection );
 		
@@ -1360,7 +1370,12 @@ void HandleRottingCorpses( )
 
 		for ( SoldierID bLoop=gTacticalStatus.Team[ CIV_TEAM ].bFirstID; bLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++bLoop )
 		{
-			pSoldier = bLoop;
+			pSoldier = GetJa2SoldierRepository().resolve( bLoop );
+			if ( pSoldier == nullptr )
+			{
+				continue;
+			}
+
 			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
 			{
 				if ( pSoldier->ubBodyType == CROW )
@@ -1450,7 +1465,12 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 	// look for all mercs on the same team,
 	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
-		pSoldier = cnt;
+		pSoldier = GetJa2SoldierRepository().resolve( cnt );
+		if ( pSoldier == nullptr )
+		{
+			continue;
+		}
+
 		// ATE: Ok, lets check for some basic things here!		
 		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
 		{
@@ -2658,7 +2678,12 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 			// look for all mercs on the same team,
 			for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 			{
-				pTeamSoldier = cnt;
+				pTeamSoldier = GetJa2SoldierRepository().resolve( cnt );
+				if ( pTeamSoldier == nullptr )
+				{
+					continue;
+				}
+
 				// ATE: Ok, lets check for some basic things here!				
 				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
@@ -3011,7 +3036,12 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		/*	certain values have to be set afterwards - the alternative would be to edit each and every function that gets called from TacticalCreateSoldier() subsequently and
 		*	make an exception for zombies every time...
 		*/
-		SOLDIERTYPE* pNewSoldier = iNewIndex;
+		SOLDIERTYPE* pNewSoldier =
+			GetJa2SoldierRepository().resolve( iNewIndex );
+		if ( pNewSoldier == nullptr )
+		{
+			return;
+		}
 			
 		pNewSoldier->bActionPoints			= 60;
 		pNewSoldier->bInitialActionPoints	= 60;

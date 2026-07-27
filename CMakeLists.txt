@@ -342,17 +342,28 @@ set(ExplicitSoldierResolutionLibs
   Utils
 )
 set(ExplicitSoldierResolutionSources
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Boxing.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Dialogue Control.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/DisplayCover.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/DynamicDialogue.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle Items.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI Plan.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Handle UI.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Control.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Dialogue.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Items.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Interface Panels.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Items.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/LOS.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Points.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Rotting Corpses.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Ani.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Soldier Control.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Structure Wrap.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Tactical Turns.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/TeamTurns.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/Turn Based Input.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/Tactical/opplist.cpp"
 )
 set_property(SOURCE ${ExplicitSoldierResolutionSources} APPEND PROPERTY
   COMPILE_DEFINITIONS JA2_EXPLICIT_SOLDIER_RESOLUTION)
