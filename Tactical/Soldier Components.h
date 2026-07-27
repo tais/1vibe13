@@ -251,6 +251,67 @@ private:
 	INT8 snowWorn_ = 0;
 };
 
+// Canonical strategic employment state. Contract timing, mercenary
+// classification, deposits, insurance, renewal bookkeeping, and re-signing
+// eligibility remain distinct values but share one lifecycle owner.
+class SoldierEmploymentComponent
+{
+public:
+	INT32& endTime() noexcept { return endTime_; }
+	const INT32& endTime() const noexcept { return endTime_; }
+	INT32& startTime() noexcept { return startTime_; }
+	const INT32& startTime() const noexcept { return startTime_; }
+	INT32& totalLength() noexcept { return totalLength_; }
+	const INT32& totalLength() const noexcept { return totalLength_; }
+	UINT8& mercenaryType() noexcept { return mercenaryType_; }
+	const UINT8& mercenaryType() const noexcept { return mercenaryType_; }
+	UINT16& medicalDeposit() noexcept { return medicalDeposit_; }
+	const UINT16& medicalDeposit() const noexcept { return medicalDeposit_; }
+	UINT16& lifeInsurance() noexcept { return lifeInsurance_; }
+	const UINT16& lifeInsurance() const noexcept { return lifeInsurance_; }
+	INT32& insuranceStartDay() noexcept { return insuranceStartDay_; }
+	const INT32& insuranceStartDay() const noexcept { return insuranceStartDay_; }
+	INT32& insuranceLengthDays() noexcept { return insuranceLengthDays_; }
+	const INT32& insuranceLengthDays() const noexcept { return insuranceLengthDays_; }
+	UINT32& lastContractUpdateTime() noexcept { return lastContractUpdateTime_; }
+	const UINT32& lastContractUpdateTime() const noexcept { return lastContractUpdateTime_; }
+	INT8& lastContractType() noexcept { return lastContractType_; }
+	const INT8& lastContractType() const noexcept { return lastContractType_; }
+	UINT8& justFired() noexcept { return justFired_; }
+	const UINT8& justFired() const noexcept { return justFired_; }
+	UINT8& renewalQuoteCode() noexcept { return renewalQuoteCode_; }
+	const UINT8& renewalQuoteCode() const noexcept { return renewalQuoteCode_; }
+	INT32& timeCanSignElsewhere() noexcept { return timeCanSignElsewhere_; }
+	const INT32& timeCanSignElsewhere() const noexcept { return timeCanSignElsewhere_; }
+	INT8& hospitalPriceModifier() noexcept { return hospitalPriceModifier_; }
+	const INT8& hospitalPriceModifier() const noexcept { return hospitalPriceModifier_; }
+	UINT32& insuranceStartTime() noexcept { return insuranceStartTime_; }
+	const UINT32& insuranceStartTime() const noexcept { return insuranceStartTime_; }
+
+	bool isMercenaryType(UINT8 type) const noexcept { return mercenaryType_ == type; }
+	bool hasMedicalDeposit() const noexcept { return medicalDeposit_ != 0; }
+	bool hasLifeInsurance() const noexcept { return lifeInsurance_ != 0; }
+	bool wasJustFired() const noexcept { return justFired_ != 0; }
+	void reset() noexcept;
+
+private:
+	INT32 endTime_ = 0;
+	INT32 startTime_ = 0;
+	INT32 totalLength_ = 0;
+	UINT8 mercenaryType_ = 0;
+	UINT16 medicalDeposit_ = 0;
+	UINT16 lifeInsurance_ = 0;
+	INT32 insuranceStartDay_ = 0;
+	INT32 insuranceLengthDays_ = 0;
+	UINT32 lastContractUpdateTime_ = 0;
+	INT8 lastContractType_ = 0;
+	UINT8 justFired_ = 0;
+	UINT8 renewalQuoteCode_ = 0;
+	INT32 timeCanSignElsewhere_ = 0;
+	INT8 hospitalPriceModifier_ = 0;
+	UINT32 insuranceStartTime_ = 0;
+};
+
 // Canonical current tactical location storage. Persistent adapters serialize
 // these values at their established schema positions; the component itself is
 // independent of the legacy SOLDIERTYPE declaration.

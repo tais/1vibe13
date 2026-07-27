@@ -905,7 +905,7 @@ BOOLEAN CanCharacterDoctorButDoesntHaveMedKit( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -1421,7 +1421,7 @@ static BOOLEAN BasicCanCharacterRepair( SOLDIERTYPE * pSoldier )
 		return( FALSE );
 	}
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -1638,7 +1638,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character an Escortee?
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -1759,7 +1759,7 @@ BOOLEAN BasicCanCharacterDrillMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character an Escortee?
-	if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if ( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -2181,7 +2181,7 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		}
 	}
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -2445,7 +2445,7 @@ BOOLEAN CanCharacterPractise( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );
@@ -2842,7 +2842,7 @@ BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC)
+	if (pSoldier->employment().mercenaryType() == MERC_TYPE__EPC)
 	{
 		// epcs can't do this
 		return(FALSE);
@@ -9720,7 +9720,7 @@ void CreateDestroyMouseRegionsForAssignmentMenu( void )
 
 		pSoldier = GetSelectedAssignSoldier( FALSE );
 
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			// grab height of font
 			iFontHeight = GetLineSpace( ghEpcBox ) + GetFontHeight( GetBoxFont( ghEpcBox ) );
@@ -10677,7 +10677,7 @@ void HandleShadingOfLinesForAssignmentMenus( void )
 
 	if ( pSoldier && pSoldier->bActive )
 	{
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			// patient
 			if( CanCharacterPatient( pSoldier ) )
@@ -11184,7 +11184,7 @@ void DetermineWhichAssignmentMenusCanBeShown( void )
 	{
 		pSoldier = GetSelectedAssignSoldier( FALSE );
 
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			ShowBox( ghEpcBox );
 		}
@@ -11733,7 +11733,7 @@ void CreateDestroyMouseRegionsForContractMenu( void )
 		fShownContractMenu = FALSE;
 		//if( ( fProcessingAMerc ) && ( pProcessingSoldier ) )
 		//{
-		//	if( (UINT32)(pProcessingSoldier->iEndofContractTime) == GetWorldTotalMin() )
+		//	if( (UINT32)(pProcessingSoldier->employment().endTime()) == GetWorldTotalMin() )
 		//	{
 		//		StrategicRemoveMerc( pProcessingSoldier, MERC_FIRED );
 		//		pProcessingSoldier = NULL;
@@ -12577,7 +12577,7 @@ void AssignmentMenuMvtCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	if (iReason & MSYS_CALLBACK_REASON_GAIN_MOUSE )
 	{
 		// is the line shaded?..if so, don't highlight
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			if( GetBoxShadeFlag( ghEpcBox, iValue ) == FALSE )
 			{
@@ -12594,7 +12594,7 @@ void AssignmentMenuMvtCallBack(MOUSE_REGION * pRegion, INT32 iReason )
 	}
 	else if (iReason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			// unhighlight all strings in box
 			UnHighLightBox( ghEpcBox );
@@ -12790,7 +12790,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 		// Flugente: If merc is unconscious, just fire him anyway (if talking stuff is called, this leads to a geme lock)
 		if (!fAmIaRobot && pSoldier->vitals().health() > CONSCIOUSNESS )
 		{
-			if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC ) || ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC ) )
+			if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ) || ( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC ) )
 			{
 				HandleImportantMercQuote( pSoldier,	QUOTE_RESPONSE_TO_MIGUEL_SLASH_QUOTE_MERC_OR_RPC_LETGO );
 
@@ -12801,10 +12801,10 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 			else
 			{
 				// quote is different if he's fired in less than 48 hours
-				if( ( GetWorldTotalMin() - pSoldier->uiTimeOfLastContractUpdate ) < 60 * 48 )
+				if( ( GetWorldTotalMin() - pSoldier->employment().lastContractUpdateTime() ) < 60 * 48 )
 				{
 					SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1 ,MAP_SCREEN ,0 ,0 ,0 );
-					if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
+					if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 					{
 						// Only do this if they want to renew.....
 						if ( WillMercRenew( pSoldier, FALSE ) )
@@ -12820,7 +12820,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 				else
 				{
 					SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_LOCK_INTERFACE,1 ,MAP_SCREEN ,0 ,0 ,0 );
-					if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
+					if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 					{
 						// Only do this if they want to renew.....
 						if ( WillMercRenew( pSoldier, FALSE ) )
@@ -12828,7 +12828,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 							HandleImportantMercQuote( pSoldier,	QUOTE_DEPARTING_COMMENT_CONTRACT_NOT_RENEWED_OR_48_OR_MORE );
 						}
 					}
-					else if( ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC ) || ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__NPC ) )
+					else if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ) || ( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC ) )
 					{
 						HandleImportantMercQuote( pSoldier,	QUOTE_RESPONSE_TO_MIGUEL_SLASH_QUOTE_MERC_OR_RPC_LETGO );
 					}
@@ -12838,14 +12838,14 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 				}
 			}
 
-			if( ( GetWorldTotalMin() - pSoldier->uiTimeOfLastContractUpdate ) < 60 * 3 )
+			if( ( GetWorldTotalMin() - pSoldier->employment().lastContractUpdateTime() ) < 60 * 3 )
 			{
 				// this will cause him give us lame excuses for a while until he gets over it
 				// 3-6 days (but the first 1-2 days of that are spent "returning" home)
 				gMercProfiles[ pSoldier->ubProfile ].ubDaysOfMoraleHangover = (UINT8) (3 + Random(4));
 
 				// if it's an AIM merc, word of this gets back to AIM...	Bad rep.
-				if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+				if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				{
 					ModifyPlayerReputation(REPUTATION_EARLY_FIRING);
 
@@ -13927,7 +13927,7 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 		UnHighLightBox( ghAssignmentBox );
 
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
 			switch( iValue )
 			{
@@ -15258,7 +15258,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 			break;
 			case( CONTRACT_MENU_DAY ):
 
-				if( pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+				if( pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 				{
 					swprintf( sDollarString, L"%s", FormatMoney(0).data() );
 				}
@@ -15271,7 +15271,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 			break;
 			case( CONTRACT_MENU_WEEK ):
 
-				if( pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+				if( pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 				{
 					swprintf( sDollarString, L"%s", FormatMoney(0).data() );
 				}
@@ -15285,7 +15285,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 			break;
 			case( CONTRACT_MENU_TWO_WEEKS ):
 
-				if( pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+				if( pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 				{
 					swprintf( sDollarString, L"%s", FormatMoney(0).data() );
 				}
@@ -15378,7 +15378,7 @@ void CreateContractBoxMultiSelect(INT32 DailySalaries, INT32 WeeklySalaries, INT
 				break;
 			case(CONTRACT_MENU_DAY):
 
-				//if (pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC)
+				//if (pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC)
 				//{
 				//	swprintf(sDollarString, L"%d", 0);
 				//}
@@ -15391,7 +15391,7 @@ void CreateContractBoxMultiSelect(INT32 DailySalaries, INT32 WeeklySalaries, INT
 				break;
 			case(CONTRACT_MENU_WEEK):
 
-				//if (pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC)
+				//if (pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC)
 				//{
 				//	swprintf(sDollarString, L"%d", 0);
 				//}
@@ -15405,7 +15405,7 @@ void CreateContractBoxMultiSelect(INT32 DailySalaries, INT32 WeeklySalaries, INT
 				break;
 			case(CONTRACT_MENU_TWO_WEEKS):
 
-				//if (pCharacter->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC)
+				//if (pCharacter->employment().mercenaryType() != MERC_TYPE__AIM_MERC)
 				//{
 				//	swprintf(sDollarString, L"%d", 0);
 				//}
@@ -15871,7 +15871,7 @@ void DetermineBoxPositions( void )
 	pPoint.iX = gsAssignmentBoxesX;
 	pPoint.iY = gsAssignmentBoxesY;
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		SetBoxPosition( ghEpcBox, pPoint );
 		GetBoxSize( ghEpcBox, &pDimensions );
@@ -16118,7 +16118,7 @@ void CheckAndUpdateTacticalAssignmentPopUpPositions( void )
 	//get the soldier
 	pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		GetBoxSize( ghEpcBox, &pDimensions2 );
 	}
@@ -16416,7 +16416,7 @@ void CheckAndUpdateTacticalAssignmentPopUpPositions( void )
 		pPoint.iX = gsAssignmentBoxesX;
 		pPoint.iY = gsAssignmentBoxesY;
 
-		if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC)
+		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC)
 		{
 			SetBoxPosition( ghEpcBox, pPoint );
 		}
@@ -17712,7 +17712,7 @@ BOOLEAN HandleAssignmentExpansionAndHighLightForAssignMenu( SOLDIERTYPE *pSoldie
 		case ASMENU_SQUAD:
 		{
 			// squad menu up?..if so, highlight squad line the previous menu
-			if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 			{
 				HighLightBoxLine( ghEpcBox, EPC_MENU_ON_DUTY );
 			}
@@ -18239,7 +18239,7 @@ void SetTimeOfAssignmentChangeForMerc( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->bAssignment == ASSIGNMENT_HOSPITAL )
 	{
 		giHospitalRefund += CalcPatientMedicalCost( pSoldier );
-		pSoldier->bHospitalPriceModifier = 0;
+		pSoldier->employment().hospitalPriceModifier() = 0;
 	}
 
 	// set time of last assignment change
@@ -19586,7 +19586,7 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 		( SPY_LOCATION( pOtherSoldier->bAssignment ) ) ||
 		( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
 		( AM_A_ROBOT( pSoldier ) ) ||
-		( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC ) ||
+		( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC ) ||
 		( pOtherSoldier->bAssignment == ASSIGNMENT_DEAD ) ||
 		( pOtherSoldier->bAssignment == ASSIGNMENT_MINIEVENT ) ||
 		( pOtherSoldier->bAssignment == ASSIGNMENT_REBELCOMMAND ) )
@@ -20375,7 +20375,7 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character an Escortee?
-	if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		// epcs can't do this
 		return( FALSE );

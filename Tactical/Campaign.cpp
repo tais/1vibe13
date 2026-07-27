@@ -760,7 +760,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 			// if the guy is employed by player
 			if (pSoldier != NULL)
 			{
-				switch (pSoldier->ubWhatKindOfMercAmI)
+				switch (pSoldier->employment().mercenaryType())
 				{
 					case MERC_TYPE__AIM_MERC:
 						// A.I.M.
@@ -821,7 +821,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 
 					//if (pSoldier != NULL)
 						// DON'T increase the *effective* medical deposit, it's already been paid out
-						// pSoldier->usMedicalDeposit = pProfile->sMedicalDepositAmount;
+						// pSoldier->employment().medicalDeposit() = pProfile->sMedicalDepositAmount;
 				}
 			}
 		}

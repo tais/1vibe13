@@ -893,7 +893,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 			{
 				if (iChance == 0)
 				{
-					if ( MercIsHot( pSoldier ) && pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__PLAYER_CHARACTER) // SANDRO - added this
+					if ( MercIsHot( pSoldier ) && pSoldier->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER) // SANDRO - added this
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_PERSONALITY_TRAIT );
 
@@ -968,21 +968,21 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 								break;
 							case 2:
 								// buddy #3 did something good!
-								if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+								if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_3_GOOD );
 								else
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_3_GOOD );
 								break;
 							case 3:
 								// buddy #4 did something good!
-								if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+								if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_4_GOOD );
 								else
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_4_GOOD );
 								break;
 							case 4:
 								// buddy #5 did something good!
-								if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+								if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_5_GOOD );
 								else
 									TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_5_GOOD );

@@ -891,11 +891,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sForcastGridno = src.sForcastGridNo;
 		this->sZLevelOverride = src.sZLevelOverride;
 		this->bMovedPriorToInterrupt = src.bMovedPriorToInterrupt;
-		this->iEndofContractTime = src.iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.  -2 for NPC and player generated
-		this->iStartContractTime = src.iStartContractTime;
-		this->iTotalContractLength = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
+		this->employment().endTime() = src.iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.  -2 for NPC and player generated
+		this->employment().startTime() = src.iStartContractTime;
+		this->employment().totalLength() = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
 		this->iNextActionSpecialData = src.iNextActionSpecialData;		// AI special action data record for the next action
-		this->ubWhatKindOfMercAmI = src.ubWhatKindOfMercAmI;			//Set to the type of character it is
+		this->employment().mercenaryType() = src.ubWhatKindOfMercAmI;			//Set to the type of character it is
 		this->bAssignment = src.bAssignment;							// soldiers current assignment
 		this->bOldAssignment = src.bOldAssignment;						// old assignment, for autosleep purposes
 		this->bTrainStat = src.bTrainStat;								// current stat soldier is training
@@ -904,8 +904,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bSectorZ = src.bSectorZ;									// Z sector location
 		this->iVehicleId = src.iVehicleId;								// the id of the vehicle the char is in
 		this->pMercPath = src.pMercPath;								//Path Structure
-		this->usMedicalDeposit = src.usMedicalDeposit;         // is there a medical deposit on merc
-		this->usLifeInsurance = src.usLifeInsurance;          // is there life insurance taken out on merc
+		this->employment().medicalDeposit() = src.usMedicalDeposit;         // is there a medical deposit on merc
+		this->employment().lifeInsurance() = src.usLifeInsurance;          // is there life insurance taken out on merc
 
 
 		this->uiStartMovementTime = src.uiStartMovementTime;				// the time since the merc first started moving
@@ -915,9 +915,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->uiSoldierUpdateNumber = src.uiSoldierUpdateNumber;
 		this->ubSoldierUpdateType = src.ubSoldierUpdateType;
 
-		this->iStartOfInsuranceContract = src.iStartOfInsuranceContract;
+		this->employment().insuranceStartDay() = src.iStartOfInsuranceContract;
 		this->uiLastAssignmentChangeMin = src.uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
-		this->iTotalLengthOfInsuranceContract = src.iTotalLengthOfInsuranceContract;
+		this->employment().insuranceLengthDays() = src.iTotalLengthOfInsuranceContract;
 
 		this->ubSoldierClass = src.ubSoldierClass;									//admin, elite, troop (creature types?)
 		this->suppression().actionPointsLost() = src.ubAPsLostToSuppression;
@@ -958,8 +958,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bSlotItemTakenFrom = src.bSlotItemTakenFrom;
 		this->ubAutoBandagingMedic = static_cast<UINT16>( src.ubAutoBandagingMedic );
 		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
-		this->uiTimeOfLastContractUpdate = src.uiTimeOfLastContractUpdate;
-		this->bTypeOfLastContract = src.bTypeOfLastContract;
+		this->employment().lastContractUpdateTime() = src.uiTimeOfLastContractUpdate;
+		this->employment().lastContractType() = src.bTypeOfLastContract;
 		this->collapseState().turns() = src.bTurnsCollapsed;
 		this->collapseState().sleepDrugCounter() = src.bSleepDrugCounter;
 		this->ubMilitiaKills = src.ubMilitiaKills;
@@ -968,7 +968,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->ubHoursOnAssignment = src.ubHoursOnAssignment;						// used for assignments handled only every X hours
 
-		this->ubMercJustFired = src.ubMercJustFired;   // the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
+		this->employment().justFired() = src.ubMercJustFired;   // the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
 		// until after the merc leaves
 		this->ubTurnsUntilCanSayHeardNoise = src.ubTurnsUntilCanSayHeardNoise;
 		this->usQuoteSaidExtFlags = src.usQuoteSaidExtFlags;
@@ -1004,7 +1004,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bUseExitGridForReentryDirection = src.bUseExitGridForReentryDirection;
 
 		this->uiTimeSinceLastSpoke = src.uiTimeSinceLastSpoke;
-		this->ubContractRenewalQuoteCode = src.ubContractRenewalQuoteCode;
+		this->employment().renewalQuoteCode() = src.ubContractRenewalQuoteCode;
 		this->sPreTraversalGridNo = src.sPreTraversalGridNo;
 		this->animationIntent().turningFromUi() = src.bTurningFromUI;
 		this->bPendingActionData5 = src.bPendingActionData5;
@@ -1018,9 +1018,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->uiTimeSoldierWillArrive = src.uiTimeSoldierWillArrive;
 		this->bVehicleUnderRepairID = src.bVehicleUnderRepairID;
-		this->iTimeCanSignElsewhere = src.iTimeCanSignElsewhere;
-		this->bHospitalPriceModifier = src.bHospitalPriceModifier;
-		this->uiStartTimeOfInsuranceContract = src.uiStartTimeOfInsuranceContract;
+		this->employment().timeCanSignElsewhere() = src.iTimeCanSignElsewhere;
+		this->employment().hospitalPriceModifier() = src.bHospitalPriceModifier;
+		this->employment().insuranceStartTime() = src.uiStartTimeOfInsuranceContract;
 		this->bCorpseQuoteTolerance = src.bCorpseQuoteTolerance;
 		this->iPositionSndID = src.iPositionSndID;
 		this->iTuringSoundID = src.iTuringSoundID;
@@ -1138,6 +1138,7 @@ void SOLDIERTYPE::initialize( )
 	perception().reset();
 	awareness().reset();
 	camouflage().reset();
+	employment().reset();
 	position().reset();
 	pathing().reset();
 	movement().reset();
@@ -7937,7 +7938,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					if ( MercIsHot( this ) )
 					{
 						HandleMoraleEvent( this, MORALE_HEAT_INTOLERANT_IN_DESERT, this->sSectorX, this->sSectorY, this->bSectorZ );
-						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) && this->ubWhatKindOfMercAmI != MERC_TYPE__PLAYER_CHARACTER )
+						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
 							this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
@@ -14433,7 +14434,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 			 gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && !(this->ubServiceCount) ) // SANDRO - added check to not play this if on healing
 		{
 			// SANDRO - say our personality quote for being out of breath caused by heat 
-			if ( MercIsHot( this ) && this->ubWhatKindOfMercAmI != MERC_TYPE__PLAYER_CHARACTER )
+			if ( MercIsHot( this ) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
 			{
 				TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
 
@@ -23511,7 +23512,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 	DeductPoints( this, sAPCost, 0, UNTRIGGERED_INTERRUPT );
 
 	// Are we an EPC that is being escorted?
-	if ( pTSoldier->ubProfile != NO_PROFILE && pTSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC )
+	if ( pTSoldier->ubProfile != NO_PROFILE && pTSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 	{
 		return(InitiateConversation( pTSoldier, this, APPROACH_EPC_WHO_IS_RECRUITED, 0 ));
 		//Converse( pTSoldier->ubProfile, this->ubProfile, APPROACH_EPC_WHO_IS_RECRUITED, 0 );

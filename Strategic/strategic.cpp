@@ -119,21 +119,21 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 					break;
 				case 2:
 					// buddy #3 died!
-					if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+					if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_3_KILLED );
 					else
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_3_KILLED );
 					break;
 				case 3:
 					// buddy #4 died!
-					if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+					if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_4_KILLED );
 					else
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_4_KILLED );
 					break;
 				case 4:
 					// buddy #5 died!
-					if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+					if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_5_KILLED );
 					else
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_5_KILLED );
@@ -150,7 +150,7 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 #ifdef JA2UB
 #else
 			// anv: handle Speck witnessing his employee death
-			if( pTeamSoldier->ubProfile == SPECK_PLAYABLE && pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			if( pTeamSoldier->ubProfile == SPECK_PLAYABLE && pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 				HandleSpeckWitnessingEmployeeDeath( pSoldier );
 #endif
 

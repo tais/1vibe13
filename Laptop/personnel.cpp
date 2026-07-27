@@ -3174,15 +3174,15 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				// daily rate
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
 				iCostOfTeam += gMercProfiles[pSoldier->ubProfile].uiBiWeeklySalary / 14;
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
 				iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
@@ -3193,7 +3193,7 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 					iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].sSalary;
 				}
 			}
-			else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
 				iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].sSalary;
@@ -3228,15 +3228,15 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				// daily rate
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
 				iCost = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14;
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
 				iCost = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
@@ -3247,7 +3247,7 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 					iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
 				}
 			}
-			else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
 				iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
@@ -3295,15 +3295,15 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				// daily rate
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
 				iCost = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14;
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK	)
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK	)
 				{
 					// 1 week contract
 				iCost = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
@@ -3314,7 +3314,7 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 					iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
 				}
 			}
-			else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
 				iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
@@ -6257,7 +6257,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 #else
 			static const UINT32 uiMinutesInDay = 24 * 60;
 
-			if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
+			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
 			{
 				INT32 iTimeLeftOnContract = CalcTimeLeftOnMercContract( pSoldier );
 
@@ -6265,9 +6265,9 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				if( pSoldier->bAssignment == IN_TRANSIT )
 				{
 					//and if the time left on the contract is greater than the contract time
-					if( iTimeLeftOnContract > (INT32)( pSoldier->iTotalContractLength * uiMinutesInDay ) )
+					if( iTimeLeftOnContract > (INT32)( pSoldier->employment().totalLength() * uiMinutesInDay ) )
 					{
-						iTimeLeftOnContract = ( pSoldier->iTotalContractLength * uiMinutesInDay );
+						iTimeLeftOnContract = ( pSoldier->employment().totalLength() * uiMinutesInDay );
 					}
 				}
 
@@ -6277,7 +6277,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				// if there is going to be a both days and hours left on the contract
 				if( days > 0)
 				{
-					swprintf( sString, L"%d%s %d%s / %d%s", days, gpStrategicString[STR_PB_DAYS_ABBREVIATION], hours, gpStrategicString[STR_PB_HOURS_ABBREVIATION], pSoldier->iTotalContractLength, gpStrategicString[STR_PB_DAYS_ABBREVIATION] );
+					swprintf( sString, L"%d%s %d%s / %d%s", days, gpStrategicString[STR_PB_DAYS_ABBREVIATION], hours, gpStrategicString[STR_PB_HOURS_ABBREVIATION], pSoldier->employment().totalLength(), gpStrategicString[STR_PB_DAYS_ABBREVIATION] );
 					mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 				}
 
@@ -6285,7 +6285,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 				else
 				{
 					//DEF: removed 2/7/99
-					swprintf(sString, L"%d%s / %d%s", hours, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->iTotalContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
+					swprintf(sString, L"%d%s / %d%s", hours, gpStrategicString[ STR_PB_HOURS_ABBREVIATION ], pSoldier->employment().totalLength(), gpStrategicString[ STR_PB_DAYS_ABBREVIATION ]);
 					mprintf( x, y, pPersonnelScreenStrings[PRSNL_TXT_CURRENT_CONTRACT] );
 				}
 
@@ -6321,16 +6321,16 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		// cost (PRSNL_TXT_TOTAL_COST)
 
 /*
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
 				UINT32 uiDailyCost = 0;
 
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
 					uiDailyCost = pMercProfile->uiBiWeeklySalary / 14;
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
 					uiDailyCost = pMercProfile->uiWeeklySalary / 7;
@@ -6340,10 +6340,10 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 					uiDailyCost = pMercProfile->sSalary;
 				}
 
-//				swprintf( sString, L"%d",uiDailyCost * pSoldier->iTotalContractLength );
+//				swprintf( sString, L"%d",uiDailyCost * pSoldier->employment().totalLength() );
 				swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
 			}
-			else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 //					swprintf( sString, L"%d",pMercProfile->sSalary * pMercProfile->iMercMercContractLength );
 					swprintf( sString, L"%d", pMercProfile->uiTotalCostToDate );
@@ -6360,7 +6360,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 
 /*
 DEF:3/19/99:
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
 			swprintf( sStringA, L"%s", pPersonnelScreenStrings[ PRSNL_TXT_UNPAID_AMOUNT ] );
 			}
@@ -6376,14 +6376,14 @@ DEF:3/19/99:
 			// print contract cost
 			mprintf( sX, y, sString );
 
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 			{
-				if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_2_WEEK )
+				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
 					swprintf( sString, L"%s", FormatMoney( pMercProfile->uiBiWeeklySalary / 14 ).data() );
 				}
-				else if( pSoldier->bTypeOfLastContract == CONTRACT_EXTEND_1_WEEK )
+				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
 					swprintf( sString, L"%s", FormatMoney( pMercProfile->uiWeeklySalary / 7 ).data() );
@@ -6413,7 +6413,7 @@ DEF:3/19/99:
 		// medical deposit
 
 			//if its a merc merc, display the salary oweing
-			if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 			{
 				mprintf((INT16)(pPersonnelScreenPoints[iCounter-1].x+(iSlot*TEXT_BOX_WIDTH)),pPersonnelScreenPoints[iCounter-1].y,pPersonnelScreenStrings[PRSNL_TXT_UNPAID_AMOUNT]);
 
@@ -6619,21 +6619,21 @@ INT32 CalcTimeLeftOnMercContract( SOLDIERTYPE *pSoldier )
 {
 	INT32 iTimeLeftOnContract = -1;
 
-	if(pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC)
+	if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC)
 	{
-		iTimeLeftOnContract = pSoldier->iEndofContractTime-GetWorldTotalMin();
+		iTimeLeftOnContract = pSoldier->employment().endTime()-GetWorldTotalMin();
 
 		if( iTimeLeftOnContract < 0 )
 			iTimeLeftOnContract = 0;
 	}
-	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC)
+	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 	{
 		iTimeLeftOnContract = gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength;
 	}
 
-	else if( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 	{
-		iTimeLeftOnContract = pSoldier->iTotalContractLength;
+		iTimeLeftOnContract = pSoldier->employment().totalLength();
 	}
 
 	else

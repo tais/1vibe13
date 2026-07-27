@@ -1475,7 +1475,7 @@ void HandleSnitchCheck( void )
 			// but only if he hasn't another contract signed, so there's still a chance to renew if player reacts properly
 			if ( ContractIsGoingToExpireSoon( pSoldier ) )
 			{
-				if ( (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC) )
+				if ( (pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC) )
 				{
 					// Only do this if they don't want to renew.....
 					if ( !(pSoldier->flags.fSignedAnotherContract) && !WillMercRenew( pSoldier, FALSE ) )

@@ -196,7 +196,7 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = WeaponInHand(pSoldier);
 					break;
 				case REQ_MERC_TYPE:
-					cmp_val = pSoldier->ubWhatKindOfMercAmI;
+					cmp_val = pSoldier->employment().mercenaryType();
 					break;
 				case REQ_WEAPON_CLASS:
 					cmp_val = Weapon[pSoldier->inv[HANDPOS].usItem].ubWeaponClass;

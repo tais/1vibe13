@@ -2730,7 +2730,7 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 			//if the merc is either PGC, gaston, or stogie
 			if( pSoldier->ubProfile == GASTON_UB ||
 					pSoldier->ubProfile == STOGIE_UB ||
-					pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+					pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 
 			{
 				ubMercArray[ ubNumMercs++ ] = pSoldier->ubID;

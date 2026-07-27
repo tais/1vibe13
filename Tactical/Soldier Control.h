@@ -1050,6 +1050,8 @@ public:
 	const SoldierAwarenessComponent& awareness() const noexcept { return awareness_; }
 	SoldierCamouflageComponent& camouflage() noexcept { return camouflage_; }
 	const SoldierCamouflageComponent& camouflage() const noexcept { return camouflage_; }
+	SoldierEmploymentComponent& employment() noexcept { return employment_; }
+	const SoldierEmploymentComponent& employment() const noexcept { return employment_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -1258,11 +1260,7 @@ public:
 	INT32			sForcastGridno;
 	INT16			sZLevelOverride;
 	INT8				bMovedPriorToInterrupt;
-	INT32			iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.	-2 for NPC and player generated
-	INT32			iStartContractTime;		
-	INT32			iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
 	INT32			iNextActionSpecialData;		// AI special action data record for the next action
-	UINT8			ubWhatKindOfMercAmI;			//Set to the type of character it is
 	INT8				bAssignment;							// soldiers current assignment 
 	INT8				bOldAssignment;						// old assignment, for autosleep purposes
 	INT8				bTrainStat;								// current stat soldier is training
@@ -1271,10 +1269,6 @@ public:
 	INT8				bSectorZ;									// Z sector location
 	INT32			iVehicleId;								// the id of the vehicle the char is in
 	PathStPtr		pMercPath;								//Path Structure
-	UINT16			usMedicalDeposit;		 // is there a medical deposit on merc 
-	UINT16			usLifeInsurance;			// is there life insurance taken out on merc	
-
-
 	//DEF:	Used for the communications
 	UINT32			uiStartMovementTime;				// the time since the merc first started moving 
 	UINT32			uiOptimumMovementTime;			// everytime in ececute overhead the time for the current ani will be added to this total
@@ -1285,9 +1279,7 @@ public:
 	INT32			sScheduledStop; //hayden, used for scheduling a grid to stop
 	//END
 
-	INT32			iStartOfInsuranceContract;
 	UINT32			uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
-	INT32			iTotalLengthOfInsuranceContract;
 
 	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
 
@@ -1324,15 +1316,11 @@ public:
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubAutoBandagingMedic;
 	SoldierID			ubRobotRemoteHolderID;
-	UINT32				uiTimeOfLastContractUpdate;
-	INT8					bTypeOfLastContract;
 	UINT8				ubMilitiaKills;
 	
 
 	UINT8				ubHoursOnAssignment;						// used for assignments handled only every X hours
 
-	UINT8				ubMercJustFired;		// the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
-											// until after the merc leaves	
 	UINT8				ubTurnsUntilCanSayHeardNoise;
 	UINT16				usQuoteSaidExtFlags;
 
@@ -1359,7 +1347,6 @@ public:
 	UINT8				bUseExitGridForReentryDirection;
 
 	UINT32				uiTimeSinceLastSpoke;
-	UINT8				ubContractRenewalQuoteCode;
 	INT32				sPreTraversalGridNo;
 	INT8					bPendingActionData5;
 
@@ -1372,9 +1359,6 @@ public:
 
 
 	INT8					bVehicleUnderRepairID;
-	INT32				iTimeCanSignElsewhere;
-	INT8					bHospitalPriceModifier;
-	UINT32				uiStartTimeOfInsuranceContract;
 	INT8					bCorpseQuoteTolerance;
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
@@ -1492,6 +1476,7 @@ private:
 	SoldierPerceptionComponent	perception_;
 	SoldierAwarenessComponent	awareness_;
 	SoldierCamouflageComponent	camouflage_;
+	SoldierEmploymentComponent	employment_;
 	SoldierPositionComponent	position_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

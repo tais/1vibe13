@@ -383,7 +383,7 @@ BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier )
 			pSoldier->ubProfile == JOHN_K_UB || //JOHN_K		||
 			pSoldier->ubProfile == BIGGENS_UB || //BIGGENS	||
 			pSoldier->ubProfile == MANUEL_UB || //MANUEL		||
-			pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER 
+			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
 		return( TRUE );
@@ -415,7 +415,7 @@ BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier )
 	if( pSoldier->ubProfile == 	GASTON_UB	||  //  GASTON
 			pSoldier->ubProfile == 	STOGIE_UB	|| //   STOGIE
 			pSoldier->ubProfile == 	TEX_UB		||   // TEX
-			pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER 
+			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
 		return( TRUE );
@@ -430,7 +430,7 @@ BOOLEAN	IsSoldierQualifiedInitialHireMerc( SOLDIERTYPE *pSoldier )
 {
 	if( pSoldier->ubProfile == 	GASTON_UB	|| //  GASTON
 			pSoldier->ubProfile == 	STOGIE_UB	||  // STOGIE
-			pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER 
+			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
 		return( TRUE );

@@ -343,7 +343,7 @@ BOOLEAN CheckNPCIsEPC( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	return( (pNPC->ubWhatKindOfMercAmI == MERC_TYPE__EPC ) );
+	return( (pNPC->employment().mercenaryType() == MERC_TYPE__EPC ) );
 }
 
 BOOLEAN CheckNPCIsRPC( UINT8 ubProfileID )
@@ -360,7 +360,7 @@ BOOLEAN CheckNPCIsRPC( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	return( (pNPC->ubWhatKindOfMercAmI == MERC_TYPE__NPC ) );
+	return( (pNPC->employment().mercenaryType() == MERC_TYPE__NPC ) );
 }
 //DBrot: More Rooms
 BOOLEAN NPCInRoom( UINT8 ubProfileID, UINT16 usRoomID )
@@ -605,7 +605,7 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
+		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= sDistance)
 			{

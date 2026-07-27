@@ -1057,7 +1057,7 @@ BOOLEAN ExecuteOverhead( )
                         //if the merc is one of the mercs who has Quote 80, say that
                         if( pSoldier->ubProfile == GASTON_UB ||//GASTON
                                 pSoldier->ubProfile == STOGIE_UB ||//STOGIE
-                                pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+                                pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
                         {
                             TacticalCharacterDialogue( pSoldier, QUOTE_REPUTATION_REFUSAL );
                         }
@@ -3082,7 +3082,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 
     if ( pSoldier->bTeam == gbPlayerNum )
     {
-        if ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__EPC)
+        if ( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC)
         {
             // are we there yet?
             if (pSoldier->sSectorX == 13 && pSoldier->sSectorY == MAP_ROW_B && pSoldier->bSectorZ == 0)
@@ -3358,7 +3358,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     }
 
     // possibly say personality quote
-    if ( (pSoldier->bTeam == gbPlayerNum) && (pSoldier->ubProfile != NO_PROFILE && pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__PLAYER_CHARACTER) && !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
+    if ( (pSoldier->bTeam == gbPlayerNum) && (pSoldier->ubProfile != NO_PROFILE && pSoldier->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER) && !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
     {
 		if ( DoesMercHaveDisability( pSoldier, PSYCHO ) )
 		{
@@ -3619,21 +3619,21 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
                         break;
 					case 2:
 						// buddy #3 died!
-						if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+						if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_3_KILLED );
 						else
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_3_KILLED );
 						break;
 					case 3:
 						// buddy #4 died!
-						if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+						if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_4_KILLED );
 						else
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_4_KILLED );
 						break;
 					case 4:
 						// buddy #5 died!
-						if( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+						if( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_AIM_BUDDY_5_KILLED );
 						else
 							TacticalCharacterDialogue( pTeamSoldier, QUOTE_NON_AIM_BUDDY_5_KILLED );
@@ -3648,7 +3648,7 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
 				// anv: handle Speck witnessing his employee death
 				if( !GetGameContext().capabilities().isUnfinishedBusiness() &&
 					pTeamSoldier->ubProfile == SPECK_PLAYABLE &&
-					pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+					pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 					HandleSpeckWitnessingEmployeeDeath( pSoldier );
             }
         }

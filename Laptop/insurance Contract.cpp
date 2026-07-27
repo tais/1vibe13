@@ -531,19 +531,19 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 		case 0:
 			usPosX = INS_CTRCT_ORDER_GRID1_X;
 			gubMercIDForMercInForm1 = ubMercID;
-			gsForm1InsuranceLengthNumber = (INT16) pSoldier->iTotalLengthOfInsuranceContract;
+			gsForm1InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		case 1:
 			usPosX = INS_CTRCT_ORDER_GRID2_X;
 			gubMercIDForMercInForm2 = ubMercID;
-			gsForm2InsuranceLengthNumber = (INT16) pSoldier->iTotalLengthOfInsuranceContract;
+			gsForm2InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		case 2:
 			usPosX = INS_CTRCT_ORDER_GRID3_X;
 			gubMercIDForMercInForm3 = ubMercID;
-			gsForm3InsuranceLengthNumber = (INT16) pSoldier->iTotalLengthOfInsuranceContract;
+			gsForm3InsuranceLengthNumber = (INT16) pSoldier->employment().insuranceLengthDays();
 			break;
 
 		default:
@@ -590,7 +590,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	if( IsMercDead( pSoldier->ubProfile ) )
 	{
 		//if the merc has a contract
-		if( pSoldier->usLifeInsurance )
+		if( pSoldier->employment().lifeInsurance() )
 		{
 			//Display the contract text
 			GetInsuranceText( INS_SNGL_DEAD_WITH_CONTRACT, sText );
@@ -605,7 +605,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	else
 	{
 		//if the merc has a contract
-		if( pSoldier->usLifeInsurance )
+		if( pSoldier->employment().lifeInsurance() )
 		{
 			//if the soldier can extend their insurance
 			if( CanSoldierExtendInsuranceContract( pSoldier ) )
@@ -644,7 +644,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	DrawTextToScreen( sText, (UINT16)(usPosX+INS_CTRCT_LENGTH_OFFSET_X), INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_LENGTH_OFFSET_Y, 0, INS_FONT_MED, INS_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED );
 
 	//Display the mercs contract length
-	swprintf( sText, L"%d", pSoldier->iTotalContractLength );
+	swprintf( sText, L"%d", pSoldier->employment().totalLength() );
 	DrawTextToScreen( sText, (UINT16)(usPosX+INS_CTRCT_OG_BOX_OFFSET_X), INS_CTRCT_ORDER_GRID1_Y+INS_CTRCT_LENGTH_OFFSET_Y, INS_CTRCT_OG_BOX_WIDTH, INS_FONT_MED, INS_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, RIGHT_JUSTIFIED );
 
 
@@ -683,7 +683,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	if( IsMercDead( pSoldier->ubProfile ) )
 		swprintf( sText, L"%s", pMessageStrings[ MSG_LOWERCASE_NA ] );
 
-	else if( pSoldier->usLifeInsurance != 0 )
+	else if( pSoldier->employment().lifeInsurance() != 0 )
 		swprintf( sText, L"%d", GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) );
 
 	else
@@ -774,7 +774,7 @@ void BtnInsuranceAcceptClearForm1ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 				//specify the length of the insurance contract
 				if ( soldier )
-					soldier->iTotalLengthOfInsuranceContract =
+					soldier->employment().insuranceLengthDays() =
 						gsForm1InsuranceLengthNumber;
 
 				//reset the insurance length
@@ -823,7 +823,7 @@ void BtnInsuranceAcceptClearForm2ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 				//specify the length of the insurance contract
 				if ( soldier )
-					soldier->iTotalLengthOfInsuranceContract =
+					soldier->employment().insuranceLengthDays() =
 						gsForm2InsuranceLengthNumber;
 
 				//reset the insurance length
@@ -873,7 +873,7 @@ void BtnInsuranceAcceptClearForm3ButtonCallback(GUI_BUTTON *btn,INT32 reason)
 
 				//specify the length of the insurance contract
 				if ( soldier )
-					soldier->iTotalLengthOfInsuranceContract =
+					soldier->employment().insuranceLengthDays() =
 						gsForm3InsuranceLengthNumber;
 
 				//reset the insurance length
@@ -921,7 +921,7 @@ INT32 CalculateInsuranceCost( SOLDIERTYPE *pSoldier, BOOLEAN fHaveInsurance )
 	uiInsuranceContractLength = CalculateSoldiersInsuranceContractLength( pSoldier );
 
 	//If the soldier already has life insurance, then the user is changing the length of the contract
-	if( pSoldier->usLifeInsurance )
+	if( pSoldier->employment().lifeInsurance() )
 	{
 		//if the user is changing the contract length
 		if( uiInsuranceContractLength != 0 )
@@ -1128,11 +1128,11 @@ void DailyUpdateOfInsuredMercs()
 		if( soldier && soldier->bActive )
 		{
 			//if the merc has life insurance
-			if( soldier->usLifeInsurance )
+			if( soldier->employment().lifeInsurance() )
 			{
 				//if the merc wasn't just hired
 				if( (INT16)GetWorldDay() !=
-					soldier->iStartOfInsuranceContract )
+					soldier->employment().insuranceStartDay() )
 				{
 					//if the contract has run out of time
 					if( GetTimeRemainingOnSoldiersInsuranceContract(
@@ -1141,9 +1141,9 @@ void DailyUpdateOfInsuredMercs()
 						//if the soldier isn't dead
 						if( !IsMercDead( soldier->ubProfile ) )
 						{
-							soldier->usLifeInsurance = 0;
-							soldier->iTotalLengthOfInsuranceContract = 0;
-							soldier->iStartOfInsuranceContract = 0;
+							soldier->employment().lifeInsurance() = 0;
+							soldier->employment().insuranceLengthDays() = 0;
+							soldier->employment().insuranceStartDay() = 0;
 						}
 					}
 				}
@@ -1176,7 +1176,7 @@ INT32	CalculateInsuranceContractCost( INT32 iLength, UINT8 ubMercID )
 
 	// only mercs with at least 2 days to go on their employment contract are insurable
 	// def: 2/5/99.	However if they already have insurance is SHOULD be ok
-	if( GetTimeRemainingOnSoldiersContract( pSoldier ) < 2 && !( pSoldier->usLifeInsurance != 0 && GetTimeRemainingOnSoldiersContract( pSoldier ) >= 1 ) )
+	if( GetTimeRemainingOnSoldiersContract( pSoldier ) < 2 && !( pSoldier->employment().lifeInsurance() != 0 && GetTimeRemainingOnSoldiersContract( pSoldier ) >= 1 ) )
 	{
 		return( 0 );
 	}
@@ -1360,7 +1360,7 @@ BOOLEAN AddLifeInsurancePayout( SOLDIERTYPE *pSoldier )
 	}
 
 	// calculate how many full, insured days of work the merc is going to miss
-	uiDaysToPay = pSoldier->iTotalLengthOfInsuranceContract - ( GetWorldDay() + 1 - pSoldier->iStartOfInsuranceContract );
+	uiDaysToPay = pSoldier->employment().insuranceLengthDays() - ( GetWorldDay() + 1 - pSoldier->employment().insuranceStartDay() );
 
 	// calculate & store how much is to be paid out
 	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].iPayOutPrice = uiDaysToPay * uiCostPerDay;
@@ -1511,7 +1511,7 @@ void InsuranceContractPayLifeInsuranceForDeadMerc( UINT16 ubPayoutID )
 	{
 		// and if the soldier is still active ( player hasn't removed carcass yet ), reset insurance flag
 		if( soldier->bActive )
-			soldier->usLifeInsurance = 0;
+			soldier->employment().lifeInsurance() = 0;
 	}
 
 	//add transaction to players account
@@ -1561,12 +1561,12 @@ BOOLEAN MercIsInsurable( SOLDIERTYPE *pSoldier )
 		return(FALSE);
 
 	// only A.I.M. mercs currently on player's team
-	if( ( pSoldier->bActive ) && ( pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC ) )
+	if( ( pSoldier->bActive ) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 	{
 		// with more than one day left on their employment contract are eligible for insurance
 		// the second part is because the insurance doesn't pay for any working day already started at time of death
-//		if( ( (pSoldier->iEndofContractTime - GetWorldTotalMin()) > 24 * 60) || pSoldier->usLifeInsurance )
-		if( CanSoldierExtendInsuranceContract( pSoldier ) || pSoldier->usLifeInsurance )
+//		if( ( (pSoldier->employment().endTime() - GetWorldTotalMin()) > 24 * 60) || pSoldier->employment().lifeInsurance() )
+		if( CanSoldierExtendInsuranceContract( pSoldier ) || pSoldier->employment().lifeInsurance() )
 		{
 			// who aren't currently being held POW
 			// POWs are also uninsurable - if already insured, that insurance IS valid but no new contracts or extension allowed
@@ -1653,20 +1653,20 @@ UINT32	GetContractLengthForFormNumber( UINT8 ubFormID )
 	const SoldierID soldierID = GetSoldierIDFromMercID( ubMercID );
 	pSoldier = GetJa2SoldierRepository().resolve(soldierID.i);
 
-	return( pSoldier ? pSoldier->iTotalContractLength : 0 );
+	return( pSoldier ? pSoldier->employment().totalLength() : 0 );
 }
 */
 
 UINT32	GetTimeRemainingOnSoldiersInsuranceContract( SOLDIERTYPE *pSoldier )
 {
 	//if the soldier has life insurance
-	if( pSoldier->usLifeInsurance )
+	if( pSoldier->employment().lifeInsurance() )
 	{
 		//if the insurance contract hasnt started yet
-		if( (INT32)GetWorldDay() < pSoldier->iStartOfInsuranceContract )
-			return( pSoldier->iTotalLengthOfInsuranceContract );
+		if( (INT32)GetWorldDay() < pSoldier->employment().insuranceStartDay() )
+			return( pSoldier->employment().insuranceLengthDays() );
 		else
-			return( ( pSoldier->iTotalLengthOfInsuranceContract - ( GetWorldDay() - pSoldier->iStartOfInsuranceContract ) ) );
+			return( ( pSoldier->employment().insuranceLengthDays() - ( GetWorldDay() - pSoldier->employment().insuranceStartDay() ) ) );
 	}
 	else
 		return( 0 );
@@ -1674,21 +1674,21 @@ UINT32	GetTimeRemainingOnSoldiersInsuranceContract( SOLDIERTYPE *pSoldier )
 
 UINT32	GetTimeRemainingOnSoldiersContract( SOLDIERTYPE *pSoldier )
 {
-	INT32 iDayMercLeaves = ( pSoldier->iEndofContractTime / 1440 ) - 1;
+	INT32 iDayMercLeaves = ( pSoldier->employment().endTime() / 1440 ) - 1;
 
 	//Since the merc is leaving in the afternoon, we must adjust since the time left would be different if we did the calc
 	//at 11:59 or 12:01 ( noon )
-	if( pSoldier->iEndofContractTime % 1440 )
+	if( pSoldier->employment().endTime() % 1440 )
 		iDayMercLeaves++;
 
 	// Subtract todays day number
 	iDayMercLeaves = iDayMercLeaves - GetWorldDay();
 
-	if( iDayMercLeaves > pSoldier->iTotalContractLength )
-		iDayMercLeaves = pSoldier->iTotalContractLength;
+	if( iDayMercLeaves > pSoldier->employment().totalLength() )
+		iDayMercLeaves = pSoldier->employment().totalLength();
 
 	return( iDayMercLeaves );
-//	return( ( pSoldier->iEndofContractTime - (INT32)GetWorldTotalMin( ) ) / 1440 );
+//	return( ( pSoldier->employment().endTime() - (INT32)GetWorldTotalMin( ) ) / 1440 );
 }
 
 
@@ -1700,26 +1700,26 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 		AssertMsg( 0, "Soldier pointer is NULL!" );
 
 	//if the user doesnt have insruance already,
-	if( !(pSoldier->usLifeInsurance ) )
+	if( !(pSoldier->employment().lifeInsurance() ) )
 	{
 		//specify the start date of the contract
-		pSoldier->iStartOfInsuranceContract = CalcStartDayOfInsurance( pSoldier );
-		pSoldier->uiStartTimeOfInsuranceContract = GetWorldTotalMin();
+		pSoldier->employment().insuranceStartDay() = CalcStartDayOfInsurance( pSoldier );
+		pSoldier->employment().insuranceStartTime() = GetWorldTotalMin();
 	}
 
 	//transfer money
 	iAmountOfMoneyTransfer = CalculateInsuranceContractCost( uiInsuranceLength, pSoldier->ubProfile );
 
 	//if the user did have insruance already,
-	if( pSoldier->usLifeInsurance )
+	if( pSoldier->employment().lifeInsurance() )
 	{
 		//specify the start date of the contract
-		pSoldier->iStartOfInsuranceContract = CalcStartDayOfInsurance( pSoldier );
+		pSoldier->employment().insuranceStartDay() = CalcStartDayOfInsurance( pSoldier );
 	}
 
 	//add transaction to finaces page
 	//if the player has life insurance
-	if( pSoldier->usLifeInsurance )
+	if( pSoldier->employment().lifeInsurance() )
 	{
 		//if the player is extending the contract
 		if( iAmountOfMoneyTransfer > 0 )
@@ -1751,16 +1751,16 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 			AddHistoryToPlayersLog(HISTORY_PURCHASED_INSURANCE, pSoldier->ubProfile, GetWorldTotalMin(), -1, -1 );
 
 			//Set that we have life insurance
-			pSoldier->usLifeInsurance = 1;
+			pSoldier->employment().lifeInsurance() = 1;
 		}
 	}
 
-	pSoldier->iTotalLengthOfInsuranceContract += uiInsuranceLength;
+	pSoldier->employment().insuranceLengthDays() += uiInsuranceLength;
 
 	//make sure the length doesnt exceed the contract length
 	if( ( GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) ) > GetTimeRemainingOnSoldiersContract( pSoldier ) )
 	{
-		pSoldier->iTotalLengthOfInsuranceContract -= GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) - GetTimeRemainingOnSoldiersContract( pSoldier );
+		pSoldier->employment().insuranceLengthDays() -= GetTimeRemainingOnSoldiersInsuranceContract( pSoldier ) - GetTimeRemainingOnSoldiersContract( pSoldier );
 	}
 }
 
@@ -1792,7 +1792,7 @@ INT32 CalculateSoldiersInsuranceContractLength( SOLDIERTYPE *pSoldier )
 
 	// only mercs with at least 2 days to go on their employment contract are insurable
 	// def: 2/5/99.	However if they already have insurance is SHOULD be ok
-	if( uiTimeRemainingOnSoldiersContract < 2 && !( pSoldier->usLifeInsurance != 0 && uiTimeRemainingOnSoldiersContract >= 1 ) )
+	if( uiTimeRemainingOnSoldiersContract < 2 && !( pSoldier->employment().lifeInsurance() != 0 && uiTimeRemainingOnSoldiersContract >= 1 ) )
 	{
 		return( 0 );
 	}
@@ -1802,7 +1802,7 @@ INT32 CalculateSoldiersInsuranceContractLength( SOLDIERTYPE *pSoldier )
 	//
 
 	//if the soldier has an insurance contract, dont deduct a day
-	if( pSoldier->usLifeInsurance || DidGameJustStart() )
+	if( pSoldier->employment().lifeInsurance() || DidGameJustStart() )
 		iInsuranceContractLength = uiTimeRemainingOnSoldiersContract - GetTimeRemainingOnSoldiersInsuranceContract( pSoldier );
 
 	//else deduct a day
@@ -1819,7 +1819,7 @@ INT32 CalculateSoldiersInsuranceContractLength( SOLDIERTYPE *pSoldier )
 	if( iInsuranceContractLength < 0 )
 		iInsuranceContractLength = 0;
 
-	if( pSoldier->usLifeInsurance && pSoldier->iStartOfInsuranceContract >= (INT32)GetWorldDay() && iInsuranceContractLength < 2 )
+	if( pSoldier->employment().lifeInsurance() && pSoldier->employment().insuranceStartDay() >= (INT32)GetWorldDay() && iInsuranceContractLength < 2 )
 		iInsuranceContractLength = 0;
 
 	return( iInsuranceContractLength );
@@ -1854,7 +1854,7 @@ BOOLEAN AreAnyAimMercsOnTeam( )
 			GetJa2SoldierRepository().resolve(Soldier.i);
 		//check to see if any of the mercs are AIM mercs
 		if( soldier &&
-			soldier->ubWhatKindOfMercAmI == MERC_TYPE__AIM_MERC )
+			soldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 		{
 			return TRUE;
 		}

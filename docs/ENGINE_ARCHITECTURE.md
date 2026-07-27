@@ -992,6 +992,13 @@ the engine must not contain SDL types in its public domain model.
   sight, the strongest non-negative total displayed by tactical and strategic
   UI, and the applied-only total used by camouflage kits. Item definitions and
   their XML representation remain unchanged.
+  `SoldierEmploymentComponent` owns the strategic engagement lifecycle:
+  contract start, end, and accumulated length; mercenary classification;
+  medical deposit and life-insurance terms; renewal bookkeeping; dismissal;
+  re-signing eligibility; and the per-soldier hospital modifier. Hiring,
+  personnel, insurance, contract, dialogue, tactical, and AI code now share
+  that owner. Profile economics and the transient `MERC_HIRE_STRUCT` request
+  remain separate adapters.
   Current tactical grid, elevation, and facing likewise have one private
   `SoldierPositionComponent` owner rather than fields split between
   `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement

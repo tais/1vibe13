@@ -3980,7 +3980,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
 							TriggerNPCRecord( pSoldier->ubProfile, 2 );
-							pSoldier->bHospitalPriceModifier = gbHospitalPriceModifier;
+							pSoldier->employment().hospitalPriceModifier() = gbHospitalPriceModifier;
 							// make sure this person doesn't have an absolute dest any more
 							pSoldier->movement().absoluteDestination() = NOWHERE;
 						}
@@ -4731,7 +4731,7 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 		return( 0 );
 	}
 
-	if ( pSoldier->bHospitalPriceModifier == HOSPITAL_FREEBIE || pSoldier->bHospitalPriceModifier == HOSPITAL_RANDOM_FREEBIE )
+	if ( pSoldier->employment().hospitalPriceModifier() == HOSPITAL_FREEBIE || pSoldier->employment().hospitalPriceModifier() == HOSPITAL_RANDOM_FREEBIE )
 	{
 		return( 0 );
 	}
@@ -4756,16 +4756,16 @@ UINT32 CalcPatientMedicalCost( SOLDIERTYPE * pSoldier )
 		uiCost += ( 2 * pSoldier->vitals().bleeding() );
 	}
 
-	if ( pSoldier->bHospitalPriceModifier == HOSPITAL_BREAK )
+	if ( pSoldier->employment().hospitalPriceModifier() == HOSPITAL_BREAK )
 	{
 		uiCost = (uiCost * 85) / 100;
 	}
-	else if ( pSoldier->bHospitalPriceModifier == HOSPITAL_COST )
+	else if ( pSoldier->employment().hospitalPriceModifier() == HOSPITAL_COST )
 	{
 		// 30% discount
 		uiCost = (uiCost * 70) / 100;
 	}
-	else if ( pSoldier->bHospitalPriceModifier == HOSPITAL_UNSET )
+	else if ( pSoldier->employment().hospitalPriceModifier() == HOSPITAL_UNSET )
 	{
 		if ( gbHospitalPriceModifier == HOSPITAL_BREAK )
 		{

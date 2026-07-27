@@ -496,7 +496,7 @@ void CreateSpeechEventsFromDynamicOpinionEvent( DynamicOpinionSpeechEvent aEvent
 						GetJa2SoldierRepository().resolve(
 							static_cast<UINT16>(idInterjector));
 					if ( interjector &&
-						interjector->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+						interjector->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 						fIsImp = TRUE;
 
 					// if it's an IMP, we have a choice, otherwise pick one answer randomly
@@ -1775,11 +1775,11 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 			}
 
 			// only for AIM mercs
-			if ( pSoldierWhoGotPaid->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+			if ( pSoldierWhoGotPaid->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 				return;
 
 			// determine the remaining length of his contract BEFORE it got renewed
-			INT32 oldcontract = pSoldierWhoGotPaid->iEndofContractTime;
+			INT32 oldcontract = pSoldierWhoGotPaid->employment().endTime();
 			if ( ubCode == EXTENDED_CONTRACT_BY_1_DAY )
 				oldcontract -= 1440;
 			else if ( ubCode == EXTENDED_CONTRACT_BY_1_WEEK )
@@ -1803,10 +1803,10 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 					 pSoldier->bAssignment == ASSIGNMENT_DEAD) )
 				{
 					// only for AIM mercs
-					if ( pSoldier->ubProfile == NO_PROFILE || pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC )
+					if ( pSoldier->ubProfile == NO_PROFILE || pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 						continue;
 
-					if ( pSoldier->iEndofContractTime < oldcontract )
+					if ( pSoldier->employment().endTime() < oldcontract )
 					{
 						// this guy got paid at a point where we had less time than he did! Favouritism!
 						AddOpinionEvent( pSoldier->ubProfile, usProfile, OPINIONEVENT_CONTRACTEXTENSION );
@@ -1999,7 +1999,7 @@ UINT32 GetSoldierLeaderRating( SOLDIERTYPE* pSoldier )
 	rating += pSoldier->stats.bLeadership;
 	rating += 10 * pSoldier->stats.bExpLevel;
 	rating += 30 * NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT );
-	rating += 50 * (pSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER);
+	rating += 50 * (pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER);
 
 	return rating;
 }
@@ -2055,7 +2055,7 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 		// everybody other merc in the same sector gets annoyed
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE &&
 			 pTeamSoldier->sSectorX == sX && pTeamSoldier->sSectorY == sY && pTeamSoldier->bSectorZ == sZ &&
-			 (!fImpOnly || pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER) &&
+			 (!fImpOnly || pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER) &&
 			 !(pTeamSoldier->bAssignment == IN_TRANSIT ||
 			 pTeamSoldier->bAssignment == ASSIGNMENT_DEAD) )
 		{
@@ -2132,7 +2132,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 				
 		profilevector.push_back( pTeamSoldier->ubProfile );
 
-		if ( pTeamSoldier->ubWhatKindOfMercAmI == MERC_TYPE__PLAYER_CHARACTER )
+		if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 			impprofilevector.push_back( pTeamSoldier->ubProfile );
 	}
 
@@ -2217,11 +2217,11 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 		break;
 
 	case OPINIONEVENT_RICHGUY:
-		if ( !pSoldier->iTotalContractLength || (pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__MERC && pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT) )
+		if ( !pSoldier->employment().totalLength() || (pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pSoldier->employment().mercenaryType() != MERC_TYPE__MERC && pSoldier->employment().mercenaryType() != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT) )
 			return;
 
 		// determine our mean daily wage
-		meanwage = gMercProfiles[pSoldier->ubProfile].uiTotalCostToDate / pSoldier->iTotalContractLength;
+		meanwage = gMercProfiles[pSoldier->ubProfile].uiTotalCostToDate / pSoldier->employment().totalLength();
 
 		// hu?
 		if ( !explevel )
@@ -2333,7 +2333,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_RICHGUY:
 			{
-				if ( !pTeamSoldier->iTotalContractLength || (pTeamSoldier->ubWhatKindOfMercAmI != MERC_TYPE__AIM_MERC && pTeamSoldier->ubWhatKindOfMercAmI != MERC_TYPE__MERC && pTeamSoldier->ubWhatKindOfMercAmI != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT) )
+				if ( !pTeamSoldier->employment().totalLength() || (pTeamSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pTeamSoldier->employment().mercenaryType() != MERC_TYPE__MERC && pTeamSoldier->employment().mercenaryType() != MERC_TYPE__NPC_WITH_UNEXTENDABLE_CONTRACT) )
 					continue;
 
 				// A gets offended of B if
@@ -2342,7 +2342,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				// mean wage(B) / level(B) >= WAGE_ACCEPTANCE_FACTOR * mean wage(A) / level(A)
 
 				// their wage
-				UINT32 theirmeanwage = gMercProfiles[pTeamSoldier->ubProfile].uiTotalCostToDate / pTeamSoldier->iTotalContractLength;
+				UINT32 theirmeanwage = gMercProfiles[pTeamSoldier->ubProfile].uiTotalCostToDate / pTeamSoldier->employment().totalLength();
 
 				// adjust this for experience levels
 				FLOAT explevelfactor = gGameExternalOptions.fDynamicWageFactor * pTeamSoldier->stats.bExpLevel / explevel;

@@ -1775,10 +1775,10 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 				gMercProfiles[ ubCharNum ].uiWeeklySalary = gMercProfiles[ 7 ].uiWeeklySalary;
 			if(gMercProfiles[ ubCharNum ].uiBiWeeklySalary == 0)
 				gMercProfiles[ ubCharNum ].uiBiWeeklySalary = gMercProfiles[ 7 ].uiBiWeeklySalary;
-			pNewSoldier->iTotalContractLength = 7;
+			pNewSoldier->employment().totalLength() = 7;
 		}
 		// slay will leave in a week
-		pNewSoldier->iEndofContractTime = GetWorldTotalMin() + ( 7 * 24 * 60 );
+		pNewSoldier->employment().endTime() = GetWorldTotalMin() + ( 7 * 24 * 60 );
 
 		KickOutWheelchair( pNewSoldier );
 	}
@@ -1850,11 +1850,11 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 	}
 #endif
 	// Set whatkind of merc am i
-	pNewSoldier->ubWhatKindOfMercAmI = MERC_TYPE__NPC;
+	pNewSoldier->employment().mercenaryType() = MERC_TYPE__NPC;
 
 	if ( ubCharNum == SLAY && gGameExternalOptions.fEnableSlayForever == TRUE )
 	{
-		pNewSoldier->ubWhatKindOfMercAmI = MERC_TYPE__AIM_MERC;
+		pNewSoldier->employment().mercenaryType() = MERC_TYPE__AIM_MERC;
 	}
 
 	//
@@ -1900,7 +1900,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 
 	// Add this guy to our team!
 	pNewSoldier = ChangeSoldierTeam( pSoldier, gbPlayerNum );
-	pNewSoldier->ubWhatKindOfMercAmI = MERC_TYPE__EPC;
+	pNewSoldier->employment().mercenaryType() = MERC_TYPE__EPC;
 
 	// Try putting them into the current squad
 	if ( AddCharacterToSquad( pNewSoldier, (INT8)CurrentSquad( ) ) == FALSE )
@@ -1923,7 +1923,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 	}
 
 	// Set whatkind of merc am i
-	pNewSoldier->ubWhatKindOfMercAmI = MERC_TYPE__EPC;
+	pNewSoldier->employment().mercenaryType() = MERC_TYPE__EPC;
 
 	// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels/vehicles/robots
 	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->flags.uiStatusFlags & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
@@ -1949,7 +1949,7 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 		return( FALSE );
 	}
 
-	if (pSoldier->ubWhatKindOfMercAmI != MERC_TYPE__EPC)
+	if (pSoldier->employment().mercenaryType() != MERC_TYPE__EPC)
 	{
 		return( FALSE );
 	}

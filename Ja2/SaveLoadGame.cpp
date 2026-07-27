@@ -1669,6 +1669,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierPerceptionComponent& perception = s.perception();
 	SoldierAwarenessComponent& awareness = s.awareness();
 	SoldierCamouflageComponent& camouflage = s.camouflage();
+	SoldierEmploymentComponent& employment = s.employment();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1749,15 +1750,15 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
 	ar.i32(s.sStartGridNo); ar.i32(s.sEndGridNo); ar.i32(s.sForcastGridno); ar.i16(s.sZLevelOverride);
 	ar.i8(s.bMovedPriorToInterrupt);
-	ar.i32(s.iEndofContractTime); ar.i32(s.iStartContractTime); ar.i32(s.iTotalContractLength);
-	ar.i32(s.iNextActionSpecialData); ar.u8(s.ubWhatKindOfMercAmI);
+	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
+	ar.i32(s.iNextActionSpecialData); ar.u8(employment.mercenaryType());
 	ar.i8(s.bAssignment); ar.i8(s.bOldAssignment); ar.i8(s.bTrainStat);
 	ar.i16(s.sSectorX); ar.i16(s.sSectorY); ar.i8(s.bSectorZ); ar.i32(s.iVehicleId);
 	ar.ptr(s.pMercPath);
-	ar.u16(s.usMedicalDeposit); ar.u16(s.usLifeInsurance);
+	ar.u16(employment.medicalDeposit()); ar.u16(employment.lifeInsurance());
 	ar.u32(s.uiStartMovementTime); ar.u32(s.uiOptimumMovementTime); ar.u32(s.usLastUpdateTime);
 	ar.u32(s.uiSoldierUpdateNumber); ar.u8(s.ubSoldierUpdateType); ar.i32(s.sScheduledStop);
-	ar.i32(s.iStartOfInsuranceContract); ar.u32(s.uiLastAssignmentChangeMin); ar.i32(s.iTotalLengthOfInsuranceContract);
+	ar.i32(employment.insuranceStartDay()); ar.u32(s.uiLastAssignmentChangeMin); ar.i32(employment.insuranceLengthDays());
 	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(s.ubDesiredSquadAssignment); ar.u8(s.ubNumTraversalsAllowedToMerge);
 	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
@@ -1771,9 +1772,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sBoundingBoxWidth); ar.i16(s.sBoundingBoxHeight); ar.i16(s.sBoundingBoxOffsetX); ar.i16(s.sBoundingBoxOffsetY);
 	ar.u32(s.uiTimeSameBattleSndDone); ar.i8(s.bOldBattleSnd); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);
 	ar.u16(s.ubAutoBandagingMedic.i); ar.u16(s.ubRobotRemoteHolderID.i);
-	ar.u32(s.uiTimeOfLastContractUpdate); ar.i8(s.bTypeOfLastContract); ar.i8(collapseState.turns());
+	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(perception.blindnessTurns());
-	ar.u8(s.ubHoursOnAssignment); ar.u8(s.ubMercJustFired); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
+	ar.u8(s.ubHoursOnAssignment); ar.u8(employment.justFired()); ar.u8(s.ubTurnsUntilCanSayHeardNoise);
 	ar.u16(s.usQuoteSaidExtFlags); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(s.bRegenerationCounter);
 	ar.i8(s.bRegenBoostersUsedToday); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
@@ -1784,13 +1785,13 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(s.uiMercChecksum);
 	ar.i8(s.bCurrentCivQuote); ar.i8(s.bCurrentCivQuoteDelta); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(s.sLocationOfFadeStart); ar.u8(s.bUseExitGridForReentryDirection);
-	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(s.ubContractRenewalQuoteCode); ar.i32(s.sPreTraversalGridNo);
+	ar.u32(s.uiTimeSinceLastSpoke); ar.u8(employment.renewalQuoteCode()); ar.i32(s.sPreTraversalGridNo);
 	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(s.bPendingActionData5);
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
 	ar.ptr(s.pGroup); ar.u8(s.ubLeaveHistoryCode); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(s.uiTimeSoldierWillArrive);
-	ar.i8(s.bVehicleUnderRepairID); ar.i32(s.iTimeCanSignElsewhere); ar.i8(s.bHospitalPriceModifier);
-	ar.u32(s.uiStartTimeOfInsuranceContract); ar.i8(s.bCorpseQuoteTolerance); ar.i8(perception.deafnessTurns());
+	ar.i8(s.bVehicleUnderRepairID); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
+	ar.u32(employment.insuranceStartTime()); ar.i8(s.bCorpseQuoteTolerance); ar.i8(perception.deafnessTurns());
 	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(s.sLastTwoLocations[i]);
 	ar.i32(s.uiTimeSinceLastBleedGrunt); ar.u16(combatResult.earlierAttacker().i);
@@ -6343,13 +6344,13 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 					//if the soldier is someone
 					if( soldier.ubProfile != NO_PROFILE )
 					{
-						if( soldier.ubWhatKindOfMercAmI == MERC_TYPE__MERC )
+						if( soldier.employment().mercenaryType() == MERC_TYPE__MERC )
 						{
 							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * gMercProfiles[ soldier.ubProfile ].iMercMercContractLength;
 						}
 						else
 						{
-							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * soldier.iTotalContractLength;
+							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * soldier.employment().totalLength();
 						}
 					}
 				}
@@ -9011,9 +9012,9 @@ void UpdateMercMercContractInfo()
 		if( pSoldier == NULL )
 			continue;
 
-		gMercProfiles[ ubCnt ].iMercMercContractLength = pSoldier->iTotalContractLength;
+		gMercProfiles[ ubCnt ].iMercMercContractLength = pSoldier->employment().totalLength();
 
-		pSoldier->iTotalContractLength = 0;
+		pSoldier->employment().totalLength() = 0;
 	}
 }
 
