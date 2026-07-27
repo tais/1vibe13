@@ -12,3 +12,6 @@
 
 # Claude Code
 /.claude/
+
+# local playtest scratchpad -- never committed
+BUG_NOTES.md
