@@ -321,6 +321,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   before save and verified immediately after load. v101 conversion maps its six
   established fields and resets the scheduled stop that was absent from that
   record. No save, packet, map, XML, Lua, or installed-data bytes change.
+- Turn-start carried weight, per-turn tiles moved, realtime breath-update tiles,
+  and the last realtime movement animation are now stored by
+  `SoldierMovementMetricsComponent`. The visitor emits the signed 16-bit
+  weight, signed 8-bit turn distance, unsigned 8-bit realtime distance, and
+  unsigned 16-bit animation at their three original positions; v101 conversion
+  maps all four raw values. Runtime recording saturates both narrow distance
+  counters without changing their representation. No save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
   focus target are now stored by `SoldierSkillStateComponent`. The visitor

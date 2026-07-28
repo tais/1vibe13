@@ -1261,13 +1261,16 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 		{
 			// We have a gain, now limit this depending on what we were doing...
 			// OK for RT, look at how many tiles we have moved, our last move anim
-			if ( pSoldier->ubTilesMovedPerRTBreathUpdate > 0 )
+			if ( pSoldier->movementMetrics().hasRealtimeBreathMovement() )
 			{
 				// How long have we done this for?
 				// And what anim were we doing?
-				sBreathPerAP = GetBreathPerAP( pSoldier, pSoldier->usLastMovementAnimPerRTBreathUpdate );
+				sBreathPerAP = GetBreathPerAP(
+					pSoldier,
+					pSoldier->movementMetrics().lastRealtimeMovementAnimation() );
 
-				sRTBreathMod = sBreathPerAP * pSoldier->ubTilesMovedPerRTBreathUpdate;
+				sRTBreathMod = sBreathPerAP *
+					pSoldier->movementMetrics().realtimeBreathTiles();
 
 				// Deduct some if we were exerting ourselves
 				// We add here because to gain breath, sBreathChange needs to be -ve
@@ -1316,7 +1319,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 		DeductPoints(pSoldier,0,(INT16)sBreathChange );
 
 		// Reset value for RT breath update
-		pSoldier->ubTilesMovedPerRTBreathUpdate = 0;
+		pSoldier->movementMetrics().clearRealtimeBreathMovement();
 
 	}
 	else

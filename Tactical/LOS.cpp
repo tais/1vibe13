@@ -875,7 +875,9 @@ INT16 GetSightAdjustment(SOLDIERTYPE* pSoldier, INT8 soldierStealth, INT8 soldie
 
 	// context sensitive stuff with 2nd parameter (needs soldier for attributes but can be given a second parameter)
 	UINT8 ubLightLevel = LightTrueLevel(sGridNo, bLevel);
-	iSightAdjustment += GetSightAdjustmentThroughMovement(pSoldier->bTilesMoved, ubLightLevel, soldierStealth, HAS_SKILL_TRAIT(pSoldier, STEALTHY_NT));
+	iSightAdjustment += GetSightAdjustmentThroughMovement(
+		pSoldier->movementMetrics().tilesMoved(), ubLightLevel,
+		soldierStealth, HAS_SKILL_TRAIT(pSoldier, STEALTHY_NT));
 	iSightAdjustment += GetSightAdjustmentStealthAtLightLevel(ubLightLevel, soldierStealth);
 
 	if (gGameExternalOptions.fAdditionalTileProperties)

@@ -7312,6 +7312,11 @@ int main( int, char** )
 		replication.updateType() = 7;
 		replication.scheduleStop(1235);
 		replication.recordChecksum(305);
+		SoldierMovementMetricsComponent& movementMetrics = soldier.movementMetrics();
+		movementMetrics.carriedWeightAtTurnStart() = 135;
+		movementMetrics.tilesMoved() = 7;
+		movementMetrics.realtimeBreathTiles() = 4;
+		movementMetrics.lastRealtimeMovementAnimation() = RUNNING;
 		SoldierSkillStateComponent& skillState = soldier.skillState();
 		skillState.beginCheck(-7, 1234);
 		skillState.recordCheckAttempt();
@@ -7639,6 +7644,13 @@ int main( int, char** )
 		       constSoldier.replication().scheduledStopGrid() == 1235 &&
 		       constSoldier.replication().checksum() == 305,
 		       "soldier replication component owns transport timing, update metadata, stop scheduling, and integrity state" );
+		CHECK( constSoldier.movementMetrics().carriedWeightAtTurnStart() == 135 &&
+		       constSoldier.movementMetrics().movedThisTurn() &&
+		       constSoldier.movementMetrics().tilesMoved() == 7 &&
+		       constSoldier.movementMetrics().hasRealtimeBreathMovement() &&
+		       constSoldier.movementMetrics().realtimeBreathTiles() == 4 &&
+		       constSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
+		       "soldier movement metrics own turn distance, carried-weight snapshot, and realtime breath cadence" );
 		CHECK( constSoldier.skillState().isRepeatedCheck(-7, 1234) &&
 		       constSoldier.skillState().checkAttempts() == 2 &&
 		       constSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
@@ -8097,6 +8109,38 @@ int main( int, char** )
 		       replicationLifecycle.scheduledStopGrid() == 0 &&
 		       replicationLifecycle.checksum() == 0,
 		       "soldier replication reset clears the complete transport bookkeeping domain" );
+		SoldierMovementMetricsComponent movementMetricsLifecycle;
+		movementMetricsLifecycle.recordCarriedWeightAtTurnStart(140);
+		movementMetricsLifecycle.tilesMoved() =
+			SoldierMovementMetricsComponent::MaximumTurnTiles - 1;
+		movementMetricsLifecycle.realtimeBreathTiles() =
+			SoldierMovementMetricsComponent::MaximumRealtimeBreathTiles - 1;
+		movementMetricsLifecycle.recordTileMovement(true, true, RUNNING);
+		CHECK( movementMetricsLifecycle.carriedWeightAtTurnStart() == 140 &&
+		       movementMetricsLifecycle.tilesMoved() ==
+			       SoldierMovementMetricsComponent::MaximumTurnTiles &&
+		       movementMetricsLifecycle.realtimeBreathTiles() ==
+			       SoldierMovementMetricsComponent::MaximumRealtimeBreathTiles &&
+		       movementMetricsLifecycle.lastRealtimeMovementAnimation() == RUNNING,
+		       "soldier movement recording saturates both narrow persisted distance counters" );
+		movementMetricsLifecycle.recordTileMovement(false, true, WALKING);
+		CHECK( movementMetricsLifecycle.tilesMoved() ==
+			       SoldierMovementMetricsComponent::MaximumTurnTiles &&
+		       movementMetricsLifecycle.realtimeBreathTiles() ==
+			       SoldierMovementMetricsComponent::MaximumRealtimeBreathTiles &&
+		       movementMetricsLifecycle.lastRealtimeMovementAnimation() == WALKING,
+		       "soldier movement saturation does not wrap and still observes the latest realtime animation" );
+		movementMetricsLifecycle.clearTurnDistance();
+		movementMetricsLifecycle.clearRealtimeBreathMovement();
+		CHECK( !movementMetricsLifecycle.movedThisTurn() &&
+		       !movementMetricsLifecycle.hasRealtimeBreathMovement(),
+		       "soldier movement metrics close turn and realtime cadence windows independently" );
+		movementMetricsLifecycle.reset();
+		CHECK( movementMetricsLifecycle.carriedWeightAtTurnStart() == 0 &&
+		       movementMetricsLifecycle.tilesMoved() == 0 &&
+		       movementMetricsLifecycle.realtimeBreathTiles() == 0 &&
+		       movementMetricsLifecycle.lastRealtimeMovementAnimation() == 0,
+		       "soldier movement metrics reset clears the complete telemetry domain" );
 		SoldierSkillStateComponent skillStateLifecycle;
 		skillStateLifecycle.beginCheck(-5, 700);
 		skillStateLifecycle.recordCheckAttempt();
@@ -8432,6 +8476,11 @@ int main( int, char** )
 		       copiedSoldier.replication().scheduledStopGrid() == 1235 &&
 		       copiedSoldier.replication().checksum() == 305,
 		       "soldier copies retain their owned replication state" );
+		CHECK( copiedSoldier.movementMetrics().carriedWeightAtTurnStart() == 135 &&
+		       copiedSoldier.movementMetrics().tilesMoved() == 7 &&
+		       copiedSoldier.movementMetrics().realtimeBreathTiles() == 4 &&
+		       copiedSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
+		       "soldier copies retain their owned movement metrics" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == -7 &&
 		       copiedSoldier.skillState().checkAttempts() == 2 &&
 		       copiedSoldier.skillState().checkGrid() == 1234 &&
@@ -9153,6 +9202,11 @@ int main( int, char** )
 		       copiedSoldier.replication().scheduledStopGrid() == 0 &&
 		       copiedSoldier.replication().checksum() == 0,
 		       "soldier initialization resets the complete replication domain" );
+		CHECK( copiedSoldier.movementMetrics().carriedWeightAtTurnStart() == 0 &&
+		       !copiedSoldier.movementMetrics().movedThisTurn() &&
+		       !copiedSoldier.movementMetrics().hasRealtimeBreathMovement() &&
+		       copiedSoldier.movementMetrics().lastRealtimeMovementAnimation() == 0,
+		       "soldier initialization resets the complete movement-metrics domain" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == 0 &&
 		       copiedSoldier.skillState().checkAttempts() == 0 &&
 		       copiedSoldier.skillState().checkGrid() == 0 &&
@@ -9553,6 +9607,10 @@ int main( int, char** )
 		legacySoldier->uiSoldierUpdateNumber = 504;
 		legacySoldier->ubSoldierUpdateType = 8;
 		legacySoldier->uiMercChecksum = 505;
+		legacySoldier->sWeightCarriedAtTurnStart = 145;
+		legacySoldier->bTilesMoved = 8;
+		legacySoldier->ubTilesMovedPerRTBreathUpdate = 5;
+		legacySoldier->usLastMovementAnimPerRTBreathUpdate = WALKING;
 		legacySoldier->dXPos = 321.5f;
 		legacySoldier->dYPos = 654.25f;
 		legacySoldier->sX = 319;
@@ -9621,6 +9679,10 @@ int main( int, char** )
 		convertedSoldier.replication().updateType() = 99;
 		convertedSoldier.replication().scheduleStop(9994);
 		convertedSoldier.replication().recordChecksum(9995);
+		convertedSoldier.movementMetrics().carriedWeightAtTurnStart() = 190;
+		convertedSoldier.movementMetrics().tilesMoved() = 90;
+		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
+		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
 		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
@@ -9702,6 +9764,11 @@ int main( int, char** )
 		       convertedSoldier.replication().scheduledStopGrid() == 0 &&
 		       convertedSoldier.replication().checksum() == 505,
 		       "v101 soldier conversion maps established replication metadata and clears the later scheduled-stop field" );
+		CHECK( convertedSoldier.movementMetrics().carriedWeightAtTurnStart() == 145 &&
+		       convertedSoldier.movementMetrics().tilesMoved() == 8 &&
+		       convertedSoldier.movementMetrics().realtimeBreathTiles() == 5 &&
+		       convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() == WALKING,
+		       "v101 soldier conversion retains the complete movement telemetry domain" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -10042,6 +10109,10 @@ int main( int, char** )
 		savedSoldier.replication().updateSequence() = 604;
 		savedSoldier.replication().updateType() = 9;
 		savedSoldier.replication().scheduleStop(26004);
+		savedSoldier.movementMetrics().carriedWeightAtTurnStart() = 155;
+		savedSoldier.movementMetrics().tilesMoved() = 9;
+		savedSoldier.movementMetrics().realtimeBreathTiles() = 6;
+		savedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
 		savedSoldier.skillState().beginCheck(-8, 1500);
 		savedSoldier.skillState().recordCheckAttempt();
 		savedSoldier.skillState().recordCheckAttempt();
@@ -10349,6 +10420,12 @@ int main( int, char** )
 		       loadedSoldier.replication().checksum() == savedSoldier.GetChecksum() &&
 		       savedSoldier.replication().checksum() == savedSoldier.GetChecksum(),
 		       "soldier save/load round-trips replication state and records the current integrity checksum" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.movementMetrics().carriedWeightAtTurnStart() == 155 &&
+		       loadedSoldier.movementMetrics().tilesMoved() == 9 &&
+		       loadedSoldier.movementMetrics().realtimeBreathTiles() == 6 &&
+		       loadedSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
+		       "soldier save/load round-trips movement telemetry at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.skillState().lastCheckReason() == -8 &&
 		       loadedSoldier.skillState().checkAttempts() == 3 &&
