@@ -836,7 +836,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 				!TileIsOutOfBounds(pSoldier->aiData.usActionData) &&
 				NewOKDestination(pSoldier, pSoldier->aiData.usActionData, TRUE, pSoldier->position().level()))
 			{
-				if (pSoldier->flags.fNoAPToFinishMove)
+				if (pSoldier->movement().outOfActionPoints())
 				{
 					SoldierTriesToContinueAlongPath(pSoldier);
 				}
@@ -935,7 +935,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 		// End this NPC's control, move to next dude
 		EndRadioLocator( pSoldier->ubID );
 		pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_UNDERAICONTROL );
-		pSoldier->flags.fTurnInProgress = FALSE;
+		pSoldier->movement().finishTurn();
 		pSoldier->aiData.bMoved = TRUE;
 		pSoldier->aiData.bBypassToGreen = FALSE;
 
@@ -1036,7 +1036,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 		pSoldier->SetSoldierAsUnderAiControl( );
 
 
-	pSoldier->flags.fTurnInProgress = TRUE;
+	pSoldier->movement().beginTurn();
 
 	pSoldier->movementHistory().resetAiLoop();
 
@@ -1361,7 +1361,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		// cancel any turning & movement by making current settings desired ones
 		pSoldier->pathing().finalDestinationGrid()	= pSoldier->position().gridNo();
 
-		if ( !pSoldier->flags.fNoAPToFinishMove )
+		if ( !pSoldier->movement().outOfActionPoints() )
 		{
 			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 			pSoldier->AdjustNoAPToFinishMove( FALSE );
@@ -1588,7 +1588,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 	}
 
 	// yikes, this shouldn't occur! we should be trying to finish our move!
-	// pSoldier->flags.fNoAPToFinishMove = FALSE;
+	// pSoldier->movement().setOutOfActionPoints(false);
 
 	// Flugente: pows don't do anything
 	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )

@@ -5554,7 +5554,15 @@ endif()
 foreach(retired_movement_flag IN ITEMS
   fDelayedMovement
   fBlockedByAnotherMerc
-  fUseMoverrideMoveSpeed)
+  fUseMoverrideMoveSpeed
+  fTurnInProgress
+  fPrevInWater
+  fUIMovementFast
+  fNoAPToFinishMove
+  fPausedMove
+  fIsSoldierMoving
+  fIsSoldierDelayed
+  fSoldierWasMoving)
   string(REGEX MATCH
     "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_movement_flag}[ \t]*;"
     retired_current_movement_flag
@@ -5562,6 +5570,16 @@ foreach(retired_movement_flag IN ITEMS
   if(retired_current_movement_flag)
     message(FATAL_ERROR
       "Retired STRUCT_Flags movement field '${retired_movement_flag}' returned; tactical movement state belongs to SoldierMovementComponent")
+  endif()
+endforeach()
+foreach(retired_movement_axis_flag IN ITEMS fPastXDest fPastYDest)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_movement_axis_flag}[ \t]*;"
+    retired_current_movement_axis_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_movement_axis_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags movement field '${retired_movement_axis_flag}' returned; destination crossing belongs to SoldierMovementComponent")
   endif()
 endforeach()
 
@@ -5621,7 +5639,17 @@ foreach(owned_movement_field IN ITEMS
   "UINT8;delayedFlags"
   "UINT8;stopReason"
   "SoldierID;moveSpeedOverride"
-  "BOOLEAN;usesMoveSpeedOverride")
+  "BOOLEAN;usesMoveSpeedOverride"
+  "BOOLEAN;turnInProgress"
+  "BOOLEAN;previousInWater"
+  "BOOLEAN;uiMovementFast"
+  "BOOLEAN;noActionPointsToFinish"
+  "BOOLEAN;paused"
+  "BOOLEAN;movementClockActive"
+  "BOOLEAN;networkDelayed"
+  "BOOLEAN;wasMoving"
+  "INT8;pastXDestination"
+  "INT8;pastYDestination")
   string(REPLACE ";" ";" owned_movement_parts "${owned_movement_field}")
   list(GET owned_movement_parts 0 owned_movement_type)
   list(GET owned_movement_parts 1 owned_movement_name)
@@ -5659,8 +5687,32 @@ string(REGEX MATCH
   serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);"
+  "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);"
   serialized_soldier_movement_delay_flag_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.previousInWater\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
+  serialized_soldier_movement_water_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.uiMovementFast\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);"
+  serialized_soldier_movement_ui_speed_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fShowLocator\\);[ \t]*ar\\.boolean\\(f\\.fFlashPortrait\\);[ \t]*ar\\.boolean\\(movement\\.noActionPointsToFinish\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIdeadMerc\\);"
+  serialized_soldier_movement_halt_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.networkDelayed\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fSoldierUpdatedFromNetwork\\);"
+  serialized_soldier_movement_clock_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);"
+  serialized_soldier_movement_presentation_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastXDestination\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastYDestination\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);"
+  serialized_soldier_movement_axis_order
   "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.boolean\\(f\\.fCheckForNewlyAddedItems\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fContractPriceHasIncreased\\);"
@@ -5708,6 +5760,12 @@ if(NOT serialized_soldier_movement_alias OR
    NOT serialized_soldier_movement_mode_order OR
    NOT serialized_soldier_movement_facing_order OR
    NOT serialized_soldier_movement_delay_flag_order OR
+   NOT serialized_soldier_movement_water_order OR
+   NOT serialized_soldier_movement_ui_speed_order OR
+   NOT serialized_soldier_movement_halt_order OR
+   NOT serialized_soldier_movement_clock_order OR
+   NOT serialized_soldier_movement_presentation_order OR
+   NOT serialized_soldier_movement_axis_order OR
    NOT serialized_soldier_movement_block_flag_order OR
    NOT serialized_soldier_movement_speed_flag_order OR
    NOT serialized_soldier_retired_movement_cause OR
@@ -5740,6 +5798,25 @@ foreach(movement_intent_conversion IN ITEMS
       "v101 conversion lost route-execution mapping '${movement_intent_conversion}'")
   endif()
 endforeach()
+foreach(movement_activity_conversion IN ITEMS
+  "movement().turnInProgress() = src.fTurnInProgress;"
+  "movement().previousInWater() = src.fPrevInWater;"
+  "movement().uiMovementFast() = src.fUIMovementFast;"
+  "movement().noActionPointsToFinish() = src.fNoAPToFinishMove;"
+  "movement().paused() = src.fPausedMove;"
+  "movement().movementClockActive() = src.fIsSoldierMoving;"
+  "movement().networkDelayed() = src.fIsSoldierDelayed;"
+  "movement().wasMoving() = src.fSoldierWasMoving;"
+  "movement().pastXDestination() = src.fPastXDest;"
+  "movement().pastYDestination() = src.fPastYDest;")
+  string(FIND "${soldier_control_source_contents}"
+    "${movement_activity_conversion}"
+    soldier_movement_activity_conversion_site)
+  if(soldier_movement_activity_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost movement-activity mapping '${movement_activity_conversion}'")
+  endif()
+endforeach()
 foreach(movement_intent_operation IN ITEMS
   "bool stealthy() const noexcept"
   "bool reversing() const noexcept"
@@ -5747,7 +5824,30 @@ foreach(movement_intent_operation IN ITEMS
   "void setReverse(bool enabled) noexcept"
   "void setHighResolutionFacing(UINT8 current, UINT8 desired) noexcept"
   "void requestGridUpdateSuppression() noexcept"
-  "void clearGridUpdatePolicy() noexcept")
+  "void clearGridUpdatePolicy() noexcept"
+  "bool turnActive() const noexcept"
+  "bool wasInWater() const noexcept"
+  "bool fastUiMovement() const noexcept"
+  "bool outOfActionPoints() const noexcept"
+  "bool movementPaused() const noexcept"
+  "bool recordingMovement() const noexcept"
+  "bool delayedByNetwork() const noexcept"
+  "bool crossedDestinationCenter() const noexcept"
+  "void beginTurn() noexcept"
+  "void finishTurn() noexcept"
+  "void rememberWaterState(bool inWater) noexcept"
+  "void setUiMovementFast(BOOLEAN mode) noexcept"
+  "void clearUiMovementFast() noexcept"
+  "void setOutOfActionPoints(bool exhausted) noexcept"
+  "void pauseMovement() noexcept"
+  "void resumeMovement() noexcept"
+  "void startMovementClock() noexcept"
+  "void stopMovementClock() noexcept"
+  "void setNetworkDelayed(bool delayed) noexcept"
+  "bool syncPresentationMotion(bool moving) noexcept"
+  "void markPastXDestination() noexcept"
+  "void markPastYDestination() noexcept"
+  "void clearPastDestination() noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${movement_intent_operation}"
     soldier_movement_intent_operation_site)
@@ -5770,10 +5870,86 @@ foreach(movement_command_transition IN ITEMS
       "Simulation command execution bypassed movement transition '${movement_command_transition}'")
   endif()
 endforeach()
+file(READ "${SOURCE_ROOT}/Tactical/TeamTurns.cpp"
+  movement_team_turn_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  movement_ai_main_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  movement_animation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  movement_overhead_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  movement_realtime_input_contents)
+foreach(movement_turn_transition IN ITEMS
+  "pActingSoldier->movement().beginTurn();")
+  string(FIND "${movement_team_turn_contents}"
+    "${movement_turn_transition}"
+    movement_team_turn_transition_site)
+  if(movement_team_turn_transition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Team-turn scheduling bypassed movement activity '${movement_turn_transition}'")
+  endif()
+endforeach()
+foreach(movement_ai_turn_transition IN ITEMS
+  "pSoldier->movement().beginTurn();"
+  "pSoldier->movement().finishTurn();")
+  string(FIND "${movement_ai_main_contents}"
+    "${movement_ai_turn_transition}"
+    movement_ai_turn_transition_site)
+  if(movement_ai_turn_transition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical AI bypassed movement turn transition '${movement_ai_turn_transition}'")
+  endif()
+endforeach()
+string(FIND "${movement_animation_contents}"
+  "pSoldier->movement().pauseMovement();"
+  movement_animation_pause_transition)
+if(movement_animation_pause_transition EQUAL -1)
+  message(FATAL_ERROR
+    "Animation control must pause movement through SoldierMovementComponent")
+endif()
+foreach(movement_overhead_transition IN ITEMS
+  "pSoldier->movement().syncPresentationMotion(false)"
+  "pSoldier->movement().syncPresentationMotion(true)"
+  "pSoldier->movement().recordingMovement()"
+  "pSoldier->movement().resumeMovement();"
+  "pSoldier->movement().crossedDestinationCenter()"
+  "pSoldier->movement().clearPastDestination();")
+  string(FIND "${movement_overhead_contents}"
+    "${movement_overhead_transition}"
+    movement_overhead_transition_site)
+  if(movement_overhead_transition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Overhead movement lifecycle bypassed '${movement_overhead_transition}'")
+  endif()
+endforeach()
+foreach(movement_control_transition IN ITEMS
+  "this->movement().setOutOfActionPoints(fSet != FALSE);"
+  "this->movement().rememberWaterState(fInWaterValue != FALSE);"
+  "this->movement().markPastXDestination();"
+  "this->movement().markPastYDestination();"
+  "this->movement().clearPastDestination();")
+  string(FIND "${soldier_control_source_contents}"
+    "${movement_control_transition}"
+    movement_control_transition_site)
+  if(movement_control_transition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier route execution bypassed movement activity '${movement_control_transition}'")
+  endif()
+endforeach()
+string(FIND "${movement_realtime_input_contents}"
+  "subjectSoldier->movement().setUiMovementFast(2);"
+  movement_realtime_ui_speed_transition)
+if(movement_realtime_ui_speed_transition EQUAL -1)
+  message(FATAL_ERROR
+    "Real-time input must retain the established UI movement-speed mode through SoldierMovementComponent")
+endif()
 foreach(movement_mode_test_fragment IN ITEMS
   "constSoldier.movement().highResolutionDesiredDirection() == 13"
-  "v101 soldier conversion maps the established tactical movement intent and facing state"
-  "soldier save/load round-trips component-owned movement intent, facing, grid policy, and delay counter"
+  "soldier movement component owns tactical intent, contention, and activity state"
+  "soldier movement component clears coordinated movement activity through named transitions"
+  "v101 soldier conversion retains movement intent, facing, and complete activity state"
+  "soldier save/load round-trips component-owned movement intent, facing, and activity state"
   "soldier initialization resets the complete movement domain")
   string(FIND "${headless_test_contents}"
     "${movement_mode_test_fragment}"
@@ -5792,10 +5968,22 @@ string(FIND "${engine_sdk_documentation}"
 string(FIND "${save_format_documentation}"
   "usDontUpdateNewGridNoOnMoveAnimChange"
   soldier_movement_intent_save_documented)
+string(FIND "${engine_architecture_documentation}"
+  "destination-center crossing"
+  soldier_movement_activity_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "movement-clock/network-delay"
+  soldier_movement_activity_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "eight established movement-activity booleans"
+  soldier_movement_activity_save_documented)
 if(soldier_movement_mode_conversion EQUAL -1 OR
    soldier_movement_intent_architecture_documented EQUAL -1 OR
    soldier_movement_intent_sdk_documented EQUAL -1 OR
-   soldier_movement_intent_save_documented EQUAL -1)
+   soldier_movement_intent_save_documented EQUAL -1 OR
+   soldier_movement_activity_architecture_documented EQUAL -1 OR
+   soldier_movement_activity_sdk_documented EQUAL -1 OR
+   soldier_movement_activity_save_documented EQUAL -1)
   message(FATAL_ERROR
     "Component-owned movement intent must retain v101 mapping and architecture/save documentation")
 endif()
@@ -6355,7 +6543,7 @@ endforeach()
 # flags, recoil history, bullets in flight, burst cursor, spread targets,
 # autofire count, and multi-barrel cursor.
 string(REGEX MATCH
-  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fIsSoldierMoving\\);"
+  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);"
   serialized_soldier_fire_spread_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6892,11 +7080,11 @@ string(FIND "${save_load_game_contents}"
   "SoldierRenderStateComponent& renderState = s.renderState();"
   soldier_render_state_pod_adapter)
 string(REGEX MATCH
-  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);"
+  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);"
   serialized_render_fade_mode_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(renderState\\.forceRenderColor\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);[ \t]*ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);"
+  "ar\\.boolean\\(renderState\\.forceRenderColor\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.uiMovementFast\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);"
   serialized_render_policy_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7606,7 +7794,7 @@ endforeach()
 # continuation mode intentionally uses raw u8 transfer: legacy code stores
 # mode 2 here, so boolean normalization would corrupt a live transition.
 string(REGEX MATCH
-  "ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);"
+  "ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.uiMovementFast\\(\\)\\);"
   serialized_soldier_animation_stop_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7853,7 +8041,7 @@ endforeach()
 # hitPhase intentionally transfers as raw u8: the live state machine uses phase
 # 2, which the former boolean serializer silently normalized back to phase 1.
 string(REGEX MATCH
-  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fPrevInWater\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
+  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.previousInWater\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
   serialized_soldier_animation_turn_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7865,7 +8053,7 @@ string(REGEX MATCH
   serialized_soldier_animation_cost_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);[ \t]*ar\\.boolean\\(f\\.fMercAsleep\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fSoldierWasMoving\\);"
+  "ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);[ \t]*ar\\.boolean\\(f\\.fMercAsleep\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);"
   serialized_soldier_animation_stance_cost_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7873,7 +8061,7 @@ string(REGEX MATCH
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(f\\.fPastXDest\\);[ \t]*ar\\.i8\\(f\\.fPastYDest\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
+  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastXDestination\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastYDestination\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

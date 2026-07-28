@@ -438,7 +438,7 @@ namespace
 					value.reportedGrid, &positionX, &positionY);
 				if ((gAnimControl[soldier->animationPlayback().state()].uiFlags &
 						(ANIM_MOVING | ANIM_SPECIALMOVE)) == 0 ||
-					soldier->flags.fNoAPToFinishMove)
+					soldier->movement().outOfActionPoints())
 					soldier->EVENT_InternalSetSoldierPosition(
 						positionX, positionY, FALSE, FALSE, FALSE);
 				soldier->EVENT_InitNewSoldierAnim(

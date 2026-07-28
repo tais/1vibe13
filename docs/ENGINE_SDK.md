@@ -434,10 +434,14 @@ the selected movement-animation mode, stealth/reverse intent, high-resolution
 current and desired facing, animation direction and grid-update policy,
 delayed-tile counters and causes, movement reservation, merc contention,
 scripted and continued destinations, stop reason, and coordinated speed
-override. UI, AI, animation, rendering, pathing, and simulation-command
-adapters all use `movement()` as the one authority. Named operations cover
-intent changes, synchronized extended facing, grid-update suppression, and
-other paired transitions instead of independently mutating generic flags.
+override. Tactical turn ownership, prior water state, UI speed, AP exhaustion,
+pause state, movement-clock/network-delay flags, presentation motion, and
+destination-center crossing live there as well. UI, AI, animation, rendering,
+pathing, and simulation-command adapters all use `movement()` as the one
+authority. Named operations cover intent changes, synchronized extended
+facing, grid-update suppression, turn and pause lifecycles, water/UI-speed
+edges, and paired destination crossing instead of independently mutating
+generic flags.
 `SoldierInterruptSnapshotComponent` captures the scheduler's moved state across
 temporary interrupt ownership without exposing another flat soldier field.
 `SoldierTargetingComponent` owns the selected target

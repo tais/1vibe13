@@ -813,7 +813,7 @@ BOOLEAN EnterShopKeeperInterface()
 				*pShopkeeper,
 				sGoodGridNo,
 				pSoldier->movement().mode(),
-				pSoldier->flags.fNoAPToFinishMove != FALSE);
+				pSoldier->movement().outOfActionPoints() != FALSE);
 
 			return( FALSE );
 		}

@@ -5818,7 +5818,7 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 									ubSeatIndex,
 									sActionGridNo,
 									pSoldier->movement().mode(),
-									pSoldier->flags.fNoAPToFinishMove != FALSE)
+									pSoldier->movement().outOfActionPoints() != FALSE)
 								: TryDispatchEnterVehicleCommandNow(
 									*pSoldier,
 									*pTSoldier,
@@ -6554,11 +6554,11 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 						if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 						{
 							UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
-							pSoldier->flags.fUIMovementFast = 0;
+							pSoldier->movement().setUiMovementFast(0);
 						}
 						else
 						{
-							pSoldier->flags.fUIMovementFast = 0;
+							pSoldier->movement().setUiMovementFast(0);
 							pSoldier->movement().mode() = WALKING;
 							gfPlotNewMovement = TRUE;
 						}
@@ -6587,7 +6587,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 				if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 				{
 					UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
-					pSoldier->flags.fUIMovementFast = 0;
+					pSoldier->movement().setUiMovementFast(0);
 				}
 				else
 				{
@@ -6598,7 +6598,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 						pSoldier->animationIntent().pendingAnimation() = usNewState;
 					}
 
-					pSoldier->flags.fUIMovementFast = 0;
+					pSoldier->movement().setUiMovementFast(0);
 					pSoldier->movement().mode() = WALKING;
 					gfPlotNewMovement = TRUE;
 				}
@@ -8778,7 +8778,7 @@ void HandleTBSoldierRun( void )
 			  && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 		{
 			UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
-			pSoldier->flags.fUIMovementFast = 1;
+			pSoldier->movement().setUiMovementFast(1);
 		}
 		else
 		{
@@ -8789,7 +8789,7 @@ void HandleTBSoldierRun( void )
 				pSoldier->animationIntent().pendingAnimation() = usNewState;
 			}
 
-			pSoldier->flags.fUIMovementFast = 1;
+			pSoldier->movement().setUiMovementFast(1);
 			pSoldier->movement().mode() = RUNNING;
 			gfPlotNewMovement = TRUE;
 		}

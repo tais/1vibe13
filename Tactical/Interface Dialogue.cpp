@@ -2263,7 +2263,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					pSoldier->flags.fUIMovementFast = TRUE;
+					pSoldier->movement().setUiMovementFast(TRUE);
 				}
 				break;
 
@@ -2271,7 +2271,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier)
 				{
-					pSoldier->flags.fUIMovementFast = FALSE;
+					pSoldier->movement().setUiMovementFast(FALSE);
 				}
 				break;
 

@@ -225,7 +225,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 402:
 
 				// DO NOT MOVE FOR THIS FRAME
-				pSoldier->flags.fPausedMove = TRUE;
+				pSoldier->movement().pauseMovement();
 				break;
 
 			case 403:
@@ -2559,7 +2559,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					// Have we finished opening doors?
 					// 0verhaul:  Added additional check:  Are we told to stop at this point, maybe due to being interrupted?
-					if ( !pSoldier->flags.fNoAPToFinishMove &&
+					if ( !pSoldier->movement().outOfActionPoints() &&
 						(pSoldier->animationPlayback().state() == END_OPEN_DOOR ||
 						pSoldier->animationPlayback().state() == END_OPEN_DOOR_CROUCHED ||
 						pSoldier->animationPlayback().state() == CRIPPLE_CLOSE_DOOR ||

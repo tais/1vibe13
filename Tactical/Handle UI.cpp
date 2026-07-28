@@ -1903,7 +1903,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 					{
 						UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
-						pSoldier->flags.fUIMovementFast = 1;
+						pSoldier->movement().setUiMovementFast(1);
 					}
 					else
 					{
@@ -1914,7 +1914,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
-						pSoldier->flags.fUIMovementFast = 1;
+						pSoldier->movement().setUiMovementFast(1);
 						pSoldier->movement().mode() = RUNNING;
 						gfPlotNewMovement = TRUE;
 					}
@@ -1925,7 +1925,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 					if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 					{
 						UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
-						pSoldier->flags.fUIMovementFast = 0;
+						pSoldier->movement().setUiMovementFast(0);
 					}
 					else
 					{
@@ -1936,7 +1936,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 							pSoldier->animationIntent().pendingAnimation() = usNewState;
 						}
 
-						pSoldier->flags.fUIMovementFast = 0;
+						pSoldier->movement().setUiMovementFast(0);
 						pSoldier->movement().mode() = WALKING;
 						gfPlotNewMovement = TRUE;
 					}
@@ -2239,16 +2239,16 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 
 					pSoldier->AdjustNoAPToFinishMove( FALSE );
 
-					fOldFastMove = pSoldier->flags.fUIMovementFast;
+					fOldFastMove = pSoldier->movement().uiMovementFast();
 
 					if ( fAllMove == 2 )
 					{
-						pSoldier->flags.fUIMovementFast = TRUE;
+						pSoldier->movement().setUiMovementFast(TRUE);
 						pSoldier->movement().mode() = RUNNING;
 					}
 					else
 					{
-						pSoldier->flags.fUIMovementFast = FALSE;
+						pSoldier->movement().setUiMovementFast(FALSE);
 						pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 					}
 
@@ -2273,7 +2273,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->GetName() );
 					}
 
-					pSoldier->flags.fUIMovementFast = fOldFastMove;
+					pSoldier->movement().setUiMovementFast(fOldFastMove);
 
 				}
 			}
@@ -2436,7 +2436,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 
 					if ( !gTacticalStatus.fAtLeastOneGuyOnMultiSelect )
 					{
-						pSoldier->flags.fUIMovementFast = FALSE;
+						pSoldier->movement().setUiMovementFast(FALSE);
 					}
 
 					//StartLooseCursor( sMapPos, 0 );
@@ -2460,14 +2460,14 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 								static_cast<std::uint16_t>(
 									pSoldier->movement().mode()),
 								gUIUseReverse != FALSE,
-								pSoldier->flags.fNoAPToFinishMove != FALSE)
+								pSoldier->movement().outOfActionPoints() != FALSE)
 							: TryDispatchMoveToGridCommandNow(
 								*pSoldier,
 								sDestGridNo,
 								static_cast<std::uint16_t>(
 									pSoldier->movement().mode()),
 								gUIUseReverse != FALSE,
-								pSoldier->flags.fNoAPToFinishMove != FALSE);
+								pSoldier->movement().outOfActionPoints() != FALSE);
 					if (!movement) return GAME_SCREEN;
 					SetUIBusy( pSoldier->ubID );
 
@@ -2548,7 +2548,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 		}
 		else if ( pSoldier->movement().mode() == CRAWLING )
 		{
-			pSoldier->flags.fUIMovementFast = 1;
+			pSoldier->movement().setUiMovementFast(1);
 			pSoldier->movement().mode() = RUNNING;
 			if ( IsValidMovementMode( pSoldier, RUNNING ) )
 			{
@@ -3781,7 +3781,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 							// Don't do this unless we want to
 
 							// Check if buddy is stationary!
-							if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY || pSoldier->flags.fNoAPToFinishMove )
+							if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY || pSoldier->movement().outOfActionPoints() )
 							{
 								guiShowUPDownArrows							= ARROWS_SHOW_DOWN_BESIDE | ARROWS_SHOW_UP_BESIDE;
 							}
@@ -4157,7 +4157,7 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 	}
 
 	// Check if we're stationary
-	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) || ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
+	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) || ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->movement().outOfActionPoints() ) || pSoldier->ubID >= MAX_NUM_SOLDIERS )
 	{
 		// If we are targeting a merc for some reason, don't go thorugh normal channels if we are on someone now
 		if ( uiFlags == MOVEUI_TARGET_MERCS || uiFlags == MOVEUI_TARGET_MERCSFORAID )
@@ -5331,7 +5331,7 @@ void SetMovementModeCursor( SOLDIERTYPE *pSoldier )
 		}
 		else
 		{
-			//if ( pSoldier->flags.fUIMovementFast )
+			//if ( pSoldier->movement().uiMovementFast() )
 			//{
 			//	BeginDisplayTimedCursor( MOVE_RUN_REALTIME_UICURSOR, 300 );
 			//}
@@ -5576,7 +5576,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 		if (!facing) return FALSE;
 
 		// ATE: make stationary if...
-		if ( pSoldier->flags.fNoAPToFinishMove )
+		if ( pSoldier->movement().outOfActionPoints() )
 		{
 			// arynn : fix lower ready weapons
 			//previously "ready weapon" state was being dropped in a couple of cases
@@ -6137,7 +6137,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 			{
 				if ( pSoldier->ubID == gusSelectedSoldier )
 				{
-					fMoveFast = pSoldier->flags.fUIMovementFast;
+					fMoveFast = pSoldier->movement().uiMovementFast();
 					break;
 				}
 			}
@@ -6197,10 +6197,10 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 					}
 				}
 
-				pSoldier->flags.fUIMovementFast	= fMoveFast;
+				pSoldier->movement().setUiMovementFast(fMoveFast);
 				pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
-				pSoldier->flags.fUIMovementFast	= FALSE;
+				pSoldier->movement().setUiMovementFast(FALSE);
 
 				INT32 sIndividualDestGridNo = sDestGridNo;
 				// Flugente: determine offset to current center gridno
@@ -6242,7 +6242,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 						*pSoldier,
 						sIndividualDestGridNo, pSoldier->movement().mode(),
 						gUIUseReverse != FALSE,
-						pSoldier->flags.fNoAPToFinishMove != FALSE);
+						pSoldier->movement().outOfActionPoints() != FALSE);
 				if ( movement )
 				{
 					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );
@@ -6857,7 +6857,7 @@ BOOLEAN HandleTalkInit(	)
 						*pTSoldier,
 						sGoodGridNo,
 						pSoldier->movement().mode(),
-						pSoldier->flags.fNoAPToFinishMove != FALSE);
+						pSoldier->movement().outOfActionPoints() != FALSE);
 
 					return( FALSE );
 				}

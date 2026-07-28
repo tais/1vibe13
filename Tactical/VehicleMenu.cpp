@@ -200,7 +200,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 							static_cast<UINT8>(aVal),
 							sActionGridNo,
 							pCurrentSoldier->movement().mode(),
-							pCurrentSoldier->flags.fNoAPToFinishMove != FALSE)
+							pCurrentSoldier->movement().outOfActionPoints() != FALSE)
 						: TryDispatchEnterVehicleCommandNow(
 							*pCurrentSoldier,
 							*pCurrentVehicle,

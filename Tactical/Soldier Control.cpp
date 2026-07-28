@@ -475,20 +475,15 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 
 	this->bHasKeys = src.bHasKeys;			// allows AI controlled dudes to open locked doors
 	this->fHitByGasFlags = src.fHitByGasFlags;						// flags
-	this->fIsSoldierMoving = src.fIsSoldierMoving;							// ie.  Record time is on
-	this->fIsSoldierDelayed = src.fIsSoldierDelayed;						//Is the soldier delayed Soldier
 	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
 	// The transient v101 door continuation phase is deliberately not converted.
-	this->fSoldierWasMoving = src.fSoldierWasMoving;
 	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
 	this->fDieSoundUsed = src.fDieSoundUsed;
 	this->fUseLandingZoneForArrival = src.fUseLandingZoneForArrival;
 	this->fComplainedThatTired = src.fComplainedThatTired;
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
-	this->fPastXDest = src.fPastXDest;
-	this->fPastYDest = src.fPastYDest;
 	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
 	this->fContractPriceHasIncreased = src.fContractPriceHasIncreased;
 	this->fFixingSAMSite = src.fFixingSAMSite;
@@ -497,8 +492,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
 	this->fFlashPortrait = src.fFlashPortrait;
-	this->fPrevInWater = src.fPrevInWater;
-	this->fUIMovementFast = src.fUIMovementFast;
 	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
 	this->fClosePanel = src.fClosePanel;
 	this->fClosePanelToDie = src.fClosePanelToDie;
@@ -508,12 +501,9 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
 	this->fInMissionExitNode = src.fInMissionExitNode;
-	this->fTurnInProgress = src.fTurnInProgress;
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
 	this->fWarnedAboutBleeding = src.fWarnedAboutBleeding;
 	this->fDyingComment = src.fDyingComment;
-	this->fNoAPToFinishMove = src.fNoAPToFinishMove;
-	this->fPausedMove = src.fPausedMove;
 	this->fUIdeadMerc = src.fUIdeadMerc;				// UI Flags for removing a newly dead merc
 	this->fUInewMerc = src.fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
 	this->fUICloseMerc = src.fUICloseMerc;				// UI Flags for closing panels
@@ -638,6 +628,16 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().doorHandleCode() = src.ubDoorHandleCode;
 		pendingAction().quaternaryData() = src.uiPendingActionData4;
 		flags.ConvertFrom_101_To_102( src );
+		movement().turnInProgress() = src.fTurnInProgress;
+		movement().previousInWater() = src.fPrevInWater;
+		movement().uiMovementFast() = src.fUIMovementFast;
+		movement().noActionPointsToFinish() = src.fNoAPToFinishMove;
+		movement().paused() = src.fPausedMove;
+		movement().movementClockActive() = src.fIsSoldierMoving;
+		movement().networkDelayed() = src.fIsSoldierDelayed;
+		movement().wasMoving() = src.fSoldierWasMoving;
+		movement().pastXDestination() = src.fPastXDest;
+		movement().pastYDestination() = src.fPastYDest;
 		renderState().fadeMode() = src.fBeginFade;
 		renderState().forceRenderColor() = src.fForceRenderColor;
 		renderState().forceNoPaletteCycle() = src.fForceNoRenderPaletteCycle;
@@ -1888,7 +1888,7 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 
 
 
-	this->flags.fNoAPToFinishMove = fSet;
+	this->movement().setOutOfActionPoints(fSet != FALSE);
 
 	if ( !fSet )
 	{
@@ -2489,7 +2489,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 	// ATE: Reset some timer flags...
 	this->dialogue().repeatedBattleSoundAt() = 0;
 	// ATE: Reset every time.....
-	this->flags.fSoldierWasMoving = TRUE;
+	this->movement().syncPresentationMotion(true);
 	this->audio().clearTurningSound();
 	this->vitals().lastBleedGruntAt() = 0;
 
@@ -3736,7 +3736,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 							}
 
 							// Make sure desy = zeroed out...
-							// this->flags.fPastXDest = this->flags.fPastYDest = FALSE;
+							// this->movement().clearPastDestination();
 						}
 						else
 						{
@@ -4199,8 +4199,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 										  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->position().direction() ) );
 
 										  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
-										  this->flags.fPastXDest = FALSE;
-										  this->flags.fPastYDest = FALSE;
+										  this->movement().clearPastDestination();
 										  this->pathing().pathSize() = 0;
 										  this->pathing().pathIndex() = 0;
 										  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
@@ -4225,8 +4224,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 						  usNewGridNo = NewGridNo( usNewGridNo, DirectionInc( this->position().direction() ) );
 
 						  this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
-						  this->flags.fPastXDest = FALSE;
-						  this->flags.fPastYDest = FALSE;
+						  this->movement().clearPastDestination();
 						  this->pathing().pathSize() = 0;
 						  this->pathing().pathIndex() = 0;
 						  this->pathing().path()[this->pathing().pathSize()] = this->position().direction();
@@ -4848,13 +4846,13 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 				usUIMovementModeToSet = WALKING;
 			}
 
-			if ( fInWaterValue != this->flags.fPrevInWater )
+			if ( fInWaterValue != this->movement().previousInWater() )
 			{
 				//Update Animation data
 				SetSoldierAnimationSurface( this, this->animationPlayback().state() );
 
 				// Update flag
-				this->flags.fPrevInWater = fInWaterValue;
+				this->movement().rememberWaterState(fInWaterValue != FALSE);
 
 				// Update sound...
 				if ( fInWaterValue )
@@ -5369,7 +5367,7 @@ UINT16 SOLDIERTYPE::GetMoveStateBasedOnStance( UINT8 ubStanceHeight )
 	switch ( ubStanceHeight )
 	{
 	case ANIM_STAND:
-		//if ( this->flags.fUIMovementFast && !( this->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		//if ( this->movement().uiMovementFast() && !( this->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		if ( this->IsFastMovement() )
 		{
 			return(RUNNING);
@@ -7195,8 +7193,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 
 		// Set final destination
 		this->pathing().finalDestinationGrid() = sDestGridNo;
-		this->flags.fPastXDest = 0;
-		this->flags.fPastYDest = 0;
+		this->movement().clearPastDestination();
 
 
 		// CHECK IF FIRST TILE IS FREE
@@ -7282,7 +7279,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 	// for ui display on stance changes....
 	if ( this->bTeam == gbPlayerNum )
 	{
-		//this->flags.fUIMovementFast = FALSE;
+		//this->movement().setUiMovementFast(FALSE);
 	}
 
 	// The queen, if she sees anybody, goes to ready, not normal breath....
@@ -7591,7 +7588,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 	// ATE: If we are fNoAPsToFinnishMove, stop what we were doing and
 	// reset flag.....
-	if ( pSoldier->flags.fNoAPToFinishMove && (gAnimControl[usAnimState].uiFlags & ANIM_MOVING) )
+	if ( pSoldier->movement().outOfActionPoints() && (gAnimControl[usAnimState].uiFlags & ANIM_MOVING) )
 	{
 		// ATE; Commented this out: NEVER, EVER, start a new anim from this function, as an eternal loop will result....
 		//pSoldier->SoldierGotoStationaryStance( );
@@ -7652,7 +7649,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 			}
 		}
 
-		if ( gAnimControl[usAnimState].uiFlags & ANIM_STATIONARY || pSoldier->flags.fNoAPToFinishMove || fInitalMove )
+		if ( gAnimControl[usAnimState].uiFlags & ANIM_STATIONARY || pSoldier->movement().outOfActionPoints() || fInitalMove )
 		{
 			if ( gAnimControl[usAnimState].ubHeight == ANIM_PRONE )
 			{
@@ -8430,7 +8427,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	// IF WE ARE HERE, WE ARE IN THE PROCESS OF TURNING
 
 	// DOUBLE CHECK TO UNSET fNOAPs...
-	if ( this->flags.fNoAPToFinishMove )
+	if ( this->movement().outOfActionPoints() )
 	{
 		this->AdjustNoAPToFinishMove( FALSE );
 	}
@@ -11503,7 +11500,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		if ( fStop )
 		{
 			//dXPos = this->pathing().destinationX();
-			this->flags.fPastXDest = TRUE;
+			this->movement().markPastXDestination();
 
 			if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
@@ -11555,7 +11552,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 		if ( fStop )
 		{
 			//dYPos = this->pathing().destinationY();
-			this->flags.fPastYDest = TRUE;
+			this->movement().markPastYDestination();
 
 			if ( this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
@@ -21842,16 +21839,16 @@ UINT32		SOLDIERTYPE::GetExplorationPoints()
 
 bool	SOLDIERTYPE::IsFastMovement()
 {
-	if ( this->flags.fUIMovementFast )
+	if ( this->movement().fastUiMovement() )
 	{
 		// Flugente: disease can stop us from using our legs normally
 		if ( gGameExternalOptions.fDisease
 			&& gGameExternalOptions.fDiseaseSevereLimitations
 			&& this->HasDiseaseWithFlag( DISEASE_PROPERTY_LIMITED_USE_LEGS ) )
-			this->flags.fUIMovementFast = false;
+			this->movement().clearUiMovementFast();
 	}
 
-	return this->flags.fUIMovementFast;
+	return this->movement().uiMovementFast();
 }
 
 INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
@@ -23208,8 +23205,7 @@ void SOLDIERTYPE::ChangeToFlybackAnimation( UINT8 flyBackDirection )
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
-	this->flags.fPastXDest = 0;
-	this->flags.fPastYDest = 0;
+	this->movement().clearPastDestination();
 
 	// Set path....
 	this->pathing().pathSize() = 0;
@@ -23255,8 +23251,7 @@ void SOLDIERTYPE::ChangeToFallbackAnimation( UINT8 fallBackDirection )
 
 	// Since we're manually setting our path, we have to reset these @#$@# flags too.  Otherwise we don't reach the
 	// destination a lot of the time
-	this->flags.fPastXDest = 0;
-	this->flags.fPastYDest = 0;
+	this->movement().clearPastDestination();
 
 	// Set path....
 	this->pathing().pathSize() = 0;

@@ -1161,14 +1161,13 @@ BOOLEAN ExecuteOverhead( )
             pSoldier->awareness().syncRenderedVisibility();
 
             // Handle stationary polling...
-            if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->flags.fNoAPToFinishMove )
+            if ( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY ) || pSoldier->movement().outOfActionPoints() )
             {
                 // Are are stationary....
                 // Were we once moving...?
-                if ( pSoldier->flags.fSoldierWasMoving && pSoldier->awareness().locationKnown() )
+                if ( pSoldier->awareness().locationKnown() &&
+                     pSoldier->movement().syncPresentationMotion(false) )
                 {
-                    pSoldier->flags.fSoldierWasMoving = FALSE;
-
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), TRUE, FALSE );
                 }
             }
@@ -1176,9 +1175,8 @@ BOOLEAN ExecuteOverhead( )
             {
                 // We are moving....
                 // Were we once stationary?
-                if ( !pSoldier->flags.fSoldierWasMoving )
+                if ( pSoldier->movement().syncPresentationMotion(true) )
                 {
-                    pSoldier->flags.fSoldierWasMoving = TRUE;
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), FALSE, FALSE );
                 }
             }
@@ -1193,7 +1191,7 @@ BOOLEAN ExecuteOverhead( )
                 // DEF:
                 // Check for TIMING delay here only if in Realtime
                 if( gTacticalStatus.uiFlags & REALTIME)
-                    if ( pSoldier->flags.fIsSoldierMoving )
+                    if ( pSoldier->movement().recordingMovement() )
                         CheckForSlowSoldier( pSoldier );
 #endif
 
@@ -1253,7 +1251,7 @@ BOOLEAN ExecuteOverhead( )
 #endif
 
                 // Check if we are moving and we deduct points and we have no points
-                if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->flags.fNoAPToFinishMove ) && !pSoldier->animationActivity().paused()    )
+                if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING | ANIM_SPECIALMOVE ) ) && pSoldier->movement().outOfActionPoints() ) && !pSoldier->animationActivity().paused()    )
                 {
                     if ( !AdjustToNextAnimationFrame( pSoldier ) )
                     {
@@ -1270,12 +1268,12 @@ BOOLEAN ExecuteOverhead( )
                     {
                         fKeepMoving = TRUE;
 
-                        pSoldier->flags.fPausedMove = FALSE;
+                        pSoldier->movement().resumeMovement();
 
                         // CHECK TO SEE IF WE'RE ON A MIDDLE TILE
-                        if ( pSoldier->flags.fPastXDest && pSoldier->flags.fPastYDest )
+                        if ( pSoldier->movement().crossedDestinationCenter() )
                         {
-                            pSoldier->flags.fPastXDest = pSoldier->flags.fPastYDest = FALSE;
+                            pSoldier->movement().clearPastDestination();
                             // assign X/Y values back to make sure we are at the center of the tile
                             // (to prevent mercs from going through corners of tiles and producing
                             // structure data complaints)
@@ -1652,7 +1650,7 @@ BOOLEAN ExecuteOverhead( )
                                 // RESET MOVE FAST FLAG
                                 if ( (pSoldier->ubProfile == NO_PROFILE)    )
                                 {
-                                    pSoldier->flags.fUIMovementFast = FALSE;
+                                    pSoldier->movement().clearUiMovementFast();
                                 }
 
                                 // if AI moving and waiting to process something at end of
@@ -1664,7 +1662,7 @@ BOOLEAN ExecuteOverhead( )
 
                                 fKeepMoving = FALSE;
                             }
-                            else if ( !pSoldier->flags.fNoAPToFinishMove )
+                            else if ( !pSoldier->movement().outOfActionPoints() )
                             {
                                 // Increment path....
                                 pSoldier->pathing().pathIndex()++;
@@ -1771,12 +1769,12 @@ BOOLEAN ExecuteOverhead( )
 
                         if (is_networked)
                         {
-                            if ( !pSoldier->flags.fPausedMove && fKeepMoving && !pSoldier->flags.fNoAPToFinishMove )
+                            if ( !pSoldier->movement().movementPaused() && fKeepMoving && !pSoldier->movement().outOfActionPoints() )
                                 executeCondition = TRUE;
                         }   
                         else
                         {
-                            if ( !pSoldier->flags.fPausedMove && fKeepMoving )
+                            if ( !pSoldier->movement().movementPaused() && fKeepMoving )
                                 executeCondition = TRUE;
                         }
 
@@ -1813,7 +1811,7 @@ BOOLEAN ExecuteOverhead( )
                 }
 
 #ifdef NETWORKED
-                if(!pSoldier->flags.fNoAPToFinishMove )
+                if(!pSoldier->movement().outOfActionPoints() )
                     pSoldier->replication().recordUpdate( GetJA2Clock() );
                 if (pSoldier->flags.fSoldierUpdatedFromNetwork)
                     UpdateSoldierFromNetwork(pSoldier);
@@ -2307,7 +2305,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 
     // ATE: Check if we have sighted anyone, if so, don't do anything else...
     // IN other words, we have stopped from sighting...
-    if ( pSoldier->flags.fNoAPToFinishMove && !fInitialMove )
+    if ( pSoldier->movement().outOfActionPoints() && !fInitialMove )
     {
         DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("HandleGotoNewGridNo() Failed: No APs to finish move set") );
         pSoldier->schedule().cancelDoorContinuation();
@@ -2894,7 +2892,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
             }
         }
     }
-    else if ( pSoldier->flags.fNoAPToFinishMove )
+    else if ( pSoldier->movement().outOfActionPoints() )
     {
         (*pfKeepMoving ) = FALSE;
     }
@@ -6591,7 +6589,7 @@ void ExitCombatMode( )
         if ( pSoldier->bActive && pSoldier->bInSector )
         {
             // Reset some flags
-            if ( pSoldier->flags.fNoAPToFinishMove && pSoldier->vitals().health() >= OKLIFE )
+            if ( pSoldier->movement().outOfActionPoints() && pSoldier->vitals().health() >= OKLIFE )
             {
                 pSoldier->AdjustNoAPToFinishMove( FALSE );
 

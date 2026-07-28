@@ -462,9 +462,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   policy remains unsigned 16-bit after movement history. V101 conversion maps
   `usUIMovementMode`, `bStealthMode`, `bReverse`, `ubHiResDirection`,
   `ubHiResDesiredDirection`, `bMovementDirection`, and
-  `usDontUpdateNewGridNoOnMoveAnimChange` into that owner. Current save streams,
-  simulation commands, multiplayer packets, maps, XML, Lua, and installed-data
-  bytes are unchanged.
+  `usDontUpdateNewGridNoOnMoveAnimChange` into that owner. The same component
+  now owns the eight established movement-activity booleans for turn, prior
+  water, UI speed, AP exhaustion, pause, movement timing, network delay, and
+  presentation motion, plus the two signed 8-bit destination-axis markers.
+  The visitor keeps all ten at their original scattered flag positions and
+  widths, and v101 conversion maps every raw historical value. Current save
+  streams, simulation commands, multiplayer packets, maps, XML, Lua, and
+  installed-data bytes are unchanged.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

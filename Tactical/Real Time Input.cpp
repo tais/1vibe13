@@ -441,8 +441,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 									//if ( gAnimControl[ gusSelectedSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY )
 									//if ( gusSelectedSoldier->animationPlayback().state() == WALKING )
 									{
-										subjectSoldier->flags.fUIMovementFast =
-											TRUE;
+										subjectSoldier->movement().setUiMovementFast(TRUE);
 										*puiNewEvent = C_MOVE_MERC;
 									}
 								}
@@ -586,14 +585,13 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 													if ( usSubjectSoldier != NOBODY )
 													{
-													if ( subjectSoldier->animationPlayback().state() != RUNNING )
+														if ( subjectSoldier->animationPlayback().state() != RUNNING )
 														{
 															*puiNewEvent = C_MOVE_MERC;
 														}
 														else
 														{
-														subjectSoldier->flags
-															.fUIMovementFast = 2;
+															subjectSoldier->movement().setUiMovementFast(2);
 															*puiNewEvent = C_MOVE_MERC;
 														}
 													}
@@ -757,7 +755,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																		{
 																			if ( GetCurInteractiveTileGridNo( &sIntTileGridNo ) != NULL )
 																			{
-																				pSoldier->flags.fUIMovementFast = TRUE;
+																				pSoldier->movement().setUiMovementFast(TRUE);
 																				*puiNewEvent = C_MOVE_MERC;
 																			}
 																		}

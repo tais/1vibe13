@@ -7499,6 +7499,16 @@ int main( int, char** )
 		movement.delayedFlags() = 5;
 		movement.stopReason() = 2;
 		movement.overrideMoveSpeedWith(SoldierID{ 4 });
+		movement.beginTurn();
+		movement.rememberWaterState(true);
+		movement.setUiMovementFast(2);
+		movement.setOutOfActionPoints(true);
+		movement.pauseMovement();
+		movement.startMovementClock();
+		movement.setNetworkDelayed(true);
+		movement.syncPresentationMotion(true);
+		movement.markPastXDestination();
+		movement.markPastYDestination();
 		soldier.interruptSnapshot().captureMoved(1);
 		SoldierTargetingComponent& targeting = soldier.targeting();
 		targeting.selectLocation(1280, 1, 3);
@@ -7910,8 +7920,17 @@ int main( int, char** )
 		       constSoldier.movement().delayedFlags() == 5 &&
 		       constSoldier.movement().stopReason() == 2 &&
 		       constSoldier.movement().usesMoveSpeedOverride() &&
-		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
-		       "soldier movement component owns tactical intent and contention state" );
+		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 } &&
+		       constSoldier.movement().turnActive() &&
+		       constSoldier.movement().wasInWater() &&
+		       constSoldier.movement().uiMovementFast() == 2 &&
+		       constSoldier.movement().outOfActionPoints() &&
+		       constSoldier.movement().movementPaused() &&
+		       constSoldier.movement().recordingMovement() &&
+		       constSoldier.movement().delayedByNetwork() &&
+		       constSoldier.movement().wasMoving() &&
+		       constSoldier.movement().crossedDestinationCenter(),
+		       "soldier movement component owns tactical intent, contention, and activity state" );
 		CHECK( constSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
 		       "soldier interrupt snapshot owns the pre-interrupt scheduler state" );
 		CHECK( constSoldier.targeting().gridNo() == 1280 &&
@@ -8828,7 +8847,16 @@ int main( int, char** )
 		       copiedSoldier.movement().delayedFlags() == 5 &&
 		       copiedSoldier.movement().stopReason() == 2 &&
 		       copiedSoldier.movement().usesMoveSpeedOverride() &&
-		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
+		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 } &&
+		       copiedSoldier.movement().turnActive() &&
+		       copiedSoldier.movement().wasInWater() &&
+		       copiedSoldier.movement().uiMovementFast() == 2 &&
+		       copiedSoldier.movement().outOfActionPoints() &&
+		       copiedSoldier.movement().movementPaused() &&
+		       copiedSoldier.movement().recordingMovement() &&
+		       copiedSoldier.movement().delayedByNetwork() &&
+		       copiedSoldier.movement().wasMoving() &&
+		       copiedSoldier.movement().crossedDestinationCenter(),
 		       "soldier copies retain their owned persistent movement state" );
 		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
 		       "soldier copies retain their owned interrupt snapshot" );
@@ -8974,6 +9002,15 @@ int main( int, char** )
 		copiedSoldier.movement().setReverse(false);
 		copiedSoldier.movement().setHighResolutionFacing(2, 3);
 		copiedSoldier.movement().clearGridUpdatePolicy();
+		copiedSoldier.movement().finishTurn();
+		copiedSoldier.movement().rememberWaterState(false);
+		copiedSoldier.movement().clearUiMovementFast();
+		copiedSoldier.movement().setOutOfActionPoints(false);
+		copiedSoldier.movement().resumeMovement();
+		copiedSoldier.movement().stopMovementClock();
+		copiedSoldier.movement().setNetworkDelayed(false);
+		copiedSoldier.movement().syncPresentationMotion(false);
+		copiedSoldier.movement().clearPastDestination();
 		copiedSoldier.animationIntent().clearDesiredHeight();
 		copiedSoldier.animationIntent().clearFacingAnimation();
 		copiedSoldier.animationIntent().queueAnimation( WALKING );
@@ -8995,8 +9032,17 @@ int main( int, char** )
 		       !copiedSoldier.movement().reversing() &&
 		       copiedSoldier.movement().highResolutionDirection() == 2 &&
 		       copiedSoldier.movement().highResolutionDesiredDirection() == 3 &&
-		       copiedSoldier.movement().gridUpdatePolicy() == 0,
-		       "soldier movement component clears coordinated movement modes through named transitions" );
+		       copiedSoldier.movement().gridUpdatePolicy() == 0 &&
+		       !copiedSoldier.movement().turnActive() &&
+		       !copiedSoldier.movement().wasInWater() &&
+		       !copiedSoldier.movement().fastUiMovement() &&
+		       !copiedSoldier.movement().outOfActionPoints() &&
+		       !copiedSoldier.movement().movementPaused() &&
+		       !copiedSoldier.movement().recordingMovement() &&
+		       !copiedSoldier.movement().delayedByNetwork() &&
+		       !copiedSoldier.movement().wasMoving() &&
+		       !copiedSoldier.movement().crossedDestinationCenter(),
+		       "soldier movement component clears coordinated movement activity through named transitions" );
 		CHECK( !copiedSoldier.animationIntent().hasDesiredHeight() &&
 		       !copiedSoldier.animationIntent().hasPendingAnimation() &&
 		       !copiedSoldier.animationIntent().hasSecondaryPendingAnimation() &&
@@ -9766,7 +9812,16 @@ int main( int, char** )
 		       copiedSoldier.movement().delayedFlags() == 0 &&
 		       copiedSoldier.movement().stopReason() == 0 &&
 		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
-		       !copiedSoldier.movement().usesMoveSpeedOverride(),
+		       !copiedSoldier.movement().usesMoveSpeedOverride() &&
+		       !copiedSoldier.movement().turnActive() &&
+		       !copiedSoldier.movement().wasInWater() &&
+		       !copiedSoldier.movement().fastUiMovement() &&
+		       !copiedSoldier.movement().outOfActionPoints() &&
+		       !copiedSoldier.movement().movementPaused() &&
+		       !copiedSoldier.movement().recordingMovement() &&
+		       !copiedSoldier.movement().delayedByNetwork() &&
+		       !copiedSoldier.movement().wasMoving() &&
+		       !copiedSoldier.movement().crossedDestinationCenter(),
 		       "soldier initialization resets the complete movement domain" );
 		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 0,
 		       "soldier initialization resets the interrupt snapshot domain" );
@@ -9949,6 +10004,16 @@ int main( int, char** )
 		legacySoldier->sBoundingBoxOffsetX = -7;
 		legacySoldier->sBoundingBoxOffsetY = -8;
 		legacySoldier->sLocationOfFadeStart = 1705;
+		legacySoldier->fTurnInProgress = TRUE;
+		legacySoldier->fPrevInWater = TRUE;
+		legacySoldier->fUIMovementFast = 2;
+		legacySoldier->fNoAPToFinishMove = TRUE;
+		legacySoldier->fPausedMove = TRUE;
+		legacySoldier->fIsSoldierMoving = TRUE;
+		legacySoldier->fIsSoldierDelayed = TRUE;
+		legacySoldier->fSoldierWasMoving = TRUE;
+		legacySoldier->fPastXDest = -2;
+		legacySoldier->fPastYDest = 3;
 		legacySoldier->bMovedPriorToInterrupt = 1;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
@@ -10194,6 +10259,8 @@ int main( int, char** )
 		convertedSoldier.movement().setHighResolutionFacing(1, 2);
 		convertedSoldier.movement().animationDirection() = 3;
 		convertedSoldier.movement().requestGridUpdateSuppression();
+		convertedSoldier.movement().clearUiMovementFast();
+		convertedSoldier.movement().clearPastDestination();
 		convertedSoldier.interruptSnapshot().captureMoved(9);
 		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
 		convertedSoldier.meleeApproach().rememberGrid(9997);
@@ -10477,8 +10544,18 @@ int main( int, char** )
 		       convertedSoldier.movement().highResolutionDesiredDirection() == 13 &&
 		       convertedSoldier.movement().animationDirection() == 5 &&
 		       convertedSoldier.movement().gridUpdatePolicy() ==
-		           LOCKED_NO_NEWGRIDNO,
-		       "v101 soldier conversion maps the established tactical movement intent and facing state" );
+		           LOCKED_NO_NEWGRIDNO &&
+		       convertedSoldier.movement().turnActive() &&
+		       convertedSoldier.movement().wasInWater() &&
+		       convertedSoldier.movement().uiMovementFast() == 2 &&
+		       convertedSoldier.movement().outOfActionPoints() &&
+		       convertedSoldier.movement().movementPaused() &&
+		       convertedSoldier.movement().recordingMovement() &&
+		       convertedSoldier.movement().delayedByNetwork() &&
+		       convertedSoldier.movement().wasMoving() &&
+		       convertedSoldier.movement().pastXDestination() == -2 &&
+		       convertedSoldier.movement().pastYDestination() == 3,
+		       "v101 soldier conversion retains movement intent, facing, and complete activity state" );
 		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
 		       convertedSoldier.meleeApproach().grid() == 1700 &&
 		       convertedSoldier.meleeApproach().cost() == 23 &&
@@ -10907,6 +10984,16 @@ int main( int, char** )
 		savedSoldier.movement().delayedFlags() = 3;
 		savedSoldier.movement().stopReason() = 4;
 		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
+		savedSoldier.movement().beginTurn();
+		savedSoldier.movement().rememberWaterState(true);
+		savedSoldier.movement().setUiMovementFast(TRUE);
+		savedSoldier.movement().setOutOfActionPoints(true);
+		savedSoldier.movement().pauseMovement();
+		savedSoldier.movement().startMovementClock();
+		savedSoldier.movement().setNetworkDelayed(true);
+		savedSoldier.movement().syncPresentationMotion(true);
+		savedSoldier.movement().pastXDestination() = -3;
+		savedSoldier.movement().pastYDestination() = 4;
 		savedSoldier.interruptSnapshot().captureMoved(1);
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
@@ -11295,8 +11382,18 @@ int main( int, char** )
 		       loadedSoldier.movement().animationDirection() == 6 &&
 		       loadedSoldier.movement().gridUpdatePolicy() ==
 		           LOCKED_NO_NEWGRIDNO &&
-		       loadedSoldier.movement().delayCounter() == 12,
-		       "soldier save/load round-trips component-owned movement intent, facing, grid policy, and delay counter" );
+		       loadedSoldier.movement().delayCounter() == 12 &&
+		       loadedSoldier.movement().turnActive() &&
+		       loadedSoldier.movement().wasInWater() &&
+		       loadedSoldier.movement().fastUiMovement() &&
+		       loadedSoldier.movement().outOfActionPoints() &&
+		       loadedSoldier.movement().movementPaused() &&
+		       loadedSoldier.movement().recordingMovement() &&
+		       loadedSoldier.movement().delayedByNetwork() &&
+		       loadedSoldier.movement().wasMoving() &&
+		       loadedSoldier.movement().pastXDestination() == -3 &&
+		       loadedSoldier.movement().pastYDestination() == 4,
+		       "soldier save/load round-trips component-owned movement intent, facing, and activity state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayedCauseGrid() == 1451,
 		       "soldier save/load round-trips the component-owned movement delay cause" );

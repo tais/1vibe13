@@ -656,7 +656,7 @@ SimulationCommandDispatchResult NewDest(
 	return TryDispatchSystemMoveToGridCommand(
 		*pSoldier, usGridNo, pSoldier->movement().mode(),
 		pSoldier->movement().reverse() != FALSE,
-		pSoldier->flags.fNoAPToFinishMove != FALSE);
+		pSoldier->movement().outOfActionPoints() != FALSE);
 }
 
 

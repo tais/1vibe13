@@ -1146,12 +1146,16 @@ the engine must not contain SDL types in its public domain model.
   movement-animation mode, stealth and reverse intent, high-resolution current
   and desired facing, movement-animation direction, animation grid-update
   policy, delayed-tile state, reservations, merc contention, scripted and
-  continued destinations, stop reason, and coordinated speed override no
-  longer live in the generic flag bucket or distant public fields. UI, AI,
+  continued destinations, stop reason, coordinated speed override, tactical
+  turn ownership, water and UI-speed state, AP exhaustion and pauses, movement
+  timing/network delay, presentation motion, and destination-center crossing
+  no longer live in the generic flag bucket or distant public fields. UI, AI,
   animation, rendering, pathing, and simulation-command code consume that one
   route-execution owner. Named operations select stealth/reverse behavior,
-  synchronize extended facing, request grid-update suppression, and update
-  paired state such as a blocker and direction together.
+  synchronize extended facing, request grid-update suppression, begin and end
+  turns, coordinate pause/AP and UI-speed state, detect presentation-motion
+  edges, and update paired state such as a blocker/direction or crossed X/Y
+  destination together.
   `SoldierInterruptSnapshotComponent` separately retains the AI scheduler's
   moved flag while an interrupt temporarily rewrites it; interrupt begin and
   end now capture and restore that state through one explicit seam.

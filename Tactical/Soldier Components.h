@@ -1314,7 +1314,9 @@ private:
 // Canonical tactical movement intent and contention state. Route geometry
 // belongs to SoldierPathingComponent; this component owns the selected
 // movement-animation mode and mutable state used while executing that route
-// around reservations and other soldiers.
+// around reservations and other soldiers. Turn ownership, UI speed, AP
+// exhaustion, pause/water edges, movement timing, and destination-center
+// crossing share the same lifecycle boundary.
 class SoldierMovementComponent
 {
 public:
@@ -1356,10 +1358,41 @@ public:
 	const SoldierID& moveSpeedOverride() const noexcept { return moveSpeedOverride_; }
 	BOOLEAN& usesMoveSpeedOverride() noexcept { return usesMoveSpeedOverride_; }
 	const BOOLEAN& usesMoveSpeedOverride() const noexcept { return usesMoveSpeedOverride_; }
+	BOOLEAN& turnInProgress() noexcept { return turnInProgress_; }
+	const BOOLEAN& turnInProgress() const noexcept { return turnInProgress_; }
+	BOOLEAN& previousInWater() noexcept { return previousInWater_; }
+	const BOOLEAN& previousInWater() const noexcept { return previousInWater_; }
+	BOOLEAN& uiMovementFast() noexcept { return uiMovementFast_; }
+	const BOOLEAN& uiMovementFast() const noexcept { return uiMovementFast_; }
+	BOOLEAN& noActionPointsToFinish() noexcept { return noActionPointsToFinish_; }
+	const BOOLEAN& noActionPointsToFinish() const noexcept { return noActionPointsToFinish_; }
+	BOOLEAN& paused() noexcept { return paused_; }
+	const BOOLEAN& paused() const noexcept { return paused_; }
+	BOOLEAN& movementClockActive() noexcept { return movementClockActive_; }
+	const BOOLEAN& movementClockActive() const noexcept { return movementClockActive_; }
+	BOOLEAN& networkDelayed() noexcept { return networkDelayed_; }
+	const BOOLEAN& networkDelayed() const noexcept { return networkDelayed_; }
+	BOOLEAN& wasMoving() noexcept { return wasMoving_; }
+	const BOOLEAN& wasMoving() const noexcept { return wasMoving_; }
+	INT8& pastXDestination() noexcept { return pastXDestination_; }
+	const INT8& pastXDestination() const noexcept { return pastXDestination_; }
+	INT8& pastYDestination() noexcept { return pastYDestination_; }
+	const INT8& pastYDestination() const noexcept { return pastYDestination_; }
 
 	bool stealthy() const noexcept { return stealthMode_ != FALSE; }
 	bool reversing() const noexcept { return reverse_ != FALSE; }
 	bool delayed() const noexcept { return delayCounter_ != 0; }
+	bool turnActive() const noexcept { return turnInProgress_ != FALSE; }
+	bool wasInWater() const noexcept { return previousInWater_ != FALSE; }
+	bool fastUiMovement() const noexcept { return uiMovementFast_ != FALSE; }
+	bool outOfActionPoints() const noexcept { return noActionPointsToFinish_ != FALSE; }
+	bool movementPaused() const noexcept { return paused_ != FALSE; }
+	bool recordingMovement() const noexcept { return movementClockActive_ != FALSE; }
+	bool delayedByNetwork() const noexcept { return networkDelayed_ != FALSE; }
+	bool crossedDestinationCenter() const noexcept
+	{
+		return pastXDestination_ != FALSE && pastYDestination_ != FALSE;
+	}
 	void setStealth(bool enabled) noexcept { stealthMode_ = enabled ? TRUE : FALSE; }
 	void setReverse(bool enabled) noexcept { reverse_ = enabled ? TRUE : FALSE; }
 	void setHighResolutionFacing(UINT8 current, UINT8 desired) noexcept
@@ -1377,6 +1410,37 @@ public:
 	void clearContinuedPath() noexcept { continuedPathValid_ = FALSE; }
 	void overrideMoveSpeedWith(SoldierID soldier) noexcept;
 	void clearMoveSpeedOverride() noexcept { usesMoveSpeedOverride_ = FALSE; }
+	void beginTurn() noexcept { turnInProgress_ = TRUE; }
+	void finishTurn() noexcept { turnInProgress_ = FALSE; }
+	void rememberWaterState(bool inWater) noexcept { previousInWater_ = inWater ? TRUE : FALSE; }
+	void setUiMovementFast(BOOLEAN mode) noexcept { uiMovementFast_ = mode; }
+	void clearUiMovementFast() noexcept { uiMovementFast_ = FALSE; }
+	void setOutOfActionPoints(bool exhausted) noexcept
+	{
+		noActionPointsToFinish_ = exhausted ? TRUE : FALSE;
+	}
+	void pauseMovement() noexcept { paused_ = TRUE; }
+	void resumeMovement() noexcept { paused_ = FALSE; }
+	void startMovementClock() noexcept { movementClockActive_ = TRUE; }
+	void stopMovementClock() noexcept { movementClockActive_ = FALSE; }
+	void setNetworkDelayed(bool delayed) noexcept { networkDelayed_ = delayed ? TRUE : FALSE; }
+	bool syncPresentationMotion(bool moving) noexcept
+	{
+		const BOOLEAN next = moving ? TRUE : FALSE;
+		if (wasMoving_ == next)
+		{
+			return false;
+		}
+		wasMoving_ = next;
+		return true;
+	}
+	void markPastXDestination() noexcept { pastXDestination_ = TRUE; }
+	void markPastYDestination() noexcept { pastYDestination_ = TRUE; }
+	void clearPastDestination() noexcept
+	{
+		pastXDestination_ = FALSE;
+		pastYDestination_ = FALSE;
+	}
 	void reset() noexcept;
 
 private:
@@ -1399,6 +1463,16 @@ private:
 	UINT8 stopReason_ = 0;
 	SoldierID moveSpeedOverride_{};
 	BOOLEAN usesMoveSpeedOverride_ = FALSE;
+	BOOLEAN turnInProgress_ = FALSE;
+	BOOLEAN previousInWater_ = FALSE;
+	BOOLEAN uiMovementFast_ = FALSE;
+	BOOLEAN noActionPointsToFinish_ = FALSE;
+	BOOLEAN paused_ = FALSE;
+	BOOLEAN movementClockActive_ = FALSE;
+	BOOLEAN networkDelayed_ = FALSE;
+	BOOLEAN wasMoving_ = FALSE;
+	INT8 pastXDestination_ = FALSE;
+	INT8 pastYDestination_ = FALSE;
 };
 
 // Canonical snapshot used while an interrupt temporarily rewrites the AI turn

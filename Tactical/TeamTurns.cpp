@@ -836,7 +836,7 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	//pActingSoldier->flags.uiStatusFlags |= SOLDIER_UNDERAICONTROL;
 	pActingSoldier->SetSoldierAsUnderAiControl(	);
 	DebugAI( String( "Giving AI control to %d", pActingSoldier->ubID ) );
-	pActingSoldier->flags.fTurnInProgress = TRUE;
+	pActingSoldier->movement().beginTurn();
 	gTacticalStatus.uiTimeSinceMercAIStart = GetJA2Clock();	
 	gtTimeSinceMercAIStart = time(0);	// sevenfm: also remember system time
 
@@ -1461,7 +1461,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 				// If we can continue a move, do so!
 				if ( selectedSoldier &&
-					selectedSoldier->flags.fNoAPToFinishMove &&
+					selectedSoldier->movement().outOfActionPoints() &&
 					pSoldier->movement().stopReason() != REASON_STOPPED_SIGHT )
 				{
 					// Continue

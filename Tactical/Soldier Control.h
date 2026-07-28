@@ -801,9 +801,6 @@ public:
 public:
 	// flags from before the changes to the memory structure
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-	BOOLEAN											fTurnInProgress;
-	BOOLEAN											fPrevInWater;
-	BOOLEAN											fUIMovementFast;
 	BOOLEAN											fDeadSoundPlayed;
 	BOOLEAN											fClosePanel;
 	BOOLEAN											fClosePanelToDie;
@@ -815,8 +812,6 @@ public:
 	BOOLEAN											fFlashLocator;
 	BOOLEAN											fShowLocator;
 	BOOLEAN											fFlashPortrait;
-	BOOLEAN											fNoAPToFinishMove;
-	BOOLEAN											fPausedMove;
 	BOOLEAN											fUIdeadMerc;				// UI Flags for removing a newly dead merc
 	BOOLEAN											fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
 	BOOLEAN											fUICloseMerc;				// UI Flags for closing panels
@@ -833,21 +828,16 @@ public:
 	BOOLEAN											fFixingRobot;
 	BOOLEAN											fSignedAnotherContract; 
 	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
-	BOOLEAN											fIsSoldierMoving;							// ie.	Record time is on
-	BOOLEAN											fIsSoldierDelayed;						//Is the soldier delayed Soldier 
 	BOOLEAN											fSoldierUpdatedFromNetwork;
 	BOOLEAN											fSayAmmoQuotePending;
 	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
 	BOOLEAN											fMercAsleep;
-	BOOLEAN											fSoldierWasMoving;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
 	BOOLEAN											fDieSoundUsed;
 	BOOLEAN											fUseLandingZoneForArrival;
  	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 
-	INT8												fPastXDest;
-	INT8												fPastYDest;
 	BOOLEAN					 fDoingExternalDeath;
 	BOOLEAN lastFlankLeft;
 	UINT32											uiStatusFlags;
