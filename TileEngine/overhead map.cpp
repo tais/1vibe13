@@ -1551,7 +1551,7 @@ void RenderOverheadOverlays()
 						if (pSoldier->roster().team() == CIV_TEAM)
 						{
 							// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
-							if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
+							if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_ASSASSIN && pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
 							else
 								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, CIV_TEAM );
@@ -1575,7 +1575,7 @@ void RenderOverheadOverlays()
 			else
 			{
 				// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_ASSASSIN && pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
 				else if ( pSoldier->roster().team() == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiBehavior().neutral() && pSoldier->identity().profile() != NO_PROFILE && !zHiddenNames[pSoldier->identity().profile()].Hidden )
 					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, PLAYER_PLAN );

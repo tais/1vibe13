@@ -110,7 +110,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	}
 	if ( ubID >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 	{
-		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->bVehicleID ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) )
 		{
 			// Don't do anything!
 		}

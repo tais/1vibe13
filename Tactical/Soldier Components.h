@@ -2,10 +2,38 @@
 #define TACTICAL_SOLDIER_COMPONENTS_H
 
 #include "Disease Types.h"
+#include "Keys.h"
 #include "Overhead Types.h"
 #include "types.h"
 
 #include <functional>
+#include <memory>
+
+class OBJECTTYPE;
+
+namespace AI
+{
+namespace tactical
+{
+class Plan;
+class PlanInputData;
+}
+}
+
+// Ballistic data paired with a temporary item while a throw or launcher
+// transaction is pending. Runtime addresses are never persisted.
+struct THROW_PARAMS
+{
+	float dX;
+	float dY;
+	float dZ;
+	float dForceX;
+	float dForceY;
+	float dForceZ;
+	float dLifeSpan;
+	UINT8 ubActionCode;
+	UINT32 uiActionData;
+};
 
 // Stable indices for persistent critical-stat damage. Keep the order aligned
 // with the established soldier save fields.
@@ -302,6 +330,36 @@ private:
 	UINT32 flags_ = 0;
 };
 
+// Canonical owner for the three compatibility masks added by later gameplay
+// features. The named banks retain their established bit definitions and save
+// widths without leaving generic extension storage public on SOLDIERTYPE.
+class SoldierFeatureFlagsComponent
+{
+public:
+	UINT8& eventFlags() noexcept { return eventFlags_; }
+	const UINT8& eventFlags() const noexcept { return eventFlags_; }
+	UINT32& primaryFlags() noexcept { return primaryFlags_; }
+	const UINT32& primaryFlags() const noexcept { return primaryFlags_; }
+	UINT32& secondaryFlags() noexcept { return secondaryFlags_; }
+	const UINT32& secondaryFlags() const noexcept { return secondaryFlags_; }
+
+	bool hasEvent(UINT8 flags) const noexcept { return (eventFlags_ & flags) != 0; }
+	bool hasPrimary(UINT32 flags) const noexcept { return (primaryFlags_ & flags) != 0; }
+	bool hasSecondary(UINT32 flags) const noexcept { return (secondaryFlags_ & flags) != 0; }
+	void setEvent(UINT8 flags) noexcept { eventFlags_ |= flags; }
+	void setPrimary(UINT32 flags) noexcept { primaryFlags_ |= flags; }
+	void setSecondary(UINT32 flags) noexcept { secondaryFlags_ |= flags; }
+	void clearEvent(UINT8 flags) noexcept { eventFlags_ &= static_cast<UINT8>(~flags); }
+	void clearPrimary(UINT32 flags) noexcept { primaryFlags_ &= ~flags; }
+	void clearSecondary(UINT32 flags) noexcept { secondaryFlags_ &= ~flags; }
+	void reset() noexcept;
+
+private:
+	UINT8 eventFlags_ = 0;
+	UINT32 primaryFlags_ = 0;
+	UINT32 secondaryFlags_ = 0;
+};
+
 // Canonical persistent inventory-adjacent state. Key access, new-item refresh,
 // and load-bearing-equipment zipper/drop-pack flags share the inventory
 // lifecycle without exposing another generic soldier flag bucket.
@@ -324,6 +382,84 @@ private:
 	BOOLEAN checkForNewItems_ = FALSE;
 	BOOLEAN zipperFlag_ = FALSE;
 	BOOLEAN dropPackFlag_ = FALSE;
+};
+
+// Canonical key-ring storage. Only eligible soldiers activate a ring, retaining
+// the historical null/non-null distinction, while the fixed-capacity slots are
+// inline so whole-soldier copies cannot alias one heap allocation.
+class SoldierKeyRingComponent
+{
+public:
+	static constexpr UINT16 SlotCount = NUM_KEYS;
+	using Slots = KEY_ON_RING[SlotCount];
+
+	bool active() const noexcept { return active_; }
+	KEY_ON_RING* data() noexcept { return active_ ? slots_ : nullptr; }
+	const KEY_ON_RING* data() const noexcept { return active_ ? slots_ : nullptr; }
+	Slots& slots() noexcept { return slots_; }
+	const Slots& slots() const noexcept { return slots_; }
+	KEY_ON_RING& operator[](UINT16 slot) noexcept { return slots_[slot]; }
+	const KEY_ON_RING& operator[](UINT16 slot) const noexcept { return slots_[slot]; }
+
+	void activate() noexcept;
+	void ensureActive() noexcept;
+	void deactivate() noexcept;
+	void clear() noexcept;
+	void reset() noexcept;
+
+private:
+	Slots slots_{};
+	bool active_ = false;
+};
+
+// Canonical owner for the temporary object used by give/drop/reload/throw
+// actions and the optional ballistic data paired with a throw. The object stays
+// heap-backed because OBJECTTYPE is a large non-trivial stack, while the small
+// throw payload is inline and presence-tagged. Whole-soldier copies deep-copy
+// the object instead of aliasing one transaction.
+class SoldierPendingItemComponent
+{
+public:
+	SoldierPendingItemComponent() noexcept = default;
+	~SoldierPendingItemComponent();
+	SoldierPendingItemComponent(const SoldierPendingItemComponent& source);
+	SoldierPendingItemComponent& operator=(
+		const SoldierPendingItemComponent& source);
+	SoldierPendingItemComponent(SoldierPendingItemComponent&& source) noexcept;
+	SoldierPendingItemComponent& operator=(
+		SoldierPendingItemComponent&& source) noexcept;
+
+	bool hasObject() const noexcept { return object_ != nullptr; }
+	bool hasThrowParameters() const noexcept { return hasThrowParameters_; }
+	bool readyToThrow() const noexcept
+	{
+		return hasObject() && hasThrowParameters();
+	}
+	OBJECTTYPE* object() noexcept { return object_.get(); }
+	const OBJECTTYPE* object() const noexcept { return object_.get(); }
+	THROW_PARAMS* throwParameters() noexcept
+	{
+		return hasThrowParameters_ ? &throwParameters_ : nullptr;
+	}
+	const THROW_PARAMS* throwParameters() const noexcept
+	{
+		return hasThrowParameters_ ? &throwParameters_ : nullptr;
+	}
+
+	void copyObject(const OBJECTTYPE& object);
+	OBJECTTYPE& createObject();
+	void clearObject() noexcept;
+	THROW_PARAMS& beginThrow() noexcept;
+	THROW_PARAMS& prepareThrow(const OBJECTTYPE& object);
+	void setThrowParameters(const THROW_PARAMS& parameters) noexcept;
+	void clearThrowParameters() noexcept;
+	void clearThrowTransaction() noexcept;
+	void reset() noexcept;
+
+private:
+	std::unique_ptr<OBJECTTYPE> object_;
+	THROW_PARAMS throwParameters_{};
+	bool hasThrowParameters_ = false;
 };
 
 // Canonical tactical service relationship. A provider points at one patient,
@@ -711,6 +847,27 @@ private:
 	BOOLEAN lastFlankLeft_ = FALSE;
 };
 
+// Runtime-only owner for the modular tactical-AI plan tree. Plans retain a
+// back-reference to their soldier, so whole-record copies deliberately discard
+// this cache and let the destination lazily build a correctly bound plan.
+class SoldierAiPlanComponent
+{
+public:
+	SoldierAiPlanComponent() noexcept;
+	~SoldierAiPlanComponent();
+	SoldierAiPlanComponent(const SoldierAiPlanComponent&) noexcept;
+	SoldierAiPlanComponent& operator=(
+		const SoldierAiPlanComponent& source) noexcept;
+
+	bool hasPlan() const noexcept { return plan_ != nullptr; }
+	void adopt(AI::tactical::Plan* plan) noexcept;
+	bool execute(AI::tactical::PlanInputData& input);
+	void reset() noexcept;
+
+private:
+	std::unique_ptr<AI::tactical::Plan> plan_;
+};
+
 // Canonical tactical-AI behavioral mode. Alertness, orders, attitude, escort
 // status, scheduling flags, and creature movement modes are independent from
 // the selected action and from sensory knowledge.
@@ -801,6 +958,8 @@ public:
 	const INT8& tacticalModifier() const noexcept { return tacticalModifier_; }
 	INT8& strategicModifier() noexcept { return strategicModifier_; }
 	const INT8& strategicModifier() const noexcept { return strategicModifier_; }
+	INT8& delayedStrategicModifier() noexcept { return delayedStrategicModifier_; }
+	const INT8& delayedStrategicModifier() const noexcept { return delayedStrategicModifier_; }
 	INT8& aiMorale() noexcept { return aiMorale_; }
 	const INT8& aiMorale() const noexcept { return aiMorale_; }
 	INT8& frenzied() noexcept { return frenzied_; }
@@ -814,6 +973,7 @@ private:
 	INT8 teamModifier_ = 0;
 	INT8 tacticalModifier_ = 0;
 	INT8 strategicModifier_ = 0;
+	INT8 delayedStrategicModifier_ = 0;
 	INT8 aiMorale_ = 0;
 	INT8 frenzied_ = 0;
 };
@@ -1801,6 +1961,30 @@ private:
 	BOOLEAN useLandingZoneForArrival_ = FALSE;
 };
 
+// Canonical link between a tactical vehicle actor and the strategic vehicle
+// record it represents, plus the controller identity for remote robots. These
+// identifiers are persisted, but the vehicle records and soldier repository
+// remain adapter-owned and are resolved only at the point of use.
+class SoldierVehicleStateComponent
+{
+public:
+	INT8& tacticalVehicleId() noexcept { return tacticalVehicleId_; }
+	const INT8& tacticalVehicleId() const noexcept { return tacticalVehicleId_; }
+	SoldierID& robotRemoteHolder() noexcept { return robotRemoteHolder_; }
+	const SoldierID& robotRemoteHolder() const noexcept { return robotRemoteHolder_; }
+
+	bool hasRobotRemoteHolder() const noexcept
+	{
+		return robotRemoteHolder() != NOBODY;
+	}
+	void clearRobotRemoteHolder() noexcept { robotRemoteHolder_ = NOBODY; }
+	void reset() noexcept;
+
+private:
+	INT8 tacticalVehicleId_ = 0;
+	SoldierID robotRemoteHolder_ = NOBODY;
+};
+
 // Canonical NPC schedule execution state. The schedule identifier and progress
 // are shared by the editor, strategic scheduler, and tactical AI. Door
 // continuation is kept here as part of that movement lifecycle so its phase
@@ -1901,6 +2085,38 @@ private:
 	INT16 roomNo_ = 0;
 	INT8 terrainType_ = 0;
 	INT8 previousTerrainType_ = 0;
+};
+
+// Canonical three-direction tactical occlusion overlay. Tile indices and the
+// grids that own their topmost nodes are a paired cache: callers bind or clear
+// one direction atomically instead of mutating parallel SOLDIERTYPE arrays.
+class SoldierFrontArcComponent
+{
+public:
+	static constexpr UINT8 DirectionCount = 3;
+
+	UINT16& tileIndex(UINT8 direction) noexcept { return tileIndices_[direction]; }
+	const UINT16& tileIndex(UINT8 direction) const noexcept
+	{
+		return tileIndices_[direction];
+	}
+	INT32& gridNo(UINT8 direction) noexcept { return gridNos_[direction]; }
+	const INT32& gridNo(UINT8 direction) const noexcept
+	{
+		return gridNos_[direction];
+	}
+
+	bool hasOccluder(UINT8 direction) const noexcept
+	{
+		return tileIndices_[direction] != 0;
+	}
+	void bindOccluder(UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept;
+	void clearOccluder(UINT8 direction) noexcept;
+	void reset() noexcept;
+
+private:
+	UINT16 tileIndices_[DirectionCount]{};
+	INT32 gridNos_[DirectionCount]{};
 };
 
 // Canonical history of tactical grid movement. Current placement belongs to

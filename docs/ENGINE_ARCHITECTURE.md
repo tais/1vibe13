@@ -989,6 +989,44 @@ the engine must not contain SDL types in its public domain model.
   clears zipper/drop-pack state absent from that record. Save data, profiles,
   packets, maps, XML, Lua, multiplayer protocols, packages, and installed game
   data are unchanged.
+  `SoldierKeyRingComponent` owns the complementary optional key-ring payload.
+  Its 255 established two-byte slots are inline and copied by value, removing
+  per-soldier allocation/free traffic and preventing whole-record copies or
+  repository swaps from aliasing one heap buffer. An explicit presence marker
+  retains the historical player/non-player distinction. The portable soldier
+  visitor keeps the retired pointer landmark byte-neutral, while the existing
+  outer soldier save path still writes the same presence byte followed by the
+  same fixed key payload. No key table, item, save, map, XML, Lua, package, or
+  installed-data format changes.
+  `SoldierPendingItemComponent` now owns the process-local object used while a
+  give, drop, robot reload, placement, throw, or launcher action is in flight.
+  The large `OBJECTTYPE` remains uniquely heap-backed and is deep-copied with a
+  whole soldier; the small `THROW_PARAMS` payload is inline and presence-tagged.
+  Named preparation and cleanup transitions pair ballistic state with its
+  object and release both on completion, interruption, soldier deletion, or
+  failed multiplayer physics allocation. This removes the former independent
+  raw-pointer allocation paths and their cancellation leaks. Both historical
+  pointer positions remain byte-neutral retired landmarks, so save, map, XML,
+  Lua, multiplayer packet, package, and installed-data formats are unchanged.
+  `SoldierAiPlanComponent` now owns the runtime-only modular tactical-AI plan
+  tree. A plan retains a back-reference to the exact soldier record that
+  created it, so whole-record copies, replacements, and swaps intentionally
+  discard this cache and rebuild it lazily for the destination rather than
+  shallow-copying an invalid owner. Initialization, deletion, current loading,
+  and v101 conversion release any existing plan through the same boundary.
+  The legacy factory's raw result is confined to the `adopt` transfer point;
+  callers query and execute through the component and tolerate a factory that
+  returns no plan. The retired pointer followed `endOfPOD` and was never part
+  of the save visitor, so no save, map, XML, Lua, multiplayer, package, or
+  installed-data format changes.
+  The three later, independent compatibility banks are now privately owned by
+  `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
+  event markers and the two unsigned 32-bit feature masks introduced by 1.13
+  systems. Named event, primary, and secondary query/set/clear operations make
+  their bank explicit while preserving every existing flag definition and
+  hot-path reference access. These banks are not a replacement for
+  `STRUCT_Flags`; they retain the later extension points already consumed by
+  gameplay and mods.
   `SoldierServiceComponent` owns the complementary tactical care relationship:
   the persisted service marker, the number of active providers on a patient,
   the provider's patient identity, and the medic reserved by automatic
@@ -1055,9 +1093,11 @@ the engine must not contain SDL types in its public domain model.
   mobility, realtime-combat mode, and AI flags.
   `SoldierAiCommunicationComponent` owns radio/call origin, location, priority,
   and acknowledgement, while `SoldierMoraleComponent` owns personal morale,
-  team/tactical/strategic modifiers, AI morale, and creature frenzy. Together
-  these boundaries remove `STRUCT_AIData` as a live catch-all without changing
-  AI policy, plan APIs, or content.
+  team/tactical/strategic modifiers, the delayed strategic modifier awaiting
+  the next morale refresh, AI morale, and creature frenzy. Together these
+  boundaries remove `STRUCT_AIData` as a live catch-all without changing AI
+  policy, plan APIs, or content. The morale owner also removes the separate
+  delayed-morale field from the public soldier tail.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.
@@ -1194,8 +1234,18 @@ the engine must not contain SDL types in its public domain model.
   bookkeeping, and the Unfinished Business helicopter arrival get-up timer
   and phase flags. Named sector, transit, mission-exit, insertion, traversal,
   vehicle, arrival, and arrival get-up transitions keep related values
-  coherent. The existing strategic route and live group pointers remain
-  boundary adapters rather than becoming component-owned content formats.
+  coherent. The existing strategic route pointer remains a boundary adapter
+  rather than becoming component-owned content. The redundant per-soldier live
+  group pointer has been retired: `groupId()` is the sole soldier-side
+  authority, and application code resolves a live `GROUP` through the strategic
+  group repository only when needed.
+  `SoldierVehicleStateComponent` owns the two complementary tactical record
+  links: the signed index used when a vehicle soldier resolves its live
+  `VEHICLETYPE`, and the typed soldier identity used when a remote robot
+  resolves its controller. This tactical vehicle index is deliberately
+  separate from `SoldierDeploymentComponent::vehicleId()`, which represents
+  strategic passenger membership. Vehicle records and the soldier repository
+  remain application adapters; no content-facing vehicle definition changes.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to
@@ -1212,6 +1262,11 @@ the engine must not contain SDL types in its public domain model.
   the advanced-animation staging grid, room, and current/previous terrain.
   Named coordinate and terrain transitions keep their paired representations
   coherent.
+  `SoldierFrontArcComponent` owns the adjacent three-direction occlusion
+  overlay as paired tile-index/grid entries. The tactical world adapter binds
+  or clears each pair atomically when it adds or removes topmost nodes, so
+  parallel public arrays cannot drift. The fixed three-entry capacity and
+  historical save positions remain unchanged.
   `SoldierMovementHistoryComponent` separately owns the most recently departed
   grid and the bounded two-location memory used to detect AI movement
   oscillation. Named departure, AI reset, observation, and full-reset

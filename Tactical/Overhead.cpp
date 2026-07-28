@@ -2511,7 +2511,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 				// anv: deduct points from vehicle passengers to prevent time travel paradoxes... yeah yeah, you get the idea
 				if ( IsJa2TacticalTurnBased() && pSoldier->status().flags() & SOLDIER_VEHICLE && gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleMode )
 				{
-					INT32 iId = pSoldier->bVehicleID;
+					INT32 iId = pSoldier->vehicleState().tacticalVehicleId();
 					// Loop through passengers and update each guy's AP
 					for( INT32 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 					{
@@ -2717,7 +2717,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     PROFILLUA_bTeam = pSoldier->roster().team();
 
 	// sevenfm: reached new spot, enabled dragging sound
-	pSoldier->usSoldierFlagMask2 &= ~SOLDIER_DRAG_SOUND;
+	pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_DRAG_SOUND;
 
     // ATE; Handle bad guys, as they fade, to cancel it if
     // too long...
@@ -3225,7 +3225,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
 	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
-		pSoldier = GetDriver( pSoldier->bVehicleID );
+		pSoldier = GetDriver( pSoldier->vehicleState().tacticalVehicleId() );
 		if( pSoldier == NULL )
 		{
 			return;
@@ -3954,7 +3954,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         }
 
         // Flugente: if this was a prisoner of war, reduce their sector count by 1
-        if ( pSoldierOld->usSoldierFlagMask & SOLDIER_POW_PRISON )
+        if ( pSoldierOld->featureFlags().primaryFlags() & SOLDIER_POW_PRISON )
 			KillOnePrisoner( &SectorInfo[ SECTOR( gWorldSectorX, gWorldSectorY ) ] );
 
 		// If this was a volunteer, then we definetly reduce our volunteer pool
@@ -7189,16 +7189,16 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 		if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 		{
 			// Only pows that are not dead yet
-			if ( (pTeamSoldier->usSoldierFlagMask & SOLDIER_POW) && !(pTeamSoldier->status().flags() & SOLDIER_DEAD) )
+			if ( (pTeamSoldier->featureFlags().primaryFlags() & SOLDIER_POW) && !(pTeamSoldier->status().flags() & SOLDIER_DEAD) )
 			{
 				// if we arrive here and the guy has lifepoints < OKLIFE, something is very odd... better take him prisoner and remove him anyway
 				//if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().health() != 0 )
 				{
 					// officers and generals are 'special' prisoners...
-					if ( pTeamSoldier->usSoldierFlagMask & SOLDIER_VIP )
+					if ( pTeamSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 						++sNumPrisoner[PRISONER_GENERAL];
 					// downed pilots count as officers too, even though they are civilians. This makes capturing them more rewarding
-					else if ( (pTeamSoldier->usSoldierFlagMask & SOLDIER_ENEMY_OFFICER) || pTeamSoldier->roster().civilianGroup() == DOWNEDPILOT_CIV_GROUP )
+					else if ( (pTeamSoldier->featureFlags().primaryFlags() & SOLDIER_ENEMY_OFFICER) || pTeamSoldier->roster().civilianGroup() == DOWNEDPILOT_CIV_GROUP )
 						++sNumPrisoner[PRISONER_OFFICER];
 					else if ( pTeamSoldier->roster().team() == ENEMY_TEAM )
 					{
@@ -7224,11 +7224,11 @@ static void RemoveCapturedEnemiesFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 
 					}
 
 					// Flugente: VIPs
-					if ( pTeamSoldier->usSoldierFlagMask & SOLDIER_VIP )
+					if ( pTeamSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 						DeleteVIP( pTeamSoldier->deployment().sectorX(), pTeamSoldier->deployment().sectorY() );
 
 					// Flugente: turncoats
-					if ( pTeamSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
+					if ( pTeamSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 						RemoveOneTurncoat( sMapX, sMapY, pTeamSoldier->roster().soldierClass(), FALSE );
 
 					// Flugente: campaign stats
@@ -7370,10 +7370,10 @@ static void UpdateWoundedFromSectorInfo( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 	{
         pSoldier = &soldiers.record(cnt);
 		// Kill those not already dead.,...
-		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->usSoldierFlagMask & SOLDIER_FRESHWOUND )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->featureFlags().primaryFlags() & SOLDIER_FRESHWOUND )
 		{
 			// remove flag, so we are not counted again
-			pSoldier->usSoldierFlagMask &= ~SOLDIER_FRESHWOUND;
+			pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_FRESHWOUND;
 
 			// the dead count as dead, not as wounded
 			if ( pSoldier->vitals().health() <= 0 )
@@ -7516,7 +7516,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 					if (pTeamSoldier->vitals().health() >= OKLIFE)
 					{
 						fFoundAliveMerc = TRUE;
-						if (!gGameOptions.fNewTraitSystem || !(pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_CIV)))
+						if (!gGameOptions.fNewTraitSystem || !(pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_CIV)))
 						{
 							fFoundNotCovertMerc = TRUE;
 						}
@@ -8405,7 +8405,7 @@ UINT16 NumCapableEnemyInSector( )
                 else
                 {
                     // Flugente: captured soldiers also do not count
-                    if ( pTeamSoldier->usSoldierFlagMask & SOLDIER_POW )
+                    if ( pTeamSoldier->featureFlags().primaryFlags() & SOLDIER_POW )
                         continue;
 
                     // Check for any more badguys
@@ -9518,7 +9518,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
         else if ( pTarget->roster().team() == gbPlayerNum && !(IsJa2TacticalCombatActive()) )
         {
 			// Flugente: if we are on the same team adn are currently stealing (accessing inventory) from a teammember, do NOT retaliate
-			if ( AllowedToStealFromTeamMate(pSoldier->identity().id(), pTarget->identity().id()) && pSoldier->usSoldierFlagMask & SOLDIER_ACCESSTEAMMEMBER )
+			if ( AllowedToStealFromTeamMate(pSoldier->identity().id(), pTarget->identity().id()) && pSoldier->featureFlags().primaryFlags() & SOLDIER_ACCESSTEAMMEMBER )
 			{
 				
 			}
@@ -10305,7 +10305,7 @@ void InitializeTacticalStatusAtBattleStart( )
     {
         GetJa2SoldierRepository()
             .resolve(cnt.i)
-            ->ubMiscSoldierFlags = 0;
+            ->featureFlags().eventFlags() = 0;
     }
 }
 
@@ -10933,7 +10933,7 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
         prisonerdialoguetargetID, approachselected );
 
 	// you can never turn a VIP (though we don't tell the player if someone is a VIP, lest they have an exploit to find out)
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 		approachchance = 0;
 
 	// as using random numbers to pass the check would result in players savescumming, use a number based on the soldier's stats
@@ -10941,7 +10941,7 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 
 	if ( soldierconsistentnumber < approachchance )
 	{
-		pSoldier->usSoldierFlagMask2 |= SOLDIER_TURNCOAT;
+		pSoldier->featureFlags().secondaryFlags() |= SOLDIER_TURNCOAT;
 
 		AddOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->roster().soldierClass() );
 
@@ -11000,7 +11000,7 @@ void HandleTurncoatAttempt( SOLDIERTYPE* pSoldier )
         && selectedSoldier
 		&& pSoldier->roster().team() == ENEMY_TEAM
 		&& pSoldier->identity().profile() == NO_PROFILE
-		&& !( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
+		&& !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 		&& !gTacticalStatus.Team[ENEMY_TEAM].bAwareOfOpposition
 		&& !pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
 	{
@@ -11203,10 +11203,10 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
             if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
             {
                 // if we are disguised as a civilian, the enemy does not take us into the equation - he does not consider us
-                if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_CIV )
+                if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_CIV )
                     ;
                 // if we are disguised as a soldier, the enemy counts us on HIS team
-                else if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
+                else if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
                     enemysidestrength += pSoldier->GetSurrenderStrength();
                 else
                     // player side counts double, to put more emphasize on overwhelming the enemy with mercs and not just spamming militia
@@ -11296,7 +11296,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
                     // only if not dying
                     if( pSoldier->vitals().health() >= OKLIFE )
                     {
-                        pSoldier->usSoldierFlagMask |= SOLDIER_POW;
+                        pSoldier->featureFlags().primaryFlags() |= SOLDIER_POW;
 
                         // Remove as target
                         RemoveManAsTarget( pSoldier );
@@ -11316,7 +11316,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szPrisonerTextStr[STR_PRISONER_REFUSE_SURRENDER] );
 
             // if asking for surrender while undercover and the enemy refuses, he learns who you are, so he uncovers you
-            if ( selectedSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
+            if ( selectedSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
             {
                 selectedSoldier->LooseDisguise();
 
@@ -11553,7 +11553,7 @@ void TeamRestock(UINT8 bTeam)
 			pSoldier->inv = createstruct.Inv;
 
 			// we took new gear, so we can drop it again
-			pSoldier->usSoldierFlagMask &= ~SOLDIER_EQUIPMENT_DROPPED;
+			pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_EQUIPMENT_DROPPED;
         }
     }
 }
@@ -11737,7 +11737,7 @@ UINT16 HighestEnemyOfficersInSector( UINT8& aType )
         if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 )
         {
 			// count officers, but do not count those that we have already captured
-			if ( (pSoldier->usSoldierFlagMask & SOLDIER_ENEMY_OFFICER) && !(pSoldier->usSoldierFlagMask & SOLDIER_POW) )
+			if ( (pSoldier->featureFlags().primaryFlags() & SOLDIER_ENEMY_OFFICER) && !(pSoldier->featureFlags().primaryFlags() & SOLDIER_POW) )
             {
 				// officers with double squadleader trait are captains, otherwise lieutnant
                 aType = max( aType, NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT) );
@@ -11761,7 +11761,7 @@ UINT16 NumSoldiersWithFlagInSector( UINT8 aTeam, UINT32 aFlag )
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 )
 		{
-			if ( pSoldier->usSoldierFlagMask & aFlag )
+			if ( pSoldier->featureFlags().primaryFlags() & aFlag )
 			{
 				++num;
 			}
@@ -11781,7 +11781,7 @@ UINT16 NumSoldiersofClassWithFlag2InSector( UINT8 aTeam, UINT8 aSoldierClass, UI
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 )
 		{
-			if ( (pSoldier->usSoldierFlagMask2 & aFlag)
+			if ( (pSoldier->featureFlags().secondaryFlags() & aFlag)
 				&& pSoldier->roster().soldierClass() == aSoldierClass )
 			{
 				++num;

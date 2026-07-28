@@ -192,6 +192,9 @@ static_assert(
 #define NO_DESIRED_HEIGHT			255
 
 #define MAX_FULLTILE_DIRECTIONS 3
+static_assert(
+	SoldierFrontArcComponent::DirectionCount == MAX_FULLTILE_DIRECTIONS,
+	"front-arc component capacity must retain the established soldier schema");
 
 // DIGICRAB: Burst UnCap. Keep the legacy spelling as a source-compatible
 // alias; persistent capacity is now owned by SoldierFireControlComponent.
@@ -644,30 +647,10 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // but they can't attack empty vehicles!!
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
-										(them->aiBehavior().neutral() || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
+										(them->aiBehavior().neutral() || them->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
 										&& (me->roster().team() != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->identity().bodyType() == CROW)) \
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
-
-typedef struct
-{
-	UINT8			ubKeyID;
-	UINT8			ubNumber;
-} KEY_ON_RING;
-
-typedef struct
-{
-	float				dX;
-	float				dY;
-	float				dZ;
-	float				dForceX;
-	float				dForceY;
-	float				dForceZ;
-	float				dLifeSpan;
-	UINT8				ubActionCode;
-	UINT32			uiActionData;
-
-} THROW_PARAMS;
 
 #define DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE 0x01
 
@@ -737,15 +720,6 @@ public:
 private:
 	std::vector<OBJECTTYPE>	inv;
 };
-// forward declaration for modularized tactical ai
-namespace AI
-{
-    namespace tactical
-    {
-        class Plan;
-    }
-}
-
 enum class BackgroundVectorTypes;
 
 class SOLDIERTYPE//last edited at version 102
@@ -778,8 +752,14 @@ public:
 	const SoldierStatisticsComponent& statistics() const noexcept { return statistics_; }
 	SoldierStatusComponent& status() noexcept { return status_; }
 	const SoldierStatusComponent& status() const noexcept { return status_; }
+	SoldierFeatureFlagsComponent& featureFlags() noexcept { return featureFlags_; }
+	const SoldierFeatureFlagsComponent& featureFlags() const noexcept { return featureFlags_; }
 	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
 	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
+	SoldierKeyRingComponent& keyRing() noexcept { return keyRing_; }
+	const SoldierKeyRingComponent& keyRing() const noexcept { return keyRing_; }
+	SoldierPendingItemComponent& pendingItem() noexcept { return pendingItem_; }
+	const SoldierPendingItemComponent& pendingItem() const noexcept { return pendingItem_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -792,6 +772,8 @@ public:
 	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
 	SoldierAiPlanningComponent& aiPlanning() noexcept { return aiPlanning_; }
 	const SoldierAiPlanningComponent& aiPlanning() const noexcept { return aiPlanning_; }
+	SoldierAiPlanComponent& aiPlan() noexcept { return aiPlan_; }
+	const SoldierAiPlanComponent& aiPlan() const noexcept { return aiPlan_; }
 	SoldierAiBehaviorComponent& aiBehavior() noexcept { return aiBehavior_; }
 	const SoldierAiBehaviorComponent& aiBehavior() const noexcept { return aiBehavior_; }
 	SoldierAiCommunicationComponent& aiCommunication() noexcept { return aiCommunication_; }
@@ -830,10 +812,14 @@ public:
 	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
 	SoldierDeploymentComponent& deployment() noexcept { return deployment_; }
 	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
+	SoldierVehicleStateComponent& vehicleState() noexcept { return vehicleState_; }
+	const SoldierVehicleStateComponent& vehicleState() const noexcept { return vehicleState_; }
 	SoldierScheduleComponent& schedule() noexcept { return schedule_; }
 	const SoldierScheduleComponent& schedule() const noexcept { return schedule_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
+	SoldierFrontArcComponent& frontArc() noexcept { return frontArc_; }
+	const SoldierFrontArcComponent& frontArc() const noexcept { return frontArc_; }
 	SoldierMovementHistoryComponent& movementHistory() noexcept { return movementHistory_; }
 	const SoldierMovementHistoryComponent& movementHistory() const noexcept { return movementHistory_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -878,15 +864,7 @@ public:
 public:
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
 
-	OBJECTTYPE		*pTempObject;
-	KEY_ON_RING		*pKeyRing;
-
 	INT32			iFaceIndex;
-
-	// FULL 3-d TILE STUFF ( keep records of three tiles infront )
-	UINT16			usFrontArcFullTileList[ MAX_FULLTILE_DIRECTIONS ];
-	INT32			usFrontArcFullTileGridNos[ MAX_FULLTILE_DIRECTIONS ];
-	
 
 	// PALETTE MANAGEMENT STUFF
 	SGPPaletteEntry	*p8BPPPalette; // 4
@@ -894,7 +872,6 @@ public:
 	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
 	PIXEL			*pGlowShades[ 20 ]; // 
 	PIXEL			*pCurrentShade;
-	THROW_PARAMS		*pThrowParams;
 	LEVELNODE		*pLevelNode;
 	LEVELNODE		*pExternShadowLevelNode;
 	LEVELNODE		*pRoofUILevelNode;
@@ -913,25 +890,11 @@ public:
 	//END
 
 	struct TAG_anitile	*pAniTile;	
-	INT8					bVehicleID;
-	SoldierID			ubRobotRemoteHolderID;
 
-	UINT8				ubMiscSoldierFlags;
-
-	INT8					bDelayedStrategicMoraleMod;
-	struct GROUP			*pGroup;
-
-	// Flugente: Is this the correct position?
-	///////////////////////////////////////////////////////
-	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
-	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
-
-	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
-	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
+	// Reserved bytes remain explicit because the current save visitor preserves
+	// their established positions even though live feature flags have a typed
+	// owner outside this compatibility tail.
 	UINT8	ubFiller[10];
-	
-	// Flugente: modifiers to fire modes
-	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
@@ -941,7 +904,6 @@ public:
 	// properly until it is all fixed and the files updated.
 
 	Inventory inv;
-    AI::tactical::Plan*		ai_masterplan_; // Interface object for ModularizedTacticalAI
 
 private:
 	SoldierIdentityComponent	identity_;
@@ -949,13 +911,17 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierStatisticsComponent	statistics_;
 	SoldierStatusComponent	status_;
+	SoldierFeatureFlagsComponent	featureFlags_;
 	SoldierInventoryStateComponent	inventoryState_;
+	SoldierKeyRingComponent	keyRing_;
+	SoldierPendingItemComponent	pendingItem_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;
 	SoldierReplicationComponent	replication_;
 	SoldierMovementMetricsComponent	movementMetrics_;
 	SoldierAiPlanningComponent	aiPlanning_;
+	SoldierAiPlanComponent	aiPlan_;
 	SoldierAiBehaviorComponent	aiBehavior_;
 	SoldierAiCommunicationComponent	aiCommunication_;
 	SoldierMoraleComponent	morale_;
@@ -975,8 +941,10 @@ private:
 	SoldierEmploymentComponent	employment_;
 	SoldierAssignmentComponent	assignment_;
 	SoldierDeploymentComponent	deployment_;
+	SoldierVehicleStateComponent	vehicleState_;
 	SoldierScheduleComponent	schedule_;
 	SoldierPositionComponent	position_;
+	SoldierFrontArcComponent	frontArc_;
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

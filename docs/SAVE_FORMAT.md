@@ -279,8 +279,12 @@ adapter, so save and load can never drift out of order. Extra methods:
 
 - `ptr(T*&)` — **runtime pointers are never persisted**: writes nothing, sets the
   pointer `NULL` on load. The game rebuilds them after load (palette/shade tables,
-  `LEVELNODE*`, `pMercPath`, `pGroup`, …). This matches the legacy
+  `LEVELNODE*`, `pMercPath`, …). This matches the legacy
   behaviour, which only ever persisted meaningless pointer *values*.
+- `retiredPtr()` — keeps a named field-list landmark for a runtime pointer whose
+  live storage has been removed. Like `ptr`, it emits and consumes zero bytes.
+  The former soldier `pGroup` visit uses this marker; `groupId()` is the sole soldier-side
+  strategic group identity.
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
@@ -312,6 +316,38 @@ adapter, so save and load can never drift out of order. Extra methods:
   twelve represented fields and resets zipper/drop-pack state, which that
   record did not contain. No save, profile, packet, map, XML, Lua, multiplayer,
   package, or installed-data bytes change.
+- The optional soldier key ring is now inline storage owned by
+  `SoldierKeyRingComponent`, so copying a soldier cannot alias a separately
+  allocated ring. The pointer position in the portable soldier visitor remains
+  a zero-byte retired landmark. `SaveSoldierStructure` and
+  `LoadSoldierStructure` still emit and consume the same one-byte presence flag
+  followed by 255 two-byte `KEY_ON_RING` entries (or 64 entries for historical
+  saves). Key tables, items, maps, XML, Lua, multiplayer, packages, installed
+  data, and current save bytes are unchanged.
+- The temporary object used by give, drop, robot reload, placement, throw, and
+  launcher actions, together with optional ballistic parameters, is now owned
+  by `SoldierPendingItemComponent`. `OBJECTTYPE` is uniquely heap-backed and
+  deep-copied; `THROW_PARAMS` is inline and presence-tagged. Neither value was
+  persistent: the former `pTempObject` and `pThrowParams` positions both
+  remain zero-byte retired pointer landmarks, and load explicitly clears any
+  process-local transaction. Current and historical save byte streams, maps,
+  XML, Lua, multiplayer packets, packages, and installed data are unchanged.
+- The modular tactical-AI plan tree is now uniquely owned by
+  `SoldierAiPlanComponent`. The retired `ai_masterplan_` pointer was declared
+  after `endOfPOD` and was never visited or written, so the component adds no
+  save field or compatibility landmark. Current load and v101 conversion
+  release any process-local plan already attached to a reused record; copied
+  or swapped soldiers also rebuild plans lazily because a plan's back-reference
+  cannot be rebound safely. Save, map, XML, Lua, multiplayer packet, package,
+  and installed-data formats are unchanged.
+- The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
+  32-bit 1.13 feature-mask banks are now stored by
+  `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their
+  original scattered POD positions and widths, including the ten reserved
+  bytes between the two feature masks. v101 conversion maps its historical
+  event byte and clears the two later banks absent from that record. Existing
+  flag definitions and all save, profile, packet, map, XML, Lua, multiplayer,
+  package, and installed-data bytes remain unchanged.
 - Tactical service activity, patient provider count, provider-to-patient
   identity, the automatic-bandage medic reservation, and the signed inventory
   slot borrowed while servicing are now stored by `SoldierServiceComponent`.
@@ -356,10 +392,11 @@ adapter, so save and load can never drift out of order. Extra methods:
   `SoldierAiPlanningComponent`. Alert/disposition/order/escort/creature/flag
   modes are stored by `SoldierAiBehaviorComponent`; radio/call exchange by
   `SoldierAiCommunicationComponent`; and personal, modifier, calculated, and
-  frenzy morale by `SoldierMoraleComponent`. The historical `XferAIData`
-  visitor section emits every value at the same signed or unsigned width and in
-  the same order, and v101 conversion maps each historical raw field. Runtime
-  flank progress saturates without changing its representation. No save,
+  frenzy morale plus the separately persisted delayed strategic modifier by
+  `SoldierMoraleComponent`. The historical `XferAIData` visitor section and
+  delayed signed 8-bit POD slot emit every value at the same width and in the
+  same order, and v101 conversion maps each historical raw field. Runtime flank
+  progress saturates without changing its representation. No save,
   packet, map, XML, Lua, AI-plan, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
@@ -477,8 +514,18 @@ adapter, so save and load can never drift out of order. Extra methods:
   get-up tail remains a boolean, signed 32-bit timer, and boolean. v101
   conversion maps the raw deployment values it historically consumed and
   keeps its established behavior of clearing the three ignored arrival get-up
-  values. Strategic path and group pointers remain serialization adapters. No
+  values. The strategic path pointer remains a serialization adapter. The
+  redundant live group pointer is retired; its zero-byte field-list landmark
+  remains explicit and `groupId()` is the sole persistent group identity. No
   save, packet, map, XML, Lua, or installed-data bytes change.
+- The tactical vehicle-record index and remote robot-controller soldier
+  identity are now stored by `SoldierVehicleStateComponent`. They remain
+  distinct from the strategic passenger-membership vehicle ID stored by
+  `SoldierDeploymentComponent`. The visitor emits the signed 8-bit tactical
+  index and unsigned 16-bit controller identity at their two original POD
+  positions, and v101 conversion maps both historical values. Vehicle
+  definitions, creation records, repository behavior, and all save, packet,
+  map, XML, Lua, package, and installed-data bytes are unchanged.
 - NPC schedule identity and progress plus the open-door continuation phase and
   grid are now stored by `SoldierScheduleComponent`. The visitor still emits
   the four values at their three original POD sites and widths. v101
@@ -494,6 +541,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   their original scattered POD/AI-section positions and widths, and v101
   conversion maps every historical value into the owner. No save, packet, map,
   XML, Lua, or installed-data bytes change.
+- The three front-arc occlusion tile indices and their three corresponding
+  grids are now stored as paired entries by `SoldierFrontArcComponent`. The
+  visitor still emits the complete unsigned 16-bit tile-index array followed
+  by the complete signed 32-bit grid array at their original positions. V101
+  conversion now maps all three full-width grid values instead of copying only
+  six bytes of that 12-byte array. Current save, packet, map, XML, Lua,
+  package, and installed-data bytes remain unchanged.
 - The last departed grid and two-location AI loop history are now stored by
   `SoldierMovementHistoryComponent`. The visitor still emits all three signed
   32-bit grids at their two original scattered POD sites, and v101 conversion

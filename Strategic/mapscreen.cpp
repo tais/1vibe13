@@ -2946,8 +2946,8 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// vehicle
-//		wcscpy(sString, pShortVehicleStrings[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ]);
-		wcscpy(sString, gNewVehicle[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ].NewShortVehicleStrings);
+//		wcscpy(sString, pShortVehicleStrings[ pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType ]);
+		wcscpy(sString, gNewVehicle[ pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType ].NewShortVehicleStrings);
 	}
 	else
 	{
@@ -2963,8 +2963,8 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// vehicle
-		//wcscpy(sString, pVehicleStrings[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ]);
-		wcscpy(sString, gNewVehicle[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ].NewVehicleStrings);
+		//wcscpy(sString, pVehicleStrings[ pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType ]);
+		wcscpy(sString, gNewVehicle[ pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType ].NewVehicleStrings);
 		
 	}
 	else
@@ -3581,7 +3581,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 		}
 		else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
-			ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
+			ubGroupId = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 			pGroup = GetGroup( ubGroupId );
 
 			if( pGroup == NULL )
@@ -3589,7 +3589,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 				SetUpMvtGroupForVehicle( pSoldier );
 
 				// get vehicle id
-				ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
+				ubGroupId = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 				pGroup = GetGroup( ubGroupId );
 				AssertNotNIL(pGroup);
 			}
@@ -13315,7 +13315,7 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 				else
 				{
 					// IS a vehicle
-					iVehicleId = pSoldier->bVehicleID;
+					iVehicleId = pSoldier->vehicleState().tacticalVehicleId();
 				}
 
 				// rebuild waypoints - vehicles
@@ -13399,7 +13399,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 				else
 				{
 					// IS a vehicle
-					iVehicleId = pSoldier->bVehicleID;
+					iVehicleId = pSoldier->vehicleState().tacticalVehicleId();
 				}
 
 				// vehicles
@@ -15473,7 +15473,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 
 	// if a vehicle has passengers
 	if (	(pSoldier->status().flags() & SOLDIER_VEHICLE) &&
-			(DoesVehicleHaveAnyPassengers(pSoldier->bVehicleID) ) )
+			(DoesVehicleHaveAnyPassengers(pSoldier->vehicleState().tacticalVehicleId()) ) )
 	{
 		// then restrict contract menu
 		return (FALSE);
@@ -15661,8 +15661,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
 								if ( (pSelected->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId()) ||
-									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
-									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
+									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->vehicleState().tacticalVehicleId() ) ||
+									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->vehicleState().tacticalVehicleId() ) )
 								{
 									// then also select this guy
 									SetEntryInSelectedCharacterList( iCounter );
@@ -15716,8 +15716,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
 								if ( pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId() ||
-									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
-									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
+									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->vehicleState().tacticalVehicleId() ) ||
+									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->vehicleState().tacticalVehicleId() ) )
 								{
 									// then also select this guy
 									ResetEntryForSelectedList( iCounter );
@@ -15927,7 +15927,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 			{
 				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					pVehicleList[ pSoldier->bVehicleID ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->bVehicleID ].pMercPath );
+					pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].pMercPath );
 				}
 				else if( pSoldier->assignment().current() == VEHICLE )
 				{
@@ -15980,7 +15980,7 @@ void CancelPathsOfAllSelectedCharacters()
 				// cancel the entire path (also clears vehicles for any passengers selected, and handles reversing directions)
 				if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					CancelPathForVehicle( &( pVehicleList[ pSoldier->bVehicleID ] ), FALSE );
+					CancelPathForVehicle( &( pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ] ), FALSE );
 				}
 				else
 				{
@@ -16727,7 +16727,7 @@ void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	{
 		if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < min(ON_DUTY, gSquadNameVector.size() ) )
 			sgp_swprintf( sString, 32,L" %s", gSquadNameVector[pSoldier->assignment().current()].c_str() );
-		else if(pSoldier->bVehicleID != 0 && pSoldier->assignment().current() == ASSIGNMENT_DEAD)
+		else if(pSoldier->vehicleState().tacticalVehicleId() != 0 && pSoldier->assignment().current() == ASSIGNMENT_DEAD)
 			wcscpy(sString, L"Wrecked");
 		else
 			wcscpy(sString, pAssignmentStrings[ pSoldier->assignment().current() ] );
@@ -16753,7 +16753,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	else
 	{
 		// Flugente: if we have intel on a POW, DO show their location
-		if ( pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ))
+		if ( pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_MERC_POW_LOCATIONKNOWN ))
 		{
 			// POW - location unknown
 			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
@@ -17072,8 +17072,8 @@ void RestorePreviousPaths( void )
 
 				if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					ppMovePath = &( pVehicleList[ pSoldier->bVehicleID ].pMercPath );
-					ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
+					ppMovePath = &( pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].pMercPath );
+					ubGroupId = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 				}
 				else if( pSoldier->assignment().current() == VEHICLE )
 				{

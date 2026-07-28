@@ -1588,7 +1588,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	{
 		MercCreateStruct.ubProfile					= NO_PROFILE;
 		MercCreateStruct.fUseGivenVehicle		= TRUE;
-		MercCreateStruct.bUseGivenVehicleID	= pSoldier->bVehicleID;
+		MercCreateStruct.bUseGivenVehicleID	= pSoldier->vehicleState().tacticalVehicleId();
 	}
 
 	if ( ubTeam == gbPlayerNum )
@@ -1797,11 +1797,11 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 		// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels...
 		if ( ubCharNum == DEVIN || ubCharNum == HAMOUS || ubCharNum == SLAY || ubCharNum == VINCE || ubCharNum == MADDOG || ubCharNum == MICKY )
 		{
-			pNewSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_CIV|SOLDIER_COVERT_NPC_SPECIAL);
+			pNewSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_CIV|SOLDIER_COVERT_NPC_SPECIAL);
 		}
 		else if ( ubCharNum == IGGY || ubCharNum == CONRAD )
 		{
-			pNewSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_SOLDIER|SOLDIER_COVERT_NPC_SPECIAL);
+			pNewSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_SOLDIER|SOLDIER_COVERT_NPC_SPECIAL);
 		}
 	}
 
@@ -1928,7 +1928,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 	// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels/vehicles/robots
 	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
 	{
-		pNewSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_CIV | SOLDIER_COVERT_NPC_SPECIAL);
+		pNewSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_CIV | SOLDIER_COVERT_NPC_SPECIAL);
 	}
 
 	UpdateTeamPanelAssignments( );

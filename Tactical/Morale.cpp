@@ -666,10 +666,10 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	}
 	else if ( gTacticalStatus.fEnemyInSector && !pSoldier->roster().inSector() ) // delayed strategic
 	{
-		iMoraleModTotal = (INT32) pSoldier->bDelayedStrategicMoraleMod + (INT32) bMoraleMod;
+		iMoraleModTotal = (INT32) pSoldier->morale().delayedStrategicModifier() + (INT32) bMoraleMod;
 		iMoraleModTotal = __min( iMoraleModTotal, gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 		iMoraleModTotal = __max( iMoraleModTotal, -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
-		pSoldier->bDelayedStrategicMoraleMod = (INT8) iMoraleModTotal;
+		pSoldier->morale().delayedStrategicModifier() = (INT8) iMoraleModTotal;
 	}
 	else // strategic
 	{
@@ -807,7 +807,7 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 						if ( gGameOptions.fNewTraitSystem )
 						{
 							// Flugente: if we have the covert trait and are covert, we might simply be returning from a reconnaissance mission in enemy territory. No need for a morale drop in this case
-							if ( !HAS_SKILL_TRAIT( pTeamSoldier, COVERT_NT ) || ( (pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) == 0) )
+							if ( !HAS_SKILL_TRAIT( pTeamSoldier, COVERT_NT ) || ( (pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) == 0) )
 							{
 								// SANDRO - no penalty for pacifists to run away
 								if ( !DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_PACIFIST ) && !DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_COWARD ) )
@@ -1331,10 +1331,10 @@ void HourlyMoraleUpdate( void )
 
 			// New, December 3rd, 1998, by CJC --
 			// If delayed strategic modifier exists then incorporate it in strategic mod
-			if ( pSoldier->bDelayedStrategicMoraleMod )
+			if ( pSoldier->morale().delayedStrategicModifier() )
 			{
-				pSoldier->morale().strategicModifier() += pSoldier->bDelayedStrategicMoraleMod;
-				pSoldier->bDelayedStrategicMoraleMod = 0;
+				pSoldier->morale().strategicModifier() += pSoldier->morale().delayedStrategicModifier();
+				pSoldier->morale().delayedStrategicModifier() = 0;
 				pSoldier->morale().strategicModifier() = __min( pSoldier->morale().strategicModifier(), gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 				pSoldier->morale().strategicModifier() = __max( pSoldier->morale().strategicModifier(), -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 			}
@@ -1516,7 +1516,7 @@ void HandleSnitchesReports( std::vector<SnitchEvent>& aVec )
 			if (pSnitch->assignment().isAsleep())
 				fSleepingSnitch = TRUE;
 
-			if (pSnitch->usSoldierFlagMask2 & SOLDIER_SNITCHING_OFF)
+			if (pSnitch->featureFlags().secondaryFlags() & SOLDIER_SNITCHING_OFF)
 				continue;
 
 			// snitch introduction

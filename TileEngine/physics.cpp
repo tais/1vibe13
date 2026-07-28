@@ -2405,13 +2405,12 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 	vForce.z = dForce * vDirNormal.z;
 
 
-	// Allocate Throw Parameters
-	pSoldier->pThrowParams = (THROW_PARAMS *) MemAlloc( sizeof( THROW_PARAMS ) );
-	memset( pSoldier->pThrowParams, 0, sizeof( THROW_PARAMS ) );
-
-	OBJECTTYPE::CopyToOrCreateAt( &pSoldier->pTempObject, pItem);
-	pSoldier->pThrowParams->dX = (float)sSrcX;
-	pSoldier->pThrowParams->dY = (float)sSrcY;
+	// Start one owned item/ballistics transaction. Replacing an interrupted
+	// transaction cannot leak its object or parameters.
+	THROW_PARAMS& throwParameters =
+		pSoldier->pendingItem().prepareThrow(*pItem);
+	throwParameters.dX = (float)sSrcX;
+	throwParameters.dY = (float)sSrcY;
 
 
 	sStartZ = GET_SOLDIER_THROW_HEIGHT( pSoldier->position().level() );
@@ -2443,13 +2442,13 @@ void CalculateLaunchItemParamsForThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UI
 		sStartZ = ( pSoldier->position().level() * 256 ) + 50;
 	}
 
-	pSoldier->pThrowParams->dZ = (float)sStartZ;
-	pSoldier->pThrowParams->dForceX = vForce.x;
-	pSoldier->pThrowParams->dForceY = vForce.y;
-	pSoldier->pThrowParams->dForceZ = vForce.z;
-	pSoldier->pThrowParams->dLifeSpan = -1;
-	pSoldier->pThrowParams->ubActionCode = ubActionCode;
-	pSoldier->pThrowParams->uiActionData = uiActionData;
+	throwParameters.dZ = (float)sStartZ;
+	throwParameters.dForceX = vForce.x;
+	throwParameters.dForceY = vForce.y;
+	throwParameters.dForceZ = vForce.z;
+	throwParameters.dLifeSpan = -1;
+	throwParameters.ubActionCode = ubActionCode;
+	throwParameters.uiActionData = uiActionData;
 
 	// Dirty interface
 	DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );

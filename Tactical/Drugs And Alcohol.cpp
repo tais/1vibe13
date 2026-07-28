@@ -168,7 +168,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	else
 	{
 		// set flag: we are on non-alcoholic drugs
-		pSoldier->usSoldierFlagMask |= SOLDIER_DRUGGED;
+		pSoldier->featureFlags().primaryFlags() |= SOLDIER_DRUGGED;
 
 		if ( complainworthyeffects && gMercProfiles[pSoldier->identity().profile()].ubNumTimesDrugUseInLifetime != 255 )
 		{
@@ -232,7 +232,7 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 
 	if ( !pSoldier->drugState().ageTurn() )
 	{
-		pSoldier->usSoldierFlagMask &= ~SOLDIER_DRUGGED;
+		pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_DRUGGED;
 
 		fInterfacePanelDirty = DIRTYLEVEL1;
 	}
@@ -240,7 +240,7 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 
 INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
 {
-	if ( pSoldier->usSoldierFlagMask2 & SOLDIER_HUNGOVER )
+	if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_HUNGOVER )
 	{
 		return HUNGOVER;
 	}
@@ -337,7 +337,7 @@ BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->drugState().hasAlcohol() )
 		return TRUE;
 
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_DRUGGED )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_DRUGGED )
 		return TRUE;
 
 	return FALSE;
@@ -345,7 +345,7 @@ BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
 
 BOOLEAN MercDrugged( SOLDIERTYPE *pSoldier )
 {
-	return (pSoldier->usSoldierFlagMask & SOLDIER_DRUGGED);
+	return (pSoldier->featureFlags().primaryFlags() & SOLDIER_DRUGGED);
 }
 
 void HourlyDrugUpdate( )
@@ -359,7 +359,7 @@ void HourlyDrugUpdate( )
 		{
 			if ( !soldier->drugState().metabolizeAlcohol(0.15f) )
 			{
-				soldier->usSoldierFlagMask2 &= ~SOLDIER_HUNGOVER;
+				soldier->featureFlags().secondaryFlags() &= ~SOLDIER_HUNGOVER;
 			}
 		}
 	}

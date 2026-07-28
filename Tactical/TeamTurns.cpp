@@ -2028,7 +2028,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	{
 		SOLDIERTYPE* controller =
 			GetJa2SoldierRepository().resolve(
-				pSoldier->ubRobotRemoteHolderID.i);
+				pSoldier->vehicleState().robotRemoteHolder().i);
 		if (!controller)
 		{
 			return NO_INTERRUPT;
@@ -2059,7 +2059,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// sevenfm: no watch spot bonus when focusing
-	if (fUseWatchSpots && !(pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS))
+	if (fUseWatchSpots && !(pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS))
 	{
 		// if this is a previously noted spot of enemies, give bonus points!
 		iPoints += GetWatchedLocPoints( pSoldier->identity().id(), opponent->position().gridNo(), opponent->position().level() );
@@ -2151,7 +2151,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 		}
 
 		// Flugente: focus skill
-		if ( (pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS) )
+		if ( (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS) )
 		{
 			if ( pSoldier->CanUseSkill( SKILLS_FOCUS, FALSE, pSoldier->skillState().focusGrid() ) )
 			{
@@ -2169,7 +2169,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 			}
 			else
 			{
-				pSoldier->usSoldierFlagMask2 &= ~SOLDIER_TRAIT_FOCUS;
+				pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_TRAIT_FOCUS;
 				pSoldier->skillState().clearFocus();
 			}
 		}

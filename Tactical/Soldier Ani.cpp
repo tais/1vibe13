@@ -1114,10 +1114,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				//CODE: THROW ITEM
 				// Launch ITem!
-				if ( pSoldier->pTempObject != NULL && pSoldier->pThrowParams != NULL )
+				if ( pSoldier->pendingItem().readyToThrow() )
 				{
 					// ATE: If we are armmed...
-					if ( pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM )
+					if ( pSoldier->pendingItem().throwParameters()->ubActionCode == THROW_ARM_ITEM )
 					{
 						//AXP 25.03.2007: MinAPsToThrow now actually returns the real cost, not 0
 						// ATE: Deduct points!
@@ -1130,9 +1130,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// sevenfm: show flash light
-					UINT16 usItem = pSoldier->pTempObject->usItem;
+					UINT16 usItem = pSoldier->pendingItem().object()->usItem;
 					UINT16 usBuddyItem = Item[usItem].usBuddyItem;
-					if (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM &&
+					if (pSoldier->pendingItem().throwParameters()->ubActionCode == THROW_ARM_ITEM &&
 						(ItemIsFlare(usItem) ||
 						Explosive[Item[usItem].ubClassIndex].ubType == EXPLOSV_FLARE ||
 						Explosive[Item[usItem].ubClassIndex].ubType == EXPLOSV_BURNABLEGAS ||
@@ -1155,14 +1155,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					INT32 iRealObjectID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
+					INT32 iRealObjectID = CreatePhysicalObject( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,	pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, FALSE );
 
 					// OJW - 20091002 - Explosives
 					if (is_networked && is_client)
 					{
 						if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 						{
-							send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->targeting().gridNo(), pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iRealObjectID, true);
+							send_grenade( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,	pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, pSoldier->targeting().gridNo(), pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, iRealObjectID, true);
 						}
 					}
 
@@ -1172,10 +1172,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Update UI
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 
-					OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
-
-					MemFree( pSoldier->pThrowParams );
-					pSoldier->pThrowParams = NULL;
+					pSoldier->pendingItem().clearThrowTransaction();
 				}
 				break;
 
@@ -3136,16 +3133,16 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pRobot != nullptr &&
 						(pRobot->status().flags() & SOLDIER_ROBOT) )
 					{
-						ReloadGun( pRobot, &(pRobot->inv[ HANDPOS ] ), pSoldier->pTempObject );
+						ReloadGun( pRobot, &(pRobot->inv[ HANDPOS ] ), pSoldier->pendingItem().object() );
 
 						// OK, check what was returned and place in inventory if it's non-zero
-						if ( pSoldier->pTempObject->exists() == true )
+						if ( pSoldier->pendingItem().object()->exists() == true )
 						{
 							// Add to inv..
-							AutoPlaceObject( pSoldier, pSoldier->pTempObject, TRUE );
+							AutoPlaceObject( pSoldier, pSoldier->pendingItem().object(), TRUE );
 						}
 
-						OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+						pSoldier->pendingItem().clearObject();
 					}
 				}
 				break;
@@ -3223,13 +3220,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 763:
 
 				// CODE: Drop item at gridno
-				if ( pSoldier->pTempObject != NULL )
+				if ( pSoldier->pendingItem().object() != NULL )
 				{
 					if ( pSoldier->awareness().visibility() != -1 )
 					{
 						if (Water(pSoldier->pendingAction().secondaryData(), pSoldier->position().level()))
 						{
-							UINT16 usItem = pSoldier->pTempObject->usItem;
+							UINT16 usItem = pSoldier->pendingItem().object()->usItem;
 							INT32 sGridNo = pSoldier->pendingAction().secondaryData();
 
 							if (HasItemFlag(usItem, CORPSE))
@@ -3245,10 +3242,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					AddItemToPool( pSoldier->pendingAction().secondaryData(), pSoldier->pTempObject, 1, pSoldier->position().level(), 0 , -1 );
+					AddItemToPool( pSoldier->pendingAction().secondaryData(), pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0 , -1 );
 					NotifySoldiersToLookforItems( );
 
-					OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+					pSoldier->pendingItem().clearObject();
 				}
 				break;
 
@@ -4254,13 +4251,13 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		}
 
 		// Flugente: VIPs
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 		{
 			DeleteVIP( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		}
 		
 		// Flugente: turncoats
-		if ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
+		if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 			RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->roster().soldierClass(), FALSE );
 
 		// Flugente: additional dialogue

@@ -124,6 +124,10 @@ public:
 	void bytes(void*  p, UINT32 n) { w.bytes(p, n); }
 	// runtime pointer: not persisted (writes nothing; reader clears it).
 	template<class T> void ptr(T*& ) {}
+	// Historical runtime pointer whose live field has been retired. It never
+	// occupied bytes in the portable stream; retain the marker in field lists
+	// so the compatibility boundary remains explicit.
+	void retiredPtr() {}
 	bool good() const { return w.good(); }
 	static const bool isLoading = false;
 private:
@@ -146,6 +150,8 @@ public:
 	void bytes(void*  p, UINT32 n) { r.bytes(p, n); }
 	// runtime pointer: was never meaningfully persisted; clear it on load.
 	template<class T> void ptr(T*& p) { p = NULL; }
+	// Writer counterpart above emits no bytes, so there is nothing to consume.
+	void retiredPtr() {}
 	bool good() const { return r.good(); }
 	static const bool isLoading = true;
 private:

@@ -1006,7 +1006,7 @@ void StartCivQuote( SOLDIERTYPE *pCiv )
 	}
 
 	// Flugente: if we are an assassin, we speak like the militia we emulate
-	if ( pCiv->usSoldierFlagMask & SOLDIER_ASSASSIN )
+	if ( pCiv->featureFlags().primaryFlags() & SOLDIER_ASSASSIN )
 	{
 		switch ( pCiv->GetUniformType() )
 		{

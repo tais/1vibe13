@@ -1991,7 +1991,7 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 		pVehicleList->fValid = 0;
 		}
 	else
-		pMercPath = pVehicleList[ pSoldier->bVehicleID ].pMercPath;
+		pMercPath = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].pMercPath;
 	}
 	else	// a person
 	{
@@ -2047,7 +2047,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 	// IS a vehicle?
 	else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
-		ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
+		ubGroupId = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 	}
 	else	// a person
 	{
@@ -2125,7 +2125,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 	// if a vehicle
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
-		pVehicle = &( pVehicleList[ pSoldier->bVehicleID ] );
+		pVehicle = &( pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ] );
 	}
 	// or in a vehicle
 	else if( pSoldier->assignment().current() == VEHICLE )

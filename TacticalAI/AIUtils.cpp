@@ -1182,7 +1182,7 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 		}
 
 		// silversurfer: ignore empty vehicles
-		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			continue;
 		}
@@ -1430,7 +1430,7 @@ INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLev
 		}
 
 		// silversurfer: ignore empty vehicles
-		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
@@ -1544,7 +1544,7 @@ INT32 ClosestSeenOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLeve
 		}
 
 		// silversurfer: ignore empty vehicles
-		if ( pOpp->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpp->bVehicleID ) == 0 )
+		if ( pOpp->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpp->vehicleState().tacticalVehicleId() ) == 0 )
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
@@ -1640,7 +1640,7 @@ INT32 ClosestSeenOpponentWithRoof(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 
 		}
 
 		// silversurfer: ignore empty vehicles
-		if ( pOpp->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpp->bVehicleID ) == 0 )
+		if ( pOpp->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpp->vehicleState().tacticalVehicleId() ) == 0 )
 			continue;
 
 		// Special stuff for Carmen the bounty hunter
@@ -1794,7 +1794,7 @@ INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 		if ( AM_AN_EPC( pTargetSoldier ) )
 			continue;
 
-		if ( pTargetSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
+		if ( pTargetSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			continue;
 
 		sDist = PythSpacesAway(pSoldier->position().gridNo(),pTargetSoldier->position().gridNo());
@@ -2059,7 +2059,7 @@ BOOLEAN GuySawEnemy( SOLDIERTYPE * pSoldier, UINT8 ubMax )
 				}
 
 				// sevenfm: ignore empty vehicles
-				if( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+				if( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 				{
 					continue;
 				}
@@ -3494,7 +3494,7 @@ SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 			continue;
 
 		// check for flag
-		if ( !(pFriend->usSoldierFlagMask & aFlag) )
+		if ( !(pFriend->featureFlags().primaryFlags() & aFlag) )
 			continue;
 
 		// are we close enough?
@@ -4386,7 +4386,7 @@ BOOLEAN EnemySeenSoldierRecently( SOLDIERTYPE *pSoldier, UINT8 ubMax )
 		}
 
 		// sevenfm: ignore empty vehicles
-		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			continue;
 		}
@@ -4814,7 +4814,7 @@ BOOLEAN ValidOpponent(SOLDIERTYPE* pSoldier, SOLDIERTYPE* pOpponent)
 		CONSIDERED_NEUTRAL(pSoldier, pOpponent) ||
 		pSoldier->roster().side() == pOpponent->roster().side() ||
 		pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY ||
-		(pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle(pOpponent->bVehicleID) == 0) ||
+		(pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle(pOpponent->vehicleState().tacticalVehicleId()) == 0) ||
 		gTacticalStatus.bBoxingState == BOXING && (pSoldier->status().flags() & SOLDIER_BOXER) && !(pOpponent->status().flags() & SOLDIER_BOXER) ||
 		pOpponent->identity().bodyType() == CROW)
 	{

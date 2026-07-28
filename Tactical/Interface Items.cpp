@@ -5125,7 +5125,7 @@ BOOLEAN InitKeyItemDescriptionBox( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT1
 	OBJECTTYPE *pObject;
 
 	AllocateObject( &pObject );
-	CreateKeyObject( pObject, pSoldier->pKeyRing[ ubPosition ].ubNumber ,pSoldier->pKeyRing[ ubPosition ].ubKeyID );
+	CreateKeyObject( pObject, pSoldier->keyRing()[ ubPosition ].ubNumber ,pSoldier->keyRing()[ ubPosition ].ubKeyID );
 
 	return( InternalInitItemDescriptionBox( pObject, sX, sY, ubStatusIndex, pSoldier ) );
 }
@@ -8724,7 +8724,7 @@ void BeginKeyRingItemPointer( SOLDIERTYPE *pSoldier, UINT8 ubKeyRingPosition )
 	if (_KeyDown( SHIFT ))
 	{
 		// Remove all from soldier's slot
-		fOk = RemoveKeysFromSlot( pSoldier, ubKeyRingPosition, pSoldier->pKeyRing[ ubKeyRingPosition ].ubNumber, &gItemPointer );
+		fOk = RemoveKeysFromSlot( pSoldier, ubKeyRingPosition, pSoldier->keyRing()[ ubKeyRingPosition ].ubNumber, &gItemPointer );
 	}
 	else
 	{
@@ -9358,7 +9358,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					 if ( sActionGridNo != -1 && gbItemPointerSrcSlot != NO_SLOT )
 					 {
 							// Make a temp object for ammo...
-							OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, &gTempObject);
+							GetItemPointerSoldier()->pendingItem().copyObject(gTempObject);
 
 							// Remove from soldier's inv...
 							GetItemPointerSoldier()->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
@@ -9459,8 +9459,8 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				{
 					case ANIM_STAND:
 
-						OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, gpItemPointer);
-						if (GetItemPointerSoldier()->pTempObject != NULL)
+						GetItemPointerSoldier()->pendingItem().copyObject(*gpItemPointer);
+						if (GetItemPointerSoldier()->pendingItem().hasObject())
 						{
 							GetItemPointerSoldier()->pendingAction().secondaryData() = usMapPos;
 
@@ -10409,17 +10409,17 @@ void RenderKeyRingPopup( BOOLEAN fFullRender )
 		BltVideoObjectFromIndex( FRAME_BUFFER, guiItemPopupBoxes, 0, (INT16)(gsKeyRingPopupInvX + ( cnt % sKeyRingItemWidth * usWidth ) + sOffSetX ), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) ), VO_BLT_SRCTRANSPARENCY, NULL );
 
 		// will want to draw key here.. if there is one
-		if( ( GetItemPopupSoldier()->pKeyRing[ cnt ].ubKeyID != INVALID_KEY_NUMBER ) && ( GetItemPopupSoldier()->pKeyRing[ cnt ].ubNumber > 0 ) )
+		if( ( GetItemPopupSoldier()->keyRing()[ cnt ].ubKeyID != INVALID_KEY_NUMBER ) && ( GetItemPopupSoldier()->keyRing()[ cnt ].ubNumber > 0 ) )
 		{
-			gTempObject.ubNumberOfObjects = GetItemPopupSoldier()->pKeyRing[ cnt ].ubNumber;
+			gTempObject.ubNumberOfObjects = GetItemPopupSoldier()->keyRing()[ cnt ].ubNumber;
 
 			// show 100% status for each
 			DrawItemUIBarEx( &gTempObject, 0, (INT16)( gsKeyRingPopupInvX + sOffSetX + ( cnt % sKeyRingItemWidth * usWidth ) + 7 ), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) + 24 )
 			, ITEM_BAR_WIDTH, ITEM_BAR_HEIGHT, 	Get16BPPColor( STATUS_BAR ), Get16BPPColor( STATUS_BAR_SHADOW ), TRUE , FRAME_BUFFER );
 
 			// set item type
-			//gTempObject.usItem = FIRST_KEY + LockTable[ GetItemPopupSoldier()->pKeyRing[ cnt].ubKeyID ].usKeyItem;
-			gTempObject.usItem = KeyTable[ LockTable[GetItemPopupSoldier()->pKeyRing[cnt].ubKeyID].usKeyItem ].usItem;
+			//gTempObject.usItem = FIRST_KEY + LockTable[ GetItemPopupSoldier()->keyRing()[ cnt].ubKeyID ].usKeyItem;
+			gTempObject.usItem = KeyTable[ LockTable[GetItemPopupSoldier()->keyRing()[cnt].ubKeyID].usKeyItem ].usItem;
 
 			// render the item
 			INVRenderItem( FRAME_BUFFER, NULL, &gTempObject, (INT16)(gsKeyRingPopupInvX + sOffSetX +( cnt % sKeyRingItemWidth * usWidth ) + 8), ( INT16 )( gsKeyRingPopupInvY + sOffSetY + ( cnt / sKeyRingItemWidth * usHeight ) ),
@@ -11716,7 +11716,7 @@ void RemoveItemPickupMenu( )
 
 		// Flugente: remove the marker notifying we are currently stealing
 		if (pickupActor)
-			pickupActor->usSoldierFlagMask &= ~SOLDIER_ACCESSTEAMMEMBER;
+			pickupActor->featureFlags().primaryFlags() &= ~SOLDIER_ACCESSTEAMMEMBER;
 
 		// Remove graphics!
 		DeleteVideoObjectFromIndex( gItemPickupMenu.uiPanelVo );
@@ -14051,7 +14051,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			}
 
 			// Flugente: blowing up bombs in our inventory can be used to indirectly kill as a spy (via mustard gas), so make this a suspicious action
-			if ( GetItemDescSoldier()->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			if ( GetItemDescSoldier()->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// if e perform a suspicious action, we are easier to identify 
 				UINT16 appenalty = 50;
@@ -14059,7 +14059,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 				if ( appenalty )
 				{
 					// mark us a easily identifiable
-					GetItemDescSoldier()->usSoldierFlagMask |= SOLDIER_COVERT_TEMPORARY_OVERT;
+					GetItemDescSoldier()->featureFlags().primaryFlags() |= SOLDIER_COVERT_TEMPORARY_OVERT;
 
 					// in realtime mode, remember the second when this event happened. Once suspicion is checked, we are either uncovered or, if enough time has passed, no longer suspicious
 					// in turnbase mode, remember our current APs. If a new turn has started or enough APs have been used, remove the flag

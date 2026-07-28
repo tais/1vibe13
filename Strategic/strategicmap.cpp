@@ -2084,8 +2084,8 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 
 			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && !SPY_LOCATION(pSoldier->assignment().current()) && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
-				//Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
-				Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
+				//Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->sGridNo != NOWHERE || pSoldier->vehicleState().tacticalVehicleId() == iHelicopterVehicleId );
+				Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->vehicleState().tacticalVehicleId() == iHelicopterVehicleId );
 			}
 		}
 
@@ -2135,8 +2135,8 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
-				//Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
-				Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
+				//Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->sGridNo != NOWHERE || pSoldier->vehicleState().tacticalVehicleId() == iHelicopterVehicleId );
+				Assert( !pSoldier->roster().active() || !pSoldier->roster().inSector() || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->vehicleState().tacticalVehicleId() == iHelicopterVehicleId );
 			}
 		}
 
@@ -3046,7 +3046,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 						}
 
 						// Flugente: override if entering from concealment
-						if ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+						if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 						{
 							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 							pSoldier->deployment().strategicInsertionData() = pSoldier->longAction().contextGrid();

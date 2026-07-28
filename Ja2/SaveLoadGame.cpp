@@ -1738,6 +1738,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDeploymentComponent& deployment = s.deployment();
 	SoldierScheduleComponent& schedule = s.schedule();
 	SoldierPositionComponent& position = s.position();
+	SoldierFrontArcComponent& frontArc = s.frontArc();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
 	SoldierMovementComponent& movement = s.movement();
 	SoldierTurnStateComponent& turnState = s.turnState();
@@ -1756,7 +1757,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.identity().bodyType());
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
 	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());
-	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
+	if (Ar::isLoading) s.pendingItem().reset();
+	ar.retiredPtr();
+	if (Ar::isLoading) s.keyRing().reset();
+	ar.retiredPtr();
 	ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(movement.stealthMode()); ar.i16(vitals.breathReduction());
 	ar.u8(movement.waitAction()); ar.i8(deployment.insertionDirection()); ar.i8(fireControl.gunType()); ar.u16(targeting.engagedOpponent().i);
@@ -1788,8 +1792,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());
 	ar.u8(movementMetrics.realtimeBreathTiles()); ar.u16(movementMetrics.lastRealtimeMovementAnimation());
 	ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);
-	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.u16(s.usFrontArcFullTileList[i]);
-	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.i32(s.usFrontArcFullTileGridNos[i]);
+	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
+		ar.u16(frontArc.tileIndex(i));
+	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
+		ar.i32(frontArc.gridNo(i));
 	ar.str8(renderState.headPalette(), sizeof(renderState.headPalette())); ar.str8(renderState.pantsPalette(), sizeof(renderState.pantsPalette()));
 	ar.str8(renderState.vestPalette(), sizeof(renderState.vestPalette())); ar.str8(renderState.skinPalette(), sizeof(renderState.skinPalette()));
 	ar.str8(renderState.miscPalette(), sizeof(renderState.miscPalette()));
@@ -1798,7 +1804,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 20; ++i) ar.ptr(s.pGlowShades[i]);
 	ar.ptr(s.pCurrentShade);
 	ar.u8(renderState.fadeLevel()); ar.u8(service.providerCount()); ar.u16(service.partner().i);
-	ar.ptr(s.pThrowParams); ar.i8(movement.reverse());
+	ar.retiredPtr(); ar.i8(movement.reverse());
 	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
 	ar.ptr(s.pBackGround); ar.ptr(s.pZBackground);
 	ar.u16(renderState.unblitX()); ar.u16(renderState.unblitY()); ar.u16(renderState.unblitWidth()); ar.u16(renderState.unblitHeight());
@@ -1842,11 +1848,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());
-	ar.i8(s.bVehicleID); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
+	ar.i8(s.vehicleState().tacticalVehicleId()); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
 	ar.u16(movement.gridUpdatePolicy());
 	ar.i16(renderState.boundingBoxWidth()); ar.i16(renderState.boundingBoxHeight()); ar.i16(renderState.boundingBoxOffsetX()); ar.i16(renderState.boundingBoxOffsetY());
 	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());
-	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
+	ar.u16(service.autoBandagingMedic().i); ar.u16(s.vehicleState().robotRemoteHolder().i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());
@@ -1858,12 +1864,12 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());
 	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(targeting.lineOfFireTarget().i);
 	ar.u32(replication.checksum());
-	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
+	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.featureFlags().eventFlags()); ar.u8(s.movement().stopReason());
 	ar.i32(renderState.fadeOriginGrid()); ar.u8(deployment.useExitGridForReentryDirection());
 	ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
 	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(pendingAction.inventorySlot());
-	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());
-	ar.ptr(s.pGroup); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
+	ar.i8(s.morale().delayedStrategicModifier()); ar.u8(audio.doorOpeningNoise());
+	ar.retiredPtr(); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(deployment.arrivalTime());
 	ar.i8(assignment.repairVehicleId()); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
 	ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());
@@ -1878,7 +1884,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(combatContribution.militiaAssists()); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);
 	ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);
 	ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());
-	ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);
+	ar.i8(condition.extraExperienceLevel()); ar.u32(s.featureFlags().primaryFlags());
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
 	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
@@ -1890,7 +1896,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
-	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());
+	ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(deployment.ignoreCollapseGetupCheck());
 	ar.i32(deployment.arrivalGetupCounter());
@@ -1954,6 +1960,10 @@ INT32 ReadFieldByField(HWFILE hFile, PTR pDest, UINT32 uiFieldSize, UINT32 uiEle
 BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 {
 	UINT32 uiNumBytesRead;
+
+	// Modular AI plans are process-local and retain a back-reference to this
+	// record. Never carry one across an in-place load.
+	this->aiPlan().reset();
 
 	//if we are at the most current version, then fine
 	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
@@ -6093,8 +6103,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		}
 
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits
-		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
-			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
+		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
+			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
 			pTeamSoldier->LooseDisguise( );
 	}
 
@@ -6261,10 +6271,10 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 				return( FALSE );
 
 			//
-			//do we have a 	KEY_ON_RING									*pKeyRing;
+			// Preserve the historical key-ring presence byte and payload.
 			//
 
-			if( soldier.pKeyRing != NULL )
+			if( soldier.keyRing().active() )
 			{
 				// write to the file saying we have the ....
 				FileWrite( hFile, &ubOne, 1, &uiNumBytesWritten );
@@ -6274,7 +6284,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 				}
 
 				// Now save the ....
-				FileWrite( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
+				FileWrite( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
 				if( uiNumBytesWritten != NUM_KEYS * sizeof( KEY_ON_RING ) )
 				{
 					return(FALSE);
@@ -6337,14 +6347,13 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			}
 
 			//Make sure all the pointer references are NULL'ed out.	
-			SavedSoldierInfo.pTempObject	= NULL;
-			SavedSoldierInfo.pKeyRing	= NULL;
+			SavedSoldierInfo.pendingItem().reset();
+			SavedSoldierInfo.keyRing().reset();
 			SavedSoldierInfo.p8BPPPalette	= NULL;
 			SavedSoldierInfo.p16BPPPalette	= NULL;
 			memset( SavedSoldierInfo.pShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_SHADES );
 			memset( SavedSoldierInfo.pGlowShades, 0, sizeof( UINT16* ) * 20 );
 			SavedSoldierInfo.pCurrentShade	= NULL;
-			SavedSoldierInfo.pThrowParams	= NULL;
 			SavedSoldierInfo.pLevelNode	= NULL;
 			SavedSoldierInfo.pExternShadowLevelNode	= NULL;
 			SavedSoldierInfo.pRoofUILevelNode	= NULL;
@@ -6370,7 +6379,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				return( FALSE );
 			
 			//
-			//do we have a 	KEY_ON_RING									*pKeyRing;
+			// Restore the historical optional key-ring payload into its inline owner.
 			//
 
 			// Read the file to see if we have to load the keys
@@ -6382,17 +6391,16 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			if( ubOne )
 			{
-				// The save flag says this soldier had a keyring, but a recreated non-player
-				// soldier's pKeyRing is NULL -> FileRead into NULL would crash. Allocate it.
-				if ( soldier.pKeyRing == NULL )
-					soldier.pKeyRing = (KEY_ON_RING *) MemAlloc( NUM_KEYS * sizeof( KEY_ON_RING ) );
-				if ( soldier.pKeyRing == NULL )
-					return( FALSE );
+				// Old saves may carry a ring for a soldier that current team
+				// eligibility would leave inactive. Inline storage makes that
+				// restoration deterministic and allocation-free.
+				soldier.keyRing().ensureActive();
+				soldier.keyRing().clear();
 				// WANNE - BMP: Check -> We get an assert here!
 				// Now Load the ....
 				if( guiCurrentSaveGameVersion < MORE_LOCKS_AND_KEYS )
 				{
-					FileRead( hFile, soldier.pKeyRing, NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.keyRing().data(), NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS_OLD * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6400,7 +6408,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				}
 				else
 				{
-					FileRead( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6409,7 +6417,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			}
 			else
 			{
-				Assert( soldier.pKeyRing == NULL );
+				Assert( !soldier.keyRing().active() );
 			}
 
 			if ( guiCurrentSaveGameVersion < 99 )

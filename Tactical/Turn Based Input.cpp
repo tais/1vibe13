@@ -5339,7 +5339,7 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 					//pSoldier->inv[ HANDPOS ].usItem = TANK_CANNON;
 
 					pSoldier->inv[ HANDPOS ].usItem = MINIMI;
-					pSoldier->bVehicleID = (INT8)AddVehicleToList( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), HUMMER );
+					pSoldier->vehicleState().tacticalVehicleId() = (INT8)AddVehicleToList( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), HUMMER );
 
 					break;
 				}
@@ -5796,7 +5796,7 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && OKUseVehicle( pTSoldier->identity().profile() ) && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
 		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && OKUseVehicle( pTSoldier->identity().profile() ) )
 		{
-			if ( ( GetNumberInVehicle( pTSoldier->bVehicleID ) == 0 ) || !fMovementMode )
+			if ( ( GetNumberInVehicle( pTSoldier->vehicleState().tacticalVehicleId() ) == 0 ) || !fMovementMode )
 			{
 				// Find a gridno closest to sweetspot...
 				sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, pTSoldier, TRUE );
@@ -5889,7 +5889,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 			}
 			pTMilitiaSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 
-			//pTMilitiaSoldier->usSoldierFlagMask |= SOLDIER_MILITIA_ORDER;
+			//pTMilitiaSoldier->featureFlags().primaryFlags() |= SOLDIER_MILITIA_ORDER;
 		}
 		else
 		{
@@ -6137,7 +6137,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				// anv: if we are passengers, only show menu when clicking on vehicle we're in
 				if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 				{
-					if( pSoldier->deployment().vehicleId() == pTSoldier->bVehicleID )
+					if( pSoldier->deployment().vehicleId() == pTSoldier->vehicleState().tacticalVehicleId() )
 					{
 						VehicleMenu(usMapPos, pSoldier, pTSoldier);
 					}
@@ -7440,7 +7440,7 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
 		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
-		if( pVehicle != NULL && bNewPosition < gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].iNewSeatingCapacities )
+		if( pVehicle != NULL && bNewPosition < gNewVehicle[ pVehicleList[ pVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType ].iNewSeatingCapacities )
 		{
 			if( SwapVehicleSeat( pVehicle, pSoldier, bNewPosition ) )
 			{

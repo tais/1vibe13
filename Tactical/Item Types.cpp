@@ -948,15 +948,9 @@ const StackedObjectData* OBJECTTYPE::operator [](const unsigned int index) const
 }
 
 
-//you may have noticed code like this:
-//pSoldier->pTempObject	= (OBJECTTYPE *)MemAlloc( sizeof( OBJECTTYPE ) );
-//memcpy( pSoldier->pTempObject, pObject, sizeof( OBJECTTYPE ) );
-//That's setting yourself up for a memleak if pSoldier->pTempObject isn't null!
-
-//Whenever you see code like that, write this in it's place:
-//OBJECTTYPE::CopyToOrCreateAt(&pSoldier->pTempObject, pObject);
-
-//OR write OBJECTTYPE::DeleteMe(&pSoldier->pTempObject) if there is no memcpy
+// Legacy pointer owners should use these helpers instead of pairing a raw
+// allocation with memcpy. SOLDIERTYPE temporary actions are owned by
+// SoldierPendingItemComponent and use copyObject()/clearObject() directly.
 void OBJECTTYPE::CopyToOrCreateAt(OBJECTTYPE** ppTarget, OBJECTTYPE* pSource)
 {
 	//this is necessary because memcpy is no longer good enough for OBJECTTYPE
@@ -972,7 +966,6 @@ void OBJECTTYPE::CopyToOrCreateAt(OBJECTTYPE** ppTarget, OBJECTTYPE* pSource)
 	return;
 }
 
-//OR write OBJECTTYPE::DeleteMe(&pSoldier->pTempObject) if there is no memcpy
 void OBJECTTYPE::DeleteMe(OBJECTTYPE** ppObject)
 {
 	if (*ppObject != NULL) {

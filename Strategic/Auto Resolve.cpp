@@ -2840,7 +2840,7 @@ void RetreatButtonCallback( GUI_BUTTON *btn, INT32 reason )
 			//if robot is retreating, set the retreat time to be the same as the robot's controller.
 			SoldierID ubRobotControllerID;
 
-			ubRobotControllerID = gpAR->pRobotCell->pSoldier->ubRobotRemoteHolderID;
+			ubRobotControllerID = gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder();
 
 			if( ubRobotControllerID == NOBODY )
 			{
@@ -3012,7 +3012,7 @@ void MercCellMouseClickCallback( MOUSE_REGION *reg, INT32 reason )
 
 		if( gpAR->pRobotCell )
 		{ //if controller is retreating, make the robot retreat too.
-			SoldierID ubRobotControllerID = gpAR->pRobotCell->pSoldier->ubRobotRemoteHolderID;
+			SoldierID ubRobotControllerID = gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder();
 
 			if( ubRobotControllerID == NOBODY )
 			{
@@ -5356,7 +5356,7 @@ BOOLEAN IsBattleOver()
 		//Do special robot checks
 		SOLDIERTYPE *pRobot;
 		pRobot = gpAR->pRobotCell->pSoldier;
-		if( pRobot->ubRobotRemoteHolderID == NOBODY )
+		if( pRobot->vehicleState().robotRemoteHolder() == NOBODY )
 		{
 			//Robot can't fight anymore.
 			gpAR->usPlayerAttack -= gpAR->pRobotCell->usAttack;
@@ -5796,7 +5796,7 @@ void ProcessBattleFrame()
 					//The merc has successfully retreated.	Remove the stats, and continue on.
 					if( pAttacker == gpAR->pRobotCell )
 					{
-						if( gpAR->pRobotCell->pSoldier->ubRobotRemoteHolderID == NOBODY )
+						if( gpAR->pRobotCell->pSoldier->vehicleState().robotRemoteHolder() == NOBODY )
 						{
 							gpAR->pRobotCell->uiFlags &= ~CELL_RETREATING;
 							gpAR->pRobotCell->uiFlags |= CELL_DIRTY;

@@ -640,7 +640,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 				// if anchor guy IS a vehicle
 				else if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
-					if ( !CanSoldierMoveWithVehicleId( pSoldier2, pSoldier->bVehicleID ) )
+					if ( !CanSoldierMoveWithVehicleId( pSoldier2, pSoldier->vehicleState().tacticalVehicleId() ) )
 					{
 						// reset entry for selected list
 						ResetEntryForSelectedList( iCounter );
@@ -658,7 +658,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 				// if this guy IS a vehicle
 				else if ( pSoldier2->status().flags() & SOLDIER_VEHICLE )
 				{
-					if ( !CanSoldierMoveWithVehicleId( pSoldier, pSoldier2->bVehicleID ) )
+					if ( !CanSoldierMoveWithVehicleId( pSoldier, pSoldier2->vehicleState().tacticalVehicleId() ) )
 					{
 						// reset entry for selected list
 						ResetEntryForSelectedList( iCounter );
@@ -752,14 +752,14 @@ BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier )
 
 				// target guy is in a vehicle, and this guy IS that vehicle
 				if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier2->status().flags() & SOLDIER_VEHICLE ) &&
-						( pSoldier->deployment().vehicleId() == pSoldier2->bVehicleID ) )
+						( pSoldier->deployment().vehicleId() == pSoldier2->vehicleState().tacticalVehicleId() ) )
 				{
 					return ( TRUE );
 				}
 
 				// this guy is in a vehicle, and the target guy IS that vehicle
 				if( ( pSoldier2->assignment().current() == VEHICLE ) && ( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
-						( pSoldier2->deployment().vehicleId() == pSoldier->bVehicleID ) )
+						( pSoldier2->deployment().vehicleId() == pSoldier->vehicleState().tacticalVehicleId() ) )
 				{
 					return ( TRUE );
 				}
@@ -3689,10 +3689,10 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 				{
 					// vehicle
 					// if it can move (can't be empty)
-					if ( GetNumberInVehicle( pSoldier->bVehicleID ) > 0 )
+					if ( GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) > 0 )
 					{
 						// add vehicle
-						AddVehicleToMovingLists( pSoldier->bVehicleID );
+						AddVehicleToMovingLists( pSoldier->vehicleState().tacticalVehicleId() );
 					}
 				}
 				else // soldier
@@ -4979,7 +4979,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 
 			if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
-				fSelected = IsVehicleSelectedForMovement( pSoldier->bVehicleID );
+				fSelected = IsVehicleSelectedForMovement( pSoldier->vehicleState().tacticalVehicleId() );
 			}
 			else
 			{
@@ -5018,7 +5018,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 			for (INT8 bCounter = 0; bCounter < NUMBER_OF_SQUADS; ++bCounter)
 			{
 				if (Squad[bCounter][0] != NULL && IsVehicle(Squad[bCounter][0]) &&
-					Squad[bCounter][0]->bVehicleID == pSoldier->deployment().vehicleId())
+					Squad[bCounter][0]->vehicleState().tacticalVehicleId() == pSoldier->deployment().vehicleId())
 				{
 					bSquadValue = bCounter;
 					break;
@@ -6451,7 +6451,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// empty (needs a driver!)?
-		if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
+		if ( GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			*pbErrorNumber = 32;
 			return( FALSE );
@@ -6678,7 +6678,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// IS a vehicle - use vehicle's group
-		ubGroup = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
+		ubGroup = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 	}
 	else if( pSoldier->assignment().current() == VEHICLE )
 	{
@@ -6716,7 +6716,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 			if( pCurrentSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				// IS a vehicle
-				ubCurrentGroup = pVehicleList[ pCurrentSoldier->bVehicleID ].ubMovementGroup;
+				ubCurrentGroup = pVehicleList[ pCurrentSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup;
 			}
 			else if( pCurrentSoldier->assignment().current() == VEHICLE )
 			{
@@ -6860,7 +6860,7 @@ BOOLEAN CanSoldierMoveWithVehicleId( SOLDIERTYPE *pSoldier, INT32 iVehicle1Id )
 	// if soldier IS a vehicle
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
-		iVehicle2Id = pSoldier->bVehicleID;
+		iVehicle2Id = pSoldier->vehicleState().tacticalVehicleId();
 	}
 
 

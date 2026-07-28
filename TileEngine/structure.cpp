@@ -643,7 +643,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 			gusTempDragBuildSoldierID.i);
 
 	BOOLEAN fVehicleIgnoreObstacles = (BOOLEAN)(sExclusionID == VEHICLE_IGNORE_OBSTACLES_STRUCTURE_ID);
-	if( gGameExternalOptions.ubCarsRammingMaxStructureArmour && movingSoldier && movingSoldier->usSoldierFlagMask2 & SOLDIER_RAM_THROUGH_OBSTACLES )
+	if( gGameExternalOptions.ubCarsRammingMaxStructureArmour && movingSoldier && movingSoldier->featureFlags().secondaryFlags() & SOLDIER_RAM_THROUGH_OBSTACLES )
 	{
 		fVehicleIgnoreObstacles = TRUE;
 	}

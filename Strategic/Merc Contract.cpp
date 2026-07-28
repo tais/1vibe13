@@ -1054,7 +1054,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 	if (IsVehicle(pSoldier))
 	{
 		// for some reason, vehicles have their own idea of handling group ids
-		RemovePlayerFromGroup(pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup, pSoldier);
+		RemovePlayerFromGroup(pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubMovementGroup, pSoldier);
 	}
 	//remove him from the soldier structure
 	if( pSoldier->assignment().current() >= ON_DUTY )

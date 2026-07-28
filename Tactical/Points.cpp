@@ -853,11 +853,11 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		pSoldier->skillState().clearCounter(SOLDIER_COUNTER_SPOTTER);
 
 		// if we are temporarily overt
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_TEMPORARY_OVERT && pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) > 0 )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_TEMPORARY_OVERT && pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) > 0 )
 			pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = max( 0, (INT16)(pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) - sAPCost) );
 
 		// sevenfm: indicate in realtime that soldier spent some action point this turn
-		pSoldier->usSoldierFlagMask2 |= SOLDIER_SPENT_AP;
+		pSoldier->featureFlags().secondaryFlags() |= SOLDIER_SPENT_AP;
 
 		pSoldier->StopChatting();
 
@@ -3640,8 +3640,8 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 
 	// if grenade, or  if we've thrown the object for real, it disapears from our hands and is converted to TempObject
 	if ( Item[usInHand].usItemClass & IC_GRENADE
-		|| ( pSoldier->pTempObject != NULL && pSoldier->pThrowParams != NULL &&
-			pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM && ( Item[pSoldier->pTempObject->usItem].usItemClass & IC_GRENADE ) ) )
+		|| ( pSoldier->pendingItem().readyToThrow() &&
+			pSoldier->pendingItem().throwParameters()->ubActionCode == THROW_ARM_ITEM && ( Item[pSoldier->pendingItem().object()->usItem].usItemClass & IC_GRENADE ) ) )
 	{
 		grenadAPreductionpossible = true;
 

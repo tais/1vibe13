@@ -2459,13 +2459,13 @@ void HandleSoldierDefuseTripwire( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT32 sI
 void SoldierHandleDropItem( SOLDIERTYPE *pSoldier )
 {
 	// LOOK IN PANDING DATA FOR ITEM TO DROP, AND LOCATION
-	if ( pSoldier->pTempObject != NULL )
+	if ( pSoldier->pendingItem().object() != NULL )
 	{
 		if ( pSoldier->awareness().visibility() != -1 )
 		{
 			if (Water(pSoldier->position().gridNo(), pSoldier->position().level()))
 			{
-				UINT16 usItem = pSoldier->pTempObject->usItem;
+				UINT16 usItem = pSoldier->pendingItem().object()->usItem;
 				INT32 sGridNo = pSoldier->position().gridNo();
 
 				if (HasItemFlag(usItem, CORPSE))
@@ -2481,16 +2481,23 @@ void SoldierHandleDropItem( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		AddItemToPool( pSoldier->position().gridNo(), pSoldier->pTempObject, 1, pSoldier->position().level(), 0, -1 );
+		AddItemToPool( pSoldier->position().gridNo(), pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0, -1 );
 		NotifySoldiersToLookforItems( );
 
-		OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+		pSoldier->pendingItem().clearObject();
 	}
 }
 
 
 void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
+	SoldierPendingItemComponent& pendingItem = pSoldier->pendingItem();
+	if ( !pendingItem.readyToThrow() )
+	{
+		return;
+	}
+	const THROW_PARAMS& throwParameters = *pendingItem.throwParameters();
+
 	// Determine what to do
 	UINT8 ubDirection;
 
@@ -2500,7 +2507,8 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	INT16 sXTest, sYTest;
 	ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sXTest, &sYTest);
 	//shadooow: if the grenade isn't thrown from soldier gridno, it should mean it is thrown using my grenade rolling feature
-	BOOLEAN gbGrenadeRolling = pSoldier->pThrowParams->dX != sXTest || pSoldier->pThrowParams->dY != sYTest;
+	BOOLEAN gbGrenadeRolling =
+		throwParameters.dX != sXTest || throwParameters.dY != sYTest;
 
 	// Alrighty, switch based on stance!
 	switch( gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight )
@@ -2524,7 +2532,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 
 			if (gbGrenadeRolling)
 			{
-				if ((pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) &&
+				if ((throwParameters.ubActionCode == THROW_ARM_ITEM) &&
 					((pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE)))
 					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
@@ -2534,7 +2542,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			else if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) < MIN_LOB_RANGE )
 			{
 				//ddd maybe need to add check for throwing item class - grenade
-				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
+				if( (throwParameters.ubActionCode == THROW_ARM_ITEM) &&
 					( (pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE) ) )
 					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
@@ -2542,7 +2550,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			}
 			else			
 			{
-				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
+				if( (throwParameters.ubActionCode == THROW_ARM_ITEM) &&
 					( (pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE) ) )
 					pSoldier->animationIntent().pendingAnimation() = THROW_GRENADE_STANCE;
 				else
@@ -2556,12 +2564,12 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			if ( sGridNo == pSoldier->position().gridNo() )
 			{
 				// OK, JUST DROP ITEM!
-				if ( pSoldier->pTempObject != NULL )
+				if ( pSoldier->pendingItem().object() != NULL )
 				{
-					AddItemToPool( sGridNo, pSoldier->pTempObject, 1, pSoldier->position().level(), 0, -1 );
+					AddItemToPool( sGridNo, pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0, -1 );
 					NotifySoldiersToLookforItems( );
 
-					OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+					pSoldier->pendingItem().clearThrowTransaction();
 				}
 				break;
 			}
@@ -2572,12 +2580,12 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		if ( sGridNo == pSoldier->position().gridNo() )
 		{
 			// OK, JUST DROP ITEM!
-			if ( pSoldier->pTempObject != NULL )
+			if ( pSoldier->pendingItem().object() != NULL )
 			{
-				AddItemToPool( sGridNo, pSoldier->pTempObject, 1, pSoldier->position().level(), 0, -1 );
+				AddItemToPool( sGridNo, pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0, -1 );
 				NotifySoldiersToLookforItems( );
 
-				OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+				pSoldier->pendingItem().clearThrowTransaction();
 			}
 		}
 		else
@@ -2622,7 +2630,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 
 		pSoldier->pendingAction().inventorySlot() = bInvPos;
 		// Copy temp object
-		OBJECTTYPE::CopyToOrCreateAt(&pSoldier->pTempObject, pObject);
+		pSoldier->pendingItem().copyObject(*pObject);
 
 		pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
 		pSoldier->pendingAction().tertiaryData()	= ubDirection;
@@ -2658,7 +2666,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 
 BOOLEAN SoldierDropItem( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj )
 {
-	OBJECTTYPE::CopyToOrCreateAt(&pSoldier->pTempObject, pObj);
+	pSoldier->pendingItem().copyObject(*pObj);
 	pSoldier->PickDropItemAnimation( );
 	return( TRUE );
 }
@@ -5185,7 +5193,7 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 	// DO SOME CHECKS IF WE CAN DO ANIMATION.....
 
 	// Get items from pending data
-	pObject = pSoldier->pTempObject;
+	pObject = pSoldier->pendingItem().object();
 
 	sGridNo		= pSoldier->pendingAction().secondaryData();
 	ubDirection = pSoldier->pendingAction().tertiaryData();
@@ -5213,12 +5221,12 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 	}
 	else
 	{
-		if ( pSoldier->pTempObject != NULL )
+		if ( pSoldier->pendingItem().object() != NULL )
 		{
-			AddItemToPool( pSoldier->position().gridNo(), pSoldier->pTempObject, 1, pSoldier->position().level(), 0, -1 );
+			AddItemToPool( pSoldier->position().gridNo(), pSoldier->pendingItem().object(), 1, pSoldier->position().level(), 0, -1 );
 
 			// Place it on the ground!
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ pSoldier->pTempObject->usItem ] );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ pSoldier->pendingItem().object()->usItem ] );
 
 			// OK, disengage buddy
 			pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
@@ -5232,7 +5240,7 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 						(~SOLDIER_ENGAGEDINACTION );
 			}
 
-			OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+			pSoldier->pendingItem().clearObject();
 
 		}
 	}
@@ -5256,8 +5264,8 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 	// Get items from pending data
 
 	// Get objectype and delete
-	pSoldier->pTempObject->MoveThisObjectTo(gTempObject);
-	OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+	pSoldier->pendingItem().object()->MoveThisObjectTo(gTempObject);
+	pSoldier->pendingItem().clearObject();
 
 	bInvPos = pSoldier->pendingAction().inventorySlot();
 	usItemNum = gTempObject.usItem;
@@ -5685,7 +5693,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	wcscpy( gzUserDefinedButton[0], TacticalStr[FILL_CANTEEN_STR] );
 
 	// remove covert property/clothes
-	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_DISGUISE_STR] );
 	else
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_CLOTHES_STR] );
@@ -5711,7 +5719,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	}
 
 	// if disguised, allow testing our disguise
-	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[6], TacticalStr[SPY_SELFTEST_STR] );
 	else
 		wcscpy( gzUserDefinedButton[6], TacticalStr[UNUSED_STR] );
@@ -6152,7 +6160,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			break;
 		case 7:
 			// test our disguise
-			if (gpTempSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
+			if (gpTempSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
 				gpTempSoldier->SpySelfTest();
 			break;
 
@@ -7629,7 +7637,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 					//	- remove the 'steal from teammember' stuff from the usual stealing stuff, and add it as a new action (like handcuffing), complete with building the steal-sub-menu and everything
 					//	- or introduce a flag that prohibits teammembers from 'reaction-firing' on us. Set it upon stealing (here) and remove it after the steal menu is closed
 					// or simplicity reasons, I will do #2 here. Until it breaks, then I'll be forced to do #1.
-					pSoldier->usSoldierFlagMask |= SOLDIER_ACCESSTEAMMEMBER;
+					pSoldier->featureFlags().primaryFlags() |= SOLDIER_ACCESSTEAMMEMBER;
 
 					// if we are Nails, don't allow taking our vest
 					if ( pOpponent->identity().profile() == 34 && i == VESTPOS )

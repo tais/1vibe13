@@ -1249,7 +1249,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			}
 			else
 			{
-				if ( ( is_client && (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO) ) || ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
+				if ( ( is_client && (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO) ) || ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION ) )
 				{
 					sGridNo = pSoldier->deployment().insertionGrid();
 					ubCalculatedDirection = pSoldier->position().direction();
@@ -1265,7 +1265,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			}
 
 			// Flugente: campaign stats
-			if ( pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
+			if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
 				gCurrentIncident.usIncidentFlags |= INCIDENT_AIRDROP;
 
 			// problem: soldiers already present in a sector have ubStrategicInsertionCode = 0, which is INSERTION_CODE_NORTH - but they don't actually come from north, as they are already present
@@ -1300,7 +1300,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			}
 
 			// add this flag whenever we enter strategically enter a sector (= we attack a sector)
-			pSoldier->usSoldierFlagMask |= SOLDIER_ASSAULT_BONUS;
+			pSoldier->featureFlags().primaryFlags() |= SOLDIER_ASSAULT_BONUS;
 			
 			// Override calculated direction if we were told to....
 			if ( pSoldier->deployment().insertionDirection() >= 100 )
@@ -1584,9 +1584,9 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 	}
 
 	// Flugente: if we are airdropping, center screen on the action and remove soldier initially. He will be dropped into the sector by the helicopter
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
 	{
-		pSoldier->usSoldierFlagMask &= ~SOLDIER_AIRDROP;
+		pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_AIRDROP;
 
 		if ((gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3))
 		{
@@ -1634,7 +1634,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		{
 			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
-				if ( !( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
+				if ( !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION ) )
 					RevealRoofsAndItems( pSoldier, TRUE, FALSE, pSoldier->position().level(), TRUE );
 
 				// ATE: Patch fix: If we are in an non-interruptable animation, stop!

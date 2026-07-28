@@ -184,7 +184,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 		if ( gusSelectedSoldier != NOBODY )
 		{
-			if ( subjectSoldier->pTempObject != NULL )
+			if ( subjectSoldier->pendingItem().hasObject() )
 			{
 				return;
 			}

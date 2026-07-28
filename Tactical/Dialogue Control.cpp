@@ -1624,7 +1624,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 		{
 			SOLDIERTYPE* controller =
 				GetJa2SoldierRepository().resolve(
-					pSoldier->ubRobotRemoteHolderID.i);
+					pSoldier->vehicleState().robotRemoteHolder().i);
 			return controller
 				? TacticalCharacterDialogue(controller, usQuoteNum)
 				: FALSE;

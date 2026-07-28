@@ -1,7 +1,11 @@
 #include "Soldier Components.h"
 
+#include "Item Types.h"
+#include "../ModularizedTacticalAI/include/Plan.h"
+
 #include <algorithm>
 #include <limits>
+#include <utility>
 
 void SoldierIdentityComponent::reset() noexcept
 {
@@ -50,9 +54,167 @@ void SoldierStatusComponent::reset() noexcept
 	*this = SoldierStatusComponent{};
 }
 
+void SoldierFeatureFlagsComponent::reset() noexcept
+{
+	*this = SoldierFeatureFlagsComponent{};
+}
+
 void SoldierInventoryStateComponent::reset() noexcept
 {
 	*this = SoldierInventoryStateComponent{};
+}
+
+void SoldierKeyRingComponent::activate() noexcept
+{
+	active_ = true;
+	clear();
+}
+
+void SoldierKeyRingComponent::ensureActive() noexcept
+{
+	if (!active_)
+	{
+		activate();
+	}
+}
+
+void SoldierKeyRingComponent::deactivate() noexcept
+{
+	active_ = false;
+	clear();
+}
+
+void SoldierKeyRingComponent::clear() noexcept
+{
+	for (KEY_ON_RING& key : slots_)
+	{
+		key.ubKeyID = INVALID_KEY_NUMBER;
+		key.ubNumber = 0;
+	}
+}
+
+void SoldierKeyRingComponent::reset() noexcept
+{
+	deactivate();
+}
+
+SoldierPendingItemComponent::~SoldierPendingItemComponent() = default;
+
+SoldierPendingItemComponent::SoldierPendingItemComponent(
+	const SoldierPendingItemComponent& source)
+	: throwParameters_(source.throwParameters_),
+	  hasThrowParameters_(source.hasThrowParameters_)
+{
+	if (source.object_)
+	{
+		object_ = std::make_unique<OBJECTTYPE>(*source.object_);
+	}
+}
+
+SoldierPendingItemComponent& SoldierPendingItemComponent::operator=(
+	const SoldierPendingItemComponent& source)
+{
+	if (this == &source)
+	{
+		return *this;
+	}
+
+	std::unique_ptr<OBJECTTYPE> objectCopy;
+	if (source.object_)
+	{
+		objectCopy = std::make_unique<OBJECTTYPE>(*source.object_);
+	}
+
+	object_ = std::move(objectCopy);
+	throwParameters_ = source.throwParameters_;
+	hasThrowParameters_ = source.hasThrowParameters_;
+	return *this;
+}
+
+SoldierPendingItemComponent::SoldierPendingItemComponent(
+	SoldierPendingItemComponent&& source) noexcept
+	: object_(std::move(source.object_)),
+	  throwParameters_(source.throwParameters_),
+	  hasThrowParameters_(source.hasThrowParameters_)
+{
+	source.clearThrowParameters();
+}
+
+SoldierPendingItemComponent& SoldierPendingItemComponent::operator=(
+	SoldierPendingItemComponent&& source) noexcept
+{
+	if (this == &source)
+	{
+		return *this;
+	}
+
+	object_ = std::move(source.object_);
+	throwParameters_ = source.throwParameters_;
+	hasThrowParameters_ = source.hasThrowParameters_;
+	source.clearThrowParameters();
+	return *this;
+}
+
+void SoldierPendingItemComponent::copyObject(const OBJECTTYPE& object)
+{
+	clearThrowParameters();
+	if (object_)
+	{
+		*object_ = object;
+		return;
+	}
+
+	object_ = std::make_unique<OBJECTTYPE>(object);
+}
+
+OBJECTTYPE& SoldierPendingItemComponent::createObject()
+{
+	clearThrowParameters();
+	object_ = std::make_unique<OBJECTTYPE>();
+	return *object_;
+}
+
+void SoldierPendingItemComponent::clearObject() noexcept
+{
+	object_.reset();
+}
+
+THROW_PARAMS& SoldierPendingItemComponent::beginThrow() noexcept
+{
+	throwParameters_ = THROW_PARAMS{};
+	hasThrowParameters_ = true;
+	return throwParameters_;
+}
+
+THROW_PARAMS& SoldierPendingItemComponent::prepareThrow(
+	const OBJECTTYPE& object)
+{
+	copyObject(object);
+	return beginThrow();
+}
+
+void SoldierPendingItemComponent::setThrowParameters(
+	const THROW_PARAMS& parameters) noexcept
+{
+	throwParameters_ = parameters;
+	hasThrowParameters_ = true;
+}
+
+void SoldierPendingItemComponent::clearThrowParameters() noexcept
+{
+	throwParameters_ = THROW_PARAMS{};
+	hasThrowParameters_ = false;
+}
+
+void SoldierPendingItemComponent::clearThrowTransaction() noexcept
+{
+	clearObject();
+	clearThrowParameters();
+}
+
+void SoldierPendingItemComponent::reset() noexcept
+{
+	clearThrowTransaction();
 }
 
 void SoldierServiceComponent::addProvider() noexcept
@@ -146,6 +308,50 @@ INT16 SoldierAiPlanningComponent::ensurePlanIndex(INT16 fallback) noexcept
 void SoldierAiPlanningComponent::reset() noexcept
 {
 	*this = SoldierAiPlanningComponent{};
+}
+
+SoldierAiPlanComponent::SoldierAiPlanComponent() noexcept = default;
+
+SoldierAiPlanComponent::~SoldierAiPlanComponent() = default;
+
+SoldierAiPlanComponent::SoldierAiPlanComponent(
+	const SoldierAiPlanComponent&) noexcept
+{
+}
+
+SoldierAiPlanComponent& SoldierAiPlanComponent::operator=(
+	const SoldierAiPlanComponent& source) noexcept
+{
+	if (this != &source)
+	{
+		reset();
+	}
+	return *this;
+}
+
+void SoldierAiPlanComponent::adopt(AI::tactical::Plan* plan) noexcept
+{
+	if (plan_.get() != plan)
+	{
+		plan_.reset(plan);
+	}
+}
+
+bool SoldierAiPlanComponent::execute(
+	AI::tactical::PlanInputData& input)
+{
+	if (!plan_)
+	{
+		return false;
+	}
+
+	plan_->execute(input);
+	return true;
+}
+
+void SoldierAiPlanComponent::reset() noexcept
+{
+	plan_.reset();
 }
 
 void SoldierAiBehaviorComponent::reset() noexcept
@@ -599,6 +805,11 @@ void SoldierDeploymentComponent::reset() noexcept
 	*this = SoldierDeploymentComponent{};
 }
 
+void SoldierVehicleStateComponent::reset() noexcept
+{
+	*this = SoldierVehicleStateComponent{};
+}
+
 void SoldierScheduleComponent::advanceProgress() noexcept
 {
 	if (progress_ < std::numeric_limits<INT8>::max())
@@ -655,6 +866,24 @@ void SoldierPositionComponent::enterTerrain(INT8 terrainType) noexcept
 void SoldierPositionComponent::reset() noexcept
 {
 	*this = SoldierPositionComponent{};
+}
+
+void SoldierFrontArcComponent::bindOccluder(
+	UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept
+{
+	tileIndices_[direction] = tileIndex;
+	gridNos_[direction] = gridNo;
+}
+
+void SoldierFrontArcComponent::clearOccluder(UINT8 direction) noexcept
+{
+	tileIndices_[direction] = 0;
+	gridNos_[direction] = 0;
+}
+
+void SoldierFrontArcComponent::reset() noexcept
+{
+	*this = SoldierFrontArcComponent{};
 }
 
 void SoldierMovementHistoryComponent::resetAiLoop() noexcept

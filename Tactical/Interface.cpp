@@ -1887,7 +1887,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	if( gGameExternalOptions.fImprovedTacticalUI )
 	{
 		if( pSoldier->status().flags() & SOLDIER_PC &&
-			pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		{
 			SetRGBFontForeground( 220, 220, 0 );
 		}
@@ -1973,7 +1973,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		// If not in a squad....
 		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
-			if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
+			if ( GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 			{
 				SetFontForeground( FONT_GRAY4 );
 			}
@@ -1996,8 +1996,8 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			//Legion	
 			else if ( ARMED_VEHICLE( pSoldier ) )
 			{
-				if ( pSoldier->bVehicleID >= 0 && pVehicleList )
-					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[pVehicleList[pSoldier->bVehicleID].ubVehicleType].NewVehicleStrings );
+				if ( pSoldier->vehicleState().tacticalVehicleId() >= 0 && pVehicleList )
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[pVehicleList[pSoldier->vehicleState().tacticalVehicleId()].ubVehicleType].NewVehicleStrings );
 				else
 					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[TANK_CAR].NewVehicleStrings );
 			}
@@ -5309,7 +5309,7 @@ STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier )
 	else	
 	{
 		// Flugente: display if we are a prisoner of war
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_POW )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_POW )
 			return zHealthStr[ 7 ];
 
 		INT32 cnt, cntStart;
@@ -6290,7 +6290,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 	if ( pSoldier->skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) >= gGameExternalOptions.usTurnsToUncover )
 	{
 		// are we a VIP? show that only when the player knows a VIP is in this sector. otherwise, don't even show our officer property
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && !pSoldier->deployment().sectorZ() )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP && !pSoldier->deployment().sectorZ() )
 		{
 			if ( PlayerKnowsAboutVIP( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 			{
@@ -6309,7 +6309,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 		}
 
 		// is this guy an officer?
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_ENEMY_OFFICER )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_ENEMY_OFFICER )
 		{
 			// Add bars
 			iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );
@@ -6415,7 +6415,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 	}
 
 	// turncoats are instantly visible
-	if ( gSkillTraitValues.fCOTurncoats && pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
+	if ( gSkillTraitValues.fCOTurncoats && pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 	{
 		// Add bars
 		iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );

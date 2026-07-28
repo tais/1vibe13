@@ -7658,24 +7658,24 @@ BOOLEAN RemoveKeyFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECT
 
 	CHECKF( pObj );
 
-	if( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
+	if( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
 	{
 		return( FALSE );
 	}
 	else
 	{
 		// create an object
-		ubItem = pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID;
+		ubItem = pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID;
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber > 1 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber > 1 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber--;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber--;
 		}
 		else
 		{
 
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = 0;
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = 0;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
 		}
 
 		return( CreateKeyObject( pObj, 1, ubItem ) );
@@ -7692,7 +7692,7 @@ BOOLEAN RemoveKeysFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, UINT8
 	CHECKF( pObj );
 
 
-	if( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
+	if( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
 	{
 		return( FALSE );
 	}
@@ -7700,21 +7700,21 @@ BOOLEAN RemoveKeysFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, UINT8
 	{
 		//*pObj = pSoldier->inv[bPos];
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber < ubNumberOfKeys )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber < ubNumberOfKeys )
 		{
-			ubNumberOfKeys = pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber;
+			ubNumberOfKeys = pSoldier->keyRing()[ bKeyRingPosition ].ubNumber;
 		}
 
 
-		ubItems = pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID;
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber - ubNumberOfKeys > 0 )
+		ubItems = pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID;
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber - ubNumberOfKeys > 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber--;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber--;
 		}
 		else
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = 0;
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = 0;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
 		}
 
 		// create an object
@@ -7737,17 +7737,17 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 	}
 
 	// check if we are going to far
-	if ( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber + pObj->ubNumberOfObjects ) > ItemSlotLimit(pObj, STACK_SIZE_LIMIT) )
+	if ( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber + pObj->ubNumberOfObjects ) > ItemSlotLimit(pObj, STACK_SIZE_LIMIT) )
 	{
 		// only take what we can
-		ubNumberNotAdded = pObj->ubNumberOfObjects - ( ItemSlotLimit(pObj, STACK_SIZE_LIMIT) - pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber );
+		ubNumberNotAdded = pObj->ubNumberOfObjects - ( ItemSlotLimit(pObj, STACK_SIZE_LIMIT) - pSoldier->keyRing()[ bKeyRingPosition ].ubNumber );
 
 		// set to max
-		pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = ItemSlotLimit(pObj, STACK_SIZE_LIMIT);
+		pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = ItemSlotLimit(pObj, STACK_SIZE_LIMIT);
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 		}
 
 		// return number used
@@ -7756,12 +7756,12 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 	else
 	{
 		// check
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 		}
 
-		pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber += pObj->ubNumberOfObjects;
+		pSoldier->keyRing()[ bKeyRingPosition ].ubNumber += pObj->ubNumberOfObjects;
 	}
 
 	return( pObj->ubNumberOfObjects );
@@ -7771,10 +7771,10 @@ UINT8 SwapKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE 
 {
 	// swap keys in keyring slot and keys in pocket
 	// create temp object to hold keys currently in key ring slot
-	CreateKeyObject( &gTempObject, pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber, pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID );
+	CreateKeyObject( &gTempObject, pSoldier->keyRing()[ bKeyRingPosition ].ubNumber, pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID );
 
-	pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = pObj->ubNumberOfObjects;
-	pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+	pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = pObj->ubNumberOfObjects;
+	pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 
 	// swap params?
 	*pObj = gTempObject;
@@ -8903,10 +8903,11 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 				if ( pSoldier->identity().profile() == MADLAB )
 				{
 					// remove ammo and drop
-					pSoldier->pTempObject = new OBJECTTYPE;
-					EmptyWeaponMagazine( pObject, pSoldier->pTempObject );
-					AddItemToPool( pSoldier->position().gridNo(), pSoldier->pTempObject, 1, 0, 0, 0 );
-					pSoldier->pTempObject = NULL;
+					OBJECTTYPE& temporaryMagazine =
+						pSoldier->pendingItem().createObject();
+					EmptyWeaponMagazine( pObject, &temporaryMagazine );
+					AddItemToPool( pSoldier->position().gridNo(), &temporaryMagazine, 1, 0, 0, 0 );
+					pSoldier->pendingItem().clearObject();
 					// remove attachments and drop them
 					for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end();) {
 						//CHRISL: Because MADLAB needs to remove all attachments, even inseparable ones, we need to temporarily
@@ -10083,7 +10084,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 			if ( newvest )
 			{
 				// if we are already wearing a vest, give us back that item
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_VEST )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_NEW_VEST )
 				{
 					UINT16 vestitem = 0;
 					if ( GetFirstClothesItemWithSpecificData(&vestitem, pSoldier->renderState().vestPalette(), "blank")  )
@@ -10097,16 +10098,16 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				}
 
 				SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), Clothes[clothestype].vest );
-				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_VEST;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_NEW_VEST;
 
 				// this vest is not damaged, so remove the damaged vest flag
-				pSoldier->usSoldierFlagMask &= ~SOLDIER_DAMAGED_VEST;
+				pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_DAMAGED_VEST;
 			}
 
 			if ( newpants )
 			{
 				// if we are already wearing a vest, give us back that item
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_PANTS )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS )
 				{
 					UINT16 pantsitem = 0;
 					if ( GetFirstClothesItemWithSpecificData(&pantsitem, "blank", pSoldier->renderState().pantsPalette())  )
@@ -10120,10 +10121,10 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				}
 
 				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), Clothes[clothestype].pants );
-				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_PANTS;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_NEW_PANTS;
 
 				// these pants are not damaged, so remove the damaged pants flag
-				pSoldier->usSoldierFlagMask &= ~SOLDIER_DAMAGED_PANTS;
+				pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_DAMAGED_PANTS;
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
@@ -10141,7 +10142,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 		pSoldier->ApplyCovert( TRUE );
 
 		// to inform the player on whether this will work, test the disguise immediately (but only if we are now disguised in the first place)
-		if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+		if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			pSoldier->SpySelfTest();
 	}
 		
@@ -10221,9 +10222,9 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
@@ -10236,7 +10237,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
-				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
+				pSoldier2->featureFlags().eventFlags() |= SOLDIER_MISC_XRAYED;
 				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
@@ -10256,9 +10257,9 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
@@ -10271,7 +10272,7 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
-				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
+				pSoldier2->featureFlags().eventFlags() |= SOLDIER_MISC_XRAYED;
 				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
@@ -10296,9 +10297,9 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}

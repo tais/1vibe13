@@ -1057,7 +1057,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
-		if ( GetNumberInVehicle(  pSoldier->bVehicleID ) == 0 )
+		if ( GetNumberInVehicle(  pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			fInValidSoldier = TRUE;
 		}
@@ -1591,7 +1591,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 	// pSoldier->movement().setOutOfActionPoints(false);
 
 	// Flugente: pows don't do anything
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 	{
 		EndAIGuysTurn( pSoldier);
 		return;
@@ -1727,17 +1727,17 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 
 			if (!(gTacticalStatus.uiFlags & ENGAGED_IN_CONV))
 			{
-				if(!pSoldier->ai_masterplan_) // if the Soldier has no plan, create one
+				if(!pSoldier->aiPlan().hasPlan()) // if the Soldier has no plan, create one
 				{
 					AI::tactical::AIInputData ai_input;
 					AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
 					const INT16 planIndex =
 						pSoldier->aiPlanning().ensurePlanIndex(pSoldier->roster().team() + 1);
-					pSoldier->ai_masterplan_ =
-						plan_lib->create_plan(planIndex, pSoldier, ai_input);
+					pSoldier->aiPlan().adopt(
+						plan_lib->create_plan(planIndex, pSoldier, ai_input));
 				}
 				AI::tactical::PlanInputData plan_input(true, gTacticalStatus);
-				pSoldier->ai_masterplan_->execute(plan_input);
+				pSoldier->aiPlan().execute(plan_input);
 			}
 		}
 
@@ -2365,7 +2365,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             {
                 HandleInitialRedAlert(pSoldier->roster().team(), TRUE);
 
-				pSoldier->usSoldierFlagMask |= SOLDIER_RAISED_REDALERT;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_RAISED_REDALERT;
 
 				// SANDRO - ENEMY TAUNTS
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_ALERT );
@@ -2950,7 +2950,7 @@ void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
 #endif
 
 	// Flugente: VIPs: if a VIP flees, he flees to Meduna (in fact te sodleir doesn't, we simply move the flag to another sector)
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 	{
 		VIPFleesToMeduna();
 	}

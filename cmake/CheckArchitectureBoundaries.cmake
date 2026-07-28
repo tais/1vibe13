@@ -1976,6 +1976,7 @@ foreach(required_ai_storage IN ITEMS
   "INT8 teamModifier_ = 0;"
   "INT8 tacticalModifier_ = 0;"
   "INT8 strategicModifier_ = 0;"
+  "INT8 delayedStrategicModifier_ = 0;"
   "INT8 aiMorale_ = 0;"
   "INT8 frenzied_ = 0;"
   "OpponentKnowledge opponentKnowledge_{};"
@@ -2080,6 +2081,7 @@ foreach(required_ai_v101_fragment IN ITEMS
   "morale().teamModifier() = src.bTeamMoraleMod"
   "morale().tacticalModifier() = src.bTacticalMoraleMod"
   "morale().strategicModifier() = src.bStrategicMoraleMod"
+  "morale().delayedStrategicModifier() = src.bDelayedStrategicMoraleMod"
   "morale().aiMorale() = src.bAIMorale"
   "turnState().interruptDuelPoints() = src.bInterruptDuelPts"
   "turnState().passedLastInterrupt() = src.bPassedLastInterrupt"
@@ -2271,7 +2273,7 @@ foreach(required_identity_roster_save_fragment IN ITEMS
   "ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.roster().civilianGroup());"
   "ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());"
   "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
-  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
+  "ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());")
   string(FIND "${save_load_game_contents}"
     "${required_identity_roster_save_fragment}"
     identity_roster_save_fragment)
@@ -2617,7 +2619,7 @@ string(REGEX MATCH
   serialized_soldier_service_relationship_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);"
+  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);"
   serialized_soldier_auto_bandage_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2866,7 +2868,7 @@ foreach(dialogue_save_position IN ITEMS
   "ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());"
   "ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());"
   "ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());"
-  "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());"
+  "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.featureFlags().eventFlags()); ar.u8(s.movement().stopReason());"
   "ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());"
   "ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());"
   "ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());"
@@ -3068,7 +3070,7 @@ endforeach()
 foreach(audio_save_position IN ITEMS
   "ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());"
   "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());"
-  "ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());"
+  "ar.i8(s.morale().delayedStrategicModifier()); ar.u8(audio.doorOpeningNoise());"
   "ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());")
   string(FIND "${save_load_game_contents}"
     "${audio_save_position}"
@@ -3825,6 +3827,146 @@ if(soldier_ai_planning_architecture_documented EQUAL -1 OR
     "SoldierAiPlanningComponent ownership and compatibility guarantees must remain documented")
 endif()
 
+# Modular tactical-AI plans are process-local ownership, not persisted planning
+# values. Their Plan base stores a SOLDIERTYPE back-reference, so copying or
+# swapping a record must clear the destination cache instead of copying or
+# moving that pointer.
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ai_masterplan_([^A-Za-z0-9_]|$)"
+  retired_modular_ai_plan_pointer
+  "${current_soldier_contents}")
+if(retired_modular_ai_plan_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE ai_masterplan_ returned; use SoldierAiPlanComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierAiPlanComponent[ \t\r\n]+aiPlan_[ \t]*;"
+  soldier_ai_plan_owner
+  "${current_soldier_contents}")
+if(NOT soldier_ai_plan_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierAiPlanComponent")
+endif()
+
+foreach(required_ai_plan_accessor IN ITEMS
+  "SoldierAiPlanComponent& aiPlan() noexcept"
+  "const SoldierAiPlanComponent& aiPlan() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_ai_plan_accessor}"
+    soldier_ai_plan_accessor)
+  if(soldier_ai_plan_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost modular AI-plan accessor '${required_ai_plan_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_contract IN ITEMS
+  "class SoldierAiPlanComponent"
+  "SoldierAiPlanComponent() noexcept;"
+  "~SoldierAiPlanComponent();"
+  "SoldierAiPlanComponent(const SoldierAiPlanComponent&) noexcept;"
+  "bool hasPlan() const noexcept"
+  "void adopt(AI::tactical::Plan* plan) noexcept;"
+  "bool execute(AI::tactical::PlanInputData& input);"
+  "void reset() noexcept;"
+  "std::unique_ptr<AI::tactical::Plan> plan_;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_ai_plan_contract}"
+    soldier_ai_plan_contract)
+  if(soldier_ai_plan_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanComponent lost ownership contract '${required_ai_plan_contract}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_transition IN ITEMS
+  "SoldierAiPlanComponent::SoldierAiPlanComponent() noexcept = default;"
+  "SoldierAiPlanComponent::~SoldierAiPlanComponent() = default;"
+  "SoldierAiPlanComponent::SoldierAiPlanComponent("
+  "SoldierAiPlanComponent& SoldierAiPlanComponent::operator=("
+  "void SoldierAiPlanComponent::adopt(AI::tactical::Plan* plan) noexcept"
+  "bool SoldierAiPlanComponent::execute("
+  "void SoldierAiPlanComponent::reset() noexcept"
+  "plan_.reset(plan);"
+  "plan_->execute(input);"
+  "plan_.reset();")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_ai_plan_transition}"
+    soldier_ai_plan_transition)
+  if(soldier_ai_plan_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanComponent lost lifecycle transition '${required_ai_plan_transition}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "aiPlan\\(\\)\\.reset\\(\\)"
+  soldier_ai_plan_control_resets
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_ai_plan_control_resets
+  soldier_ai_plan_control_reset_count)
+string(REGEX MATCHALL
+  "aiPlan\\(\\)\\.reset\\(\\)"
+  soldier_ai_plan_load_resets
+  "${save_load_game_contents}")
+list(LENGTH soldier_ai_plan_load_resets
+  soldier_ai_plan_load_reset_count)
+if(NOT soldier_ai_plan_control_reset_count EQUAL 3 OR
+   NOT soldier_ai_plan_load_reset_count EQUAL 1)
+  message(FATAL_ERROR
+    "Modular AI plans must reset during v101 conversion, initialization, deletion, and current loading")
+endif()
+
+file(READ "${SOURCE_ROOT}/ModularizedTacticalAI/src/LegacyAIPlanFactory.cpp"
+  soldier_ai_plan_factory_contents)
+set(soldier_ai_plan_runtime_contents
+  "${soldier_ai_planning_main_contents}${soldier_ai_planning_realtime_contents}${soldier_ai_plan_factory_contents}")
+foreach(required_ai_plan_runtime_fragment IN ITEMS
+  "pSoldier->aiPlan().hasPlan()"
+  "pSoldier->aiPlan().adopt("
+  "pSoldier->aiPlan().execute(plan_input);"
+  "npc->aiPlan().hasPlan()"
+  "npc->aiPlan().adopt(create_plan(npc, input));")
+  string(FIND "${soldier_ai_plan_runtime_contents}"
+    "${required_ai_plan_runtime_fragment}"
+    soldier_ai_plan_runtime_fragment)
+  if(soldier_ai_plan_runtime_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Modular tactical AI bypassed SoldierAiPlanComponent at '${required_ai_plan_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_test IN ITEMS
+  "soldier AI-plan ownership executes an adopted modular plan"
+  "soldier copies discard plans whose back-references belong to another record"
+  "soldier AI plans are released by explicit reset and record reuse"
+  "soldier repository owns bounded replacement and discards destination-bound runtime plans"
+  "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily"
+  "v101 soldier conversion releases process-local modular AI plans"
+  "soldier POD load clears process-local modular AI plans before restoring persistent state")
+  string(FIND "${headless_test_contents}"
+    "${required_ai_plan_test}"
+    soldier_ai_plan_test)
+  if(soldier_ai_plan_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost modular AI-plan fixture '${required_ai_plan_test}'")
+  endif()
+endforeach()
+
+foreach(ai_plan_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${ai_plan_documentation}"
+    "SoldierAiPlanComponent"
+    soldier_ai_plan_documented)
+  if(soldier_ai_plan_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier modular AI-plan ownership and runtime-only persistence must remain documented")
+  endif()
+endforeach()
+
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
 # lifecycle. Keep their fixed-capacity save representation intact while the
@@ -3976,7 +4118,7 @@ foreach(skill_state_save_position IN ITEMS
   "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
   "for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));"
   "for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));"
-  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
+  "ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());")
   string(FIND "${save_load_game_contents}"
     "${skill_state_save_position}"
     soldier_skill_state_save_position)
@@ -4166,7 +4308,7 @@ endif()
 
 foreach(condition_save_position IN ITEMS
   "ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());"
-  "ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);"
+  "ar.i8(condition.extraExperienceLevel()); ar.u32(s.featureFlags().primaryFlags());"
   "ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());"
   "ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());"
   "for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));"
@@ -4852,13 +4994,13 @@ if(NOT soldier_flag_save_key_access LESS soldier_flag_save_intended_target OR
 endif()
 
 foreach(soldier_flag_test_fragment IN ITEMS
-  "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain"
+  "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags"
   "soldier status component provides explicit bit-mask queries and mutations"
   "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state"
-  "soldier copies retain every component-owned former general flag"
-  "soldier initialization resets every component-owned former general flag"
+  "soldier copies retain every status and feature compatibility flag"
+  "soldier initialization resets every status and feature compatibility flag"
   "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema"
-  "soldier save/load round-trips every former general flag through its established byte position and domain owner")
+  "soldier save/load round-trips all status and feature flags through established byte positions")
   string(FIND "${headless_test_contents}"
     "${soldier_flag_test_fragment}"
     soldier_flag_test_site)
@@ -4889,6 +5031,562 @@ string(FIND "${save_format_documentation}"
 if(soldier_flags_save_documented EQUAL -1)
   message(FATAL_ERROR
     "Former general-flag byte compatibility must remain documented")
+endif()
+
+# The optional key-ring payload is soldier-owned inline storage. Preserve the
+# historical absent/present distinction and outer save payload while preventing
+# raw heap ownership or whole-record pointer aliasing from returning.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*KEY_ON_RING[ \t]*\\*[ \t]*pKeyRing[ \t]*;"
+  retired_current_key_ring_pointer
+  "${current_soldier_contents}")
+if(retired_current_key_ring_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE pKeyRing pointer returned; use SoldierKeyRingComponent")
+endif()
+string(REGEX MATCH
+  "SoldierKeyRingComponent[ \t\r\n]+keyRing_[ \t]*;"
+  soldier_key_ring_owner
+  "${current_soldier_contents}")
+if(NOT soldier_key_ring_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierKeyRingComponent")
+endif()
+foreach(required_key_ring_accessor IN ITEMS
+  "SoldierKeyRingComponent& keyRing() noexcept"
+  "const SoldierKeyRingComponent& keyRing() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_key_ring_accessor}"
+    soldier_key_ring_accessor)
+  if(soldier_key_ring_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost key-ring accessor '${required_key_ring_accessor}'")
+  endif()
+endforeach()
+foreach(required_key_ring_contract IN ITEMS
+  "static constexpr UINT16 SlotCount = NUM_KEYS;"
+  "using Slots = KEY_ON_RING[SlotCount];"
+  "bool active() const noexcept"
+  "KEY_ON_RING* data() noexcept"
+  "const KEY_ON_RING* data() const noexcept"
+  "KEY_ON_RING& operator[](UINT16 slot) noexcept"
+  "const KEY_ON_RING& operator[](UINT16 slot) const noexcept"
+  "void activate() noexcept;"
+  "void ensureActive() noexcept;"
+  "void deactivate() noexcept;"
+  "void clear() noexcept;"
+  "void reset() noexcept;"
+  "Slots slots_{};"
+  "bool active_ = false;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_key_ring_contract}"
+    soldier_key_ring_contract)
+  if(soldier_key_ring_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierKeyRingComponent lost contract '${required_key_ring_contract}'")
+  endif()
+endforeach()
+foreach(required_key_ring_transition IN ITEMS
+  "void SoldierKeyRingComponent::activate() noexcept"
+  "void SoldierKeyRingComponent::ensureActive() noexcept"
+  "void SoldierKeyRingComponent::deactivate() noexcept"
+  "void SoldierKeyRingComponent::clear() noexcept"
+  "key.ubKeyID = INVALID_KEY_NUMBER;"
+  "key.ubNumber = 0;"
+  "void SoldierKeyRingComponent::reset() noexcept")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_key_ring_transition}"
+    soldier_key_ring_transition)
+  if(soldier_key_ring_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierKeyRingComponent lost lifecycle transition '${required_key_ring_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "keyRing\\(\\)\\.reset\\(\\)"
+  soldier_key_ring_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_key_ring_reset_sites
+  soldier_key_ring_reset_site_count)
+if(NOT soldier_key_ring_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Key-ring state must reset during v101 conversion and current initialization")
+endif()
+foreach(required_key_ring_runtime IN ITEMS
+  "this->keyRing().activate();"
+  "this->keyRing().deactivate();")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_key_ring_runtime}"
+    soldier_key_ring_runtime)
+  if(soldier_key_ring_runtime EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier lifecycle bypassed key-ring transition '${required_key_ring_runtime}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "if \\(Ar::isLoading\\) s\\.pendingItem\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(s\\.roster\\(\\)\\.inSector\\(\\)\\);"
+  serialized_soldier_key_ring_landmark
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_key_ring_landmark)
+  message(FATAL_ERROR
+    "Retired key-ring pointer landmark moved in the portable soldier schema")
+endif()
+foreach(required_key_ring_save_adapter IN ITEMS
+  "if( soldier.keyRing().active() )"
+  "FileWrite( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING )"
+  "SavedSoldierInfo.keyRing().reset();"
+  "soldier.keyRing().ensureActive();"
+  "soldier.keyRing().clear();"
+  "FileRead( hFile, soldier.keyRing().data(), NUM_KEYS_OLD * sizeof( KEY_ON_RING )"
+  "FileRead( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING )")
+  string(FIND "${save_load_game_contents}"
+    "${required_key_ring_save_adapter}"
+    soldier_key_ring_save_adapter)
+  if(soldier_key_ring_save_adapter EQUAL -1)
+    message(FATAL_ERROR
+      "Outer soldier save path lost key-ring compatibility adapter '${required_key_ring_save_adapter}'")
+  endif()
+endforeach()
+foreach(required_key_ring_test IN ITEMS
+  "soldier key ring defaults to the historical absent state"
+  "soldier key-ring copies own independent fixed-capacity storage"
+  "soldier key-ring reset clears every slot and its presence marker"
+  "soldier copies retain key contents without aliasing key-ring storage"
+  "soldier initialization clears key-ring contents and presence"
+  "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration"
+  "soldier POD save/load keeps key-ring storage runtime-only for separate payload restoration")
+  string(FIND "${headless_test_contents}"
+    "${required_key_ring_test}"
+    soldier_key_ring_test)
+  if(soldier_key_ring_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost key-ring fixture '${required_key_ring_test}'")
+  endif()
+endforeach()
+foreach(key_ring_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${key_ring_documentation}"
+    "SoldierKeyRingComponent"
+    soldier_key_ring_documented)
+  if(soldier_key_ring_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier key-ring inline ownership and save compatibility must remain documented")
+  endif()
+endforeach()
+
+# Temporary give/drop/reload/throw state is one process-local ownership domain.
+# Keep the large OBJECTTYPE uniquely owned and deep-copied, keep the small
+# ballistic payload inline, and retain both former pointer positions as
+# byte-neutral save landmarks.
+foreach(retired_pending_item_pointer IN ITEMS
+  pTempObject
+  pThrowParams)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_pending_item_pointer}([^A-Za-z0-9_]|$)"
+    retired_current_pending_item_pointer
+    "${current_soldier_contents}")
+  if(retired_current_pending_item_pointer)
+    message(FATAL_ERROR
+      "Retired SOLDIERTYPE ${retired_pending_item_pointer} pointer returned; use SoldierPendingItemComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierPendingItemComponent[ \t\r\n]+pendingItem_[ \t]*;"
+  soldier_pending_item_owner
+  "${current_soldier_contents}")
+if(NOT soldier_pending_item_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierPendingItemComponent")
+endif()
+foreach(required_pending_item_accessor IN ITEMS
+  "SoldierPendingItemComponent& pendingItem() noexcept"
+  "const SoldierPendingItemComponent& pendingItem() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_pending_item_accessor}"
+    soldier_pending_item_accessor)
+  if(soldier_pending_item_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost pending-item accessor '${required_pending_item_accessor}'")
+  endif()
+endforeach()
+foreach(required_pending_item_contract IN ITEMS
+  "class SoldierPendingItemComponent"
+  "SoldierPendingItemComponent(const SoldierPendingItemComponent& source);"
+  "SoldierPendingItemComponent& operator=("
+  "SoldierPendingItemComponent(SoldierPendingItemComponent&& source) noexcept;"
+  "bool hasObject() const noexcept"
+  "bool hasThrowParameters() const noexcept"
+  "bool readyToThrow() const noexcept"
+  "OBJECTTYPE* object() noexcept"
+  "const OBJECTTYPE* object() const noexcept"
+  "THROW_PARAMS* throwParameters() noexcept"
+  "const THROW_PARAMS* throwParameters() const noexcept"
+  "void copyObject(const OBJECTTYPE& object);"
+  "OBJECTTYPE& createObject();"
+  "void clearObject() noexcept;"
+  "THROW_PARAMS& beginThrow() noexcept;"
+  "THROW_PARAMS& prepareThrow(const OBJECTTYPE& object);"
+  "void clearThrowParameters() noexcept;"
+  "void clearThrowTransaction() noexcept;"
+  "void reset() noexcept;"
+  "std::unique_ptr<OBJECTTYPE> object_;"
+  "THROW_PARAMS throwParameters_{};"
+  "bool hasThrowParameters_ = false;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_pending_item_contract}"
+    soldier_pending_item_contract)
+  if(soldier_pending_item_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPendingItemComponent lost contract '${required_pending_item_contract}'")
+  endif()
+endforeach()
+foreach(required_pending_item_transition IN ITEMS
+  "SoldierPendingItemComponent::~SoldierPendingItemComponent() = default;"
+  "SoldierPendingItemComponent::SoldierPendingItemComponent("
+  "SoldierPendingItemComponent& SoldierPendingItemComponent::operator=("
+  "void SoldierPendingItemComponent::copyObject(const OBJECTTYPE& object)"
+  "OBJECTTYPE& SoldierPendingItemComponent::createObject()"
+  "THROW_PARAMS& SoldierPendingItemComponent::beginThrow() noexcept"
+  "THROW_PARAMS& SoldierPendingItemComponent::prepareThrow("
+  "void SoldierPendingItemComponent::clearObject() noexcept"
+  "void SoldierPendingItemComponent::clearThrowParameters() noexcept"
+  "void SoldierPendingItemComponent::clearThrowTransaction() noexcept"
+  "void SoldierPendingItemComponent::reset() noexcept"
+  "std::make_unique<OBJECTTYPE>(*source.object_)"
+  "object_ = std::make_unique<OBJECTTYPE>(object);")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_pending_item_transition}"
+    soldier_pending_item_transition)
+  if(soldier_pending_item_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPendingItemComponent lost lifecycle transition '${required_pending_item_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "pendingItem\\(\\)\\.reset\\(\\)"
+  soldier_pending_item_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_pending_item_reset_sites
+  soldier_pending_item_reset_site_count)
+if(NOT soldier_pending_item_reset_site_count EQUAL 3)
+  message(FATAL_ERROR
+    "Pending-item state must reset during v101 conversion, initialization, and soldier deletion")
+endif()
+string(REGEX MATCH
+  "if \\(Ar::isLoading\\) s\\.pendingItem\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);"
+  serialized_pending_object_landmark
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);[ \t]*ar\\.u16\\(service\\.partner\\(\\)\\.i\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
+  serialized_throw_parameters_landmark
+  "${save_load_game_contents}")
+string(FIND "${save_load_game_contents}"
+  "SavedSoldierInfo.pendingItem().reset();"
+  outer_pending_item_load_reset)
+if(NOT serialized_pending_object_landmark OR
+   NOT serialized_throw_parameters_landmark OR
+   outer_pending_item_load_reset EQUAL -1)
+  message(FATAL_ERROR
+    "Pending-item runtime ownership moved or became persistent in the soldier save schema")
+endif()
+
+file(READ "${SOURCE_ROOT}/TileEngine/physics.cpp"
+  pending_item_physics_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  pending_item_animation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  pending_item_control_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  pending_item_weapons_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  pending_item_handle_items_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Items.cpp"
+  pending_item_items_contents)
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  pending_item_multiplayer_contents)
+set(pending_item_runtime_contents
+  "${pending_item_physics_contents}${pending_item_animation_contents}${pending_item_control_contents}${pending_item_weapons_contents}${pending_item_handle_items_contents}${pending_item_items_contents}${pending_item_multiplayer_contents}")
+foreach(required_pending_item_adapter IN ITEMS
+  "pendingItem().prepareThrow(*pItem)"
+  "pendingItem().clearThrowTransaction();"
+  "pendingItem().copyObject(*pObject);"
+  "pendingItem().createObject();"
+  "if ( !pendingItem.readyToThrow() )"
+  "SoldierPendingItemComponent& pendingItem = pThrower->pendingItem();"
+  "THROW_PARAMS& throwParameters = pendingItem.beginThrow();")
+  string(FIND "${pending_item_runtime_contents}"
+    "${required_pending_item_adapter}"
+    pending_item_adapter)
+  if(pending_item_adapter EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical pending-item path bypassed component transition '${required_pending_item_adapter}'")
+  endif()
+endforeach()
+foreach(required_pending_item_test IN ITEMS
+  "soldier pending-item transactions default to empty process-local state"
+  "soldier pending-item owner binds a copied object and inline throw parameters as one transaction"
+  "soldier pending-item copies deep-copy temporary objects and inline ballistic state"
+  "soldier pending-item moves transfer ownership and clear the source transaction"
+  "soldier pending-item object and throw-parameter lifetimes remain independently observable"
+  "soldier pending-item transaction cleanup releases both ownership domains"
+  "soldier copies retain pending tactical transactions without pointer aliasing"
+  "soldier initialization releases pending tactical transaction state"
+  "v101 soldier conversion retires temporary object and throw pointers instead of adopting process-local addresses"
+  "soldier POD save/load retires temporary action pointers and clears process-local transaction state")
+  string(FIND "${headless_test_contents}"
+    "${required_pending_item_test}"
+    pending_item_test)
+  if(pending_item_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost pending-item fixture '${required_pending_item_test}'")
+  endif()
+endforeach()
+foreach(pending_item_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${pending_item_documentation}"
+    "SoldierPendingItemComponent"
+    soldier_pending_item_documented)
+  if(soldier_pending_item_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier pending-item ownership and byte-neutral persistence must remain documented")
+  endif()
+endforeach()
+
+# The three later feature banks and delayed strategic morale were independent
+# flat tail fields. Give the flag banks one explicit compatibility owner and
+# fold delayed morale into the existing morale lifecycle without moving any
+# persisted value.
+foreach(retired_feature_tail_field IN ITEMS
+  ubMiscSoldierFlags
+  bDelayedStrategicMoraleMod
+  usSoldierFlagMask
+  usSoldierFlagMask2)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_feature_tail_field}([^A-Za-z0-9_]|$)"
+    retired_current_feature_tail_field
+    "${current_soldier_contents}")
+  if(retired_current_feature_tail_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE feature-tail field '${retired_feature_tail_field}' returned")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierFeatureFlagsComponent[ \t\r\n]+featureFlags_[ \t]*;"
+  soldier_feature_flags_owner
+  "${current_soldier_contents}")
+if(NOT soldier_feature_flags_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierFeatureFlagsComponent")
+endif()
+
+foreach(required_feature_flags_accessor IN ITEMS
+  "SoldierFeatureFlagsComponent& featureFlags() noexcept"
+  "const SoldierFeatureFlagsComponent& featureFlags() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_feature_flags_accessor}"
+    soldier_feature_flags_accessor)
+  if(soldier_feature_flags_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost feature-flags accessor '${required_feature_flags_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_feature_flags_storage IN ITEMS
+  "class SoldierFeatureFlagsComponent"
+  "UINT8 eventFlags_ = 0;"
+  "UINT32 primaryFlags_ = 0;"
+  "UINT32 secondaryFlags_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_feature_flags_storage}"
+    soldier_feature_flags_storage)
+  if(soldier_feature_flags_storage EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFeatureFlagsComponent lost initialized storage '${required_feature_flags_storage}'")
+  endif()
+endforeach()
+
+foreach(required_feature_flags_operation IN ITEMS
+  "UINT8& eventFlags() noexcept"
+  "const UINT8& eventFlags() const noexcept"
+  "UINT32& primaryFlags() noexcept"
+  "const UINT32& primaryFlags() const noexcept"
+  "UINT32& secondaryFlags() noexcept"
+  "const UINT32& secondaryFlags() const noexcept"
+  "bool hasEvent(UINT8 flags) const noexcept"
+  "bool hasPrimary(UINT32 flags) const noexcept"
+  "bool hasSecondary(UINT32 flags) const noexcept"
+  "void setEvent(UINT8 flags) noexcept"
+  "void setPrimary(UINT32 flags) noexcept"
+  "void setSecondary(UINT32 flags) noexcept"
+  "void clearEvent(UINT8 flags) noexcept"
+  "void clearPrimary(UINT32 flags) noexcept"
+  "void clearSecondary(UINT32 flags) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_feature_flags_operation}"
+    soldier_feature_flags_operation)
+  if(soldier_feature_flags_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFeatureFlagsComponent lost operation '${required_feature_flags_operation}'")
+  endif()
+endforeach()
+
+foreach(required_delayed_morale_operation IN ITEMS
+  "INT8& delayedStrategicModifier() noexcept"
+  "const INT8& delayedStrategicModifier() const noexcept"
+  "INT8 delayedStrategicModifier_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_delayed_morale_operation}"
+    soldier_delayed_morale_operation)
+  if(soldier_delayed_morale_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMoraleComponent lost delayed strategic morale '${required_delayed_morale_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierFeatureFlagsComponent{};"
+  soldier_feature_flags_default_reset)
+string(REGEX MATCHALL
+  "featureFlags\\(\\)\\.reset\\(\\)"
+  soldier_feature_flags_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_feature_flags_reset_sites
+  soldier_feature_flags_reset_site_count)
+if(soldier_feature_flags_default_reset EQUAL -1 OR
+   NOT soldier_feature_flags_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Feature flags must reset through their defaults during v101 conversion and current initialization")
+endif()
+
+foreach(required_feature_tail_conversion IN ITEMS
+  "this->featureFlags().eventFlags() = src.ubMiscSoldierFlags;"
+  "this->morale().delayedStrategicModifier() = src.bDelayedStrategicMoraleMod;")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_feature_tail_conversion}"
+    soldier_feature_tail_conversion)
+  if(soldier_feature_tail_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost feature-tail mapping '${required_feature_tail_conversion}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  serialized_soldier_feature_event_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.morale\\(\\)\\.delayedStrategicModifier\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.doorOpeningNoise\\(\\)\\);"
+  serialized_soldier_delayed_morale_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(condition\\.extraExperienceLevel\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.primaryFlags\\(\\)\\);[ \t\r\n]*ar\\.i32\\(condition\\.foodLevel\\(\\)\\);"
+  serialized_soldier_primary_feature_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "for \\(i = 0; i < 10; \\+\\+i\\) ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelCounter\\(\\)\\);[ \t\r\n]*ar\\.i32\\(skillState\\.focusGrid\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.secondaryFlags\\(\\)\\);[ \t]*ar\\.u32\\(s\\.identity\\(\\)\\.individualMilitiaId\\(\\)\\);"
+  serialized_soldier_secondary_feature_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_feature_event_order OR
+   NOT serialized_soldier_delayed_morale_order OR
+   NOT serialized_soldier_primary_feature_order OR
+   NOT serialized_soldier_secondary_feature_order)
+  message(FATAL_ERROR
+    "Feature flags or delayed morale moved or changed width in the current save schema")
+endif()
+
+set(soldier_control_source_file
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp")
+foreach(source_file IN LISTS world_state_declaration_files)
+  if("${source_file}" STREQUAL "${soldier_control_source_file}")
+    continue()
+  endif()
+  file(READ "${source_file}" feature_tail_source_contents)
+  foreach(retired_feature_tail_field IN ITEMS
+    ubMiscSoldierFlags
+    bDelayedStrategicMoraleMod
+    usSoldierFlagMask
+    usSoldierFlagMask2)
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*${retired_feature_tail_field}"
+      retired_feature_tail_access
+      "${feature_tail_source_contents}")
+    if(retired_feature_tail_access)
+      message(FATAL_ERROR
+        "Production code accesses retired soldier feature-tail member '${retired_feature_tail_field}' in ${source_file}")
+    endif()
+  endforeach()
+endforeach()
+foreach(legacy_feature_tail_field IN ITEMS
+  ubMiscSoldierFlags
+  bDelayedStrategicMoraleMod)
+  string(REGEX MATCHALL
+    "src\\.${legacy_feature_tail_field}"
+    legacy_feature_tail_accesses
+    "${soldier_control_source_contents}")
+  list(LENGTH legacy_feature_tail_accesses legacy_feature_tail_access_count)
+  if(NOT legacy_feature_tail_access_count EQUAL 1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp must access legacy '${legacy_feature_tail_field}' exactly once for v101 conversion")
+  endif()
+endforeach()
+foreach(retired_later_feature_tail_field IN ITEMS
+  usSoldierFlagMask
+  usSoldierFlagMask2)
+  string(FIND "${soldier_control_source_contents}"
+    "${retired_later_feature_tail_field}"
+    retired_later_feature_tail_access)
+  if(NOT retired_later_feature_tail_access EQUAL -1)
+    message(FATAL_ERROR
+      "Retired later feature field '${retired_later_feature_tail_field}' returned to Soldier Control.cpp")
+  endif()
+endforeach()
+
+foreach(required_feature_tail_test IN ITEMS
+  "soldier feature flags provide typed queries and mutations for every compatibility bank"
+  "soldier feature-flag reset clears all three persisted compatibility banks"
+  "soldier copies retain every status and feature compatibility flag"
+  "soldier initialization resets every status and feature compatibility flag"
+  "v101 soldier conversion maps historical event flags and clears later feature banks"
+  "soldier save/load round-trips all status and feature flags through established byte positions"
+  "v101 soldier conversion maps AI communication and every morale channel"
+  "soldier save/load round-trips component-owned AI communication and morale")
+  string(FIND "${headless_test_contents}"
+    "${required_feature_tail_test}"
+    soldier_feature_tail_test)
+  if(soldier_feature_tail_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost feature-tail regression '${required_feature_tail_test}'")
+  endif()
+endforeach()
+
+foreach(feature_tail_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${feature_tail_documentation}"
+    "SoldierFeatureFlagsComponent"
+    soldier_feature_flags_documented)
+  string(FIND "${feature_tail_documentation}"
+    "delayed strategic modifier"
+    soldier_delayed_morale_documented)
+  if(soldier_feature_flags_documented EQUAL -1 OR
+     soldier_delayed_morale_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Engine and save documentation must describe feature flags and delayed strategic morale")
+  endif()
+endforeach()
+string(FIND "${save_format_documentation}"
+  "ten reserved"
+  soldier_feature_padding_documented)
+if(soldier_feature_padding_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Save documentation must retain the reserved bytes between feature banks")
 endif()
 
 # Persistent stat-change presentation has one timestamp and direction-feedback
@@ -6527,7 +7225,7 @@ string(REGEX MATCH
   serialized_soldier_employment_insurance_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);"
+  "ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);"
   serialized_soldier_employment_update_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6932,7 +7630,8 @@ endforeach()
 
 # Strategic/tactical placement, movement-group and vehicle membership,
 # insertion, traversal origin, off-world staging, and arrival bookkeeping now
-# have one deployment owner. Route and live group pointers remain adapters.
+# have one deployment owner. The route remains an adapter; the redundant live
+# group pointer is retired in favor of the component-owned group ID.
 foreach(retired_deployment_field IN ITEMS
   "INT8;ubInsertionDirection"
   "UINT8;ubGroupID"
@@ -6976,6 +7675,47 @@ foreach(retired_deployment_flag IN ITEMS
   if(retired_current_deployment_flag)
     message(FATAL_ERROR
       "Retired STRUCT_Flags deployment field '${retired_deployment_flag}' returned; strategic transit and arrival policy belong to SoldierDeploymentComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*struct[ \t]+GROUP[ \t]*\\*[ \t]*pGroup[ \t]*;"
+  retired_current_soldier_group_pointer
+  "${current_soldier_contents}")
+if(retired_current_soldier_group_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE pGroup cache returned; deployment().groupId() is the sole soldier-side strategic group identity")
+endif()
+string(FIND "${soldier_control_header_contents}"
+  "pGroup;"
+  legacy_soldier_group_pointer_declaration)
+if(legacy_soldier_group_pointer_declaration EQUAL -1)
+  message(FATAL_ERROR
+    "The raw soldier pGroup pointer must exist only in the v101 compatibility record")
+endif()
+string(FIND "${soldier_control_source_contents}"
+  "src.pGroup"
+  legacy_soldier_group_pointer_read)
+if(NOT legacy_soldier_group_pointer_read EQUAL -1)
+  message(FATAL_ERROR
+    "v101 conversion must not install the meaningless historical pGroup pointer")
+endif()
+string(FIND "${save_load_game_contents}"
+  "ar.retiredPtr(); ar.u8(deployment.leaveHistoryCode());"
+  retired_soldier_group_pointer_marker)
+if(retired_soldier_group_pointer_marker EQUAL -1)
+  message(FATAL_ERROR
+    "The zero-byte historical soldier pGroup landmark must remain explicit in the portable field list")
+endif()
+foreach(group_identity_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${group_identity_documentation}"
+    "sole soldier-side"
+    soldier_group_identity_documented)
+  if(soldier_group_identity_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier strategic-group ID authority must remain documented")
   endif()
 endforeach()
 foreach(owned_arrival_getup_field IN ITEMS
@@ -7148,7 +7888,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_reentry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
   serialized_soldier_deployment_arrival_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7317,6 +8057,181 @@ if(soldier_deployment_transit_architecture_documented EQUAL -1 OR
   message(FATAL_ERROR
     "Engine and save documentation must describe component-owned deployment transit state")
 endif()
+
+# A vehicle soldier's tactical VEHICLETYPE record and a remote robot's
+# controller are live record links, not strategic deployment membership.
+# Keep both identities under one typed owner without changing either persisted
+# slot or allowing the old flat members back into application code.
+foreach(retired_vehicle_state_field IN ITEMS
+  bVehicleID
+  ubRobotRemoteHolderID)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_vehicle_state_field}([^A-Za-z0-9_]|$)"
+    retired_current_vehicle_state_field
+    "${current_soldier_contents}")
+  if(retired_current_vehicle_state_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE vehicle-state field '${retired_vehicle_state_field}' returned")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierVehicleStateComponent[ \t\r\n]+vehicleState_[ \t]*;"
+  soldier_vehicle_state_owner
+  "${current_soldier_contents}")
+if(NOT soldier_vehicle_state_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierVehicleStateComponent")
+endif()
+
+foreach(required_vehicle_state_accessor IN ITEMS
+  "SoldierVehicleStateComponent& vehicleState() noexcept"
+  "const SoldierVehicleStateComponent& vehicleState() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_vehicle_state_accessor}"
+    soldier_vehicle_state_accessor)
+  if(soldier_vehicle_state_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost vehicle-state accessor '${required_vehicle_state_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_storage IN ITEMS
+  "class SoldierVehicleStateComponent"
+  "INT8 tacticalVehicleId_ = 0;"
+  "SoldierID robotRemoteHolder_ = NOBODY;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_vehicle_state_storage}"
+    soldier_vehicle_state_storage)
+  if(soldier_vehicle_state_storage EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierVehicleStateComponent lost initialized storage '${required_vehicle_state_storage}'")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_operation IN ITEMS
+  "INT8& tacticalVehicleId() noexcept"
+  "const INT8& tacticalVehicleId() const noexcept"
+  "SoldierID& robotRemoteHolder() noexcept"
+  "const SoldierID& robotRemoteHolder() const noexcept"
+  "bool hasRobotRemoteHolder() const noexcept"
+  "void clearRobotRemoteHolder() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_vehicle_state_operation}"
+    soldier_vehicle_state_operation)
+  if(soldier_vehicle_state_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierVehicleStateComponent lost operation '${required_vehicle_state_operation}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "vehicleState\\(\\)\\.reset\\(\\)"
+  soldier_vehicle_state_reset_occurrences
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_vehicle_state_reset_occurrences
+  soldier_vehicle_state_reset_count)
+if(NOT soldier_vehicle_state_reset_count EQUAL 2)
+  message(FATAL_ERROR
+    "Soldier v101 conversion and initialization must each reset vehicle-state links")
+endif()
+
+foreach(required_vehicle_state_conversion IN ITEMS
+  "this->vehicleState().tacticalVehicleId() = src.bVehicleID;"
+  "this->vehicleState().robotRemoteHolder() = static_cast<UINT16>( src.ubRobotRemoteHolderID );")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_vehicle_state_conversion}"
+    soldier_vehicle_state_conversion)
+  if(soldier_vehicle_state_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost vehicle-state mapping '${required_vehicle_state_conversion}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);"
+  serialized_soldier_tactical_vehicle_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);"
+  serialized_soldier_robot_controller_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_tactical_vehicle_order OR
+   NOT serialized_soldier_robot_controller_order)
+  message(FATAL_ERROR
+    "Soldier vehicle-state values moved or changed width in the current save schema")
+endif()
+
+set(soldier_control_source_file
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp")
+foreach(source_file IN LISTS world_state_declaration_files)
+  if("${source_file}" STREQUAL "${soldier_control_source_file}")
+    continue()
+  endif()
+  file(READ "${source_file}" vehicle_state_source_contents)
+  foreach(retired_vehicle_state_field IN ITEMS
+    bVehicleID
+    ubRobotRemoteHolderID)
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*${retired_vehicle_state_field}([^A-Za-z0-9_]|$)"
+      retired_vehicle_state_access
+      "${vehicle_state_source_contents}")
+    if(retired_vehicle_state_access)
+      message(FATAL_ERROR
+        "Production code accesses retired soldier vehicle-state member '${retired_vehicle_state_field}' in ${source_file}")
+    endif()
+  endforeach()
+endforeach()
+foreach(legacy_vehicle_state_field IN ITEMS
+  bVehicleID
+  ubRobotRemoteHolderID)
+  string(REGEX MATCHALL
+    "src\\.${legacy_vehicle_state_field}"
+    legacy_vehicle_state_accesses
+    "${soldier_control_source_contents}")
+  list(LENGTH legacy_vehicle_state_accesses legacy_vehicle_state_access_count)
+  if(NOT legacy_vehicle_state_access_count EQUAL 1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp must access legacy '${legacy_vehicle_state_field}' exactly once for v101 conversion")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_test IN ITEMS
+  "soldier vehicle-state component owns tactical vehicle and remote robot record identities"
+  "vehicle-state reset restores both historical persisted sentinels"
+  "soldier copies retain tactical vehicle and remote robot linkage"
+  "soldier initialization resets the complete tactical vehicle-link domain"
+  "v101 soldier conversion retains tactical vehicle and remote robot record identities"
+  "soldier save/load round-trips tactical vehicle and remote robot record identities at established POD positions")
+  string(FIND "${headless_test_contents}"
+    "${required_vehicle_state_test}"
+    soldier_vehicle_state_test)
+  if(soldier_vehicle_state_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost vehicle-state regression '${required_vehicle_state_test}'")
+  endif()
+endforeach()
+
+foreach(vehicle_state_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${vehicle_state_documentation}"
+    "SoldierVehicleStateComponent"
+    soldier_vehicle_state_documented)
+  if(soldier_vehicle_state_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Engine and save documentation must describe SoldierVehicleStateComponent")
+  endif()
+  string(FIND "${vehicle_state_documentation}"
+    "strategic"
+    soldier_vehicle_state_distinction_documented)
+  if(soldier_vehicle_state_distinction_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Vehicle-state documentation must distinguish tactical record linkage from strategic membership")
+  endif()
+endforeach()
 
 # NPC schedule execution has one live owner while schedule nodes, editor
 # placements, and creation packets remain compatibility adapters.
@@ -7601,6 +8516,136 @@ foreach(position_runtime_transition IN ITEMS
       "Tactical runtime bypassed the coordinated SoldierPositionComponent transition '${position_runtime_transition}'")
   endif()
 endforeach()
+
+# The three front-arc overlay nodes are one paired spatial cache. Keep their
+# current storage private, their legacy declaration available only to v101
+# conversion, and both established serializer arrays in place.
+foreach(retired_front_arc_field IN ITEMS
+  usFrontArcFullTileList
+  usFrontArcFullTileGridNos)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT16|INT32)[ \t]+${retired_front_arc_field}[ \t]*\\[[^]]+\\][ \t]*;"
+    retired_current_front_arc_field
+    "${current_soldier_contents}")
+  if(retired_current_front_arc_field)
+    message(FATAL_ERROR
+      "Retired public SOLDIERTYPE front-arc array '${retired_front_arc_field}' returned; use SoldierFrontArcComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierFrontArcComponent[ \t\r\n]+frontArc_[ \t]*;"
+  soldier_front_arc_owner
+  "${current_soldier_contents}")
+if(NOT soldier_front_arc_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierFrontArcComponent")
+endif()
+foreach(required_front_arc_contract IN ITEMS
+  "static constexpr UINT8 DirectionCount = 3;"
+  "UINT16 tileIndices_[DirectionCount]{};"
+  "INT32 gridNos_[DirectionCount]{};"
+  "UINT16& tileIndex(UINT8 direction) noexcept"
+  "const UINT16& tileIndex(UINT8 direction) const noexcept"
+  "INT32& gridNo(UINT8 direction) noexcept"
+  "const INT32& gridNo(UINT8 direction) const noexcept"
+  "bool hasOccluder(UINT8 direction) const noexcept"
+  "void bindOccluder(UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept;"
+  "void clearOccluder(UINT8 direction) noexcept;"
+  "void reset() noexcept;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_front_arc_contract}"
+    soldier_front_arc_contract)
+  if(soldier_front_arc_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFrontArcComponent lost contract '${required_front_arc_contract}'")
+  endif()
+endforeach()
+foreach(required_front_arc_transition IN ITEMS
+  "void SoldierFrontArcComponent::bindOccluder("
+  "tileIndices_[direction] = tileIndex;"
+  "gridNos_[direction] = gridNo;"
+  "void SoldierFrontArcComponent::clearOccluder(UINT8 direction) noexcept"
+  "tileIndices_[direction] = 0;"
+  "gridNos_[direction] = 0;"
+  "*this = SoldierFrontArcComponent{};")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_front_arc_transition}"
+    soldier_front_arc_transition)
+  if(soldier_front_arc_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFrontArcComponent lost paired transition '${required_front_arc_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "frontArc\\(\\)\\.reset\\(\\)"
+  soldier_front_arc_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_front_arc_reset_sites soldier_front_arc_reset_site_count)
+if(NOT soldier_front_arc_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Front-arc state must reset during both v101 conversion and current soldier initialization")
+endif()
+foreach(required_front_arc_conversion IN ITEMS
+  "direction < SoldierFrontArcComponent::DirectionCount;"
+  "frontArc().bindOccluder("
+  "src.usFrontArcFullTileList[direction]"
+  "src.usFrontArcFullTileGridNos[direction]")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_front_arc_conversion}"
+    soldier_front_arc_conversion)
+  if(soldier_front_arc_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost complete front-arc mapping '${required_front_arc_conversion}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "ar\\.i16\\(uiPresentation\\.locatorFrame\\(\\)\\);[ \t]*ar\\.i32\\(s\\.iFaceIndex\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.u16\\(frontArc\\.tileIndex\\(i\\)\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.i32\\(frontArc\\.gridNo\\(i\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.headPalette\\(\\),"
+  serialized_soldier_front_arc_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_front_arc_order)
+  message(FATAL_ERROR
+    "Front-arc tile/grid arrays moved or changed width in the current soldier save schema")
+endif()
+foreach(required_front_arc_runtime IN ITEMS
+  "SoldierFrontArcComponent& frontArc = pSoldier->frontArc();"
+  "frontArc.bindOccluder("
+  "frontArc.hasOccluder("
+  "frontArc.clearOccluder(")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_front_arc_runtime}"
+    soldier_front_arc_runtime)
+  if(soldier_front_arc_runtime EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical occlusion flow bypassed SoldierFrontArcComponent transition '${required_front_arc_runtime}'")
+  endif()
+endforeach()
+foreach(required_front_arc_test IN ITEMS
+  "soldier front-arc occluders bind and clear tile/grid pairs atomically"
+  "soldier copies retain every paired front-arc occluder"
+  "soldier initialization resets every paired front-arc occluder"
+  "v101 soldier conversion retains all three paired front-arc occluders"
+  "soldier save/load round-trips all paired front-arc occluders at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${required_front_arc_test}"
+    soldier_front_arc_test)
+  if(soldier_front_arc_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost front-arc fixture '${required_front_arc_test}'")
+  endif()
+endforeach()
+foreach(front_arc_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${front_arc_documentation}"
+    "SoldierFrontArcComponent"
+    soldier_front_arc_documented)
+  if(soldier_front_arc_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier front-arc paired ownership must remain documented")
+  endif()
+endforeach()
+
 string(REGEX MATCH
   "SOLDIERTYPE[ \t]*&[ \t]*soldier_"
   soldier_component_back_reference
@@ -7773,7 +8818,7 @@ endif()
 
 # Preserve both scattered persistence sites and every v101 value exactly.
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
+  "ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
   serialized_soldier_previous_grid_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7940,7 +8985,7 @@ string(REGEX MATCH
   serialized_soldier_movement_stealth_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pThrowParams\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
   serialized_soldier_movement_reverse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7952,7 +8997,7 @@ string(REGEX MATCH
   serialized_soldier_movement_wait_action_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
+  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
   serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8016,11 +9061,11 @@ string(REGEX MATCH
   serialized_soldier_movement_delayed_flags_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
   serialized_soldier_movement_stop_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
   serialized_soldier_movement_speed_override_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_alias OR
@@ -9564,7 +10609,7 @@ string(REGEX MATCH
   serialized_render_bounds_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);"
+  "ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);"
   serialized_render_fade_origin_order
   "${save_load_game_contents}")
 string(FIND "${save_load_game_contents}"
@@ -11219,6 +12264,40 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(retired_soldier_ai_data_access)
     message(FATAL_ERROR
       "Application code accesses retired SOLDIERTYPE aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])ai_masterplan_([^A-Za-z0-9_]|$)"
+    retired_modular_ai_plan_access
+    "${contents}")
+  if(retired_modular_ai_plan_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE ai_masterplan_ in ${source_file}; use aiPlan()")
+  endif()
+  string(REGEX MATCH
+    "(->|\\.)[ \t\r\n]*pKeyRing([^A-Za-z0-9_]|$)"
+    direct_retired_key_ring_access
+    "${contents}")
+  if(direct_retired_key_ring_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE pKeyRing in ${source_file}; use keyRing()")
+  endif()
+  if(NOT source_file MATCHES "/tests/")
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*(pTempObject|pThrowParams)([^A-Za-z0-9_]|$)"
+      direct_retired_pending_item_access
+      "${contents}")
+    if(direct_retired_pending_item_access)
+      message(FATAL_ERROR
+        "Application code accesses retired SOLDIERTYPE pending-item pointers in ${source_file}; use pendingItem()")
+    endif()
+    string(REGEX MATCH
+      "(malloc|MemAlloc)[ \t\r\n]*\\([^)]*THROW_PARAMS"
+      raw_throw_parameters_allocation
+      "${contents}")
+    if(raw_throw_parameters_allocation)
+      message(FATAL_ERROR
+        "Application code heap-allocates THROW_PARAMS in ${source_file}; use SoldierPendingItemComponent inline storage")
+    endif()
   endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"

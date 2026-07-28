@@ -110,6 +110,7 @@
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Plan.h"
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
@@ -174,6 +175,31 @@ static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
+
+class HeadlessOwnedAiPlan final : public AI::tactical::Plan
+{
+public:
+	HeadlessOwnedAiPlan(
+		SOLDIERTYPE* soldier, int& destructionCount, int& executionCount)
+		: Plan(soldier),
+		  destructionCount_(destructionCount),
+		  executionCount_(executionCount)
+	{
+	}
+
+	~HeadlessOwnedAiPlan() override { ++destructionCount_; }
+
+	void execute(AI::tactical::PlanInputData&) override
+	{
+		++executionCount_;
+	}
+
+	bool done() const override { return false; }
+
+private:
+	int& destructionCount_;
+	int& executionCount_;
+};
 
 class HeadlessRuntimeMessageSink final : public RuntimeMessageSink
 {
@@ -2360,7 +2386,7 @@ int main( int, char** )
 		gNewVehicle[0].iNewSeatingCapacities = 2;
 		SOLDIERTYPE vehicle;
 		vehicle.status().flags() |= SOLDIER_VEHICLE;
-		vehicle.bVehicleID = 0;
+		vehicle.vehicleState().tacticalVehicleId() = 0;
 		SOLDIERTYPE passenger;
 		const bool acceptedBoundedCapacity =
 			GetVehicleSeatingCapacity( 0 ) == 2;
@@ -7231,13 +7257,20 @@ int main( int, char** )
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
 		source.runtime.pendingAction.pathSearchSourceGrid = 99;
+		int repositoryPlanDestructions = 0;
+		int repositoryPlanExecutions = 0;
+		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[1], repositoryPlanDestructions,
+			repositoryPlanExecutions));
 		SOLDIERTYPE* replaced = repository.replace(1, source);
 		CHECK( replaced == &records[1] &&
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
 		       records[1].runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       !records[1].aiPlan().hasPlan() &&
+		       repositoryPlanDestructions == 1 &&
 		       repository.replace(2, source) == nullptr,
-		       "soldier repository owns bounded whole-record replacement and clone reset semantics" );
+		       "soldier repository owns bounded replacement and discards destination-bound runtime plans" );
 
 		slots[1] = &records[0];
 		CHECK( repository.replace(1, source) == nullptr,
@@ -7247,15 +7280,24 @@ int main( int, char** )
 		records[0].position().gridNo() = 100;
 		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
+		records[0].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[0], repositoryPlanDestructions,
+			repositoryPlanExecutions));
+		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[1], repositoryPlanDestructions,
+			repositoryPlanExecutions));
 		const bool swapped = repository.swapRecords(0, 1);
 		CHECK( swapped &&
 		       records[0].identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
 		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
+		       !records[0].aiPlan().hasPlan() &&
+		       !records[1].aiPlan().hasPlan() &&
+		       repositoryPlanDestructions == 3 &&
 		       !repository.swapRecords(0, 0) &&
 		       !repository.swapRecords(0, 2),
-		       "soldier repository relocates complete records while preserving slot identities" );
+		       "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily" );
 	}
 
 	{
@@ -7271,6 +7313,85 @@ int main( int, char** )
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().roster()),
 			const SoldierRosterComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().vehicleState()),
+			SoldierVehicleStateComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().vehicleState()),
+			const SoldierVehicleStateComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().featureFlags()),
+			SoldierFeatureFlagsComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
+			const SoldierFeatureFlagsComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().keyRing()),
+			SoldierKeyRingComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().keyRing()),
+			const SoldierKeyRingComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().pendingItem()),
+			SoldierPendingItemComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().pendingItem()),
+			const SoldierPendingItemComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().aiPlan()),
+			SoldierAiPlanComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().aiPlan()),
+			const SoldierAiPlanComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
+			SoldierFrontArcComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
+			const SoldierFrontArcComponent&>);
+
+		int aiPlanDestructions = 0;
+		int aiPlanExecutions = 0;
+		SOLDIERTYPE aiPlanOwner;
+		aiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&aiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		AI::tactical::PlanInputData aiPlanInput(false, gTacticalStatus);
+		CHECK( aiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanOwner.aiPlan().execute(aiPlanInput) &&
+		       aiPlanExecutions == 1 &&
+		       aiPlanDestructions == 0,
+		       "soldier AI-plan ownership executes an adopted modular plan" );
+		SOLDIERTYPE copiedAiPlanOwner = aiPlanOwner;
+		SOLDIERTYPE assignedAiPlanOwner;
+		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		assignedAiPlanOwner = aiPlanOwner;
+		CHECK( aiPlanOwner.aiPlan().hasPlan() &&
+		       !copiedAiPlanOwner.aiPlan().hasPlan() &&
+		       !assignedAiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanDestructions == 1,
+		       "soldier copies discard plans whose back-references belong to another record" );
+		aiPlanOwner.aiPlan().reset();
+		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		assignedAiPlanOwner.initialize();
+		CHECK( !aiPlanOwner.aiPlan().hasPlan() &&
+		       !assignedAiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanDestructions == 3,
+		       "soldier AI plans are released by explicit reset and record reuse" );
+
+		SoldierFrontArcComponent frontArcLifecycle;
+		frontArcLifecycle.bindOccluder(1, 401, 1401);
+		const bool frontArcBound =
+			frontArcLifecycle.hasOccluder(1) &&
+			frontArcLifecycle.tileIndex(1) == 401 &&
+			frontArcLifecycle.gridNo(1) == 1401;
+		frontArcLifecycle.clearOccluder(1);
+		CHECK( frontArcBound &&
+		       !frontArcLifecycle.hasOccluder(1) &&
+		       frontArcLifecycle.tileIndex(1) == 0 &&
+		       frontArcLifecycle.gridNo(1) == 0,
+		       "soldier front-arc occluders bind and clear tile/grid pairs atomically" );
 
 		SOLDIERTYPE soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
@@ -7327,12 +7448,30 @@ int main( int, char** )
 		}
 		SoldierStatusComponent& status = soldier.status();
 		status.set(SOLDIER_PC | SOLDIER_MUTE);
+		SoldierFeatureFlagsComponent& featureFlags = soldier.featureFlags();
+		featureFlags.eventFlags() =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED;
+		featureFlags.primaryFlags() = SOLDIER_COVERT_CIV | SOLDIER_POW;
+		featureFlags.secondaryFlags() = SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT;
 		SoldierInventoryStateComponent& inventoryState =
 			soldier.inventoryState();
 		inventoryState.keyAccess() = -3;
 		inventoryState.checkForNewItems() = TRUE;
 		inventoryState.zipperFlag() = TRUE;
 		inventoryState.dropPackFlag() = TRUE;
+		soldier.keyRing().activate();
+		soldier.keyRing()[17].ubKeyID = 42;
+		soldier.keyRing()[17].ubNumber = 3;
+		OBJECTTYPE pendingObject;
+		pendingObject.usItem = 77;
+		pendingObject.ubNumberOfObjects = 2;
+		pendingObject.fFlags = 0x12;
+		THROW_PARAMS& pendingThrow =
+			soldier.pendingItem().prepareThrow(pendingObject);
+		pendingThrow.dX = 12.5f;
+		pendingThrow.dY = 13.5f;
+		pendingThrow.ubActionCode = THROW_ARM_ITEM;
+		pendingThrow.uiActionData = 0x10203040u;
 		soldier.replication().updatedFromNetwork() = TRUE;
 		soldier.aiPlanning().lastFlankLeft() = TRUE;
 		soldier.condition().gasHitFlags() = 0xA5;
@@ -7562,6 +7701,9 @@ int main( int, char** )
 		deployment.beginStrategicTransit();
 		deployment.enterMissionExitNode();
 		deployment.setUseLandingZoneForArrival(true);
+		SoldierVehicleStateComponent& vehicleState = soldier.vehicleState();
+		vehicleState.tacticalVehicleId() = 12;
+		vehicleState.robotRemoteHolder() = SoldierID{ 38 };
 		SoldierScheduleComponent& schedule = soldier.schedule();
 		schedule.id() = 37;
 		schedule.progress() = 2;
@@ -7580,6 +7722,10 @@ int main( int, char** )
 		position.roomNo() = 8;
 		position.terrainType() = PAVED_ROAD;
 		position.enterTerrain(LOW_GRASS);
+		SoldierFrontArcComponent& frontArc = soldier.frontArc();
+		frontArc.bindOccluder(0, 301, 1237);
+		frontArc.bindOccluder(1, 302, 1238);
+		frontArc.bindOccluder(2, 303, 1239);
 		SoldierMovementHistoryComponent& movementHistory = soldier.movementHistory();
 		movementHistory.recordDeparture(1233);
 		movementHistory.recentLocations()[0] = 1220;
@@ -7828,6 +7974,12 @@ int main( int, char** )
 		       "soldier statistics component owns every base attribute and the complete persistent trait capacity" );
 		CHECK( constSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
 		       constSoldier.status().hasAny(SOLDIER_PC) &&
+		       constSoldier.featureFlags().hasEvent(SOLDIER_MISC_HEARD_GUNSHOT) &&
+		       constSoldier.featureFlags().hasEvent(SOLDIER_MISC_XRAYED) &&
+		       constSoldier.featureFlags().hasPrimary(SOLDIER_COVERT_CIV) &&
+		       constSoldier.featureFlags().hasPrimary(SOLDIER_POW) &&
+		       constSoldier.featureFlags().hasSecondary(SOLDIER_TRAIT_FOCUS) &&
+		       constSoldier.featureFlags().hasSecondary(SOLDIER_TURNCOAT) &&
 		       constSoldier.inventoryState().keyAccess() == -3 &&
 		       constSoldier.inventoryState().checkForNewItems() &&
 		       constSoldier.inventoryState().zipperFlag() &&
@@ -7841,7 +7993,7 @@ int main( int, char** )
 		       constSoldier.fireControl().aimPaused() &&
 		       constSoldier.animationActivity().reactingFromShot() &&
 		       constSoldier.animationActivity().externalDeath(),
-		       "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain" );
+		       "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
@@ -8102,6 +8254,10 @@ int main( int, char** )
 		       constSoldier.deployment().insideMissionExitNode() &&
 		       constSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier deployment component owns strategic placement, transit, insertion, traversal, and arrival lifecycle" );
+		CHECK( constSoldier.vehicleState().tacticalVehicleId() == 12 &&
+		       constSoldier.vehicleState().hasRobotRemoteHolder() &&
+		       constSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 38 },
+		       "soldier vehicle-state component owns tactical vehicle and remote robot record identities" );
 		CHECK( constSoldier.schedule().assigned() &&
 		       constSoldier.schedule().id() == 37 &&
 		       constSoldier.schedule().progress() == 2 &&
@@ -8433,6 +8589,27 @@ int main( int, char** )
 		statusLifecycle.reset();
 		CHECK( statusLifecycle.flags() == 0,
 		       "soldier status reset clears the complete general status mask" );
+		SoldierFeatureFlagsComponent featureFlagsLifecycle;
+		featureFlagsLifecycle.setEvent(
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION);
+		featureFlagsLifecycle.setPrimary(SOLDIER_COVERT_CIV | SOLDIER_POW);
+		featureFlagsLifecycle.setSecondary(
+			SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT);
+		featureFlagsLifecycle.clearEvent(SOLDIER_MISC_HURT_BY_EXPLOSION);
+		featureFlagsLifecycle.clearPrimary(SOLDIER_POW);
+		featureFlagsLifecycle.clearSecondary(SOLDIER_TURNCOAT);
+		CHECK( featureFlagsLifecycle.eventFlags() == SOLDIER_MISC_HEARD_GUNSHOT &&
+		       featureFlagsLifecycle.primaryFlags() == SOLDIER_COVERT_CIV &&
+		       featureFlagsLifecycle.secondaryFlags() == SOLDIER_TRAIT_FOCUS &&
+		       featureFlagsLifecycle.hasEvent(SOLDIER_MISC_HEARD_GUNSHOT) &&
+		       featureFlagsLifecycle.hasPrimary(SOLDIER_COVERT_CIV) &&
+		       featureFlagsLifecycle.hasSecondary(SOLDIER_TRAIT_FOCUS),
+		       "soldier feature flags provide typed queries and mutations for every compatibility bank" );
+		featureFlagsLifecycle.reset();
+		CHECK( featureFlagsLifecycle.eventFlags() == 0 &&
+		       featureFlagsLifecycle.primaryFlags() == 0 &&
+		       featureFlagsLifecycle.secondaryFlags() == 0,
+		       "soldier feature-flag reset clears all three persisted compatibility banks" );
 		SoldierInventoryStateComponent inventoryStateLifecycle;
 		inventoryStateLifecycle.keyAccess() = -8;
 		inventoryStateLifecycle.checkForNewItems() = TRUE;
@@ -8444,6 +8621,81 @@ int main( int, char** )
 		       !inventoryStateLifecycle.zipperFlag() &&
 		       !inventoryStateLifecycle.dropPackFlag(),
 		       "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state" );
+		SoldierKeyRingComponent keyRingLifecycle;
+		CHECK( !keyRingLifecycle.active() &&
+		       keyRingLifecycle.data() == nullptr,
+		       "soldier key ring defaults to the historical absent state" );
+		keyRingLifecycle.activate();
+		const bool keyRingStartsEmpty =
+			keyRingLifecycle.active() &&
+			keyRingLifecycle[0].ubKeyID == INVALID_KEY_NUMBER &&
+			keyRingLifecycle[0].ubNumber == 0 &&
+			keyRingLifecycle[SoldierKeyRingComponent::SlotCount - 1].ubKeyID ==
+				INVALID_KEY_NUMBER &&
+			keyRingLifecycle[SoldierKeyRingComponent::SlotCount - 1].ubNumber == 0;
+		keyRingLifecycle[9].ubKeyID = 51;
+		keyRingLifecycle[9].ubNumber = 2;
+		SoldierKeyRingComponent copiedKeyRing = keyRingLifecycle;
+		copiedKeyRing[9].ubNumber = 1;
+		CHECK( keyRingStartsEmpty &&
+		       copiedKeyRing.active() &&
+		       copiedKeyRing.data() != keyRingLifecycle.data() &&
+		       copiedKeyRing[9].ubKeyID == 51 &&
+		       copiedKeyRing[9].ubNumber == 1 &&
+		       keyRingLifecycle[9].ubNumber == 2,
+		       "soldier key-ring copies own independent fixed-capacity storage" );
+		keyRingLifecycle.reset();
+		CHECK( !keyRingLifecycle.active() &&
+		       keyRingLifecycle.data() == nullptr &&
+		       keyRingLifecycle[9].ubKeyID == INVALID_KEY_NUMBER &&
+		       keyRingLifecycle[9].ubNumber == 0,
+		       "soldier key-ring reset clears every slot and its presence marker" );
+		SoldierPendingItemComponent pendingItemLifecycle;
+		CHECK( !pendingItemLifecycle.hasObject() &&
+		       !pendingItemLifecycle.hasThrowParameters() &&
+		       !pendingItemLifecycle.readyToThrow(),
+		       "soldier pending-item transactions default to empty process-local state" );
+		OBJECTTYPE lifecycleObject;
+		lifecycleObject.usItem = 91;
+		lifecycleObject.ubNumberOfObjects = 3;
+		lifecycleObject.fFlags = 0x34;
+		THROW_PARAMS& lifecycleThrow =
+			pendingItemLifecycle.prepareThrow(lifecycleObject);
+		lifecycleThrow.dX = 21.5f;
+		lifecycleThrow.dForceZ = 4.25f;
+		lifecycleThrow.ubActionCode = THROW_ARM_ITEM;
+		lifecycleThrow.uiActionData = 0x55667788u;
+		CHECK( pendingItemLifecycle.readyToThrow() &&
+		       pendingItemLifecycle.object() != &lifecycleObject &&
+		       pendingItemLifecycle.object()->usItem == 91 &&
+		       pendingItemLifecycle.throwParameters()->dX == 21.5f &&
+		       pendingItemLifecycle.throwParameters()->uiActionData == 0x55667788u,
+		       "soldier pending-item owner binds a copied object and inline throw parameters as one transaction" );
+		SoldierPendingItemComponent copiedPendingItem = pendingItemLifecycle;
+		copiedPendingItem.object()->usItem = 92;
+		copiedPendingItem.throwParameters()->dX = 22.5f;
+		CHECK( copiedPendingItem.readyToThrow() &&
+		       copiedPendingItem.object() != pendingItemLifecycle.object() &&
+		       pendingItemLifecycle.object()->usItem == 91 &&
+		       pendingItemLifecycle.throwParameters()->dX == 21.5f,
+		       "soldier pending-item copies deep-copy temporary objects and inline ballistic state" );
+		SoldierPendingItemComponent movedPendingItem =
+			std::move(copiedPendingItem);
+		CHECK( movedPendingItem.readyToThrow() &&
+		       movedPendingItem.object()->usItem == 92 &&
+		       movedPendingItem.throwParameters()->dX == 22.5f &&
+		       !copiedPendingItem.hasObject() &&
+		       !copiedPendingItem.hasThrowParameters(),
+		       "soldier pending-item moves transfer ownership and clear the source transaction" );
+		movedPendingItem.clearObject();
+		CHECK( !movedPendingItem.hasObject() &&
+		       movedPendingItem.hasThrowParameters() &&
+		       !movedPendingItem.readyToThrow(),
+		       "soldier pending-item object and throw-parameter lifetimes remain independently observable" );
+		movedPendingItem.clearThrowTransaction();
+		CHECK( !movedPendingItem.hasObject() &&
+		       !movedPendingItem.hasThrowParameters(),
+		       "soldier pending-item transaction cleanup releases both ownership domains" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -9055,6 +9307,29 @@ int main( int, char** )
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
+		const bool copiedSoldierKeyRingIsIndependent =
+			copiedSoldier.keyRing().active() &&
+			copiedSoldier.keyRing().data() != soldier.keyRing().data() &&
+			copiedSoldier.keyRing()[17].ubKeyID == 42 &&
+			copiedSoldier.keyRing()[17].ubNumber == 3;
+		copiedSoldier.keyRing()[17].ubNumber = 2;
+		CHECK( copiedSoldierKeyRingIsIndependent &&
+		       soldier.keyRing()[17].ubNumber == 3,
+		       "soldier copies retain key contents without aliasing key-ring storage" );
+		const bool copiedPendingItemIsIndependent =
+			copiedSoldier.pendingItem().readyToThrow() &&
+			copiedSoldier.pendingItem().object() !=
+				soldier.pendingItem().object() &&
+			copiedSoldier.pendingItem().object()->usItem == 77 &&
+			copiedSoldier.pendingItem().throwParameters()->dX == 12.5f &&
+			copiedSoldier.pendingItem().throwParameters()->uiActionData ==
+				0x10203040u;
+		copiedSoldier.pendingItem().object()->usItem = 78;
+		copiedSoldier.pendingItem().throwParameters()->dX = 14.5f;
+		CHECK( copiedPendingItemIsIndependent &&
+		       soldier.pendingItem().object()->usItem == 77 &&
+		       soldier.pendingItem().throwParameters()->dX == 12.5f,
+		       "soldier copies retain pending tactical transactions without pointer aliasing" );
 		CHECK( copiedSoldier.identity().id() == SoldierID{ 37 } &&
 		       copiedSoldier.identity().name()[0] == L'J' &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
@@ -9070,6 +9345,9 @@ int main( int, char** )
 		       copiedSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
 		       copiedSoldier.roster().civilianGroup() == 17,
 		       "soldier copies retain every canonical identity and roster value" );
+		CHECK( copiedSoldier.vehicleState().tacticalVehicleId() == 12 &&
+		       copiedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 38 },
+		       "soldier copies retain tactical vehicle and remote robot linkage" );
 		CHECK( copiedSoldier.vitals().health() == 42 &&
 		       copiedSoldier.vitals().maximumHealth() == 84 &&
 		       copiedSoldier.vitals().breath() == 63 &&
@@ -9110,6 +9388,12 @@ int main( int, char** )
 		       copiedStatisticsTraitsMatch,
 		       "soldier copies retain every owned base attribute and persistent trait slot" );
 		CHECK( copiedSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       copiedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED) &&
+		       copiedSoldier.featureFlags().primaryFlags() ==
+		           (SOLDIER_COVERT_CIV | SOLDIER_POW) &&
+		       copiedSoldier.featureFlags().secondaryFlags() ==
+		           (SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT) &&
 		       copiedSoldier.inventoryState().keyAccess() == -3 &&
 		       copiedSoldier.inventoryState().checkForNewItems() &&
 		       copiedSoldier.inventoryState().zipperFlag() &&
@@ -9123,7 +9407,7 @@ int main( int, char** )
 		       copiedSoldier.fireControl().aimPaused() &&
 		       copiedSoldier.animationActivity().reactingFromShot() &&
 		       copiedSoldier.animationActivity().externalDeath(),
-		       "soldier copies retain every component-owned former general flag" );
+		       "soldier copies retain every status and feature compatibility flag" );
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -9368,6 +9652,13 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == LOW_GRASS &&
 		       copiedSoldier.position().previousTerrainType() == PAVED_ROAD,
 		       "soldier copies retain their complete owned persistent position" );
+		CHECK( copiedSoldier.frontArc().tileIndex(0) == 301 &&
+		       copiedSoldier.frontArc().gridNo(0) == 1237 &&
+		       copiedSoldier.frontArc().tileIndex(1) == 302 &&
+		       copiedSoldier.frontArc().gridNo(1) == 1238 &&
+		       copiedSoldier.frontArc().tileIndex(2) == 303 &&
+		       copiedSoldier.frontArc().gridNo(2) == 1239,
+		       "soldier copies retain every paired front-arc occluder" );
 		CHECK( copiedSoldier.movementHistory().previousGrid() == 1233 &&
 		       copiedSoldier.movementHistory().recentLocations()[0] == 1220 &&
 		       copiedSoldier.movementHistory().recentLocations()[1] == 1221,
@@ -10252,6 +10543,24 @@ int main( int, char** )
 		       !deploymentLifecycle.usesLandingZoneForArrival(),
 		       "deployment reset clears the complete strategic placement lifecycle" );
 
+		SoldierVehicleStateComponent vehicleStateLifecycle;
+		CHECK( vehicleStateLifecycle.tacticalVehicleId() == 0 &&
+		       !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle state defaults to the historical tactical record and no robot controller" );
+		vehicleStateLifecycle.tacticalVehicleId() = 9;
+		vehicleStateLifecycle.robotRemoteHolder() = SoldierID{ 57 };
+		CHECK( vehicleStateLifecycle.hasRobotRemoteHolder() &&
+		       vehicleStateLifecycle.robotRemoteHolder() == SoldierID{ 57 },
+		       "vehicle state exposes the remote robot controller through a typed soldier identity" );
+		vehicleStateLifecycle.clearRobotRemoteHolder();
+		CHECK( !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle state clears a remote robot controller through a named transition" );
+		vehicleStateLifecycle.robotRemoteHolder() = SoldierID{ 58 };
+		vehicleStateLifecycle.reset();
+		CHECK( vehicleStateLifecycle.tacticalVehicleId() == 0 &&
+		       !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle-state reset restores both historical persisted sentinels" );
+
 		SoldierScheduleComponent scheduleLifecycle;
 		scheduleLifecycle.id() = 41;
 		scheduleLifecycle.progress() = 1;
@@ -10283,6 +10592,14 @@ int main( int, char** )
 		       scheduleLifecycle.doorGrid() == 0,
 		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
+		CHECK( !copiedSoldier.keyRing().active() &&
+		       copiedSoldier.keyRing().data() == nullptr &&
+		       copiedSoldier.keyRing()[17].ubKeyID == INVALID_KEY_NUMBER &&
+		       copiedSoldier.keyRing()[17].ubNumber == 0,
+		       "soldier initialization clears key-ring contents and presence" );
+		CHECK( !copiedSoldier.pendingItem().hasObject() &&
+		       !copiedSoldier.pendingItem().hasThrowParameters(),
+		       "soldier initialization releases pending tactical transaction state" );
 		CHECK( copiedSoldier.identity().id() == NOBODY &&
 		       copiedSoldier.identity().name()[0] == 0 &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == 0 &&
@@ -10338,6 +10655,9 @@ int main( int, char** )
 		       initializedStatisticsTraitsCleared,
 		       "soldier initialization resets the complete base-statistics domain" );
 		CHECK( copiedSoldier.status().flags() == 0 &&
+		       copiedSoldier.featureFlags().eventFlags() == 0 &&
+		       copiedSoldier.featureFlags().primaryFlags() == 0 &&
+		       copiedSoldier.featureFlags().secondaryFlags() == 0 &&
 		       copiedSoldier.inventoryState().keyAccess() == 0 &&
 		       !copiedSoldier.inventoryState().checkForNewItems() &&
 		       !copiedSoldier.inventoryState().zipperFlag() &&
@@ -10351,7 +10671,7 @@ int main( int, char** )
 		       !copiedSoldier.fireControl().aimPaused() &&
 		       !copiedSoldier.animationActivity().reactingFromShot() &&
 		       !copiedSoldier.animationActivity().externalDeath(),
-		       "soldier initialization resets every component-owned former general flag" );
+		       "soldier initialization resets every status and feature compatibility flag" );
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
@@ -10578,6 +10898,9 @@ int main( int, char** )
 		       !copiedSoldier.deployment().insideMissionExitNode() &&
 		       !copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier initialization resets the complete deployment domain" );
+		CHECK( copiedSoldier.vehicleState().tacticalVehicleId() == 0 &&
+		       !copiedSoldier.vehicleState().hasRobotRemoteHolder(),
+		       "soldier initialization resets the complete tactical vehicle-link domain" );
 		CHECK( !copiedSoldier.schedule().assigned() &&
 		       copiedSoldier.schedule().progress() == 0 &&
 		       !copiedSoldier.schedule().doorContinuationPending() &&
@@ -10601,6 +10924,13 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == 0 &&
 		       copiedSoldier.position().previousTerrainType() == 0,
 		       "soldier initialization resets the complete position domain" );
+		CHECK( !copiedSoldier.frontArc().hasOccluder(0) &&
+		       copiedSoldier.frontArc().gridNo(0) == 0 &&
+		       !copiedSoldier.frontArc().hasOccluder(1) &&
+		       copiedSoldier.frontArc().gridNo(1) == 0 &&
+		       !copiedSoldier.frontArc().hasOccluder(2) &&
+		       copiedSoldier.frontArc().gridNo(2) == 0,
+		       "soldier initialization resets every paired front-arc occluder" );
 		CHECK( copiedSoldier.movementHistory().previousGrid() == 0 &&
 		       copiedSoldier.movementHistory().recentLocations()[0] == 0 &&
 		       copiedSoldier.movementHistory().recentLocations()[1] == 0,
@@ -10850,6 +11180,7 @@ int main( int, char** )
 		morale.teamModifier() = -2;
 		morale.tacticalModifier() = 3;
 		morale.strategicModifier() = -4;
+		morale.delayedStrategicModifier() = -6;
 		morale.aiMorale() = 5;
 		morale.frenzied() = 1;
 
@@ -10911,6 +11242,7 @@ int main( int, char** )
 		       constAiOwnedSoldier.morale().teamModifier() == -2 &&
 		       constAiOwnedSoldier.morale().tacticalModifier() == 3 &&
 		       constAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       constAiOwnedSoldier.morale().delayedStrategicModifier() == -6 &&
 		       constAiOwnedSoldier.morale().aiMorale() == 5 &&
 		       constAiOwnedSoldier.morale().isFrenzied(),
 		       "soldier communication and morale domains retain their independent lifecycles" );
@@ -10940,6 +11272,7 @@ int main( int, char** )
 		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
 		       copiedAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       copiedAiOwnedSoldier.morale().delayedStrategicModifier() == -6 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == -2 &&
 		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
@@ -10957,6 +11290,7 @@ int main( int, char** )
 		       copiedAiOwnedSoldier.aiBehavior().flags() == 0 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 0 } &&
 		       copiedAiOwnedSoldier.morale().morale() == 0 &&
+		       copiedAiOwnedSoldier.morale().delayedStrategicModifier() == 0 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[0] == 0 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == 0 &&
@@ -10973,6 +11307,10 @@ int main( int, char** )
 
 	{
 		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		OBJECTTYPE legacyProcessObject;
+		THROW_PARAMS legacyProcessThrow{};
+		legacySoldier->pTempObject = &legacyProcessObject;
+		legacySoldier->pThrowParams = &legacyProcessThrow;
 		legacySoldier->ubID = 37;
 		legacySoldier->name[0] = L'V';
 		legacySoldier->name[9] = L'1';
@@ -11017,6 +11355,7 @@ int main( int, char** )
 		legacySoldier->bTeamMoraleMod = -2;
 		legacySoldier->bTacticalMoraleMod = 3;
 		legacySoldier->bStrategicMoraleMod = -4;
+		legacySoldier->bDelayedStrategicMoraleMod = -7;
 		legacySoldier->bAIMorale = 5;
 		legacySoldier->bInterruptDuelPts = -1;
 		legacySoldier->bPassedLastInterrupt = 1;
@@ -11029,6 +11368,8 @@ int main( int, char** )
 		legacySoldier->bCallPriority = 14;
 		legacySoldier->bCallActedUpon = -1;
 		legacySoldier->bFrenzied = 1;
+		legacySoldier->ubMiscSoldierFlags =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION;
 		legacySoldier->bNormalSmell = 15;
 		legacySoldier->bMonsterSmell = 16;
 		legacySoldier->bMobility = 2;
@@ -11289,6 +11630,8 @@ int main( int, char** )
 		legacySoldier->fBetweenSectors = 2;
 		legacySoldier->fInMissionExitNode = 3;
 		legacySoldier->fUseLandingZoneForArrival = 4;
+		legacySoldier->bVehicleID = -6;
+		legacySoldier->ubRobotRemoteHolderID = 59;
 		legacySoldier->bEndDoorOpenCode = 2;
 		legacySoldier->ubScheduleID = 42;
 		legacySoldier->sEndDoorOpenCodeData = 2310;
@@ -11336,6 +11679,12 @@ int main( int, char** )
 		legacySoldier->sRoomNo = 13;
 		legacySoldier->bOverTerrainType = HIGH_GRASS;
 		legacySoldier->bOldOverTerrainType = DIRT_ROAD;
+		legacySoldier->usFrontArcFullTileList[0] = 601;
+		legacySoldier->usFrontArcFullTileList[1] = 602;
+		legacySoldier->usFrontArcFullTileList[2] = 603;
+		legacySoldier->usFrontArcFullTileGridNos[0] = 2311;
+		legacySoldier->usFrontArcFullTileGridNos[1] = 2312;
+		legacySoldier->usFrontArcFullTileGridNos[2] = 2313;
 		legacySoldier->sOldGridNo = 2307;
 		legacySoldier->sLastTwoLocations[0] = 2308;
 		legacySoldier->sLastTwoLocations[1] = 2309;
@@ -11379,6 +11728,12 @@ int main( int, char** )
 		convertedSoldier.inventoryState().checkForNewItems() = FALSE;
 		convertedSoldier.inventoryState().zipperFlag() = TRUE;
 		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
+		convertedSoldier.keyRing().activate();
+		convertedSoldier.keyRing()[4].ubKeyID = 44;
+		convertedSoldier.keyRing()[4].ubNumber = 4;
+		OBJECTTYPE staleConvertedObject;
+		staleConvertedObject.usItem = 93;
+		convertedSoldier.pendingItem().prepareThrow(staleConvertedObject);
 		convertedSoldier.replication().updatedFromNetwork() = FALSE;
 		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
 		convertedSoldier.aiPlanning().actionData() = 99901;
@@ -11386,9 +11741,14 @@ int main( int, char** )
 		convertedSoldier.aiBehavior().flags() = -1;
 		convertedSoldier.aiCommunication().caller() = SoldierID{ 99 };
 		convertedSoldier.morale().morale() = 99;
+		convertedSoldier.morale().delayedStrategicModifier() = 98;
+		convertedSoldier.featureFlags().eventFlags() = 0xFF;
+		convertedSoldier.featureFlags().primaryFlags() = 0xFFFFFFFFu;
+		convertedSoldier.featureFlags().secondaryFlags() = 0xFFFFFFFFu;
 		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
 		convertedSoldier.perception().noiseGrid() = 99903;
 		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
+		convertedSoldier.frontArc().bindOccluder(0, 999, 9999);
 		convertedSoldier.combatResult().lastAttackHit() = 99;
 		convertedSoldier.turnState().moved() = 99;
 		convertedSoldier.turnState().interruptCounters()[0] = 99;
@@ -11463,6 +11823,8 @@ int main( int, char** )
 		convertedSoldier.animationActivity().lastRandomAnimation() = 1002;
 		convertedSoldier.deployment().beginArrivalGetup();
 		convertedSoldier.deployment().arrivalGetupCounter() = 10003;
+		convertedSoldier.vehicleState().tacticalVehicleId() = 99;
+		convertedSoldier.vehicleState().robotRemoteHolder() = SoldierID{ 99 };
 		convertedSoldier.aiPlanning().flankCount() = 90;
 		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
 		convertedSoldier.aiPlanning().raiseSniperPosture();
@@ -11511,7 +11873,15 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaKills() = 9;
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
+		int convertedPlanDestructions = 0;
+		int convertedPlanExecutions = 0;
+		convertedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&convertedSoldier, convertedPlanDestructions,
+			convertedPlanExecutions));
 		convertedSoldier = *legacySoldier;
+		CHECK( !convertedSoldier.aiPlan().hasPlan() &&
+		       convertedPlanDestructions == 1,
+		       "v101 soldier conversion releases process-local modular AI plans" );
 		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
 		       convertedSoldier.identity().name()[0] == L'V' &&
 		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
@@ -11566,9 +11936,15 @@ int main( int, char** )
 		       convertedSoldier.morale().teamModifier() == -2 &&
 		       convertedSoldier.morale().tacticalModifier() == 3 &&
 		       convertedSoldier.morale().strategicModifier() == -4 &&
+		       convertedSoldier.morale().delayedStrategicModifier() == -7 &&
 		       convertedSoldier.morale().aiMorale() == 5 &&
 		       convertedSoldier.morale().frenzied() == 1,
 		       "v101 soldier conversion maps AI communication and every morale channel" );
+		CHECK( convertedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION) &&
+		       convertedSoldier.featureFlags().primaryFlags() == 0 &&
+		       convertedSoldier.featureFlags().secondaryFlags() == 0,
+		       "v101 soldier conversion maps historical event flags and clears later feature banks" );
 		CHECK( convertedSoldier.awareness().opponentKnowledge()[0] == 2 &&
 		       convertedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == -3 &&
@@ -11644,6 +12020,14 @@ int main( int, char** )
 		       convertedSoldier.animationActivity().reactingFromShot() &&
 		       convertedSoldier.animationActivity().externalDeath(),
 		       "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema" );
+		CHECK( !convertedSoldier.keyRing().active() &&
+		       convertedSoldier.keyRing().data() == nullptr &&
+		       convertedSoldier.keyRing()[4].ubKeyID == INVALID_KEY_NUMBER &&
+		       convertedSoldier.keyRing()[4].ubNumber == 0,
+		       "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration" );
+		CHECK( !convertedSoldier.pendingItem().hasObject() &&
+		       !convertedSoldier.pendingItem().hasThrowParameters(),
+		       "v101 soldier conversion retires temporary object and throw pointers instead of adopting process-local addresses" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -11897,6 +12281,9 @@ int main( int, char** )
 		       convertedSoldier.deployment().inMissionExitNode() == 3 &&
 		       convertedSoldier.deployment().useLandingZoneForArrival() == 4,
 		       "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state" );
+		CHECK( convertedSoldier.vehicleState().tacticalVehicleId() == -6 &&
+		       convertedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 59 },
+		       "v101 soldier conversion retains tactical vehicle and remote robot record identities" );
 		CHECK( convertedSoldier.schedule().id() == 42 &&
 		       convertedSoldier.schedule().progress() == 3 &&
 		       !convertedSoldier.schedule().doorContinuationPending() &&
@@ -11919,6 +12306,13 @@ int main( int, char** )
 		       convertedSoldier.position().terrainType() == HIGH_GRASS &&
 		       convertedSoldier.position().previousTerrainType() == DIRT_ROAD,
 		       "v101 soldier conversion retains every historical tactical world-placement value" );
+		CHECK( convertedSoldier.frontArc().tileIndex(0) == 601 &&
+		       convertedSoldier.frontArc().gridNo(0) == 2311 &&
+		       convertedSoldier.frontArc().tileIndex(1) == 602 &&
+		       convertedSoldier.frontArc().gridNo(1) == 2312 &&
+		       convertedSoldier.frontArc().tileIndex(2) == 603 &&
+		       convertedSoldier.frontArc().gridNo(2) == 2313,
+		       "v101 soldier conversion retains all three paired front-arc occluders" );
 		CHECK( convertedSoldier.movementHistory().previousGrid() == 2307 &&
 		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
 		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
@@ -12180,6 +12574,7 @@ int main( int, char** )
 		savedSoldier.morale().teamModifier() = -3;
 		savedSoldier.morale().tacticalModifier() = 4;
 		savedSoldier.morale().strategicModifier() = -5;
+		savedSoldier.morale().delayedStrategicModifier() = -8;
 		savedSoldier.morale().aiMorale() = 5;
 		savedSoldier.morale().frenzied() = 1;
 		savedSoldier.awareness().opponentKnowledge()[0] = 3;
@@ -12219,6 +12614,12 @@ int main( int, char** )
 		}
 		savedSoldier.status().flags() =
 			SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER;
+		savedSoldier.featureFlags().eventFlags() =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED;
+		savedSoldier.featureFlags().primaryFlags() =
+			SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION;
+		savedSoldier.featureFlags().secondaryFlags() =
+			SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED;
 		savedSoldier.inventoryState().keyAccess() = -7;
 		savedSoldier.inventoryState().checkForNewItems() = TRUE;
 		savedSoldier.inventoryState().zipperFlag() = TRUE;
@@ -12490,6 +12891,8 @@ int main( int, char** )
 		savedSoldier.deployment().beginStrategicTransit();
 		savedSoldier.deployment().enterMissionExitNode();
 		savedSoldier.deployment().setUseLandingZoneForArrival(true);
+		savedSoldier.vehicleState().tacticalVehicleId() = -8;
+		savedSoldier.vehicleState().robotRemoteHolder() = SoldierID{ 63 };
 		savedSoldier.schedule().id() = 43;
 		savedSoldier.schedule().progress() = 4;
 		savedSoldier.schedule().beginDoorContinuation(2404);
@@ -12508,6 +12911,9 @@ int main( int, char** )
 		savedSoldier.position().roomNo() = 11;
 		savedSoldier.position().terrainType() = HIGH_GRASS;
 		savedSoldier.position().previousTerrainType() = DIRT_ROAD;
+		savedSoldier.frontArc().bindOccluder(0, 701, 1429);
+		savedSoldier.frontArc().bindOccluder(1, 702, 1431);
+		savedSoldier.frontArc().bindOccluder(2, 703, 1432);
 		savedSoldier.movementHistory().recordDeparture(1426);
 		savedSoldier.movementHistory().recentLocations()[0] = 1410;
 		savedSoldier.movementHistory().recentLocations()[1] = 1411;
@@ -12642,6 +13048,16 @@ int main( int, char** )
 		savedSoldier.animationActivity().setRenderZOverride(888);
 		savedSoldier.animationActivity().randomActionCheckCounter() = 81;
 		savedSoldier.animationActivity().lastRandomAnimation() = 124;
+		savedSoldier.keyRing().activate();
+		savedSoldier.keyRing()[23].ubKeyID = 62;
+		savedSoldier.keyRing()[23].ubNumber = 5;
+		OBJECTTYPE savedPendingObject;
+		savedPendingObject.usItem = 94;
+		savedPendingObject.ubNumberOfObjects = 2;
+		THROW_PARAMS& savedThrowParameters =
+			savedSoldier.pendingItem().prepareThrow(savedPendingObject);
+		savedThrowParameters.dLifeSpan = 4.5f;
+		savedThrowParameters.ubActionCode = THROW_ARM_ITEM;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -12649,6 +13065,14 @@ int main( int, char** )
 		if ( output ) FileClose( output );
 
 		SOLDIERTYPE loadedSoldier;
+		OBJECTTYPE staleLoadedObject;
+		staleLoadedObject.usItem = 95;
+		loadedSoldier.pendingItem().prepareThrow(staleLoadedObject);
+		int loadedPlanDestructions = 0;
+		int loadedPlanExecutions = 0;
+		loadedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&loadedSoldier, loadedPlanDestructions,
+			loadedPlanExecutions));
 		HWFILE input = FileOpen( const_cast<char*>( path.c_str() ),
 		                         FILE_ACCESS_READ | FILE_OPEN_EXISTING );
 		const bool loaded = input && loadedSoldier.Load( input );
@@ -12656,6 +13080,18 @@ int main( int, char** )
 		FileDelete( const_cast<char*>( path.c_str() ) );
 		guiCurrentSaveGameVersion = previousSaveVersion;
 
+		CHECK( saved && loaded &&
+		       !loadedSoldier.keyRing().active() &&
+		       loadedSoldier.keyRing().data() == nullptr,
+		       "soldier POD save/load keeps key-ring storage runtime-only for separate payload restoration" );
+		CHECK( saved && loaded &&
+		       !loadedSoldier.pendingItem().hasObject() &&
+		       !loadedSoldier.pendingItem().hasThrowParameters(),
+		       "soldier POD save/load retires temporary action pointers and clears process-local transaction state" );
+		CHECK( saved && loaded &&
+		       !loadedSoldier.aiPlan().hasPlan() &&
+		       loadedPlanDestructions == 1,
+		       "soldier POD load clears process-local modular AI plans before restoring persistent state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
 		       loadedSoldier.identity().name()[0] == L'S' &&
@@ -12721,6 +13157,7 @@ int main( int, char** )
 		       loadedSoldier.morale().teamModifier() == -3 &&
 		       loadedSoldier.morale().tacticalModifier() == 4 &&
 		       loadedSoldier.morale().strategicModifier() == -5 &&
+		       loadedSoldier.morale().delayedStrategicModifier() == -8 &&
 		       loadedSoldier.morale().aiMorale() == 5 &&
 		       loadedSoldier.morale().frenzied() == 1,
 		       "soldier save/load round-trips component-owned AI communication and morale" );
@@ -12761,6 +13198,12 @@ int main( int, char** )
 		CHECK( saved && loaded &&
 		       loadedSoldier.status().flags() ==
 			       (SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER) &&
+		       loadedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED) &&
+		       loadedSoldier.featureFlags().primaryFlags() ==
+		           (SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION) &&
+		       loadedSoldier.featureFlags().secondaryFlags() ==
+		           (SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED) &&
 		       loadedSoldier.inventoryState().keyAccess() == -7 &&
 		       loadedSoldier.inventoryState().checkForNewItems() &&
 		       loadedSoldier.inventoryState().zipperFlag() &&
@@ -12774,7 +13217,7 @@ int main( int, char** )
 		       loadedSoldier.fireControl().aimPaused() &&
 		       loadedSoldier.animationActivity().reactingFromShot() &&
 		       loadedSoldier.animationActivity().externalDeath(),
-		       "soldier save/load round-trips every former general flag through its established byte position and domain owner" );
+		       "soldier save/load round-trips all status and feature flags through established byte positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
@@ -13085,6 +13528,10 @@ int main( int, char** )
 		       loadedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier save/load round-trips deployment and transit state at every established POD position" );
 		CHECK( saved && loaded &&
+		       loadedSoldier.vehicleState().tacticalVehicleId() == -8 &&
+		       loadedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 63 },
+		       "soldier save/load round-trips tactical vehicle and remote robot record identities at established POD positions" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.schedule().id() == 43 &&
 		       loadedSoldier.schedule().progress() == 4 &&
 		       loadedSoldier.schedule().doorAnimationComplete() &&
@@ -13124,6 +13571,14 @@ int main( int, char** )
 		       loadedSoldier.pathing().blackListGrid() == 1444 &&
 		       loadedSoldier.pathing().stored() == 1,
 		       "soldier save/load round-trips complete position, movement-history, and pathing state through every established schema site" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.frontArc().tileIndex(0) == 701 &&
+		       loadedSoldier.frontArc().gridNo(0) == 1429 &&
+		       loadedSoldier.frontArc().tileIndex(1) == 702 &&
+		       loadedSoldier.frontArc().gridNo(1) == 1431 &&
+		       loadedSoldier.frontArc().tileIndex(2) == 703 &&
+		       loadedSoldier.frontArc().gridNo(2) == 1432,
+		       "soldier save/load round-trips all paired front-arc occluders at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().mode() == WALKING_WEAPON_RDY &&
 		       loadedSoldier.movement().stealthy() &&

@@ -2465,7 +2465,7 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			pSoldier->actionPoints().current() = 0;
 
 			// Flugente: due to a fix, also note here that the reinforcements get no APs.
-			pSoldier->usSoldierFlagMask |= SOLDIER_NO_AP;
+			pSoldier->featureFlags().primaryFlags() |= SOLDIER_NO_AP;
 
 			// Flugente: campaign stats
 			if ( IsOurSoldier(pSoldier) )
@@ -2634,7 +2634,7 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			pSoldier->actionPoints().current() = 0;
 
 			// Flugente: due to a fix, also note here that the reinforcements get no APs.
-			pSoldier->usSoldierFlagMask |= SOLDIER_NO_AP;
+			pSoldier->featureFlags().primaryFlags() |= SOLDIER_NO_AP;
 
 			// Flugente: campaign stats
 			if ( IsOurSoldier( pSoldier ) )

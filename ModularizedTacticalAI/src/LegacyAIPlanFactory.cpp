@@ -50,8 +50,8 @@ namespace AI
         void LegacyAIPlanFactory::update_plan(SOLDIERTYPE* npc, const AIInputData& input)
         {
             DEBUGAIMSG("Update called for "<<(int)npc->identity().id()<<" event: "<<input);
-            if(!npc->ai_masterplan_)
-                npc->ai_masterplan_ = create_plan(npc, input);
+            if(!npc->aiPlan().hasPlan())
+                npc->aiPlan().adopt(create_plan(npc, input));
         }
     }
 }

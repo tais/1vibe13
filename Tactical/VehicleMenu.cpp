@@ -68,7 +68,7 @@ VehicleSelection::Setup( UINT32 aVal )
 	if ( pCurrentVehicle == NULL )
 		return;
 
-	const INT32 bVehicleID = pCurrentVehicle->bVehicleID;
+	const INT32 bVehicleID = pCurrentVehicle->vehicleState().tacticalVehicleId();
 	const INT32 iSeatingCapacity =
 		GetVehicleSeatingCapacity( bVehicleID );
 	if ( iSeatingCapacity == 0 )
@@ -115,8 +115,8 @@ VehicleSelection::Setup( UINT32 aVal )
 		{
 			if( bSeatIndex != (-1) )
 			{
-				if( gNewVehicle[pVehicleList[ pCurrentVehicle->bVehicleID ].ubVehicleType].VehicleSeats[bSeatIndex].ubCompartment !=
-					gNewVehicle[pVehicleList[ pCurrentVehicle->bVehicleID ].ubVehicleType].VehicleSeats[i].ubCompartment )
+				if( gNewVehicle[pVehicleList[ pCurrentVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType].VehicleSeats[bSeatIndex].ubCompartment !=
+					gNewVehicle[pVehicleList[ pCurrentVehicle->vehicleState().tacticalVehicleId() ].ubVehicleType].VehicleSeats[i].ubCompartment )
 				{
 					// Set this option off.
 					pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_VehicleMenuOptionOff, NULL ));
@@ -163,13 +163,13 @@ VehicleSelection::Functions( UINT32 aVal  )
 
 	if ( pCurrentSoldier == NULL || pCurrentVehicle == NULL ||
 		aVal >= static_cast<UINT32>(
-			GetVehicleSeatingCapacity( pCurrentVehicle->bVehicleID ) ) )
+			GetVehicleSeatingCapacity( pCurrentVehicle->vehicleState().tacticalVehicleId() ) ) )
 	{
 		gVehicleSelection.Cancel();
 		return;
 	}
 
-	if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
+	if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->vehicleState().tacticalVehicleId() )
 	{
 		if( SwapVehicleSeat( pCurrentVehicle, pCurrentSoldier, aVal ) )
 		{
