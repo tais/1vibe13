@@ -990,6 +990,15 @@ the engine must not contain SDL types in its public domain model.
   the sound system's explicit no-sample sentinel, while all five serialized
   values and v101 mappings retain their established positions, widths, and raw
   values.
+  `SoldierReplicationComponent` owns the transport-facing bookkeeping that was
+  previously mixed into the soldier POD: movement and optimum timing, the last
+  network update timestamp, update sequence and kind, a scheduled stop grid,
+  and the persisted integrity checksum. Named update, timeout, stop, checksum,
+  and reset transitions give multiplayer, overhead, and persistence one
+  authority. Unsigned timeout arithmetic remains clock-wrap safe; the current
+  serializer retains all seven original positions and widths, while v101
+  conversion maps its six established values and clears the later scheduled
+  stop.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.

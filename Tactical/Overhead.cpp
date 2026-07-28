@@ -1813,7 +1813,7 @@ BOOLEAN ExecuteOverhead( )
 
 #ifdef NETWORKED
                 if(!pSoldier->flags.fNoAPToFinishMove )
-                    pSoldier->usLastUpdateTime = GetJA2Clock();
+                    pSoldier->replication().recordUpdate( GetJA2Clock() );
                 if (pSoldier->flags.fSoldierUpdatedFromNetwork)
                     UpdateSoldierFromNetwork(pSoldier);
 #endif

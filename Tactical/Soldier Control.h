@@ -998,6 +998,8 @@ public:
 	const SoldierDialogueComponent& dialogue() const noexcept { return dialogue_; }
 	SoldierAudioComponent& audio() noexcept { return audio_; }
 	const SoldierAudioComponent& audio() const noexcept { return audio_; }
+	SoldierReplicationComponent& replication() noexcept { return replication_; }
+	const SoldierReplicationComponent& replication() const noexcept { return replication_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
@@ -1182,13 +1184,6 @@ public:
 	INT8				bMovedPriorToInterrupt;
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
-	UINT32			uiStartMovementTime;				// the time since the merc first started moving 
-	UINT32			uiOptimumMovementTime;			// everytime in ececute overhead the time for the current ani will be added to this total
-	UINT32			usLastUpdateTime ;					// The last time the soldier was in ExecuteOverhead
-	
-	UINT32			uiSoldierUpdateNumber;
-	BYTE				ubSoldierUpdateType;	
-	INT32			sScheduledStop; //hayden, used for scheduling a grid to stop
 	//END
 
 	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
@@ -1216,8 +1211,6 @@ public:
 
 	UINT8				ubNumLocateCycles;
 	SoldierID			ubCTGTTargetID;
-
-	UINT32				uiMercChecksum;
 
 	UINT8				ubMiscSoldierFlags;
 	INT32				sLocationOfFadeStart;
@@ -1280,6 +1273,7 @@ private:
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;
+	SoldierReplicationComponent	replication_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;

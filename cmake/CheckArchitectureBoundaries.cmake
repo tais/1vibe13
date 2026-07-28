@@ -2607,6 +2607,202 @@ if(soldier_audio_architecture_documented EQUAL -1 OR
     "SoldierAudioComponent ownership and compatibility guarantees must remain documented")
 endif()
 
+# Movement/update timing, network sequence metadata, synchronization stops, and
+# the integrity checksum are one replication domain. Keep the save stream
+# byte-for-byte stable and force runtime transport/checksum code through its
+# named lifecycle.
+foreach(retired_replication_field IN ITEMS
+  uiStartMovementTime
+  uiOptimumMovementTime
+  usLastUpdateTime
+  uiSoldierUpdateNumber
+  ubSoldierUpdateType
+  sScheduledStop
+  uiMercChecksum)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(BYTE|UINT8|UINT32|INT32)[ \t]+${retired_replication_field}[ \t]*;"
+    retired_current_replication_field
+    "${current_soldier_contents}")
+  if(retired_current_replication_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE replication field '${retired_replication_field}' returned; synchronization state belongs to SoldierReplicationComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierReplicationComponent[ \t\r\n]+replication_[ \t]*;"
+  soldier_replication_owner
+  "${current_soldier_contents}")
+if(NOT soldier_replication_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierReplicationComponent")
+endif()
+
+foreach(owned_replication_pattern IN ITEMS
+  "UINT32[ \t]+movementStartedAt_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+optimumMovementTime_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+lastUpdateAt_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+updateSequence_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+updateType_[ \t]*=[ \t]*0"
+  "INT32[ \t]+scheduledStopGrid_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+checksum_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_replication_pattern}"
+    owned_soldier_replication_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_replication_field)
+    message(FATAL_ERROR
+      "SoldierReplicationComponent lost initialized owned storage matching '${owned_replication_pattern}'")
+  endif()
+endforeach()
+
+foreach(replication_accessor IN ITEMS
+  movementStartedAt
+  optimumMovementTime
+  lastUpdateAt
+  updateSequence
+  updateType
+  scheduledStopGrid
+  checksum)
+  string(REGEX MATCH
+    "${replication_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_replication_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_replication_accessor)
+    message(FATAL_ERROR
+      "SoldierReplicationComponent lost the '${replication_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(replication_operation IN ITEMS
+  "bool hasLastUpdate() const noexcept"
+  "bool updateTimedOut(UINT32 now, UINT32 timeout) const noexcept"
+  "void recordUpdate(UINT32 now) noexcept"
+  "void scheduleStop(INT32 grid) noexcept"
+  "void clearScheduledStop() noexcept"
+  "void recordChecksum(UINT32 checksum) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${replication_operation}"
+    soldier_replication_operation)
+  if(soldier_replication_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierReplicationComponent lost required synchronization operation '${replication_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_header_contents}"
+  "return hasLastUpdate() && (now - lastUpdateAt_) > timeout;"
+  soldier_replication_wrap_safe_timeout)
+string(FIND "${soldier_control_header_contents}"
+  "SoldierReplicationComponent& replication() noexcept"
+  soldier_replication_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierReplicationComponent{};"
+  soldier_replication_default_reset)
+string(REGEX MATCHALL
+  "replication\\(\\)\\.reset\\(\\);"
+  soldier_replication_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_replication_reset_sites soldier_replication_reset_site_count)
+if(soldier_replication_wrap_safe_timeout EQUAL -1 OR
+   soldier_replication_accessor EQUAL -1 OR
+   soldier_replication_default_reset EQUAL -1 OR
+   soldier_replication_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierReplicationComponent must retain wrap-safe timing access and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(replication_conversion IN ITEMS
+  "this->replication().movementStartedAt() = src.uiStartMovementTime;"
+  "this->replication().optimumMovementTime() = src.uiOptimumMovementTime;"
+  "this->replication().lastUpdateAt() = src.usLastUpdateTime;"
+  "this->replication().updateSequence() = src.uiSoldierUpdateNumber;"
+  "this->replication().updateType() = src.ubSoldierUpdateType;"
+  "this->replication().checksum() = src.uiMercChecksum;")
+  string(FIND "${soldier_control_source_contents}"
+    "${replication_conversion}"
+    soldier_replication_conversion_site)
+  if(soldier_replication_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier replication mapping '${replication_conversion}'")
+  endif()
+endforeach()
+
+foreach(replication_save_position IN ITEMS
+  "ar.u32(replication.movementStartedAt()); ar.u32(replication.optimumMovementTime()); ar.u32(replication.lastUpdateAt());"
+  "ar.u32(replication.updateSequence()); ar.u8(replication.updateType()); ar.i32(replication.scheduledStopGrid());"
+  "ar.u32(replication.checksum());")
+  string(FIND "${save_load_game_contents}"
+    "${replication_save_position}"
+    soldier_replication_save_position)
+  if(soldier_replication_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier replication state moved in the portable save schema at '${replication_save_position}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  soldier_replication_overhead_contents)
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  soldier_replication_multiplayer_contents)
+string(FIND "${soldier_replication_overhead_contents}"
+  "pSoldier->replication().recordUpdate( GetJA2Clock() );"
+  soldier_replication_overhead_update)
+string(FIND "${soldier_replication_multiplayer_contents}"
+  "pSoldier->replication().hasLastUpdate()"
+  soldier_replication_network_presence)
+string(FIND "${soldier_replication_multiplayer_contents}"
+  "pSoldier->replication().updateTimedOut(time, 2000)"
+  soldier_replication_network_timeout)
+string(FIND "${soldier_replication_multiplayer_contents}"
+  "pSoldier->replication().recordUpdate(time);"
+  soldier_replication_network_update)
+string(FIND "${save_load_game_contents}"
+  "this->replication().recordChecksum( this->GetChecksum() );"
+  soldier_replication_checksum_record)
+string(FIND "${save_load_game_contents}"
+  "this->GetChecksum() != this->replication().checksum()"
+  soldier_replication_checksum_verify)
+if(soldier_replication_overhead_update EQUAL -1 OR
+   soldier_replication_network_presence EQUAL -1 OR
+   soldier_replication_network_timeout EQUAL -1 OR
+   soldier_replication_network_update EQUAL -1 OR
+   soldier_replication_checksum_record EQUAL -1 OR
+   soldier_replication_checksum_verify EQUAL -1)
+  message(FATAL_ERROR
+    "Network timing and save integrity must use SoldierReplicationComponent lifecycle operations")
+endif()
+
+foreach(replication_test_fragment IN ITEMS
+  "SoldierReplicationComponent replicationLifecycle;"
+  "v101 soldier conversion maps established replication metadata and clears the later scheduled-stop field"
+  "soldier save/load round-trips replication state and records the current integrity checksum")
+  string(FIND "${headless_test_contents}"
+    "${replication_test_fragment}"
+    soldier_replication_test_fragment)
+  if(soldier_replication_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierReplicationComponent fixture '${replication_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierReplicationComponent"
+  soldier_replication_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierReplicationComponent"
+  soldier_replication_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierReplicationComponent"
+  soldier_replication_save_documented)
+if(soldier_replication_architecture_documented EQUAL -1 OR
+   soldier_replication_sdk_documented EQUAL -1 OR
+   soldier_replication_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierReplicationComponent ownership and compatibility guarantees must remain documented")
+endif()
+
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
 # lifecycle. Keep their fixed-capacity save representation intact while the
@@ -3996,11 +4192,11 @@ string(REGEX MATCH
   serialized_soldier_employment_contract_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pMercPath\\);[ \t\r\n]*ar\\.u16\\(employment\\.medicalDeposit\\(\\)\\);[ \t]*ar\\.u16\\(employment\\.lifeInsurance\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiStartMovementTime\\);"
+  "ar\\.ptr\\(s\\.pMercPath\\);[ \t\r\n]*ar\\.u16\\(employment\\.medicalDeposit\\(\\)\\);[ \t]*ar\\.u16\\(employment\\.lifeInsurance\\(\\)\\);[ \t\r\n]*ar\\.u32\\(replication\\.movementStartedAt\\(\\)\\);"
   serialized_soldier_employment_deposit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sScheduledStop\\);[ \t\r\n]*ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(assignment\\.lastChangeMinute\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
+  "ar\\.i32\\(replication\\.scheduledStopGrid\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.insuranceStartDay\\(\\)\\);[ \t]*ar\\.u32\\(assignment\\.lastChangeMinute\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.insuranceLengthDays\\(\\)\\);"
   serialized_soldier_employment_insurance_order
   "${save_load_game_contents}")
 string(REGEX MATCH
