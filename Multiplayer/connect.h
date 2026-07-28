@@ -257,7 +257,7 @@ inline SoldierID MPDecodeSoldierID( SoldierID ubID )
 
 inline bool IsOurSoldier (SOLDIERTYPE* pSoldier)
 {
-	return pSoldier->bTeam == netbTeam || pSoldier->bTeam == 0;
+	return pSoldier->roster().team() == netbTeam || pSoldier->roster().team() == 0;
 }
 
 inline bool IsOurSoldier (UINT16 ubID)

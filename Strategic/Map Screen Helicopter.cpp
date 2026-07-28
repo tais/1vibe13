@@ -616,7 +616,7 @@ BOOLEAN RemoveSoldierFromHelicopter( SOLDIERTYPE *pSoldier )
 	pSoldier->deployment().sectorZ() = 0;
 
 	// reset between sectors
-	pSoldier->flags.fBetweenSectors = FALSE;
+	pSoldier->deployment().completeStrategicTransit();
 
 
 	// remove from the vehicle
@@ -1583,7 +1583,7 @@ void SetUpHelicopterForPlayer( INT16 sX, INT16 sY , UINT8 SkyDrive, UINT8 Vehicl
 		Assert( iHelicopterVehicleId != -1 );
 
 		SoldierSkyRider.initialize();
-		SoldierSkyRider.ubProfile = SkyDrive; //SKYRIDER;
+		SoldierSkyRider.identity().profile() = SkyDrive; //SKYRIDER;
 		SoldierSkyRider.vitals().health() = 80;
 
 		pSkyRider = &( SoldierSkyRider );
@@ -2257,9 +2257,9 @@ void HandleHelicopterOnGroundGraphic( void )
 					pSoldier = FindSoldierByProfileID( SKYRIDER, FALSE );
 
 			// ATE: Don't do this if buddy is on our team!
-					if ( pSoldier != NULL && pSoldier->bTeam != gbPlayerNum )
+					if ( pSoldier != NULL && pSoldier->roster().team() != gbPlayerNum )
 					{
-						TacticalRemoveSoldier( pSoldier->ubID );
+						TacticalRemoveSoldier( pSoldier->identity().id() );
 					}
 				}
 			}
@@ -2313,9 +2313,9 @@ void HandleHelicopterOnGroundSkyriderProfile( void )
 					pSoldier = FindSoldierByProfileID( SKYRIDER, FALSE );
 
 			// ATE: Don't do this if buddy is on our team!
-					if ( pSoldier != NULL && pSoldier->bTeam != gbPlayerNum )
+					if ( pSoldier != NULL && pSoldier->roster().team() != gbPlayerNum )
 					{
-						TacticalRemoveSoldier( pSoldier->ubID );
+						TacticalRemoveSoldier( pSoldier->identity().id() );
 					}
 				}
 			}

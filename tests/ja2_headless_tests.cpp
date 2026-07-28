@@ -2359,7 +2359,7 @@ int main( int, char** )
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 2;
 		SOLDIERTYPE vehicle;
-		vehicle.flags.uiStatusFlags |= SOLDIER_VEHICLE;
+		vehicle.status().flags() |= SOLDIER_VEHICLE;
 		vehicle.bVehicleID = 0;
 		SOLDIERTYPE passenger;
 		const bool acceptedBoundedCapacity =
@@ -3565,10 +3565,10 @@ int main( int, char** )
 		const TacticalEntityId previousCommandEntity =
 			GetJa2TacticalEntityId( 0 );
 		SOLDIERTYPE commandHostActorFixture;
-		commandHostActorFixture.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		commandHostActorFixture.uiUniqueSoldierIdValue = 0x12345678u;
-		commandHostActorFixture.bActive = TRUE;
-		commandHostActorFixture.bInSector = TRUE;
+		commandHostActorFixture.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
+		commandHostActorFixture.identity().incarnation() = 0x12345678u;
+		commandHostActorFixture.roster().active() = TRUE;
+		commandHostActorFixture.roster().inSector() = TRUE;
 		NotifyJa2TacticalWorldUnloaded();
 		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -3742,11 +3742,11 @@ int main( int, char** )
 		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
 
 		SOLDIERTYPE detachedCommandActor;
-		detachedCommandActor.ubID = commandHostActor.ubID;
-		detachedCommandActor.uiUniqueSoldierIdValue =
-			commandHostActor.uiUniqueSoldierIdValue;
-		detachedCommandActor.bActive = TRUE;
-		detachedCommandActor.bInSector = TRUE;
+		detachedCommandActor.identity().id() = commandHostActor.identity().id();
+		detachedCommandActor.identity().incarnation() =
+			commandHostActor.identity().incarnation();
+		detachedCommandActor.roster().active() = TRUE;
+		detachedCommandActor.roster().inSector() = TRUE;
 		const std::size_t journalBeforeDetachedActor =
 			compiledContext.commandJournal().size();
 		beginCommandTestFrame();
@@ -3876,7 +3876,7 @@ int main( int, char** )
 			commandHostActor.animationCache().contains(
 				movingStanceSurface ) &&
 			commandHostActor.animationCache().acquire(
-				commandHostActor.ubID, movingStanceSurface,
+				commandHostActor.identity().id(), movingStanceSurface,
 				commandHostActor.animationPlayback().state() ) &&
 			commandHostActor.animationCache().hitCount(
 				movingStanceSurface ) == 1;
@@ -3895,7 +3895,7 @@ int main( int, char** )
 			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
 			commandHostActor.animationPlayback().state() == START_SWAT;
 		commandHostActor.animationCache().reset();
-		ClearAnimationSurfacesUsageHistory( commandHostActor.ubID );
+		ClearAnimationSurfacesUsageHistory( commandHostActor.identity().id() );
 		commandHostActor.animationPlayback().surface() = previousAnimationSurface;
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
@@ -3918,17 +3918,17 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult weaponModeWithoutWeapon =
 			TryDispatchCycleWeaponModeCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult scopeModeWithoutWeapon =
 			TryDispatchCycleScopeModeCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				TacticalNoTargetGrid, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult reloadWithoutWeapon =
 			TryDispatchReloadWeaponCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult readyWithoutWeapon =
@@ -3955,38 +3955,38 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationTarget =
 			TryDispatchStartConversationCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationApproachTarget =
 			TryDispatchApproachConversationCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				101, WALKING, false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleTarget =
 			TryDispatchEnterVehicleCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				3, 0, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleApproachTarget =
 			TryDispatchApproachVehicleCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				3, 0, 101, WALKING, false,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleStealTarget =
 			TryDispatchStealFromActorCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				100, FIRST_LEVEL, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleExchangeTarget =
 			TryDispatchExchangePositionsCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				99, 100, FIRST_LEVEL,
 				SimulationCommandSource::System );
@@ -4135,7 +4135,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleWorldItemPickup =
 			TryDispatchPickupWorldItemCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				firstWorldItem, 123, 0,
 				TacticalWorldItemPickupKind::SpecificItem,
 				SimulationCommandSource::System );
@@ -4222,17 +4222,17 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult firstBudgetedImmediate =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult sameFrameBudgetExhausted =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult nextFrameBudgetReset =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		CHECK( firstBudgetedImmediate.processed() &&
 		       sameFrameBudgetExhausted.status ==
@@ -4244,7 +4244,7 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult inboxBudgetConsumer =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		const TacticalCommandSubmissionResult heldByExhaustedFrame =
 			tacticalCommands.service->submit( packageId, staleStance );
@@ -4277,7 +4277,7 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const SimulationCommandDispatchResult backpressuredImmediateMove =
 			TryDispatchMoveToGridCommandNow(
-			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+			0, commandHostActor.identity().incarnation(), -1, RUNNING,
 			false, false, SimulationCommandSource::System );
 		const SimulationCommandDispatchResult retainedNetworkPacket =
 			TryDispatchNetworkSimulationCommand(
@@ -4399,7 +4399,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult currentAheadOfFuture =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				0, commandHostActor.identity().incarnation(), -1, RUNNING,
 				false, false, SimulationCommandSource::System );
 		const bool futureRetainedAfterCurrent =
 			compiledContext.commands().containsSequence( futureCommandSequence );
@@ -4752,12 +4752,12 @@ int main( int, char** )
 		const UINT32 previousTacticalProjectionFlags =
 			CaptureJa2TacticalStatusFlags();
 		const UINT8 previousTacticalProjectionTeam = GetJa2TacticalCurrentTeam();
-		worldActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		worldActor.uiUniqueSoldierIdValue = 701;
-		worldActor.bActive = TRUE;
-		worldActor.bInSector = TRUE;
-		worldActor.bTeam = 1;
-		worldActor.ubProfile = 12;
+		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
+		worldActor.identity().incarnation() = 701;
+		worldActor.roster().active() = TRUE;
+		worldActor.roster().inSector() = TRUE;
+		worldActor.roster().team() = 1;
+		worldActor.identity().profile() = 12;
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
@@ -4831,7 +4831,7 @@ int main( int, char** )
 			!GetItemPopupSoldier() &&
 			!GetItemPickupActor() &&
 			!GetItemPickupOpponent();
-		worldActor.uiUniqueSoldierIdValue = 703;
+		worldActor.identity().incarnation() = 703;
 		const bool replacementInventoryActorAdopted =
 			AdoptJa2TacticalEntity( worldActor );
 		const bool replacementInventoryActorRejected =
@@ -4845,7 +4845,7 @@ int main( int, char** )
 		const bool replacementInventoryActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
 		ResetTacticalInventoryUiActorContexts();
-		worldActor.uiUniqueSoldierIdValue = 701;
+		worldActor.identity().incarnation() = 701;
 		ResetMercContractActorContexts();
 		ResetTacticalTraversalContext();
 		const bool callbackActorReadopted =
@@ -4872,8 +4872,8 @@ int main( int, char** )
 		const SOLDIERTYPE previousSwapTarget = swapTarget;
 		const bool swapTargetInstalled =
 			soldierRepository.replace( 1, worldActor ) == &swapTarget;
-		swapTarget.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
-		swapTarget.uiUniqueSoldierIdValue = 702;
+		swapTarget.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
+		swapTarget.identity().incarnation() = 702;
 		swapTarget.position().gridNo() = 678;
 		const bool swapTargetAdopted =
 			swapTargetInstalled && AdoptJa2TacticalEntity( swapTarget );
@@ -5238,7 +5238,7 @@ int main( int, char** )
 		           deliveredLiveDelta.events[2] ).currentLife == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
-		worldActor.uiUniqueSoldierIdValue = 0;
+		worldActor.identity().incarnation() = 0;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5259,7 +5259,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
 
-		worldActor.uiUniqueSoldierIdValue = 701;
+		worldActor.identity().incarnation() = 701;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5478,8 +5478,8 @@ int main( int, char** )
 		       compiledContext.commandJournal().droppedCount() ==
 		           replayDroppedBeforeObservation &&
 		       soldierRepository.resolve( 0 ) == &worldActor &&
-		       worldActor.ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       worldActor.uiUniqueSoldierIdValue == 701 && worldActor.position().gridNo() == 348 &&
+		       worldActor.identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       worldActor.identity().incarnation() == 701 && worldActor.position().gridNo() == 348 &&
 		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( worldActor );
@@ -7210,7 +7210,7 @@ int main( int, char** )
 		repository.initializeSlots();
 		CHECK( repository.resolve(0) == &records[0] &&
 		       repository.resolve(1) == &records[1] &&
-		       !records[0].bActive && !records[1].bActive &&
+		       !records[0].roster().active() && !records[1].roster().active() &&
 		       repository.contains(0, records[0]) &&
 		       !repository.contains(0, records[1]),
 		       "soldier repository establishes canonical fixed-slot bindings" );
@@ -7226,8 +7226,8 @@ int main( int, char** )
 		       "soldier repository binding is independent and restores the composed application owner" );
 
 		SOLDIERTYPE source;
-		source.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
-		source.bActive = TRUE;
+		source.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
+		source.roster().active() = TRUE;
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
 		source.runtime.pendingAction.pathSearchSourceGrid = 99;
@@ -7243,14 +7243,14 @@ int main( int, char** )
 		CHECK( repository.replace(1, source) == nullptr,
 		       "soldier repository rejects a noncanonical compatibility slot" );
 		repository.initializeSlots();
-		records[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		records[0].identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		records[0].position().gridNo() = 100;
-		records[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
 		const bool swapped = repository.swapRecords(0, 1);
 		CHECK( swapped &&
-		       records[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       records[1].ubID == SoldierID{ static_cast<UINT16>( 1 ) } &&
+		       records[0].identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
 		       !repository.swapRecords(0, 0) &&
@@ -7259,7 +7259,36 @@ int main( int, char** )
 	}
 
 	{
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().identity()),
+			SoldierIdentityComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().identity()),
+			const SoldierIdentityComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().roster()),
+			SoldierRosterComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().roster()),
+			const SoldierRosterComponent&>);
+
 		SOLDIERTYPE soldier;
+		SoldierIdentityComponent& identity = soldier.identity();
+		identity.id() = SoldierID{ 37 };
+		identity.name()[0] = L'J';
+		identity.name()[SOLDIER_NAME_LENGTH - 1] = L'X';
+		identity.bodyType() = REGMALE;
+		identity.profile() = 41;
+		identity.incarnation() = 0x12345678u;
+		identity.dataProfile() = 401;
+		identity.individualMilitiaId() = 0x87654321u;
+		SoldierRosterComponent& roster = soldier.roster();
+		roster.active() = TRUE;
+		roster.team() = MILITIA_TEAM;
+		roster.inSector() = TRUE;
+		roster.side() = 2;
+		roster.soldierClass() = SOLDIER_CLASS_ELITE;
+		roster.civilianGroup() = 17;
 		SoldierVitalsComponent& vitals = soldier.vitals();
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
@@ -7278,12 +7307,48 @@ int main( int, char** )
 		vitals.regenerationCounter() = -1;
 		vitals.regenerationBoostersUsedToday() = 2;
 		vitals.lastBleedGruntAt() = 12340;
+		SoldierStatisticsComponent& statistics = soldier.statistics();
+		statistics.experienceLevel() = 6;
+		statistics.strength() = 71;
+		statistics.agility() = 72;
+		statistics.dexterity() = 73;
+		statistics.wisdom() = 74;
+		statistics.leadership() = 75;
+		statistics.marksmanship() = 76;
+		statistics.mechanical() = 77;
+		statistics.explosives() = 78;
+		statistics.medical() = 79;
+		statistics.scientific() = 80;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statistics.skillTrait(trait) = 20 + trait;
+		}
+		SoldierStatusComponent& status = soldier.status();
+		status.set(SOLDIER_PC | SOLDIER_MUTE);
+		SoldierInventoryStateComponent& inventoryState =
+			soldier.inventoryState();
+		inventoryState.keyAccess() = -3;
+		inventoryState.checkForNewItems() = TRUE;
+		inventoryState.zipperFlag() = TRUE;
+		inventoryState.dropPackFlag() = TRUE;
+		soldier.replication().updatedFromNetwork() = TRUE;
+		soldier.aiPlanning().lastFlankLeft() = TRUE;
+		soldier.condition().gasHitFlags() = 0xA5;
+		soldier.targeting().intendedTarget() = TRUE;
+		soldier.targeting().retainLastTargetFromTurn() = TRUE;
+		soldier.fireControl().reloading() = TRUE;
+		soldier.fireControl().aimPaused() = TRUE;
+		soldier.animationActivity().reactingFromShot() = TRUE;
+		soldier.animationActivity().externalDeath() = TRUE;
 		SoldierServiceComponent& service = soldier.service();
 		service.activity() = 2;
 		service.addProvider();
 		service.addProvider();
 		service.beginProvidingTo( SoldierID{ 7 } );
 		service.assignAutoBandagingMedic( SoldierID{ 8 } );
+		service.borrowInventorySlot( 12 );
 		SoldierDialogueComponent& dialogue = soldier.dialogue();
 		dialogue.quoteRecord() = 13;
 		dialogue.quoteActionId() = QUOTE_ACTION_ID_CHECKFORDEST;
@@ -7298,6 +7363,11 @@ int main( int, char** )
 		dialogue.civilianQuoteDelta() = 2;
 		dialogue.recordSpokeAt(12343);
 		dialogue.corpseQuoteTolerance() = 3;
+		dialogue.markDeathSoundPlayed();
+		dialogue.markBleedingWarningSpoken();
+		dialogue.markDyingCommentSpoken();
+		dialogue.queueAmmoQuote();
+		dialogue.markDeathBattleSoundUsed();
 		SoldierAudioComponent& audio = soldier.audio();
 		audio.recordFootstepVariant(2);
 		audio.recordDoorOpeningNoise(17);
@@ -7358,6 +7428,39 @@ int main( int, char** )
 		condition.diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		condition.addDisability(2);
 		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
+		SoldierDrugStateComponent& drugState = soldier.drugState();
+		drugState.duration(DRUG_EFFECT_HP) = 31;
+		drugState.magnitude(DRUG_EFFECT_HP) = 6;
+		drugState.duration(DRUG_EFFECT_MAX - 1) = 32;
+		drugState.magnitude(DRUG_EFFECT_MAX - 1) = -7;
+		drugState.temporaryPersonality() = 3;
+		drugState.temporaryPersonalityDuration() = 33;
+		drugState.temporaryDisability() = 4;
+		drugState.temporaryDisabilityDuration() = 34;
+		drugState.alcoholLevel() = 1.25f;
+		SoldierStatProgressComponent& statProgress = soldier.statProgress();
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Level, 1001);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Health, 1002);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Strength, 1003);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Dexterity, 1004);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Agility, 1005);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Wisdom, 1006);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Leadership, 1007);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Marksmanship, 1008);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Explosives, 1009);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Medical, 1010);
+		statProgress.recordChange(SoldierStatProgressComponent::Stat::Mechanical, 1011);
+		statProgress.markIncreased(HEALTH_INCREASE | AGIL_INCREASE);
+		SoldierTimingComponent& timing = soldier.timing();
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			timing.counter(static_cast<SoldierTimingComponent::Timer>(timerIndex)) =
+				1101 + timerIndex;
+		}
+		timing.aiDelay() = 1111;
+		timing.reloadDelay() = -1112;
 		SoldierLongActionComponent& longAction = soldier.longAction();
 		longAction.begin(MTA_FORTIFY, 1300, 37);
 		SoldierInteractionComponent& interaction = soldier.interaction();
@@ -7423,6 +7526,8 @@ int main( int, char** )
 		employment.timeCanSignElsewhere() = 13000;
 		employment.hospitalPriceModifier() = -2;
 		employment.insuranceStartTime() = 11000;
+		employment.markContractPriceIncreased();
+		employment.markSignedAnotherContract();
 		SoldierAssignmentComponent& assignment = soldier.assignment();
 		assignment.current() = TRAIN_TEAMMATE;
 		assignment.previous() = ON_DUTY;
@@ -7435,6 +7540,12 @@ int main( int, char** )
 		assignment.facilityType() = 5;
 		assignment.itemMoveSectorId() = 47;
 		assignment.miniEventHoursRemaining() = 12;
+		assignment.setFixingSamSite(TRUE);
+		assignment.setFixingRobot(TRUE);
+		assignment.forceAwake();
+		assignment.setAssignmentCompleteAndIdle(true);
+		assignment.fallAsleep();
+		assignment.markTiredComplaint();
 		SoldierDeploymentComponent& deployment = soldier.deployment();
 		deployment.insertionDirection() = -3;
 		deployment.groupId() = 42;
@@ -7448,6 +7559,9 @@ int main( int, char** )
 		deployment.scheduleArrival(14000, 6);
 		deployment.beginArrivalGetup();
 		deployment.arrivalGetupCounter() = 15000;
+		deployment.beginStrategicTransit();
+		deployment.enterMissionExitNode();
+		deployment.setUseLandingZoneForArrival(true);
 		SoldierScheduleComponent& schedule = soldier.schedule();
 		schedule.id() = 37;
 		schedule.progress() = 2;
@@ -7499,11 +7613,24 @@ int main( int, char** )
 		movement.delayedFlags() = 5;
 		movement.stopReason() = 2;
 		movement.overrideMoveSpeedWith(SoldierID{ 4 });
-		soldier.interruptSnapshot().captureMoved(1);
+		movement.beginTurn();
+		movement.rememberWaterState(true);
+		movement.setUiMovementFast(2);
+		movement.setOutOfActionPoints(true);
+		movement.pauseMovement();
+		movement.startMovementClock();
+		movement.setNetworkDelayed(true);
+		movement.syncPresentationMotion(true);
+		movement.markPastXDestination();
+		movement.markPastYDestination();
+		movement.requestWaitAction(2);
+		soldier.turnState().captureMoved(1);
 		SoldierTargetingComponent& targeting = soldier.targeting();
 		targeting.selectLocation(1280, 1, 3);
 		targeting.lastGridNo() = 1279;
 		targeting.selectSoldier(SoldierID{ 5 });
+		targeting.engageOpponent(SoldierID{ 10 });
+		targeting.rememberLineOfFireTarget(SoldierID{ 11 });
 		SoldierAttackSelectionComponent& attackSelection = soldier.attackSelection();
 		attackSelection.selectWeapon(SECONDHANDPOS, 321);
 		attackSelection.weaponMode() = WM_ATTACHED_UB_AUTO;
@@ -7533,6 +7660,9 @@ int main( int, char** )
 		fireControl.barrelCounter() = 2;
 		fireControl.beginSpreadDrag(1287);
 		fireControl.updateSpreadDrag(1288);
+		fireControl.gunType() = -4;
+		fireControl.setGrenadeLauncherDelay(true);
+		fireControl.selectBarrelMode(4);
 		SoldierCombatResultComponent& combatResult = soldier.combatResult();
 		combatResult.recordHit(SoldierID{ 6 }, AIM_SHOT_HEAD);
 		combatResult.previousAttacker() = SoldierID{ 5 };
@@ -7580,6 +7710,17 @@ int main( int, char** )
 		uiPresentation.setPanelFacePosition(91, 92);
 		uiPresentation.setPlannedTarget(500, 600, 12);
 		uiPresentation.lastEnemyCycled() = SoldierID{ 9 };
+		uiPresentation.panelCloseRequested() = TRUE;
+		uiPresentation.panelCloseForDeath() = TRUE;
+		uiPresentation.deadPanelActive() = TRUE;
+		uiPresentation.panelOpenRequested() = TRUE;
+		uiPresentation.showLocator();
+		uiPresentation.setPortraitFlashPhase(2);
+		uiPresentation.queueDeadMercUi();
+		uiPresentation.queueNewMercUi();
+		uiPresentation.queueCloseMercUi();
+		uiPresentation.markNoActionPoints();
+		uiPresentation.markUnconscious();
 		SoldierSuppressionComponent& suppression = soldier.suppression();
 		suppression.underFire() = 2;
 		suppression.shock() = 9;
@@ -7634,6 +7775,24 @@ int main( int, char** )
 		       soldier.vitals().breath() == 60,
 		       "soldier vitals component owns health, breath, and recovery state" );
 		const SOLDIERTYPE& constSoldier = soldier;
+		CHECK( constSoldier.identity().id() == SoldierID{ 37 } &&
+		       constSoldier.identity().name()[0] == L'J' &&
+		       constSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
+		       constSoldier.identity().bodyType() == REGMALE &&
+		       constSoldier.identity().profile() == 41 &&
+		       constSoldier.identity().incarnation() == 0x12345678u &&
+		       constSoldier.identity().dataProfile() == 401 &&
+		       constSoldier.identity().individualMilitiaId() == 0x87654321u &&
+		       constSoldier.identity().hasIncarnation() &&
+		       constSoldier.roster().active() == TRUE &&
+		       constSoldier.roster().team() == MILITIA_TEAM &&
+		       constSoldier.roster().inSector() == TRUE &&
+		       constSoldier.roster().side() == 2 &&
+		       constSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
+		       constSoldier.roster().civilianGroup() == 17 &&
+		       constSoldier.roster().isActive() &&
+		       constSoldier.roster().isInSector(),
+		       "soldier identity and roster components own canonical incarnation, profile, allegiance, and tactical membership" );
 		CHECK( constSoldier.vitals().health() == 75 &&
 		       constSoldier.vitals().maximumHealth() == 90 &&
 		       constSoldier.vitals().breath() == 60 &&
@@ -7652,14 +7811,46 @@ int main( int, char** )
 		       constSoldier.vitals().regenerationBoostersUsedToday() == 2 &&
 		       constSoldier.vitals().lastBleedGruntAt() == 12340,
 		       "const soldier access reads the complete canonical vitals component" );
+		CHECK( constSoldier.statistics().experienceLevel() == 6 &&
+		       constSoldier.statistics().strength() == 71 &&
+		       constSoldier.statistics().agility() == 72 &&
+		       constSoldier.statistics().dexterity() == 73 &&
+		       constSoldier.statistics().wisdom() == 74 &&
+		       constSoldier.statistics().leadership() == 75 &&
+		       constSoldier.statistics().marksmanship() == 76 &&
+		       constSoldier.statistics().mechanical() == 77 &&
+		       constSoldier.statistics().explosives() == 78 &&
+		       constSoldier.statistics().medical() == 79 &&
+		       constSoldier.statistics().scientific() == 80 &&
+		       constSoldier.statistics().skillTrait(0) == 20 &&
+		       constSoldier.statistics().skillTrait(
+			       SoldierStatisticsComponent::SkillTraitCapacity - 1) == 49,
+		       "soldier statistics component owns every base attribute and the complete persistent trait capacity" );
+		CHECK( constSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       constSoldier.status().hasAny(SOLDIER_PC) &&
+		       constSoldier.inventoryState().keyAccess() == -3 &&
+		       constSoldier.inventoryState().checkForNewItems() &&
+		       constSoldier.inventoryState().zipperFlag() &&
+		       constSoldier.inventoryState().dropPackFlag() &&
+		       constSoldier.replication().updatedFromNetwork() &&
+		       constSoldier.aiPlanning().lastFlankLeft() &&
+		       constSoldier.condition().gasHitFlags() == 0xA5 &&
+		       constSoldier.targeting().intendedTarget() &&
+		       constSoldier.targeting().retainLastTargetFromTurn() &&
+		       constSoldier.fireControl().reloading() &&
+		       constSoldier.fireControl().aimPaused() &&
+		       constSoldier.animationActivity().reactingFromShot() &&
+		       constSoldier.animationActivity().externalDeath(),
+		       "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
 		       constSoldier.service().hasPartner() &&
 		       constSoldier.service().partner() == SoldierID{ 7 } &&
 		       constSoldier.service().hasAutoBandagingMedic() &&
-		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
-		       "soldier service component owns service activity, providers, partner, and automatic-bandage reservation" );
+		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       constSoldier.service().borrowedInventorySlot() == 12,
+		       "soldier service component owns service relationships and temporary inventory borrowing" );
 		CHECK( constSoldier.dialogue().hasQuoteRecord() &&
 		       constSoldier.dialogue().quoteRecord() == 13 &&
 		       constSoldier.dialogue().hasQuoteAction() &&
@@ -7675,8 +7866,13 @@ int main( int, char** )
 		       constSoldier.dialogue().currentCivilianQuote() == -2 &&
 		       constSoldier.dialogue().civilianQuoteDelta() == 2 &&
 		       constSoldier.dialogue().lastSpokeAt() == 12343 &&
-		       constSoldier.dialogue().corpseQuoteTolerance() == 3,
-		       "soldier dialogue component owns quote planning, spoken history, voice playback, and cooldown state" );
+		       constSoldier.dialogue().corpseQuoteTolerance() == 3 &&
+		       constSoldier.dialogue().deathSoundPlayed() &&
+		       constSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       constSoldier.dialogue().hasMadeDyingComment() &&
+		       constSoldier.dialogue().ammoQuotePending() &&
+		       constSoldier.dialogue().deathBattleSoundUsed(),
+		       "soldier dialogue component owns quote planning, tactical feedback, spoken history, voice playback, and cooldown state" );
 		CHECK( constSoldier.audio().lastFootstepVariant() == 2 &&
 		       constSoldier.audio().hasDoorOpeningNoise() &&
 		       constSoldier.audio().doorOpeningNoise() == 17 &&
@@ -7747,6 +7943,47 @@ int main( int, char** )
 		       constSoldier.condition().hasDisability(2) &&
 		       constSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier condition component owns temporary stats, nutrition, starvation, disease, and acquired disabilities" );
+		CHECK( constSoldier.drugState().duration(DRUG_EFFECT_HP) == 31 &&
+		       constSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 6 &&
+		       constSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 32 &&
+		       constSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == -7 &&
+		       constSoldier.drugState().hasTemporaryPersonality(3) &&
+		       constSoldier.drugState().temporaryPersonalityDuration() == 33 &&
+		       constSoldier.drugState().hasTemporaryDisability(4) &&
+		       constSoldier.drugState().temporaryDisabilityDuration() == 34 &&
+		       constSoldier.drugState().alcoholLevel() == 1.25f,
+		       "soldier drug-state component owns persistent effects, temporary traits, and alcohol" );
+		CHECK( constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 1004 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 1005 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 1006 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 1007 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 1008 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
+		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
+		       constSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | AGIL_INCREASE) &&
+		       constSoldier.statProgress().increased(HEALTH_INCREASE) &&
+		       constSoldier.statProgress().changedRecently(SoldierStatProgressComponent::Stat::Strength, 1050, 100),
+		       "soldier stat-progress component owns timestamps and stat-change direction feedback" );
+		bool canonicalTimingMatches = constSoldier.timing().aiDelay() == 1111 &&
+			constSoldier.timing().reloadDelay() == -1112;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			canonicalTimingMatches &=
+				constSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				1101 + timerIndex;
+		}
+		CHECK( canonicalTimingMatches &&
+		       constSoldier.timing().active(SoldierTimingComponent::Timer::Ai) &&
+		       !constSoldier.timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation),
+		       "soldier timing component owns every countdown and its AI and reload delay configuration" );
 		CHECK( constSoldier.longAction().active() &&
 		       constSoldier.longAction().action() == MTA_FORTIFY &&
 		       constSoldier.longAction().contextGrid() == 1300 &&
@@ -7820,8 +8057,10 @@ int main( int, char** )
 		       constSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       constSoldier.employment().timeCanSignElsewhere() == 13000 &&
 		       constSoldier.employment().hospitalPriceModifier() == -2 &&
-		       constSoldier.employment().insuranceStartTime() == 11000,
-		       "soldier employment component owns contract, classification, deposit, insurance, and renewal state" );
+		       constSoldier.employment().insuranceStartTime() == 11000 &&
+		       constSoldier.employment().hasContractPriceIncrease() &&
+		       constSoldier.employment().hasSignedAnotherContract(),
+		       "soldier employment component owns contract, classification, insurance, renewal, and contract-decision state" );
 		CHECK( constSoldier.assignment().isAssignedTo(TRAIN_TEAMMATE) &&
 		       constSoldier.assignment().previous() == ON_DUTY &&
 		       constSoldier.assignment().trainingStat() == STRENGTH &&
@@ -7834,8 +8073,14 @@ int main( int, char** )
 		       constSoldier.assignment().facilityType() == 5 &&
 		       constSoldier.assignment().itemMoveSectorId() == 47 &&
 		       constSoldier.assignment().miniEventHoursRemaining() == 12 &&
-		       constSoldier.assignment().hasMiniEventTime(),
-		       "soldier assignment component owns strategic duty and its subsidiary context" );
+		       constSoldier.assignment().hasMiniEventTime() &&
+		       constSoldier.assignment().isFixingSamSite() &&
+		       constSoldier.assignment().isFixingRobot() &&
+		       constSoldier.assignment().isForcedAwake() &&
+		       constSoldier.assignment().assignmentCompleteAndIdle() &&
+		       constSoldier.assignment().isAsleep() &&
+		       constSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier assignment component owns strategic duty plus repair, completion, and work/rest state" );
 		CHECK( constSoldier.deployment().insertionDirection() == -3 &&
 		       constSoldier.deployment().groupId() == 42 &&
 		       constSoldier.deployment().insertionGrid() == 2200 &&
@@ -7852,8 +8097,11 @@ int main( int, char** )
 		       constSoldier.deployment().arrivalTime() == 14000 &&
 		       constSoldier.deployment().arrivalGetupPending() &&
 		       constSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       constSoldier.deployment().arrivalGetupCounter() == 15000,
-		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival lifecycle" );
+		       constSoldier.deployment().arrivalGetupCounter() == 15000 &&
+		       constSoldier.deployment().isBetweenSectors() &&
+		       constSoldier.deployment().insideMissionExitNode() &&
+		       constSoldier.deployment().usesLandingZoneForArrival(),
+		       "soldier deployment component owns strategic placement, transit, insertion, traversal, and arrival lifecycle" );
 		CHECK( constSoldier.schedule().assigned() &&
 		       constSoldier.schedule().id() == 37 &&
 		       constSoldier.schedule().progress() == 2 &&
@@ -7910,17 +8158,32 @@ int main( int, char** )
 		       constSoldier.movement().delayedFlags() == 5 &&
 		       constSoldier.movement().stopReason() == 2 &&
 		       constSoldier.movement().usesMoveSpeedOverride() &&
-		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
-		       "soldier movement component owns tactical intent and contention state" );
-		CHECK( constSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 } &&
+		       constSoldier.movement().turnActive() &&
+		       constSoldier.movement().wasInWater() &&
+		       constSoldier.movement().uiMovementFast() == 2 &&
+		       constSoldier.movement().outOfActionPoints() &&
+		       constSoldier.movement().movementPaused() &&
+		       constSoldier.movement().recordingMovement() &&
+		       constSoldier.movement().delayedByNetwork() &&
+		       constSoldier.movement().wasMoving() &&
+		       constSoldier.movement().crossedDestinationCenter() &&
+		       constSoldier.movement().waitingForAction() &&
+		       constSoldier.movement().waitAction() == 2,
+		       "soldier movement component owns tactical intent, contention, activity, and wait transitions" );
+		CHECK( constSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier interrupt snapshot owns the pre-interrupt scheduler state" );
 		CHECK( constSoldier.targeting().gridNo() == 1280 &&
 		       constSoldier.targeting().level() == 1 &&
 		       constSoldier.targeting().cubeLevel() == 3 &&
 		       constSoldier.targeting().lastGridNo() == 1279 &&
 		       constSoldier.targeting().hasTargetSoldier() &&
-		       constSoldier.targeting().targetId() == SoldierID{ 5 },
-		       "soldier targeting component owns current target geometry and identity" );
+		       constSoldier.targeting().targetId() == SoldierID{ 5 } &&
+		       constSoldier.targeting().hasEngagedOpponent() &&
+		       constSoldier.targeting().engagedOpponent() == SoldierID{ 10 } &&
+		       constSoldier.targeting().hasLineOfFireTarget() &&
+		       constSoldier.targeting().lineOfFireTarget() == SoldierID{ 11 },
+		       "soldier targeting component owns geometry, selection, engagement, and line-of-fire identity" );
 		CHECK( constSoldier.attackSelection().hand() == SECONDHANDPOS &&
 		       constSoldier.attackSelection().weapon() == 321 &&
 		       constSoldier.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO &&
@@ -7948,8 +8211,11 @@ int main( int, char** )
 		       constSoldier.fireControl().barrelCounter() == 2 &&
 		       constSoldier.fireControl().spreadDragStartGrid() == 1287 &&
 		       constSoldier.fireControl().spreadDragEndGrid() == 1288 &&
-		       constSoldier.fireControl().spreadDragMoved(),
-		       "soldier fire-control component owns volley selection and execution state" );
+		       constSoldier.fireControl().spreadDragMoved() &&
+		       constSoldier.fireControl().gunType() == -4 &&
+		       constSoldier.fireControl().delaysGrenadeLauncherExplosion() &&
+		       constSoldier.fireControl().barrelMode() == 4,
+		       "soldier fire-control component owns volley execution and persistent firing configuration" );
 		CHECK(
 			SoldierFireControlComponent::clampSpreadTargetCount(4) == 4 &&
 			SoldierFireControlComponent::clampSpreadTargetCount(12) ==
@@ -8018,8 +8284,20 @@ int main( int, char** )
 		       constSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       constSoldier.uiPresentation().plannedTargetY() == 600 &&
 		       constSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
-		       constSoldier.uiPresentation().locateCycles() == 5,
-		       "soldier UI presentation component owns locator, panel, planning, and enemy-cycle view state" );
+		       constSoldier.uiPresentation().locateCycles() == 5 &&
+		       constSoldier.uiPresentation().panelClosing() &&
+		       constSoldier.uiPresentation().panelClosingForDeath() &&
+		       constSoldier.uiPresentation().deadPanelShowing() &&
+		       constSoldier.uiPresentation().panelOpening() &&
+		       constSoldier.uiPresentation().locatorFlashing() &&
+		       constSoldier.uiPresentation().locatorVisible() &&
+		       constSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       constSoldier.uiPresentation().deadMercUiPending() &&
+		       constSoldier.uiPresentation().newMercUiPending() &&
+		       constSoldier.uiPresentation().closeMercUiPending() &&
+		       constSoldier.uiPresentation().firstNoActionPoints() &&
+		       constSoldier.uiPresentation().firstUnconscious(),
+		       "soldier UI presentation component owns complete locator, panel, notification, planning, and enemy-cycle view state" );
 		CHECK( constSoldier.suppression().active() &&
 		       constSoldier.suppression().underFire() == 2 &&
 		       constSoldier.suppression().shock() == 9 &&
@@ -8105,6 +8383,67 @@ int main( int, char** )
 		       vitals.criticalStatDamage()[DAMAGED_STAT_HEALTH] == 0 &&
 		       vitals.criticalStatDamage()[DAMAGED_STAT_AGILITY] == 0,
 		       "soldier vitals component coordinates turn snapshots, surgery, and critical-damage recovery" );
+		SoldierStatisticsComponent statisticsLifecycle;
+		statisticsLifecycle.experienceLevel() = 9;
+		statisticsLifecycle.strength() = 81;
+		statisticsLifecycle.agility() = 82;
+		statisticsLifecycle.dexterity() = 83;
+		statisticsLifecycle.wisdom() = 84;
+		statisticsLifecycle.leadership() = 85;
+		statisticsLifecycle.marksmanship() = 86;
+		statisticsLifecycle.mechanical() = 87;
+		statisticsLifecycle.explosives() = 88;
+		statisticsLifecycle.medical() = 89;
+		statisticsLifecycle.scientific() = 90;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statisticsLifecycle.skillTrait(trait) = trait + 1;
+		}
+		statisticsLifecycle.reset();
+		bool statisticsTraitsCleared = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statisticsTraitsCleared &=
+				statisticsLifecycle.skillTrait(trait) == 0;
+		}
+		CHECK( statisticsLifecycle.experienceLevel() == 0 &&
+		       statisticsLifecycle.strength() == 0 &&
+		       statisticsLifecycle.agility() == 0 &&
+		       statisticsLifecycle.dexterity() == 0 &&
+		       statisticsLifecycle.wisdom() == 0 &&
+		       statisticsLifecycle.leadership() == 0 &&
+		       statisticsLifecycle.marksmanship() == 0 &&
+		       statisticsLifecycle.mechanical() == 0 &&
+		       statisticsLifecycle.explosives() == 0 &&
+		       statisticsLifecycle.medical() == 0 &&
+		       statisticsLifecycle.scientific() == 0 &&
+		       statisticsTraitsCleared,
+		       "soldier statistics reset clears every base attribute and the complete persistent trait capacity" );
+		SoldierStatusComponent statusLifecycle;
+		statusLifecycle.set(SOLDIER_PC | SOLDIER_MUTE);
+		statusLifecycle.clear(SOLDIER_MUTE);
+		CHECK( statusLifecycle.flags() == SOLDIER_PC &&
+		       statusLifecycle.hasAny(SOLDIER_PC) &&
+		       !statusLifecycle.hasAny(SOLDIER_MUTE),
+		       "soldier status component provides explicit bit-mask queries and mutations" );
+		statusLifecycle.reset();
+		CHECK( statusLifecycle.flags() == 0,
+		       "soldier status reset clears the complete general status mask" );
+		SoldierInventoryStateComponent inventoryStateLifecycle;
+		inventoryStateLifecycle.keyAccess() = -8;
+		inventoryStateLifecycle.checkForNewItems() = TRUE;
+		inventoryStateLifecycle.zipperFlag() = TRUE;
+		inventoryStateLifecycle.dropPackFlag() = TRUE;
+		inventoryStateLifecycle.reset();
+		CHECK( inventoryStateLifecycle.keyAccess() == 0 &&
+		       !inventoryStateLifecycle.checkForNewItems() &&
+		       !inventoryStateLifecycle.zipperFlag() &&
+		       !inventoryStateLifecycle.dropPackFlag(),
+		       "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -8112,18 +8451,22 @@ int main( int, char** )
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.beginProvidingTo( SoldierID{ 9 } );
 		serviceLifecycle.assignAutoBandagingMedic( SoldierID{ 10 } );
+		serviceLifecycle.borrowInventorySlot( 14 );
 		CHECK( serviceLifecycle.providerCount() == 1 &&
 		       serviceLifecycle.hasPartner() &&
 		       serviceLifecycle.partner() == SoldierID{ 9 } &&
-		       serviceLifecycle.hasAutoBandagingMedic(),
-		       "soldier service component coordinates provider, partner, and automatic-bandage lifecycles" );
+		       serviceLifecycle.hasAutoBandagingMedic() &&
+		       serviceLifecycle.borrowedInventorySlot() == 14,
+		       "soldier service component coordinates provider, partner, automatic-bandage, and borrowed-slot lifecycles" );
 		serviceLifecycle.clearProviders();
 		serviceLifecycle.finishProviding();
 		serviceLifecycle.clearAutoBandagingMedic();
+		serviceLifecycle.clearBorrowedInventorySlot();
 		serviceLifecycle.removeProvider();
 		CHECK( !serviceLifecycle.hasProviders() &&
 		       !serviceLifecycle.hasPartner() &&
-		       !serviceLifecycle.hasAutoBandagingMedic(),
+		       !serviceLifecycle.hasAutoBandagingMedic() &&
+		       serviceLifecycle.borrowedInventorySlot() == -1,
 		       "soldier service component clears relationships without underflowing its provider count" );
 		SoldierDialogueComponent dialogueLifecycle;
 		dialogueLifecycle.quoteRecord() = 4;
@@ -8136,6 +8479,11 @@ int main( int, char** )
 		dialogueLifecycle.currentCivilianQuote() = 6;
 		dialogueLifecycle.civilianQuoteDelta() = 1;
 		dialogueLifecycle.recordSpokeAt(5000);
+		dialogueLifecycle.markDeathSoundPlayed();
+		dialogueLifecycle.markBleedingWarningSpoken();
+		dialogueLifecycle.markDyingCommentSpoken();
+		dialogueLifecycle.queueAmmoQuote();
+		dialogueLifecycle.markDeathBattleSoundUsed();
 		CHECK( dialogueLifecycle.hasQuoteRecord() &&
 		       dialogueLifecycle.hasQuoteAction() &&
 		       dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
@@ -8143,19 +8491,34 @@ int main( int, char** )
 		       dialogueLifecycle.previousBattleSound() == BATTLE_SOUND_OK1 &&
 		       dialogueLifecycle.repeatedBattleSoundAt() == 4000 &&
 		       dialogueLifecycle.heardNoiseCooldownTurns() == 1 &&
-		       dialogueLifecycle.lastSpokeAt() == 5000,
-		       "soldier dialogue component coordinates quote, history, playback, and cooldown transitions" );
+		       dialogueLifecycle.lastSpokeAt() == 5000 &&
+		       dialogueLifecycle.deathSoundPlayed() &&
+		       dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       dialogueLifecycle.hasMadeDyingComment() &&
+		       dialogueLifecycle.ammoQuotePending() &&
+		       dialogueLifecycle.deathBattleSoundUsed(),
+		       "soldier dialogue component coordinates quote, tactical-feedback, history, playback, and cooldown transitions" );
 		dialogueLifecycle.clearQuotePlan();
 		dialogueLifecycle.clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 		dialogueLifecycle.clearSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
 		dialogueLifecycle.clearCivilianQuote();
+		dialogueLifecycle.clearDeathSoundPlayed();
+		dialogueLifecycle.clearBleedingWarning();
+		dialogueLifecycle.clearDyingComment();
+		dialogueLifecycle.consumeAmmoQuote();
+		dialogueLifecycle.clearDeathBattleSoundUsed();
 		CHECK( !dialogueLifecycle.hasQuoteRecord() &&
 		       !dialogueLifecycle.hasQuoteAction() &&
 		       !dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
 		       !dialogueLifecycle.hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
 		       dialogueLifecycle.currentCivilianQuote() == -1 &&
-		       dialogueLifecycle.civilianQuoteDelta() == 0,
-		       "soldier dialogue component clears coordinated quote plans, history bits, and civilian progression" );
+		       dialogueLifecycle.civilianQuoteDelta() == 0 &&
+		       !dialogueLifecycle.deathSoundPlayed() &&
+		       !dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       !dialogueLifecycle.hasMadeDyingComment() &&
+		       !dialogueLifecycle.ammoQuotePending() &&
+		       !dialogueLifecycle.deathBattleSoundUsed(),
+		       "soldier dialogue component clears coordinated quote plans, tactical feedback, history bits, and civilian progression" );
 		dialogueLifecycle.reset();
 		CHECK( dialogueLifecycle.quoteRecord() == 0 &&
 		       dialogueLifecycle.quoteActionId() == 0 &&
@@ -8170,7 +8533,12 @@ int main( int, char** )
 		       dialogueLifecycle.currentCivilianQuote() == 0 &&
 		       dialogueLifecycle.civilianQuoteDelta() == 0 &&
 		       dialogueLifecycle.lastSpokeAt() == 0 &&
-		       dialogueLifecycle.corpseQuoteTolerance() == 0,
+		       dialogueLifecycle.corpseQuoteTolerance() == 0 &&
+		       !dialogueLifecycle.deathSoundPlayed() &&
+		       !dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       !dialogueLifecycle.hasMadeDyingComment() &&
+		       !dialogueLifecycle.ammoQuotePending() &&
+		       !dialogueLifecycle.deathBattleSoundUsed(),
 		       "soldier dialogue reset clears the complete spoken-state domain" );
 
 		SoldierAudioComponent audioLifecycle;
@@ -8392,6 +8760,108 @@ int main( int, char** )
 		       conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       conditionLifecycle.disabilityFlags() == 0,
 		       "soldier condition reset clears scalar state and the complete fixed disease capacity" );
+		SoldierDrugStateComponent drugStateLifecycle;
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_AP, 8, 10, 0.5f);
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_AP, 4, 20, 1.0f);
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_MAX, 99, 99, 1.0f);
+		drugStateLifecycle.applyTemporaryPersonality(3, 2);
+		drugStateLifecycle.applyTemporaryPersonality(3, 3);
+		drugStateLifecycle.applyTemporaryDisability(4, 2);
+		drugStateLifecycle.applyTemporaryDisability(5, 3);
+		drugStateLifecycle.addAlcohol(0.2f);
+		CHECK( drugStateLifecycle.duration(DRUG_EFFECT_AP) == 6 &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_AP) == 20 &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       drugStateLifecycle.hasTemporaryPersonality(3) &&
+		       drugStateLifecycle.temporaryPersonalityDuration() == 5 &&
+		       drugStateLifecycle.hasTemporaryDisability(5) &&
+		       drugStateLifecycle.temporaryDisabilityDuration() == 3 &&
+		       drugStateLifecycle.hasAlcohol(),
+		       "soldier drug-state component safely merges effects and coordinates temporary traits and alcohol" );
+		CHECK( drugStateLifecycle.ageTurn() &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_AP) == 5 &&
+		       drugStateLifecycle.temporaryPersonalityDuration() == 4 &&
+		       drugStateLifecycle.temporaryDisabilityDuration() == 2,
+		       "soldier drug-state aging advances every non-alcohol lifetime as one turn boundary" );
+		SoldierDrugStateComponent zeroDurationTraitState;
+		zeroDurationTraitState.applyTemporaryPersonality(6, 0);
+		zeroDurationTraitState.applyTemporaryDisability(7, 0);
+		CHECK( zeroDurationTraitState.hasTemporaryPersonality(6) &&
+		       zeroDurationTraitState.hasTemporaryDisability(7) &&
+		       !zeroDurationTraitState.ageTurn() &&
+		       !zeroDurationTraitState.hasTemporaryPersonality(6) &&
+		       !zeroDurationTraitState.hasTemporaryDisability(7),
+		       "soldier drug-state keeps legacy zero-duration trait identity semantics until the aging boundary" );
+		drugStateLifecycle.duration(DRUG_EFFECT_AP) = 1;
+		drugStateLifecycle.temporaryPersonalityDuration() = 1;
+		drugStateLifecycle.temporaryDisabilityDuration() = 1;
+		CHECK( !drugStateLifecycle.ageTurn() &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_AP) == 0 &&
+		       drugStateLifecycle.temporaryPersonality() == 0 &&
+		       drugStateLifecycle.temporaryDisability() == 0,
+		       "soldier drug-state aging clears effect magnitudes and temporary identities at expiry" );
+		CHECK( drugStateLifecycle.metabolizeAlcohol(0.15f) &&
+		       !drugStateLifecycle.metabolizeAlcohol(0.15f) &&
+		       drugStateLifecycle.alcoholLevel() == 0.0f,
+		       "soldier drug-state alcohol metabolism clamps cleanly at sobriety" );
+		drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) = 19;
+		drugStateLifecycle.magnitude(DRUG_EFFECT_MAX - 1) = -7;
+		drugStateLifecycle.alcoholLevel() = 1.5f;
+		drugStateLifecycle.reset();
+		CHECK( drugStateLifecycle.duration(0) == 0 &&
+		       drugStateLifecycle.magnitude(0) == 0 &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       !drugStateLifecycle.hasAlcohol(),
+		       "soldier drug-state reset clears scalar state and the complete persistent effect capacity" );
+		SoldierStatProgressComponent statProgressLifecycle;
+		statProgressLifecycle.recordChange(
+			SoldierStatProgressComponent::Stat::Strength,
+			std::numeric_limits<UINT32>::max() - 4);
+		CHECK( statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.changedRecently(SoldierStatProgressComponent::Stat::Strength, 3, 9) &&
+		       !statProgressLifecycle.changedRecently(SoldierStatProgressComponent::Stat::Strength, 4, 9),
+		       "soldier stat-progress recent-change query remains correct across clock wraparound" );
+		statProgressLifecycle.recordChange(SoldierStatProgressComponent::Stat::Health, 500);
+		statProgressLifecycle.markIncreased(HEALTH_INCREASE | DEX_INCREASE);
+		statProgressLifecycle.clearIncreased(DEX_INCREASE);
+		statProgressLifecycle.clear(SoldierStatProgressComponent::Stat::Health);
+		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Health) &&
+		       statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.increased(HEALTH_INCREASE) &&
+		       !statProgressLifecycle.increased(DEX_INCREASE),
+		       "soldier stat-progress clears timestamps and selected increase feedback independently" );
+		statProgressLifecycle.reset();
+		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.changedAt(SoldierStatProgressComponent::Stat::Strength) == 0 &&
+		       statProgressLifecycle.increaseMask() == 0,
+		       "soldier stat-progress reset clears timestamps and change-direction feedback" );
+		SoldierTimingComponent timingLifecycle;
+		timingLifecycle.aiDelay() = 100;
+		timingLifecycle.reloadDelay() = 250;
+		timingLifecycle.start(SoldierTimingComponent::Timer::PanelAnimation, 160);
+		CHECK( timingLifecycle.active(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       !timingLifecycle.elapsed(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       timingLifecycle.counter(SoldierTimingComponent::Timer::PanelAnimation) == 160,
+		       "soldier timing start exposes one coherent active countdown" );
+		timingLifecycle.clear(SoldierTimingComponent::Timer::PanelAnimation);
+		CHECK( !timingLifecycle.active(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       timingLifecycle.elapsed(SoldierTimingComponent::Timer::PanelAnimation),
+		       "soldier timing clear completes one countdown without a legacy timer macro" );
+		timingLifecycle.start(SoldierTimingComponent::Timer::Ai, 75);
+		timingLifecycle.reset();
+		bool timingLifecycleCleared =
+			timingLifecycle.aiDelay() == 0 && timingLifecycle.reloadDelay() == 0;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			timingLifecycleCleared &=
+				timingLifecycle.elapsed(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex));
+		}
+		CHECK( timingLifecycleCleared,
+		       "soldier timing reset clears all ten counters and both delay values" );
 		SoldierLongActionComponent longActionLifecycle;
 		longActionLifecycle.begin(MTA_HACK, 1700, -5);
 		CHECK( longActionLifecycle.active() &&
@@ -8585,6 +9055,21 @@ int main( int, char** )
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
+		CHECK( copiedSoldier.identity().id() == SoldierID{ 37 } &&
+		       copiedSoldier.identity().name()[0] == L'J' &&
+		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
+		       copiedSoldier.identity().bodyType() == REGMALE &&
+		       copiedSoldier.identity().profile() == 41 &&
+		       copiedSoldier.identity().incarnation() == 0x12345678u &&
+		       copiedSoldier.identity().dataProfile() == 401 &&
+		       copiedSoldier.identity().individualMilitiaId() == 0x87654321u &&
+		       copiedSoldier.roster().active() == TRUE &&
+		       copiedSoldier.roster().team() == MILITIA_TEAM &&
+		       copiedSoldier.roster().inSector() == TRUE &&
+		       copiedSoldier.roster().side() == 2 &&
+		       copiedSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
+		       copiedSoldier.roster().civilianGroup() == 17,
+		       "soldier copies retain every canonical identity and roster value" );
 		CHECK( copiedSoldier.vitals().health() == 42 &&
 		       copiedSoldier.vitals().maximumHealth() == 84 &&
 		       copiedSoldier.vitals().breath() == 63 &&
@@ -8603,10 +9088,47 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 12341,
 		       "soldier copies retain their owned persistent vitals" );
+		bool copiedStatisticsTraitsMatch = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			copiedStatisticsTraitsMatch &=
+				copiedSoldier.statistics().skillTrait(trait) == 20 + trait;
+		}
+		CHECK( copiedSoldier.statistics().experienceLevel() == 6 &&
+		       copiedSoldier.statistics().strength() == 71 &&
+		       copiedSoldier.statistics().agility() == 72 &&
+		       copiedSoldier.statistics().dexterity() == 73 &&
+		       copiedSoldier.statistics().wisdom() == 74 &&
+		       copiedSoldier.statistics().leadership() == 75 &&
+		       copiedSoldier.statistics().marksmanship() == 76 &&
+		       copiedSoldier.statistics().mechanical() == 77 &&
+		       copiedSoldier.statistics().explosives() == 78 &&
+		       copiedSoldier.statistics().medical() == 79 &&
+		       copiedSoldier.statistics().scientific() == 80 &&
+		       copiedStatisticsTraitsMatch,
+		       "soldier copies retain every owned base attribute and persistent trait slot" );
+		CHECK( copiedSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       copiedSoldier.inventoryState().keyAccess() == -3 &&
+		       copiedSoldier.inventoryState().checkForNewItems() &&
+		       copiedSoldier.inventoryState().zipperFlag() &&
+		       copiedSoldier.inventoryState().dropPackFlag() &&
+		       copiedSoldier.replication().updatedFromNetwork() &&
+		       copiedSoldier.aiPlanning().lastFlankLeft() &&
+		       copiedSoldier.condition().gasHitFlags() == 0xA5 &&
+		       copiedSoldier.targeting().intendedTarget() &&
+		       copiedSoldier.targeting().retainLastTargetFromTurn() &&
+		       copiedSoldier.fireControl().reloading() &&
+		       copiedSoldier.fireControl().aimPaused() &&
+		       copiedSoldier.animationActivity().reactingFromShot() &&
+		       copiedSoldier.animationActivity().externalDeath(),
+		       "soldier copies retain every component-owned former general flag" );
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
-		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
+		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       copiedSoldier.service().borrowedInventorySlot() == 12,
 		       "soldier copies retain their owned persistent service relationships" );
 		CHECK( copiedSoldier.dialogue().quoteRecord() == 13 &&
 		       copiedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
@@ -8621,7 +9143,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().currentCivilianQuote() == -2 &&
 		       copiedSoldier.dialogue().civilianQuoteDelta() == 2 &&
 		       copiedSoldier.dialogue().lastSpokeAt() == 12343 &&
-		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3,
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3 &&
+		       copiedSoldier.dialogue().deathSoundPlayed() &&
+		       copiedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       copiedSoldier.dialogue().hasMadeDyingComment() &&
+		       copiedSoldier.dialogue().ammoQuotePending() &&
+		       copiedSoldier.dialogue().deathBattleSoundUsed(),
 		       "soldier copies retain their owned persistent dialogue state" );
 		CHECK( copiedSoldier.audio().lastFootstepVariant() == 2 &&
 		       copiedSoldier.audio().doorOpeningNoise() == 17 &&
@@ -8674,6 +9201,43 @@ int main( int, char** )
 		       copiedSoldier.condition().hasDisability(2) &&
 		       copiedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier copies retain their owned persistent condition state" );
+		CHECK( copiedSoldier.drugState().duration(DRUG_EFFECT_HP) == 31 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 6 &&
+		       copiedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 32 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == -7 &&
+		       copiedSoldier.drugState().temporaryPersonality() == 3 &&
+		       copiedSoldier.drugState().temporaryPersonalityDuration() == 33 &&
+		       copiedSoldier.drugState().temporaryDisability() == 4 &&
+		       copiedSoldier.drugState().temporaryDisabilityDuration() == 34 &&
+		       copiedSoldier.drugState().alcoholLevel() == 1.25f,
+		       "soldier copies retain their owned persistent drug and alcohol state" );
+		CHECK( copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 1004 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 1005 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 1006 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 1007 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 1008 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
+		       copiedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | AGIL_INCREASE),
+		       "soldier copies retain every owned persistent stat-change value" );
+		bool copiedTimingMatches = copiedSoldier.timing().aiDelay() == 1111 &&
+			copiedSoldier.timing().reloadDelay() == -1112;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			copiedTimingMatches &=
+				copiedSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				1101 + timerIndex;
+		}
+		CHECK( copiedTimingMatches,
+		       "soldier copies retain every owned countdown and timing delay" );
 		CHECK( copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_FORTIFY &&
 		       copiedSoldier.longAction().contextGrid() == 1300 &&
@@ -8740,8 +9304,10 @@ int main( int, char** )
 		       copiedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       copiedSoldier.employment().timeCanSignElsewhere() == 13000 &&
 		       copiedSoldier.employment().hospitalPriceModifier() == -2 &&
-		       copiedSoldier.employment().insuranceStartTime() == 11000,
-		       "soldier copies retain their owned persistent employment state" );
+		       copiedSoldier.employment().insuranceStartTime() == 11000 &&
+		       copiedSoldier.employment().hasContractPriceIncrease() &&
+		       copiedSoldier.employment().hasSignedAnotherContract(),
+		       "soldier copies retain their owned persistent employment and contract-decision state" );
 		CHECK( copiedSoldier.assignment().current() == TRAIN_TEAMMATE &&
 		       copiedSoldier.assignment().previous() == ON_DUTY &&
 		       copiedSoldier.assignment().trainingStat() == STRENGTH &&
@@ -8752,8 +9318,14 @@ int main( int, char** )
 		       copiedSoldier.assignment().repairVehicleId() == 2 &&
 		       copiedSoldier.assignment().facilityType() == 5 &&
 		       copiedSoldier.assignment().itemMoveSectorId() == 47 &&
-		       copiedSoldier.assignment().miniEventHoursRemaining() == 12,
-		       "soldier copies retain their owned persistent assignment state" );
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 12 &&
+		       copiedSoldier.assignment().isFixingSamSite() &&
+		       copiedSoldier.assignment().isFixingRobot() &&
+		       copiedSoldier.assignment().isForcedAwake() &&
+		       copiedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       copiedSoldier.assignment().isAsleep() &&
+		       copiedSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier copies retain their owned persistent assignment and work/rest state" );
 		CHECK( copiedSoldier.deployment().insertionDirection() == -3 &&
 		       copiedSoldier.deployment().groupId() == 42 &&
 		       copiedSoldier.deployment().insertionGrid() == 2200 &&
@@ -8769,7 +9341,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().arrivalTime() == 14000 &&
 		       copiedSoldier.deployment().arrivalGetupPending() &&
 		       copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       copiedSoldier.deployment().arrivalGetupCounter() == 15000,
+		       copiedSoldier.deployment().arrivalGetupCounter() == 15000 &&
+		       copiedSoldier.deployment().isBetweenSectors() &&
+		       copiedSoldier.deployment().insideMissionExitNode() &&
+		       copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier copies retain their owned persistent deployment state" );
 		CHECK( copiedSoldier.schedule().id() == 37 &&
 		       copiedSoldier.schedule().progress() == 2 &&
@@ -8828,15 +9403,27 @@ int main( int, char** )
 		       copiedSoldier.movement().delayedFlags() == 5 &&
 		       copiedSoldier.movement().stopReason() == 2 &&
 		       copiedSoldier.movement().usesMoveSpeedOverride() &&
-		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
+		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 } &&
+		       copiedSoldier.movement().turnActive() &&
+		       copiedSoldier.movement().wasInWater() &&
+		       copiedSoldier.movement().uiMovementFast() == 2 &&
+		       copiedSoldier.movement().outOfActionPoints() &&
+		       copiedSoldier.movement().movementPaused() &&
+		       copiedSoldier.movement().recordingMovement() &&
+		       copiedSoldier.movement().delayedByNetwork() &&
+		       copiedSoldier.movement().wasMoving() &&
+		       copiedSoldier.movement().crossedDestinationCenter() &&
+		       copiedSoldier.movement().waitAction() == 2,
 		       "soldier copies retain their owned persistent movement state" );
-		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		CHECK( copiedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier copies retain their owned interrupt snapshot" );
 		CHECK( copiedSoldier.targeting().gridNo() == 1280 &&
 		       copiedSoldier.targeting().level() == 1 &&
 		       copiedSoldier.targeting().cubeLevel() == 3 &&
 		       copiedSoldier.targeting().lastGridNo() == 1279 &&
-		       copiedSoldier.targeting().targetId() == SoldierID{ 5 },
+		       copiedSoldier.targeting().targetId() == SoldierID{ 5 } &&
+		       copiedSoldier.targeting().engagedOpponent() == SoldierID{ 10 } &&
+		       copiedSoldier.targeting().lineOfFireTarget() == SoldierID{ 11 },
 		       "soldier copies retain their owned persistent targeting state" );
 		CHECK( copiedSoldier.attackSelection().hand() == SECONDHANDPOS &&
 		       copiedSoldier.attackSelection().weapon() == 321 &&
@@ -8861,7 +9448,10 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 2 &&
 		       copiedSoldier.fireControl().spreadDragStartGrid() == 1287 &&
-		       copiedSoldier.fireControl().spreadDragEndGrid() == 1288,
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 1288 &&
+		       copiedSoldier.fireControl().gunType() == -4 &&
+		       copiedSoldier.fireControl().grenadeLauncherDelayMode() == 1 &&
+		       copiedSoldier.fireControl().barrelMode() == 4,
 		       "soldier copies retain their owned persistent fire-control state" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       copiedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
@@ -8909,7 +9499,19 @@ int main( int, char** )
 		       copiedSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       copiedSoldier.uiPresentation().plannedTargetY() == 600 &&
 		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
-		       copiedSoldier.uiPresentation().locateCycles() == 5,
+		       copiedSoldier.uiPresentation().locateCycles() == 5 &&
+		       copiedSoldier.uiPresentation().panelClosing() &&
+		       copiedSoldier.uiPresentation().panelClosingForDeath() &&
+		       copiedSoldier.uiPresentation().deadPanelShowing() &&
+		       copiedSoldier.uiPresentation().panelOpening() &&
+		       copiedSoldier.uiPresentation().locatorFlashing() &&
+		       copiedSoldier.uiPresentation().locatorVisible() &&
+		       copiedSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       copiedSoldier.uiPresentation().deadMercUiPending() &&
+		       copiedSoldier.uiPresentation().newMercUiPending() &&
+		       copiedSoldier.uiPresentation().closeMercUiPending() &&
+		       copiedSoldier.uiPresentation().firstNoActionPoints() &&
+		       copiedSoldier.uiPresentation().firstUnconscious(),
 		       "soldier copies retain their owned UI presentation state" );
 		CHECK( copiedSoldier.suppression().underFire() == 2 &&
 		       copiedSoldier.suppression().shock() == 9 &&
@@ -8974,6 +9576,16 @@ int main( int, char** )
 		copiedSoldier.movement().setReverse(false);
 		copiedSoldier.movement().setHighResolutionFacing(2, 3);
 		copiedSoldier.movement().clearGridUpdatePolicy();
+		copiedSoldier.movement().finishTurn();
+		copiedSoldier.movement().rememberWaterState(false);
+		copiedSoldier.movement().clearUiMovementFast();
+		copiedSoldier.movement().setOutOfActionPoints(false);
+		copiedSoldier.movement().resumeMovement();
+		copiedSoldier.movement().stopMovementClock();
+		copiedSoldier.movement().setNetworkDelayed(false);
+		copiedSoldier.movement().syncPresentationMotion(false);
+		copiedSoldier.movement().clearPastDestination();
+		copiedSoldier.movement().clearWaitAction();
 		copiedSoldier.animationIntent().clearDesiredHeight();
 		copiedSoldier.animationIntent().clearFacingAnimation();
 		copiedSoldier.animationIntent().queueAnimation( WALKING );
@@ -8995,8 +9607,18 @@ int main( int, char** )
 		       !copiedSoldier.movement().reversing() &&
 		       copiedSoldier.movement().highResolutionDirection() == 2 &&
 		       copiedSoldier.movement().highResolutionDesiredDirection() == 3 &&
-		       copiedSoldier.movement().gridUpdatePolicy() == 0,
-		       "soldier movement component clears coordinated movement modes through named transitions" );
+		       copiedSoldier.movement().gridUpdatePolicy() == 0 &&
+		       !copiedSoldier.movement().turnActive() &&
+		       !copiedSoldier.movement().wasInWater() &&
+		       !copiedSoldier.movement().fastUiMovement() &&
+		       !copiedSoldier.movement().outOfActionPoints() &&
+		       !copiedSoldier.movement().movementPaused() &&
+		       !copiedSoldier.movement().recordingMovement() &&
+		       !copiedSoldier.movement().delayedByNetwork() &&
+		       !copiedSoldier.movement().wasMoving() &&
+		       !copiedSoldier.movement().crossedDestinationCenter() &&
+		       !copiedSoldier.movement().waitingForAction(),
+		       "soldier movement component clears coordinated movement activity through named transitions" );
 		CHECK( !copiedSoldier.animationIntent().hasDesiredHeight() &&
 		       !copiedSoldier.animationIntent().hasPendingAnimation() &&
 		       !copiedSoldier.animationIntent().hasSecondaryPendingAnimation() &&
@@ -9090,26 +9712,83 @@ int main( int, char** )
 
 		SoldierUiPresentationComponent uiPresentationLifecycle;
 		uiPresentationLifecycle.startLocator(7);
+		uiPresentationLifecycle.showLocator();
+		uiPresentationLifecycle.advanceLocatorCycle();
 		uiPresentationLifecycle.setLocatorOffset(10, -11);
 		uiPresentationLifecycle.setPanelFacePosition(120, 121);
 		uiPresentationLifecycle.setPlannedTarget(700, 701, 22);
 		uiPresentationLifecycle.clearPlannedTarget();
+		uiPresentationLifecycle.setPortraitFlashPhase(2);
+		uiPresentationLifecycle.queueDeadMercUi();
+		uiPresentationLifecycle.queueNewMercUi();
+		uiPresentationLifecycle.queueCloseMercUi();
+		uiPresentationLifecycle.markNoActionPoints();
+		uiPresentationLifecycle.markUnconscious();
+		uiPresentationLifecycle.beginDeathPanelTransition();
 		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
+		       uiPresentationLifecycle.locatorFlashCycle() == 2 &&
 		       uiPresentationLifecycle.locateCycles() == 7 &&
+		       uiPresentationLifecycle.locatorVisible() &&
 		       uiPresentationLifecycle.locatorOffsetX() == 10 &&
 		       uiPresentationLifecycle.locatorOffsetY() == -11 &&
 		       uiPresentationLifecycle.panelFaceX() == 120 &&
 		       uiPresentationLifecycle.panelFaceY() == 121 &&
+		       uiPresentationLifecycle.panelClosing() &&
+		       uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.deadMercUiPending() &&
+		       uiPresentationLifecycle.newMercUiPending() &&
+		       uiPresentationLifecycle.closeMercUiPending() &&
+		       uiPresentationLifecycle.portraitFlashPhase() == 2 &&
+		       uiPresentationLifecycle.firstNoActionPoints() &&
+		       uiPresentationLifecycle.firstUnconscious() &&
 		       !uiPresentationLifecycle.hasPlannedTarget() &&
 		       uiPresentationLifecycle.plannedTargetX() == -1 &&
 		       uiPresentationLifecycle.plannedTargetY() == -1 &&
 		       uiPresentationLifecycle.plannedActionPointCost() == 22,
-		       "UI-presentation transitions coordinate locator, panel, and planned-target state" );
+		       "UI-presentation transitions coordinate locator, panel, notification, and planned-target state" );
+		CHECK( uiPresentationLifecycle.completePanelClose(5) &&
+		       !uiPresentationLifecycle.panelClosing() &&
+		       uiPresentationLifecycle.deadPanelShowing() &&
+		       uiPresentationLifecycle.closePanelFrame() == 5,
+		       "UI-presentation panel close atomically enters the queued death panel" );
+		uiPresentationLifecycle.completeDeadPanel(5);
+		uiPresentationLifecycle.requestPanelOpen(4);
+		uiPresentationLifecycle.completePanelOpen();
+		uiPresentationLifecycle.stopLocator();
+		uiPresentationLifecycle.stopPortraitFlash();
+		uiPresentationLifecycle.clearNewMercUi();
+		uiPresentationLifecycle.clearCloseMercUi();
+		uiPresentationLifecycle.clearNoActionPoints();
+		uiPresentationLifecycle.clearUnconscious();
+		CHECK( !uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.panelOpening() &&
+		       !uiPresentationLifecycle.locatorFlashing() &&
+		       !uiPresentationLifecycle.locatorVisible() &&
+		       !uiPresentationLifecycle.portraitFlashing() &&
+		       !uiPresentationLifecycle.newMercUiPending() &&
+		       !uiPresentationLifecycle.closeMercUiPending() &&
+		       !uiPresentationLifecycle.firstNoActionPoints() &&
+		       !uiPresentationLifecycle.firstUnconscious(),
+		       "UI-presentation lifecycle clears coordinated transient view state" );
 		uiPresentationLifecycle.reset();
 		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
 		       uiPresentationLifecycle.locateCycles() == 0 &&
 		       uiPresentationLifecycle.plannedTargetX() == 0 &&
-		       uiPresentationLifecycle.plannedTargetY() == 0,
+		       uiPresentationLifecycle.plannedTargetY() == 0 &&
+		       !uiPresentationLifecycle.panelClosing() &&
+		       !uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.panelOpening() &&
+		       !uiPresentationLifecycle.locatorFlashing() &&
+		       !uiPresentationLifecycle.locatorVisible() &&
+		       !uiPresentationLifecycle.portraitFlashing() &&
+		       !uiPresentationLifecycle.deadMercUiPending() &&
+		       !uiPresentationLifecycle.newMercUiPending() &&
+		       !uiPresentationLifecycle.closeMercUiPending() &&
+		       !uiPresentationLifecycle.firstNoActionPoints() &&
+		       !uiPresentationLifecycle.firstUnconscious(),
 		       "UI-presentation reset restores the established fresh-soldier defaults" );
 
 		SoldierMeleeApproachComponent meleeApproachLifecycle;
@@ -9139,8 +9818,32 @@ int main( int, char** )
 		CHECK( !spreadDragLifecycle.spreadDragMoved(),
 		       "burst-spread gesture distinguishes a stationary click" );
 		spreadDragLifecycle.updateSpreadDrag(1501);
-		CHECK( spreadDragLifecycle.spreadDragMoved(),
-		       "burst-spread gesture detects movement from its captured start grid" );
+		spreadDragLifecycle.gunType() = -5;
+		spreadDragLifecycle.setGrenadeLauncherDelay(true);
+		spreadDragLifecycle.selectBarrelMode(3);
+		CHECK( spreadDragLifecycle.spreadDragMoved() &&
+		       spreadDragLifecycle.gunType() == -5 &&
+		       spreadDragLifecycle.delaysGrenadeLauncherExplosion() &&
+		       spreadDragLifecycle.barrelMode() == 3,
+		       "fire-control coordinates spread movement and persistent firing configuration" );
+		spreadDragLifecycle.reset();
+		CHECK( !spreadDragLifecycle.spreadDragMoved() &&
+		       spreadDragLifecycle.gunType() == 0 &&
+		       !spreadDragLifecycle.delaysGrenadeLauncherExplosion() &&
+		       spreadDragLifecycle.barrelMode() == 0,
+		       "fire-control reset clears spread and persistent firing configuration" );
+
+		SoldierTargetingComponent targetingLifecycle;
+		targetingLifecycle.engageOpponent(SoldierID{ 21 });
+		targetingLifecycle.rememberLineOfFireTarget(SoldierID{ 22 });
+		CHECK( targetingLifecycle.hasEngagedOpponent() &&
+		       targetingLifecycle.hasLineOfFireTarget(),
+		       "targeting owns engaged-opponent and line-of-fire identities independently" );
+		targetingLifecycle.clearEngagedOpponent();
+		targetingLifecycle.clearLineOfFireTarget();
+		CHECK( !targetingLifecycle.hasEngagedOpponent() &&
+		       !targetingLifecycle.hasLineOfFireTarget(),
+		       "targeting clears transient combat identities through named transitions" );
 
 		SoldierAnimationActivityComponent traversalLifecycle;
 		traversalLifecycle.forecastTraversalAt(1600);
@@ -9163,12 +9866,12 @@ int main( int, char** )
 		       traversalLifecycle.randomActionCheckCounter() == 0,
 		       "animation activity resets only the random-animation cadence when a check is consumed" );
 
-		SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;
-		interruptSnapshotLifecycle.captureMoved(1);
-		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 1,
+		SoldierTurnStateComponent turnStateLifecycle;
+		turnStateLifecycle.captureMoved(1);
+		CHECK( turnStateLifecycle.movedBeforeInterrupt() == 1,
 		       "interrupt snapshot captures scheduler movement state" );
-		interruptSnapshotLifecycle.reset();
-		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 0,
+		turnStateLifecycle.reset();
+		CHECK( turnStateLifecycle.movedBeforeInterrupt() == 0,
 		       "interrupt snapshot reset restores the established default" );
 
 		SoldierSuppressionComponent suppressionLifecycle;
@@ -9381,11 +10084,22 @@ int main( int, char** )
 		employmentLifecycle.medicalDeposit() = 1;
 		employmentLifecycle.lifeInsurance() = 1;
 		employmentLifecycle.justFired() = 1;
+		employmentLifecycle.markContractPriceIncreased();
+		employmentLifecycle.markSignedAnotherContract();
 		CHECK( employmentLifecycle.isMercenaryType(MERC_TYPE__MERC) &&
 		       employmentLifecycle.hasMedicalDeposit() &&
 		       employmentLifecycle.hasLifeInsurance() &&
-		       employmentLifecycle.wasJustFired(),
-		       "employment exposes named classification, deposit, insurance, and dismissal queries" );
+		       employmentLifecycle.wasJustFired() &&
+		       employmentLifecycle.hasContractPriceIncrease() &&
+		       employmentLifecycle.hasSignedAnotherContract(),
+		       "employment exposes named classification, insurance, dismissal, and contract-decision queries" );
+		employmentLifecycle.acknowledgeContractPriceIncrease();
+		employmentLifecycle.clearSignedAnotherContract();
+		CHECK( !employmentLifecycle.hasContractPriceIncrease() &&
+		       !employmentLifecycle.hasSignedAnotherContract(),
+		       "employment acknowledges price changes and clears re-signing decisions through named transitions" );
+		employmentLifecycle.markContractPriceIncreased();
+		employmentLifecycle.markSignedAnotherContract();
 		employmentLifecycle.reset();
 		CHECK( employmentLifecycle.endTime() == 0 &&
 		       employmentLifecycle.startTime() == 0 &&
@@ -9401,7 +10115,9 @@ int main( int, char** )
 		       employmentLifecycle.renewalQuoteCode() == 0 &&
 		       employmentLifecycle.timeCanSignElsewhere() == 0 &&
 		       employmentLifecycle.hospitalPriceModifier() == 0 &&
-		       employmentLifecycle.insuranceStartTime() == 0,
+		       employmentLifecycle.insuranceStartTime() == 0 &&
+		       !employmentLifecycle.hasContractPriceIncrease() &&
+		       !employmentLifecycle.hasSignedAnotherContract(),
 		       "employment reset clears the complete strategic contract lifecycle" );
 
 		SoldierAssignmentComponent assignmentLifecycle;
@@ -9410,15 +10126,44 @@ int main( int, char** )
 		assignmentLifecycle.miniEventHoursRemaining() = 3;
 		assignmentLifecycle.repairVehicleId() = 4;
 		assignmentLifecycle.facilityType() = 5;
+		assignmentLifecycle.setFixingSamSite(TRUE);
+		assignmentLifecycle.setFixingRobot(TRUE);
+		assignmentLifecycle.forceAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(true);
+		assignmentLifecycle.fallAsleep();
+		assignmentLifecycle.markTiredComplaint();
 		CHECK( assignmentLifecycle.isAssignedTo(TRAIN_BY_OTHER) &&
 		       assignmentLifecycle.hasAssignmentHours() &&
-		       assignmentLifecycle.hasMiniEventTime(),
-		       "assignment exposes named duty and elapsed-time queries" );
+		       assignmentLifecycle.hasMiniEventTime() &&
+		       assignmentLifecycle.isFixingSamSite() &&
+		       assignmentLifecycle.isFixingRobot() &&
+		       assignmentLifecycle.isForcedAwake() &&
+		       assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       assignmentLifecycle.isAsleep() &&
+		       assignmentLifecycle.hasComplainedAboutTiredness(),
+		       "assignment exposes named duty, repair, completion, and work/rest queries" );
 		assignmentLifecycle.clearRepairVehicle();
 		assignmentLifecycle.clearFacility();
+		assignmentLifecycle.clearRepairTargets();
+		assignmentLifecycle.releaseForcedAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(false);
+		assignmentLifecycle.wakeUp();
+		assignmentLifecycle.clearTiredComplaint();
 		CHECK( assignmentLifecycle.repairVehicleId() == -1 &&
-		       assignmentLifecycle.facilityType() == -1,
-		       "assignment clears subsidiary repair and facility context through named transitions" );
+		       assignmentLifecycle.facilityType() == -1 &&
+		       !assignmentLifecycle.isFixingSamSite() &&
+		       !assignmentLifecycle.isFixingRobot() &&
+		       !assignmentLifecycle.isForcedAwake() &&
+		       !assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       !assignmentLifecycle.isAsleep() &&
+		       !assignmentLifecycle.hasComplainedAboutTiredness(),
+		       "assignment clears repair, completion, and work/rest context through named transitions" );
+		assignmentLifecycle.setFixingSamSite(TRUE);
+		assignmentLifecycle.setFixingRobot(TRUE);
+		assignmentLifecycle.forceAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(true);
+		assignmentLifecycle.fallAsleep();
+		assignmentLifecycle.markTiredComplaint();
 		assignmentLifecycle.reset();
 		CHECK( assignmentLifecycle.current() == 0 &&
 		       assignmentLifecycle.previous() == 0 &&
@@ -9430,7 +10175,13 @@ int main( int, char** )
 		       assignmentLifecycle.repairVehicleId() == 0 &&
 		       assignmentLifecycle.facilityType() == 0 &&
 		       assignmentLifecycle.itemMoveSectorId() == 0 &&
-		       assignmentLifecycle.miniEventHoursRemaining() == 0,
+		       assignmentLifecycle.miniEventHoursRemaining() == 0 &&
+		       !assignmentLifecycle.isFixingSamSite() &&
+		       !assignmentLifecycle.isFixingRobot() &&
+		       !assignmentLifecycle.isForcedAwake() &&
+		       !assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       !assignmentLifecycle.isAsleep() &&
+		       !assignmentLifecycle.hasComplainedAboutTiredness(),
 		       "assignment reset clears the complete strategic duty lifecycle" );
 
 		SoldierDeploymentComponent deploymentLifecycle;
@@ -9446,6 +10197,9 @@ int main( int, char** )
 		deploymentLifecycle.scheduleArrival(4400, 7);
 		deploymentLifecycle.beginArrivalGetup();
 		deploymentLifecycle.arrivalGetupCounter() = 4500;
+		deploymentLifecycle.beginStrategicTransit();
+		deploymentLifecycle.enterMissionExitNode();
+		deploymentLifecycle.setUseLandingZoneForArrival(true);
 		CHECK( deploymentLifecycle.isInSector(11, 5, 2) &&
 		       deploymentLifecycle.hasVehicle() &&
 		       deploymentLifecycle.strategicInsertionData() == 3301 &&
@@ -9455,8 +10209,18 @@ int main( int, char** )
 		       deploymentLifecycle.leaveHistoryCode() == 7 &&
 		       deploymentLifecycle.arrivalGetupPending() &&
 		       deploymentLifecycle.ignoreCollapseGetupCheck() &&
-		       deploymentLifecycle.arrivalGetupCounter() == 4500,
-		       "deployment exposes named sector, insertion, traversal, vehicle, and arrival transitions" );
+		       deploymentLifecycle.arrivalGetupCounter() == 4500 &&
+		       deploymentLifecycle.isBetweenSectors() &&
+		       deploymentLifecycle.insideMissionExitNode() &&
+		       deploymentLifecycle.usesLandingZoneForArrival(),
+		       "deployment exposes named sector, transit, insertion, traversal, vehicle, and arrival transitions" );
+		deploymentLifecycle.completeStrategicTransit();
+		deploymentLifecycle.leaveMissionExitNode();
+		deploymentLifecycle.setUseLandingZoneForArrival(false);
+		CHECK( !deploymentLifecycle.isBetweenSectors() &&
+		       !deploymentLifecycle.insideMissionExitNode() &&
+		       !deploymentLifecycle.usesLandingZoneForArrival(),
+		       "deployment completes strategic transit and clears mission-exit and landing-zone policy" );
 		deploymentLifecycle.completeArrivalGetup();
 		deploymentLifecycle.clearCollapseGetupOverride();
 		CHECK( !deploymentLifecycle.arrivalGetupPending() &&
@@ -9482,7 +10246,10 @@ int main( int, char** )
 		       deploymentLifecycle.arrivalTime() == 0 &&
 		       !deploymentLifecycle.arrivalGetupPending() &&
 		       !deploymentLifecycle.ignoreCollapseGetupCheck() &&
-		       deploymentLifecycle.arrivalGetupCounter() == 0,
+		       deploymentLifecycle.arrivalGetupCounter() == 0 &&
+		       !deploymentLifecycle.isBetweenSectors() &&
+		       !deploymentLifecycle.insideMissionExitNode() &&
+		       !deploymentLifecycle.usesLandingZoneForArrival(),
 		       "deployment reset clears the complete strategic placement lifecycle" );
 
 		SoldierScheduleComponent scheduleLifecycle;
@@ -9516,6 +10283,21 @@ int main( int, char** )
 		       scheduleLifecycle.doorGrid() == 0,
 		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
+		CHECK( copiedSoldier.identity().id() == NOBODY &&
+		       copiedSoldier.identity().name()[0] == 0 &&
+		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == 0 &&
+		       copiedSoldier.identity().bodyType() == 0 &&
+		       copiedSoldier.identity().profile() == 0 &&
+		       !copiedSoldier.identity().hasIncarnation() &&
+		       copiedSoldier.identity().dataProfile() == 0 &&
+		       copiedSoldier.identity().individualMilitiaId() == 0 &&
+		       !copiedSoldier.roster().isActive() &&
+		       copiedSoldier.roster().team() == 0 &&
+		       !copiedSoldier.roster().isInSector() &&
+		       copiedSoldier.roster().side() == 0 &&
+		       copiedSoldier.roster().soldierClass() == 0 &&
+		       copiedSoldier.roster().civilianGroup() == 0,
+		       "soldier initialization resets the complete identity and roster domains" );
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
 		       copiedSoldier.vitals().breath() == 0 &&
@@ -9534,10 +10316,47 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 0 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 0,
 		       "soldier initialization resets the complete vitals domain" );
+		bool initializedStatisticsTraitsCleared = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			initializedStatisticsTraitsCleared &=
+				copiedSoldier.statistics().skillTrait(trait) == 0;
+		}
+		CHECK( copiedSoldier.statistics().experienceLevel() == 0 &&
+		       copiedSoldier.statistics().strength() == 0 &&
+		       copiedSoldier.statistics().agility() == 0 &&
+		       copiedSoldier.statistics().dexterity() == 0 &&
+		       copiedSoldier.statistics().wisdom() == 0 &&
+		       copiedSoldier.statistics().leadership() == 0 &&
+		       copiedSoldier.statistics().marksmanship() == 0 &&
+		       copiedSoldier.statistics().mechanical() == 0 &&
+		       copiedSoldier.statistics().explosives() == 0 &&
+		       copiedSoldier.statistics().medical() == 0 &&
+		       copiedSoldier.statistics().scientific() == 0 &&
+		       initializedStatisticsTraitsCleared,
+		       "soldier initialization resets the complete base-statistics domain" );
+		CHECK( copiedSoldier.status().flags() == 0 &&
+		       copiedSoldier.inventoryState().keyAccess() == 0 &&
+		       !copiedSoldier.inventoryState().checkForNewItems() &&
+		       !copiedSoldier.inventoryState().zipperFlag() &&
+		       !copiedSoldier.inventoryState().dropPackFlag() &&
+		       !copiedSoldier.replication().updatedFromNetwork() &&
+		       !copiedSoldier.aiPlanning().lastFlankLeft() &&
+		       copiedSoldier.condition().gasHitFlags() == 0 &&
+		       !copiedSoldier.targeting().intendedTarget() &&
+		       !copiedSoldier.targeting().retainLastTargetFromTurn() &&
+		       !copiedSoldier.fireControl().reloading() &&
+		       !copiedSoldier.fireControl().aimPaused() &&
+		       !copiedSoldier.animationActivity().reactingFromShot() &&
+		       !copiedSoldier.animationActivity().externalDeath(),
+		       "soldier initialization resets every component-owned former general flag" );
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
-		       !copiedSoldier.service().hasAutoBandagingMedic(),
+		       !copiedSoldier.service().hasAutoBandagingMedic() &&
+		       copiedSoldier.service().borrowedInventorySlot() == 0,
 		       "soldier initialization resets the complete tactical service domain" );
 		CHECK( copiedSoldier.dialogue().quoteRecord() == 0 &&
 		       copiedSoldier.dialogue().quoteActionId() == 0 &&
@@ -9552,7 +10371,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().currentCivilianQuote() == 0 &&
 		       copiedSoldier.dialogue().civilianQuoteDelta() == 0 &&
 		       copiedSoldier.dialogue().lastSpokeAt() == 0 &&
-		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0,
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0 &&
+		       !copiedSoldier.dialogue().deathSoundPlayed() &&
+		       !copiedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       !copiedSoldier.dialogue().hasMadeDyingComment() &&
+		       !copiedSoldier.dialogue().ammoQuotePending() &&
+		       !copiedSoldier.dialogue().deathBattleSoundUsed(),
 		       "soldier initialization resets the complete dialogue domain" );
 		CHECK( copiedSoldier.audio().lastFootstepVariant() == 0 &&
 		       copiedSoldier.audio().doorOpeningNoise() == 0 &&
@@ -9604,6 +10428,41 @@ int main( int, char** )
 		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       copiedSoldier.condition().disabilityFlags() == 0,
 		       "soldier initialization resets the complete condition domain" );
+		CHECK( copiedSoldier.drugState().duration(DRUG_EFFECT_HP) == 0 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 0 &&
+		       copiedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       copiedSoldier.drugState().temporaryPersonality() == 0 &&
+		       copiedSoldier.drugState().temporaryPersonalityDuration() == 0 &&
+		       copiedSoldier.drugState().temporaryDisability() == 0 &&
+		       copiedSoldier.drugState().temporaryDisabilityDuration() == 0 &&
+		       !copiedSoldier.drugState().hasAlcohol(),
+		       "soldier initialization resets the complete persistent drug-state domain" );
+		bool initializedStatProgressCleared = true;
+		for (UINT8 statIndex = 0;
+		     statIndex < SoldierStatProgressComponent::StatCount;
+		     ++statIndex)
+		{
+			initializedStatProgressCleared &=
+				copiedSoldier.statProgress().changedAt(
+					static_cast<SoldierStatProgressComponent::Stat>(statIndex)) == 0;
+		}
+		CHECK( initializedStatProgressCleared &&
+		       copiedSoldier.statProgress().increaseMask() == 0,
+		       "soldier initialization resets every stat-progress timestamp and direction bit" );
+		bool initializedTimingCleared =
+			copiedSoldier.timing().aiDelay() == 0 &&
+			copiedSoldier.timing().reloadDelay() == 0;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			initializedTimingCleared &=
+				copiedSoldier.timing().elapsed(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex));
+		}
+		CHECK( initializedTimingCleared,
+		       "soldier initialization resets all ten countdowns and both delay values" );
 		CHECK( !copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_NONE &&
 		       copiedSoldier.longAction().contextGrid() == -1 &&
@@ -9677,7 +10536,9 @@ int main( int, char** )
 		       copiedSoldier.employment().renewalQuoteCode() == 0 &&
 		       copiedSoldier.employment().timeCanSignElsewhere() == 0 &&
 		       copiedSoldier.employment().hospitalPriceModifier() == 0 &&
-		       copiedSoldier.employment().insuranceStartTime() == 0,
+		       copiedSoldier.employment().insuranceStartTime() == 0 &&
+		       !copiedSoldier.employment().hasContractPriceIncrease() &&
+		       !copiedSoldier.employment().hasSignedAnotherContract(),
 		       "soldier initialization resets the complete employment domain" );
 		CHECK( copiedSoldier.assignment().current() == 0 &&
 		       copiedSoldier.assignment().previous() == 0 &&
@@ -9689,7 +10550,13 @@ int main( int, char** )
 		       copiedSoldier.assignment().repairVehicleId() == 0 &&
 		       copiedSoldier.assignment().facilityType() == 0 &&
 		       copiedSoldier.assignment().itemMoveSectorId() == 0 &&
-		       copiedSoldier.assignment().miniEventHoursRemaining() == 0,
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 0 &&
+		       !copiedSoldier.assignment().isFixingSamSite() &&
+		       !copiedSoldier.assignment().isFixingRobot() &&
+		       !copiedSoldier.assignment().isForcedAwake() &&
+		       !copiedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       !copiedSoldier.assignment().isAsleep() &&
+		       !copiedSoldier.assignment().hasComplainedAboutTiredness(),
 		       "soldier initialization resets the complete assignment domain" );
 		CHECK( copiedSoldier.deployment().insertionDirection() == 0 &&
 		       copiedSoldier.deployment().groupId() == 0 &&
@@ -9706,7 +10573,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().arrivalTime() == 0 &&
 		       !copiedSoldier.deployment().arrivalGetupPending() &&
 		       !copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       copiedSoldier.deployment().arrivalGetupCounter() == 0,
+		       copiedSoldier.deployment().arrivalGetupCounter() == 0 &&
+		       !copiedSoldier.deployment().isBetweenSectors() &&
+		       !copiedSoldier.deployment().insideMissionExitNode() &&
+		       !copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier initialization resets the complete deployment domain" );
 		CHECK( !copiedSoldier.schedule().assigned() &&
 		       copiedSoldier.schedule().progress() == 0 &&
@@ -9766,16 +10636,29 @@ int main( int, char** )
 		       copiedSoldier.movement().delayedFlags() == 0 &&
 		       copiedSoldier.movement().stopReason() == 0 &&
 		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
-		       !copiedSoldier.movement().usesMoveSpeedOverride(),
+		       !copiedSoldier.movement().usesMoveSpeedOverride() &&
+		       !copiedSoldier.movement().turnActive() &&
+		       !copiedSoldier.movement().wasInWater() &&
+		       !copiedSoldier.movement().fastUiMovement() &&
+		       !copiedSoldier.movement().outOfActionPoints() &&
+		       !copiedSoldier.movement().movementPaused() &&
+		       !copiedSoldier.movement().recordingMovement() &&
+		       !copiedSoldier.movement().delayedByNetwork() &&
+		       !copiedSoldier.movement().wasMoving() &&
+		       !copiedSoldier.movement().crossedDestinationCenter() &&
+		       !copiedSoldier.movement().waitingForAction() &&
+		       copiedSoldier.movement().waitAction() == 0,
 		       "soldier initialization resets the complete movement domain" );
-		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 0,
+		CHECK( copiedSoldier.turnState().movedBeforeInterrupt() == 0,
 		       "soldier initialization resets the interrupt snapshot domain" );
 		CHECK( copiedSoldier.targeting().gridNo() == 0 &&
 		       copiedSoldier.targeting().level() == 0 &&
 		       copiedSoldier.targeting().cubeLevel() == 0 &&
 		       copiedSoldier.targeting().lastGridNo() == 0 &&
 		       !copiedSoldier.targeting().hasTargetSoldier() &&
-		       copiedSoldier.targeting().targetId() == NOBODY,
+		       copiedSoldier.targeting().targetId() == NOBODY &&
+		       !copiedSoldier.targeting().hasEngagedOpponent() &&
+		       !copiedSoldier.targeting().hasLineOfFireTarget(),
 		       "soldier initialization resets the complete targeting domain" );
 		CHECK( copiedSoldier.attackSelection().hand() == 0 &&
 		       copiedSoldier.attackSelection().weapon() == 0 &&
@@ -9802,7 +10685,10 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetY() == 0.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 0 &&
 		       copiedSoldier.fireControl().spreadDragStartGrid() == 0 &&
-		       copiedSoldier.fireControl().spreadDragEndGrid() == 0,
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 0 &&
+		       copiedSoldier.fireControl().gunType() == 0 &&
+		       !copiedSoldier.fireControl().delaysGrenadeLauncherExplosion() &&
+		       copiedSoldier.fireControl().barrelMode() == 0,
 		       "soldier initialization resets the complete fire-control domain" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == NOBODY &&
 		       copiedSoldier.combatResult().previousAttacker() == NOBODY &&
@@ -9854,7 +10740,19 @@ int main( int, char** )
 		       copiedSoldier.uiPresentation().plannedTargetX() == 0 &&
 		       copiedSoldier.uiPresentation().plannedTargetY() == 0 &&
 		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{} &&
-		       copiedSoldier.uiPresentation().locateCycles() == 0,
+		       copiedSoldier.uiPresentation().locateCycles() == 0 &&
+		       !copiedSoldier.uiPresentation().panelClosing() &&
+		       !copiedSoldier.uiPresentation().panelClosingForDeath() &&
+		       !copiedSoldier.uiPresentation().deadPanelShowing() &&
+		       !copiedSoldier.uiPresentation().panelOpening() &&
+		       !copiedSoldier.uiPresentation().locatorFlashing() &&
+		       !copiedSoldier.uiPresentation().locatorVisible() &&
+		       !copiedSoldier.uiPresentation().portraitFlashing() &&
+		       !copiedSoldier.uiPresentation().deadMercUiPending() &&
+		       !copiedSoldier.uiPresentation().newMercUiPending() &&
+		       !copiedSoldier.uiPresentation().closeMercUiPending() &&
+		       !copiedSoldier.uiPresentation().firstNoActionPoints() &&
+		       !copiedSoldier.uiPresentation().firstUnconscious(),
 		       "soldier initialization resets the complete UI-presentation domain" );
 		CHECK( copiedSoldier.suppression().underFire() == 0 &&
 		       copiedSoldier.suppression().shock() == 0 &&
@@ -9909,7 +10807,235 @@ int main( int, char** )
 	}
 
 	{
+		SOLDIERTYPE aiOwnedSoldier;
+		SoldierAiPlanningComponent& planning = aiOwnedSoldier.aiPlanning();
+		planning.lastAction() = -11;
+		planning.action() = 12;
+		planning.actionData() = 13001;
+		planning.queueAction(14, 15001);
+		planning.actionInProgress() = 1;
+		planning.nextTargetLevel() = 2;
+		planning.dominantDirection() = 3;
+		planning.patrolCount() = 4;
+		planning.nextPatrolPoint() = 2;
+		planning.patrolGrid()[0] = 16001;
+		planning.patrolGrid()[SOLDIER_PATROL_GRID_COUNT - 1] = 16010;
+		planning.aimTime() = 17;
+		planning.shownAimTime() = 18;
+
+		SoldierAiBehaviorComponent& behavior = aiOwnedSoldier.aiBehavior();
+		behavior.alertStatus() = 3;
+		behavior.neutral() = 1;
+		behavior.newSituation() = 2;
+		behavior.orders() = 4;
+		behavior.attitude() = 5;
+		behavior.underEscort() = 1;
+		behavior.bypassToGreen() = 30;
+		behavior.hunting() = 1;
+		behavior.mobility() = 2;
+		behavior.realtimeCombat() = 1;
+		behavior.flags() = 0x3f;
+
+		SoldierAiCommunicationComponent& communication =
+			aiOwnedSoldier.aiCommunication();
+		communication.lastMercToRadio() = 19;
+		communication.lastCall() = 20;
+		communication.caller() = SoldierID{ 21 };
+		communication.callerGrid() = 16011;
+		communication.callPriority() = 22;
+		communication.callActedUpon() = -1;
+
+		SoldierMoraleComponent& morale = aiOwnedSoldier.morale();
+		morale.morale() = 80;
+		morale.teamModifier() = -2;
+		morale.tacticalModifier() = 3;
+		morale.strategicModifier() = -4;
+		morale.aiMorale() = 5;
+		morale.frenzied() = 1;
+
+		aiOwnedSoldier.awareness().opponentKnowledge()[0] = 1;
+		aiOwnedSoldier.awareness().opponentKnowledge()[MAX_NUM_SOLDIERS - 1] = -2;
+		aiOwnedSoldier.awareness().opponentCount() = 7;
+		aiOwnedSoldier.perception().noiseGrid() = 16012;
+		aiOwnedSoldier.perception().noiseVolume() = 23;
+		aiOwnedSoldier.perception().xraySource() = SoldierID{ 24 };
+		aiOwnedSoldier.perception().normalSmell() = 25;
+		aiOwnedSoldier.perception().monsterSmell() = 26;
+		aiOwnedSoldier.position().animationHeightAdjustment() = 12.5f;
+		aiOwnedSoldier.combatResult().lastAttackHit() = 1;
+		aiOwnedSoldier.turnState().interruptDuelPoints() = -1;
+		aiOwnedSoldier.turnState().passedLastInterrupt() = 1;
+		aiOwnedSoldier.turnState().interruptStartActionPoints() = 77;
+		aiOwnedSoldier.turnState().moved() = 1;
+		aiOwnedSoldier.turnState().captureMoved(2);
+		aiOwnedSoldier.turnState().interruptCounters()[0] = 27;
+		aiOwnedSoldier.turnState().interruptCounters()[MAX_NUM_SOLDIERS - 1] = 28;
+
+		const SOLDIERTYPE& constAiOwnedSoldier = aiOwnedSoldier;
+		CHECK( constAiOwnedSoldier.aiPlanning().lastAction() == -11 &&
+		       constAiOwnedSoldier.aiPlanning().action() == 12 &&
+		       constAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
+		       constAiOwnedSoldier.aiPlanning().nextAction() == 14 &&
+		       constAiOwnedSoldier.aiPlanning().nextActionData() == 15001 &&
+		       constAiOwnedSoldier.aiPlanning().hasActionInProgress() &&
+		       constAiOwnedSoldier.aiPlanning().nextTargetLevel() == 2 &&
+		       constAiOwnedSoldier.aiPlanning().dominantDirection() == 3 &&
+		       constAiOwnedSoldier.aiPlanning().hasPatrolRoute() &&
+		       constAiOwnedSoldier.aiPlanning().patrolCount() == 4 &&
+		       constAiOwnedSoldier.aiPlanning().nextPatrolPoint() == 2 &&
+		       constAiOwnedSoldier.aiPlanning().patrolGrid()[0] == 16001 &&
+		       constAiOwnedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 16010 &&
+		       constAiOwnedSoldier.aiPlanning().aimTime() == 17 &&
+		       constAiOwnedSoldier.aiPlanning().shownAimTime() == 18,
+		       "soldier AI planning owns the complete action, patrol, and aiming plan" );
+		CHECK( constAiOwnedSoldier.aiBehavior().alertStatus() == 3 &&
+		       constAiOwnedSoldier.aiBehavior().neutral() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().newSituation() == 2 &&
+		       constAiOwnedSoldier.aiBehavior().orders() == 4 &&
+		       constAiOwnedSoldier.aiBehavior().attitude() == 5 &&
+		       constAiOwnedSoldier.aiBehavior().underEscort() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
+		       constAiOwnedSoldier.aiBehavior().hunting() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().mobility() == 2 &&
+		       constAiOwnedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().hasFlag(0x20),
+		       "soldier AI behavior owns alert, disposition, escort, creature, and scheduler modes" );
+		CHECK( constAiOwnedSoldier.aiCommunication().lastMercToRadio() == 19 &&
+		       constAiOwnedSoldier.aiCommunication().lastCall() == 20 &&
+		       constAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
+		       constAiOwnedSoldier.aiCommunication().callerGrid() == 16011 &&
+		       constAiOwnedSoldier.aiCommunication().callPriority() == 22 &&
+		       constAiOwnedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       constAiOwnedSoldier.morale().morale() == 80 &&
+		       constAiOwnedSoldier.morale().teamModifier() == -2 &&
+		       constAiOwnedSoldier.morale().tacticalModifier() == 3 &&
+		       constAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       constAiOwnedSoldier.morale().aiMorale() == 5 &&
+		       constAiOwnedSoldier.morale().isFrenzied(),
+		       "soldier communication and morale domains retain their independent lifecycles" );
+		CHECK( constAiOwnedSoldier.awareness().opponentKnowledge()[0] == 1 &&
+		       constAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -2 &&
+		       constAiOwnedSoldier.awareness().opponentCount() == 7 &&
+		       constAiOwnedSoldier.perception().noiseGrid() == 16012 &&
+		       constAiOwnedSoldier.perception().noiseVolume() == 23 &&
+		       constAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
+		       constAiOwnedSoldier.perception().normalSmell() == 25 &&
+		       constAiOwnedSoldier.perception().monsterSmell() == 26 &&
+		       constAiOwnedSoldier.position().animationHeightAdjustment() == 12.5f &&
+		       constAiOwnedSoldier.combatResult().lastAttackHit() == 1 &&
+		       constAiOwnedSoldier.turnState().interruptDuelPoints() == -1 &&
+		       constAiOwnedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       constAiOwnedSoldier.turnState().interruptStartActionPoints() == 77 &&
+		       constAiOwnedSoldier.turnState().moved() == 1 &&
+		       constAiOwnedSoldier.turnState().movedBeforeInterrupt() == 2 &&
+		       constAiOwnedSoldier.turnState().interruptCounters()[0] == 27 &&
+		       constAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 28,
+		       "soldier awareness, perception, position, combat, and turn owners retain the former AI aggregate state" );
+
+		SOLDIERTYPE copiedAiOwnedSoldier = aiOwnedSoldier;
+		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
+		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
+		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
+		       copiedAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -2 &&
+		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
+		       copiedAiOwnedSoldier.position().animationHeightAdjustment() == 12.5f &&
+		       copiedAiOwnedSoldier.combatResult().lastAttackHit() == 1 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 28,
+		       "soldier copies retain every domain formerly held by STRUCT_AIData" );
+
+		copiedAiOwnedSoldier.initialize();
+		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 0 &&
+		       copiedAiOwnedSoldier.aiPlanning().patrolGrid()[0] == 0 &&
+		       copiedAiOwnedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 0 &&
+		       copiedAiOwnedSoldier.aiBehavior().flags() == 0 &&
+		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 0 } &&
+		       copiedAiOwnedSoldier.morale().morale() == 0 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[0] == 0 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == 0 &&
+		       copiedAiOwnedSoldier.perception().noiseGrid() == 0 &&
+		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 0 } &&
+		       copiedAiOwnedSoldier.position().animationHeightAdjustment() == 0.0f &&
+		       copiedAiOwnedSoldier.combatResult().lastAttackHit() == 0 &&
+		       copiedAiOwnedSoldier.turnState().moved() == 0 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[0] == 0 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 0,
+		       "soldier initialization resets every former AI-data domain to the established zero state" );
+	}
+
+	{
 		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		legacySoldier->ubID = 37;
+		legacySoldier->name[0] = L'V';
+		legacySoldier->name[9] = L'1';
+		legacySoldier->ubBodyType = REGFEMALE;
+		legacySoldier->bActive = TRUE;
+		legacySoldier->bTeam = CIV_TEAM;
+		legacySoldier->bInSector = TRUE;
+		legacySoldier->bSide = 3;
+		legacySoldier->ubProfile = 42;
+		legacySoldier->ubSoldierClass = SOLDIER_CLASS_ADMINISTRATOR;
+		legacySoldier->ubCivilianGroup = 18;
+		legacySoldier->uiUniqueSoldierIdValue = 0x10203040u;
+		legacySoldier->bOppList[0] = 2;
+		legacySoldier->bOppList[MAX_NUM_SOLDIERS - 1] = -3;
+		legacySoldier->bLastAction = -4;
+		legacySoldier->bAction = 5;
+		legacySoldier->usActionData = 17001;
+		legacySoldier->bNextAction = 6;
+		legacySoldier->usNextActionData = 17002;
+		legacySoldier->bActionInProgress = 1;
+		legacySoldier->bAlertStatus = 2;
+		legacySoldier->bOppCnt = 3;
+		legacySoldier->bNeutral = 1;
+		legacySoldier->bNewSituation = 2;
+		legacySoldier->bNextTargetLevel = 1;
+		legacySoldier->bOrders = 4;
+		legacySoldier->bAttitude = 5;
+		legacySoldier->bUnderEscort = 1;
+		legacySoldier->bBypassToGreen = 15;
+		legacySoldier->ubLastMercToRadio = 6;
+		legacySoldier->bDominantDir = 7;
+		legacySoldier->bPatrolCnt = 8;
+		legacySoldier->bNextPatrolPnt = 2;
+		legacySoldier->usPatrolGrid[0] = 17003;
+		legacySoldier->usPatrolGrid[OLD_MAXPATROLGRIDS - 1] = 17012;
+		legacySoldier->sNoiseGridNo = 17013;
+		legacySoldier->ubNoiseVolume = 9;
+		legacySoldier->bLastAttackHit = 1;
+		legacySoldier->ubXRayedBy = 10;
+		legacySoldier->dHeightAdjustment = 11.5f;
+		legacySoldier->bMorale = 80;
+		legacySoldier->bTeamMoraleMod = -2;
+		legacySoldier->bTacticalMoraleMod = 3;
+		legacySoldier->bStrategicMoraleMod = -4;
+		legacySoldier->bAIMorale = 5;
+		legacySoldier->bInterruptDuelPts = -1;
+		legacySoldier->bPassedLastInterrupt = 1;
+		legacySoldier->bIntStartAPs = 77;
+		legacySoldier->bMoved = 1;
+		legacySoldier->bHunting = 1;
+		legacySoldier->ubLastCall = 12;
+		legacySoldier->ubCaller = 13;
+		legacySoldier->sCallerGridNo = 17014;
+		legacySoldier->bCallPriority = 14;
+		legacySoldier->bCallActedUpon = -1;
+		legacySoldier->bFrenzied = 1;
+		legacySoldier->bNormalSmell = 15;
+		legacySoldier->bMonsterSmell = 16;
+		legacySoldier->bMobility = 2;
+		legacySoldier->bRTPCombat = 1;
+		legacySoldier->fAIFlags = 0x3f;
+		legacySoldier->bAimTime = 18;
+		legacySoldier->bShownAimTime = 19;
 		legacySoldier->fDoSpread = TRUE;
 		legacySoldier->autofireLastStep = TRUE;
 		legacySoldier->bBulletsLeft = 3;
@@ -9923,6 +11049,12 @@ int main( int, char** )
 		legacySoldier->sZLevelOverride = 701;
 		legacySoldier->uiTimeOfLastRandomAction = 73;
 		legacySoldier->usLastRandomAnim = 702;
+		legacySoldier->ubWaitActionToDo = 2;
+		legacySoldier->bGunType = -5;
+		legacySoldier->ubOppNum = 21;
+		legacySoldier->bSlotItemTakenFrom = -7;
+		legacySoldier->usValueGoneUp = HEALTH_INCREASE | DEX_INCREASE;
+		legacySoldier->ubCTGTTargetID = 22;
 		legacySoldier->fIgnoreGetupFromCollapseCheck = TRUE;
 		legacySoldier->GetupFromJA25StartCounter = 1704;
 		legacySoldier->fWaitingToGetupFromJA25Start = TRUE;
@@ -9949,6 +11081,16 @@ int main( int, char** )
 		legacySoldier->sBoundingBoxOffsetX = -7;
 		legacySoldier->sBoundingBoxOffsetY = -8;
 		legacySoldier->sLocationOfFadeStart = 1705;
+		legacySoldier->fTurnInProgress = TRUE;
+		legacySoldier->fPrevInWater = TRUE;
+		legacySoldier->fUIMovementFast = 2;
+		legacySoldier->fNoAPToFinishMove = TRUE;
+		legacySoldier->fPausedMove = TRUE;
+		legacySoldier->fIsSoldierMoving = TRUE;
+		legacySoldier->fIsSoldierDelayed = TRUE;
+		legacySoldier->fSoldierWasMoving = TRUE;
+		legacySoldier->fPastXDest = -2;
+		legacySoldier->fPastYDest = 3;
 		legacySoldier->bMovedPriorToInterrupt = 1;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
@@ -9964,6 +11106,31 @@ int main( int, char** )
 		legacySoldier->bRegenerationCounter = -2;
 		legacySoldier->bRegenBoostersUsedToday = 3;
 		legacySoldier->uiTimeSinceLastBleedGrunt = 12348;
+		legacySoldier->bExpLevel = 7;
+		legacySoldier->bStrength = 81;
+		legacySoldier->bAgility = 82;
+		legacySoldier->bDexterity = 83;
+		legacySoldier->bWisdom = 84;
+		legacySoldier->bLeadership = 85;
+		legacySoldier->bMarksmanship = 86;
+		legacySoldier->bMechanical = 87;
+		legacySoldier->bExplosive = 88;
+		legacySoldier->bMedical = 89;
+		legacySoldier->bScientific = 90;
+		legacySoldier->ubSkillTrait1 = 11;
+		legacySoldier->ubSkillTrait2 = 12;
+		legacySoldier->bHasKeys = -6;
+		legacySoldier->fIntendedTarget = TRUE;
+		legacySoldier->fReloading = TRUE;
+		legacySoldier->fPauseAim = TRUE;
+		legacySoldier->fReactingFromBeingShot = TRUE;
+		legacySoldier->fCheckForNewlyAddedItems = TRUE;
+		legacySoldier->fSoldierUpdatedFromNetwork = TRUE;
+		legacySoldier->fDontUnsetLastTargetFromTurn = TRUE;
+		legacySoldier->fHitByGasFlags = 0x5A;
+		legacySoldier->fDoingExternalDeath = TRUE;
+		legacySoldier->lastFlankLeft = TRUE;
+		legacySoldier->uiStatusFlags = SOLDIER_PC | SOLDIER_MUTE;
 		legacySoldier->bService = 2;
 		legacySoldier->ubServiceCount = 3;
 		legacySoldier->ubServicePartner = 7;
@@ -9982,6 +11149,11 @@ int main( int, char** )
 		legacySoldier->bCurrentCivQuoteDelta = 1;
 		legacySoldier->uiTimeSinceLastSpoke = 12351;
 		legacySoldier->bCorpseQuoteTolerance = 2;
+		legacySoldier->fDeadSoundPlayed = 2;
+		legacySoldier->fWarnedAboutBleeding = 3;
+		legacySoldier->fDyingComment = 4;
+		legacySoldier->fSayAmmoQuotePending = 5;
+		legacySoldier->fDieSoundUsed = 6;
 		legacySoldier->bFlashPortraitFrame = -3;
 		legacySoldier->sLocatorFrame = 4;
 		legacySoldier->sLocatorOffX = 12;
@@ -9997,9 +11169,44 @@ int main( int, char** )
 		legacySoldier->sPlannedTargetY = 501;
 		legacySoldier->ubLastEnemyCycledID = 15;
 		legacySoldier->ubNumLocateCycles = 6;
+		legacySoldier->fClosePanel = TRUE;
+		legacySoldier->fClosePanelToDie = TRUE;
+		legacySoldier->fDeadPanel = TRUE;
+		legacySoldier->fOpenPanel = TRUE;
+		legacySoldier->fFlashLocator = 3;
+		legacySoldier->fShowLocator = TRUE;
+		legacySoldier->fFlashPortrait = 2;
+		legacySoldier->fUIdeadMerc = TRUE;
+		legacySoldier->fUInewMerc = TRUE;
+		legacySoldier->fUICloseMerc = TRUE;
+		legacySoldier->fUIFirstTimeNOAP = TRUE;
+		legacySoldier->fUIFirstTimeUNCON = TRUE;
 		legacySoldier->bLastSkillCheck = -6;
 		legacySoldier->ubSkillCheckAttempts = 3;
 		legacySoldier->sSkillCheckGridNo = 1410;
+		legacySoldier->uiChangeLevelTime = 2101;
+		legacySoldier->uiChangeHealthTime = 2102;
+		legacySoldier->uiChangeStrengthTime = 2103;
+		legacySoldier->uiChangeDexterityTime = 2104;
+		legacySoldier->uiChangeAgilityTime = 2105;
+		legacySoldier->uiChangeWisdomTime = 2106;
+		legacySoldier->uiChangeLeadershipTime = 2107;
+		legacySoldier->uiChangeMarksmanshipTime = 2108;
+		legacySoldier->uiChangeExplosivesTime = 2109;
+		legacySoldier->uiChangeMedicalTime = 2110;
+		legacySoldier->uiChangeMechanicalTime = 2111;
+		legacySoldier->UpdateCounter = 2201;
+		legacySoldier->DamageCounter = 2202;
+		legacySoldier->ReloadCounter = 2203;
+		legacySoldier->FlashSelCounter = 2204;
+		legacySoldier->AICounter = 2205;
+		legacySoldier->FadeCounter = 2206;
+		legacySoldier->PanelAnimateCounter = 2207;
+		legacySoldier->BlinkSelCounter = 2208;
+		legacySoldier->PortraitFlashCounter = 2209;
+		legacySoldier->NextTileCounter = 2210;
+		legacySoldier->uiAIDelay = 2211;
+		legacySoldier->sReloadDelay = -2212;
 		legacySoldier->ubPendingAction = MERC_GIVEITEM;
 		legacySoldier->ubPendingActionAnimCount = 11;
 		legacySoldier->uiPendingActionData1 = 1411;
@@ -10048,6 +11255,8 @@ int main( int, char** )
 		legacySoldier->iTimeCanSignElsewhere = 13001;
 		legacySoldier->bHospitalPriceModifier = -3;
 		legacySoldier->uiStartTimeOfInsuranceContract = 11001;
+		legacySoldier->fContractPriceHasIncreased = 2;
+		legacySoldier->fSignedAnotherContract = 3;
 		legacySoldier->bAssignment = TRAIN_BY_OTHER;
 		legacySoldier->bOldAssignment = ON_DUTY;
 		legacySoldier->bTrainStat = STRENGTH;
@@ -10056,6 +11265,12 @@ int main( int, char** )
 		legacySoldier->ubNumTraversalsAllowedToMerge = 5;
 		legacySoldier->ubHoursOnAssignment = 7;
 		legacySoldier->bVehicleUnderRepairID = -1;
+		legacySoldier->fFixingSAMSite = 4;
+		legacySoldier->fFixingRobot = 5;
+		legacySoldier->fForcedToStayAwake = 6;
+		legacySoldier->fDoneAssignmentAndNothingToDoFlag = 7;
+		legacySoldier->fMercAsleep = 8;
+		legacySoldier->fComplainedThatTired = 9;
 		legacySoldier->ubInsertionDirection = 4;
 		legacySoldier->ubGroupID = 43;
 		legacySoldier->sInsertionGridNo = 2300;
@@ -10071,6 +11286,9 @@ int main( int, char** )
 		legacySoldier->sPreTraversalGridNo = 2303;
 		legacySoldier->ubLeaveHistoryCode = 8;
 		legacySoldier->uiTimeSoldierWillArrive = 15000;
+		legacySoldier->fBetweenSectors = 2;
+		legacySoldier->fInMissionExitNode = 3;
+		legacySoldier->fUseLandingZoneForArrival = 4;
 		legacySoldier->bEndDoorOpenCode = 2;
 		legacySoldier->ubScheduleID = 42;
 		legacySoldier->sEndDoorOpenCodeData = 2310;
@@ -10151,6 +11369,38 @@ int main( int, char** )
 		convertedSoldier.vitals().beginSurgery();
 		convertedSoldier.vitals().unregainableBreath() = 333;
 		convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] = 8;
+		convertedSoldier.statistics().experienceLevel() = 99;
+		convertedSoldier.statistics().strength() = 99;
+		convertedSoldier.statistics().skillTrait(0) = 99;
+		convertedSoldier.statistics().skillTrait(
+			SoldierStatisticsComponent::SkillTraitCapacity - 1) = 99;
+		convertedSoldier.status().flags() = SOLDIER_DEAD;
+		convertedSoldier.inventoryState().keyAccess() = 99;
+		convertedSoldier.inventoryState().checkForNewItems() = FALSE;
+		convertedSoldier.inventoryState().zipperFlag() = TRUE;
+		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
+		convertedSoldier.replication().updatedFromNetwork() = FALSE;
+		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
+		convertedSoldier.aiPlanning().actionData() = 99901;
+		convertedSoldier.aiPlanning().patrolGrid()[0] = 99902;
+		convertedSoldier.aiBehavior().flags() = -1;
+		convertedSoldier.aiCommunication().caller() = SoldierID{ 99 };
+		convertedSoldier.morale().morale() = 99;
+		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
+		convertedSoldier.perception().noiseGrid() = 99903;
+		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
+		convertedSoldier.combatResult().lastAttackHit() = 99;
+		convertedSoldier.turnState().moved() = 99;
+		convertedSoldier.turnState().interruptCounters()[0] = 99;
+		convertedSoldier.turnState().interruptCounters()[
+			MAX_NUM_SOLDIERS - 1] = 99;
+		convertedSoldier.condition().gasHitFlags() = 0xFF;
+		convertedSoldier.targeting().intendedTarget() = FALSE;
+		convertedSoldier.targeting().retainLastTargetFromTurn() = FALSE;
+		convertedSoldier.fireControl().reloading() = FALSE;
+		convertedSoldier.fireControl().aimPaused() = FALSE;
+		convertedSoldier.animationActivity().reactingFromShot() = FALSE;
+		convertedSoldier.animationActivity().externalDeath() = FALSE;
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
@@ -10194,11 +11444,19 @@ int main( int, char** )
 		convertedSoldier.movement().setHighResolutionFacing(1, 2);
 		convertedSoldier.movement().animationDirection() = 3;
 		convertedSoldier.movement().requestGridUpdateSuppression();
-		convertedSoldier.interruptSnapshot().captureMoved(9);
+		convertedSoldier.movement().clearUiMovementFast();
+		convertedSoldier.movement().clearPastDestination();
+		convertedSoldier.movement().requestWaitAction(9);
+		convertedSoldier.turnState().captureMoved(9);
+		convertedSoldier.targeting().engageOpponent(SoldierID{ 90 });
+		convertedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 91 });
 		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
 		convertedSoldier.meleeApproach().rememberGrid(9997);
 		convertedSoldier.fireControl().beginSpreadDrag(9998);
 		convertedSoldier.fireControl().updateSpreadDrag(9999);
+		convertedSoldier.fireControl().gunType() = 9;
+		convertedSoldier.fireControl().setGrenadeLauncherDelay(true);
+		convertedSoldier.fireControl().selectBarrelMode(9);
 		convertedSoldier.animationActivity().forecastTraversalAt(10000);
 		convertedSoldier.animationActivity().setRenderZOverride(1001);
 		convertedSoldier.animationActivity().randomActionCheckCounter() = 99;
@@ -10227,6 +11485,20 @@ int main( int, char** )
 		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
 		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		convertedSoldier.condition().addDisability(2);
+		convertedSoldier.drugState().duration(DRUG_EFFECT_HP) = 91;
+		convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) = 92;
+		convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) = 93;
+		convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) = -94;
+		convertedSoldier.drugState().applyTemporaryPersonality(5, 95);
+		convertedSoldier.drugState().applyTemporaryDisability(6, 96);
+		convertedSoldier.drugState().addAlcohol(1.75f);
+		convertedSoldier.statProgress().recordChange(
+			SoldierStatProgressComponent::Stat::Level, 9999);
+		convertedSoldier.statProgress().markIncreased(AGIL_INCREASE);
+		convertedSoldier.service().borrowInventorySlot(99);
+		convertedSoldier.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 9998);
+		convertedSoldier.timing().aiDelay() = 9997;
+		convertedSoldier.timing().reloadDelay() = 9996;
 		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
 		convertedSoldier.interaction().nonNpcTraderId() = 10;
 		convertedSoldier.interaction().draggedPerson() = SoldierID{ 26 };
@@ -10240,6 +11512,82 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
 		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
+		       convertedSoldier.identity().name()[0] == L'V' &&
+		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
+		       convertedSoldier.identity().bodyType() == REGFEMALE &&
+		       convertedSoldier.identity().profile() == 42 &&
+		       convertedSoldier.identity().incarnation() == 0x10203040u &&
+		       convertedSoldier.identity().dataProfile() == 0 &&
+		       convertedSoldier.identity().individualMilitiaId() == 0 &&
+		       convertedSoldier.roster().active() == TRUE &&
+		       convertedSoldier.roster().team() == CIV_TEAM &&
+		       convertedSoldier.roster().inSector() == TRUE &&
+		       convertedSoldier.roster().side() == 3 &&
+		       convertedSoldier.roster().soldierClass() ==
+		           SOLDIER_CLASS_ADMINISTRATOR &&
+		       convertedSoldier.roster().civilianGroup() == 18,
+		       "v101 soldier conversion maps every historical identity and roster value while clearing later profile links" );
+		CHECK( convertedSoldier.aiPlanning().lastAction() == -4 &&
+		       convertedSoldier.aiPlanning().action() == 5 &&
+		       convertedSoldier.aiPlanning().actionData() == 17001 &&
+		       convertedSoldier.aiPlanning().nextAction() == 6 &&
+		       convertedSoldier.aiPlanning().nextActionData() == 17002 &&
+		       convertedSoldier.aiPlanning().actionInProgress() == 1 &&
+		       convertedSoldier.aiPlanning().nextTargetLevel() == 1 &&
+		       convertedSoldier.aiPlanning().dominantDirection() == 7 &&
+		       convertedSoldier.aiPlanning().patrolCount() == 8 &&
+		       convertedSoldier.aiPlanning().nextPatrolPoint() == 2 &&
+		       convertedSoldier.aiPlanning().patrolGrid()[0] == 17003 &&
+		       convertedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 17012 &&
+		       convertedSoldier.aiPlanning().aimTime() == 18 &&
+		       convertedSoldier.aiPlanning().shownAimTime() == 19,
+		       "v101 soldier conversion maps the complete historical AI action, patrol, and aiming plan" );
+		CHECK( convertedSoldier.aiBehavior().alertStatus() == 2 &&
+		       convertedSoldier.aiBehavior().neutral() == 1 &&
+		       convertedSoldier.aiBehavior().newSituation() == 2 &&
+		       convertedSoldier.aiBehavior().orders() == 4 &&
+		       convertedSoldier.aiBehavior().attitude() == 5 &&
+		       convertedSoldier.aiBehavior().underEscort() == 1 &&
+		       convertedSoldier.aiBehavior().bypassToGreen() == 15 &&
+		       convertedSoldier.aiBehavior().hunting() == 1 &&
+		       convertedSoldier.aiBehavior().mobility() == 2 &&
+		       convertedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       convertedSoldier.aiBehavior().flags() == 0x3f,
+		       "v101 soldier conversion maps the complete historical AI behavior state" );
+		CHECK( convertedSoldier.aiCommunication().lastMercToRadio() == 6 &&
+		       convertedSoldier.aiCommunication().lastCall() == 12 &&
+		       convertedSoldier.aiCommunication().caller() == SoldierID{ 13 } &&
+		       convertedSoldier.aiCommunication().callerGrid() == 17014 &&
+		       convertedSoldier.aiCommunication().callPriority() == 14 &&
+		       convertedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       convertedSoldier.morale().morale() == 80 &&
+		       convertedSoldier.morale().teamModifier() == -2 &&
+		       convertedSoldier.morale().tacticalModifier() == 3 &&
+		       convertedSoldier.morale().strategicModifier() == -4 &&
+		       convertedSoldier.morale().aiMorale() == 5 &&
+		       convertedSoldier.morale().frenzied() == 1,
+		       "v101 soldier conversion maps AI communication and every morale channel" );
+		CHECK( convertedSoldier.awareness().opponentKnowledge()[0] == 2 &&
+		       convertedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -3 &&
+		       convertedSoldier.awareness().opponentCount() == 3 &&
+		       convertedSoldier.perception().noiseGrid() == 17013 &&
+		       convertedSoldier.perception().noiseVolume() == 9 &&
+		       convertedSoldier.perception().xraySource() == SoldierID{ 10 } &&
+		       convertedSoldier.perception().normalSmell() == 15 &&
+		       convertedSoldier.perception().monsterSmell() == 16 &&
+		       convertedSoldier.position().animationHeightAdjustment() == 11.5f &&
+		       convertedSoldier.combatResult().lastAttackHit() == 1 &&
+		       convertedSoldier.turnState().interruptDuelPoints() == -1 &&
+		       convertedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       convertedSoldier.turnState().interruptStartActionPoints() == 77 &&
+		       convertedSoldier.turnState().moved() == 1 &&
+		       convertedSoldier.turnState().interruptCounters()[0] == 0 &&
+		       convertedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 0,
+		       "v101 soldier conversion maps historical knowledge, perception, height, combat, and turn state while clearing later interrupt counters" );
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
 		       convertedSoldier.vitals().health() == 70 &&
@@ -10257,11 +11605,51 @@ int main( int, char** )
 		       convertedSoldier.vitals().unregainableBreath() == 0 &&
 		       convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 0,
 		       "v101 soldier conversion maps established vitals and clears fields absent from that schema" );
+		bool convertedHistoricalTraitTailCleared = true;
+		for (UINT8 trait = 2;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			convertedHistoricalTraitTailCleared &=
+				convertedSoldier.statistics().skillTrait(trait) == 0;
+		}
+		CHECK( convertedSoldier.statistics().experienceLevel() == 7 &&
+		       convertedSoldier.statistics().strength() == 81 &&
+		       convertedSoldier.statistics().agility() == 82 &&
+		       convertedSoldier.statistics().dexterity() == 83 &&
+		       convertedSoldier.statistics().wisdom() == 84 &&
+		       convertedSoldier.statistics().leadership() == 85 &&
+		       convertedSoldier.statistics().marksmanship() == 86 &&
+		       convertedSoldier.statistics().mechanical() == 87 &&
+		       convertedSoldier.statistics().explosives() == 88 &&
+		       convertedSoldier.statistics().medical() == 89 &&
+		       convertedSoldier.statistics().scientific() == 90 &&
+		       convertedSoldier.statistics().skillTrait(0) == 11 &&
+		       convertedSoldier.statistics().skillTrait(1) == 12 &&
+		       convertedHistoricalTraitTailCleared,
+		       "v101 soldier conversion maps all historical base statistics and clears later trait slots" );
+		CHECK( convertedSoldier.status().flags() ==
+			       (SOLDIER_PC | SOLDIER_MUTE) &&
+		       convertedSoldier.inventoryState().keyAccess() == -6 &&
+		       convertedSoldier.inventoryState().checkForNewItems() &&
+		       !convertedSoldier.inventoryState().zipperFlag() &&
+		       !convertedSoldier.inventoryState().dropPackFlag() &&
+		       convertedSoldier.replication().updatedFromNetwork() &&
+		       convertedSoldier.aiPlanning().lastFlankLeft() &&
+		       convertedSoldier.condition().gasHitFlags() == 0x5A &&
+		       convertedSoldier.targeting().intendedTarget() &&
+		       convertedSoldier.targeting().retainLastTargetFromTurn() &&
+		       convertedSoldier.fireControl().reloading() &&
+		       convertedSoldier.fireControl().aimPaused() &&
+		       convertedSoldier.animationActivity().reactingFromShot() &&
+		       convertedSoldier.animationActivity().externalDeath(),
+		       "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
-		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
-		       "v101 soldier conversion retains the complete tactical service relationship" );
+		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       convertedSoldier.service().borrowedInventorySlot() == -7,
+		       "v101 soldier conversion retains the complete tactical service and borrowed-slot state" );
 		CHECK( convertedSoldier.dialogue().quoteRecord() == 14 &&
 		       convertedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
 		       convertedSoldier.dialogue().battleSoundSet() == 5 &&
@@ -10275,8 +11663,13 @@ int main( int, char** )
 		       convertedSoldier.dialogue().currentCivilianQuote() == -3 &&
 		       convertedSoldier.dialogue().civilianQuoteDelta() == 1 &&
 		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
-		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2,
-		       "v101 soldier conversion retains the complete spoken-dialogue domain" );
+		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2 &&
+		       convertedSoldier.dialogue().deadSoundPlayedState() == 2 &&
+		       convertedSoldier.dialogue().bleedingWarningSpokenState() == 3 &&
+		       convertedSoldier.dialogue().dyingCommentSpokenState() == 4 &&
+		       convertedSoldier.dialogue().ammoQuotePendingState() == 5 &&
+		       convertedSoldier.dialogue().dieSoundUsedState() == 6,
+		       "v101 soldier conversion retains the complete spoken-dialogue and tactical-feedback domain" );
 		CHECK( convertedSoldier.audio().lastFootstepVariant() == 4 &&
 		       convertedSoldier.audio().doorOpeningNoise() == 19 &&
 		       convertedSoldier.audio().burstSoundId() == 501 &&
@@ -10316,8 +11709,20 @@ int main( int, char** )
 		       convertedSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       convertedSoldier.uiPresentation().plannedTargetY() == 501 &&
 		       convertedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 15 } &&
-		       convertedSoldier.uiPresentation().locateCycles() == 6,
-		       "v101 soldier conversion retains the complete UI-presentation domain" );
+		       convertedSoldier.uiPresentation().locateCycles() == 6 &&
+		       convertedSoldier.uiPresentation().panelClosing() &&
+		       convertedSoldier.uiPresentation().panelClosingForDeath() &&
+		       convertedSoldier.uiPresentation().deadPanelShowing() &&
+		       convertedSoldier.uiPresentation().panelOpening() &&
+		       convertedSoldier.uiPresentation().locatorFlashCycle() == 3 &&
+		       convertedSoldier.uiPresentation().locatorVisible() &&
+		       convertedSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       convertedSoldier.uiPresentation().deadMercUiPending() &&
+		       convertedSoldier.uiPresentation().newMercUiPending() &&
+		       convertedSoldier.uiPresentation().closeMercUiPending() &&
+		       convertedSoldier.uiPresentation().firstNoActionPoints() &&
+		       convertedSoldier.uiPresentation().firstUnconscious(),
+		       "v101 soldier conversion retains the complete UI-presentation and lifecycle domain" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -10343,6 +11748,43 @@ int main( int, char** )
 		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       convertedSoldier.condition().disabilityFlags() == 0,
 		       "v101 soldier conversion clears condition state absent from that schema" );
+		CHECK( convertedSoldier.drugState().duration(DRUG_EFFECT_HP) == 0 &&
+		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 0 &&
+		       convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       convertedSoldier.drugState().temporaryPersonality() == 0 &&
+		       convertedSoldier.drugState().temporaryPersonalityDuration() == 0 &&
+		       convertedSoldier.drugState().temporaryDisability() == 0 &&
+		       convertedSoldier.drugState().temporaryDisabilityDuration() == 0 &&
+		       !convertedSoldier.drugState().hasAlcohol(),
+		       "v101 soldier conversion clears drug state absent from that historical schema" );
+		CHECK( convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 2101 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 2102 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 2103 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 2104 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 2105 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 2106 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 2107 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 2108 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 2109 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 2110 &&
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111 &&
+		       convertedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | DEX_INCREASE),
+		       "v101 soldier conversion retains every historical stat-change value" );
+		CHECK( convertedSoldier.timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) == 2201 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::DamageDisplay) == 2202 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Reload) == 2203 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorFlash) == 2204 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Ai) == 2205 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Fade) == 2206 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PanelAnimation) == 2207 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorBlink) == 2208 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PortraitFlash) == 2209 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::NextTile) == 2210 &&
+		       convertedSoldier.timing().aiDelay() == 2211 &&
+		       convertedSoldier.timing().reloadDelay() == -2212,
+		       "v101 soldier conversion retains all ten counters and both timing delay values" );
 		CHECK( !convertedSoldier.longAction().active() &&
 		       convertedSoldier.longAction().action() == MTA_NONE &&
 		       convertedSoldier.longAction().contextGrid() == -1 &&
@@ -10413,8 +11855,10 @@ int main( int, char** )
 		       convertedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_115_USED &&
 		       convertedSoldier.employment().timeCanSignElsewhere() == 13001 &&
 		       convertedSoldier.employment().hospitalPriceModifier() == -3 &&
-		       convertedSoldier.employment().insuranceStartTime() == 11001,
-		       "v101 soldier conversion retains the complete employment and insurance lifecycle" );
+		       convertedSoldier.employment().insuranceStartTime() == 11001 &&
+		       convertedSoldier.employment().contractPriceIncreasedState() == 2 &&
+		       convertedSoldier.employment().signedAnotherContractState() == 3,
+		       "v101 soldier conversion retains the complete employment, insurance, and contract-decision lifecycle" );
 		CHECK( convertedSoldier.assignment().current() == TRAIN_BY_OTHER &&
 		       convertedSoldier.assignment().previous() == ON_DUTY &&
 		       convertedSoldier.assignment().trainingStat() == STRENGTH &&
@@ -10425,8 +11869,14 @@ int main( int, char** )
 		       convertedSoldier.assignment().repairVehicleId() == -1 &&
 		       convertedSoldier.assignment().facilityType() == 0 &&
 		       convertedSoldier.assignment().itemMoveSectorId() == 0 &&
-		       convertedSoldier.assignment().miniEventHoursRemaining() == 0,
-		       "v101 soldier conversion retains legacy assignment state and clears fields absent from v101" );
+		       convertedSoldier.assignment().miniEventHoursRemaining() == 0 &&
+		       convertedSoldier.assignment().fixingSamSiteState() == 4 &&
+		       convertedSoldier.assignment().fixingRobotState() == 5 &&
+		       convertedSoldier.assignment().forcedAwakeState() == 6 &&
+		       convertedSoldier.assignment().assignmentCompleteAndIdleState() == 7 &&
+		       convertedSoldier.assignment().asleepState() == 8 &&
+		       convertedSoldier.assignment().tiredComplaintState() == 9,
+		       "v101 soldier conversion retains legacy assignment repair, completion, and work/rest state" );
 		CHECK( convertedSoldier.deployment().insertionDirection() == 4 &&
 		       convertedSoldier.deployment().groupId() == 43 &&
 		       convertedSoldier.deployment().insertionGrid() == 2300 &&
@@ -10442,8 +11892,11 @@ int main( int, char** )
 		       convertedSoldier.deployment().arrivalTime() == 15000 &&
 		       !convertedSoldier.deployment().arrivalGetupPending() &&
 		       !convertedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       convertedSoldier.deployment().arrivalGetupCounter() == 0,
-		       "v101 soldier conversion retains deployment while clearing historically ignored arrival get-up state" );
+		       convertedSoldier.deployment().arrivalGetupCounter() == 0 &&
+		       convertedSoldier.deployment().betweenSectors() == 2 &&
+		       convertedSoldier.deployment().inMissionExitNode() == 3 &&
+		       convertedSoldier.deployment().useLandingZoneForArrival() == 4,
+		       "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state" );
 		CHECK( convertedSoldier.schedule().id() == 42 &&
 		       convertedSoldier.schedule().progress() == 3 &&
 		       !convertedSoldier.schedule().doorContinuationPending() &&
@@ -10477,14 +11930,28 @@ int main( int, char** )
 		       convertedSoldier.movement().highResolutionDesiredDirection() == 13 &&
 		       convertedSoldier.movement().animationDirection() == 5 &&
 		       convertedSoldier.movement().gridUpdatePolicy() ==
-		           LOCKED_NO_NEWGRIDNO,
-		       "v101 soldier conversion maps the established tactical movement intent and facing state" );
+		           LOCKED_NO_NEWGRIDNO &&
+		       convertedSoldier.movement().turnActive() &&
+		       convertedSoldier.movement().wasInWater() &&
+		       convertedSoldier.movement().uiMovementFast() == 2 &&
+		       convertedSoldier.movement().outOfActionPoints() &&
+		       convertedSoldier.movement().movementPaused() &&
+		       convertedSoldier.movement().recordingMovement() &&
+		       convertedSoldier.movement().delayedByNetwork() &&
+		       convertedSoldier.movement().wasMoving() &&
+		       convertedSoldier.movement().pastXDestination() == -2 &&
+		       convertedSoldier.movement().pastYDestination() == 3 &&
+		       convertedSoldier.movement().waitAction() == 2,
+		       "v101 soldier conversion retains movement intent, facing, wait, and complete activity state" );
+		CHECK( convertedSoldier.targeting().engagedOpponent() == SoldierID{ 21 } &&
+		       convertedSoldier.targeting().lineOfFireTarget() == SoldierID{ 22 },
+		       "v101 soldier conversion retains engaged-opponent and line-of-fire identities" );
 		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
 		       convertedSoldier.meleeApproach().grid() == 1700 &&
 		       convertedSoldier.meleeApproach().cost() == 23 &&
 		       convertedSoldier.meleeApproach().endDirection() == 0,
 		       "v101 soldier conversion maps the historical melee cache and clears later key fields" );
-		CHECK( convertedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		CHECK( convertedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "v101 soldier conversion retains the pre-interrupt moved snapshot" );
 		CHECK( convertedSoldier.animationActivity().traversalForecastGrid() == 1703 &&
 		       convertedSoldier.animationActivity().hasRenderZOverride() &&
@@ -10505,8 +11972,11 @@ int main( int, char** )
 		       convertedSoldier.fireControl().spreadLocations()[5] == 22006 &&
 		       convertedSoldier.fireControl().spreadDragStartGrid() == 1701 &&
 		       convertedSoldier.fireControl().spreadDragEndGrid() == 1702 &&
-		       convertedSoldier.fireControl().spreadDragMoved(),
-		       "v101 soldier conversion retains the complete fire-control spread array" );
+		       convertedSoldier.fireControl().spreadDragMoved() &&
+		       convertedSoldier.fireControl().gunType() == -5 &&
+		       convertedSoldier.fireControl().grenadeLauncherDelayMode() == 0 &&
+		       convertedSoldier.fireControl().barrelMode() == 0,
+		       "v101 soldier conversion retains historical fire control and clears later firing modes" );
 		CHECK( convertedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       convertedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
 		       convertedSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
@@ -10661,8 +12131,107 @@ int main( int, char** )
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
 		SOLDIERTYPE savedSoldier;
-		savedSoldier.stats.bExpLevel = 6;
-		savedSoldier.stats.bStrength = 77;
+		savedSoldier.identity().id() = SoldierID{ 47 };
+		savedSoldier.identity().name()[0] = L'S';
+		savedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] = L'R';
+		savedSoldier.identity().bodyType() = BIGMALE;
+		savedSoldier.identity().profile() = 52;
+		savedSoldier.identity().incarnation() = 0x50607080u;
+		savedSoldier.identity().dataProfile() = 402;
+		savedSoldier.identity().individualMilitiaId() = 0x90A0B0C0u;
+		savedSoldier.roster().active() = TRUE;
+		savedSoldier.roster().team() = ENEMY_TEAM;
+		savedSoldier.roster().inSector() = TRUE;
+		savedSoldier.roster().side() = 4;
+		savedSoldier.roster().soldierClass() = SOLDIER_CLASS_ARMY;
+		savedSoldier.roster().civilianGroup() = 19;
+		savedSoldier.aiPlanning().lastAction() = -21;
+		savedSoldier.aiPlanning().action() = 22;
+		savedSoldier.aiPlanning().actionData() = 23001;
+		savedSoldier.aiPlanning().queueAction(23, 24001);
+		savedSoldier.aiPlanning().actionInProgress() = 1;
+		savedSoldier.aiPlanning().nextTargetLevel() = 2;
+		savedSoldier.aiPlanning().dominantDirection() = 3;
+		savedSoldier.aiPlanning().patrolCount() = 4;
+		savedSoldier.aiPlanning().nextPatrolPoint() = 1;
+		savedSoldier.aiPlanning().patrolGrid()[0] = 25001;
+		savedSoldier.aiPlanning().patrolGrid()[
+			SOLDIER_PATROL_GRID_COUNT - 1] = 25010;
+		savedSoldier.aiPlanning().aimTime() = 26;
+		savedSoldier.aiPlanning().shownAimTime() = 27;
+		savedSoldier.aiBehavior().alertStatus() = 3;
+		savedSoldier.aiBehavior().neutral() = 1;
+		savedSoldier.aiBehavior().newSituation() = 2;
+		savedSoldier.aiBehavior().orders() = 4;
+		savedSoldier.aiBehavior().attitude() = 5;
+		savedSoldier.aiBehavior().underEscort() = 1;
+		savedSoldier.aiBehavior().bypassToGreen() = 20;
+		savedSoldier.aiBehavior().hunting() = 1;
+		savedSoldier.aiBehavior().mobility() = 2;
+		savedSoldier.aiBehavior().realtimeCombat() = 1;
+		savedSoldier.aiBehavior().flags() = 0x3e;
+		savedSoldier.aiCommunication().lastMercToRadio() = 28;
+		savedSoldier.aiCommunication().lastCall() = 29;
+		savedSoldier.aiCommunication().caller() = SoldierID{ 30 };
+		savedSoldier.aiCommunication().callerGrid() = 25011;
+		savedSoldier.aiCommunication().callPriority() = 31;
+		savedSoldier.aiCommunication().callActedUpon() = -1;
+		savedSoldier.morale().morale() = 81;
+		savedSoldier.morale().teamModifier() = -3;
+		savedSoldier.morale().tacticalModifier() = 4;
+		savedSoldier.morale().strategicModifier() = -5;
+		savedSoldier.morale().aiMorale() = 5;
+		savedSoldier.morale().frenzied() = 1;
+		savedSoldier.awareness().opponentKnowledge()[0] = 3;
+		savedSoldier.awareness().opponentKnowledge()[
+			MAX_NUM_SOLDIERS - 1] = -4;
+		savedSoldier.awareness().opponentCount() = 8;
+		savedSoldier.perception().noiseGrid() = 25012;
+		savedSoldier.perception().noiseVolume() = 32;
+		savedSoldier.perception().xraySource() = SoldierID{ 33 };
+		savedSoldier.perception().normalSmell() = 34;
+		savedSoldier.perception().monsterSmell() = 35;
+		savedSoldier.position().animationHeightAdjustment() = 13.5f;
+		savedSoldier.combatResult().lastAttackHit() = 1;
+		savedSoldier.turnState().interruptDuelPoints() = -2;
+		savedSoldier.turnState().passedLastInterrupt() = 1;
+		savedSoldier.turnState().interruptStartActionPoints() = 88;
+		savedSoldier.turnState().moved() = 1;
+		savedSoldier.turnState().interruptCounters()[0] = 36;
+		savedSoldier.turnState().interruptCounters()[
+			MAX_NUM_SOLDIERS - 1] = 37;
+		savedSoldier.statistics().experienceLevel() = 6;
+		savedSoldier.statistics().strength() = 77;
+		savedSoldier.statistics().agility() = 78;
+		savedSoldier.statistics().dexterity() = 79;
+		savedSoldier.statistics().wisdom() = 80;
+		savedSoldier.statistics().leadership() = 81;
+		savedSoldier.statistics().marksmanship() = 82;
+		savedSoldier.statistics().mechanical() = 83;
+		savedSoldier.statistics().explosives() = 84;
+		savedSoldier.statistics().medical() = 85;
+		savedSoldier.statistics().scientific() = 86;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			savedSoldier.statistics().skillTrait(trait) = 101 + trait;
+		}
+		savedSoldier.status().flags() =
+			SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER;
+		savedSoldier.inventoryState().keyAccess() = -7;
+		savedSoldier.inventoryState().checkForNewItems() = TRUE;
+		savedSoldier.inventoryState().zipperFlag() = TRUE;
+		savedSoldier.inventoryState().dropPackFlag() = TRUE;
+		savedSoldier.replication().updatedFromNetwork() = TRUE;
+		savedSoldier.aiPlanning().lastFlankLeft() = TRUE;
+		savedSoldier.condition().gasHitFlags() = 0xA6;
+		savedSoldier.targeting().intendedTarget() = TRUE;
+		savedSoldier.targeting().retainLastTargetFromTurn() = TRUE;
+		savedSoldier.fireControl().reloading() = TRUE;
+		savedSoldier.fireControl().aimPaused() = TRUE;
+		savedSoldier.animationActivity().reactingFromShot() = TRUE;
+		savedSoldier.animationActivity().externalDeath() = TRUE;
 		savedSoldier.vitals().health() = 71;
 		savedSoldier.vitals().maximumHealth() = 89;
 		savedSoldier.vitals().breath() = 62;
@@ -10686,6 +12255,7 @@ int main( int, char** )
 		savedSoldier.service().addProvider();
 		savedSoldier.service().beginProvidingTo( SoldierID{ 15 } );
 		savedSoldier.service().assignAutoBandagingMedic( SoldierID{ 16 } );
+		savedSoldier.service().borrowInventorySlot( -9 );
 		savedSoldier.dialogue().quoteRecord() = 15;
 		savedSoldier.dialogue().quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
 		savedSoldier.dialogue().battleSoundSet() = 6;
@@ -10699,6 +12269,11 @@ int main( int, char** )
 		savedSoldier.dialogue().civilianQuoteDelta() = 3;
 		savedSoldier.dialogue().recordSpokeAt(12353);
 		savedSoldier.dialogue().corpseQuoteTolerance() = 4;
+		savedSoldier.dialogue().markDeathSoundPlayed();
+		savedSoldier.dialogue().markBleedingWarningSpoken();
+		savedSoldier.dialogue().markDyingCommentSpoken();
+		savedSoldier.dialogue().queueAmmoQuote();
+		savedSoldier.dialogue().markDeathBattleSoundUsed();
 		savedSoldier.audio().recordFootstepVariant(5);
 		savedSoldier.audio().recordDoorOpeningNoise(20);
 		savedSoldier.audio().startBurstSound(601);
@@ -10730,6 +12305,17 @@ int main( int, char** )
 		savedSoldier.uiPresentation().setPanelFacePosition(110, 111);
 		savedSoldier.uiPresentation().setPlannedTarget(600, 601, 16);
 		savedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 17 };
+		savedSoldier.uiPresentation().panelCloseRequested() = TRUE;
+		savedSoldier.uiPresentation().panelCloseForDeath() = TRUE;
+		savedSoldier.uiPresentation().deadPanelActive() = TRUE;
+		savedSoldier.uiPresentation().panelOpenRequested() = TRUE;
+		savedSoldier.uiPresentation().showLocator();
+		savedSoldier.uiPresentation().startPortraitFlash();
+		savedSoldier.uiPresentation().queueDeadMercUi();
+		savedSoldier.uiPresentation().queueNewMercUi();
+		savedSoldier.uiPresentation().queueCloseMercUi();
+		savedSoldier.uiPresentation().markNoActionPoints();
+		savedSoldier.uiPresentation().markUnconscious();
 		savedSoldier.replication().movementStartedAt() = 26001;
 		savedSoldier.replication().optimumMovementTime() = 26002;
 		savedSoldier.replication().recordUpdate(26003);
@@ -10779,6 +12365,40 @@ int main( int, char** )
 		savedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		savedSoldier.condition().addDisability(5);
 		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
+		for (UINT8 effect = 0;
+		     effect < SoldierDrugStateComponent::EffectCapacity;
+		     ++effect)
+		{
+			savedSoldier.drugState().duration(effect) = 3301 + effect;
+			savedSoldier.drugState().magnitude(effect) = -301 + effect;
+		}
+		savedSoldier.drugState().temporaryPersonality() = 7;
+		savedSoldier.drugState().temporaryPersonalityDuration() = 3321;
+		savedSoldier.drugState().temporaryDisability() = 8;
+		savedSoldier.drugState().temporaryDisabilityDuration() = 3322;
+		savedSoldier.drugState().alcoholLevel() = 1.875f;
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Level, 3101);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, 3102);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, 3103);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, 3104);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, 3105);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, 3106);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, 3107);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, 3108);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, 3109);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, 3110);
+		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, 3111);
+		savedSoldier.statProgress().markIncreased(HEALTH_INCREASE | WIS_INCREASE);
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			savedSoldier.timing().counter(
+				static_cast<SoldierTimingComponent::Timer>(timerIndex)) =
+				3201 + timerIndex;
+		}
+		savedSoldier.timing().aiDelay() = 3211;
+		savedSoldier.timing().reloadDelay() = -3212;
 		savedSoldier.longAction().begin(MTA_REMOVE_FORTIFY, 1520, 34);
 		savedSoldier.interaction().nonNpcTraderId() = 11;
 		savedSoldier.interaction().draggedPerson() = SoldierID{ 29 };
@@ -10836,6 +12456,8 @@ int main( int, char** )
 		savedSoldier.employment().timeCanSignElsewhere() = 23000;
 		savedSoldier.employment().hospitalPriceModifier() = -4;
 		savedSoldier.employment().insuranceStartTime() = 21000;
+		savedSoldier.employment().markContractPriceIncreased();
+		savedSoldier.employment().markSignedAnotherContract();
 		savedSoldier.assignment().current() = TRAIN_SELF;
 		savedSoldier.assignment().previous() = TRAIN_TEAMMATE;
 		savedSoldier.assignment().trainingStat() = STRENGTH;
@@ -10847,6 +12469,12 @@ int main( int, char** )
 		savedSoldier.assignment().facilityType() = 7;
 		savedSoldier.assignment().itemMoveSectorId() = 48;
 		savedSoldier.assignment().miniEventHoursRemaining() = 14;
+		savedSoldier.assignment().setFixingSamSite(TRUE);
+		savedSoldier.assignment().setFixingRobot(TRUE);
+		savedSoldier.assignment().forceAwake();
+		savedSoldier.assignment().setAssignmentCompleteAndIdle(true);
+		savedSoldier.assignment().fallAsleep();
+		savedSoldier.assignment().markTiredComplaint();
 		savedSoldier.deployment().insertionDirection() = -4;
 		savedSoldier.deployment().groupId() = 44;
 		savedSoldier.deployment().insertionGrid() = 2400;
@@ -10859,6 +12487,9 @@ int main( int, char** )
 		savedSoldier.deployment().scheduleArrival(16000, 9);
 		savedSoldier.deployment().beginArrivalGetup();
 		savedSoldier.deployment().arrivalGetupCounter() = 17000;
+		savedSoldier.deployment().beginStrategicTransit();
+		savedSoldier.deployment().enterMissionExitNode();
+		savedSoldier.deployment().setUseLandingZoneForArrival(true);
 		savedSoldier.schedule().id() = 43;
 		savedSoldier.schedule().progress() = 4;
 		savedSoldier.schedule().beginDoorContinuation(2404);
@@ -10907,10 +12538,23 @@ int main( int, char** )
 		savedSoldier.movement().delayedFlags() = 3;
 		savedSoldier.movement().stopReason() = 4;
 		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
-		savedSoldier.interruptSnapshot().captureMoved(1);
+		savedSoldier.movement().beginTurn();
+		savedSoldier.movement().rememberWaterState(true);
+		savedSoldier.movement().setUiMovementFast(TRUE);
+		savedSoldier.movement().setOutOfActionPoints(true);
+		savedSoldier.movement().pauseMovement();
+		savedSoldier.movement().startMovementClock();
+		savedSoldier.movement().setNetworkDelayed(true);
+		savedSoldier.movement().syncPresentationMotion(true);
+		savedSoldier.movement().pastXDestination() = -3;
+		savedSoldier.movement().pastYDestination() = 4;
+		savedSoldier.movement().requestWaitAction(2);
+		savedSoldier.turnState().captureMoved(1);
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
 		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
+		savedSoldier.targeting().engageOpponent(SoldierID{ 18 });
+		savedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 19 });
 		savedSoldier.attackSelection().selectWeapon(SECONDHANDPOS, 444);
 		savedSoldier.attackSelection().weaponMode() = WM_ATTACHED_GL_AUTO;
 		savedSoldier.attackSelection().scopeMode() = USE_SCOPE_3;
@@ -10937,6 +12581,9 @@ int main( int, char** )
 		savedSoldier.fireControl().barrelCounter() = 3;
 		savedSoldier.fireControl().beginSpreadDrag(1510);
 		savedSoldier.fireControl().updateSpreadDrag(1512);
+		savedSoldier.fireControl().gunType() = -6;
+		savedSoldier.fireControl().setGrenadeLauncherDelay(true);
+		savedSoldier.fireControl().selectBarrelMode(5);
 		savedSoldier.combatResult().recordHit(SoldierID{ 12 }, AIM_SHOT_HEAD);
 		savedSoldier.combatResult().previousAttacker() = SoldierID{ 11 };
 		savedSoldier.combatResult().earlierAttacker() = SoldierID{ 10 };
@@ -11010,8 +12657,125 @@ int main( int, char** )
 		guiCurrentSaveGameVersion = previousSaveVersion;
 
 		CHECK( saved && loaded &&
-		       loadedSoldier.stats.bExpLevel == 6 &&
-		       loadedSoldier.stats.bStrength == 77 &&
+		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
+		       loadedSoldier.identity().name()[0] == L'S' &&
+		       loadedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'R' &&
+		       loadedSoldier.identity().bodyType() == BIGMALE &&
+		       loadedSoldier.identity().profile() == 52 &&
+		       loadedSoldier.identity().incarnation() == 0x50607080u &&
+		       loadedSoldier.identity().dataProfile() == 402 &&
+		       loadedSoldier.identity().individualMilitiaId() == 0x90A0B0C0u &&
+		       loadedSoldier.roster().active() == TRUE &&
+		       loadedSoldier.roster().team() == ENEMY_TEAM &&
+		       loadedSoldier.roster().inSector() == TRUE &&
+		       loadedSoldier.roster().side() == 4 &&
+		       loadedSoldier.roster().soldierClass() == SOLDIER_CLASS_ARMY &&
+		       loadedSoldier.roster().civilianGroup() == 19,
+		       "soldier save/load round-trips every identity and roster value at established schema positions" );
+		bool loadedStatisticsTraitsMatch = saved && loaded;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			loadedStatisticsTraitsMatch &=
+				loadedSoldier.statistics().skillTrait(trait) == 101 + trait;
+		}
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiPlanning().lastAction() == -21 &&
+		       loadedSoldier.aiPlanning().action() == 22 &&
+		       loadedSoldier.aiPlanning().actionData() == 23001 &&
+		       loadedSoldier.aiPlanning().nextAction() == 23 &&
+		       loadedSoldier.aiPlanning().nextActionData() == 24001 &&
+		       loadedSoldier.aiPlanning().actionInProgress() == 1 &&
+		       loadedSoldier.aiPlanning().nextTargetLevel() == 2 &&
+		       loadedSoldier.aiPlanning().dominantDirection() == 3 &&
+		       loadedSoldier.aiPlanning().patrolCount() == 4 &&
+		       loadedSoldier.aiPlanning().nextPatrolPoint() == 1 &&
+		       loadedSoldier.aiPlanning().patrolGrid()[0] == 25001 &&
+		       loadedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 25010 &&
+		       loadedSoldier.aiPlanning().aimTime() == 26 &&
+		       loadedSoldier.aiPlanning().shownAimTime() == 27,
+		       "soldier save/load round-trips the component-owned AI action, patrol, and aiming plan at every established position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiBehavior().alertStatus() == 3 &&
+		       loadedSoldier.aiBehavior().neutral() == 1 &&
+		       loadedSoldier.aiBehavior().newSituation() == 2 &&
+		       loadedSoldier.aiBehavior().orders() == 4 &&
+		       loadedSoldier.aiBehavior().attitude() == 5 &&
+		       loadedSoldier.aiBehavior().underEscort() == 1 &&
+		       loadedSoldier.aiBehavior().bypassToGreen() == 20 &&
+		       loadedSoldier.aiBehavior().hunting() == 1 &&
+		       loadedSoldier.aiBehavior().mobility() == 2 &&
+		       loadedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       loadedSoldier.aiBehavior().flags() == 0x3e,
+		       "soldier save/load round-trips the complete component-owned AI behavior state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiCommunication().lastMercToRadio() == 28 &&
+		       loadedSoldier.aiCommunication().lastCall() == 29 &&
+		       loadedSoldier.aiCommunication().caller() == SoldierID{ 30 } &&
+		       loadedSoldier.aiCommunication().callerGrid() == 25011 &&
+		       loadedSoldier.aiCommunication().callPriority() == 31 &&
+		       loadedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       loadedSoldier.morale().morale() == 81 &&
+		       loadedSoldier.morale().teamModifier() == -3 &&
+		       loadedSoldier.morale().tacticalModifier() == 4 &&
+		       loadedSoldier.morale().strategicModifier() == -5 &&
+		       loadedSoldier.morale().aiMorale() == 5 &&
+		       loadedSoldier.morale().frenzied() == 1,
+		       "soldier save/load round-trips component-owned AI communication and morale" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.awareness().opponentKnowledge()[0] == 3 &&
+		       loadedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -4 &&
+		       loadedSoldier.awareness().opponentCount() == 8 &&
+		       loadedSoldier.perception().noiseGrid() == 25012 &&
+		       loadedSoldier.perception().noiseVolume() == 32 &&
+		       loadedSoldier.perception().xraySource() == SoldierID{ 33 } &&
+		       loadedSoldier.perception().normalSmell() == 34 &&
+		       loadedSoldier.perception().monsterSmell() == 35 &&
+		       loadedSoldier.position().animationHeightAdjustment() == 13.5f &&
+		       loadedSoldier.combatResult().lastAttackHit() == 1 &&
+		       loadedSoldier.turnState().interruptDuelPoints() == -2 &&
+		       loadedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       loadedSoldier.turnState().interruptStartActionPoints() == 88 &&
+		       loadedSoldier.turnState().moved() == 1 &&
+		       loadedSoldier.turnState().interruptCounters()[0] == 36 &&
+		       loadedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 37,
+		       "soldier save/load round-trips component-owned AI knowledge, perception, height, combat, and interrupt state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.statistics().experienceLevel() == 6 &&
+		       loadedSoldier.statistics().strength() == 77 &&
+		       loadedSoldier.statistics().agility() == 78 &&
+		       loadedSoldier.statistics().dexterity() == 79 &&
+		       loadedSoldier.statistics().wisdom() == 80 &&
+		       loadedSoldier.statistics().leadership() == 81 &&
+		       loadedSoldier.statistics().marksmanship() == 82 &&
+		       loadedSoldier.statistics().mechanical() == 83 &&
+		       loadedSoldier.statistics().explosives() == 84 &&
+		       loadedSoldier.statistics().medical() == 85 &&
+		       loadedSoldier.statistics().scientific() == 86 &&
+		       loadedStatisticsTraitsMatch,
+		       "soldier save/load round-trips the complete base-statistics and trait capacity at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.status().flags() ==
+			       (SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER) &&
+		       loadedSoldier.inventoryState().keyAccess() == -7 &&
+		       loadedSoldier.inventoryState().checkForNewItems() &&
+		       loadedSoldier.inventoryState().zipperFlag() &&
+		       loadedSoldier.inventoryState().dropPackFlag() &&
+		       loadedSoldier.replication().updatedFromNetwork() &&
+		       loadedSoldier.aiPlanning().lastFlankLeft() &&
+		       loadedSoldier.condition().gasHitFlags() == 0xA6 &&
+		       loadedSoldier.targeting().intendedTarget() &&
+		       loadedSoldier.targeting().retainLastTargetFromTurn() &&
+		       loadedSoldier.fireControl().reloading() &&
+		       loadedSoldier.fireControl().aimPaused() &&
+		       loadedSoldier.animationActivity().reactingFromShot() &&
+		       loadedSoldier.animationActivity().externalDeath(),
+		       "soldier save/load round-trips every former general flag through its established byte position and domain owner" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
 		       loadedSoldier.vitals().breath() == 62 &&
@@ -11034,8 +12798,9 @@ int main( int, char** )
 		       loadedSoldier.service().activity() == 3 &&
 		       loadedSoldier.service().providerCount() == 3 &&
 		       loadedSoldier.service().partner() == SoldierID{ 15 } &&
-		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 },
-		       "soldier save/load round-trips tactical service state at established schema positions" );
+		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 } &&
+		       loadedSoldier.service().borrowedInventorySlot() == -9,
+		       "soldier save/load round-trips tactical service and borrowed-slot state at established positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.dialogue().quoteRecord() == 15 &&
 		       loadedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_TURNTOWARDSPLAYER &&
@@ -11050,8 +12815,13 @@ int main( int, char** )
 		       loadedSoldier.dialogue().currentCivilianQuote() == -4 &&
 		       loadedSoldier.dialogue().civilianQuoteDelta() == 3 &&
 		       loadedSoldier.dialogue().lastSpokeAt() == 12353 &&
-		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4,
-		       "soldier save/load round-trips dialogue state at every established schema position" );
+		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4 &&
+		       loadedSoldier.dialogue().deathSoundPlayed() &&
+		       loadedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       loadedSoldier.dialogue().hasMadeDyingComment() &&
+		       loadedSoldier.dialogue().ammoQuotePending() &&
+		       loadedSoldier.dialogue().deathBattleSoundUsed(),
+		       "soldier save/load round-trips dialogue and tactical-feedback state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.audio().lastFootstepVariant() == 5 &&
 		       loadedSoldier.audio().doorOpeningNoise() == 20 &&
@@ -11074,8 +12844,20 @@ int main( int, char** )
 		       loadedSoldier.uiPresentation().plannedTargetX() == 600 &&
 		       loadedSoldier.uiPresentation().plannedTargetY() == 601 &&
 		       loadedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 17 } &&
-		       loadedSoldier.uiPresentation().locateCycles() == 8,
-		       "soldier save/load round-trips UI presentation at every established schema position" );
+		       loadedSoldier.uiPresentation().locateCycles() == 8 &&
+		       loadedSoldier.uiPresentation().panelClosing() &&
+		       loadedSoldier.uiPresentation().panelClosingForDeath() &&
+		       loadedSoldier.uiPresentation().deadPanelShowing() &&
+		       loadedSoldier.uiPresentation().panelOpening() &&
+		       loadedSoldier.uiPresentation().locatorFlashing() &&
+		       loadedSoldier.uiPresentation().locatorVisible() &&
+		       loadedSoldier.uiPresentation().portraitFlashing() &&
+		       loadedSoldier.uiPresentation().deadMercUiPending() &&
+		       loadedSoldier.uiPresentation().newMercUiPending() &&
+		       loadedSoldier.uiPresentation().closeMercUiPending() &&
+		       loadedSoldier.uiPresentation().firstNoActionPoints() &&
+		       loadedSoldier.uiPresentation().firstUnconscious(),
+		       "soldier save/load round-trips UI presentation and lifecycle at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.replication().movementStartedAt() == 26001 &&
 		       loadedSoldier.replication().optimumMovementTime() == 26002 &&
@@ -11137,6 +12919,51 @@ int main( int, char** )
 		       loadedSoldier.condition().hasDisability(5) &&
 		       loadedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier save/load round-trips condition state at every established schema position and fixed-capacity edge" );
+		bool loadedDrugStateMatches = saved && loaded;
+		for (UINT8 effect = 0;
+		     effect < SoldierDrugStateComponent::EffectCapacity;
+		     ++effect)
+		{
+			loadedDrugStateMatches &=
+				loadedSoldier.drugState().duration(effect) == 3301 + effect &&
+				loadedSoldier.drugState().magnitude(effect) == -301 + effect;
+		}
+		CHECK( loadedDrugStateMatches &&
+		       loadedSoldier.drugState().temporaryPersonality() == 7 &&
+		       loadedSoldier.drugState().temporaryPersonalityDuration() == 3321 &&
+		       loadedSoldier.drugState().temporaryDisability() == 8 &&
+		       loadedSoldier.drugState().temporaryDisabilityDuration() == 3322 &&
+		       loadedSoldier.drugState().alcoholLevel() == 1.875f,
+		       "soldier save/load round-trips the complete drug-state capacity at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 3101 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 3102 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 3103 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Dexterity) == 3104 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Agility) == 3105 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Wisdom) == 3106 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Leadership) == 3107 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 3108 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 3109 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 3110 &&
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 3111 &&
+		       loadedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | WIS_INCREASE),
+		       "soldier save/load round-trips stat timestamps and direction feedback at established positions" );
+		bool loadedTimingMatches = saved && loaded &&
+			loadedSoldier.timing().aiDelay() == 3211 &&
+			loadedSoldier.timing().reloadDelay() == -3212;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			loadedTimingMatches &=
+				loadedSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				3201 + timerIndex;
+		}
+		CHECK( loadedTimingMatches,
+		       "soldier save/load round-trips all ten counters and both timing delays at their established positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.longAction().active() &&
 		       loadedSoldier.longAction().action() == MTA_REMOVE_FORTIFY &&
@@ -11213,8 +13040,10 @@ int main( int, char** )
 		       loadedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       loadedSoldier.employment().timeCanSignElsewhere() == 23000 &&
 		       loadedSoldier.employment().hospitalPriceModifier() == -4 &&
-		       loadedSoldier.employment().insuranceStartTime() == 21000,
-		       "soldier save/load round-trips employment state at every established POD position" );
+		       loadedSoldier.employment().insuranceStartTime() == 21000 &&
+		       loadedSoldier.employment().hasContractPriceIncrease() &&
+		       loadedSoldier.employment().hasSignedAnotherContract(),
+		       "soldier save/load round-trips employment and contract-decision state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.assignment().current() == TRAIN_SELF &&
 		       loadedSoldier.assignment().previous() == TRAIN_TEAMMATE &&
@@ -11226,8 +13055,14 @@ int main( int, char** )
 		       loadedSoldier.assignment().repairVehicleId() == 3 &&
 		       loadedSoldier.assignment().facilityType() == 7 &&
 		       loadedSoldier.assignment().itemMoveSectorId() == 48 &&
-		       loadedSoldier.assignment().miniEventHoursRemaining() == 14,
-		       "soldier save/load round-trips assignment state at every established POD position" );
+		       loadedSoldier.assignment().miniEventHoursRemaining() == 14 &&
+		       loadedSoldier.assignment().isFixingSamSite() &&
+		       loadedSoldier.assignment().isFixingRobot() &&
+		       loadedSoldier.assignment().isForcedAwake() &&
+		       loadedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       loadedSoldier.assignment().isAsleep() &&
+		       loadedSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier save/load round-trips assignment repair, completion, and work/rest state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.deployment().insertionDirection() == -4 &&
 		       loadedSoldier.deployment().groupId() == 44 &&
@@ -11244,8 +13079,11 @@ int main( int, char** )
 		       loadedSoldier.deployment().arrivalTime() == 16000 &&
 		       loadedSoldier.deployment().arrivalGetupPending() &&
 		       loadedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       loadedSoldier.deployment().arrivalGetupCounter() == 17000,
-		       "soldier save/load round-trips deployment state at every established POD position" );
+		       loadedSoldier.deployment().arrivalGetupCounter() == 17000 &&
+		       loadedSoldier.deployment().isBetweenSectors() &&
+		       loadedSoldier.deployment().insideMissionExitNode() &&
+		       loadedSoldier.deployment().usesLandingZoneForArrival(),
+		       "soldier save/load round-trips deployment and transit state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.schedule().id() == 43 &&
 		       loadedSoldier.schedule().progress() == 4 &&
@@ -11295,8 +13133,19 @@ int main( int, char** )
 		       loadedSoldier.movement().animationDirection() == 6 &&
 		       loadedSoldier.movement().gridUpdatePolicy() ==
 		           LOCKED_NO_NEWGRIDNO &&
-		       loadedSoldier.movement().delayCounter() == 12,
-		       "soldier save/load round-trips component-owned movement intent, facing, grid policy, and delay counter" );
+		       loadedSoldier.movement().delayCounter() == 12 &&
+		       loadedSoldier.movement().turnActive() &&
+		       loadedSoldier.movement().wasInWater() &&
+		       loadedSoldier.movement().fastUiMovement() &&
+		       loadedSoldier.movement().outOfActionPoints() &&
+		       loadedSoldier.movement().movementPaused() &&
+		       loadedSoldier.movement().recordingMovement() &&
+		       loadedSoldier.movement().delayedByNetwork() &&
+		       loadedSoldier.movement().wasMoving() &&
+		       loadedSoldier.movement().pastXDestination() == -3 &&
+		       loadedSoldier.movement().pastYDestination() == 4 &&
+		       loadedSoldier.movement().waitAction() == 2,
+		       "soldier save/load round-trips component-owned movement intent, facing, and activity state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayedCauseGrid() == 1451,
 		       "soldier save/load round-trips the component-owned movement delay cause" );
@@ -11321,14 +13170,16 @@ int main( int, char** )
 		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
 		       "soldier save/load round-trips component-owned movement speed state" );
 		CHECK( saved && loaded &&
-		       loadedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       loadedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier save/load round-trips the interrupt scheduler snapshot" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.targeting().gridNo() == 1480 &&
 		       loadedSoldier.targeting().level() == 1 &&
 		       loadedSoldier.targeting().cubeLevel() == 4 &&
 		       loadedSoldier.targeting().lastGridNo() == 1479 &&
-		       loadedSoldier.targeting().targetId() == SoldierID{ 9 },
+		       loadedSoldier.targeting().targetId() == SoldierID{ 9 } &&
+		       loadedSoldier.targeting().engagedOpponent() == SoldierID{ 18 } &&
+		       loadedSoldier.targeting().lineOfFireTarget() == SoldierID{ 19 },
 		       "soldier save/load round-trips component-owned targeting state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.attackSelection().hand() == SECONDHANDPOS &&
@@ -11360,7 +13211,10 @@ int main( int, char** )
 		       loadedSoldier.fireControl().barrelCounter() == 3 &&
 		       loadedSoldier.fireControl().spreadDragStartGrid() == 1510 &&
 		       loadedSoldier.fireControl().spreadDragEndGrid() == 1512 &&
-		       loadedSoldier.fireControl().spreadDragMoved(),
+		       loadedSoldier.fireControl().spreadDragMoved() &&
+		       loadedSoldier.fireControl().gunType() == -6 &&
+		       loadedSoldier.fireControl().grenadeLauncherDelayMode() == 1 &&
+		       loadedSoldier.fireControl().barrelMode() == 5,
 		       "soldier save/load round-trips fire-control state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.combatResult().currentAttacker() == SoldierID{ 12 } &&

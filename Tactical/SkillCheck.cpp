@@ -27,17 +27,17 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 	// plus 1/2 strength scaled according to how hurt we are
 	bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
-	if (pSoldier->stats.bStrength > 0)
+	if (pSoldier->statistics().strength() > 0)
 	{
 		if ( fTrainer )
 		{
-			iEffStrength = pSoldier->stats.bStrength / 2;
-			iEffStrength += ( pSoldier->stats.bStrength / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
+			iEffStrength = pSoldier->statistics().strength() / 2;
+			iEffStrength += ( pSoldier->statistics().strength() / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 		else
 		{
-			iEffStrength = ( pSoldier->stats.bStrength + pSoldier->condition().extraStrength() )/ 2;
-			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->condition().extraStrength()) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
+			iEffStrength = ( pSoldier->statistics().strength() + pSoldier->condition().extraStrength() )/ 2;
+			iEffStrength += ( (pSoldier->statistics().strength() + pSoldier->condition().extraStrength()) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 	}
 	else
@@ -74,7 +74,7 @@ INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
 {
 	INT32	iEffWisdom;
 
-	iEffWisdom = pSoldier->stats.bWisdom;
+	iEffWisdom = pSoldier->statistics().wisdom();
 
 	iEffWisdom += pSoldier->condition().extraWisdom();
 
@@ -94,7 +94,7 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffAgility;
 
-	iEffAgility = pSoldier->stats.bAgility;
+	iEffAgility = pSoldier->statistics().agility();
 
 	if (AM_A_ROBOT(pSoldier))
 	{
@@ -130,7 +130,7 @@ INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMechanical;
 
-	iEffMechanical = pSoldier->stats.bMechanical;
+	iEffMechanical = pSoldier->statistics().mechanical();
 
 	iEffMechanical = EffectStatForBeingDrunk( pSoldier, iEffMechanical );
 
@@ -144,7 +144,7 @@ INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffExplosive;
 
-	iEffExplosive = pSoldier->stats.bExplosive;
+	iEffExplosive = pSoldier->statistics().explosives();
 
 	iEffExplosive = EffectStatForBeingDrunk( pSoldier, iEffExplosive );
 
@@ -158,7 +158,7 @@ INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMedical;
 
-	iEffMedical = pSoldier->stats.bMedical;
+	iEffMedical = pSoldier->statistics().medical();
 
 	iEffMedical = EffectStatForBeingDrunk( pSoldier, iEffMedical );
 
@@ -172,7 +172,7 @@ INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
 	INT32	iEffLeadership;
 	INT8	bDrunkLevel;
 
-	iEffLeadership = pSoldier->stats.bLeadership;
+	iEffLeadership = pSoldier->statistics().leadership();
 
 	// if we are drunk, effect leader ship in a +ve way...
 	bDrunkLevel = GetDrunkLevel( pSoldier );
@@ -200,7 +200,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 		0,		// Hung
 		};
 
-	iEffExpLevel = pSoldier->stats.bExpLevel;
+	iEffExpLevel = pSoldier->statistics().experienceLevel();
 
 	// SANDRO - STOMP traits - Squadleader bonus to effective level
 	if ( fTactical && gGameOptions.fNewTraitSystem && IS_MERC_BODY_TYPE( pSoldier ))
@@ -212,10 +212,10 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 
 	iEffExpLevel = iEffExpLevel + iExpModifier[ bDrunkLevel ];
 
-	if (pSoldier->ubProfile != NO_PROFILE)
+	if (pSoldier->identity().profile() != NO_PROFILE)
 	{
 		// Flugente: drugs can temporarily cause a merc to be claustrophobic
-		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->bActive && pSoldier->bInSector )
+		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			INT8 sectorz = pSoldier->deployment().sectorZ();
 			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
@@ -263,7 +263,7 @@ INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMarksmanship;
 
-	iEffMarksmanship = pSoldier->stats.bMarksmanship;
+	iEffMarksmanship = pSoldier->statistics().marksmanship();
 
 	iEffMarksmanship = EffectStatForBeingDrunk( pSoldier, iEffMarksmanship );
 
@@ -276,7 +276,7 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffDexterity;
 
-	iEffDexterity = pSoldier->stats.bDexterity;
+	iEffDexterity = pSoldier->statistics().dexterity();
 
 	if (AM_A_ROBOT(pSoldier))
 	{
@@ -769,7 +769,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Sociable - better performance in groups
 	if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_SOCIABLE ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_SOCIABLE );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_SOCIABLE );
 		if ( bNumMercs > 2 )
 			iChance += 5;
 		else if ( bNumMercs > 0 )
@@ -778,7 +778,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Loner - better performance when alone
 	else if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_LONER ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_LONER );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_LONER );
 		if ( bNumMercs == 0 )
 			iChance += 5;
 		else if ( bNumMercs <= 1 )
@@ -825,7 +825,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Show-off - better performance if some babes around to impress
 	else if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_SHOWOFF ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_SHOWOFF );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_SHOWOFF );
 		if ( bNumMercs > 1 )
 			iChance += 5;
 		else if ( bNumMercs > 0 )
@@ -952,7 +952,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 				{
 					if ( SpacesAway( pSoldier->position().gridNo(), pTeamSoldier->position().gridNo() ) < 15 )
 					{
-						bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );
+						bBuddyIndex = WhichBuddy( pTeamSoldier->identity().profile(), pSoldier->identity().profile() );
 						if ( bBuddyIndex >= 0 )
 						{
 							switch ( bBuddyIndex )
@@ -996,7 +996,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 						}
 
 						// Flugente: additional dialogue
-						AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pSoldier->ubProfile, 1 );
+						AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pSoldier->identity().profile(), 1 );
 					}
 				}
 			}

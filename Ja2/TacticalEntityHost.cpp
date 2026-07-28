@@ -24,8 +24,8 @@ TacticalEntityDirectory*& BoundDirectory() noexcept
 TacticalEntityId LegacyIdentity(const SOLDIERTYPE& soldier) noexcept
 {
 	return TacticalEntityId{
-		static_cast<std::uint16_t>(soldier.ubID),
-		soldier.uiUniqueSoldierIdValue};
+		static_cast<std::uint16_t>(soldier.identity().id()),
+		soldier.identity().incarnation()};
 }
 
 TacticalStance LegacyStance(const SOLDIERTYPE& soldier) noexcept
@@ -46,8 +46,8 @@ TacticalActorSnapshot LegacyState(
 {
 	return TacticalActorSnapshot{
 		LegacyIdentity(soldier),
-		static_cast<std::uint8_t>(soldier.bTeam),
-		static_cast<std::uint16_t>(soldier.ubProfile),
+		static_cast<std::uint8_t>(soldier.roster().team()),
+		static_cast<std::uint16_t>(soldier.identity().profile()),
 		soldier.position().gridNo(),
 		static_cast<std::int8_t>(soldier.position().level()),
 		soldier.position().direction(),
@@ -58,8 +58,8 @@ TacticalActorSnapshot LegacyState(
 		soldier.vitals().maximumHealth(),
 		soldier.vitals().breath(),
 		soldier.vitals().maximumBreath(),
-		soldier.bActive != FALSE,
-		soldier.bInSector != FALSE};
+		soldier.roster().active() != FALSE,
+		soldier.roster().inSector() != FALSE};
 }
 }
 
@@ -99,7 +99,7 @@ bool AdoptJa2TacticalEntity(SOLDIERTYPE& soldier) noexcept
 	const TacticalEntityId entity = LegacyIdentity(soldier);
 	if (!entity.valid() ||
 		!GetJa2SoldierRepository().contains(entity.slot, soldier) ||
-		!soldier.bActive)
+		!soldier.roster().active())
 		return false;
 	if (!BoundDirectory()->activate(entity)) return false;
 	if (BoundDirectory()->publishState(LegacyState(soldier))) return true;
@@ -121,7 +121,7 @@ bool SynchronizeJa2TacticalEntityState(
 	const TacticalEntityId entity = LegacyIdentity(soldier);
 	if (!entity.valid() ||
 		!GetJa2SoldierRepository().contains(entity.slot, soldier) ||
-		!soldier.bActive ||
+		!soldier.roster().active() ||
 		!BoundDirectory()->contains(entity))
 		return false;
 	return BoundDirectory()->publishState(LegacyState(soldier));
@@ -135,7 +135,7 @@ bool SynchronizeJa2TacticalEntityStates() noexcept
 		slot < soldiers.capacity(); ++slot)
 	{
 		const SOLDIERTYPE* soldier = soldiers.resolve(slot);
-		if (!soldier || !soldier->bActive)
+		if (!soldier || !soldier->roster().active())
 		{
 			if (BoundDirectory()->identity(slot).valid()) return false;
 			continue;
@@ -180,9 +180,9 @@ SOLDIERTYPE* ResolveJa2TacticalEntity(TacticalEntityId entity) noexcept
 		return nullptr;
 	SOLDIERTYPE* soldier =
 		GetJa2SoldierRepository().resolve(entity.slot);
-	if (!soldier || !soldier->bActive ||
-		static_cast<std::uint16_t>(soldier->ubID) != entity.slot ||
-		soldier->uiUniqueSoldierIdValue != entity.incarnation)
+	if (!soldier || !soldier->roster().active() ||
+		static_cast<std::uint16_t>(soldier->identity().id()) != entity.slot ||
+		soldier->identity().incarnation() != entity.incarnation)
 		return nullptr;
 	return soldier;
 }
@@ -199,7 +199,7 @@ bool Ja2TacticalEntityReference::capture(
 	reset();
 	if (!soldier) return false;
 	const std::uint16_t slot =
-		static_cast<std::uint16_t>(soldier->ubID);
+		static_cast<std::uint16_t>(soldier->identity().id());
 	const TacticalEntityId entity = GetJa2TacticalEntityId(slot);
 	if (!entity.valid() || ResolveJa2TacticalEntity(entity) != soldier)
 		return false;

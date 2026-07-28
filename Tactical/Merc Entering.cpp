@@ -994,7 +994,7 @@ void BeginMercEntering( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
 	ResetHeliSeats( );
 
-	AddMercToHeli( pSoldier->ubID );
+	AddMercToHeli( pSoldier->identity().id() );
 	
 	StartHelicopterRun();
 
@@ -1081,7 +1081,7 @@ SoldierID SpawnAirDropElite( INT32 sGridNo )
 	if ( !gbWorldSectorZ )
 	{
 		SECTORINFO *pSector = &SectorInfo[SECTOR( gWorldSectorX, gWorldSectorY )];
-		switch ( pSoldier->ubSoldierClass )
+		switch ( pSoldier->roster().soldierClass() )
 		{
 		case SOLDIER_CLASS_ADMINISTRATOR:	pSector->ubNumAdmins++; pSector->ubAdminsInBattle++; break;
 		case SOLDIER_CLASS_ARMY:			pSector->ubNumTroops++; pSector->ubTroopsInBattle++; break;
@@ -1094,7 +1094,7 @@ SoldierID SpawnAirDropElite( INT32 sGridNo )
 	UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 	//AllTeamsLookForAll( NO_INTERRUPTS );
 
-	return pSoldier->ubID;
+	return pSoldier->identity().id();
 }
 
 void InitiateEnemyAirDropSoldiers( INT32 sGridNo )

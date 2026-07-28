@@ -316,19 +316,19 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	INT8		bStructHeight;
 	INT8		bThroughWindowDirection;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY )
+	if ( pSoldier->status().flags() & SOLDIER_ENEMY )
 	{
 		//pSoldier->needToLookForItems = FALSE;
 		return;
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
 
 	// Return if this guy has no gridno, has bad life, etc	
-	if(TileIsOutOfBounds(pSoldier->position().gridNo()) || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
+	if(TileIsOutOfBounds(pSoldier->position().gridNo()) || !pSoldier->roster().inSector() || pSoldier->vitals().health() < OKLIFE )
 	{
 		return;
 	}
@@ -359,7 +359,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	//NumMessage("good old reveal",dir);
 
 	// a gassed merc can only see 1 tile away due to blurred vision
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		range = 1;
 	}
@@ -540,7 +540,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 
 			if ( IS_TRAVELCOST_DOOR( ubMovementCost ) )
 			{
-				ubMovementCost = DoorTravelCost( pSoldier, marker, ubMovementCost, (BOOLEAN) (pSoldier->bTeam == gbPlayerNum), &iDoorGridNo );
+				ubMovementCost = DoorTravelCost( pSoldier, marker, ubMovementCost, (BOOLEAN) (pSoldier->roster().team() == gbPlayerNum), &iDoorGridNo );
 				pStructure = FindStructure( iDoorGridNo, STRUCTURE_ANYDOOR );
 				if ( pStructure != NULL && pStructure->fFlags & STRUCTURE_TRANSPARENT)
 				{
@@ -747,7 +747,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 												if ( GetJa2PendingTacticalCombatActions() > 0 && ( IsJa2TacticalCombatActive() ) )
 												{
 													gTacticalStatus.fItemsSeenOnAttack = TRUE;
-													gTacticalStatus.ubItemsSeenOnAttackSoldier = pSoldier->ubID;
+													gTacticalStatus.ubItemsSeenOnAttackSoldier = pSoldier->identity().id();
 													gTacticalStatus.usItemsSeenOnAttackGridNo  = marker;
 												}
 												else

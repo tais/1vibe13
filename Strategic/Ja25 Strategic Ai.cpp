@@ -354,7 +354,7 @@ BOOLEAN	AreAnyPlayerMercsStillInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSe
 	for( iCnt = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; iCnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; iCnt++ )
 	{
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(iCnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			if( pSoldier->deployment().sectorX() == sSectorX &&
 					pSoldier->deployment().sectorY() == sSectorY &&
@@ -2416,17 +2416,17 @@ if ( gGameUBOptions.pJA2UB == TRUE )
   for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; cnt++)
 	{	
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector )
+		if( pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			// send soldier to centre of map, roughly
-			pSoldier->aiData.sNoiseGridno = sGridNoToGoto;
+			pSoldier->perception().noiseGrid() = sGridNoToGoto;
 			pSoldier->perception().heardNoiseLevel() = 0;
-			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION / 2;
+			pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION / 2;
 
-			pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
-			pSoldier->flags.bHasKeys = TRUE;
+			pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
+			pSoldier->inventoryState().keyAccess() = TRUE;
 
-			pSoldier->aiData.bOrders = SEEKENEMY;
+			pSoldier->aiBehavior().orders() = SEEKENEMY;
 		}
 	}
 }
@@ -2518,7 +2518,7 @@ BOOLEAN AreAllPlayerMercTraversingBetweenSectors()
   for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++)
 	{	
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			pGroup = GetGroup( pSoldier->deployment().groupId() );
 
@@ -2720,20 +2720,20 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 	{    
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive, in this sector, etc...
-		if( pSoldier->bActive	&&
+		if( pSoldier->roster().active()	&&
 				pSoldier->deployment().sectorX() == 8 &&
 				pSoldier->deployment().sectorY() == 8 &&
 				pSoldier->deployment().sectorZ() == 0 &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!pSoldier->flags.fBetweenSectors )
+				!pSoldier->deployment().isBetweenSectors() )
 		{
 			//if the merc is either PGC, gaston, or stogie
-			if( pSoldier->ubProfile == GASTON_UB ||
-					pSoldier->ubProfile == STOGIE_UB ||
+			if( pSoldier->identity().profile() == GASTON_UB ||
+					pSoldier->identity().profile() == STOGIE_UB ||
 					pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
 
 			{
-				ubMercArray[ ubNumMercs++ ] = pSoldier->ubID;
+				ubMercArray[ ubNumMercs++ ] = pSoldier->identity().id();
 			}
 		}
 	}

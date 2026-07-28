@@ -4202,7 +4202,7 @@ void InternalInitEDBTooltipRegion( OBJECTTYPE * gpItemDescObject, UINT32 guiCurr
 			}
 			
 			////////////////////// MORAL MODIFIER
-			if ( FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[foodtype] != 0 )
+			if ( FoodOpinions[GetItemDescSoldier()->identity().profile()].sFoodOpinion[foodtype] != 0 )
 			{
 				if (cnt >= sFirstLine && cnt < sLastLine)
 				{
@@ -5903,8 +5903,8 @@ void DrawAdvancedStats( OBJECTTYPE * gpItemDescObject )
 				cnt++;
 			}
 
-			if ( ( FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[Item[gpItemDescObject->usItem].foodtype] != 0 ) ||
-				( fComparisonMode && FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[Item[gpComparedItemDescObject->usItem].foodtype] != 0 ) )
+			if ( ( FoodOpinions[GetItemDescSoldier()->identity().profile()].sFoodOpinion[Item[gpItemDescObject->usItem].foodtype] != 0 ) ||
+				( fComparisonMode && FoodOpinions[GetItemDescSoldier()->identity().profile()].sFoodOpinion[Item[gpComparedItemDescObject->usItem].foodtype] != 0 ) )
 			{
 				//////////////////// MORAL MODIFIER
 				if (cnt >= sFirstLine && cnt < sLastLine)
@@ -14576,10 +14576,10 @@ if( g_lang == i18n::Lang::zh ) {
 			}
 
 			////////////////////////// MORALE MODIFIER
-			iModifier[0] = FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[fFoodtype];
+			iModifier[0] = FoodOpinions[GetItemDescSoldier()->identity().profile()].sFoodOpinion[fFoodtype];
 			if( fComparisonMode )
 			{
-				iComparedModifier[0] = FoodOpinions[GetItemDescSoldier()->ubProfile].sFoodOpinion[fComparedFoodtype];
+				iComparedModifier[0] = FoodOpinions[GetItemDescSoldier()->identity().profile()].sFoodOpinion[fComparedFoodtype];
 				iModifier[0] = iComparedModifier[0] - iModifier[0];
 			}
 			sTop = gItemDescAdvRegions[cnt-sFirstLine][1].sTop;

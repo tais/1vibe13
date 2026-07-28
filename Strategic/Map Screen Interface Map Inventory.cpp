@@ -1377,9 +1377,9 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			const auto x = pSelectedSoldier->deployment().sectorX();
 			const auto y = pSelectedSoldier->deployment().sectorY();
 			const auto z = pSelectedSoldier->deployment().sectorZ();
-			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->flags.fBetweenSectors)
+			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->deployment().isBetweenSectors())
 			{
-				pSelectedSoldier->bInSector = TRUE;
+				pSelectedSoldier->roster().inSector() = TRUE;
 			}
 			else
 			{
@@ -1609,7 +1609,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			if( ( pSelectedSoldier->deployment().sectorX() != sSelMapX ) ||
 					( pSelectedSoldier->deployment().sectorY() != sSelMapY ) ||
 					( pSelectedSoldier->deployment().sectorZ() != iCurrentMapSectorZ ) ||
-					( pSelectedSoldier->flags.fBetweenSectors ) )
+					( pSelectedSoldier->deployment().isBetweenSectors() ) )
 			{
 				if ( gpItemPointer == NULL )
 				{
@@ -1641,13 +1641,13 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 					}
 					else
 					{
-						swprintf( sString, pMapInventoryErrorString[ 2 ], pSelectedSoldier->name );
+						swprintf( sString, pMapInventoryErrorString[ 2 ], pSelectedSoldier->identity().name() );
 						DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 					}
 				}
 				else
 				{
-					swprintf( sString, pMapInventoryErrorString[ 5 ], pSelectedSoldier->name );
+					swprintf( sString, pMapInventoryErrorString[ 5 ], pSelectedSoldier->identity().name() );
 					DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 				}				
 				return;
@@ -1688,7 +1688,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			/*	if( sDistanceFromObject > MAX_DISTANCE_TO_PICKUP_ITEM )
 				{
 					// see for the loaded sector if the merc is cloase enough?
-					swprintf( sString, pMapInventoryErrorString[ 0 ], pSelectedSoldier->name );
+					swprintf( sString, pMapInventoryErrorString[ 0 ], pSelectedSoldier->identity().name() );
 					DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 					return;
 				}
@@ -2494,7 +2494,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 				if (!fShowInventoryFlag)
 					fShowInventoryFlag = TRUE;
 				
-				if(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+				if(pSoldier->status().flags() & SOLDIER_VEHICLE)
 				{
 					// try to STACK the item in all existing slots
 					for(int x = 0; x<NUM_INV_SLOTS; x++)
@@ -3087,7 +3087,7 @@ void MapInventoryReadEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if ( pSoldier &&
 				 pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ &&
-				 !pSoldier->flags.fBetweenSectors )
+				 !pSoldier->deployment().isBetweenSectors() )
 			{
 				if ( (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
 				{
@@ -3541,7 +3541,7 @@ void HandleButtonStatesWhileMapInventoryActive( void )
 	if( pSoldier->deployment().sectorX() != sSelMapX ||
 		pSoldier->deployment().sectorY() != sSelMapY ||
 		pSoldier->deployment().sectorZ() != iCurrentMapSectorZ ||
-		pSoldier->flags.fBetweenSectors ||
+		pSoldier->deployment().isBetweenSectors() ||
 		!CanPlayerUseSectorInventory( pSoldier ) ) 
 	{
 		DisableButton( guiMapInvenSortButton[ 0 ] );

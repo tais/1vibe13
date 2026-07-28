@@ -137,7 +137,7 @@ void PickBurstLocations( SOLDIERTYPE *pSoldier )
 			do
 			{
 				pSoldier->fireControl().autofireShots()++;
-				sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime);
+				sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiPlanning().shownAimTime());
 			}
 			while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots() && gbNumBurstLocations >= pSoldier->fireControl().autofireShots());
 			pSoldier->fireControl().autofireShots()--;

@@ -1530,7 +1530,7 @@ SOLDIERTYPE * FindSoldierByProfileID( UINT8 ubProfileID, BOOLEAN fPlayerMercsOnl
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 
-		if (pSoldier->bActive && pSoldier->ubProfile == ubProfileID)
+		if (pSoldier->roster().active() && pSoldier->identity().profile() == ubProfileID)
 		{
 			return( pSoldier );
 		}
@@ -1564,10 +1564,10 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	}
 
 	// Save merc id for this guy...
-	ubID = pSoldier->ubID;
+	ubID = pSoldier->identity().id();
 
 	ubOldID = ubID;
-	uiOldUniqueId = pSoldier->uiUniqueSoldierIdValue;
+	uiOldUniqueId = pSoldier->identity().incarnation();
 
 	sOldGridNo = pSoldier->position().gridNo();
 
@@ -1576,15 +1576,15 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 	// Create a new one!
 	MercCreateStruct.bTeam							= ubTeam;
-	MercCreateStruct.ubProfile					= pSoldier->ubProfile;
-	MercCreateStruct.ubBodyType					= pSoldier->ubBodyType;
+	MercCreateStruct.ubProfile					= pSoldier->identity().profile();
+	MercCreateStruct.ubBodyType					= pSoldier->identity().bodyType();
 	MercCreateStruct.sSectorX						= pSoldier->deployment().sectorX();
 	MercCreateStruct.sSectorY						= pSoldier->deployment().sectorY();
 	MercCreateStruct.bSectorZ						= pSoldier->deployment().sectorZ();
 	MercCreateStruct.sInsertionGridNo		= pSoldier->position().gridNo();
 	MercCreateStruct.ubDirection					= pSoldier->position().direction();
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		MercCreateStruct.ubProfile					= NO_PROFILE;
 		MercCreateStruct.fUseGivenVehicle		= TRUE;
@@ -1598,7 +1598,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 	if ( ubTeam == MILITIA_TEAM )
 	{
-		MercCreateStruct.ubSoldierClass = pSoldier->ubSoldierClass;
+		MercCreateStruct.ubSoldierClass = pSoldier->roster().soldierClass();
 	}
 
 	if ( TacticalCreateSoldier( &MercCreateStruct, &ubID ) )
@@ -1608,17 +1608,17 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		// Copy vital stats back!
 		pNewSoldier->vitals().health()													= pSoldier->vitals().health();
 		pNewSoldier->vitals().maximumHealth()												= pSoldier->vitals().maximumHealth();
-		pNewSoldier->stats.bAgility												= pSoldier->stats.bAgility;
-		pNewSoldier->stats.bLeadership										= pSoldier->stats.bLeadership;
-		pNewSoldier->stats.bDexterity											= pSoldier->stats.bDexterity;
-		pNewSoldier->stats.bStrength											= pSoldier->stats.bStrength;
-		pNewSoldier->stats.bWisdom												= pSoldier->stats.bWisdom;
-		pNewSoldier->stats.bExpLevel											= pSoldier->stats.bExpLevel;
-		pNewSoldier->stats.bMarksmanship									= pSoldier->stats.bMarksmanship;
-		pNewSoldier->stats.bMedical												= pSoldier->stats.bMedical;
-		pNewSoldier->stats.bMechanical										= pSoldier->stats.bMechanical;
-		pNewSoldier->stats.bExplosive											= pSoldier->stats.bExplosive;
-		pNewSoldier->stats.bScientific										= pSoldier->stats.bScientific;
+		pNewSoldier->statistics().agility()												= pSoldier->statistics().agility();
+		pNewSoldier->statistics().leadership()										= pSoldier->statistics().leadership();
+		pNewSoldier->statistics().dexterity()											= pSoldier->statistics().dexterity();
+		pNewSoldier->statistics().strength()											= pSoldier->statistics().strength();
+		pNewSoldier->statistics().wisdom()												= pSoldier->statistics().wisdom();
+		pNewSoldier->statistics().experienceLevel()											= pSoldier->statistics().experienceLevel();
+		pNewSoldier->statistics().marksmanship()									= pSoldier->statistics().marksmanship();
+		pNewSoldier->statistics().medical()												= pSoldier->statistics().medical();
+		pNewSoldier->statistics().mechanical()										= pSoldier->statistics().mechanical();
+		pNewSoldier->statistics().explosives()											= pSoldier->statistics().explosives();
+		pNewSoldier->statistics().scientific()										= pSoldier->statistics().scientific();
 		pNewSoldier->awareness().lastRenderedVisibility()				= pSoldier->awareness().lastRenderedVisibility();
 		pNewSoldier->awareness().visibility()												= pSoldier->awareness().visibility();
 		// added by SANDRO - insta-healable injury zero on soldier creation
@@ -1634,15 +1634,15 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 		// 0verhaul:  Need to pass certain flags over.  COWERING is one of them.  Others to be determined.
 		
-		// copy uiStatusFlags, etc. - hayden :)
+		// Copy the general soldier status mask, etc. - hayden :)
 		if (is_networked)
 		{
-			pNewSoldier->flags.uiStatusFlags = pSoldier->flags.uiStatusFlags;
-			pNewSoldier->ubProfile = pSoldier->ubProfile;
+			pNewSoldier->status().flags() = pSoldier->status().flags();
+			pNewSoldier->identity().profile() = pSoldier->identity().profile();
 		}
 		else
 		{
-			pNewSoldier->flags.uiStatusFlags |= pSoldier->flags.uiStatusFlags & (SOLDIER_COWERING | SOLDIER_MUTE | SOLDIER_GASSED);
+			pNewSoldier->status().flags() |= pSoldier->status().flags() & (SOLDIER_COWERING | SOLDIER_MUTE | SOLDIER_GASSED);
 		}
 
 		
@@ -1687,9 +1687,9 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 			if ( pGroupMember != NULL )
 			{
-				if ( pGroupMember->targeting().targetId() == pSoldier->ubID )
+				if ( pGroupMember->targeting().targetId() == pSoldier->identity().id() )
 				{
-					pGroupMember->targeting().targetId() = pNewSoldier->ubID;
+					pGroupMember->targeting().targetId() = pNewSoldier->identity().id();
 				}
 			}
 		}
@@ -1703,7 +1703,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 			HandleCheckForDeathCommonCode( pSoldier );
 		}
 
-		if ( IsJa2TacticalWorldLoaded() &&	pSoldier->bInSector
+		if ( IsJa2TacticalWorldLoaded() &&	pSoldier->roster().inSector()
 		//pSoldier->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ )
 		)
 		{
@@ -1712,17 +1712,17 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		}
 
 		// fix up the event queue...
-	//	ChangeSoldierIDInQueuedEvents( ubOldID, uiOldUniqueId, pNewSoldier->ubID, pNewSoldier->uiUniqueSoldierIdValue );
+	//	ChangeSoldierIDInQueuedEvents( ubOldID, uiOldUniqueId, pNewSoldier->identity().id(), pNewSoldier->identity().incarnation() );
 
-		if ( pNewSoldier->ubProfile != NO_PROFILE )
+		if ( pNewSoldier->identity().profile() != NO_PROFILE )
 		{
 			if ( ubTeam == gbPlayerNum )
 			{
-				gMercProfiles[ pNewSoldier->ubProfile ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
+				gMercProfiles[ pNewSoldier->identity().profile() ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
 			}
 			else
 			{
-				gMercProfiles[ pNewSoldier->ubProfile ].ubMiscFlags &= (~PROFILE_MISC_FLAG_RECRUITED);
+				gMercProfiles[ pNewSoldier->identity().profile() ].ubMiscFlags &= (~PROFILE_MISC_FLAG_RECRUITED);
 			}
 		}
 
@@ -1861,14 +1861,14 @@ BOOLEAN RecruitRPC( UINT8 ubCharNum )
 	//add a history log that tells the user that a npc has joined the team
 	//
 	// ( pass in pNewSoldier->deployment().sectorX() cause if its invalid, -1, n/a will appear as the sector in the history log )
-	AddHistoryToPlayersLog( HISTORY_RPC_JOINED_TEAM, pNewSoldier->ubProfile, GetWorldTotalMin(), pNewSoldier->deployment().sectorX(), pNewSoldier->deployment().sectorY() );
+	AddHistoryToPlayersLog( HISTORY_RPC_JOINED_TEAM, pNewSoldier->identity().profile(), GetWorldTotalMin(), pNewSoldier->deployment().sectorX(), pNewSoldier->deployment().sectorY() );
 
 
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
-	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->ubProfile );
+	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->identity().profile() );
 #ifdef JA2UB	
 	//If this is a special NPC, play a quote from the team mates
-	HandlePlayingQuoteWhenHiringNpc( pNewSoldier->ubProfile );
+	HandlePlayingQuoteWhenHiringNpc( pNewSoldier->identity().profile() );
 #endif
 
 	// Flugente: additional dialogue
@@ -1917,7 +1917,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 
 
 	// If we are a robot, look to update controller....
-	if ( pNewSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pNewSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		pNewSoldier->UpdateRobotControllerGivenRobot(	);
 	}
@@ -1926,7 +1926,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 	pNewSoldier->employment().mercenaryType() = MERC_TYPE__EPC;
 
 	// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels/vehicles/robots
-	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->flags.uiStatusFlags & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
+	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
 	{
 		pNewSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_CIV | SOLDIER_COVERT_NPC_SPECIAL);
 	}
@@ -1966,7 +1966,7 @@ BOOLEAN UnRecruitEPC( UINT8 ubCharNum )
 	AddCharacterToOtherList( pSoldier );
 
 	// O< check if this is the only guy in the sector....
-	if ( gusSelectedSoldier == pSoldier->ubID )
+	if ( gusSelectedSoldier == pSoldier->identity().id() )
 	{
 		gusSelectedSoldier = NOBODY;
 	}
@@ -2095,25 +2095,25 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 
 		if ( pSoldier != NULL )
 		{
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
 				fDoCopy = FALSE;
 
 				// If we are above player mercs
 				if ( fPlayerMercs )
 				{
-					if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_AIM || 
-						gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_MERC ||
-						gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+					if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_AIM ||
+						gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_MERC ||
+						gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 					{
 						fDoCopy = TRUE;
 					}
 				}
 				else
 				{
-					if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_RPC ||
-						gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_NPC ||
-						gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_VEHICLE )
+					if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_RPC ||
+						gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_NPC ||
+						gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_VEHICLE )
 					{
 						fDoCopy = TRUE;
 					}
@@ -2122,22 +2122,22 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 				if ( fDoCopy )
 				{
 					// get profile...
-					pProfile = &( gMercProfiles[ pSoldier->ubProfile ] );
+					pProfile = &( gMercProfiles[ pSoldier->identity().profile() ] );
 
 					// Copy....
 					pProfile->bLife 										= pSoldier->vitals().health();
 					pProfile->bLifeMax									= pSoldier->vitals().maximumHealth();
-					pProfile->bAgility									= pSoldier->stats.bAgility;
-					pProfile->bLeadership								= pSoldier->stats.bLeadership;
-					pProfile->bDexterity								= pSoldier->stats.bDexterity;
-					pProfile->bStrength									= pSoldier->stats.bStrength;
-					pProfile->bWisdom										= pSoldier->stats.bWisdom;
-					pProfile->bExpLevel									= pSoldier->stats.bExpLevel;
-					pProfile->bMarksmanship							= pSoldier->stats.bMarksmanship;
-					pProfile->bMedical									= pSoldier->stats.bMedical;
-					pProfile->bMechanical								= pSoldier->stats.bMechanical;
-					pProfile->bExplosive								= pSoldier->stats.bExplosive;
-					pProfile->bScientific								= pSoldier->stats.bScientific;
+					pProfile->bAgility									= pSoldier->statistics().agility();
+					pProfile->bLeadership								= pSoldier->statistics().leadership();
+					pProfile->bDexterity								= pSoldier->statistics().dexterity();
+					pProfile->bStrength									= pSoldier->statistics().strength();
+					pProfile->bWisdom										= pSoldier->statistics().wisdom();
+					pProfile->bExpLevel									= pSoldier->statistics().experienceLevel();
+					pProfile->bMarksmanship							= pSoldier->statistics().marksmanship();
+					pProfile->bMedical									= pSoldier->statistics().medical();
+					pProfile->bMechanical								= pSoldier->statistics().mechanical();
+					pProfile->bExplosive								= pSoldier->statistics().explosives();
+					pProfile->bScientific								= pSoldier->statistics().scientific();
 				}
 			}
 		}
@@ -2209,7 +2209,7 @@ BOOLEAN MercIsHot( SOLDIERTYPE * pSoldier )
 // SANDRO - added function here
 BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier )
 {
-	if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->deployment().sectorZ() <= 0 && IsSectorTropical(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) )
+	if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->deployment().sectorZ() <= 0 && IsSectorTropical(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) )
 	{
 		return( TRUE );
 	}
@@ -2220,7 +2220,7 @@ BOOLEAN MercIsInTropicalSector( SOLDIERTYPE * pSoldier )
 SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 {
 	MERCPROFILESTRUCT* pNewProfile;
-	UINT8 ubSrcProfile = pSoldier->ubProfile;
+	UINT8 ubSrcProfile = pSoldier->identity().profile();
 
 	// need a stop criteria...
 	if ( FALSE )
@@ -2370,7 +2370,7 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 	// remove face
 	DeleteSoldierFace( pSoldier );
 
-	pSoldier->ubProfile = ubDestProfile;
+	pSoldier->identity().profile() = ubDestProfile;
 
 	// create new face
 	pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
@@ -2378,19 +2378,19 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 	// replace profile in group
 	ReplaceSoldierProfileInPlayerGroup( pSoldier->deployment().groupId(), ubSrcProfile, ubDestProfile );
 
-	pSoldier->stats.bStrength =			pNewProfile->bStrength + pNewProfile->bStrengthDelta;
-	pSoldier->stats.bDexterity =		pNewProfile->bDexterity + pNewProfile->bDexterityDelta;
-	pSoldier->stats.bAgility =			pNewProfile->bAgility + pNewProfile->bAgilityDelta;
-	pSoldier->stats.bWisdom =			pNewProfile->bWisdom + pNewProfile->bWisdomDelta;
-	pSoldier->stats.bExpLevel =			pNewProfile->bExpLevel + pNewProfile->bExpLevelDelta;
-	pSoldier->stats.bLeadership =		pNewProfile->bLeadership + pNewProfile->bLeadershipDelta;
+	pSoldier->statistics().strength() =			pNewProfile->bStrength + pNewProfile->bStrengthDelta;
+	pSoldier->statistics().dexterity() =		pNewProfile->bDexterity + pNewProfile->bDexterityDelta;
+	pSoldier->statistics().agility() =			pNewProfile->bAgility + pNewProfile->bAgilityDelta;
+	pSoldier->statistics().wisdom() =			pNewProfile->bWisdom + pNewProfile->bWisdomDelta;
+	pSoldier->statistics().experienceLevel() =			pNewProfile->bExpLevel + pNewProfile->bExpLevelDelta;
+	pSoldier->statistics().leadership() =		pNewProfile->bLeadership + pNewProfile->bLeadershipDelta;
 
-	pSoldier->stats.bMarksmanship =		pNewProfile->bMarksmanship + pNewProfile->bMarksmanshipDelta;
-	pSoldier->stats.bMechanical =		pNewProfile->bMechanical + pNewProfile->bMechanicDelta;
-	pSoldier->stats.bMedical =			pNewProfile->bMedical + pNewProfile->bMedicalDelta;
-	pSoldier->stats.bExplosive =		pNewProfile->bExplosive + pNewProfile->bExplosivesDelta;
+	pSoldier->statistics().marksmanship() =		pNewProfile->bMarksmanship + pNewProfile->bMarksmanshipDelta;
+	pSoldier->statistics().mechanical() =		pNewProfile->bMechanical + pNewProfile->bMechanicDelta;
+	pSoldier->statistics().medical() =			pNewProfile->bMedical + pNewProfile->bMedicalDelta;
+	pSoldier->statistics().explosives() =		pNewProfile->bExplosive + pNewProfile->bExplosivesDelta;
 	
-	if ( pSoldier->ubProfile == LARRY_DRUNK )
+	if ( pSoldier->identity().profile() == LARRY_DRUNK )
 	{
 		SetFactTrue( FACT_LARRY_CHANGED );
 
@@ -2405,7 +2405,7 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 		}
 #endif
 	}
-	else if ( pSoldier->ubProfile == LARRY_NORMAL )
+	else if ( pSoldier->identity().profile() == LARRY_NORMAL )
 	{
 		SetFactFalse( FACT_LARRY_CHANGED );
 	}
@@ -2431,20 +2431,20 @@ BOOLEAN DoesNPCOwnBuilding( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	}
 
 	// Are we an NPC?
-	if ( pSoldier->bTeam != CIV_TEAM )
+	if ( pSoldier->roster().team() != CIV_TEAM )
 	{
 	return( FALSE );
 	}
 
 	// OK, check both ranges
-	if ( usRoomInfo >= gMercProfiles[ pSoldier->ubProfile ].usRoomRangeStart[ 0 ] &&
-		usRoomInfo <= gMercProfiles[ pSoldier->ubProfile ].usRoomRangeEnd[ 0 ] )
+	if ( usRoomInfo >= gMercProfiles[ pSoldier->identity().profile() ].usRoomRangeStart[ 0 ] &&
+		usRoomInfo <= gMercProfiles[ pSoldier->identity().profile() ].usRoomRangeEnd[ 0 ] )
 	{
 	 return( TRUE );
 	}
 
-	if ( usRoomInfo >= gMercProfiles[ pSoldier->ubProfile ].usRoomRangeStart[ 1 ] &&
-		usRoomInfo <= gMercProfiles[ pSoldier->ubProfile ].usRoomRangeEnd[ 1 ] )
+	if ( usRoomInfo >= gMercProfiles[ pSoldier->identity().profile() ].usRoomRangeStart[ 1 ] &&
+		usRoomInfo <= gMercProfiles[ pSoldier->identity().profile() ].usRoomRangeEnd[ 1 ] )
 	{
 	 return( TRUE );
 	}
@@ -2705,12 +2705,12 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 	BOOLEAN		fOnlyOneException = FALSE;
 
 	pSoldier = FindSoldierByProfileID( ubProfileID, FALSE );
-	if (!pSoldier || !( pSoldier->bActive ) || !( pSoldier->bInSector ) )
+	if (!pSoldier || !( pSoldier->roster().active() ) || !( pSoldier->roster().inSector() ) )
 	{
 		return( -1 );
 	}
 
-	for ( SoldierID uiLoop = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID; uiLoop <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++uiLoop )
+	for ( SoldierID uiLoop = gTacticalStatus.Team[ pSoldier->roster().team() ].bFirstID; uiLoop <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++uiLoop )
 	{
 		pTeammate =
 			GetJa2SoldierRepository().resolve(uiLoop.i);
@@ -2719,7 +2719,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 			continue;
 		}
 		// Are we actually here?
-		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
+		if ( !(pTeammate->roster().active()) || !(pTeammate->roster().inSector()) || ( pTeammate->status().flags() & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue;
@@ -2729,7 +2729,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 			continue;
 		}
 		// Are we from our team an dalive?
-		if ( pTeammate->bTeam == pSoldier->bTeam && pTeammate->vitals().health() >= OKLIFE )
+		if ( pTeammate->roster().team() == pSoldier->roster().team() && pTeammate->vitals().health() >= OKLIFE )
 		{
 			// Are we close enough?
 			if (PythSpacesAway( pSoldier->position().gridNo(), pTeammate->position().gridNo() ) <= 20)
@@ -2755,30 +2755,30 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 					// Show-off, depends on gender and appearance of others
 					case CHAR_TRAIT_SHOWOFF:
 						// If we are male
-						if ( gMercProfiles[ pSoldier->ubProfile ].ubBodyType <= STOCKYMALE )
+						if ( gMercProfiles[ pSoldier->identity().profile() ].ubBodyType <= STOCKYMALE )
 						{
-							if ( gMercProfiles[ pTeammate->ubProfile ].ubBodyType == REGFEMALE )
+							if ( gMercProfiles[ pTeammate->identity().profile() ].ubBodyType == REGFEMALE )
 							{
 								// Count as two if babe around!
-								if ( gMercProfiles[ pTeammate->ubProfile ].bAppearance == APPEARANCE_BABE )
+								if ( gMercProfiles[ pTeammate->identity().profile() ].bAppearance == APPEARANCE_BABE )
 									bNumber += 2;
 								// However remove one if ugly one
-								else if ( gMercProfiles[ pTeammate->ubProfile ].bAppearance == APPEARANCE_UGLY )
+								else if ( gMercProfiles[ pTeammate->identity().profile() ].bAppearance == APPEARANCE_UGLY )
 									--bNumber;
 								else 
 									++bNumber;
 							}
 						}
 						// If we are female
-						else if ( gMercProfiles[ pSoldier->ubProfile ].ubBodyType == REGFEMALE )
+						else if ( gMercProfiles[ pSoldier->identity().profile() ].ubBodyType == REGFEMALE )
 						{
-							if ( gMercProfiles[ pTeammate->ubProfile ].ubBodyType <= STOCKYMALE )
+							if ( gMercProfiles[ pTeammate->identity().profile() ].ubBodyType <= STOCKYMALE )
 							{
 								// Count as two if babe around!
-								if ( gMercProfiles[ pTeammate->ubProfile ].bAppearance == APPEARANCE_BABE )
+								if ( gMercProfiles[ pTeammate->identity().profile() ].bAppearance == APPEARANCE_BABE )
 									bNumber += 2;
 								// However remove one if ugly one
-								else if ( gMercProfiles[ pTeammate->ubProfile ].bAppearance == APPEARANCE_UGLY )
+								else if ( gMercProfiles[ pTeammate->identity().profile() ].bAppearance == APPEARANCE_UGLY )
 									--bNumber;
 								else 
 									++bNumber;

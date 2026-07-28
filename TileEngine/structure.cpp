@@ -735,10 +735,10 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 						// but not monsters and such (they can't fall down due to lack of animations)
 						// also make sure AI won't flatten their allies
 						if( pSoldier && movingSoldier &&
-							!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) &&
+							!( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) &&
 							((!ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowCarsDrivingOverPeople) ||
 							(ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowTanksDrivingOverPeople)) &&
-							( movingSoldier->bTeam == gbPlayerNum || movingSoldier->bTeam != pSoldier->bTeam ) )
+							( movingSoldier->roster().team() == gbPlayerNum || movingSoldier->roster().team() != pSoldier->roster().team() ) )
 						{
 							pExistingStructure = pExistingStructure->pNext;
 							// damage people when driving on them
@@ -913,7 +913,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 						SOLDIERTYPE* existingSoldier =
 							GetJa2SoldierRepository().resolve(
 								pExistingStructure->usStructureID);
-						if( existingSoldier && existingSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if( existingSoldier && existingSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							if( movingSoldier &&
 								(movingSoldier->animationActivity().nonInterruptible() == TRUE ||
@@ -1066,7 +1066,7 @@ static STRUCTURE * InternalAddStructureToWorld( INT32 sBaseGridNo, INT8 bLevel, 
 	// first check to see if the structure will be blocked
 	if ( ( pLevelNode->uiFlags & LEVELNODE_SOLDIER ) && pLevelNode->pSoldier )
 	{
-		if ( !OkayToAddStructureToWorld( sBaseGridNo, bLevel, pDBStructureRef, INVALID_STRUCTURE_ID, TRUE, pLevelNode->pSoldier->ubID )	)
+		if ( !OkayToAddStructureToWorld( sBaseGridNo, bLevel, pDBStructureRef, INVALID_STRUCTURE_ID, TRUE, pLevelNode->pSoldier->identity().id() )	)
 		{
 			return( NULL );
 		}
@@ -1153,7 +1153,7 @@ static STRUCTURE * InternalAddStructureToWorld( INT32 sBaseGridNo, INT8 bLevel, 
 	if (pLevelNode->uiFlags & LEVELNODE_SOLDIER)
 	{
 		// use the merc's ID as the structure ID for his/her structure
-		usStructureID = pLevelNode->pSoldier->ubID;
+		usStructureID = pLevelNode->pSoldier->identity().id();
 	}
 	else if (pLevelNode->uiFlags & LEVELNODE_ROTTINGCORPSE)
 	{

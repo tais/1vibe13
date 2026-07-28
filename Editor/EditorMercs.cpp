@@ -341,7 +341,7 @@ wchar_t *GetGrupaString( SOLDIERTYPE *pSoldier ) //Legion 2
 	cntStart = 0;
 	for ( cnt = cntStart; cnt < NUM_CIV_GROUPS; cnt ++ )
 	{
-			if (pSoldier->ubCivilianGroup == cnt)	
+			if (pSoldier->roster().civilianGroup() == cnt)
 			{
 			par = cnt;
 			}
@@ -678,7 +678,7 @@ void ResetAllMercPositions()
 	{
 		if( curr->pSoldier )
 		{
-			TacticalRemoveSoldier( curr->pSoldier->ubID );
+			TacticalRemoveSoldier( curr->pSoldier->identity().id() );
 			curr->pSoldier = NULL;
 		}
 		//usMapIndex = gpSelected->pBasicPlacement->usStartingGridNo;
@@ -710,22 +710,22 @@ void AddMercWaypoint( INT32 iMapIndex )
 	if ( gsSelectedMercID == -1 || (gsSelectedMercID <= (INT32)gTacticalStatus.Team[ OUR_TEAM ].bLastID) || gsSelectedMercID >= MAXMERCS )
 		return;
 
-	if ( iActionParam > gpSelected->pSoldier->aiData.bPatrolCnt )
+	if ( iActionParam > gpSelected->pSoldier->aiPlanning().patrolCount() )
 	{
 		// Fill up missing waypoints with same value as new one
-		for(iNum = gpSelected->pSoldier->aiData.bPatrolCnt + 1; iNum <= iActionParam; iNum++)
+		for(iNum = gpSelected->pSoldier->aiPlanning().patrolCount() + 1; iNum <= iActionParam; iNum++)
 		{
 			gpSelected->pBasicPlacement->sPatrolGrid[iNum] = iMapIndex;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->sPatrolGrid[iNum] = iMapIndex;
-			gpSelected->pSoldier->aiData.sPatrolGrid[iNum] = iMapIndex;
+			gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum] = iMapIndex;
 		}
 
 		gpSelected->pBasicPlacement->bPatrolCnt = (INT8)iActionParam;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->bPatrolCnt = (INT8)iActionParam;
-		gpSelected->pSoldier->aiData.bPatrolCnt = (INT8) iActionParam;
-		gpSelected->pSoldier->aiData.bNextPatrolPnt = 1;
+		gpSelected->pSoldier->aiPlanning().patrolCount() = (INT8) iActionParam;
+		gpSelected->pSoldier->aiPlanning().nextPatrolPoint() = 1;
 	}
 	else
 	{
@@ -733,7 +733,7 @@ void AddMercWaypoint( INT32 iMapIndex )
 		gpSelected->pBasicPlacement->sPatrolGrid[iActionParam] = iMapIndex;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->sPatrolGrid[iActionParam] = iMapIndex;
-		gpSelected->pSoldier->aiData.sPatrolGrid[iActionParam] = iMapIndex;
+		gpSelected->pSoldier->aiPlanning().patrolGrid()[iActionParam] = iMapIndex;
 	}
 	gfRenderWorld = TRUE;
 }
@@ -749,21 +749,21 @@ void EraseMercWaypoint()
 		return;
 
 	// Fill up missing areas
-	if ( iActionParam > gpSelected->pSoldier->aiData.bPatrolCnt )
+	if ( iActionParam > gpSelected->pSoldier->aiPlanning().patrolCount() )
 		return;
 
-	for(iNum = iActionParam; iNum < gpSelected->pSoldier->aiData.bPatrolCnt; iNum++)
+	for(iNum = iActionParam; iNum < gpSelected->pSoldier->aiPlanning().patrolCount(); iNum++)
 	{
 		gpSelected->pBasicPlacement->sPatrolGrid[iNum] = gpSelected->pBasicPlacement->sPatrolGrid[iNum+1];
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->sPatrolGrid[iNum] = gpSelected->pDetailedPlacement->sPatrolGrid[iNum+1];
-		gpSelected->pSoldier->aiData.sPatrolGrid[iNum] = gpSelected->pSoldier->aiData.sPatrolGrid[iNum+1];
+		gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum] = gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum+1];
 	}
 
 	gpSelected->pBasicPlacement->bPatrolCnt--;
 	if( gpSelected->pDetailedPlacement )
 		gpSelected->pDetailedPlacement->bPatrolCnt--;
-	gpSelected->pSoldier->aiData.bPatrolCnt--;
+	gpSelected->pSoldier->aiPlanning().patrolCount()--;
 	gfRenderWorld = TRUE;
 }
 
@@ -785,20 +785,20 @@ void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier )
 	pSoldier->vitals().bleeding()	= 0;
 	pSoldier->vitals().breath()	= 100;
 
-	pSoldier->stats.bMarksmanship	= (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bMedical = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bMechanical = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bExplosive = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bAgility = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bDexterity = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().marksmanship()	= (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().medical() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().mechanical() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().explosives() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().agility() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().dexterity() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 
-	pSoldier->stats.bStrength = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bLeadership = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bWisdom = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bScientific = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().strength() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().leadership() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().wisdom() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().scientific() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 
-	pSoldier->stats.bExpLevel = (UINT8)sBaseExpLvl[sCurBaseDiff];
-	pSoldier->bGunType = (INT8)Random(BASE_GUNTYPE_DEVIATION);
+	pSoldier->statistics().experienceLevel() = (UINT8)sBaseExpLvl[sCurBaseDiff];
+	pSoldier->fireControl().gunType() = (INT8)Random(BASE_GUNTYPE_DEVIATION);
 
 	pSoldier->actionPoints().current() = pSoldier->CalcActionPoints( );
 }
@@ -853,38 +853,38 @@ void DisplayEditMercWindow( void )
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 16, iXPos + 128 + 104, iYPos + 16 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 17, iXPos + 128 + 104, iYPos + 17 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 17, iXPos + 128 + 103, iYPos + 17 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( pSoldier->name, FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 20, L"%s", pSoldier->name );
+	iXOff = (105 - StringPixLength( pSoldier->identity().name(), FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 20, L"%s", pSoldier->identity().name() );
 
 	// Orders window
 	gprintf( iXPos + 128, iYPos + 38, pDisplayEditMercWindowText[1] );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 51, iXPos + 128 + 104, iYPos + 51 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 52, iXPos + 128 + 104, iYPos + 52 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 52, iXPos + 128 + 103, iYPos + 52 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( EditMercOrders[pSoldier->aiData.bOrders], FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 55, L"%s", EditMercOrders[pSoldier->aiData.bOrders] );
+	iXOff = (105 - StringPixLength( EditMercOrders[pSoldier->aiBehavior().orders()], FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 55, L"%s", EditMercOrders[pSoldier->aiBehavior().orders()] );
 
 	// Combat window
 	gprintf( iXPos + 128, iYPos + 73, pDisplayEditMercWindowText[2] );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 86, iXPos + 128 + 104, iYPos + 86 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 87, iXPos + 128 + 104, iYPos + 87 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 87, iXPos + 128 + 103, iYPos + 87 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( EditMercAttitudes[pSoldier->aiData.bAttitude], FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 90, L"%s", EditMercAttitudes[pSoldier->aiData.bAttitude] );
+	iXOff = (105 - StringPixLength( EditMercAttitudes[pSoldier->aiBehavior().attitude()], FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 90, L"%s", EditMercAttitudes[pSoldier->aiBehavior().attitude()] );
 
 	// Get stats
 	iEditStat[0] = pSoldier->vitals().maximumHealth();			// 12 13
 	iEditStat[1] = pSoldier->vitals().health();						// 14 15
-	iEditStat[2] = pSoldier->stats.bStrength;		// 16 17
-	iEditStat[3] = pSoldier->stats.bAgility;		// 18 19
-	iEditStat[4] = pSoldier->stats.bDexterity;		// 20 21
-	iEditStat[5] = pSoldier->stats.bLeadership;	 // 22 23
-	iEditStat[6] = pSoldier->stats.bWisdom;		 // 24 25
-	iEditStat[7] = pSoldier->stats.bMarksmanship;	// 26 27
-	iEditStat[8] = pSoldier->stats.bExplosive;		// 28 29
-	iEditStat[9] = pSoldier->stats.bMedical;		// 30 31
-	iEditStat[10] = pSoldier->stats.bScientific;	// 32 33
-	iEditStat[11] = pSoldier->stats.bExpLevel;		// 34 35
+	iEditStat[2] = pSoldier->statistics().strength();		// 16 17
+	iEditStat[3] = pSoldier->statistics().agility();		// 18 19
+	iEditStat[4] = pSoldier->statistics().dexterity();		// 20 21
+	iEditStat[5] = pSoldier->statistics().leadership();	 // 22 23
+	iEditStat[6] = pSoldier->statistics().wisdom();		 // 24 25
+	iEditStat[7] = pSoldier->statistics().marksmanship();	// 26 27
+	iEditStat[8] = pSoldier->statistics().explosives();		// 28 29
+	iEditStat[9] = pSoldier->statistics().medical();		// 30 31
+	iEditStat[10] = pSoldier->statistics().scientific();	// 32 33
+	iEditStat[11] = pSoldier->statistics().experienceLevel();		// 34 35
 
 	// Stat value windows
 	for ( x = 0; x < 12; x++ )
@@ -1342,14 +1342,14 @@ void DisplayWayPoints(void)
 		return;
 
 	GetSoldier( &pSoldier, (UINT16)gsSelectedMercID );
-	if ( pSoldier == NULL || !pSoldier->bActive)
+	if ( pSoldier == NULL || !pSoldier->roster().active())
 		return;
 
 	// point 0 is not used!
-	for ( bPoint = 1; bPoint <= pSoldier->aiData.bPatrolCnt; bPoint++ )
+	for ( bPoint = 1; bPoint <= pSoldier->aiPlanning().patrolCount(); bPoint++ )
 	{
 		// Get the next point
-		sGridNo = pSoldier->aiData.sPatrolGrid[bPoint];
+		sGridNo = pSoldier->aiPlanning().patrolGrid()[bPoint];
 
 		// Can we see it?
 		if ( !GridNoOnVisibleWorldTile( sGridNo ) )
@@ -1474,7 +1474,7 @@ void CreateEditMercWindow( void )
 }
 void SetMercOrders( INT8 bOrders )
 {
-	gpSelected->pSoldier->aiData.bOrders = bOrders;
+	gpSelected->pSoldier->aiBehavior().orders() = bOrders;
 	gpSelected->pBasicPlacement->bOrders = bOrders;
 	UnclickEditorButtons( FIRST_MERCS_ORDERS_BUTTON, LAST_MERCS_ORDERS_BUTTON );
 	ClickEditorButton( FIRST_MERCS_ORDERS_BUTTON + bOrders );
@@ -1483,7 +1483,7 @@ void SetMercOrders( INT8 bOrders )
 
 void SetMercAttitude( INT8 bAttitude )
 {
-	gpSelected->pSoldier->aiData.bAttitude = bAttitude;
+	gpSelected->pSoldier->aiBehavior().attitude() = bAttitude;
 	gpSelected->pBasicPlacement->bAttitude = bAttitude;
 	UnclickEditorButtons( FIRST_MERCS_ATTITUDE_BUTTON, LAST_MERCS_ATTITUDE_BUTTON );
 	ClickEditorButton( FIRST_MERCS_ATTITUDE_BUTTON + bAttitude );
@@ -1691,7 +1691,7 @@ void IndicateSelectedMerc( INT16 sID )
 					gpSelected = gSoldierInitHead;
 				continue;
 			}
-			if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 && gpSelected->pSoldier->bTeam == bTeam )
+			if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 && gpSelected->pSoldier->roster().team() == bTeam )
 			{ //we have found a visible soldier on the desired team, so select him.
 				break;
 			}
@@ -1704,7 +1704,7 @@ void IndicateSelectedMerc( INT16 sID )
 			return;
 		if( gpSelected == prev	)
 		{ //we have cycled through the list already, so choose the same guy (if he is on the desired team)...
-			if( !gpSelected->pSoldier || gpSelected->pSoldier->awareness().visibility() != 1 || gpSelected->pSoldier->bTeam != bTeam )
+			if( !gpSelected->pSoldier || gpSelected->pSoldier->awareness().visibility() != 1 || gpSelected->pSoldier->roster().team() != bTeam )
 			{
 				SetMercEditability( TRUE );
 				SetMercEditingMode( MERC_TEAMMODE );
@@ -1721,7 +1721,7 @@ void IndicateSelectedMerc( INT16 sID )
 		SetMercEditingMode( MERC_TEAMMODE );
 		return;
 	}
-	gsSelectedMercID = gpSelected->pSoldier->ubID;
+	gsSelectedMercID = gpSelected->pSoldier->identity().id();
 	AddObjectToHead( gsSelectedMercGridNo, CONFIRMMOVE1 );
 
 	//If the merc has a valid profile, then turn off editability
@@ -1747,7 +1747,7 @@ void IndicateSelectedMerc( INT16 sID )
 	UnclickEditorButton( MERCS_CREATURE );
 	UnclickEditorButton( MERCS_REBEL );
 	UnclickEditorButton( MERCS_CIVILIAN );
-	switch( gpSelected->pSoldier->bTeam )
+	switch( gpSelected->pSoldier->roster().team() )
 	{
 		case ENEMY_TEAM:		ClickEditorButton( MERCS_ENEMY );			iDrawMode = DRAW_MODE_ENEMY;		break;
 		case CREATURE_TEAM:	ClickEditorButton( MERCS_CREATURE );	iDrawMode = DRAW_MODE_CREATURE;	break;
@@ -1763,8 +1763,8 @@ void IndicateSelectedMerc( INT16 sID )
 	gfRenderMercInfo = TRUE;
 	//These calls will set the proper button states, even though it redundantly
 	//assigns the soldier with the same orders/attitude.
-	SetMercOrders( gpSelected->pSoldier->aiData.bOrders );
-	SetMercAttitude( gpSelected->pSoldier->aiData.bAttitude );
+	SetMercOrders( gpSelected->pSoldier->aiBehavior().orders() );
+	SetMercAttitude( gpSelected->pSoldier->aiBehavior().attitude() );
 	SetMercDirection( gpSelected->pSoldier->position().direction() );
 	if( gpSelected->pBasicPlacement->fPriorityExistance )
 		ClickEditorButton( MERCS_PRIORITYEXISTANCE_CHECKBOX );
@@ -1774,7 +1774,7 @@ void IndicateSelectedMerc( INT16 sID )
 		ClickEditorButton( MERCS_HASKEYS_CHECKBOX );
 	else
 		UnclickEditorButton( MERCS_HASKEYS_CHECKBOX );
-	if( gpSelected->pSoldier->ubProfile == NO_PROFILE )
+	if( gpSelected->pSoldier->identity().profile() == NO_PROFILE )
 	{
 		SetMercRelativeEquipment( gpSelected->pBasicPlacement->bRelativeEquipmentLevel );
 		SetMercRelativeAttributes( gpSelected->pBasicPlacement->bRelativeAttributeLevel );
@@ -1782,7 +1782,7 @@ void IndicateSelectedMerc( INT16 sID )
 	}
 	if( iDrawMode == DRAW_MODE_CIVILIAN )
 	{
-		ChangeCivGroup( gpSelected->pSoldier->ubCivilianGroup );
+		ChangeCivGroup( gpSelected->pSoldier->roster().civilianGroup() );
 	}
 }
 
@@ -1947,9 +1947,9 @@ void ExtractAndUpdateMercProfile()
 		return;
 
 	UpdateSoldierWithStaticDetailedInformation( gpSelected->pSoldier, gpSelected->pDetailedPlacement );
-	if( gpSelected->pSoldier->bTeam == CIV_TEAM )
+	if( gpSelected->pSoldier->roster().team() == CIV_TEAM )
 	{
-		ChangeCivGroup( gpSelected->pSoldier->ubCivilianGroup );
+		ChangeCivGroup( gpSelected->pSoldier->roster().civilianGroup() );
 	}
 }
 
@@ -2133,10 +2133,10 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 	//Set the new bodytype into the and update the soldier info
 	if( iIndex != -1 )
 	{
-		gpSelected->pSoldier->ubBodyType = (UINT8)iIndex;
+		gpSelected->pSoldier->identity().bodyType() = (UINT8)iIndex;
 		//Set the flags based on the bodytype
-		gpSelected->pSoldier->flags.uiStatusFlags &= ~(SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_ANIMAL | SOLDIER_MONSTER);
-		switch( gpSelected->pSoldier->ubBodyType )
+		gpSelected->pSoldier->status().flags() &= ~(SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_ANIMAL | SOLDIER_MONSTER);
+		switch( gpSelected->pSoldier->identity().bodyType() )
 		{
 			case ADULTFEMALEMONSTER:
 			case AM_MONSTER:
@@ -2145,15 +2145,15 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 			case LARVAE_MONSTER:
 			case INFANT_MONSTER:
 			case QUEENMONSTER:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_MONSTER;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_MONSTER;
 				break;
 			case BLOODCAT:
 			case COW:
 			case CROW:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_ANIMAL;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_ANIMAL;
 				break;
 			case ROBOTNOWEAPON:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_ROBOT;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_ROBOT;
 				break;
 			case HUMVEE:
 			case ELDORADO:
@@ -2162,7 +2162,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 			case TANK_NW:
 			case TANK_NE:
 			case COMBAT_JEEP:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_VEHICLE;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_VEHICLE;
 				break;
 		}
 		SetSoldierAnimationSurface( gpSelected->pSoldier, gpSelected->pSoldier->animationPlayback().state() );
@@ -2174,7 +2174,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 	{
 		gpSelected->pDetailedPlacement->ubBodyType = (INT8)iIndex;
 	}
-	if( gpSelected->pSoldier->bTeam == CREATURE_TEAM )
+	if( gpSelected->pSoldier->roster().team() == CREATURE_TEAM )
 	{
 		gbCurrCreature = (INT8)iIndex;
 		AssignCreatureInventory( gpSelected->pSoldier );
@@ -2308,10 +2308,10 @@ void SetMercEditingMode( UINT8 ubNewMode )
 	{
 		//attempt to weed out conditions where we select a team that matches the currently
 		//selected merc.	We don't want to deselect him in this case.
-		if( gpSelected->pSoldier->bTeam == ENEMY_TEAM && iDrawMode == DRAW_MODE_ENEMY ||
-				gpSelected->pSoldier->bTeam == CREATURE_TEAM && iDrawMode == DRAW_MODE_CREATURE ||
-				gpSelected->pSoldier->bTeam == MILITIA_TEAM && iDrawMode == DRAW_MODE_REBEL ||
-				gpSelected->pSoldier->bTeam == CIV_TEAM && iDrawMode == DRAW_MODE_CIVILIAN )
+		if( gpSelected->pSoldier->roster().team() == ENEMY_TEAM && iDrawMode == DRAW_MODE_ENEMY ||
+				gpSelected->pSoldier->roster().team() == CREATURE_TEAM && iDrawMode == DRAW_MODE_CREATURE ||
+				gpSelected->pSoldier->roster().team() == MILITIA_TEAM && iDrawMode == DRAW_MODE_REBEL ||
+				gpSelected->pSoldier->roster().team() == CIV_TEAM && iDrawMode == DRAW_MODE_CIVILIAN )
 		{	//Same team, so don't deselect merc.	Instead, keep the previous editing mode
 			//because we are still editing this merc.
 			gubCurrMercMode = gubPrevMercMode;
@@ -2454,7 +2454,7 @@ void SetMercEditingMode( UINT8 ubNewMode )
 			if( gpSelected->pDetailedPlacement )
 			{
 				ShowEditorButton( MERCS_SCHEDULE );
-				if( gpSelected->pSoldier->bTeam == CIV_TEAM )
+				if( gpSelected->pSoldier->roster().team() == CIV_TEAM )
 					EnableEditorButton( MERCS_SCHEDULE );
 				else
 					DisableEditorButton( MERCS_SCHEDULE );
@@ -2646,7 +2646,7 @@ void UpdateMercsInfo()
 			SetFont( FONT10ARIAL );
 			SetFontForeground( FONT_WHITE );
 			SetFontShadow( FONT_NEARBLACK );
-			switch( gpSelected->pSoldier->aiData.bOrders )
+			switch( gpSelected->pSoldier->aiBehavior().orders() )
 			{
 				case STATIONARY:	mprintf( iScreenWidthOffset + 430, 2 * iScreenHeightOffset + 363, pUpdateMercsInfoText[39] );		break;
 				case ONCALL:		mprintf( iScreenWidthOffset + 430, 2 * iScreenHeightOffset + 363, pUpdateMercsInfoText[40] );		break;
@@ -3198,7 +3198,7 @@ void ChangeCivGroup( UINT8 ubNewCivGroup )
 		gpSelected->pBasicPlacement->ubCivilianGroup = gubCivGroup;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->ubCivilianGroup = gubCivGroup;
-		gpSelected->pSoldier->ubCivilianGroup = gubCivGroup;
+		gpSelected->pSoldier->roster().civilianGroup() = gubCivGroup;
 	}
 	//Adjust the text on the button
 	SpecifyButtonText( iEditorButton[ MERCS_CIVILIAN_GROUP ], gszCivGroupNames[ gubCivGroup ] );
@@ -3224,13 +3224,13 @@ void RenderMercStrings()
 			SetFont( TINYFONT1 );
 			SetFontBackground( FONT_BLACK );
 			SetFontForeground( FONT_WHITE );
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
-				FindFontCenterCoordinates( sXPos, sYPos, (INT16)(80 ), 1, pSoldier->name, TINYFONT1, &sX, &sY );
+				FindFontCenterCoordinates( sXPos, sYPos, (INT16)(80 ), 1, pSoldier->identity().name(), TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352 ))
 				{
-					gprintfdirty( sX, sY, pSoldier->name );
-					mprintf( sX, sY, pSoldier->name );
+					gprintfdirty( sX, sY, pSoldier->identity().name() );
+					mprintf( sX, sY, pSoldier->identity().name() );
 				}
 				sYPos += 10;
 
@@ -3249,7 +3249,7 @@ void RenderMercStrings()
 				sYPos += 10;
 
 				SetFontForeground( FONT_GRAY2 );
-				swprintf( str, pRenderMercStringsText[0], pSoldier->ubID );
+				swprintf( str, pRenderMercStringsText[0], pSoldier->identity().id() );
 				FindFontCenterCoordinates( sXPos, sYPos, 80, 1, str, TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352 ))
 				{
@@ -3259,7 +3259,7 @@ void RenderMercStrings()
 				sYPos += 10;
 				
 				
-				if (pSoldier->bTeam == CIV_TEAM )
+				if (pSoldier->roster().team() == CIV_TEAM )
 				{
 				//legion2
 				pStr2 = GetGrupaString( pSoldier );
@@ -3293,7 +3293,7 @@ void RenderMercStrings()
 				sYPos += 10;
 
 				SetFontForeground( FONT_GRAY2 );
-				swprintf( str, pRenderMercStringsText[0], pSoldier->ubID );
+				swprintf( str, pRenderMercStringsText[0], pSoldier->identity().id() );
 				FindFontCenterCoordinates( sXPos, sYPos, 80, 1, str, TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352) )
 				{
@@ -3303,7 +3303,7 @@ void RenderMercStrings()
 				sYPos += 10;
 				
 				//legion
-				if (pSoldier->bTeam == CIV_TEAM ) //(pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == CREATURE_TEAM || pSoldier->bTeam == MILITIA_TEAM) 
+				if (pSoldier->roster().team() == CIV_TEAM ) //(pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == CREATURE_TEAM || pSoldier->roster().team() == MILITIA_TEAM)
 				{		
 				//legion 2
 				pStr2 = GetGrupaString( pSoldier );
@@ -3380,7 +3380,7 @@ void SetMercTeamVisibility( INT8 bTeam, BOOLEAN fVisible )
 		}
 		curr = curr->next;
 	}
-	if( gpSelected && gpSelected->pSoldier && gpSelected->pSoldier->bTeam == bTeam && !fVisible )
+	if( gpSelected && gpSelected->pSoldier && gpSelected->pSoldier->roster().team() == bTeam && !fVisible )
 	{
 		IndicateSelectedMerc( SELECT_NO_MERC );
 	}

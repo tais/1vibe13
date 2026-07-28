@@ -559,7 +559,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 
 	// load the mercs face graphic and add it
 	VObjectDesc.fCreateFlags=VOBJECT_CREATE_FROMFILE;
-	sprintf(sTemp, "FACES\\%02d.sti", gMercProfiles[pSoldier->ubProfile].ubFaceIndex );
+	sprintf(sTemp, "FACES\\%02d.sti", gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
 	FilenameForBPP( sTemp, VObjectDesc.ImageFile);
 	CHECKF(AddVideoObject(&VObjectDesc, &uiInsMercFaceImage));
 
@@ -567,7 +567,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	GetVideoObject(&hPixHandle, uiInsMercFaceImage );
 
 	//if the merc is dead, shade the face red
-	if( IsMercDead( pSoldier->ubProfile ) )
+	if( IsMercDead( pSoldier->identity().profile() ) )
 	{
 		//if the merc is dead
 		//shade the face red, (to signify that he is dead)
@@ -587,7 +587,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	DrawTextToScreen(gMercProfiles[ ubMercID ].zNickname, (UINT16)(usPosX + INS_CTRCT_OG_NICK_NAME_OFFSET_X), INS_CTRCT_ORDER_GRID1_Y + INS_CTRCT_OG_NICK_NAME_OFFSET_Y, 0, INS_FONT_MED, INS_FONT_COLOR, FONT_MCOLOR_BLACK, FALSE, LEFT_JUSTIFIED	);
 
 	//Get the text to display the mercs current insurance contract status
-	if( IsMercDead( pSoldier->ubProfile ) )
+	if( IsMercDead( pSoldier->identity().profile() ) )
 	{
 		//if the merc has a contract
 		if( pSoldier->employment().lifeInsurance() )
@@ -654,7 +654,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 
 
 	//display the amount of time the merc has left on their Regular contract
-	if( IsMercDead( pSoldier->ubProfile ) )
+	if( IsMercDead( pSoldier->identity().profile() ) )
 		swprintf( sText, L"%s", pMessageStrings[ MSG_LOWERCASE_NA ] );
 	else
 		swprintf( sText, L"%d", GetTimeRemainingOnSoldiersContract( pSoldier ) );
@@ -680,7 +680,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	//
 
 	//if the soldier has insurance, disply the length of time the merc has left
-	if( IsMercDead( pSoldier->ubProfile ) )
+	if( IsMercDead( pSoldier->identity().profile() ) )
 		swprintf( sText, L"%s", pMessageStrings[ MSG_LOWERCASE_NA ] );
 
 	else if( pSoldier->employment().lifeInsurance() != 0 )
@@ -699,7 +699,7 @@ BOOLEAN DisplayOrderGrid( UINT8 ubGridNumber, UINT8 ubMercID )
 	//if the soldier can get insurance, calculate a new cost
 	if( CanSoldierExtendInsuranceContract( pSoldier ) )
 	{
-		iCostOfContract =CalculateInsuranceContractCost( CalculateSoldiersInsuranceContractLength( pSoldier ), pSoldier->ubProfile );
+		iCostOfContract =CalculateInsuranceContractCost( CalculateSoldiersInsuranceContractLength( pSoldier ), pSoldier->identity().profile() );
 	}
 
 	else
@@ -926,7 +926,7 @@ INT32 CalculateInsuranceCost( SOLDIERTYPE *pSoldier, BOOLEAN fHaveInsurance )
 		//if the user is changing the contract length
 		if( uiInsuranceContractLength != 0 )
 		{
-			iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->ubProfile);
+			iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->identity().profile());
 		}
 		//else we are just calculating the new figure
 		else
@@ -937,7 +937,7 @@ INT32 CalculateInsuranceCost( SOLDIERTYPE *pSoldier, BOOLEAN fHaveInsurance )
 	//else the merc doesn't have life insurance
 	else
 	{
-		iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->ubProfile);
+		iAmount = CalculateInsuranceContractCost( uiInsuranceContractLength, pSoldier->identity().profile());
 	}
 
 	return( iAmount );
@@ -1125,7 +1125,7 @@ void DailyUpdateOfInsuredMercs()
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(Soldier.i);
 		//if the soldier is in the team array
-		if( soldier && soldier->bActive )
+		if( soldier && soldier->roster().active() )
 		{
 			//if the merc has life insurance
 			if( soldier->employment().lifeInsurance() )
@@ -1139,7 +1139,7 @@ void DailyUpdateOfInsuredMercs()
 						soldier ) <= 0 )
 					{
 						//if the soldier isn't dead
-						if( !IsMercDead( soldier->ubProfile ) )
+						if( !IsMercDead( soldier->identity().profile() ) )
 						{
 							soldier->employment().lifeInsurance() = 0;
 							soldier->employment().insuranceLengthDays() = 0;
@@ -1292,7 +1292,7 @@ void BuildInsuranceArray()
 		if( MercIsInsurable(soldier) )
 		{
 			gubInsuranceMercArray[ gsMaxPlayersOnTeam ] =
-				soldier->ubProfile;
+				soldier->identity().profile();
 			gsMaxPlayersOnTeam++;
 		}
 	}
@@ -1309,9 +1309,9 @@ BOOLEAN AddLifeInsurancePayout( SOLDIERTYPE *pSoldier )
 
 
 	Assert(pSoldier != NULL);
-	Assert(pSoldier->ubProfile != NO_PROFILE);
+	Assert(pSoldier->identity().profile() != NO_PROFILE);
 
-	pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
+	pProfile = &(gMercProfiles[ pSoldier->identity().profile() ]);
 
 	//if we need to add more array elements
 	if( LaptopSaveInfo.ubNumberLifeInsurancePayouts <= LaptopSaveInfo.ubNumberLifeInsurancePayoutUsed )
@@ -1331,8 +1331,8 @@ BOOLEAN AddLifeInsurancePayout( SOLDIERTYPE *pSoldier )
 			break;
 	}
 
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID = pSoldier->ubID;
-	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubMercID = pSoldier->ubProfile;
+	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID = pSoldier->identity().id();
+	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubMercID = pSoldier->identity().profile();
 	LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].fActive = TRUE;
 
 	// This uses the merc's latest salaries, ignoring that they may be higher than the salaries paid under the current
@@ -1507,10 +1507,10 @@ void InsuranceContractPayLifeInsuranceForDeadMerc( UINT16 ubPayoutID )
 	//if the mercs id number is the same what is in the soldier array
 	if( soldier &&
 		LaptopSaveInfo.pLifeInsurancePayouts[ ubPayoutID ].ubSoldierID ==
-			soldier->ubID )
+			soldier->identity().id() )
 	{
 		// and if the soldier is still active ( player hasn't removed carcass yet ), reset insurance flag
-		if( soldier->bActive )
+		if( soldier->roster().active() )
 			soldier->employment().lifeInsurance() = 0;
 	}
 
@@ -1561,7 +1561,7 @@ BOOLEAN MercIsInsurable( SOLDIERTYPE *pSoldier )
 		return(FALSE);
 
 	// only A.I.M. mercs currently on player's team
-	if( ( pSoldier->bActive ) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
+	if( ( pSoldier->roster().active() ) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 	{
 		// with more than one day left on their employment contract are eligible for insurance
 		// the second part is because the insurance doesn't pay for any working day already started at time of death
@@ -1708,7 +1708,7 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 	}
 
 	//transfer money
-	iAmountOfMoneyTransfer = CalculateInsuranceContractCost( uiInsuranceLength, pSoldier->ubProfile );
+	iAmountOfMoneyTransfer = CalculateInsuranceContractCost( uiInsuranceLength, pSoldier->identity().profile() );
 
 	//if the user did have insruance already,
 	if( pSoldier->employment().lifeInsurance() )
@@ -1723,7 +1723,7 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 	{
 		//if the player is extending the contract
 		if( iAmountOfMoneyTransfer > 0 )
-			AddTransactionToPlayersBook(	EXTENDED_INSURANCE, pSoldier->ubProfile, GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
+			AddTransactionToPlayersBook(	EXTENDED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
 		else
 			Assert(0);
 	}
@@ -1745,10 +1745,10 @@ void PurchaseOrExtendInsuranceForSoldier( SOLDIERTYPE *pSoldier, UINT32 uiInsura
 			//else if the player has enought to cover the bill, let him
 
 			//the player just purchased life insurance
-			AddTransactionToPlayersBook(	PURCHASED_INSURANCE, pSoldier->ubProfile, GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
+			AddTransactionToPlayersBook(	PURCHASED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -( iAmountOfMoneyTransfer ) );
 
 			//add an entry in the history page for the purchasing of life insurance
-			AddHistoryToPlayersLog(HISTORY_PURCHASED_INSURANCE, pSoldier->ubProfile, GetWorldTotalMin(), -1, -1 );
+			AddHistoryToPlayersLog(HISTORY_PURCHASED_INSURANCE, pSoldier->identity().profile(), GetWorldTotalMin(), -1, -1 );
 
 			//Set that we have life insurance
 			pSoldier->employment().lifeInsurance() = 1;
@@ -1786,7 +1786,7 @@ INT32 CalculateSoldiersInsuranceContractLength( SOLDIERTYPE *pSoldier )
 
 
 	//if the merc is dead
-	if( IsMercDead( pSoldier->ubProfile ) )
+	if( IsMercDead( pSoldier->identity().profile() ) )
 		return( 0 );
 
 

@@ -232,13 +232,13 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		}
 
 		pSoldier = GetJa2SoldierRepository().resolve(id.i);
-		if( !pSoldier->flags.fBetweenSectors &&
+		if( !pSoldier->deployment().isBetweenSectors() &&
 				pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				( pSoldier->assignment().current() != selectedSoldier->assignment().current() ||
 				( pSoldier->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() != selectedSoldier->deployment().vehicleId() ) ) &&
 				pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
-				&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				&& !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{ //KM:	We need to determine if there are more than one squad (meaning other concious mercs in a different squad or assignment)
 			//		These conditions were done to the best of my knowledge, so if there are other situations that require modification,
 			//		then feel free to do so.
@@ -416,7 +416,7 @@ void DoneFadeOutWarpCallback( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() )
 		{
 			gfTacticalTraversal = TRUE;
 			SetGroupSectorValue( gsWarpWorldX, gsWarpWorldY, gbWarpWorldZ, pSoldier->deployment().groupId() );
@@ -558,7 +558,7 @@ void UpdateSectorExitMenu( )
 		if( gExitDialog.fSelectedMercIsEPC )
 		{ //EPCs cannot leave the sector alone and must be escorted
 			CHAR16 str[ 256 ];
-			swprintf( str, pExitingSectorHelpText[ EXIT_GUI_ESCORTED_CHARACTERS_MUST_BE_ESCORTED_HELPTEXT ], selectedSoldier->name );
+			swprintf( str, pExitingSectorHelpText[ EXIT_GUI_ESCORTED_CHARACTERS_MUST_BE_ESCORTED_HELPTEXT ], selectedSoldier->identity().name() );
 			SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
 			SetRegionFastHelpText( &gExitDialog.SingleRegion, str );
 		}
@@ -571,26 +571,26 @@ void UpdateSectorExitMenu( )
 				gExitDialog.bSingleMoveWillIsolateEPC);
 			if( !gExitDialog.fSquadHasMultipleEPCs )
 			{
-				if( gMercProfiles[ selectedSoldier->ubProfile ].bSex == MALE )
+				if( gMercProfiles[ selectedSoldier->identity().profile() ].bSex == MALE )
 				{ //male singular
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_SINGULAR ], selectedSoldier->name,
-										isolatedEpc->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_SINGULAR ], selectedSoldier->identity().name(),
+										isolatedEpc->identity().name() );
 				}
 				else
 				{ //female singular
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_SINGULAR ], selectedSoldier->name,
-										isolatedEpc->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_SINGULAR ], selectedSoldier->identity().name(),
+										isolatedEpc->identity().name() );
 				}
 			}
 			else
 			{
-				if( gMercProfiles[ selectedSoldier->ubProfile ].bSex == MALE )
+				if( gMercProfiles[ selectedSoldier->identity().profile() ].bSex == MALE )
 				{ //male plural
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_PLURAL ], selectedSoldier->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_MALE_PLURAL ], selectedSoldier->identity().name() );
 				}
 				else
 				{ //female plural
-					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_PLURAL ], selectedSoldier->name );
+					swprintf( str, pExitingSectorHelpText[ EXIT_GUI_MERC_CANT_ISOLATE_EPC_HELPTEXT_FEMALE_PLURAL ], selectedSoldier->identity().name() );
 				}
 			}
 			SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
@@ -604,7 +604,7 @@ void UpdateSectorExitMenu( )
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		EnableButton( gExitDialog.uiSingleMoveButton );
 		MSYS_EnableRegion(&(gExitDialog.SingleRegion) );
-		swprintf( str, pExitingSectorHelpText[ EXIT_GUI_SINGLE_TRAVERSAL_WILL_SEPARATE_SQUADS_HELPTEXT ], selectedSoldier->name );
+		swprintf( str, pExitingSectorHelpText[ EXIT_GUI_SINGLE_TRAVERSAL_WILL_SEPARATE_SQUADS_HELPTEXT ], selectedSoldier->identity().name() );
 		SetButtonFastHelpText( gExitDialog.uiSingleMoveButton, str );
 		SetRegionFastHelpText( &gExitDialog.SingleRegion, str );
 	}
@@ -781,7 +781,7 @@ void RemoveSectorExitMenu( BOOLEAN fOk )
 			// Check if there are more than one in this squad
 			if ( gExitDialog.ubNumPeopleOnSquad == 0 )
 			{
-				swprintf(	Str, pMessageStrings[	MSG_EPC_CANT_TRAVERSE ], selectedSoldier->name );
+				swprintf(	Str, pMessageStrings[	MSG_EPC_CANT_TRAVERSE ], selectedSoldier->identity().name() );
 
 				DoMessageBox( MSG_BOX_BASIC_STYLE, Str, GAME_SCREEN, ( UINT8 )MSG_BOX_FLAG_OK, NULL, NULL );
 				return;

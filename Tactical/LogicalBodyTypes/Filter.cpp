@@ -145,16 +145,16 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 			UINT32 q = r & ~_UNSET_FLAGS;
 			switch (q) {
 				case REQ_BODYTYPE:
-					cmp_val = pSoldier->ubBodyType;
+					cmp_val = pSoldier->identity().bodyType();
 					break;
 				case REQ_TEAM:
-					cmp_val = pSoldier->bTeam;
+					cmp_val = pSoldier->roster().team();
 					break;
 				case REQ_SOLDIER_CLASS:
-					cmp_val = pSoldier->ubSoldierClass;
+					cmp_val = pSoldier->roster().soldierClass();
 					break;
 				case REQ_CIVILIANGROUP:
-					cmp_val = pSoldier->ubCivilianGroup;
+					cmp_val = pSoldier->roster().civilianGroup();
 					break;
 				case REQ_CAMO:
 					cmp_val = pSoldier->camouflage().jungleApplied();
@@ -169,16 +169,16 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = pSoldier->camouflage().snowApplied();
 					break;
 				case REQ_EXPLEVEL:
-					cmp_val = pSoldier->stats.bExpLevel;
+					cmp_val = pSoldier->statistics().experienceLevel();
 					break;
 				case REQ_STRENGTH:
-					cmp_val = pSoldier->stats.bStrength;
+					cmp_val = pSoldier->statistics().strength();
 					break;
 				case REQ_LEADERSHIP:
-					cmp_val = pSoldier->stats.bLeadership;
+					cmp_val = pSoldier->statistics().leadership();
 					break;
 				case REQ_WISDOM:
-					cmp_val = pSoldier->stats.bWisdom;
+					cmp_val = pSoldier->statistics().wisdom();
 					break;
 /*				case REQ_SKILLTRAIT1:
 					cmp_val = pSoldier->stats.ubSkillTrait1;
@@ -187,10 +187,10 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = pSoldier->stats.ubSkillTrait2;
 					break;*/
 				case REQ_FACEINDEX:
-					if (pSoldier->ubProfile == NO_PROFILE
-						|| pSoldier->ubProfile < 1
-						|| pSoldier->ubProfile > NUM_PROFILES - 2) return false;
-					cmp_val = gMercProfiles[pSoldier->ubProfile].ubFaceIndex;
+					if (pSoldier->identity().profile() == NO_PROFILE
+						|| pSoldier->identity().profile() < 1
+						|| pSoldier->identity().profile() > NUM_PROFILES - 2) return false;
+					cmp_val = gMercProfiles[pSoldier->identity().profile()].ubFaceIndex;
 					break;
 				case REQ_WEAPON_IN_HAND:
 					cmp_val = WeaponInHand(pSoldier);
@@ -304,21 +304,21 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 			CHAR16 wStr[31];
 			switch (r & ~_UNSET_FLAGS) {
 				case REQ_NAME:
-					wcscpy(wStr, pSoldier->name);
+					wcscpy(wStr, pSoldier->identity().name());
 					cmp_val = wStr;
 					break;
 				case REQ_PROFILENAME:
-					if (pSoldier->ubProfile == NO_PROFILE
-						|| pSoldier->ubProfile < 1
-						|| pSoldier->ubProfile > NUM_PROFILES - 2) return false;
-					wcscpy(wStr, gMercProfiles[pSoldier->ubProfile].zName);
+					if (pSoldier->identity().profile() == NO_PROFILE
+						|| pSoldier->identity().profile() < 1
+						|| pSoldier->identity().profile() > NUM_PROFILES - 2) return false;
+					wcscpy(wStr, gMercProfiles[pSoldier->identity().profile()].zName);
 					cmp_val = wStr;
 					break;
 				case REQ_NICKNAME:
-					if (pSoldier->ubProfile == NO_PROFILE
-						|| pSoldier->ubProfile < 1
-						|| pSoldier->ubProfile > NUM_PROFILES - 2) return false;
-					wcscpy(wStr, gMercProfiles[pSoldier->ubProfile].zNickname);
+					if (pSoldier->identity().profile() == NO_PROFILE
+						|| pSoldier->identity().profile() < 1
+						|| pSoldier->identity().profile() > NUM_PROFILES - 2) return false;
+					wcscpy(wStr, gMercProfiles[pSoldier->identity().profile()].zNickname);
 					cmp_val = wStr;
 					break;
 				default:

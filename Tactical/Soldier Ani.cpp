@@ -194,7 +194,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				if ( !pSoldier->animationActivity().nonInterruptible() )
 				{
 					// UNset UI
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 
 					SoldierCollapse( pSoldier );
 
@@ -225,7 +225,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 402:
 
 				// DO NOT MOVE FOR THIS FRAME
-				pSoldier->flags.fPausedMove = TRUE;
+				pSoldier->movement().pauseMovement();
 				break;
 
 			case 403:
@@ -299,7 +299,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// ATE: Change interface level.....
 				// CJC: only if we are a player merc
-				if (pSoldier->bTeam == gbPlayerNum)
+				if (pSoldier->roster().team() == gbPlayerNum)
 				{
 
 					if (gTacticalStatus.fAutoBandageMode)
@@ -311,9 +311,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					else
 					{
 						// OK, UNSET INTERFACE FIRST
-						UnSetUIBusy( pSoldier->ubID );
+						UnSetUIBusy( pSoldier->identity().id() );
 
-						if ( pSoldier->ubID == gusSelectedSoldier )
+						if ( pSoldier->identity().id() == gusSelectedSoldier )
 						{
 							ChangeInterfaceLevel( 1 );
 						}
@@ -352,7 +352,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 				// Adjust height //shadooow: do not change bLevel yet, we are still at roof!
-				pSoldier->InternalSetSoldierHeight((FLOAT)gClimbDownRoofStartDist[pSoldier->ubBodyType], FALSE);
+				pSoldier->InternalSetSoldierHeight((FLOAT)gClimbDownRoofStartDist[pSoldier->identity().bodyType()], FALSE);
 				// Adjust position
 				MoveMercFacingDirection( pSoldier , TRUE, (FLOAT)3.5 );
 				break;
@@ -404,18 +404,18 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: case 430");
 					// SHOOT GUN
 					// MAKE AN EVENT, BUT ONLY DO STUFF IF WE OWN THE GUY!
-					SFireWeapon.usSoldierID			= pSoldier->ubID;
-					SFireWeapon.uiUniqueId			= pSoldier->uiUniqueSoldierIdValue;
+					SFireWeapon.usSoldierID			= pSoldier->identity().id();
+					SFireWeapon.uiUniqueId			= pSoldier->identity().incarnation();
 					SFireWeapon.sTargetGridNo		= pSoldier->targeting().gridNo();
 					SFireWeapon.bTargetLevel		= pSoldier->targeting().level();
 					SFireWeapon.bTargetCubeLevel= pSoldier->targeting().cubeLevel();
-					if((is_server && pSoldier->ubID<120) || (!is_server && is_client && pSoldier->ubID<20) || (!is_server && !is_client) )
+					if((is_server && pSoldier->identity().id()<120) || (!is_server && is_client && pSoldier->identity().id()<20) || (!is_server && !is_client) )
 					{
 						//only carry on if own merc
 						AddGameEvent( S_FIREWEAPON, 0, &SFireWeapon );
 				
 						//hayden
-						if(is_server || (is_client && pSoldier->ubID <20) ) 
+						if(is_server || (is_client && pSoldier->identity().id() <20) )
 							send_fireweapon( &SFireWeapon );
 					}
 
@@ -669,7 +669,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// be from player changin stance
 				if ( pSoldier->animationPlayback().state() == START_COWER || pSoldier->animationPlayback().state() == START_COWER_CROUCHED || pSoldier->animationPlayback().state() == START_COWER_PRONE )
 				{
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 				}
 				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 				// SANDRO - if pending interrupt flag was set for after-attack type of interupt, try to resolve it now
@@ -679,7 +679,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					{
 						pSoldier->animationIntent().clearFacingAnimation();
 						// "artificially" set lock ui flag in this case
-						if (pSoldier->bTeam == gbPlayerNum)
+						if (pSoldier->roster().team() == gbPlayerNum)
 						{
 							//AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, Message[STR_INTERRUPT] );
 							guiPendingOverrideEvent = LU_BEGINUILOCK;								
@@ -699,12 +699,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				case SOUTH:
 				case EAST:
 
-					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardSEDist[ pSoldier->ubBodyType ] );
+					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardSEDist[ pSoldier->identity().bodyType() ] );
 					break;
 
 				case NORTH:
 				case WEST:
-					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardNWDist[ pSoldier->ubBodyType ] );
+					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardNWDist[ pSoldier->identity().bodyType() ] );
 					break;
 				}
 				break;
@@ -725,7 +725,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					BoxingMovementCheck( pSoldier );
 				}
 
-				if ( SetOffBombsInGridNo( pSoldier->ubID, pSoldier->position().gridNo(), FALSE, pSoldier->position().level() ))
+				if ( SetOffBombsInGridNo( pSoldier->identity().id(), pSoldier->position().gridNo(), FALSE, pSoldier->position().level() ))
 				{
 					pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 					return( TRUE );
@@ -740,7 +740,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
 					{
 						// Set UI Busy
-						UnSetUIBusy( pSoldier->ubID );
+						UnSetUIBusy( pSoldier->identity().id() );
 					}
 
 					return( TRUE );
@@ -755,13 +755,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				case SOUTH:
 				case EAST:
 
-					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardFullSEDist[ pSoldier->ubBodyType ] );
+					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardFullSEDist[ pSoldier->identity().bodyType() ] );
 					break;
 
 				case NORTH:
 				case WEST:
 
-					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardFullNWDist[ pSoldier->ubBodyType ] );
+					MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gHopFenceForwardFullNWDist[ pSoldier->identity().bodyType() ] );
 					break;
 
 				}
@@ -770,7 +770,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 446:
 
 				// CODE: Turn pause move flag on
-				pSoldier->flags.uiStatusFlags |= SOLDIER_PAUSEANIMOVE;
+				pSoldier->status().flags() |= SOLDIER_PAUSEANIMOVE;
 				break;
 
 			case 447:
@@ -857,7 +857,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"AdjustToNextAnimationFrame: Burst case 448, stopping because not enough ammo");
 						fStop = TRUE;
 						fFreeUpAttacker = TRUE;
-						if ( pSoldier->bTeam == gbPlayerNum	)
+						if ( pSoldier->roster().team() == gbPlayerNum	)
 						{
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ BURST_FIRE_DEPLETED_CLIP_STR ] );
 						}
@@ -883,7 +883,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								pSoldier->audio().clearBurstSound();
 							}
 
-							if ( pSoldier->bTeam == gbPlayerNum	)
+							if ( pSoldier->roster().team() == gbPlayerNum	)
 							{
 								PlayJA2Sample( S_DRYFIRE1, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 								//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Gun jammed!" );
@@ -916,13 +916,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( fFreeUpAttacker )
 						{
 							// DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - aborting start of attack") );
-							// FreeUpAttacker( pSoldier->ubID );
+							// FreeUpAttacker( pSoldier->identity().id() );
 						}
 
 						// ATE; Reduce it due to animation being stopped...
 						// 0verhaul: No longer necessary or desired
 						// DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - Burst animation ended") );
-						// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+						// ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 
 
 						if ( CheckForImproperFireGunEnd( pSoldier ) )
@@ -1044,7 +1044,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				//CODE: FALLOFF ROOF ( BACKWARDS ) - MOVE BACK SOME!
 				// Use same function as forward, but is -ve values!
-				MoveMercFacingDirection( pSoldier , TRUE, (FLOAT)gFalloffBackwardsDist[ pSoldier->ubBodyType ] );
+				MoveMercFacingDirection( pSoldier , TRUE, (FLOAT)gFalloffBackwardsDist[ pSoldier->identity().bodyType() ] );
 				break;
 
 			case 454:
@@ -1053,21 +1053,21 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Move merc up
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				break;
 
 			case 455:
 
 				// MOVE GUY FORWARD SOME VALUE
-				MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gClimbUpRoofLATDist[ pSoldier->ubBodyType ] );
+				MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gClimbUpRoofLATDist[ pSoldier->identity().bodyType() ] );
 
 				// MOVE DOWN SOME VALUE TOO!
-				pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDistGoingLower[ pSoldier->ubBodyType ] ) );
+				pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDistGoingLower[ pSoldier->identity().bodyType() ] ) );
 
 				break;
 
@@ -1077,11 +1077,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Move merc DOWN
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->identity().bodyType() ] ) );
 				}
 				break;
 
@@ -1096,8 +1096,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: CHANGE ATTACKING TO FIRST HAND
 				pSoldier->attackSelection().selectWeapon(
 					HANDPOS, pSoldier->inv[HANDPOS].usItem);
-				// Adjust fReloading to FALSE
-				pSoldier->flags.fReloading = FALSE;
+				// Clear the fire-control reload state.
+				pSoldier->fireControl().reloading() = FALSE;
 				break;
 
 			case 458:
@@ -1105,8 +1105,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: CHANGE ATTACKING TO SECOND HAND
 				pSoldier->attackSelection().selectWeapon(
 					SECONDHANDPOS, pSoldier->inv[SECONDHANDPOS].usItem);
-				// Adjust fReloading to FALSE
-				pSoldier->flags.fReloading = FALSE;
+				// Clear the fire-control reload state.
+				pSoldier->fireControl().reloading() = FALSE;
 				break;
 
 			case 460:
@@ -1155,14 +1155,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					INT32 iRealObjectID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
+					INT32 iRealObjectID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
 
 					// OJW - 20091002 - Explosives
 					if (is_networked && is_client)
 					{
-						if (pSoldier->bTeam == 0 || (pSoldier->bTeam == 1 && is_server))
+						if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 						{
-							send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->targeting().gridNo(), pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iRealObjectID, true);
+							send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->targeting().gridNo(), pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iRealObjectID, true);
 						}
 					}
 
@@ -1182,8 +1182,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 462:
 
 				// CODE: MOVE UP FROM CLIFF CLIMB
-				pSoldier->aiData.dHeightAdjustment += (float)2.1;
-				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().animationHeightAdjustment() += (float)2.1;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->position().animationHeightAdjustment();
 				// Move over some...
 				//MoveMercFacingDirection( pSoldier , FALSE, (FLOAT)0.5 );
 				break;
@@ -1198,8 +1198,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 464:
 
 				// CODE: END CLIFF CLIMB
-				pSoldier->aiData.dHeightAdjustment = (float)0;
-				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().animationHeightAdjustment() = (float)0;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->position().animationHeightAdjustment();
 
 				// Set new gridno
 				{
@@ -1244,12 +1244,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( sDiff > 0 )
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - 2 ) );
+							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - 2 ) );
 						}
 						else
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + 2 ) );
+							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + 2 ) );
 						}
 					}
 					else
@@ -1268,7 +1268,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					else
 					{
 						// We should leave now!
-						TacticalRemoveSoldier( pSoldier->ubID );
+						TacticalRemoveSoldier( pSoldier->identity().id() );
 						return( FALSE );
 					}
 					return( TRUE );
@@ -1305,15 +1305,15 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					BOOLEAN fNPCPunch = FALSE;
 
 					// ATE: Put some code in for NPC punches...
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_NPC_DOING_PUNCH )
+					if ( pSoldier->status().flags() & SOLDIER_NPC_DOING_PUNCH )
 					{
 						fNPCPunch = TRUE;
 
 						// Turn off
-						pSoldier->flags.uiStatusFlags &= (~SOLDIER_NPC_DOING_PUNCH );
+						pSoldier->status().flags() &= (~SOLDIER_NPC_DOING_PUNCH );
 
 						// Trigger approach...
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->identity().profile(), (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 
 
@@ -1321,7 +1321,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					{
 						BOOLEAN fMartialArtist = FALSE;
 
-						if ( pSoldier->ubProfile != NO_PROFILE && pSoldier->ubBodyType == REGMALE ) // SANDRO - added check for body type
+						if ( pSoldier->identity().profile() != NO_PROFILE && pSoldier->identity().bodyType() == REGMALE ) // SANDRO - added check for body type
 						{
 							// SANDRO - old/new traits
 							if (gGameOptions.fNewTraitSystem)
@@ -1333,7 +1333,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							}
 							else
 							{
-								if ( ProfileHasSkillTrait( pSoldier->ubProfile, MARTIALARTS_OT ) > 0 )
+								if ( ProfileHasSkillTrait( pSoldier->identity().profile(), MARTIALARTS_OT ) > 0 )
 								{
 									fMartialArtist = TRUE;
 								}
@@ -1419,7 +1419,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 471:
 
 				// CODE: Turn pause move flag off
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_PAUSEANIMOVE);
+				pSoldier->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
 				break;
 
 			case 472:
@@ -1448,7 +1448,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
 							{
 								if ((((NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
-									(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->ubBodyType == REGMALE )
+									(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
 								{
 									if(is_networked)
 										pSoldier->ChangeSoldierState( NINJA_BREATH, 0 , FALSE );
@@ -1520,14 +1520,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// ATE: Change interface level.....
 				// CJC: only if we are a player merc
-				if ( (pSoldier->bTeam == gbPlayerNum) && !gTacticalStatus.fAutoBandageMode)
+				if ( (pSoldier->roster().team() == gbPlayerNum) && !gTacticalStatus.fAutoBandageMode)
 				{
-					if ( pSoldier->ubID == gusSelectedSoldier )
+					if ( pSoldier->identity().id() == gusSelectedSoldier )
 					{
 						ChangeInterfaceLevel( 0 );
 					}
 					// OK, UNSET INTERFACE FIRST
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 				}
 				else
 				{
@@ -1553,14 +1553,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: Locate to target ( if an AI guy.. )
 				if ( IsJa2TacticalTurnBasedCombat() )
 				{
-					if ( pSoldier->bTeam != gbPlayerNum )
+					if ( pSoldier->roster().team() != gbPlayerNum )
 					{
 						const SOLDIERTYPE* target =
 							GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 
 						// only locate if the enemy is visible or he's aiming at a player
 						if ( pSoldier->awareness().visibility() != -1 ||
-							(target != nullptr && target->bTeam == gbPlayerNum) )
+							(target != nullptr && target->roster().team() == gbPlayerNum) )
 						{
 							LocateGridNo( pSoldier->targeting().gridNo() );
 						}
@@ -1578,7 +1578,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// ONLY DO THIS IF CERTAIN CONDITIONS ARISE!
 					// For one, only do for mercs!
 					// Flugente: don't do this while equipping a shield, as this renders them almost useless
-					if ( pSoldier->ubBodyType <= REGFEMALE && !pSoldier->IsRiotShieldEquipped( ) )
+					if ( pSoldier->identity().bodyType() <= REGFEMALE && !pSoldier->IsRiotShieldEquipped( ) )
 					{
 						// Secondly, don't if we are going to collapse
 						if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 && pSoldier->position().level() == 0 )
@@ -1619,7 +1619,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								if ( uiChance < 50 )
 								{
 									// OK, pick a larger direction to goto....
-									pSoldier->flags.uiStatusFlags |= SOLDIER_TURNINGFROMHIT;
+									pSoldier->status().flags() |= SOLDIER_TURNINGFROMHIT;
 									// This becomes an attack busy situation
 									// 0verhaul:  There is an attack busy problem with this.  The soldier could be in mid-turn
 									// when another bullet is fired (auto-fire or dual-wield, for instance), and the soldier is
@@ -1655,12 +1655,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 479:
 
 				// CODE: Return to old direction......
-				if ( pSoldier->ubBodyType <= REGFEMALE )
+				if ( pSoldier->identity().bodyType() <= REGFEMALE )
 				{
 					// Secondly, don't if we are going to collapse
 					//if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 )
 					//{
-					///	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
+					///	if ( !( pSoldier->status().flags() & SOLDIER_TURNINGFROMHIT ) )
 					//	{
 					///		pSoldier->ubDirection				= (INT8)pSoldier->pendingAction().primaryData();
 					//		pSoldier->pathing().desiredDirection() = (INT8)pSoldier->pendingAction().primaryData();
@@ -1709,7 +1709,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 485:
 
 				// CODE: Try steal.....
-//				UnSetUIBusy( pSoldier->ubID);
+//				UnSetUIBusy( pSoldier->identity().id());
 				UseHandToHand( pSoldier, pSoldier->pendingAction().secondaryData(), TRUE );
 				//jackaians:
 				//if we are not waiting for the pickup menu to be displayed
@@ -1723,13 +1723,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: GIVE ITEM
 				SoldierGiveItemFromAnimation( pSoldier );
-			//	if (pSoldier->ubProfile != NO_PROFILE && pSoldier->ubProfile >= FIRST_NPC )
+			//	if (pSoldier->identity().profile() != NO_PROFILE && pSoldier->identity().profile() >= FIRST_NPC )
 				//new profiles by Jazz	
-				if (pSoldier->ubProfile != NO_PROFILE && ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_RPC ||
-					gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_NPC ||
-					gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_VEHICLE ) )
+				if (pSoldier->identity().profile() != NO_PROFILE && ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_RPC ||
+					gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_NPC ||
+					gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_VEHICLE ) )
 				{
-					TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_GIVING_ITEM, FALSE );
+					TriggerNPCWithGivenApproach( pSoldier->identity().profile(), APPROACH_DONE_GIVING_ITEM, FALSE );
 				}
 				break;
 
@@ -1746,7 +1746,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				//pSoldier->ChangeSoldierState( RAISE_RIFLE, 0 , FALSE );
 				//return( TRUE );
 				//Delete guy
-				//TacticalRemoveSoldier( pSoldier->ubID );
+				//TacticalRemoveSoldier( pSoldier->identity().id() );
 				//return( FALSE );
 				break;
 
@@ -1788,7 +1788,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						pSoldier->animationActivity().resetRandomActionCheck();
 
 						// Don't play these generally if this is the guy selected by player, as this one is "awaiting orders"
-						if (pSoldier->ubID != gusSelectedSoldier || Random( 10 ) == 0 ) 
+						if (pSoldier->identity().id() != gusSelectedSoldier || Random( 10 ) == 0 )
 						{
 							// Don't do any in water!
 							// Also don't play if we are in the middle of something
@@ -1825,7 +1825,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								// Check which animation to play....
 								for ( cnt = 0; cnt < MAX_RANDOM_ANIMS_PER_BODYTYPE; cnt++ )
 								{
-									pAnimDef = &( gRandomAnimDefs[ pSoldier->ubBodyType ][ cnt ] );
+									pAnimDef = &( gRandomAnimDefs[ pSoldier->identity().bodyType() ][ cnt ] );
 
 									if ( pAnimDef->sAnimID	!= 0 )
 									{
@@ -1876,7 +1876,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										if ( ( pAnimDef->ubFlags & RANDOM_ANIM_CASUAL ) )
 										{
 											// If he's a bad guy, do not do it!
-											if ( pSoldier->bTeam != gbPlayerNum	|| ( IsJa2TacticalCombatActive() ) )
+											if ( pSoldier->roster().team() != gbPlayerNum	|| ( IsJa2TacticalCombatActive() ) )
 											{
 												continue;
 											}
@@ -1886,7 +1886,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										if ( pAnimDef->ubFlags & RANDOM_ANIM_LOOKAROUND )
 										{
 											// enemy on sight, don't pretend we don't see him!
-											if ( pSoldier->aiData.bOppCnt > 0 )
+											if ( pSoldier->awareness().opponentCount() > 0 )
 											{
 												continue;
 											}
@@ -1896,7 +1896,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										if ( pAnimDef->ubFlags & RANDOM_ANIM_SHOWOFF )
 										{
 											// enemy on sight, don't pretend we don't see him!
-											if ( pSoldier->ubProfile != NO_PROFILE )
+											if ( pSoldier->identity().profile() != NO_PROFILE )
 											{
 												if ( Random( 10 ) < 9 && !DoesMercHavePersonality( pSoldier, CHAR_TRAIT_SHOWOFF ) )
 												{
@@ -1935,7 +1935,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 												// Are we playing a sound
 												if ( pAnimDef->sAnimID == RANDOM_ANIM_SOUND )
 												{
-													if ( pSoldier->ubBodyType == COW )
+													if ( pSoldier->identity().bodyType() == COW )
 													{
 														if ( Random( 10 ) == 1 )
 														{
@@ -1958,7 +1958,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 															}
 														}
 													}
-													else if ( pSoldier->ubBodyType == CROW )
+													else if ( pSoldier->identity().bodyType() == CROW )
 													{
 														if ( Random( 4 ) == 1 )
 														{
@@ -1998,14 +1998,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 															continue;
 														}
 														// this is not for enemy fools, only for cool mercs
-														if ( pSoldier->bTeam != gbPlayerNum )
+														if ( pSoldier->roster().team() != gbPlayerNum )
 														{
 															continue;
 														}
 														// these funny moves are not likely to be used in combat
 														if ( ( IsJa2TacticalCombatActive() ) )
 														{
-															if ( pSoldier->aiData.bMorale < 95 ) // .. unless we are really confident about ourselves
+															if ( pSoldier->morale().morale() < 95 ) // .. unless we are really confident about ourselves
 															{ 
 																continue;
 															}
@@ -2045,7 +2045,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// SIGNAL DODGE!
 				// ATE: Only do if we're not inspecial case...
-				if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_NPC_DOING_PUNCH ) )
+				if ( !( pSoldier->status().flags() & SOLDIER_NPC_DOING_PUNCH ) )
 				{
 					SOLDIERTYPE *pTSoldier;
 					UINT32 uiMercFlags;
@@ -2059,14 +2059,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( IS_MERC_BODY_TYPE( pTSoldier ) )
 						{
 							// ONLY DODGE IF WE ARE SEEN
-							if ( pTSoldier->aiData.bOppList[ pSoldier->ubID ] != 0 || pTSoldier->bTeam == pSoldier->bTeam )
+							if ( pTSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] != 0 || pTSoldier->roster().team() == pSoldier->roster().team() )
 							{
 								if ( gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND )
 								{
 									// OK, stop merc....
 									pTSoldier->EVENT_StopMerc( pTSoldier->position().gridNo(), pTSoldier->position().direction() );
 
-									if ( pTSoldier->bTeam != gbPlayerNum )
+									if ( pTSoldier->roster().team() != gbPlayerNum )
 									{
 										DebugAI(AI_MSG_INFO, pTSoldier, String("CancelAIAction: dodge"));
 										CancelAIAction( pTSoldier, TRUE );
@@ -2110,7 +2110,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 									//{
 									//	if ((((NUM_SKILL_TRAITS( pTSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
 									//		(HAS_SKILL_TRAIT( pTSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) &&
-									//		 pTSoldier->ubBodyType == REGMALE )
+									//		 pTSoldier->identity().bodyType() == REGMALE )
 									//	{
 									//		//pTSoldier->animationIntent().pendingAnimation() = NINJA_GOTOBREATH;
 									//		pTSoldier->animationIntent().pendingAnimation() = NINJA_BREATH ;
@@ -2170,7 +2170,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 495:
 
-				if (pSoldier->aiData.bAction == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiData.bAction == AI_ACTION_LOCK_DOOR && !(pSoldier->aiData.fAIFlags & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
+				if (pSoldier->aiPlanning().action() == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiPlanning().action() == AI_ACTION_LOCK_DOOR && !(pSoldier->aiBehavior().flags() & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
 				{
 					// EVENT HAS BEEN HANDLED
 					pSoldier->pendingAction().clearAction();
@@ -2179,7 +2179,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				}
 				else
 				{
-					pSoldier->aiData.fAIFlags &= ~(AI_LOCK_DOOR_INCLUDES_CLOSE);
+					pSoldier->aiBehavior().flags() &= ~(AI_LOCK_DOOR_INCLUDES_CLOSE);
 
 					pSoldier->audio().recordDoorOpeningNoise(
 						DoorOpeningNoise( pSoldier ) );
@@ -2191,10 +2191,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						InitOpplistForDoorOpening();
 						//shadooow: this has been moved inside HandleDoorsOpenClose
-						//MakeNoise( pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING );
+						//MakeNoise( pSoldier->identity().id(), pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING );
 						//	gfDelayResolvingBestSighting = FALSE;
 
-						gubInterruptProvoker = pSoldier->ubID;
+						gubInterruptProvoker = pSoldier->identity().id();
 						AllTeamsLookForAll( TRUE );
 
 						// ATE: Now, check AI guy to cancel what he was going....
@@ -2223,12 +2223,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					//HandleSoldierDeath( pSoldier );
 
 					// If guy is now dead, and we have not played death sound before, play
-					if ( pSoldier->vitals().health() == 0 && !pSoldier->flags.fDeadSoundPlayed	)
+					if ( pSoldier->vitals().health() == 0 && !pSoldier->dialogue().deathSoundPlayed()	)
 					{
 						if ( pSoldier->animationPlayback().state() != JFK_HITDEATH )
 						{
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-							pSoldier->flags.fDeadSoundPlayed = TRUE;
+							pSoldier->dialogue().markDeathSoundPlayed();
 						}
 					}
 
@@ -2335,7 +2335,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						// ATE: OK - the above call can potentially
 						// render the soldier bactive to false - check heare
-						if ( !pSoldier->bActive )
+						if ( !pSoldier->roster().active() )
 						{
 							return( FALSE );
 						}
@@ -2365,7 +2365,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						pSoldier->animationIntent().clearFacingAnimation();
 						// "artificially" set lock ui flag in this case
-						if (pSoldier->bTeam == gbPlayerNum)
+						if (pSoldier->roster().team() == gbPlayerNum)
 						{
 							//AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, Message[STR_INTERRUPT] );
 							guiPendingOverrideEvent = LU_BEGINUILOCK;								
@@ -2389,23 +2389,23 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// JUMP TO NEXT STATIONARY ANIMATION ACCORDING TO HEIGHT
 			case 499:
 
-				if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+				if (!(pSoldier->status().flags() & SOLDIER_PC))
 				{
-					if ( pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER )
+					if ( pSoldier->aiPlanning().action() == AI_ACTION_PULL_TRIGGER )
 					{
 						if ( pSoldier->animationPlayback().state() == AI_PULL_SWITCH && GetJa2PendingTacticalCombatActions() == 0 && gubElementsOnExplosionQueue == 0 )
 						{
 							FreeUpNPCFromPendingAction( pSoldier );
 						}
 					}
-					else if ( pSoldier->aiData.bAction == AI_ACTION_PENDING_ACTION
-						|| pSoldier->aiData.bAction == AI_ACTION_OPEN_OR_CLOSE_DOOR
-						|| pSoldier->aiData.bAction == AI_ACTION_YELLOW_ALERT
-						|| pSoldier->aiData.bAction == AI_ACTION_RED_ALERT
-						|| pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER
-						|| pSoldier->aiData.bAction == AI_ACTION_CREATURE_CALL
-						|| pSoldier->aiData.bAction == AI_ACTION_UNLOCK_DOOR
-						|| pSoldier->aiData.bAction == AI_ACTION_LOCK_DOOR	)
+					else if ( pSoldier->aiPlanning().action() == AI_ACTION_PENDING_ACTION
+						|| pSoldier->aiPlanning().action() == AI_ACTION_OPEN_OR_CLOSE_DOOR
+						|| pSoldier->aiPlanning().action() == AI_ACTION_YELLOW_ALERT
+						|| pSoldier->aiPlanning().action() == AI_ACTION_RED_ALERT
+						|| pSoldier->aiPlanning().action() == AI_ACTION_PULL_TRIGGER
+						|| pSoldier->aiPlanning().action() == AI_ACTION_CREATURE_CALL
+						|| pSoldier->aiPlanning().action() == AI_ACTION_UNLOCK_DOOR
+						|| pSoldier->aiPlanning().action() == AI_ACTION_LOCK_DOOR	)
 					{
 						if ( pSoldier->animationPlayback().state() == PICKUP_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM_CROUCHED || pSoldier->animationPlayback().state() == DROP_ITEM || pSoldier->animationPlayback().state() == END_OPEN_DOOR || pSoldier->animationPlayback().state() == END_OPEN_DOOR_CROUCHED || pSoldier->animationPlayback().state() == CLOSE_DOOR || pSoldier->animationPlayback().state() == MONSTER_UP || pSoldier->animationPlayback().state() == AI_RADIO || pSoldier->animationPlayback().state() == AI_CR_RADIO || pSoldier->animationPlayback().state() == END_OPENSTRUCT || pSoldier->animationPlayback().state() == END_OPENSTRUCT_CROUCHED || pSoldier->animationPlayback().state() == QUEEN_CALL )
 						{
@@ -2420,7 +2420,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				if ( pSoldier->animationIntent().desiredHeight() == gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight || pSoldier->animationIntent().desiredHeight() == NO_DESIRED_HEIGHT )
 				{
 					// Adjust movement mode......
-					if ( pSoldier->bTeam == gbPlayerNum && !pSoldier->animationIntent().continuationMode() )
+					if ( pSoldier->roster().team() == gbPlayerNum && !pSoldier->animationIntent().continuationMode() )
 					{
 						usMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
@@ -2456,7 +2456,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass & (IC_NONE | IC_PUNCH) )
 								{
 									if ((((NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) >= ((gSkillTraitValues.fPermitExtraAnimationsOnlyToMA) ? 2 : 1 )) && gGameOptions.fNewTraitSystem ) ||
-										(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->ubBodyType == REGMALE )
+										(HAS_SKILL_TRAIT( pSoldier, MARTIALARTS_OT ) && !gGameOptions.fNewTraitSystem ) ) && pSoldier->identity().bodyType() == REGMALE )
 									{
 										if(is_networked)
 											pSoldier->ChangeSoldierState( NINJA_BREATH, 0 , FALSE );
@@ -2517,7 +2517,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( GetJa2PendingTacticalCombatActions() == 0 )
 						{
 							// OK, UNSET INTERFACE FIRST
-							UnSetUIBusy( pSoldier->ubID );
+							UnSetUIBusy( pSoldier->identity().id() );
 							// ( before we could get interrupted potentially by an interrupt )
 						}
 					}
@@ -2552,14 +2552,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						// sevenfm: update tree visibility after changing stance
 						if (//pSoldier->awareness().visibility() != -1 &&
-							pSoldier->bTeam != OUR_TEAM &&
-							(pSoldier->bTeam != MILITIA_TEAM || !gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa))
+							pSoldier->roster().team() != OUR_TEAM &&
+							(pSoldier->roster().team() != MILITIA_TEAM || !gGameExternalOptions.bWeSeeWhatMilitiaSeesAndViceVersa))
 							UpdateTreeVisibility();
 					}
 
 					// Have we finished opening doors?
 					// 0verhaul:  Added additional check:  Are we told to stop at this point, maybe due to being interrupted?
-					if ( !pSoldier->flags.fNoAPToFinishMove &&
+					if ( !pSoldier->movement().outOfActionPoints() &&
 						(pSoldier->animationPlayback().state() == END_OPEN_DOOR ||
 						pSoldier->animationPlayback().state() == END_OPEN_DOOR_CROUCHED ||
 						pSoldier->animationPlayback().state() == CRIPPLE_CLOSE_DOOR ||
@@ -2632,7 +2632,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								pSoldier->EVENT_InitNewSoldierAnim( pSoldier->movement().mode(), 0 , FALSE );
 
 								// UNSET LOCK PENDING ACTION COUNTER FLAG
-								pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );
+								pSoldier->status().flags() &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );
 
 							}
 						}
@@ -2748,7 +2748,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			{
 			case 702:
 				// Play fall to knees sound
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( FALL_1 + Random(2) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( FALL_1 + Random(2) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 703:
@@ -2760,12 +2760,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 705:
 				// PLay body splat sound
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)BODY_SPLAT_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)BODY_SPLAT_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 706:
 				// PLay head splat
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)HEADSPLAT_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) , TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)HEADSPLAT_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) , TRUE );
 				break;
 
 			case 707:
@@ -2819,38 +2819,38 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 710:
 
 				// Monster footstep in
-				if ( SoldierOnScreen( pSoldier->ubID ) )
+				if ( SoldierOnScreen( pSoldier->identity().id() ) )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, ACR_STEP_1, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_STEP_1, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 711:
 
 				// Monster footstep in
-				if ( SoldierOnScreen( pSoldier->ubID ) )
+				if ( SoldierOnScreen( pSoldier->identity().id() ) )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, ACR_STEP_2, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_STEP_2, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 712:
 
 				// Monster footstep in
-				if ( SoldierOnScreen( pSoldier->ubID ) )
+				if ( SoldierOnScreen( pSoldier->identity().id() ) )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, LCR_MOVEMENT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), LCR_MOVEMENT, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 713:
 
 				// Monster footstep in
-				if ( pSoldier->ubBodyType == INFANT_MONSTER )
+				if ( pSoldier->identity().bodyType() == INFANT_MONSTER )
 				{
-					if ( SoldierOnScreen( pSoldier->ubID ) )
+					if ( SoldierOnScreen( pSoldier->identity().id() ) )
 					{
-						PlaySoldierJA2Sample( pSoldier->ubID, BCR_DRAGGING, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+						PlaySoldierJA2Sample( pSoldier->identity().id(), BCR_DRAGGING, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 					}
 				}
 				break;
@@ -2858,19 +2858,19 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 714:
 
 				// Lunges....
-				PlaySoldierJA2Sample( pSoldier->ubID, ACR_LUNGE, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_LUNGE, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 715:
 
 				// Swipe
-				PlaySoldierJA2Sample( pSoldier->ubID, ACR_SWIPE, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_SWIPE, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 716:
 
 				// Eat flesh
-				PlaySoldierJA2Sample( pSoldier->ubID, ACR_EATFLESH, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_EATFLESH, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 717:
@@ -2880,13 +2880,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					INT32			iSoundID=0;
 					BOOLEAN		fDoCry = FALSE;
 
-					//if ( SoldierOnScreen( pSoldier->ubID ) )
+					//if ( SoldierOnScreen( pSoldier->identity().id() ) )
 					{
-						switch( pSoldier->aiData.usActionData )
+						switch( pSoldier->aiPlanning().actionData() )
 						{
 						case CALL_1_PREY:
 
-							if ( pSoldier->ubBodyType == QUEENMONSTER )
+							if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 							{
 								iSoundID = LQ_SMELLS_THREAT;
 							}
@@ -2899,7 +2899,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						case CALL_MULTIPLE_PREY:
 
-							if ( pSoldier->ubBodyType == QUEENMONSTER )
+							if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 							{
 								iSoundID = LQ_SMELLS_THREAT;
 							}
@@ -2912,7 +2912,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						case CALL_ATTACKED:
 
-							if ( pSoldier->ubBodyType == QUEENMONSTER )
+							if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 							{
 								iSoundID = LQ_ENRAGED_ATTACK;
 							}
@@ -2925,7 +2925,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						case CALL_CRIPPLED:
 
-							if ( pSoldier->ubBodyType == QUEENMONSTER )
+							if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 							{
 								iSoundID = LQ_CRIPPLED;
 							}
@@ -2948,24 +2948,24 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 718:
 
 
-				PlaySoldierJA2Sample( pSoldier->ubID, LQ_RUPTURING, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), LQ_RUPTURING, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 719:
 
 				// Spit attack start sound...
-				PlaySoldierJA2Sample( pSoldier->ubID, LQ_ENRAGED_ATTACK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), LQ_ENRAGED_ATTACK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 720:
 
 				// Spit attack start sound...
-				PlaySoldierJA2Sample( pSoldier->ubID, LQ_WHIP_ATTACK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), LQ_WHIP_ATTACK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 721:
 				// Play fall from knees to ground...
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( FALL_TO_GROUND_1 + Random(3) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( FALL_TO_GROUND_1 + Random(3) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				if ( pSoldier->animationPlayback().state() == FALLFORWARD_FROMHIT_STAND )
 				{
 					CheckEquipmentForFragileItemDamage( pSoldier, 20 );
@@ -2974,7 +2974,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 722:
 				// Play fall heavy
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( HEAVY_FALL_1 ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( HEAVY_FALL_1 ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				if ( pSoldier->animationPlayback().state() == FALLFORWARD_FROMHIT_CROUCH )
 				{
 					CheckEquipmentForFragileItemDamage( pSoldier, 15 );
@@ -2984,25 +2984,25 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 723:
 
 				// Play armpit noise...
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( IDLE_ARMPIT ), RATE_11025, SoundVolume( LOWVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( IDLE_ARMPIT ), RATE_11025, SoundVolume( LOWVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 724:
 
 				// Play ass scratch
-				// PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( IDLE_SCRATCH ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ), TRUE );
+				// PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( IDLE_SCRATCH ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->sGridNo ), 1, SoundDir( pSoldier->sGridNo ), TRUE );
 				break;
 
 			case 725:
 
 				// Play back crack
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( IDLE_BACKCRACK ), RATE_11025, SoundVolume( LOWVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( IDLE_BACKCRACK ), RATE_11025, SoundVolume( LOWVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 726:
 
 				// Kickin door
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( KICKIN_DOOR ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( KICKIN_DOOR ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 727:
@@ -3017,7 +3017,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 					else
 					{
-						PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( SWOOSH_1 + Random( 6 ) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+						PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( SWOOSH_1 + Random( 6 ) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 					}
 
 					// Flugente: play a little sound for melee attacks
@@ -3035,38 +3035,38 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 728:
 
 				// Creature fall
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( ACR_FALL_1 ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( ACR_FALL_1 ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 729:
 
 				// grab roof....
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( GRAB_ROOF ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( GRAB_ROOF ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 730:
 
 				// end climb roof....
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( LAND_ON_ROOF ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( LAND_ON_ROOF ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 731:
 
 				// Stop climb roof..
-				PlaySoldierJA2Sample( pSoldier->ubID, (UINT8)( FALL_TO_GROUND_1 + Random(3) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), (UINT8)( FALL_TO_GROUND_1 + Random(3) ), RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 732:
 
 				// Play die sound
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pSoldier->flags.fDeadSoundPlayed = TRUE;
+				pSoldier->dialogue().markDeathSoundPlayed();
 				break;
 
 			case 750:
 
 				// CODE: Move Vehicle UP
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					//	pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 1 ) );
 				}
@@ -3075,7 +3075,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 751:
 
 				// CODE: Move vehicle down
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					//		pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 1 ) );
 				}
@@ -3095,7 +3095,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// code: freeup attcker
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Reducing attacker busy count..., CODE FROM ANIMATION %s ( %d )", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, pSoldier->animationPlayback().state() ) );
 				DebugAttackBusy( String("@@@@@@@ Reducing attacker busy count..., CODE FROM ANIMATION %s ( %d )\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, pSoldier->animationPlayback().state() ) );
-				// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+				// ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 
 				// ATE: Here, reduce again if creaturequeen tentical attack...
 				// Uh, why not add a second 753 code to the queen swipe instead of adding code to make things more complex?
@@ -3103,7 +3103,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Reducing attacker busy count for end of queen swipe\n" ) );
 					DebugAttackBusy( "@@@@@@@ Reducing attacker busy count for end of queen swipe" );
-					// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+					// ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 				}
 				
 				////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3117,7 +3117,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 754:
 
-				HandleFallIntoPitFromAnimation( pSoldier->ubID );
+				HandleFallIntoPitFromAnimation( pSoldier->identity().id() );
 				break;
 
 			case 755 :
@@ -3134,7 +3134,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						GetJa2SoldierRepository().resolve( ubPerson );
 
 					if ( pRobot != nullptr &&
-						(pRobot->flags.uiStatusFlags & SOLDIER_ROBOT) )
+						(pRobot->status().flags() & SOLDIER_ROBOT) )
 					{
 						ReloadGun( pRobot, &(pRobot->inv[ HANDPOS ] ), pSoldier->pTempObject );
 
@@ -3177,7 +3177,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						pTarget->EVENT_InitNewSoldierAnim( SLAP_HIT, 0 , FALSE );
 
 						// Play noise....
-						//PlaySoldierJA2Sample( pTarget->ubID, ( S_SLAP_IMPACT ), RATE_11025, SoundVolume( HIGHVOLUME, pTarget->sGridNo ), 1, SoundDir( pTarget->sGridNo ), TRUE );
+						//PlaySoldierJA2Sample( pTarget->identity().id(), ( S_SLAP_IMPACT ), RATE_11025, SoundVolume( HIGHVOLUME, pTarget->sGridNo ), 1, SoundDir( pTarget->sGridNo ), TRUE );
 
 						//DoMercBattleSound( pTarget, (INT8)( BATTLE_SOUND_HIT1 + Random( 2 ) ) );
 
@@ -3202,7 +3202,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						GetJa2SoldierRepository().resolve(
 							pSoldier->pendingAction().quaternaryData() );
 					if ( target )
-						target->EVENT_SoldierGotHit( TAKE_DAMAGE_BLADE, (INT16) 25, (INT16) 25, gOppositeDirection[ pSoldier->position().direction() ], 50, pSoldier->ubID, 0, ANIM_PRONE, 0, 0 );
+						target->EVENT_SoldierGotHit( TAKE_DAMAGE_BLADE, (INT16) 25, (INT16) 25, gOppositeDirection[ pSoldier->position().direction() ], 50, pSoldier->identity().id(), 0, ANIM_PRONE, 0, 0 );
 				}
 				break;
 
@@ -3212,11 +3212,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					INT8 bPanicTrigger = ClosestPanicTrigger( pSoldier );
 					if (bPanicTrigger != -1)
 					{
-						SetOffPanicBombs( pSoldier->ubID, bPanicTrigger );
+						SetOffPanicBombs( pSoldier->identity().id(), bPanicTrigger );
 					}
 					// any AI guy has been specially given keys for this, now take them
 					// away
-					pSoldier->flags.bHasKeys = pSoldier->flags.bHasKeys >> 1;
+					pSoldier->inventoryState().keyAccess() = pSoldier->inventoryState().keyAccess() >> 1;
 				}
 				break;
 
@@ -3254,7 +3254,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 764:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, PICKING_LOCK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), PICKING_LOCK, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 765:
@@ -3287,7 +3287,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 767:
 
 				// Slap sound effect
-				PlaySoldierJA2Sample( pSoldier->ubID, SLAP_2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), SLAP_2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 768:
@@ -3342,7 +3342,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Kneel up...
 				if ( !pSoldier->movement().stealthMode() )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, KNEEL_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), KNEEL_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
@@ -3351,7 +3351,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Kneel down..
 				if ( !pSoldier->movement().stealthMode() )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, KNEEL_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), KNEEL_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
@@ -3360,7 +3360,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// prone up..
 				if ( !pSoldier->movement().stealthMode() )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, PRONE_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), PRONE_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
@@ -3369,7 +3369,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// prone down..
 				if ( !pSoldier->movement().stealthMode() )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, PRONE_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), PRONE_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
@@ -3378,78 +3378,78 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// picking something up
 				if ( !pSoldier->movement().stealthMode() )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, PICKING_SOMETHING_UP, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), PICKING_SOMETHING_UP, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 778:
 				if (!pSoldier->movement().stealthMode() && (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE)))
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 779:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, COW_FALL, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), COW_FALL, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 780:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, COW_HIT_SND, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), COW_HIT_SND, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 781:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, ACR_DIE_PART2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), ACR_DIE_PART2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 782:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, CREATURE_DISSOLVE_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), CREATURE_DISSOLVE_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 784:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, CREATURE_FALL, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), CREATURE_FALL, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 785:
 
 				if ( Random( 5 ) == 0 )
 				{
-					PlaySoldierJA2Sample( pSoldier->ubID, CROW_PECKING_AT_FLESH, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+					PlaySoldierJA2Sample( pSoldier->identity().id(), CROW_PECKING_AT_FLESH, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 786:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, CROW_FLYING_AWAY, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), CROW_FLYING_AWAY, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 787:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, SLAP_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), SLAP_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), FALSE );
 				break;
 
 			case 788:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, MORTAR_START, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), MORTAR_START, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 789:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, MORTAR_LOAD, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), MORTAR_LOAD, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 790:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, COW_FALL_2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), COW_FALL_2, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 791:
 
-				PlaySoldierJA2Sample( pSoldier->ubID, FENCE_OPEN, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+				PlaySoldierJA2Sample( pSoldier->identity().id(), FENCE_OPEN, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				break;
 
 			case 792:
@@ -3529,7 +3529,7 @@ BOOLEAN ShouldMercSayHappyWithGunQuote( SOLDIERTYPE *pSoldier )
 {
 	// How do we do this....
 
-	if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_SATISFACTION_WITH_GUN_AFTER_KILL )
+	if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpGotGunOrUsedGun == QUOTE_SATISFACTION_WITH_GUN_AFTER_KILL )
 	{
 		// For one, only once a day...
 		if ( pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LIKESGUN) )
@@ -3589,11 +3589,11 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 		}
 
 		// Add guy if he's a candidate...		
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) 
-			&& !pTeamSoldier->flags.fMercAsleep && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier ))
+			&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->identity().profile() != pKillerSoldier->identity().profile() )
 		{
 			// Are we a buddy of killer?
-			bTempBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pKillerSoldier->ubProfile );
+			bTempBuddyIndex = WhichBuddy( pTeamSoldier->identity().profile(), pKillerSoldier->identity().profile() );
 			
 			if ( bTempBuddyIndex != -1 )
 			{
@@ -3721,7 +3721,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 
 	// Flugente: if we want to play a sound, but have not found a fitting buddy, try additional dialogue
 	// this could be expensive, as we need quite a few sight tests here...
-	if ( !buddyquoteused && pKillerSoldier->bTeam == gbPlayerNum )
+	if ( !buddyquoteused && pKillerSoldier->roster().team() == gbPlayerNum )
 	{
 		cnt = gTacticalStatus.Team[gbPlayerNum].bFirstID;
 
@@ -3736,13 +3736,13 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 			// we do not exclude the buddies from above. If we get to this point, it might have been a buddy that already said his line. In that case additional dialogue might play other ones
 
 			// Add guy if he's a candidate...		
-			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !( AM_A_ROBOT( pTeamSoldier ) )
-				&& !pTeamSoldier->flags.fMercAsleep && !TileIsOutOfBounds( pTeamSoldier->position().gridNo() ) )//&& pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
+			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !( AM_A_ROBOT( pTeamSoldier ) )
+				&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds( pTeamSoldier->position().gridNo() ) )//&& pTeamSoldier->identity().profile() != pKillerSoldier->identity().profile() )
 			{
 				// TO LOS check to killed
 				// Can we see location of killer?
 				// not if we're the killer
-				if ( pTeamSoldier->ubID != pKillerSoldier->ubID && 
+				if ( pTeamSoldier->identity().id() != pKillerSoldier->identity().id() &&
 					SoldierTo3DLocationLineOfSightTest( pTeamSoldier, pKillerSoldier->position().gridNo(), pKillerSoldier->position().level(), 3, TRUE, CALC_FROM_ALL_DIRS ) == 0 )
 				{
 					continue;
@@ -3754,7 +3754,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 					continue;
 				}
 
-				AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pKillerSoldier->ubProfile, 0 );
+				AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pKillerSoldier->identity().profile(), 0 );
 			}
 		}
 	}
@@ -3770,13 +3770,13 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 	UINT16	ubChosenMerc;
 	BOOLEAN fDoSomeoneElse = FALSE;
 
-	gfLastMercTalkedAboutKillingID = pKilledSoldier->ubID;
+	gfLastMercTalkedAboutKillingID = pKilledSoldier->identity().id();
 
 	// Can we see location?
 	BOOLEAN	fCanWeSeeLocation = ( SoldierTo3DLocationLineOfSightTest( pKillerSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) != 0 );
 
 	// Are we killing mike?
-	if ( pKilledSoldier->ubProfile == MIKE && ( pKillerSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || (  pKillerSoldier->employment().mercenaryType() == MERC_TYPE__MERC && gMercProfiles[pKillerSoldier->ubProfile].bLearnToHate == 255 ) ) )
+	if ( pKilledSoldier->identity().profile() == MIKE && ( pKillerSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || (  pKillerSoldier->employment().mercenaryType() == MERC_TYPE__MERC && gMercProfiles[pKillerSoldier->identity().profile()].bLearnToHate == 255 ) ) )
 	{
 		// Can we see?
 		if ( fCanWeSeeLocation )
@@ -3785,7 +3785,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 		}
 	}
 	// Are we killing factory mamager?
-	else if ( pKilledSoldier->ubProfile == DOREEN )
+	else if ( pKilledSoldier->identity().profile() == DOREEN )
 	{
 		// Can we see?
 		//f ( fCanWeSeeLocation )
@@ -3834,9 +3834,9 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 						continue;
 					}
 
-					if ( cnt != pKillerSoldier->ubID )
+					if ( cnt != pKillerSoldier->identity().id() )
 					{
-						if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
+						if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
 						{
 							// Can we see location?
 							if ( SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
@@ -3858,7 +3858,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 					{
 						// Say this guys quote but the killer's quote as well....
 						// if killed was not a plain old civ, say quote
-						if (pKilledSoldier->bTeam != CIV_TEAM || pKilledSoldier->ubCivilianGroup != 0)
+						if (pKilledSoldier->roster().team() != CIV_TEAM || pKilledSoldier->roster().civilianGroup() != 0)
 						{
 							TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLED_AN_ENEMY );
 						}
@@ -3878,7 +3878,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 					{
 						// Say this guys quote but the killer's quote as well....
 						// if killed was not a plain old civ, say quote
-						if (pKilledSoldier->bTeam != CIV_TEAM || pKilledSoldier->ubCivilianGroup != 0)
+						if (pKilledSoldier->roster().team() != CIV_TEAM || pKilledSoldier->roster().civilianGroup() != 0)
 						{
 							TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLED_AN_ENEMY );
 						}
@@ -3892,7 +3892,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 			if ( fCanWeSeeLocation )
 			{
 				// if killed was not a plain old civ, say quote
-				if (pKilledSoldier->bTeam != CIV_TEAM || pKilledSoldier->ubCivilianGroup != 0)
+				if (pKilledSoldier->roster().team() != CIV_TEAM || pKilledSoldier->roster().civilianGroup() != 0)
 				{
 					// Are we happy with our gun?
 					if ( ShouldMercSayHappyWithGunQuote( pKillerSoldier )	)
@@ -3900,7 +3900,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 						TacticalCharacterDialogue( pKillerSoldier, QUOTE_SATISFACTION_WITH_GUN_AFTER_KILL );
 						pKillerSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LIKESGUN);
 					}
-					else if ( pKillerSoldier->bSide == pKilledSoldier->bSide )
+					else if ( pKillerSoldier->roster().side() == pKilledSoldier->roster().side() )
 					{
 						// if the attacker was from the same side, play a curse
 						pKillerSoldier->DoMercBattleSound( (INT8)(BATTLE_SOUND_CURSE1) );
@@ -3908,10 +3908,10 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 					else
 						// Randomize between laugh, quote...
 					{
-						if ( Random( 100 ) < 33 && pKilledSoldier->ubBodyType != BLOODCAT )
+						if ( Random( 100 ) < 33 && pKilledSoldier->identity().bodyType() != BLOODCAT )
 						{
 							// If it's a creature......
-							if ( pKilledSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+							if ( pKilledSoldier->status().flags() & SOLDIER_MONSTER )
 							{
 								TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLED_A_CREATURE );
 							}
@@ -3946,14 +3946,14 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 	BOOLEAN fBuddyJustDead = FALSE;
 	*pfMadeCorpse = FALSE;
 
-	if ( pSoldier->vitals().health() == 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )	)
+	if ( pSoldier->vitals().health() == 0 && !( pSoldier->status().flags() & SOLDIER_DEAD )	)
 	{
 		// Haydent/send death info
 		if (is_networked)
 		{			
-			if(pSoldier->bTeam==0) 
+			if(pSoldier->roster().team()==0)
 				send_death(pSoldier);
-			else if(pSoldier->bTeam <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))
+			else if(pSoldier->roster().team() <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))
 				send_death(pSoldier);						
 		}
 
@@ -3973,17 +3973,17 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		if(pKillerSoldier != NULL)
 		{
 			if( pSoldier->animationPlayback().state() == JFK_HITDEATH )
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_HEAD_POP, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_HEAD_POP, pSoldier->identity().id() );
 			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_GUN )
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_GUNFIRE, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_GUNFIRE, pSoldier->identity().id() );
 			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_BLADE )
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_BLADE, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_BLADE, pSoldier->identity().id() );
 			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_PUNCH )
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_HTH, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_HTH, pSoldier->identity().id() );
 			else if( Item[pKillerSoldier->attackSelection().weapon()].usItemClass & IC_THROWING_KNIFE )
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_THROWING_KNIFE, pSoldier ->ubID);
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL_THROWING_KNIFE, pSoldier ->identity().id());
 			else
-				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pKillerSoldier, TAUNT_KILL, pSoldier->identity().id() );
 		}
 
 		// Cancel services here...
@@ -4005,22 +4005,22 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		pSoldier->animationActivity().clearHit();
 
 		// Find next closest team member!
-		if ( pSoldier->bTeam == gbPlayerNum )
+		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
 			// Set guy to close panel!
 			// ONLY IF VISIBLE ON SCREEN
-			if ( IsMercPortraitVisible( pSoldier->ubID ) )
+			if ( IsMercPortraitVisible( pSoldier->identity().id() ) )
 			{
 				fInterfacePanelDirty = DIRTYLEVEL2;
 			}
-			pSoldier->flags.fUIdeadMerc = TRUE;
+			pSoldier->uiPresentation().queueDeadMercUi();
 
 			if ( !gfKillingGuysForLosingBattle )
 			{
 				// ATE: THIS IS S DUPLICATE SETTING OF SOLDIER_DEAD. Is set in StrategicHandlePlayerTeamMercDeath()
 				// also, but here it's needed to tell tectical to ignore this dude...
 				// until StrategicHandlePlayerTeamMercDeath() can get called after death skull interface is done
-				pSoldier->flags.uiStatusFlags |= SOLDIER_DEAD;
+				pSoldier->status().flags() |= SOLDIER_DEAD;
 
 			}
 		}
@@ -4062,11 +4062,11 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 				// IF this guy has an attacker and he's a good guy, play sound
 				if ( directAttacker != nullptr )
 				{
-					if ( directAttacker->bTeam == gbPlayerNum &&
+					if ( directAttacker->roster().team() == gbPlayerNum &&
 						GetJa2PendingTacticalCombatActions() > 0 )
 					{
 						gTacticalStatus.fKilledEnemyOnAttack	= TRUE;
-						gTacticalStatus.ubEnemyKilledOnAttack = pSoldier->ubID;
+						gTacticalStatus.ubEnemyKilledOnAttack = pSoldier->identity().id();
 						gTacticalStatus.ubEnemyKilledOnAttackLocation = pSoldier->position().gridNo();
 						gTacticalStatus.bEnemyKilledOnAttackLevel = pSoldier->position().level();
 						gTacticalStatus.ubEnemyKilledOnAttackKiller = attackerId;
@@ -4084,7 +4084,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							!CREATURE_OR_BLOODCAT( attacker ) )
 						{
 							// if the attacker was from the same team, play a curse, otherwise play a laugh
-							if ( attacker->bSide == pSoldier->bSide )
+							if ( attacker->roster().side() == pSoldier->roster().side() )
 								attacker->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 							else
 								attacker->DoMercBattleSound( BATTLE_SOUND_LAUGH1 );
@@ -4099,50 +4099,50 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 				// militia also now track kills...
 				if ( attacker != nullptr )
 				{
-					if ( attacker->bTeam == gbPlayerNum )
+					if ( attacker->roster().team() == gbPlayerNum )
 					{
 						// increment kills
 						/////////////////////////////////////////////////////////////////////////////////////
 						// SANDRO - experimental - more specific statistics of mercs
-						switch(pSoldier->ubSoldierClass)
+						switch(pSoldier->roster().soldierClass())
 						{
 							case SOLDIER_CLASS_ROBOT:
-								gMercProfiles[ attacker->ubProfile ].records.usKillsOthers++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsOthers++;
 								break;
 							case SOLDIER_CLASS_ELITE :
-								gMercProfiles[ attacker->ubProfile ].records.usKillsElites++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsElites++;
 								break;
 							case SOLDIER_CLASS_ARMY :
-								gMercProfiles[ attacker->ubProfile ].records.usKillsRegulars++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsRegulars++;
 								break;
 							case SOLDIER_CLASS_ADMINISTRATOR :
-								gMercProfiles[ attacker->ubProfile ].records.usKillsAdmins++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsAdmins++;
 								break;
 							case SOLDIER_CLASS_CREATURE :
-								gMercProfiles[ attacker->ubProfile ].records.usKillsCreatures++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsCreatures++;
 								break;
 							case SOLDIER_CLASS_ZOMBIE :
-								gMercProfiles[ attacker->ubProfile ].records.usKillsZombies++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsZombies++;
 								break;
 							case SOLDIER_CLASS_BANDIT:
-								gMercProfiles[ attacker->ubProfile ].records.usKillsOthers++;
+								gMercProfiles[ attacker->identity().profile() ].records.usKillsOthers++;
 								break;
 							default :
 								if ( CREATURE_OR_BLOODCAT( pSoldier ) )
-									gMercProfiles[ attacker->ubProfile ].records.usKillsCreatures++;
+									gMercProfiles[ attacker->identity().profile() ].records.usKillsCreatures++;
 								else if ( ARMED_VEHICLE( pSoldier ) )
-									gMercProfiles[ attacker->ubProfile ].records.usKillsTanks++;
-								else if ( pSoldier->bTeam == CIV_TEAM && !pSoldier->aiData.bNeutral && pSoldier->bSide != gbPlayerNum )
-									gMercProfiles[ attacker->ubProfile ].records.usKillsHostiles++;
+									gMercProfiles[ attacker->identity().profile() ].records.usKillsTanks++;
+								else if ( pSoldier->roster().team() == CIV_TEAM && !pSoldier->aiBehavior().neutral() && pSoldier->roster().side() != gbPlayerNum )
+									gMercProfiles[ attacker->identity().profile() ].records.usKillsHostiles++;
 								else
 								{
-									gMercProfiles[ attacker->ubProfile ].records.usKillsOthers++;
+									gMercProfiles[ attacker->identity().profile() ].records.usKillsOthers++;
 
 									// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-									if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE) && pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == attacker->bSide) )
+									if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->roster().team() >= LAN_TEAM_ONE) && pSoldier->roster().team() != OUR_TEAM && (pSoldier->aiBehavior().neutral() || pSoldier->roster().side() == attacker->roster().side()) )
 									{
 										// not for killing animals though...
-										if ( pSoldier->ubBodyType != CROW && pSoldier->ubBodyType != COW )
+										if ( pSoldier->identity().bodyType() != CROW && pSoldier->identity().bodyType() != COW )
 											HandleDynamicOpinionChange( attacker, OPINIONEVENT_CIVKILLER, TRUE, TRUE );
 									}
 								}
@@ -4152,12 +4152,12 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 						gStrategicStatus.usPlayerKills++;
 
 						// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-						if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE))
+						if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->roster().team() >= LAN_TEAM_ONE))
 						{
-							if (pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == attacker->bSide))
+							if (pSoldier->roster().team() != OUR_TEAM && (pSoldier->aiBehavior().neutral() || pSoldier->roster().side() == attacker->roster().side()))
 							{
 								// not for killing animals though...
-								if (pSoldier->ubBodyType != CROW && pSoldier->ubBodyType != COW)
+								if (pSoldier->identity().bodyType() != CROW && pSoldier->identity().bodyType() != COW)
 									HandleDynamicOpinionChange(attacker, OPINIONEVENT_CIVKILLER, TRUE, TRUE);
 							}
 							else
@@ -4167,7 +4167,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 									GetJa2SoldierRepository().resolve( pSoldier->targeting().targetId() );
 								if (target != nullptr && target->vitals().bleeding() > 10)
 								{
-									AddOpinionEvent(target->ubProfile, attacker->ubProfile, OPINIONEVENT_BATTLE_SAVIOUR);
+									AddOpinionEvent(target->identity().profile(), attacker->identity().profile(), OPINIONEVENT_BATTLE_SAVIOUR);
 								}
 								else
 								{
@@ -4177,7 +4177,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 							}
 						}
 					}
-					else if ( attacker->bTeam == MILITIA_TEAM )
+					else if ( attacker->roster().team() == MILITIA_TEAM )
 					{
 						// get a kill! 2 points!
 						attacker->combatContribution().recordMilitiaKill();
@@ -4186,26 +4186,26 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 
 				if ( assister != nullptr && assisterId != attackerId )
 				{
-					if ( assister->bTeam == gbPlayerNum )
+					if ( assister->roster().team() == gbPlayerNum )
 					{
 						/////////////////////////////////////////////////////////////////////////////////////
 						// SANDRO - new mercs' records
 						if( attacker != nullptr )
 						{
-							if( attacker->bTeam == gbPlayerNum )
-								gMercProfiles[ assister->ubProfile ].records.usAssistsMercs++;
-							else if ( attacker->bTeam == MILITIA_TEAM )
-								gMercProfiles[ assister->ubProfile ].records.usAssistsMilitia++;
+							if( attacker->roster().team() == gbPlayerNum )
+								gMercProfiles[ assister->identity().profile() ].records.usAssistsMercs++;
+							else if ( attacker->roster().team() == MILITIA_TEAM )
+								gMercProfiles[ assister->identity().profile() ].records.usAssistsMilitia++;
 							else
-								gMercProfiles[ assister->ubProfile ].records.usAssistsOthers++;
+								gMercProfiles[ assister->identity().profile() ].records.usAssistsOthers++;
 						}
 						else
 						{
-							gMercProfiles[ assister->ubProfile ].records.usAssistsOthers++;
+							gMercProfiles[ assister->identity().profile() ].records.usAssistsOthers++;
 						}
 						/////////////////////////////////////////////////////////////////////////////////////
 					}
-					else if ( assister->bTeam == MILITIA_TEAM )
+					else if ( assister->roster().team() == MILITIA_TEAM )
 					{
 						// get an assist - 1 points
 						assister->combatContribution().recordMilitiaAssist();
@@ -4225,12 +4225,12 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 			GetEnemyEncounterCode() == ZOMBIE_ATTACK_CODE ||
 			GetEnemyEncounterCode() == BANDIT_ATTACK_CODE )
 		{
-			AddRaidPersonnel( -( pSoldier->ubBodyType == BLOODCAT ), -( pSoldier->ubSoldierClass == SOLDIER_CLASS_ZOMBIE ), -( pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT ) );
+			AddRaidPersonnel( -( pSoldier->identity().bodyType() == BLOODCAT ), -( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ZOMBIE ), -( pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) );
 		}
 
 		// Flugente: individual militia
 		MILITIA militia;
-		if ( GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
+		if ( GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
 		{
 			militia.healthratio = 0.0f;
 			militia.flagmask |= MILITIAFLAG_DEAD;
@@ -4261,13 +4261,13 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		
 		// Flugente: turncoats
 		if ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
-			RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass, FALSE );
+			RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->roster().soldierClass(), FALSE );
 
 		// Flugente: additional dialogue
-		if ( pSoldier->ubProfile != NO_PROFILE )
+		if ( pSoldier->identity().profile() != NO_PROFILE )
 		{
-			AdditionalTacticalCharacterDialogue_AllInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), pSoldier->ubProfile, ADE_NPC_DEATH,
-				pSoldier->ubProfile, pKillerSoldier ? pKillerSoldier->ubProfile : NO_PROFILE, pSoldier->ubBodyType );
+			AdditionalTacticalCharacterDialogue_AllInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), pSoldier->identity().profile(), ADE_NPC_DEATH,
+				pSoldier->identity().profile(), pKillerSoldier ? pKillerSoldier->identity().profile() : NO_PROFILE, pSoldier->identity().bodyType() );
 		}
 
 		// Remove mad as target, one he has died!
@@ -4277,9 +4277,9 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		BetweenTurnsVisibilityAdjustments();
 
 		// 0verhaul: This is now handled in the death state transitions
-		// if ( pSoldier->bTeam != gbPlayerNum )
+		// if ( pSoldier->roster().team() != gbPlayerNum )
 		// {
-		//	if ( !pSoldier->flags.fDoingExternalDeath )
+		//	if ( !pSoldier->animationActivity().externalDeath() )
 				//	{
 		//		// Release attacker
 		//		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker, code 497 = handle soldier death") );
@@ -4310,7 +4310,7 @@ void HandlePlayerTeamMemberDeathAfterSkullAnimation( SOLDIERTYPE *pSoldier )
 {
 	// 0verhaul:	This is now handled in the death state transition.
 	// Release attacker
-	// if ( !pSoldier->flags.fDoingExternalDeath )
+	// if ( !pSoldier->animationActivity().externalDeath() )
 	// {
 	//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker, code 497 = handle soldier death") );
 	//	ReleaseSoldiersAttacker( pSoldier );
@@ -4402,7 +4402,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 
 
 		// If we are a monster, set life to zero ( no unconscious )
-		switch( pSoldier->ubBodyType )
+		switch( pSoldier->identity().bodyType() )
 		{
 		case ADULTFEMALEMONSTER:
 		case AM_MONSTER:
@@ -4453,7 +4453,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 #endif
 			{
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pSoldier->flags.fDeadSoundPlayed = TRUE;
+				pSoldier->dialogue().markDeathSoundPlayed();
 			}
 		}
 
@@ -4486,7 +4486,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 					fAlwaysFallBack = TRUE;
 				}
 			}
-			if ( (Random(100 ) > 40 || fAlwaysFallBack) && IS_MERC_BODY_TYPE( pSoldier ) && !IsProfileATerrorist( pSoldier->ubProfile ) )
+			if ( (Random(100 ) > 40 || fAlwaysFallBack) && IS_MERC_BODY_TYPE( pSoldier ) && !IsProfileATerrorist( pSoldier->identity().profile() ) )
 #endif
 			{
 				// CHECK IF WE HAVE AN ATTACKER, TAKE OPPOSITE DIRECTION!
@@ -4612,7 +4612,7 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->vitals().health() == 0 )
 	{
 		pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-		pSoldier->flags.fDeadSoundPlayed = TRUE;
+		pSoldier->dialogue().markDeathSoundPlayed();
 
 		// 0verhaul:	The bBeingAttackedCount is now obsolete.
 		// Increment	being attacked count
@@ -4621,13 +4621,13 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 		// OJW - Send bleeding death
 		if (is_networked)
 		{
-			if(pSoldier->bTeam==0) send_death(pSoldier);
-			else if(pSoldier->bTeam <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))send_death(pSoldier);
-			else if (pSoldier->bTeam < 6 && (is_server)) send_death(pSoldier);
+			if(pSoldier->roster().team()==0) send_death(pSoldier);
+			else if(pSoldier->roster().team() <6 && ((gTacticalStatus.combatUI.ubTopMessageType == PLAYER_TURN_MESSAGE) || (gTacticalStatus.combatUI.ubTopMessageType == PLAYER_INTERRUPT_MESSAGE)))send_death(pSoldier);
+			else if (pSoldier->roster().team() < 6 && (is_server)) send_death(pSoldier);
 		}
 
 		// Flugente: cows only have one death animation. If we're not in the proper aniamtion, enforce it, otherwise the corpse isn't created
-		if ( pSoldier->ubBodyType == COW
+		if ( pSoldier->identity().bodyType() == COW
 			&& pSoldier->animationPlayback().state() != COW_HIT )
 			pSoldier->ChangeSoldierState( COW_DYING, 0, FALSE );
 
@@ -4759,7 +4759,7 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 		// Check for breath collapse, though this should rarely happen
 		if ( pSoldier->CheckForBreathCollapse( ) )
 		{
-			UnSetUIBusy( pSoldier->ubID );
+			UnSetUIBusy( pSoldier->identity().id() );
 			SoldierCollapse( pSoldier );
 			pSoldier->collapseState().clearBreathCollapse();
 			return( TRUE );
@@ -4919,7 +4919,7 @@ BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT
 	}
 
 	usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, usAnimState );
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 	if ( pStructureFileRef )
 	{
@@ -4928,7 +4928,7 @@ BOOLEAN OKFallDirection( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT
 
 		// must make sure that structure data can be added in the direction of the target
 
-		usStructureID = pSoldier->ubID;
+		usStructureID = pSoldier->identity().id();
 
 		// Okay this is really SCREWY but it's due to the way this function worked before and must
 		// work now.	The function is passing in an adjacent gridno but we need to place the structure
@@ -4978,7 +4978,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 	HandleSight( pSoldier, SIGHT_LOOK );
 
 	// ATE: If it is our turn, make them try to getup...
-	if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam )
+	if ( GetJa2TacticalCurrentTeam() == pSoldier->roster().team() )
 	{
 		// Try to getup...
 		pSoldier->BeginSoldierGetup( );
@@ -5031,7 +5031,7 @@ BOOLEAN HandleCheckForDeathCommonCode( SOLDIERTYPE *pSoldier )
 	pSoldier->collapseState().collapse();
 
 	// ATE: If it is our turn, make them try to getup...
-	if ( GetJa2TacticalCurrentTeam() == pSoldier->bTeam )
+	if ( GetJa2TacticalCurrentTeam() == pSoldier->roster().team() )
 	{
 		// Try to getup...
 		pSoldier->BeginSoldierGetup( );
@@ -5100,10 +5100,10 @@ void KickOutWheelchair( SOLDIERTYPE *pSoldier )
 	}
 
 	pSoldier->EVENT_StopMerc( sNewGridNo, pSoldier->position().direction() );
-	pSoldier->ubBodyType = REGMALE;
-	if ( pSoldier->ubProfile == SLAY && pSoldier->bTeam == CIV_TEAM && !pSoldier->aiData.bNeutral )
+	pSoldier->identity().bodyType() = REGMALE;
+	if ( pSoldier->identity().profile() == SLAY && pSoldier->roster().team() == CIV_TEAM && !pSoldier->aiBehavior().neutral() )
 	{
-		HandleNPCDoAction( pSoldier->ubProfile, NPC_ACTION_THREATENINGLY_RAISE_GUN, 0 );
+		HandleNPCDoAction( pSoldier->identity().profile(), NPC_ACTION_THREATENINGLY_RAISE_GUN, 0 );
 	}
 	else
 	{
@@ -5111,9 +5111,9 @@ void KickOutWheelchair( SOLDIERTYPE *pSoldier )
 	}
 
 	// If this person has a profile ID, set body type to regmale
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
-		gMercProfiles[ pSoldier->ubProfile ].ubBodyType = REGMALE;
+		gMercProfiles[ pSoldier->identity().profile() ].ubBodyType = REGMALE;
 	}
 
 }

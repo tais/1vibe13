@@ -245,28 +245,28 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 		if (gGameExternalOptions.fEnableSoldierTooltipDebugAI)
 		{
 			swprintf(pStrInfo, L"%s|[ |A|I |Info |]\n", pStrInfo);
-			swprintf(pStrInfo, L"%s|Alert |Status: %s\n", pStrInfo, gStrAlertStatus[pSoldier->aiData.bAlertStatus]);
-			swprintf(pStrInfo, L"%s|Orders: %s\n", pStrInfo, gStrOrders[pSoldier->aiData.bOrders]);
-			swprintf(pStrInfo, L"%s|Attitude: %s\n", pStrInfo, gStrAttitude[pSoldier->aiData.bAttitude]);
-			swprintf(pStrInfo, L"%s|Class: %s\n", pStrInfo, gStrClass[pSoldier->ubSoldierClass]);
-			swprintf(pStrInfo, L"%s|Team: %s |Side: %d\n", pStrInfo, gStrTeam[pSoldier->bTeam], pSoldier->bSide);
-			if (pSoldier->bTeam == CIV_TEAM && pSoldier->ubCivilianGroup > 0)
+			swprintf(pStrInfo, L"%s|Alert |Status: %s\n", pStrInfo, gStrAlertStatus[pSoldier->aiBehavior().alertStatus()]);
+			swprintf(pStrInfo, L"%s|Orders: %s\n", pStrInfo, gStrOrders[pSoldier->aiBehavior().orders()]);
+			swprintf(pStrInfo, L"%s|Attitude: %s\n", pStrInfo, gStrAttitude[pSoldier->aiBehavior().attitude()]);
+			swprintf(pStrInfo, L"%s|Class: %s\n", pStrInfo, gStrClass[pSoldier->roster().soldierClass()]);
+			swprintf(pStrInfo, L"%s|Team: %s |Side: %d\n", pStrInfo, gStrTeam[pSoldier->roster().team()], pSoldier->roster().side());
+			if (pSoldier->roster().team() == CIV_TEAM && pSoldier->roster().civilianGroup() > 0)
 			{
-				swprintf(pStrInfo, L"%s|Civ |Group: %s\n", pStrInfo, zCivGroupName[pSoldier->ubCivilianGroup].szCurGroup);
+				swprintf(pStrInfo, L"%s|Civ |Group: %s\n", pStrInfo, zCivGroupName[pSoldier->roster().civilianGroup()].szCurGroup);
 			}
-			if (pSoldier->aiData.bNeutral)
+			if (pSoldier->aiBehavior().neutral())
 			{
 				swprintf(pStrInfo, L"%s|Neutral\n", pStrInfo);
 			}
-			swprintf(pStrInfo, L"%s|A|I |Morale/|R|C|D: %d/%d\n", pStrInfo, pSoldier->aiData.bAIMorale, RangeChangeDesire(pSoldier));
-			swprintf(pStrInfo, L"%s|Last |Action: %d\n", pStrInfo, pSoldier->aiData.bLastAction);
-			swprintf(pStrInfo, L"%s|OpponentsSeen: %d\n", pStrInfo, pSoldier->aiData.bOppCnt);
+			swprintf(pStrInfo, L"%s|A|I |Morale/|R|C|D: %d/%d\n", pStrInfo, pSoldier->morale().aiMorale(), RangeChangeDesire(pSoldier));
+			swprintf(pStrInfo, L"%s|Last |Action: %d\n", pStrInfo, pSoldier->aiPlanning().lastAction());
+			swprintf(pStrInfo, L"%s|OpponentsSeen: %d\n", pStrInfo, pSoldier->awareness().opponentCount());
 			swprintf(pStrInfo, L"%s|SeenLastTurn: %d, |Public %d\n", pStrInfo, CountSeenEnemiesLastTurn(pSoldier), CountSeenEnemiesLastTurn(pSoldier));
 			swprintf(pStrInfo, L"%s|Friends|Black: %d\n", pStrInfo, CountFriendsBlack(pSoldier));
-			swprintf(pStrInfo, L"%s|Soldier Level: %d |Diff: %d\n", pStrInfo, pSoldier->stats.bExpLevel, SoldierDifficultyLevel(pSoldier));
+			swprintf(pStrInfo, L"%s|Soldier Level: %d |Diff: %d\n", pStrInfo, pSoldier->statistics().experienceLevel(), SoldierDifficultyLevel(pSoldier));
 			INT32 usOrigin;
 			swprintf(pStrInfo, L"%s|Roaming |Range: %d\n", pStrInfo, RoamingRange(pSoldier, &usOrigin));
-			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition);
+			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition);
 			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->collapseState().tactical(), pSoldier->collapseState().breathTriggered());
 			if (pSoldier->combatResult().previousAttacker() < NOBODY)
 			{
@@ -280,25 +280,25 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				swprintf(pStrInfo, L"%s|Under |Fire %d AttackerID %d\n", pStrInfo, pSoldier->suppression().underFire(), pSoldier->combatResult().previousAttacker().i);
 			}
 
-			swprintf(pStrInfo, L"%s|Visible %d |Moved %d\n", pStrInfo, pSoldier->awareness().visibility(), pSoldier->aiData.bMoved);
-			swprintf(pStrInfo, L"%s|Noise %d %d %d\n", pStrInfo, pSoldier->aiData.sNoiseGridno, pSoldier->perception().heardNoiseLevel(), pSoldier->aiData.ubNoiseVolume);
-			swprintf(pStrInfo, L"%s|Public |Noise %d %d %d\n", pStrInfo, gsPublicNoiseGridNo[pSoldier->bTeam], gbPublicNoiseLevel[pSoldier->bTeam], gubPublicNoiseVolume[pSoldier->bTeam]);
+			swprintf(pStrInfo, L"%s|Visible %d |Moved %d\n", pStrInfo, pSoldier->awareness().visibility(), pSoldier->turnState().moved());
+			swprintf(pStrInfo, L"%s|Noise %d %d %d\n", pStrInfo, pSoldier->perception().noiseGrid(), pSoldier->perception().heardNoiseLevel(), pSoldier->perception().noiseVolume());
+			swprintf(pStrInfo, L"%s|Public |Noise %d %d %d\n", pStrInfo, gsPublicNoiseGridNo[pSoldier->roster().team()], gbPublicNoiseLevel[pSoldier->roster().team()], gubPublicNoiseVolume[pSoldier->roster().team()]);
 
 			// show watched locations:
 			INT8	bLoop;
 			swprintf(pStrInfo, L"%s---Watched Locations---\n", pStrInfo);
 			for (bLoop = 0; bLoop < NUM_WATCHED_LOCS; bLoop++)
 			{
-				if (!TileIsOutOfBounds(gsWatchedLoc[pSoldier->ubID][bLoop]))
+				if (!TileIsOutOfBounds(gsWatchedLoc[pSoldier->identity().id()][bLoop]))
 				{
-					swprintf(pStrInfo, L"%sGridNo %d Points %d\n", pStrInfo, gsWatchedLoc[pSoldier->ubID][bLoop], gubWatchedLocPoints[pSoldier->ubID][bLoop]);
+					swprintf(pStrInfo, L"%sGridNo %d Points %d\n", pStrInfo, gsWatchedLoc[pSoldier->identity().id()][bLoop], gubWatchedLocPoints[pSoldier->identity().id()][bLoop]);
 				}
 			}
 
 			// sevenfm: show flank info
 			if (pSoldier->IsFlanking())
 			{
-				swprintf(pStrInfo, L"%s|Flank %s\n", pStrInfo, pSoldier->flags.lastFlankLeft ? L"left" : L"right");
+				swprintf(pStrInfo, L"%s|Flank %s\n", pStrInfo, pSoldier->aiPlanning().lastFlankLeft() ? L"left" : L"right");
 				swprintf(pStrInfo, L"%s|Flank Num %d\n", pStrInfo, pSoldier->aiPlanning().flankCount());
 				swprintf(pStrInfo, L"%s|Last Flank spot %d\n", pStrInfo, pSoldier->aiPlanning().flankAnchorGrid());
 			}
@@ -309,10 +309,10 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			{
 				SOLDIERTYPE* opponent =
 					GetJa2SoldierRepository().resolve(oppID);
-				if (gbPublicOpplist[pSoldier->bTeam][oppID] != NOT_HEARD_OR_SEEN &&
-					!opponent->aiData.bNeutral)
+				if (gbPublicOpplist[pSoldier->roster().team()][oppID] != NOT_HEARD_OR_SEEN &&
+					!opponent->aiBehavior().neutral())
 				{
-					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(gbPublicOpplist[pSoldier->bTeam][oppID]));
+					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(gbPublicOpplist[pSoldier->roster().team()][oppID]));
 				}
 			}
 			swprintf(pStrInfo, L"%s---Soldier list (not neutral)---\n", pStrInfo);
@@ -320,10 +320,10 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			{
 				SOLDIERTYPE* opponent =
 					GetJa2SoldierRepository().resolve(oppID);
-				if (pSoldier->aiData.bOppList[oppID] != NOT_HEARD_OR_SEEN &&
-					!opponent->aiData.bNeutral)
+				if (pSoldier->awareness().opponentKnowledge()[oppID] != NOT_HEARD_OR_SEEN &&
+					!opponent->aiBehavior().neutral())
 				{
-					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(pSoldier->aiData.bOppList[oppID]));
+					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(pSoldier->awareness().opponentKnowledge()[oppID]));
 				}
 			}
 			swprintf(pStrInfo, L"%s|What I know %d\n", pStrInfo, WhatIKnowThatPublicDont(pSoldier, FALSE));
@@ -338,7 +338,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			SOLDIERTYPE* pMerc =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
-			if ( pMerc->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
+			if ( pMerc->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
 			{
 				// We do not see the enemy. Return and do not display the tooltip.
 				return;
@@ -355,11 +355,11 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			if ( gGameExternalOptions.fEnableSoldierTooltipRangeToTarget )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_RANGE_TO_TARGET], pStrInfo, iRangeToTarget );
 			if ( gGameExternalOptions.fEnableSoldierTooltipID )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ID], pStrInfo, pSoldier->ubID );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ID], pStrInfo, pSoldier->identity().id() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipOrders )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ORDERS], pStrInfo, pSoldier->aiData.bOrders );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ORDERS], pStrInfo, pSoldier->aiBehavior().orders() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipAttitude )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ATTITUDE], pStrInfo, pSoldier->aiData.bAttitude );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ATTITUDE], pStrInfo, pSoldier->aiBehavior().attitude() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipActionPoints )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_APS], pStrInfo, pSoldier->actionPoints().current() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipHealth )
@@ -367,7 +367,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			if ( gGameExternalOptions.fEnableSoldierTooltipEnergy )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_ENERGY], pStrInfo, pSoldier->vitals().breath() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipMorale )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_MORALE], pStrInfo, pSoldier->aiData.bMorale );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_CURRENT_MORALE], pStrInfo, pSoldier->morale().morale() );
 			//Moa: show shock and suppression values in debug tooltip
 			if ( gGameExternalOptions.fEnableSoldierTooltipShock )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_SHOCK], pStrInfo, pSoldier->suppression().shock() );
@@ -381,7 +381,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_SUPPRESSION_AP], pStrInfo, pSoldier->suppression().actionPointsLost() );
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_SUPPRESSION_TOLERANCE], pStrInfo, CalcSuppressionTolerance( pSoldier ) );
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_EFFECTIVE_SHOCK], pStrInfo, CalcEffectiveShockLevel( pSoldier ) );
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_AI_MORALE], pStrInfo, pSoldier->aiData.bAIMorale );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_AI_MORALE], pStrInfo, pSoldier->morale().aiMorale() );
 			}
 			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			// Added by SANDRO - show enemy skills
@@ -389,42 +389,42 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			{				
 				if ( gGameOptions.fNewTraitSystem )
 				{
-					if (( pSoldier->stats.ubSkillTraits[0] == pSoldier->stats.ubSkillTraits[1] ) && pSoldier->stats.ubSkillTraits[0] != 0 )
+					if (( pSoldier->statistics().skillTrait(0) == pSoldier->statistics().skillTrait(1) ) && pSoldier->statistics().skillTrait(0) != 0 )
 					{
 						CHAR16 pStrAux[50]; 
-						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[0] ]);
+						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->statistics().skillTrait(0) ]);
 						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, pStrAux );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[1] + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[2] ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(1) + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(2) ] );
 						//swprintf( pStrInfo, L"%s\n", pStrInfo );
 					}
-					else if (( pSoldier->stats.ubSkillTraits[1] == pSoldier->stats.ubSkillTraits[2] ) && pSoldier->stats.ubSkillTraits[1] != 0 )
+					else if (( pSoldier->statistics().skillTrait(1) == pSoldier->statistics().skillTrait(2) ) && pSoldier->statistics().skillTrait(1) != 0 )
 					{
 						CHAR16 pStrAux[50]; 
-						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[1] ]);
+						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->statistics().skillTrait(1) ]);
 						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, pStrAux );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[2] + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[0] ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(2) + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(0) ] );
 					}
-					else if (( pSoldier->stats.ubSkillTraits[0] == pSoldier->stats.ubSkillTraits[2] ) && pSoldier->stats.ubSkillTraits[0] != 0 )
+					else if (( pSoldier->statistics().skillTrait(0) == pSoldier->statistics().skillTrait(2) ) && pSoldier->statistics().skillTrait(0) != 0 )
 					{
 						CHAR16 pStrAux[50]; 
-						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[0] ]);
+						swprintf( pStrAux, L"(%s)", gzMercSkillTextNew[ pSoldier->statistics().skillTrait(0) ]);
 						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, pStrAux );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[2] + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[1] ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(2) + NEWTRAIT_MERCSKILL_EXPERTOFFSET ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(1) ] );
 					}
 					else
 					{
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[0] ] );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[1] ] );
-						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->stats.ubSkillTraits[2] ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(0) ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(1) ] );
+						swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_3], pStrInfo, gzMercSkillTextNew[ pSoldier->statistics().skillTrait(2) ] );
 					}
 				}
 				else
 				{
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, gzMercSkillText[pSoldier->stats.ubSkillTraits[0]] );
-					swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillText[pSoldier->stats.ubSkillTraits[1]] );
+					swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_1], pStrInfo, gzMercSkillText[pSoldier->statistics().skillTrait(0)] );
+					swprintf( pStrInfo, gzTooltipStrings[STR_TT_SKILL_TRAIT_2], pStrInfo, gzMercSkillText[pSoldier->statistics().skillTrait(1)] );
 				}
 			}
 			//////////////////////////////////////////////////////////////////////////////////////////////////////////////////

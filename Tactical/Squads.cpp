@@ -199,7 +199,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 		// We're not allowing anybody to go on a vehicle if they are not passengers!
 		// NB: We obviously need to make sure that REAL passengers have their
 		// flags set before adding them to a squad!
-		if ( !( pCharacter->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER | SOLDIER_VEHICLE ) ) )
+		if ( !( pCharacter->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER | SOLDIER_VEHICLE ) ) )
 		{
 			return( FALSE );
 		}
@@ -251,7 +251,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				// remove them
 				RemoveCharacterFromSquads( pCharacter );
 
-//				fBetweenSectors =	Squad[ bSquadValue ][ 0 ]->flags.fBetweenSectors;
+//				fBetweenSectors =	Squad[ bSquadValue ][ 0 ]->deployment().isBetweenSectors();
 			}
 			else
 			{
@@ -262,7 +262,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 /*
 			if( fBetweenSectors == TRUE )
 			{
-				pCharacter->flags.fBetweenSectors = TRUE;
+				pCharacter->deployment().beginStrategicTransit();
 			}
 */
 
@@ -338,7 +338,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				INT32 iCounter = 0;
 				for( iCounter = 0; iCounter < ubNumberOfVehicles ; iCounter++ )
 				{
-					if(pVehicleList[ iCounter ].ubProfileID == pCharacter->ubProfile)
+					if(pVehicleList[ iCounter ].ubProfileID == pCharacter->identity().profile())
 						break;
 				}
 				//AddPlayerToGroup( pVehicleList[iCounter].ubMovementGroup, pCharacter	);
@@ -359,7 +359,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 			if( ( pCharacter->assignment().current() != bSquadValue ) )
 			{
 				// check to see if we should wake them up
-				if ( pCharacter->flags.fMercAsleep )
+				if ( pCharacter->assignment().isAsleep() )
 				{
 					// try to wake him up
 					SetMercAwake( pCharacter, FALSE, FALSE );
@@ -388,7 +388,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				CheckForAndAddMercToTeamPanel( pCharacter );
 			}
 
-			if ( pCharacter->ubID == gusSelectedSoldier )
+			if ( pCharacter->identity().id() == gusSelectedSoldier )
 			{
 				SetCurrentSquad( bSquadValue, TRUE );
 			}
@@ -484,7 +484,7 @@ void SortSquadByID( INT8 bSquadValue )
 		if (Squad[bSquadValue][idx1]) {
 			for(unsigned idx2 = idx1+1; idx2 < NUMBER_OF_SOLDIERS_PER_SQUAD; ++idx2) {
 				if (Squad[bSquadValue][idx2] &&
-					(Squad[bSquadValue][idx2]->ubID < Squad[bSquadValue][idx1]->ubID)) {
+					(Squad[bSquadValue][idx2]->identity().id() < Squad[bSquadValue][idx1]->identity().id())) {
 					SOLDIERTYPE *temp = Squad[bSquadValue][idx1];
 					Squad[bSquadValue][idx1] = Squad[bSquadValue][idx2];
 					Squad[bSquadValue][idx2] = temp;
@@ -546,7 +546,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 				// reset player mvt group id value
 				pCharacter->deployment().groupId() = 0;
 
-				if( ( pCharacter->flags.fBetweenSectors )&&( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				if( ( pCharacter->deployment().isBetweenSectors() )&&( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 				{
 					ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pCharacter->deployment().sectorX() ) , ( INT8 ) ( pCharacter->deployment().sectorY() ) );
 
@@ -931,13 +931,13 @@ BOOLEAN SetCurrentSquad( INT32 iCurrentSquad, BOOLEAN fForce )
 		if( selectedSoldier->assignment().current() != iCurrentTacticalSquad )
 		{
 			// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
-			SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->ubID, FALSE, TRUE );
+			SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->identity().id(), FALSE, TRUE );
 		}
 	}
 	else
 	{
 		// ATE: Changed this to FALSE for ackoledgement sounds.. sounds bad if just starting/entering sector..
-		SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->ubID, FALSE, TRUE );
+		SelectSoldier( Squad[ iCurrentTacticalSquad ][ 0 ]->identity().id(), FALSE, TRUE );
 	}
 
 	return ( TRUE );
@@ -1003,7 +1003,7 @@ void ExamineCurrentSquadLights( void )
 	{
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(usID.i);
-		if ( soldier->bInSector && soldier->vitals().health() >= OKLIFE )
+		if ( soldier->roster().inSector() && soldier->vitals().health() >= OKLIFE )
 		{
 			soldier->PositionSoldierLight(	);
 		}
@@ -1068,7 +1068,7 @@ BOOLEAN IsSquadOnCurrentTacticalMap( INT32 iCurrentSquad )
 		if(	Squad[ iCurrentSquad ][ iCounter ] != NULL )
 		{
 			// ATE; Added more checks here for being in sector ( fBetweenSectors and SectorZ )
-			if( ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorX() == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorY() == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorZ() == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->flags.fBetweenSectors != TRUE )
+			if( ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorX() == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorY() == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorZ() == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->deployment().isBetweenSectors() != TRUE )
 			{
 				return( TRUE );
 			}
@@ -1183,7 +1183,7 @@ BOOLEAN SaveSquadInfoToSavedGameFile( HWFILE hFile )
 		for( iCounterB =0; iCounterB < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounterB++ )
 		{
 			if( Squad[ iCounter ][ iCounterB ] )
-				sSquadSaveStruct[ iCounter ][ iCounterB ].uiID	= Squad[ iCounter ][ iCounterB ]->ubID;
+				sSquadSaveStruct[ iCounter ][ iCounterB ].uiID	= Squad[ iCounter ][ iCounterB ]->identity().id();
 			else
 				sSquadSaveStruct[ iCounter ][ iCounterB ].uiID = -1;
 		}
@@ -1298,7 +1298,7 @@ BOOLEAN IsThisSquadOnTheMove( INT8 bSquadValue )
 	{
 		if( Squad[ bSquadValue ][ iCounter ] )
 		{
-			return( Squad[ bSquadValue ][ iCounter ]->flags.fBetweenSectors );
+			return( Squad[ bSquadValue ][ iCounter ]->deployment().isBetweenSectors() );
 		}
 	}
 
@@ -1337,7 +1337,7 @@ void UpdateCurrentlySelectedMerc( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	}
 
 	// Are we the selected guy?
-	if( gusSelectedSoldier == pSoldier->ubID )
+	if( gusSelectedSoldier == pSoldier->identity().id() )
 	{
 		SoldierID ubID = FindNextActiveAndAliveMerc( pSoldier, FALSE, FALSE );
 
@@ -1366,7 +1366,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( FALSE );
 	}
 
-	if( pSoldier->flags.fBetweenSectors == TRUE )
+	if( pSoldier->deployment().isBetweenSectors() == TRUE )
 	{
 		return( FALSE );
 	}
@@ -1401,7 +1401,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( FALSE );
 	}
 
-	if( Squad[ ubSquad ][ 0 ]->flags.fBetweenSectors == TRUE )
+	if( Squad[ ubSquad ][ 0 ]->deployment().isBetweenSectors() == TRUE )
 	{
 		return( FALSE );
 	}
@@ -1424,7 +1424,7 @@ BOOLEAN IsAnyMercOnSquadAsleep( UINT8 ubSquadValue )
 	{
 		if( Squad[ ubSquadValue ][ iCounter ] != NULL )
 		{
-			if( Squad[ ubSquadValue ][ iCounter ]->flags.fMercAsleep )
+			if( Squad[ ubSquadValue ][ iCounter ]->assignment().isAsleep() )
 			{
 				return( TRUE );
 			}
@@ -1476,14 +1476,14 @@ BOOLEAN AddDeadCharacterToSquadDeadGuys( SOLDIERTYPE *pSoldier, INT32 iSquadValu
 			if( pTempSoldier == NULL )
 			{
 				// nope
-				sDeadMercs[ iSquadValue ][ iCounter ] = pSoldier->ubProfile;
+				sDeadMercs[ iSquadValue ][ iCounter ] = pSoldier->identity().profile();
 				return( TRUE );
 			}
 		}
 		else
 		{
 			// nope
-			sDeadMercs[ iSquadValue ][ iCounter ] = pSoldier->ubProfile;
+			sDeadMercs[ iSquadValue ][ iCounter ] = pSoldier->identity().profile();
 			return( TRUE );
 		}
 	}
@@ -1502,7 +1502,7 @@ BOOLEAN IsDeadGuyOnAnySquad( SOLDIERTYPE *pSoldier )
 		// slot?
 		for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 		{
-			if( sDeadMercs[ iCounterA ][ iCounter ] == pSoldier->ubProfile )
+			if( sDeadMercs[ iCounterA ][ iCounter ] == pSoldier->identity().profile() )
 			{
 				return( TRUE );
 			}
@@ -1558,7 +1558,7 @@ BOOLEAN SoldierIsDeadAndWasOnSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	// check if guy is on squad
 	for( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 	{
-		if( pSoldier->ubProfile == sDeadMercs[ bSquadValue ][ iCounter ] )
+		if( pSoldier->identity().profile() == sDeadMercs[ bSquadValue ][ iCounter ] )
 		{
 			return( TRUE );
 		}
@@ -1588,7 +1588,7 @@ BOOLEAN IsMercOnCurrentSquad( SOLDIERTYPE *pSoldier )
 	}
 
 	// active grunt?
-	if( pSoldier->bActive == FALSE )
+	if( pSoldier->roster().active() == FALSE )
 	{
 		// no
 		return( FALSE );
@@ -1637,7 +1637,7 @@ INT8 NumberOfPlayerControllableMercsInSquad( INT8 bSquadValue )
 
 			//Kris:	This breaks the CLIENT of this function, tactical traversal.	Do NOT check for EPCS or ROBOT here.
 			//if ( !AM_AN_EPC( pSoldier ) && !AM_A_ROBOT( pSoldier ) &&
-			if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				++bSquadCount;
 			}
@@ -1669,7 +1669,7 @@ BOOLEAN DoesVehicleExistInSquad( INT8 bSquadValue )
 			pSoldier = Squad[ bSquadValue ][ bCounter ] ;
 
 			// If we are an EPC or ROBOT, don't allow this
-			if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				return( TRUE );
 			}
@@ -1706,7 +1706,7 @@ void CheckSquadMovementGroups( void )
 					INT32 iCounter = 0;
 					for (iCounter = 0; iCounter < ubNumberOfVehicles; iCounter++)
 					{
-						if (pVehicleList[iCounter].ubProfileID == Squad[iSquad][iSoldier]->ubProfile)
+						if (pVehicleList[iCounter].ubProfileID == Squad[iSquad][iSoldier]->identity().profile())
 							break;
 					}
 					Squad[iSquad][iSoldier]->deployment().groupId() = pVehicleList[iCounter].ubMovementGroup;

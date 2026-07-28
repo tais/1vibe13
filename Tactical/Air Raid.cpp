@@ -218,12 +218,12 @@ BOOLEAN BeginAirRaid( )
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
-			if ( pSoldier->bActive	)
+			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier id = %d, active = %d",pSoldier->identity().id(),pSoldier->roster().active()));
+			if ( pSoldier->roster().active()	)
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;
@@ -286,9 +286,9 @@ BOOLEAN BeginAirRaid( )
 			GetJa2SoldierRepository().resolve(MAX_NUM_SOLDIERS - 1);
 		gpRaidSoldier->initialize();
 		gpRaidSoldier->position().level() = 0;
-		gpRaidSoldier->bTeam = 1;
-		gpRaidSoldier->bSide = 1;
-		gpRaidSoldier->ubID	= MAX_NUM_SOLDIERS - 1;
+		gpRaidSoldier->roster().team() = 1;
+		gpRaidSoldier->roster().side() = 1;
+		gpRaidSoldier->identity().id()	= MAX_NUM_SOLDIERS - 1;
 		gpRaidSoldier->combatResult().currentAttacker() = NOBODY;
 		gpRaidSoldier->attackSelection().weapon() = HK21E;
 		CreateItem(HK21E, 100, &gpRaidSoldier->inv[HANDPOS]);
@@ -1055,12 +1055,12 @@ void HandleAirRaid( )
 		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
-			if ( pSoldier->bActive	)
+			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier id = %d, active = %d",pSoldier->identity().id(),pSoldier->roster().active()));
+			if ( pSoldier->roster().active()	)
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;
@@ -1330,8 +1330,8 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 //	if( gpRaidSoldier )
 //	{
 //		sAirRaidSaveStruct.bLevel = gpRaidSoldier->position().level();
-//		sAirRaidSaveStruct.bTeam = gpRaidSoldier->bTeam;
-//		sAirRaidSaveStruct.bSide = gpRaidSoldier->bSide;
+//		sAirRaidSaveStruct.bTeam = gpRaidSoldier->roster().team();
+//		sAirRaidSaveStruct.bSide = gpRaidSoldier->roster().side();
 //		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->combatResult().currentAttacker();
 //		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->attackSelection().weapon();
 //		sAirRaidSaveStruct.dXPos = gpRaidSoldier->position().worldX();
@@ -1341,7 +1341,7 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 //		sAirRaidSaveStruct.sGridNo = gpRaidSoldier->sGridNo;
 //
 //		sAirRaidSaveStruct.sRaidSoldierID = MAX_NUM_SOLDIERS - 1;
-////		sAirRaidSaveStruct.sRaidSoldierID = gpRaidSoldier->ubID;
+////		sAirRaidSaveStruct.sRaidSoldierID = gpRaidSoldier->identity().id();
 //	}
 //	else
 		sAirRaidSaveStruct.sRaidSoldierID = NOBODY;
@@ -1408,8 +1408,8 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 			sAirRaidSaveStruct.sRaidSoldierID.i);
 
 		gpRaidSoldier->position().level() = sAirRaidSaveStruct.bLevel;
-		gpRaidSoldier->bTeam = sAirRaidSaveStruct.bTeam;
-		gpRaidSoldier->bSide = sAirRaidSaveStruct.bSide;
+		gpRaidSoldier->roster().team() = sAirRaidSaveStruct.bTeam;
+		gpRaidSoldier->roster().side() = sAirRaidSaveStruct.bSide;
 		gpRaidSoldier->combatResult().currentAttacker() = sAirRaidSaveStruct.ubAttackerID;
 		gpRaidSoldier->attackSelection().weapon() = sAirRaidSaveStruct.usAttackingWeapon;
 		gpRaidSoldier->position().setWorldCoordinates(
@@ -1450,9 +1450,9 @@ void EndAirRaid( )
 			{
 				pTeamSoldier =
 					GetJa2SoldierRepository().resolve(cnt.i);
-				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
+				if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 				{
-					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 				}
 			}
 			gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition = FALSE;
@@ -1463,9 +1463,9 @@ void EndAirRaid( )
 			{
 				pTeamSoldier =
 					GetJa2SoldierRepository().resolve(cnt.i);
-				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
+				if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 				{
-					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 				}
 			}
 			gTacticalStatus.Team[ CIV_TEAM ].bAwareOfOpposition = FALSE;
@@ -1541,8 +1541,8 @@ static void CheckForAndSetupAirRaid ()
 	//		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	//		{
 	//			pSoldier = GetJa2SoldierRepository().resolve(cnt);
-	//			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CheckForAndSetupAirRaid: soldier id = %d, (x,y,z) = (%d,%d,%d)",pSoldier->bActive,pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
-	//			if ( pSoldier->deployment().isInSector( sSectorX, sSectorY, 0 ) && pSoldier->bActive )
+	//			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CheckForAndSetupAirRaid: soldier id = %d, (x,y,z) = (%d,%d,%d)",pSoldier->roster().active(),pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
+	//			if ( pSoldier->deployment().isInSector( sSectorX, sSectorY, 0 ) && pSoldier->roster().active() )
 	//				sMenInSector++;
 	//		}
 	//

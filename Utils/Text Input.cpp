@@ -584,7 +584,7 @@ void SelectNextField()
 	if( gpActive->szString )
 		RenderInactiveTextFieldNode( gpActive );
 	else if( gpActive->InputCallback )
-		(gpActive->InputCallback)(gpActive->ubID, FALSE );
+	(gpActive->InputCallback)(gpActive->ubID, FALSE );
 	pStart = gpActive;
 	while( !fDone )
 	{
@@ -629,7 +629,7 @@ void SelectPrevField()
 	if( gpActive->szString )
 		RenderInactiveTextFieldNode( gpActive );
 	else if( gpActive->InputCallback )
-		(gpActive->InputCallback)(gpActive->ubID, FALSE );
+	(gpActive->InputCallback)(gpActive->ubID, FALSE );
 	pStart = gpActive;
 	while( !fDone )
 	{

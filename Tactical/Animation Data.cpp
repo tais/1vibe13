@@ -934,12 +934,12 @@ static STRUCTURE_FILE_REF	*InternalGetAnimationStructureRef( SoldierID usSoldier
 			usAnimState == FALLFORWARD_FROMHIT_CROUCH || usAnimState == STANDING_BURST_HIT ) && !fUseAbsolute )
 	{
 		return( gAnimStructureDatabase[
-			GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+			GetJa2SoldierRepository().resolve(usSoldierID.i)->identity().bodyType()
 		][ S_STRUCT ].pStructureFileRef );
 	}
 
 	return( gAnimStructureDatabase[
-		GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+		GetJa2SoldierRepository().resolve(usSoldierID.i)->identity().bodyType()
 	][ bStructDataType ].pStructureFileRef );
 }
 
@@ -953,7 +953,7 @@ STRUCTURE_FILE_REF	*GetAnimationStructureRef( SoldierID usSoldierID, UINT16 usSu
 STRUCTURE_FILE_REF	*GetDefaultStructureRef( SoldierID usSoldierID )
 {
 	return( gAnimStructureDatabase[
-		GetJa2SoldierRepository().resolve(usSoldierID.i)->ubBodyType
+		GetJa2SoldierRepository().resolve(usSoldierID.i)->identity().bodyType()
 	][ DEFAULT_STRUCT ].pStructureFileRef );
 }
 

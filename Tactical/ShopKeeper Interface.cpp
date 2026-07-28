@@ -683,11 +683,11 @@ UINT32	ShopKeeperScreenHandle()
 	GetShopKeeperInterfaceUserInput();
 	
 	// Check for any newly added items...
-	if ( GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems )
+	if ( GetSMCurrentMerc()->inventoryState().checkForNewItems() )
 	{
 		// Startup any newly added items....
 		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
-		GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems = FALSE;
+		GetSMCurrentMerc()->inventoryState().checkForNewItems() = FALSE;
 	}
 
 	HandleShopKeeperInterface();
@@ -813,7 +813,7 @@ BOOLEAN EnterShopKeeperInterface()
 				*pShopkeeper,
 				sGoodGridNo,
 				pSoldier->movement().mode(),
-				pSoldier->flags.fNoAPToFinishMove != FALSE);
+				pSoldier->movement().outOfActionPoints() != FALSE);
 
 			return( FALSE );
 		}
@@ -887,20 +887,20 @@ BOOLEAN EnterShopKeeperInterface()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(ubCnt.i);
 
-		if( pSoldier->bActive && ( pSoldier->ubProfile != NO_PROFILE ) &&
-			!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+		if( pSoldier->roster().active() && ( pSoldier->identity().profile() != NO_PROFILE ) &&
+			!(pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			// remember whose face is in this slot
-			gubArrayOfEmployedMercs[ gubNumberMercsInArray ] = pSoldier->ubProfile;
+			gubArrayOfEmployedMercs[ gubNumberMercsInArray ] = pSoldier->identity().profile();
 
 			//Create the string for the face file name						
-			if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+			if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 			{
-				sprintf( zTemp, "IMPFACES\\33FACE\\%02d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );	
+				sprintf( zTemp, "IMPFACES\\33FACE\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 			} 
 			else
 			{			
-				sprintf( zTemp, "FACES\\33FACE\\%02d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+				sprintf( zTemp, "FACES\\33FACE\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 			}
 			
 			//While we are at it, add their small face
@@ -1009,7 +1009,7 @@ BOOLEAN EnterShopKeeperInterface()
 		if( ( armsDealerInfo[ gbSelectedArmsDealerID ].ubTypeOfArmsDealer != ARMS_DEALER_REPAIRS ) ||
 			(CountNumberOfItemsInThePlayersOfferArea( ) < (SKI_TRADER_INVENTORY_BOXES_PER_ROW * SKI_TRADER_INVENTORY_BOXES_PER_COL)) )
 		{
-			if ( OfferObjectToDealer( &(gItemToAdd.ItemObject), GetSMCurrentMerc()->ubProfile, NO_SLOT ) )
+			if ( OfferObjectToDealer( &(gItemToAdd.ItemObject), GetSMCurrentMerc()->identity().profile(), NO_SLOT ) )
 			{
 				fAddedOK = true;
 			}
@@ -1078,7 +1078,7 @@ BOOLEAN InitShopKeepersFace( UINT8 usProfileID )
 	else
 	{
 		//Create the facial index
-		giShopKeeperFaceIndex = InitFace( usProfileID, pSoldier->ubID, FACE_BIGFACE );
+		giShopKeeperFaceIndex = InitFace( usProfileID, pSoldier->identity().id(), FACE_BIGFACE );
 	}
 
 	SetAutoFaceActive( FRAME_BUFFER, FACE_AUTO_RESTORE_BUFFER, giShopKeeperFaceIndex, SKI_FACE_X, SKI_FACE_Y );
@@ -3214,7 +3214,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 
 		// Flugente: used in backgrounds now, old code in comments for historical reasons
 		/*// if Flo is doing the dealin' and wheelin'
-		if ( GetSMCurrentMerc()->ubProfile == FLO )
+		if ( GetSMCurrentMerc()->identity().profile() == FLO )
 		{
 			// if it's a GUN or AMMO (but not Launchers, and all attachments and payload is included)
 			switch ( Item [ usItemID ].usItemClass )
@@ -3247,7 +3247,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 			pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * GetSMCurrentMerc()->GetBackgroundValue( BG_PERC_PRICES_GUNS ) );
 
 			// Even without backgrounds, Flo gets a discount. Read her M.E.R.C. profile to understand why
-			if ( !UsingBackGroundSystem() && GetSMCurrentMerc()->ubProfile == FLO )
+			if ( !UsingBackGroundSystem() && GetSMCurrentMerc()->identity().profile() == FLO )
 				pricepercentage = max( 0, 100 + (fDealerSelling ? -1 : 1) * FLO_DISCOUNT_PERCENTAGE );
 		}
 		else if ( Item [ usItemID ].usItemClass & (IC_MAPFILTER_MELEE|IC_MAPFILTER_KIT|IC_MAPFILTER_LBE|IC_MAPFILTER_ARMOR|IC_MAPFILTER_MISC) )
@@ -4435,7 +4435,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 			// if that doesn't work (because there isn't enough room in the player's offer area), the item is picked up into
 			// the cursor, and may then get placed into the player's offer area directly, but it will NOT get evaluated that
 			// way, and so has no possibility of entering the dealer's inventory (where complex items aren't permitted).
-			if ( fOfferToDealerFirst && OfferObjectToDealer( gpItemPointer, GetSMCurrentMerc()->ubProfile, bSlotNum ) )
+			if ( fOfferToDealerFirst && OfferObjectToDealer( gpItemPointer, GetSMCurrentMerc()->identity().profile(), bSlotNum ) )
 			{
 				//Reset the cursor
 				SetSkiCursor( CURSOR_NORMAL );
@@ -4461,7 +4461,7 @@ void BeginSkiItemPointer( UINT8 ubSource, INT16 bSlotNum, BOOLEAN fOfferToDealer
 
 				// By necessity, these items don't belong to a slot (so you can't return them via a right click),
 				// because it would be too much work to handle attachments, members of a stack, or even items swapped out of slots.
-				gMoveingItem.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->ubProfile;
+				gMoveingItem.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->identity().profile();
 				gMoveingItem.bSlotIdInOtherLocation = bSlotNum;
 
 				//Restrict the cursor to the players offer area and the players inventory
@@ -6642,16 +6642,16 @@ BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
 		pShopkeeper = FindSoldierByProfileID( armsDealerInfo[gbSelectedArmsDealerID].ubShopKeeperID, FALSE );
 
 	Assert( pShopkeeper != NULL );
-	Assert( pShopkeeper->bActive );
-	Assert( pShopkeeper->bInSector );
+	Assert( pShopkeeper->roster().active() );
+	Assert( pShopkeeper->roster().inSector() );
 
 	if ( pShopkeeper->vitals().health() < OKLIFE )
 	{
 		return( FALSE );
 	}
 
-	if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= OKLIFE ) &&
-		!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+	if ( pSoldier->roster().active() && pSoldier->roster().inSector() && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= OKLIFE ) &&
+		!( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 	{
 		sDestGridNo = pShopkeeper->position().gridNo();
 		bDestLevel	= pShopkeeper->position().level();

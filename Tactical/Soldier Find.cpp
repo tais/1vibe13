@@ -110,7 +110,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	}
 	if ( ubID >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 	{
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->bVehicleID ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->bVehicleID ) )
 		{
 			// Don't do anything!
 		}
@@ -128,7 +128,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	else
 	{
 		// Check the side, etc
-		if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+		if ( !pSoldier->aiBehavior().neutral() && (pSoldier->roster().side() != gbPlayerNum ) )
 		{
 				// It's an enemy merc
 			MercFlags	|= ENEMY_MERC;
@@ -213,10 +213,10 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 		if ( pSoldier != NULL )
 		{
 
-			if ( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) && ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
+			if ( pSoldier->roster().active() && !( pSoldier->status().flags() & SOLDIER_DEAD ) && ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
 			{
 				// OK, ignore if we are a passenger...
-				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+				if ( pSoldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 				{
 					continue;
 				}
@@ -239,7 +239,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 				}
 				else if ( uiFlags & FIND_SOLDIER_SELECTIVE )
 				{
-					if ( pSoldier->ubID >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && pSoldier->ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
+					if ( pSoldier->identity().id() >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && pSoldier->identity().id() <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 					{
 						fDoFull = TRUE;
 					}
@@ -282,7 +282,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 					// ATE: If we are an enemy....
 					if ( !gGameSettings.fOptions[ TOPTION_SMART_CURSOR ] )
 					{
-						if ( pSoldier->ubID >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && pSoldier->ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
+						if ( pSoldier->identity().id() >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && pSoldier->identity().id() <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 						{
 							// ATE: NOT if we are in action or comfirm action mode
 							if ( gCurrentUIMode != ACTION_MODE && gCurrentUIMode != CONFIRM_ACTION_MODE || gUIActionModeChangeDueToMouseOver )
@@ -294,7 +294,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 
 					// ATE: Refine this further....
 					// Check if this is the selected guy....
-					if ( pSoldier->ubID == gusSelectedSoldier )
+					if ( pSoldier->identity().id() == gusSelectedSoldier )
 					{
 						// Are we in action mode...
 						if ( gCurrentUIMode == ACTION_MODE || gCurrentUIMode == CONFIRM_ACTION_MODE )
@@ -312,7 +312,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 					if ( fInScreenRect || fInGridNo )
 					{
 						// Check if we are a vehicle and refine if so....
-						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 
@@ -340,7 +340,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 							gfHandleStack = TRUE;
 
 							// Add this one!
-							gSoldierStack.ubIDs[ gSoldierStack.bNum ] = pSoldier->ubID;
+							gSoldierStack.ubIDs[ gSoldierStack.bNum ] = pSoldier->identity().id();
 							gSoldierStack.bNum++;
 
 							// Determine if it's the current
@@ -361,10 +361,10 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 									fSoldierFound = FALSE;
 									break;
 								}
-								else if ( gSoldierStack.ubIDs[ gSoldierStack.bCur ] == pSoldier->ubID )
+								else if ( gSoldierStack.ubIDs[ gSoldierStack.bCur ] == pSoldier->identity().id() )
 								{
 									// Set it!
-									ubBestMerc = pSoldier->ubID;
+									ubBestMerc = pSoldier->identity().id();
 
 									fSoldierFound = TRUE;
 									break;
@@ -379,7 +379,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 									sHeighestMercScreenY = sMaxScreenMercY;
 
 									// Set it!
-									ubBestMerc = pSoldier->ubID;
+									ubBestMerc = pSoldier->identity().id();
 							}
 
 							fSoldierFound = TRUE;
@@ -398,7 +398,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 					if ( pSoldier->position().gridNo() == sGridNo && !NewOKDestination( pSoldier, sGridNo, TRUE, (INT8)gsInterfaceLevel ) )
 					{
 						// Set it!
-						ubBestMerc = pSoldier->ubID;
+						ubBestMerc = pSoldier->identity().id();
 
 						fSoldierFound = TRUE;
 						break;
@@ -520,7 +520,7 @@ BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 
 
 	// CHECK IF ACTIVE!
-	if ( !pSoldier->bActive )
+	if ( !pSoldier->roster().active() )
 	{
 		return( FALSE );
 	}
@@ -532,7 +532,7 @@ BOOLEAN IsValidTargetMerc( SoldierID ubSoldierID )
 	}
 
 	// IF BAD GUY - CHECK VISIVILITY
-	if ( pSoldier->bTeam != gbPlayerNum )
+	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
 		if ( pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) )
 		{

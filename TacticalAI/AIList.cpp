@@ -183,12 +183,12 @@ BOOLEAN InsertIntoAIList( SoldierID ubID, INT8 bPriority )
 
 BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks )
 {
-	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pSoldier->status().flags() & SOLDIER_BOXER) )
 	{
 		return( FALSE );
 	}
 
-	if ( ! ( pSoldier->bActive && pSoldier->bInSector ) )
+	if ( ! ( pSoldier->roster().active() && pSoldier->roster().inSector() ) )
 	{
 		// the check for
 		return( FALSE );
@@ -199,7 +199,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		return( FALSE );
 	}
 
-	if ( pSoldier->aiData.bMoved )
+	if ( pSoldier->turnState().moved() )
 	{
 		if ( pSoldier->actionPoints().current() <= 1 && pubDoneCount )
 		{
@@ -215,16 +215,16 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 	// hasn't heard any gunfire, handle only 1 time in 10
 	if (PTR_CIVILIAN)
 	{
-		if ( pSoldier->ubBodyType == CROW || pSoldier->ubBodyType == COW )
+		if ( pSoldier->identity().bodyType() == CROW || pSoldier->identity().bodyType() == COW )
 		{
 			// don't handle cows and crows in TB!
 			return( FALSE );
 		}
 
 		// if someone in a civ group is neutral but the civ group is non-neutral, should be handled all the time
-		if ( pSoldier->aiData.bNeutral && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->ubCivilianGroup] == CIV_GROUP_NEUTRAL ) )
+		if ( pSoldier->aiBehavior().neutral() && (pSoldier->roster().civilianGroup() == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->roster().civilianGroup()] == CIV_GROUP_NEUTRAL ) )
 		{
-			if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
+			if ( pSoldier->aiBehavior().alertStatus() < STATUS_RED )
 			{
 				// unalerted, barely handle
 				if ( fDoRandomChecks && PreRandom( 10 ) && !pSoldier->dialogue().hasQuoteRecord() )
@@ -235,12 +235,12 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 			else
 			{
 				// heard gunshots
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+				if ( pSoldier->status().flags() & SOLDIER_COWERING )
 				{
 					if ( pSoldier->awareness().visibility() == TRUE )
 					{
 						// if have profile, don't handle, don't want them running around
-						if ( pSoldier->ubProfile != NO_PROFILE )
+						if ( pSoldier->identity().profile() != NO_PROFILE )
 						{
 							return( FALSE );
 						}
@@ -256,7 +256,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 						return( FALSE );
 					}
 				}
-				else if ( pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV )
+				else if ( pSoldier->identity().bodyType() == COW || pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					// don't handle much
 					if ( fDoRandomChecks && PreRandom( 3 ) )
@@ -269,9 +269,9 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		// non-neutral civs should be handled all the time, right?
 		// reset last action if cowering
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+		if ( pSoldier->status().flags() & SOLDIER_COWERING )
 		{
-			pSoldier->aiData.bLastAction = AI_ACTION_NONE;
+			pSoldier->aiPlanning().lastAction() = AI_ACTION_NONE;
 		}
 
 	}
@@ -336,20 +336,20 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 	{
 		// non-null merc slot ensures active
 		pSoldier = MercSlots[ uiLoop ];
-		if ( pSoldier && pSoldier->bTeam == bTeam )
+		if ( pSoldier && pSoldier->roster().team() == bTeam )
 		{
 			if ( !SatisfiesAIListConditions( pSoldier, &ubDoneCount, TRUE ) )
 			{
 				continue;
 			}
 
-			bPriority = pSoldier->aiData.bAlertStatus;
+			bPriority = pSoldier->aiBehavior().alertStatus();
 			if ( pSoldier->awareness().visibility() == TRUE )
 			{
 				bPriority += 3;
 			}
 
-			fInsertRet = InsertIntoAIList( pSoldier->ubID, bPriority );
+			fInsertRet = InsertIntoAIList( pSoldier->identity().id(), bPriority );
 			if (fInsertRet == FALSE)
 			{
 				// wtf???

@@ -255,7 +255,7 @@ SOLDIERTYPE* GetUsedSoldierToIndividualMilitia( UINT32 aMilitiaId )
 	for ( SoldierID cnt = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; cnt <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++cnt )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pSoldier && pSoldier->bActive && pSoldier->usIndividualMilitiaID == aMilitiaId )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->identity().individualMilitiaId() == aMilitiaId )
 		{
 			return pSoldier;
 		}
@@ -276,7 +276,7 @@ void ApplyTacticalLifeRatioToMilitia()
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
-		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 		{
 			militia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
 
@@ -301,7 +301,7 @@ void ApplyMilitiaHealthRatioToTactical()
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		MILITIA militia;
-		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().maximumHealth() && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 		{
 			INT8 oldlife = pSoldier->vitals().health();
 
@@ -559,7 +559,7 @@ UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrig
 
 	newmilitia.id = GetFreeIndividualMilitiaId();
 
-	switch ( pSoldier->ubSoldierClass )
+	switch ( pSoldier->roster().soldierClass() )
 	{
 	case SOLDIER_CLASS_ADMINISTRATOR:
 	case SOLDIER_CLASS_GREEN_MILITIA:
@@ -588,7 +588,7 @@ UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrig
 	newmilitia.originsector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	newmilitia.sector = newmilitia.originsector;
 
-	newmilitia.bodytype = pSoldier->ubBodyType;
+	newmilitia.bodytype = pSoldier->identity().bodyType();
 
 	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "PINKSKIN" ) )	newmilitia.skin = PINKSKIN;
 	else if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "TANSKIN" ) )	newmilitia.skin = TANSKIN;
@@ -670,7 +670,7 @@ UINT32 GetIdOfUnusedIndividualMilitia( UINT8 aSoldierClass, UINT8 aSector )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 				
-				if ( pSoldier && pSoldier->bActive && ( *it ).id == pSoldier->usIndividualMilitiaID && IsLegalMilitiaId( pSoldier->usIndividualMilitiaID ) )
+				if ( pSoldier && pSoldier->roster().active() && ( *it ).id == pSoldier->identity().individualMilitiaId() && IsLegalMilitiaId( pSoldier->identity().individualMilitiaId() ) )
 				{
 					found = TRUE;
 					break;
@@ -828,11 +828,11 @@ FLOAT PromoteIndividualMilitiaInSector( UINT8 aSector, FLOAT aPointsToAdd )
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(cnt);
 			MILITIA militia;
 
-			if ( pSoldier && GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+			if ( pSoldier && GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 			{
-				if ( SoldierClassToMilitiaRank( pSoldier->ubSoldierClass ) < militia.militiarank )
+				if ( SoldierClassToMilitiaRank( pSoldier->roster().soldierClass() ) < militia.militiarank )
 				{
-					pSoldier->ubSoldierClass = MilitiaRankToSoldierClass( militia.militiarank );
+					pSoldier->roster().soldierClass() = MilitiaRankToSoldierClass( militia.militiarank );
 
 					changesnecessary = TRUE;
 				}
@@ -851,7 +851,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 {
 	// we not only handle promotions here, but basically update this guy
 	MILITIA militia;
-	if ( GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+	if ( GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 	{
 		militia.AddKills( pSoldier->combatContribution().militiaKills(), pSoldier->combatContribution().militiaAssists() );
 
@@ -865,7 +865,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 					++gbGreenToElitePromotions;
 					++gbMilitiaPromotions;
 
-					pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
+					pSoldier->roster().soldierClass() = SOLDIER_CLASS_ELITE_MILITIA;
 
 					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), GREEN_MILITIA, 1 );
 					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), REGULAR_MILITIA, 1 );
@@ -877,7 +877,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 					++gbGreenToRegPromotions;
 					++gbMilitiaPromotions;
 
-					pSoldier->ubSoldierClass = SOLDIER_CLASS_REG_MILITIA;
+					pSoldier->roster().soldierClass() = SOLDIER_CLASS_REG_MILITIA;
 
 					StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), GREEN_MILITIA, 1 );
 
@@ -892,7 +892,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 				++gbRegToElitePromotions;
 				++gbMilitiaPromotions;
 
-				pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
+				pSoldier->roster().soldierClass() = SOLDIER_CLASS_ELITE_MILITIA;
 
 				StrategicPromoteMilitiaInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), REGULAR_MILITIA, 1 );
 
@@ -927,7 +927,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 		}
 
 		// separate report for promotion
-		if ( militia.militiarank != SoldierClassToMilitiaRank( pSoldier->ubSoldierClass ) )
+		if ( militia.militiarank != SoldierClassToMilitiaRank( pSoldier->roster().soldierClass() ) )
 		{
 			MILITIA_BATTLEREPORT report;
 			report.id = GetWorldTotalMin( );
@@ -936,13 +936,13 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 		}
 
 		militia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
-		militia.militiarank = SoldierClassToMilitiaRank( pSoldier->ubSoldierClass );
+		militia.militiarank = SoldierClassToMilitiaRank( pSoldier->roster().soldierClass() );
 
 		UpdateMilitia( militia );
 	}
 	else if ( pSoldier->combatContribution().hasMilitiaCredit() )
 	{
-		UINT8 ubMilitiaRank = SoldierClassToMilitiaRank( pSoldier->ubSoldierClass );
+		UINT8 ubMilitiaRank = SoldierClassToMilitiaRank( pSoldier->roster().soldierClass() );
 		UINT8 ubPromotions = CheckOneMilitiaForPromotion( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ubMilitiaRank, pSoldier->combatContribution().militiaPromotionPoints() );
 		if ( ubPromotions )
 		{
@@ -951,21 +951,21 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 				++gbGreenToElitePromotions;
 				++gbMilitiaPromotions;
 
-				pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
+				pSoldier->roster().soldierClass() = SOLDIER_CLASS_ELITE_MILITIA;
 			}
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA )
 			{
 				++gbGreenToRegPromotions;
 				++gbMilitiaPromotions;
 
-				pSoldier->ubSoldierClass = SOLDIER_CLASS_REG_MILITIA;
+				pSoldier->roster().soldierClass() = SOLDIER_CLASS_REG_MILITIA;
 			}
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
 			{
 				++gbRegToElitePromotions;
 				++gbMilitiaPromotions;
 
-				pSoldier->ubSoldierClass = SOLDIER_CLASS_ELITE_MILITIA;
+				pSoldier->roster().soldierClass() = SOLDIER_CLASS_ELITE_MILITIA;
 			}
 		}
 	}

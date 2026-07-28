@@ -450,7 +450,7 @@ ArtillerySector::Setup( UINT32 aVal )
 			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ArtilleryTeam, sectornr ) );
 
 			// grey out if no artillery can be called from this sector
-			if ( !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), pSoldier->bTeam ) && !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
+			if ( !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), pSoldier->roster().team() ) && !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
 			{
 				// Set this option off.
 				pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -517,10 +517,10 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		// order artillery from our mercs
 		swprintf( pStr, pSkillMenuStrings[SKILLMENU_OTHERSQUADS] );
 
-		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->bTeam ) );
+		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->roster().team() ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
-		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), pSoldier->bTeam ) )
+		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), pSoldier->roster().team() ) )
 		{
 			// Set this option off.
 			pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -795,7 +795,7 @@ SoldierSelection::Setup( UINT32 aVal )
 
 			if ( iRange < 100 )
 			{
-				if ( id != pSoldier->ubID )
+				if ( id != pSoldier->identity().id() )
 				{
 					swprintf( pStr, L"%s", candidate->GetName() );
 
@@ -872,7 +872,7 @@ DragSelection::Setup( UINT32 aVal )
 		// loop through all soldiers around
 		for ( SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++cnt )
 		{
-			if ( cnt != pSoldier->ubID && pSoldier->CanDragPerson(cnt) )
+			if ( cnt != pSoldier->identity().id() && pSoldier->CanDragPerson(cnt) )
 			{
 				swprintf(
 					pStr, L"%s",

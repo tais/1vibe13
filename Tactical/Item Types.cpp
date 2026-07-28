@@ -54,22 +54,22 @@ bool checkLBEArrayIntegrity(bool verbose) {
 		SOLDIERTYPE *soldier =
 			GetJa2SoldierRepository().resolve(id.i);
 
-		if (verbose)ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"LBENODE integrity check start: checking soldier items (%s)...", soldier->name);
+		if (verbose)ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"LBENODE integrity check start: checking soldier items (%s)...", soldier->identity().name());
 
 		for (int j = 0; j < soldier->inv.size(); j++) {
 			OBJECTTYPE * object = &(soldier->inv[j]);
 			if (object->HasAnyActiveLBEs()) {
 
 				if (!checkObjectLBEIntegrity(object)) {
-					ScreenMsg(FONT_MCOLOR_LTRED, MSG_INTERFACE, L"> LBENODE missing: %s -> %s!", soldier->name, Item[object->usItem].szItemName);
+					ScreenMsg(FONT_MCOLOR_LTRED, MSG_INTERFACE, L"> LBENODE missing: %s -> %s!", soldier->identity().name(), Item[object->usItem].szItemName);
 					integrityCheck = false;
 				}
 				else {
-					if (verbose)ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"> OK: %s -> %s", soldier->name, Item[object->usItem].szItemName);
+					if (verbose)ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"> OK: %s -> %s", soldier->identity().name(), Item[object->usItem].szItemName);
 				}
 			}
 			else {
-				if (verbose)ScreenMsg(FONT_MCOLOR_LTGRAY, MSG_INTERFACE, L"> SKIP: %s -> %s", soldier->name, Item[object->usItem].szItemName);
+				if (verbose)ScreenMsg(FONT_MCOLOR_LTGRAY, MSG_INTERFACE, L"> SKIP: %s -> %s", soldier->identity().name(), Item[object->usItem].szItemName);
 			}
 		}
 	}
@@ -260,7 +260,7 @@ BOOLEAN MoveItemsToActivePockets( SOLDIERTYPE *pSoldier, std::vector<INT8>& LBES
 	BOOLEAN	flag= FALSE;
 
 	if(pObj->IsActiveLBE(0) == false) {
-		CreateLBE(pObj, pSoldier->ubID, LBESlots.size());
+		CreateLBE(pObj, pSoldier->identity().id(), LBESlots.size());
 	}
 
 	LBENODE* pLBE = pObj->GetLBEPointer(0);
@@ -405,7 +405,7 @@ BOOLEAN MoveItemToLBEItem( SOLDIERTYPE *pSoldier, UINT32 uiHandPos )
 	// Determine which LBE item we're removing so we can associate the correct pockets with it.
 	GetLBESlots(uiHandPos, LBESlots);
 
-	CreateLBE(&(pSoldier->inv[uiHandPos]), pSoldier->ubID, LBESlots.size());
+	CreateLBE(&(pSoldier->inv[uiHandPos]), pSoldier->identity().id(), LBESlots.size());
 	LBENODE* pLBE = pSoldier->inv[uiHandPos].GetLBEPointer(0);
 	for(unsigned int i=0; pLBE && i<LBESlots.size(); i++)
 	{

@@ -3332,7 +3332,7 @@ BOOLEAN LoadWorld(const STR8 puiFilename, FLOAT* pMajorMapVersion, UINT8* pMinor
 		SOLDIERTYPE* selectedSoldier =
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
-		if(!selectedSoldier || selectedSoldier->bActive == FALSE)
+		if(!selectedSoldier || selectedSoldier->roster().active() == FALSE)
 			gusSelectedSoldier = NOBODY;
 	}
 	RenderProgressBar(0, 60);
@@ -3432,9 +3432,9 @@ void TrashWorld( void )
 	for ( ; cnt < MAX_NUM_SOLDIERS; cnt++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pSoldier && pSoldier->bActive )
+		if ( pSoldier && pSoldier->roster().active() )
 		{
-			if ( pSoldier->bTeam == gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				// Just delete levelnode
 				pSoldier->pLevelNode = NULL;

@@ -1401,7 +1401,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				( pSoldier->deployment().sectorX() == sMapX) &&
 				( pSoldier->deployment().sectorY() == sMapY) &&
 				( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) &&
@@ -1456,7 +1456,7 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 		// given number of on duty members, find number of assigned chars
 		// start at beginning of list, look for people who are in sector and assigned
 		// Flugente: concealed mercs also show up here, to give the illusion they are present
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				( pSoldier->deployment().sectorX() == sMapX) &&
 				( pSoldier->deployment().sectorY() == sMapY) &&
 				( ( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->assignment().current()) && ( pSoldier->deployment().sectorZ() - 10 == iCurrentMapSectorZ ) ) ) &&
@@ -1527,7 +1527,7 @@ INT32 ShowVehicles(INT16 sMapX, INT16 sMapY, INT32 iCount)
 					// this skips the chopper, which has no soldier
 					if ( pVehicleSoldier )
 					{
-						if ( pVehicleSoldier->bTeam == gbPlayerNum )
+						if ( pVehicleSoldier->roster().team() == gbPlayerNum )
 						{
 							++sNumberOfVehiclesInSector;
 						}
@@ -2033,7 +2033,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 		if( pCharacter->assignment().current() >= ON_DUTY )
 		{
 			// not on the surface, character won't move until they reach surface..info player of this fact
-			MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pCharacter->name, gsUndergroundString[0] );
+			MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pCharacter->identity().name(), gsUndergroundString[0] );
 		}
 		else	// squad
 		{
@@ -2045,7 +2045,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 		return;
 	}
 
-	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		SetUpMvtGroupForVehicle( pCharacter );
 	}
@@ -2061,7 +2061,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	pCharacter->pMercPath = MoveToBeginningOfPathList( pCharacter->pMercPath );
 
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		MoveCharactersPathToVehicle( pCharacter );
 	}
@@ -2131,7 +2131,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 		// be canceled.
 
 		// if a vehicle
-		if( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if( pCharacter->status().flags() & SOLDIER_VEHICLE )
 		{
 			pVehicle = &( pVehicleList[ pCharacter->bVehicleID ] );
 		}
@@ -2345,7 +2345,7 @@ void DisplaySoldierPath( SOLDIERTYPE *pCharacter )
 
 /* ARM: Hopefully no longer required once using GetSoldierMercPathPtr() ???
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->assignment().current() == VEHICLE )||( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE )||( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		// get the real path from vehicle's structure and copy it into this soldier's
 		CopyVehiclePathToSoldier( pCharacter );
@@ -5153,9 +5153,9 @@ UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 	for ( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve( cnt );
-		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() > 0 )
 		{
-			if ( (pTeamSoldier->bSide == gbPlayerNum ) && pTeamSoldier->deployment().isInSector( sX, sY, bZ ) )
+			if ( (pTeamSoldier->roster().side() == gbPlayerNum ) && pTeamSoldier->deployment().isInSector( sX, sY, bZ ) )
 			{
 				ubNumFriendlies++;
 			}
@@ -7063,13 +7063,13 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// is the soldier active
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
 
 		// vehicles can't scout!
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			continue;
 		}
@@ -7080,7 +7080,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 				( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
 				( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
 				( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
-				( pSoldier->flags.fMercAsleep == TRUE ) ||
+				( pSoldier->assignment().isAsleep() == TRUE ) ||
 				( pSoldier->vitals().health() < OKLIFE ) )
 		{
 			continue;
@@ -7093,7 +7093,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// mercs on the move can't scout
-		if ( pSoldier->flags.fBetweenSectors )
+		if ( pSoldier->deployment().isBetweenSectors() )
 		{
 			continue;
 		}
@@ -7228,7 +7228,7 @@ UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSector
 		{
 			pSoldier = gCharactersList[ iCounter ].usSolID;
 
-			if( pSoldier->bActive && ( pSoldier->vitals().health() > 0 ) &&
+			if( pSoldier->roster().active() && ( pSoldier->vitals().health() > 0 ) &&
 					( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 			{
 				if( pSoldier->deployment().isInSector( sSectorX, sSectorY, bSectorZ ) )

@@ -81,7 +81,7 @@ UINT8 GetTownOpinionOfMercForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubTownId )
 	Assert(ubTownId < NUM_TOWNS);
 
 	// pass on to
-	return( GetTownOpinionOfMerc( pSoldier->ubProfile, ubTownId ) );
+	return( GetTownOpinionOfMerc( pSoldier->identity().profile(), ubTownId ) );
 }
 
 
@@ -121,7 +121,7 @@ void UpdateTownOpinionOfThisMercForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubTownI
 	Assert(ubTownId < NUM_TOWNS);
 
 	// pass this on to the profile based function
-	UpdateTownOpinionOfThisMerc( pSoldier->ubProfile, ubTownId, bAmount );
+	UpdateTownOpinionOfThisMerc( pSoldier->identity().profile(), ubTownId, bAmount );
 }
 
 
@@ -187,7 +187,7 @@ void HandleSpreadOfTownOpinionForMercForSoldier( SOLDIERTYPE *pSoldier )
 	}
 
 	// let the profile based one do the handling
-	HandleSpreadOfTownOpinionForMerc( pSoldier->ubProfile );
+	HandleSpreadOfTownOpinionForMerc( pSoldier->identity().profile() );
 }
 
 

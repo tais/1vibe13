@@ -2173,8 +2173,8 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	{
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if (pSoldier && pSoldier->bActive
-			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+		if (pSoldier && pSoldier->roster().active()
+			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
 			)
 		{
 			mercs.push_back(pSoldier);
@@ -2326,14 +2326,14 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	{
 		// draw face
 		vObjDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
-		sprintf(sTemp, "FACES\\%02d.sti", gMercProfiles[mercs[agentIndex[index]]->ubProfile].ubFaceIndex);
+		sprintf(sTemp, "FACES\\%02d.sti", gMercProfiles[mercs[agentIndex[index]]->identity().profile()].ubFaceIndex);
 		FilenameForBPP(sTemp, vObjDesc.ImageFile);
 		CHECKF(AddVideoObject(&vObjDesc, &image));
 		GetVideoObject(&hvObj, image);
 		BltVideoObject(FRAME_BUFFER, hvObj, 0, x+5, y+150+10, VO_BLT_SRCTRANSPARENCY, NULL);
 
 		// draw name
-		swprintf(sText, szRebelCommandText[RCT_MISSION_AGENT_NAME], gMercProfiles[mercs[agentIndex[index]]->ubProfile].zName);
+		swprintf(sText, szRebelCommandText[RCT_MISSION_AGENT_NAME], gMercProfiles[mercs[agentIndex[index]]->identity().profile()].zName);
 		DrawTextToScreen(sText, x+55, y+150+10, 0, FONT10ARIAL, FONT_MCOLOR_BLACK, FONT_MCOLOR_BLACK, FALSE, 0);
 
 		// draw location
@@ -2398,7 +2398,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 	std::vector<std::wstring> agentBonusText;
 	if (agentIndex[index] < static_cast<INT8>(mercs.size()))
 	{
-		const MERCPROFILESTRUCT& merc = gMercProfiles[mercs[agentIndex[index]]->ubProfile];
+		const MERCPROFILESTRUCT& merc = gMercProfiles[mercs[agentIndex[index]]->identity().profile()];
 		const INT8 successBonus_expLevel = GetMissionSuccessChanceBonus(&merc);
 		CHAR16 successText[100];
 		// stupid string hack to get the percent sign to display correctly
@@ -2818,15 +2818,15 @@ void PrepareMission(INT8 index)
 	{
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if (pSoldier && pSoldier->bActive
-			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+		if (pSoldier && pSoldier->roster().active()
+			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
 			)
 		{
 			mercs.push_back(pSoldier);
 		}
 	}
 
-	const MERCPROFILESTRUCT* merc = agentIndex[index] == mercs.size() ? nullptr : &gMercProfiles[mercs[agentIndex[index]]->ubProfile];
+	const MERCPROFILESTRUCT* merc = agentIndex[index] == mercs.size() ? nullptr : &gMercProfiles[mercs[agentIndex[index]]->identity().profile()];
 	CHAR16 text[400];
 	RebelCommandAgentMissionsText missionTitle;
 	INT8 missionSuccessChance;
@@ -2964,7 +2964,7 @@ void PrepareMission(INT8 index)
 	}
 	else
 	{
-		MissionHelpers::missionParam = SerialiseMissionFirstEvent(FALSE, mercs[agentIndex[index]]->ubProfile, static_cast<RebelCommandAgentMissions>(rebelCommandSaveInfo.availableMissions[index]), missionDuration, static_cast<UINT8>(extraBits));
+		MissionHelpers::missionParam = SerialiseMissionFirstEvent(FALSE, mercs[agentIndex[index]]->identity().profile(), static_cast<RebelCommandAgentMissions>(rebelCommandSaveInfo.availableMissions[index]), missionDuration, static_cast<UINT8>(extraBits));
 		if (merc->bSex == MALE)
 			sgp_swprintf(text, 500,szRebelCommandText[RCT_MISSION_POPUP_PART2_MALE], text, merc->zNickname, gRebelCommandSettings.iMissionPrepTime);
 		else
@@ -2982,7 +2982,7 @@ void PrepareMission(INT8 index)
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
 					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
-					if (pSoldier->ubProfile == evt.mercProfileId)
+					if (pSoldier->identity().profile() == evt.mercProfileId)
 					{
 						TakeSoldierOutOfVehicle(pSoldier);
 						RemoveCharacterFromSquads(pSoldier);
@@ -3024,29 +3024,29 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 	{
 		pSoldier->vitals().health() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().maximumHealth() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bAgility -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bDexterity -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bStrength -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bWisdom -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bLeadership -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMarksmanship -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMechanical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bExplosive -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMedical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().agility() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().dexterity() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().strength() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().wisdom() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().leadership() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().marksmanship() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().mechanical() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().explosives() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().medical() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().breath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().maximumBreath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 
 		pSoldier->vitals().health() = static_cast<INT8>(max(25, pSoldier->vitals().health()));
 		pSoldier->vitals().maximumHealth() = static_cast<INT8>(max(25, pSoldier->vitals().maximumHealth()));
-		pSoldier->stats.bAgility = static_cast<INT8>(max(25, pSoldier->stats.bAgility));
-		pSoldier->stats.bDexterity = static_cast<INT8>(max(25, pSoldier->stats.bDexterity));
-		pSoldier->stats.bStrength = static_cast<INT8>(max(25, pSoldier->stats.bStrength));
-		pSoldier->stats.bWisdom = static_cast<INT8>(max(25, pSoldier->stats.bStrength));
-		pSoldier->stats.bLeadership = static_cast<INT8>(max(25, pSoldier->stats.bLeadership));
-		pSoldier->stats.bMarksmanship = static_cast<INT8>(max(25, pSoldier->stats.bMarksmanship));
-		pSoldier->stats.bMechanical = static_cast<INT8>(max(25, pSoldier->stats.bMechanical));
-		pSoldier->stats.bExplosive = static_cast<INT8>(max(25, pSoldier->stats.bExplosive));
-		pSoldier->stats.bMedical = static_cast<INT8>(max(25, pSoldier->stats.bMedical));
+		pSoldier->statistics().agility() = static_cast<INT8>(max(25, pSoldier->statistics().agility()));
+		pSoldier->statistics().dexterity() = static_cast<INT8>(max(25, pSoldier->statistics().dexterity()));
+		pSoldier->statistics().strength() = static_cast<INT8>(max(25, pSoldier->statistics().strength()));
+		pSoldier->statistics().wisdom() = static_cast<INT8>(max(25, pSoldier->statistics().strength()));
+		pSoldier->statistics().leadership() = static_cast<INT8>(max(25, pSoldier->statistics().leadership()));
+		pSoldier->statistics().marksmanship() = static_cast<INT8>(max(25, pSoldier->statistics().marksmanship()));
+		pSoldier->statistics().mechanical() = static_cast<INT8>(max(25, pSoldier->statistics().mechanical()));
+		pSoldier->statistics().explosives() = static_cast<INT8>(max(25, pSoldier->statistics().explosives()));
+		pSoldier->statistics().medical() = static_cast<INT8>(max(25, pSoldier->statistics().medical()));
 		pSoldier->vitals().breath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
 		pSoldier->vitals().maximumBreath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
 	};
@@ -3112,17 +3112,17 @@ void ApplyMilitiaBonuses(SOLDIERTYPE* pMilitia)
 
 	pMilitia->vitals().health() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->vitals().maximumHealth() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bAgility += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bDexterity += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bStrength += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bMarksmanship += (gRebelCommandSettings.iMilitiaMarksmanshipBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().agility() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().dexterity() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().strength() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().marksmanship() += (gRebelCommandSettings.iMilitiaMarksmanshipBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 
 	pMilitia->vitals().health() = min(100, pMilitia->vitals().health());
 	pMilitia->vitals().maximumHealth() = min(100, pMilitia->vitals().maximumHealth());
-	pMilitia->stats.bAgility = min(100, pMilitia->stats.bAgility);
-	pMilitia->stats.bDexterity = min(100, pMilitia->stats.bDexterity);
-	pMilitia->stats.bStrength = min(100, pMilitia->stats.bStrength);
-	pMilitia->stats.bMarksmanship = min(100, pMilitia->stats.bMarksmanship);
+	pMilitia->statistics().agility() = min(100, pMilitia->statistics().agility());
+	pMilitia->statistics().dexterity() = min(100, pMilitia->statistics().dexterity());
+	pMilitia->statistics().strength() = min(100, pMilitia->statistics().strength());
+	pMilitia->statistics().marksmanship() = min(100, pMilitia->statistics().marksmanship());
 }
 
 UINT8 GetApproximateEnemyLocationResolutionIndex()
@@ -3554,7 +3554,7 @@ BOOLEAN NeutraliseRole(const SOLDIERTYPE* pSoldier)
 	if (rebelCommandSaveInfo.iActiveDirective != RCD_HVT_STRIKES)
 		return FALSE;
 
-	if (!SOLDIER_CLASS_ENEMY(pSoldier->ubSoldierClass))
+	if (!SOLDIER_CLASS_ENEMY(pSoldier->roster().soldierClass()))
 		return FALSE;
 
 	const UINT32 chance = static_cast<const UINT32>(rebelCommandSaveInfo.directives[RCD_HVT_STRIKES].GetValue1());
@@ -4440,7 +4440,7 @@ void ApplySoldierBounty(const SOLDIERTYPE* pSoldier)
 	if (!gGameExternalOptions.fRebelCommandEnabled)
 		return;
 
-	if (pSoldier->bTeam != ENEMY_TEAM)
+	if (pSoldier->roster().team() != ENEMY_TEAM)
 		return;
 
 	const std::unordered_map<RebelCommandAgentMissions, UINT32>::iterator iter = missionMap.find(RCAM_SOLDIER_BOUNTIES_KINGPIN);
@@ -4462,11 +4462,11 @@ void ApplySoldierBounty(const SOLDIERTYPE* pSoldier)
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Jeep;
 	else if (ENEMYROBOT(pSoldier) && evt.extraBits == MissionHelpers::SOLDIER_BOUNTIES_KINGPIN_VEHICLE_PAYOUTS)
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Robot;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR)
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Admin;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY)
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Troop;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE)
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Elite;
 	else // unknown kill, bail out!
 		return;
@@ -4520,17 +4520,17 @@ void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier)
 
 		pSoldier->vitals().health() -= statLoss;
 		pSoldier->vitals().maximumHealth() = pSoldier->vitals().health();
-		pSoldier->stats.bAgility -= statLoss;
-		pSoldier->stats.bDexterity -= statLoss;
-		pSoldier->stats.bStrength -= statLoss;
-		pSoldier->stats.bMarksmanship -= statLoss;
+		pSoldier->statistics().agility() -= statLoss;
+		pSoldier->statistics().dexterity() -= statLoss;
+		pSoldier->statistics().strength() -= statLoss;
+		pSoldier->statistics().marksmanship() -= statLoss;
 
 		pSoldier->vitals().health() = max(33, pSoldier->vitals().health());
 		pSoldier->vitals().maximumHealth() = max(33, pSoldier->vitals().maximumHealth());
-		pSoldier->stats.bAgility = max(33, pSoldier->stats.bAgility);
-		pSoldier->stats.bDexterity = max(33, pSoldier->stats.bDexterity);
-		pSoldier->stats.bStrength = max(33, pSoldier->stats.bStrength);
-		pSoldier->stats.bMarksmanship = max(33, pSoldier->stats.bMarksmanship);
+		pSoldier->statistics().agility() = max(33, pSoldier->statistics().agility());
+		pSoldier->statistics().dexterity() = max(33, pSoldier->statistics().dexterity());
+		pSoldier->statistics().strength() = max(33, pSoldier->statistics().strength());
+		pSoldier->statistics().marksmanship() = max(33, pSoldier->statistics().marksmanship());
 	}
 }
 
@@ -4566,7 +4566,7 @@ void ApplyVisionModifier(const SOLDIERTYPE* pSoldier, INT32& sight)
 		default: modifier = gRebelCommandSettings.fReduceUnlaertedEnemyVisionModifier; break;
 		}
 
-		if (pSoldier->bTeam == ENEMY_TEAM && pSoldier->aiData.bAlertStatus == STATUS_GREEN)
+		if (pSoldier->roster().team() == ENEMY_TEAM && pSoldier->aiBehavior().alertStatus() == STATUS_GREEN)
 		{
 			sight = static_cast<INT32>(sight * (1.f - modifier));
 		}
@@ -4888,7 +4888,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 		{
 			const SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
-			if (pSoldier->ubProfile == evt1.mercProfileId && pSoldier->bActive)
+			if (pSoldier->identity().profile() == evt1.mercProfileId && pSoldier->roster().active())
 			{
 				foundMerc = TRUE;
 				break;
@@ -4958,7 +4958,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 					for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 					{
 						SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
-						if (pSoldier->ubProfile == evt1.mercProfileId)
+						if (pSoldier->identity().profile() == evt1.mercProfileId)
 						{
 							if (mission == RCAM_FORGE_TRANSPORT_ORDERS)
 							{
@@ -4985,7 +4985,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 				for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 				{
 					SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
-					if (pSoldier->ubProfile == evt1.mercProfileId)
+					if (pSoldier->identity().profile() == evt1.mercProfileId)
 					{
 						// mission failed! we tried, give some pity exp
 						StatChange(pSoldier, LDRAMT, 20, FROM_FAILURE);
@@ -5007,7 +5007,7 @@ void HandleStrategicEvent(const UINT32 eventParam)
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 			{
 				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
-				if (pSoldier->ubProfile == evt1.mercProfileId)
+				if (pSoldier->identity().profile() == evt1.mercProfileId)
 				{
 					// merc ready for reassignment
 					pSoldier->deployment().sectorZ() -= REBEL_COMMAND_Z_OFFSET;

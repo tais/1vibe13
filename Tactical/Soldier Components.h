@@ -63,6 +63,103 @@ enum
 	NUM_ASSIST_SLOTS = 156,
 };
 
+// Fixed patrol capacity from the established soldier save schema.
+enum
+{
+	SOLDIER_PATROL_GRID_COUNT = 10,
+};
+
+// Fixed tactical display-name capacity from the established soldier schema.
+enum
+{
+	SOLDIER_NAME_LENGTH = 10,
+};
+
+// Stable indices and capacity for persistent drug effects. The unused slots
+// are part of the established save schema and remain serialized.
+enum
+{
+	DRUG_EFFECT_HP = 0,
+	DRUG_EFFECT_BP,
+	DRUG_EFFECT_AP,
+	DRUG_EFFECT_MORALE,
+	DRUG_EFFECT_PHYS_RES,
+	DRUG_EFFECT_STR,
+	DRUG_EFFECT_AGI,
+	DRUG_EFFECT_DEX,
+	DRUG_EFFECT_WIS,
+
+	DRUG_EFFECT_MAX = 20,
+};
+
+// Canonical identity of one soldier incarnation. Slot identity, display name,
+// physical archetype, profile links, and persistent militia identity belong
+// together but remain independent from roster membership and mutable status.
+class SoldierIdentityComponent
+{
+public:
+	using Name = CHAR16[SOLDIER_NAME_LENGTH];
+
+	SoldierID& id() noexcept { return id_; }
+	const SoldierID& id() const noexcept { return id_; }
+	Name& name() noexcept { return name_; }
+	const Name& name() const noexcept { return name_; }
+	UINT8& bodyType() noexcept { return bodyType_; }
+	const UINT8& bodyType() const noexcept { return bodyType_; }
+	UINT8& profile() noexcept { return profile_; }
+	const UINT8& profile() const noexcept { return profile_; }
+	UINT32& incarnation() noexcept { return incarnation_; }
+	const UINT32& incarnation() const noexcept { return incarnation_; }
+	UINT16& dataProfile() noexcept { return dataProfile_; }
+	const UINT16& dataProfile() const noexcept { return dataProfile_; }
+	UINT32& individualMilitiaId() noexcept { return individualMilitiaId_; }
+	const UINT32& individualMilitiaId() const noexcept { return individualMilitiaId_; }
+
+	bool hasIncarnation() const noexcept { return incarnation_ != 0; }
+	void reset() noexcept;
+
+private:
+	SoldierID id_{ static_cast<UINT16>(0) };
+	Name name_{};
+	UINT8 bodyType_ = 0;
+	UINT8 profile_ = 0;
+	UINT32 incarnation_ = 0;
+	UINT16 dataProfile_ = 0;
+	UINT32 individualMilitiaId_ = 0;
+};
+
+// Canonical tactical-roster membership and allegiance. Allocation/activity,
+// team and side, sector presence, tactical class, and civilian group move
+// together without becoming permanent identity or strategic deployment data.
+class SoldierRosterComponent
+{
+public:
+	INT8& active() noexcept { return active_; }
+	const INT8& active() const noexcept { return active_; }
+	INT8& team() noexcept { return team_; }
+	const INT8& team() const noexcept { return team_; }
+	UINT8& inSector() noexcept { return inSector_; }
+	const UINT8& inSector() const noexcept { return inSector_; }
+	UINT8& side() noexcept { return side_; }
+	const UINT8& side() const noexcept { return side_; }
+	UINT8& soldierClass() noexcept { return soldierClass_; }
+	const UINT8& soldierClass() const noexcept { return soldierClass_; }
+	UINT8& civilianGroup() noexcept { return civilianGroup_; }
+	const UINT8& civilianGroup() const noexcept { return civilianGroup_; }
+
+	bool isActive() const noexcept { return active_ != 0; }
+	bool isInSector() const noexcept { return inSector_ != 0; }
+	void reset() noexcept;
+
+private:
+	INT8 active_ = 0;
+	INT8 team_ = 0;
+	UINT8 inSector_ = 0;
+	UINT8 side_ = 0;
+	UINT8 soldierClass_ = 0;
+	UINT8 civilianGroup_ = 0;
+};
+
 // Canonical soldier vitals and recovery storage. Reference accessors keep
 // legacy mutation sites zero-cost while health, breath, treatable trauma,
 // surgery, critical-stat damage, and bleed timing share one reset boundary.
@@ -133,6 +230,102 @@ private:
 	INT32 lastBleedGruntAt_ = 0;
 };
 
+// Canonical base attributes and learned trait slots. Reference accessors keep
+// the established hot-path mutations zero-cost while one owner defines the
+// complete reset and persistent-capacity boundary.
+class SoldierStatisticsComponent
+{
+public:
+	static constexpr UINT8 SkillTraitCapacity = 30;
+	using SkillTraits = UINT8[SkillTraitCapacity];
+
+	INT8& experienceLevel() noexcept { return experienceLevel_; }
+	const INT8& experienceLevel() const noexcept { return experienceLevel_; }
+	INT8& strength() noexcept { return strength_; }
+	const INT8& strength() const noexcept { return strength_; }
+	INT8& agility() noexcept { return agility_; }
+	const INT8& agility() const noexcept { return agility_; }
+	INT8& dexterity() noexcept { return dexterity_; }
+	const INT8& dexterity() const noexcept { return dexterity_; }
+	INT8& wisdom() noexcept { return wisdom_; }
+	const INT8& wisdom() const noexcept { return wisdom_; }
+	INT8& leadership() noexcept { return leadership_; }
+	const INT8& leadership() const noexcept { return leadership_; }
+	INT8& marksmanship() noexcept { return marksmanship_; }
+	const INT8& marksmanship() const noexcept { return marksmanship_; }
+	INT8& mechanical() noexcept { return mechanical_; }
+	const INT8& mechanical() const noexcept { return mechanical_; }
+	INT8& explosives() noexcept { return explosives_; }
+	const INT8& explosives() const noexcept { return explosives_; }
+	INT8& medical() noexcept { return medical_; }
+	const INT8& medical() const noexcept { return medical_; }
+	INT8& scientific() noexcept { return scientific_; }
+	const INT8& scientific() const noexcept { return scientific_; }
+	UINT8& skillTrait(UINT8 index) noexcept { return skillTraits_[index]; }
+	const UINT8& skillTrait(UINT8 index) const noexcept
+	{
+		return skillTraits_[index];
+	}
+
+	void reset() noexcept;
+
+private:
+	INT8 experienceLevel_ = 0;
+	INT8 strength_ = 0;
+	INT8 agility_ = 0;
+	INT8 dexterity_ = 0;
+	INT8 wisdom_ = 0;
+	INT8 leadership_ = 0;
+	INT8 marksmanship_ = 0;
+	INT8 mechanical_ = 0;
+	INT8 explosives_ = 0;
+	INT8 medical_ = 0;
+	INT8 scientific_ = 0;
+	SkillTraits skillTraits_{};
+};
+
+// Canonical owner for the established general-purpose soldier bit mask. The
+// mask remains value-compatible while callers transition from public aggregate
+// storage to explicit status queries and mutations.
+class SoldierStatusComponent
+{
+public:
+	UINT32& flags() noexcept { return flags_; }
+	const UINT32& flags() const noexcept { return flags_; }
+
+	bool hasAny(UINT32 flags) const noexcept { return (flags_ & flags) != 0; }
+	void set(UINT32 flags) noexcept { flags_ |= flags; }
+	void clear(UINT32 flags) noexcept { flags_ &= ~flags; }
+	void reset() noexcept;
+
+private:
+	UINT32 flags_ = 0;
+};
+
+// Canonical persistent inventory-adjacent state. Key access, new-item refresh,
+// and load-bearing-equipment zipper/drop-pack flags share the inventory
+// lifecycle without exposing another generic soldier flag bucket.
+class SoldierInventoryStateComponent
+{
+public:
+	INT8& keyAccess() noexcept { return keyAccess_; }
+	const INT8& keyAccess() const noexcept { return keyAccess_; }
+	BOOLEAN& checkForNewItems() noexcept { return checkForNewItems_; }
+	const BOOLEAN& checkForNewItems() const noexcept { return checkForNewItems_; }
+	BOOLEAN& zipperFlag() noexcept { return zipperFlag_; }
+	const BOOLEAN& zipperFlag() const noexcept { return zipperFlag_; }
+	BOOLEAN& dropPackFlag() noexcept { return dropPackFlag_; }
+	const BOOLEAN& dropPackFlag() const noexcept { return dropPackFlag_; }
+
+	void reset() noexcept;
+
+private:
+	INT8 keyAccess_ = 0;
+	BOOLEAN checkForNewItems_ = FALSE;
+	BOOLEAN zipperFlag_ = FALSE;
+	BOOLEAN dropPackFlag_ = FALSE;
+};
+
 // Canonical tactical service relationship. A provider points at one patient,
 // while the patient counts all active providers and may reserve one medic
 // during automatic bandaging. The persisted activity marker is retained
@@ -148,6 +341,8 @@ public:
 	const SoldierID& partner() const noexcept { return partner_; }
 	SoldierID& autoBandagingMedic() noexcept { return autoBandagingMedic_; }
 	const SoldierID& autoBandagingMedic() const noexcept { return autoBandagingMedic_; }
+	INT8& borrowedInventorySlot() noexcept { return borrowedInventorySlot_; }
+	const INT8& borrowedInventorySlot() const noexcept { return borrowedInventorySlot_; }
 
 	bool active() const noexcept { return activity_ != 0; }
 	bool hasProviders() const noexcept { return providerCount_ != 0; }
@@ -160,6 +355,8 @@ public:
 	void clearProviders() noexcept { providerCount_ = 0; }
 	void assignAutoBandagingMedic(SoldierID medic) noexcept { autoBandagingMedic_ = medic; }
 	void clearAutoBandagingMedic() noexcept { autoBandagingMedic_ = NOBODY; }
+	void borrowInventorySlot(INT8 slot) noexcept { borrowedInventorySlot_ = slot; }
+	void clearBorrowedInventorySlot() noexcept { borrowedInventorySlot_ = -1; }
 	void reset() noexcept;
 
 private:
@@ -167,11 +364,13 @@ private:
 	UINT8 providerCount_ = 0;
 	SoldierID partner_ = NOBODY;
 	SoldierID autoBandagingMedic_ = NOBODY;
+	INT8 borrowedInventorySlot_ = 0;
 };
 
 // Canonical spoken-dialogue state. NPC quote plans, quote-history masks,
-// battle-voice selection and playback throttling, civilian quote progression,
-// speech cooldowns, and corpse-comment tolerance share one reset boundary.
+// battle-voice selection and playback throttling, queued tactical feedback,
+// civilian quote progression, speech cooldowns, and corpse-comment tolerance
+// share one reset boundary.
 // World-position and mechanical-loop sounds deliberately remain outside this
 // component because they are spatial audio rather than soldier speech.
 class SoldierDialogueComponent
@@ -205,9 +404,24 @@ public:
 	const UINT32& lastSpokeAt() const noexcept { return lastSpokeAt_; }
 	INT8& corpseQuoteTolerance() noexcept { return corpseQuoteTolerance_; }
 	const INT8& corpseQuoteTolerance() const noexcept { return corpseQuoteTolerance_; }
+	BOOLEAN& deadSoundPlayedState() noexcept { return deadSoundPlayed_; }
+	const BOOLEAN& deadSoundPlayedState() const noexcept { return deadSoundPlayed_; }
+	BOOLEAN& bleedingWarningSpokenState() noexcept { return bleedingWarningSpoken_; }
+	const BOOLEAN& bleedingWarningSpokenState() const noexcept { return bleedingWarningSpoken_; }
+	BOOLEAN& dyingCommentSpokenState() noexcept { return dyingCommentSpoken_; }
+	const BOOLEAN& dyingCommentSpokenState() const noexcept { return dyingCommentSpoken_; }
+	BOOLEAN& ammoQuotePendingState() noexcept { return ammoQuotePending_; }
+	const BOOLEAN& ammoQuotePendingState() const noexcept { return ammoQuotePending_; }
+	BOOLEAN& dieSoundUsedState() noexcept { return dieSoundUsed_; }
+	const BOOLEAN& dieSoundUsedState() const noexcept { return dieSoundUsed_; }
 
 	bool hasQuoteRecord() const noexcept { return quoteRecord_ != 0; }
 	bool hasQuoteAction() const noexcept { return quoteActionId_ != 0; }
+	bool deathSoundPlayed() const noexcept { return deadSoundPlayed_ != FALSE; }
+	bool hasWarnedAboutBleeding() const noexcept { return bleedingWarningSpoken_ != FALSE; }
+	bool hasMadeDyingComment() const noexcept { return dyingCommentSpoken_ != FALSE; }
+	bool ammoQuotePending() const noexcept { return ammoQuotePending_ != FALSE; }
+	bool deathBattleSoundUsed() const noexcept { return dieSoundUsed_ != FALSE; }
 	bool hasSaid(UINT16 flag) const noexcept { return (saidFlags_ & flag) != 0; }
 	bool hasSaidExtended(UINT16 flag) const noexcept
 	{
@@ -247,6 +461,16 @@ public:
 		civilianQuoteDelta_ = 0;
 	}
 	void recordSpokeAt(UINT32 now) noexcept { lastSpokeAt_ = now; }
+	void markDeathSoundPlayed() noexcept { deadSoundPlayed_ = TRUE; }
+	void clearDeathSoundPlayed() noexcept { deadSoundPlayed_ = FALSE; }
+	void markBleedingWarningSpoken() noexcept { bleedingWarningSpoken_ = TRUE; }
+	void clearBleedingWarning() noexcept { bleedingWarningSpoken_ = FALSE; }
+	void markDyingCommentSpoken() noexcept { dyingCommentSpoken_ = TRUE; }
+	void clearDyingComment() noexcept { dyingCommentSpoken_ = FALSE; }
+	void queueAmmoQuote() noexcept { ammoQuotePending_ = TRUE; }
+	void consumeAmmoQuote() noexcept { ammoQuotePending_ = FALSE; }
+	void markDeathBattleSoundUsed() noexcept { dieSoundUsed_ = TRUE; }
+	void clearDeathBattleSoundUsed() noexcept { dieSoundUsed_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -264,6 +488,11 @@ private:
 	INT8 civilianQuoteDelta_ = 0;
 	UINT32 lastSpokeAt_ = 0;
 	INT8 corpseQuoteTolerance_ = 0;
+	BOOLEAN deadSoundPlayed_ = FALSE;
+	BOOLEAN bleedingWarningSpoken_ = FALSE;
+	BOOLEAN dyingCommentSpoken_ = FALSE;
+	BOOLEAN ammoQuotePending_ = FALSE;
+	BOOLEAN dieSoundUsed_ = FALSE;
 };
 
 // Canonical non-dialogue audio state. Footstep variation and door noise are
@@ -330,6 +559,8 @@ public:
 	const INT32& scheduledStopGrid() const noexcept { return scheduledStopGrid_; }
 	UINT32& checksum() noexcept { return checksum_; }
 	const UINT32& checksum() const noexcept { return checksum_; }
+	BOOLEAN& updatedFromNetwork() noexcept { return updatedFromNetwork_; }
+	const BOOLEAN& updatedFromNetwork() const noexcept { return updatedFromNetwork_; }
 
 	bool hasLastUpdate() const noexcept { return lastUpdateAt_ != 0; }
 	bool updateTimedOut(UINT32 now, UINT32 timeout) const noexcept
@@ -350,6 +581,7 @@ private:
 	UINT8 updateType_ = 0;
 	INT32 scheduledStopGrid_ = 0;
 	UINT32 checksum_ = 0;
+	BOOLEAN updatedFromNetwork_ = FALSE;
 };
 
 // Canonical movement telemetry consumed by turn rules, visibility, accuracy,
@@ -386,15 +618,42 @@ private:
 	UINT16 lastRealtimeMovementAnimation_ = 0;
 };
 
-// Canonical tactical-AI planning scratch for one actor. Flanking progress,
-// sniper posture, and modular plan selection are execution state rather than
-// permanent character data; keeping them together gives AI turns one explicit
-// reset boundary and prevents narrow progress counters from wrapping.
+// Canonical tactical-AI action plan for one actor. Current/queued actions,
+// patrol progress, aiming cadence, flanking progress, sniper posture, and
+// modular plan selection share one reset boundary. The component owns state,
+// not AI policy or installed content.
 class SoldierAiPlanningComponent
 {
 public:
+	using PatrolGrid = INT32[SOLDIER_PATROL_GRID_COUNT];
 	static constexpr INT8 MaximumFlankCount = 127;
 
+	INT8& lastAction() noexcept { return lastAction_; }
+	const INT8& lastAction() const noexcept { return lastAction_; }
+	INT8& action() noexcept { return action_; }
+	const INT8& action() const noexcept { return action_; }
+	INT32& actionData() noexcept { return actionData_; }
+	const INT32& actionData() const noexcept { return actionData_; }
+	INT8& nextAction() noexcept { return nextAction_; }
+	const INT8& nextAction() const noexcept { return nextAction_; }
+	INT32& nextActionData() noexcept { return nextActionData_; }
+	const INT32& nextActionData() const noexcept { return nextActionData_; }
+	INT8& actionInProgress() noexcept { return actionInProgress_; }
+	const INT8& actionInProgress() const noexcept { return actionInProgress_; }
+	INT8& nextTargetLevel() noexcept { return nextTargetLevel_; }
+	const INT8& nextTargetLevel() const noexcept { return nextTargetLevel_; }
+	INT8& dominantDirection() noexcept { return dominantDirection_; }
+	const INT8& dominantDirection() const noexcept { return dominantDirection_; }
+	INT8& patrolCount() noexcept { return patrolCount_; }
+	const INT8& patrolCount() const noexcept { return patrolCount_; }
+	INT8& nextPatrolPoint() noexcept { return nextPatrolPoint_; }
+	const INT8& nextPatrolPoint() const noexcept { return nextPatrolPoint_; }
+	PatrolGrid& patrolGrid() noexcept { return patrolGrid_; }
+	const PatrolGrid& patrolGrid() const noexcept { return patrolGrid_; }
+	INT16& aimTime() noexcept { return aimTime_; }
+	const INT16& aimTime() const noexcept { return aimTime_; }
+	INT8& shownAimTime() noexcept { return shownAimTime_; }
+	const INT8& shownAimTime() const noexcept { return shownAimTime_; }
 	INT8& flankCount() noexcept { return flankCount_; }
 	const INT8& flankCount() const noexcept { return flankCount_; }
 	INT32& flankAnchorGrid() noexcept { return flankAnchorGrid_; }
@@ -405,13 +664,22 @@ public:
 	const INT16& flankOriginDirection() const noexcept { return flankOriginDirection_; }
 	INT16& planIndex() noexcept { return planIndex_; }
 	const INT16& planIndex() const noexcept { return planIndex_; }
+	BOOLEAN& lastFlankLeft() noexcept { return lastFlankLeft_; }
+	const BOOLEAN& lastFlankLeft() const noexcept { return lastFlankLeft_; }
 
 	bool flanking(INT8 terminalCount) const noexcept
 	{
 		return flankCount_ > 0 && flankCount_ < terminalCount;
 	}
+	bool hasActionInProgress() const noexcept { return actionInProgress_ != 0; }
+	bool hasPatrolRoute() const noexcept { return patrolCount_ > 0; }
 	bool sniperPostureActive() const noexcept { return sniperPosture_ != 0; }
 	bool hasPlanIndex() const noexcept { return planIndex_ != 0; }
+	void queueAction(INT8 action, INT32 data) noexcept
+	{
+		nextAction_ = action;
+		nextActionData_ = data;
+	}
 	void recordFlankStep(INT32 anchorGrid, INT16 originDirection) noexcept;
 	void advanceFlank() noexcept;
 	void finishFlank(INT8 terminalCount) noexcept { flankCount_ = terminalCount; }
@@ -422,11 +690,132 @@ public:
 	void reset() noexcept;
 
 private:
+	INT8 lastAction_ = 0;
+	INT8 action_ = 0;
+	INT32 actionData_ = 0;
+	INT8 nextAction_ = 0;
+	INT32 nextActionData_ = 0;
+	INT8 actionInProgress_ = 0;
+	INT8 nextTargetLevel_ = 0;
+	INT8 dominantDirection_ = 0;
+	INT8 patrolCount_ = 0;
+	INT8 nextPatrolPoint_ = 0;
+	PatrolGrid patrolGrid_{};
+	INT16 aimTime_ = 0;
+	INT8 shownAimTime_ = 0;
 	INT8 flankCount_ = 0;
 	INT32 flankAnchorGrid_ = 0;
 	INT8 sniperPosture_ = 0;
 	INT16 flankOriginDirection_ = 0;
 	INT16 planIndex_ = 0;
+	BOOLEAN lastFlankLeft_ = FALSE;
+};
+
+// Canonical tactical-AI behavioral mode. Alertness, orders, attitude, escort
+// status, scheduling flags, and creature movement modes are independent from
+// the selected action and from sensory knowledge.
+class SoldierAiBehaviorComponent
+{
+public:
+	INT8& alertStatus() noexcept { return alertStatus_; }
+	const INT8& alertStatus() const noexcept { return alertStatus_; }
+	INT8& neutral() noexcept { return neutral_; }
+	const INT8& neutral() const noexcept { return neutral_; }
+	INT8& newSituation() noexcept { return newSituation_; }
+	const INT8& newSituation() const noexcept { return newSituation_; }
+	INT8& orders() noexcept { return orders_; }
+	const INT8& orders() const noexcept { return orders_; }
+	INT8& attitude() noexcept { return attitude_; }
+	const INT8& attitude() const noexcept { return attitude_; }
+	INT8& underEscort() noexcept { return underEscort_; }
+	const INT8& underEscort() const noexcept { return underEscort_; }
+	INT8& bypassToGreen() noexcept { return bypassToGreen_; }
+	const INT8& bypassToGreen() const noexcept { return bypassToGreen_; }
+	INT8& hunting() noexcept { return hunting_; }
+	const INT8& hunting() const noexcept { return hunting_; }
+	INT8& mobility() noexcept { return mobility_; }
+	const INT8& mobility() const noexcept { return mobility_; }
+	INT8& realtimeCombat() noexcept { return realtimeCombat_; }
+	const INT8& realtimeCombat() const noexcept { return realtimeCombat_; }
+	INT8& flags() noexcept { return flags_; }
+	const INT8& flags() const noexcept { return flags_; }
+
+	bool hasFlag(INT8 flag) const noexcept { return (flags_ & flag) != 0; }
+	void setFlag(INT8 flag) noexcept { flags_ = static_cast<INT8>(flags_ | flag); }
+	void clearFlag(INT8 flag) noexcept { flags_ = static_cast<INT8>(flags_ & ~flag); }
+	void reset() noexcept;
+
+private:
+	INT8 alertStatus_ = 0;
+	INT8 neutral_ = 0;
+	INT8 newSituation_ = 0;
+	INT8 orders_ = 0;
+	INT8 attitude_ = 0;
+	INT8 underEscort_ = 0;
+	INT8 bypassToGreen_ = 0;
+	INT8 hunting_ = 0;
+	INT8 mobility_ = 0;
+	INT8 realtimeCombat_ = 0;
+	INT8 flags_ = 0;
+};
+
+// Canonical radio/call exchange state used by human and creature AI.
+class SoldierAiCommunicationComponent
+{
+public:
+	UINT8& lastMercToRadio() noexcept { return lastMercToRadio_; }
+	const UINT8& lastMercToRadio() const noexcept { return lastMercToRadio_; }
+	UINT8& lastCall() noexcept { return lastCall_; }
+	const UINT8& lastCall() const noexcept { return lastCall_; }
+	SoldierID& caller() noexcept { return caller_; }
+	const SoldierID& caller() const noexcept { return caller_; }
+	INT32& callerGrid() noexcept { return callerGrid_; }
+	const INT32& callerGrid() const noexcept { return callerGrid_; }
+	UINT8& callPriority() noexcept { return callPriority_; }
+	const UINT8& callPriority() const noexcept { return callPriority_; }
+	INT8& callActedUpon() noexcept { return callActedUpon_; }
+	const INT8& callActedUpon() const noexcept { return callActedUpon_; }
+
+	bool hasUnansweredCall() const noexcept { return callPriority_ != 0 && callActedUpon_ == 0; }
+	void reset() noexcept;
+
+private:
+	UINT8 lastMercToRadio_ = 0;
+	UINT8 lastCall_ = 0;
+	SoldierID caller_{ static_cast<UINT16>(0) };
+	INT32 callerGrid_ = 0;
+	UINT8 callPriority_ = 0;
+	INT8 callActedUpon_ = 0;
+};
+
+// Canonical personal and tactical morale state. Strategic/tactical/team
+// modifiers remain distinct because established rules update them separately.
+class SoldierMoraleComponent
+{
+public:
+	INT8& morale() noexcept { return morale_; }
+	const INT8& morale() const noexcept { return morale_; }
+	INT8& teamModifier() noexcept { return teamModifier_; }
+	const INT8& teamModifier() const noexcept { return teamModifier_; }
+	INT8& tacticalModifier() noexcept { return tacticalModifier_; }
+	const INT8& tacticalModifier() const noexcept { return tacticalModifier_; }
+	INT8& strategicModifier() noexcept { return strategicModifier_; }
+	const INT8& strategicModifier() const noexcept { return strategicModifier_; }
+	INT8& aiMorale() noexcept { return aiMorale_; }
+	const INT8& aiMorale() const noexcept { return aiMorale_; }
+	INT8& frenzied() noexcept { return frenzied_; }
+	const INT8& frenzied() const noexcept { return frenzied_; }
+
+	bool isFrenzied() const noexcept { return frenzied_ != 0; }
+	void reset() noexcept;
+
+private:
+	INT8 morale_ = 0;
+	INT8 teamModifier_ = 0;
+	INT8 tacticalModifier_ = 0;
+	INT8 strategicModifier_ = 0;
+	INT8 aiMorale_ = 0;
+	INT8 frenzied_ = 0;
 };
 
 // Canonical skill execution and persistence state. Repeated mechanical checks,
@@ -533,6 +922,8 @@ public:
 	const UINT8& diseaseFlags(UINT8 index) const noexcept { return diseaseFlags_[index]; }
 	UINT32& disabilityFlags() noexcept { return disabilityFlags_; }
 	const UINT32& disabilityFlags() const noexcept { return disabilityFlags_; }
+	UINT8& gasHitFlags() noexcept { return gasHitFlags_; }
+	const UINT8& gasHitFlags() const noexcept { return gasHitFlags_; }
 
 	bool hasExtraStats() const noexcept;
 	bool hasStarvationDamage() const noexcept;
@@ -567,6 +958,178 @@ private:
 	DiseasePoints diseasePoints_{};
 	DiseaseFlags diseaseFlags_{};
 	UINT32 disabilityFlags_ = 0;
+	UINT8 gasHitFlags_ = 0;
+};
+
+// Canonical persistent drug and alcohol state. Fixed effect arrays retain the
+// established save capacity while named operations coordinate effect merging,
+// temporary personality/disability lifetimes, and alcohol metabolism.
+class SoldierDrugStateComponent
+{
+public:
+	static constexpr UINT8 EffectCapacity = DRUG_EFFECT_MAX;
+	using EffectDurations = UINT16[EffectCapacity];
+	using EffectMagnitudes = INT16[EffectCapacity];
+
+	UINT16& duration(UINT8 effect) noexcept { return durations_[effect]; }
+	const UINT16& duration(UINT8 effect) const noexcept { return durations_[effect]; }
+	INT16& magnitude(UINT8 effect) noexcept { return magnitudes_[effect]; }
+	const INT16& magnitude(UINT8 effect) const noexcept { return magnitudes_[effect]; }
+	UINT8& temporaryPersonality() noexcept { return temporaryPersonality_; }
+	const UINT8& temporaryPersonality() const noexcept { return temporaryPersonality_; }
+	UINT16& temporaryPersonalityDuration() noexcept
+	{
+		return temporaryPersonalityDuration_;
+	}
+	const UINT16& temporaryPersonalityDuration() const noexcept
+	{
+		return temporaryPersonalityDuration_;
+	}
+	UINT8& temporaryDisability() noexcept { return temporaryDisability_; }
+	const UINT8& temporaryDisability() const noexcept { return temporaryDisability_; }
+	UINT16& temporaryDisabilityDuration() noexcept
+	{
+		return temporaryDisabilityDuration_;
+	}
+	const UINT16& temporaryDisabilityDuration() const noexcept
+	{
+		return temporaryDisabilityDuration_;
+	}
+	FLOAT& alcoholLevel() noexcept { return alcoholLevel_; }
+	const FLOAT& alcoholLevel() const noexcept { return alcoholLevel_; }
+
+	bool hasEffect(UINT8 effect) const noexcept
+	{
+		return effect < EffectCapacity && durations_[effect] != 0;
+	}
+	bool hasTemporaryPersonality(UINT8 personality) const noexcept
+	{
+		return temporaryPersonality_ == personality;
+	}
+	bool hasTemporaryDisability(UINT8 disability) const noexcept
+	{
+		return temporaryDisability_ == disability;
+	}
+	bool hasAlcohol() const noexcept { return alcoholLevel_ > 0.0f; }
+
+	void mergeEffect(
+		UINT8 effect, UINT16 duration, INT16 magnitude, FLOAT scale) noexcept;
+	void applyTemporaryPersonality(
+		UINT8 personality, UINT16 duration) noexcept;
+	void applyTemporaryDisability(
+		UINT8 disability, UINT16 duration) noexcept;
+	bool ageTurn() noexcept;
+	void addAlcohol(FLOAT amount) noexcept { alcoholLevel_ += amount; }
+	bool metabolizeAlcohol(FLOAT amount) noexcept;
+	void reset() noexcept;
+
+private:
+	EffectDurations durations_{};
+	EffectMagnitudes magnitudes_{};
+	UINT8 temporaryPersonality_ = 0;
+	UINT16 temporaryPersonalityDuration_ = 0;
+	UINT8 temporaryDisability_ = 0;
+	UINT16 temporaryDisabilityDuration_ = 0;
+	FLOAT alcoholLevel_ = 0.0f;
+};
+
+// Canonical timestamps for persistent-stat changes. Gameplay records changes
+// through the stat identity; tactical and strategic UI share the same
+// wrap-safe recent-change query instead of duplicating clock arithmetic.
+class SoldierStatProgressComponent
+{
+public:
+	enum class Stat : UINT8
+	{
+		Level,
+		Health,
+		Strength,
+		Dexterity,
+		Agility,
+		Wisdom,
+		Leadership,
+		Marksmanship,
+		Explosives,
+		Medical,
+		Mechanical,
+		Count,
+	};
+
+	static constexpr UINT8 StatCount = static_cast<UINT8>(Stat::Count);
+
+	UINT32& changedAt(Stat stat) noexcept { return changeTimes_[index(stat)]; }
+	const UINT32& changedAt(Stat stat) const noexcept { return changeTimes_[index(stat)]; }
+	UINT16& increaseMask() noexcept { return increaseMask_; }
+	const UINT16& increaseMask() const noexcept { return increaseMask_; }
+
+	bool hasChange(Stat stat) const noexcept { return changedAt(stat) != 0; }
+	bool changedRecently(Stat stat, UINT32 now, UINT32 duration) const noexcept
+	{
+		const UINT32 changeTime = changedAt(stat);
+		return changeTime != 0 && now - changeTime < duration;
+	}
+	void recordChange(Stat stat, UINT32 now) noexcept { changedAt(stat) = now; }
+	void clear(Stat stat) noexcept { changedAt(stat) = 0; }
+	bool increased(UINT16 mask) const noexcept { return (increaseMask_ & mask) != 0; }
+	void markIncreased(UINT16 mask) noexcept { increaseMask_ |= mask; }
+	void clearIncreased(UINT16 mask) noexcept { increaseMask_ &= ~mask; }
+	void reset() noexcept;
+
+private:
+	static constexpr UINT8 index(Stat stat) noexcept
+	{
+		return static_cast<UINT8>(stat);
+	}
+
+	UINT32 changeTimes_[StatCount] = {};
+	UINT16 increaseMask_ = 0;
+};
+
+// Canonical soldier-local countdown timers and their AI/reload delay
+// configuration. Gameplay starts, observes, and clears timers by purpose while
+// the platform timer loop retains mutable access for elapsed-time updates.
+class SoldierTimingComponent
+{
+public:
+	enum class Timer : UINT8
+	{
+		AnimationUpdate,
+		DamageDisplay,
+		Reload,
+		LocatorFlash,
+		Ai,
+		Fade,
+		PanelAnimation,
+		LocatorBlink,
+		PortraitFlash,
+		NextTile,
+		Count,
+	};
+
+	static constexpr UINT8 TimerCount = static_cast<UINT8>(Timer::Count);
+
+	INT32& counter(Timer timer) noexcept { return counters_[index(timer)]; }
+	const INT32& counter(Timer timer) const noexcept { return counters_[index(timer)]; }
+	UINT32& aiDelay() noexcept { return aiDelay_; }
+	const UINT32& aiDelay() const noexcept { return aiDelay_; }
+	INT16& reloadDelay() noexcept { return reloadDelay_; }
+	const INT16& reloadDelay() const noexcept { return reloadDelay_; }
+
+	bool active(Timer timer) const noexcept { return counter(timer) != 0; }
+	bool elapsed(Timer timer) const noexcept { return counter(timer) == 0; }
+	void start(Timer timer, INT32 duration) noexcept { counter(timer) = duration; }
+	void clear(Timer timer) noexcept { counter(timer) = 0; }
+	void reset() noexcept;
+
+private:
+	static constexpr UINT8 index(Timer timer) noexcept
+	{
+		return static_cast<UINT8>(timer);
+	}
+
+	INT32 counters_[TimerCount] = {};
+	UINT32 aiDelay_ = 0;
+	INT16 reloadDelay_ = 0;
 };
 
 // Canonical state for work that spans tactical turns. The retained context
@@ -762,9 +1325,9 @@ private:
 };
 
 // Canonical sensory state and short-lived perception effects. View range,
-// directional movement-noise memory, heard-noise elevation, blindness,
-// deafness, and X-ray lifetime share one reset boundary without owning the
-// opponent list or presentation visibility.
+// personal noise and smell memory, X-ray source/lifetime, blindness, and
+// deafness share one reset boundary without owning opponent knowledge or
+// presentation visibility.
 class SoldierPerceptionComponent
 {
 public:
@@ -780,6 +1343,16 @@ public:
 	const UINT32& xrayActivatedAt() const noexcept { return xrayActivatedAt_; }
 	INT8& deafnessTurns() noexcept { return deafnessTurns_; }
 	const INT8& deafnessTurns() const noexcept { return deafnessTurns_; }
+	INT32& noiseGrid() noexcept { return noiseGrid_; }
+	const INT32& noiseGrid() const noexcept { return noiseGrid_; }
+	UINT8& noiseVolume() noexcept { return noiseVolume_; }
+	const UINT8& noiseVolume() const noexcept { return noiseVolume_; }
+	SoldierID& xraySource() noexcept { return xraySource_; }
+	const SoldierID& xraySource() const noexcept { return xraySource_; }
+	INT8& normalSmell() noexcept { return normalSmell_; }
+	const INT8& normalSmell() const noexcept { return normalSmell_; }
+	INT8& monsterSmell() noexcept { return monsterSmell_; }
+	const INT8& monsterSmell() const noexcept { return monsterSmell_; }
 
 	bool isBlinded() const noexcept { return blindnessTurns_ > 0; }
 	bool isDeafened() const noexcept { return deafnessTurns_ > 0; }
@@ -799,6 +1372,11 @@ public:
 	void ageDeafness() noexcept;
 	void activateXrayAt(UINT32 worldSeconds) noexcept { xrayActivatedAt_ = worldSeconds; }
 	void deactivateXray() noexcept { xrayActivatedAt_ = 0; }
+	void clearNoise() noexcept
+	{
+		noiseGrid_ = -1;
+		noiseVolume_ = 0;
+	}
 	void reset() noexcept;
 
 private:
@@ -808,16 +1386,22 @@ private:
 	INT8 heardNoiseLevel_ = 0;
 	UINT32 xrayActivatedAt_ = 0;
 	INT8 deafnessTurns_ = 0;
+	INT32 noiseGrid_ = 0;
+	UINT8 noiseVolume_ = 0;
+	SoldierID xraySource_{ static_cast<UINT16>(0) };
+	INT8 normalSmell_ = 0;
+	INT8 monsterSmell_ = 0;
 };
 
 // Canonical tactical awareness state. This owns whether the player currently
 // knows where the soldier is, the last visibility consumed by rendering, the
-// count of newly discovered opponents, and the movement distance used to age
-// stale opponent knowledge. Sensory capability remains in
-// SoldierPerceptionComponent; opponent lists remain in the AI data adapter.
+// local opponent-knowledge table and counts, and the movement distance used to
+// age stale knowledge. Sensory capability remains in SoldierPerceptionComponent.
 class SoldierAwarenessComponent
 {
 public:
+	using OpponentKnowledge = INT8[MAX_NUM_SOLDIERS];
+
 	INT8& visibility() noexcept { return visibility_; }
 	const INT8& visibility() const noexcept { return visibility_; }
 	INT8& lastRenderedVisibility() noexcept { return lastRenderedVisibility_; }
@@ -826,6 +1410,10 @@ public:
 	const INT8& newOpponentCount() const noexcept { return newOpponentCount_; }
 	UINT8& tilesSinceForget() noexcept { return tilesSinceForget_; }
 	const UINT8& tilesSinceForget() const noexcept { return tilesSinceForget_; }
+	OpponentKnowledge& opponentKnowledge() noexcept { return opponentKnowledge_; }
+	const OpponentKnowledge& opponentKnowledge() const noexcept { return opponentKnowledge_; }
+	INT8& opponentCount() noexcept { return opponentCount_; }
+	const INT8& opponentCount() const noexcept { return opponentCount_; }
 
 	bool visibleNow() const noexcept { return visibility_ == TRUE; }
 	bool fullyHidden() const noexcept { return visibility_ == -1; }
@@ -869,6 +1457,8 @@ private:
 	INT8 lastRenderedVisibility_ = 0;
 	INT8 newOpponentCount_ = 0;
 	UINT8 tilesSinceForget_ = 0;
+	OpponentKnowledge opponentKnowledge_{};
+	INT8 opponentCount_ = 0;
 };
 
 // Canonical personal camouflage state. Applied kit and worn-equipment values
@@ -919,8 +1509,9 @@ private:
 };
 
 // Canonical strategic employment state. Contract timing, mercenary
-// classification, deposits, insurance, renewal bookkeeping, and re-signing
-// eligibility remain distinct values but share one lifecycle owner.
+// classification, deposits, insurance, renewal decisions, price-change
+// acknowledgement, and re-signing eligibility remain distinct values but
+// share one lifecycle owner.
 class SoldierEmploymentComponent
 {
 public:
@@ -954,11 +1545,21 @@ public:
 	const INT8& hospitalPriceModifier() const noexcept { return hospitalPriceModifier_; }
 	UINT32& insuranceStartTime() noexcept { return insuranceStartTime_; }
 	const UINT32& insuranceStartTime() const noexcept { return insuranceStartTime_; }
+	BOOLEAN& contractPriceIncreasedState() noexcept { return contractPriceIncreased_; }
+	const BOOLEAN& contractPriceIncreasedState() const noexcept { return contractPriceIncreased_; }
+	BOOLEAN& signedAnotherContractState() noexcept { return signedAnotherContract_; }
+	const BOOLEAN& signedAnotherContractState() const noexcept { return signedAnotherContract_; }
 
 	bool isMercenaryType(UINT8 type) const noexcept { return mercenaryType_ == type; }
 	bool hasMedicalDeposit() const noexcept { return medicalDeposit_ != 0; }
 	bool hasLifeInsurance() const noexcept { return lifeInsurance_ != 0; }
 	bool wasJustFired() const noexcept { return justFired_ != 0; }
+	bool hasContractPriceIncrease() const noexcept { return contractPriceIncreased_ != FALSE; }
+	bool hasSignedAnotherContract() const noexcept { return signedAnotherContract_ != FALSE; }
+	void markContractPriceIncreased() noexcept { contractPriceIncreased_ = TRUE; }
+	void acknowledgeContractPriceIncrease() noexcept { contractPriceIncreased_ = FALSE; }
+	void markSignedAnotherContract() noexcept { signedAnotherContract_ = TRUE; }
+	void clearSignedAnotherContract() noexcept { signedAnotherContract_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -977,12 +1578,15 @@ private:
 	INT32 timeCanSignElsewhere_ = 0;
 	INT8 hospitalPriceModifier_ = 0;
 	UINT32 insuranceStartTime_ = 0;
+	BOOLEAN contractPriceIncreased_ = FALSE;
+	BOOLEAN signedAnotherContract_ = FALSE;
 };
 
 // Canonical strategic assignment state. The active and previous assignment,
 // training/facility context, elapsed time, squad merge intent, and the
-// assignment-specific repair, item-move, and mini-event values share one
-// lifecycle owner. Strategic position and travel remain separate.
+// assignment-specific repair, rest, completion, item-move, and mini-event
+// values share one lifecycle owner. Strategic position and travel remain
+// separate.
 class SoldierAssignmentComponent
 {
 public:
@@ -1008,12 +1612,47 @@ public:
 	const UINT8& itemMoveSectorId() const noexcept { return itemMoveSectorId_; }
 	UINT16& miniEventHoursRemaining() noexcept { return miniEventHoursRemaining_; }
 	const UINT16& miniEventHoursRemaining() const noexcept { return miniEventHoursRemaining_; }
+	BOOLEAN& fixingSamSiteState() noexcept { return fixingSamSite_; }
+	const BOOLEAN& fixingSamSiteState() const noexcept { return fixingSamSite_; }
+	BOOLEAN& fixingRobotState() noexcept { return fixingRobot_; }
+	const BOOLEAN& fixingRobotState() const noexcept { return fixingRobot_; }
+	BOOLEAN& forcedAwakeState() noexcept { return forcedAwake_; }
+	const BOOLEAN& forcedAwakeState() const noexcept { return forcedAwake_; }
+	BOOLEAN& assignmentCompleteAndIdleState() noexcept { return assignmentCompleteAndIdle_; }
+	const BOOLEAN& assignmentCompleteAndIdleState() const noexcept { return assignmentCompleteAndIdle_; }
+	BOOLEAN& asleepState() noexcept { return asleep_; }
+	const BOOLEAN& asleepState() const noexcept { return asleep_; }
+	BOOLEAN& tiredComplaintState() noexcept { return tiredComplaint_; }
+	const BOOLEAN& tiredComplaintState() const noexcept { return tiredComplaint_; }
 
 	bool isAssignedTo(INT8 assignment) const noexcept { return current_ == assignment; }
 	bool hasAssignmentHours() const noexcept { return hours_ != 0; }
 	bool hasMiniEventTime() const noexcept { return miniEventHoursRemaining_ != 0; }
+	bool isFixingSamSite() const noexcept { return fixingSamSite_ != FALSE; }
+	bool isFixingRobot() const noexcept { return fixingRobot_ != FALSE; }
+	bool isForcedAwake() const noexcept { return forcedAwake_ != FALSE; }
+	bool assignmentCompleteAndIdle() const noexcept { return assignmentCompleteAndIdle_ != FALSE; }
+	bool isAsleep() const noexcept { return asleep_ != FALSE; }
+	bool hasComplainedAboutTiredness() const noexcept { return tiredComplaint_ != FALSE; }
 	void clearRepairVehicle() noexcept { repairVehicleId_ = -1; }
 	void clearFacility() noexcept { facilityType_ = -1; }
+	void setFixingSamSite(BOOLEAN active) noexcept { fixingSamSite_ = active; }
+	void setFixingRobot(BOOLEAN active) noexcept { fixingRobot_ = active; }
+	void clearRepairTargets() noexcept
+	{
+		fixingSamSite_ = FALSE;
+		fixingRobot_ = FALSE;
+	}
+	void forceAwake() noexcept { forcedAwake_ = TRUE; }
+	void releaseForcedAwake() noexcept { forcedAwake_ = FALSE; }
+	void setAssignmentCompleteAndIdle(bool complete) noexcept
+	{
+		assignmentCompleteAndIdle_ = complete ? TRUE : FALSE;
+	}
+	void fallAsleep() noexcept { asleep_ = TRUE; }
+	void wakeUp() noexcept { asleep_ = FALSE; }
+	void markTiredComplaint() noexcept { tiredComplaint_ = TRUE; }
+	void clearTiredComplaint() noexcept { tiredComplaint_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -1028,11 +1667,18 @@ private:
 	INT16 facilityType_ = 0;
 	UINT8 itemMoveSectorId_ = 0;
 	UINT16 miniEventHoursRemaining_ = 0;
+	BOOLEAN fixingSamSite_ = FALSE;
+	BOOLEAN fixingRobot_ = FALSE;
+	BOOLEAN forcedAwake_ = FALSE;
+	BOOLEAN assignmentCompleteAndIdle_ = FALSE;
+	BOOLEAN asleep_ = FALSE;
+	BOOLEAN tiredComplaint_ = FALSE;
 };
 
 // Canonical strategic placement and deployment state. Sector coordinates,
 // strategic group and vehicle membership, tactical insertion, traversal
-// origin, off-world staging, and arrival bookkeeping move together across the
+// origin, off-world staging, strategic transit, mission-exit participation,
+// landing-zone policy, and arrival bookkeeping move together across the
 // strategic/tactical boundary while route and group objects remain adapters.
 class SoldierDeploymentComponent
 {
@@ -1073,6 +1719,12 @@ public:
 	const INT32& arrivalGetupCounter() const noexcept { return arrivalGetupCounter_; }
 	BOOLEAN& waitingForArrivalGetup() noexcept { return waitingForArrivalGetup_; }
 	const BOOLEAN& waitingForArrivalGetup() const noexcept { return waitingForArrivalGetup_; }
+	BOOLEAN& betweenSectors() noexcept { return betweenSectors_; }
+	const BOOLEAN& betweenSectors() const noexcept { return betweenSectors_; }
+	BOOLEAN& inMissionExitNode() noexcept { return inMissionExitNode_; }
+	const BOOLEAN& inMissionExitNode() const noexcept { return inMissionExitNode_; }
+	BOOLEAN& useLandingZoneForArrival() noexcept { return useLandingZoneForArrival_; }
+	const BOOLEAN& useLandingZoneForArrival() const noexcept { return useLandingZoneForArrival_; }
 
 	bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept
 	{
@@ -1080,6 +1732,12 @@ public:
 	}
 	bool hasVehicle() const noexcept { return vehicleId_ >= 0; }
 	bool arrivalGetupPending() const noexcept { return waitingForArrivalGetup_ != FALSE; }
+	bool isBetweenSectors() const noexcept { return betweenSectors_ != FALSE; }
+	bool insideMissionExitNode() const noexcept { return inMissionExitNode_ != FALSE; }
+	bool usesLandingZoneForArrival() const noexcept
+	{
+		return useLandingZoneForArrival_ != FALSE;
+	}
 	void setSector(INT16 x, INT16 y, INT8 z) noexcept
 	{
 		sectorX_ = x;
@@ -1109,6 +1767,14 @@ public:
 	}
 	void completeArrivalGetup() noexcept { waitingForArrivalGetup_ = FALSE; }
 	void clearCollapseGetupOverride() noexcept { ignoreCollapseGetupCheck_ = FALSE; }
+	void beginStrategicTransit() noexcept { betweenSectors_ = TRUE; }
+	void completeStrategicTransit() noexcept { betweenSectors_ = FALSE; }
+	void enterMissionExitNode() noexcept { inMissionExitNode_ = TRUE; }
+	void leaveMissionExitNode() noexcept { inMissionExitNode_ = FALSE; }
+	void setUseLandingZoneForArrival(bool enabled) noexcept
+	{
+		useLandingZoneForArrival_ = enabled ? TRUE : FALSE;
+	}
 	void reset() noexcept;
 
 private:
@@ -1130,6 +1796,9 @@ private:
 	BOOLEAN ignoreCollapseGetupCheck_ = FALSE;
 	INT32 arrivalGetupCounter_ = 0;
 	BOOLEAN waitingForArrivalGetup_ = FALSE;
+	BOOLEAN betweenSectors_ = FALSE;
+	BOOLEAN inMissionExitNode_ = FALSE;
+	BOOLEAN useLandingZoneForArrival_ = FALSE;
 };
 
 // Canonical NPC schedule execution state. The schedule identifier and progress
@@ -1195,6 +1864,8 @@ public:
 	const UINT8& direction() const noexcept { return direction_; }
 	INT16& heightAdjustment() noexcept { return heightAdjustment_; }
 	const INT16& heightAdjustment() const noexcept { return heightAdjustment_; }
+	FLOAT& animationHeightAdjustment() noexcept { return animationHeightAdjustment_; }
+	const FLOAT& animationHeightAdjustment() const noexcept { return animationHeightAdjustment_; }
 	INT16& desiredHeight() noexcept { return desiredHeight_; }
 	const INT16& desiredHeight() const noexcept { return desiredHeight_; }
 	INT32& temporaryGrid() noexcept { return temporaryGrid_; }
@@ -1224,6 +1895,7 @@ private:
 	INT8 level_ = 0;
 	UINT8 direction_ = 0;
 	INT16 heightAdjustment_ = 0;
+	FLOAT animationHeightAdjustment_ = 0;
 	INT16 desiredHeight_ = 0;
 	INT32 temporaryGrid_ = 0;
 	INT16 roomNo_ = 0;
@@ -1314,7 +1986,9 @@ private:
 // Canonical tactical movement intent and contention state. Route geometry
 // belongs to SoldierPathingComponent; this component owns the selected
 // movement-animation mode and mutable state used while executing that route
-// around reservations and other soldiers.
+// around reservations and other soldiers. Turn ownership, UI speed, AP
+// exhaustion, pause/water edges, movement timing, and destination-center
+// crossing share the same lifecycle boundary.
 class SoldierMovementComponent
 {
 public:
@@ -1356,10 +2030,44 @@ public:
 	const SoldierID& moveSpeedOverride() const noexcept { return moveSpeedOverride_; }
 	BOOLEAN& usesMoveSpeedOverride() noexcept { return usesMoveSpeedOverride_; }
 	const BOOLEAN& usesMoveSpeedOverride() const noexcept { return usesMoveSpeedOverride_; }
+	BOOLEAN& turnInProgress() noexcept { return turnInProgress_; }
+	const BOOLEAN& turnInProgress() const noexcept { return turnInProgress_; }
+	BOOLEAN& previousInWater() noexcept { return previousInWater_; }
+	const BOOLEAN& previousInWater() const noexcept { return previousInWater_; }
+	BOOLEAN& uiMovementFast() noexcept { return uiMovementFast_; }
+	const BOOLEAN& uiMovementFast() const noexcept { return uiMovementFast_; }
+	BOOLEAN& noActionPointsToFinish() noexcept { return noActionPointsToFinish_; }
+	const BOOLEAN& noActionPointsToFinish() const noexcept { return noActionPointsToFinish_; }
+	BOOLEAN& paused() noexcept { return paused_; }
+	const BOOLEAN& paused() const noexcept { return paused_; }
+	BOOLEAN& movementClockActive() noexcept { return movementClockActive_; }
+	const BOOLEAN& movementClockActive() const noexcept { return movementClockActive_; }
+	BOOLEAN& networkDelayed() noexcept { return networkDelayed_; }
+	const BOOLEAN& networkDelayed() const noexcept { return networkDelayed_; }
+	BOOLEAN& wasMoving() noexcept { return wasMoving_; }
+	const BOOLEAN& wasMoving() const noexcept { return wasMoving_; }
+	INT8& pastXDestination() noexcept { return pastXDestination_; }
+	const INT8& pastXDestination() const noexcept { return pastXDestination_; }
+	INT8& pastYDestination() noexcept { return pastYDestination_; }
+	const INT8& pastYDestination() const noexcept { return pastYDestination_; }
+	UINT8& waitAction() noexcept { return waitAction_; }
+	const UINT8& waitAction() const noexcept { return waitAction_; }
 
 	bool stealthy() const noexcept { return stealthMode_ != FALSE; }
 	bool reversing() const noexcept { return reverse_ != FALSE; }
 	bool delayed() const noexcept { return delayCounter_ != 0; }
+	bool turnActive() const noexcept { return turnInProgress_ != FALSE; }
+	bool wasInWater() const noexcept { return previousInWater_ != FALSE; }
+	bool fastUiMovement() const noexcept { return uiMovementFast_ != FALSE; }
+	bool outOfActionPoints() const noexcept { return noActionPointsToFinish_ != FALSE; }
+	bool movementPaused() const noexcept { return paused_ != FALSE; }
+	bool recordingMovement() const noexcept { return movementClockActive_ != FALSE; }
+	bool delayedByNetwork() const noexcept { return networkDelayed_ != FALSE; }
+	bool waitingForAction() const noexcept { return waitAction_ != 0; }
+	bool crossedDestinationCenter() const noexcept
+	{
+		return pastXDestination_ != FALSE && pastYDestination_ != FALSE;
+	}
 	void setStealth(bool enabled) noexcept { stealthMode_ = enabled ? TRUE : FALSE; }
 	void setReverse(bool enabled) noexcept { reverse_ = enabled ? TRUE : FALSE; }
 	void setHighResolutionFacing(UINT8 current, UINT8 desired) noexcept
@@ -1377,6 +2085,39 @@ public:
 	void clearContinuedPath() noexcept { continuedPathValid_ = FALSE; }
 	void overrideMoveSpeedWith(SoldierID soldier) noexcept;
 	void clearMoveSpeedOverride() noexcept { usesMoveSpeedOverride_ = FALSE; }
+	void beginTurn() noexcept { turnInProgress_ = TRUE; }
+	void finishTurn() noexcept { turnInProgress_ = FALSE; }
+	void rememberWaterState(bool inWater) noexcept { previousInWater_ = inWater ? TRUE : FALSE; }
+	void setUiMovementFast(BOOLEAN mode) noexcept { uiMovementFast_ = mode; }
+	void clearUiMovementFast() noexcept { uiMovementFast_ = FALSE; }
+	void setOutOfActionPoints(bool exhausted) noexcept
+	{
+		noActionPointsToFinish_ = exhausted ? TRUE : FALSE;
+	}
+	void pauseMovement() noexcept { paused_ = TRUE; }
+	void resumeMovement() noexcept { paused_ = FALSE; }
+	void startMovementClock() noexcept { movementClockActive_ = TRUE; }
+	void stopMovementClock() noexcept { movementClockActive_ = FALSE; }
+	void setNetworkDelayed(bool delayed) noexcept { networkDelayed_ = delayed ? TRUE : FALSE; }
+	bool syncPresentationMotion(bool moving) noexcept
+	{
+		const BOOLEAN next = moving ? TRUE : FALSE;
+		if (wasMoving_ == next)
+		{
+			return false;
+		}
+		wasMoving_ = next;
+		return true;
+	}
+	void markPastXDestination() noexcept { pastXDestination_ = TRUE; }
+	void markPastYDestination() noexcept { pastYDestination_ = TRUE; }
+	void clearPastDestination() noexcept
+	{
+		pastXDestination_ = FALSE;
+		pastYDestination_ = FALSE;
+	}
+	void requestWaitAction(UINT8 action) noexcept { waitAction_ = action; }
+	void clearWaitAction() noexcept { waitAction_ = 0; }
 	void reset() noexcept;
 
 private:
@@ -1399,22 +2140,50 @@ private:
 	UINT8 stopReason_ = 0;
 	SoldierID moveSpeedOverride_{};
 	BOOLEAN usesMoveSpeedOverride_ = FALSE;
+	BOOLEAN turnInProgress_ = FALSE;
+	BOOLEAN previousInWater_ = FALSE;
+	BOOLEAN uiMovementFast_ = FALSE;
+	BOOLEAN noActionPointsToFinish_ = FALSE;
+	BOOLEAN paused_ = FALSE;
+	BOOLEAN movementClockActive_ = FALSE;
+	BOOLEAN networkDelayed_ = FALSE;
+	BOOLEAN wasMoving_ = FALSE;
+	INT8 pastXDestination_ = FALSE;
+	INT8 pastYDestination_ = FALSE;
+	UINT8 waitAction_ = 0;
 };
 
-// Canonical snapshot used while an interrupt temporarily rewrites the AI turn
-// scheduler's moved flag. Interrupt begin captures the established value and
-// interrupt end restores it through this component.
-class SoldierInterruptSnapshotComponent
+// Canonical tactical turn and interrupt state. The scheduler's moved state,
+// interrupt duel budget/snapshot, and per-opponent interrupt counters share
+// one owner so interrupt entry and restoration cannot diverge.
+class SoldierTurnStateComponent
 {
 public:
+	using InterruptCounters = UINT8[MAX_NUM_SOLDIERS];
+
+	INT8& interruptDuelPoints() noexcept { return interruptDuelPoints_; }
+	const INT8& interruptDuelPoints() const noexcept { return interruptDuelPoints_; }
+	INT8& passedLastInterrupt() noexcept { return passedLastInterrupt_; }
+	const INT8& passedLastInterrupt() const noexcept { return passedLastInterrupt_; }
+	INT16& interruptStartActionPoints() noexcept { return interruptStartActionPoints_; }
+	const INT16& interruptStartActionPoints() const noexcept { return interruptStartActionPoints_; }
+	INT8& moved() noexcept { return moved_; }
+	const INT8& moved() const noexcept { return moved_; }
 	INT8& movedBeforeInterrupt() noexcept { return movedBeforeInterrupt_; }
 	const INT8& movedBeforeInterrupt() const noexcept { return movedBeforeInterrupt_; }
+	InterruptCounters& interruptCounters() noexcept { return interruptCounters_; }
+	const InterruptCounters& interruptCounters() const noexcept { return interruptCounters_; }
 
 	void captureMoved(INT8 moved) noexcept { movedBeforeInterrupt_ = moved; }
 	void reset() noexcept;
 
 private:
+	INT8 interruptDuelPoints_ = 0;
+	INT8 passedLastInterrupt_ = 0;
+	INT16 interruptStartActionPoints_ = 0;
+	INT8 moved_ = 0;
 	INT8 movedBeforeInterrupt_ = 0;
+	InterruptCounters interruptCounters_{};
 };
 
 // Canonical tactical target selection. Attack execution, UI, AI, and network
@@ -1434,11 +2203,31 @@ public:
 	const INT32& lastGridNo() const noexcept { return lastGridNo_; }
 	SoldierID& targetId() noexcept { return targetId_; }
 	const SoldierID& targetId() const noexcept { return targetId_; }
+	SoldierID& engagedOpponent() noexcept { return engagedOpponent_; }
+	const SoldierID& engagedOpponent() const noexcept { return engagedOpponent_; }
+	SoldierID& lineOfFireTarget() noexcept { return lineOfFireTarget_; }
+	const SoldierID& lineOfFireTarget() const noexcept { return lineOfFireTarget_; }
+	BOOLEAN& intendedTarget() noexcept { return intendedTarget_; }
+	const BOOLEAN& intendedTarget() const noexcept { return intendedTarget_; }
+	BOOLEAN& retainLastTargetFromTurn() noexcept
+	{
+		return retainLastTargetFromTurn_;
+	}
+	const BOOLEAN& retainLastTargetFromTurn() const noexcept
+	{
+		return retainLastTargetFromTurn_;
+	}
 
 	bool hasTargetSoldier() const noexcept { return targetId_ != NOBODY; }
+	bool hasEngagedOpponent() const noexcept { return engagedOpponent_ != NOBODY; }
+	bool hasLineOfFireTarget() const noexcept { return lineOfFireTarget_ != NOBODY; }
 	void selectLocation(INT32 gridNo, INT8 level, INT8 cubeLevel = 0) noexcept;
 	void selectSoldier(SoldierID target) noexcept { targetId_ = target; }
 	void clearTargetSoldier() noexcept { targetId_ = NOBODY; }
+	void engageOpponent(SoldierID target) noexcept { engagedOpponent_ = target; }
+	void clearEngagedOpponent() noexcept { engagedOpponent_ = NOBODY; }
+	void rememberLineOfFireTarget(SoldierID target) noexcept { lineOfFireTarget_ = target; }
+	void clearLineOfFireTarget() noexcept { lineOfFireTarget_ = NOBODY; }
 	void reset() noexcept;
 
 private:
@@ -1447,6 +2236,10 @@ private:
 	INT8 cubeLevel_ = 0;
 	INT32 lastGridNo_ = 0;
 	SoldierID targetId_ = NOBODY;
+	SoldierID engagedOpponent_ = NOBODY;
+	SoldierID lineOfFireTarget_ = NOBODY;
+	BOOLEAN intendedTarget_ = FALSE;
+	BOOLEAN retainLastTargetFromTurn_ = FALSE;
 };
 
 // Canonical weapon and aim selection for one tactical actor. Target geometry
@@ -1562,9 +2355,23 @@ public:
 	const INT32& spreadDragStartGrid() const noexcept { return spreadDragStartGrid_; }
 	INT32& spreadDragEndGrid() noexcept { return spreadDragEndGrid_; }
 	const INT32& spreadDragEndGrid() const noexcept { return spreadDragEndGrid_; }
+	INT8& gunType() noexcept { return gunType_; }
+	const INT8& gunType() const noexcept { return gunType_; }
+	UINT8& grenadeLauncherDelayMode() noexcept { return grenadeLauncherDelayMode_; }
+	const UINT8& grenadeLauncherDelayMode() const noexcept { return grenadeLauncherDelayMode_; }
+	UINT8& barrelMode() noexcept { return barrelMode_; }
+	const UINT8& barrelMode() const noexcept { return barrelMode_; }
+	BOOLEAN& reloading() noexcept { return reloading_; }
+	const BOOLEAN& reloading() const noexcept { return reloading_; }
+	BOOLEAN& aimPaused() noexcept { return aimPaused_; }
+	const BOOLEAN& aimPaused() const noexcept { return aimPaused_; }
 
 	bool bursting() const noexcept { return burstCounter_ != 0; }
 	bool autofiring() const noexcept { return autofireShots_ != 0; }
+	bool delaysGrenadeLauncherExplosion() const noexcept
+	{
+		return grenadeLauncherDelayMode_ != 0;
+	}
 	bool spreadDragMoved() const noexcept
 	{
 		return spreadDragEndGrid_ != spreadDragStartGrid_;
@@ -1581,6 +2388,11 @@ public:
 	void clearSpreadTargets() noexcept;
 	void beginSpreadDrag(INT32 grid) noexcept { spreadDragStartGrid_ = grid; }
 	void updateSpreadDrag(INT32 grid) noexcept { spreadDragEndGrid_ = grid; }
+	void setGrenadeLauncherDelay(bool enabled) noexcept
+	{
+		grenadeLauncherDelayMode_ = enabled ? 1 : 0;
+	}
+	void selectBarrelMode(UINT8 mode) noexcept { barrelMode_ = mode; }
 	void reset() noexcept;
 
 private:
@@ -1599,6 +2411,11 @@ private:
 	UINT8 barrelCounter_ = 0;
 	INT32 spreadDragStartGrid_ = 0;
 	INT32 spreadDragEndGrid_ = 0;
+	INT8 gunType_ = 0;
+	UINT8 grenadeLauncherDelayMode_ = 0;
+	UINT8 barrelMode_ = 0;
+	BOOLEAN reloading_ = FALSE;
+	BOOLEAN aimPaused_ = FALSE;
 };
 
 // Canonical result of incoming combat. This keeps the current/previous
@@ -1623,6 +2440,8 @@ public:
 	const INT8& pelletsHitBy() const noexcept { return pelletsHitBy_; }
 	INT16& accumulatedDamage() noexcept { return accumulatedDamage_; }
 	const INT16& accumulatedDamage() const noexcept { return accumulatedDamage_; }
+	INT8& lastAttackHit() noexcept { return lastAttackHit_; }
+	const INT8& lastAttackHit() const noexcept { return lastAttackHit_; }
 
 	bool hasCurrentAttacker() const noexcept { return currentAttacker_ != NOBODY; }
 	void recordHit(SoldierID attacker, UINT8 location) noexcept;
@@ -1640,6 +2459,7 @@ private:
 	INT8 hitsThisTurn_ = 0;
 	INT8 pelletsHitBy_ = 0;
 	INT16 accumulatedDamage_ = 0;
+	INT8 lastAttackHit_ = 0;
 };
 
 // Canonical outgoing combat-credit record. Tactical combat and autoresolve
@@ -1878,8 +2698,9 @@ private:
 };
 
 // Canonical soldier-local tactical UI presentation state. Locator and portrait
-// animation, panel placement, planned-action overlays, and enemy cycling are
-// view state rather than simulation identity or render-resource ownership.
+// animation, panel placement and lifecycle, planned-action overlays, UI
+// notifications, and enemy cycling are view state rather than simulation
+// identity or render-resource ownership.
 class SoldierUiPresentationComponent
 {
 public:
@@ -1913,6 +2734,43 @@ public:
 	const SoldierID& lastEnemyCycled() const noexcept { return lastEnemyCycled_; }
 	UINT8& locateCycles() noexcept { return locateCycles_; }
 	const UINT8& locateCycles() const noexcept { return locateCycles_; }
+	BOOLEAN& panelCloseRequested() noexcept { return panelCloseRequested_; }
+	const BOOLEAN& panelCloseRequested() const noexcept { return panelCloseRequested_; }
+	BOOLEAN& panelCloseForDeath() noexcept { return panelCloseForDeath_; }
+	const BOOLEAN& panelCloseForDeath() const noexcept { return panelCloseForDeath_; }
+	BOOLEAN& deadPanelActive() noexcept { return deadPanelActive_; }
+	const BOOLEAN& deadPanelActive() const noexcept { return deadPanelActive_; }
+	BOOLEAN& panelOpenRequested() noexcept { return panelOpenRequested_; }
+	const BOOLEAN& panelOpenRequested() const noexcept { return panelOpenRequested_; }
+	BOOLEAN& locatorFlashCycle() noexcept { return locatorFlashCycle_; }
+	const BOOLEAN& locatorFlashCycle() const noexcept { return locatorFlashCycle_; }
+	BOOLEAN& locatorVisibleState() noexcept { return locatorVisible_; }
+	const BOOLEAN& locatorVisibleState() const noexcept { return locatorVisible_; }
+	BOOLEAN& portraitFlashPhase() noexcept { return portraitFlashPhase_; }
+	const BOOLEAN& portraitFlashPhase() const noexcept { return portraitFlashPhase_; }
+	BOOLEAN& deadMercUiPendingState() noexcept { return deadMercUiPending_; }
+	const BOOLEAN& deadMercUiPendingState() const noexcept { return deadMercUiPending_; }
+	BOOLEAN& newMercUiPendingState() noexcept { return newMercUiPending_; }
+	const BOOLEAN& newMercUiPendingState() const noexcept { return newMercUiPending_; }
+	BOOLEAN& closeMercUiPendingState() noexcept { return closeMercUiPending_; }
+	const BOOLEAN& closeMercUiPendingState() const noexcept { return closeMercUiPending_; }
+	BOOLEAN& firstNoActionPointsState() noexcept { return firstNoActionPoints_; }
+	const BOOLEAN& firstNoActionPointsState() const noexcept { return firstNoActionPoints_; }
+	BOOLEAN& firstUnconsciousState() noexcept { return firstUnconscious_; }
+	const BOOLEAN& firstUnconsciousState() const noexcept { return firstUnconscious_; }
+
+	bool panelClosing() const noexcept { return panelCloseRequested_ != FALSE; }
+	bool panelClosingForDeath() const noexcept { return panelCloseForDeath_ != FALSE; }
+	bool deadPanelShowing() const noexcept { return deadPanelActive_ != FALSE; }
+	bool panelOpening() const noexcept { return panelOpenRequested_ != FALSE; }
+	bool locatorFlashing() const noexcept { return locatorFlashCycle_ != FALSE; }
+	bool locatorVisible() const noexcept { return locatorVisible_ != FALSE; }
+	bool portraitFlashing() const noexcept { return portraitFlashPhase_ != FALSE; }
+	bool deadMercUiPending() const noexcept { return deadMercUiPending_ != FALSE; }
+	bool newMercUiPending() const noexcept { return newMercUiPending_ != FALSE; }
+	bool closeMercUiPending() const noexcept { return closeMercUiPending_ != FALSE; }
+	bool firstNoActionPoints() const noexcept { return firstNoActionPoints_ != FALSE; }
+	bool firstUnconscious() const noexcept { return firstUnconscious_ != FALSE; }
 
 	void setLocatorOffset(INT16 x, INT16 y) noexcept
 	{
@@ -1923,6 +2781,16 @@ public:
 	{
 		locatorFrame_ = 0;
 		locateCycles_ = cycles;
+		locatorFlashCycle_ = TRUE;
+	}
+	void advanceLocatorCycle() noexcept { ++locatorFlashCycle_; }
+	void showLocator() noexcept { locatorVisible_ = TRUE; }
+	void hideLocator() noexcept { locatorVisible_ = FALSE; }
+	void stopLocatorFlash() noexcept { locatorFlashCycle_ = FALSE; }
+	void stopLocator() noexcept
+	{
+		locatorFlashCycle_ = FALSE;
+		locatorVisible_ = FALSE;
 	}
 	void setPanelFacePosition(INT16 x, INT16 y) noexcept
 	{
@@ -1935,6 +2803,64 @@ public:
 		deadPanelFrame_ = 0;
 		openPanelFrame_ = 0;
 	}
+	void requestPanelClose() noexcept
+	{
+		panelCloseRequested_ = TRUE;
+		panelCloseForDeath_ = FALSE;
+	}
+	void beginDeathPanelTransition() noexcept
+	{
+		deadMercUiPending_ = FALSE;
+		panelCloseRequested_ = TRUE;
+		panelCloseForDeath_ = TRUE;
+		closePanelFrame_ = 0;
+		deadPanelFrame_ = 0;
+	}
+	bool completePanelClose(UINT8 finalFrame) noexcept
+	{
+		panelCloseRequested_ = FALSE;
+		closePanelFrame_ = finalFrame;
+		if (panelCloseForDeath_ != FALSE)
+		{
+			deadPanelActive_ = TRUE;
+			return true;
+		}
+		return false;
+	}
+	void completeDeadPanel(UINT8 finalFrame) noexcept
+	{
+		deadPanelActive_ = FALSE;
+		deadPanelFrame_ = finalFrame;
+		panelCloseForDeath_ = FALSE;
+	}
+	void requestPanelOpen(INT8 startFrame) noexcept
+	{
+		panelOpenRequested_ = TRUE;
+		openPanelFrame_ = startFrame;
+	}
+	void completePanelOpen() noexcept
+	{
+		panelOpenRequested_ = FALSE;
+		openPanelFrame_ = 0;
+	}
+	void startPortraitFlash() noexcept { portraitFlashPhase_ = TRUE; }
+	void setPortraitFlashPhase(BOOLEAN phase) noexcept { portraitFlashPhase_ = phase; }
+	void stopPortraitFlash() noexcept { portraitFlashPhase_ = FALSE; }
+	void queueDeadMercUi() noexcept { deadMercUiPending_ = TRUE; }
+	void clearDeadMercUi() noexcept { deadMercUiPending_ = FALSE; }
+	void queueNewMercUi() noexcept { newMercUiPending_ = TRUE; }
+	void clearNewMercUi() noexcept { newMercUiPending_ = FALSE; }
+	void queueCloseMercUi() noexcept { closeMercUiPending_ = TRUE; }
+	void clearCloseMercUi() noexcept { closeMercUiPending_ = FALSE; }
+	void finishDeathUi() noexcept
+	{
+		deadMercUiPending_ = FALSE;
+		panelCloseForDeath_ = FALSE;
+	}
+	void markNoActionPoints() noexcept { firstNoActionPoints_ = TRUE; }
+	void clearNoActionPoints() noexcept { firstNoActionPoints_ = FALSE; }
+	void markUnconscious() noexcept { firstUnconscious_ = TRUE; }
+	void clearUnconscious() noexcept { firstUnconscious_ = FALSE; }
 	bool hasPlannedTarget() const noexcept { return plannedTargetX_ != -1; }
 	void setPlannedTarget(INT16 x, INT16 y, UINT8 actionPointCost) noexcept
 	{
@@ -1965,6 +2891,18 @@ private:
 	INT16 plannedTargetY_ = 0;
 	SoldierID lastEnemyCycled_{};
 	UINT8 locateCycles_ = 0;
+	BOOLEAN panelCloseRequested_ = FALSE;
+	BOOLEAN panelCloseForDeath_ = FALSE;
+	BOOLEAN deadPanelActive_ = FALSE;
+	BOOLEAN panelOpenRequested_ = FALSE;
+	BOOLEAN locatorFlashCycle_ = FALSE;
+	BOOLEAN locatorVisible_ = FALSE;
+	BOOLEAN portraitFlashPhase_ = FALSE;
+	BOOLEAN deadMercUiPending_ = FALSE;
+	BOOLEAN newMercUiPending_ = FALSE;
+	BOOLEAN closeMercUiPending_ = FALSE;
+	BOOLEAN firstNoActionPoints_ = FALSE;
+	BOOLEAN firstUnconscious_ = FALSE;
 };
 
 // Canonical requests that bridge tactical decisions into animation playback.
@@ -2126,6 +3064,10 @@ public:
 	const UINT32& randomActionCheckCounter() const noexcept { return randomActionCheckCounter_; }
 	INT16& lastRandomAnimation() noexcept { return lastRandomAnimation_; }
 	const INT16& lastRandomAnimation() const noexcept { return lastRandomAnimation_; }
+	BOOLEAN& reactingFromShot() noexcept { return reactingFromShot_; }
+	const BOOLEAN& reactingFromShot() const noexcept { return reactingFromShot_; }
+	BOOLEAN& externalDeath() noexcept { return externalDeath_; }
+	const BOOLEAN& externalDeath() const noexcept { return externalDeath_; }
 
 	bool gettingHit() const noexcept { return hitPhase_ != 0; }
 	bool hasRenderZOverride() const noexcept { return renderZOverride_ != -1; }
@@ -2172,6 +3114,8 @@ private:
 	INT16 renderZOverride_ = 0;
 	UINT32 randomActionCheckCounter_ = 0;
 	INT16 lastRandomAnimation_ = 0;
+	BOOLEAN reactingFromShot_ = FALSE;
+	BOOLEAN externalDeath_ = FALSE;
 };
 
 struct SoldierPendingActionRuntimeState

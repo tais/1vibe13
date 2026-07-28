@@ -1172,7 +1172,7 @@ void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(uiCounter.i);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() > 0 && pSoldier->deployment().sectorX() == sSectorX && pSoldier->deployment().sectorY() == sSectorY && pSoldier->deployment().sectorZ() == bSectorZ )
+			if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() > 0 && pSoldier->deployment().sectorX() == sSectorX && pSoldier->deployment().sectorY() == sSectorY && pSoldier->deployment().sectorZ() == bSectorZ )
 			{
 				if ( FindBestPath( pSoldier, sGridNo2, pSoldier->position().level(), WALKING, NO_COPYROUTE, 0 ) )
 				{
@@ -1904,12 +1904,12 @@ void SaveNPCInformationToProfileStruct( )
 		pSoldier = MercSlots[ cnt ];
 
 		//if it is an active NPC
-		if ( pSoldier && pSoldier->ubProfile != NO_PROFILE && pSoldier->bTeam == CIV_TEAM )
+		if ( pSoldier && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().team() == CIV_TEAM )
 		{
 			//Save Temp Npc Quote Info array
-			SaveTempNpcQuoteInfoForNPCToTempFile( pSoldier->ubProfile );
+			SaveTempNpcQuoteInfoForNPCToTempFile( pSoldier->identity().profile() );
 
-			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
+			pProfile = &(gMercProfiles[ pSoldier->identity().profile() ]);
 
 			pProfile->ubQuoteActionID = pSoldier->dialogue().quoteActionId();
 			pProfile->ubQuoteRecord = pSoldier->dialogue().quoteRecord();
@@ -2125,9 +2125,9 @@ SoldierID GetSoldierIDFromAnyMercID(UINT8 ubMercID)
 	for ( ; cnt <= ubLastTeamID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pTeamSoldier->bActive )
+		if ( pTeamSoldier->roster().active() )
 		{
-			if ( pTeamSoldier->ubProfile == ubMercID )
+			if ( pTeamSoldier->identity().profile() == ubMercID )
 			{
 				return(cnt);
 			}
@@ -2540,11 +2540,11 @@ BOOLEAN SetSectorFlag( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet
 				SOLDIERTYPE *pSoldier =
 					GetJa2SoldierRepository().resolve(id.i);
 
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
-					pSoldier->deployment().sectorX() == sMapX && pSoldier->deployment().sectorY() == sMapY && pSoldier->deployment().sectorZ() == bMapZ && !pSoldier->flags.fBetweenSectors &&
+				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->identity().profile() != NO_PROFILE &&
+					pSoldier->deployment().sectorX() == sMapX && pSoldier->deployment().sectorY() == sMapY && pSoldier->deployment().sectorZ() == bMapZ && !pSoldier->deployment().isBetweenSectors() &&
 					pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD )
 				{
-					gMercProfiles[ pSoldier->ubProfile ].records.usSectorsDiscovered++;
+					gMercProfiles[ pSoldier->identity().profile() ].records.usSectorsDiscovered++;
 				}
 			}
 		}
@@ -2618,14 +2618,14 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 		if( pSoldier->inv[ i ].exists() == true )
 		{
 			// Flugente: if we don't want items to drop in autoresolve, this is the place to set that
-			if ( pSoldier->bTeam != gbPlayerNum && !gGameExternalOptions.fNPCAutoresolveItemDrop )
+			if ( pSoldier->roster().team() != gbPlayerNum && !gGameExternalOptions.fNPCAutoresolveItemDrop )
 			{
 				// mark it undroppable...
 				pSoldier->inv[i].fFlags |= OBJECT_UNDROPPABLE;
 			}
 
 			//if the item can be dropped
-			if( !( pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE ) || pSoldier->bTeam == gbPlayerNum )
+			if( !( pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE ) || pSoldier->roster().team() == gbPlayerNum )
 			{
 				++uiNumberOfItems;
 			}
@@ -2651,7 +2651,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 			if( pSoldier->inv[ i ].exists() == true )
 			{
 				//if the item can be dropped
-				if( !(pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE) || pSoldier->bTeam == gbPlayerNum )
+				if( !(pSoldier->inv[ i ].fFlags & OBJECT_UNDROPPABLE) || pSoldier->roster().team() == gbPlayerNum )
 				{
 					ReduceAmmoDroppedByNonPlayerSoldiers( pSoldier, i );
 
@@ -2700,7 +2700,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 	// Setup some values!
 	ConvertGridNoToCenterCellXY(sGridNo, &sXPos, &sYPos);
 
-	Corpse.ubBodyType			= pSoldier->ubBodyType;
+	Corpse.ubBodyType			= pSoldier->identity().bodyType();
 	Corpse.sGridNo				= sGridNo;
 	Corpse.dXPos				= (FLOAT)( sXPos );
 	Corpse.dYPos				= (FLOAT)( sYPos );
@@ -2727,7 +2727,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 
 
 	// Set type
-	Corpse.ubType	= (UINT8)gubAnimSurfaceCorpseID[ pSoldier->ubBodyType][ uiDeathAnim ];
+	Corpse.ubType	= (UINT8)gubAnimSurfaceCorpseID[ pSoldier->identity().bodyType()][ uiDeathAnim ];
 
 	Corpse.usFlags |= usFlagsForRottingCorpse;
 

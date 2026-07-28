@@ -242,7 +242,7 @@ void ValidateEdgepoints()
 	INT32 i;
 	UINT16 usValidEdgepoints;
 	SOLDIERTYPE Soldier;
-	Soldier.bTeam = 1;
+	Soldier.roster().team() = 1;
 
 	//north
 	usValidEdgepoints = 0;
@@ -561,7 +561,7 @@ void ClassifyEdgepoints()
 	SOLDIERTYPE Soldier;
 	INT32 sGridNo = -1;
 
-	Soldier.bTeam = 1;
+	Soldier.roster().team() = 1;
 
 	//north
 	if( gMapInformation.sNorthGridNo != -1 )
@@ -1591,7 +1591,7 @@ UINT8 CalcMapEdgepointClassInsertionCode( INT32 sGridNo )
 	INT32			sClosestSpot2 = NOWHERE, sClosestDist2 = 0x7FFFFFFF;
 	BOOLEAN		fPrimaryValid = FALSE, fSecondaryValid = FALSE;
 
-	Soldier.bTeam = 1;
+	Soldier.roster().team() = 1;
 	Soldier.position().gridNo() = sGridNo;
 
 	if( gMapInformation.sIsolatedGridNo == -1 )

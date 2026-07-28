@@ -89,7 +89,7 @@ INT32 FindGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, INT8 u
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 	soldier.interaction().copyDragFrom( pSoldier->interaction() );
 
@@ -191,7 +191,7 @@ INT32 FindGridNoFromSweetSpotThroughPeople( SOLDIERTYPE *pSoldier, INT32 sSweetG
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = pSoldier->bTeam;
+	soldier.roster().team() = pSoldier->roster().team();
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -291,7 +291,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -300,7 +300,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
@@ -366,7 +366,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 					// Get animation surface...
 					usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, usAnimState );
 					// Get structure ref...
-					pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+					pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 					if( !pStructureFileRef )
 					{
@@ -453,7 +453,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -462,7 +462,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
@@ -529,7 +529,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 					// Get animation surface...
 					usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, usAnimState );
 					// Get structure ref...
-					pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+					pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 					if( !pStructureFileRef )
 					{
@@ -631,7 +631,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -694,7 +694,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataFromSoldier( SOLDIERTYPE *pSoldier, U
 						// Get animation surface...
 						usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, usAnimState );
 						// Get structure ref...
-						pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+						pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 						// Check each struct in each direction
 						for ( cnt3 = 0; cnt3 < NUM_WORLD_DIRECTIONS; ++cnt3 )
@@ -962,7 +962,7 @@ INT32 FindRandomGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
 	soldier.position().level() = 0;
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -1006,7 +1006,7 @@ INT32 FindRandomGridNoFromSweetSpot( SOLDIERTYPE *pSoldier, INT32 sSweetGridNo, 
 			if ( NewOKDestination( pSoldier, sGridNo, TRUE , pSoldier->position().level()) )
 			{
 				// If we are a crow, we need this additional check
-				if ( pSoldier->ubBodyType == CROW )
+				if ( pSoldier->identity().bodyType() == CROW )
 				{
 					if ( !InARoom( sGridNo, &usRoomNum ) )
 					{
@@ -1143,13 +1143,13 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 	SOLDIERTYPE *pSoldier =
 		GetJa2SoldierRepository().resolve(ubID.i);
 
-	if ( pSoldier->bActive	)
+	if ( pSoldier->roster().active()	)
 	{
 #ifdef JA2UB
 //Ja25 No meanwhiles in exp
 #else
 		// ATE: Make sure life of elliot is OK if from a meanwhile
-		if ( AreInMeanwhile() && pSoldier->ubProfile == ELLIOT )
+		if ( AreInMeanwhile() && pSoldier->identity().profile() == ELLIOT )
 		{
 			if ( pSoldier->vitals().health() < OKLIFE )
 			{
@@ -1158,12 +1158,12 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		}
 #endif
 		// ADD SOLDIER TO SLOT!
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_OFF_MAP)
+		if (pSoldier->status().flags() & SOLDIER_OFF_MAP)
 		{
 			AddAwaySlot( pSoldier );
 
 			// Guy is NOT "in sector"
-			pSoldier->bInSector = FALSE;
+			pSoldier->roster().inSector() = FALSE;
 
 		}
 		else
@@ -1171,12 +1171,12 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			AddMercSlot( pSoldier );
 
 			// Add guy to sector flag
-			pSoldier->bInSector = TRUE;
+			pSoldier->roster().inSector() = TRUE;
 
 		}
 
 		// If a driver or passenger - stop here!
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER || pSoldier->flags.uiStatusFlags & SOLDIER_PASSENGER )
+		if ( pSoldier->status().flags() & SOLDIER_DRIVER || pSoldier->status().flags() & SOLDIER_PASSENGER )
 		{
 			return( FALSE );
 		}
@@ -1190,7 +1190,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 
 		BOOLEAN gfEnteredFromTacticalPlacement = FALSE;
 		// Add to interface if the are ours
-		if ( pSoldier->bTeam == CREATURE_TEAM )
+		if ( pSoldier->roster().team() == CREATURE_TEAM )
 		{
 			sGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, STANDING, pSoldier->deployment().insertionGrid(), 7, &ubCalculatedDirection, FALSE );
 			if( fCalculateDirection )
@@ -1233,7 +1233,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				if( TileIsOutOfBounds( sRecover ) ) sRecover = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;
 				pSoldier->deployment().insertionGrid() = sRecover;
 			}
-			if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				sGridNo = FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( pSoldier, STANDING, pSoldier->deployment().insertionGrid(), 12, &ubCalculatedDirection, FALSE, pSoldier->deployment().insertionDirection() );
 				// ATE: Override insertion direction				
@@ -1272,30 +1272,30 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			// we thus count them as coming from north if they have valid usStrategicInsertionData
 			if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_NORTH && pSoldier->deployment().strategicInsertionData() )//|| pSoldier->sGridNo != NOWHERE )
 			{
-				if ( pSoldier->bSide == gbPlayerNum )
+				if ( pSoldier->roster().side() == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SOUTH )
 			{
-				if ( pSoldier->bSide == gbPlayerNum )
+				if ( pSoldier->roster().side() == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_EAST )
 			{
-				if ( pSoldier->bSide == gbPlayerNum )
+				if ( pSoldier->roster().side() == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_WEST )
 			{
-				if ( pSoldier->bSide == gbPlayerNum )
+				if ( pSoldier->roster().side() == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST_ENEMY;
 			}
 
@@ -1380,7 +1380,7 @@ void InternalSoldierInSectorSleep( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN
 	INT32	sGoodGridNo = NOWHERE;
 	UINT16	usAnim = SLEEPING;
 
-	if ( !pSoldier->bInSector )
+	if ( !pSoldier->roster().inSector() )
 	{
 		return;
 	}
@@ -1424,7 +1424,7 @@ void SoldierInSectorIncompaciated( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8	ubNewDirection;
 	INT32 sGoodGridNo = NOWHERE;
 
-	if ( !pSoldier->bInSector )
+	if ( !pSoldier->roster().inSector() )
 	{
 		return;
 	}
@@ -1458,7 +1458,7 @@ void SoldierInSectorPatient( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8	ubNewDirection;
 	INT32 sGoodGridNo = NOWHERE;
 
-	if ( !pSoldier->bInSector )
+	if ( !pSoldier->roster().inSector() )
 	{
 		return;
 	}
@@ -1491,7 +1491,7 @@ void SoldierInSectorDoctor( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8	ubNewDirection;
 	INT32 sGoodGridNo = NOWHERE;
 
-	if ( !pSoldier->bInSector )
+	if ( !pSoldier->roster().inSector() )
 	{
 		return;
 	}
@@ -1524,7 +1524,7 @@ void SoldierInSectorRepair( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	UINT8	ubNewDirection;
 	INT32 sGoodGridNo = NOWHERE;
 
-	if ( !pSoldier->bInSector )
+	if ( !pSoldier->roster().inSector() )
 	{
 		return;
 	}
@@ -1598,7 +1598,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 			gfIgnoreScrolling = TRUE;
 			
 			pSoldier->RemoveSoldierFromGridNo( );
-			pSoldier->bInSector = FALSE;
+			pSoldier->roster().inSector() = FALSE;
 
 			return;
 		}
@@ -1630,9 +1630,9 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 
 	if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 	{
-		if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+		if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 		{
-			if ( pSoldier->bTeam == gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				if ( !( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
 					RevealRoofsAndItems( pSoldier, TRUE, FALSE, pSoldier->position().level(), TRUE );
@@ -1657,11 +1657,11 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		}
 
 		// If he's an enemy... set presence
-		if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+		if ( !pSoldier->aiBehavior().neutral() && (pSoldier->roster().side() != gbPlayerNum ) )
 		{
 			// ATE: Added if not bloodcats
 			// only do this once they are seen.....
-			if ( pSoldier->ubBodyType != BLOODCAT )
+			if ( pSoldier->identity().bodyType() != BLOODCAT )
 			{
 				SetEnemyPresence( );
 				// ary-05/05/2009 : add forced turn mode : note : not for bloodcats..
@@ -1683,7 +1683,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		}
 	}
 
-	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		//if we are loading a 'pristine' map ( ie, not loading a saved game )
 		if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
@@ -1719,7 +1719,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( usAnimState, usAnimCode, TRUE );
 					}
-					else if ( pSoldier->ubBodyType != CROW && ubInsertionCode != INSERTION_CODE_GRIDNO)
+					else if ( pSoldier->identity().bodyType() != CROW && ubInsertionCode != INSERTION_CODE_GRIDNO)
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
 					}
@@ -1728,7 +1728,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( usAnimState, usAnimCode, TRUE );
 					}
-					else if ( pSoldier->ubBodyType != CROW)
+					else if ( pSoldier->identity().bodyType() != CROW)
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( STANDING, 1, TRUE );
 					}
@@ -1740,7 +1740,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				{
 					SoldierInSectorIncompaciated( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
-				else if ( pSoldier->flags.fMercAsleep == TRUE )
+				else if ( pSoldier->assignment().isAsleep() == TRUE )
 				{
 					InternalSoldierInSectorSleep( pSoldier, pSoldier->deployment().insertionGrid(), FALSE );
 				}
@@ -1791,7 +1791,7 @@ BOOLEAN IsMercOnTeam(UINT8 ubMercID, BOOLEAN aAlreadyInCountry, BOOLEAN aAlive)
 	for ( ; cnt <= ubLastTeamID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pTeamSoldier->ubProfile == ubMercID && pTeamSoldier->bActive )
+		if ( pTeamSoldier->identity().profile() == ubMercID && pTeamSoldier->roster().active() )
 		{
 			if ( aAlreadyInCountry && pTeamSoldier->assignment().current() == IN_TRANSIT )
 				continue;
@@ -1817,9 +1817,9 @@ SoldierID GetSoldierIDFromMercID(UINT8 ubMercID)
 	for ( ; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pTeamSoldier->ubProfile == ubMercID )
+		if ( pTeamSoldier->identity().profile() == ubMercID )
 		{
-			if( pTeamSoldier->bActive )
+			if( pTeamSoldier->roster().active() )
 				return( cnt );
 		}
 	}

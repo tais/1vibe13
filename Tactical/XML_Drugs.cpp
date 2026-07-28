@@ -244,7 +244,7 @@ drugsEndElementHandle(void *userData, const XML_Char *name)
 			{
 				{
 					UINT8 ubEffect = (UINT8)atol( pData->szCharData );
-					if ( ubEffect < DRUG_EFFECT_MAX )	// unbounded XML effect -> later OOB into the DRUG_EFFECT_MAX-sized newdrugs arrays
+					if ( ubEffect < DRUG_EFFECT_MAX )	// reject XML effects outside the persistent soldier drug-state capacity
 						pData->drug_effects.effect = ubEffect;
 				}
 			}

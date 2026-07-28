@@ -100,25 +100,25 @@ void HandleRPCDescription(	)
 				// Add guy if he's a candidate...
 				if ( RPC_RECRUITED( pTeamSoldier ) )
 				{
-					if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
+					if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->roster().active() &&
 						pTeamSoldier->deployment().sectorX() == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->deployment().sectorY() == gTacticalStatus.bGuideDescriptionSectorY &&
 						pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ &&
-						!pTeamSoldier->flags.fBetweenSectors )
+						!pTeamSoldier->deployment().isBetweenSectors() )
 					{
 						const GameCampaign campaign =
 							GetGameContext().capabilities().campaign;
 						if ( CampaignProfileCode::matches(
 								 campaign, CampaignProfileCode::Role::Ira,
-								 pTeamSoldier->ubProfile) ||
+								 pTeamSoldier->identity().profile()) ||
 							 CampaignProfileCode::matches(
 								 campaign, CampaignProfileCode::Role::Miguel,
-								 pTeamSoldier->ubProfile) ||
+								 pTeamSoldier->identity().profile()) ||
 							 CampaignProfileCode::matches(
 								 campaign, CampaignProfileCode::Role::Carlos,
-								 pTeamSoldier->ubProfile) ||
+								 pTeamSoldier->identity().profile()) ||
 							 CampaignProfileCode::matches(
 								 campaign, CampaignProfileCode::Role::Dimitri,
-								 pTeamSoldier->ubProfile) )
+								 pTeamSoldier->identity().profile()) )
 						{
 							ubMercsInSector[ubNumMercs] = (UINT16)cnt2;
 							++ubNumMercs;
@@ -155,10 +155,10 @@ void HandleRPCDescription(	)
 				{
 					continue;
 				}
-				if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
+				if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->roster().active() &&
 					pTeamSoldier->deployment().sectorX() == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->deployment().sectorY() == gTacticalStatus.bGuideDescriptionSectorY &&
 					pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ &&
-					!pTeamSoldier->flags.fBetweenSectors )
+					!pTeamSoldier->deployment().isBetweenSectors() )
 				{
 					AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_SECTOR_COMMENTARY );
 				}
@@ -261,7 +261,7 @@ void HandleTacticalEndTurn( )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive && pSoldier->vitals().health() > 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				// Handle everything from getting breath back, to bleeding, etc
 				pSoldier->EVENT_BeginMercTurn( TRUE, 0 );
@@ -300,7 +300,7 @@ void HandleTacticalEndTurn( )
 
 			if ( pSoldier != NULL )
 			{
-				if ( pSoldier->bTeam != gbPlayerNum )
+				if ( pSoldier->roster().team() != gbPlayerNum )
 				{
 					// Handle everything from getting breath back, to bleeding, etc
 					pSoldier->EVENT_BeginMercTurn( TRUE, 0 );

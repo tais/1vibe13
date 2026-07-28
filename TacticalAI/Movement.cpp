@@ -131,7 +131,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	{
 #ifdef DEBUGDECISIONS
 		STR tempstr;
-		sprintf(tempstr, "%d CONTINUES MOVEMENT to gridno %d...\n", pSoldier->ubID,sGridno );
+		sprintf(tempstr, "%d CONTINUES MOVEMENT to gridno %d...\n", pSoldier->identity().id(),sGridno );
 		DebugAI( tempstr );
 #endif
 
@@ -152,7 +152,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		else
 		{
 #ifdef BETAVERSION
-			sprintf(tempstr,"TryToResumeMovement: ERROR - NewDest failed for %s, action CANCELED",pSoldier->name);
+			sprintf(tempstr,"TryToResumeMovement: ERROR - NewDest failed for %s, action CANCELED",pSoldier->identity().name());
 
 #ifdef RECORDNET
 			fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -174,7 +174,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		// legally if another soldier gets in the way between turns
 
 #ifdef BETAVERSION
-		sprintf(tempstr,"TryToResumeMovement: %d can't continue to gridno %d, no longer legal!",pSoldier->ubID,gridno);
+		sprintf(tempstr,"TryToResumeMovement: %d can't continue to gridno %d, no longer legal!",pSoldier->identity().id(),gridno);
 
 #ifdef RECORDNET
 		fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -187,7 +187,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 #endif
 
 
-		if (!pSoldier->aiData.bUnderEscort)
+		if (!pSoldier->aiBehavior().underEscort())
 		{
 			DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: not under escort"));
 			CancelAIAction(pSoldier,DONTFORCE);	// no need to force this
@@ -196,17 +196,17 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		{
 			// this is an escorted NPC, don't want to just completely stop
 			// moving, try to find a nearby "next best" destination if possible
-			pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sGridNo,pSoldier->aiData.bAction);
+			pSoldier->aiPlanning().actionData() = GoAsFarAsPossibleTowards(pSoldier,sGridNo,pSoldier->aiPlanning().action());
 
 			// if it's not possible to get any closer			
-			if (TileIsOutOfBounds(pSoldier->aiData.usActionData))
+			if (TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			{
 				ubGottaCancel = TRUE;
 			}
 			else
 			{
 				// change his desired destination to this new one
-				sGridNo = pSoldier->aiData.usActionData;
+				sGridNo = pSoldier->aiPlanning().actionData();
 
 				// GoAsFar... sets pathStored TRUE only if he could go all the way
 
@@ -244,10 +244,10 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier)
 {
  // patrol slot 0 is UNUSED, so max patrolCnt is actually only 9
- if ((pSoldier->aiData.bPatrolCnt < 1) || (pSoldier->aiData.bPatrolCnt >= MAXPATROLGRIDS))
+ if ((pSoldier->aiPlanning().patrolCount() < 1) || (pSoldier->aiPlanning().patrolCount() >= MAXPATROLGRIDS))
 	{
 #ifdef BETAVERSION
-	sprintf(tempstr,"NextPatrolPoint: ERROR: Invalid patrol count = %d for %s",pSoldier->aiData.bPatrolCnt,pSoldier->name);
+	sprintf(tempstr,"NextPatrolPoint: ERROR: Invalid patrol count = %d for %s",pSoldier->aiPlanning().patrolCount(),pSoldier->identity().name());
 	PopMessage(tempstr);
 #endif
 
@@ -255,14 +255,14 @@ INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier)
 	}
 
 
- pSoldier->aiData.bNextPatrolPnt++;
+ pSoldier->aiPlanning().nextPatrolPoint()++;
 
 
  // if there are no more patrol points, return back to the first one
- if (pSoldier->aiData.bNextPatrolPnt > pSoldier->aiData.bPatrolCnt)
-	pSoldier->aiData.bNextPatrolPnt = 1;	// ZERO is not used!
+ if (pSoldier->aiPlanning().nextPatrolPoint() > pSoldier->aiPlanning().patrolCount())
+	pSoldier->aiPlanning().nextPatrolPoint() = 1;	// ZERO is not used!
 
- return(pSoldier->aiData.sPatrolGrid[pSoldier->aiData.bNextPatrolPnt]);
+ return(pSoldier->aiPlanning().patrolGrid()[pSoldier->aiPlanning().nextPatrolPoint()]);
 }
 
 
@@ -275,10 +275,10 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  STR16 tempstr;
 #endif
 
- sPatrolPoint = pSoldier->aiData.sPatrolGrid[pSoldier->aiData.bNextPatrolPnt];
+ sPatrolPoint = pSoldier->aiPlanning().patrolGrid()[pSoldier->aiPlanning().nextPatrolPoint()];
 
  // if we're already there, advance next patrol point
- if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
+ if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiPlanning().nextPatrolPoint() == 0)
 	{
 	// find next valid patrol point
 	do
@@ -291,7 +291,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
 	if (pSoldier->position().gridNo() == sPatrolPoint)
 	{
 #ifdef BETAVERSION
-	 NumMessage("PROBLEM WITH SCENARIO: All other patrol points are invalid for guynum ",pSoldier->ubID);
+	 NumMessage("PROBLEM WITH SCENARIO: All other patrol points are invalid for guynum ",pSoldier->identity().id());
 #endif
 	 // force change of orders & an abort
 	 sPatrolPoint = NOWHERE;
@@ -302,11 +302,11 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  if (TileIsOutOfBounds(sPatrolPoint))
 	{
 #ifdef BETAVERSION
-	NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->ubID);
+	NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->identity().id());
 #endif
 
 	// over-ride orders to something safer
-	pSoldier->aiData.bOrders = FARPATROL;
+	pSoldier->aiBehavior().orders() = FARPATROL;
 	return(FALSE);
 	}
 
@@ -316,28 +316,28 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  if (LegalNPCDestination(pSoldier,sPatrolPoint,ENSURE_PATH,WATEROK,0))
 	{
 	pSoldier->pathing().stored() = TRUE;	 // optimization - Ian
-	pSoldier->aiData.usActionData = sPatrolPoint;
+	pSoldier->aiPlanning().actionData() = sPatrolPoint;
 	}
  else
 	{
 	// temporarily extend roaming range to infinity by changing orders, else
 	// this won't work if the next patrol point is > 10 tiles away!
-	bOldOrders					= pSoldier->aiData.bOrders;
-	pSoldier->aiData.bOrders	= ONCALL;
+	bOldOrders					= pSoldier->aiBehavior().orders();
+	pSoldier->aiBehavior().orders()	= ONCALL;
 
-	pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sPatrolPoint,pSoldier->aiData.bAction);
+	pSoldier->aiPlanning().actionData() = GoAsFarAsPossibleTowards(pSoldier,sPatrolPoint,pSoldier->aiPlanning().action());
 
-	pSoldier->aiData.bOrders = bOldOrders;
+	pSoldier->aiBehavior().orders() = bOldOrders;
 
 	// if it's not possible to get any closer, that's OK, but fail this call	
-	if (TileIsOutOfBounds(pSoldier->aiData.usActionData))
+	if (TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 	 return(FALSE);
 	}
 
 
  // passed all tests - start moving towards next patrol point
 #ifdef DEBUGDECISIONS
- sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->name,pSoldier->aiData.usActionData);
+ sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
  AIPopMessage(tempstr);
 #endif
 
@@ -353,10 +353,10 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	INT8	bOldOrders, bPatrolIndex;
 	INT8	bCnt;
 
-	sPatrolPoint = pSoldier->aiData.sPatrolGrid[pSoldier->aiData.bNextPatrolPnt];
+	sPatrolPoint = pSoldier->aiPlanning().patrolGrid()[pSoldier->aiPlanning().nextPatrolPoint()];
 
 	// if we're already there, advance next patrol point
-	if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiData.bNextPatrolPnt == 0)
+	if (pSoldier->position().gridNo() == sPatrolPoint || pSoldier->aiPlanning().nextPatrolPoint() == 0)
 	{
 		// find next valid patrol point
 		// we keep a count of the # of times we are in here to make sure we don't get into an endless
@@ -365,16 +365,16 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 		do
 		{
 			// usPatrolGrid[0] gets used for centre of close etc patrols, so we have to add 1 to the Random #
-			bPatrolIndex = (INT8) PreRandom( pSoldier->aiData.bPatrolCnt ) + 1;
-			sPatrolPoint = pSoldier->aiData.sPatrolGrid[ bPatrolIndex];
+			bPatrolIndex = (INT8) PreRandom( pSoldier->aiPlanning().patrolCount() ) + 1;
+			sPatrolPoint = pSoldier->aiPlanning().patrolGrid()[ bPatrolIndex];
 			bCnt++;
 		}		
-		while ( (sPatrolPoint == pSoldier->position().gridNo()) || ( (!TileIsOutOfBounds(sPatrolPoint)) && (bCnt < pSoldier->aiData.bPatrolCnt) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->position().level() )) );
+		while ( (sPatrolPoint == pSoldier->position().gridNo()) || ( (!TileIsOutOfBounds(sPatrolPoint)) && (bCnt < pSoldier->aiPlanning().patrolCount()) && !NewOKDestination(pSoldier,sPatrolPoint,IGNOREPEOPLE, pSoldier->position().level() )) );
 
-		if (bCnt == pSoldier->aiData.bPatrolCnt)
+		if (bCnt == pSoldier->aiPlanning().patrolCount())
 		{
 			// ok, we tried doing this randomly, didn't work well, so now do a linear search
-			pSoldier->aiData.bNextPatrolPnt = 0;
+			pSoldier->aiPlanning().nextPatrolPoint() = 0;
 			do
 			{
 				sPatrolPoint = NextPatrolPoint(pSoldier);
@@ -393,11 +393,11 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	if (TileIsOutOfBounds(sPatrolPoint))
 	{
 #ifdef BETAVERSION
-		NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->ubID);
+		NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->identity().id());
 #endif
 
 		// over-ride orders to something safer
-		pSoldier->aiData.bOrders = FARPATROL;
+		pSoldier->aiBehavior().orders() = FARPATROL;
 		return(FALSE);
 	}
 
@@ -406,28 +406,28 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	if (LegalNPCDestination(pSoldier,sPatrolPoint,ENSURE_PATH,WATEROK,0))
 	{
 		pSoldier->pathing().stored() = TRUE;	 // optimization - Ian
-		pSoldier->aiData.usActionData = sPatrolPoint;
+		pSoldier->aiPlanning().actionData() = sPatrolPoint;
 	}
 	else
 	{
 		// temporarily extend roaming range to infinity by changing orders, else
 		// this won't work if the next patrol point is > 10 tiles away!
-		bOldOrders					= pSoldier->aiData.bOrders;
-		pSoldier->aiData.bOrders	= SEEKENEMY;
+		bOldOrders					= pSoldier->aiBehavior().orders();
+		pSoldier->aiBehavior().orders()	= SEEKENEMY;
 
-		pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sPatrolPoint,pSoldier->aiData.bAction);
+		pSoldier->aiPlanning().actionData() = GoAsFarAsPossibleTowards(pSoldier,sPatrolPoint,pSoldier->aiPlanning().action());
 
-		pSoldier->aiData.bOrders = bOldOrders;
+		pSoldier->aiBehavior().orders() = bOldOrders;
 
 		// if it's not possible to get any closer, that's OK, but fail this call		
-		if (TileIsOutOfBounds(pSoldier->aiData.usActionData))
+		if (TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			return(FALSE);
 	}
 
 
 	// passed all tests - start moving towards next patrol point
 #ifdef DEBUGDECISIONS
-	sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->name,pSoldier->aiData.usActionData);
+	sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 	AIPopMessage(tempstr);
 #endif
 
@@ -475,9 +475,9 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	// obtain maximum roaming distance from soldier's sOrigin
 	usMaxDist = RoamingRange(pSoldier,&sOrigin);
 
-	if ( pSoldier->aiData.bOrders <= CLOSEPATROL && (pSoldier->bTeam == CIV_TEAM || pSoldier->ubProfile != NO_PROFILE ) )
+	if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->roster().team() == CIV_TEAM || pSoldier->identity().profile() != NO_PROFILE ) )
 	{
-		if ( InARoom( pSoldier->aiData.sPatrolGrid[0], &usRoomRequired ) )
+		if ( InARoom( pSoldier->aiPlanning().patrolGrid()[0], &usRoomRequired ) )
 		{
 			// make sure this doesn't interfere with pathing for scripts			
 			if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
@@ -494,7 +494,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 
 #ifdef DEBUGDECISIONS
-	sprintf(tempstr,"%s wants to go towards %d (has range %d)",pSoldier->name,sDesGrid,usMaxDist);
+	sprintf(tempstr,"%s wants to go towards %d (has range %d)",pSoldier->identity().name(),sDesGrid,usMaxDist);
 	AIPopMessage(tempstr);
 #endif
 
@@ -630,7 +630,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	if (sTempDest == sGoToGrid)
 	{
 #ifdef BETAVERSION
-	 sprintf(tempstr,"GoAsFarAsPossibleTowards: ERROR - gridno along valid route is invalid!	guynum %d, sTempDest = %d",pSoldier->ubID,sTempDest);
+	 sprintf(tempstr,"GoAsFarAsPossibleTowards: ERROR - gridno along valid route is invalid!	guynum %d, sTempDest = %d",pSoldier->identity().id(),sTempDest);
 
 #ifdef RECORDNET
 	 fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -717,7 +717,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
  if (sGoToGrid == pSoldier->position().gridNo())
 	{
 #ifdef DEBUGDECISIONS
-   sprintf(tempstr,"%s will go NOWHERE, path doesn't meet criteria",pSoldier->name);
+   sprintf(tempstr,"%s will go NOWHERE, path doesn't meet criteria",pSoldier->identity().name());
    AIPopMessage(tempstr);
 #endif
 
@@ -741,7 +741,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 
 #ifdef DEBUGDECISIONS
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->ubID, sGoToGrid, pSoldier->actionPoints().current() );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->identity().id(), sGoToGrid, pSoldier->actionPoints().current() );
  #endif
 
 
@@ -763,21 +763,21 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	// ATE: USed to be redundent, now if called befroe NewDest can cause some side efects...
 	// pSoldier->AdjustNoAPToFinishMove( FALSE );
 
-	if (pSoldier->aiData.bNewSituation == IS_NEW_SITUATION)
+	if (pSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION)
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: IS_NEW_SITUATION"));
 		CancelAIAction(pSoldier,DONTFORCE);
 		return;
 	}
 
-	if (TileIsOutOfBounds(pSoldier->aiData.usActionData))
+	if (TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: bad usActionData"));
 		CancelAIAction(pSoldier,DONTFORCE);
 		return;
 	}
 
-	if (!NewOKDestination( pSoldier,pSoldier->aiData.usActionData, TRUE, pSoldier->position().level() ))
+	if (!NewOKDestination( pSoldier,pSoldier->aiPlanning().actionData(), TRUE, pSoldier->position().level() ))
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: !NewOKDestination"));
 		CancelAIAction(pSoldier,DONTFORCE);
@@ -789,7 +789,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	/*
 	// SANDRO - hack! interrupt issue - we don't want to recalculate our path if no new situation and we are already on move
 	// i.e. in case we interrupted a soldier who has no idea about us seeing him, he should move along as if nothing is happening
-	if ( pSoldier->aiData.bNewSituation == NOT_NEW_SITUATION && pSoldier->aiData.bActionInProgress && !TileIsOutOfBounds(pSoldier->pathing().finalDestinationGrid() ))
+	if ( pSoldier->aiBehavior().newSituation() == NOT_NEW_SITUATION && pSoldier->aiPlanning().actionInProgress() && !TileIsOutOfBounds(pSoldier->pathing().finalDestinationGrid() ))
 	{
 		// just set our path to previously decided final destination
 		NewDest(pSoldier,pSoldier->pathing().finalDestinationGrid());
@@ -799,14 +799,14 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 
 	if (IsActionAffordable(pSoldier))
 	{
-		if (pSoldier->aiData.bActionInProgress == FALSE)
+		if (pSoldier->aiPlanning().actionInProgress() == FALSE)
 		{
 			// start a move that didn't even get started before...
 			// hope this works...
 			NPCDoesAct(pSoldier);
 
 			// perform the chosen action
-			pSoldier->aiData.bActionInProgress = ExecuteAction(pSoldier); // if started, mark us as busy
+			pSoldier->aiPlanning().actionInProgress() = ExecuteAction(pSoldier); // if started, mark us as busy
 		}
 		else
 		{
@@ -819,7 +819,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		CancelAIAction(pSoldier,DONTFORCE);
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->ubID) );
+						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->identity().id()) );
 #endif
 	}
 
@@ -835,7 +835,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 			NewDest(pSoldier, usNewGridNo);
 		// maybe we didn't actually start the action last turn...
 		if (movement.accepted())
-			pSoldier->aiData.bActionInProgress = TRUE;
+			pSoldier->aiPlanning().actionInProgress() = TRUE;
 		else
 		{
 			DebugAI(
@@ -845,7 +845,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		}
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) continues along path",pSoldier->ubID) );
+						String("Soldier (%d) continues along path",pSoldier->identity().id()) );
 #endif
 	}
 	else
@@ -854,7 +854,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		CancelAIAction(pSoldier,DONTFORCE);
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->ubID) );
+						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->identity().id()) );
 #endif
 	}
 }
@@ -873,13 +873,13 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 
 		SStopMerc.sGridNo					= pSoldier->position().gridNo();
 		SStopMerc.ubDirection			= pSoldier->position().direction();
-		SStopMerc.usSoldierID			= pSoldier->ubID;
+		SStopMerc.usSoldierID			= pSoldier->identity().id();
 		SStopMerc.fset=TRUE;
 		SStopMerc.sXPos=pSoldier->position().worldXInt();
 		SStopMerc.sYPos=pSoldier->position().worldYInt();
 
 		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-		if(pSoldier->ubID>=120 || (!is_server && pSoldier->ubID>=20)) 
+		if(pSoldier->identity().id()>=120 || (!is_server && pSoldier->identity().id()>=20))
 			return;//hayden
 
 		if(is_client)
@@ -889,13 +889,13 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 	pSoldier->AdjustNoAPToFinishMove( TRUE );
 
 	// We'll keep his action intact though...
-	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->ubID, pSoldier->actionPoints().current()) );
+	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->identity().id(), pSoldier->actionPoints().current()) );
 
 	// if this dude is under AI right now, then pass the baton to someone else
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
+	if (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL)
 	{
 		#ifdef TESTAICONTROL
-			DebugAI( String("Ending turn for %d because out of APs for movement", pSoldier->ubID ) );
+			DebugAI( String("Ending turn for %d because out of APs for movement", pSoldier->identity().id() ) );
 		#endif
 
 		EndAIGuysTurn(pSoldier);
@@ -920,14 +920,14 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
 	{
 */
 	// if the destination is different from what he has now
-	if (pSoldier->aiData.usActionData != sGridNo)
+	if (pSoldier->aiPlanning().actionData() != sGridNo)
 	{
 		// store his new destination
-		pSoldier->aiData.usActionData = sGridNo;
+		pSoldier->aiPlanning().actionData() = sGridNo;
 
 		// and cancel any movement in progress that he was still engaged in
-		pSoldier->aiData.bAction = AI_ACTION_NONE;
-		pSoldier->aiData.bActionInProgress = FALSE;
+		pSoldier->aiPlanning().action() = AI_ACTION_NONE;
+		pSoldier->aiPlanning().actionInProgress() = FALSE;
 	}
 
 	// only set the underEscort flag once you give him a destination
@@ -936,17 +936,17 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
 	//
 	// Either way, once set, it should stay that way, preventing AI from
 	// doing anything other than advance him towards destination.
-	pSoldier->aiData.bUnderEscort = TRUE;
+	pSoldier->aiBehavior().underEscort() = TRUE;
 
 	// change orders to maximize roaming range so he can Go As Far As Possible
-	pSoldier->aiData.bOrders = ONCALL;
+	pSoldier->aiBehavior().orders() = ONCALL;
 /*
 	}
 
  else
 	{
 	NetSend.msgType = NET_CIV_DEST;
-	NetSend.ubID	= pSoldier->ubID;
+	NetSend.ubID	= pSoldier->identity().id();
 	NetSend.gridno	= gridno;
 
 	// only the civilian's controller needs to know this
@@ -1071,7 +1071,7 @@ INT32 TrackScent( SOLDIERTYPE * pSoldier )
 	}	
 	if (!TileIsOutOfBounds(iBestGridNo))
 	{
-		pSoldier->aiData.usActionData = iBestGridNo;
+		pSoldier->aiPlanning().actionData() = iBestGridNo;
 		return( iBestGridNo );
 	}
 	return( 0 );
@@ -1104,14 +1104,14 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	{
 		pOpponent = GetJa2SoldierRepository().resolve(ubLoop);
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent || !pOpponent->bActive ||
-			!pOpponent->bInSector || !pOpponent->vitals().health())
+		if (!pOpponent || !pOpponent->roster().active() ||
+			!pOpponent->roster().inSector() || !pOpponent->vitals().health())
 		{
 			continue;			// next merc
 		}
 
 		// if this man is neutral / on the same side, he's not an opponent
-		if (pOpponent->aiData.bNeutral || (pSoldier->bSide == pOpponent->bSide))
+		if (pOpponent->aiBehavior().neutral() || (pSoldier->roster().side() == pOpponent->roster().side()))
 		{
 			continue;			// next merc
 		}

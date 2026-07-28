@@ -44,7 +44,7 @@ bool SetJa2TacticalInventoryActor(
 		return true;
 	}
 	const TacticalEntityId actor = GetJa2TacticalEntityId(
-		static_cast<std::uint16_t>(soldier->ubID));
+		static_cast<std::uint16_t>(soldier->identity().id()));
 	if (!actor.valid() || ResolveJa2TacticalEntity(actor) != soldier)
 		return false;
 	return BoundSession()->setActor(role, actor);

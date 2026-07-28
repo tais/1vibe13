@@ -188,11 +188,11 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 			{
 				return;
 			}
-			if ( subjectSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
+			if ( subjectSoldier->status().flags() & SOLDIER_DRIVER )
 			{
 				pVehicle = GetSoldierStructureForVehicle(
 					subjectSoldier->deployment().vehicleId());
-				usSubjectSoldier = pVehicle->ubID;
+				usSubjectSoldier = pVehicle->identity().id();
 				subjectSoldier = pVehicle;
 			}
 		}
@@ -354,8 +354,8 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 							if ( (uiMercFlags & SELECTED_MERC) &&
 								!( uiMercFlags & UNCONSCIOUS_MERC ) &&
 								!( GetJa2SoldierRepository()
-									.resolve(usSoldierIndex.i)->flags
-									.uiStatusFlags & SOLDIER_VEHICLE ) )
+									.resolve(usSoldierIndex.i)->status().flags()
+									& SOLDIER_VEHICLE ) )
 							{
 								*puiNewEvent = M_CHANGE_TO_ADJPOS_MODE;
 							}
@@ -441,8 +441,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 									//if ( gAnimControl[ gusSelectedSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY )
 									//if ( gusSelectedSoldier->animationPlayback().state() == WALKING )
 									{
-										subjectSoldier->flags.fUIMovementFast =
-											TRUE;
+										subjectSoldier->movement().setUiMovementFast(TRUE);
 										*puiNewEvent = C_MOVE_MERC;
 									}
 								}
@@ -586,14 +585,13 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 
 													if ( usSubjectSoldier != NOBODY )
 													{
-													if ( subjectSoldier->animationPlayback().state() != RUNNING )
+														if ( subjectSoldier->animationPlayback().state() != RUNNING )
 														{
 															*puiNewEvent = C_MOVE_MERC;
 														}
 														else
 														{
-														subjectSoldier->flags
-															.fUIMovementFast = 2;
+															subjectSoldier->movement().setUiMovementFast(2);
 															*puiNewEvent = C_MOVE_MERC;
 														}
 													}
@@ -645,7 +643,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																// Select guy
 																if(	GetSoldier( &pSoldier, gusUIFullTargetID ) && gpItemPointer == NULL )
 																{
-																	if( pSoldier->assignment().current() >= ON_DUTY && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+																	if( pSoldier->assignment().current() >= ON_DUTY && !(pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 																	{
 																		PopupAssignmentMenuInTactical( pSoldier );
 																	}
@@ -658,13 +656,13 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																		}
 																		else
 																		{
-																			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+																			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 																			{
-																				pSoldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+																				pSoldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 																			}
 																			else
 																			{
-																				pSoldier->flags.uiStatusFlags |= (SOLDIER_MULTI_SELECTED );
+																				pSoldier->status().flags() |= (SOLDIER_MULTI_SELECTED );
 																				// Say Confimation...
 																				if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
 																					pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
@@ -674,7 +672,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																				{
 																					GetJa2SoldierRepository()
 																						.resolve(gusSelectedSoldier.i)
-																						->flags.uiStatusFlags |=
+																						->status().flags() |=
 																						SOLDIER_MULTI_SELECTED;
 																				}
 																			}
@@ -695,13 +693,13 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																	}
 																	else
 																	{
-																		if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+																		if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 																		{
-																			pSoldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+																			pSoldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 																		}
 																		else
 																		{
-																			pSoldier->flags.uiStatusFlags |= (SOLDIER_MULTI_SELECTED );
+																			pSoldier->status().flags() |= (SOLDIER_MULTI_SELECTED );
 																			// Say Confimation...
 																			if( !gGameSettings.fOptions[ TOPTION_MUTE_CONFIRMATIONS ] )
 																				pSoldier->DoMercBattleSound( BATTLE_SOUND_ATTN1 );
@@ -712,7 +710,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																		{
 																			GetJa2SoldierRepository()
 																				.resolve(gusSelectedSoldier.i)
-																				->flags.uiStatusFlags |=
+																				->status().flags() |=
 																				SOLDIER_MULTI_SELECTED;
 																		}
 
@@ -757,7 +755,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																		{
 																			if ( GetCurInteractiveTileGridNo( &sIntTileGridNo ) != NULL )
 																			{
-																				pSoldier->flags.fUIMovementFast = TRUE;
+																				pSoldier->movement().setUiMovementFast(TRUE);
 																				*puiNewEvent = C_MOVE_MERC;
 																			}
 																		}
@@ -829,7 +827,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																					}
 																					else
 																					{
-																						//if ( sMapPos != sMoveClickGridNo || pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+																						//if ( sMapPos != sMoveClickGridNo || pSoldier->status().flags() & SOLDIER_ROBOT )
 																						//{
 																						//		sMoveClickGridNo					= sMapPos;
 
@@ -1075,7 +1073,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 
 							if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 							{
-								if ( ( guiUIFullTargetFlags & OWNED_MERC ) && ( guiUIFullTargetFlags & VISIBLE_MERC ) && !( guiUIFullTargetFlags & DEAD_MERC )&&!( pSoldier ?	pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE : 0 ) )
+								if ( ( guiUIFullTargetFlags & OWNED_MERC ) && ( guiUIFullTargetFlags & VISIBLE_MERC ) && !( guiUIFullTargetFlags & DEAD_MERC )&&!( pSoldier ?	pSoldier->status().flags() & SOLDIER_VEHICLE : 0 ) )
 								{
 									//if( pSoldier->assignment().current() >= ON_DUTY )
 									{
@@ -1242,7 +1240,7 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 											pSoldier =
 												GetJa2SoldierRepository().resolve(
 													gusSelectedSoldier.i);
-											if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+											if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 											{
 												SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 												INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
@@ -1501,7 +1499,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 							!_KeyDown( SHIFT ) &&
 							!AM_AN_EPC( pSoldier ) &&
 							GetJa2SoldierRepository()
-								.resolve(gusUIFullTargetID.i)->bTeam !=
+								.resolve(gusUIFullTargetID.i)->roster().team() !=
 								ENEMY_TEAM &&
 							!ValidQuickExchangePosition( ) )
 						{
@@ -1551,7 +1549,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 					guiUITargetSoldierId = gusUIFullTargetID;
 
 					if ( GetJa2SoldierRepository()
-							.resolve(gusUIFullTargetID.i)->bTeam !=
+							.resolve(gusUIFullTargetID.i)->roster().team() !=
 						gbPlayerNum )
 					{
 						fOnValidGuy = TRUE;
@@ -1651,7 +1649,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 		//	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 		//	{
 		// Change refine value back to 1
-		///		pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+		///		pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 		//	}
 		//}
 
@@ -2153,11 +2151,11 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 					if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 					{
 						if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->name );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );
 						return;
 					}
 
-					GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+					GetMercClimbDirection( pjSoldier->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 					if ( fNearLowerLevel )
 						TryDispatchTraverseObstacleCommandNow(
@@ -2216,11 +2214,11 @@ void HandleRTJump( void )
 		if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 		{
 			if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->name );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );
 			return;
 		}
 
-		GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+		GetMercClimbDirection( pjSoldier->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 		if ( fNearLowerLevel )
 			TryDispatchTraverseObstacleCommandNow(

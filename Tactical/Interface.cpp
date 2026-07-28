@@ -848,7 +848,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	//SetButtonSavedRect( iActionIcons[ RUN_ICON ] );
 	ButtonList[ iActionIcons[ RUN_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->MercInWater( ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+	if ( pSoldier->MercInWater( ) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		DisableButton( iActionIcons[ RUN_ICON ] );
 	}
@@ -863,7 +863,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ WALK_ICON ] );
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if (pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		SetButtonFastHelpText( iActionIcons[ WALK_ICON ], TacticalStr[ DRIVE_POPUPTEXT ] );
 	}
@@ -874,7 +874,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 
 	ButtonList[ iActionIcons[ WALK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{
@@ -932,12 +932,12 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	//SetButtonSavedRect( iActionIcons[ LOOK_ICON ] );
 	ButtonList[ iActionIcons[ LOOK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		DisableButton( iActionIcons[ LOOK_ICON ]	);
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{
@@ -945,7 +945,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 		}
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// Until we get mounted weapons...
 		uiActionImages = CANCEL_IMAGES;
@@ -1016,7 +1016,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 
 	// anv: don't switch if passengers are blocked from attacking
-	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
 		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
@@ -1056,7 +1056,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	SetButtonFastHelpText( iActionIcons[ TALK_ICON ], pTacticalPopupButtonStrings[ TALK_ICON ] );
 	ButtonList[ iActionIcons[ TALK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		DisableButton( iActionIcons[ TALK_ICON ]	);
 	}
@@ -1074,7 +1074,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	SetButtonFastHelpText( iActionIcons[ HAND_ICON ], pTacticalPopupButtonStrings[ HAND_ICON ] );
 	ButtonList[ iActionIcons[ HAND_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		DisableButton( iActionIcons[ HAND_ICON ]	);
 	}
@@ -1540,7 +1540,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	}
 
 	// Adjust based on body type...
-	switch (pSoldier->ubBodyType)
+	switch (pSoldier->identity().bodyType())
 	{
 	case CROW:
 		sStanceOffset = 30;
@@ -1551,7 +1551,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	}
 
 	// anv: passengers sit, but we want to display their names above vehicle
-	if (pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
+	if (pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
 	{
 		sStanceOffset = 0;
 	}
@@ -1568,7 +1568,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 		//sStanceOffset += ROOF_LEVEL_HEIGHT;
 	}
 
-	if (pSoldier->ubProfile != NO_PROFILE)
+	if (pSoldier->identity().profile() != NO_PROFILE)
 	{
 		if (fRadio)
 		{
@@ -1676,21 +1676,21 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		return;
 	}
 
-	if ( pSoldier->flags.fFlashLocator )
+	if ( pSoldier->uiPresentation().locatorFlashing() )
 	{
 		if ( pSoldier->awareness().visibility() == -1 )
 		{
-			pSoldier->flags.fFlashLocator = FALSE;
+			pSoldier->uiPresentation().stopLocatorFlash();
 		}
 		else
 		{
-			if ( TIMECOUNTERDONE( pSoldier->timeCounters.BlinkSelCounter, 80 ) )
+			if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink) )
 			{
-				RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 80 );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorBlink, 80);
 
-			//	pSoldier->flags.fShowLocator = !pSoldier->flags.fShowLocator;
+			//	Toggle the component-owned locator visibility.
 
-				pSoldier->flags.fShowLocator = TRUE;
+				pSoldier->uiPresentation().showLocator();
 
 				// Update frame
 				pSoldier->uiPresentation().locatorFrame()++;
@@ -1698,30 +1698,28 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				if ( pSoldier->uiPresentation().locatorFrame() == 5 )
 				{
 					// Update time we do this
-					pSoldier->flags.fFlashLocator++;
+					pSoldier->uiPresentation().advanceLocatorCycle();
 					pSoldier->uiPresentation().locatorFrame() = 0;
 				}
 			}
 
-			//if ( TIMECOUNTERDONE( pSoldier->timeCounters.FlashSelCounter, 5000 ) )
+			//if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorFlash) )
 			//{
-			//	RESETTIMECOUNTER( pSoldier->timeCounters.FlashSelCounter, 5000 );
+			//	pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorFlash, 5000);
 
-			//	pSoldier->flags.fFlashLocator = FALSE;
-			//	pSoldier->flags.fShowLocator = FALSE;
+			//	pSoldier->uiPresentation().stopLocator();
 
 			//}
-			if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
+			if ( pSoldier->uiPresentation().locatorFlashCycle() == pSoldier->uiPresentation().locateCycles() )
 			{
-				pSoldier->flags.fFlashLocator = FALSE;
-				pSoldier->flags.fShowLocator = FALSE;
+				pSoldier->uiPresentation().stopLocator();
 			}
 
-			//if ( pSoldier->flags.fShowLocator )
+			//if ( pSoldier->uiPresentation().locatorVisible() )
 			{
 				// Render the beastie
 				// anv: if soldier is in vehicle, draw above middle of the vehicle
-				if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+				if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 				{
 					GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, TRUE );
 				}
@@ -1748,7 +1746,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 					SetBackgroundRectFilled( iBack );
 				}
 
-				if ( !pSoldier->aiData.bNeutral && ( pSoldier->bSide != gbPlayerNum ) )
+				if ( !pSoldier->aiBehavior().neutral() && ( pSoldier->roster().side() != gbPlayerNum ) )
 				{
 					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO2, pSoldier->uiPresentation().locatorFrame(), sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 				}
@@ -1764,9 +1762,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	// Flugente: show a small animation hat signifies that a merc is underwater (hopefully temporary until someone comes up with a proper animation)
 	else if ( pSoldier->UsesScubaGear() )
 	{
-		if ( TIMECOUNTERDONE( pSoldier->timeCounters.BlinkSelCounter, 320 ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink) )
 		{
-			RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 320 );
+			pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorBlink, 320);
 			
 			// Update frame
 			pSoldier->uiPresentation().locatorFrame()++;
@@ -1778,16 +1776,16 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			}
 		}
 
-		if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
+		if ( pSoldier->uiPresentation().locatorFlashCycle() == pSoldier->uiPresentation().locateCycles() )
 		{
-				pSoldier->flags.fShowLocator = FALSE;
+				pSoldier->uiPresentation().hideLocator();
 		}
 		
 		if ( gGameExternalOptions.ubShowHealthBarsOnHead )
 		{
 			// Render the beastie
 			// anv: if soldier is in vehicle, draw above middle of the vehicle
-			if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+			if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 			{
 				GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, TRUE );
 			}
@@ -1813,28 +1811,28 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 	}
 
-	if ( gDisplayEnemyRoles && pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == CIV_TEAM )
+	if ( gDisplayEnemyRoles && pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == CIV_TEAM )
 	{
 		ShowSoldierRoleSymbol(pSoldier);
 	}
 
-	if ( !pSoldier->flags.fShowLocator )
+	if ( !pSoldier->uiPresentation().locatorVisible() )
 	{
 		// RETURN IF MERC IS NOT SELECTED
-		if ( gfUIHandleSelectionAboveGuy && pSoldier->ubID == gsSelectedGuy && pSoldier->ubID != gusSelectedSoldier && !gfIgnoreOnSelectedGuy )
+		if ( gfUIHandleSelectionAboveGuy && pSoldier->identity().id() == gsSelectedGuy && pSoldier->identity().id() != gusSelectedSoldier && !gfIgnoreOnSelectedGuy )
 		{
 
 		}
-		else if ( pSoldier->ubID == gusSelectedSoldier && !gRubberBandActive )
+		else if ( pSoldier->identity().id() == gusSelectedSoldier && !gRubberBandActive )
 		{
 			usGraphicToUse = THIRDPOINTERS2;
 		}
 		// show all people's names if !
-		//else if ( pSoldier->ubID >= 20 && pSoldier->awareness().visibility() != -1 )
+		//else if ( pSoldier->identity().id() >= 20 && pSoldier->awareness().visibility() != -1 )
 		//{
 
 		//}
-		else if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+		else if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 		{
 
 		}
@@ -1845,7 +1843,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 	else
 	{
-		if ( pSoldier->ubID == gusSelectedSoldier && !gRubberBandActive )
+		if ( pSoldier->identity().id() == gusSelectedSoldier && !gRubberBandActive )
 		{
 			usGraphicToUse = THIRDPOINTERS2;
 		}
@@ -1858,13 +1856,13 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 
 	// Do not show if we are dead
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		return;
 	}
 	
 	// anv: if soldier is in vehicle, draw above middle of the vehicle
-	if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+	if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 	{
 		GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, FALSE );
 	}
@@ -1888,7 +1886,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	// sevenfm: improved UI
 	if( gGameExternalOptions.fImprovedTacticalUI )
 	{
-		if( pSoldier->flags.uiStatusFlags & SOLDIER_PC &&
+		if( pSoldier->status().flags() & SOLDIER_PC &&
 			pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		{
 			SetRGBFontForeground( 220, 220, 0 );
@@ -1915,9 +1913,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 	}
 
-	if ( pSoldier->ubProfile != NO_PROFILE || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->identity().profile() != NO_PROFILE || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
-		if ( gfUIMouseOnValidCatcher == 1 && pSoldier->ubID == gubUIValidCatcherID )
+		if ( gfUIMouseOnValidCatcher == 1 && pSoldier->identity().id() == gubUIValidCatcherID )
 		{
 			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,TacticalStr[ CATCH_STR ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
@@ -1925,7 +1923,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( gfUIMouseOnValidCatcher == 3 && pSoldier->ubID == gubUIValidCatcherID )
+		else if ( gfUIMouseOnValidCatcher == 3 && pSoldier->identity().id() == gubUIValidCatcherID )
 		{
 			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,TacticalStr[ RELOAD_STR ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
@@ -1933,7 +1931,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( gfUIMouseOnValidCatcher == 4 && pSoldier->ubID == gubUIValidCatcherID )
+		else if ( gfUIMouseOnValidCatcher == 4 && pSoldier->identity().id() == gubUIValidCatcherID )
 		{
 			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,pMessageStrings[ MSG_PASS ] );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
@@ -1959,7 +1957,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->assignment().current() < ON_DUTY && pSoldier->assignment().current() != CurrentSquad() && !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
+		else if ( pSoldier->roster().team() == gbPlayerNum &&	pSoldier->assignment().current() < ON_DUTY && pSoldier->assignment().current() != CurrentSquad() && !( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED ) )
 		{
 			if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < gSquadNameVector.size() )
 				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gSquadNameVector[pSoldier->assignment().current()].c_str() );
@@ -1973,7 +1971,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 
 		// If not in a squad....
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
 			{
@@ -1991,7 +1989,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		if ( fDoName )
 		{
 			//legion2 jazz
-			if ( pSoldier->ubBodyType == ROBOTNOWEAPON && pSoldier->bTeam == ENEMY_TEAM )
+			if ( pSoldier->identity().bodyType() == ROBOTNOWEAPON && pSoldier->roster().team() == ENEMY_TEAM )
 			{
 				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,zGrod[0] );
 			}
@@ -2003,13 +2001,13 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				else
 					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[TANK_CAR].NewVehicleStrings );
 			}
-			else if ( zHiddenNames[pSoldier->ubProfile].Hidden == TRUE )
+			else if ( zHiddenNames[pSoldier->identity().profile()].Hidden == TRUE )
 			{
 				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"???" );
 			}
 			else
 			{
-				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", pSoldier->name );
+				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"%s", pSoldier->identity().name() );
 			}
 
 			INT16 sNameY = fRaiseName ? sYPos - 10 : sYPos;
@@ -2018,10 +2016,10 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 		}
 
-		if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_AIM ||
-			gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_MERC ||
-			gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP 
-			|| RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_AIM ||
+			gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_MERC ||
+			gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP
+			|| RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( gGameExternalOptions.ubShowHealthBarsOnHead )
 			{
@@ -2059,7 +2057,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				else
 				{
 					// Adjust for bars!
-					if ( pSoldier->ubID == gusSelectedSoldier )
+					if ( pSoldier->identity().id() == gusSelectedSoldier )
 					{
 						sXPos += 28;
 						sYPos += 5;
@@ -2082,7 +2080,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 
 					// Draw life, breath
 					// Only do this when we are a vehicle but on our team
-					if ( pSoldier->ubID == gusSelectedSoldier )
+					if ( pSoldier->identity().id() == gusSelectedSoldier )
 					{
 						DrawBarsInUIBox( pSoldier,	(INT16)(sXPos +1), (INT16)(sYPos + 2), 16, 1, 3);
 					}
@@ -2093,9 +2091,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				}
 			}
 		}
-		else // ( pSoldier->ubProfile < FIRST_RPC || pSoldier->ubProfile >= GASTON ||
-		{	// RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
-			if ( gfUIMouseOnValidCatcher == 2 && pSoldier->ubID == gubUIValidCatcherID )
+		else // ( pSoldier->identity().profile() < FIRST_RPC || pSoldier->identity().profile() >= GASTON ||
+		{	// RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
+			if ( gfUIMouseOnValidCatcher == 2 && pSoldier->identity().id() == gubUIValidCatcherID )
 			{
 				SetFont( TINYFONT1 );
 				SetFontBackground( FONT_MCOLOR_BLACK );
@@ -2119,12 +2117,12 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				mprintf( sX, sY, pStr );
 			
 				//-----------------	
-				if ( pSoldier->bInSector && pSoldier->ubProfile == NO_PROFILE )
+				if ( pSoldier->roster().inSector() && pSoldier->identity().profile() == NO_PROFILE )
 				{
-					if ( pSoldier->bTeam == ENEMY_TEAM )
+					if ( pSoldier->roster().team() == ENEMY_TEAM )
 					{
 						// Flugente: soldier profiles
-						if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->usSoldierProfile )
+						if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->identity().dataProfile() )
 						{					
 							swprintf(NameStr, pSoldier->GetName());
 
@@ -2162,7 +2160,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 							{
 								if (zEnemyRank[iCounter2].Enabled == 1)
 								{		
-									if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->stats.bExpLevel == zEnemyRank[iCounter2].ExpLevel )  
+									if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->statistics().experienceLevel() == zEnemyRank[iCounter2].ExpLevel )
 									{
 										swprintf(NameStr, zEnemyRank[iCounter2].szCurRank);
 
@@ -2180,7 +2178,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 						}
 					}
 					// Flugente: soldier profiles
-					else if ( pSoldier->bTeam == MILITIA_TEAM && ((gGameExternalOptions.fSoldierProfiles_Militia && pSoldier->usSoldierProfile) || pSoldier->usIndividualMilitiaID) )
+					else if ( pSoldier->roster().team() == MILITIA_TEAM && ((gGameExternalOptions.fSoldierProfiles_Militia && pSoldier->identity().dataProfile()) || pSoldier->identity().individualMilitiaId()) )
 					{
 						// get a proper chaos name							
 						swprintf(NameStr, pSoldier->GetName());
@@ -2191,11 +2189,11 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 						gprintfdirty( sX, sY, NameStr );
 						mprintf( sX, sY, NameStr );
 					}
-					else if (gGameExternalOptions.fCivGroupName == TRUE && pSoldier->ubCivilianGroup > 0 )
+					else if (gGameExternalOptions.fCivGroupName == TRUE && pSoldier->roster().civilianGroup() > 0 )
 					{
-						if (zCivGroupName[pSoldier->ubCivilianGroup].Enabled == 1)
+						if (zCivGroupName[pSoldier->roster().civilianGroup()].Enabled == 1)
 						{	
-							swprintf(NameStr, zCivGroupName[pSoldier->ubCivilianGroup].szCurGroup);
+							swprintf(NameStr, zCivGroupName[pSoldier->roster().civilianGroup()].szCurGroup);
 
 							SetFontForeground( FONT_YELLOW );
 								
@@ -2213,7 +2211,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		if (gGameSettings.fOptions[TOPTION_ALLOW_SOLDIER_TOOLTIPS])
 			SoldierTooltip(pSoldier);
 	}
-	else //pSoldier->ubProfile != NO_PROFILE || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else //pSoldier->identity().profile() != NO_PROFILE || ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// show (roof) text
 		if ( pSoldier->position().level() != 0 )
@@ -2247,11 +2245,11 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		mprintf( sX, sY, pStr );
 		
 		//-----------------	
-		if ( pSoldier->bInSector && pSoldier->ubProfile == NO_PROFILE )
+		if ( pSoldier->roster().inSector() && pSoldier->identity().profile() == NO_PROFILE )
 		{
 			if ( pSoldier->IsZombie() )
 			{
-				swprintf(NameStr, pSoldier->name);
+				swprintf(NameStr, pSoldier->identity().name());
 							
 				// Display name
 				SetFontForeground( FONT_MCOLOR_WHITE );
@@ -2261,10 +2259,10 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				gprintfdirty( sX, sY, NameStr );
 				mprintf( sX, sY, NameStr );
 			}
-			else if ( pSoldier->bTeam == ENEMY_TEAM )
+			else if ( pSoldier->roster().team() == ENEMY_TEAM )
 			{
 				// Flugente: soldier profiles
-				if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->usSoldierProfile )
+				if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->identity().dataProfile() )
 				{
 					// get a proper chaos name							
 					swprintf(NameStr, pSoldier->GetName());
@@ -2304,14 +2302,14 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 					{
 						if (zEnemyRank[iCounter2].Enabled == 1)
 						{
-							if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->stats.bExpLevel == zEnemyRank[iCounter2].ExpLevel )  
+							if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->statistics().experienceLevel() == zEnemyRank[iCounter2].ExpLevel )
 							{
 								swprintf(NameStr, zEnemyRank[iCounter2].szCurRank);
 
 								SetFontForeground( FONT_YELLOW );
 
 								// need to adjust sYPos because default position already occupied by the name
-								if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->usSoldierProfile || gGameExternalOptions.fEnemyNames )
+								if ( gGameExternalOptions.fSoldierProfiles_Enemy && pSoldier->identity().dataProfile() || gGameExternalOptions.fEnemyNames )
 									FindFontCenterCoordinates( sXPos, (INT16)( sYPos + 10 ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 								// use default position for text
 								else
@@ -2334,7 +2332,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				ShowEnemyHealthBar( sX, sY, pSoldier );				
 			}
 			// Flugente: soldier profiles
-			else if ( pSoldier->bTeam == MILITIA_TEAM && ((gGameExternalOptions.fSoldierProfiles_Militia && pSoldier->usSoldierProfile) || pSoldier->usIndividualMilitiaID) )
+			else if ( pSoldier->roster().team() == MILITIA_TEAM && ((gGameExternalOptions.fSoldierProfiles_Militia && pSoldier->identity().dataProfile()) || pSoldier->identity().individualMilitiaId()) )
 			{
 				// get a proper name							
 				swprintf(NameStr, pSoldier->GetName());
@@ -2345,11 +2343,11 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				gprintfdirty( sX, sY, NameStr );
 				mprintf( sX, sY, NameStr );	
 			}
-			else if (gGameExternalOptions.fCivGroupName == TRUE && pSoldier->ubCivilianGroup > 0 )
+			else if (gGameExternalOptions.fCivGroupName == TRUE && pSoldier->roster().civilianGroup() > 0 )
 			{
-				if (zCivGroupName[pSoldier->ubCivilianGroup].Enabled == 1)
+				if (zCivGroupName[pSoldier->roster().civilianGroup()].Enabled == 1)
 				{	
-					swprintf(NameStr, zCivGroupName[pSoldier->ubCivilianGroup].szCurGroup);
+					swprintf(NameStr, zCivGroupName[pSoldier->roster().civilianGroup()].szCurGroup);
 
 					SetFontForeground( FONT_YELLOW );
 								
@@ -2494,13 +2492,13 @@ BOOLEAN DrawCTHIndicator()
 	// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 	// close range. This experimental formula implements a curve that lowers iBasicAperture the farther the target is away.
 	// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * ( 1 / sqrt( d2DDistance / FLOAT(CELL_X_SIZE) ) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 						+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER );
 
 	// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * (FLOAT)( (100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 
@@ -2515,7 +2513,7 @@ BOOLEAN DrawCTHIndicator()
 		if ( iMaxLaserRange > d2DDistance )
 		{
 			// which bonus do we want to apply?
-			if (pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+			if (pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 				// shooting from hip
 				fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 			else if ( gCTHDisplay.ScopeMagFactor <= 1.0 )
@@ -2551,7 +2549,7 @@ BOOLEAN DrawCTHIndicator()
 	// is a divisor to the sway of the muzzle. It's about the same as multiplying CTH by a certain amount.
 	// Note that both optical magnification devices (like scopes) and dot-projection devices (like lasers and 
 	// reflex sights) provide this sort of bonus.
-	FLOAT iMagFactor = CalcMagFactor(pSoldier, pWeapon, d2DDistance, gCTHDisplay.iTargetGridNo, (UINT8)pSoldier->aiData.bShownAimTime);
+	FLOAT iMagFactor = CalcMagFactor(pSoldier, pWeapon, d2DDistance, gCTHDisplay.iTargetGridNo, (UINT8)pSoldier->aiPlanning().shownAimTime());
 
 	// Get effective mag factor for this shooter. This represents his ability to use scopes.
 	FLOAT fEffectiveMagFactor = CalcEffectiveMagFactor( pSoldier, iMagFactor );
@@ -2887,7 +2885,7 @@ BOOLEAN DrawCTHIndicator()
 				pSoldier->fireControl().autofireShots() = uiCurBullet;
 
 				//Get AP cost to fire this many bullets
-				INT16 sAPCosts = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, TRUE, pSoldier->aiData.bShownAimTime);
+				INT16 sAPCosts = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, TRUE, pSoldier->aiPlanning().shownAimTime());
 
 				// Switch back.
 				pSoldier->fireControl().autofireShots() = TempDoAutofire;
@@ -3127,7 +3125,7 @@ BOOLEAN DrawCTHIndicator()
 				INT16 sOffset = x * ubAimFinalOffset;
 				if (gfDisplayFullCountRing)
 				{
-					if (ubAllowedLevels - abs((ubAllowedLevels-(x+1))) >= pSoldier->aiData.bShownAimTime)
+					if (ubAllowedLevels - abs((ubAllowedLevels-(x+1))) >= pSoldier->aiPlanning().shownAimTime())
 					{
 						// Red empty tick - unusable aim level with current AP!
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 6, sLeft + sOffset, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -3140,7 +3138,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if (pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) && 
+					if (pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) &&
 						ubAllowedLevels - abs((ubAllowedLevels-(x+1))) <= GetNumberAltFireAimLevels( pSoldier, gCTHDisplay.iTargetGridNo ) )
 					{
 						// yellow empty tick
@@ -3155,13 +3153,13 @@ BOOLEAN DrawCTHIndicator()
 			}
 
 			// Draw Filled Ticks
-			if (pSoldier->aiData.bShownAimTime)
+			if (pSoldier->aiPlanning().shownAimTime())
 			{
 				// Tick on the left
-				INT16 sNewLeft = sLeft + (ubAimFinalOffset * (pSoldier->aiData.bShownAimTime-1));
+				INT16 sNewLeft = sLeft + (ubAimFinalOffset * (pSoldier->aiPlanning().shownAimTime()-1));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3172,7 +3170,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3183,10 +3181,10 @@ BOOLEAN DrawCTHIndicator()
 				}
 
 				// Tick on the right
-				sNewLeft = sLeft + (ubAimFinalOffset * (ubNumSpaces-(pSoldier->aiData.bShownAimTime-1)));
+				sNewLeft = sLeft + (ubAimFinalOffset * (ubNumSpaces-(pSoldier->aiPlanning().shownAimTime()-1)));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3197,7 +3195,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3539,7 +3537,7 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 			color8 = COLOR_DKGREY;
 			color16 = Get16BPPColor( FROMRGB( 120, 120, 120 ) );
 		}
-		if ( pSoldier->ubID == gusSelectedSoldier )
+		if ( pSoldier->identity().id() == gusSelectedSoldier )
 		{
 			RectangleDraw( TRUE, sXPos+1, sYPos-1, sXPos+sWidth+3, sYPos+1+interval*3, color16, pDestBuf);
 		}
@@ -3577,7 +3575,7 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 
 	/*
 	// morale
-	dPercentage = (FLOAT)pSoldier->aiData.bMorale / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->morale().morale() / (FLOAT)100;
 	dWidth			=	dPercentage * sWidth;
 	if(gbPixelDepth==16)
 	{
@@ -3713,7 +3711,7 @@ void BlitPopupText( VIDEO_OVERLAY *pBlitter )
 void DirtyMercPanelInterface( SOLDIERTYPE *pSoldier, UINT8 ubDirtyLevel )
 {
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DirtyMercPanelInterface"));
-	if ( pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
 		// ONly set to a higher level!
 		if ( fInterfacePanelDirty < ubDirtyLevel )
@@ -3768,14 +3766,14 @@ BOOLEAN InitDoorOpenMenu( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, UINT8 ub
 	// OK, Determine position...
 	// Center on guy
 	// Locate to guy first.....
-	LocateSoldier( pSoldier->ubID, FALSE );
+	LocateSoldier( pSoldier->identity().id(), FALSE );
 	GetSoldierAnimDims( pSoldier, &sHeight, &sWidth );
 	GetSoldierScreenPos( pSoldier, &sScreenX, &sScreenY );
 	gOpenDoorMenu.sX = sScreenX - ( ( BUTTON_PANEL_WIDTH - sWidth ) / 2 );
 	gOpenDoorMenu.sY = sScreenY - ( ( BUTTON_PANEL_HEIGHT - sHeight ) / 2 );
 
 	// Alrighty, cancel lock UI if we havn't done so already
-	UnSetUIBusy( pSoldier->ubID );
+	UnSetUIBusy( pSoldier->identity().id() );
 
 
 	// OK, CHECK FOR BOUNDARIES!
@@ -4194,7 +4192,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_OPEN_DOOR], APBPConstants[BP_OPEN_DOOR], FALSE ) )
 				{
 				// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 					if ( gOpenDoorMenu.fClosingDoor )
 					{
@@ -4218,7 +4216,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToOpenDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_OPEN_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				if ( gOpenDoorMenu.fClosingDoor )
 				{
@@ -4243,7 +4241,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_BOOT_DOOR], APBPConstants[BP_BOOT_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_FORCE );
 			}
@@ -4260,7 +4258,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_UNLOCK_DOOR], APBPConstants[BP_UNLOCK_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_UNLOCK );
 			}
@@ -4277,7 +4275,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToPicklock( gOpenDoorMenu.pSoldier ), APBPConstants[BP_PICKLOCK], FALSE ) ) // SANDRO
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_LOCKPICK );
 			}
@@ -4294,7 +4292,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_EXAMINE_DOOR], APBPConstants[BP_EXAMINE_DOOR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_EXAMINE );
 			}
@@ -4320,7 +4318,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 				if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_EXPLODE_DOOR], APBPConstants[BP_EXPLODE_DOOR], FALSE ) )
 				{
 					// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 					InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_EXPLODE );
 				}
@@ -4335,7 +4333,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToBombDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_EXPLODE_DOOR], FALSE ) ) // SANDRO
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_EXPLODE );
 			}
@@ -4353,7 +4351,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, GetAPsToUntrapDoor( gOpenDoorMenu.pSoldier ), APBPConstants[BP_UNTRAP_DOOR], FALSE ) ) // SANDRO
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_UNTRAP );
 			}
@@ -4379,7 +4377,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 				if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
 				{
 					// Set UI
-					SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+					SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 					InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_CROWBAR );
 				}
@@ -4394,7 +4392,7 @@ void BtnDoorMenuCallback(GUI_BUTTON *btn,INT32 reason)
 			if ( EnoughPoints(	gOpenDoorMenu.pSoldier, APBPConstants[AP_USE_CROWBAR], APBPConstants[BP_USE_CROWBAR], FALSE ) )
 			{
 				// Set UI
-				SetUIBusy( gOpenDoorMenu.pSoldier->ubID );
+				SetUIBusy( gOpenDoorMenu.pSoldier->identity().id() );
 
 				InteractWithClosedDoor( gOpenDoorMenu.pSoldier, HANDLE_DOOR_CROWBAR );
 			}
@@ -5242,7 +5240,7 @@ void InitPlayerUIBar( BOOLEAN fInterrupt )
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve(cnt.i);
 			// Are we active and in sector.....
-			if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
+			if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 			{
 				if ( pTeamSoldier->vitals().health() < OKLIFE )
 				{
@@ -5304,7 +5302,7 @@ void DoorMenuBackregionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 STR16 GetSoldierHealthString( SOLDIERTYPE *pSoldier )
 {
 	// sevenfm: show enemy health as text only when SHOW_ENEMY_HEALTH = 1
-	if ( ( gGameExternalOptions.ubShowEnemyHealth != 1 ) && (pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == CREATURE_TEAM))
+	if ( ( gGameExternalOptions.ubShowEnemyHealth != 1 ) && (pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == CREATURE_TEAM))
 	{
 		return L"";
 	}
@@ -5880,7 +5878,7 @@ void DrawNCTHCursorItemPics( INT16 sStartScreenX, INT16 sStartScreenY  )
 	
 	if( gGameExternalOptions.ubAdditionalNCTHCursorInfo &&
 		gfUIBodyHitLocation &&
-		pSoldier->ubBodyType <= REGFEMALE &&
+		pSoldier->identity().bodyType() <= REGFEMALE &&
 		_KeyDown( ALT ) &&
 		ShowExactInfo( pSoldier, pTargetSoldier) )
 	{
@@ -6149,7 +6147,7 @@ void ShowEnemyWeapon( INT16 sX, INT16 sY, SOLDIERTYPE* pTargetSoldier )
 		showExactInfo = ShowExactInfo( pSelectedSoldier, pTargetSoldier );
 
 	// show weapon/armour/items info
-	if ( gGameExternalOptions.fShowEnemyWeapon && GetJa2TacticalCurrentTeam() == OUR_TEAM && pTargetSoldier->ubBodyType <= REGFEMALE )
+	if ( gGameExternalOptions.fShowEnemyWeapon && GetJa2TacticalCurrentTeam() == OUR_TEAM && pTargetSoldier->identity().bodyType() <= REGFEMALE )
 	{
 		SetFont( TINYFONT1 );
 		SetFontBackground( FONT_MCOLOR_BLACK );		
@@ -6179,7 +6177,7 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
 	else
 		return;
 	
-	if ( pSelectedSoldier->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
+	if ( pSelectedSoldier->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
 		return;
 
 	// show enemy health bar
@@ -6253,8 +6251,8 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	// draw morale
 	if( ubLines > 3 )
 	{
-		dPercentage = (FLOAT)( pSoldier->aiData.bAIMorale ) / (FLOAT)( MORALE_FEARLESS );
-		//dPercentage = (FLOAT)( pSoldier->aiData.bMorale ) / (FLOAT)( 100 );
+		dPercentage = (FLOAT)( pSoldier->morale().aiMorale() ) / (FLOAT)( MORALE_FEARLESS );
+		//dPercentage = (FLOAT)( pSoldier->morale().morale() ) / (FLOAT)( 100 );
 		dWidth = dPercentage * iBarWidth;
 		dWidth = __min (dWidth, iBarWidth);
 		DrawBar( sX+1, sY + 1 + 3*(sHeight+1), (INT32)dWidth, sHeight, COLOR_GREEN, Get16BPPColor( FROMRGB( 0, 140, 0 ) ), pDestBuf );
@@ -6276,7 +6274,7 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 {
 	// this only works on enemy soldiers
-	if ( pSoldier->bTeam != ENEMY_TEAM && pSoldier->bTeam != CIV_TEAM )
+	if ( pSoldier->roster().team() != ENEMY_TEAM && pSoldier->roster().team() != CIV_TEAM )
 		return false;
 	
 	INT16 sXPos = 0;
@@ -6459,7 +6457,7 @@ void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon )
 					sModifiedReloadAP = (INT16)(sModifiedReloadAP * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( pSoldier, RANGER_NT )) / 100.0f + 0.5f);
 			}
 		}
-		INT16 sPointsToShoot = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, 0, pSoldier->aiData.bShownAimTime ) + sModifiedReloadAP;
+		INT16 sPointsToShoot = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, 0, pSoldier->aiPlanning().shownAimTime() ) + sModifiedReloadAP;
 
 		// we can shoot twice
 		if( sRemainingAP >= sPointsToShoot )
@@ -6582,13 +6580,13 @@ void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY )
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		if( ubAllowedLevels == 0 )
 			SetFontForeground( FONT_MCOLOR_LTGRAY );
-		else if ( pSoldier->aiData.bShownAimTime == ubAllowedLevels )		
+		else if ( pSoldier->aiPlanning().shownAimTime() == ubAllowedLevels )
 			SetFontForeground( FONT_MCOLOR_LTYELLOW );
 		else
 			SetFontForeground( FONT_MCOLOR_LTGRAY );
 
 		if( ubAllowedLevels > 0 )
-			swprintf( pStr, L"%d/%d", pSoldier->aiData.bShownAimTime, ubAllowedLevels );
+			swprintf( pStr, L"%d/%d", pSoldier->aiPlanning().shownAimTime(), ubAllowedLevels );
 		else
 			swprintf( pStr, L"-/-" );
 		FindFontCenterCoordinates( (INT16)AimRect.left, (INT16)AimRect.top, (INT16)AimRect.right-(INT16)AimRect.left, 10, pStr, TINYFONT1, &curX, &curY);

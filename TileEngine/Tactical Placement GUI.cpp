@@ -55,7 +55,7 @@ typedef struct MERCPLACEMENT
 
 		const TacticalEntityId actor =
 			GetJa2TacticalEntityId(
-				static_cast<UINT16>(pSoldier->ubID));
+				static_cast<UINT16>(pSoldier->identity().id()));
 		if (!actor.valid() ||
 			ResolveJa2TacticalEntity(actor) != pSoldier)
 			return false;
@@ -728,9 +728,9 @@ void InitTacticalPlacementGUI()
 	{
 		SOLDIERTYPE *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
-		if( pSoldier && pSoldier->bActive && !pSoldier->flags.fBetweenSectors &&
+		if( pSoldier && pSoldier->roster().active() && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
-				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
+				!( pSoldier->status().flags() & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
 				pSoldier->assignment().current() != ASSIGNMENT_POW &&
 				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
 				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
@@ -749,19 +749,19 @@ void InitTacticalPlacementGUI()
 	{
 		SOLDIERTYPE *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
-		if( pSoldier && pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
+		if( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
 				pSoldier->assignment().current() != ASSIGNMENT_POW &&
 				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
 				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 				!( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) &&
 				pSoldier->assignment().current() != IN_TRANSIT &&
-				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
+				!( pSoldier->status().flags() & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
 		{
 			// Flugente: if options allow it and we entered this sector - in combat - via helicopter, then allow us free selection of our entry point, and drop us from the helicopter
-			if ( pSoldier->bTeam == gbPlayerNum && (gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3) && pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
+			if ( pSoldier->roster().team() == gbPlayerNum && (gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3) && pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
 			{
-				AddMercToHeli( pSoldier->ubID );
+				AddMercToHeli( pSoldier->identity().id() );
 				DisableButton(iTPButtons[SPREAD_BUTTON]);
 
 				gMercPlacement[ giPlacements ].ubStrategicInsertionCode = INSERTION_CODE_CHOPPER;
@@ -782,7 +782,7 @@ void InitTacticalPlacementGUI()
 				pSoldier->deployment().strategicInsertionCode() = GetValidInsertionDirectionForMP(pSoldier->deployment().strategicInsertionCode());
 			}
 			// ATE: If we are in a vehicle - remove ourselves from it!
-			//if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			//if ( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			//{
 			//	RemoveSoldierFromVehicle( pSoldier, pSoldier->bVehicleID );
 			//}
@@ -837,13 +837,13 @@ void InitTacticalPlacementGUI()
 
 		//Load the faces
 		{
-			ubFaceIndex = gMercProfiles[ gMercPlacement[ i ].soldier()->ubProfile ].ubFaceIndex;
+			ubFaceIndex = gMercProfiles[ gMercPlacement[ i ].soldier()->identity().profile() ].ubFaceIndex;
 			
-		if ( ( ubFaceIndex < 100 ) && gMercProfiles[gMercPlacement[i].soldier()->ubProfile].Type == PROFILETYPE_IMP )
+		if ( ( ubFaceIndex < 100 ) && gMercProfiles[gMercPlacement[i].soldier()->identity().profile()].Type == PROFILETYPE_IMP )
 		{
 			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", ubFaceIndex );
 		} 
-		else if ( ( ubFaceIndex > 99 ) && gMercProfiles[gMercPlacement[i].soldier()->ubProfile].Type == PROFILETYPE_IMP )
+		else if ( ( ubFaceIndex > 99 ) && gMercProfiles[gMercPlacement[i].soldier()->identity().profile()].Type == PROFILETYPE_IMP )
 		{
 			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%03d.sti", ubFaceIndex );
 		}
@@ -862,7 +862,7 @@ void InitTacticalPlacementGUI()
 			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\speck.sti" );
 			if( !AddVideoObject( &VObjectDesc, &gMercPlacement[ i ].uiVObjectID ) )
 			{
-				AssertMsg( 0, String("Failed to load %Faces\\65Face\\%03d.sti or it's placeholder, speck.sti", gMercProfiles[ gMercPlacement[ i ].soldier()->ubProfile ].ubFaceIndex) );
+				AssertMsg( 0, String("Failed to load %Faces\\65Face\\%03d.sti or it's placeholder, speck.sti", gMercProfiles[ gMercPlacement[ i ].soldier()->identity().profile() ].ubFaceIndex) );
 			}
 		}
 
@@ -1146,7 +1146,7 @@ void RenderTacticalPlacementGUI()
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+40, iStartY, xp+41, yp+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
 			//MORALE BAR
-			iStartY = yp + 29 - 27*pSoldier->aiData.bMorale/100;
+			iStartY = yp + 29 - 27*pSoldier->morale().morale()/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+42, iStartY, xp+43, yp+29, Get16BPPColor( FROMRGB( 8, 156, 8 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+43, iStartY, xp+44, yp+29, Get16BPPColor( FROMRGB( 8, 107, 8 ) ) );
 		}
@@ -1543,11 +1543,11 @@ void RenderTacticalPlacementGUI()
 			InvalidateRegion( xp + 16, yp + 14, xp + 24, yp + 22 );
 		}
 		SetFont( BLOCKFONT );
-		width = StringPixLength( pSoldier->name, BLOCKFONT );
+		width = StringPixLength( pSoldier->identity().name(), BLOCKFONT );
 		height = GetFontHeight( BLOCKFONT );
 		xp = xp + ( 48 - width ) / 2;
 		yp = yp + 33;
-		mprintf( xp, yp, pSoldier->name );
+		mprintf( xp, yp, pSoldier->identity().name() );
 		InvalidateRegion( xp, yp, xp + width, yp + width );
 	}
 }
@@ -1884,7 +1884,7 @@ static void ChooseRandomEdgepoints()
 	UINT8	lastValidICode = INSERTION_CODE_GRIDNO;
 	for( i = 0; i < giPlacements; i++ )
 	{
-		if ( !( gMercPlacement[ i ].soldier()->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( !( gMercPlacement[ i ].soldier()->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
 			{
@@ -2326,7 +2326,7 @@ void PutDownMercPiece( INT32 iPlacement )
 		pSoldier->deployment().insertionDirection() = ubDirection;
 
 		gMercPlacement[ iPlacement ].fPlaced = TRUE;
-		pSoldier->bInSector = TRUE;
+		pSoldier->roster().inSector() = TRUE;
 //hayden
 		if(is_client)send_gui_pos(pSoldier, scX, scY);
 		if(is_client)send_gui_dir(pSoldier, ubDirection);
@@ -2345,7 +2345,7 @@ void PickUpMercPiece( INT32 iPlacement )
 
 	pSoldier->RemoveSoldierFromGridNo( );
 	gMercPlacement[ iPlacement ].fPlaced = FALSE;
-	pSoldier->bInSector = FALSE;
+	pSoldier->roster().inSector() = FALSE;
 }
 
 void FastHelpRemovedCallback()

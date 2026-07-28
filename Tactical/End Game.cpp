@@ -209,7 +209,7 @@ void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLev
 	if ( pKillerSoldier )
 	{
 		TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLING_DEIDRANNA );
-		ubKillerSoldierID = pKillerSoldier->ubID;
+		ubKillerSoldierID = pKillerSoldier->identity().id();
 	}
 
 	// STEP 1 ) START ALL QUOTES GOING!
@@ -223,9 +223,9 @@ void HandleDeidrannaDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLev
 
 		if ( cnt != ubKillerSoldierID )
 		{
-			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
+			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
 			{
-				if ( QuoteExp[ pTeamSoldier->ubProfile ].QuoteExpWitnessDeidrannaDeath )
+				if ( QuoteExp[ pTeamSoldier->identity().profile() ].QuoteExpWitnessDeidrannaDeath )
 				{
 					if ( SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
 					{
@@ -260,7 +260,7 @@ static void DoneFadeInKilledQueen( void )
 
 	// Converse!
 	//InitiateConversation( pNPCSoldier, pSoldier, 0, 1 );
-	TriggerNPCRecordImmediately( pNPCSoldier->ubProfile, 6 );
+	TriggerNPCRecordImmediately( pNPCSoldier->identity().profile(), 6 );
 
 }
 
@@ -277,7 +277,7 @@ static void DoneFadeOutKilledQueen( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() && pSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			gfTacticalTraversal = TRUE;
 			SetGroupSectorValue( VICTORY_X, VICTORY_Y, 0, pSoldier->deployment().groupId() );
@@ -303,12 +303,12 @@ static void DoneFadeOutKilledQueen( void )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we active and in sector.....
-		if ( pTeamSoldier->bActive	)
+		if ( pTeamSoldier->roster().active()	)
 		{
 			// For sure for flag thet they are dead is not set
 			// Check for any more badguys
 			// ON THE STRAGETY LAYER KILL BAD GUYS!
-			if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
+			if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->roster().side() != gbPlayerNum ) )
 			{
 				ProcessQueenCmdImplicationsOfDeath( pTeamSoldier );
 			}
@@ -391,7 +391,7 @@ void EndQueenDeathEndgameBeginEndCimenatic( )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_END_GAME_COMMENT );
 		}
@@ -477,7 +477,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	{
 		pSoldier = soldiers.resolve(cnt);
 		// Are we in this sector, On the current squad?
-		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && IsSoldierQualifiedMerc( pSoldier ) )
+		if( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && IsSoldierQualifiedMerc( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_RENEWING_CAUSE_BUDDY_2_ON_TEAM );	
 		}
@@ -491,7 +491,7 @@ void EndGameEveryoneSayTheirGoodByQuotes( void )
 	{
 		pSoldier = soldiers.resolve(cnt);
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) )
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_END_GAME_COMMENT );	
 		}
@@ -687,14 +687,14 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// Are we active and ALIVE and in sector.....
-		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() > 0 )
 		{
 			// For sure for flag thet they are dead is not set
 			// Check for any more badguys
 			// ON THE STRAGETY LAYER KILL BAD GUYS!
 
 			// HELLO!	THESE ARE CREATURES!	THEY CAN'T BE NEUTRAL!
-			//if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
+			//if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->roster().side() != gbPlayerNum ) )
 			{
 //	 		GetJa2PendingTacticalCombatActions()++;
 				DebugAttackBusy( "Killing off a queen ally.\n");
@@ -717,7 +717,7 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 	if ( pKillerSoldier )
 	{
 		TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLING_QUEEN );
-		ubKillerSoldierID = pKillerSoldier->ubID;
+		ubKillerSoldierID = pKillerSoldier->identity().id();
 	}
 
 	// STEP 1 ) START ALL QUOTES GOING!
@@ -731,9 +731,9 @@ void HandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT8 bLe
 		{
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve(cnt.i);
-			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
+			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
 			{
-				if ( QuoteExp[ pTeamSoldier->ubProfile ].QuoteExpWitnessQueenBugDeath )
+				if ( QuoteExp[ pTeamSoldier->identity().profile() ].QuoteExpWitnessQueenBugDeath )
 				{
 					if ( SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
 					{
@@ -777,7 +777,7 @@ void DoneFadeOutJa25EndCinematic( void )
 	{
 		pSoldier = soldiers.resolve(cnt);
 		// if the soldier was in the complex
-		if( pSoldier->bActive && 
+		if( pSoldier->roster().active() &&
 				pSoldier->deployment().sectorX() == 15 && ( pSoldier->deployment().sectorY() == 11 || pSoldier->deployment().sectorY() == 12 ) )
 		{
 			if ( GetGroup( pSoldier->deployment().groupId() ) )

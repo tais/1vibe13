@@ -2590,7 +2590,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	BOOLEAN								fReturn;
 
 	// Turn off multi tile flag...
-	pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_MULTITILE );
+	pSoldier->status().flags() &= ( ~SOLDIER_MULTITILE );
 
 	if ( pSoldier->pLevelNode == NULL )
 	{
@@ -2606,12 +2606,12 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
 	pSoldier->pLevelNode->pStructureData = NULL;
 
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 	// Now check if we are multi-tiled!
 	if ( pStructureFileRef != NULL )
 	{
-		if ( pSoldier->ubBodyType == QUEENMONSTER )
+		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 		{
 			// Queen uses onely one direction....
 			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->pLevelNode );
@@ -2624,9 +2624,9 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		if ( fReturn == FALSE )
 		{
 			// try to add default
-			ScreenMsg( MSG_FONT_YELLOW, MSG_DEBUG, L"FAILED: add struct info for merc: %d, at %d direction %d, trying default instead", pSoldier->ubID, sGridNo, pSoldier->ubDirection );
+			ScreenMsg( MSG_FONT_YELLOW, MSG_DEBUG, L"FAILED: add struct info for merc: %d, at %d direction %d, trying default instead", pSoldier->identity().id(), sGridNo, pSoldier->ubDirection );
 
-			pStructureFileRef = GetDefaultStructureRef( pSoldier->ubID );
+			pStructureFileRef = GetDefaultStructureRef( pSoldier->identity().id() );
 			if ( pStructureFileRef )
 			{
 				fReturn = AddStructureToWorld( sGridNo, pSoldier->bLevel, &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ] ), pSoldier->pLevelNode );
@@ -2638,7 +2638,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		{
 
 			// Debug msg
-			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->ubID, pSoldier->name, sGridNo, pSoldier->position().direction() );
+			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->identity().id(), pSoldier->identity().name(), sGridNo, pSoldier->position().direction() );
 
 			// pDBStructure can be NULL here (and ubDirection may index a direction the
 			// structure file has no variant for) -- this failure path crashed when a
@@ -2648,7 +2648,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
-				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;
+				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;
 			}
 
 
@@ -2660,11 +2660,11 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 			if ( pSoldier->pLevelNode->pStructureData->pDBStructureRef->pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
-				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;
+				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;
 			}
 			else
 			{
-				//pSoldier->uiStatusFlags |= SOLDIER_MULTITILE_NZ;
+				//pSoldier->status().flags() |= SOLDIER_MULTITILE_NZ;
 			}
 		}
 	}
@@ -2681,7 +2681,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	// 0verhaul:  Reinserting this check.  If a soldier is sitting or standing on a grid and another soldier is lying prone
 	// across that grid but has the structure, this call will not allow the current soldier to turn.  Since we are talking
 	// about the soldier whose turn it is, this is not a good thing because it will lead to deadlock.
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ||
+	if ( pSoldier->status().flags() & SOLDIER_MULTITILE ||
 		pSoldier->animationPlayback().state() == CRAWLING)
 	{
 		// Get surface data
@@ -2691,7 +2691,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 			return( FALSE );
 		}
 
-		pStructFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->animationPlayback().state() );
+		pStructFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, pSoldier->animationPlayback().state() );
 
 		// Now check if we have multi-tile info!
 		if ( pStructFileRef != NULL )

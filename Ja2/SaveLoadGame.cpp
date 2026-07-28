@@ -1538,116 +1538,164 @@ BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 // its public UINT16 member `.i`.
 template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_AIData& a = soldier.aiData;
+	SoldierAiPlanningComponent& planning = soldier.aiPlanning();
+	SoldierAiBehaviorComponent& behavior = soldier.aiBehavior();
+	SoldierAiCommunicationComponent& communication = soldier.aiCommunication();
+	SoldierMoraleComponent& morale = soldier.morale();
+	SoldierAwarenessComponent& awareness = soldier.awareness();
+	SoldierPerceptionComponent& perception = soldier.perception();
+	SoldierPositionComponent& position = soldier.position();
+	SoldierTurnStateComponent& turnState = soldier.turnState();
+	SoldierCombatResultComponent& combatResult = soldier.combatResult();
 	SoldierPendingActionComponent& pendingAction = soldier.pendingAction();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
 	int i;
-	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.i8(a.bOppList[i]);
-	ar.i8(a.bLastAction); ar.i8(a.bAction); ar.i32(a.usActionData);
-	ar.i8(a.bNextAction); ar.i32(a.usNextActionData);
-	ar.i8(a.bActionInProgress); ar.i8(a.bAlertStatus); ar.i8(a.bOppCnt); ar.i8(a.bNeutral);
-	ar.i8(a.bNewSituation); ar.i8(a.bNextTargetLevel); ar.i8(a.bOrders); ar.i8(a.bAttitude);
-	ar.i8(suppression.underFire()); ar.i8(suppression.shock()); ar.i8(a.bUnderEscort); ar.i8(a.bBypassToGreen);
-	ar.u8(a.ubLastMercToRadio);
-	ar.i8(a.bDominantDir); ar.i8(a.bPatrolCnt); ar.i8(a.bNextPatrolPnt);
-	for (i = 0; i < MAXPATROLGRIDS; ++i) ar.i32(a.sPatrolGrid[i]);
-	ar.i32(a.sNoiseGridno); ar.u8(a.ubNoiseVolume); ar.i8(a.bLastAttackHit); ar.u16(a.ubXRayedBy);
-	ar.f32(a.dHeightAdjustment);
-	ar.i8(a.bMorale); ar.i8(a.bTeamMoraleMod); ar.i8(a.bTacticalMoraleMod);
-	ar.i8(a.bStrategicMoraleMod); ar.i8(a.bAIMorale);
+	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.i8(awareness.opponentKnowledge()[i]);
+	ar.i8(planning.lastAction()); ar.i8(planning.action()); ar.i32(planning.actionData());
+	ar.i8(planning.nextAction()); ar.i32(planning.nextActionData());
+	ar.i8(planning.actionInProgress()); ar.i8(behavior.alertStatus()); ar.i8(awareness.opponentCount()); ar.i8(behavior.neutral());
+	ar.i8(behavior.newSituation()); ar.i8(planning.nextTargetLevel()); ar.i8(behavior.orders()); ar.i8(behavior.attitude());
+	ar.i8(suppression.underFire()); ar.i8(suppression.shock()); ar.i8(behavior.underEscort()); ar.i8(behavior.bypassToGreen());
+	ar.u8(communication.lastMercToRadio());
+	ar.i8(planning.dominantDirection()); ar.i8(planning.patrolCount()); ar.i8(planning.nextPatrolPoint());
+	for (i = 0; i < MAXPATROLGRIDS; ++i) ar.i32(planning.patrolGrid()[i]);
+	ar.i32(perception.noiseGrid()); ar.u8(perception.noiseVolume()); ar.i8(combatResult.lastAttackHit()); ar.u16(perception.xraySource().i);
+	ar.f32(position.animationHeightAdjustment());
+	ar.i8(morale.morale()); ar.i8(morale.teamModifier()); ar.i8(morale.tacticalModifier());
+	ar.i8(morale.strategicModifier()); ar.i8(morale.aiMorale());
 	ar.u8(pendingAction.action()); ar.u8(pendingAction.animationCount());
 	ar.u32(pendingAction.primaryData()); ar.i32(pendingAction.secondaryData()); ar.i8(pendingAction.tertiaryData());
 	ar.i8(pendingAction.doorHandleCode()); ar.u32(pendingAction.quaternaryData());
-	ar.i8(a.bInterruptDuelPts); ar.i8(a.bPassedLastInterrupt); ar.i16(a.bIntStartAPs);
-	ar.i8(a.bMoved); ar.i8(a.bHunting); ar.u8(a.ubLastCall);
-	ar.u16(a.ubCaller.i); ar.i32(a.sCallerGridNo); ar.u8(a.bCallPriority); ar.i8(a.bCallActedUpon);
-	ar.i8(a.bFrenzied); ar.i8(a.bNormalSmell); ar.i8(a.bMonsterSmell); ar.i8(a.bMobility);
-	ar.i8(a.bRTPCombat); ar.i8(a.fAIFlags); ar.i16(a.bAimTime); ar.i8(a.bShownAimTime);
-	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.u8(a.ubInterruptCounter[i]);
+	ar.i8(turnState.interruptDuelPoints()); ar.i8(turnState.passedLastInterrupt()); ar.i16(turnState.interruptStartActionPoints());
+	ar.i8(turnState.moved()); ar.i8(behavior.hunting()); ar.u8(communication.lastCall());
+	ar.u16(communication.caller().i); ar.i32(communication.callerGrid()); ar.u8(communication.callPriority()); ar.i8(communication.callActedUpon());
+	ar.i8(morale.frenzied()); ar.i8(perception.normalSmell()); ar.i8(perception.monsterSmell()); ar.i8(behavior.mobility());
+	ar.i8(behavior.realtimeCombat()); ar.i8(behavior.flags()); ar.i16(planning.aimTime()); ar.i8(planning.shownAimTime());
+	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.u8(turnState.interruptCounters()[i]);
 }
 
 template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_Flags& f = soldier.flags;
 	SoldierCollapseComponent& collapseState = soldier.collapseState();
+	SoldierDeploymentComponent& deployment = soldier.deployment();
+	SoldierDialogueComponent& dialogue = soldier.dialogue();
+	SoldierEmploymentComponent& employment = soldier.employment();
+	SoldierAssignmentComponent& assignment = soldier.assignment();
+	SoldierInventoryStateComponent& inventoryState = soldier.inventoryState();
+	SoldierStatusComponent& status = soldier.status();
 	SoldierMovementComponent& movement = soldier.movement();
+	SoldierReplicationComponent& replication = soldier.replication();
+	SoldierAiPlanningComponent& aiPlanning = soldier.aiPlanning();
+	SoldierConditionComponent& condition = soldier.condition();
+	SoldierTargetingComponent& targeting = soldier.targeting();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
 	SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
 	SoldierRenderStateComponent& renderState = soldier.renderState();
+	SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
-	ar.i8(f.bHasKeys);
-	ar.u8(movement.delayCounter()); ar.boolean(f.fTurnInProgress); ar.u8(renderState.fadeMode());
+	ar.i8(inventoryState.keyAccess());
+	ar.u8(movement.delayCounter()); ar.boolean(movement.turnInProgress()); ar.u8(renderState.fadeMode());
 	ar.i8(animationActivity.turningFromProneMode());
-	ar.boolean(animationActivity.readyCostWaived()); ar.boolean(f.fPrevInWater);
+	ar.boolean(animationActivity.readyCostWaived()); ar.boolean(movement.previousInWater());
 	ar.i8(animationActivity.postHitStance());
 	ar.boolean(renderState.forceRenderColor()); ar.boolean(renderState.forceNoPaletteCycle());
-	ar.boolean(animationIntent.stopPendingNextTile()); ar.boolean(f.fUIMovementFast); ar.boolean(renderState.forceShade());
-	ar.boolean(f.fDeadSoundPlayed); ar.boolean(f.fClosePanel); ar.boolean(f.fClosePanelToDie);
-	ar.boolean(f.fDeadPanel); ar.boolean(f.fOpenPanel); ar.boolean(f.fIntendedTarget);
+	ar.boolean(animationIntent.stopPendingNextTile()); ar.boolean(movement.uiMovementFast()); ar.boolean(renderState.forceShade());
+	ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());
+	ar.boolean(uiPresentation.deadPanelActive()); ar.boolean(uiPresentation.panelOpenRequested()); ar.boolean(targeting.intendedTarget());
 	ar.boolean(animationActivity.paused()); ar.u8(animationIntent.continuationMode());
-	ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(f.fWarnedAboutBleeding); ar.boolean(f.fDyingComment);
+	ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(dialogue.bleedingWarningSpokenState()); ar.boolean(dialogue.dyingCommentSpokenState());
 	ar.boolean(animationActivity.turningToShoot()); ar.boolean(animationActivity.turningToFall()); ar.boolean(animationActivity.turningUntilDone());
-	ar.u8(animationActivity.hitPhase()); ar.boolean(animationActivity.nonInterruptible()); ar.boolean(f.fFlashLocator);
-	ar.boolean(f.fShowLocator); ar.boolean(f.fFlashPortrait); ar.boolean(f.fNoAPToFinishMove);
-	ar.boolean(f.fPausedMove); ar.boolean(f.fUIdeadMerc); ar.boolean(f.fUInewMerc);
-	ar.boolean(f.fUICloseMerc); ar.boolean(f.fUIFirstTimeNOAP); ar.boolean(f.fUIFirstTimeUNCON);
-	ar.boolean(f.fReloading); ar.boolean(f.fPauseAim); ar.boolean(f.fInMissionExitNode);
-	ar.boolean(f.fBetweenSectors); ar.boolean(f.fReactingFromBeingShot);
-	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(movement.blockedByAnotherMerc());
-	ar.boolean(f.fContractPriceHasIncreased); ar.boolean(f.fFixingSAMSite); ar.boolean(f.fFixingRobot);
-	ar.boolean(f.fSignedAnotherContract); ar.boolean(animationActivity.turningCostWaived());
-	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(f.fForcedToStayAwake); ar.boolean(fireControl.spreadIndex());
-	ar.boolean(f.fIsSoldierMoving); ar.boolean(f.fIsSoldierDelayed); ar.boolean(f.fSoldierUpdatedFromNetwork);
-	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());
-	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
-	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(f.fSoldierWasMoving);
-	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
-	ar.boolean(f.fDieSoundUsed); ar.boolean(f.fUseLandingZoneForArrival); ar.boolean(f.fComplainedThatTired);
+	ar.u8(animationActivity.hitPhase()); ar.boolean(animationActivity.nonInterruptible()); ar.boolean(uiPresentation.locatorFlashCycle());
+	ar.boolean(uiPresentation.locatorVisibleState()); ar.boolean(uiPresentation.portraitFlashPhase()); ar.boolean(movement.noActionPointsToFinish());
+	ar.boolean(movement.paused()); ar.boolean(uiPresentation.deadMercUiPendingState()); ar.boolean(uiPresentation.newMercUiPendingState());
+	ar.boolean(uiPresentation.closeMercUiPendingState()); ar.boolean(uiPresentation.firstNoActionPointsState()); ar.boolean(uiPresentation.firstUnconsciousState());
+	ar.boolean(fireControl.reloading()); ar.boolean(fireControl.aimPaused()); ar.boolean(deployment.inMissionExitNode());
+	ar.boolean(deployment.betweenSectors()); ar.boolean(animationActivity.reactingFromShot());
+	ar.boolean(inventoryState.checkForNewItems()); ar.boolean(movement.blockedByAnotherMerc());
+	ar.boolean(employment.contractPriceIncreasedState()); ar.boolean(assignment.fixingSamSiteState()); ar.boolean(assignment.fixingRobotState());
+	ar.boolean(employment.signedAnotherContractState()); ar.boolean(animationActivity.turningCostWaived());
+	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(assignment.forcedAwakeState()); ar.boolean(fireControl.spreadIndex());
+	ar.boolean(movement.movementClockActive()); ar.boolean(movement.networkDelayed()); ar.boolean(replication.updatedFromNetwork());
+	ar.boolean(dialogue.ammoQuotePendingState()); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());
+	ar.boolean(assignment.assignmentCompleteAndIdleState()); ar.boolean(assignment.asleepState());
+	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(movement.wasMoving());
+	ar.boolean(targeting.retainLastTargetFromTurn()); ar.boolean(movement.usesMoveSpeedOverride());
+	ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(assignment.tiredComplaintState());
 	ar.boolean(animationActivity.realtimeNonInterruptible());
-	ar.u8(f.fHitByGasFlags);
-	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(f.fPastXDest); ar.i8(f.fPastYDest);
-	ar.boolean(animationActivity.fallClockwise()); ar.boolean(f.fDoingExternalDeath);
-	ar.boolean(fireControl.autofireLastStep()); ar.boolean(f.lastFlankLeft);
-	ar.u32(f.uiStatusFlags);
-	ar.boolean(f.ZipperFlag); ar.boolean(f.DropPackFlag);
+	ar.u8(condition.gasHitFlags());
+	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(movement.pastXDestination()); ar.i8(movement.pastYDestination());
+	ar.boolean(animationActivity.fallClockwise()); ar.boolean(animationActivity.externalDeath());
+	ar.boolean(fireControl.autofireLastStep()); ar.boolean(aiPlanning.lastFlankLeft());
+	ar.u32(status.flags());
+	ar.boolean(inventoryState.zipperFlag()); ar.boolean(inventoryState.dropPackFlag());
 }
 
-template<class Ar> static void XferTimeChanges( Ar& ar, STRUCT_TimeChanges& t )
+template<class Ar> static void XferStatProgress( Ar& ar, SoldierStatProgressComponent& progress )
 {
-	ar.u32(t.uiChangeLevelTime); ar.u32(t.uiChangeHealthTime); ar.u32(t.uiChangeStrengthTime);
-	ar.u32(t.uiChangeDexterityTime); ar.u32(t.uiChangeAgilityTime); ar.u32(t.uiChangeWisdomTime);
-	ar.u32(t.uiChangeLeadershipTime); ar.u32(t.uiChangeMarksmanshipTime); ar.u32(t.uiChangeExplosivesTime);
-	ar.u32(t.uiChangeMedicalTime); ar.u32(t.uiChangeMechanicalTime);
+	using Stat = SoldierStatProgressComponent::Stat;
+	ar.u32(progress.changedAt(Stat::Level)); ar.u32(progress.changedAt(Stat::Health)); ar.u32(progress.changedAt(Stat::Strength));
+	ar.u32(progress.changedAt(Stat::Dexterity)); ar.u32(progress.changedAt(Stat::Agility)); ar.u32(progress.changedAt(Stat::Wisdom));
+	ar.u32(progress.changedAt(Stat::Leadership)); ar.u32(progress.changedAt(Stat::Marksmanship)); ar.u32(progress.changedAt(Stat::Explosives));
+	ar.u32(progress.changedAt(Stat::Medical)); ar.u32(progress.changedAt(Stat::Mechanical));
 }
 
-template<class Ar> static void XferTimeCounters( Ar& ar, STRUCT_TimeCounters& t )
+template<class Ar> static void XferTiming( Ar& ar, SoldierTimingComponent& timing )
 {
-	ar.i32(t.UpdateCounter); ar.i32(t.DamageCounter); ar.i32(t.ReloadCounter); ar.i32(t.FlashSelCounter);
-	ar.i32(t.AICounter); ar.i32(t.FadeCounter); ar.i32(t.PanelAnimateCounter); ar.i32(t.BlinkSelCounter);
-	ar.i32(t.PortraitFlashCounter); ar.i32(t.NextTileCounter);
+	using Timer = SoldierTimingComponent::Timer;
+	ar.i32(timing.counter(Timer::AnimationUpdate)); ar.i32(timing.counter(Timer::DamageDisplay));
+	ar.i32(timing.counter(Timer::Reload)); ar.i32(timing.counter(Timer::LocatorFlash));
+	ar.i32(timing.counter(Timer::Ai)); ar.i32(timing.counter(Timer::Fade));
+	ar.i32(timing.counter(Timer::PanelAnimation)); ar.i32(timing.counter(Timer::LocatorBlink));
+	ar.i32(timing.counter(Timer::PortraitFlash)); ar.i32(timing.counter(Timer::NextTile));
 }
 
-template<class Ar> static void XferDrugs( Ar& ar, DRUGS& d )
+template<class Ar> static void XferDrugState(
+	Ar& ar, SoldierDrugStateComponent& drugState)
 {
-	int i;
-	for (i = 0; i < DRUG_EFFECT_MAX; ++i) ar.u16(d.duration[i]);
-	for (i = 0; i < DRUG_EFFECT_MAX; ++i) ar.i16(d.size[i]);
-	ar.u8(d.drugpersonality); ar.u16(d.drugpersonality_duration);
-	ar.u8(d.drugdisability); ar.u16(d.drugdisability_duration);
-	ar.f32(d.drinkstaken);
+	for (UINT8 effect = 0;
+	     effect < SoldierDrugStateComponent::EffectCapacity;
+	     ++effect)
+	{
+		ar.u16(drugState.duration(effect));
+	}
+	for (UINT8 effect = 0;
+	     effect < SoldierDrugStateComponent::EffectCapacity;
+	     ++effect)
+	{
+		ar.i16(drugState.magnitude(effect));
+	}
+	ar.u8(drugState.temporaryPersonality());
+	ar.u16(drugState.temporaryPersonalityDuration());
+	ar.u8(drugState.temporaryDisability());
+	ar.u16(drugState.temporaryDisabilityDuration());
+	ar.f32(drugState.alcoholLevel());
 }
 
 template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_Statistics& s = soldier.stats;
+	SoldierStatisticsComponent& statistics = soldier.statistics();
 	SoldierVitalsComponent& vitals = soldier.vitals();
-	int i;
-	ar.i8(s.bExpLevel); ar.i8(vitals.health()); ar.i8(vitals.maximumHealth()); ar.i8(s.bStrength); ar.i8(s.bAgility);
-	ar.i8(s.bDexterity); ar.i8(s.bWisdom); ar.i8(s.bLeadership); ar.i8(s.bMarksmanship);
-	ar.i8(s.bMechanical); ar.i8(s.bExplosive); ar.i8(s.bMedical); ar.i8(s.bScientific);
-	for (i = 0; i < 30; ++i) ar.u8(s.ubSkillTraits[i]);
+	ar.i8(statistics.experienceLevel());
+	ar.i8(vitals.health());
+	ar.i8(vitals.maximumHealth());
+	ar.i8(statistics.strength());
+	ar.i8(statistics.agility());
+	ar.i8(statistics.dexterity());
+	ar.i8(statistics.wisdom());
+	ar.i8(statistics.leadership());
+	ar.i8(statistics.marksmanship());
+	ar.i8(statistics.mechanical());
+	ar.i8(statistics.explosives());
+	ar.i8(statistics.medical());
+	ar.i8(statistics.scientific());
+	for (UINT8 trait = 0;
+	     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+	     ++trait)
+	{
+		ar.u8(statistics.skillTrait(trait));
+	}
 }
 
 template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
@@ -1675,6 +1723,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAiPlanningComponent& aiPlanning = s.aiPlanning();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
+	SoldierStatProgressComponent& statProgress = s.statProgress();
+	SoldierTimingComponent& timing = s.timing();
 	SoldierLongActionComponent& longAction = s.longAction();
 	SoldierInteractionComponent& interaction = s.interaction();
 	SoldierPendingActionComponent& pendingAction = s.pendingAction();
@@ -1690,7 +1740,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierPositionComponent& position = s.position();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
 	SoldierMovementComponent& movement = s.movement();
-	SoldierInterruptSnapshotComponent& interruptSnapshot = s.interruptSnapshot();
+	SoldierTurnStateComponent& turnState = s.turnState();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierMeleeApproachComponent& meleeApproach = s.meleeApproach();
@@ -1701,15 +1751,15 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	SoldierRenderStateComponent& renderState = s.renderState();
 	SoldierUiPresentationComponent& uiPresentation = s.uiPresentation();
-	ar.u16(s.ubID.i);
-	ar.wstr(s.name, 10);
-	ar.u8(s.ubBodyType);
+	ar.u16(s.identity().id().i);
+	ar.wstr(s.identity().name(), 10);
+	ar.u8(s.identity().bodyType());
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
-	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);
+	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
-	ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
+	ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(movement.stealthMode()); ar.i16(vitals.breathReduction());
-	ar.u8(s.ubWaitActionToDo); ar.i8(deployment.insertionDirection()); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
+	ar.u8(movement.waitAction()); ar.i8(deployment.insertionDirection()); ar.i8(fireControl.gunType()); ar.u16(targeting.engagedOpponent().i);
 	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(movementMetrics.carriedWeightAtTurnStart());
 	ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);
@@ -1720,13 +1770,13 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(position.terrainType()); ar.i8(position.previousTerrainType()); ar.i8(collapseState.tactical()); ar.i8(collapseState.breathTriggered());
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
-	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
+	ar.u32(timing.aiDelay()); ar.i16(timing.reloadDelay()); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
 	ar.i32(deployment.insertionGrid());
 	// The animation surface working set is runtime-only. The retired pointer
 	// transfers emitted no bytes, so resetting the inline owner preserves the
 	// established schema exactly.
-	if (Ar::isLoading) s.animationCache().release(s.ubID);
-	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());
+	if (Ar::isLoading) s.animationCache().release(s.identity().id());
+	ar.u8(s.roster().side()); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
@@ -1763,7 +1813,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(damageDisplay.counter()); ar.u8(meleeApproach.endDirection());
 	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
 	ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());
-	ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
+	ar.u8(s.identity().profile()); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
 	ar.u8(uiPresentation.closePanelFrame()); ar.u8(uiPresentation.deadPanelFrame()); ar.i8(uiPresentation.openPanelFrame());
 	ar.i16(uiPresentation.panelFaceX()); ar.i16(uiPresentation.panelFaceY());
 	ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());
@@ -1774,7 +1824,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(uiPresentation.plannedActionPointCost()); ar.i16(uiPresentation.plannedTargetX()); ar.i16(uiPresentation.plannedTargetY());
 	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
 	ar.i32(fireControl.spreadDragStartGrid()); ar.i32(fireControl.spreadDragEndGrid()); ar.i32(s.animationActivity().traversalForecastGrid()); ar.i16(s.animationActivity().renderZOverride());
-	ar.i8(interruptSnapshot.movedBeforeInterrupt());
+	ar.i8(turnState.movedBeforeInterrupt());
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
 	ar.i32(pendingAction.nextSpecialData()); ar.u8(employment.mercenaryType());
 	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());
@@ -1784,10 +1834,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(replication.movementStartedAt()); ar.u32(replication.optimumMovementTime()); ar.u32(replication.lastUpdateAt());
 	ar.u32(replication.updateSequence()); ar.u8(replication.updateType()); ar.i32(replication.scheduledStopGrid());
 	ar.i32(employment.insuranceStartDay()); ar.u32(assignment.lastChangeMinute()); ar.i32(employment.insuranceLengthDays());
-	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
+	ar.u8(s.roster().soldierClass()); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(assignment.desiredSquad()); ar.u8(assignment.mergeTraversalAllowance());
-	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
-	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(schedule.doorOpenPhase());
+	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.roster().civilianGroup());
+	ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());
 	ar.u8(schedule.id()); ar.i32(schedule.doorGrid()); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
@@ -1795,7 +1845,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bVehicleID); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
 	ar.u16(movement.gridUpdatePolicy());
 	ar.i16(renderState.boundingBoxWidth()); ar.i16(renderState.boundingBoxHeight()); ar.i16(renderState.boundingBoxOffsetX()); ar.i16(renderState.boundingBoxOffsetY());
-	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);
+	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());
 	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
@@ -1805,8 +1855,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());
 	ar.u16(uiPresentation.lastEnemyCycled().i);
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
-	ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);
-	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
+	ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());
+	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(targeting.lineOfFireTarget().i);
 	ar.u32(replication.checksum());
 	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(renderState.fadeOriginGrid()); ar.u8(deployment.useExitGridForReentryDirection());
@@ -1832,15 +1882,15 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
 	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
-	ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
+	ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
 	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
-	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
-	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
+	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
+	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(deployment.ignoreCollapseGetupCheck());
 	ar.i32(deployment.arrivalGetupCounter());
@@ -1866,9 +1916,9 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 
 	XferAIData(ar, *this);
 	XferFlags(ar, *this);
-	XferTimeChanges(ar, this->timeChanges);
-	XferTimeCounters(ar, this->timeCounters);
-	XferDrugs(ar, this->newdrugs);
+	XferStatProgress(ar, this->statProgress());
+	XferTiming(ar, this->timing());
+	XferDrugState(ar, this->drugState());
 	XferStats(ar, *this);
 	XferPathing(ar, *this);
 	return wr.good() ? TRUE : FALSE;
@@ -1921,9 +1971,9 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 
 		XferAIData(ar, *this);
 		XferFlags(ar, *this);
-		XferTimeChanges(ar, this->timeChanges);
-		XferTimeCounters(ar, this->timeCounters);
-		XferDrugs(ar, this->newdrugs);
+		XferStatProgress(ar, this->statProgress());
+		XferTiming(ar, this->timing());
+		XferDrugState(ar, this->drugState());
 		XferStats(ar, *this);
 		XferPathing(ar, *this);
 		if (!rd.good()) return(FALSE);
@@ -2913,9 +2963,9 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(sSoldierCnt);
 			if (!pSoldier) continue;
-			if( pSoldier->bActive )
+			if( pSoldier->roster().active() )
 			{
-				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
 					SaveGameHeader.sSectorX = pSoldier->deployment().sectorX();
 					SaveGameHeader.sSectorY = pSoldier->deployment().sectorY();
@@ -5652,7 +5702,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	for( UINT16 cnt=0; cnt< CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS; cnt++)
 	{
 		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(cnt);
-		if(soldier && soldier->ubID == cnt)
+		if(soldier && soldier->identity().id() == cnt)
 		{
 			// WANNE: We should only delete the face, if there was a camo we applied.
 			// This should fix the bug and crashes with missing faces
@@ -5857,7 +5907,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 			if ( pSoldier != NULL )
 			{
-				TacticalRemoveSoldier( pSoldier->ubID );
+				TacticalRemoveSoldier( pSoldier->identity().id() );
 			}
 
 			// add the pilot at a random location!
@@ -6036,14 +6086,14 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		// WANNE: This should fix the bug if any merc are still under PC control. This could happen after boxing in SAN MONA.
 		if ( gTacticalStatus.bBoxingState == NOT_BOXING )
 		{
-			if (pTeamSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL)
-				pTeamSoldier->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+			if (pTeamSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL)
+				pTeamSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 
 			pTeamSoldier->DeleteBoxingFlag();
 		}
 
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits
-		if ( (pTeamSoldier->flags.uiStatusFlags & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
+		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
 			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
 			pTeamSoldier->LooseDisguise( );
 	}
@@ -6179,7 +6229,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 	{
 		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier isnt active, dont add them to the saved game file.
-		if( !soldier.bActive )
+		if( !soldier.roster().active() )
 		{
 			// Save the byte specifing to NOT load the soldiers 
 			FileWrite( hFile, &ubZero, 1, &uiNumBytesWritten );
@@ -6306,8 +6356,8 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			
 			//Create the new merc
 			SOLDIERCREATE_STRUCT CreateStruct;
-			CreateStruct.bTeam								= SavedSoldierInfo.bTeam;
-			CreateStruct.ubProfile						= SavedSoldierInfo.ubProfile;
+			CreateStruct.bTeam								= SavedSoldierInfo.roster().team();
+			CreateStruct.ubProfile						= SavedSoldierInfo.identity().profile();
 			CreateStruct.fUseExistingSoldier	= TRUE;
 			CreateStruct.pExistingSoldier			= &SavedSoldierInfo;
 
@@ -6368,15 +6418,15 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				if( guiCurrentSaveGameVersion < 83 )
 				{
 					//if the soldier is someone
-					if( soldier.ubProfile != NO_PROFILE )
+					if( soldier.identity().profile() != NO_PROFILE )
 					{
 						if( soldier.employment().mercenaryType() == MERC_TYPE__MERC )
 						{
-							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * gMercProfiles[ soldier.ubProfile ].iMercMercContractLength;
+							gMercProfiles[ soldier.identity().profile() ].uiTotalCostToDate = gMercProfiles[ soldier.identity().profile() ].sSalary * gMercProfiles[ soldier.identity().profile() ].iMercMercContractLength;
 						}
 						else
 						{
-							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * soldier.employment().totalLength();
+							gMercProfiles[ soldier.identity().profile() ].uiTotalCostToDate = gMercProfiles[ soldier.identity().profile() ].sSalary * soldier.employment().totalLength();
 						}
 					}
 				}
@@ -6385,10 +6435,10 @@ if( g_lang == i18n::Lang::de ) {
 				// Fix neutral flags
 				if ( guiCurrentSaveGameVersion < 94 )
 				{
-					if ( soldier.bTeam == OUR_TEAM && soldier.aiData.bNeutral && soldier.assignment().current() != ASSIGNMENT_POW )
+					if ( soldier.roster().team() == OUR_TEAM && soldier.aiBehavior().neutral() && soldier.assignment().current() != ASSIGNMENT_POW )
 					{
 						// turn off neutral flag
-						soldier.aiData.bNeutral = FALSE;
+						soldier.aiBehavior().neutral() = FALSE;
 					}
 				}
 }
@@ -6416,7 +6466,7 @@ if( g_lang == i18n::Lang::de ) {
 				pSoldier->inv[ VESTPOS ].usItem = SPECTRA_VEST_18;
 				pSoldier->inv[ HELMETPOS ].usItem = SPECTRA_HELMET_18;
 				pSoldier->inv[ LEGPOS ].usItem = SPECTRA_LEGGINGS_18;
-				pSoldier->stats.bAgility = 50;
+				pSoldier->statistics().agility() = 50;
 			}
 		}
 	}
@@ -7262,7 +7312,7 @@ BOOLEAN SetMercsInsertionGridNo( )
 	{
 		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier is active
-		if( soldier.bActive )
+		if( soldier.roster().active() )
 		{
 			if( !TileIsOutOfBounds(soldier.position().gridNo()))
 			{
@@ -7863,7 +7913,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 		GetContractRehireSoldier();
 	if( contractRehireSoldier != NULL )
 		sGeneralInfo.sContractRehireSoldierID =
-			contractRehireSoldier->ubID;
+			contractRehireSoldier->identity().id();
 	else
 		sGeneralInfo.sContractRehireSoldierID = NOBODY;
 
@@ -7883,7 +7933,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 
 	// Save the selected merc
 	if( GetSMCurrentMerc() )
-		sGeneralInfo.ubSMCurrentMercID = GetSMCurrentMerc()->ubID;
+		sGeneralInfo.ubSMCurrentMercID = GetSMCurrentMerc()->identity().id();
 	else
 		sGeneralInfo.ubSMCurrentMercID = NOBODY;
 
@@ -8659,7 +8709,7 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 				GetJa2SoldierRepository().resolve(Soldier.i);
 			if ( soldier )
 			{
-				UINT8 profile = soldier->ubProfile;
+				UINT8 profile = soldier->identity().profile();
 				gCamoFace[profile].gCamoface = ( soldier->camouflage().jungleApplied() > 0 );
 				gCamoFace[profile].gUrbanCamoface = ( soldier->camouflage().urbanApplied() > 0 );
 				gCamoFace[profile].gDesertCamoface = ( soldier->camouflage().desertApplied() > 0 );
@@ -8902,9 +8952,9 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			pSoldier = GetJa2SoldierRepository().resolve(
 				static_cast<UINT16>(sSoldierCnt));
 			// Test for null if tactical slot initialization failed.
-			if( pSoldier && pSoldier->bActive )
+			if( pSoldier && pSoldier->roster().active() )
 			{
-				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
 					//we found an alive, merc that is not moving
 					*psSectorX = pSoldier->deployment().sectorX();
@@ -8928,7 +8978,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			{
 				pSoldier =
 					GetJa2SoldierRepository().resolve(sSoldierCnt.i);
-				if( pSoldier && pSoldier->bActive )
+				if( pSoldier && pSoldier->roster().active() )
 				{
 					//we found an alive, merc that is not moving
 					*psSectorX = pSoldier->deployment().sectorX();

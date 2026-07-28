@@ -1378,9 +1378,9 @@ BOOLEAN WeaponInHand( SOLDIERTYPE * pSoldier )
 		{
 			if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != NO_PROFILE)
 			{
-				if (pSoldier->ubProfile != NO_PROFILE && pSoldier->ubProfile != MADLAB )
+				if (pSoldier->identity().profile() != NO_PROFILE && pSoldier->identity().profile() != MADLAB )
 				{
-					if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != pSoldier->ubProfile)
+					if (pSoldier->inv[HANDPOS][0]->data.ubImprintID != pSoldier->identity().profile())
 					{
 						return( FALSE );
 					}
@@ -1463,7 +1463,7 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 		//if it is stack size limit we want it to be a big slot or a vehicle slot
 		if (UsingNewInventorySystem() == false)
 			return (max(1, ubSlotLimit));
-		else if(pSoldier != NULL && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+		else if(pSoldier != NULL && (pSoldier->status().flags() & SOLDIER_VEHICLE))
 			return (max(1, LBEPocketType[VEHICLE_POCKET_TYPE].ItemCapacityPerSize[__min(gGameExternalOptions.guiMaxItemSize,Item[pObject->usItem].ItemSize)])); //JMich
 		else
 			return (max(1, min(255,LBEPocketType[VEHICLE_POCKET_TYPE].ItemCapacityPerSize[__min(gGameExternalOptions.guiMaxItemSize,Item[pObject->usItem].ItemSize)]*4)));
@@ -1482,7 +1482,7 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 
 
 	//UsingNewInventorySystem == true
-	if (pSoldier != NULL && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)) {
+	if (pSoldier != NULL && (pSoldier->status().flags() & SOLDIER_VEHICLE)) {
 		pIndex = VEHICLE_POCKET_TYPE;
 	}
 	else if (pSoldier && AM_A_ROBOT(pSoldier)) {
@@ -1697,7 +1697,7 @@ INT8 FindObj( SOLDIERTYPE * pSoldier, UINT16 usItem, INT8 bLower, INT8 bUpper )
 	for (bLoop = bLower; bLoop < bUpper; bLoop++)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
 			continue;
 
 		//CHRISL: If we check exists() then we can't search for an empty pocket with this function, which is done.
@@ -1824,7 +1824,7 @@ INT8 FindEmptySlotWithin( SOLDIERTYPE * pSoldier, INT8 bLower, INT8 bUpper )
 		// CHRISL: Only look at valid pockets
 		if((UsingNewInventorySystem() == false) && !oldInv[bLoop])
 			continue;
-		if((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !vehicleInv[bLoop])
+		if((pSoldier->status().flags() & SOLDIER_VEHICLE) && !vehicleInv[bLoop])
 			continue;
 		if(AM_A_ROBOT(pSoldier) && !robotInv[bLoop])
 			continue;
@@ -1888,7 +1888,7 @@ INT8 FindThrowableGrenade(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 ubM
 	// this is AI only so we can put in some customization for night
 	// sevenfm: use flare only if cannot see opponent
 	if (NightLight() &&
-		pSoldier->aiData.bOppCnt == 0 &&
+		pSoldier->awareness().opponentCount() == 0 &&
 		ubGrenadeType == EXPLOSV_ANY_TYPE &&
 		Chance(50))
 	{
@@ -3680,7 +3680,7 @@ BOOLEAN ReloadGun( SOLDIERTYPE * pSoldier, OBJECTTYPE * pGun, OBJECTTYPE * pAmmo
 		}
 	}
 
-	if (pSoldier->bTeam == gbPlayerNum)
+	if (pSoldier->roster().team() == gbPlayerNum)
 	{
 		// spit out a message if this is one of our folks reloading
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_PLAYER_RELOADS], pSoldier->GetName() );
@@ -3763,7 +3763,7 @@ INT8 FindAmmo( SOLDIERTYPE * pSoldier, UINT8 ubCalibre, UINT16 ubMagSize, UINT8 
 	for (bLoop = HANDPOS; bLoop < invsize; ++bLoop)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
 			continue;
 
 		if (pSoldier->inv[bLoop].exists() == true) {
@@ -4444,8 +4444,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 5, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 
 					//Madd: note that use_item cannot produce two different items!!! so it doesn't use usResult2
@@ -4465,7 +4465,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					//AutoPlaceObject( pAttachment );
 					//ADB ubWeight has been removed, see comments in OBJECTTYPE
 					//this->ubWeight = CalculateObjectWeight( this );
-					if (pSoldier->bTeam == gbPlayerNum)
+					if (pSoldier->roster().team() == gbPlayerNum)
 					{
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 					}
@@ -4595,8 +4595,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					StatChange( pSoldier, WISDOMAMT, 10, FALSE );
 					
 					// SANDRO - merc records - merging items
-					if ( pSoldier->ubProfile != NO_PROFILE )
-						gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+					if ( pSoldier->identity().profile() != NO_PROFILE )
+						gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 				}
 				// fall through
 			case EXPLOSIVE_MERGE_HARD: //Madd: new merge types
@@ -4619,8 +4619,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 5, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -4644,8 +4644,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 2, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -4669,8 +4669,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 10, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -4694,8 +4694,8 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 2, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -4749,7 +4749,7 @@ BOOLEAN OBJECTTYPE::AttachObjectOAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				else
 					pAttachment->RemoveObjectsFromStack(1);
 
-				if (pSoldier && pSoldier->bTeam == gbPlayerNum)
+				if (pSoldier && pSoldier->roster().team() == gbPlayerNum)
 				{
 					pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 				}
@@ -5229,14 +5229,14 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					if ( ( *this )[subObject]->data.objectStatus == 0 )
 					{
 						this->RemoveObjectsFromStack( 1 );
-						if ( pSoldier && pSoldier->bTeam == gbPlayerNum )
+						if ( pSoldier && pSoldier->roster().team() == gbPlayerNum )
 						{
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 						}
 					}
 					else
 					{
-						if ( pSoldier && pSoldier->bTeam == gbPlayerNum )
+						if ( pSoldier && pSoldier->roster().team() == gbPlayerNum )
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 					}
 					ApplyEquipmentBonuses( pSoldier );
@@ -5302,7 +5302,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					//AutoPlaceObject( pAttachment );
 					//ADB ubWeight has been removed, see comments in OBJECTTYPE
 					//this->ubWeight = CalculateObjectWeight( this );
-					if (pSoldier->bTeam == gbPlayerNum)
+					if (pSoldier->roster().team() == gbPlayerNum)
 					{
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 					}
@@ -5479,8 +5479,8 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 					StatChange( pSoldier, WISDOMAMT, 10, FALSE );
 					
 					// SANDRO - merc records - merging items -- Madd: this was missing from AttachObjectNAS for some reason
-					if ( pSoldier->ubProfile != NO_PROFILE )
-						gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+					if ( pSoldier->identity().profile() != NO_PROFILE )
+						gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 				}
 				// fall through
 			case EXPLOSIVE_MERGE_HARD:
@@ -5503,8 +5503,8 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 5, FALSE );
 
 						// SANDRO - merc records - merging items -- Madd: this was missing from AttachObjectNAS for some reason
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -5528,8 +5528,8 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 2, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -5553,8 +5553,8 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 10, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -5578,8 +5578,8 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 						StatChange( pSoldier, WISDOMAMT, 2, FALSE );
 
 						// SANDRO - merc records - merging items
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsCombined++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsCombined++;
 					}
 				}
 				// fall through
@@ -5662,7 +5662,7 @@ BOOLEAN OBJECTTYPE::AttachObjectNAS( SOLDIERTYPE * pSoldier, OBJECTTYPE * pAttac
 				else
 					pAttachment->RemoveObjectsFromStack(1);
 
-				if (pSoldier && pSoldier->bTeam == gbPlayerNum)
+				if (pSoldier && pSoldier->roster().team() == gbPlayerNum)
 				{
 					pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 				}
@@ -6233,7 +6233,7 @@ held in the cursor that each active pocket can hold.*/
 extern BOOLEAN CompatibleAmmoForGun( OBJECTTYPE *pTryObject, OBJECTTYPE *pTestObject );
 BOOLEAN CanItemFitInVehicle( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos, BOOLEAN fDoingPlacement )
 {
-	if((UsingNewInventorySystem() == false) || !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+	if((UsingNewInventorySystem() == false) || !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 		return(FALSE);
 	if(!vehicleInv[bPos])
 		return(FALSE);
@@ -6328,7 +6328,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 	// CHRISL: Only check valid pockets
 	if ( UsingNewInventorySystem( ) )
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			return ( CanItemFitInVehicle( pSoldier, pObj, bPos, fDoingPlacement ) );
 		else if ( AM_A_ROBOT(pSoldier) && bPos != HANDPOS)
 			return ( CanItemFitInRobot( pSoldier, pObj, bPos, fDoingPlacement ) );
@@ -6531,7 +6531,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 		case SMALLPOCK30POS:
 			if( UsingNewInventorySystem() )
 			{
-				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
+				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->inventoryState().zipperFlag()) || (pSoldier->inventoryState().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
 					return( FALSE );
 
 				lbePocket = ( !pSoldier->inv[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
@@ -6720,40 +6720,40 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 				BOOLEAN soldierSet = FALSE;
 				for (int a = 0; a < 30; ++a)
 				{
-					if (!profileSet && gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == 0)
+					if (!profileSet && gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == 0)
 					{
 						profileSet = TRUE;
 						switch (bPos)
 						{
 						case ROBOT_TARGETING_SLOT:
-							gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = targetingSkill;
+							gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = targetingSkill;
 							break;
 
 						case ROBOT_CHASSIS_SLOT:
-							gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = chassisSkill;
+							gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = chassisSkill;
 							break;
 
 						case ROBOT_UTILITY_SLOT:
-							gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = utilitySkill;
+							gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = utilitySkill;
 							break;
 						}
 					}
 
-					if (!soldierSet && pSoldier->stats.ubSkillTraits[a] == 0)
+					if (!soldierSet && pSoldier->statistics().skillTrait(a) == 0)
 					{
 						soldierSet = TRUE;
 						switch (bPos)
 						{
 						case ROBOT_TARGETING_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = targetingSkill;
+							pSoldier->statistics().skillTrait(a) = targetingSkill;
 							break;
 
 						case ROBOT_CHASSIS_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = chassisSkill;
+							pSoldier->statistics().skillTrait(a) = chassisSkill;
 							break;
 
 						case ROBOT_UTILITY_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = utilitySkill;
+							pSoldier->statistics().skillTrait(a) = utilitySkill;
 							break;
 						}
 					}
@@ -6793,7 +6793,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 		}
 	}
 
-	if ( Item[ pObj->usItem ].usItemClass == IC_KEY && pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+	if ( Item[ pObj->usItem ].usItemClass == IC_KEY && pSoldier->status().flags() & SOLDIER_PC )
 	{
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
@@ -7078,7 +7078,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 	}
 
 	// ATE: Put this in to see if we should update the robot, if we were given a controller...
-	if ( pSoldier->bTeam == gbPlayerNum && fObjectWasRobotRemote )
+	if ( pSoldier->roster().team() == gbPlayerNum && fObjectWasRobotRemote )
 	{
 		pSoldier->UpdateRobotControllerGivenController( );
 	}
@@ -7100,7 +7100,7 @@ bool TryToStackInSlot(SOLDIERTYPE* pSoldier, OBJECTTYPE* pObj, int bSlot)
 		{
 			// NEW: If in SKI, don't auto-PLACE anything into a stackable slot that's currently hatched out!  Such slots
 			// will disappear in their entirety if sold/moved, causing anything added through here to vanish also!
-			if( !( ( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE ) && ShouldSoldierDisplayHatchOnItem( pSoldier->ubProfile, bSlot ) ) )
+			if( !( ( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE ) && ShouldSoldierDisplayHatchOnItem( pSoldier->identity().profile(), bSlot ) ) )
 			{
 				pSoldier->inv[bSlot].AddObjectsToStack(*pObj, -1, pSoldier, bSlot);
 				if (pObj->exists() == false) {
@@ -7632,8 +7632,8 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					{
 						if( PlaceObject( pSoldier, BPACKPOCKPOS, pObj, fNewItem ) )
 						{
-							pSoldier->flags.DropPackFlag = FALSE;
-							pSoldier->flags.ZipperFlag = FALSE;
+							pSoldier->inventoryState().dropPackFlag() = FALSE;
+							pSoldier->inventoryState().zipperFlag() = FALSE;
 							RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 							if(pObj->exists() == false || fStackOrSingleSlot)
 								return( TRUE );
@@ -7727,7 +7727,7 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 {
 	UINT8 ubNumberNotAdded = 0;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC ) // redundant but what the hey
+	if ( pSoldier->status().flags() & SOLDIER_PC ) // redundant but what the hey
 	{
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
@@ -8834,7 +8834,7 @@ void SetNewItem( SOLDIERTYPE *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem )
 	{
 		pSoldier->inv.bNewItemCount[ ubInvPos ]						 = -1;
 		pSoldier->inv.bNewItemCycleCount[ ubInvPos ]			 = NEW_ITEM_CYCLE_COUNT;
-		pSoldier->flags.fCheckForNewlyAddedItems             = TRUE;
+		pSoldier->inventoryState().checkForNewItems()             = TRUE;
 	}
 }
 
@@ -8900,7 +8900,7 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 			}
 			else
 			{
-				if ( pSoldier->ubProfile == MADLAB )
+				if ( pSoldier->identity().profile() == MADLAB )
 				{
 					// remove ammo and drop
 					pSoldier->pTempObject = new OBJECTTYPE;
@@ -9305,7 +9305,7 @@ void CheckEquipmentForDamage( SOLDIERTYPE *pSoldier, INT32 iDamage )
 			}
 			else
 			{
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
+				IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), pSoldier->inv[ bSlot ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ bSlot ] );
 			}
 
 			//ADB when something in a stack blows up the whole stack goes, so no need to worry about number of items
@@ -9379,9 +9379,9 @@ BOOLEAN DamageItemOnGround( OBJECTTYPE * pObject, INT32 sGridNo, INT8 bLevel, IN
 		{
 			SOLDIERTYPE* bombOwner = GetJa2SoldierRepository().resolve(
 				(*pObject)[0]->data.misc.ubBombOwner - 2 );
-			if ( bombOwner && bombOwner->ubProfile != NO_PROFILE &&
-				 bombOwner->bTeam == gbPlayerNum )
-				gMercProfiles[ bombOwner->ubProfile ].records.usExpDetonated++;
+			if ( bombOwner && bombOwner->identity().profile() != NO_PROFILE &&
+				 bombOwner->roster().team() == gbPlayerNum )
+				gMercProfiles[ bombOwner->identity().profile() ].records.usExpDetonated++;
 		}
 
 		// Remove item!
@@ -9701,13 +9701,13 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 	if ( camoWoreOff )
 	{
 		// Reload palettes....
-		if ( pSoldier->bInSector )
+		if ( pSoldier->roster().inSector() )
 		{
 			pSoldier->CreateSoldierPalettes( );
 		}
 	}
 
-	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->aiData.bMonsterSmell > 0 )
+	if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->perception().monsterSmell() > 0 )
 	{
 		if ( pSoldier->MercInDeepWater( ) )
 		{
@@ -9719,7 +9719,7 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 		}
 		if ( Random( bDieSize ) == 0 )
 		{
-			pSoldier->aiData.bMonsterSmell--;
+			pSoldier->perception().monsterSmell()--;
 		}
 	}
 
@@ -9743,7 +9743,7 @@ BOOLEAN ApplyCamo( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16& usrPointsToUse
 		usrPointsToUse = min( 22, usrPointsToUse );
 
 		// Reload palettes....
-		if ( pSoldier->bInSector )
+		if ( pSoldier->roster().inSector() )
 		{
 			pSoldier->CreateSoldierPalettes( );
 		}
@@ -9987,7 +9987,7 @@ BOOLEAN ApplyCamo( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16& usrPointsToUse
 	usrPointsToUse = bPointsToUse;
 
 	// Reload palettes....
-	if ( pSoldier->bInSector )
+	if ( pSoldier->roster().inSector() )
 	{
 		pSoldier->CreateSoldierPalettes( );
 	}
@@ -10029,10 +10029,10 @@ BOOLEAN ApplyElixir( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16& usrPointsToU
 		return(FALSE);
 	}
 		
-	INT16 sPointsToUse = (MAX_HUMAN_CREATURE_SMELL - pSoldier->aiData.bMonsterSmell) * 2;
+	INT16 sPointsToUse = (MAX_HUMAN_CREATURE_SMELL - pSoldier->perception().monsterSmell()) * 2;
 	usrPointsToUse = __min( sPointsToUse, usrPointsToUse );
 
-	pSoldier->aiData.bMonsterSmell += sPointsToUse / 2;
+	pSoldier->perception().monsterSmell() += sPointsToUse / 2;
 
 	return(TRUE);
 }
@@ -10221,10 +10221,10 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}
@@ -10234,10 +10234,10 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
+			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
-				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
+				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
 	}
@@ -10256,10 +10256,10 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}
@@ -10269,10 +10269,10 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
+			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
-				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
+				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
 	}
@@ -10296,10 +10296,10 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}
@@ -11968,7 +11968,7 @@ UINT8 GetPercentTunnelVision( SOLDIERTYPE * pSoldier )
 	// HEADROCK HAM 3.2: Further increase tunnel-vision for cowering characters.
 	// SANDRO - this calls many sub-functions over and over, we should at least skip this for civilians and such  
 	if ((gGameExternalOptions.ubCoweringReducesSightRange == 1 || gGameExternalOptions.ubCoweringReducesSightRange == 3) &&
-		IS_MERC_BODY_TYPE(pSoldier) && (pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == MILITIA_TEAM || pSoldier->bTeam == gbPlayerNum) )
+		IS_MERC_BODY_TYPE(pSoldier) && (pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == MILITIA_TEAM || pSoldier->roster().team() == gbPlayerNum) )
 	{
 		// Make sure character is cowering.
 		if ( pSoldier->IsCowering() && gGameExternalOptions.ubMaxSuppressionShock > 0 && 
@@ -12962,26 +12962,26 @@ void ApplyEquipmentBonuses(SOLDIERTYPE * pSoldier)
 	if ( oldSnowCamo != newSnowCamo )
 		pSoldier->camouflage().snowWorn() = (INT8)newSnowCamo;
 
-	if ( (newCamo > oldCamo || newUrbanCamo > oldUrbanCamo || newDesertCamo > oldDesertCamo || newSnowCamo > oldSnowCamo )&& pSoldier->bTeam == OUR_TEAM )
+	if ( (newCamo > oldCamo || newUrbanCamo > oldUrbanCamo || newDesertCamo > oldDesertCamo || newSnowCamo > oldSnowCamo )&& pSoldier->roster().team() == OUR_TEAM )
 	{
 		//CHRISL: This sound interferes with some RPC hiring in NewInv because of the camo bonus some LBE Vests give
 		if(UsingNewInventorySystem() == false)
 			pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 
 		// WANNE: Only call the method if oldCame != newCamo
-		if ( pSoldier->bInSector)
+		if ( pSoldier->roster().inSector())
 			pSoldier->CreateSoldierPalettes( );
 	}
-	else if ( (newCamo < oldCamo || newUrbanCamo < oldUrbanCamo || newDesertCamo < oldDesertCamo || newSnowCamo < oldSnowCamo )&& pSoldier->bTeam == OUR_TEAM )
+	else if ( (newCamo < oldCamo || newUrbanCamo < oldUrbanCamo || newDesertCamo < oldDesertCamo || newSnowCamo < oldSnowCamo )&& pSoldier->roster().team() == OUR_TEAM )
 	{
 		// WANNE: Only call the method if oldCame != newCamo
-		if ( pSoldier->bInSector)
+		if ( pSoldier->roster().inSector())
 			pSoldier->CreateSoldierPalettes( );
 	}
 	// WANNE: Madd, I commented this, because this leads to IRAs INVISIBLE BUG!
 	// We should only call the CreateSoldierPalettes if oldCamo != newCamo. See above!
 	//Madd: do this regardless of camo.  This will need to be called to do custom part colours and new overlays anyway.
-	//if ( pSoldier->bInSector)
+	//if ( pSoldier->roster().inSector())
 	//	pSoldier->CreateSoldierPalettes( );
 
 	
@@ -13184,7 +13184,7 @@ INT16 GetMinRangeForAimBonus( SOLDIERTYPE* pSoldier, OBJECTTYPE * pObj )
 	if ( pObj->exists() == true ) 
 	{
 		// Flugente: check for scope mode
-		if ( gGameExternalOptions.fScopeModes && pSoldier && pSoldier->bTeam == gbPlayerNum && Item[pObj->usItem].usItemClass == IC_GUN )
+		if ( gGameExternalOptions.fScopeModes && pSoldier && pSoldier->roster().team() == gbPlayerNum && Item[pObj->usItem].usItemClass == IC_GUN )
 		{
 			std::map<INT8, OBJECTTYPE*> ObjList;
 			GetScopeLists(pSoldier, pObj, ObjList);
@@ -13407,7 +13407,7 @@ FLOAT GetScopeModeProjectionFactor( SOLDIERTYPE *pSoldier, OBJECTTYPE * pObj )
 	if ( !UsingNewCTHSystem() || !pObj || !pObj->exists() || Item[pObj->usItem].usItemClass != IC_GUN )
 		return 1.0;
 
-	if ( !gGameExternalOptions.fScopeModes || !pSoldier || pSoldier->bTeam != gbPlayerNum )
+	if ( !gGameExternalOptions.fScopeModes || !pSoldier || pSoldier->roster().team() != gbPlayerNum )
 		return GetProjectionFactor(pObj);
 
 	// Flugente: check for scope mode
@@ -15378,7 +15378,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 {
 	OBJECTTYPE* pObjExtMag = NULL;
 
-	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->bActive || !pSoldier->bInSector || pSoldier->vitals().health() < OKLIFE )
+	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->roster().active() || !pSoldier->roster().inSector() || pSoldier->vitals().health() < OKLIFE )
 		// how did we even get here?
 		return ( pObjExtMag );
 
@@ -15397,15 +15397,15 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 
 		// loop over other members of our team in this sector. This includes ourself, as our gun can be fed from a belt in our inventory
 		SOLDIERTYPE* pTeamSoldier = NULL;
-		SoldierID cnt = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID;
-		SoldierID lastid = gTacticalStatus.Team[ pSoldier->bTeam ].bLastID;
+		SoldierID cnt = gTacticalStatus.Team[ pSoldier->roster().team() ].bFirstID;
+		SoldierID lastid = gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID;
 		for ( ; cnt < lastid; ++cnt )
 		{
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve(
 					cnt );
 			// check if teamsoldier exists in this sector
-			if ( !pTeamSoldier || !pTeamSoldier->bActive || !pTeamSoldier->bInSector || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
+			if ( !pTeamSoldier || !pTeamSoldier->roster().active() || !pTeamSoldier->roster().inSector() || pTeamSoldier->vitals().health() < OKLIFE || pTeamSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() || pTeamSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() || pTeamSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
 				continue;
 
 			// check if both soldiers are on the same level
@@ -15421,7 +15421,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 			UINT16 usAmmoSlot2 = 0;
 			if ( pTeamSoldier->IsFeedingExternal(&usTeamSoldierFeedingTarget1, &usGunSlot1, &usAmmoSlot1, &usTeamSoldierFeedingTarget2, &usGunSlot2, &usAmmoSlot2)  )
 			{
-				if ( usTeamSoldierFeedingTarget1 == pSoldier->ubID && pSoldier->inv[usGunSlot1] == (*pObject) )
+				if ( usTeamSoldierFeedingTarget1 == pSoldier->identity().id() && pSoldier->inv[usGunSlot1] == (*pObject) )
 				{
 					if ( pTeamSoldier->inv[usAmmoSlot1].exists() && Item [ pTeamSoldier->inv[usAmmoSlot1].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inv[usAmmoSlot1][0]->data.ubShotsLeft > 0 )
 					{
@@ -15430,7 +15430,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 					}
 				}
 
-				if ( usTeamSoldierFeedingTarget2 == pSoldier->ubID && pSoldier->inv[usGunSlot2] == (*pObject) )
+				if ( usTeamSoldierFeedingTarget2 == pSoldier->identity().id() && pSoldier->inv[usGunSlot2] == (*pObject) )
 				{
 					if ( pTeamSoldier->inv[usAmmoSlot2].exists() && Item [ pTeamSoldier->inv[usAmmoSlot2].usItem ].usItemClass != IC_AMMO || pTeamSoldier->inv[usAmmoSlot2][0]->data.ubShotsLeft > 0 )
 					{
@@ -15447,7 +15447,7 @@ OBJECTTYPE* GetExternalFeedingObject(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject
 
 BOOLEAN DeductBulletViaExternalFeeding(SOLDIERTYPE* pSoldier, OBJECTTYPE * pObject)
 {
-	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->bActive || !pSoldier->bInSector )
+	if ( !pObject || !(pObject->exists()) || !pSoldier || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 		// how did we even get here?
 		return false;
 

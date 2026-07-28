@@ -238,7 +238,7 @@ void LocateBullet( INT32 iBulletIndex )
 	if ( gBullets[ iBulletIndex ].ubFirerID != NOBODY )
 	{
 		if ( GetJa2SoldierRepository()
-				.resolve(gBullets[iBulletIndex].ubFirerID.i)->bSide ==
+				.resolve(gBullets[iBulletIndex].ubFirerID.i)->roster().side() ==
 			gbPlayerNum )
 		{
 			if ( !gBullets[ iBulletIndex ].fLocated )

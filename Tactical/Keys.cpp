@@ -311,7 +311,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	}
 
 	// generate a noise for thumping on the door
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, CROWBAR_DOOR_VOLUME, NOISE_DOOR_SMASHING );
+	MakeNoise( pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, CROWBAR_DOOR_VOLUME, NOISE_DOOR_SMASHING );
 
 	if ( !pDoor->fLocked )
 	{
@@ -357,8 +357,8 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		StatChange( pSoldier, STRAMT, 20, FALSE );
 
 		// SANDRO - merc records - locks breached
-		if ( pSoldier->ubProfile != NO_PROFILE )
-			gMercProfiles[ pSoldier->ubProfile ].records.usLocksBreached++;
+		if ( pSoldier->identity().profile() != NO_PROFILE )
+			gMercProfiles[ pSoldier->identity().profile() ].records.usLocksBreached++;
 
 		// succeeded! door can never be locked again, so remove from door list...
 		RemoveDoorInfoFromTable( pDoor->sGridNo );
@@ -399,7 +399,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 	LOCK * pLock;
 
 	// generate a noise for thumping on the door
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, SMASHING_DOOR_VOLUME, NOISE_DOOR_SMASHING );
+	MakeNoise( pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, SMASHING_DOOR_VOLUME, NOISE_DOOR_SMASHING );
 
 	if ( !pDoor->fLocked )
 	{
@@ -440,8 +440,8 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		StatChange( pSoldier, STRAMT, 20, FALSE );
 
 		// SANDRO - merc records - locks breached
-		if ( pSoldier->ubProfile != NO_PROFILE )
-			gMercProfiles[ pSoldier->ubProfile ].records.usLocksBreached++;
+		if ( pSoldier->identity().profile() != NO_PROFILE )
+			gMercProfiles[ pSoldier->identity().profile() ].records.usLocksBreached++;
 
 		// succeeded! door can never be locked again, so remove from door list...
 		RemoveDoorInfoFromTable( pDoor->sGridNo );
@@ -528,8 +528,8 @@ BOOLEAN AttemptToPickLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		 StatChange( pSoldier, WISDOMAMT, ( UINT16 ) ( pLock->ubPickDifficulty / 15 ), FALSE );
 
 		// SANDRO - merc records - another lock picked
-		if ( pSoldier->ubProfile != NO_PROFILE )
-			gMercProfiles[ pSoldier->ubProfile ].records.usLocksPicked++;
+		if ( pSoldier->identity().profile() != NO_PROFILE )
+			gMercProfiles[ pSoldier->identity().profile() ].records.usLocksPicked++;
 
 		// succeeded!
 		pDoor->fLocked = FALSE;
@@ -574,8 +574,8 @@ BOOLEAN AttemptToUntrapDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 		StatChange( pSoldier, WISDOMAMT, ( UINT16 ) ( pDoor->ubTrapLevel * 2 ), FALSE );
 
 		// SANDRO - merc records - another lock picked
-		if ( pSoldier->ubProfile != NO_PROFILE )
-			gMercProfiles[ pSoldier->ubProfile ].records.usTrapsRemoved++;
+		if ( pSoldier->identity().profile() != NO_PROFILE )
+			gMercProfiles[ pSoldier->identity().profile() ].records.usTrapsRemoved++;
 
 		// succeeded!
 		pDoor->ubTrapLevel = 0;
@@ -692,7 +692,7 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			PlayJA2Sample( DOOR_ELECTRICITY, RATE_11025, SoundVolume( MIDVOLUME, pDoor->sGridNo ), 1, SoundDir( pDoor->sGridNo ) );
 
 	 // Set attacker's ID
-	 pSoldier->combatResult().currentAttacker() = pSoldier->ubID;
+	 pSoldier->combatResult().currentAttacker() = pSoldier->identity().id();
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
 		// GetJa2PendingTacticalCombatActions()++;
@@ -707,7 +707,7 @@ void HandleDoorTrap( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			PlayJA2Sample( DOOR_ELECTRICITY, RATE_11025, SoundVolume( MIDVOLUME, pDoor->sGridNo ), 1, SoundDir( pDoor->sGridNo ) );
 
 	 // Set attacker's ID
-	 pSoldier->combatResult().currentAttacker() = pSoldier->ubID;
+	 pSoldier->combatResult().currentAttacker() = pSoldier->identity().id();
 	 // Increment	being attacked count
 	 // pSoldier->bBeingAttackedCount++;
 		//	GetJa2PendingTacticalCombatActions()++;
@@ -806,8 +806,8 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 			// award experience points? ... SANDRO - sure!
 			StatChange(pSoldier, EXPLODEAMT, (10), FALSE);
 			// also add to records - door successfully breached
-			if ( pSoldier->ubProfile != NO_PROFILE )	// guard gMercProfiles[NO_PROFILE] OOB (the crowbar/smash/pick siblings guard this)
-				gMercProfiles[pSoldier->ubProfile].records.usLocksBreached++;
+			if ( pSoldier->identity().profile() != NO_PROFILE )	// guard gMercProfiles[NO_PROFILE] OOB (the crowbar/smash/pick siblings guard this)
+				gMercProfiles[pSoldier->identity().profile()].records.usLocksBreached++;
 
 			fSuccess = TRUE;
 
@@ -816,7 +816,7 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 		}
 
 		// sevenfm: also make noise
-		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_EXPLOSION);
+		MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_EXPLOSION);
 	}
 	else
 	{
@@ -1414,7 +1414,7 @@ BOOLEAN AllMercsLookForDoor( INT32 sGridNo, BOOLEAN fUpdateValue )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 		// ATE: Ok, lets check for some basic things here!		
-		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			// and we can trace a line of sight to his x,y coordinates?
 			// (taking into account we are definitely aware of this guy now)
@@ -2110,9 +2110,9 @@ void ExamineDoorsOnEnteringSector( )
 	for ( ; cnt <= gTacticalStatus.Team[ LAST_TEAM ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
-			if ( pSoldier->bInSector )
+			if ( pSoldier->roster().inSector() )
 			{
 				fOK = TRUE;
 				break;
@@ -2169,7 +2169,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 	for ( ; cnt <= gTacticalStatus.Team[ LAST_TEAM ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			fOK = TRUE;
 			break;
@@ -2181,7 +2181,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive && pSoldier->bInSector && gbMercIsNewInThisSector[ cnt ] )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && gbMercIsNewInThisSector[ cnt ] )
 		{
 			iNumNewMercs++;
 		}

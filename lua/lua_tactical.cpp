@@ -21,7 +21,7 @@ static int LuaGetSoldierName( lua_State *L )
 	}
 	else
 	{
-		luaWS_newstr( L, pSoldier->name);
+		luaWS_newstr( L, pSoldier->identity().name());
 	}
 	return 1;
 }
@@ -36,9 +36,9 @@ static int LuaGetSoldierFullName( lua_State *L )
 	}
 	else
 	{
-		if (pSoldier->ubProfile < NUM_PROFILES)
+		if (pSoldier->identity().profile() < NUM_PROFILES)
 		{
-			luaWS_newstr( L, gMercProfiles[pSoldier->ubProfile].zName );
+			luaWS_newstr( L, gMercProfiles[pSoldier->identity().profile()].zName );
 		}
 		else
 		{
@@ -131,10 +131,10 @@ static int LuaSoldierWalkTo( lua_State *L )
 	SOLDIERTYPE *pSoldier = *ppSoldier;
 	int newgrid = luaL_checkinteger( L, 2);
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
-	pSoldier->aiData.bAction = AI_ACTION_WALK;
-	pSoldier->aiData.usActionData = (INT16) newgrid;
+	pSoldier->aiPlanning().action() = AI_ACTION_WALK;
+	pSoldier->aiPlanning().actionData() = (INT16) newgrid;
 	pSoldier->pathing().stored() = FALSE;
-	pSoldier->aiData.bActionInProgress = ExecuteAction( pSoldier);
+	pSoldier->aiPlanning().actionInProgress() = ExecuteAction( pSoldier);
 	return 0;
 }
 
@@ -144,10 +144,10 @@ static int LuaSoldierRunTo( lua_State *L )
 	SOLDIERTYPE *pSoldier = *ppSoldier;
 	int newgrid = luaL_checkinteger( L, 2);
 	luaL_argcheck( L, newgrid > 0 && newgrid < MAX_MAP_POS, 2, "The grid number must be on screen!" );
-	pSoldier->aiData.bAction = AI_ACTION_RUN;
-	pSoldier->aiData.usActionData = (INT16) newgrid;
+	pSoldier->aiPlanning().action() = AI_ACTION_RUN;
+	pSoldier->aiPlanning().actionData() = (INT16) newgrid;
 	pSoldier->pathing().stored() = FALSE;
-	pSoldier->aiData.bActionInProgress = ExecuteAction( pSoldier);
+	pSoldier->aiPlanning().actionInProgress() = ExecuteAction( pSoldier);
 	return 0;
 }
 

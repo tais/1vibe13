@@ -1788,8 +1788,8 @@ BOOLEAN AnyUsableRealMercenariesOnTeam( void )
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( ( pSoldier->bActive ) && ( pSoldier->vitals().health() > 0 ) &&
-				!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) &&
+		if( ( pSoldier->roster().active() ) && ( pSoldier->vitals().health() > 0 ) &&
+				!( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_POW ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) &&
 				( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) &&

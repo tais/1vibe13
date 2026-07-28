@@ -377,12 +377,12 @@ void InitGridNoUB()
 	
 BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier )
 {
-	if( pSoldier->ubProfile == 	GASTON_UB	||  ///  GASTON
-			pSoldier->ubProfile == STOGIE_UB ||  // STOGIE
-			pSoldier->ubProfile == TEX_UB ||// TEX 			||
-			pSoldier->ubProfile == JOHN_K_UB || //JOHN_K		||
-			pSoldier->ubProfile == BIGGENS_UB || //BIGGENS	||
-			pSoldier->ubProfile == MANUEL_UB || //MANUEL		||
+	if( pSoldier->identity().profile() == 	GASTON_UB	||  ///  GASTON
+			pSoldier->identity().profile() == STOGIE_UB ||  // STOGIE
+			pSoldier->identity().profile() == TEX_UB ||// TEX 			||
+			pSoldier->identity().profile() == JOHN_K_UB || //JOHN_K		||
+			pSoldier->identity().profile() == BIGGENS_UB || //BIGGENS	||
+			pSoldier->identity().profile() == MANUEL_UB || //MANUEL		||
 			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
@@ -396,10 +396,10 @@ BOOLEAN	IsSoldierQualifiedMerc( SOLDIERTYPE *pSoldier )
 
 BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( SOLDIERTYPE *pSoldier )
 {
-	if( pSoldier->ubProfile == MANUEL_UB ||//MANUEL		||
-			pSoldier->ubProfile ==  53 || //PGCMale3
-			pSoldier->ubProfile ==  55 || //PGCFem2
-			pSoldier->ubProfile ==  PGMALE4_UB		//PGCMale4
+	if( pSoldier->identity().profile() == MANUEL_UB ||//MANUEL		||
+			pSoldier->identity().profile() ==  53 || //PGCMale3
+			pSoldier->identity().profile() ==  55 || //PGCFem2
+			pSoldier->identity().profile() ==  PGMALE4_UB		//PGCMale4
 		)
 	{
 		return( TRUE );
@@ -412,9 +412,9 @@ BOOLEAN	IsSoldierQualifiedMercForSeeingPowerGenFan( SOLDIERTYPE *pSoldier )
 
 BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier )
 {
-	if( pSoldier->ubProfile == 	GASTON_UB	||  //  GASTON
-			pSoldier->ubProfile == 	STOGIE_UB	|| //   STOGIE
-			pSoldier->ubProfile == 	TEX_UB		||   // TEX
+	if( pSoldier->identity().profile() == 	GASTON_UB	||  //  GASTON
+			pSoldier->identity().profile() == 	STOGIE_UB	|| //   STOGIE
+			pSoldier->identity().profile() == 	TEX_UB		||   // TEX
 			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
@@ -428,8 +428,8 @@ BOOLEAN	IsSoldierQualifiedGunCommenterMerc( SOLDIERTYPE *pSoldier )
 
 BOOLEAN	IsSoldierQualifiedInitialHireMerc( SOLDIERTYPE *pSoldier )
 {
-	if( pSoldier->ubProfile == 	GASTON_UB	|| //  GASTON
-			pSoldier->ubProfile == 	STOGIE_UB	||  // STOGIE
+	if( pSoldier->identity().profile() == 	GASTON_UB	|| //  GASTON
+			pSoldier->identity().profile() == 	STOGIE_UB	||  // STOGIE
 			pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER
 		)
 	{
@@ -460,12 +460,12 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive, in sector, etc...
 		//Note: cant do the OK_CONTROLLABLE_MERC() cause it does bInSector which is not set when EnterSector is finshed ( we need it then )
-		if( pSoldier->bActive	&&
+		if( pSoldier->roster().active()	&&
 				pSoldier->deployment().sectorX() == gWorldSectorX &&
 				pSoldier->deployment().sectorY() == gWorldSectorY &&
 				pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!pSoldier->flags.fBetweenSectors )
+				!pSoldier->deployment().isBetweenSectors() )
 		{
 			//if the merc is one of the mercs we are looking for
 			if( IsSoldierQualifiedMerc( pSoldier ) )
@@ -474,14 +474,14 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 				if( pProfileIdArray != NULL )
 				{
 					//record the profile num of the merc
-					pProfileIdArray[ usNumMercsPresent ] = pSoldier->ubProfile;
+					pProfileIdArray[ usNumMercsPresent ] = pSoldier->identity().profile();
 				}
 
 				//if we are to return an array of the mercs
 				if( pSoldierIdArray != NULL )
 				{
 					//record the soldier num of the merc
-					pSoldierIdArray[ usNumMercsPresent ] = pSoldier->ubID;
+					pSoldierIdArray[ usNumMercsPresent ] = pSoldier->identity().id();
 				}
 
 				++usNumMercsPresent;
@@ -882,15 +882,15 @@ void HandlePowerGenAlarm()
 						? GetJa2SoldierRepository().resolve(bSoldierId3.i)
 						: nullptr;
 
-				if( firstSoldier && firstSoldier->ubProfile != BIGGENS_UB ) //BIGGENS
+				if( firstSoldier && firstSoldier->identity().profile() != BIGGENS_UB ) //BIGGENS
 				{
 					TacticalCharacterDialogue( firstSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
-				else if( secondSoldier && secondSoldier->ubProfile != BIGGENS_UB ) //BIGGENS
+				else if( secondSoldier && secondSoldier->identity().profile() != BIGGENS_UB ) //BIGGENS
 				{
 					TacticalCharacterDialogue( secondSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
-				else if( thirdSoldier && thirdSoldier->ubProfile != BIGGENS_UB ) // BIGGENS
+				else if( thirdSoldier && thirdSoldier->identity().profile() != BIGGENS_UB ) // BIGGENS
 				{
 					TacticalCharacterDialogue( thirdSoldier, QUOTE_HATED_1_ON_TEAM_LONGTIMETOHATE );
 				}
@@ -980,8 +980,8 @@ BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSold
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
-		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
-				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
+				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			bSlot = FindObj( pSoldier, WIRECUTTERS );
 			if( bSlot != NO_SLOT )
@@ -1084,8 +1084,8 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 		SOLDIERTYPE* quoteSoldier =
 			GetJa2SoldierRepository().resolve(SoldierIdArray[iCnt].i);
 		//Do Gaston and the newly hired RPC last
-		if( quoteSoldier->ubProfile == GASTON_UB ||
-			quoteSoldier->ubProfile == ubProfile) //  GASTON
+		if( quoteSoldier->identity().profile() == GASTON_UB ||
+			quoteSoldier->identity().profile() == ubProfile) //  GASTON
 		{
 			continue;
 		}
@@ -1144,7 +1144,7 @@ BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fF
 	if( !fNewMerc && fFromGround && !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
 	{
 		//if the merc can say it
-		if( QuoteExp_GotGunOrUsedGun[ pSoldier->ubProfile ] == QUOTE_FOUND_SOMETHING_SPECIAL )
+		if( QuoteExp_GotGunOrUsedGun[ pSoldier->identity().profile() ] == QUOTE_FOUND_SOMETHING_SPECIAL )
 		{
 			//Have the merc say his cool item quote
 			TacticalCharacterDialogue( pSoldier, QUOTE_FOUND_SOMETHING_SPECIAL );
@@ -1325,7 +1325,7 @@ void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
 		gJa25SaveStruct.ubMorrisNoteState = MN__PICKED_UP_BY_NEW_MERC;
 
 		//Delaying the merc to say the note
-		DelayedMercQuote( pSoldier->ubProfile, DQ__NEW_MERC_SAY_NOTE_QUOTES, GetWorldTotalSeconds()+1 );
+		DelayedMercQuote( pSoldier->identity().profile(), DQ__NEW_MERC_SAY_NOTE_QUOTES, GetWorldTotalSeconds()+1 );
 	}
 	//else if there is a new merc on the team
 	else if( bID != -1 )
@@ -1364,9 +1364,9 @@ void HandlePickingUpMorrisInstructionNote( SOLDIERTYPE *pSoldier, INT32 iIndex )
 		// Create a merc popup box that will display a message telling player what to do
 		//
 
-		gJa25SaveStruct.bNewMercProfileIDForSayingMorrisNote = pSoldier->ubProfile;
+		gJa25SaveStruct.bNewMercProfileIDForSayingMorrisNote = pSoldier->identity().profile();
 
-		DelayedMercQuote( pSoldier->ubProfile, DQ__MORRIS_NOTE_DISPLAY_NOTE_1, GetWorldTotalSeconds() + 1 );
+		DelayedMercQuote( pSoldier->identity().profile(), DQ__MORRIS_NOTE_DISPLAY_NOTE_1, GetWorldTotalSeconds() + 1 );
 
 		gJa25SaveStruct.ubMorrisNoteState = MN__FINISHED;
 	}
@@ -1427,7 +1427,7 @@ void HandleDeathInPowerGenSector( SOLDIERTYPE *pSoldier )
 			//is this soldier still alive
 			if( IsSoldierAliveWithInitListGridNo( sRandomSlotGridNo ) )
 			{
-				pInitListSoldier = FindSoldierInitNodeWithID( pSoldier->ubID );
+				pInitListSoldier = FindSoldierInitNodeWithID( pSoldier->identity().id() );
 
 				//is this the same soldier
 				if( pInitListSoldier && pInitListSoldier->pBasicPlacement->usStartingGridNo == sRandomSlotGridNo )
@@ -1602,11 +1602,11 @@ INT8 JA25HighestExpLevelOnTeam( INT8 bTeam )
 	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
-			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
+			if( bHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				bHighestExpLevel = pSoldier->stats.bExpLevel;
+				bHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 		}
 	}
@@ -1627,16 +1627,16 @@ INT8 JA25SecondHighestExpLevelOnPlayersTeam( )
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
-			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
+			if( bHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				bHighestExpLevel = pSoldier->stats.bExpLevel;
+				bHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 
-			else if( b2ndHighestExpLevel < pSoldier->stats.bExpLevel )
+			else if( b2ndHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				b2ndHighestExpLevel = pSoldier->stats.bExpLevel;
+				b2ndHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 		}
 	}
@@ -1687,15 +1687,15 @@ INT8 JA25SecondHighestExpLevelOnEnemiesTeam( )
 		for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(cnt);
-			if( pSoldier->bActive )
+			if( pSoldier->roster().active() )
 			{
 				//if the exp level is less then the highest
-				if( pSoldier->stats.bExpLevel < bHighestExpLevel )
+				if( pSoldier->statistics().experienceLevel() < bHighestExpLevel )
 				{
 					//is this a new second highest level
-					if( b2ndHighestExpLevel < pSoldier->stats.bExpLevel )
+					if( b2ndHighestExpLevel < pSoldier->statistics().experienceLevel() )
 					{
-						b2ndHighestExpLevel = pSoldier->stats.bExpLevel;
+						b2ndHighestExpLevel = pSoldier->statistics().experienceLevel();
 					}
 				}
 			}
@@ -1716,9 +1716,9 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 	for ( ; cnt <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
-			bNewExpLevel = pSoldier->stats.bExpLevel + bExpScaleValue;
+			bNewExpLevel = pSoldier->statistics().experienceLevel() + bExpScaleValue;
 
 			if( bNewExpLevel > 10 )
 			{
@@ -1731,13 +1731,13 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 			}
 
 			//if the enemy originally had a higher exp level AND will now go below set level
-			else if( pSoldier->stats.bExpLevel > JA25__MIN_EXP_LEVEL_AFTER_CHANGE && bNewExpLevel < JA25__MIN_EXP_LEVEL_AFTER_CHANGE )
+			else if( pSoldier->statistics().experienceLevel() > JA25__MIN_EXP_LEVEL_AFTER_CHANGE && bNewExpLevel < JA25__MIN_EXP_LEVEL_AFTER_CHANGE )
 			{
 				bNewExpLevel = JA25__MIN_EXP_LEVEL_AFTER_CHANGE;
 			}
 
 
-			pSoldier->stats.bExpLevel = bNewExpLevel;
+			pSoldier->statistics().experienceLevel() = bNewExpLevel;
 		}
 	}
 }
@@ -1752,9 +1752,9 @@ INT8 CountNumberOfMercsOnSameTeamOfSameExpLevel( INT8 bTeam, INT8 bExpLevel )
 	for ( ; cnt <= gTacticalStatus.Team[ bTeam ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
-			if( bExpLevel == pSoldier->stats.bExpLevel )
+			if( bExpLevel == pSoldier->statistics().experienceLevel() )
 			{
 				bNumber++;
 			}
@@ -1787,8 +1787,8 @@ INT8 RandomSoldierIdForAnyMercInSector()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
-		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
-				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
+				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			SoldierIdArray[ ubCount++ ] = cnt;			
 		}
@@ -1831,7 +1831,7 @@ void HandleInitialEventsInHeliCrash()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		//if the merc is alive
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			pSoldier->vitals().health() -= ( 3 + Random( 5 ) );
 			pSoldier->vitals().breathReduction() = ( 15 + Random( 15 ) ) * 100;
@@ -1973,7 +1973,7 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// if the soldier was in the complex
-		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector &&
+		if( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() &&
 				pSoldier->deployment().sectorX() == SECTOR_LAUNCH_MISSLES_X && pSoldier->deployment().sectorY() == SECTOR_LAUNCH_MISSLES_Y && pSoldier->deployment().sectorZ() == SECTOR_LAUNCH_MISSLES_Z )
 		{
 			if( PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )

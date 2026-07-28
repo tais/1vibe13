@@ -202,13 +202,13 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 // can this soldier autobandage others in sector
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
+	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector()) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
 
 	// they must have oklife or more, not be collapsed, have some level of medical competence, and have a med kit of some sort
-	if ( (pSoldier->vitals().health() >= OKLIFE) && !(pSoldier->collapseState().tactical()) && (pSoldier->stats.bMedical > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
+	if ( (pSoldier->vitals().health() >= OKLIFE) && !(pSoldier->collapseState().tactical()) && (pSoldier->statistics().medical() > 0) && (FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT) )
 	{
 		return( TRUE );
 	}
@@ -221,7 +221,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
+	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector()) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
@@ -258,8 +258,8 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 	{
 		pPatient =
 			GetJa2SoldierRepository().resolve(cnt.i);
-		if ( !pPatient || !(pPatient->bActive) ||
-			!(pPatient->bInSector) )
+		if ( !pPatient || !(pPatient->roster().active()) ||
+			!(pPatient->roster().inSector()) )
 		{
 			continue; // NEXT!!!
 		}
@@ -292,7 +292,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 						for ( cnt2 = 0; cnt2 < NUM_WORLD_DIRECTIONS; cnt2++ )
 						{
 							sPatientGridNo = pPatient->position().gridNo() + DirectionInc( cnt2 );
-							if ( WhoIsThere2( sPatientGridNo, pPatient->position().level() ) == pPatient->ubID )
+							if ( WhoIsThere2( sPatientGridNo, pPatient->position().level() ) == pPatient->identity().id() )
 							{
 								// patient is also here, try this location
 								sAdjacentGridNo = FindAdjacentGridEx( pSoldier, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
@@ -319,7 +319,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 						{
 							// we can get there... can anyone else?
 
-							if ( pPatient->service().hasAutoBandagingMedic() && pPatient->service().autoBandagingMedic() != pSoldier->ubID )
+							if ( pPatient->service().hasAutoBandagingMedic() && pPatient->service().autoBandagingMedic() != pSoldier->identity().id() )
 							{
 								// only switch to this patient if our distance is closer than
 								// the other medic's
@@ -402,23 +402,23 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 			if ( previousMedic )
 				CancelAIAction( previousMedic, TRUE );
 		}
-		pBestPatient->service().assignAutoBandagingMedic( pSoldier->ubID );
+		pBestPatient->service().assignAutoBandagingMedic( pSoldier->identity().id() );
 		*pfDoClimb = FALSE;
 		if ( CardinalSpacesAway( pSoldier->position().gridNo(), sBestPatientGridNo ) == 1 )
 		{
-			pSoldier->aiData.usActionData = sBestPatientGridNo;
+			pSoldier->aiPlanning().actionData() = sBestPatientGridNo;
 			return( AI_ACTION_GIVE_AID );
 		}
 		else
 		{
-			pSoldier->aiData.usActionData = sBestAdjGridNo;
+			pSoldier->aiPlanning().actionData() = sBestAdjGridNo;
 			return( AI_ACTION_GET_CLOSER );
 		}
 	}	
 	else if (!TileIsOutOfBounds(sBestClimbGridNo))
 	{
 		*pfDoClimb = TRUE;
-		pSoldier->aiData.usActionData = sBestClimbGridNo;
+		pSoldier->aiPlanning().actionData() = sBestClimbGridNo;
 		return( AI_ACTION_MOVE_TO_CLIMB );
 	}
 	else
@@ -433,7 +433,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	BOOLEAN				fDoClimb;
 
 
-	if (pSoldier->stats.bMedical == 0 || pSoldier->service().hasPartner())
+	if (pSoldier->statistics().medical() == 0 || pSoldier->service().hasPartner())
 	{
 		// don't/can't make decision
 		return( AI_ACTION_NONE );
@@ -454,10 +454,10 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	if (pSoldier->vitals().bleeding())
 	{
 		// heal self first!
-		pSoldier->aiData.usActionData = pSoldier->position().gridNo();
+		pSoldier->aiPlanning().actionData() = pSoldier->position().gridNo();
 		if (bSlot != HANDPOS)
 		{
-			pSoldier->bSlotItemTakenFrom = bSlot;
+			pSoldier->service().borrowInventorySlot( bSlot );
 
 			SwapObjs( pSoldier, HANDPOS, bSlot, TRUE );
 			/*
@@ -473,18 +473,18 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 		return( AI_ACTION_GIVE_AID );
 	}
 
-//	pSoldier->aiData.usActionData = FindClosestPatient( pSoldier );
-	pSoldier->aiData.bAction = FindBestPatient( pSoldier, &fDoClimb );
-	if (pSoldier->aiData.bAction != AI_ACTION_NONE)
+//	pSoldier->aiPlanning().actionData() = FindClosestPatient( pSoldier );
+	pSoldier->aiPlanning().action() = FindBestPatient( pSoldier, &fDoClimb );
+	if (pSoldier->aiPlanning().action() != AI_ACTION_NONE)
 	{
 		pSoldier->movement().mode() = RUNNING;
 		if (bSlot != HANDPOS)
 		{
-			pSoldier->bSlotItemTakenFrom = bSlot;
+			pSoldier->service().borrowInventorySlot( bSlot );
 
 			SwapObjs( pSoldier, HANDPOS, bSlot, TRUE );
 		}
-		return( pSoldier->aiData.bAction );
+		return( pSoldier->aiPlanning().action() );
 	}
 
 	// do nothing
@@ -502,16 +502,16 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
 		pMedic = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( !pMedic || !(pMedic->bActive) ||
-			!(pMedic->bInSector) ||
-			( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
+		if ( !pMedic || !(pMedic->roster().active()) ||
+			!(pMedic->roster().inSector()) ||
+			( pMedic->status().flags() & SOLDIER_VEHICLE ) ||
 			(pMedic->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue; // NEXT!!!
 		}
 
-		if ( pPatient->ubID == pMedic->ubID )
+		if ( pPatient->identity().id() == pMedic->identity().id() )
 		{
 			// cannot make surgery on self!
 			continue; // NEXT!!!		
@@ -529,7 +529,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 			continue; // NEXT!!!
 		}
 
-		if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
+		if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->statistics().medical() > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery))
 		{
 			fDoctorHasBeenFound = TRUE;
 		}

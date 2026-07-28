@@ -789,12 +789,12 @@ void SetThisMercsSectorXYToTheseValues( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 s
 		UpdateMercInSector( pSoldier, sX, sY, 0 );
 	}
 	// Were we in sector?
-	else if ( pSoldier->bInSector )
+	else if ( pSoldier->roster().inSector() )
 	{
 		RemoveSoldierFromTacticalSector( pSoldier, TRUE );
 
 		// Remove from tactical team UI
-		RemovePlayerFromTeamSlotGivenMercID( pSoldier->ubID );
+		RemovePlayerFromTeamSlotGivenMercID( pSoldier->identity().id() );
 
 	}
 
@@ -1389,7 +1389,7 @@ INT32 GetStrategicMvtSpeed( SOLDIERTYPE *pCharacter )
 
 	// avg of strength and agility * percentage health..very simple..replace later
 
-	iSpeed = ( INT32 )( ( pCharacter->stats.bAgility + pCharacter->stats.bStrength + pCharacter->condition().extraStrength() ) / 2 );
+	iSpeed = ( INT32 )( ( pCharacter->statistics().agility() + pCharacter->statistics().strength() + pCharacter->condition().extraStrength() ) / 2 );
 	iSpeed *= ( INT32 )(( pCharacter->vitals().health() ) );
 	iSpeed /= ( INT32 )pCharacter->vitals().maximumHealth();
 
@@ -1563,10 +1563,10 @@ void MoveTeamOnFoot( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, move characters
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pTeamSoldier->bActive )
+		if ( pTeamSoldier->roster().active() )
 		{
 			MoveCharacterOnPath( pTeamSoldier );
 		}
@@ -1978,12 +1978,12 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 		pMercPath = pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath;
 	}
 	// IS a vehicle?
-	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 	/* Sergeant_Kolja, 2007-02-20: got an pVehicleList==NULL Exception on loading an older save here... not REALY fixed! */
 	if( !pVehicleList ) /*bcause we have no vehicle list at all, we act as we are a person*/
 		{
-		pSoldier->flags.uiStatusFlags &= ~SOLDIER_VEHICLE;
+		pSoldier->status().flags() &= ~SOLDIER_VEHICLE;
 			pMercPath = pSoldier->pMercPath;
 		/* after all, create an empty Vehicle list */
 			pVehicleList = (VEHICLETYPE *) MemAlloc( sizeof( VEHICLETYPE ) );
@@ -2045,7 +2045,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 		ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 	}
 	// IS a vehicle?
-	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
 	}
@@ -2123,7 +2123,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
 
 	// if a vehicle
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		pVehicle = &( pVehicleList[ pSoldier->bVehicleID ] );
 	}

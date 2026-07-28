@@ -148,7 +148,7 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 
 	if ( pSoldier )
 	{
-		switch ( pSoldier->bTeam )
+		switch ( pSoldier->roster().team() )
 		{
 		case OUR_TEAM:
 			group = CAMPAIGNHISTORY_SD_MERC;
@@ -158,11 +158,11 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 		{
 			if ( ARMED_VEHICLE( pSoldier ) || ENEMYROBOT( pSoldier ) )
 				group = CAMPAIGNHISTORY_SD_ENEMY_TANK;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR )
 				group = CAMPAIGNHISTORY_SD_ENEMY_ADMIN;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE )
 				group = CAMPAIGNHISTORY_SD_ENEMY_ELITE;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY )
 				group = CAMPAIGNHISTORY_SD_ENEMY_ARMY;
 		}
 		break;
@@ -170,7 +170,7 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 		case CREATURE_TEAM:
 			if ( pSoldier->IsZombie() )
 				group = CAMPAIGNHISTORY_SD_ZOMBIE;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
 				group = CAMPAIGNHISTORY_SD_ENEMY_ADMIN;
 			else
 				group = CAMPAIGNHISTORY_SD_CREATURE;
@@ -178,11 +178,11 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 
 		case MILITIA_TEAM:
 		{
-			if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA )
+			if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA )
 				group = CAMPAIGNHISTORY_SD_MILITIA_GREEN;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
 				group = CAMPAIGNHISTORY_SD_MILITIA_REGULAR;
-			else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA )
+			else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA )
 				group = CAMPAIGNHISTORY_SD_MILITIA_ELITE;
 		}
 		break;
@@ -195,7 +195,7 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 
 		if ( ARMED_VEHICLE( pSoldier ) )
 		{
-			if ( pSoldier->bSide == 0 )
+			if ( pSoldier->roster().side() == 0 )
 				usIncidentFlags |= INCIDENT_TANKS_PLAYERSIDE;
 			else
 				usIncidentFlags |= INCIDENT_TANKS_ENEMY;
@@ -210,9 +210,9 @@ Incident_Stats::AddStat( SOLDIERTYPE* pSoldier, UINT8 aType )
 
 			if ( pSoldier )
 			{
-				if ( pSoldier->ubProfile == KINGPIN )
+				if ( pSoldier->identity().profile() == KINGPIN )
 					usOneTimeEventFlags |= INCIDENT_ONETIMEEVENT_DEATH_KINGPIN;
-				else if ( pSoldier->ubProfile == DARREL )
+				else if ( pSoldier->identity().profile() == DARREL )
 					usOneTimeEventFlags |= INCIDENT_ONETIMEEVENT_MASSACRE_HICKS;
 			}
 		}

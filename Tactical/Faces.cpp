@@ -127,7 +127,7 @@ INT32	InitSoldierFace( SOLDIERTYPE *pSoldier )
 		return( iFaceIndex );
 	}
 
-	return( InitFace( pSoldier->ubProfile, pSoldier->ubID, 0) );
+	return( InitFace( pSoldier->identity().profile(), pSoldier->identity().id(), 0) );
 }
 
 
@@ -881,10 +881,10 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 	INT16	appliedCamo[4];
 
 	//reset gCamoFace
-	gCamoFace[pSoldier->ubProfile].gCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gUrbanCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gDesertCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gSnowCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 
 	appliedCamo[0] = pSoldier->camouflage().jungleApplied();
 	appliedCamo[1] = pSoldier->camouflage().urbanApplied();
@@ -913,13 +913,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 //		if(appliedCamo[applied] >= wornCamo[worn])
 		{
 			if(applied == 0)
-				gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 			if(applied == 1)
-				gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 			if(applied == 2)
-				gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 			if(applied == 3)
-				gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;
 		
 			return TRUE;
 		}
@@ -928,13 +928,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 			isCamoFace = TRUE;
 
 			if(worn == 0)
-				gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 			if(worn == 1)
-				gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 			if(worn == 2)
-				gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 			if(worn == 3)
-				gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;
 		}
 	}
 	else if(applied != -1 || worn != -1)
@@ -942,13 +942,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 		isCamoFace = TRUE;
 
 		if(applied == 0 || worn == 0)
-			gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 		if(applied == 1 || worn == 1)
-			gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 		if(applied == 2 || worn == 2)
-			gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 		if(applied == 3 || worn == 3)
-			gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;*/
+			gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;*/
 	}
 
 	return isCamoFace;
@@ -993,7 +993,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 			uiFaceShade = GetFaceShade(faceSoldier, pFace, FALSE);
 
 			if ( ( faceSoldier->vitals().health() < OKLIFE ) ||
-					( faceSoldier->flags.fMercAsleep == TRUE ) ||
+					( faceSoldier->assignment().isAsleep() == TRUE ) ||
 					( faceSoldier->assignment().current() == ASSIGNMENT_POW ) )
 			{
 				return;
@@ -1401,7 +1401,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 	// ATE: Don't shade for damage if blitting extern face...
 	if (!fExternBlit)
 	{
-		if (pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START)
+		if (pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START)
 		{
 			return pSoldier->uiPresentation().portraitFlashFrame();
 		}
@@ -1681,8 +1681,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		pSoldier = GetJa2SoldierRepository().resolve(
 			pFace->ubSoldierID.i);
 
-		UINT8 faceProfileId = gMercProfiles[pSoldier->ubProfile].ubFaceIndex;
-		BOOLEAN isIMP = gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP;
+		UINT8 faceProfileId = gMercProfiles[pSoldier->identity().profile()].ubFaceIndex;
+		BOOLEAN isIMP = gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP;
 
 		if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_GEAR] && pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
@@ -1849,7 +1849,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			if (pSoldier->inv[HELMETPOS].usItem > 0)
 				// dirty hack for IMPs because they don't have pictures for face gear
-				// && ( pSoldier->ubProfile < 51 || pSoldier->ubProfile > 56 )
+				// && ( pSoldier->identity().profile() < 51 || pSoldier->identity().profile() > 56 )
 			{
 				uiFaceItemOne = pSoldier->inv[HELMETPOS].usItem;
 
@@ -1865,7 +1865,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			//------------------------------------end of tactical face gear-----------------------------
 		}
 
-		if ( (pSoldier->vitals().health() < CONSCIOUSNESS || pSoldier->flags.fDeadPanel ) )
+		if ( (pSoldier->vitals().health() < CONSCIOUSNESS || pSoldier->uiPresentation().deadPanelShowing() ) )
 		{
 			// Blit Closed eyes here!
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 1, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -1874,7 +1874,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
 		}
 
-		if( pSoldier->flags.fMercAsleep == TRUE )
+		if( pSoldier->assignment().isAsleep() == TRUE )
 		{
 			// blit eyes closed
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 1, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -1890,10 +1890,13 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
 		}
 
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 		{
 			// IF we are in the process of doing any deal/close animations, show face, not skill...
-			if ( !pSoldier->flags.fClosePanel && !pSoldier->flags.fDeadPanel && !pSoldier->flags.fUIdeadMerc && !pSoldier->flags.fUICloseMerc )
+			if ( !pSoldier->uiPresentation().panelClosing() &&
+				 !pSoldier->uiPresentation().deadPanelShowing() &&
+				 !pSoldier->uiPresentation().deadMercUiPending() &&
+				 !pSoldier->uiPresentation().closeMercUiPending() )
 			{
 				// Put close panel there
 				BltVideoObjectFromIndex( uiRenderBuffer, guiDEAD, 5, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -1919,9 +1922,9 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			HandleFaceHilights( pFace, uiRenderBuffer, sFaceX, sFaceY );
 
 #ifdef JA2BETAVERSION
-			if ( pSoldier->aiData.bOppCnt != 0 )
+			if ( pSoldier->awareness().opponentCount() != 0 )
 #else
-			if ( pSoldier->aiData.bOppCnt > 0 )
+			if ( pSoldier->awareness().opponentCount() > 0 )
 #endif
 			{
 				drawOpponentCount = TRUE;
@@ -1929,7 +1932,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 				//SetFontDestBuffer( uiRenderBuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
-				//swprintf( sString, L"%d", pSoldier->aiData.bOppCnt );
+				//swprintf( sString, L"%d", pSoldier->awareness().opponentCount() );
 
 				//SetFont( TINYFONT1 );
 				//SetFontForeground( FONT_DKRED );
@@ -1955,12 +1958,12 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			}
 
-			if ( pSoldier->bInSector &&
+			if ( pSoldier->roster().inSector() &&
 				( ( ( GetJa2TacticalCurrentTeam() != OUR_TEAM ) ||
 					!OK_INTERRUPT_MERC( pSoldier ) ) &&
 					!gfHiddenInterrupt ) ||
 				( ( gfSMDisableForItems && !gfInItemPickupMenu ) &&
-					gusSMCurrentMerc == pSoldier->ubID &&
+					gusSMCurrentMerc == pSoldier->identity().id() &&
 					gsCurInterfacePanel == SM_PANEL ) )
 			{
 				// Blit hatch!
@@ -1972,7 +1975,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		if (pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
 			// Check if a robot and is not controlled....
-			if (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT)
+			if (pSoldier->status().flags() & SOLDIER_ROBOT)
 			{
 				if (!pSoldier->CanRobotBeControlled())
 				{
@@ -2318,7 +2321,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 					sPtsAvailable -= (sPtsAvailable % VEHICLE_REPAIR_POINTS_DIVISOR);
 					usMaximumPts -= (usMaximumPts	% VEHICLE_REPAIR_POINTS_DIVISOR);
 				}
-				else if (pSoldier->flags.fFixingSAMSite)
+				else if (pSoldier->assignment().isFixingSamSite())
 				{
 					sPtsAvailable = (sPtsAvailable / SAM_SITE_REPAIR_DIVISOR);
 
@@ -2533,7 +2536,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			else
 			{
 				//shadooow: display action points when in map screen during battle in turn based mode
-				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
+				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->roster().inSector())
 				{
 					SetFont(TINYFONT1);
 					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0), 0, FALSE) || pSoldier->actionPoints().current() < 0)
@@ -2631,7 +2634,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	{
 		SetFontDestBuffer( uiRenderBuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
-		swprintf( sString, L"%d", pSoldier->aiData.bOppCnt );
+		swprintf( sString, L"%d", pSoldier->awareness().opponentCount() );
 
 		SetFont( TINYFONT1 );
 		SetFontForeground( FONT_DKRED );
@@ -2916,10 +2919,10 @@ void HandleAutoFaces( )
 				pSoldier = GetJa2SoldierRepository().resolve(
 					pFace->ubSoldierID.i);
 				bLife		= pSoldier->vitals().health();
-				bInSector = pSoldier->bInSector;
+				bInSector = pSoldier->roster().inSector();
 				bAPs		= pSoldier->actionPoints().current();
 
-				if ( pSoldier->ubID == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
+				if ( pSoldier->identity().id() == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
 				{
 					pFace->uiFlags |= FACE_SHOW_WHITE_HILIGHT;
 				}
@@ -2964,7 +2967,7 @@ void HandleAutoFaces( )
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->aiData.bOppCnt != pFace->bOldOppCnt )
+				if ( pSoldier->awareness().opponentCount() != pFace->bOldOppCnt )
 				{
 					fRerender = TRUE;
 				}
@@ -3030,7 +3033,7 @@ void HandleAutoFaces( )
 				pFace->bOldSoldierLife		= bLife;
 				pFace->bOldActionPoints	= bAPs;
 				pFace->bOldStealthMode		= pSoldier->movement().stealthMode();
-				pFace->bOldOppCnt				= pSoldier->aiData.bOppCnt;
+				pFace->bOldOppCnt				= pSoldier->awareness().opponentCount();
 
 				if ( pFace->uiFlags & FACE_SHOW_WHITE_HILIGHT )
 				{
@@ -3050,20 +3053,20 @@ void HandleAutoFaces( )
 						pFace->fOldShowMoveHilight = FALSE;
 				}
 
-				if ( pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_STOP )
+				if ( pSoldier->animationActivity().hitPhase() && pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_STOP )
 				{
-					pSoldier->flags.fFlashPortrait = TRUE;
+					pSoldier->uiPresentation().startPortraitFlash();
 					pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
-					RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
+					pSoldier->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START )
+				if ( pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START )
 				{
 					// Loop through flash values
-					if ( TIMECOUNTERDONE( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY ) )
+					if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::PortraitFlash) )
 					{
-						RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
+						pSoldier->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 						pSoldier->uiPresentation().portraitFlashFrame()++;
 
 						if ( pSoldier->uiPresentation().portraitFlashFrame() > FLASH_PORTRAIT_ENDSHADE )
@@ -3072,12 +3075,12 @@ void HandleAutoFaces( )
 
 							if ( pSoldier->animationActivity().hitPhase() )
 							{
-								pSoldier->flags.fFlashPortrait = FLASH_PORTRAIT_WAITING;
+								pSoldier->uiPresentation().setPortraitFlashPhase(FLASH_PORTRAIT_WAITING);
 							}
 							else
 							{
 								// Render face again!
-								pSoldier->flags.fFlashPortrait = FLASH_PORTRAIT_STOP;
+								pSoldier->uiPresentation().stopPortraitFlash();
 							}
 
 							fRerender = TRUE;
@@ -3086,13 +3089,13 @@ void HandleAutoFaces( )
 				}
 					
 				// CHECK IF WE WERE WAITING FOR GETTING HIT TO FINISH!
-				if ( !pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_WAITING )
+				if ( !pSoldier->animationActivity().hitPhase() && pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_WAITING )
 				{
-					pSoldier->flags.fFlashPortrait = FALSE;
+					pSoldier->uiPresentation().stopPortraitFlash();
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START )
+				if ( pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START )
 				{
 					fRerender = TRUE;
 				}

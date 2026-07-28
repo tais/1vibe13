@@ -616,7 +616,7 @@ void RenderRadarScreen( )
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
 					continue;// ie dont render
 #else
-					if(is_networked && pSoldier->bSide==0)
+					if(is_networked && pSoldier->roster().side()==0)
 					{
 					}
 					else
@@ -627,13 +627,13 @@ void RenderRadarScreen( )
 				}
 
 				// Don't render guys if they are dead!
-				if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+				if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 				{
 					continue;
 				}
 
 				// Don't render crows
-				if ( pSoldier->ubBodyType == CROW )
+				if ( pSoldier->identity().bodyType() == CROW )
 				{
 					continue;
 				}
@@ -657,7 +657,7 @@ void RenderRadarScreen( )
 				
 
 				// Are we a selected guy?
-				if ( pSoldier->ubID == gusSelectedSoldier )
+				if ( pSoldier->identity().id() == gusSelectedSoldier )
 				{
 					if ( gfRadarCurrentGuyFlash )
 					{
@@ -672,28 +672,28 @@ void RenderRadarScreen( )
 						}
 						else
 						{
-							usLineColor = Get16BPPColor( gTacticalStatus.Team[ pSoldier->bTeam ].RadarColor );
+							usLineColor = Get16BPPColor( gTacticalStatus.Team[ pSoldier->roster().team() ].RadarColor );
 						}
 					}
 				}
 				else
 				{
-					usLineColor = Get16BPPColor( gTacticalStatus.Team[ pSoldier->bTeam ].RadarColor );
+					usLineColor = Get16BPPColor( gTacticalStatus.Team[ pSoldier->roster().team() ].RadarColor );
 						
-					if ( pSoldier->bTeam == CIV_TEAM )
+					if ( pSoldier->roster().team() == CIV_TEAM )
 					{
 						// Override civ team with red if hostile...
-						if ( pSoldier->bSide != gbPlayerNum && !pSoldier->aiData.bNeutral )
+						if ( pSoldier->roster().side() != gbPlayerNum && !pSoldier->aiBehavior().neutral() )
 							usLineColor = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
 						// if uncovered, different colour (so the player doesn't have to search for us)
-						else if ( gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )
+						else if ( gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->identity().profile() != NO_PROFILE && !zHiddenNames[pSoldier->identity().profile()].Hidden )
 							usLineColor = Get16BPPColor( FROMRGB( 0, 0, 255 ) );
 					}
 
 					// Flugente 18-04-15: observed an odd bug: if we play with a release build and see a creature for the first time, their overhead/radar map pins do not have the correct colour.
 					// Bizarrely enough, the issue seems dependent on the colour value (pink, RGB: 255/0/255) itself.
 					// Saving and reloading solves the issue, but I am not sure why. As a fix we now use a slightly dampened pink.
-					if ( pSoldier->bTeam == CREATURE_TEAM )
+					if ( pSoldier->roster().team() == CREATURE_TEAM )
 					{
 						usLineColor = Get16BPPColor( FROMRGB( 247, 0, 247 ) );
 					}
@@ -703,13 +703,13 @@ void RenderRadarScreen( )
 						usLineColor = Get16BPPColor( gTacticalStatus.Team[ MILITIA_TEAM ].RadarColor );
 
 					// Render different color if an enemy and he's unconscious
-					if ( pSoldier->bTeam != gbPlayerNum && pSoldier->vitals().health() < OKLIFE )
+					if ( pSoldier->roster().team() != gbPlayerNum && pSoldier->vitals().health() < OKLIFE )
 					{
 						usLineColor = Get16BPPColor( FROMRGB( 128, 128, 128 ) );
 					}
 
 					// If on roof, make darker....
-					if ( pSoldier->bTeam == gbPlayerNum && pSoldier->position().level() > 0 )
+					if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->position().level() > 0 )
 					{
 						usLineColor = Get16BPPColor( FROMRGB( 150, 150, 0 ) );
 					}

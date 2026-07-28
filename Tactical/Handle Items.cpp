@@ -512,7 +512,7 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 
 	if ( fBadChangeToGetThrough )
 	{
-		if ( gTacticalStatus.sCantGetThroughSoldierGridNo != pSoldier->position().gridNo() ||	gTacticalStatus.sCantGetThroughGridNo != sTargetGridNo || gTacticalStatus.ubCantGetThroughID != pSoldier->ubID )
+		if ( gTacticalStatus.sCantGetThroughSoldierGridNo != pSoldier->position().gridNo() ||	gTacticalStatus.sCantGetThroughGridNo != sTargetGridNo || gTacticalStatus.ubCantGetThroughID != pSoldier->identity().id() )
 		{
 			gTacticalStatus.fCantGetThrough = FALSE;
 		}
@@ -522,7 +522,7 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 		{
 			gTacticalStatus.fCantGetThrough								= TRUE;
 			gTacticalStatus.sCantGetThroughGridNo					= sTargetGridNo;
-			gTacticalStatus.ubCantGetThroughID						= pSoldier->ubID;
+			gTacticalStatus.ubCantGetThroughID						= pSoldier->identity().id();
 			gTacticalStatus.sCantGetThroughSoldierGridNo	= pSoldier->position().gridNo();
 
 			// PLay quote
@@ -532,11 +532,11 @@ BOOLEAN	HandleCheckForBadChangeToGetThrough( SOLDIERTYPE *pSoldier, SOLDIERTYPE 
 		else
 		{
 			// Is this a different case?
-			if ( gTacticalStatus.sCantGetThroughGridNo != sTargetGridNo || gTacticalStatus.ubCantGetThroughID != pSoldier->ubID || gTacticalStatus.sCantGetThroughSoldierGridNo != pSoldier->position().gridNo() )
+			if ( gTacticalStatus.sCantGetThroughGridNo != sTargetGridNo || gTacticalStatus.ubCantGetThroughID != pSoldier->identity().id() || gTacticalStatus.sCantGetThroughSoldierGridNo != pSoldier->position().gridNo() )
 			{
 				// PLay quote
 				gTacticalStatus.sCantGetThroughGridNo	= sTargetGridNo;
-				gTacticalStatus.ubCantGetThroughID		= pSoldier->ubID;
+				gTacticalStatus.ubCantGetThroughID		= pSoldier->identity().id();
 
 				TacticalCharacterDialogue( pSoldier, QUOTE_NO_LINE_OF_FIRE );
 				return( FALSE );
@@ -637,8 +637,8 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	if (fFromUI &&
-		pSoldier->bTeam == gbPlayerNum &&
-		pSoldier->ubProfile != NO_PROFILE &&
+		pSoldier->roster().team() == gbPlayerNum &&
+		pSoldier->identity().profile() != NO_PROFILE &&
 		pTargetSoldier &&		
 		Item[usHandItem].usItemClass != IC_MEDKIT &&
 		!ItemIsGascan(usHandItem) &&
@@ -646,7 +646,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		!HasItemFlag(usHandItem, EMPTY_BLOOD_BAG) &&
 		!HasItemFlag( usHandItem, MEDICAL_SPLINT ) )
 	{
-		if (pTargetSoldier->bTeam == gbPlayerNum || pTargetSoldier->aiData.bNeutral)
+		if (pTargetSoldier->roster().team() == gbPlayerNum || pTargetSoldier->aiBehavior().neutral())
 		{
 			// anv: don't try to attack yourself, it will only cause deadlock
 			if (pSoldier == pTargetSoldier)
@@ -656,21 +656,21 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			}
 
 			// nice mercs won't shoot other nice guys or neutral civilians
-			if ((gMercProfiles[pSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) &&
-				((pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->aiData.bNeutral && pTargetSoldier->ubBodyType != CROW) ||
-				pTargetSoldier->ubProfile != NO_PROFILE && gMercProfiles[pTargetSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY))
+			if ((gMercProfiles[pSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) &&
+				((pTargetSoldier->identity().profile() == NO_PROFILE && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->identity().bodyType() != CROW) ||
+				pTargetSoldier->identity().profile() != NO_PROFILE && gMercProfiles[pTargetSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY))
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 				return(ITEM_HANDLE_REFUSAL);
 			}
 
-			if (pTargetSoldier->ubProfile != NO_PROFILE)
+			if (pTargetSoldier->identity().profile() != NO_PROFILE)
 			{
 				// Flugente: as relations are now dynamic, check that instead
 				// buddies won't shoot each other
 				INT8 bOpinion = SoldierRelation(pSoldier, pTargetSoldier);
 
-				if (bOpinion > BUDDY_OPINION - 5 || ((gMercProfiles[pSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) && bOpinion > HATED_OPINION + 5))
+				if (bOpinion > BUDDY_OPINION - 5 || ((gMercProfiles[pSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) && bOpinion > HATED_OPINION + 5))
 				{
 					TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 					return(ITEM_HANDLE_REFUSAL);
@@ -678,18 +678,18 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			}
 
 			// any recruited rebel will refuse to fire on another rebel or neutral nameless civ
-			if (pSoldier->ubCivilianGroup == REBEL_CIV_GROUP &&
-				(pTargetSoldier->ubCivilianGroup == REBEL_CIV_GROUP ||
-				(pTargetSoldier->aiData.bNeutral && pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->ubCivilianGroup == NON_CIV_GROUP && pTargetSoldier->ubBodyType != CROW)))
+			if (pSoldier->roster().civilianGroup() == REBEL_CIV_GROUP &&
+				(pTargetSoldier->roster().civilianGroup() == REBEL_CIV_GROUP ||
+				(pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->identity().profile() == NO_PROFILE && pTargetSoldier->roster().civilianGroup() == NON_CIV_GROUP && pTargetSoldier->identity().bodyType() != CROW)))
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 				return(ITEM_HANDLE_REFUSAL);
 			}
 
 			// civgroup loyal will attack members of the same group
-			if (pSoldier->ubCivilianGroup != NON_CIV_GROUP &&
+			if (pSoldier->roster().civilianGroup() != NON_CIV_GROUP &&
 				pSoldier->HasBackgroundFlag(BACKGROUND_CIVGROUPLOYAL) &&
-				pTargetSoldier->ubCivilianGroup == pSoldier->ubCivilianGroup)
+				pTargetSoldier->roster().civilianGroup() == pSoldier->roster().civilianGroup())
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 				return(ITEM_HANDLE_REFUSAL);
@@ -698,9 +698,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// animal friend will refuse to attack animals
 		if (pSoldier->HasBackgroundFlag(BACKGROUND_ANIMALFRIEND) &&
-			(pTargetSoldier->ubBodyType == CROW || pTargetSoldier->ubBodyType == COW || pTargetSoldier->ubBodyType == BLOODCAT) &&
-			pSoldier->combatResult().previousAttacker() != pTargetSoldier->ubID &&
-			pSoldier->combatResult().earlierAttacker() != pTargetSoldier->ubID)
+			(pTargetSoldier->identity().bodyType() == CROW || pTargetSoldier->identity().bodyType() == COW || pTargetSoldier->identity().bodyType() == BLOODCAT) &&
+			pSoldier->combatResult().previousAttacker() != pTargetSoldier->identity().id() &&
+			pSoldier->combatResult().earlierAttacker() != pTargetSoldier->identity().id())
 		{
 			TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 			return(ITEM_HANDLE_REFUSAL);
@@ -740,7 +740,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
 				// OK, set UI
-				SetUIBusy( pSoldier->ubID );
+				SetUIBusy( pSoldier->identity().id() );
 
 				// CHECK IF WE ARE AT THIS GRIDNO NOW
 				if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -774,7 +774,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				{
 					pSoldier->EVENT_SoldierInteractiveAction( sAdjustedGridNo, possibleaction );
 
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 				}
 
 				if ( fFromUI )
@@ -795,23 +795,23 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].usItemClass == IC_GUN || Item[ usHandItem ].usItemClass == IC_THROWING_KNIFE )
 	{
 		// WEAPONS
-		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID,pSoldier->ubProfile));
+		DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: checking for fingerprintID, item id = %d,id required = %d, imprint id = %d, soldier id = %d",usHandItem, ItemHasFingerPrintID(usHandItem), pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID,pSoldier->identity().profile()));
 		if (ItemHasFingerPrintID(usHandItem))
 		{
 			// check imprint ID
 			// NB not-imprinted value is NO_PROFILE
 			// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
-			if (pSoldier->ubProfile != NO_PROFILE)
+			if (pSoldier->identity().profile() != NO_PROFILE)
 			{
-				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->ubProfile )
+				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
 				{
 					if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID == NO_PROFILE )
 					{
 						// first shot using "virgin" gun... set imprint ID
-						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = pSoldier->ubProfile;
+						pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID = pSoldier->identity().profile();
 												
 						// this could be an NPC (Krott)
-						if (pSoldier->bTeam == gbPlayerNum)
+						if (pSoldier->roster().team() == gbPlayerNum)
 						{
 							PlayJA2Sample( RG_ID_IMPRINTED, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 
@@ -823,11 +823,11 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					else
 					{
 						// access denied!
-						if (pSoldier->bTeam == gbPlayerNum)
+						if (pSoldier->roster().team() == gbPlayerNum)
 						{
 							PlayJA2Sample( RG_ID_INVALID, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 
-							//if (Random( 100 ) < (UINT32) pSoldier->stats.bWisdom)
+							//if (Random( 100 ) < (UINT32) pSoldier->statistics().wisdom())
 							//{
 							//	pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 							//}
@@ -871,7 +871,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// Check if we are reloading
 			if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 			{
-				if ( pSoldier->flags.fReloading )
+				if ( pSoldier->fireControl().reloading() )
 				{
 					return( ITEM_HANDLE_RELOADING );
 				}
@@ -910,12 +910,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// Our guys NEED TRUE. We shoulkd at some time make sure the AI and
 		// our guys are deducting/checking in the same manner to avoid
 		// these differences.
-		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 
 
-		GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiData.bAimTime );
+		GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiPlanning().aimTime() );
 		usTurningCost = CalculateTurningCost(pSoldier, usHandItem, fAddingTurningCost);
-		usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiData.bAimTime);
+		usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiPlanning().aimTime());
 
 		// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 		//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
@@ -952,7 +952,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				//if ( !pSoldier->fireControl().burstCounter() && IsGunBurstCapable( pSoldier, HANDPOS, FALSE ) )
 				// SANDRO - messed this a little.. decrease morale a bit when we would like to go psycho,
 				// but have not a gun capable for it
-				if ( PreRandom( 3 + pSoldier->aiData.bAimTime ) == 0 && !pSoldier->fireControl().burstCounter() )
+				if ( PreRandom( 3 + pSoldier->aiPlanning().aimTime() ) == 0 && !pSoldier->fireControl().burstCounter() )
 				{
 					if ( IsGunBurstCapable( &pSoldier->inv[HANDPOS], FALSE, pSoldier ) )
 					{
@@ -960,7 +960,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 						// temporarily set burst to true to calculate action points
 						pSoldier->fireControl().burstCounter() = TRUE;
-						sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+						sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 						// reset burst mode to false (which is what it was at originally)
 						pSoldier->fireControl().burstCounter() = FALSE;
 
@@ -985,26 +985,26 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			if(pSoldier->fireControl().autofireShots() && (IsJa2TacticalTurnBasedCombat())) //this is the code that introduces uncertainty into full-auto bursts
 			{
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->stats.bMarksmanship));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->statistics().marksmanship()));
 				//UINT32 diceSides = RAND_MAX;
 				//Madd: tried to make this more marksmanship dependent than agility, a level 10 auto-weapons specialist with 100 in all stats was wasting wayyy too many APs on this fucker
-				//UINT32 diceSides = RAND_MAX / ( max(1,pSoldier->stats.bMarksmanship) / 10) ;
+				//UINT32 diceSides = RAND_MAX / ( max(1,pSoldier->statistics().marksmanship()) / 10) ;
 
 				//Kaiden: Had to change the minimum value to 10 instead of 1,
 				//Rounding down resulted in division by zero and caused a crash.
-				UINT32 diceSides = RAND_MAX / ( max(10,pSoldier->stats.bMarksmanship) / 10) ;
+				UINT32 diceSides = RAND_MAX / ( max(10,pSoldier->statistics().marksmanship()) / 10) ;
 
 				DOUBLE avgAPadded;
 				// SANDRO - Slightly changed this formula to make the auto weapons trait little more needed if new traits activated - 
 				if( gGameOptions.fNewTraitSystem )
 				{
 					// also include possible squadleader bonus
-					UINT8 uiEffExpLev = min( 10, (pSoldier->stats.bExpLevel + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, FALSE ))));
-					avgAPadded = max(((400.0f-2.0f*pSoldier->stats.bDexterity))*(90.0f-5.0f*(uiEffExpLev+gSkillTraitValues.ubAWUnwantedBulletsReduction*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPONS_NT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
+					UINT8 uiEffExpLev = min( 10, (pSoldier->statistics().experienceLevel() + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, FALSE ))));
+					avgAPadded = max(((400.0f-2.0f*pSoldier->statistics().dexterity()))*(90.0f-5.0f*(uiEffExpLev+gSkillTraitValues.ubAWUnwantedBulletsReduction*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPONS_NT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
 				}
 				else
 				{
-					avgAPadded = max(((400.0f-2.0f*pSoldier->stats.bAgility))*(63.0f-5.0f*(pSoldier->stats.bExpLevel+2.0f*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPS_OT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
+					avgAPadded = max(((400.0f-2.0f*pSoldier->statistics().agility()))*(63.0f-5.0f*(pSoldier->statistics().experienceLevel()+2.0f*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPS_OT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
 				}
 
 				UINT32 chanceToMisfire = (UINT32)(((DOUBLE)diceSides*(2.0f*avgAPadded+1.0f-sqrt(4.0f*avgAPadded+1.0f)))/(2.0f*avgAPadded)); //derive the chace to misfire from the desired average AP overspent, derived suing
@@ -1050,7 +1050,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					misfirePenalty = misfirePenaltyConst + (Chance(misfirePenaltyRand)?1:0); //apply the base integral cost and the fractional cost (in the form of probablilite)
 
 					pSoldier->fireControl().autofireShots() += misfirePenalty;
-					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 				}
 				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 				//note that we could misfire more bullets than we have rounds
@@ -1058,9 +1058,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				//the max that can be lost this way is 1AP
 
 				pSoldier->fireControl().autofireShots() -= misfirePenalty;
-				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 
-				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
+				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->roster().team() == OUR_TEAM)
 				{
 					if (gGameExternalOptions.usBulletHideIntensity > 0)
 					{
@@ -1109,7 +1109,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 								pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ], fFromUI,
 								rejectedFireSelection ))
 							return ITEM_HANDLE_OK;
-						if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) )
+						if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) )
 							send_fire( pSoldier, pSoldier->fireControl().spreadLocations()[ 0 ] );
 
 						//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handle Items.cpp: SendBeginFireWeaponEvent" );
@@ -1120,7 +1120,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 								pSoldier, sTargetGridNo, fFromUI,
 								rejectedFireSelection ))
 							return ITEM_HANDLE_OK;
-						if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) )
+						if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) )
 							send_fire( pSoldier, sTargetGridNo );
 
 						//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Handle Items.cpp: SendBeginFireWeaponEvent" );
@@ -1132,7 +1132,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 							pSoldier, sTargetGridNo, fFromUI,
 							rejectedFireSelection ))
 						return ITEM_HANDLE_OK;
-					if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) ) send_fire( pSoldier, sTargetGridNo );
+					if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) ) send_fire( pSoldier, sTargetGridNo );
 				}
 
 				// ATE: Here to make cursor go back to move after LAW shot...
@@ -1159,30 +1159,30 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				// Descrease aim by two if in real time
 				if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive()) )
 				{
-					//pSoldier->aiData.bShownAimTime -= 2;
-					//if ( pSoldier->aiData.bShownAimTime < REFINE_AIM_1 )
+					//pSoldier->aiPlanning().shownAimTime() -= 2;
+					//if ( pSoldier->aiPlanning().shownAimTime() < REFINE_AIM_1 )
 					//{
-					//		pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+					//		pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 					//}
-					//pSoldier->flags.fPauseAim = TRUE;
+					//pSoldier->fireControl().aimPaused() = TRUE;
 				}
 
 				// If in turn based - refresh aim to first level
 				if ( IsJa2TacticalTurnBasedCombat() )
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 
 					// Locate to soldier if he's about to shoot!
-					if ( pSoldier->bTeam != gbPlayerNum	)
+					if ( pSoldier->roster().team() != gbPlayerNum	)
 					{
-						ShowRadioLocator( pSoldier->ubID, SHOW_LOCATOR_NORMAL );
+						ShowRadioLocator( pSoldier->identity().id(), SHOW_LOCATOR_NORMAL );
 					}
 
 				}
 			}
 
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 		}
 		else
 		{
@@ -1205,7 +1205,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			pSoldier->targeting().gridNo() = sGridNo;
 
-			pSoldier->aiData.usActionData	= sGridNo;
+			pSoldier->aiPlanning().actionData()	= sGridNo;
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
@@ -1220,12 +1220,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			}
 			else
 			{
-				pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 				pSoldier->EVENT_SoldierBeginPunchAttack( sAdjustedGridNo, ubDirection );
 			}
 
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			gfResetUIMovementOptimization = TRUE;
 
@@ -1254,7 +1254,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1312,7 +1312,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				// OK, set UI
 				// ATE: Set UI here, not below so that if UI is unset, we don't set again!
-				SetUIBusy( pSoldier->ubID );
+				SetUIBusy( pSoldier->identity().id() );
 				// CHECK IF WE ARE AT THIS GRIDNO NOW
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
@@ -1395,7 +1395,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
 				// OK, set UI
-				SetUIBusy(pSoldier->ubID);
+				SetUIBusy(pSoldier->identity().id());
 
 				// CHECK IF WE ARE AT THIS GRIDNO NOW
 				if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1488,7 +1488,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 
 				// OK, set UI
-				SetUIBusy( pSoldier->ubID );
+				SetUIBusy( pSoldier->identity().id() );
 
 				if ( fFromUI )
 				{
@@ -1539,7 +1539,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 
 				// OK, set UI
-				SetUIBusy( pSoldier->ubID );
+				SetUIBusy( pSoldier->identity().id() );
 
 				if ( fFromUI )
 				{
@@ -1612,7 +1612,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				}
 
 				// OK, set UI
-				SetUIBusy( pSoldier->ubID );
+				SetUIBusy( pSoldier->identity().id() );
 
 				if ( fFromUI )
 				{
@@ -1660,7 +1660,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1693,7 +1693,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				pSoldier->EVENT_SoldierHandcuffPerson( sAdjustedGridNo, ubDirection );
 
-				UnSetUIBusy( pSoldier->ubID );
+				UnSetUIBusy( pSoldier->identity().id() );
 			}
 
 			if ( fFromUI )
@@ -1759,7 +1759,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1792,7 +1792,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				pSoldier->EVENT_SoldierApplyItemToPerson( sAdjustedGridNo, ubDirection );
 
-				UnSetUIBusy( pSoldier->ubID );
+				UnSetUIBusy( pSoldier->identity().id() );
 			}
 
 			if ( fFromUI )
@@ -1833,7 +1833,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		else if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1866,7 +1866,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				pSoldier->EVENT_SoldierTakeBloodFromPerson( sAdjustedGridNo, ubDirection );
 
-				UnSetUIBusy( pSoldier->ubID );
+				UnSetUIBusy( pSoldier->identity().id() );
 			}
 
 			if ( fFromUI )
@@ -1907,7 +1907,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		else if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -1940,7 +1940,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				pSoldier->EVENT_SoldierApplySplintToPerson( sAdjustedGridNo, ubDirection );
 
-				UnSetUIBusy( pSoldier->ubID );
+				UnSetUIBusy( pSoldier->identity().id() );
 			}
 
 			if ( fFromUI )
@@ -1995,7 +1995,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					}
 
 					// OK, set UI
-					SetUIBusy( pSoldier->ubID );
+					SetUIBusy( pSoldier->identity().id() );
 
 					if ( fFromUI )
 					{
@@ -2094,7 +2094,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		}
 
 		// OK, set UI
-		SetUIBusy( pSoldier->ubID );
+		SetUIBusy( pSoldier->identity().id() );
 
 		if ( fFromUI )
 		{
@@ -2108,7 +2108,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( Item[ usHandItem ].usItemClass == IC_BLADE )
 	{
 		// See if we can get there to stab
-		if ( pSoldier->ubBodyType == BLOODCAT )
+		if ( pSoldier->identity().bodyType() == BLOODCAT )
 		{
 			sActionGridNo =	FindNextToAdjacentGridEx( pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 		}
@@ -2128,7 +2128,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		if ( sActionGridNo != NOWHERE )
 		{
-			pSoldier->aiData.usActionData = sActionGridNo;
+			pSoldier->aiPlanning().actionData() = sActionGridNo;
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -2145,12 +2145,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 				// for the benefit of the AI
-				pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 				pSoldier->EVENT_SoldierBeginBladeAttack( sAdjustedGridNo, ubDirection );
 			}
 
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			if ( fFromUI )
 			{
@@ -2178,14 +2178,14 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		DebugAttackBusy( "Swipe attack\n");
 
 
-		sAPCost = CalcTotalAPsToAttack( pSoldier, sGridNo, FALSE, pSoldier->aiData.bAimTime );
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sGridNo, FALSE, pSoldier->aiPlanning().aimTime() );
 
 		DeductPoints( pSoldier, sAPCost, 0 );
 
 		pSoldier->EVENT_InitNewSoldierAnim( QUEEN_SWIPE, 0 , FALSE );
 
 		//FireWeapon( pSoldier, sTargetGridNo );
-		pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+		pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
 		return( ITEM_HANDLE_OK );
 	}
@@ -2206,7 +2206,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			sTargetGridNo	= sGridNo;
 		}
 
-		sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime, 0 );
+		sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime(), 0 );
 
 		// Check if these is room to place mortar!
 		if (ItemIsMortar(usHandItem))
@@ -2225,9 +2225,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		}
 		else if (ItemIsGrenadeLauncher(usHandItem))//usHandItem == GLAUNCHER || usHandItem == UNDER_GLAUNCHER )
 		{
-			GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiData.bAimTime );
+			GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiPlanning().aimTime() );
 			usTurningCost = CalculateTurningCost(pSoldier, usHandItem, fAddingTurningCost);
-			usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiData.bAimTime );
+			usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiPlanning().aimTime() );
 
 			// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 			//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
@@ -2282,12 +2282,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 						pSoldier, sTargetGridNo, fFromUI,
 						rejectedFireSelection ))
 					return ITEM_HANDLE_OK;
-				if(fFromUI && (is_server || (is_client && pSoldier->ubID <20)) ) send_fire( pSoldier, sTargetGridNo );
+				if(fFromUI && (is_server || (is_client && pSoldier->identity().id() <20)) ) send_fire( pSoldier, sTargetGridNo );
 
 			}
 
 			// OK, set UI
-			SetUIBusy( pSoldier->ubID );
+			SetUIBusy( pSoldier->identity().id() );
 
 			return( ITEM_HANDLE_OK );
 
@@ -2378,7 +2378,7 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				}
 				pSoldier->inv[ HANDPOS ][0]->data.bTrap = __max( 0, pSoldier->inv[ HANDPOS ][0]->data.bTrap );
 
-				pSoldier->inv[ HANDPOS ][0]->data.misc.ubBombOwner = pSoldier->ubID + 2;
+				pSoldier->inv[ HANDPOS ][0]->data.misc.ubBombOwner = pSoldier->identity().id() + 2;
 
 				// Flugente: determine the direction we are looking at and apply that direction to our explosive
 				pSoldier->inv[ HANDPOS ][0]->data.ubDirection = pSoldier->position().direction();
@@ -2525,7 +2525,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			if (gbGrenadeRolling)
 			{
 				if ((pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) &&
-					((pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE)))
+					((pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE)))
 					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
 					pSoldier->animationIntent().pendingAnimation() = LOB_ITEM;
@@ -2535,7 +2535,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			{
 				//ddd maybe need to add check for throwing item class - grenade
 				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
-					( (pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE) ) )
+					( (pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE) ) )
 					pSoldier->animationIntent().pendingAnimation() = LOB_GRENADE_STANCE;
 				else
 					pSoldier->animationIntent().pendingAnimation() = LOB_ITEM;
@@ -2543,7 +2543,7 @@ void HandleSoldierThrowItem( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 			else			
 			{
 				if( (pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM) && 
-					( (pSoldier->ubBodyType == BIGMALE) || (pSoldier->ubBodyType == REGMALE) ) )
+					( (pSoldier->identity().bodyType() == BIGMALE) || (pSoldier->identity().bodyType() == REGMALE) ) )
 					pSoldier->animationIntent().pendingAnimation() = THROW_GRENADE_STANCE;
 				else
 					pSoldier->animationIntent().pendingAnimation() = THROW_ITEM;
@@ -2626,11 +2626,11 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 
 		pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
 		pSoldier->pendingAction().tertiaryData()	= ubDirection;
-		pSoldier->pendingAction().quaternaryData() = pTargetSoldier->ubID;
+		pSoldier->pendingAction().quaternaryData() = pTargetSoldier->identity().id();
 		pSoldier->pendingAction().resetAnimationCount();
 
 		// Set soldier as engaged!
-		pSoldier->flags.uiStatusFlags |= SOLDIER_ENGAGEDINACTION;
+		pSoldier->status().flags() |= SOLDIER_ENGAGEDINACTION;
 
 		// CHECK IF WE ARE AT THIS GRIDNO NOW
 		if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -2646,7 +2646,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 		}
 
 		// Set target as engaged!
-		pTargetSoldier->flags.uiStatusFlags |= SOLDIER_ENGAGEDINACTION;
+		pTargetSoldier->status().flags() |= SOLDIER_ENGAGEDINACTION;
 
 		return;
 	}
@@ -2690,12 +2690,12 @@ void SoldierPickupItem(
 	// Deduct points!
 	//sAPCost = GetAPsToPickupItem( pSoldier, sGridNo );
 	//DeductPoints( pSoldier, sAPCost, 0 );
-	SetUIBusy( pSoldier->ubID );
+	SetUIBusy( pSoldier->identity().id() );
 
 	// CHECK IF NOT AT SAME GRIDNO
 	if ( pSoldier->position().gridNo() != sActionGridNo )
 	{
-		if ( pSoldier->bTeam == gbPlayerNum )
+		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
 			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), TRUE, TRUE );
 
@@ -2721,7 +2721,7 @@ void SoldierPickupItem(
 
 void HandleAutoPlaceFail( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo )
 {
-	if (pSoldier->bTeam == gbPlayerNum)
+	if (pSoldier->roster().team() == gbPlayerNum)
 	{
 		// Place it in buddy's hand!
 		if ( gpItemPointer == NULL )
@@ -2734,7 +2734,7 @@ void HandleAutoPlaceFail( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 			AddItemToPool( sGridNo, &(gWorldItems[ iItemIndex ].object ), 1, pSoldier->position().level(), 0, -1 );
 
 			// If we are a merc, say DAMN quote....
-			if ( pSoldier->bTeam == gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 			}
@@ -2821,7 +2821,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 							gTempObject = gWorldItems[ pItemPool->iItemIndex ].object;
 
 							// Flugente: if we allow militia to use sector equipment, then mark gear they pick up, so that they drop it too.
-							if ( pSoldier->bTeam == MILITIA_TEAM && gGameExternalOptions.fMilitiaUseSectorInventory )
+							if ( pSoldier->roster().team() == MILITIA_TEAM && gGameExternalOptions.fMilitiaUseSectorInventory )
 							{
 								if ( Item[gTempObject.usItem].usItemClass & IC_ARMOUR && gGameExternalOptions.fMilitiaUseSectorInventory_Armour )
 								{
@@ -2875,7 +2875,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 							}
 							/*
 							// handle theft.. will return true if theft has failed ( if soldier was caught )
-							if( pSoldier->bTeam == OUR_TEAM )
+							if( pSoldier->roster().team() == OUR_TEAM )
 							{
 							// check to see if object was owned by another
 							if( gTempObject.fFlags & OBJECT_OWNED_BY_CIVILIAN )
@@ -2966,7 +2966,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 
 					/*
 					// handle theft.. will return true if theft has failed ( if soldier was caught )
-					if( pSoldier->bTeam == OUR_TEAM )
+					if( pSoldier->roster().team() == OUR_TEAM )
 					{
 					// check to see if object was owned by another
 					if( gTempObject.fFlags & OBJECT_OWNED_BY_CIVILIAN )
@@ -2984,7 +2984,7 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 					*/
 
 					// Flugente: if we allow militia to use sector equipment, then mark gear they pick up, so that they drop it too.
-					if ( pSoldier->bTeam == MILITIA_TEAM && gGameExternalOptions.fMilitiaUseSectorInventory )
+					if ( pSoldier->roster().team() == MILITIA_TEAM && gGameExternalOptions.fMilitiaUseSectorInventory )
 					{
 						if ( Item[gWorldItems[ iItemIndex ].object.usItem].usItemClass & IC_ARMOUR && gGameExternalOptions.fMilitiaUseSectorInventory_Armour )
 						{
@@ -3043,10 +3043,10 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 	}
 
 	// OK, check if potentially a good candidate for cool quote
-	if ( fShouldSayCoolQuote && pSoldier->bTeam == gbPlayerNum )
+	if ( fShouldSayCoolQuote && pSoldier->roster().team() == gbPlayerNum )
 	{
 		// Do we have this quote..?
-		if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
+		if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
 		{
 			// Have we not said it today?
 			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
@@ -3072,14 +3072,14 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 	}
 #endif
 	// Aknowledge....
-	if( pSoldier->bTeam == OUR_TEAM && !fDidSayCoolQuote && !fSaidBoobyTrapQuote )
+	if( pSoldier->roster().team() == OUR_TEAM && !fDidSayCoolQuote && !fSaidBoobyTrapQuote )
 	{
 		pSoldier->DoMercBattleSound( BATTLE_SOUND_GOTIT );
 	}
 
 
 	// OK partner......look for any hidden items!
-	if ( pSoldier->bTeam == gbPlayerNum && LookForHiddenItems( sGridNo, pSoldier->position().level(), TRUE, 0 ) )
+	if ( pSoldier->roster().team() == gbPlayerNum && LookForHiddenItems( sGridNo, pSoldier->position().level(), TRUE, 0 ) )
 	{
 		// WISDOM GAIN (5):	Found a hidden object
 		StatChange( pSoldier, WISDOMAMT, 5, FALSE );
@@ -3112,10 +3112,10 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 	if ( GetItemPool( sGridNo, &pItemPool, pSoldier->position().level() ) )
 	{
 		// OK, if an enemy, go directly ( skip menu )
-		if ( pSoldier->bTeam != gbPlayerNum )
+		if ( pSoldier->roster().team() != gbPlayerNum )
 		{
 			// HEADROCK HAM 3.5: On-screen message when militia pick up items.
-			if ( pSoldier->bTeam == MILITIA_TEAM )
+			if ( pSoldier->roster().team() == MILITIA_TEAM )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113HAMMessage[4], Item[gWorldItems[ iItemIndex ].object.usItem].szItemName );
 			}
@@ -3174,7 +3174,7 @@ void HandleSoldierPickupItem( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 			else
 			{
 				// OK, only hidden items exist...
-				if ( pSoldier->bTeam == gbPlayerNum && DoesItemPoolContainAllHiddenItems( pItemPool ) )
+				if ( pSoldier->roster().team() == gbPlayerNum && DoesItemPoolContainAllHiddenItems( pItemPool ) )
 				{
 					// He's touched them....
 					if ( LookForHiddenItems( sGridNo, pSoldier->position().level(), TRUE, 0 ) )
@@ -4434,7 +4434,7 @@ void NotifySoldiersToLookforItems( )
 
 		if ( pSoldier != NULL )
 		{
-			pSoldier->flags.uiStatusFlags |= SOLDIER_LOOKFOR_ITEMS;
+			pSoldier->status().flags() |= SOLDIER_LOOKFOR_ITEMS;
 		}
 	}
 
@@ -4534,7 +4534,7 @@ BOOLEAN ItemPoolOKForPickup( SOLDIERTYPE * pSoldier, ITEM_POOL *pItemPool, INT8 
 		return( TRUE );
 	}
 
-	if ( pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
 		// Setup some conditions!
 		if ( gWorldItems[ pItemPool->iItemIndex ].bVisible != VISIBLE	)
@@ -5221,14 +5221,14 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ pSoldier->pTempObject->usItem ] );
 
 			// OK, disengage buddy
-			pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+			pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 
 			if ( ubTargetMercID != NOBODY )
 			{
 				SOLDIERTYPE* target =
 					GetJa2SoldierRepository().resolve( ubTargetMercID );
 				if ( target )
-					target->flags.uiStatusFlags &=
+					target->status().flags() &=
 						(~SOLDIER_ENGAGEDINACTION );
 			}
 
@@ -5266,7 +5266,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 	// this soldier and from this inv slot, if so, delete!!!!!!!
 	if ( gpItemPointer != NULL )
 	{
-		if ( pSoldier->ubID == GetItemPointerSoldier()->ubID )
+		if ( pSoldier->identity().id() == GetItemPointerSoldier()->identity().id() )
 		{
 			if ( bInvPos == gbItemPointerSrcSlot && usItemNum == gpItemPointer->usItem	)
 			{
@@ -5288,13 +5288,13 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 		// DAVE! - put stuff here to bring up shopkeeper.......
 
 		//if the user just clicked on an arms dealer
-		if( IsMercADealer( pTSoldier->ubProfile ) )
+		if( IsMercADealer( pTSoldier->identity().profile() ) )
 		{
 			UnSetEngagedInConvFromPCAction( pSoldier );
 
 			//if the dealer is Micky,
 			/*
-			if( pTSoldier->ubProfile == MICKY )
+			if( pTSoldier->identity().profile() == MICKY )
 			{
 			//and the items are alcohol, dont enter the shopkeeper
 			if( GetArmsDealerItemTypeFromItemNumber( gTempObject.usItem ) == ARMS_DEALER_ALCOHOL )
@@ -5302,23 +5302,23 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 			}
 			*/
 
-			if ( NPCHasUnusedRecordWithGivenApproach( pTSoldier->ubProfile, APPROACH_BUYSELL ) )
+			if ( NPCHasUnusedRecordWithGivenApproach( pTSoldier->identity().profile(), APPROACH_BUYSELL ) )
 			{
-				TriggerNPCWithGivenApproach( pTSoldier->ubProfile, APPROACH_BUYSELL, TRUE );
+				TriggerNPCWithGivenApproach( pTSoldier->identity().profile(), APPROACH_BUYSELL, TRUE );
 				return;
 			}
 			// now also check for buy/sell lines (Oct 13)
 			/*
-			else if ( NPCWillingToAcceptItem( pTSoldier->ubProfile, pSoldier->ubProfile, &gTempObject ) )
+			else if ( NPCWillingToAcceptItem( pTSoldier->identity().profile(), pSoldier->identity().profile(), &gTempObject ) )
 			{
-			TriggerNPCWithGivenApproach( pTSoldier->ubProfile, APPROACH_GIVINGITEM, TRUE );
+			TriggerNPCWithGivenApproach( pTSoldier->identity().profile(), APPROACH_GIVINGITEM, TRUE );
 			return;
 			}*/
-			else if ( !NPCWillingToAcceptItem( pTSoldier->ubProfile, pSoldier->ubProfile, &gTempObject ) )
+			else if ( !NPCWillingToAcceptItem( pTSoldier->identity().profile(), pSoldier->identity().profile(), &gTempObject ) )
 			{
 
 				//Enter the shopkeeper interface
-				EnterShopKeeperInterfaceScreen( pTSoldier->ubProfile );
+				EnterShopKeeperInterfaceScreen( pTSoldier->identity().profile() );
 
 				// removed the if, because if the player picked up an item straight from the ground or money strait from the money
 				// interface, the item would NOT have a bInvPos, therefore it would not get added to the dealer, and would get deleted
@@ -5340,7 +5340,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 		}
 
 		// OK< FOR NOW HANDLE NPC's DIFFERENT!
-		ubProfile = pTSoldier->ubProfile;
+		ubProfile = pTSoldier->identity().profile();
 
 		// 1 ) PLayer to NPC = NPC
 		// 2 ) Player to player = player;
@@ -5379,8 +5379,8 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ usItemNum ] );
 
 				// OK, disengage buddy
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
-				pTSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+				pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+				pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 			}
 			else
 			{
@@ -5396,13 +5396,13 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 				if (usItemNum == MONEY)
 				{
 					// are we giving money to an NPC, to whom we owe money?
-					if (pTSoldier->ubProfile != NO_PROFILE && gMercProfiles[pTSoldier->ubProfile].iBalance < 0)
+					if (pTSoldier->identity().profile() != NO_PROFILE && gMercProfiles[pTSoldier->identity().profile()].iBalance < 0)
 					{
-						gMercProfiles[pTSoldier->ubProfile].iBalance += gTempObject[0]->data.money.uiMoneyAmount;
-						if (gMercProfiles[pTSoldier->ubProfile].iBalance >= 0)
+						gMercProfiles[pTSoldier->identity().profile()].iBalance += gTempObject[0]->data.money.uiMoneyAmount;
+						if (gMercProfiles[pTSoldier->identity().profile()].iBalance >= 0)
 						{
 							// don't let the player accumulate credit (?)
-							gMercProfiles[pTSoldier->ubProfile].iBalance = 0;
+							gMercProfiles[pTSoldier->identity().profile()].iBalance = 0;
 
 							// report the payment and set facts to indicate people not being owed money
 							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ GUY_HAS_BEEN_PAID_IN_FULL_STR ], pTSoldier->GetName() );
@@ -5410,7 +5410,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 						else
 						{
 							// report the payment
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ GUY_STILL_OWED_STR ], pTSoldier->GetName(), -gMercProfiles[pTSoldier->ubProfile].iBalance );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ GUY_STILL_OWED_STR ], pTSoldier->GetName(), -gMercProfiles[pTSoldier->identity().profile()].iBalance );
 						}
 					}
 				}
@@ -5434,8 +5434,8 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 	}
 
 	// OK, disengage buddy
-	pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
-	pTSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+	pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+	pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 
 }
 
@@ -5478,7 +5478,7 @@ INT32 AdjustGridNoForItemPlacement( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	// ATE: IF a person is found, use adjacent gridno for it!
 	ubTargetID = WhoIsThere2( sGridNo, pSoldier->position().level() );
 
-	if ( fStructFound || ( ubTargetID != NOBODY && ubTargetID != pSoldier->ubID ) )
+	if ( fStructFound || ( ubTargetID != NOBODY && ubTargetID != pSoldier->identity().id() ) )
 	{
 		// GET ADJACENT GRIDNO
 		sActionGridNo =	FindAdjacentGridEx( pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
@@ -5548,7 +5548,7 @@ void StartBombMessageBox( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 		{
 		// check to make sure the appropriate sector is loaded
 		}
-		SetOffBombsByFrequency( pSoldier->ubID, pSoldier->inv[HANDPOS][0]->data.misc.bFrequency );
+		SetOffBombsByFrequency( pSoldier->identity().id(), pSoldier->inv[HANDPOS][0]->data.misc.bFrequency );
 		*/
 
 		// PLay sound....
@@ -5796,7 +5796,7 @@ void UpdateGear()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve( bMercID );
 		//if the merc is in this sector
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 		{
 			// loop over inventory
 			INT8 invsize = (INT8)pSoldier->inv.size( );									// remember inventorysize, so we don't call size() repeatedly
@@ -5978,7 +5978,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 		{
 			// Flugente: jamming can prevent bomb activation
 			if ( !gSkillTraitValues.fVOJammingBlocksRemoteBombs || !SectorJammed() )
-				SetOffBombsByFrequency( gpTempSoldier->ubID, ubExitValue );
+				SetOffBombsByFrequency( gpTempSoldier->identity().id(), ubExitValue );
 		}
 		else
 		{
@@ -6093,7 +6093,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 				// so we add 2 to all owner IDs passed through here and subtract 2 later
 				if ( pObj != &(gpTempSoldier->inv[HANDPOS]) || gpTempSoldier->inv[HANDPOS].MoveThisObjectTo(gTempObject, 1) == 0) 
 				{
-					gTempObject[0]->data.misc.ubBombOwner = gpTempSoldier->ubID + 2;
+					gTempObject[0]->data.misc.ubBombOwner = gpTempSoldier->identity().id() + 2;
 					gTempObject[0]->data.ubDirection = gpTempSoldier->position().direction();		// Flugente: direction of bomb is direction of soldier
 
 					// Flugente: tripwire was called through a messagebox, but has to be buried nevertheless
@@ -6130,7 +6130,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			SectorFillCanteens();
 			break;
 		case 2:
-       		// undisguise or take off custom clothes 
+		// undisguise or take off custom clothes
 			gpTempSoldier->Strip();
 			break;
        case 3:
@@ -6176,7 +6176,7 @@ void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 		const INT32 nextGridNoinSight = callbackContext.grid;
 		const INT8 level = callbackContext.level;
 
-		INT16 sAPCost = CalcTotalAPsToAttack( gpTempSoldier, nextGridNoinSight, FALSE, gpTempSoldier->aiData.bAimTime );
+		INT16 sAPCost = CalcTotalAPsToAttack( gpTempSoldier, nextGridNoinSight, FALSE, gpTempSoldier->aiPlanning().aimTime() );
 
 		BOOLEAN fDamageKnife = FALSE;
 
@@ -6264,7 +6264,7 @@ BOOLEAN HandItemWorks( SOLDIERTYPE *pSoldier, INT8 bSlot )
 			fItemWorks = FALSE;
 		}
 
-		if (!fItemWorks && pSoldier->bTeam == gbPlayerNum)
+		if (!fItemWorks && pSoldier->roster().team() == gbPlayerNum)
 		{
 			// merc says "This thing doesn't work!"
 			TacticalCharacterDialogue( pSoldier, QUOTE_USELESS_ITEM );
@@ -6341,7 +6341,7 @@ BOOLEAN ContinuePastBoobyTrap( SOLDIERTYPE * pSoldier, INT32 sGridNo, INT8 bLeve
 
 	if ((*pObj)[0]->data.bTrap > 0)
 	{
-		if (pSoldier->bTeam == gbPlayerNum)
+		if (pSoldier->roster().team() == gbPlayerNum)
 		{
 			// does the player know about this item?
 			fBoobyTrapKnowledge = (((*pObj).fFlags & OBJECT_KNOWN_TO_BE_TRAPPED) > 0);
@@ -6506,7 +6506,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 		{
 			if ( gTempObject[0]->data.misc.ubBombOwner > 1 && ( (INT32)gTempObject[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && gTempObject[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
 			{
-				if ( gTempObject[0]->data.misc.ubBombOwner - 2 == gpBoobyTrapSoldier->ubID )
+				if ( gTempObject[0]->data.misc.ubBombOwner - 2 == gpBoobyTrapSoldier->identity().id() )
 				{
 					// disarmed my own boobytrap!
 					StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (2 * gbTrapDifficulty), FALSE );
@@ -6517,7 +6517,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 					StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (4 * gbTrapDifficulty), FALSE );
 					
 					// SANDRO - merc records - trap removal count (don't count our own traps)
-					gMercProfiles[ gpBoobyTrapSoldier->ubProfile ].records.usTrapsRemoved++;
+					gMercProfiles[ gpBoobyTrapSoldier->identity().profile() ].records.usTrapsRemoved++;
 				}
 			}
 			else
@@ -6526,7 +6526,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 				StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (6 * gbTrapDifficulty), FALSE );
 
 				// SANDRO - merc records - trap removal count
-				gMercProfiles[ gpBoobyTrapSoldier->ubProfile ].records.usTrapsRemoved++;
+				gMercProfiles[ gpBoobyTrapSoldier->identity().profile() ].records.usTrapsRemoved++;
 			}
 
 			// have merc say this is good
@@ -6625,7 +6625,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			{
 				// OJW - 20091029 - disarm explosives
 				if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->identity().id() );
 				// remove it from the ground
 				RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
 			}
@@ -6653,7 +6653,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			
 					// OJW - 20091029 - disarm explosives
 					if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->identity().id() );
 
 					RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
 				}
@@ -6670,7 +6670,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 					}
 					// OJW - 20091029 - disarm explosives
 					if (is_networked && is_client)
-						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->ubID );
+						send_disarm_explosive( gsBoobyTrapGridNo, boobyTrapItemIndex, gpBoobyTrapSoldier->identity().id() );
 
 					// remove it from the ground
 					RemoveItemFromPool( gsBoobyTrapGridNo, boobyTrapItemIndex, gbBoobyTrapLevel );
@@ -6689,7 +6689,7 @@ void BoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 
 			if (gfDisarmingBuriedBomb)
 			{
-				SetOffBombsInGridNo( gpBoobyTrapSoldier->ubID, gsBoobyTrapGridNo, TRUE, gbBoobyTrapLevel );
+				SetOffBombsInGridNo( gpBoobyTrapSoldier->identity().id(), gsBoobyTrapGridNo, TRUE, gbBoobyTrapLevel );
 			}
 			else
 			{
@@ -6763,8 +6763,8 @@ void BoobyTrapInMapScreenMessageBoxCallBack( UINT8 ubExitValue )
 				StatChange( gpBoobyTrapSoldier, EXPLODEAMT, (UINT16) (6 * gbTrapDifficulty), FALSE );
 
 			// SANDRO - merc records - trap removal count
-			if ( gpBoobyTrapSoldier->ubProfile != NO_PROFILE )
-				gMercProfiles[ gpBoobyTrapSoldier->ubProfile ].records.usTrapsRemoved++;
+			if ( gpBoobyTrapSoldier->identity().profile() != NO_PROFILE )
+				gMercProfiles[ gpBoobyTrapSoldier->identity().profile() ].records.usTrapsRemoved++;
 
 			// have merc say this is good
 			gpBoobyTrapSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
@@ -6816,7 +6816,7 @@ void SwitchMessageBoxCallBack( UINT8 ubExitValue )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[ 60 ] );
 
 		SetOffBombsByFrequency(
-			pSoldier->ubID, callbackContext.frequency );
+			pSoldier->identity().id(), callbackContext.frequency );
 	}
 }
 
@@ -6873,8 +6873,8 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 	}
 
 	// sevenfm
-	// pSoldier->aiData.bNeutral is needed to prevent neutral civs stepping on player's mines
-	if (pSoldier->bSide == 0 || (pSoldier->aiData.bNeutral && gGameExternalOptions.bNeutralCiviliansAvoidPlayerMines))	
+	// pSoldier->aiBehavior().neutral() is needed to prevent neutral civs stepping on player's mines
+	if (pSoldier->roster().side() == 0 || (pSoldier->aiBehavior().neutral() && gGameExternalOptions.bNeutralCiviliansAvoidPlayerMines))
 	{
 		fCheckFlag = MAPELEMENT_PLAYER_MINE_PRESENT;
 	}
@@ -6884,7 +6884,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 	}
 
 	// anv: vehicles and passengers can't detect mines
-	if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER ))	
+	if ( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER ))
 	{
 		return (FALSE);
 	}
@@ -6952,7 +6952,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 					}
 					else if (ubDetectLevel >= (*pObj)[0]->data.bTrap)
 					{
-						if (pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+						if (pSoldier->status().flags() & SOLDIER_PC )
 						{
 							// detected exposives buried nearby...
 							StatChange( pSoldier, EXPLODEAMT, (UINT16) ((*pObj)[0]->data.bTrap), FALSE );
@@ -7223,7 +7223,7 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 	DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: MakeNPCGrumpyForMinorOffense"));
 	CancelAIAction( pSoldier, TRUE );
 
-	switch( pSoldier->ubProfile )
+	switch( pSoldier->identity().profile() )
 	{
 	case FREDO:
 	case FRANZ:
@@ -7240,19 +7240,19 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 	case TINA:
 	case ARMAND:
 	case WALTER:
-		gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_NPC_PISSED_OFF;
-		TriggerNPCWithIHateYouQuote( pSoldier->ubProfile );
+		gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 |= PROFILE_MISC_FLAG3_NPC_PISSED_OFF;
+		TriggerNPCWithIHateYouQuote( pSoldier->identity().profile() );
 		break;
 	default:
 		// trigger NPCs with quote if available
-		AddToShouldBecomeHostileOrSayQuoteList( pSoldier->ubID );
+		AddToShouldBecomeHostileOrSayQuoteList( pSoldier->identity().id() );
 		break;
 	}
 
 	if ( pOffendingSoldier )
 	{
-		pSoldier->aiData.bNextAction = AI_ACTION_CHANGE_FACING;
-		pSoldier->aiData.usNextActionData = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOffendingSoldier->position().worldXInt(), pOffendingSoldier->position().worldYInt() );
+		pSoldier->aiPlanning().nextAction() = AI_ACTION_CHANGE_FACING;
+		pSoldier->aiPlanning().nextActionData() = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOffendingSoldier->position().worldXInt(), pOffendingSoldier->position().worldYInt() );
 	}
 }
 
@@ -7262,7 +7262,7 @@ void TestPotentialOwner(
 	SOLDIERTYPE * pOffendingSoldier )
 {
 	if ( pOffendingSoldier &&
-		pSoldier->bActive && pSoldier->bInSector &&
+		pSoldier->roster().active() && pSoldier->roster().inSector() &&
 		pSoldier->vitals().health() >= OKLIFE )
 	{
 		if ( SoldierToSoldierLineOfSightTest(
@@ -7328,7 +7328,7 @@ void CheckForPickedOwnership( void )
 				{
 					pSoldier =
 						GetJa2SoldierRepository().resolve( ubLoop );
-					if ( pSoldier && pSoldier->ubCivilianGroup == ubCivGroup )
+					if ( pSoldier && pSoldier->roster().civilianGroup() == ubCivGroup )
 					{
 						TestPotentialOwner(
 							pSoldier, pOffendingSoldier );
@@ -7409,7 +7409,7 @@ BOOLEAN ContinuePastBoobyTrapInMapScreen( OBJECTTYPE *pObject, SOLDIERTYPE *pSol
 
 	if ((*pObject)[0]->data.bTrap > 0)
 	{
-		if (pSoldier->bTeam == gbPlayerNum)
+		if (pSoldier->roster().team() == gbPlayerNum)
 		{
 			// does the player know about this item?
 			fBoobyTrapKnowledge = (((*pObject).fFlags & OBJECT_KNOWN_TO_BE_TRAPPED) > 0);
@@ -7491,7 +7491,7 @@ INT32 FindNearestAvailableGridNoForItem( INT32 sSweetGridNo, INT8 ubRadius )
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -7561,15 +7561,15 @@ BOOLEAN CanPlayerUseRocketRifle( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay )
 		// check imprint ID
 		// NB not-imprinted value is NO_PROFILE
 		// imprinted value is profile for mercs & NPCs and NO_PROFILE + 1 for generic dudes
-		if (pSoldier->ubProfile != NO_PROFILE)
+		if (pSoldier->identity().profile() != NO_PROFILE)
 		{
-			if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->ubProfile )
+			if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != pSoldier->identity().profile() )
 			{
 				// NOT a virgin gun...
 				if ( pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.ubImprintID != NO_PROFILE )
 				{
 					// access denied!
-					if (pSoldier->bTeam == gbPlayerNum)
+					if (pSoldier->roster().team() == gbPlayerNum)
 					{
 						PlayJA2Sample( RG_ID_INVALID, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 
@@ -7619,7 +7619,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 			else
 			{
 				// Flugente: if we are on the same team, allow guaranteed full access
-				if ( AllowedToStealFromTeamMate(pSoldier->ubID, pOpponent->ubID) )
+				if ( AllowedToStealFromTeamMate(pSoldier->identity().id(), pOpponent->identity().id()) )
 				{
 					fStealItem = TRUE;
 
@@ -7632,7 +7632,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 					pSoldier->usSoldierFlagMask |= SOLDIER_ACCESSTEAMMEMBER;
 
 					// if we are Nails, don't allow taking our vest
-					if ( pOpponent->ubProfile == 34 && i == VESTPOS )
+					if ( pOpponent->identity().profile() == 34 && i == VESTPOS )
 						fStealItem = FALSE;
 				}
 				else
@@ -7801,8 +7801,8 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 						DeleteObj(&pOpponent->inv[pTempItemPool->iItemIndex]);
 
 						// add to merc records
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsStolen++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsStolen++;
 						
 						DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0, AFTERACTION_INTERRUPT );
 					}
@@ -7831,10 +7831,10 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 		}
 	}
 	// OK, check if potentially a good candidate for cool quote
-	if ( fShouldSayCoolQuote && pSoldier->bTeam == gbPlayerNum )
+	if ( fShouldSayCoolQuote && pSoldier->roster().team() == gbPlayerNum )
 	{
 		// Do we have this quote..?
-		if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
+		if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
 		{
 			// Have we not said it today?
 			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
@@ -7849,13 +7849,13 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 		}
 	}
 	// Aknowledge....
-	if( pSoldier->bTeam == OUR_TEAM && !fDidSayCoolQuote )
+	if( pSoldier->roster().team() == OUR_TEAM && !fDidSayCoolQuote )
 	{
 		pSoldier->DoMercBattleSound( BATTLE_SOUND_GOTIT );
 	}
 
 	// SANDRO - show a message, that we had insufficient APs to take all items
-	if ( fNotEnoughAPs && pSoldier->bTeam == gbPlayerNum && gGameExternalOptions.fEnhancedCloseCombatSystem)
+	if ( fNotEnoughAPs && pSoldier->roster().team() == gbPlayerNum && gGameExternalOptions.fEnhancedCloseCombatSystem)
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_NOT_ENOUGH_APS_TO_STEAL_ALL], pSoldier->GetName() );
 	}
@@ -9794,7 +9794,7 @@ INT32 CheckBombDisarmChance(SOLDIERTYPE* gpBoobyTrapSoldier)
     if ( gTempObject[0]->data.misc.ubBombOwner > 1 && ( (INT32)gTempObject[0]->data.misc.ubBombOwner - 2 >= gTacticalStatus.Team[ OUR_TEAM ].bFirstID && gTempObject[0]->data.misc.ubBombOwner - 2 <= gTacticalStatus.Team[ OUR_TEAM ].bLastID ) )
     {
 		// my own boobytrap!
-        if ( gTempObject[0]->data.misc.ubBombOwner - 2 == gpBoobyTrapSoldier->ubID )
+        if ( gTempObject[0]->data.misc.ubBombOwner - 2 == gpBoobyTrapSoldier->identity().id() )
 			diff = 40;
 		// our team's boobytrap!
         else
@@ -9943,7 +9943,7 @@ void ExtendedBoobyTrapMessageBoxCallBack( UINT8 ubExitValue )
 			}
                 if (gfDisarmingBuriedBomb)
                 {
-                        SetOffBombsInGridNo( gpBoobyTrapSoldier->ubID, gsBoobyTrapGridNo, TRUE, gbBoobyTrapLevel );
+                        SetOffBombsInGridNo( gpBoobyTrapSoldier->identity().id(), gsBoobyTrapGridNo, TRUE, gbBoobyTrapLevel );
                 }
                 else
                 {
@@ -10005,11 +10005,11 @@ void DoInteractiveAction( INT32 sGridNo, SOLDIERTYPE *pSoldier )
 	// call lua with the action id - perhaps we might do something special here
 	else if ( luaactionid >= 0 )
 	{
-		LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, sGridNo, pSoldier->position().level(), pSoldier->ubID, possibleaction, luaactionid, difficulty, skill );
+		LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, sGridNo, pSoldier->position().level(), pSoldier->identity().id(), possibleaction, luaactionid, difficulty, skill );
 	}
 	else
 	{
-		DoInteractiveActionDefaultResult( sGridNo, pSoldier->ubID, (skill >= difficulty) );
+		DoInteractiveActionDefaultResult( sGridNo, pSoldier->identity().id(), (skill >= difficulty) );
 	}
 }
 
@@ -10164,7 +10164,7 @@ BOOLEAN SpendMoney( SOLDIERTYPE *pSoldier, UINT32 aAmount )
 	// if we didn't have enough money on us, transfer
 	if ( aAmount > 0 && LaptopSaveInfo.iCurrentBalance >= aAmount )
 	{
-		AddTransactionToPlayersBook( TRANSFER_FUNDS_TO_MERC, pSoldier->ubProfile, GetWorldTotalMin( ), -aAmount );
+		AddTransactionToPlayersBook( TRANSFER_FUNDS_TO_MERC, pSoldier->identity().profile(), GetWorldTotalMin( ), -aAmount );
 
 		aAmount = 0;
 	}
@@ -11054,7 +11054,7 @@ void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 	// CHANGE DIRECTION AND GOTO ANIMATION NOW
 	if (pSoldier->position().direction() != ubDirection)
 	{
-		pSoldier->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		pSoldier->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
 		pSoldier->EVENT_SetSoldierDirection(ubDirection);
 	}
@@ -11082,7 +11082,7 @@ void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 				const SOLDIERTYPE* photographedSoldier =
 					GetJa2SoldierRepository().resolve( ubid );
 
-				LuaAddPhotoData( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, newgridno, bLevel, pSoldier->ubProfile, room, photographedSoldier ? photographedSoldier->ubProfile : NO_PROFILE );
+				LuaAddPhotoData( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, newgridno, bLevel, pSoldier->identity().profile(), room, photographedSoldier ? photographedSoldier->identity().profile() : NO_PROFILE );
 			}
 		}
 	}

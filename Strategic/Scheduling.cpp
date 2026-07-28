@@ -66,7 +66,7 @@ void CopyScheduleToList( SCHEDULENODE *pSchedule, SOLDIERINITNODE *pNode )
 	gubScheduleID++;
 	//Assign all of the links
 	gpScheduleList->ubScheduleID = gubScheduleID;
-	gpScheduleList->ubSoldierID = pNode->pSoldier->ubID;
+	gpScheduleList->ubSoldierID = pNode->pSoldier->identity().id();
 	pNode->pDetailedPlacement->ubScheduleID = gubScheduleID;
 	pNode->pSoldier->schedule().id() = gubScheduleID;
 	if( gubScheduleID > 40 )
@@ -197,10 +197,10 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 		return;
 	}
 
-	if ( !pSoldier->bActive )
+	if ( !pSoldier->roster().active() )
 	{
 		#ifdef JA2BETAVERSION
-			ScreenMsg( FONT_RED, MSG_BETAVERSION, L"Schedule callback:	Soldier isn't active.	Name is %s.", pSoldier->name );
+			ScreenMsg( FONT_RED, MSG_BETAVERSION, L"Schedule callback:	Soldier isn't active.	Name is %s.", pSoldier->identity().name() );
 		#endif
 	}
 
@@ -259,7 +259,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 			case 2:			pSchedule->usFlags |= SCHEDULE_FLAGS_ACTIVE3;			break;
 			case 3:			pSchedule->usFlags |= SCHEDULE_FLAGS_ACTIVE4;			break;
 		}
-		pSoldier->aiData.fAIFlags |= AI_CHECK_SCHEDULE;
+		pSoldier->aiBehavior().flags() |= AI_CHECK_SCHEDULE;
 		pSoldier->schedule().resetProgress();
 	}
 
@@ -782,18 +782,18 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 
 	pSoldier = GetJa2SoldierRepository().resolve(pSchedule->ubSoldierID);
 
-	if (pSoldier->ubID == 0)
+	if (pSoldier->identity().id() == 0)
 	{
-		ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier %s moved to away slot by schedule ID %d!", pSoldier->name, pSchedule->ubScheduleID );
+		ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier %s moved to away slot by schedule ID %d!", pSoldier->identity().name(), pSchedule->ubScheduleID );
 	}
 
 	#ifdef JA2EDITOR
-		if ( pSoldier->ubProfile != NO_PROFILE )
+		if ( pSoldier->identity().profile() != NO_PROFILE )
 		{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Autoprocessing schedule action %S for %S (%d) at time %02ld:%02ld (set for %02d:%02d), data1 = %d",
 				gszScheduleActions[ pSchedule->ubAction[ index ] ],
-				pSoldier->name,
-				pSoldier->ubID,
+				pSoldier->identity().name(),
+				pSoldier->identity().id(),
 				GetWorldHour(),
 				GetWorldMinutes(),
 				pSchedule->usTime[ index ] / 60,
@@ -804,7 +804,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Autoprocessing schedule action %S for civ (%d) at time %02ld:%02ld (set for %02d:%02d), data1 = %d",
 				gszScheduleActions[ pSchedule->ubAction[ index ] ],
-				pSoldier->ubID,
+				pSoldier->identity().id(),
 				GetWorldHour(),
 				GetWorldMinutes(),
 				pSchedule->usTime[ index ] / 60,
@@ -814,7 +814,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 	#endif
 
 	// always assume the merc is going to wake, unless the event is a sleep
-	pSoldier->aiData.fAIFlags &= ~(AI_ASLEEP);
+	pSoldier->aiBehavior().flags() &= ~(AI_ASLEEP);
 
 	switch( pSchedule->ubAction[ index ] )
 	{
@@ -832,12 +832,12 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 				// civ should go off map; this tells us where the civ will return
 				pSoldier->deployment().offWorldGrid() = pSchedule->usData2[ index ];
 				MoveSoldierFromMercToAwaySlot( pSoldier );
-				pSoldier->bInSector = FALSE;
+				pSoldier->roster().inSector() = FALSE;
 			}
 			else
 			{
 				// let this person patrol from here from now on
-				pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData2[ index ];
+				pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData2[ index ];
 			}
 			break;
 		case SCHEDULE_ACTION_GRIDNO:
@@ -845,10 +845,10 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_ENTERSECTOR:
-			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_DONT_ADD_TO_SECTOR )
+			if ( pSoldier->identity().profile() != NO_PROFILE && gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags2 & PROFILE_MISC_FLAG2_DONT_ADD_TO_SECTOR )
 			{
 				// never process enter if flag is set
 				break;
@@ -857,24 +857,24 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			MoveSoldierFromAwayToMercSlot( pSoldier );
-			pSoldier->bInSector = TRUE;
+			pSoldier->roster().inSector() = TRUE;
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_WAKE:
 			BumpAnyExistingMerc( pSoldier->position().initialGrid() );
 			ConvertGridNoToCellXY( pSoldier->position().initialGrid(), &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSoldier->position().initialGrid();
+			pSoldier->aiPlanning().patrolGrid()[0] = pSoldier->position().initialGrid();
 			break;
 		case SCHEDULE_ACTION_SLEEP:
-			pSoldier->aiData.fAIFlags |= AI_ASLEEP;
+			pSoldier->aiBehavior().flags() |= AI_ASLEEP;
 			// check for someone else in the location
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_LEAVESECTOR:
 			sGridNo = FindNearestEdgePoint( pSoldier->position().gridNo() );
@@ -890,7 +890,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			// ok, that tells us where the civ will return
 			pSoldier->deployment().offWorldGrid() = sGridNo;
 			MoveSoldierFromMercToAwaySlot( pSoldier );
-			pSoldier->bInSector = FALSE;
+			pSoldier->roster().inSector() = FALSE;
 			break;
 	}
 }
@@ -904,7 +904,7 @@ void PostSchedule( SOLDIERTYPE *pSoldier )
 	UINT8	ubTempAction;
 	UINT16	usTemp;
 
-	if ( (pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP) && ( gTacticalStatus.fCivGroupHostile[ KINGPIN_CIV_GROUP ] || ( (gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS) && (CheckFact( FACT_KINGPIN_CAN_SEND_ASSASSINS, KINGPIN )) ) ) && (gWorldSectorX == 5 && gWorldSectorY == MAP_ROW_C) && (pSoldier->ubProfile == NO_PROFILE) )
+	if ( (pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP) && ( gTacticalStatus.fCivGroupHostile[ KINGPIN_CIV_GROUP ] || ( (gubQuest[ QUEST_KINGPIN_MONEY ] == QUESTINPROGRESS) && (CheckFact( FACT_KINGPIN_CAN_SEND_ASSASSINS, KINGPIN )) ) ) && (gWorldSectorX == 5 && gWorldSectorY == MAP_ROW_C) && (pSoldier->identity().profile() == NO_PROFILE) )
 	{
 		// no schedules for people guarding Tony's!
 		return;
@@ -914,7 +914,7 @@ void PostSchedule( SOLDIERTYPE *pSoldier )
 	if( !pSchedule )
 		return;
 
-	if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags3 & PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE )
+	if ( pSoldier->identity().profile() != NO_PROFILE && gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE )
 	{
 		// don't process schedule
 		return;
@@ -977,7 +977,7 @@ void PostSchedule( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	pSchedule->ubSoldierID = pSoldier->ubID;
+	pSchedule->ubSoldierID = pSoldier->identity().id();
 
 	// always process previous 24 hours
 	uiEndTime = GetWorldTotalMin();
@@ -1091,7 +1091,7 @@ void PostDefaultSchedule( SOLDIERTYPE *pSoldier )
 	gubScheduleID++;
 	//Assign all of the links
 	gpScheduleList->ubScheduleID = gubScheduleID;
-	gpScheduleList->ubSoldierID = pSoldier->ubID;
+	gpScheduleList->ubSoldierID = pSoldier->identity().id();
 	pSoldier->schedule().id() = gubScheduleID;
 
 	//Clear the data inside the schedule
@@ -1142,7 +1142,7 @@ void PostSchedules()
 	curr = gSoldierInitHead;
 	while( curr )
 	{
-		if( curr->pSoldier && curr->pSoldier->bTeam == CIV_TEAM )
+		if( curr->pSoldier && curr->pSoldier->roster().team() == CIV_TEAM )
 		{
 			if( curr->pDetailedPlacement && curr->pDetailedPlacement->ubScheduleID )
 			{
@@ -1151,12 +1151,12 @@ void PostSchedules()
 			else if( fDefaultSchedulesPossible )
 			{
 				// ATE: There should be a better way here...
-				if( curr->pSoldier->ubBodyType != COW &&
-						curr->pSoldier->ubBodyType != BLOODCAT &&
-						curr->pSoldier->ubBodyType != HUMVEE &&
-					curr->pSoldier->ubBodyType != ELDORADO &&
-					curr->pSoldier->ubBodyType != ICECREAMTRUCK &&
-					curr->pSoldier->ubBodyType != JEEP )
+				if( curr->pSoldier->identity().bodyType() != COW &&
+						curr->pSoldier->identity().bodyType() != BLOODCAT &&
+						curr->pSoldier->identity().bodyType() != HUMVEE &&
+					curr->pSoldier->identity().bodyType() != ELDORADO &&
+					curr->pSoldier->identity().bodyType() != ICECREAMTRUCK &&
+					curr->pSoldier->identity().bodyType() != JEEP )
 				{
 					PostDefaultSchedule( curr->pSoldier );
 				}
@@ -1404,13 +1404,13 @@ void ReconnectSchedules( void )
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->schedule().assigned() )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->schedule().assigned() )
 		{
 			pSchedule = GetSchedule( pSoldier->schedule().id() );
 			if ( pSchedule )
 			{
 				// set soldier ptr to point to this guy!
-				pSchedule->ubSoldierID = pSoldier->ubID;
+				pSchedule->ubSoldierID = pSoldier->identity().id();
 			}
 			else
 			{
@@ -1461,10 +1461,10 @@ void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot )
 	UINT8		ubDirection;
 
 	// start after this soldier's ID so we don't duplicate work done in previous passes
-	for ( uiLoop = pSoldier->ubID + 1; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
+	for ( uiLoop = pSoldier->identity().id() + 1; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier2 = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier2->bActive && pSoldier2->bInSector && pSoldier2->schedule().assigned() )
+		if ( pSoldier2->roster().active() && pSoldier2->roster().inSector() && pSoldier2->schedule().assigned() )
 		{
 			pSchedule = GetSchedule( pSoldier2->schedule().id() );
 			if ( pSchedule )
@@ -1499,7 +1499,7 @@ void SecureSleepSpots( void )
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->schedule().assigned() )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->schedule().assigned() )
 		{
 			pSchedule = GetSchedule( pSoldier->schedule().id() );
 			if ( pSchedule )

@@ -382,7 +382,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			// Check if we are reloading
 			if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 			{
-				if ( pSoldier->flags.fReloading || pSoldier->flags.fPauseAim )
+				if ( pSoldier->fireControl().reloading() || pSoldier->fireControl().aimPaused() )
 				{
 					return( ACTION_TARGET_RELOADING );
 				}
@@ -411,7 +411,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					{
 						usShotsLeft = min( (pSoldier->inv[ SECONDHANDPOS ][0]->data.gun.ubGunShotsLeft), usShotsLeft );
 					}
-					bMaxAim = pSoldier->aiData.bShownAimTime;
+					bMaxAim = pSoldier->aiPlanning().shownAimTime();
 
 					// sevenfm: change default number of bullets in autofire according to ini settings
 					ubMaxBullets = DefaultAutofireBulletsByGunClass( pSoldier );
@@ -451,7 +451,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			else
 				gfUIAutofireBulletCount = FALSE;
 
-			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiData.bShownAimTime ) );
+			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() ) );
 			gfUIDisplayActionPoints = TRUE;
 			gfUIDisplayActionPointsCenter = TRUE;
 
@@ -459,7 +459,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			while(!EnoughPoints( pSoldier, gsCurrentActionPoints, 0 , FALSE ) && pSoldier->fireControl().autofireShots() > 1) //oops, we don't have enough points if we are in auto-fire try to decrease bulletcount
 			{
 				pSoldier->fireControl().autofireShots()--;
-				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiData.bShownAimTime ) );
+				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() ) );
 			}
 
 			const bool isCursorOnTarget = (
@@ -470,24 +470,24 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				// Start at maximum aiming levels if the option is toggled
 			if (gGameSettings.fOptions[TOPTION_ALT_START_AIM] && isCursorOnTarget)
 			{
-				pSoldier->aiData.bShownAimTime = maxAimLevels;
-				sAPCosts = CalcTotalAPsToAttack(pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+				pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
+				sAPCosts = CalcTotalAPsToAttack(pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 				// Determine if we can afford!
 				while (!EnoughPoints(pSoldier, sAPCosts, 0, FALSE))
 				{
-					pSoldier->aiData.bShownAimTime -= 1;
-					if (pSoldier->aiData.bShownAimTime < 0)
+					pSoldier->aiPlanning().shownAimTime() -= 1;
+					if (pSoldier->aiPlanning().shownAimTime() < 0)
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 						break;
 					}
-					sAPCosts = CalcTotalAPsToAttack(pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+					sAPCosts = CalcTotalAPsToAttack(pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 				}
 				gsCurrentActionPoints = sAPCosts;
 			}
 
 			// If we don't have any points and we are at the first refine, do nothing but warn!
-			if ( !EnoughPoints( pSoldier, gsCurrentActionPoints, 0 , FALSE ) && (pSoldier->aiData.bShownAimTime == 0))
+			if ( !EnoughPoints( pSoldier, gsCurrentActionPoints, 0 , FALSE ) && (pSoldier->aiPlanning().shownAimTime() == 0))
 			{
 				gfUIDisplayActionPointsInvalid = TRUE;
 
@@ -496,7 +496,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			else
 			{
 				// WANNE: How oft increased?
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + 1 );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + 1 );
 
 				if ( bFutureAim <= maxAimLevels )
 				{
@@ -542,7 +542,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( TARGETREFINE )	)
 				{
@@ -551,19 +551,19 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 					if ( pSoldier->fireControl().burstCounter() )
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_BURST;
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime++;
+						pSoldier->aiPlanning().shownAimTime()++;
 
-						if ( pSoldier->aiData.bShownAimTime > maxAimLevels )
+						if ( pSoldier->aiPlanning().shownAimTime() > maxAimLevels )
 						{
-							pSoldier->aiData.bShownAimTime = maxAimLevels;
+							pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
 						}
 						else
 						{
-							if ( pSoldier->aiData.bShownAimTime % 2 )
+							if ( pSoldier->aiPlanning().shownAimTime() % 2 )
 							{
 								PlayJA2Sample( TARG_REFINE_BEEP, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 							}
@@ -624,12 +624,12 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				do
 				{
 					pSoldier->fireControl().autofireShots()++;
-					sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime);
+					sAPCosts = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiPlanning().shownAimTime());
 				}
 				while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && usShotsLeft >= pSoldier->fireControl().autofireShots() && gbNumBurstLocations >= pSoldier->fireControl().autofireShots());
 				pSoldier->fireControl().autofireShots()--;
 
-				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiData.bShownAimTime );
+				gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, gsBurstLocations[0].sGridNo, TRUE, pSoldier->aiPlanning().shownAimTime() );
 			}
 		}
 
@@ -672,7 +672,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 						UINT32 uiHitChance;
-						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation() );
+						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, pSoldier->aiPlanning().shownAimTime(), pSoldier->attackSelection().shotLocation() );
 						// HEADROCK HAM B2.7: CTH approximation?
 						if (gGameExternalOptions.fApproximateCTH)
 						{	
@@ -693,7 +693,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						FLOAT dDeltaY = (FLOAT)( sY - sYMap );
 						FLOAT d2DDistance = sqrt((dDeltaX*dDeltaX)+(dDeltaY*dDeltaY));
 
-						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
+						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiPlanning().shownAimTime(), usMapPos );
 						
 						pSoldier->targeting().level() = bTempTargetLevel;
 					}
@@ -720,7 +720,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 								// Calculate hit chance (using the current bDoBurst for burst-penalty calculations)
 								UINT32 uiHitChance;
-								uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+								uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 								// HEADROCK HAM B2.7: CTH approximation?
 								if (gGameExternalOptions.fApproximateCTH)
 								{	
@@ -748,7 +748,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							pSoldier->targeting().level() = (INT8) gsInterfaceLevel;
 
 							UINT32 uiHitChance;
-							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 							// HEADROCK HAM B2.7: CTH approximation?
 							if (gGameExternalOptions.fApproximateCTH)
 							{	
@@ -778,7 +778,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							
 						UINT32 uiHitChance;
 						// Calculate CTH for the first bullet
-						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation() );
+						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, pSoldier->aiPlanning().shownAimTime(), pSoldier->attackSelection().shotLocation() );
 						// HEADROCK HAM B2.7: CTH approximation?
 						if (gGameExternalOptions.fApproximateCTH)
 						{	
@@ -803,7 +803,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 						FLOAT dDeltaY = (FLOAT)(sY - sYMap);
 						FLOAT d2DDistance = sqrt((dDeltaX*dDeltaX)+(dDeltaY*dDeltaY));
 
-						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
+						CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiPlanning().shownAimTime(), usMapPos );
 
 						pSoldier->targeting().level() = bTempTargetLevel;
 					}
@@ -819,7 +819,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							
 							UINT32 uiHitChance;
 							// Calculate CTH for the first bullet
-							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 							// HEADROCK HAM B2.7: CTH approximation?
 							if (gGameExternalOptions.fApproximateCTH)
 							{	
@@ -835,7 +835,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 							UINT8 saveDoBurst = pSoldier->fireControl().burstCounter();
 							pSoldier->fireControl().burstCounter() = pSoldier->fireControl().autofireShots();
 							
-							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+							uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 							// HEADROCK HAM B2.7: CTH approximation?
 							if (gGameExternalOptions.fApproximateCTH)
 							{	
@@ -871,17 +871,17 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 				// SANDRO - precise calculation for throwing knives added
 				if(UsingNewCTHSystem() == true)
 				{
-					uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+					uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 				}
 				else
 				{
 					if ( Item[ usInHand ].usItemClass == IC_THROWING_KNIFE )
 					{
-						uiHitChance = CalcThrownChanceToHit( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+						uiHitChance = CalcThrownChanceToHit( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 					}
 					else
 					{
-						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiData.bShownAimTime ), pSoldier->attackSelection().shotLocation() );
+						uiHitChance = CalcChanceToHitGun( pSoldier, usMapPos, (INT8)(pSoldier->aiPlanning().shownAimTime() ), pSoldier->attackSelection().shotLocation() );
 					}
 				}
 				// HEADROCK HAM B2.7: CTH approximation?
@@ -909,7 +909,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					FLOAT dDeltaY = (FLOAT)(sY - sYMap);
 					FLOAT d2DDistance = sqrt((dDeltaX*dDeltaX)+(dDeltaY*dDeltaY));
 
-					CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiData.bShownAimTime, usMapPos );
+					CalcMagFactorSimple( pSoldier, d2DDistance, pSoldier->aiPlanning().shownAimTime(), usMapPos );
 				}
 
 				pSoldier->targeting().level() = bTempTargetLevel;
@@ -921,7 +921,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 					gbCtH[0] = (gbCtH[0]+uiHitChance)/2;
 				}
 			}
-			switchVal = pSoldier->aiData.bShownAimTime;
+			switchVal = pSoldier->aiPlanning().shownAimTime();
 
 			switch( switchVal )
 			{
@@ -1282,7 +1282,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 			//DetermineCursorBodyLocation( (UINT8)gusSelectedSoldier, FALSE, fRecalc );
 			DetermineCursorBodyLocation( gusSelectedSoldier, fShowAPs, fRecalc );
 
-			if ( pSoldier->flags.fReloading || pSoldier->flags.fPauseAim )
+			if ( pSoldier->fireControl().reloading() || pSoldier->fireControl().aimPaused() )
 			{
 				return( ACTION_TARGET_RELOADING );
 			}
@@ -1317,7 +1317,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 	{
 		DetermineCursorBodyLocation( gusSelectedSoldier, fShowAPs, fRecalc );
 
-		gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiData.bShownAimTime ) );
+		gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() ) );
 
 		gfUIDisplayActionPoints = TRUE;
 		gfUIDisplayActionPointsCenter = TRUE;
@@ -1580,7 +1580,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 
 		if ( fOnGuy )
 		{
-			if ( IsValidTargetMerc( pTargetSoldier->ubID ) )
+			if ( IsValidTargetMerc( pTargetSoldier->identity().id() ) )
 			{
 				if ( usFlags & TILE_FLAG_FEET )
 				{
@@ -1609,7 +1609,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 				GetJa2SoldierRepository().resolve(
 					gusUIFullTargetID.i);
 
-			if ( pTargetSoldier->ubBodyType == CROW )
+			if ( pTargetSoldier->identity().bodyType() == CROW )
 			{
 				pSoldier->attackSelection().shotLocation() = AIM_SHOT_LEGS;
 
@@ -1698,12 +1698,12 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 	HandleUIMovementCursor( pSoldier, uiCursorFlags, sGridNo, MOVEUI_TARGET_MERCS );
 
 	// Flugente: if we are using a bayonet, adjust aimtime
-	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET && pSoldier->aiData.bShownAimTime != REFINE_KNIFE_1 )
-		pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_BAYONET && pSoldier->aiPlanning().shownAimTime() != REFINE_KNIFE_1 )
+		pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 
 	if ( fActivated )
 	{
-		DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+		DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 		//shadooow: this fixes bug where the original aim location is lost if the attack is stopped due to interrupt
 		pSoldier->attackSelection().meleeLocation() = pSoldier->attackSelection().shotLocation();
 
@@ -1715,7 +1715,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// Calculate action points
 		if ( IsJa2TacticalTurnBasedCombat() )
 		{
-			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiData.bShownAimTime / 2) );
+			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() / 2) );
 			gfUIDisplayActionPoints = TRUE;
 			gfUIDisplayActionPointsCenter = TRUE;
 
@@ -1724,7 +1724,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 			{
 				gfUIDisplayActionPointsInvalid = TRUE;
 
-				if ( pSoldier->aiData.bShownAimTime == REFINE_KNIFE_1 )
+				if ( pSoldier->aiPlanning().shownAimTime() == REFINE_KNIFE_1 )
 				{
 					return( KNIFE_HIT_UICURSOR );
 				}
@@ -1744,19 +1744,19 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( NONGUNTARGETREFINE )	)
 				{
 					// Reset counter
 					RESETCOUNTER( NONGUNTARGETREFINE );
 
-					if ( pSoldier->aiData.bShownAimTime == REFINE_KNIFE_1 )
+					if ( pSoldier->aiPlanning().shownAimTime() == REFINE_KNIFE_1 )
 					{
 						PlayJA2Sample( TARG_REFINE_BEEP, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 					}
 
-					pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 
 				}
 			}
@@ -1764,7 +1764,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 
 		//////////////////////////////////////////////////////////////
-		if( pSoldier->aiData.bShownAimTime == REFINE_KNIFE_1 )
+		if( pSoldier->aiPlanning().shownAimTime() == REFINE_KNIFE_1 )
 		{
 			if ( gfDisplayFullCountRing )
 			{
@@ -1779,7 +1779,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 				return( KNIFE_NOGO_AIM1_UICURSOR );
 			}
 		}
-		else if( pSoldier->aiData.bShownAimTime == REFINE_KNIFE_2 )
+		else if( pSoldier->aiPlanning().shownAimTime() == REFINE_KNIFE_2 )
 		{
 			if ( gfDisplayFullCountRing )
 			{
@@ -1809,7 +1809,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// CHECK IF WE ARE ON A GUY ( THAT'S NOT SELECTED )!
 		if ( gfUIFullTargetFound && !( guiUIFullTargetFlags & SELECTED_MERC ) )
 		{
-			DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+			DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 			return( KNIFE_HIT_UICURSOR );
 		}
 		else
@@ -1836,7 +1836,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 	if ( fActivated )
 	{
-		DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+		DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 		//shadooow: this fixes bug where the original aim location is lost if the attack is stopped due to interrupt
 		pSoldier->attackSelection().meleeLocation() = pSoldier->attackSelection().shotLocation();
 
@@ -1848,7 +1848,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// Calculate action points
 		if ( IsJa2TacticalTurnBased() )
 		{
-			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiData.bShownAimTime / 2) );
+			gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() / 2) );
 			gfUIDisplayActionPoints = TRUE;
 			gfUIDisplayActionPointsCenter = TRUE;
 
@@ -1857,7 +1857,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 			{
 				gfUIDisplayActionPointsInvalid = TRUE;
 
-				if ( pSoldier->aiData.bShownAimTime == REFINE_PUNCH_1 )
+				if ( pSoldier->aiPlanning().shownAimTime() == REFINE_PUNCH_1 )
 				{
 					return( ACTION_PUNCH_RED );
 				}
@@ -1877,26 +1877,26 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( NONGUNTARGETREFINE )	)
 				{
 					// Reset counter
 					RESETCOUNTER( NONGUNTARGETREFINE );
 
-					if ( pSoldier->aiData.bShownAimTime == REFINE_PUNCH_1 )
+					if ( pSoldier->aiPlanning().shownAimTime() == REFINE_PUNCH_1 )
 					{
 						PlayJA2Sample( TARG_REFINE_BEEP, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 					}
 
-					pSoldier->aiData.bShownAimTime = REFINE_PUNCH_2;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_2;
 
 				}
 			}
 		}
 
 		//////////////////////////////////////////////////////////////
-		if( pSoldier->aiData.bShownAimTime == REFINE_PUNCH_1)
+		if( pSoldier->aiPlanning().shownAimTime() == REFINE_PUNCH_1)
 		{
 			if ( gfDisplayFullCountRing )
 			{
@@ -1911,7 +1911,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 				return( ACTION_PUNCH_NOGO_AIM1_UICURSOR );
 			}
 		}
-		else if ( pSoldier->aiData.bShownAimTime == REFINE_PUNCH_2 )
+		else if ( pSoldier->aiPlanning().shownAimTime() == REFINE_PUNCH_2 )
 		{
 			if ( gfDisplayFullCountRing )
 			{
@@ -1941,7 +1941,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// CHECK IF WE ARE ON A GUY ( THAT'S NOT SELECTED )!
 		if ( gfUIFullTargetFound && !( guiUIFullTargetFlags & SELECTED_MERC ) )
 		{
-			DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+			DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 			return( ACTION_PUNCH_RED );
 		}
 		else
@@ -2035,7 +2035,7 @@ UINT8 HandleNonActivatedTossCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEA
 	{
 		if ( ubItemCursor == TRAJECTORYCURS )
 		{
-		gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiData.bShownAimTime ) );
+		gsCurrentActionPoints = CalcTotalAPsToAttack( pSoldier, sGridNo, TRUE, (INT8)(pSoldier->aiPlanning().shownAimTime() ) );
 		}
 		else
 		{
@@ -2279,7 +2279,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID &&
+			if ( usSoldierIndex != pSoldier->identity().id() &&
 				GetJa2SoldierRepository()
 					.resolve(usSoldierIndex.i)->IsValidBloodDonor() )
 				return BLOODBAG_GREY_UICURSOR;
@@ -2316,7 +2316,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID &&
+			if ( usSoldierIndex != pSoldier->identity().id() &&
 				GetJa2SoldierRepository()
 					.resolve(usSoldierIndex.i)->CanReceiveSplint() )
 				return SPLINT_GREY_UICURSOR;
@@ -2524,13 +2524,13 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_AIM_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_AIM_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_AIM_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_AIM_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			// Reset counter
 			RESETCOUNTER( TARGETREFINE );
@@ -2540,13 +2540,13 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_PUNCH_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_PUNCH_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_PUNCH_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_PUNCH_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 
 			}
 			// Reset counter
@@ -2558,13 +2558,13 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_KNIFE_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_KNIFE_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
-				pSoldier->aiData.bShownAimTime				= REFINE_KNIFE_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->aiPlanning().shownAimTime()				= REFINE_KNIFE_1;
+				pSoldier->fireControl().aimPaused() = FALSE;
 
 			}
 			// Reset counter
@@ -2621,7 +2621,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots() && !gGameExternalOptions.bAimedBurstEnabled)
 			{
 				// Do nothing for aimed burst deactivated
-				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
+				// pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_BURST;
 			}
 			else if(pSoldier->fireControl().autofireShots())
 			{
@@ -2647,7 +2647,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						}
 					}
 
-					bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + 1 );
+					bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + 1 );
 
 					if ( bFutureAim <= maxAimLevels )
 					{
@@ -2656,10 +2656,10 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						// Determine if we can afford!
 						if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 						{
-							pSoldier->aiData.bShownAimTime+= 1;
-							if ( pSoldier->aiData.bShownAimTime > maxAimLevels )
+							pSoldier->aiPlanning().shownAimTime()+= 1;
+							if ( pSoldier->aiPlanning().shownAimTime() > maxAimLevels )
 							{
-								pSoldier->aiData.bShownAimTime = maxAimLevels;
+								pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
 							}
 						}
 						// Else - goto first level!
@@ -2671,7 +2671,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 							}
 							else
 							{
-								pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+								pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 								gfDisplayFullCountRing = FALSE;
 							}
 						}
@@ -2684,7 +2684,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						}
 						else
 						{
-							pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+							pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 							gfDisplayFullCountRing = FALSE;
 						}
 					}
@@ -2710,11 +2710,11 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 					{
 						//Calculate how many bullets we need to fire to add at least one more AP
-						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 						{
 							pSoldier->fireControl().autofireShots()++;
-							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						}
 
 						//we've stepped over the border and used up one more ap, now let's make sure that it is spent to maximize the bullets
@@ -2724,12 +2724,12 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						do
 						{
 							pSoldier->fireControl().autofireShots()++;
-							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+							sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						}
 						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
 						pSoldier->fireControl().autofireShots()--;
 
-						sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = CalcTotalAPsToAttack( pSoldier, usMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 
 						if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 						{
@@ -2767,7 +2767,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					}
 				}
 
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + 1 );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + 1 );
 
 				if ( bFutureAim <= maxAimLevels )
 				{
@@ -2776,10 +2776,10 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					// Determine if we can afford!
 					if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 					{
-						pSoldier->aiData.bShownAimTime+= 1;
-						if ( pSoldier->aiData.bShownAimTime > maxAimLevels )
+						pSoldier->aiPlanning().shownAimTime()+= 1;
+						if ( pSoldier->aiPlanning().shownAimTime() > maxAimLevels )
 						{
-							pSoldier->aiData.bShownAimTime = maxAimLevels;
+							pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
 						}
 					}
 					// Else - goto first level!
@@ -2791,7 +2791,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 						}
 						else
 						{
-							pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+							pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 							gfDisplayFullCountRing = FALSE;
 						}
 					}
@@ -2804,7 +2804,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 						gfDisplayFullCountRing = FALSE;
 					}
 				}
@@ -2814,7 +2814,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 		case PUNCHCURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + REFINE_PUNCH_2);
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + REFINE_PUNCH_2);
 
 			if ( bFutureAim <= REFINE_PUNCH_2)
 			{
@@ -2823,11 +2823,11 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= REFINE_PUNCH_2;
+					pSoldier->aiPlanning().shownAimTime()+= REFINE_PUNCH_2;
 
-					if ( pSoldier->aiData.bShownAimTime > REFINE_PUNCH_2)
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_PUNCH_2)
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_PUNCH_2;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_2;
 					}
 				}
 				// Else - goto first level!
@@ -2839,7 +2839,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_PUNCH_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_1;
 						gfDisplayFullCountRing = FALSE;
 					}
 				}
@@ -2852,7 +2852,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				}
 				else
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_PUNCH_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_1;
 					gfDisplayFullCountRing = FALSE;
 				}
 			}
@@ -2861,7 +2861,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 		case KNIFECURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + REFINE_KNIFE_2);
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + REFINE_KNIFE_2);
 
 			if ( bFutureAim <= REFINE_KNIFE_2)
 			{
@@ -2870,11 +2870,11 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= REFINE_KNIFE_2;
+					pSoldier->aiPlanning().shownAimTime()+= REFINE_KNIFE_2;
 
-					if ( pSoldier->aiData.bShownAimTime > REFINE_KNIFE_2)
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_KNIFE_2)
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 					}
 				}
 				// Else - goto first level!
@@ -2886,7 +2886,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_KNIFE_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_1;
 						gfDisplayFullCountRing = FALSE;
 					}
 				}
@@ -2899,7 +2899,7 @@ void HandleRightClickAdjustCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 				}
 				else
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_KNIFE_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_1;
 					gfDisplayFullCountRing = FALSE;
 				}
 			}
@@ -2925,25 +2925,25 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 	UINT16				usInHand;
 
 	// If we are an EPC, do nothing....
-	//if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	//if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	//{
 	//	return( INVALIDCURS );
 	//}
 
 	// AN EPC is always not - attackable unless they are a robot!
-	if ( AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+	if ( AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		return( INVALIDCURS );
 	}
 
 	// ATE: if a vehicle.... same thing
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return( INVALIDCURS );
 	}
 
 	// If we can't be controlled, returninvalid...
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{
@@ -3263,11 +3263,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 			else
 			{
 				// SINGLE SHOT section
-				bFutureAim = pSoldier->aiData.bShownAimTime + sDelta;
+				bFutureAim = pSoldier->aiPlanning().shownAimTime() + sDelta;
 				
 				if ( CanSoldierAffordAimTime( pSoldier, sMapPos, bFutureAim) )
 				{
-					pSoldier->aiData.bShownAimTime += sDelta;
+					pSoldier->aiPlanning().shownAimTime() += sDelta;
 					// display yellow circle, if it is last possible aim level
 					gfDisplayFullCountRing = !CanSoldierAffordAimTime( pSoldier, sMapPos, bFutureAim + 1);
 					
@@ -3277,11 +3277,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 			
 		case PUNCHCURS:
 			// PUNCHING section
-			bFutureAim = pSoldier->aiData.bShownAimTime + sDelta * REFINE_PUNCH_2;	// possibly dirty hack
+			bFutureAim = pSoldier->aiPlanning().shownAimTime() + sDelta * REFINE_PUNCH_2;	// possibly dirty hack
 			
 			if ( CanSoldierAffordPunching( pSoldier, sMapPos, bFutureAim) )
 			{
-				pSoldier->aiData.bShownAimTime += sDelta * REFINE_PUNCH_2;
+				pSoldier->aiPlanning().shownAimTime() += sDelta * REFINE_PUNCH_2;
 				// display yellow circle, if it is last possible aim level
 				gfDisplayFullCountRing = !CanSoldierAffordPunching( pSoldier, sMapPos, bFutureAim + 1);
 			}
@@ -3289,11 +3289,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 		
 		case KNIFECURS:
 			// KNIFING section
-			bFutureAim = pSoldier->aiData.bShownAimTime + sDelta * REFINE_KNIFE_2;	// possibly dirty hack
+			bFutureAim = pSoldier->aiPlanning().shownAimTime() + sDelta * REFINE_KNIFE_2;	// possibly dirty hack
 			
 			if ( CanSoldierAffordKnifing( pSoldier, sMapPos, bFutureAim) )
 			{
-				pSoldier->aiData.bShownAimTime += sDelta * REFINE_KNIFE_2;
+				pSoldier->aiPlanning().shownAimTime() += sDelta * REFINE_KNIFE_2;
 				// display yellow circle, if it is last possible aim level
 				gfDisplayFullCountRing = !CanSoldierAffordKnifing( pSoldier, sMapPos, bFutureAim + 1);
 			}
@@ -3312,14 +3312,14 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance )
 {
 	UINT16 bExpLevelValue = EffectiveExpLevel(pSoldier); // SANDRO - changed to effective level calc
-	UINT16 bMarksmanship = pSoldier->stats.bMarksmanship;
-	UINT16 bWisdom = pSoldier->stats.bWisdom;
+	UINT16 bMarksmanship = pSoldier->statistics().marksmanship();
+	UINT16 bWisdom = pSoldier->statistics().wisdom();
 	UINT16 iNumStages, iNumStagesBase, StageSize, SubStageSize;
 	UINT8 iSniper;
 	UINT16 uiNewChance;
 	UINT16 i;
 
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
 		if ( gGameOptions.fNewTraitSystem ) // old/new traits - SANDRO
 			iSniper = NUM_SKILL_TRAITS( pSoldier, SNIPER_NT );
@@ -3422,7 +3422,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots())
 			{
 				// Do nothing!
-				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
+				// pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_BURST;
 			}
 			else if(pSoldier->fireControl().autofireShots())
 			{
@@ -3492,7 +3492,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 						return;
 				}
 
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + sDelta );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + sDelta );
 				if(bFutureAim <0)return;
 
 				if ( bFutureAim <= maxAimLevels )
@@ -3502,9 +3502,9 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 					// Determine if we can afford!
 					if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 					{
-						pSoldier->aiData.bShownAimTime+= sDelta;
-						if ( pSoldier->aiData.bShownAimTime > maxAimLevels )
-							pSoldier->aiData.bShownAimTime = maxAimLevels;
+						pSoldier->aiPlanning().shownAimTime()+= sDelta;
+						if ( pSoldier->aiPlanning().shownAimTime() > maxAimLevels )
+							pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
 						gfDisplayFullCountRing = FALSE;
 					}
 					
@@ -3520,7 +3520,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 
 		case PUNCHCURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + REFINE_PUNCH_2 );
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + REFINE_PUNCH_2 );
 
 			if ( bFutureAim <= REFINE_PUNCH_2 )
 			{
@@ -3529,11 +3529,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= (sDelta*REFINE_PUNCH_2);
+					pSoldier->aiPlanning().shownAimTime()+= (sDelta*REFINE_PUNCH_2);
 
-					if ( pSoldier->aiData.bShownAimTime > REFINE_PUNCH_2 )
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_PUNCH_2 )
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_PUNCH_2;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_2;
 					}
 				}
 				// Else - goto first level!
@@ -3545,7 +3545,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_PUNCH_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_1;
 						gfDisplayFullCountRing = FALSE;
 					}
 				}
@@ -3558,7 +3558,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				}
 				else
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_PUNCH_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_1;
 					gfDisplayFullCountRing = FALSE;
 				}
 			}
@@ -3567,7 +3567,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 
 		case KNIFECURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + (sDelta*REFINE_KNIFE_2) );
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + (sDelta*REFINE_KNIFE_2) );
 
 			if ( bFutureAim <= REFINE_KNIFE_2 )
 			{
@@ -3576,11 +3576,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= REFINE_KNIFE_2;
+					pSoldier->aiPlanning().shownAimTime()+= REFINE_KNIFE_2;
 
-					if ( pSoldier->aiData.bShownAimTime > REFINE_KNIFE_2 )
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_KNIFE_2 )
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 					}
 				}
 				// Else - goto first level!
@@ -3592,7 +3592,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 					}
 					else
 					{
-						pSoldier->aiData.bShownAimTime = REFINE_KNIFE_1;
+						pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_1;
 						gfDisplayFullCountRing = FALSE;
 					}
 				}
@@ -3605,7 +3605,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 				}
 				else
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_KNIFE_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_1;
 					gfDisplayFullCountRing = FALSE;
 				}
 			}
@@ -3655,7 +3655,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 	
 	int aimlevelchange = 1;
 	int maxAimCanAfford = 0;
-	int oldAim = pSoldier->aiData.bShownAimTime;
+	int oldAim = pSoldier->aiPlanning().shownAimTime();
 	int hitChance = 0;
 	int maxCtH = 0; //maximum chance to hit
 	int minAimForCtH = 0;  //minimum AP needed to get maximum CtH
@@ -3673,11 +3673,11 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 					if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 					{
 						//Calculate how many bullets we need to fire to add at least one more AP
-						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 						{
 							pSoldier->fireControl().autofireShots()++;
-							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						}
 
 						//we've stepped over the border and used up one more ap, now let's make sure that it is spent to maximize the bullets
@@ -3687,12 +3687,12 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 						do
 						{
 							pSoldier->fireControl().autofireShots()+=sDelta;
-							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+							sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 						}
 						while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
 						pSoldier->fireControl().autofireShots()--;
 
-						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 
 						if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 						{
@@ -3788,16 +3788,16 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 						}
 					}
 					//Apply.
-					pSoldier->aiData.bShownAimTime = bFutureAim;
+					pSoldier->aiPlanning().shownAimTime() = bFutureAim;
 
-					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"caft=%d",CalcChanceToHitGun( pSoldier, sMapPos, pSoldier->aiData.bShownAimTime, pSoldier->attackSelection().shotLocation() ) );
+					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"caft=%d",CalcChanceToHitGun( pSoldier, sMapPos, pSoldier->aiPlanning().shownAimTime(), pSoldier->attackSelection().shotLocation() ) );
 				}
 			}
 			break;
 
 		case PUNCHCURS:
 			{
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + (sDelta*REFINE_PUNCH_2) );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + (sDelta*REFINE_PUNCH_2) );
 				if(bFutureAim < 0 )
 					return;
 
@@ -3808,9 +3808,9 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 					// Determine if we can afford!
 					if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 					{
-						pSoldier->aiData.bShownAimTime+= (sDelta*REFINE_PUNCH_2);
-						if ( pSoldier->aiData.bShownAimTime > REFINE_PUNCH_2 )
-							pSoldier->aiData.bShownAimTime = REFINE_PUNCH_2;
+						pSoldier->aiPlanning().shownAimTime()+= (sDelta*REFINE_PUNCH_2);
+						if ( pSoldier->aiPlanning().shownAimTime() > REFINE_PUNCH_2 )
+							pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_2;
 						gfDisplayFullCountRing = FALSE;
 					}
 					else
@@ -3823,7 +3823,7 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 
 		case KNIFECURS:
 			{
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + (sDelta*REFINE_KNIFE_2) );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + (sDelta*REFINE_KNIFE_2) );
 				if(bFutureAim<0)
 					return;
 
@@ -3834,9 +3834,9 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sDelta
 					// Determine if we can afford!
 					if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 					{
-						pSoldier->aiData.bShownAimTime+= (sDelta*REFINE_KNIFE_2);
-						if ( pSoldier->aiData.bShownAimTime > REFINE_KNIFE_2 )
-							pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+						pSoldier->aiPlanning().shownAimTime()+= (sDelta*REFINE_KNIFE_2);
+						if ( pSoldier->aiPlanning().shownAimTime() > REFINE_KNIFE_2 )
+							pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 						gfDisplayFullCountRing = FALSE;
 					}
 					else
@@ -3894,7 +3894,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 			if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().autofireShots())
 			{
 				// Do nothing!
-				// pSoldier->aiData.bShownAimTime = REFINE_AIM_BURST;
+				// pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_BURST;
 			}
 			else if(pSoldier->fireControl().autofireShots())
 			{
@@ -3905,11 +3905,11 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 				if(usShotsLeft > pSoldier->fireControl().autofireShots() )
 				{
 					//Calculate how many bullets we need to fire to add at least one more AP
-					sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+					sAPCosts = sCurAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts <= sCurAPCosts && usShotsLeft > pSoldier->fireControl().autofireShots())	//Increment the bullet count until we run out of APs or we spend the whole AP
 					{
 						pSoldier->fireControl().autofireShots()++;
-						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 					}
 
 					//we've stepped over the border and used up one more ap, now let's make sure that it is spent to maximize the bullets
@@ -3919,12 +3919,12 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 					do
 					{
 						pSoldier->fireControl().autofireShots()+=sDelta;
-						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+						sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 					}
 					while(EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) && sAPCosts == sCurAPCosts && usShotsLeft >= pSoldier->fireControl().autofireShots());
 					pSoldier->fireControl().autofireShots()--;
 
-					sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiData.bShownAimTime);
+					sAPCosts = CalcTotalAPsToAttack( pSoldier, sMapPos, TRUE, pSoldier->aiPlanning().shownAimTime());
 
 					if(!EnoughPoints( pSoldier, sAPCosts, 0, FALSE ))		//We've not enough points to fire those bullets
 					{
@@ -3964,7 +3964,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 						return;
 				}
 
-				bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + sDelta );
+				bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + sDelta );
 				if(bFutureAim <0)return;
 
 				if ( bFutureAim <= maxAimLevels )
@@ -3974,9 +3974,9 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 					// Determine if we can afford!
 					if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 					{
-						pSoldier->aiData.bShownAimTime+= sDelta;
-						if ( pSoldier->aiData.bShownAimTime > maxAimLevels )
-							pSoldier->aiData.bShownAimTime = maxAimLevels;
+						pSoldier->aiPlanning().shownAimTime()+= sDelta;
+						if ( pSoldier->aiPlanning().shownAimTime() > maxAimLevels )
+							pSoldier->aiPlanning().shownAimTime() = maxAimLevels;
 						gfDisplayFullCountRing = FALSE;
 					}
 					
@@ -3991,7 +3991,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 
 		case PUNCHCURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + (sDelta*REFINE_PUNCH_2) );
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + (sDelta*REFINE_PUNCH_2) );
 			if(bFutureAim<0)
 				return;
 			if ( bFutureAim <= REFINE_PUNCH_2 )
@@ -4001,9 +4001,9 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= (sDelta*REFINE_PUNCH_2);
-					if ( pSoldier->aiData.bShownAimTime > REFINE_PUNCH_2 )
-						pSoldier->aiData.bShownAimTime = REFINE_PUNCH_2;
+					pSoldier->aiPlanning().shownAimTime()+= (sDelta*REFINE_PUNCH_2);
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_PUNCH_2 )
+						pSoldier->aiPlanning().shownAimTime() = REFINE_PUNCH_2;
 					gfDisplayFullCountRing = FALSE;
 				}
 				else
@@ -4018,7 +4018,7 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 
 		case KNIFECURS:
 
-			bFutureAim = (INT8)( pSoldier->aiData.bShownAimTime + (sDelta*REFINE_KNIFE_2) );
+			bFutureAim = (INT8)( pSoldier->aiPlanning().shownAimTime() + (sDelta*REFINE_KNIFE_2) );
 			if(bFutureAim<0)
 				return;
 			if ( bFutureAim <= REFINE_KNIFE_2 )
@@ -4028,9 +4028,9 @@ void HandleWheelAdjustCursorWOAB( SOLDIERTYPE *pSoldier, INT32 sMapPos, INT32 sD
 				// Determine if we can afford!
 				if ( EnoughPoints( pSoldier, sAPCosts, 0, FALSE ) )
 				{
-					pSoldier->aiData.bShownAimTime+= (sDelta*REFINE_KNIFE_2);
-					if ( pSoldier->aiData.bShownAimTime > REFINE_KNIFE_2 )
-						pSoldier->aiData.bShownAimTime = REFINE_KNIFE_2;
+					pSoldier->aiPlanning().shownAimTime()+= (sDelta*REFINE_KNIFE_2);
+					if ( pSoldier->aiPlanning().shownAimTime() > REFINE_KNIFE_2 )
+						pSoldier->aiPlanning().shownAimTime() = REFINE_KNIFE_2;
 					gfDisplayFullCountRing = FALSE;
 				}
 				else

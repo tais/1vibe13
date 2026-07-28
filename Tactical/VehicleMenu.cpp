@@ -90,7 +90,7 @@ VehicleSelection::Setup( UINT32 aVal )
 		// if seat is already taken, grey it out
 		if ( pVehicleList[ bVehicleID ].pPassengers[ i ] != NULL )
 		{			
-			if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			{
 				if( pVehicleList[ bVehicleID ].pPassengers[ i ] == pCurrentSoldier )
 				{
@@ -169,7 +169,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 		return;
 	}
 
-	if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
+	if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
 	{
 		if( SwapVehicleSeat( pCurrentVehicle, pCurrentSoldier, aVal ) )
 		{
@@ -178,7 +178,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 			gusSelectedSoldier = sTempSelectedSoldier;
 		}
 	}
-	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->ubProfile ) )
+	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->identity().profile() ) )
 	{
 		// Find a gridno closest to sweetspot...
 		sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pCurrentSoldier, pCurrentSoldier->movement().mode(), 5, &ubDirection, 0, pCurrentVehicle, TRUE );
@@ -200,7 +200,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 							static_cast<UINT8>(aVal),
 							sActionGridNo,
 							pCurrentSoldier->movement().mode(),
-							pCurrentSoldier->flags.fNoAPToFinishMove != FALSE)
+							pCurrentSoldier->movement().outOfActionPoints() != FALSE)
 						: TryDispatchEnterVehicleCommandNow(
 							*pCurrentSoldier,
 							*pCurrentVehicle,
@@ -216,7 +216,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 				pCurrentSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
 
 				// OK, set UI
-				SetUIBusy( pCurrentSoldier->ubID );
+				SetUIBusy( pCurrentSoldier->identity().id() );
 				//guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 			}
 		}

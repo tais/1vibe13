@@ -814,7 +814,7 @@ BOOLEAN AnyMercsHired( )
 	// look for all mercs on the same team,
 	for ( ; id <= bLastTeamID; ++id)
 	{
-		if ( GetJa2SoldierRepository().resolve(id)->bActive )
+		if ( GetJa2SoldierRepository().resolve(id)->roster().active() )
 		{
 			return( TRUE );
 		}

@@ -228,7 +228,7 @@ void ShutDownQuoteBox( BOOLEAN fForce )
 // no UB
 #else
 		// do we need to do anything at the end of the civ quote?
-		if ( gCivQuoteData.pCiv && gCivQuoteData.pCiv->aiData.bAction == AI_ACTION_OFFER_SURRENDER )
+		if ( gCivQuoteData.pCiv && gCivQuoteData.pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER )
 		{
 // Haydent
 			if(!is_networked)
@@ -260,7 +260,7 @@ BOOLEAN ShutDownQuoteBoxIfActive( )
 
 INT8 GetCivType( SOLDIERTYPE *pCiv )
 {
-	if ( pCiv->ubProfile != NO_PROFILE )
+	if ( pCiv->identity().profile() != NO_PROFILE )
 	{
 		return( CIV_TYPE_NA );
 	}
@@ -270,7 +270,7 @@ INT8 GetCivType( SOLDIERTYPE *pCiv )
 	if ( gWorldSectorX == 10 && gWorldSectorY == 6 && gbWorldSectorZ == 0 )
 	{
 		// 2 ) the only female....
-		if ( pCiv->ubCivilianGroup == 0 && pCiv->bTeam != gbPlayerNum && pCiv->ubBodyType == REGFEMALE )
+		if ( pCiv->roster().civilianGroup() == 0 && pCiv->roster().team() != gbPlayerNum && pCiv->identity().bodyType() == REGFEMALE )
 		{
 			// She's a ho!
 			return( CIV_TYPE_MARRIED_PC );
@@ -278,22 +278,22 @@ INT8 GetCivType( SOLDIERTYPE *pCiv )
 	}
 
 	// OK, look for enemy type - MUST be on enemy team, merc bodytype
-	if ( pCiv->bTeam == ENEMY_TEAM && IS_MERC_BODY_TYPE( pCiv ) )
+	if ( pCiv->roster().team() == ENEMY_TEAM && IS_MERC_BODY_TYPE( pCiv ) )
 	{
 		return( CIV_TYPE_ENEMY );
 	}
 
-	if ( pCiv->bTeam == CREATURE_TEAM && pCiv->ubSoldierClass == SOLDIER_CLASS_BANDIT )
+	if ( pCiv->roster().team() == CREATURE_TEAM && pCiv->roster().soldierClass() == SOLDIER_CLASS_BANDIT )
 	{
 		return( CIV_TYPE_ENEMY );
 	}
 
-	if ( pCiv->bTeam != CIV_TEAM && pCiv->bTeam != MILITIA_TEAM )
+	if ( pCiv->roster().team() != CIV_TEAM && pCiv->roster().team() != MILITIA_TEAM )
 	{
 		return( CIV_TYPE_NA );
 	}
 
-	switch( pCiv->ubBodyType )
+	switch( pCiv->identity().bodyType() )
 	{
 		case REGMALE:
 		case BIGMALE:
@@ -466,7 +466,7 @@ void BeginChatQuote( SOLDIERTYPE *pCiv, INT16 sX, INT16 sY )
 		ShutDownQuoteBox( TRUE );
 	}
 
-	if ( pCiv->bTeam == gbPlayerNum )
+	if ( pCiv->roster().team() == gbPlayerNum )
 		swprintf( gzCivQuote, L"\"%s\"", szChatTextSpy[Random( 24 )] );
 	else
 		swprintf( gzCivQuote, L"\"%s\"", szChatTextEnemy[Random( 24 )] );
@@ -556,21 +556,21 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 
 	ubCivType = GetCivType( pCiv );
 
-	if ( pCiv->ubCivilianGroup < NUM_CIV_GROUPS )
+	if ( pCiv->roster().civilianGroup() < NUM_CIV_GROUPS )
 	{
 #ifdef JA2UB
-		if ( pCiv->ubCivilianGroup > UNNAMED_CIV_GROUP_19 )
+		if ( pCiv->roster().civilianGroup() > UNNAMED_CIV_GROUP_19 )
 #else
-		if ( pCiv->ubCivilianGroup > QUEENS_CIV_GROUP )
+		if ( pCiv->roster().civilianGroup() > QUEENS_CIV_GROUP )
 #endif
 		{
-			if ( pCiv->aiData.bNeutral )
+			if ( pCiv->aiBehavior().neutral() )
 			{
-				return(FileEDTQUoteID = pCiv->ubCivilianGroup * 2 + 10);
+				return(FileEDTQUoteID = pCiv->roster().civilianGroup() * 2 + 10);
 			}
 			else
 			{
-				return(FileEDTQUoteID = pCiv->ubCivilianGroup * 2 + 11);
+				return(FileEDTQUoteID = pCiv->roster().civilianGroup() * 2 + 11);
 			}
 		}
 	}
@@ -579,7 +579,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	if( ubCivType != CIV_TYPE_ENEMY )
 	{
 		//if the civ is not an enemy
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE__CIV_NOT_ENEMY ); //43
 		}
@@ -590,7 +590,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 			//
 
 			//if the civ can fight
-			if( pCiv->ubBodyType == REGMALE || pCiv->ubBodyType == REGFEMALE || pCiv->ubBodyType == BIGMALE )
+			if( pCiv->identity().bodyType() == REGMALE || pCiv->identity().bodyType() == REGFEMALE || pCiv->identity().bodyType() == BIGMALE )
 			{
 				return( CIV_QUOTE__CIV_ENEMY_CAN_FIGHT); //40 
 			}
@@ -611,8 +611,8 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		// Determine what type of quote to say...
 		// Are are we going to attack?
 
-		if ( pCiv->aiData.bAction == AI_ACTION_TOSS_PROJECTILE || pCiv->aiData.bAction == AI_ACTION_FIRE_GUN ||
-							pCiv->aiData.bAction == AI_ACTION_FIRE_GUN || pCiv->aiData.bAction == AI_ACTION_KNIFE_MOVE )
+		if ( pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE || pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN ||
+							pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN || pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
 		{
 			return( CIV_QUOTE_ENEMY_THREAT );
 		}
@@ -623,7 +623,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 			return( CIV_QUOTE_ENEMY_HURT );
 		}
 		// elite?
-		else if ( pCiv->ubSoldierClass == SOLDIER_CLASS_ELITE )
+		else if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_ELITE )
 		{
 			return( CIV_QUOTE_ENEMY_ELITE );
 		}
@@ -641,14 +641,14 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		// Determine what type of quote to say...
 		// Are are we going to attack?
 
-		if (	pCiv->aiData.bAction == AI_ACTION_TOSS_PROJECTILE 
-			||	pCiv->aiData.bAction == AI_ACTION_FIRE_GUN 
-			||	pCiv->aiData.bAction == AI_ACTION_THROW_KNIFE 
-			||	pCiv->aiData.bAction == AI_ACTION_KNIFE_MOVE )
+		if (	pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE
+			||	pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN
+			||	pCiv->aiPlanning().action() == AI_ACTION_THROW_KNIFE
+			||	pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
 		{
 			return( CIV_QUOTE_ENEMY_THREAT );
 		}
-		else if ( pCiv->aiData.bAction == AI_ACTION_OFFER_SURRENDER )
+		else if ( pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER )
 		{
 			return( CIV_QUOTE_ENEMY_OFFER_SURRENDER );
 		}
@@ -658,7 +658,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 			return( CIV_QUOTE_ENEMY_HURT );
 		}
 		// elite?
-		else if ( pCiv->ubSoldierClass == SOLDIER_CLASS_ELITE )
+		else if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_ELITE )
 		{
 			return( CIV_QUOTE_ENEMY_ELITE );
 		}
@@ -680,11 +680,11 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 
 	// CIV GROUPS FIRST!
 	// Hicks.....
-	if ( pCiv->ubCivilianGroup == HICKS_CIV_GROUP )
+	if ( pCiv->roster().civilianGroup() == HICKS_CIV_GROUP )
 	{
 		// Are they friendly?
 		//if ( gTacticalStatus.fCivGroupHostile[ HICKS_CIV_GROUP ] < CIV_GROUP_WILL_BECOME_HOSTILE )
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE_HICKS_FRIENDLY );
 		}
@@ -695,11 +695,11 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// Goons.....
-	if ( pCiv->ubCivilianGroup == KINGPIN_CIV_GROUP )
+	if ( pCiv->roster().civilianGroup() == KINGPIN_CIV_GROUP )
 	{
 		// Are they friendly?
 		//if ( gTacticalStatus.fCivGroupHostile[ KINGPIN_CIV_GROUP ] < CIV_GROUP_WILL_BECOME_HOSTILE )
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE_GOONS_FRIENDLY );
 		}
@@ -710,7 +710,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// ATE: Cowering people take precedence....
-	if ( ( pCiv->flags.uiStatusFlags & SOLDIER_COWERING ) || ( pCiv->bTeam == CIV_TEAM && ( IsJa2TacticalCombatActive() ) ) )
+	if ( ( pCiv->status().flags() & SOLDIER_COWERING ) || ( pCiv->roster().team() == CIV_TEAM && ( IsJa2TacticalCombatActive() ) ) )
 	{
 		if ( ubCivType == CIV_TYPE_ADULT )
 		{
@@ -723,7 +723,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// Kid slaves...
-	if ( pCiv->ubCivilianGroup == FACTORY_KIDS_GROUP )
+	if ( pCiv->roster().civilianGroup() == FACTORY_KIDS_GROUP )
 	{
 		// Check fact.....
 		if ( CheckFact( FACT_DOREEN_HAD_CHANGE_OF_HEART, 0 ) || !CheckFact( FACT_DOREEN_ALIVE, 0 ) )
@@ -737,7 +737,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// BEGGERS
-	if ( pCiv->ubCivilianGroup == BEGGARS_CIV_GROUP )
+	if ( pCiv->roster().civilianGroup() == BEGGARS_CIV_GROUP )
 	{
 		// Check if we are in a town...
 		if( bTownId != BLANK_SECTOR && gbWorldSectorZ == 0 )
@@ -760,7 +760,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// REBELS
-	if ( pCiv->ubCivilianGroup == REBEL_CIV_GROUP )
+	if ( pCiv->roster().civilianGroup() == REBEL_CIV_GROUP )
 	{
 		// DO normal beggers...
 		if ( ubCivType == CIV_TYPE_ADULT )
@@ -774,18 +774,18 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// Do miltitia...
-	if ( pCiv->bTeam == MILITIA_TEAM )
+	if ( pCiv->roster().team() == MILITIA_TEAM )
 	{
 		// Different types....
-		if ( pCiv->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA )
+		if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA )
 		{
 			return( CIV_QUOTE_GREEN_MILITIA );
 		}
-		if ( pCiv->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA )
+		if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
 		{
 			return( CIV_QUOTE_MEDIUM_MILITIA );
 		}
-		if ( pCiv->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA )
+		if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA )
 		{
 			return( CIV_QUOTE_ELITE_MILITIA );
 		}
@@ -825,7 +825,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// ATE: check miners......
-	if ( pCiv->ubSoldierClass == SOLDIER_CLASS_MINER )
+	if ( pCiv->roster().soldierClass() == SOLDIER_CLASS_MINER )
 	{
 		bMiners = TRUE;
 
@@ -1114,24 +1114,24 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 		return;
 	}
 	// is enemy blocked from taunting at the moment?
-	if( uiTauntFinishTimes[pCiv->ubID] > GetJA2Clock() )
+	if( uiTauntFinishTimes[pCiv->identity().id()] > GetJA2Clock() )
 	{
 		return;
 	}
 	// check if generated person
-	if ( !(IS_MERC_BODY_TYPE( pCiv )) || !(pCiv->ubProfile == NO_PROFILE) )
+	if ( !(IS_MERC_BODY_TYPE( pCiv )) || !(pCiv->identity().profile() == NO_PROFILE) )
 	{
 		return;
 	}
 	// only enemies and militia taunt
 	// sevenfm: allow voice taunts for hostile civilians with group
-	if (pCiv->bTeam != ENEMY_TEAM &&
-		pCiv->bTeam != MILITIA_TEAM &&
-		!(pCiv->bTeam == CIV_TEAM && pCiv->ubCivilianGroup != NON_CIV_GROUP && !pCiv->aiData.bNeutral && gTauntsSettings.fTauntVoice))
+	if (pCiv->roster().team() != ENEMY_TEAM &&
+		pCiv->roster().team() != MILITIA_TEAM &&
+		!(pCiv->roster().team() == CIV_TEAM && pCiv->roster().civilianGroup() != NON_CIV_GROUP && !pCiv->aiBehavior().neutral() && gTauntsSettings.fTauntVoice))
 	{
 		return;
 	}
-	/*if ( pCiv->bTeam != ENEMY_TEAM && pCiv->bTeam != MILITIA_TEAM )
+	/*if ( pCiv->roster().team() != ENEMY_TEAM && pCiv->roster().team() != MILITIA_TEAM )
 	{
 		return;
 	}*/
@@ -1324,7 +1324,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		// try to play voice taunt, use noise if gTauntsSettings.fTauntMakeNoise is TRUE
 		PlayVoiceTaunt(pCiv, iTauntType, pTarget);
 		// block this enemy from taunting for a time being
-		uiTauntFinishTimes[pCiv->ubID] = GetJA2Clock() + min(gTauntsSettings.sMaxDelay, max(gTauntsSettings.sMinDelay, FindDelayForString(L"You're the disease and I'm the cure!") + gTauntsSettings.sModDelay));
+		uiTauntFinishTimes[pCiv->identity().id()] = GetJA2Clock() + min(gTauntsSettings.sMaxDelay, max(gTauntsSettings.sMinDelay, FindDelayForString(L"You're the disease and I'm the cure!") + gTauntsSettings.sModDelay));
 		return;
 	}
 
@@ -1332,7 +1332,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 	for(UINT16 i=0; i<num_found_taunt; ++i)
 	{
 		// check if attitudes are ok
-		switch( pCiv->aiData.bAttitude )
+		switch( pCiv->aiBehavior().attitude() )
 		{
 			case CUNNINGAID:
 				if( !(zTaunt[ i ].uiFlags & TAUNT_A_CUNNING_AID) )
@@ -1604,43 +1604,43 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		}
 
 		// class and predefined profiles
-		switch( pCiv->ubSoldierClass )
+		switch( pCiv->roster().soldierClass() )
 		{
 			case SOLDIER_CLASS_ADMINISTRATOR:
 			case SOLDIER_CLASS_BANDIT:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_ADMIN) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_ADMIN] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ADMIN] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_ADMIN] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ADMIN] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			case SOLDIER_CLASS_ARMY:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_ARMY) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			case SOLDIER_CLASS_ELITE:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_ELITE) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_ELITE] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ELITE] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_ELITE] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ELITE] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			case SOLDIER_CLASS_GREEN_MILITIA:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_GREEN) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_GREEN] != -1 ) && !( zTaunt[ i ].value[TAUNT_PROFILE_GREEN] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_GREEN] != -1 ) && !( zTaunt[ i ].value[TAUNT_PROFILE_GREEN] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			case SOLDIER_CLASS_REG_MILITIA:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_REGULAR) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			case SOLDIER_CLASS_ELITE_MILITIA:
 				if( !(zTaunt[ i ].uiFlags2 & TAUNT_C_VETERAN) )
 					continue;
-				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->usSoldierProfile ) )
+				if( (zTaunt[ i ].value[TAUNT_PROFILE_ARMY] != -1 ) && !(zTaunt[ i ].value[TAUNT_PROFILE_ARMY] == pCiv->identity().dataProfile() ) )
 					continue;
 				break;
 			default:
@@ -1649,7 +1649,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		}
 
 		// gender
-		switch( pCiv->ubBodyType )
+		switch( pCiv->identity().bodyType() )
 		{
 			case REGMALE:
 			case BIGMALE:
@@ -1715,23 +1715,23 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		// morale
 		if( zTaunt[ i ].value[TAUNT_MORALE_GT] != -1 )
 		{
-			if( pCiv->aiData.bMorale <= zTaunt[ i ].value[TAUNT_MORALE_GT] )
+			if( pCiv->morale().morale() <= zTaunt[ i ].value[TAUNT_MORALE_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_MORALE_LT] != -1 )
 		{
-			if( pCiv->aiData.bMorale >= zTaunt[ i ].value[TAUNT_MORALE_LT] )
+			if( pCiv->morale().morale() >= zTaunt[ i ].value[TAUNT_MORALE_LT] )
 				continue;
 		}
 		// experience
 		if( zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] != -1 )
 		{
-			if( pCiv->stats.bExpLevel <= zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] )
+			if( pCiv->statistics().experienceLevel() <= zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] != -1 )
 		{
-			if( pCiv->stats.bExpLevel >= zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] )
+			if( pCiv->statistics().experienceLevel() >= zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] )
 				continue;
 		}
 
@@ -1773,17 +1773,17 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			// target merc profile
 			if( zTaunt[ i ].value[TAUNT_TARGET_MERC_PROFILE] != -1 )
 			{
-				if( pTarget->ubProfile != zTaunt[ i ].value[TAUNT_TARGET_MERC_PROFILE] )
+				if( pTarget->identity().profile() != zTaunt[ i ].value[TAUNT_TARGET_MERC_PROFILE] )
 					continue;
 			}
 			// target type
 			if( zTaunt[ i ].value[TAUNT_TARGET_TYPE] != -1 )
 			{
-				if( pTarget->ubProfile != zTaunt[ i ].value[TAUNT_TARGET_TYPE] )
+				if( pTarget->identity().profile() != zTaunt[ i ].value[TAUNT_TARGET_TYPE] )
 					continue;
 			}
 			// target gender
-			switch( pTarget->ubBodyType )
+			switch( pTarget->identity().bodyType() )
 			{
 				case REGMALE:
 				case BIGMALE:
@@ -1803,9 +1803,9 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			if( zTaunt[ i ].value[TAUNT_TARGET_APPEARANCE] != -1 )
 			{
 				// check if pTarget has his own predefined profile (ubProfile = 200 for generated characters)
-				if( pTarget->ubProfile != NO_PROFILE )
+				if( pTarget->identity().profile() != NO_PROFILE )
 				{
-					if( gMercProfiles[pTarget->ubProfile].bAppearance != zTaunt[ i ].value[TAUNT_TARGET_APPEARANCE] )
+					if( gMercProfiles[pTarget->identity().profile()].bAppearance != zTaunt[ i ].value[TAUNT_TARGET_APPEARANCE] )
 						continue;
 				}
 				else
@@ -1896,23 +1896,23 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			// morale
 			if( zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] != -1 )
 			{
-				if( pTarget->aiData.bMorale <= zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] )
+				if( pTarget->morale().morale() <= zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] != -1 )
 			{
-				if( pTarget->aiData.bMorale >= zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] )
+				if( pTarget->morale().morale() >= zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] )
 					continue;
 			}
 			// experience
 			if( zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] != -1 )
 			{
-				if( pTarget->stats.bExpLevel <= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] )
+				if( pTarget->statistics().experienceLevel() <= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] != -1 )
 			{
-				if( pTarget->stats.bExpLevel >= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] )
+				if( pTarget->statistics().experienceLevel() >= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] )
 					continue;
 			}
 		}
@@ -1961,22 +1961,22 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		swprintf( gzTauntQuote, L"\"%s\"", sTauntText );
 
 		// block this enemy from taunting for a time being
-		uiTauntFinishTimes[pCiv->ubID] = GetJA2Clock() + min( gTauntsSettings.sMaxDelay , max( gTauntsSettings.sMinDelay, FindDelayForString( gzTauntQuote ) + gTauntsSettings.sModDelay ) ); 
+		uiTauntFinishTimes[pCiv->identity().id()] = GetJA2Clock() + min( gTauntsSettings.sMaxDelay , max( gTauntsSettings.sMinDelay, FindDelayForString( gzTauntQuote ) + gTauntsSettings.sModDelay ) );
 
 		if( gTauntsSettings.fTauntMakeNoise == TRUE )
-			MakeNoise( pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, gzTauntQuote );
+			MakeNoise( pCiv->identity().id(), pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, gzTauntQuote );
 		else
 		{
 			if(gTauntsSettings.fTauntShowPopupBox == TRUE)
 			{	
-				if( gbPublicOpplist[gbPlayerNum][pCiv->ubID] == SEEN_CURRENTLY || gTauntsSettings.fTauntAlwaysShowPopupBox == TRUE )
+				if( gbPublicOpplist[gbPlayerNum][pCiv->identity().id()] == SEEN_CURRENTLY || gTauntsSettings.fTauntAlwaysShowPopupBox == TRUE )
 				{
 					ShowTauntPopupBox( pCiv, gzTauntQuote );
 				}
 			}
 			if(gTauntsSettings.fTauntShowInLog == TRUE)
 			{
-				if( gbPublicOpplist[gbPlayerNum][pCiv->ubID] == SEEN_CURRENTLY || gTauntsSettings.fTauntAlwaysShowInLog == TRUE )
+				if( gbPublicOpplist[gbPlayerNum][pCiv->identity().id()] == SEEN_CURRENTLY || gTauntsSettings.fTauntAlwaysShowInLog == TRUE )
 				{
 					ScreenMsg( FONT_GRAY2, MSG_INTERFACE, L"%s: %s", pCiv->GetName(), gzTauntQuote );
 				}
@@ -2173,7 +2173,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 
 	// show some information about taunts
 	if (gTauntsSettings.fTauntVoiceShowInfo)
-		ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier [%d] TauntType %d", pCiv->ubID, iTauntType);
+		ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"Soldier [%d] TauntType %d", pCiv->identity().id(), iTauntType);
 
 	// cannot taunt when dead or collapsed
 	if (pCiv->vitals().health() < OKLIFE || pCiv->collapseState().tactical() || pCiv->collapseState().breathTriggered())
@@ -2195,17 +2195,17 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 	strcpy(filename, "VoiceTaunts");
 
 	// prepare team
-	if (pCiv->bTeam == ENEMY_TEAM)
+	if (pCiv->roster().team() == ENEMY_TEAM)
 	{
 		strcat(filename, "\\Army\\");
 	}
-	else if (pCiv->bTeam == MILITIA_TEAM)
+	else if (pCiv->roster().team() == MILITIA_TEAM)
 	{
 		strcat(filename, "\\Militia\\");
 	}
-	else if (pCiv->bTeam == CIV_TEAM && pCiv->ubCivilianGroup != NON_CIV_GROUP)
+	else if (pCiv->roster().team() == CIV_TEAM && pCiv->roster().civilianGroup() != NON_CIV_GROUP)
 	{
-		sprintf(buf, "\\Civgroup%d\\", pCiv->ubCivilianGroup);
+		sprintf(buf, "\\Civgroup%d\\", pCiv->roster().civilianGroup());
 		strcat(filename, buf);
 	}
 	else
@@ -2217,11 +2217,11 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 	}
 
 	// prepare gender
-	if (pCiv->ubBodyType <= STOCKYMALE)
+	if (pCiv->identity().bodyType() <= STOCKYMALE)
 	{
 		strcat(filename, "Male\\");
 	}
-	else if (pCiv->ubBodyType == REGFEMALE)
+	else if (pCiv->identity().bodyType() == REGFEMALE)
 	{
 		strcat(filename, "Female\\");
 	}
@@ -2267,7 +2267,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		ScreenMsg(FONT_MCOLOR_LTGREEN, MSG_INTERFACE, L"found %d voices", ubVoiceCount);
 
 	// prepare voice folder name
-	sprintf(buf, "%02d", 1 + pCiv->ubID % ubVoiceCount);
+	sprintf(buf, "%02d", 1 + pCiv->identity().id() % ubVoiceCount);
 	strcat(filename, buf);
 	strcat(filename, "\\");
 
@@ -2307,7 +2307,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		if ((OutFile = fopen("VoiceTauntLog.txt", "a+t")) != NULL)
 		{
 			fprintf(OutFile, "Soldier [%d] TauntType %d %s\n",
-				pCiv->ubID.i,
+				pCiv->identity().id().i,
 				iTauntType,
 				filename);
 			fclose(OutFile);
@@ -2336,7 +2336,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		// convert char to char16
 		mbstowcs(noise, filename, strlen(filename) + 1);
 		// use filename as taunt text, play sound later
-		MakeNoise(pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, noise);
+		MakeNoise(pCiv->identity().id(), pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, noise);
 	}
 	else
 	{

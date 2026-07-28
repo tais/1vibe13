@@ -203,9 +203,10 @@ on every platform, which also makes saves shareable across Win/Lin/Mac.
   PaletteRepID → `str8`, inventory vectors, `STRUCT_Records`, dynamic-opinion
   2D arrays, growth modifiers as full INT16). The legacy/encrypted Prof.dat
   load path (`forceLoadOldVersion=true`) is preserved untouched.
-- ☑ **`SOLDIERTYPE`** (the central struct) + its 7 sub-structs
-  (`STRUCT_AIData`/`Flags`/`TimeChanges`/`TimeCounters`/`DRUGS`/`Statistics`/
-  `Pathing`), ~550 fields, via the field visitor. ~20 interleaved runtime
+- ☑ **`SOLDIERTYPE`** (the central record), ~550 fields, via the field
+  visitor. Its former generic AI/flags/timing/drug/statistics/pathing wrappers
+  are live domain components while the visitor retains their historical stream
+  sections and ordering. ~20 interleaved runtime
   pointers use `ar.ptr()` (written as nothing, NULL on load — re-derived by
   `InitializeExtraData()`/palette+world rebuild, matching old behaviour which
   only persisted garbage pointer values). `signed long` pinned to 32-bit via
@@ -292,19 +293,39 @@ adapter, so save and load can never drift out of order. Extra methods:
   fields present in that record and clears the later injury, surgery,
   unrecoverable-breath, and critical-damage fields. No save, packet, map, XML,
   Lua, or installed-data bytes change.
+- The eleven signed 8-bit base attributes and 30 unsigned 8-bit skill-trait
+  slots are now stored by `SoldierStatisticsComponent`. The visitor retains the
+  exact historical sequence: experience level, current and maximum health,
+  strength, agility, dexterity, wisdom, leadership, marksmanship, mechanical,
+  explosives, medical, scientific, then every trait slot. v101 conversion maps
+  every historical attribute and its first two trait bytes and clears the 28
+  later slots. No save, profile, packet, map, trait rule, XML, Lua,
+  multiplayer, package, or installed-data bytes change.
+- The former 14-field `STRUCT_Flags` aggregate has been divided by ownership
+  without changing its visitor. The signed 8-bit key-access value is stored by
+  `SoldierInventoryStateComponent`; the unsigned 32-bit general mask is stored
+  by `SoldierStatusComponent`; new-item refresh, zipper, and drop-pack booleans
+  stay with inventory; and the remaining booleans plus the unsigned 8-bit gas
+  mask live with targeting, fire control, animation activity, replication,
+  condition, and AI planning. All fourteen values retain their exact
+  historical order, scattered positions, and widths. v101 conversion maps its
+  twelve represented fields and resets zipper/drop-pack state, which that
+  record did not contain. No save, profile, packet, map, XML, Lua, multiplayer,
+  package, or installed-data bytes change.
 - Tactical service activity, patient provider count, provider-to-patient
-  identity, and the automatic-bandage medic reservation are now stored by
-  `SoldierServiceComponent`. The visitor emits the signed activity byte,
-  unsigned provider-count byte, and both 16-bit `SoldierID` values at their
-  original scattered positions; v101 conversion maps its four narrower legacy
-  fields into that owner. No save, packet, map, XML, Lua, or installed-data
-  bytes change.
+  identity, the automatic-bandage medic reservation, and the signed inventory
+  slot borrowed while servicing are now stored by `SoldierServiceComponent`.
+  The visitor emits the activity byte, provider-count byte, both 16-bit
+  `SoldierID` values, and borrowed-slot byte at their original scattered
+  positions; v101 conversion maps all five narrower legacy fields into that
+  owner. No save, packet, map, XML, Lua, or installed-data bytes change.
 - NPC quote plans, standard and extended quote-history masks, battle-voice
-  selection and playback throttling, heard-noise speech cooldown, civilian
+  selection and playback throttling, bleeding/dying feedback, queued
+  out-of-ammo speech, death-sound gates, heard-noise speech cooldown, civilian
   quote progression, last-spoke time, and corpse-comment tolerance are now
-  stored by `SoldierDialogueComponent`. The visitor emits all fourteen values
+  stored by `SoldierDialogueComponent`. The visitor emits all nineteen values
   at their original scattered positions and widths, and v101 conversion maps
-  every established field. No save, packet, map, XML, Lua, dialogue, or
+  every established raw value. No save, packet, map, XML, Lua, dialogue, or
   installed-data bytes change.
 - Footstep variation, remembered door-opening noise, and burst,
   positional-ambience, and turret-turning sound handles are now stored by
@@ -329,14 +350,17 @@ adapter, so save and load can never drift out of order. Extra methods:
   maps all four raw values. Runtime recording saturates both narrow distance
   counters without changing their representation. No save, packet, map, XML,
   Lua, or installed-data bytes change.
-- Tactical-AI flank count, flank anchor, sniper posture, flank origin
-  direction, and modular plan index are now stored by
-  `SoldierAiPlanningComponent`. The visitor emits the signed 8-bit count,
-  signed 32-bit anchor, signed 8-bit posture, signed 16-bit direction, and
-  signed 16-bit plan index at their two original groups and widths. v101
-  conversion maps its first four raw values and resets the later plan index.
-  Runtime flank progress saturates without changing its representation. No
-  save, packet, map, XML, Lua, AI-plan, or installed-data bytes change.
+- Tactical-AI current/previous/queued actions and payloads, action progress and
+  target level, dominant facing, the ten-grid patrol route and cursor, aim time,
+  flank state, sniper posture, and modular plan index are now stored by
+  `SoldierAiPlanningComponent`. Alert/disposition/order/escort/creature/flag
+  modes are stored by `SoldierAiBehaviorComponent`; radio/call exchange by
+  `SoldierAiCommunicationComponent`; and personal, modifier, calculated, and
+  frenzy morale by `SoldierMoraleComponent`. The historical `XferAIData`
+  visitor section emits every value at the same signed or unsigned width and in
+  the same order, and v101 conversion maps each historical raw field. Runtime
+  flank progress saturates without changing its representation. No save,
+  packet, map, XML, Lua, AI-plan, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
   focus target are now stored by `SoldierSkillStateComponent`. The visitor
@@ -355,6 +379,30 @@ adapter, so save and load can never drift out of order. Extra methods:
   clears this whole later domain. The independent `NUM_DISEASES == 20`
   declaration is a C++ dependency cleanup, not a data-format change; no save,
   packet, map, XML, Lua, or installed-data bytes change.
+- Twenty unsigned 16-bit drug-effect durations, 20 signed 16-bit effect
+  magnitudes, temporary personality and disability identities with their
+  unsigned 16-bit lifetimes, and the 32-bit float alcohol level are now stored
+  by `SoldierDrugStateComponent`. The visitor emits the complete duration array,
+  complete magnitude array, personality identity and lifetime, disability
+  identity and lifetime, then alcohol in that exact historical order. v101
+  conversion clears this later domain. No save, packet, map, drug XML, item,
+  Lua, multiplayer, package, or installed-data bytes change.
+- All eleven unsigned 32-bit stat-change timestamps and the unsigned 16-bit
+  value-gone-up direction mask are now stored by
+  `SoldierStatProgressComponent`. The visitor still emits level, health,
+  strength, dexterity, agility, wisdom, leadership, marksmanship, explosives,
+  medical, and mechanical timestamps consecutively in that exact historical
+  order and width, while the mask remains at its later scattered POD position.
+  v101 conversion maps every raw timestamp and the mask exactly. No save,
+  packet, map, XML, Lua, or installed-data bytes change.
+- Ten signed 32-bit soldier-local countdown timers, the unsigned 32-bit AI
+  delay, and the signed 16-bit reload delay are now stored by
+  `SoldierTimingComponent`. The visitor emits animation update, damage display,
+  reload, locator flash, AI, fade, panel animation, locator blink, portrait
+  flash, and next-tile counters consecutively in their exact historical order;
+  both delay values retain their original earlier POD positions. v101
+  conversion maps all twelve raw values exactly. No save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - Multi-turn action kind, retained context grid, and remaining AP cost are now
   stored by `SoldierLongActionComponent`. The context grid continues to double
   as the return location for off-world intel assignments. The visitor still
@@ -390,47 +438,47 @@ adapter, so save and load can never drift out of order. Extra methods:
   signed 8-bit values at their original positions, and v101 conversion maps
   the original fields into that owner. No save or multiplayer packet bytes
   change.
-- View range, directional movement-noise memory, heard-noise elevation,
-  blindness/deafness durations, and X-ray activation time are now stored by
-  `SoldierPerceptionComponent`. The visitor emits the five 8-bit values and one
-  32-bit timestamp at their original POD positions, and v101 conversion maps
-  the original fields into that owner. No save, packet, map, XML, Lua, or
-  installed-data bytes change.
-- Current tactical visibility, last-rendered visibility, new-opponent count, and
-  movement distance used to expire stale knowledge are now stored by
-  `SoldierAwarenessComponent`. The visitor still emits the three signed 8-bit
-  values and one unsigned 8-bit value at their original four POD positions, and
-  v101 conversion maps the original fields into that owner. No save, packet,
-  map, XML, Lua, or installed-data bytes change.
+- View range, directional movement-noise memory, personal noise grid/volume,
+  smell values, heard-noise elevation, blindness/deafness durations, and X-ray
+  source/activation time are now stored by `SoldierPerceptionComponent`.
+  `SoldierAwarenessComponent` owns current and rendered visibility, discovery
+  and forgetting counters, and the fixed per-observer opponent table/count.
+  The visitor emits every value at its original POD or historical AI-section
+  position and width, and v101 conversion maps the original fields into those
+  owners. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Applied and equipment-derived jungle, urban, desert, and snow camouflage are
   now stored by `SoldierCamouflageComponent`. The visitor still emits all eight
   signed 8-bit values at their original POD positions, and v101 conversion maps
   the original values into that owner while retaining the established kit-area
   caps. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Live contract timing, mercenary classification, deposits, insurance terms,
-  renewal/dismissal bookkeeping, signing eligibility, and the per-soldier
-  hospital modifier are now stored by `SoldierEmploymentComponent`. The field
-  visitor still emits all fifteen values at their original POD positions and
-  widths, and v101 conversion maps the original fields into that owner. Hire
-  requests, profiles, and all save, packet, map, XML, Lua, and installed-data
-  bytes remain unchanged.
+  renewal/dismissal bookkeeping, signing eligibility, price-change
+  acknowledgement, competing contract decisions, and the per-soldier hospital
+  modifier are now stored by `SoldierEmploymentComponent`. The field visitor
+  still emits all seventeen values at their original scattered POD positions
+  and widths, including the two historical boolean slots, and v101 conversion
+  maps the original raw values into that owner. Hire requests, profiles, and all
+  save, packet, map, XML, Lua, and installed-data bytes remain unchanged.
 - Current and previous duty, training choice, assignment timing, squad-merge
-  state, repair/facility context, item-moving sector, and mini-event time are
-  now stored by `SoldierAssignmentComponent`. The visitor still emits the
-  eleven values at their original scattered POD positions and widths. v101
-  conversion maps its eight historical fields and clears the three fields
-  absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
-  change.
+  state, repair targets/facility context, completion/idle status, sleep and
+  forced-wake state, fatigue feedback, item-moving sector, and mini-event time
+  are now stored by `SoldierAssignmentComponent`. The visitor still emits all
+  seventeen values at their original scattered POD positions and widths,
+  including the six historical boolean slots. v101 conversion maps its fourteen
+  historical fields and clears the three fields absent from v101. No save,
+  packet, map, XML, Lua, or installed-data bytes change.
 - Strategic sector, movement-group and vehicle membership, tactical insertion,
-  traversal origin, off-world staging, arrival bookkeeping, and the Unfinished
-  Business helicopter arrival get-up state are now stored by
-  `SoldierDeploymentComponent`. The visitor still emits all eighteen values at
-  their original scattered POD positions and widths; the arrival get-up tail
-  remains a boolean, signed 32-bit timer, and boolean. v101 conversion maps the
-  deployment fields it historically consumed and keeps its established
-  behavior of clearing the three ignored arrival get-up values. Strategic path
-  and group pointers remain serialization adapters. No save, packet, map, XML,
-  Lua, or installed-data bytes change.
+  traversal origin, off-world staging, between-sector transit, mission-exit
+  participation, landing-zone arrival policy, arrival bookkeeping, and the
+  Unfinished Business helicopter arrival get-up state are now stored by
+  `SoldierDeploymentComponent`. The visitor still emits all twenty-one values
+  at their original scattered POD positions and widths. The three transit and
+  arrival-policy flags remain at their historical boolean slots; the arrival
+  get-up tail remains a boolean, signed 32-bit timer, and boolean. v101
+  conversion maps the raw deployment values it historically consumed and
+  keeps its established behavior of clearing the three ignored arrival get-up
+  values. Strategic path and group pointers remain serialization adapters. No
+  save, packet, map, XML, Lua, or installed-data bytes change.
 - NPC schedule identity and progress plus the open-door continuation phase and
   grid are now stored by `SoldierScheduleComponent`. The visitor still emits
   the four values at their three original POD sites and widths. v101
@@ -439,12 +487,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   Schedule nodes, editor placement records, multiplayer creation packets,
   maps, XML, Lua, and installed-data bytes are unchanged.
 - Precise and integer-projected world coordinates, turn-start coordinates,
-  initial/current grid, elevation and facing, current/desired height, the
-  advanced-animation staging grid, room, and terrain history are now stored by
-  `SoldierPositionComponent`. The visitor still emits all sixteen values at
-  their original scattered POD positions and widths, and v101 conversion maps
-  every historical value into the owner. No save, packet, map, XML, Lua, or
-  installed-data bytes change.
+  initial/current grid, elevation and facing, integer and interpolated
+  animation-height adjustment, desired height, the advanced-animation staging
+  grid, room, and terrain history are now stored by
+  `SoldierPositionComponent`. The visitor still emits all seventeen values at
+  their original scattered POD/AI-section positions and widths, and v101
+  conversion maps every historical value into the owner. No save, packet, map,
+  XML, Lua, or installed-data bytes change.
 - The last departed grid and two-location AI loop history are now stored by
   `SoldierMovementHistoryComponent`. The visitor still emits all three signed
   32-bit grids at their two original scattered POD sites, and v101 conversion
@@ -454,37 +503,51 @@ adapter, so save and load can never drift out of order. Extra methods:
 - Tactical route-execution state is now stored by
   `SoldierMovementComponent`: movement mode, stealth/reverse intent,
   high-resolution current/desired facing, movement-animation direction, and
-  the animation grid-update policy. The visitor still emits each value at its
-  original scattered position and width: the movement mode remains signed
-  16-bit between burst progress and UI level; stealth and reverse remain their
-  original signed bytes; both extended directions remain unsigned bytes; the
-  animation direction remains signed 8-bit beside vehicle state; and the grid
-  policy remains unsigned 16-bit after movement history. V101 conversion maps
-  `usUIMovementMode`, `bStealthMode`, `bReverse`, `ubHiResDirection`,
-  `ubHiResDesiredDirection`, `bMovementDirection`, and
-  `usDontUpdateNewGridNoOnMoveAnimChange` into that owner. Current save streams,
-  simulation commands, multiplayer packets, maps, XML, Lua, and installed-data
-  bytes are unchanged.
-- Soldier target geometry and target identity are now stored by
-  `SoldierTargetingComponent`, but the field visitor emits them at the same two
-  established positions: geometry after movement reservation and identity
-  beside attacking weapon/mode. No save or multiplayer packet bytes change.
+  the animation grid-update policy, and the unsigned strategic-exit wait
+  action. The visitor still emits each value at its original scattered
+  position and width: the wait action remains at its early POD position; the
+  movement mode remains signed 16-bit between burst progress and UI level;
+  stealth and reverse remain their original signed bytes; both extended
+  directions remain unsigned bytes; the animation direction remains signed
+  8-bit beside vehicle state; and the grid policy remains unsigned 16-bit
+  after movement history. V101 conversion maps every raw historical value,
+  including `usDontUpdateNewGridNoOnMoveAnimChange`, into that owner. The same
+  component now owns the eight established movement-activity booleans for
+  turn, prior water, UI speed, AP exhaustion, pause, movement timing, network
+  delay, and presentation motion, plus the two signed 8-bit destination-axis
+  markers. The visitor keeps all ten at their original scattered flag
+  positions and widths. Current save streams, simulation commands, multiplayer
+  packets, maps, XML, Lua, and installed-data bytes are unchanged.
+- Soldier target geometry, selected target identity, engaged-opponent identity,
+  and line-of-fire target identity are now stored by
+  `SoldierTargetingComponent`, but the field visitor emits them at the same
+  established positions: geometry after movement reservation, selected
+  identity beside attacking weapon/mode, engaged identity beside the early
+  wait/gun group, and line-of-fire identity at its later POD site. V101
+  conversion maps all four raw values exactly. No save or multiplayer packet
+  bytes change.
 - Attacking hand and weapon, weapon and scope mode, and ranged and melee aim
   locations are now stored by `SoldierAttackSelectionComponent`. The visitor
   retains their four established schema sites around visibility, hit location,
   target identity, and facility state. Existing fire command and multiplayer
   packet fields remain unchanged.
-- Mutable volley execution is now stored by `SoldierFireControlComponent`.
-  Spread and autofire flags, recoil/counterforce history, initial muzzle
-  offsets, bullets in flight, burst progress, all six spread targets, autofire
-  count, the multi-barrel cursor, and the burst-drag start/end grids remain at
-  their established field-visitor positions. The v101 converter now copies the
-  complete six-element `INT32` spread array instead of only its first half.
-  This is an in-memory ownership and old-conversion correctness change; it does
-  not change the current save stream, multiplayer packets, or installed data.
+- Mutable volley execution, signed gun archetype, grenade-launcher delay mode,
+  and selected multi-barrel mode are now stored by
+  `SoldierFireControlComponent`. Spread and autofire flags,
+  recoil/counterforce history, initial muzzle offsets, bullets in flight,
+  burst progress, all six spread targets, autofire count, the multi-barrel
+  cursor, and the burst-drag start/end grids remain at their established
+  field-visitor positions. The gun byte remains in the early wait/target group;
+  the two unsigned mode bytes remain directly before the established barrel
+  counter. V101 conversion maps the historical gun byte and the complete
+  six-element `INT32` spread array; the two later modes retain their fresh zero
+  defaults because that record predates them. This is an in-memory ownership
+  and old-conversion correctness change; it does not change the current save
+  stream, multiplayer packets, or installed data.
 - The four walk-to-attack cache values are now stored by
-  `SoldierMeleeApproachComponent`; the pre-interrupt moved snapshot is stored
-  by `SoldierInterruptSnapshotComponent`; and traversal forecast/render-depth
+  `SoldierMeleeApproachComponent`; scheduler movement, interrupt duel/result/AP
+  state, the pre-interrupt moved snapshot, and per-opponent counters are stored
+  by `SoldierTurnStateComponent`; and traversal forecast/render-depth
   state plus random-animation cadence/selection are stored by
   `SoldierAnimationActivityComponent`. The visitor emits all nine values at
   their original signed/unsigned widths and scattered byte positions. The
@@ -494,9 +557,10 @@ adapter, so save and load can never drift out of order. Extra methods:
   interrupt values while fields introduced after v101 retain their established
   zero defaults. No current save, packet, map, XML, Lua, or installed-data
   bytes change.
-- Incoming attacker history, hit metadata, hit/pellet counters, and accumulated
-  damage are now stored by `SoldierCombatResultComponent`. Floating-number
-  flag, cursor, offsets, and direction are stored separately by
+- Incoming attacker history, hit metadata, hit/pellet counters, accumulated
+  damage, and the outgoing last-attack-hit result are now stored by
+  `SoldierCombatResultComponent`. Floating-number flag, cursor, offsets, and
+  direction are stored separately by
   `SoldierDamageDisplayComponent`. The visitor emits every value at its former
   flags/POD position, and the v101 converter maps the original fields into
   their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
@@ -511,14 +575,26 @@ adapter, so save and load can never drift out of order. Extra methods:
   Palette/shade/surface pointers remain non-persisted legacy adapters, and the
   `SOLDIERCREATE_STRUCT` palette bytes used by multiplayer remain unchanged.
   Save layout, maps, XML, Lua, and installed data are unchanged.
-- Portrait flash, locator frame/offset/cycles, interface level, panel
-  animation/position, planned-action overlay, and enemy-cycle cursor are now
-  stored by `SoldierUiPresentationComponent`. The visitor emits all fifteen
+- The central identity and roster values now have two independent live owners.
+  `SoldierIdentityComponent` stores slot ID, the ten-character display name,
+  body type, profile links, incarnation, and individual-militia ID;
+  `SoldierRosterComponent` stores activity, team, in-sector presence, side,
+  soldier class, and civilian group. `XferSoldierTypePOD` emits every value at
+  the original position and width, including the later data-profile and
+  individual-militia fields, and v101 conversion maps its historical values
+  while clearing fields absent from that record. Multiplayer packets,
+  `SOLDIERCREATE_STRUCT`, maps, profiles, XML, Lua, packages, and installed
+  game data are unchanged.
+- Portrait flash frame/phase, locator frame/offset/cycles/visibility, interface
+  level, panel animation/position/lifecycle, merc-panel requests, first-time
+  AP/unconscious notifications, planned-action overlay, and enemy-cycle cursor
+  are now stored by `SoldierUiPresentationComponent`. The visitor emits all 27
   values at their original scattered positions and widths, including the
-  widened current `SoldierID` cursor, and v101 conversion maps every historical
-  raw value. Palette, shade, surface, and level-node pointers remain separate
-  legacy render resources. No save, packet, map, XML, Lua, or installed-data
-  bytes change.
+  widened current `SoldierID` cursor. The twelve historical `BOOLEAN` lifecycle
+  slots keep their established boolean encoding, while v101 conversion maps
+  every raw historical value. Palette, shade, surface, and level-node pointers
+  remain separate legacy render resources. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Militia kills, militia assists, and the fixed 156-entry player-team damage
   attribution table are now stored by `SoldierCombatContributionComponent`.
   The visitor emits the two unsigned 8-bit counters and every unsigned 8-bit

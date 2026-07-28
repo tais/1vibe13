@@ -22,7 +22,10 @@
 #include "Disease.h"		// added by Flugente
 #include "Soldier Components.h"
 
-#define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
+static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
+	"Soldier patrol storage must retain the established save-schema capacity");
+
+#define PTR_CIVILIAN	(pSoldier->roster().team() == CIV_TEAM)
 #define PTR_CROUCHED	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH)
 #define PTR_STANDING	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND)
 #define PTR_PRONE	 (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_PRONE)
@@ -641,9 +644,9 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // but they can't attack empty vehicles!!
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
-										(them->aiData.bNeutral || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
-										&& (me->bTeam != CREATURE_TEAM || (them->flags.uiStatusFlags & SOLDIER_VEHICLE) || (them->ubBodyType == CROW)) \
-										&& !(me->flags.uiStatusFlags & SOLDIER_BOXER && them->flags.uiStatusFlags & SOLDIER_BOXER) \
+										(them->aiBehavior().neutral() || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
+										&& (me->roster().team() != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->identity().bodyType() == CROW)) \
+										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
 
 typedef struct
@@ -734,206 +737,6 @@ public:
 private:
 	std::vector<OBJECTTYPE>	inv;
 };
-	// Added for new inventory system to work
-class STRUCT_AIData//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-public:
-	// AI STUFF from before the changes to the memory structure
-	INT8				bOppList[MAX_NUM_SOLDIERS]; // AI knowledge database
-	INT8				bLastAction;
-	INT8				bAction;	
-	INT32			usActionData;
-	INT8				bNextAction;
-	INT32			usNextActionData;
-	INT8				bActionInProgress;
-	INT8				bAlertStatus;
-	INT8				bOppCnt;
-	INT8				bNeutral;
-	INT8				bNewSituation;
-	INT8				bNextTargetLevel;
-	INT8				bOrders;
-	INT8				bAttitude;
-	INT8				bUnderEscort;
-	INT8				bBypassToGreen;
-	UINT8			ubLastMercToRadio;
-	INT8				bDominantDir;				// AI main direction to face...
-	INT8				bPatrolCnt;					// number of patrol gridnos
-	INT8				bNextPatrolPnt;			// index to next patrol gridno
-	INT32			sPatrolGrid[MAXPATROLGRIDS];// AI list for ptr->orders==PATROL
-	INT32			sNoiseGridno;
-	UINT8			ubNoiseVolume;
-	INT8				bLastAttackHit;
-	UINT16			ubXRayedBy;
-	FLOAT			dHeightAdjustment;
-	INT8				bMorale;
-	INT8				bTeamMoraleMod;
-	INT8				bTacticalMoraleMod;
-	INT8				bStrategicMoraleMod;
-	INT8				bAIMorale;
-	INT8				bInterruptDuelPts;
-	INT8				bPassedLastInterrupt;
-	INT16			bIntStartAPs;	//100AP
-	INT8				bMoved;
-	INT8				bHunting;
-	UINT8			ubLastCall;
-	SoldierID		ubCaller;
-	INT32			sCallerGridNo;
-	UINT8			bCallPriority;
-	INT8				bCallActedUpon;
-	INT8				bFrenzied;
-	INT8				bNormalSmell;
-	INT8				bMonsterSmell;
-	INT8				bMobility;
-	INT8				bRTPCombat;
-	INT8				fAIFlags;
-	INT16			bAimTime;	//100AP
-	INT8				bShownAimTime;
-	UINT8			ubInterruptCounter[MAX_NUM_SOLDIERS]; // SANDRO - interrupt counter added
-};
-
-class STRUCT_Flags//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-
-public:
-	// flags from before the changes to the memory structure
-	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-	BOOLEAN											fTurnInProgress;
-	BOOLEAN											fPrevInWater;
-	BOOLEAN											fUIMovementFast;
-	BOOLEAN											fDeadSoundPlayed;
-	BOOLEAN											fClosePanel;
-	BOOLEAN											fClosePanelToDie;
-	BOOLEAN											fDeadPanel;
-	BOOLEAN											fOpenPanel;
-	BOOLEAN											fIntendedTarget; // intentionally shot?
-	BOOLEAN											fWarnedAboutBleeding;
-	BOOLEAN											fDyingComment;
-	BOOLEAN											fFlashLocator;
-	BOOLEAN											fShowLocator;
-	BOOLEAN											fFlashPortrait;
-	BOOLEAN											fNoAPToFinishMove;
-	BOOLEAN											fPausedMove;
-	BOOLEAN											fUIdeadMerc;				// UI Flags for removing a newly dead merc
-	BOOLEAN											fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
-	BOOLEAN											fUICloseMerc;				// UI Flags for closing panels
-	BOOLEAN											fUIFirstTimeNOAP;		// UI Flag for diming guys when no APs ( dirty flags )
-	BOOLEAN											fUIFirstTimeUNCON;	// UI FLAG For unconscious dirty		
-	BOOLEAN											fReloading;
-	BOOLEAN											fPauseAim;
-	BOOLEAN											fInMissionExitNode;
-	BOOLEAN											fBetweenSectors;	//set when the group isn't actually in a sector.
-	BOOLEAN											fReactingFromBeingShot;
-	BOOLEAN											fCheckForNewlyAddedItems;
-	BOOLEAN											fContractPriceHasIncreased;
-	BOOLEAN											fFixingSAMSite;
-	BOOLEAN											fFixingRobot;
-	BOOLEAN											fSignedAnotherContract; 
-	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
-	BOOLEAN											fIsSoldierMoving;							// ie.	Record time is on
-	BOOLEAN											fIsSoldierDelayed;						//Is the soldier delayed Soldier 
-	BOOLEAN											fSoldierUpdatedFromNetwork;
-	BOOLEAN											fSayAmmoQuotePending;
-	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
-	BOOLEAN											fMercAsleep;
-	BOOLEAN											fSoldierWasMoving;
-	BOOLEAN											fDontUnsetLastTargetFromTurn;
-	BOOLEAN											fDieSoundUsed;
-	BOOLEAN											fUseLandingZoneForArrival;
- 	BOOLEAN											fComplainedThatTired;
-
-	UINT8												fHitByGasFlags;						// flags 
-	INT8												fPastXDest;
-	INT8												fPastYDest;
-	BOOLEAN					 fDoingExternalDeath;
-	BOOLEAN lastFlankLeft;
-	UINT32											uiStatusFlags;
-
-	//LBE node stuff
-	BOOLEAN			ZipperFlag;
-	BOOLEAN			DropPackFlag;
-
-};
-
-class STRUCT_TimeChanges//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-		// time changes...when a stat was changed according to GetJA2Clock();
-	UINT32											uiChangeLevelTime;
-	UINT32											uiChangeHealthTime;
-	UINT32											uiChangeStrengthTime;
-	UINT32											uiChangeDexterityTime;
-	UINT32											uiChangeAgilityTime;
-	UINT32											uiChangeWisdomTime;
-	UINT32											uiChangeLeadershipTime;
-	UINT32											uiChangeMarksmanshipTime;
-	UINT32											uiChangeExplosivesTime;
-	UINT32											uiChangeMedicalTime;
-	UINT32											uiChangeMechanicalTime;
-};
-
-class STRUCT_Drugs//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	INT8			bFutureDrugEffect[DRUG_TYPE_MAX];						// value to represent effect of a needle
-	INT8			bDrugEffectRate[DRUG_TYPE_MAX];							// represents rate of increase and decrease of effect	
-	INT8			bDrugEffect[DRUG_TYPE_MAX];								// value that affects AP & morale calc ( -ve is poorly )
-	INT8			bDrugSideEffectRate[DRUG_TYPE_MAX];					// duration of negative AP and morale effect
-	INT8			bDrugSideEffect[DRUG_TYPE_MAX];							// duration of negative AP and morale effect
-	INT8			bTimesDrugUsedSinceSleep[DRUG_TYPE_MAX];			
-};
-
-// Flugente: everything drug-related has been redone
-enum {
-	DRUG_EFFECT_HP = 0,
-	DRUG_EFFECT_BP,
-	DRUG_EFFECT_AP,
-	DRUG_EFFECT_MORALE,
-	DRUG_EFFECT_PHYS_RES,
-	DRUG_EFFECT_STR,
-	DRUG_EFFECT_AGI,
-	DRUG_EFFECT_DEX,
-	DRUG_EFFECT_WIS,
-
-	DRUG_EFFECT_MAX = 20,
-};
-
-
-struct DRUGS
-{
-	UINT16			duration[DRUG_EFFECT_MAX];
-	INT16			size[DRUG_EFFECT_MAX];
-
-	UINT8			drugpersonality;
-	UINT16			drugpersonality_duration;
-
-	UINT8			drugdisability;
-	UINT16			drugdisability_duration;
-
-	FLOAT			drinkstaken;			// number of alcoholic drinks we habe in our system, lowered by 1 every hour
-};
-
-class STRUCT_TimeCounters//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	TIMECOUNTER									UpdateCounter;
-	TIMECOUNTER									DamageCounter;
-	TIMECOUNTER									ReloadCounter;
-	TIMECOUNTER									FlashSelCounter;
-	TIMECOUNTER									AICounter;
-	TIMECOUNTER									FadeCounter;
-	TIMECOUNTER									PanelAnimateCounter;
-	TIMECOUNTER									BlinkSelCounter;
-	TIMECOUNTER									PortraitFlashCounter;
-	TIMECOUNTER									NextTileCounter;
-};
-
 // forward declaration for modularized tactical ai
 namespace AI
 {
@@ -942,26 +745,6 @@ namespace AI
         class Plan;
     }
 }
-
-class STRUCT_Statistics//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	INT8												bExpLevel;		// general experience level
-	INT8												bStrength;
-	INT8												bAgility;			// agility (speed) value
-	INT8												bDexterity;		// dexterity (hand coord) value
-	INT8												bWisdom;
-	INT8												bLeadership;
-	INT8												bMarksmanship;
-	INT8												bMechanical;
-	INT8												bExplosive;
-	INT8												bMedical;
-	INT8												bScientific;	
-	UINT8												ubSkillTraits[30];
-	//UINT8												ubSkillTrait2;
-	//UINT8												ubSkillTrait3; // added by SANDRO
-};
 
 enum class BackgroundVectorTypes;
 
@@ -985,8 +768,18 @@ public:
 	//	Note that the constructor does this automatically.
 	void initialize();
 	bool	exists();
+	SoldierIdentityComponent& identity() noexcept { return identity_; }
+	const SoldierIdentityComponent& identity() const noexcept { return identity_; }
+	SoldierRosterComponent& roster() noexcept { return roster_; }
+	const SoldierRosterComponent& roster() const noexcept { return roster_; }
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
+	SoldierStatisticsComponent& statistics() noexcept { return statistics_; }
+	const SoldierStatisticsComponent& statistics() const noexcept { return statistics_; }
+	SoldierStatusComponent& status() noexcept { return status_; }
+	const SoldierStatusComponent& status() const noexcept { return status_; }
+	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
+	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -999,10 +792,22 @@ public:
 	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
 	SoldierAiPlanningComponent& aiPlanning() noexcept { return aiPlanning_; }
 	const SoldierAiPlanningComponent& aiPlanning() const noexcept { return aiPlanning_; }
+	SoldierAiBehaviorComponent& aiBehavior() noexcept { return aiBehavior_; }
+	const SoldierAiBehaviorComponent& aiBehavior() const noexcept { return aiBehavior_; }
+	SoldierAiCommunicationComponent& aiCommunication() noexcept { return aiCommunication_; }
+	const SoldierAiCommunicationComponent& aiCommunication() const noexcept { return aiCommunication_; }
+	SoldierMoraleComponent& morale() noexcept { return morale_; }
+	const SoldierMoraleComponent& morale() const noexcept { return morale_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
+	SoldierDrugStateComponent& drugState() noexcept { return drugState_; }
+	const SoldierDrugStateComponent& drugState() const noexcept { return drugState_; }
+	SoldierStatProgressComponent& statProgress() noexcept { return statProgress_; }
+	const SoldierStatProgressComponent& statProgress() const noexcept { return statProgress_; }
+	SoldierTimingComponent& timing() noexcept { return timing_; }
+	const SoldierTimingComponent& timing() const noexcept { return timing_; }
 	SoldierLongActionComponent& longAction() noexcept { return longAction_; }
 	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
 	SoldierInteractionComponent& interaction() noexcept { return interaction_; }
@@ -1035,8 +840,8 @@ public:
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
-	SoldierInterruptSnapshotComponent& interruptSnapshot() noexcept { return interruptSnapshot_; }
-	const SoldierInterruptSnapshotComponent& interruptSnapshot() const noexcept { return interruptSnapshot_; }
+	SoldierTurnStateComponent& turnState() noexcept { return turnState_; }
+	const SoldierTurnStateComponent& turnState() const noexcept { return turnState_; }
 	SoldierTargetingComponent& targeting() noexcept { return targeting_; }
 	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
 	SoldierAttackSelectionComponent& attackSelection() noexcept { return attackSelection_; }
@@ -1071,36 +876,10 @@ public:
 	// files (maps, save files, etc.).	If you change it then that code will not work 
 	// properly until it is all fixed and the files updated.
 public:
-	// ID
-	SoldierID		ubID;
-	CHAR16			name[ 10 ];
-
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
-
-	// DESCRIPTION / STATS, ETC
-	UINT8			ubBodyType;
-	INT8				bActive;
-	INT8				bTeam;				// Team identifier
-
 
 	OBJECTTYPE		*pTempObject;
 	KEY_ON_RING		*pKeyRing;
-
-	UINT8			bInSector;
-	
-
-	UINT8			ubWaitActionToDo;
-	INT8				bGunType;
-	SoldierID		ubOppNum;
-	/////////////////////////////////////////////////////////////////////////////////
-	// SANDRO - added following
-	// values for surgery feature
-	/////////////////////////////////////////////////////////////////////////////////
-
-	UINT32			uiAIDelay;
-	INT16			sReloadDelay;
-
-	UINT8			bSide;
 
 	INT32			iFaceIndex;
 
@@ -1127,29 +906,15 @@ public:
 
 	PIXEL			*pForcedShade;
 
-	UINT8			ubProfile;
-
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
 	//END
 
-	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
-
-	UINT8			ubCivilianGroup;
-
-
-	UINT32			uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
-
 	struct TAG_anitile	*pAniTile;	
 	INT8					bVehicleID;
-	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
-
-	UINT16				usValueGoneUp;
-
-	SoldierID			ubCTGTTargetID;
 
 	UINT8				ubMiscSoldierFlags;
 
@@ -1161,19 +926,12 @@ public:
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
 
-	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
-
 	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
 	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
 	UINT8	ubFiller[10];
 	
 	// Flugente: modifiers to fire modes
-	UINT8	usGLDelayMode;			// if > 0, delay GL grenade explosions
-	UINT8	usBarrelMode;			// states how many barrels we are currently using as modifier for our fire mode
-
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
-
-	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
@@ -1185,25 +943,27 @@ public:
 	Inventory inv;
     AI::tactical::Plan*		ai_masterplan_; // Interface object for ModularizedTacticalAI
 
-	//data from version 101 wrapped into structs
-	STRUCT_AIData			aiData;
-	STRUCT_Flags				flags;
-	STRUCT_TimeChanges		timeChanges;
-	STRUCT_TimeCounters		timeCounters;
-	//STRUCT_Drugs			drugs;			// Flugente: drug values are now in newdrugs
-	DRUGS					newdrugs;
-	STRUCT_Statistics		stats;
-
 private:
+	SoldierIdentityComponent	identity_;
+	SoldierRosterComponent	roster_;
 	SoldierVitalsComponent	vitals_;
+	SoldierStatisticsComponent	statistics_;
+	SoldierStatusComponent	status_;
+	SoldierInventoryStateComponent	inventoryState_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;
 	SoldierReplicationComponent	replication_;
 	SoldierMovementMetricsComponent	movementMetrics_;
 	SoldierAiPlanningComponent	aiPlanning_;
+	SoldierAiBehaviorComponent	aiBehavior_;
+	SoldierAiCommunicationComponent	aiCommunication_;
+	SoldierMoraleComponent	morale_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
+	SoldierDrugStateComponent	drugState_;
+	SoldierStatProgressComponent	statProgress_;
+	SoldierTimingComponent	timing_;
 	SoldierLongActionComponent	longAction_;
 	SoldierInteractionComponent	interaction_;
 	SoldierPendingActionComponent	pendingAction_;
@@ -1220,7 +980,7 @@ private:
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
-	SoldierInterruptSnapshotComponent	interruptSnapshot_;
+	SoldierTurnStateComponent	turnState_;
 	SoldierTargetingComponent	targeting_;
 	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierMeleeApproachComponent	meleeApproach_;

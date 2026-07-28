@@ -3865,7 +3865,7 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 	*pusSubState = usTestState;
 
 
-	if ( pSoldier->ubBodyType == QUEENMONSTER )
+	if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 	{
 		switch( usTestState )
 		{
@@ -3879,7 +3879,7 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 		}
 	}
 
-	if ( pSoldier->ubBodyType == LARVAE_MONSTER )
+	if ( pSoldier->identity().bodyType() == LARVAE_MONSTER )
 	{
 		switch( usTestState )
 		{
@@ -3899,7 +3899,7 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 		}
 	}
 
-	if ( pSoldier->ubBodyType == CROW )
+	if ( pSoldier->identity().bodyType() == CROW )
 	{
 		switch( usTestState )
 		{
@@ -3918,7 +3918,7 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 		}
 	}
 
-	if ( pSoldier->ubBodyType == BLOODCAT )
+	if ( pSoldier->identity().bodyType() == BLOODCAT )
 	{
 		switch( usTestState )
 		{
@@ -3932,8 +3932,8 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 	}
 
 
-	if ( pSoldier->ubBodyType == ADULTFEMALEMONSTER || pSoldier->ubBodyType == AM_MONSTER ||
-		pSoldier->ubBodyType == YAF_MONSTER || pSoldier->ubBodyType == YAM_MONSTER )
+	if ( pSoldier->identity().bodyType() == ADULTFEMALEMONSTER || pSoldier->identity().bodyType() == AM_MONSTER ||
+		pSoldier->identity().bodyType() == YAF_MONSTER || pSoldier->identity().bodyType() == YAM_MONSTER )
 	{
 		switch( usTestState )
 		{
@@ -3950,14 +3950,14 @@ BOOLEAN SubstituteBodyTypeAnimation( SOLDIERTYPE *pSoldier, UINT16 usTestState, 
 		}
 	}
 
-	if ( pSoldier->ubBodyType == ROBOTNOWEAPON )
+	if ( pSoldier->identity().bodyType() == ROBOTNOWEAPON )
 	{
 		switch( usTestState )
 		{
 		case STANDING:
 
 			// OK, if they are on the CIV_TEAM, sub for no camera moving
-			if ( pSoldier->bTeam == CIV_TEAM )
+			if ( pSoldier->roster().team() == CIV_TEAM )
 			{
 				*pusSubState = ROBOT_CAMERA_NOT_MOVING;
 				fSubFound = TRUE;
@@ -4110,7 +4110,7 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	usAnimSurface = LoadSoldierAnimationSurface( pSoldier, usAnimState );
 
 	// Add structure info!
-	if ( pSoldier->pLevelNode != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE ) )
+	if ( pSoldier->pLevelNode != NULL && !( pSoldier->status().flags() & SOLDIER_PAUSEANIMOVE ) )
 	{
 		AddMercStructureInfoFromAnimSurface( pSoldier->position().gridNo(), pSoldier, usAnimSurface, usAnimState );
 	}
@@ -4137,7 +4137,7 @@ UINT16 LoadSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	{
 		// Ensure that it's been loaded!
 		if ( !pSoldier->animationCache().acquire(
-				pSoldier->ubID, usAnimSurface,
+				pSoldier->identity().id(), usAnimSurface,
 				pSoldier->animationPlayback().state() ) )
 		{
 			usAnimSurface = INVALID_ANIMATION_SURFACE;
@@ -4175,22 +4175,22 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 
 	//DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DetermineSoldierAnimationSurface"));
 
-	ubBodyType = pSoldier->ubBodyType;
+	ubBodyType = pSoldier->identity().bodyType();
 
 	if ( SubstituteBodyTypeAnimation( pSoldier, usAnimState, &usNewAnimState ) )
 	{
 		usAnimState = usNewAnimState;
 	}
 
-	usAnimSurface	=	gubAnimSurfaceIndex[pSoldier->ubBodyType][usAnimState];
+	usAnimSurface	=	gubAnimSurfaceIndex[pSoldier->identity().bodyType()][usAnimState];
 
 	// CHECK IF WE CAN DO THIS ANIMATION, IE WE HAVE IT AVAILIBLE
 	if ( usAnimSurface == INVALID_ANIMATION	)
 	{
 		// WE SHOULD NOT BE USING THIS ANIMATION
-		ScreenMsg( FONT_MCOLOR_RED, MSG_BETAVERSION, L"Invalid Animation File for Body %d, animation %S.", pSoldier->ubBodyType, gAnimControl[ usAnimState ].zAnimStr );
+		ScreenMsg( FONT_MCOLOR_RED, MSG_BETAVERSION, L"Invalid Animation File for Body %d, animation %S.", pSoldier->identity().bodyType(), gAnimControl[ usAnimState ].zAnimStr );
 		// Set index to FOUND_INVALID_ANIMATION
-		gubAnimSurfaceIndex[pSoldier->ubBodyType][usAnimState] = FOUND_INVALID_ANIMATION;
+		gubAnimSurfaceIndex[pSoldier->identity().bodyType()][usAnimState] = FOUND_INVALID_ANIMATION;
 		return( INVALID_ANIMATION_SURFACE );
 	}
 	if ( usAnimSurface == FOUND_INVALID_ANIMATION	)
@@ -4216,7 +4216,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 
 
 	// IF we are not a merc, return
-	if ( pSoldier->ubBodyType > REGFEMALE )
+	if ( pSoldier->identity().bodyType() > REGFEMALE )
 	{
 		return( usAnimSurface );
 	}
@@ -4305,7 +4305,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 		}
 
 		// CHANGE BASED ON HIEGHT OF WATER
-		usAltAnimSurface = gubAnimSurfaceMidWaterSubIndex[pSoldier->ubBodyType][usAnimState][ ubWaterHandIndex ];
+		usAltAnimSurface = gubAnimSurfaceMidWaterSubIndex[pSoldier->identity().bodyType()][usAnimState][ ubWaterHandIndex ];
 
 		if ( usAltAnimSurface != INVALID_ANIMATION )
 		{
@@ -4322,12 +4322,12 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 		{
 			if ( usAnimState == STANDING )
 			{
-				usAnimSurface			= gusNothingBreath[ pSoldier->ubBodyType ];
+				usAnimSurface			= gusNothingBreath[ pSoldier->identity().bodyType() ];
 				fAdjustedForItem	= TRUE;
 			}
 			else
 			{
-				usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->ubBodyType][usAnimState];
+				usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->identity().bodyType()][usAnimState];
 
 				if ( usAltAnimSurface != INVALID_ANIMATION )
 				{
@@ -4347,11 +4347,11 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 					// SANDRO - new anim for running with pistol by PasHancock
 					if ( usAnimState == RUNNING )
 					{
-						usAltAnimSurface = gubAnimSurfaceItemSubIndex[ pSoldier->ubBodyType ][RUNNING_W_PISTOL];
+						usAltAnimSurface = gubAnimSurfaceItemSubIndex[ pSoldier->identity().bodyType() ][RUNNING_W_PISTOL];
 					}
 					else
 					{
-						usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->ubBodyType][usAnimState];
+						usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->identity().bodyType()][usAnimState];
 					}
 
 					if ( usAltAnimSurface != INVALID_ANIMATION )
@@ -4376,7 +4376,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 						//if ( Item[ pSoldier->inv[ SECONDHANDPOS ].usItem ].usItemClass == IC_GUN )
 						if ( pSoldier->IsValidSecondHandShot() )
 						{
-							usAltAnimSurface = gDoubleHandledSub.usAnimationSurfaces[ pSoldier->ubBodyType ];
+							usAltAnimSurface = gDoubleHandledSub.usAnimationSurfaces[ pSoldier->identity().bodyType() ];
 							if ( usAltAnimSurface != INVALID_ANIMATION )
 							{
 								usAnimSurface = usAltAnimSurface;
@@ -4389,7 +4389,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 			}
 			else
 			{
-				usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->ubBodyType][usAnimState];
+				usAltAnimSurface = gubAnimSurfaceItemSubIndex[pSoldier->identity().bodyType()][usAnimState];
 
 				if ( usAltAnimSurface != INVALID_ANIMATION )
 				{
@@ -4410,7 +4410,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 				{
 					if ( gNothingInjuredSub[ cnt ].usAnimState == usAnimState )
 					{
-						usAnimSurface = gNothingInjuredSub[ cnt ].usAnimationSurfaces[ pSoldier->ubBodyType ];
+						usAnimSurface = gNothingInjuredSub[ cnt ].usAnimationSurfaces[ pSoldier->identity().bodyType() ];
 					}
 				}
 			}
@@ -4425,7 +4425,7 @@ UINT16	DetermineSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimSta
 				{
 					if ( gRifleInjuredSub[ cnt ].usAnimState == usAnimState )
 					{
-						usAnimSurface = gRifleInjuredSub[ cnt ].usAnimationSurfaces[ pSoldier->ubBodyType ];
+						usAnimSurface = gRifleInjuredSub[ cnt ].usAnimationSurfaces[ pSoldier->identity().bodyType() ];
 					}
 				}
 			}
@@ -4450,7 +4450,7 @@ UINT16 GetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 		// Ensure that it's loaded!
 		if ( gAnimSurfaceDatabase[ usAnimSurface ].hVideoObject == NULL )
 		{
-			if(!is_networked)ScreenMsg( FONT_MCOLOR_RED, MSG_BETAVERSION, L"IAnimation Surface for Body %d, animation %S, surface %d not loaded.", pSoldier->ubBodyType, gAnimControl[ usAnimState ].zAnimStr, usAnimSurface );
+			if(!is_networked)ScreenMsg( FONT_MCOLOR_RED, MSG_BETAVERSION, L"IAnimation Surface for Body %d, animation %S, surface %d not loaded.", pSoldier->identity().bodyType(), gAnimControl[ usAnimState ].zAnimStr, usAnimSurface );
 			AnimDebugMsg( String( "Surface Database: PROBLEMS!!!!!!" ) );
 			usAnimSurface = INVALID_ANIMATION_SURFACE;
 		}

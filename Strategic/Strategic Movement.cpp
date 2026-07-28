@@ -252,8 +252,8 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	Assert( pPlayer );
 	AssertMsg( pGroup->usGroupTeam == OUR_TEAM, "Attempting AddPlayerToGroup() on an ENEMY group!" );
 	pPlayer->pSoldier = pSoldier;
-	pPlayer->ubProfileID = pSoldier->ubProfile;
-	pPlayer->ubID = pSoldier->ubID;
+	pPlayer->ubProfileID = pSoldier->identity().profile();
+	pPlayer->ubID = pSoldier->identity().id();
 	pPlayer->bFlags = 0;
 	pPlayer->next = NULL;
 
@@ -285,8 +285,8 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 		pSoldier->assignment().desiredSquad() = curr->pSoldier->assignment().desiredSquad();
 		while( curr->next )
 		{
-			if( curr->ubProfileID == pSoldier->ubProfile )
-				AssertMsg( 0, String( "Attempting to add an already existing merc to group (ubProfile=%d).", pSoldier->ubProfile ) );
+			if( curr->ubProfileID == pSoldier->identity().profile() )
+				AssertMsg( 0, String( "Attempting to add an already existing merc to group (ubProfile=%d).", pSoldier->identity().profile() ) );
 			curr = curr->next;
 		}
 		curr->next = pPlayer;
@@ -430,7 +430,7 @@ BOOLEAN RemovePlayerFromGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	}
 	//end
 
-	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d, %d ) from non-existant group", ubGroupID, pSoldier->ubProfile ) );
+	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d, %d ) from non-existant group", ubGroupID, pSoldier->identity().profile() ) );
 
 	return RemovePlayerFromPGroup( pGroup, pSoldier );
 }
@@ -1040,7 +1040,7 @@ void HandleImportantPBIQuote( SOLDIERTYPE *pSoldier, GROUP *pInitiatingBattleGro
 		initiatingGroup.slot = pInitiatingBattleGroup->ubGroupID;
 
 	// wake merc up for THIS quote
-	if( pSoldier->flags.fMercAsleep )
+	if( pSoldier->assignment().isAsleep() )
 	{
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 0,0 );
 		TacticalCharacterDialogueWithSpecialEvent(
@@ -1103,10 +1103,10 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 	{
 		pSoldier = pPlayer->pSoldier;
 
-		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !is_client )
 		{
-			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
+			ubMercsInGroup[ ubNumMercs ] = pSoldier->identity().id();
 			ubNumMercs++;
 		}
 
@@ -1274,7 +1274,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 						while( pPlayer )
 						{
 							pSoldier = pPlayer->pSoldier;
-							if( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+							if( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if( !AM_A_ROBOT( pSoldier ) &&
 										!AM_AN_EPC( pSoldier ) &&
@@ -1594,7 +1594,7 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 	{
 		pSoldier = pPlayerGroup->pSoldier;
 		if( pSoldier	&& !AM_A_ROBOT( pSoldier ) &&
-				!AM_AN_EPC( pSoldier ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				!AM_AN_EPC( pSoldier ) && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			if ( pSoldier->vitals().maximumHealth() < 100 )
 			{
@@ -1608,12 +1608,12 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 				}
 			}
 
-			if ( pSoldier->stats.bStrength < 100 )
+			if ( pSoldier->statistics().strength() < 100 )
 			{
 				uiCarriedPercent = CalculateCarriedWeight( pSoldier );
 				if ( uiCarriedPercent > 50 )
 				{
-					uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->stats.bStrength ) );
+					uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->statistics().strength() ) );
 					StatChange( pSoldier, STRAMT, ( UINT16 ) ( uiPoints * ( uiCarriedPercent - 50) / 100 ), FALSE );
 				}
 			}
@@ -1749,7 +1749,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 
 		while( curr )
 		{
-			curr->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			curr->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			curr = curr->next;
 		}
 
@@ -1951,7 +1951,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			curr = pGroup->pPlayerList;
 			while( curr )
 			{
-				curr->pSoldier->flags.fBetweenSectors = FALSE;
+				curr->pSoldier->deployment().completeStrategicTransit();
 				curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 				curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 				curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2000,7 +2000,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 					{
 						// a loner
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->name, pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
+						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->identity().name(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
 					}
 				}
 			}
@@ -2028,7 +2028,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				pSoldier = GetSoldierStructureForVehicle( iVehId );
 				Assert( pSoldier );
 
-				pSoldier->flags.fBetweenSectors = FALSE;
+				pSoldier->deployment().completeStrategicTransit();
 				pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 				pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 				pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2050,7 +2050,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				curr = pGroup->pPlayerList;
 				while( curr )
 				{
-					curr->pSoldier->flags.fBetweenSectors = FALSE;
+					curr->pSoldier->deployment().completeStrategicTransit();
 					curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 					curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 					curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2363,7 +2363,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
+			if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
 				if ( ( pSoldier->deployment().sectorX() == ubSectorX ) && ( pSoldier->deployment().sectorY() == ubSectorY ) && ( pSoldier->deployment().sectorZ() - 10 == ubSectorZ ) )
 				{
@@ -2456,7 +2456,7 @@ void PrepareGroupsForSimultaneousArrival()
 
 			if( pSoldier )
 			{
-				pSoldier->flags.fBetweenSectors = TRUE;
+				pSoldier->deployment().beginStrategicTransit();
 			}
 		}
 	}
@@ -2805,7 +2805,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 
 			if ( pSoldier )
 			{
-				pSoldier->flags.fBetweenSectors = TRUE;
+				pSoldier->deployment().beginStrategicTransit();
 
 				// OK, Remove the guy from tactical engine!
 				RemoveSoldierFromTacticalSector( pSoldier, TRUE );
@@ -2830,7 +2830,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			curr->pSoldier->flags.fBetweenSectors = TRUE;
+			curr->pSoldier->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
 			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );
@@ -3032,8 +3032,8 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 			pPlayer->pSoldier->deployment().sectorX() = sSectorX;
 			pPlayer->pSoldier->deployment().sectorY() = sSectorY;
 			pPlayer->pSoldier->deployment().sectorZ() = (UINT8)sSectorZ;
-			pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
-			pPlayer->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			pPlayer->pSoldier->deployment().completeStrategicTransit();
+			pPlayer->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -3534,7 +3534,7 @@ UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				while( pPlayer )
 				{
 					// robots count as mercs here, because they can fight, but vehicles don't
-					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 					{
 						++ubNumMercs;
 					}
@@ -3824,7 +3824,7 @@ void MoveAllGroupsInCurrentSectorToSector( UINT8 ubSectorX, UINT8 ubSectorY, UIN
 				pPlayer->pSoldier->deployment().sectorX() = ubSectorX;
 				pPlayer->pSoldier->deployment().sectorY() = ubSectorY;
 				pPlayer->pSoldier->deployment().sectorZ() = ubSectorZ;
-				pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
+				pPlayer->pSoldier->deployment().completeStrategicTransit();
 				pPlayer = pPlayer->next;
 			}
 		}
@@ -3896,7 +3896,7 @@ void SetGroupPosition( UINT8 ubNextX, UINT8 ubNextY, UINT8 ubPrevX, UINT8 ubPrev
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->flags.fBetweenSectors = TRUE;
+			pPlayer->pSoldier->deployment().beginStrategicTransit();
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -4633,7 +4633,7 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 		while( curr )
 		{
-			curr->pSoldier->flags.fBetweenSectors = TRUE;
+			curr->pSoldier->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
 			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );
@@ -5011,7 +5011,7 @@ INT16 CalculateFuelCostBetweenSectors( UINT8 ubSectorID1, UINT8 ubSectorID2 )
 
 BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	if( pSoldier->vitals().breathReduction() )
 	{
 		return TRUE;
@@ -5021,13 +5021,13 @@ BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 
 INT16 VehicleFuelRemaining( SOLDIERTYPE *pSoldier )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	return pSoldier->vitals().breathReduction();
 }
 
 BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	pSoldier->vitals().breathReduction() -= sFuelSpent;
 	pSoldier->vitals().breathReduction() = (INT16)max( 0, pSoldier->vitals().breathReduction() );
 	pSoldier->vitals().breath() = (INT8)((pSoldier->vitals().breathReduction()+99) / 100);
@@ -5043,7 +5043,7 @@ void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
 	{
 		#ifdef JA2BETAVERSION
 			CHAR16 str[ 100 ];
-			swprintf( str, L"%s is supposed to have gas can in hand. ATE:0", pSoldier->name );
+			swprintf( str, L"%s is supposed to have gas can in hand. ATE:0", pSoldier->identity().name() );
 			DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 		#endif
 		return;
@@ -5384,13 +5384,13 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if ( pSoldier->deployment().sectorX() == pGroup->ubSectorX && pSoldier->deployment().sectorY() == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
-						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->ubProfile != NO_PROFILE )
+						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->identity().profile() != NO_PROFILE )
 						{
-							gMercProfiles[ pSoldier->ubProfile ].records.usAmbushesExperienced++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
 						}
 					}
 				}
@@ -5873,12 +5873,12 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive &&
+		if( pSoldier->roster().active() &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->deployment().sectorX() == ubSectorNumX &&
 			pSoldier->deployment().sectorY() == ubSectorNumY &&
 			pSoldier->assignment().current() < ON_DUTY &&
-			!pSoldier->flags.fMercAsleep &&
+			!pSoldier->assignment().isAsleep() &&
 			HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) )
 		{
 			fScoutPresent = TRUE;
@@ -5897,7 +5897,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			if ( pSoldier->deployment().sectorX() == ubSectorNumX && pSoldier->deployment().sectorY() == ubSectorNumY && pSoldier->deployment().sectorZ() == 10 )
 			{
@@ -6008,7 +6008,7 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 						while ( pPlayer )
 						{
 							pSoldier = pPlayer->pSoldier;
-							if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+							if ( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if ( !AM_A_ROBOT( pSoldier ) &&
 									 !AM_AN_EPC( pSoldier ) &&

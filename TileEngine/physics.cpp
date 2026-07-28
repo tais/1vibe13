@@ -1974,8 +1974,8 @@ void CalculateLaunchItemBasicParams( SOLDIERTYPE *pSoldier, OBJECTTYPE *pItem, I
 		}
 		fGLauncher = TRUE;
 		sMinRange	= MIN_MORTAR_RANGE/2;
-		if ( (gGameSettings.fOptions[TOPTION_GL_HIGH_ANGLE] && pSoldier->bTeam == OUR_TEAM) || ( pSoldier->bTeam == ENEMY_TEAM && ( gGameOptions.ubDifficultyLevel == DIF_LEVEL_HARD || gGameOptions.ubDifficultyLevel == DIF_LEVEL_INSANE ) ) )
-	//	if ( (gGameSettings.fOptions[TOPTION_GL_HIGH_ANGLE] && pSoldier->bTeam == OUR_TEAM) || ( pSoldier->bTeam == ENEMY_TEAM && gGameOptions.ubDifficultyLevel >= DIF_LEVEL_HARD ) )
+		if ( (gGameSettings.fOptions[TOPTION_GL_HIGH_ANGLE] && pSoldier->roster().team() == OUR_TEAM) || ( pSoldier->roster().team() == ENEMY_TEAM && ( gGameOptions.ubDifficultyLevel == DIF_LEVEL_HARD || gGameOptions.ubDifficultyLevel == DIF_LEVEL_INSANE ) ) )
+	//	if ( (gGameSettings.fOptions[TOPTION_GL_HIGH_ANGLE] && pSoldier->roster().team() == OUR_TEAM) || ( pSoldier->roster().team() == ENEMY_TEAM && gGameOptions.ubDifficultyLevel >= DIF_LEVEL_HARD ) )
 			dDegrees *= 2;
 		//fLauncher = TRUE;
 	}
@@ -2212,7 +2212,7 @@ BOOLEAN CalculateLaunchItemChanceToGetThrough( SOLDIERTYPE *pSoldier, OBJECTTYPE
 
 	if ( pSoldier->position().gridNo() == sGridNo )
 	{
-		printf("Warning! Soldier #%d attempted to launch item at himself\n", pSoldier->ubID.i);
+		printf("Warning! Soldier #%d attempted to launch item at himself\n", pSoldier->identity().id().i);
 		return FALSE;
 	}
 	// Ge7t basic launch params...
@@ -2509,7 +2509,7 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 				}
 
 				// silversurfer: Don't hurt civilians. Throwing objects at civilians to kill them is a lame exploit.
-				if ( pSoldier->aiData.bNeutral )
+				if ( pSoldier->aiBehavior().neutral() )
 					sDamage = 0;
 				else
 					sDamage = 1;
@@ -2782,7 +2782,7 @@ void HandleArmedObjectImpact( REAL_OBJECT *pObject )
 				(*pObj)[0]->data.misc.bDelay = 1;
 
 				// for non-player grenades, add turn so player could disarm grenade or run away
-				if ( owner && owner->bTeam != gbPlayerNum )
+				if ( owner && owner->roster().team() != gbPlayerNum )
 				{
 					(*pObj)[0]->data.misc.bDelay++;
 				}

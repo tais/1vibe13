@@ -278,6 +278,15 @@ behavior. Pending-action scratch and deferred work, combat-feedback counters,
 and quick-item retention are owned by a resettable runtime component rather
 than independent flat `SOLDIERTYPE` fields. This component is not exposed
 through the SDK and is deliberately absent from soldier persistence.
+`SoldierIdentityComponent` privately owns the application actor's slot,
+fixed-width display name, body type, legacy and data profile links, exact
+incarnation, and individual-militia identity. `SoldierRosterComponent`
+separately owns activity, team and side, tactical-sector presence, soldier
+class, and civilian group. Application code uses `identity()` and `roster()`;
+packages continue to use pointer-free `TacticalEntityId` and snapshots rather
+than importing either application component. The established current/v101
+save stream, multiplayer creation records, maps, profiles, XML, Lua, packages,
+and installed data do not change.
 `SoldierVitalsComponent` privately owns the application soldier's complete
 persistent health, breath, wound, and recovery lifecycle: current/max values,
 previous-turn and fractional health, breath reduction, treatable injury and
@@ -285,18 +294,41 @@ surgery state, unrecoverable breath, critical-stat damage, bleed scheduling and
 sound throttling, and the retired regeneration save slots. Named snapshot,
 surgery, damage-recovery, life-deduction, and reset transitions keep the domain
 coherent; the explicit serializer retains every established position and width.
+`SoldierStatisticsComponent` separately owns the eleven persistent base
+attributes and fixed 30-slot learned-trait array. Combat, AI, assignments,
+character creation, and UI use the same reference-accessor surface rather than
+a public legacy aggregate. The serializer retains the exact signed-byte
+attribute sequence, the two historically interleaved health bytes, and all 30
+unsigned trait bytes. v101 conversion maps every historical attribute and its
+first two trait slots while clearing the 28 slots absent from that record.
+Profile structures, trait rules, XML, Lua, multiplayer, installed data, and save
+bytes do not change.
+The retired `STRUCT_Flags` does not gain a replacement generic bucket.
+`SoldierStatusComponent` owns the established 32-bit status mask and supplies
+explicit mask operations, while `SoldierInventoryStateComponent` owns key
+access, new-item refresh, zipper, and drop-pack state. Target intent and
+retention, reload and aim pauses, hit/death reactions, network refresh, gas
+hits, and flank orientation live in their existing targeting, fire-control,
+animation, replication, condition, and AI-planning domains. The serializer
+retains all fourteen original positions and widths. v101 conversion maps its
+twelve historical fields and clears the later zipper/drop-pack flags. No save,
+profile, packet, map, XML, Lua, multiplayer, package, or installed-data format
+changes.
 `SoldierServiceComponent` separately owns the persisted service marker, patient
 provider count, provider-to-patient identity, and automatic-bandage medic
-reservation. Named relationship transitions give tactical AI, medical actions,
-and presentation one authority while guarding provider-count removal from
-underflow. The face UI keeps only its old-value render cache, and persistence
-retains all four established positions and widths.
+reservation, plus the inventory slot temporarily borrowed by an autonomous
+medic. Named relationship and borrow/return transitions give tactical AI,
+medical actions, and presentation one authority while guarding provider-count
+removal from underflow. The face UI keeps only its old-value render cache, and
+persistence retains all five established positions and widths.
 `SoldierDialogueComponent` separately owns NPC quote planning, normal and
 extended spoken-history masks, battle-voice selection and playback throttling,
-heard-noise speech cooldown, civilian quote progression, last-spoke time, vocal
-volume, and corpse-comment tolerance. Named history, quote-plan, cooldown, and
-playback transitions give tactical AI and dialogue one authority while the
-portable serializer and v101 conversion retain every original byte position.
+bleeding/dying feedback, queued out-of-ammo speech, death-sound gates,
+heard-noise speech cooldown, civilian quote progression, last-spoke time,
+vocal volume, and corpse-comment tolerance. Named history, tactical-feedback,
+quote-plan, cooldown, and playback transitions give tactical AI and dialogue
+one authority while the portable serializer and v101 conversion retain every
+original byte position.
 `SoldierAudioComponent` separately owns footstep variation, remembered
 door-opening noise, and burst, positional-ambience, and turret-turning sound
 handles. Named record, start, clear, query, and reset transitions give weapon,
@@ -318,13 +350,19 @@ AP, agility, visibility, accuracy, suppression, medical, and breath rules read
 the same owner. The signed and unsigned narrow distance counters saturate
 instead of wrapping, while the serializer and v101 conversion retain all four
 original positions, widths, and raw values.
-`SoldierAiPlanningComponent` separately owns flank progress and geometry,
-sniper posture, and modular plan selection. Tactical AI records flank steps,
+`SoldierAiPlanningComponent` separately owns current/previous/queued actions
+and payloads, action progress and target level, dominant facing, the fixed
+patrol route and cursor, aim time, flank progress and geometry, sniper posture,
+and modular plan selection. Tactical AI queues actions, records flank steps,
 terminal progress, posture changes, and default plan selection through named
 transitions shared by realtime and turn-based execution. The signed flank
-counter saturates instead of wrapping; the serializer retains all five original
-positions and widths, and v101 conversion maps its four established values
-while clearing the later plan index.
+counter saturates instead of wrapping; the serializer retains every original
+position and width and v101 conversion maps the historical fields.
+`SoldierAiBehaviorComponent` owns alert, disposition, orders, escort, creature,
+realtime, and AI-flag modes. `SoldierAiCommunicationComponent` owns radio and
+call exchange state, and `SoldierMoraleComponent` owns personal and calculated
+morale channels plus creature frenzy. These are state seams for AI and mod code,
+not replacements for existing policy, plan, XML, or Lua APIs.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,
 heterogeneous cooldowns, and the focus target. Named check, per-turn aging,
@@ -341,6 +379,33 @@ using an unsigned shift. Disease rules and installed content stay outside this
 owner, and the dependency-neutral disease-capacity header removes the former
 `Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
+`SoldierDrugStateComponent` separately owns the 20 persistent effect durations
+and magnitudes, temporary personality and disability lifetimes, and accumulated
+alcohol. Gameplay merges and ages effects, applies temporary traits, and
+metabolizes alcohol through named operations; invalid effect identities are
+rejected before indexing the fixed save capacity. The serializer retains all
+20 unsigned 16-bit durations, all 20 signed 16-bit magnitudes, both unsigned
+8-bit trait identities, both unsigned 16-bit lifetimes, and the 32-bit float
+alcohol value in their exact existing order. v101 conversion clears this later
+domain. This changes no drug XML, item definition, package, Lua, multiplayer,
+installed-data, or save bytes.
+`SoldierStatProgressComponent` separately owns all eleven persistent
+stat-change timestamps and the value-gone-up direction mask. Gameplay records
+a change by stat identity and marks or clears increase feedback through named
+mask operations; tactical and strategic presentation code share its wrap-safe
+queries. This retires `STRUCT_TimeChanges` and the loose `usValueGoneUp`
+field without absorbing profile stat values. The serializer retains all eleven
+unsigned 32-bit timestamp positions and the scattered unsigned 16-bit mask
+position, while v101 conversion maps every raw value exactly. Food, water, and
+explosion health damage now record the health timestamp rather than an
+unrelated strength or dexterity timestamp.
+`SoldierTimingComponent` separately owns all ten soldier-local countdown
+timers and the AI/reload delay configuration. Gameplay starts, observes, and
+clears timers by purpose; only the platform clock updater asks the owner for
+mutable counters. This removes `STRUCT_TimeCounters` and soldier-local uses of
+the legacy timer macros. The serializer retains the ten consecutive signed
+32-bit counter positions and the established unsigned 32-bit AI-delay and
+signed 16-bit reload-delay positions; v101 conversion maps all twelve values.
 `SoldierLongActionComponent` owns the complementary extended-work lifecycle:
 the tactical action kind, its retained context grid, and the AP cost remaining
 across turns. The established grid slot also carries the return location while
@@ -379,15 +444,14 @@ collapse. Named transitions keep those related states coherent without
 coupling the independent timers; old-save conversion and explicit persistence
 retain all five established byte positions and widths.
 `SoldierPerceptionComponent` separately owns view range, directional
-movement-noise memory, heard-noise elevation, blindness/deafness lifetimes, and
-X-ray activation time. Its named operations preserve the exact sight-recovery
-edge and per-turn noise cleanup while persistence retains all six original
-positions and widths. Opponent lists and render visibility are intentionally
-separate. `SoldierAwarenessComponent` owns current player-facing visibility,
-the last visibility consumed by rendering, newly discovered opponent count, and
-movement distance used to age stale knowledge. Its named visibility, fade,
-render-sync, discovery, and forget transitions preserve the tactical state
-machine while keeping per-observer opponent lists in the AI adapter. Current
+movement-noise memory, personal noise grid/volume, smell values, heard-noise
+elevation, blindness/deafness lifetimes, and X-ray source/activation time. Its
+named operations preserve the exact sight-recovery edge and per-turn noise
+cleanup. Render visibility remains separate. `SoldierAwarenessComponent` owns
+current player-facing visibility, the last visibility consumed by rendering,
+the fixed per-observer opponent table and counts, and movement distance used to
+age stale knowledge. Its named visibility, fade, render-sync, discovery, and
+forget transitions preserve the tactical state machine. Current
 `SoldierCamouflageComponent` owns the applied and equipment-derived values for
 all four established terrain families. Its bounded terrain and strongest-total
 queries give line-of-sight and UI code one definition of effective camouflage,
@@ -395,28 +459,32 @@ while its applied-only total preserves camouflage-kit behavior. Existing item
 fields and XML data remain the content-facing API. Current
 `SoldierEmploymentComponent` owns live contract timing, mercenary
 classification, deposits, insurance, renewal/dismissal bookkeeping, signing
-eligibility, and the hospital modifier. Laptop, strategic, tactical, AI, and
-persistence adapters use the same owner; mercenary profiles and hire requests
-retain their existing content- and command-facing structures.
+eligibility, price-change acknowledgement, competing contract decisions, and
+the hospital modifier. Laptop, strategic, tactical, AI, and persistence
+adapters use the same owner; mercenary profiles and hire requests retain their
+existing content- and command-facing structures.
 `SoldierAssignmentComponent` separately owns current/previous duty, training,
-time on assignment, squad-merge intent, and the facility, repair, item-move,
-and mini-event context belonging to that duty. Strategic travel and sector
-location remain independent; existing assignment constants and gameplay
-entry points are unchanged. `SoldierDeploymentComponent` owns the complementary
+time on assignment, squad-merge intent, repair targets, completion/idle status,
+sleep and forced-wake state, fatigue feedback, and the facility, item-move, and
+mini-event context belonging to that duty. Strategic travel and sector location
+remain independent; existing assignment constants and gameplay entry points
+are unchanged. `SoldierDeploymentComponent` owns the complementary
 location boundary: strategic sector, movement group, vehicle, tactical
-insertion, traversal origin, off-world staging, arrival bookkeeping, and the
-Unfinished Business helicopter arrival get-up timer and phase flags. Strategic
-route/group objects remain adapters, and all existing sector, insertion,
-vehicle, arrival, and arrival get-up gameplay entry points continue to operate
-on the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
+insertion, traversal origin, off-world staging, between-sector transit,
+mission-exit participation, landing-zone arrival policy, arrival bookkeeping,
+and the Unfinished Business helicopter arrival get-up timer and phase flags.
+Strategic route/group objects remain adapters, and all existing sector,
+transit, insertion, vehicle, arrival, and arrival get-up gameplay entry points
+continue to operate on the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,
 complete, consume, or cancel the door continuation; editor placements,
 schedule nodes, and creation/network records keep their established public
 formats. Precise and integer-projected world coordinates, turn-start
 coordinates, initial/current grid, elevation and facing, current/desired
-height, temporary animation grid, room, and terrain history are privately
-owned by `SoldierPositionComponent` as one persistent storage domain.
+height plus interpolated animation height, temporary animation grid, room, and
+terrain history are privately owned by `SoldierPositionComponent` as one
+persistent storage domain.
 Zero-cost reference accessors remain available to application hot paths,
 while named coordinate and terrain transitions keep paired values coherent.
 Old-save conversion and explicit persistence retain every established field
@@ -434,14 +502,21 @@ the selected movement-animation mode, stealth/reverse intent, high-resolution
 current and desired facing, animation direction and grid-update policy,
 delayed-tile counters and causes, movement reservation, merc contention,
 scripted and continued destinations, stop reason, and coordinated speed
-override. UI, AI, animation, rendering, pathing, and simulation-command
-adapters all use `movement()` as the one authority. Named operations cover
-intent changes, synchronized extended facing, grid-update suppression, and
-other paired transitions instead of independently mutating generic flags.
-`SoldierInterruptSnapshotComponent` captures the scheduler's moved state across
-temporary interrupt ownership without exposing another flat soldier field.
-`SoldierTargetingComponent` owns the selected target
-grid, elevation, cube level, previous target grid, and target soldier identity.
+override. Tactical turn ownership, prior water state, UI speed, AP exhaustion,
+pause state, movement-clock/network-delay flags, presentation motion, and
+destination-center crossing, plus staged strategic-exit waits live there as
+well. UI, AI, animation, rendering, pathing, and simulation-command adapters
+all use `movement()` as the one authority. Named operations cover intent
+changes, synchronized extended facing, grid-update suppression, turn and pause
+lifecycles, water/UI-speed edges, strategic-exit waits, and paired destination
+crossing instead of independently mutating generic flags.
+`SoldierTurnStateComponent` owns scheduler movement state, interrupt duel
+points/result/start AP, the pre-interrupt movement snapshot, and the fixed
+per-opponent interrupt counters. Temporary interrupt ownership therefore
+captures and restores one explicit state seam without exposing flat fields.
+`SoldierTargetingComponent` owns the selected target grid, elevation, cube
+level, previous target grid, selected target soldier, engaged opponent, and
+cached line-of-fire target identities.
 The application UI, AI, weapons, simulation-command, animation-event, and
 multiplayer adapters use this one private owner; packages still receive only
 stable pointer-free tactical identities and snapshots.
@@ -452,19 +527,22 @@ producer chooses how to attack through one boundary.
 `SoldierMeleeApproachComponent` owns the cached melee path key, cost, and
 terminal direction. Movement invalidates that cache through its named
 operation, while the historical partial-cache behavior remains intact.
-`SoldierFireControlComponent` owns that mutable firing sequence: burst and
-autofire progress, bullets in flight, the one-based spread cursor and six
-fixed spread targets, recoil and counterforce history, initial muzzle offsets,
-the autofire UI edge state, the active multi-barrel cursor, and burst-drag
-start/end grids. Real-time and turn-based input share named drag transitions.
-Named single-shot, burst, and autofire transitions keep these paired modes
-consistent. Target selection remains separate, as do presentation-only sound
-and muzzle-flash handles. AI dual-wield spread generation is clamped after
+`SoldierFireControlComponent` owns that mutable firing sequence and its
+persistent configuration: editor gun archetype, grenade-launcher delay mode,
+selected multi-barrel mode, burst and autofire progress, bullets in flight, the
+one-based spread cursor and six fixed spread targets, recoil and counterforce
+history, initial muzzle offsets, the autofire UI edge state, the active
+multi-barrel cursor, and burst-drag start/end grids. Real-time and turn-based
+input share named drag transitions. Named single-shot, burst, autofire,
+launcher-delay, and barrel-selection transitions keep these modes consistent.
+Target selection remains separate, as do presentation-only sound and
+muzzle-flash handles. AI dual-wield spread generation is clamped after
 doubling its shot count, so it cannot write twelve locations into the
 established six-target buffer.
 `SoldierCombatResultComponent` owns incoming attacker history, hit
-location/reason, per-turn hit and pellet counts, and accumulated damage. Named
-history operations preserve killer and assister attribution as one transition.
+location/reason, per-turn hit and pellet counts, accumulated damage, and the
+outgoing last-attack-hit result consumed by AI. Named history operations
+preserve killer and assister attribution as one transition.
 `SoldierDamageDisplayComponent` separately owns the floating-number cursor,
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render
@@ -477,11 +555,13 @@ and light-lifetime operations from tactical graphics adapters. Raw palette,
 shade, surface, level-node, and background pointers remain with the legacy
 graphics adapter and are not component or package API.
 `SoldierUiPresentationComponent` owns the remaining pointer-free tactical view
-model for a soldier: portrait and locator animation, interface elevation,
-panel placement, planned-action overlay, and enemy cycling. Use
-`uiPresentation()` or its named locator, panel-position, and planned-target
-transitions from UI adapters. Render-resource pointers deliberately remain
-behind the legacy graphics adapter rather than entering this view model.
+model for a soldier: portrait animation and flash phase, locator animation,
+cycle and visibility, interface elevation, panel placement and lifecycle,
+merc-panel requests, first-time AP/unconscious notifications, planned-action
+overlay, and enemy cycling. Use `uiPresentation()` or its named locator, panel,
+notification, and planned-target transitions from UI adapters. Render-resource
+pointers deliberately remain behind the legacy graphics adapter rather than
+entering this view model.
 `SoldierCombatContributionComponent` separately owns outgoing militia kills,
 assists, promotion points, and the fixed 156-slot player-team damage
 attribution record. Named accrual and transfer operations coordinate tactical

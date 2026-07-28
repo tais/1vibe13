@@ -258,7 +258,7 @@ void EnterTacticalScreen( )
 		selectedSoldier =
 			GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 		if ( gusSelectedSoldier != NOBODY && selectedSoldier &&
-			selectedSoldier->flags.fMercAsleep )
+			selectedSoldier->assignment().isAsleep() )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("EnterTacticalScreen: SelectNextAvailSoldier, merc asleep"));
 			SelectNextAvailSoldier( selectedSoldier );

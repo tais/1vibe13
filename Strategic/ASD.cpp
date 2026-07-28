@@ -1167,7 +1167,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->deployment().sectorZ() &&
+			if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !pSoldier->deployment().sectorZ() &&
 				 (pSoldier->deployment().sectorX() == heli_x && pSoldier->deployment().sectorY() == heli_y) ||
 				 (pSoldier->deployment().sectorX() == heli_x + 1 && pSoldier->deployment().sectorY() == heli_y) ||
 				 (pSoldier->deployment().sectorX() == heli_x - 1 && pSoldier->deployment().sectorY() == heli_y) ||
@@ -1192,7 +1192,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 					}
 
 					// determine cth
-					INT16 samcth = pSoldier->stats.bMarksmanship;
+					INT16 samcth = pSoldier->statistics().marksmanship();
 
 					samcth = (FLOAT)((samcth * (100.0f + pSoldier->GetTraitCTHModifier( pObj->usItem, 2, NO_PROFILE ))) / 100.0f);
 

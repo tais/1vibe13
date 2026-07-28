@@ -103,7 +103,7 @@
 #define	FLASH_SELECTOR_DELAY		4000
 #define	BLINK_SELECTOR_DELAY		250
 
-#define PTR_OURTEAM	 (pSoldier->bTeam == gbPlayerNum)
+#define PTR_OURTEAM	 (pSoldier->roster().team() == gbPlayerNum)
 
 
 #define DONTLOOK				0

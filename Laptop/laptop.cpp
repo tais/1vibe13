@@ -6199,12 +6199,12 @@ void PrintNumberOnTeam( void )
 	if ( !pSoldier )
 		return;
 
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt )
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
-		if( pTeamSoldier && ( pTeamSoldier->bActive)&&
-			( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+		if( pTeamSoldier && ( pTeamSoldier->roster().active())&&
+			( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) ) )
 		{
 			iCounter++;
 		}

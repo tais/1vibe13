@@ -103,7 +103,7 @@ INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, INT8
 	sSwitchValue = gubWorldMovementCosts[sGridNo][bDir][ bLevel ];
 
 	// Check reality vs what the player knows....
-	if ( pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
 		// Is this obstcale a hidden tile that has not been revealed yet?
 		if( DoesGridNoContainHiddenStruct( sGridNo, &fHiddenStructVisible ) )
@@ -141,7 +141,7 @@ INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, INT8
 			return -1;
 		}
 
-		sSwitchValue = DoorTravelCost( pSoldier, sGridNo, (UINT8) sSwitchValue, (BOOLEAN) (pSoldier->bTeam == gbPlayerNum), NULL );
+		sSwitchValue = DoorTravelCost( pSoldier, sGridNo, (UINT8) sSwitchValue, (BOOLEAN) (pSoldier->roster().team() == gbPlayerNum), NULL );
 	}
 	else if (gfPlotPathToExitGrid && sSwitchValue == TRAVELCOST_EXITGRID)
 	{
@@ -198,7 +198,7 @@ INT16 TerrainActionPoints( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bDir, INT8
 		*/
 		// SANDRO - opening door cost will be added after Athletics check
 	case TRAVELCOST_DOOR: sAPCost += APBPConstants[AP_MOVEMENT_FLAT];
-		if (pSoldier->bTeam == gbPlayerNum)
+		if (pSoldier->roster().team() == gbPlayerNum)
 		{
 			return -1;
 		}
@@ -612,7 +612,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 			sPoints = sPoints * ( 100 + pSoldier->GetBackgroundValue(BG_SWIMMING) ) / 100.0f;
 
 		// Check if doors if not player's merc (they have to open them manually)
-		if ( sSwitchValue == TRAVELCOST_DOOR && pSoldier->bTeam != gbPlayerNum )
+		if ( sSwitchValue == TRAVELCOST_DOOR && pSoldier->roster().team() != gbPlayerNum )
 		{
 			sPoints += GetAPsToOpenDoor( pSoldier ) + GetAPsToOpenDoor( pSoldier ); // Include open and close costs!
 		}
@@ -782,7 +782,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 	if(pSoldier == NULL)
 		return( TRUE );
 	// If this guy is on a special move... don't care about APS, OR BPSs!
-	if ( pSoldier->ubWaitActionToDo	)
+	if ( pSoldier->movement().waitAction()	)
 	{
 		return( TRUE );
 	}
@@ -793,13 +793,13 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 		return( TRUE );
 	}
 	// IN realtime.. only care about BPs
-	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) || !pSoldier->bInSector)
+	if ( ( gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive() ) || !pSoldier->roster().inSector())
 	{
 		sAPCost = 0;
 	}
 
 	#ifdef NETWORKED
-	if( !IsTheSolderUnderMyControl( pSoldier->ubID)	)
+	if( !IsTheSolderUnderMyControl( pSoldier->identity().id())	)
 	{
 		return( TRUE );
 	}
@@ -807,7 +807,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 
 	if (is_networked)
 	{
-		if(pSoldier->ubID > 119 || (!is_server && pSoldier->ubID > 20))
+		if(pSoldier->identity().id() > 119 || (!is_server && pSoldier->identity().id() > 20))
 		{
 			return(TRUE);
 		}//hayden , if soldier replication, allow.
@@ -820,7 +820,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 	if ( sNewAP < 0 )
 	{
 		// Display message if it's our own guy
-		if ( pSoldier->bTeam == gbPlayerNum && fDisplayMsg )
+		if ( pSoldier->roster().team() == gbPlayerNum && fDisplayMsg )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NOT_ENOUGH_APS_STR ] );
 		}
@@ -838,7 +838,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	// collapse from exhaustion while the owner's instance shows them fine (playtest:
 	// "Len constantly collapses on contact", brth0/100 in the logs). Breath is
 	// owner-authoritative; never spend it on copies.
-	if ( is_networked && pSoldier != NULL && pSoldier->bTeam >= LAN_TEAM_ONE )
+	if ( is_networked && pSoldier != NULL && pSoldier->roster().team() >= LAN_TEAM_ONE )
 	{
 		iBPCost = 0;
 	}
@@ -869,13 +869,13 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 
 	// in real time, there IS no AP cost, (only breath cost)
-	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) || !pSoldier->bInSector)
+	if (!(IsJa2TacticalTurnBased()) || !(IsJa2TacticalCombatActive() ) || !pSoldier->roster().inSector())
 	{
 		sAPCost = 0;
 	}
 
 	// anv: there were weird things going on here, deducting fuel for strategic travel happens elsewhere anyway
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		iBPCost = 0;
 	}
@@ -886,7 +886,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	// If this is the first time with no action points, set UI flag
 	if ( sNewAP <= 0 && pSoldier->actionPoints().current() > 0 )
 	{
-		pSoldier->flags.fUIFirstTimeNOAP = TRUE;
+		pSoldier->uiPresentation().markNoActionPoints();
 		fInterfacePanelDirty = TRUE;
 	}
 
@@ -904,12 +904,12 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	// AP arithmetic, which drifts from the owner's instance and desyncs interrupt-eligibility,
 	// host-AI-over-copy decisions and the end-of-turn auto-stop. Never spend AP on copies;
 	// the owner's value is reconciled in via the updatenetworksoldier RPC (UpdateSoldierFromNetwork).
-	if ( !( is_networked && pSoldier->bTeam >= LAN_TEAM_ONE ) )
+	if ( !( is_networked && pSoldier->roster().team() >= LAN_TEAM_ONE ) )
 	{
 		pSoldier->actionPoints().current() = sNewAP;
 	}
 
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->ubID, pSoldier->position().gridNo(), sAPCost, iBPCost	) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Deduct Points (%d at %d) %d %d", pSoldier->identity().id(), pSoldier->position().gridNo(), sAPCost, iBPCost	) );
 
 	if ( AM_A_ROBOT( pSoldier ) )
 	{
@@ -933,7 +933,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		if (is_networked)
 		{
 			// Adjust breath changes due to spending or regaining of energy
-			if(!pSoldier->bActive)
+			if(!pSoldier->roster().active())
 			{				
 			}
 			else
@@ -1021,24 +1021,24 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 			pOpponent = GetJa2SoldierRepository().resolve( uCnt );
 			if ( pOpponent == NULL)
 				continue;			// not here or not even breathing -> next!
-			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->collapseState().tactical() || !pOpponent->bActive )
+			if ( pOpponent->vitals().health() < OKLIFE || pOpponent->collapseState().tactical() || !pOpponent->roster().active() )
 				continue;			// not here or not even breathing -> next!
-			if ( pSoldier->bTeam == pOpponent->bTeam )
+			if ( pSoldier->roster().team() == pOpponent->roster().team() )
 				continue;			// same team? -> next!
-			if ( pSoldier->bSide == pOpponent->bSide )
+			if ( pSoldier->roster().side() == pOpponent->roster().side() )
 				continue;			// not enemy
 			if ( CONSIDERED_NEUTRAL( pSoldier, pOpponent ) )
 				continue;			// neutral
 
 			// if we see or hear him
 			// dunno if this is the best solution yet, probably yes
-			if ( pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY ||
-				 pOpponent->aiData.bOppList[pSoldier->ubID] == HEARD_THIS_TURN)
+			if ( pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY ||
+				 pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == HEARD_THIS_TURN)
 			//if (SoldierToSoldierLineOfSightTest( pOpponent, pSoldier, TRUE, CALC_FROM_WANTED_DIR ) != 0)
 			{
 				// calculate how much points do we "register" (let's try to avoid chance-based calc to not inspire save-load mania)
 				// Experience says how well is the observer able to notice and percieve the environment around him, i.e. gives us the actual chance per AP
-				if ( pOpponent->aiData.bOppList[pSoldier->ubID] == HEARD_THIS_TURN )
+				if ( pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == HEARD_THIS_TURN )
 				{
 					// if we only heard him, keep it lower
 					ubPointsRegistered = (gGameExternalOptions.ubBasicPercentRegisterValueIIS - 20) 
@@ -1059,7 +1059,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				if ( gGameOptions.fNewTraitSystem )
 				{
 					// without Night Ops, we get small penalty for interrupting a target in dark
-					if ( !(HAS_SKILL_TRAIT( pOpponent, NIGHT_OPS_NT )) && pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY)
+					if ( !(HAS_SKILL_TRAIT( pOpponent, NIGHT_OPS_NT )) && pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY)
 					{
 						INT8 bLightLevel = LightTrueLevel(pSoldier->position().gridNo(), pSoldier->position().level());
 						if ( bLightLevel > 6) // 7+ lightlevel is darkness
@@ -1096,7 +1096,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				}
 
 				// ALRIGHT! Get final value
-				if (pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY )
+				if (pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY )
 					ubPointsRegistered = max( 20, min( 100, ubPointsRegistered ) ); // 20% is minimum on seeing
 				else
 					ubPointsRegistered = max( 10, min( 100, ubPointsRegistered ) ); // 10% is minimum on hearing
@@ -1106,7 +1106,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				// increase the counter
 				if ( ubPointsRegistered )
 				{
-					pOpponent->aiData.ubInterruptCounter[pSoldier->ubID] += ubPointsRegistered;
+					pOpponent->turnState().interruptCounters()[pSoldier->identity().id()] += ubPointsRegistered;
 					fFoundInterrupter = TRUE;
 				}
 			}	
@@ -1156,10 +1156,10 @@ INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost )
  //sBreathFactor += (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2)));
  sBreathFactor += 100 * (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2))) / pSoldier->vitals().maximumHealth();
 
- if ( pSoldier->stats.bStrength > 80 )
+ if ( pSoldier->statistics().strength() > 80 )
  {
 	// give % reduction to breath costs for high strength mercs
-	sBreathFactor -= (pSoldier->stats.bStrength - 80) / 2;
+	sBreathFactor -= (pSoldier->statistics().strength() - 80) / 2;
  }
 
 /*	THIS IS OLD JAGGED ALLIANCE STUFF (left for possible future reference)
@@ -1232,7 +1232,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 	// If we are not in turn-based combat...
 
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -1339,7 +1339,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 			{
 				// can't gain any breath when we've just been gassed, OR
 				// if standing in tear gas without a gas mask on
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+				if ( pSoldier->status().flags() & SOLDIER_GASSED )
 				{
 					return;		// can't breathe here, so get no breath back!
 				}
@@ -1350,7 +1350,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 
 			// SANDRO: what the hell? This calculation is not correct, it means the less APs you have the more Breath you gain,
 			// when the exact opposite should happen according to the function of this entire procedure!
-			//if ( pSoldier->bTeam != CIV_TEAM && pSoldier->bTeam != gbPlayerNum)
+			//if ( pSoldier->roster().team() != CIV_TEAM && pSoldier->roster().team() != gbPlayerNum)
 			//{
 			//	switch( gGameOptions.ubDifficultyLevel )
 			//	{
@@ -1379,7 +1379,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 			//	sBreathChange = ((APBPConstants[AP_MAXIMUM] + gGameExternalOptions.iPlayerAPBonus)- sUnusedAPs) * sBreathPerAP;
 			//}
 			// SANDRO: if we want to make difference between difficulty levels, then just make it so with higher difficulty the enemy regenerate faster:
-			if ( pSoldier->bTeam == ENEMY_TEAM )
+			if ( pSoldier->roster().team() == ENEMY_TEAM )
 			{
 				switch( gGameOptions.ubDifficultyLevel )
 				{
@@ -1530,7 +1530,7 @@ INT16 GetBreathPerAP( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	//rain
 	// Reduce breath gain on 25%/rain intensity
 	// Lalien: only for soldiers that are in loaded sector,
-	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->bInSector && !pSoldier->deployment().sectorZ() )
+	if ( IsJa2TacticalWorldLoaded() &&  pSoldier->roster().inSector() && !pSoldier->deployment().sectorZ() )
 	{
 		if( sBreathPerAP < 0 && ( pSoldier->position().level()  || !FindStructure( pSoldier->position().gridNo(), STRUCTURE_ROOF )  )  && pSoldier->vitals().breath() > 1)
 		{
@@ -1811,7 +1811,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 			sAdjustedGridNo = NOWHERE;
 
 			// See if we can get there to stab
-			if (pSoldier->ubBodyType == BLOODCAT)
+			if (pSoldier->identity().bodyType() == BLOODCAT)
 			{
 				sActionGridNo = FindNextToAdjacentGridEx(pSoldier, sGridNo, &ubDirection, &sAdjustedGridNo, TRUE, FALSE);
 			}
@@ -2087,7 +2087,7 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
 			// Is it the same as he's facing?
-			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing().desiredDirection() && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
+			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing().desiredDirection() && pSoldier->aiPlanning().lastAction() == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
 			{
 					fAddingTurningCost = TRUE;
 			}
@@ -2225,7 +2225,7 @@ UINT16 CalculateRaiseGunCost(SOLDIERTYPE *pSoldier, BOOLEAN fAddingRaiseGunCost,
 		BOOLEAN fAltFireMode = FALSE;
 		if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding )
 		{
-			if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )//dnl ch69 130913 condition (&& pSoldier->bTeam == gbPlayerNum) must be out because prevent AI from doing alternate weapon holding
+			if ( gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )//dnl ch69 130913 condition (&& pSoldier->roster().team() == gbPlayerNum) must be out because prevent AI from doing alternate weapon holding
 			{
 				if ( pSoldier->attackSelection().scopeMode() == -1 )
 					fAltFireMode = TRUE;
@@ -2754,7 +2754,7 @@ BOOLEAN EnoughAmmo( SOLDIERTYPE *pSoldier, BOOLEAN fDisplay, INT8 bInvPos )
 				}
 
 				//<SB> manual recharge
-				if( pSoldier->bTeam == OUR_TEAM )
+				if( pSoldier->roster().team() == OUR_TEAM )
 				{
 					if ( !(	(*pObjUsed)[0]->data.gun.ubGunState & GS_CARTRIDGE_IN_CHAMBER ) )
 					{
@@ -2817,7 +2817,7 @@ void DeductAmmo( SOLDIERTYPE *pSoldier, OBJECTTYPE* pObj )
 			}
 
 			// Flugente: campaign stats - ammo. explosive consumption is handled elsewhere
-			if ( pSoldier->bTeam == OUR_TEAM )
+			if ( pSoldier->roster().team() == OUR_TEAM )
 			{
 				gCampaignStats.AddConsumption(CAMPAIGN_CONSUMED_AMMO, (FLOAT)(Item[(*pObjUsed)[0]->data.gun.usGunAmmoItem].ubWeight) / (FLOAT)(Magazine[ Item[ (*pObjUsed)[0]->data.gun.usGunAmmoItem ].ubClassIndex ].ubMagSize ) );
 			}
@@ -3247,9 +3247,9 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 		if( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid() || pSoldier->movement().continuedPathValid()	)
 		{
 			// OK< check if we are the selected guy!
-			if ( pSoldier->ubID == gusSelectedSoldier )
+			if ( pSoldier->identity().id() == gusSelectedSoldier )
 			{
-				if (SoldierOnScreen( pSoldier->ubID ) )
+				if (SoldierOnScreen( pSoldier->identity().id() ) )
 				{
 					sGridNo = pSoldier->pathing().finalDestinationGrid();
 
@@ -3660,7 +3660,7 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 	// tosses per turn is for max dexterity, drops down to 1/2 at dexterity = 0
 	// bottom = (TOSSES_PER_10TURNS * (50 + (ptr->dexterity / 2)) / 10);
 	//else
-	iBottom = ( tossesper10turns * (50 + ( pSoldier->stats.bDexterity / 2 ) ) / 10 );
+	iBottom = ( tossesper10turns * (50 + ( pSoldier->statistics().dexterity() / 2 ) ) / 10 );
 
 	// add minimum aiming time to the overall minimum AP_cost
 	//	 This here ROUNDS UP fractions of 0.5 or higher using integer math
@@ -4006,7 +4006,7 @@ INT16 GetAPsCrouch( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck )
 	iFinalAPsToCrouch = APBPConstants[AP_CROUCH];
 
 	// if backpack and new inventory
-	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 		// min was added to stick with the behaviour above (+1) assuming the backpack is heavier than BACKPACK_WEIGHT_FACTOR
 		iFinalAPsToCrouch += min(1, GetBackbackAPPenaltyFromBackpack(pSoldier));
 
@@ -4027,7 +4027,7 @@ INT16 GetAPsProne( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck )
 	iFinalAPsToLieDown = APBPConstants[AP_PRONE];
 
 	// if backpack and new inventory
-	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 		// min was added to stick with the behaviour above (+1) assuming the backpack is heavier than BACKPACK_WEIGHT_FACTOR
 		iFinalAPsToLieDown += min(1, GetBackbackAPPenaltyFromBackpack(pSoldier));
 
@@ -4213,7 +4213,7 @@ INT32 GetBPCostPer10APsForGunHolding( SOLDIERTYPE * pSoldier, BOOLEAN fEstimate 
 	}
 
 	// For enemies, modify by difficulty
-	if ( pSoldier->bTeam == ENEMY_TEAM )
+	if ( pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		switch( gGameOptions.ubDifficultyLevel )
 		{
@@ -4380,7 +4380,7 @@ INT32 GetBPCostForRecoilkick( SOLDIERTYPE * pSoldier )
 	}
 
 	// For enemies, modify by difficulty
-	if ( pSoldier->bTeam == ENEMY_TEAM )
+	if ( pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		switch( gGameOptions.ubDifficultyLevel )
 		{

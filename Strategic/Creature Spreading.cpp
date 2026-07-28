@@ -736,7 +736,7 @@ static void AddCreaturesToBattle( UINT8 ubNumYoungMales, UINT8 ubNumYoungFemales
 		pSoldier->deployment().insertionDirection() = bDesiredDirection;
 		//Setup the position
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		pSoldier->aiData.bHunting = TRUE;
+		pSoldier->aiBehavior().hunting() = TRUE;
 		if( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
 		{
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
@@ -812,7 +812,7 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 
 		//Setup the position
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		pSoldier->aiData.bHunting = TRUE;
+		pSoldier->aiBehavior().hunting() = TRUE;
 
 		if ( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
 		{
@@ -837,8 +837,8 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 		if ( pSoldier )
 		{
 			// send soldier to centre of map, roughly
-			pSoldier->aiData.sNoiseGridno = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
-			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+			pSoldier->perception().noiseGrid() = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
+			pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 		}
 	}
 	
@@ -1675,9 +1675,9 @@ void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumC
 	for( SoldierID i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
-			switch( pSoldier->ubBodyType )
+			switch( pSoldier->identity().bodyType() )
 			{
 				case ADULTFEMALEMONSTER:
 					(*pubNumCreatures)++;
@@ -1711,14 +1711,14 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 	for ( SoldierID i = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if ( pSoldier->IsZombie() )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumZombies )++;
 			}
-			else if ( pSoldier->ubBodyType == BLOODCAT )
+			else if ( pSoldier->identity().bodyType() == BLOODCAT )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumBloodcats )++;
@@ -2263,11 +2263,11 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bActive && pSoldier->vitals().health() &&
+			if( pSoldier->roster().active() && pSoldier->vitals().health() &&
 					pSoldier->deployment().sectorX() == sSectorX &&
 					pSoldier->deployment().sectorY() == sSectorY &&
 					pSoldier->deployment().sectorZ() == bSectorZ &&
-					!pSoldier->flags.fBetweenSectors )
+					!pSoldier->deployment().isBetweenSectors() )
 			{
 				return TRUE;
 			}

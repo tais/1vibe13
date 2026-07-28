@@ -226,7 +226,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	pSoldier->deployment().strategicInsertionCode() = pHireMerc->ubInsertionCode;
 	pSoldier->deployment().strategicInsertionData() = pHireMerc->usInsertionData;
 	// ATE: Copy over value for using alnding zone to soldier type
-	pSoldier->flags.fUseLandingZoneForArrival = pHireMerc->fUseLandingZoneForArrival;
+	pSoldier->deployment().setUseLandingZoneForArrival( pHireMerc->fUseLandingZoneForArrival != FALSE );
 
 
 	// Set assignment
@@ -320,7 +320,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		//if we are trying to hire a merc that should arrive later, put the merc in the queue
 		if( pHireMerc->uiTimeTillMercArrives	!= 0 )
 		{
-			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pHireMerc->uiTimeTillMercArrives,	pSoldier->ubID );
+			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pHireMerc->uiTimeTillMercArrives,	pSoldier->identity().id() );
 				
 			//specify that the merc is hired but hasnt arrived yet
 			pMerc->bMercStatus = MERC_HIRED_BUT_NOT_ARRIVED_YET;
@@ -339,26 +339,26 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		//determine how much the contract is, and remember what type of contract he got
 		if( pHireMerc->iTotalContractLength == 1 )
 		{
-			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_1_DAY;
 		pSoldier->employment().timeCanSignElsewhere() = GetWorldTotalMin();
 		}
 		else if( pHireMerc->iTotalContractLength == 7 )
 		{
-			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary;
+			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary;
 			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_1_WEEK;
 		pSoldier->employment().timeCanSignElsewhere() = GetWorldTotalMin();
 		}
 		else if( pHireMerc->iTotalContractLength == 14 )
 		{
-			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary;
+			//pSoldier->iTotalContractCharge = gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary;
 			pSoldier->employment().lastContractType() = CONTRACT_EXTEND_2_WEEK;
 		// These luck fellows need to stay the whole duration!
 		pSoldier->employment().timeCanSignElsewhere() = pSoldier->employment().endTime();
 		}
 
 		// remember the medical deposit we PAID.	The one in his profile can increase when he levels!
-		pSoldier->employment().medicalDeposit() = gMercProfiles[ pSoldier->ubProfile ].sMedicalDepositAmount;
+		pSoldier->employment().medicalDeposit() = gMercProfiles[ pSoldier->identity().profile() ].sMedicalDepositAmount;
 	}
 	//if the merc is from M.E.R.C.
 	else if ( gMercProfiles[ubCurrentSoldier].Type == PROFILETYPE_MERC )
@@ -366,7 +366,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 		pSoldier->employment().mercenaryType() = MERC_TYPE__MERC;
 		//pSoldier->iTotalContractCharge = -1;
 
-		gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength = 1;
+		gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength = 1;
 
 		//Set starting conditions for the merc
 		pSoldier->employment().startTime() = GetWorldDay( );
@@ -390,7 +390,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	pSoldier->employment().startTime() = GetWorldDay( );
 #endif
 	//remove the merc from the Personnel screens departed list ( if they have never been hired before, its ok to call it )
-	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->ubProfile );
+	RemoveNewlyHiredMercFromPersonnelDepartedList( pSoldier->identity().profile() );
 
 	// Flugente: dynamic opinions
 	if (gGameExternalOptions.fDynamicOpinions)
@@ -438,13 +438,13 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 
 	pSoldier = GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
-	pMerc = &gMercProfiles[ pSoldier->ubProfile ];
+	pMerc = &gMercProfiles[ pSoldier->identity().profile() ];
 
 // anv: handle Kulba's odyssey
 #ifdef JA2UB
 	// too many Kulbas
 #else
-	if(pSoldier->ubProfile == JOHN_MERC)
+	if(pSoldier->identity().profile() == JOHN_MERC)
 	{
 		// just in case
 		if( LaptopSaveInfo.ubJohnPossibleMissedFlights > 3 )
@@ -453,7 +453,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 		if( Random( 100 ) < LaptopSaveInfo.ubJohnPossibleMissedFlights * 25 ) 
 		{			
 			pSoldier->deployment().arrivalTime() = pSoldier->deployment().arrivalTime() + 720 + Random ( 720 );
-			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pSoldier->deployment().arrivalTime(),	pSoldier->ubID );
+			AddStrategicEvent( EVENT_DELAYED_HIRING_OF_MERC, pSoldier->deployment().arrivalTime(),	pSoldier->identity().id() );
 			if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 3 )
 				AddEmail(JOHN_KULBA_MISSED_FLIGHT_1, JOHN_KULBA_MISSED_FLIGHT_1_LENGTH, JOHN_KULBA, GetWorldTotalMin(), -1, -1, TYPE_EMAIL_EMAIL_EDT, XML_JOHNKULBA_MISSEDTRANSFERFLIGHT);
 			else if ( LaptopSaveInfo.ubJohnPossibleMissedFlights == 2 )
@@ -471,7 +471,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 #endif
 	//shadooow: if all mercs were killed or captured and default arrival sector is Omerta, force helidrop arrival animation
-	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->flags.fUseLandingZoneForArrival && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
+	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->deployment().usesLandingZoneForArrival() && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
 	{
 		bool force_helidrop = true;
@@ -498,7 +498,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	AddCharacterToAnySquad( pSoldier );
 
 	// ATE: Make sure we use global.....
-	if ( pSoldier->flags.fUseLandingZoneForArrival )
+	if ( pSoldier->deployment().usesLandingZoneForArrival() )
 	{
 		pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
 		pSoldier->deployment().sectorY()	= gsMercArriveSectorY;
@@ -589,7 +589,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	pSoldier->employment().endTime() = GetMidnightOfFutureDayInMinutes( pSoldier->employment().totalLength() ) + ( GetHourWhenContractDone( pSoldier ) * 60 );
 
 	// Do initial check for bad items
-	if ( pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
 		//ATE: Try to see if our equipment sucks!
 		if ( SoldierHasWorseEquipmentThanUsedTo( pSoldier ) )
@@ -599,7 +599,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 
 			if ( GetWorldMinutesInDay() < uiTimeOfPost )
 			{
-				AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, uiTimeOfPost , pSoldier->ubProfile );
+				AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, uiTimeOfPost , pSoldier->identity().profile() );
 			}
 		}
 	}
@@ -670,7 +670,7 @@ UINT16	NumberOfMercsOnPlayerTeam()
 		AssertNotNIL(pSoldier);
 
 		//if the is active, and is not a vehicle
-		if( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if( pSoldier->roster().active() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			ubCount++;
 		}
@@ -714,11 +714,11 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 		{
 			pTeamSoldier =
 				GetJa2SoldierRepository().resolve(cnt.i);
-			if ( pTeamSoldier->bActive )
+			if ( pTeamSoldier->roster().active() )
 			{
 				if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 				{
-					bHated = WhichHated( pTeamSoldier->ubProfile, pSoldier->ubProfile );
+					bHated = WhichHated( pTeamSoldier->identity().profile(), pSoldier->identity().profile() );
 					if ( bHated != -1 )
 					{
 						// hates the merc who has arrived and is going to gripe about it!
@@ -746,7 +746,7 @@ void HandleMercArrivesQuotes( SOLDIERTYPE *pSoldier )
 				}
 
 				// Flugente: additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_MERC_ARRIVES, pSoldier->ubProfile, ( gubQuest[QUEST_DELIVER_LETTER] == QUESTINPROGRESS ) ? 1 : 0 );
+				AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_MERC_ARRIVES, pSoldier->identity().profile(), ( gubQuest[QUEST_DELIVER_LETTER] == QUESTINPROGRESS ) ? 1 : 0 );
 			}
 		}
 	}
@@ -808,11 +808,11 @@ void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			if ( pSoldier->assignment().current() == IN_TRANSIT )
 			{
-				if ( pSoldier->flags.fUseLandingZoneForArrival )
+				if ( pSoldier->deployment().usesLandingZoneForArrival() )
 				{
 					pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
 					pSoldier->deployment().sectorY()	= gsMercArriveSectorY;
@@ -1095,7 +1095,7 @@ void UpdateJerryMiloInInitialSector()
 			if ( pJerrySoldier != NULL )
 			{
 				//Make sure we can see the pilot
-				gbPublicOpplist[OUR_TEAM][pJerrySoldier->ubID] = SEEN_CURRENTLY;
+				gbPublicOpplist[OUR_TEAM][pJerrySoldier->identity().id()] = SEEN_CURRENTLY;
 				pJerrySoldier->awareness().markVisible();
 			}
 

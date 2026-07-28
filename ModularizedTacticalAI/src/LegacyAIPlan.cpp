@@ -33,29 +33,29 @@ namespace AI
         {
             if(!environment.turn_based())
             {
-                if ( (get_npc()->ubProfile != NO_PROFILE) && (gMercProfiles[ get_npc()->ubProfile ].ubMiscFlags3 & PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL ) )
+                if ( (get_npc()->identity().profile() != NO_PROFILE) && (gMercProfiles[ get_npc()->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL ) )
                 {
-                    TriggerNPCWithGivenApproach( get_npc()->ubProfile, APPROACH_DONE_TRAVERSAL, FALSE );
-                    gMercProfiles[ get_npc()->ubProfile ].ubMiscFlags3 &= (~PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL);
+                    TriggerNPCWithGivenApproach( get_npc()->identity().profile(), APPROACH_DONE_TRAVERSAL, FALSE );
+                    gMercProfiles[ get_npc()->identity().profile() ].ubMiscFlags3 &= (~PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL);
                     get_npc()->dialogue().quoteActionId() = 0;
                     // wait a tiny bit
-                    get_npc()->aiData.usActionData = 100;
-                    get_npc()->aiData.bAction =  AI_ACTION_WAIT;
+                    get_npc()->aiPlanning().actionData() = 100;
+                    get_npc()->aiPlanning().action() =  AI_ACTION_WAIT;
                     return;
                 }
-                if (get_npc()->bTeam == gbPlayerNum)
+                if (get_npc()->roster().team() == gbPlayerNum)
                 {
                     if (environment.get_tactical_status().fAutoBandageMode)
                     {
-                        get_npc()->aiData.bAction = DecideAutoBandage( get_npc() );
+                        get_npc()->aiPlanning().action() = DecideAutoBandage( get_npc() );
                         return;
                     }
                 }
             }
 
-            if ( get_npc()->bTeam != MILITIA_TEAM )
+            if ( get_npc()->roster().team() != MILITIA_TEAM )
             {
-                if ( !sniperwarning && get_npc()->aiData.bOrders == SNIPER )
+                if ( !sniperwarning && get_npc()->aiBehavior().orders() == SNIPER )
                 {
                     ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_WATHCHOUTFORSNIPERS] );
                     sniperwarning = TRUE;
@@ -71,37 +71,37 @@ namespace AI
                     SayQuoteFromAnyBodyInSector( QUOTE_WEARY_SLASH_SUSPUCIOUS );
                 }
             }
-            get_npc()->aiData.fAIFlags &= (~AI_CAUTIOUS); // turn off cautious flag
+            get_npc()->aiBehavior().flags() &= (~AI_CAUTIOUS); // turn off cautious flag
             // if status override is set, bypass RED/YELLOW and go directly to GREEN!
-            if ((get_npc()->aiData.bBypassToGreen) && (get_npc()->aiData.bAlertStatus < STATUS_BLACK))
+            if ((get_npc()->aiBehavior().bypassToGreen()) && (get_npc()->aiBehavior().alertStatus() < STATUS_BLACK))
             {
-                get_npc()->aiData.bAction = DecideActionGreen(get_npc());
+                get_npc()->aiPlanning().action() = DecideActionGreen(get_npc());
                 if ( !gfTurnBasedAI )
                 {
                     // reset bypass now
-                    get_npc()->aiData.bBypassToGreen = 0;
+                    get_npc()->aiBehavior().bypassToGreen() = 0;
                 }
             }
             else
             {
-                switch (get_npc()->aiData.bAlertStatus)
+                switch (get_npc()->aiBehavior().alertStatus())
                 {
                     case STATUS_GREEN:
-                        get_npc()->aiData.bAction = DecideActionGreen(get_npc());
+                        get_npc()->aiPlanning().action() = DecideActionGreen(get_npc());
                         break;
                     case STATUS_YELLOW:
-                        get_npc()->aiData.bAction = DecideActionYellow(get_npc());
+                        get_npc()->aiPlanning().action() = DecideActionYellow(get_npc());
                         break;
                     case STATUS_RED:
-                        get_npc()->aiData.bAction = DecideActionRed(get_npc());
+                        get_npc()->aiPlanning().action() = DecideActionRed(get_npc());
                         break;
                     case STATUS_BLACK:
-                        get_npc()->aiData.bAction = DecideActionBlack(get_npc());
+                        get_npc()->aiPlanning().action() = DecideActionBlack(get_npc());
                         break;
                 }
             }
-            DEBUGAIMSG("Deciding for guynum "<<(int)get_npc()->ubID<<" at gridno "<<get_npc()->position().gridNo()<<", APs "<<get_npc()->actionPoints().current()<<
-                    ", decided action: "<<(int)get_npc()->aiData.bAction<<", data "<<(int)get_npc()->aiData.usActionData);
+            DEBUGAIMSG("Deciding for guynum "<<(int)get_npc()->identity().id()<<" at gridno "<<get_npc()->position().gridNo()<<", APs "<<get_npc()->actionPoints().current()<<
+                    ", decided action: "<<(int)get_npc()->aiPlanning().action()<<", data "<<(int)get_npc()->aiPlanning().actionData());
         }
 
     } // namespace tactical

@@ -94,7 +94,7 @@ INT16 ShadowZLevel( INT16 sMapX, INT16 sMapY, INT16& sWorldY );
 #define SoldierZLevel( pSoldier, sMapX, sMapY )\
 {\
 \
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ) )\
+	if ( ( pSoldier->status().flags() & SOLDIER_MULTITILE ) )\
 	{\
 \
 		if ( pNode->pStructureData != NULL )\
@@ -111,13 +111,13 @@ INT16 ShadowZLevel( INT16 sMapX, INT16 sMapY, INT16& sWorldY );
 		sWorldY = GetMapXYWorldY( sMapX, sMapY );\
 	}\
 \
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )\
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )\
 	{\
 		sZLevel=(sWorldY*Z_SUBLAYERS)+STRUCT_Z_LEVEL;\
 	}\
 	else\
 	{\
-		if ( pSoldier->aiData.dHeightAdjustment > 0 )\
+		if ( pSoldier->position().animationHeightAdjustment() > 0 )\
 		{\
 			sWorldY += ( WALL_HEIGHT + 20 );\
 \
@@ -125,7 +125,7 @@ INT16 ShadowZLevel( INT16 sMapX, INT16 sMapY, INT16& sWorldY );
 		}\
 		else\
 		{\
-			if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )\
+			if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )\
 			{\
 				sZLevel=(sWorldY*Z_SUBLAYERS)+MERC_Z_LEVEL;\
 			}\

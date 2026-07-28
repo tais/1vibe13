@@ -19,7 +19,7 @@ namespace AI
         /// Simply set the action to be performed to AI_ACTION_NONE
         void NullPlan::execute(PlanInputData& environment)
         {
-            get_npc()->aiData.bAction = AI_ACTION_NONE;
+            get_npc()->aiPlanning().action() = AI_ACTION_NONE;
         }
     }
 }

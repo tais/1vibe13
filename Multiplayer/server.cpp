@@ -232,7 +232,7 @@ void sendHIT(RPCParameters *rpcParameters)
 			: NULL;
 	if ( pAtt != NULL )
 	{
-		int team = pAtt->bTeam;
+		int team = pAtt->roster().team();
 
 		// AI
 		if (team == 1)
@@ -391,7 +391,7 @@ void sendhitSTRUCT(RPCParameters *rpcParameters)
 			: NULL;
 	if ( attacker )
 	{
-		int team = attacker->bTeam;
+		int team = attacker->roster().team();
 		
 		// AI
 		if (team == 1) 
@@ -421,7 +421,7 @@ void sendhitWINDOW(RPCParameters *rpcParameters)
 			: NULL;
 	if ( attacker )
 	{
-		int team = attacker->bTeam;
+		int team = attacker->roster().team();
 		
 		// AI
 		if (team == 1) 
@@ -450,7 +450,7 @@ void sendMISS(RPCParameters *rpcParameters)
 			: NULL;
 	if ( attacker )
 	{
-		int team = attacker->bTeam;
+		int team = attacker->roster().team();
 		
 		// AI
 		if (team == 1) 

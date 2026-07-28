@@ -697,7 +697,7 @@ void RenderInfoInSector()
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if( pSoldier->bActive && pSoldier->deployment().sectorX() == ubSectorX && pSoldier->deployment().sectorY() == ubSectorY && pSoldier->deployment().sectorZ() == gbViewLevel )
+		if( pSoldier->roster().active() && pSoldier->deployment().sectorX() == ubSectorX && pSoldier->deployment().sectorY() == ubSectorY && pSoldier->deployment().sectorZ() == gbViewLevel )
 		{
 			if( pSoldier->vitals().health() )
 			{

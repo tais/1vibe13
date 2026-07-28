@@ -72,7 +72,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 			MercCreateStruct.bTeam				= SOLDIER_CREATE_AUTO_TEAM;
 			MercCreateStruct.ubProfile		= NO_PROFILE;
 			MercCreateStruct.fPlayerPlan	= TRUE;
-			MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->ubBodyType;
+			MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->identity().bodyType();
 			MercCreateStruct.sInsertionGridNo		= sGridNo;
 
 			// Get Grid Corrdinates of mouse
@@ -87,9 +87,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Set ones we don't know about but do now back to old ( ie no new guys )
 				for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 				{
-					if ( gpUIPlannedSoldier->aiData.bOppList[ iLoop ] < 0 )
+					if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 					{
-							pPlanSoldier->aiData.bOppList[ iLoop ] = gpUIPlannedSoldier->aiData.bOppList[ iLoop ];
+							pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 					}
 				}
 
@@ -117,7 +117,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
 				// Change selected soldier
-				gusSelectedSoldier = pPlanSoldier->ubID;
+				gusSelectedSoldier = pPlanSoldier->identity().id();
 
 				// Change global planned mode to this guy!
 				gpUIPlannedSoldier = pPlanSoldier;
@@ -137,7 +137,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	}
 	else if ( ubPlanID == UIPLAN_ACTION_FIRE )
 	{
- 	sAPCost = CalcTotalAPsToAttack( gpUIPlannedSoldier, sGridNo, TRUE, (INT16)(gpUIPlannedSoldier->aiData.bShownAimTime ) );
+	sAPCost = CalcTotalAPsToAttack( gpUIPlannedSoldier, sGridNo, TRUE, (INT16)(gpUIPlannedSoldier->aiPlanning().shownAimTime() ) );
 
 		// Get XY from Gridno
 		ConvertGridNoToCenterCellXY( sGridNo, &sXPos, &sYPos );
@@ -147,13 +147,13 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 		if ( EnoughPoints( gpUIPlannedSoldier, sAPCost, 0, FALSE ) )
 		{
 			// CHECK IF WE ARE A PLANNED SOLDIER OR NOT< IF SO< CREATE!
-			if ( gpUIPlannedSoldier->ubID < MAX_NUM_SOLDIERS )
+			if ( gpUIPlannedSoldier->identity().id() < MAX_NUM_SOLDIERS )
 			{
 				MercCreateStruct.initialize();
 				MercCreateStruct.bTeam				= SOLDIER_CREATE_AUTO_TEAM;
 				MercCreateStruct.ubProfile		= NO_PROFILE;
 				MercCreateStruct.fPlayerPlan	= TRUE;
-				MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->ubBodyType;
+				MercCreateStruct.ubBodyType		= gpUIPlannedSoldier->identity().bodyType();
 				MercCreateStruct.sInsertionGridNo		= sGridNo;
 
 				// Get Grid Corrdinates of mouse
@@ -168,9 +168,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					// Set ones we don't know about but do now back to old ( ie no new guys )
 					for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 					{
-						if ( gpUIPlannedSoldier->aiData.bOppList[ iLoop ] < 0 )
+						if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 						{
-								pPlanSoldier->aiData.bOppList[ iLoop ] = gpUIPlannedSoldier->aiData.bOppList[ iLoop ];
+								pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 						}
 					}
 
@@ -195,7 +195,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
 					// Change selected soldier
-					gusSelectedSoldier = pPlanSoldier->ubID;
+					gusSelectedSoldier = pPlanSoldier->identity().id();
 
 					// Change global planned mode to this guy!
 					gpUIPlannedSoldier = pPlanSoldier;
@@ -248,19 +248,19 @@ void EndUIPlan(	)
 		pSoldier = GetJa2SoldierRepository().resolve(
 			static_cast<UINT32>(cnt));
 
-		if ( pSoldier && pSoldier->bActive )
+		if ( pSoldier && pSoldier->roster().active() )
 		{
 			if ( pSoldier->uiPresentation().hasPlannedTarget() )
 			{
 				SetRenderFlags(RENDER_FLAG_FULL );
 			}
-			TacticalRemoveSoldier( pSoldier->ubID );
+			TacticalRemoveSoldier( pSoldier->identity().id() );
 		}
 
 
 	}
 	gfInUIPlanMode			= FALSE;
-	gusSelectedSoldier	= gpUIStartPlannedSoldier->ubID;
+	gusSelectedSoldier	= gpUIStartPlannedSoldier->identity().id();
 
 	gfPlotNewMovement	= TRUE;
 

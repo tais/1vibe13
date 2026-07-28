@@ -24,10 +24,10 @@ namespace AI
     {
         Plan* LegacyAIPlanFactory::create_plan(SOLDIERTYPE* npc, const AIInputData& input)
         {
-            DEBUGAIMSG("Planning for "<<(int)npc->ubID);
-            if((npc->flags.uiStatusFlags & SOLDIER_MONSTER) || npc->ubBodyType == BLOODCAT )
+            DEBUGAIMSG("Planning for "<<(int)npc->identity().id());
+            if((npc->status().flags() & SOLDIER_MONSTER) || npc->identity().bodyType() == BLOODCAT )
                 return new LegacyCreaturePlan(npc);
-            if(npc->ubBodyType == CROW)
+            if(npc->identity().bodyType() == CROW)
             {
                 PlanList* find_supper = new PlanList(npc);
                 CrowSeekCorpsePlan* seek_corpse = new CrowSeekCorpsePlan(npc);
@@ -49,7 +49,7 @@ namespace AI
 
         void LegacyAIPlanFactory::update_plan(SOLDIERTYPE* npc, const AIInputData& input)
         {
-            DEBUGAIMSG("Update called for "<<(int)npc->ubID<<" event: "<<input);
+            DEBUGAIMSG("Update called for "<<(int)npc->identity().id()<<" event: "<<input);
             if(!npc->ai_masterplan_)
                 npc->ai_masterplan_ = create_plan(npc, input);
         }
