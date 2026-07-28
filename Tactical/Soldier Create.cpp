@@ -848,7 +848,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				Soldier.AddDiseasePoints( 0, diseaseamount );
 
 				// if disease has broken out, lower life points
-				if ( Soldier.sDiseaseFlag[0] & SOLDIERDISEASE_OUTBREAK )
+				if ( Soldier.condition().hasDiseaseFlag(0, SOLDIERDISEASE_OUTBREAK) )
 				{
 					// we only alter breath and life points here, stats effectivity will be handled automatically
 					FLOAT magnitude = Soldier.GetDiseaseMagnitude( 0 );

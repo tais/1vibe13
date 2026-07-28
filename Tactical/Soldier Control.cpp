@@ -621,6 +621,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		service().reset();
 		dialogue().reset();
 		skillState().reset();
+		condition().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -1057,10 +1058,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->CancelDrag();
 		
-		this->bFoodLevel = 0;
-		this->bDrinkLevel = 0;
-		this->usStarveDamageHealth = 0;
-		this->usStarveDamageStrength = 0;
 		this->bAIIndex = 0;
 		this->usSoldierProfile = 0;
 		this->usIndividualMilitiaID = 0;
@@ -1137,6 +1134,7 @@ void SOLDIERTYPE::initialize( )
 	service().reset();
 	dialogue().reset();
 	skillState().reset();
+	condition().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -5921,7 +5919,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			}
 
 			// if this guy has the disease, infect the blade
-			if ( this->sDiseasePoints[0] > 0 )
+			if ( this->condition().infected(0) )
 				*&(attacker->inv[HANDPOS])[0]->data.sObjectFlag |= INFECTED;
 		}
 	}
@@ -15186,11 +15184,7 @@ BOOLEAN SOLDIERTYPE::IsZombie( void )
 // reset the extra stat variables
 void	SOLDIERTYPE::ResetExtraStats( )
 {
-	bExtraStrength = 0;
-	bExtraDexterity = 0;
-	bExtraAgility = 0;
-	bExtraWisdom = 0;
-	bExtraExpLevel = 0;
+	condition().clearExtraStats();
 }
 
 // Flugente: inventory bombs can ignite while in mapscreen. Workaround: Damage items and health
@@ -17976,7 +17970,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 	}
 
 	if ( HasBackgroundFlag( BACKGROUND_EXP_UNDERGROUND ) && this->deployment().sectorZ() )
-		++bExtraExpLevel;
+		++condition().extraExperienceLevel();
 	
 	// if we are dead or dying, we cannot continue radio work
 	if ( this->vitals().health() < OKLIFE )
@@ -19594,13 +19588,13 @@ void	SOLDIERTYPE::Infect( UINT8 aDisease )
 		return;
 
 	// do not infect us if we are already infected
-	if ( !( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_CANREINFECT ) && this->sDiseasePoints[aDisease] > 0 )
+	if ( !( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_CANREINFECT ) && this->condition().infected(aDisease) )
 		return;
 
 	// we are getting infected. Raise our disease points, but not over the level of an infection
-	if ( this->sDiseasePoints[aDisease] <= Disease[aDisease].sInfectionPtsFull )
+	if ( this->condition().diseasePoints(aDisease) <= Disease[aDisease].sInfectionPtsFull )
 	{
-		this->sDiseasePoints[aDisease] = min( this->sDiseasePoints[aDisease] + Disease[aDisease].sInfectionPtsInitial, Disease[aDisease].sInfectionPtsFull );
+		this->condition().diseasePoints(aDisease) = min( this->condition().diseasePoints(aDisease) + Disease[aDisease].sInfectionPtsInitial, Disease[aDisease].sInfectionPtsFull );
 
 		// possibly add a new disability
 		if ( Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_ADD_DISABILITY )
@@ -19620,9 +19614,9 @@ void	SOLDIERTYPE::Infect( UINT8 aDisease )
 			}
 		}
 
-		if ( !( this->sDiseaseFlag[aDisease] & SOLDIERDISEASE_OUTBREAK ) && this->sDiseasePoints[aDisease] > Disease[aDisease].sInfectionPtsOutbreak )
+		if ( !this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK) && this->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
 		{
-			this->sDiseaseFlag[aDisease] |= SOLDIERDISEASE_OUTBREAK;
+			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK);
 
 			this->AnnounceDisease( aDisease );
 		}
@@ -19643,38 +19637,41 @@ void	SOLDIERTYPE::AddDiseasePoints( UINT8 aDisease, INT32 aVal )
 
 	if ( aDisease < NUM_DISEASES )
 	{
-		this->sDiseasePoints[aDisease] = min( Disease[aDisease].sInfectionPtsFull, max( this->sDiseasePoints[aDisease] + aVal, -Disease[aDisease].sInfectionPtsOutbreak ) );
+		this->condition().diseasePoints(aDisease) = min( Disease[aDisease].sInfectionPtsFull, max( this->condition().diseasePoints(aDisease) + aVal, -Disease[aDisease].sInfectionPtsOutbreak ) );
 
 		// if the disease 'breaks out', make it known
-		if ( this->sDiseasePoints[aDisease] > Disease[aDisease].sInfectionPtsOutbreak )
+		if ( this->condition().diseasePoints(aDisease) > Disease[aDisease].sInfectionPtsOutbreak )
 		{
-			this->sDiseaseFlag[aDisease] |= SOLDIERDISEASE_OUTBREAK;
+			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK);
 
-			if ( !(this->sDiseaseFlag[aDisease] & SOLDIERDISEASE_DIAGNOSED) )
+			if ( !this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED) )
 				this->AnnounceDisease( aDisease );
 		}
 
 		// once disease is fullblown, some diseases reverse themself
-		if ( (Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_REVERSEONFULL) && this->sDiseasePoints[aDisease] >= Disease[aDisease].sInfectionPtsFull )
+		if ( (Disease[aDisease].usDiseaseProperties & DISEASE_PROPERTY_REVERSEONFULL) && this->condition().diseasePoints(aDisease) >= Disease[aDisease].sInfectionPtsFull )
 		{
-			this->sDiseaseFlag[aDisease] |= SOLDIERDISEASE_REVERSEAL;
+			this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_REVERSEAL);
 		}
 
 		// if disease is cured, remove traces of it
-		if ( this->sDiseasePoints[aDisease] <= 0 )
+		if ( this->condition().diseasePoints(aDisease) <= 0 )
 		{
 			// if disease was known and this guy is under player control, let the player know the good news
-			if ( this->sDiseaseFlag[aDisease] & SOLDIERDISEASE_DIAGNOSED && this->bTeam == gbPlayerNum )
+			if ( this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED) && this->bTeam == gbPlayerNum )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_CURED], this->GetName( ), Disease[aDisease].szName );
 
-			this->sDiseaseFlag[aDisease] &= ~(SOLDIERDISEASE_DIAGNOSED | SOLDIERDISEASE_OUTBREAK | SOLDIERDISEASE_SPLINTAPPLIED_LEG  | SOLDIERDISEASE_SPLINTAPPLIED_ARM );
+			this->condition().clearDiseaseFlags(aDisease, SOLDIERDISEASE_DIAGNOSED | SOLDIERDISEASE_OUTBREAK | SOLDIERDISEASE_SPLINTAPPLIED_LEG | SOLDIERDISEASE_SPLINTAPPLIED_ARM);
 		}
 	}
 }
 
 void	SOLDIERTYPE::AnnounceDisease( UINT8 aDisease )
 {
-	this->sDiseaseFlag[aDisease] |= SOLDIERDISEASE_DIAGNOSED;
+	if (aDisease >= NUM_DISEASES)
+		return;
+
+	this->condition().markDiseaseFlag(aDisease, SOLDIERDISEASE_DIAGNOSED);
 
 	if ( this->bTeam == gbPlayerNum )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szDiseaseText[TEXT_DISEASE_DIAGNOSE_GENERAL], this->GetName( ), Disease[aDisease].szName );
@@ -19686,7 +19683,7 @@ void	SOLDIERTYPE::AnnounceDisease( UINT8 aDisease )
 
 void	SOLDIERTYPE::AddDisability( UINT8 aDisability )
 {
-	this->usDisabilityFlagMask |= ( 1 << (aDisability - 1 ) );
+	this->condition().addDisability(aDisability);
 }
 
 // Flugente: can we apply a medical splint to this guy?
@@ -19707,10 +19704,10 @@ bool	SOLDIERTYPE::CanReceiveSplint()
 	// check whether we have a disease that limits arm/leg use without having a splint 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		if ( this->sDiseasePoints[i] > 0 && this->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED )
+		if ( this->condition().infected(i) && this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
 		{ 
-			if ( (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS && !( this->sDiseaseFlag[i] & SOLDIERDISEASE_SPLINTAPPLIED_ARM ) ) 
-				|| ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS && !( this->sDiseaseFlag[i] & SOLDIERDISEASE_SPLINTAPPLIED_LEG ) ) )
+			if ( (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS && !this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM) )
+				|| ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS && !this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG) ) )
 			{
 				return TRUE;
 			}
@@ -19729,10 +19726,10 @@ BOOLEAN SOLDIERTYPE::HasDisease( BOOLEAN fDiagnosedOnly, BOOLEAN fHealableOnly, 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
 		// disease is relevant if we are infected and are not looking for symbols only while the disease has no symbol
-		if ( this->sDiseasePoints[i] > 0 && !(fSymbolOnly && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_HIDESYMBOL)) )
+		if ( this->condition().infected(i) && !(fSymbolOnly && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_HIDESYMBOL)) )
 		{
 			// only if we don't check for diagnosis, or we already know of this
-			if ( !fDiagnosedOnly || (this->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED) )
+			if ( !fDiagnosedOnly || this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
 			{
 				// only if we don't check for cure, or this can be cured
 				if ( !fHealableOnly || (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
@@ -19755,7 +19752,7 @@ BOOLEAN SOLDIERTYPE::HasDiseaseWithFlag( UINT32 aFlag )
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
 		// disease is relevant if we are infected and are not looking for symbols only while the disease has no symbol
-		if ( ( Disease[i].usDiseaseProperties & aFlag ) && this->sDiseasePoints[i] > 0 && ( this->sDiseaseFlag[i] & SOLDIERDISEASE_OUTBREAK ) )
+		if ( ( Disease[i].usDiseaseProperties & aFlag ) && this->condition().infected(i) && this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_OUTBREAK) )
 		{
 			return TRUE;
 		}
@@ -19771,9 +19768,9 @@ FLOAT	SOLDIERTYPE::GetDiseaseMagnitude( UINT8 aDisease )
 		return 0.0f;
 
 	// diseases only have effects once they have broken out (otherwise stuff happens without the player having any clue as to why)
-	if ( aDisease < NUM_DISEASES && this->sDiseasePoints[aDisease] > 0 && (this->sDiseaseFlag[aDisease] & SOLDIERDISEASE_OUTBREAK) )
+	if ( aDisease < NUM_DISEASES && this->condition().infected(aDisease) && this->condition().hasDiseaseFlag(aDisease, SOLDIERDISEASE_OUTBREAK) )
 	{
-		return ((FLOAT)this->sDiseasePoints[aDisease] / (FLOAT)Disease[aDisease].sInfectionPtsFull);
+		return ((FLOAT)this->condition().diseasePoints(aDisease) / (FLOAT)Disease[aDisease].sInfectionPtsFull);
 	}
 
 	return 0.0f;
@@ -19798,11 +19795,11 @@ void SOLDIERTYPE::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		if ( this->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED )
+		if ( this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) )
 		{
 			if ( fShowExactPoints )
 			{
-				swprintf( atStr, L"\n\n%s - %d / %d\n", Disease[i].szFatName, this->sDiseasePoints[i], Disease[i].sInfectionPtsFull );
+				swprintf( atStr, L"\n\n%s - %d / %d\n", Disease[i].szFatName, this->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
 			}
 			else
 			{
@@ -19914,7 +19911,7 @@ void SOLDIERTYPE::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 						wcscat( apStr, atStr );
 					}
 
-					bool splintapplied = ( this->sDiseaseFlag[i] & ( SOLDIERDISEASE_SPLINTAPPLIED_ARM | SOLDIERDISEASE_SPLINTAPPLIED_LEG ) );
+					bool splintapplied = this->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM | SOLDIERDISEASE_SPLINTAPPLIED_LEG);
 
 					if ( Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS )
 					{
@@ -19938,9 +19935,9 @@ void SOLDIERTYPE::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 				}
 			}
 		}
-		else if ( fShowExactPoints && this->sDiseasePoints[i] > 0 )
+		else if ( fShowExactPoints && this->condition().infected(i) )
 		{
-			swprintf( atStr, szDiseaseText[TEXT_DISEASE_UNDIAGNOSED], Disease[i].szFatName, this->sDiseasePoints[i], Disease[i].sInfectionPtsFull );
+			swprintf( atStr, szDiseaseText[TEXT_DISEASE_UNDIAGNOSED], Disease[i].szFatName, this->condition().diseasePoints(i), Disease[i].sInfectionPtsFull );
 			wcscat( apStr, atStr );
 		}
 	}
@@ -19977,7 +19974,7 @@ void SOLDIERTYPE::PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 	UINT8 ubStatDamageChance_Food  = FoodMoraleMods[foodsituation].ubStatDamageChance;
 	UINT8 ubStatDamageChance_Water = FoodMoraleMods[watersituation].ubStatDamageChance;
 	
-	swprintf( atStr, szFoodText[0], (INT32)(100 * (this->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE) );
+	swprintf( atStr, szFoodText[0], (INT32)(100 * (this->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE) );
 	wcscat( apStr, atStr );
 
 	if ( watersituation != FOOD_NORMAL )
@@ -20013,7 +20010,7 @@ void SOLDIERTYPE::PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 		}
 	}
 
-	swprintf( atStr, szFoodText[1], (INT32)(100 * (this->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE) );
+	swprintf( atStr, szFoodText[1], (INT32)(100 * (this->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE) );
 	wcscat( apStr, atStr );
 
 	if ( foodsituation != FOOD_NORMAL )
@@ -22996,7 +22993,7 @@ void SOLDIERTYPE::EVENT_SoldierTakeBloodFromPerson( INT32 sGridNo, UINT8 ubDirec
 				CreateItem( bloodbagitem, 100, &gTempObject );
 
 				// Flugente: if this guy has the disease, infect object
-				if ( pSoldier->sDiseasePoints[0] > 0 )
+				if ( pSoldier->condition().infected(0) )
 					gTempObject[0]->data.sObjectFlag |= INFECTED;
 
 				if ( !AutoPlaceObject( this, &gTempObject, FALSE ) )
@@ -23071,21 +23068,21 @@ void SOLDIERTYPE::EVENT_SoldierApplySplintToPerson( INT32 sGridNo, UINT8 ubDirec
 			bool addtoleg = true;
 			for ( int i = 0; i < NUM_DISEASES; ++i )
 			{
-				if ( pSoldier->sDiseasePoints[i] > 0 )
+				if ( pSoldier->condition().infected(i) )
 				{
 					if ( addtoarm
 						&& Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_ARMS
-						&& !( pSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_SPLINTAPPLIED_ARM ) )
+						&& !pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM) )
 					{
-						pSoldier->sDiseaseFlag[i] |= SOLDIERDISEASE_SPLINTAPPLIED_ARM;
+						pSoldier->condition().markDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM);
 						addtoleg = false;
 					}
 
 					if ( addtoleg
 						&& Disease[i].usDiseaseProperties & DISEASE_PROPERTY_LIMITED_USE_LEGS
-						&& !( pSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_SPLINTAPPLIED_LEG ) )
+						&& !pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG) )
 					{
-						pSoldier->sDiseaseFlag[i] |= SOLDIERDISEASE_SPLINTAPPLIED_LEG;
+						pSoldier->condition().markDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_LEG);
 						addtoarm = false;
 					}
 				}
@@ -24760,8 +24757,8 @@ UINT16 NumberOfDamagedStats( SOLDIERTYPE * pSoldier )
 	}
 
 	// Flugente: stats can also be damaged by lack of food
-	ubTotalStatsDamaged += pSoldier->usStarveDamageHealth;
-	ubTotalStatsDamaged += pSoldier->usStarveDamageStrength;
+	ubTotalStatsDamaged += pSoldier->condition().starvationHealthDamage();
+	ubTotalStatsDamaged += pSoldier->condition().starvationStrengthDamage();
 
 	return(ubTotalStatsDamaged);
 }
@@ -24896,24 +24893,24 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 	}
 
 	// Flugente: Third, heal damage from starvation if possible
-	if ( !UsingFoodSystem() || ( ubAmountRegained > 0 && pSoldier->bFoodLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold && pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
+	if ( !UsingFoodSystem() || ( ubAmountRegained > 0 && pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold && pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
 	{
 		// if we have a damaged stat here
-		if ( pSoldier->usStarveDamageHealth > 0 )
+		if ( pSoldier->condition().starvationHealthDamage() > 0 )
 		{
-			if ( ubAmountRegained >= pSoldier->usStarveDamageHealth )
+			if ( ubAmountRegained >= pSoldier->condition().starvationHealthDamage() )
 			{
 				// if the amount we can return is bigger than what we need, keep the rest, for other stats
-				usStatIncreasement = pSoldier->usStarveDamageHealth;
+				usStatIncreasement = pSoldier->condition().starvationHealthDamage();
 				ubAmountRegained = max( 0, (ubAmountRegained - usStatIncreasement) );
-				pSoldier->usStarveDamageHealth = 0;
+				pSoldier->condition().starvationHealthDamage() = 0;
 			}
 			else
 			{
 				// if not having full amount, heal what we can
 				usStatIncreasement = ubAmountRegained;
 				ubAmountRegained = 0;
-				pSoldier->usStarveDamageHealth = max( 0, (pSoldier->usStarveDamageHealth - usStatIncreasement) );
+				pSoldier->condition().starvationHealthDamage() = max( 0, (pSoldier->condition().starvationHealthDamage() - usStatIncreasement) );
 			}
 
 			// so we can start regaining the stats
@@ -24932,7 +24929,7 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 					pSoldier->vitals().maximumHealth() = 100;
 					pSoldier->vitals().health() = 100;
 					pSoldier->vitals().healableInjury() = 0;
-					pSoldier->usStarveDamageHealth = 0;
+					pSoldier->condition().starvationHealthDamage() = 0;
 				}
 				gMercProfiles[pSoldier->ubProfile].bLifeMax = pSoldier->vitals().maximumHealth(); // update profile
 
@@ -24948,21 +24945,21 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 		}
 
 		// if we have a damaged stat here
-		if ( pSoldier->usStarveDamageStrength > 0 )
+		if ( pSoldier->condition().starvationStrengthDamage() > 0 )
 		{
-			if ( ubAmountRegained >= pSoldier->usStarveDamageStrength )
+			if ( ubAmountRegained >= pSoldier->condition().starvationStrengthDamage() )
 			{
 				// if the amount we can return is bigger than what we need, keep the rest, for other stats
-				usStatIncreasement = pSoldier->usStarveDamageStrength;
+				usStatIncreasement = pSoldier->condition().starvationStrengthDamage();
 				ubAmountRegained = max( 0, (ubAmountRegained - usStatIncreasement) );
-				pSoldier->usStarveDamageStrength = 0;
+				pSoldier->condition().starvationStrengthDamage() = 0;
 			}
 			else
 			{
 				// if not having full amount, heal what we can
 				usStatIncreasement = ubAmountRegained;
 				ubAmountRegained = 0;
-				pSoldier->usStarveDamageStrength = max( 0, (pSoldier->usStarveDamageStrength - usStatIncreasement) );
+				pSoldier->condition().starvationStrengthDamage() = max( 0, (pSoldier->condition().starvationStrengthDamage() - usStatIncreasement) );
 			}
 
 			// so we can start regaining the stats
@@ -24975,7 +24972,7 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 				if ( pSoldier->stats.bStrength >= 100 ) // repair if going too far
 				{
 					pSoldier->stats.bStrength = 100;
-					pSoldier->usStarveDamageStrength = 0;
+					pSoldier->condition().starvationStrengthDamage() = 0;
 				}
 				gMercProfiles[pSoldier->ubProfile].bStrength = pSoldier->stats.bStrength; // update profile
 

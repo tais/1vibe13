@@ -315,6 +315,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   fields and clears AI selection, counters, cooldowns, and focus, which were
   absent from that record. No save, packet, map, XML, Lua, or installed-data
   bytes change.
+- Temporary stat modifiers, food and drink levels, starvation damage, 20
+  disease-progress values, 20 disease-flag values, and the acquired-disability
+  mask are now stored by `SoldierConditionComponent`. The visitor emits the
+  four signed 16-bit stat modifiers, signed 8-bit experience modifier, signed
+  32-bit nutrition values, unsigned 8-bit starvation values, all signed 16-bit
+  disease points, all unsigned 8-bit disease flags, and the unsigned 32-bit
+  disability mask at their original scattered positions. v101 conversion
+  clears this whole later domain. The independent `NUM_DISEASES == 20`
+  declaration is a C++ dependency cleanup, not a data-format change; no save,
+  packet, map, XML, Lua, or installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

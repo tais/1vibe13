@@ -1008,6 +1008,8 @@ public:
 	const SoldierDialogueComponent& dialogue() const noexcept { return dialogue_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
+	SoldierConditionComponent& condition() noexcept { return condition_; }
+	const SoldierConditionComponent& condition() const noexcept { return condition_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1272,21 +1274,7 @@ public:
 	INT16		sDragCorpseID;			// Flugente: id of corpse we are dragging
 	SoldierID	usChatPartnerID;		// Flugente: the id of another merc we are 'chatting' with
 	
-	// Flugente: new variables for extra stats	
-	INT16	bExtraStrength;			// additional strength gained via power armor
-	INT16	bExtraDexterity;		// additional dexterity gained via drugs
-	INT16	bExtraAgility;			// additional agility gained via drugs
-	INT16	bExtraWisdom;			// additional wisdom gained via drugs
-	INT8		bExtraExpLevel;			// corruption can temporarily alter our ExpLevel without messing up our stats this way
-
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
-
-	// Flugente: food system
-	INT32	bFoodLevel;				// current level of food saturation
-	INT32	bDrinkLevel;			// current level of drink saturation
-
-	UINT8	usStarveDamageHealth;	// damage to health due to starvation. Can be cured by surgery, but only if nutrition level is high enough again
-	UINT8	usStarveDamageStrength;	// damage to strength due to starvation. Can be cured by surgery, but only if nutrition level is high enough again
 
 	// Flugente: multi-turn actions	
 	INT16	bOverTurnAPS;			// remaining AP cost for the next turns	(allows actions to be performed for more than one turn)
@@ -1297,10 +1285,6 @@ public:
 
 	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
 
-	// Flugente: diseases
-	INT16	sDiseasePoints[NUM_DISEASES];			// we store the state of our diseases here
-	UINT8	sDiseaseFlag[NUM_DISEASES];				// we need to store some special flags for every disease
-		
 	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
 	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
 	UINT8	ubFiller[10];
@@ -1312,9 +1296,6 @@ public:
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
 	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data
-
-	// Flugente: store disabilities as a flagmask, so we can have multiple ones
-	UINT32	usDisabilityFlagMask;
 
 	// Flugente: drag structures
 	INT32	sDragGridNo;
@@ -1350,6 +1331,7 @@ private:
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierSkillStateComponent	skillState_;
+	SoldierConditionComponent	condition_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

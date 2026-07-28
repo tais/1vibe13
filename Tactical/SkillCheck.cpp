@@ -36,8 +36,8 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 		}
 		else
 		{
-			iEffStrength = ( pSoldier->stats.bStrength + pSoldier->bExtraStrength )/ 2;
-			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->bExtraStrength) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
+			iEffStrength = ( pSoldier->stats.bStrength + pSoldier->condition().extraStrength() )/ 2;
+			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->condition().extraStrength()) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 	}
 	else
@@ -76,7 +76,7 @@ INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
 
 	iEffWisdom = pSoldier->stats.bWisdom;
 
-	iEffWisdom += pSoldier->bExtraWisdom;
+	iEffWisdom += pSoldier->condition().extraWisdom();
 
 	iEffWisdom = EffectStatForBeingDrunk( pSoldier, iEffWisdom );
 
@@ -105,7 +105,7 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 	}
 
 	if ( !fTrainer )
-		iEffAgility += pSoldier->bExtraAgility;
+		iEffAgility += pSoldier->condition().extraAgility();
 
 	iEffAgility = EffectStatForBeingDrunk( pSoldier, iEffAgility );
 
@@ -242,7 +242,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 		diseaseeffect += Disease[i].sEffStat[INFST_EXP] * pSoldier->GetDiseaseMagnitude( i );
 
-	iEffExpLevel += diseaseeffect + pSoldier->bExtraExpLevel;
+	iEffExpLevel += diseaseeffect + pSoldier->condition().extraExperienceLevel();
 		
 	if (iEffExpLevel > 10)
 	{
@@ -286,7 +286,7 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 	}
 
 	if ( !fTrainer )
-		iEffDexterity += pSoldier->bExtraDexterity;
+		iEffDexterity += pSoldier->condition().extraDexterity();
 
 	iEffDexterity = EffectStatForBeingDrunk( pSoldier, iEffDexterity );
 

@@ -1578,9 +1578,9 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 			return ( TRUE );
 
 		// Flugente: stats can also be damaged
-		if ( !UsingFoodSystem() || ( pSoldier->bFoodLevel >= FoodMoraleMods[FOOD_NORMAL].bThreshold && pSoldier->bDrinkLevel >= FoodMoraleMods[FOOD_NORMAL].bThreshold ) )
+		if ( !UsingFoodSystem() || ( pSoldier->condition().foodLevel() >= FoodMoraleMods[FOOD_NORMAL].bThreshold && pSoldier->condition().drinkLevel() >= FoodMoraleMods[FOOD_NORMAL].bThreshold ) )
 		{
-			if ( pSoldier->usStarveDamageHealth > 0 || pSoldier->usStarveDamageStrength > 0 )
+			if ( pSoldier->condition().hasStarvationDamage() )
 				return ( TRUE );
 		}
 	}
@@ -4246,9 +4246,9 @@ void UpdatePatientsWhoAreDoneHealing( void )
 			if ( IS_PATIENT(pTeamSoldier->assignment().current()) && !IS_DOCTOR(pTeamSoldier->assignment().current()) && (pTeamSoldier->vitals().health() == pTeamSoldier->vitals().maximumHealth()) && pTeamSoldier->HasDisease(TRUE, TRUE) )
 			{
 				// Flugente: stats can also be damaged
-				if ( !UsingFoodSystem() || ( pTeamSoldier->bFoodLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold && pTeamSoldier->bDrinkLevel > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
+				if ( !UsingFoodSystem() || ( pTeamSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold && pTeamSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_NORMAL].bThreshold) )
 				{
-					if ( pTeamSoldier->usStarveDamageHealth > 0 || pTeamSoldier->usStarveDamageStrength > 0 )
+					if ( pTeamSoldier->condition().hasStarvationDamage() )
 						fHasDamagedStat = TRUE;
 				}
 
@@ -4632,9 +4632,9 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 		// loop over all diseases and determine how much we can heal
 		for ( int i = 0; i < NUM_DISEASES; ++i )
 		{
-			if ( (pPatient->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
+			if ( pPatient->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED) )
 			{
-				sHundredsToDiseaseCure += pPatient->sDiseasePoints[i];
+				sHundredsToDiseaseCure += pPatient->condition().diseasePoints(i);
 			}
 		}
 	}
@@ -4663,10 +4663,10 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 			UINT16 healingdone = 0;
 			for (int i = 0; i < NUM_DISEASES; ++i)
 			{
-				if ((pPatient->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED))
+				if (pPatient->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && (Disease[i].usDiseaseProperties & DISEASE_PROPERTY_CANBECURED))
 				{
 					// amount cured is fraction of disease to total disease times fraction of healing done
-					INT32 cured = (sHundredsToDiseaseCure_Used * pPatient->sDiseasePoints[i]) / (FLOAT)(sHundredsToDiseaseCure);
+					INT32 cured = (sHundredsToDiseaseCure_Used * pPatient->condition().diseasePoints(i)) / (FLOAT)(sHundredsToDiseaseCure);
 
 					if (cured > 0)
 					{
@@ -6443,10 +6443,10 @@ void HandleDiseaseDiagnosis()
 					for ( int i = 0; i < NUM_DISEASES; ++i )
 					{
 						// if teammember has disease, but this is not yet known
-						if ( pTeamSoldier->sDiseasePoints[i] > 0 && !(pTeamSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED) && Disease[i].sInfectionPtsOutbreak > 0 )
+						if ( pTeamSoldier->condition().infected(i) && !pTeamSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) && Disease[i].sInfectionPtsOutbreak > 0 )
 						{
 							// whether an infection is diagnosed also depends on how high it is compared to an outbreak
-							FLOAT infectedfraction = ((FLOAT)pTeamSoldier->sDiseasePoints[i] / (FLOAT)Disease[i].sInfectionPtsOutbreak);
+							FLOAT infectedfraction = ((FLOAT)pTeamSoldier->condition().diseasePoints(i) / (FLOAT)Disease[i].sInfectionPtsOutbreak);
 
 							if ( infectedfraction > 0.0f && Chance((UINT32)(100 * infectedfraction)) && Chance( skill ) )
 							{

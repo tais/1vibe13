@@ -253,10 +253,10 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 		pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 	}
 
-	pSoldier->bExtraStrength += pSoldier->newdrugs.size[DRUG_EFFECT_STR];
-	pSoldier->bExtraDexterity += pSoldier->newdrugs.size[DRUG_EFFECT_DEX];
-	pSoldier->bExtraAgility += pSoldier->newdrugs.size[DRUG_EFFECT_AGI];
-	pSoldier->bExtraWisdom += pSoldier->newdrugs.size[DRUG_EFFECT_WIS];
+	pSoldier->condition().extraStrength() += pSoldier->newdrugs.size[DRUG_EFFECT_STR];
+	pSoldier->condition().extraDexterity() += pSoldier->newdrugs.size[DRUG_EFFECT_DEX];
+	pSoldier->condition().extraAgility() += pSoldier->newdrugs.size[DRUG_EFFECT_AGI];
+	pSoldier->condition().extraWisdom() += pSoldier->newdrugs.size[DRUG_EFFECT_WIS];
 
 	BOOLEAN fStillDrugged = FALSE;
 
@@ -330,7 +330,7 @@ BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
 		// Flugente: if disease with severe limitations is active, we can have multiple disabilities
 		if ( gGameExternalOptions.fDisease
 			&& gGameExternalOptions.fDiseaseSevereLimitations
-			&& pSoldier->usDisabilityFlagMask & ( 1 << (aVal - 1) ) )
+			&& pSoldier->condition().hasDisability(aVal) )
 			return TRUE;
 	}
 

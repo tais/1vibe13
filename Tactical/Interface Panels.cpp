@@ -2845,21 +2845,21 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				mprintf( SM_CAMMO_PERCENT_X, SM_CAMMO_PERCENT_Y, L"%%" );
 			}
 
-				UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeAgilityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & AGIL_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->bExtraAgility != 0 ); // SANDRO
+				UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeAgilityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & AGIL_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraAgility() != 0 ); // SANDRO
 
-			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bAgility + GetSMCurrentMerc()->bExtraAgility );
+			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bAgility + GetSMCurrentMerc()->condition().extraAgility() );
 			FindFontRightCoordinates(SM_AGI_X, SM_AGI_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeDexterityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & DEX_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->bExtraDexterity != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeDexterityTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & DEX_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraDexterity() != 0 ); // SANDRO
 
-			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bDexterity + GetSMCurrentMerc()->bExtraDexterity );
+			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bDexterity + GetSMCurrentMerc()->condition().extraDexterity() );
 			FindFontRightCoordinates(SM_DEX_X, SM_DEX_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeStrengthTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & STRENGTH_INCREASE ? TRUE : FALSE), (BOOLEAN)(((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0)) || ( UsingFoodSystem() && GetSMCurrentMerc()->usStarveDamageStrength > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->bExtraStrength != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeStrengthTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & STRENGTH_INCREASE ? TRUE : FALSE), (BOOLEAN)(((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0)) || ( UsingFoodSystem() && GetSMCurrentMerc()->condition().starvationStrengthDamage() > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraStrength() != 0 ); // SANDRO
 
-			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bStrength + GetSMCurrentMerc()->bExtraStrength );
+			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bStrength + GetSMCurrentMerc()->condition().extraStrength() );
 			FindFontRightCoordinates(SM_STR_X, SM_STR_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
@@ -2869,15 +2869,15 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			FindFontRightCoordinates(SM_CHAR_X, SM_CHAR_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
-			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeWisdomTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & WIS_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->bExtraWisdom != 0 ); // SANDRO
+			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeWisdomTime, (BOOLEAN)(GetSMCurrentMerc()->usValueGoneUp & WIS_INCREASE ? TRUE : FALSE), (BOOLEAN)((gGameOptions.fNewTraitSystem && (GetSMCurrentMerc()->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0)) ? TRUE : FALSE), GetSMCurrentMerc()->condition().extraWisdom() != 0 ); // SANDRO
 
-			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bWisdom + GetSMCurrentMerc()->bExtraWisdom );
+			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bWisdom + GetSMCurrentMerc()->condition().extraWisdom() );
 			FindFontRightCoordinates(SM_WIS_X, SM_WIS_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
 			UpdateStatColor( GetSMCurrentMerc()->timeChanges.uiChangeLevelTime, ( BOOLEAN ) ( GetSMCurrentMerc()->usValueGoneUp & LVL_INCREASE? TRUE: FALSE ),  FALSE , FALSE);
 
-			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bExpLevel + GetSMCurrentMerc()->bExtraExpLevel );
+			swprintf( sString, L"%2d", GetSMCurrentMerc()->stats.bExpLevel + GetSMCurrentMerc()->condition().extraExperienceLevel() );
 			FindFontRightCoordinates(SM_EXPLVL_X, SM_EXPLVL_Y ,SM_STATS_WIDTH ,SM_STATS_HEIGHT ,sString, BLOCKFONT2, &usX, &usY);
 			mprintf( usX, usY , sString );
 
@@ -3058,7 +3058,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			// Flugente: food info if food system is active
 			if ( UsingFoodSystem() && GetSMCurrentMerc()->ubProfile != ROBOT && !IsVehicle(GetSMCurrentMerc()) )
 			{
-				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
+				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 			}
 			else
 			{
@@ -5673,7 +5673,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			
 							if ( UsingFoodSystem() && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) )
 							{
-								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(pSoldier->bDrinkLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->bFoodLevel - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
+								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(pSoldier->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 							}
 							else
 							{

@@ -9106,7 +9106,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			iAttRating = ( 2 * EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy  *
 					 2 * EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
 				     pAttacker->stats.bStrength +    // physical strength 
-					 pAttacker->bExtraStrength +    // additional strength from power armour
+					 pAttacker->condition().extraStrength() +    // additional strength from power armour
 					 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 		}
 		else
@@ -9115,7 +9115,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			iAttRating = ( EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy
 					 EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
 					 3 * pAttacker->stats.bStrength +    // physical strength (TRIPLED!)
-					 3 * pAttacker->bExtraStrength +    // additional strength from power armour
+					 3 * pAttacker->condition().extraStrength() +    // additional strength from power armour
 					 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 		}
 		///////////////////////////////////////////////////////////////////////////////////////
@@ -9125,7 +9125,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iAttRating = (3 * EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy (TRIPLED!)
 				 EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
 				 pAttacker->stats.bStrength +    // physical strength
-				 pAttacker->bExtraStrength +    // additional strength from power armour
+				 pAttacker->condition().extraStrength() +    // additional strength from power armour
 				 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 	}
 
@@ -9326,7 +9326,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			iDefRating = ( EffectiveAgility( pDefender, FALSE )) +   // speed & reflexes
 			   2 * EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
 			   2 * pDefender->stats.bStrength +    // physical strength 
-			   2 * pDefender->bExtraStrength +    // additional strength from power armour
+			   2 * pDefender->condition().extraStrength() +    // additional strength from power armour
 			   (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 		}
 		else
@@ -9334,7 +9334,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			iDefRating = (EffectiveAgility( pDefender, FALSE )) +   // speed & reflexes
 			   EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
 			   3 * pDefender->stats.bStrength +    // physical strength (TRIPLED!)
-			   3 * pDefender->bExtraStrength +    // additional strength from power armour
+			   3 * pDefender->condition().extraStrength() +    // additional strength from power armour
 			   (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 		}
 	}
@@ -9343,7 +9343,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iDefRating = (3 * EffectiveAgility( pDefender, FALSE ) ) +   // speed & reflexes (TRIPLED!)
 		   EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
 		   pDefender->stats.bStrength +    // physical strength
-		   pDefender->bExtraStrength +    // additional strength from power armour
+		   pDefender->condition().extraStrength() +    // additional strength from power armour
 	     (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 	}
 

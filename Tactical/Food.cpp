@@ -109,8 +109,8 @@ BOOLEAN DoesSoldierRefuseToEat( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 			return FALSE;
 
 		// check if we are willing to eat this: if we're filled, the merc refuses
-		if ( ((Food[foodtype].bFoodPoints > 0 && pSoldier->bFoodLevel > FoodMoraleMods[FOOD_MERC_REFUSAL].bThreshold) || Food[foodtype].bFoodPoints <= 0) &&
-			 ((Food[foodtype].bDrinkPoints > 0 && pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_MERC_REFUSAL].bThreshold) || Food[foodtype].bDrinkPoints <= 0) )
+		if ( ((Food[foodtype].bFoodPoints > 0 && pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_MERC_REFUSAL].bThreshold) || Food[foodtype].bFoodPoints <= 0) &&
+			 ((Food[foodtype].bDrinkPoints > 0 && pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_MERC_REFUSAL].bThreshold) || Food[foodtype].bDrinkPoints <= 0) )
 		{
 			// Say quote!
 			TacticalCharacterDialogue( pSoldier, QUOTE_REFUSE_TO_EATFOOD );
@@ -203,8 +203,8 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	INT32 drinkpts = (INT32) (Food[foodtype].bDrinkPoints * percentualsize * conditionmodifier );
 
 	// eat it!
-	AddFoodpoints(pSoldier->bFoodLevel, foodpts);
-	AddFoodpoints(pSoldier->bDrinkLevel, drinkpts);
+	AddFoodpoints(pSoldier->condition().foodLevel(), foodpts);
+	AddFoodpoints(pSoldier->condition().drinkLevel(), drinkpts);
 
 	/////////////////// MORALE //////////////////////
 	// morale can now be defined for each profile and food individually - default value is always 0
@@ -253,7 +253,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szFoodTextStr[STR_FOOD_DRANK], pSoldier->GetName(), Item[pObject->usItem].szItemName );
 
 	// Flugente: if this guy has the disease, infect object
-	if ( pSoldier->sDiseasePoints[0] > 0 )
+	if ( pSoldier->condition().infected(0) )
 		(*pObject)[0]->data.sObjectFlag |= INFECTED;
 	// if object is infected, infect the victim
 	else if ( (*pObject)[0]->data.sObjectFlag & INFECTED && gGameExternalOptions.fDiseaseContaminatesItems )
@@ -302,10 +302,10 @@ void GetFoodSituation( SOLDIERTYPE *pSoldier, UINT8* pFoodSituation, UINT8* pWat
 
 	for ( UINT8 i = FOOD_STUFFED; i < NUM_FOOD_MORALE_TYPES; ++i )
 	{
-		if ( pSoldier->bFoodLevel <= FoodMoraleMods[i].bThreshold )
+		if ( pSoldier->condition().foodLevel() <= FoodMoraleMods[i].bThreshold )
 			*pFoodSituation = i;
 
-		if ( pSoldier->bDrinkLevel <= FoodMoraleMods[i].bThreshold )
+		if ( pSoldier->condition().drinkLevel() <= FoodMoraleMods[i].bThreshold )
 			*pWaterSituation = i;
 	}
 }
@@ -412,8 +412,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 	specialdrinkmodifier /= 100.0;
 	
 	// due to digestion, reduce our food and drink levels
-	pSoldier->bFoodLevel  = max(pSoldier->bFoodLevel  - (INT32) (specialfoodmodifier  * activitymodifier * gGameExternalOptions.usFoodDigestionHourlyBaseFood), FOOD_MIN);
-	pSoldier->bDrinkLevel = max(pSoldier->bDrinkLevel - (INT32) (specialdrinkmodifier * activitymodifier * temperaturemodifier * gGameExternalOptions.usFoodDigestionHourlyBaseDrink), FOOD_MIN);
+	pSoldier->condition().foodLevel()  = max(pSoldier->condition().foodLevel()  - (INT32) (specialfoodmodifier  * activitymodifier * gGameExternalOptions.usFoodDigestionHourlyBaseFood), FOOD_MIN);
+	pSoldier->condition().drinkLevel() = max(pSoldier->condition().drinkLevel() - (INT32) (specialdrinkmodifier * activitymodifier * temperaturemodifier * gGameExternalOptions.usFoodDigestionHourlyBaseDrink), FOOD_MIN);
 
 	// there is a chance that we take damage to our health and strength stats if we are starving (or insanely obese :-) )
 	UINT8 foodsituation;
@@ -436,7 +436,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 						
 			INT8 oldval = pSoldier->stats.bStrength;
 			pSoldier->stats.bStrength = max(1, pSoldier->stats.bStrength - numberofreduces);
-			pSoldier->usStarveDamageStrength += oldval - pSoldier->stats.bStrength;
+			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->stats.bStrength;
 
 			// Update Profile
 			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
@@ -466,7 +466,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->vitals().health() = min(pSoldier->vitals().health(), pSoldier->vitals().maximumHealth());
 			pSoldier->vitals().bleeding() = min(pSoldier->vitals().bleeding(), pSoldier->vitals().maximumHealth());
 			
-			pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
+			pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
 			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
@@ -486,7 +486,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 				// Update Profile
 				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
-				pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
+				pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
 			}
@@ -515,7 +515,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 						
 			INT8 oldval = pSoldier->stats.bStrength;
 			pSoldier->stats.bStrength = max(1, pSoldier->stats.bStrength - numberofreduces);
-			pSoldier->usStarveDamageStrength += oldval - pSoldier->stats.bStrength;
+			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->stats.bStrength;
 
 			// Update Profile
 			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
@@ -547,7 +547,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->vitals().health() = min(pSoldier->vitals().health(), pSoldier->vitals().maximumHealth());
 			pSoldier->vitals().bleeding() = min(pSoldier->vitals().bleeding(), pSoldier->vitals().maximumHealth());
 			
-			pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
+			pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
 			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
@@ -567,7 +567,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 				// Update Profile
 				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
-				pSoldier->usStarveDamageHealth += oldlife - pSoldier->vitals().maximumHealth();
+				pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
 			}
@@ -586,7 +586,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 		return;
 
 	// don't eat if not necessary ( note that if the play decides to eat manually, he can achieve better results. This is intended to award micro-management)
-	if ( pSoldier->bFoodLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
+	if ( pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
 		return;
 
 	// if we're a prisoner, we can't feed ourself, and the player can't do that either. Instead the army provides food (not much and of bad quality)
@@ -596,11 +596,11 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 		const INT16 powfoodadd = powwater * gGameExternalOptions.usFoodDigestionHourlyBaseFood / max(1, gGameExternalOptions.usFoodDigestionHourlyBaseDrink);
 
 		// if we're thirsty or hungry, and this is nutritious, consume it
-		if ( pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_VERY_LOW].bThreshold  )
-			AddFoodpoints(pSoldier->bDrinkLevel, powwater);
+		if ( pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_VERY_LOW].bThreshold  )
+			AddFoodpoints(pSoldier->condition().drinkLevel(), powwater);
 
-		if ( pSoldier->bFoodLevel < FoodMoraleMods[FOOD_VERY_LOW].bThreshold )
-			AddFoodpoints(pSoldier->bFoodLevel, powfoodadd);
+		if ( pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_VERY_LOW].bThreshold )
+			AddFoodpoints(pSoldier->condition().foodLevel(), powfoodadd);
 	}
 	// while on a minievent, assume that we can feed ourselves.. somehow
 	else if (pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
@@ -608,11 +608,11 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 		const INT16 water   = gGameExternalOptions.usFoodDigestionHourlyBaseDrink * gGameExternalOptions.sFoodDigestionAssignment;
 		const INT16 foodadd = water * gGameExternalOptions.usFoodDigestionHourlyBaseFood / max(1, gGameExternalOptions.usFoodDigestionHourlyBaseDrink);
 
-		if ( pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_NORMAL].bThreshold  )
-			AddFoodpoints(pSoldier->bDrinkLevel, water);
+		if ( pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_NORMAL].bThreshold  )
+			AddFoodpoints(pSoldier->condition().drinkLevel(), water);
 
-		if ( pSoldier->bFoodLevel < FoodMoraleMods[FOOD_NORMAL].bThreshold )
-			AddFoodpoints(pSoldier->bFoodLevel, foodadd);
+		if ( pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_NORMAL].bThreshold )
+			AddFoodpoints(pSoldier->condition().foodLevel(), foodadd);
 	}
 	else
 	{
@@ -638,11 +638,11 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 						INT16 cantinawater   = cantinafoodadd * FOOD_FACILITY_WATER_FACTOR;
 
 						// if we're thirsty or hungry, and this is nutritious, consume it. When in a cantina, we are willing to eat a bit more
-						if ( pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_MERC_STOP_FACILITY].bThreshold  )
-							AddFoodpoints(pSoldier->bDrinkLevel, cantinawater);
+						if ( pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_MERC_STOP_FACILITY].bThreshold  )
+							AddFoodpoints(pSoldier->condition().drinkLevel(), cantinawater);
 
-						if ( pSoldier->bFoodLevel < FoodMoraleMods[FOOD_MERC_STOP_FACILITY].bThreshold )
-							AddFoodpoints(pSoldier->bFoodLevel, cantinafoodadd);
+						if ( pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_MERC_STOP_FACILITY].bThreshold )
+							AddFoodpoints(pSoldier->condition().foodLevel(), cantinafoodadd);
 					}
 				}
 			}
@@ -671,7 +671,7 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 		return;
 
 	// don't eat if not necessary (note that if the player decides to eat manually, he can achieve better results. This is intended to award micro-management)
-	if ( pSoldier->bFoodLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
+	if ( pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
 		return;
 
 	// search for food in our inventory
@@ -711,13 +711,13 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 				}
 
 				// if we're thirsty or hungry, and this is nutritious, consume it
-				if ( ( pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bDrinkPoints > 0 ) || ( pSoldier->bFoodLevel < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bFoodPoints > 0 ) )
+				if ( ( pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bDrinkPoints > 0 ) || ( pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bFoodPoints > 0 ) )
 				{
 					// cannot reject to eat this, we chose to eat this ourself!
 					while ( (*pObj)[0]->data.objectStatus > 1 && ApplyConsumable( pSoldier, pObj, TRUE, FALSE ) )
 					{
 						// if we're full, finish
-						if ( pSoldier->bFoodLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
+						if ( pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold )
 							return;
 					}
 				}					
@@ -745,13 +745,13 @@ void EatFromInventory( SOLDIERTYPE *pSoldier, BOOLEAN fcanteensonly )
 				}
 
 				// if we're thirsty or hungry, and this is nutritious, consume it
-				if ( ( pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bDrinkPoints > 0 ) || ( pSoldier->bFoodLevel < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bFoodPoints > 0 ) )
+				if ( ( pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bDrinkPoints > 0 ) || ( pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold && Food[foodtype].bFoodPoints > 0 ) )
 				{
 					// cannot reject to eat this, we chose to eat this ourself!
 					while ( (*pObj)[0]->data.objectStatus > 1 && ApplyConsumable( pSoldier, pObj, TRUE, FALSE ) )
 					{
 						// if we're full, finish
-						if ( ( pSoldier->bFoodLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold || Food[foodtype].bFoodPoints == 0 ) && ( pSoldier->bDrinkLevel > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold|| Food[foodtype].bDrinkPoints == 0 ) )
+						if ( ( pSoldier->condition().foodLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold || Food[foodtype].bFoodPoints == 0 ) && ( pSoldier->condition().drinkLevel() > FoodMoraleMods[FOOD_MERC_START_CONSUME].bThreshold|| Food[foodtype].bDrinkPoints == 0 ) )
 							return;
 					}
 				}
@@ -1146,11 +1146,11 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 
 	if ( UsingFoodSystem() )
 	{
-		INT32 watertoadd = max( 0, FoodMoraleMods[FOOD_NORMAL].bThreshold - pSoldier->bDrinkLevel );
-		
+		INT32 watertoadd = max( 0, FoodMoraleMods[FOOD_NORMAL].bThreshold - pSoldier->condition().drinkLevel() );
+
 		if ( watertoadd > 0 )
 		{
-			AddFoodpoints( pSoldier->bDrinkLevel, watertoadd );
+			AddFoodpoints( pSoldier->condition().drinkLevel(), watertoadd );
 		}
 	}
 	

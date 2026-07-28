@@ -7,11 +7,9 @@
 */
 
 #include "types.h"
+#include "Disease Types.h"
 
-// number of different diseases. Altering this will alter the size of INT32	sDiseasePoints[NUM_DISEASES]; in SOLDIERTYPE
-#define NUM_DISEASES			20
-
-#include "Soldier Control.h"
+class SOLDIERTYPE;
 
 // infection types - how can we be infected
 enum
