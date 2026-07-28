@@ -7276,6 +7276,12 @@ int main( int, char** )
 		vitals.regenerationCounter() = -1;
 		vitals.regenerationBoostersUsedToday() = 2;
 		vitals.lastBleedGruntAt() = 12340;
+		SoldierServiceComponent& service = soldier.service();
+		service.activity() = 2;
+		service.addProvider();
+		service.addProvider();
+		service.beginProvidingTo( SoldierID{ 7 } );
+		service.assignAutoBandagingMedic( SoldierID{ 8 } );
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7482,6 +7488,14 @@ int main( int, char** )
 		       constSoldier.vitals().regenerationBoostersUsedToday() == 2 &&
 		       constSoldier.vitals().lastBleedGruntAt() == 12340,
 		       "const soldier access reads the complete canonical vitals component" );
+		CHECK( constSoldier.service().active() &&
+		       constSoldier.service().providerCount() == 2 &&
+		       constSoldier.service().hasProviders() &&
+		       constSoldier.service().hasPartner() &&
+		       constSoldier.service().partner() == SoldierID{ 7 } &&
+		       constSoldier.service().hasAutoBandagingMedic() &&
+		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
+		       "soldier service component owns service activity, providers, partner, and automatic-bandage reservation" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7716,6 +7730,26 @@ int main( int, char** )
 		       vitals.criticalStatDamage()[DAMAGED_STAT_HEALTH] == 0 &&
 		       vitals.criticalStatDamage()[DAMAGED_STAT_AGILITY] == 0,
 		       "soldier vitals component coordinates turn snapshots, surgery, and critical-damage recovery" );
+		SoldierServiceComponent serviceLifecycle;
+		serviceLifecycle.removeProvider();
+		serviceLifecycle.addProvider();
+		serviceLifecycle.addProvider();
+		serviceLifecycle.removeProvider();
+		serviceLifecycle.beginProvidingTo( SoldierID{ 9 } );
+		serviceLifecycle.assignAutoBandagingMedic( SoldierID{ 10 } );
+		CHECK( serviceLifecycle.providerCount() == 1 &&
+		       serviceLifecycle.hasPartner() &&
+		       serviceLifecycle.partner() == SoldierID{ 9 } &&
+		       serviceLifecycle.hasAutoBandagingMedic(),
+		       "soldier service component coordinates provider, partner, and automatic-bandage lifecycles" );
+		serviceLifecycle.clearProviders();
+		serviceLifecycle.finishProviding();
+		serviceLifecycle.clearAutoBandagingMedic();
+		serviceLifecycle.removeProvider();
+		CHECK( !serviceLifecycle.hasProviders() &&
+		       !serviceLifecycle.hasPartner() &&
+		       !serviceLifecycle.hasAutoBandagingMedic(),
+		       "soldier service component clears relationships without underflowing its provider count" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -7752,6 +7786,11 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 12341,
 		       "soldier copies retain their owned persistent vitals" );
+		CHECK( copiedSoldier.service().activity() == 2 &&
+		       copiedSoldier.service().providerCount() == 2 &&
+		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
+		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
+		       "soldier copies retain their owned persistent service relationships" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8334,6 +8373,11 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 0 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 0,
 		       "soldier initialization resets the complete vitals domain" );
+		CHECK( copiedSoldier.service().activity() == 0 &&
+		       !copiedSoldier.service().hasProviders() &&
+		       !copiedSoldier.service().hasPartner() &&
+		       !copiedSoldier.service().hasAutoBandagingMedic(),
+		       "soldier initialization resets the complete tactical service domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -8551,6 +8595,10 @@ int main( int, char** )
 		legacySoldier->bRegenerationCounter = -2;
 		legacySoldier->bRegenBoostersUsedToday = 3;
 		legacySoldier->uiTimeSinceLastBleedGrunt = 12348;
+		legacySoldier->bService = 2;
+		legacySoldier->ubServiceCount = 3;
+		legacySoldier->ubServicePartner = 7;
+		legacySoldier->ubAutoBandagingMedic = 8;
 		legacySoldier->bCollapsed = TRUE;
 		legacySoldier->bBreathCollapsed = TRUE;
 		legacySoldier->bTurnsCollapsed = 3;
@@ -8660,6 +8708,11 @@ int main( int, char** )
 		       convertedSoldier.vitals().unregainableBreath() == 0 &&
 		       convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 0,
 		       "v101 soldier conversion maps established vitals and clears fields absent from that schema" );
+		CHECK( convertedSoldier.service().activity() == 2 &&
+		       convertedSoldier.service().providerCount() == 3 &&
+		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
+		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
+		       "v101 soldier conversion retains the complete tactical service relationship" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -8889,6 +8942,12 @@ int main( int, char** )
 		savedSoldier.vitals().regenerationCounter() = -3;
 		savedSoldier.vitals().regenerationBoostersUsedToday() = 4;
 		savedSoldier.vitals().lastBleedGruntAt() = 12349;
+		savedSoldier.service().activity() = 3;
+		savedSoldier.service().addProvider();
+		savedSoldier.service().addProvider();
+		savedSoldier.service().addProvider();
+		savedSoldier.service().beginProvidingTo( SoldierID{ 15 } );
+		savedSoldier.service().assignAutoBandagingMedic( SoldierID{ 16 } );
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9085,6 +9144,12 @@ int main( int, char** )
 		       loadedSoldier.vitals().regenerationBoostersUsedToday() == 4 &&
 		       loadedSoldier.vitals().lastBleedGruntAt() == 12349,
 		       "soldier save/load round-trips vitals state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.service().activity() == 3 &&
+		       loadedSoldier.service().providerCount() == 3 &&
+		       loadedSoldier.service().partner() == SoldierID{ 15 } &&
+		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 },
+		       "soldier save/load round-trips tactical service state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

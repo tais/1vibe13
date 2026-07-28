@@ -618,6 +618,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		}
 		//member classes
 		vitals().reset();
+		service().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -771,7 +772,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->bSide = src.bSide;
 		this->awareness().newOpponentCount() = src.bNewOppCnt;
-		this->bService = src.bService;		// first aid, or other time consuming process
+		this->service().activity() = src.bService;		// first aid, or other time consuming process
 
 		this->animationPlayback().code() = src.usAniCode;
 		this->animationPlayback().frame() = src.usAniFrame;
@@ -800,8 +801,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->p16BPPPalette = src.p16BPPPalette;
 		this->pCurrentShade = src.pCurrentShade;
 		this->ubFadeLevel = src.ubFadeLevel;
-		this->ubServiceCount = src.ubServiceCount;
-		this->ubServicePartner = static_cast<UINT16>( src.ubServicePartner );
+		this->service().providerCount() = src.ubServiceCount;
+		this->service().partner() = static_cast<UINT16>( src.ubServicePartner );
 		this->pThrowParams = src.pThrowParams;
 		this->bReverse = src.bReverse;
 		this->pLevelNode = src.pLevelNode;
@@ -959,7 +960,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bOldBattleSnd = src.bOldBattleSnd;
 		this->iBurstSoundID = src.iBurstSoundID;
 		this->bSlotItemTakenFrom = src.bSlotItemTakenFrom;
-		this->ubAutoBandagingMedic = static_cast<UINT16>( src.ubAutoBandagingMedic );
+		this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );
 		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
 		this->employment().lastContractUpdateTime() = src.uiTimeOfLastContractUpdate;
 		this->employment().lastContractType() = src.bTypeOfLastContract;
@@ -1135,6 +1136,7 @@ void SOLDIERTYPE::initialize( )
 	memset( &newdrugs, 0, sizeof(DRUGS) );
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
+	service().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -1163,8 +1165,6 @@ void SOLDIERTYPE::initialize( )
 	// Initialize all SoldierID fields to NOBODY. 0 is a valid value!
 	this->ubID = NOBODY;
 	this->ubOppNum = NOBODY;
-	this->ubServicePartner = NOBODY;
-	this->ubAutoBandagingMedic = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
 	this->usDragPersonID = NOBODY;
@@ -7289,7 +7289,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 		// IN deep water, tred!
 		this->EVENT_InitNewSoldierAnim( DEEP_WATER_TRED, 0, FALSE );
 	}
-	else if ( this->ubServicePartner != NOBODY && this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 )
+	else if ( this->service().hasPartner() && this->vitals().health() >= OKLIFE && this->vitals().breath() > 0 )
 	{
 		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
 		{
@@ -9789,7 +9789,7 @@ BOOLEAN SOLDIERTYPE::CanClimbWithCurrentBackpack()
 void SOLDIERTYPE::BeginSoldierGetup( void )
 {
 	// RETURN IF WE ARE BEING SERVICED
-	if ( this->ubServiceCount > 0 )
+	if ( this->service().hasProviders() )
 	{
 		return;
 	}
@@ -13305,10 +13305,10 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 		this->targeting().gridNo() = sGridNo;
 
 		// SET PARTNER ID
-		this->ubServicePartner = usSoldierIndex;
+		this->service().beginProvidingTo( usSoldierIndex );
 
 		// SET PARTNER'S COUNT REFERENCE
-		pTSoldier->ubServiceCount++;
+		pTSoldier->service().addProvider();
 
 		// If target and doer are no the same guy...
 		if ( pTSoldier->ubID != this->ubID && !pTSoldier->collapseState().tactical() )
@@ -13783,7 +13783,7 @@ void SOLDIERTYPE::InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 	SOLDIERTYPE	*pTSoldier;
 	INT32		cnt;
 
-	if ( this->ubServiceCount > 0 )
+	if ( this->service().hasProviders() )
 	{
 		// Loop through guys who have us as servicing
 		for ( cnt = 0; cnt < MAX_NUM_SOLDIERS; ++cnt )
@@ -13794,20 +13794,20 @@ void SOLDIERTYPE::InternalReceivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 				continue;
 			if ( pTSoldier->bActive )
 			{
-				if ( pTSoldier->ubServicePartner == this->ubID )
+				if ( pTSoldier->service().partner() == this->ubID )
 				{
 					// END SERVICE!
-					this->ubServiceCount--;
+					this->service().removeProvider();
 
 					// SANDRO - added end of surgery attempt
 					if ( pTSoldier->vitals().isUndergoingSurgery() )
 						pTSoldier->vitals().finishSurgery(); // Surgery finished
 
-					pTSoldier->ubServicePartner = NOBODY;
+					pTSoldier->service().finishProviding();
 
 					if ( gTacticalStatus.fAutoBandageMode )
 					{
-						this->ubAutoBandagingMedic = NOBODY;
+						this->service().clearAutoBandagingMedic();
 
 						ActionDone( pTSoldier );
 					}
@@ -13856,21 +13856,21 @@ void SOLDIERTYPE::InternalGivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 	SOLDIERTYPE	*pTSoldier;
 
 	// GET TARGET SOLDIER
-	if ( this->ubServicePartner != NOBODY )
+	if ( this->service().hasPartner() )
 	{
 		pTSoldier =
 			GetJa2SoldierRepository().resolve(
-				this->ubServicePartner );
+				this->service().partner() );
 		if ( pTSoldier == nullptr )
 		{
-			this->ubServicePartner = NOBODY;
+			this->service().finishProviding();
 			return;
 		}
 
 		// END SERVICE!
-		pTSoldier->ubServiceCount--;
+		pTSoldier->service().removeProvider();
 
-		this->ubServicePartner = NOBODY;
+		this->service().finishProviding();
 
 		// SANDRO - added end of surgery attempt
 		if ( this->vitals().isUndergoingSurgery() )
@@ -13878,7 +13878,7 @@ void SOLDIERTYPE::InternalGivingSoldierCancelServices( BOOLEAN fPlayEndAnim )
 
 		if ( gTacticalStatus.fAutoBandageMode )
 		{
-			pTSoldier->ubAutoBandagingMedic = NOBODY;
+			pTSoldier->service().clearAutoBandagingMedic();
 
 			ActionDone( this );
 		}
@@ -14435,7 +14435,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 	if ( this->vitals().maximumBreath() > 70 )
 	{
 		if ( this->vitals().breath() < 20 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH) &&
-			 gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && !(this->ubServiceCount) ) // SANDRO - added check to not play this if on healing
+			 gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && !this->service().hasProviders() ) // SANDRO - added check to not play this if on healing
 		{
 			// SANDRO - say our personality quote for being out of breath caused by heat 
 			if ( MercIsHot( this ) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
@@ -14474,7 +14474,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 
 	if ( this->vitals().breath() == 0 && !this->collapseState().tactical() && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
 	{
-		if ( !(this->ubServiceCount) ) // added by SANDRO (we don't want to collapse when on surgery)
+		if ( !this->service().hasProviders() ) // added by SANDRO (we don't want to collapse when on surgery)
 		{
 			// Collapse!
 			// OK, Set a flag, because we may still be in the middle of an animation what is not interruptable...
@@ -21868,7 +21868,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 		if ( (pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD) || pSoldier->vitals().health() < OKLIFE || bleeder )
 		{
 			// if he's NOT in the process of being bandaged or DOCTORed
-			if ( (pSoldier->ubServiceCount == 0) && (AnyDoctorWhoCanHealThisPatient( pSoldier, HEALABLE_EVER ) == NULL) )
+			if ( !pSoldier->service().hasProviders() && (AnyDoctorWhoCanHealThisPatient( pSoldier, HEALABLE_EVER ) == NULL) )
 			{
 				// may drop blood whether or not any bleeding takes place this turn
 				if ( pSoldier->bTilesMoved < 1 )
@@ -21962,7 +21962,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 					// if he's not dying (which includes him saying the dying quote just
 					// now), and he hasn't warned us that he's bleeding yet, he does so
 					// Also, not if they are being bandaged....
-					if ( (pSoldier->vitals().health() >= OKLIFE) && !pSoldier->flags.fDyingComment && !pSoldier->flags.fWarnedAboutBleeding && !gTacticalStatus.fAutoBandageMode && pSoldier->ubServiceCount == 0 )
+					if ( (pSoldier->vitals().health() >= OKLIFE) && !pSoldier->flags.fDyingComment && !pSoldier->flags.fWarnedAboutBleeding && !gTacticalStatus.fAutoBandageMode && !pSoldier->service().hasProviders() )
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_BLEED );
 
@@ -25126,7 +25126,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			if ( pInterrupter->flags.uiStatusFlags & SOLDIER_GASSED )
 				uiReactionTime = (uiReactionTime * (100 + AIM_PENALTY_GASSED) / 100);
 
-			if ( pInterrupter->ubServiceCount > 0 )
+			if ( pInterrupter->service().hasProviders() )
 				uiReactionTime = (uiReactionTime * (100 + AIM_PENALTY_GETTINGAID) / 100);
 
 			if ( pInterrupter->suppression().shock() )

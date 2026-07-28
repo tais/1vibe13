@@ -1024,6 +1024,8 @@ public:
 	bool	exists();
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
+	SoldierServiceComponent& service() noexcept { return service_; }
+	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1123,8 +1125,6 @@ public:
 	INT16			sReloadDelay;
 
 	UINT8			bSide;
-	INT8				bService;		// first aid, or other time consuming process
-	
 
 	INT8				bTilesMoved;
 	UINT8			ubTilesMovedPerRTBreathUpdate;
@@ -1152,8 +1152,6 @@ public:
 	PIXEL			*pGlowShades[ 20 ]; // 
 	PIXEL			*pCurrentShade;
 	UINT8			ubFadeLevel;
-	UINT8			ubServiceCount;
-	SoldierID		ubServicePartner;
 	THROW_PARAMS		*pThrowParams;
 	INT8				bReverse;
 	LEVELNODE		*pLevelNode;
@@ -1265,7 +1263,6 @@ public:
 	INT8					bOldBattleSnd;
 	INT32				iBurstSoundID;
 	INT8					bSlotItemTakenFrom;
-	SoldierID			ubAutoBandagingMedic;
 	SoldierID			ubRobotRemoteHolderID;
 	UINT8				ubMilitiaKills;
 
@@ -1399,6 +1396,7 @@ public:
 
 private:
 	SoldierVitalsComponent	vitals_;
+	SoldierServiceComponent	service_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

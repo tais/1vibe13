@@ -93,6 +93,42 @@ private:
 	INT32 lastBleedGruntAt_ = 0;
 };
 
+// Canonical tactical service relationship. A provider points at one patient,
+// while the patient counts all active providers and may reserve one medic
+// during automatic bandaging. The persisted activity marker is retained
+// separately because old saves and AI target selection still observe it.
+class SoldierServiceComponent
+{
+public:
+	INT8& activity() noexcept { return activity_; }
+	const INT8& activity() const noexcept { return activity_; }
+	UINT8& providerCount() noexcept { return providerCount_; }
+	const UINT8& providerCount() const noexcept { return providerCount_; }
+	SoldierID& partner() noexcept { return partner_; }
+	const SoldierID& partner() const noexcept { return partner_; }
+	SoldierID& autoBandagingMedic() noexcept { return autoBandagingMedic_; }
+	const SoldierID& autoBandagingMedic() const noexcept { return autoBandagingMedic_; }
+
+	bool active() const noexcept { return activity_ != 0; }
+	bool hasProviders() const noexcept { return providerCount_ != 0; }
+	bool hasPartner() const noexcept { return partner_ != NOBODY; }
+	bool hasAutoBandagingMedic() const noexcept { return autoBandagingMedic_ != NOBODY; }
+	void beginProvidingTo(SoldierID patient) noexcept { partner_ = patient; }
+	void finishProviding() noexcept { partner_ = NOBODY; }
+	void addProvider() noexcept;
+	void removeProvider() noexcept;
+	void clearProviders() noexcept { providerCount_ = 0; }
+	void assignAutoBandagingMedic(SoldierID medic) noexcept { autoBandagingMedic_ = medic; }
+	void clearAutoBandagingMedic() noexcept { autoBandagingMedic_ = NOBODY; }
+	void reset() noexcept;
+
+private:
+	INT8 activity_ = 0;
+	UINT8 providerCount_ = 0;
+	SoldierID partner_ = NOBODY;
+	SoldierID autoBandagingMedic_ = NOBODY;
+};
+
 // Canonical tactical action-point budget. The current amount and the turn-start
 // snapshot form one lifecycle: turn setup records them together, while network
 // reconciliation may still update only the authoritative current amount.

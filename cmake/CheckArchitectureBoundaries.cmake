@@ -2086,6 +2086,116 @@ if(NOT serialized_soldier_breath_order OR
     "Soldier vitals moved in the portable save schema; keep their established byte order while storage evolves")
 endif()
 
+# Tactical service activity, patient provider counts, provider-to-patient
+# relationships, and automatic-bandage reservations form one persistent
+# relationship domain. Keep the old save sites but never return them to the
+# public SOLDIERTYPE field list.
+foreach(retired_service_field IN ITEMS
+  bService
+  ubServiceCount
+  ubServicePartner
+  ubAutoBandagingMedic)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_service_field}([^A-Za-z0-9_]|$)"
+    retired_current_service_field
+    "${current_soldier_contents}")
+  if(retired_current_service_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE service field '${retired_service_field}' returned; tactical service relationships belong to SoldierServiceComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierServiceComponent[ \t\r\n]+service_[ \t]*;"
+  soldier_service_owner
+  "${current_soldier_contents}")
+if(NOT soldier_service_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierServiceComponent")
+endif()
+
+foreach(owned_service_pattern IN ITEMS
+  "INT8[ \t]+activity_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+providerCount_[ \t]*=[ \t]*0"
+  "SoldierID[ \t]+partner_[ \t]*=[ \t]*NOBODY"
+  "SoldierID[ \t]+autoBandagingMedic_[ \t]*=[ \t]*NOBODY")
+  string(REGEX MATCH
+    "${owned_service_pattern}"
+    owned_soldier_service_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_service_field)
+    message(FATAL_ERROR
+      "SoldierServiceComponent lost initialized owned storage matching '${owned_service_pattern}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierServiceComponent& service() noexcept"
+  soldier_service_accessor)
+string(REGEX MATCHALL
+  "service\\(\\)\\.reset\\(\\);"
+  soldier_service_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_service_reset_sites soldier_service_reset_site_count)
+foreach(service_operation IN ITEMS
+  "bool active() const noexcept"
+  "bool hasProviders() const noexcept"
+  "bool hasPartner() const noexcept"
+  "bool hasAutoBandagingMedic() const noexcept"
+  "void beginProvidingTo(SoldierID patient) noexcept"
+  "void finishProviding() noexcept"
+  "void addProvider() noexcept"
+  "void removeProvider() noexcept"
+  "void clearProviders() noexcept"
+  "void assignAutoBandagingMedic(SoldierID medic) noexcept"
+  "void clearAutoBandagingMedic() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${service_operation}"
+    soldier_service_operation)
+  if(soldier_service_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierServiceComponent lost required relationship operation '${service_operation}'")
+  endif()
+endforeach()
+if(soldier_service_accessor EQUAL -1 OR
+   soldier_service_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierServiceComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
+  serialized_soldier_service_activity_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubFadeLevel\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);[ \t]*ar\\.u16\\(service\\.partner\\(\\)\\.i\\);"
+  serialized_soldier_service_relationship_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);"
+  serialized_soldier_auto_bandage_order
+  "${save_load_game_contents}")
+foreach(service_conversion IN ITEMS
+  "this->service().activity() = src.bService;"
+  "this->service().providerCount() = src.ubServiceCount;"
+  "this->service().partner() = static_cast<UINT16>( src.ubServicePartner );"
+  "this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );")
+  string(FIND "${soldier_control_source_contents}"
+    "${service_conversion}"
+    soldier_service_conversion_site)
+  if(soldier_service_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost tactical service mapping '${service_conversion}'")
+  endif()
+endforeach()
+if(NOT serialized_soldier_service_activity_order OR
+   NOT serialized_soldier_service_relationship_order OR
+   NOT serialized_soldier_auto_bandage_order)
+  message(FATAL_ERROR
+    "Soldier service state moved in the portable save schema; retain all four established positions and widths")
+endif()
+
 # The tactical AP budget is a lifecycle pair, not two unrelated public
 # counters. Current and turn-start values have one private owner, while the
 # explicit field visitor and multiplayer packet adapters retain their formats.
@@ -2478,7 +2588,7 @@ string(REGEX MATCH
   serialized_soldier_awareness_render_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bService\\);"
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
   serialized_soldier_awareness_discovery_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4165,7 +4275,7 @@ endforeach()
 # schema. The state/subflag positions are also pinned above where they neighbor
 # queued intent; these expressions cover the remaining playback values.
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bService\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
+  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
   serialized_soldier_animation_cursor_order
   "${save_load_game_contents}")
 string(REGEX MATCH

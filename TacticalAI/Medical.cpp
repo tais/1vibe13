@@ -264,7 +264,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 			continue; // NEXT!!!
 		}
 
-		if (pPatient->vitals().health() > 0 && pPatient->vitals().bleeding() && pPatient->ubServiceCount == 0)
+		if (pPatient->vitals().health() > 0 && pPatient->vitals().bleeding() && !pPatient->service().hasProviders())
 		{
 			if (pPatient->vitals().health() < OKLIFE)
 			{
@@ -319,12 +319,12 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 						{
 							// we can get there... can anyone else?
 
-							if ( pPatient->ubAutoBandagingMedic != NOBODY && pPatient->ubAutoBandagingMedic != pSoldier->ubID )
+							if ( pPatient->service().hasAutoBandagingMedic() && pPatient->service().autoBandagingMedic() != pSoldier->ubID )
 							{
 								// only switch to this patient if our distance is closer than
 								// the other medic's
 				pOtherMedic = GetJa2SoldierRepository().resolve(
-					pPatient->ubAutoBandagingMedic.i);
+					pPatient->service().autoBandagingMedic().i);
 				if ( !pOtherMedic )
 					continue;
 								sOtherAdjacentGridNo = FindAdjacentGridEx( pOtherMedic, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
@@ -391,18 +391,18 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 
 	if (pBestPatient)
 	{
-		if (pBestPatient->ubAutoBandagingMedic != NOBODY)
+		if (pBestPatient->service().hasAutoBandagingMedic())
 		{
 			// cancel that medic
 			SOLDIERTYPE* previousMedic =
 				GetJa2SoldierRepository().resolve(
-					pBestPatient->ubAutoBandagingMedic.i);
+					pBestPatient->service().autoBandagingMedic().i);
 			DebugAI(AI_MSG_INFO, previousMedic,
 				String("CancelAIAction: medic: find patient"));
 			if ( previousMedic )
 				CancelAIAction( previousMedic, TRUE );
 		}
-		pBestPatient->ubAutoBandagingMedic = pSoldier->ubID;
+		pBestPatient->service().assignAutoBandagingMedic( pSoldier->ubID );
 		*pfDoClimb = FALSE;
 		if ( CardinalSpacesAway( pSoldier->position().gridNo(), sBestPatientGridNo ) == 1 )
 		{
@@ -433,7 +433,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	BOOLEAN				fDoClimb;
 
 
-	if (pSoldier->stats.bMedical == 0 || pSoldier->ubServicePartner != NOBODY)
+	if (pSoldier->stats.bMedical == 0 || pSoldier->service().hasPartner())
 	{
 		// don't/can't make decision
 		return( AI_ACTION_NONE );

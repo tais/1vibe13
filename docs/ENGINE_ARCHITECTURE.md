@@ -967,6 +967,14 @@ the engine must not contain SDL types in its public domain model.
   establish one lifecycle boundary. Zero-cost reference accessors preserve
   hot-path mutation semantics, while the portable field serializer emits every
   value at its established byte position and width.
+  `SoldierServiceComponent` owns the complementary tactical care relationship:
+  the persisted service marker, the number of active providers on a patient,
+  the provider's patient identity, and the medic reserved by automatic
+  bandaging. Named begin/end, add/remove, reservation, and reset operations keep
+  both sides coherent and prevent a mismatched cancellation from underflowing
+  the provider count. Face rendering observes the component but retains only
+  its presentation cache; every save field keeps its established position and
+  width.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

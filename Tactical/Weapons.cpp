@@ -7329,7 +7329,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	// Situational modifiers
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
 	  iChance -= AIM_PENALTY_GASSED;
-	if (pSoldier->ubServiceCount > 0)
+	if (pSoldier->service().hasProviders())
 	  iChance -= AIM_PENALTY_GETTINGAID;
 	if (pSoldier->suppression().shock())
 	{
@@ -9176,7 +9176,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iAttRating -= AIM_PENALTY_GASSED;
 
 	// if attacker is being bandaged at the same time, his concentration is off
-	if (pAttacker->ubServiceCount > 0)
+	if (pAttacker->service().hasProviders())
 		iAttRating -= AIM_PENALTY_GETTINGAID;
 
 	// if attacker is still in shock
@@ -9360,7 +9360,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		iDefRating -= AIM_PENALTY_GASSED;
 
 	// if defender is being bandaged at the same time, his concentration is off
-	if (pDefender->ubServiceCount > 0)
+	if (pDefender->service().hasProviders())
 		iDefRating -= AIM_PENALTY_GETTINGAID;
 
 	// if defender is still in shock
@@ -10280,7 +10280,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	}
 
 	// if shooter is being bandaged at the same time, his concentration is off
-	if (pSoldier->ubServiceCount > 0)
+	if (pSoldier->service().hasProviders())
 	{
 	  iChance -= AIM_PENALTY_GETTINGAID;
 	}
@@ -11352,7 +11352,7 @@ FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// BEING BANDAGED
-	if (pSoldier->ubServiceCount > 0)
+	if (pSoldier->service().hasProviders())
 	{
 		fBaseModifier += gGameCTHConstants.BASE_BEING_BANDAGED;
 	}
@@ -11715,7 +11715,7 @@ FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// BEING BANDAGED
-	if (pSoldier->ubServiceCount > 0)
+	if (pSoldier->service().hasProviders())
 	{
 		fAimModifier += gGameCTHConstants.AIM_BEING_BANDAGED;
 	}

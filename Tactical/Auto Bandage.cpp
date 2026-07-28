@@ -429,7 +429,7 @@ void AutoBandage( BOOLEAN fStart )
 			if ( pSoldier->bActive	)
 			{
 				pSoldier->bSlotItemTakenFrom = NO_SLOT;
-				pSoldier->ubAutoBandagingMedic = NOBODY;
+				pSoldier->service().clearAutoBandagingMedic();
 			}
 		}
 

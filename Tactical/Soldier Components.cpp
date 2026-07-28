@@ -1,6 +1,7 @@
 #include "Soldier Components.h"
 
 #include <algorithm>
+#include <limits>
 
 bool SoldierVitalsComponent::alive() const noexcept { return health() > 0; }
 
@@ -27,6 +28,27 @@ void SoldierVitalsComponent::applyLifeDeduction(INT16 lifeDeduction)
 void SoldierVitalsComponent::reset() noexcept
 {
 	*this = SoldierVitalsComponent{};
+}
+
+void SoldierServiceComponent::addProvider() noexcept
+{
+	if (providerCount_ < std::numeric_limits<UINT8>::max())
+	{
+		++providerCount_;
+	}
+}
+
+void SoldierServiceComponent::removeProvider() noexcept
+{
+	if (providerCount_ > 0)
+	{
+		--providerCount_;
+	}
+}
+
+void SoldierServiceComponent::reset() noexcept
+{
+	*this = SoldierServiceComponent{};
 }
 
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept

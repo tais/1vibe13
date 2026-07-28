@@ -2704,8 +2704,8 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 				else
 					pSoldier->ChangeSoldierState(END_AID, 0, 0);
 			}
-			pSoldier->ubServiceCount = 0;
-			pSoldier->ubServicePartner = NOBODY;
+			pSoldier->service().clearProviders();
+			pSoldier->service().finishProviding();
 			pSoldier->vitals().finishSurgery();
 			ActionDone(pSoldier);
 			break;

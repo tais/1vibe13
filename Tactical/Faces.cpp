@@ -2480,14 +2480,14 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Check for being serviced...
-			if (pSoldier->ubServicePartner != NOBODY)
+			if (pSoldier->service().hasPartner())
 			{
 				// Doctor...
 				sIconIndex_Assignment = 1;
 				fDoIcon_Assignment = TRUE;
 			}
 
-			if (pSoldier->ubServiceCount != 0)
+			if (pSoldier->service().hasProviders())
 			{
 				// Patient
 				sIconIndex_Assignment = 2;
@@ -3007,10 +3007,10 @@ void HandleAutoFaces( )
 					fRerender = TRUE;
 				}
 
-				if ( pFace->ubOldServiceCount != pSoldier->ubServiceCount )
+				if ( pFace->ubOldServiceCount != pSoldier->service().providerCount() )
 				{
 					fRerender = TRUE;
-					pFace->ubOldServiceCount = pSoldier->ubServiceCount;
+					pFace->ubOldServiceCount = pSoldier->service().providerCount();
 				}
 
 				if ( pFace->fOldCompatibleItems != pFace->fCompatibleItems || gfInItemPickupMenu || gpItemPointer != NULL )
@@ -3020,10 +3020,10 @@ void HandleAutoFaces( )
 				}
 
 
-				if ( pFace->ubOldServicePartner != pSoldier->ubServicePartner )
+				if ( pFace->ubOldServicePartner != pSoldier->service().partner() )
 				{
 					fRerender = TRUE;
-					pFace->ubOldServicePartner = pSoldier->ubServicePartner;
+					pFace->ubOldServicePartner = pSoldier->service().partner();
 				}
 
 				pFace->fOldHandleUIHatch = fHandleUIHatch;
