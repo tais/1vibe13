@@ -37,7 +37,7 @@ namespace AI
                 {
                     TriggerNPCWithGivenApproach( get_npc()->ubProfile, APPROACH_DONE_TRAVERSAL, FALSE );
                     gMercProfiles[ get_npc()->ubProfile ].ubMiscFlags3 &= (~PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL);
-                    get_npc()->ubQuoteActionID = 0;
+                    get_npc()->dialogue().quoteActionId() = 0;
                     // wait a tiny bit
                     get_npc()->aiData.usActionData = 100;
                     get_npc()->aiData.bAction =  AI_ACTION_WAIT;

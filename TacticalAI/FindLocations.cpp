@@ -1531,7 +1531,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	if (bBestEscapeDirection != -1)
 	{
 		// Woohoo!	We can escape!	Fake some stuff with the quote-related actions
-		pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bBestEscapeDirection );
+		pSoldier->dialogue().quoteActionId() = GetTraversalQuoteActionID( bBestEscapeDirection );
 	}
 
 	return( sBestSpot );

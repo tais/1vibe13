@@ -129,6 +129,103 @@ private:
 	SoldierID autoBandagingMedic_ = NOBODY;
 };
 
+// Canonical spoken-dialogue state. NPC quote plans, quote-history masks,
+// battle-voice selection and playback throttling, civilian quote progression,
+// speech cooldowns, and corpse-comment tolerance share one reset boundary.
+// World-position and mechanical-loop sounds deliberately remain outside this
+// component because they are spatial audio rather than soldier speech.
+class SoldierDialogueComponent
+{
+public:
+	UINT8& quoteRecord() noexcept { return quoteRecord_; }
+	const UINT8& quoteRecord() const noexcept { return quoteRecord_; }
+	UINT8& quoteActionId() noexcept { return quoteActionId_; }
+	const UINT8& quoteActionId() const noexcept { return quoteActionId_; }
+	UINT8& battleSoundSet() noexcept { return battleSoundSet_; }
+	const UINT8& battleSoundSet() const noexcept { return battleSoundSet_; }
+	UINT16& saidFlags() noexcept { return saidFlags_; }
+	const UINT16& saidFlags() const noexcept { return saidFlags_; }
+	INT8& vocalVolume() noexcept { return vocalVolume_; }
+	const INT8& vocalVolume() const noexcept { return vocalVolume_; }
+	UINT32& repeatedBattleSoundAt() noexcept { return repeatedBattleSoundAt_; }
+	const UINT32& repeatedBattleSoundAt() const noexcept { return repeatedBattleSoundAt_; }
+	INT8& previousBattleSound() noexcept { return previousBattleSound_; }
+	const INT8& previousBattleSound() const noexcept { return previousBattleSound_; }
+	UINT8& heardNoiseCooldownTurns() noexcept { return heardNoiseCooldownTurns_; }
+	const UINT8& heardNoiseCooldownTurns() const noexcept { return heardNoiseCooldownTurns_; }
+	UINT16& saidExtendedFlags() noexcept { return saidExtendedFlags_; }
+	const UINT16& saidExtendedFlags() const noexcept { return saidExtendedFlags_; }
+	UINT32& activeBattleSound() noexcept { return activeBattleSound_; }
+	const UINT32& activeBattleSound() const noexcept { return activeBattleSound_; }
+	INT8& currentCivilianQuote() noexcept { return currentCivilianQuote_; }
+	const INT8& currentCivilianQuote() const noexcept { return currentCivilianQuote_; }
+	INT8& civilianQuoteDelta() noexcept { return civilianQuoteDelta_; }
+	const INT8& civilianQuoteDelta() const noexcept { return civilianQuoteDelta_; }
+	UINT32& lastSpokeAt() noexcept { return lastSpokeAt_; }
+	const UINT32& lastSpokeAt() const noexcept { return lastSpokeAt_; }
+	INT8& corpseQuoteTolerance() noexcept { return corpseQuoteTolerance_; }
+	const INT8& corpseQuoteTolerance() const noexcept { return corpseQuoteTolerance_; }
+
+	bool hasQuoteRecord() const noexcept { return quoteRecord_ != 0; }
+	bool hasQuoteAction() const noexcept { return quoteActionId_ != 0; }
+	bool hasSaid(UINT16 flag) const noexcept { return (saidFlags_ & flag) != 0; }
+	bool hasSaidExtended(UINT16 flag) const noexcept
+	{
+		return (saidExtendedFlags_ & flag) != 0;
+	}
+	void markSaid(UINT16 flag) noexcept { saidFlags_ |= flag; }
+	void clearSaid(UINT16 flag) noexcept { saidFlags_ &= static_cast<UINT16>(~flag); }
+	void markSaidExtended(UINT16 flag) noexcept { saidExtendedFlags_ |= flag; }
+	void clearSaidExtended(UINT16 flag) noexcept
+	{
+		saidExtendedFlags_ &= static_cast<UINT16>(~flag);
+	}
+	void clearQuotePlan() noexcept
+	{
+		quoteRecord_ = 0;
+		quoteActionId_ = 0;
+	}
+	void recordBattleSound(INT8 sound, UINT32 now) noexcept
+	{
+		previousBattleSound_ = sound;
+		repeatedBattleSoundAt_ = now;
+	}
+	void startHeardNoiseCooldown(UINT8 turns) noexcept
+	{
+		heardNoiseCooldownTurns_ = turns;
+	}
+	void ageHeardNoiseCooldown() noexcept
+	{
+		if (heardNoiseCooldownTurns_ > 0)
+		{
+			--heardNoiseCooldownTurns_;
+		}
+	}
+	void clearCivilianQuote() noexcept
+	{
+		currentCivilianQuote_ = -1;
+		civilianQuoteDelta_ = 0;
+	}
+	void recordSpokeAt(UINT32 now) noexcept { lastSpokeAt_ = now; }
+	void reset() noexcept;
+
+private:
+	UINT8 quoteRecord_ = 0;
+	UINT8 quoteActionId_ = 0;
+	UINT8 battleSoundSet_ = 0;
+	UINT16 saidFlags_ = 0;
+	INT8 vocalVolume_ = 0;
+	UINT32 repeatedBattleSoundAt_ = 0;
+	INT8 previousBattleSound_ = 0;
+	UINT8 heardNoiseCooldownTurns_ = 0;
+	UINT16 saidExtendedFlags_ = 0;
+	UINT32 activeBattleSound_ = 0;
+	INT8 currentCivilianQuote_ = 0;
+	INT8 civilianQuoteDelta_ = 0;
+	UINT32 lastSpokeAt_ = 0;
+	INT8 corpseQuoteTolerance_ = 0;
+};
+
 // Canonical tactical action-point budget. The current amount and the turn-start
 // snapshot form one lifecycle: turn setup records them together, while network
 // reconciliation may still update only the authoritative current amount.

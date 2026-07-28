@@ -1948,7 +1948,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 	if ( pNPC )
 	{
 		// set delay for civ AI movement
-		pNPC->uiTimeSinceLastSpoke = GetJA2Clock();
+		pNPC->dialogue().recordSpokeAt(GetJA2Clock());
 
 		if ( CheckFact( FACT_CURRENT_SECTOR_IS_SAFE, ubNPC ) == FALSE )
 		{
@@ -2475,7 +2475,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 					    if (pSoldier->position().gridNo() == pQuotePtr->usGoToGridNo )
 					    {
 						    // search for quotes to trigger immediately!
-						    pSoldier->ubQuoteRecord = ubRecordNum + 1; // add 1 so that the value is guaranteed nonzero
+						    pSoldier->dialogue().quoteRecord() = ubRecordNum + 1; // add 1 so that the value is guaranteed nonzero
 						    NPCReachedDestination( pSoldier, TRUE );
 					    }
 					    else
@@ -2487,7 +2487,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 							    pNPC->EVENT_InitNewSoldierAnim( STANDING, 0 , FALSE );
 						    }
 
-						    pSoldier->ubQuoteRecord = ubRecordNum + 1; // add 1 so that the value is guaranteed nonzero
+						    pSoldier->dialogue().quoteRecord() = ubRecordNum + 1; // add 1 so that the value is guaranteed nonzero
 
 						    if (pQuotePtr->sActionData == NPC_ACTION_TELEPORT_NPC)
 						    {
@@ -2717,17 +2717,17 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 	UINT8 ubLoop;
 	UINT8									ubQuoteRecord;
 
-	if ( pNPC->ubQuoteRecord == 0 )
+	if ( !pNPC->dialogue().hasQuoteRecord() )
 	{
 		ubQuoteRecord = 0;
 	}
 	else
 	{
-		ubQuoteRecord = (UINT8) (pNPC->ubQuoteRecord - 1);
+		ubQuoteRecord = (UINT8) (pNPC->dialogue().quoteRecord() - 1);
 	}
 
 	// Clear values!
-	pNPC->ubQuoteRecord = 0;
+	pNPC->dialogue().quoteRecord() = 0;
 	if (pNPC->bTeam == gbPlayerNum)
 	{
 		// the "under ai control" flag was set temporarily; better turn it off now
@@ -2870,7 +2870,7 @@ void PCsNearNPC( UINT8 ubNPC )
 	// Clear values!
 	// Get value for NPC
 	pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
-	pSoldier->ubQuoteRecord = 0;
+	pSoldier->dialogue().quoteRecord() = 0;
 
 	for ( ubLoop = 0; ubLoop < NUM_NPC_QUOTE_RECORDS; ubLoop++ )
 	{
@@ -2907,7 +2907,7 @@ BOOLEAN PCDoesFirstAidOnNPC( UINT8 ubNPC )
 	// Get ptr to NPC
 	pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
 	// Clear values!
-	pSoldier->ubQuoteRecord = 0;
+	pSoldier->dialogue().quoteRecord() = 0;
 
 	// Set flag...
 	gMercProfiles[ ubNPC ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_BANDAGED_TODAY;
@@ -3779,7 +3779,7 @@ void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier )
 		return;
 	}
 
-	switch( pSoldier->ubQuoteActionID )
+	switch( pSoldier->dialogue().quoteActionId() )
 	{
 		case QUOTE_ACTION_ID_TRAVERSE_EAST:
 			gMercProfiles[pSoldier->ubProfile].sSectorX++;

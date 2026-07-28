@@ -6520,10 +6520,10 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 		//SAMPLE CODE:  There are multiple situations that I didn't code.  The gridno should be the final destination
 		//or reset???
 
-		if ( pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID )
+		if ( pSoldier->dialogue().hasQuoteRecord() && pSoldier->dialogue().hasQuoteAction() )
 		{
 			// if moving to traverse
-			if ( pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH )
+			if ( pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH )
 			{
 				// Handle traversal.  This NPC's sector will NOT already be set correctly, so we have to call for that too
 				HandleNPCChangesForTacticalTraversal( pSoldier );
@@ -6551,8 +6551,8 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 
 				gMercProfiles[pSoldier->ubProfile].fUseProfileInsertionInfo = TRUE;
 				gMercProfiles[pSoldier->ubProfile].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				gMercProfiles[pSoldier->ubProfile].ubQuoteActionID = pSoldier->ubQuoteActionID;
-				gMercProfiles[pSoldier->ubProfile].ubQuoteRecord = pSoldier->ubQuoteActionID;
+				gMercProfiles[pSoldier->ubProfile].ubQuoteActionID = pSoldier->dialogue().quoteActionId();
+				gMercProfiles[pSoldier->ubProfile].ubQuoteRecord = pSoldier->dialogue().quoteActionId();
 			}
 		}
 		else

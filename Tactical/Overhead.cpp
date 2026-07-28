@@ -1656,7 +1656,7 @@ BOOLEAN ExecuteOverhead( )
 
                                 // if AI moving and waiting to process something at end of
                                 // move, have them handled the very next frame
-                                if (pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST)
+                                if (pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST)
                                 {
                                     pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
                                 }
@@ -3358,14 +3358,14 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
     }
 
     // possibly say personality quote
-    if ( (pSoldier->bTeam == gbPlayerNum) && (pSoldier->ubProfile != NO_PROFILE && pSoldier->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER) && !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
+    if ( (pSoldier->bTeam == gbPlayerNum) && (pSoldier->ubProfile != NO_PROFILE && pSoldier->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER) && !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) )
     {
 		if ( DoesMercHaveDisability( pSoldier, PSYCHO ) )
 		{
 			if ( Random( 50 ) == 0 )
 			{
 				TacticalCharacterDialogue( pSoldier, QUOTE_PERSONALITY_TRAIT );
-				pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+				pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 				// Flugente: dynamic opinions
 				if (gGameExternalOptions.fDynamicOpinions)
@@ -6373,8 +6373,8 @@ void CommonEnterCombatModeCode( )
             if ( pSoldier->ubBodyType != CROW )
             {
                 // Set some flags for quotes
-                pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_IN_SHIT );
-                pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES);
+                pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_IN_SHIT);
+                pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES);
 
                 // Hault!
                 pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
@@ -7723,12 +7723,12 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                                     if ( pTeamSoldier->assignment().current() < ON_DUTY )
                                     {
                                         // Reset some quote flags....
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED);
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED);
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED);
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED);
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED);
-                                        pTeamSoldier->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED);
+                                        pTeamSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED);
 
                                         // toggle stealth mode....
                                         gfUIStanceDifferent = TRUE;
@@ -9213,10 +9213,10 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
             DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: check for quote"));
             if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->suppression().points() > 8) && (pSoldier->ubID == ubTargetedMerc) )
             {
-                if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_BEING_PUMMELED ) )
+                if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_BEING_PUMMELED) )
                 {
                     DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleSuppressionFire: say quote"));
-                    pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_BEING_PUMMELED;
+                    pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_BEING_PUMMELED);
                     // say we're under heavy fire!
 
                     // ATE: For some reason, we forgot #53!
@@ -10604,10 +10604,10 @@ void DoCreatureTensionQuote( SOLDIERTYPE *pSoldier )
         case 0:
 
             iQuoteToUse = QUOTE_SMELLED_CREATURE;
-            if ( !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_SMELLED_CREATURE ) )
+            if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_SMELLED_CREATURE) )
             {
                 // set flag
-                pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_SMELLED_CREATURE;
+                pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_SMELLED_CREATURE);
             }
             else
             {
@@ -10618,10 +10618,10 @@ void DoCreatureTensionQuote( SOLDIERTYPE *pSoldier )
         case 1:
 
             iQuoteToUse = QUOTE_TRACES_OF_CREATURE_ATTACK;
-            if ( !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK ) )
+            if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK) )
             {
                 // set flag
-                pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK;
+                pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK);
             }
             else
             {
@@ -10632,10 +10632,10 @@ void DoCreatureTensionQuote( SOLDIERTYPE *pSoldier )
         case 2:
 
             iQuoteToUse = QUOTE_WORRIED_ABOUT_CREATURE_PRESENCE;
-            if ( !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES ) )
+            if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES) )
             {
                 // set flag
-                pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES;
+                pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES);
             }
             else
             {

@@ -3049,10 +3049,10 @@ void SoldierGetItemFromWorld( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGr
 		if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
 		{
 			// Have we not said it today?
-			if ( !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE ) )
+			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
 			{
 				// set flag
-				pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE;
+				pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE);
 
 				// Say it....
 				// We've found something!
@@ -7837,10 +7837,10 @@ void SoldierStealItemFromSoldier( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent,
 		if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_FOUND_SOMETHING_SPECIAL )
 		{
 			// Have we not said it today?
-			if ( !( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE ) )
+			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
 			{
 				// set flag
-				pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE;
+				pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE);
 				// Say it....
 				// We've found something!
 				TacticalCharacterDialogue( pSoldier, QUOTE_FOUND_SOMETHING_SPECIAL );

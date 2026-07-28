@@ -975,6 +975,14 @@ the engine must not contain SDL types in its public domain model.
   the provider count. Face rendering observes the component but retains only
   its presentation cache; every save field keeps its established position and
   width.
+  `SoldierDialogueComponent` owns the spoken-state lifecycle: queued NPC quote
+  records and actions, normal and extended said-history masks, battle-voice
+  selection and active playback, repeat throttling, heard-noise cooldown,
+  civilian quote progression, last-spoke time, vocal volume, and corpse-comment
+  tolerance. Named history, cooldown, quote-plan, playback, and reset
+  transitions replace scattered bit manipulation while all fourteen save
+  fields retain their established positions and widths. World-position and
+  mechanical-loop sound handles remain with spatial audio.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

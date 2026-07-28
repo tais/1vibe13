@@ -1186,9 +1186,9 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		// Add to panel
 		CheckForAndAddMercToTeamPanel( pSoldier );
 
-		pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK);
-		pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_SMELLED_CREATURE);
-		pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES);
+		pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_SPOTTING_CREATURE_ATTACK);
+		pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_SMELLED_CREATURE);
+		pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_WORRIED_ABOUT_CREATURES);
 
 		BOOLEAN gfEnteredFromTacticalPlacement = FALSE;
 		// Add to interface if the are ours

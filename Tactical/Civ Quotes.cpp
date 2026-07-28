@@ -940,12 +940,11 @@ void StartCivQuote( SOLDIERTYPE *pCiv )
 	
 	// ATE: Check for old quote.....
 	// This could have been stored on last attempt...
-	if ( pCiv->bCurrentCivQuote == CIV_QUOTE_HINT )
+	if ( pCiv->dialogue().currentCivilianQuote() == CIV_QUOTE_HINT )
 	{
 		// Determine which quote to say.....
 		// CAN'T USE HINTS, since we just did one...
-		pCiv->bCurrentCivQuote = -1;
-		pCiv->bCurrentCivQuoteDelta = 0;
+		pCiv->dialogue().clearCivilianQuote();
 		ubCivQuoteID = DetermineCivQuoteEntry( pCiv, &ubCivHintToUse, FALSE );
 	}
 	else
@@ -980,30 +979,30 @@ void StartCivQuote( SOLDIERTYPE *pCiv )
 	// ATE: Try and get entry from soldier pointer....
 	if ( ubCivQuoteID != CIV_QUOTE_HINT )
 	{
-		if ( pCiv->bCurrentCivQuote == -1 )
+		if ( pCiv->dialogue().currentCivilianQuote() == -1 )
 		{
 			// Pick random one
-			//pCiv->bCurrentCivQuote = (INT8)Random( gCivQuotes[ ubCivQuoteID ].ubNumEntries - 2 );
+			//pCiv->dialogue().currentCivilianQuote() = (INT8)Random( gCivQuotes[ ubCivQuoteID ].ubNumEntries - 2 );
 			ubCivQuoteID2  = Random(RandomVal-2);
-			pCiv->bCurrentCivQuoteDelta = 0;
+			pCiv->dialogue().civilianQuoteDelta() = 0;
 		}
 		else
 		{
-			ubCivQuoteID2 = pCiv->bCurrentCivQuote;
+			ubCivQuoteID2 = pCiv->dialogue().currentCivilianQuote();
 		}
 
-		//ubEntryID	= pCiv->bCurrentCivQuote + pCiv->bCurrentCivQuoteDelta;
-		ubEntryID	= ubCivQuoteID2 + pCiv->bCurrentCivQuoteDelta;
+		//ubEntryID	= pCiv->dialogue().currentCivilianQuote() + pCiv->dialogue().civilianQuoteDelta();
+		ubEntryID	= ubCivQuoteID2 + pCiv->dialogue().civilianQuoteDelta();
 	}
 	else
 	{
 		ubEntryID =ubCivHintToUse;
 
 		// ATE: set value for quote ID.....
-		//pCiv->bCurrentCivQuote			= ubCivQuoteID;
+		//pCiv->dialogue().currentCivilianQuote() = ubCivQuoteID;
 		ubCivQuoteID2 = ubCivQuoteID;
 		CivQuoteDelta = ubEntryID;
-		//pCiv->bCurrentCivQuoteDelta = ubEntryID;
+		//pCiv->dialogue().civilianQuoteDelta() = ubEntryID;
 	}
 
 	// Flugente: if we are an assassin, we speak like the militia we emulate
@@ -1033,12 +1032,12 @@ void StartCivQuote( SOLDIERTYPE *pCiv )
 	// Increment use
 	if ( ubCivQuoteID != CIV_QUOTE_HINT )
 	{
-		//pCiv->bCurrentCivQuoteDelta++;
+		//pCiv->dialogue().civilianQuoteDelta()++;
 		++CivQuoteDelta;
 		/*
-		if ( pCiv->bCurrentCivQuoteDelta == 2 )
+		if ( pCiv->dialogue().civilianQuoteDelta() == 2 )
 		{
-			pCiv->bCurrentCivQuoteDelta = 0;
+			pCiv->dialogue().civilianQuoteDelta() = 0;
 		}
 		*/
 		if ( CivQuoteDelta == 2 )

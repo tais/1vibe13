@@ -787,7 +787,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 		return( TRUE );
 	}
 
-	if ( pSoldier->ubQuoteActionID >=QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH )
+	if ( pSoldier->dialogue().quoteActionId() >=QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH )
 	{
 		// AI guy on special move off map
 		return( TRUE );
@@ -1301,10 +1301,10 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 				if ( (GetBPCostPer10APsForGunHolding( pSoldier ) * 10) >= (300 * gGameExternalOptions.ubEnergyCostForWeaponWeight / 100) ) 
 				{
 					// throw quote
-					if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH ) )
+					if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) )
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_OUT_OF_BREATH );
-						pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
+						pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 					}
 					// Put gun down....
 					pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
@@ -1412,10 +1412,10 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 					if ( (GetBPCostPer10APsForGunHolding( pSoldier ) * 10) >= (300 * gGameExternalOptions.ubEnergyCostForWeaponWeight / 100) ) 
 					{
 						// throw quote
-						if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH ) )
+						if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) )
 						{
 							TacticalCharacterDialogue( pSoldier, QUOTE_OUT_OF_BREATH );
-							pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
+							pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 						}
 						// Put gun down....
 						pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );

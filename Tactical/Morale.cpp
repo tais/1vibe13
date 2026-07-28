@@ -327,10 +327,10 @@ void DecayTacticalMoraleModifiers( void )
 						else
 						{
 							// alone, no recovery... in fact, if tact morale is high, decay
-							if (!(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY))
+							if (!pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY))
 							{
 								TacticalCharacterDialogue(pSoldier, QUOTE_PERSONALITY_TRAIT);
-								pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+								pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 							}
 							HandleMoraleEvent(pSoldier, MORALE_NERVOUS_ALONE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 
@@ -689,13 +689,13 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 			if ( pSoldier->aiData.bMorale < 35 )
 			{
 				// Have we said this quote yet?
-				if ( !(	pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_MORAL ) )
+				if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_MORAL) )
 				{
 					gfSomeoneSaidMoraleQuote = TRUE;
 
 					// ATE: Amde it a DELAYED QUOTE - will be delayed by the dialogue Q until it's our turn...
 					DelayedTacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_WHINE );
-					pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_MORAL;
+					pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_MORAL);
 				}
 			}
 		}
@@ -704,7 +704,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	// Reset flag!
 	if ( pSoldier->aiData.bMorale > 65 )
 	{
-		pSoldier->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_LOW_MORAL );
+		pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_LOW_MORAL);
 	}
 
 }

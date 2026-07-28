@@ -2592,7 +2592,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			if ( GetGameContext().capabilities().isUnfinishedBusiness() &&
 				 (pOpponent->ubProfile == MORRIS_UB ) &&
 				 ( GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( NULL, NULL ) > 0 ) &&
-				 !( pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_MORRIS ) &&
+				 !pSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_MORRIS) &&
 				 !( gMercProfiles[ MORRIS_UB ].ubMiscFlags2 & PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE ) )
 			{
 				gfMorrisShouldSayHi = TRUE;
@@ -2601,14 +2601,14 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			          (pOpponent->ubProfile == MIKE) &&
 			          ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ||
 			            pSoldier->employment().mercenaryType() == MERC_TYPE__MERC ) &&
-			          !(pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_MIKE) )
+			          !pSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_MIKE) )
 			{
 				if (gfMikeShouldSayHi == FALSE)
 				{
 					gfMikeShouldSayHi = TRUE;
 				}
 				TacticalCharacterDialogue( pSoldier, QUOTE_AIM_SEEN_MIKE );
-				pSoldier->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_MIKE;
+				pSoldier->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_EXT_MIKE);
 			}
 			else if ( pOpponent->ubProfile == JOEY && gfPlayerTeamSawJoey == FALSE )
 			{
@@ -3597,7 +3597,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 		return;
 	}
 	// Check out for our under large fire quote
-	if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_IN_SHIT ) )
+	if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_IN_SHIT) )
 	{
 		// Get total enemies.
 		// Loop through all mercs in sector and count # of enemies
@@ -3637,7 +3637,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 			// Say quote!
 			TacticalCharacterDialogue( pSoldier, QUOTE_IN_TROUBLE_SLASH_IN_BATTLE );
 			//pSoldier->ubLastEnemyAttackingProvokingQuote = 
-			pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_IN_SHIT;
+			pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_IN_SHIT);
 
 			return;
 		}
@@ -3649,7 +3649,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 		if ( gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags & PROFILE_MISC_FLAG_HAVESEENCREATURE )
 		{
 			// Are there multiplaes and we have not said this quote during this battle?
-			if ( !(	pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES ) )
+			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES) )
 			{
 				// Check for multiples!
 				ubNumEnemies = 0;
@@ -3675,7 +3675,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 				if ( ubNumEnemies > 2 )
 				{
 					// Yes, set flag
-					pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES;
+					pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_MULTIPLE_CREATURES);
 
 					// Say quote
 					TacticalCharacterDialogue( pSoldier, QUOTE_ATTACKED_BY_MULTIPLE_CREATURES );
@@ -7029,16 +7029,16 @@ void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 
 		if ( ( GetGameContext().capabilities().isUnfinishedBusiness() ||
 		       !AreInMeanwhile( ) ) &&
 		     !( gTacticalStatus.uiFlags & ENGAGED_IN_CONV) &&
-		     pSoldier->ubTurnsUntilCanSayHeardNoise == 0)
+		     pSoldier->dialogue().heardNoiseCooldownTurns() == 0)
 		{
 			TacticalCharacterDialogue( pSoldier, QUOTE_HEARD_SOMETHING );
 			if ( IsJa2TacticalCombatActive() )
 			{
-				pSoldier->ubTurnsUntilCanSayHeardNoise = 2;
+				pSoldier->dialogue().startHeardNoiseCooldown(2);
 			}
 			else
 			{
-				pSoldier->ubTurnsUntilCanSayHeardNoise = 5;
+				pSoldier->dialogue().startHeardNoiseCooldown(5);
 			}
 		}
 	}

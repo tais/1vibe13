@@ -2681,9 +2681,9 @@ void AddProfilesUsingProfileInsertionData()
 			// check action ID values
 			if ( gMercProfiles[ i ].ubQuoteRecord )
 			{
-				pSoldier->ubQuoteRecord = gMercProfiles[ i ].ubQuoteRecord;
-				pSoldier->ubQuoteActionID = gMercProfiles[ i ].ubQuoteActionID;
-				if ( pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST )
+				pSoldier->dialogue().quoteRecord() = gMercProfiles[ i ].ubQuoteRecord;
+				pSoldier->dialogue().quoteActionId() = gMercProfiles[ i ].ubQuoteActionID;
+				if ( pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST )
 				{
 					// gridno will have been changed to destination... so we're there...
 					NPCReachedDestination( pSoldier, FALSE );

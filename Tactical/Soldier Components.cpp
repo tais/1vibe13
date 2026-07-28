@@ -51,6 +51,11 @@ void SoldierServiceComponent::reset() noexcept
 	*this = SoldierServiceComponent{};
 }
 
+void SoldierDialogueComponent::reset() noexcept
+{
+	*this = SoldierDialogueComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;

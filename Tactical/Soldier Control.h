@@ -1026,6 +1026,8 @@ public:
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
+	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
+	const SoldierDialogueComponent& dialogue() const noexcept { return dialogue_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1193,9 +1195,6 @@ public:
 	INT8				bUIInterfaceLevel;
 
 	UINT8			ubProfile;
-	UINT8			ubQuoteRecord;
-	UINT8			ubQuoteActionID;
-	UINT8			ubBattleSoundID;
 
 	UINT8			ubClosePanelFrame;
 	UINT8			ubDeadPanelFrame;
@@ -1204,13 +1203,8 @@ public:
 	INT16			sPanelFaceX;
 	INT16			sPanelFaceY;
 
-	// QUOTE STUFF
-	UINT16			usQuoteSaidFlags;
 	INT8				bLastSkillCheck;
 	INT8				ubSkillCheckAttempts;
-
-	INT8				bVocalVolume;	// verbal sounds need to differ in volume
-
 
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
@@ -1259,21 +1253,14 @@ public:
 	INT16				sBoundingBoxHeight;
 	INT16				sBoundingBoxOffsetX;
 	INT16				sBoundingBoxOffsetY;
-	UINT32				uiTimeSameBattleSndDone;
-	INT8					bOldBattleSnd;
 	INT32				iBurstSoundID;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
 	UINT8				ubMilitiaKills;
 
-	UINT8				ubTurnsUntilCanSayHeardNoise;
-	UINT16				usQuoteSaidExtFlags;
-
 	UINT8				ubPendingActionInterrupted;
 	INT32				sSkillCheckGridNo;
 	SoldierID			ubLastEnemyCycledID;
-
-	UINT32				uiBattleSoundID;
 
 	UINT16				usValueGoneUp;
 
@@ -1282,12 +1269,9 @@ public:
 
 	UINT32				uiMercChecksum;
 
-	INT8					bCurrentCivQuote;
-	INT8					bCurrentCivQuoteDelta;
 	UINT8				ubMiscSoldierFlags;
 	INT32				sLocationOfFadeStart;
 
-	UINT32				uiTimeSinceLastSpoke;
 	INT8					bPendingActionData5;
 
 	INT8					bDelayedStrategicMoraleMod;
@@ -1295,7 +1279,6 @@ public:
 
 	struct GROUP			*pGroup;
 
-	INT8					bCorpseQuoteTolerance;
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
 	INT32				sLastTwoLocations[2];
@@ -1397,6 +1380,7 @@ public:
 private:
 	SoldierVitalsComponent	vitals_;
 	SoldierServiceComponent	service_;
+	SoldierDialogueComponent	dialogue_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;
