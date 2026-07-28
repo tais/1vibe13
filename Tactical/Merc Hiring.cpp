@@ -226,7 +226,7 @@ INT8 HireMerc( MERC_HIRE_STRUCT *pHireMerc)
 	pSoldier->deployment().strategicInsertionCode() = pHireMerc->ubInsertionCode;
 	pSoldier->deployment().strategicInsertionData() = pHireMerc->usInsertionData;
 	// ATE: Copy over value for using alnding zone to soldier type
-	pSoldier->flags.fUseLandingZoneForArrival = pHireMerc->fUseLandingZoneForArrival;
+	pSoldier->deployment().setUseLandingZoneForArrival( pHireMerc->fUseLandingZoneForArrival != FALSE );
 
 
 	// Set assignment
@@ -471,7 +471,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	}
 #endif
 	//shadooow: if all mercs were killed or captured and default arrival sector is Omerta, force helidrop arrival animation
-	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->flags.fUseLandingZoneForArrival && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
+	if (GetCurrentScreen() == MAP_SCREEN && pSoldier->deployment().usesLandingZoneForArrival() && !gWorldSectorX && !gWorldSectorY && gbWorldSectorZ == -1 &&
 		gsMercArriveSectorX == gGameExternalOptions.ubDefaultArrivalSectorX && gsMercArriveSectorY == gGameExternalOptions.ubDefaultArrivalSectorY)
 	{
 		bool force_helidrop = true;
@@ -498,7 +498,7 @@ void MercArrivesCallback( SoldierID ubSoldierID )
 	AddCharacterToAnySquad( pSoldier );
 
 	// ATE: Make sure we use global.....
-	if ( pSoldier->flags.fUseLandingZoneForArrival )
+	if ( pSoldier->deployment().usesLandingZoneForArrival() )
 	{
 		pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
 		pSoldier->deployment().sectorY()	= gsMercArriveSectorY;
@@ -812,7 +812,7 @@ void UpdateAnyInTransitMercsWithGlobalArrivalSector( )
 		{
 			if ( pSoldier->assignment().current() == IN_TRANSIT )
 			{
-				if ( pSoldier->flags.fUseLandingZoneForArrival )
+				if ( pSoldier->deployment().usesLandingZoneForArrival() )
 				{
 					pSoldier->deployment().sectorX()	= gsMercArriveSectorX;
 					pSoldier->deployment().sectorY()	= gsMercArriveSectorY;

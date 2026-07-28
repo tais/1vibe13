@@ -377,7 +377,7 @@ void HourlyLarryUpdate()
 			const std::vector<INT16> drugItems = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_ITEMS);
 			const std::vector<INT16> drugTypes = pSoldier->GetBackgroundValueVector(BackgroundVectorTypes::BG_DRUGUSE_TYPES);
 
-			if ( pSoldier->assignment().current() < ON_DUTY && !pSoldier->flags.fBetweenSectors && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
+			if ( pSoldier->assignment().current() < ON_DUTY && !pSoldier->deployment().isBetweenSectors() && !( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) )
 			{
 				// Flugente: reworked this for the new drug system. We now loop over our entire inventory
 				INT8 invsize = (INT8)pSoldier->inv.size();										// remember inventorysize, so we don't call size() repeatedly
@@ -484,7 +484,7 @@ void HourlyLarryUpdate()
 					{					
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if( pOtherSoldier && !pOtherSoldier->flags.fBetweenSectors && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
@@ -655,7 +655,7 @@ void HourlyDisabilityUpdate( )
 				// don't do this if we are at low health, or in combat, or travelling, or a patient or doctor
 				// only do this if we are rather healed
 				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().maximumHealth() > 0 && (FLOAT)(pSoldier->vitals().health()) / (FLOAT)(pSoldier->vitals().maximumHealth()) > 0.9f
-					 && !pSoldier->flags.fBetweenSectors && !gTacticalStatus.fEnemyInSector
+					 && !pSoldier->deployment().isBetweenSectors() && !gTacticalStatus.fEnemyInSector
 					 && !IS_PATIENT( pSoldier->assignment().current() ) && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					// anv: snitches stop mercs from getting wasted
@@ -665,7 +665,7 @@ void HourlyDisabilityUpdate( )
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if ( pOtherSoldier && !pOtherSoldier->flags.fBetweenSectors && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
@@ -764,7 +764,7 @@ void HourlyStealUpdate()
 		if ( pSoldier
 			&& Chance( 50 )			// we try to steal something in the first place only half the time
 			&& pSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING )
-			&& !pSoldier->flags.fBetweenSectors
+			&& !pSoldier->deployment().isBetweenSectors()
 			&& pSoldier->bActive
 			&& !pSoldier->flags.fMercAsleep
 			&& pSoldier->assignment().current() != IN_TRANSIT
@@ -796,7 +796,7 @@ void HourlyStealUpdate()
 
 				// note - snitches stop others, but can scrounge themselves (if they have scrounging specifically set in background...)
 				if ( pOtherSoldier
-					&& !pOtherSoldier->flags.fBetweenSectors
+					&& !pOtherSoldier->deployment().isBetweenSectors()
 					&& pOtherSoldier->assignment().current() != IN_TRANSIT
 					&& pOtherSoldier->assignment().current() != ASSIGNMENT_POW
 					&& pOtherSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
@@ -1229,7 +1229,7 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 	{
 		return;
 	}
-	if( pSoldier->flags.fBetweenSectors )
+	if( pSoldier->deployment().isBetweenSectors() )
 	{
 		return;
 	}

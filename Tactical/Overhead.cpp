@@ -4911,7 +4911,7 @@ BOOLEAN CheckForPlayerTeamInMissionExit( )
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
         if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
         {
-            if ( pSoldier->flags.fInMissionExitNode )
+            if ( pSoldier->deployment().insideMissionExitNode() )
             {
                 bGuysIn++;
             }
@@ -7510,8 +7510,8 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 			if (pTeamSoldier->bActive)
 			{
 				if (pTeamSoldier->bInSector ||
-					//pTeamSoldier->flags.fBetweenSectors && SECTORX(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorX && SECTORY(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorY && (pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ) ||
-					pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
+					//pTeamSoldier->deployment().isBetweenSectors() && SECTORX(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorX && SECTORY(pTeamSoldier->deployment().previousSectorId()) == gWorldSectorY && (pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ) ||
+					pTeamSoldier->deployment().isBetweenSectors() && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
 				{
 					if (pTeamSoldier->vitals().health() >= OKLIFE)
 					{

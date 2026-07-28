@@ -481,7 +481,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
 	this->fDieSoundUsed = src.fDieSoundUsed;
-	this->fUseLandingZoneForArrival = src.fUseLandingZoneForArrival;
 	this->fComplainedThatTired = src.fComplainedThatTired;
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
 	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
@@ -495,11 +494,9 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
-	this->fInMissionExitNode = src.fInMissionExitNode;
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
 	this->fWarnedAboutBleeding = src.fWarnedAboutBleeding;
 	this->fDyingComment = src.fDyingComment;
-	this->fBetweenSectors = src.fBetweenSectors;	//set when the group isn't actually in a sector.
 	this->lastFlankLeft = src.lastFlankLeft;
 	this->uiStatusFlags = src.uiStatusFlags;
 }
@@ -638,6 +635,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		uiPresentation().closeMercUiPendingState() = src.fUICloseMerc;
 		uiPresentation().firstNoActionPointsState() = src.fUIFirstTimeNOAP;
 		uiPresentation().firstUnconsciousState() = src.fUIFirstTimeUNCON;
+		deployment().betweenSectors() = src.fBetweenSectors;
+		deployment().inMissionExitNode() = src.fInMissionExitNode;
+		deployment().useLandingZoneForArrival() = src.fUseLandingZoneForArrival;
 		renderState().fadeMode() = src.fBeginFade;
 		renderState().forceRenderColor() = src.fForceRenderColor;
 		renderState().forceNoPaletteCycle() = src.fForceNoRenderPaletteCycle;
@@ -10385,7 +10385,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	}
 
 	// Flugente: bandaging during retreat
-	if ( gGameExternalOptions.fAllowBandagingDuringTravel && ubReason == TAKE_DAMAGE_BLOODLOSS && this->flags.fBetweenSectors && GetBestRetreatingMercDoctor( this ) != NOBODY )
+	if ( gGameExternalOptions.fAllowBandagingDuringTravel && ubReason == TAKE_DAMAGE_BLOODLOSS && this->deployment().isBetweenSectors() && GetBestRetreatingMercDoctor( this ) != NOBODY )
 	{
 		SetRetreatBandaging( TRUE );
 	}
@@ -23815,10 +23815,10 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 			 pRobot->deployment().sectorZ() == this->deployment().sectorZ() )
 		{
 			// they have to be either both in sector, or both on the road
-			if ( pRobot->flags.fBetweenSectors == this->flags.fBetweenSectors )
+			if ( pRobot->deployment().isBetweenSectors() == this->deployment().isBetweenSectors() )
 			{
 				// if they're on the road...
-				if ( pRobot->flags.fBetweenSectors )
+				if ( pRobot->deployment().isBetweenSectors() )
 				{
 					// they have to be in the same squad or vehicle
 					if ( pRobot->assignment().current() != this->assignment().current() )

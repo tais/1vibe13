@@ -178,7 +178,7 @@ void HandleAutoBandagePending( )
 			// Are we in sector?
 			if ( soldier->bActive	)
 			{
-				if ( soldier->deployment().sectorX() == gWorldSectorX && soldier->deployment().sectorY() == gWorldSectorY && soldier->deployment().sectorZ() == gbWorldSectorZ && !soldier->flags.fBetweenSectors )
+				if ( soldier->deployment().sectorX() == gWorldSectorX && soldier->deployment().sectorY() == gWorldSectorY && soldier->deployment().sectorZ() == gbWorldSectorZ && !soldier->deployment().isBetweenSectors() )
 				{
 					if ( soldier->pendingAction().active() )
 					{
@@ -1262,7 +1262,7 @@ BOOLEAN RetreatBandagingPending()
 SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 {
 	// if this is a travelling, bleeding merc, can somebody who travels with him bandage him/her?
-	if ( pPatient && pPatient->bActive && pPatient->flags.fBetweenSectors && pPatient->vitals().bleeding() )
+	if ( pPatient && pPatient->bActive && pPatient->deployment().isBetweenSectors() && pPatient->vitals().bleeding() )
 	{
 		SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 		for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
@@ -1271,7 +1271,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 				GetJa2SoldierRepository().resolve(ID.i);
 			// this requires mercs to travel and thus NOT be in a sector
 			// also we need to be in a specific sector
-			if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
+			if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
 			{
 				// find the best conscious doctor that has a medkit
 				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
@@ -1314,7 +1314,7 @@ void HandleRetreatBandaging()
 			GetJa2SoldierRepository().resolve(ID.i);
 		// this requires mercs to travel and thus NOT be in a sector
 		// are we bleeding?
-		if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors &&  pSoldier->vitals().bleeding() )
+		if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() &&  pSoldier->vitals().bleeding() )
 		{
 			// if we are still conscious, try bandaging ourself
 			if ( pSoldier->vitals().health() >= OKLIFE )
@@ -1381,7 +1381,7 @@ void HandleRetreatBandaging()
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector
 				// treat bleeding people only
-				if ( pSoldier->bActive && pSoldier->flags.fBetweenSectors && sX == pSoldier->deployment().sectorX()  && sY == pSoldier->deployment().sectorY() && pSoldier->vitals().bleeding() )
+				if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() && sX == pSoldier->deployment().sectorX()  && sY == pSoldier->deployment().sectorY() && pSoldier->vitals().bleeding() )
 				{
 					UINT32 counter = 0;
 					INT8 bSlot = -1;

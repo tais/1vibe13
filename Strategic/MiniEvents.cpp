@@ -989,7 +989,7 @@ namespace MiniEventHelpers
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
-			if ((*iter)->ubProfile == profileId && (*iter)->flags.fBetweenSectors)
+			if ((*iter)->ubProfile == profileId && (*iter)->deployment().isBetweenSectors())
 			{
 				lua_pushboolean(LS, true);
 				return 1;
@@ -1006,7 +1006,7 @@ namespace MiniEventHelpers
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
-			if ((*iter)->ubProfile == profileId && (*iter)->flags.fBetweenSectors && (*iter)->assignment().current() != VEHICLE)
+			if ((*iter)->ubProfile == profileId && (*iter)->deployment().isBetweenSectors() && (*iter)->assignment().current() != VEHICLE)
 			{
 				lua_pushboolean(LS, true);
 				return 1;

@@ -251,7 +251,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				// remove them
 				RemoveCharacterFromSquads( pCharacter );
 
-//				fBetweenSectors =	Squad[ bSquadValue ][ 0 ]->flags.fBetweenSectors;
+//				fBetweenSectors =	Squad[ bSquadValue ][ 0 ]->deployment().isBetweenSectors();
 			}
 			else
 			{
@@ -262,7 +262,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 /*
 			if( fBetweenSectors == TRUE )
 			{
-				pCharacter->flags.fBetweenSectors = TRUE;
+				pCharacter->deployment().beginStrategicTransit();
 			}
 */
 
@@ -546,7 +546,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 				// reset player mvt group id value
 				pCharacter->deployment().groupId() = 0;
 
-				if( ( pCharacter->flags.fBetweenSectors )&&( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				if( ( pCharacter->deployment().isBetweenSectors() )&&( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 				{
 					ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pCharacter->deployment().sectorX() ) , ( INT8 ) ( pCharacter->deployment().sectorY() ) );
 
@@ -1068,7 +1068,7 @@ BOOLEAN IsSquadOnCurrentTacticalMap( INT32 iCurrentSquad )
 		if(	Squad[ iCurrentSquad ][ iCounter ] != NULL )
 		{
 			// ATE; Added more checks here for being in sector ( fBetweenSectors and SectorZ )
-			if( ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorX() == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorY() == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorZ() == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->flags.fBetweenSectors != TRUE )
+			if( ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorX() == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorY() == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorZ() == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->deployment().isBetweenSectors() != TRUE )
 			{
 				return( TRUE );
 			}
@@ -1298,7 +1298,7 @@ BOOLEAN IsThisSquadOnTheMove( INT8 bSquadValue )
 	{
 		if( Squad[ bSquadValue ][ iCounter ] )
 		{
-			return( Squad[ bSquadValue ][ iCounter ]->flags.fBetweenSectors );
+			return( Squad[ bSquadValue ][ iCounter ]->deployment().isBetweenSectors() );
 		}
 	}
 
@@ -1366,7 +1366,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( FALSE );
 	}
 
-	if( pSoldier->flags.fBetweenSectors == TRUE )
+	if( pSoldier->deployment().isBetweenSectors() == TRUE )
 	{
 		return( FALSE );
 	}
@@ -1401,7 +1401,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( FALSE );
 	}
 
-	if( Squad[ ubSquad ][ 0 ]->flags.fBetweenSectors == TRUE )
+	if( Squad[ ubSquad ][ 0 ]->deployment().isBetweenSectors() == TRUE )
 	{
 		return( FALSE );
 	}

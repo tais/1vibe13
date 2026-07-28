@@ -1818,7 +1818,7 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if( pSoldier->bActive && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
-			pSoldier->deployment().sectorX() == sQuestSectorX && pSoldier->deployment().sectorY() == sQuestsSectorY && !pSoldier->flags.fBetweenSectors && pSoldier->bTeam == gbPlayerNum &&
+			pSoldier->deployment().sectorX() == sQuestSectorX && pSoldier->deployment().sectorY() == sQuestsSectorY && !pSoldier->deployment().isBetweenSectors() && pSoldier->bTeam == gbPlayerNum &&
 			pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
 		{
 			if ( pSoldier->ubProfile != bException )

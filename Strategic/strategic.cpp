@@ -76,7 +76,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 
 		// put the dead guys down
 		INT32 sGridNo = pSoldier->deployment().insertionGrid();
-		if (pSoldier->flags.fBetweenSectors || TileIsOutOfBounds(sGridNo))
+		if (pSoldier->deployment().isBetweenSectors() || TileIsOutOfBounds(sGridNo))
 		{
 			sGridNo = RandomGridNo();
 		}

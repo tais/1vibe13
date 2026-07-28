@@ -680,7 +680,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 					}
 
 					// if either is between sectors, they must be in the same movement group
-					if ( ( pSoldier->flags.fBetweenSectors || pSoldier2->flags.fBetweenSectors ) &&
+					if ( ( pSoldier->deployment().isBetweenSectors() || pSoldier2->deployment().isBetweenSectors() ) &&
 							( pSoldier->deployment().groupId() != pSoldier2->deployment().groupId() ) )
 					{
 						ResetEntryForSelectedList( iCounter );
@@ -2556,7 +2556,7 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 			return( FALSE );
 		}
 
-		if ( pNewSoldier->flags.fBetweenSectors )
+		if ( pNewSoldier->deployment().isBetweenSectors() )
 		{
 			return( FALSE );
 		}
@@ -2594,10 +2594,10 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 		}
 
 		// if on the road
-		if ( pNewSoldier->flags.fBetweenSectors )
+		if ( pNewSoldier->deployment().isBetweenSectors() )
 		{
 			// other guy must also be on the road...
-			if ( !pOldSoldier->flags.fBetweenSectors )
+			if ( !pOldSoldier->deployment().isBetweenSectors() )
 			{
 				return( FALSE );
 			}
@@ -4683,7 +4683,7 @@ void MoveMenuBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				pSoldier = pSoldierMovingList[ iListIndex ];
 
-				if ( pSoldier->flags.fBetweenSectors )
+				if ( pSoldier->deployment().isBetweenSectors() )
 				{
 					// we don't allow mercs to change squads or get out of vehicles between sectors, easiest way to handle this
 					// is to prevent any toggling of individual soldiers on the move at the outset.
@@ -6510,7 +6510,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	}
 	
 	// if merc is in a particular sector, not somewhere in between
-	if ( pSoldier->flags.fBetweenSectors == FALSE )
+	if ( pSoldier->deployment().isBetweenSectors() == FALSE )
 	{
 		// and he's NOT flying above it all in a working helicopter
 		if( !SoldierAboardAirborneHeli( pSoldier ) )
@@ -6552,7 +6552,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 
 	// if in L12 museum, and the museum alarm went off, and Eldin still around?
 	if ( ( pSoldier->deployment().sectorX() == 12 ) && ( pSoldier->deployment().sectorY() == MAP_ROW_L ) && ( pSoldier->deployment().sectorZ() == 0 ) &&
-			( !pSoldier->flags.fBetweenSectors ) && gMercProfiles[ ELDIN ].bMercStatus != MERC_IS_DEAD )
+			( !pSoldier->deployment().isBetweenSectors() ) && gMercProfiles[ ELDIN ].bMercStatus != MERC_IS_DEAD )
 	{
 		//DBrot: More Rooms
 		SoldierID	/*ubRoom,*/ cnt;

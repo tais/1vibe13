@@ -1570,6 +1570,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
 	STRUCT_Flags& f = soldier.flags;
 	SoldierCollapseComponent& collapseState = soldier.collapseState();
+	SoldierDeploymentComponent& deployment = soldier.deployment();
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
@@ -1594,8 +1595,8 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(uiPresentation.locatorVisibleState()); ar.boolean(uiPresentation.portraitFlashPhase()); ar.boolean(movement.noActionPointsToFinish());
 	ar.boolean(movement.paused()); ar.boolean(uiPresentation.deadMercUiPendingState()); ar.boolean(uiPresentation.newMercUiPendingState());
 	ar.boolean(uiPresentation.closeMercUiPendingState()); ar.boolean(uiPresentation.firstNoActionPointsState()); ar.boolean(uiPresentation.firstUnconsciousState());
-	ar.boolean(f.fReloading); ar.boolean(f.fPauseAim); ar.boolean(f.fInMissionExitNode);
-	ar.boolean(f.fBetweenSectors); ar.boolean(f.fReactingFromBeingShot);
+	ar.boolean(f.fReloading); ar.boolean(f.fPauseAim); ar.boolean(deployment.inMissionExitNode());
+	ar.boolean(deployment.betweenSectors()); ar.boolean(f.fReactingFromBeingShot);
 	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(movement.blockedByAnotherMerc());
 	ar.boolean(f.fContractPriceHasIncreased); ar.boolean(f.fFixingSAMSite); ar.boolean(f.fFixingRobot);
 	ar.boolean(f.fSignedAnotherContract); ar.boolean(animationActivity.turningCostWaived());
@@ -1605,7 +1606,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
 	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(movement.wasMoving());
 	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
-	ar.boolean(f.fDieSoundUsed); ar.boolean(f.fUseLandingZoneForArrival); ar.boolean(f.fComplainedThatTired);
+	ar.boolean(f.fDieSoundUsed); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(f.fComplainedThatTired);
 	ar.boolean(animationActivity.realtimeNonInterruptible());
 	ar.u8(f.fHitByGasFlags);
 	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(movement.pastXDestination()); ar.i8(movement.pastYDestination());
@@ -2916,7 +2917,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 			if (!pSoldier) continue;
 			if( pSoldier->bActive )
 			{
-				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
 					SaveGameHeader.sSectorX = pSoldier->deployment().sectorX();
 					SaveGameHeader.sSectorY = pSoldier->deployment().sectorY();
@@ -8905,7 +8906,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			// Test for null if tactical slot initialization failed.
 			if( pSoldier && pSoldier->bActive )
 			{
-				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->flags.fBetweenSectors)
+				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
 					//we found an alive, merc that is not moving
 					*psSectorX = pSoldier->deployment().sectorX();

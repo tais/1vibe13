@@ -223,7 +223,7 @@ BOOLEAN BeginAirRaid( )
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;
@@ -1060,7 +1060,7 @@ void HandleAirRaid( )
 			{
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;

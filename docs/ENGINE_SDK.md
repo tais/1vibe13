@@ -404,11 +404,12 @@ and mini-event context belonging to that duty. Strategic travel and sector
 location remain independent; existing assignment constants and gameplay
 entry points are unchanged. `SoldierDeploymentComponent` owns the complementary
 location boundary: strategic sector, movement group, vehicle, tactical
-insertion, traversal origin, off-world staging, arrival bookkeeping, and the
-Unfinished Business helicopter arrival get-up timer and phase flags. Strategic
-route/group objects remain adapters, and all existing sector, insertion,
-vehicle, arrival, and arrival get-up gameplay entry points continue to operate
-on the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
+insertion, traversal origin, off-world staging, between-sector transit,
+mission-exit participation, landing-zone arrival policy, arrival bookkeeping,
+and the Unfinished Business helicopter arrival get-up timer and phase flags.
+Strategic route/group objects remain adapters, and all existing sector,
+transit, insertion, vehicle, arrival, and arrival get-up gameplay entry points
+continue to operate on the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,
 complete, consume, or cancel the door continuation; editor placements,

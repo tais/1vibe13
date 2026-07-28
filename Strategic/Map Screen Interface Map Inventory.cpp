@@ -1377,7 +1377,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			const auto x = pSelectedSoldier->deployment().sectorX();
 			const auto y = pSelectedSoldier->deployment().sectorY();
 			const auto z = pSelectedSoldier->deployment().sectorZ();
-			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->flags.fBetweenSectors)
+			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->deployment().isBetweenSectors())
 			{
 				pSelectedSoldier->bInSector = TRUE;
 			}
@@ -1609,7 +1609,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			if( ( pSelectedSoldier->deployment().sectorX() != sSelMapX ) ||
 					( pSelectedSoldier->deployment().sectorY() != sSelMapY ) ||
 					( pSelectedSoldier->deployment().sectorZ() != iCurrentMapSectorZ ) ||
-					( pSelectedSoldier->flags.fBetweenSectors ) )
+					( pSelectedSoldier->deployment().isBetweenSectors() ) )
 			{
 				if ( gpItemPointer == NULL )
 				{
@@ -3087,7 +3087,7 @@ void MapInventoryReadEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if ( pSoldier &&
 				 pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ &&
-				 !pSoldier->flags.fBetweenSectors )
+				 !pSoldier->deployment().isBetweenSectors() )
 			{
 				if ( (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
 				{
@@ -3541,7 +3541,7 @@ void HandleButtonStatesWhileMapInventoryActive( void )
 	if( pSoldier->deployment().sectorX() != sSelMapX ||
 		pSoldier->deployment().sectorY() != sSelMapY ||
 		pSoldier->deployment().sectorZ() != iCurrentMapSectorZ ||
-		pSoldier->flags.fBetweenSectors ||
+		pSoldier->deployment().isBetweenSectors() ||
 		!CanPlayerUseSectorInventory( pSoldier ) ) 
 	{
 		DisableButton( guiMapInvenSortButton[ 0 ] );

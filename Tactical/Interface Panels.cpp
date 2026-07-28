@@ -7197,7 +7197,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 		if ( pSoldier->bTeam == gbPlayerNum )
 		{
 			// Are we in the loaded sector?
-			if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector )
+			if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->bInSector )
 			{
 				// IF on duty....
 				if( ( pSoldier->assignment().current() ==	CurrentSquad( ) )|| ( SoldierIsDeadAndWasOnSquad( pSoldier, ( INT8 )( CurrentSquad( ) ) ) ) )

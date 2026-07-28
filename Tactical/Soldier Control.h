@@ -807,8 +807,6 @@ public:
 	BOOLEAN											fDyingComment;
 	BOOLEAN											fReloading;
 	BOOLEAN											fPauseAim;
-	BOOLEAN											fInMissionExitNode;
-	BOOLEAN											fBetweenSectors;	//set when the group isn't actually in a sector.
 	BOOLEAN											fReactingFromBeingShot;
 	BOOLEAN											fCheckForNewlyAddedItems;
 	BOOLEAN											fContractPriceHasIncreased;
@@ -822,7 +820,6 @@ public:
 	BOOLEAN											fMercAsleep;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
 	BOOLEAN											fDieSoundUsed;
-	BOOLEAN											fUseLandingZoneForArrival;
  	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 

@@ -7822,7 +7822,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						pSoldier->bInSector = FALSE;
 
 						//CHRISL: Try to update InSector value so we don't have to "activate" a sector
-						if(pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
+						if(pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->deployment().isBetweenSectors())
 							pSoldier->bInSector = TRUE;
 
 						if(OK_CONTROL_MERC( pSoldier ) && pSoldier->bInSector == TRUE)
@@ -8505,7 +8505,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							//CHRISL: Try to update InSector value so we don't have to "activate" a sector
-							if (pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
+							if (pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->deployment().isBetweenSectors())
 								pSoldier->bInSector=TRUE;
 
 							if (OK_CONTROL_MERC( pSoldier ))
@@ -11530,7 +11530,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 			// if alive (dead guys keep going, use remove menu instead),
 			// and it's between sectors and it can be reassigned (non-vehicles)
-			if ( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->flags.fBetweenSectors ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->deployment().isBetweenSectors() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 			{
 				// can't reassign mercs while between sectors
 				DoScreenIndependantMessageBox( pMapErrorString[ 41 ], MSG_BOX_FLAG_OK, NULL );
@@ -15291,7 +15291,7 @@ BOOLEAN CanToggleSelectedCharInventory( void )
 		if ( ( pSoldier->deployment().sectorX() != sSelMapX ) ||
 				( pSoldier->deployment().sectorY() != sSelMapY ) ||
 				( pSoldier->deployment().sectorZ() != iCurrentMapSectorZ ) ||
-				pSoldier->flags.fBetweenSectors )
+				pSoldier->deployment().isBetweenSectors() )
 		{
 			return(FALSE);
 		}
@@ -16780,7 +16780,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 			swprintf( pTempString, L"%s%s%s",
 						pMapVertIndex[ pSoldier->deployment().sectorY() ], pMapHortIndex[ pSoldier->deployment().sectorX() ], pMapDepthIndex[ pSoldier->deployment().sectorZ() ] );
 
-			if ( pSoldier->flags.fBetweenSectors )
+			if ( pSoldier->deployment().isBetweenSectors() )
 			{
 				// put brackets around it when he's between sectors!
 				sgp_swprintf( sString, 32,L"(%s)", pTempString );
@@ -16833,7 +16833,7 @@ void GetMapscreenMercDestinationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] 
 		}
 		else // no movement path is set...
 		{
-			if ( pSoldier->flags.fBetweenSectors )
+			if ( pSoldier->deployment().isBetweenSectors() )
 			{
 				// he must be returning to his previous (reversed so as to be the next) sector, so show that as his destination
 				// individual soldiers don't store previous/next sector coordinates, must go to his group for that

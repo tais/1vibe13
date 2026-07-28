@@ -728,7 +728,7 @@ void InitTacticalPlacementGUI()
 	{
 		SOLDIERTYPE *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
-		if( pSoldier && pSoldier->bActive && !pSoldier->flags.fBetweenSectors &&
+		if( pSoldier && pSoldier->bActive && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
 				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
 				pSoldier->assignment().current() != ASSIGNMENT_POW &&
@@ -749,7 +749,7 @@ void InitTacticalPlacementGUI()
 	{
 		SOLDIERTYPE *pSoldier =
 			GetJa2SoldierRepository().resolve(i.i);
-		if( pSoldier && pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors &&
+		if( pSoldier && pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
 				pSoldier->assignment().current() != ASSIGNMENT_POW &&
 				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&

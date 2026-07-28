@@ -1113,12 +1113,13 @@ the engine must not contain SDL types in its public domain model.
   prevent a duty change from retaining stale repair or facility state.
   `SoldierDeploymentComponent` now owns that separate strategic-placement
   domain: sector coordinates, movement-group and vehicle membership, tactical
-  insertion, traversal origin, off-world staging, arrival bookkeeping, and the
-  Unfinished Business helicopter arrival get-up timer and phase flags. Named
-  sector, insertion, traversal, vehicle, arrival, and arrival get-up
-  transitions keep related values coherent. The existing strategic route and
-  live group pointers remain boundary adapters rather than becoming
-  component-owned content formats.
+  insertion, traversal origin, off-world staging, between-sector transit,
+  mission-exit participation, landing-zone arrival policy, arrival
+  bookkeeping, and the Unfinished Business helicopter arrival get-up timer
+  and phase flags. Named sector, transit, mission-exit, insertion, traversal,
+  vehicle, arrival, and arrival get-up transitions keep related values
+  coherent. The existing strategic route and live group pointers remain
+  boundary adapters rather than becoming component-owned content formats.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

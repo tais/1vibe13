@@ -2543,7 +2543,7 @@ BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier );
 	Assert( pSoldier->bActive );
 
-	if( !pSoldier->flags.fBetweenSectors &&
+	if( !pSoldier->deployment().isBetweenSectors() &&
 			pSoldier->assignment().current() != IN_TRANSIT &&
 			pSoldier->assignment().current() != ASSIGNMENT_POW &&
 			pSoldier->assignment().current() != ASSIGNMENT_DEAD &&

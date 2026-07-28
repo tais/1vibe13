@@ -232,7 +232,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 		}
 
 		pSoldier = GetJa2SoldierRepository().resolve(id.i);
-		if( !pSoldier->flags.fBetweenSectors &&
+		if( !pSoldier->deployment().isBetweenSectors() &&
 				pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				( pSoldier->assignment().current() != selectedSoldier->assignment().current() ||

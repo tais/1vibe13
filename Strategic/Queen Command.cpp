@@ -290,7 +290,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 		pTeamSoldier = GetJa2SoldierRepository().resolve(bMercID);
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
-		if ( pTeamSoldier->bActive && !pTeamSoldier->flags.fBetweenSectors  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+		if ( pTeamSoldier->bActive && !pTeamSoldier->deployment().isBetweenSectors()  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) &&
 			 (pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == sSectorZ) )
 		{

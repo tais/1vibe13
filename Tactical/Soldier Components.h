@@ -1032,7 +1032,8 @@ private:
 
 // Canonical strategic placement and deployment state. Sector coordinates,
 // strategic group and vehicle membership, tactical insertion, traversal
-// origin, off-world staging, and arrival bookkeeping move together across the
+// origin, off-world staging, strategic transit, mission-exit participation,
+// landing-zone policy, and arrival bookkeeping move together across the
 // strategic/tactical boundary while route and group objects remain adapters.
 class SoldierDeploymentComponent
 {
@@ -1073,6 +1074,12 @@ public:
 	const INT32& arrivalGetupCounter() const noexcept { return arrivalGetupCounter_; }
 	BOOLEAN& waitingForArrivalGetup() noexcept { return waitingForArrivalGetup_; }
 	const BOOLEAN& waitingForArrivalGetup() const noexcept { return waitingForArrivalGetup_; }
+	BOOLEAN& betweenSectors() noexcept { return betweenSectors_; }
+	const BOOLEAN& betweenSectors() const noexcept { return betweenSectors_; }
+	BOOLEAN& inMissionExitNode() noexcept { return inMissionExitNode_; }
+	const BOOLEAN& inMissionExitNode() const noexcept { return inMissionExitNode_; }
+	BOOLEAN& useLandingZoneForArrival() noexcept { return useLandingZoneForArrival_; }
+	const BOOLEAN& useLandingZoneForArrival() const noexcept { return useLandingZoneForArrival_; }
 
 	bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept
 	{
@@ -1080,6 +1087,12 @@ public:
 	}
 	bool hasVehicle() const noexcept { return vehicleId_ >= 0; }
 	bool arrivalGetupPending() const noexcept { return waitingForArrivalGetup_ != FALSE; }
+	bool isBetweenSectors() const noexcept { return betweenSectors_ != FALSE; }
+	bool insideMissionExitNode() const noexcept { return inMissionExitNode_ != FALSE; }
+	bool usesLandingZoneForArrival() const noexcept
+	{
+		return useLandingZoneForArrival_ != FALSE;
+	}
 	void setSector(INT16 x, INT16 y, INT8 z) noexcept
 	{
 		sectorX_ = x;
@@ -1109,6 +1122,14 @@ public:
 	}
 	void completeArrivalGetup() noexcept { waitingForArrivalGetup_ = FALSE; }
 	void clearCollapseGetupOverride() noexcept { ignoreCollapseGetupCheck_ = FALSE; }
+	void beginStrategicTransit() noexcept { betweenSectors_ = TRUE; }
+	void completeStrategicTransit() noexcept { betweenSectors_ = FALSE; }
+	void enterMissionExitNode() noexcept { inMissionExitNode_ = TRUE; }
+	void leaveMissionExitNode() noexcept { inMissionExitNode_ = FALSE; }
+	void setUseLandingZoneForArrival(bool enabled) noexcept
+	{
+		useLandingZoneForArrival_ = enabled ? TRUE : FALSE;
+	}
 	void reset() noexcept;
 
 private:
@@ -1130,6 +1151,9 @@ private:
 	BOOLEAN ignoreCollapseGetupCheck_ = FALSE;
 	INT32 arrivalGetupCounter_ = 0;
 	BOOLEAN waitingForArrivalGetup_ = FALSE;
+	BOOLEAN betweenSectors_ = FALSE;
+	BOOLEAN inMissionExitNode_ = FALSE;
+	BOOLEAN useLandingZoneForArrival_ = FALSE;
 };
 
 // Canonical NPC schedule execution state. The schedule identifier and progress

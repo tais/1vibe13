@@ -7093,7 +7093,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// mercs on the move can't scout
-		if ( pSoldier->flags.fBetweenSectors )
+		if ( pSoldier->deployment().isBetweenSectors() )
 		{
 			continue;
 		}

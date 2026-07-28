@@ -37,7 +37,7 @@
 //#define PHOBIC_LIMIT -20
 
 // macros
-#define SOLDIER_IN_SECTOR( pSoldier, sX, sY, bZ )		( !pSoldier->flags.fBetweenSectors && ( pSoldier->deployment().sectorX() == sX ) && ( pSoldier->deployment().sectorY() == sY ) && ( pSoldier->deployment().sectorZ() == bZ ) )
+#define SOLDIER_IN_SECTOR( pSoldier, sX, sY, bZ )		( !pSoldier->deployment().isBetweenSectors() && ( pSoldier->deployment().sectorX() == sX ) && ( pSoldier->deployment().sectorY() == sY ) && ( pSoldier->deployment().sectorZ() == bZ ) )
 
 
 
@@ -800,9 +800,9 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 					// CJC: adding to SOLDIER_IN_SECTOR check special stuff because the old sector values might
 					// be appropriate (because in transit going out of that sector!)
 					// sevenfm: improved check
-					//if ( SOLDIER_IN_SECTOR( pTeamSoldier, sMapX, sMapY, bMapZ ) || (pTeamSoldier->flags.fBetweenSectors && SECTORX( pTeamSoldier->deployment().previousSectorId() ) == sMapX && SECTORY( pTeamSoldier->deployment().previousSectorId() ) == sMapY && (pTeamSoldier->deployment().sectorZ() == bMapZ)) )
+					//if ( SOLDIER_IN_SECTOR( pTeamSoldier, sMapX, sMapY, bMapZ ) || (pTeamSoldier->deployment().isBetweenSectors() && SECTORX( pTeamSoldier->deployment().previousSectorId() ) == sMapX && SECTORY( pTeamSoldier->deployment().previousSectorId() ) == sMapY && (pTeamSoldier->deployment().sectorZ() == bMapZ)) )
 					if (pTeamSoldier->bInSector ||
-						pTeamSoldier->flags.fBetweenSectors && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
+						pTeamSoldier->deployment().isBetweenSectors() && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ)
 					{
 						if ( gGameOptions.fNewTraitSystem )
 						{

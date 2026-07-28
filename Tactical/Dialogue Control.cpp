@@ -1802,7 +1802,7 @@ void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSect
 			pSoldier->deployment().sectorX() == aSectorX && pSoldier->deployment().sectorY() == aSectorY && pSoldier->deployment().sectorZ() == aSectorZ &&
 			pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			(aAroundGridno == NOWHERE || PythSpacesAway( pSoldier->position().gridNo(), aAroundGridno ) <= aRadius ) &&
-			!pSoldier->flags.fBetweenSectors )
+			!pSoldier->deployment().isBetweenSectors() )
 		{
 			AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, usEventNr, aData1, aData2, aData3 );
 		}
@@ -3279,7 +3279,7 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter )
 			mprintf( sFontX, sFontY, L"%s", pSoldier->name );
 
 			// What sector are we in, ( and is it the same as ours? )
-			if ( pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY || pSoldier->deployment().sectorZ() != gbWorldSectorZ || pSoldier->flags.fBetweenSectors )
+			if ( pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY || pSoldier->deployment().sectorZ() != gbWorldSectorZ || pSoldier->deployment().isBetweenSectors() )
 			{
 				GetSectorIDString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), zTownIDString, FALSE );
 

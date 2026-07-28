@@ -2267,7 +2267,7 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 					pSoldier->deployment().sectorX() == sSectorX &&
 					pSoldier->deployment().sectorY() == sSectorY &&
 					pSoldier->deployment().sectorZ() == bSectorZ &&
-					!pSoldier->flags.fBetweenSectors )
+					!pSoldier->deployment().isBetweenSectors() )
 			{
 				return TRUE;
 			}

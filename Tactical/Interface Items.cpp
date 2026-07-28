@@ -10730,7 +10730,7 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		if( ( pSelected->deployment().sectorX() != sSelMapX ) ||
 				( pSelected->deployment().sectorY() != sSelMapY ) ||
 				( pSelected->deployment().sectorZ() != iCurrentMapSectorZ ) ||
-				( pSelected->flags.fBetweenSectors ) )
+				( pSelected->deployment().isBetweenSectors() ) )
 		{
 			if ( gpItemPointer == NULL )
 			{

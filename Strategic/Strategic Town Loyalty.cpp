@@ -2131,7 +2131,7 @@ UINT32 PlayerStrength( void )
 		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 		if ( pSoldier->bActive )
 		{
-			if ( pSoldier->bInSector || (pSoldier->flags.fBetweenSectors && SECTORX( pSoldier->deployment().previousSectorId() ) == gWorldSectorX && SECTORY( pSoldier->deployment().previousSectorId() ) == gWorldSectorY && (pSoldier->deployment().sectorZ() == gbWorldSectorZ)) )
+			if ( pSoldier->bInSector || (pSoldier->deployment().isBetweenSectors() && SECTORX( pSoldier->deployment().previousSectorId() ) == gWorldSectorX && SECTORY( pSoldier->deployment().previousSectorId() ) == gWorldSectorY && (pSoldier->deployment().sectorZ() == gbWorldSectorZ)) )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
 				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;

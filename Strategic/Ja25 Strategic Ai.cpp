@@ -2725,7 +2725,7 @@ void HandleSayingDontStayToLongWarningInSectorH8()
 				pSoldier->deployment().sectorY() == 8 &&
 				pSoldier->deployment().sectorZ() == 0 &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!pSoldier->flags.fBetweenSectors )
+				!pSoldier->deployment().isBetweenSectors() )
 		{
 			//if the merc is either PGC, gaston, or stogie
 			if( pSoldier->ubProfile == GASTON_UB ||

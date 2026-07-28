@@ -465,7 +465,7 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 				pSoldier->deployment().sectorY() == gWorldSectorY &&
 				pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!pSoldier->flags.fBetweenSectors )
+				!pSoldier->deployment().isBetweenSectors() )
 		{
 			//if the merc is one of the mercs we are looking for
 			if( IsSoldierQualifiedMerc( pSoldier ) )

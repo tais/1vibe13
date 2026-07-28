@@ -7448,6 +7448,9 @@ int main( int, char** )
 		deployment.scheduleArrival(14000, 6);
 		deployment.beginArrivalGetup();
 		deployment.arrivalGetupCounter() = 15000;
+		deployment.beginStrategicTransit();
+		deployment.enterMissionExitNode();
+		deployment.setUseLandingZoneForArrival(true);
 		SoldierScheduleComponent& schedule = soldier.schedule();
 		schedule.id() = 37;
 		schedule.progress() = 2;
@@ -7873,8 +7876,11 @@ int main( int, char** )
 		       constSoldier.deployment().arrivalTime() == 14000 &&
 		       constSoldier.deployment().arrivalGetupPending() &&
 		       constSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       constSoldier.deployment().arrivalGetupCounter() == 15000,
-		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival lifecycle" );
+		       constSoldier.deployment().arrivalGetupCounter() == 15000 &&
+		       constSoldier.deployment().isBetweenSectors() &&
+		       constSoldier.deployment().insideMissionExitNode() &&
+		       constSoldier.deployment().usesLandingZoneForArrival(),
+		       "soldier deployment component owns strategic placement, transit, insertion, traversal, and arrival lifecycle" );
 		CHECK( constSoldier.schedule().assigned() &&
 		       constSoldier.schedule().id() == 37 &&
 		       constSoldier.schedule().progress() == 2 &&
@@ -8811,7 +8817,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().arrivalTime() == 14000 &&
 		       copiedSoldier.deployment().arrivalGetupPending() &&
 		       copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       copiedSoldier.deployment().arrivalGetupCounter() == 15000,
+		       copiedSoldier.deployment().arrivalGetupCounter() == 15000 &&
+		       copiedSoldier.deployment().isBetweenSectors() &&
+		       copiedSoldier.deployment().insideMissionExitNode() &&
+		       copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier copies retain their owned persistent deployment state" );
 		CHECK( copiedSoldier.schedule().id() == 37 &&
 		       copiedSoldier.schedule().progress() == 2 &&
@@ -9584,6 +9593,9 @@ int main( int, char** )
 		deploymentLifecycle.scheduleArrival(4400, 7);
 		deploymentLifecycle.beginArrivalGetup();
 		deploymentLifecycle.arrivalGetupCounter() = 4500;
+		deploymentLifecycle.beginStrategicTransit();
+		deploymentLifecycle.enterMissionExitNode();
+		deploymentLifecycle.setUseLandingZoneForArrival(true);
 		CHECK( deploymentLifecycle.isInSector(11, 5, 2) &&
 		       deploymentLifecycle.hasVehicle() &&
 		       deploymentLifecycle.strategicInsertionData() == 3301 &&
@@ -9593,8 +9605,18 @@ int main( int, char** )
 		       deploymentLifecycle.leaveHistoryCode() == 7 &&
 		       deploymentLifecycle.arrivalGetupPending() &&
 		       deploymentLifecycle.ignoreCollapseGetupCheck() &&
-		       deploymentLifecycle.arrivalGetupCounter() == 4500,
-		       "deployment exposes named sector, insertion, traversal, vehicle, and arrival transitions" );
+		       deploymentLifecycle.arrivalGetupCounter() == 4500 &&
+		       deploymentLifecycle.isBetweenSectors() &&
+		       deploymentLifecycle.insideMissionExitNode() &&
+		       deploymentLifecycle.usesLandingZoneForArrival(),
+		       "deployment exposes named sector, transit, insertion, traversal, vehicle, and arrival transitions" );
+		deploymentLifecycle.completeStrategicTransit();
+		deploymentLifecycle.leaveMissionExitNode();
+		deploymentLifecycle.setUseLandingZoneForArrival(false);
+		CHECK( !deploymentLifecycle.isBetweenSectors() &&
+		       !deploymentLifecycle.insideMissionExitNode() &&
+		       !deploymentLifecycle.usesLandingZoneForArrival(),
+		       "deployment completes strategic transit and clears mission-exit and landing-zone policy" );
 		deploymentLifecycle.completeArrivalGetup();
 		deploymentLifecycle.clearCollapseGetupOverride();
 		CHECK( !deploymentLifecycle.arrivalGetupPending() &&
@@ -9620,7 +9642,10 @@ int main( int, char** )
 		       deploymentLifecycle.arrivalTime() == 0 &&
 		       !deploymentLifecycle.arrivalGetupPending() &&
 		       !deploymentLifecycle.ignoreCollapseGetupCheck() &&
-		       deploymentLifecycle.arrivalGetupCounter() == 0,
+		       deploymentLifecycle.arrivalGetupCounter() == 0 &&
+		       !deploymentLifecycle.isBetweenSectors() &&
+		       !deploymentLifecycle.insideMissionExitNode() &&
+		       !deploymentLifecycle.usesLandingZoneForArrival(),
 		       "deployment reset clears the complete strategic placement lifecycle" );
 
 		SoldierScheduleComponent scheduleLifecycle;
@@ -9844,7 +9869,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().arrivalTime() == 0 &&
 		       !copiedSoldier.deployment().arrivalGetupPending() &&
 		       !copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       copiedSoldier.deployment().arrivalGetupCounter() == 0,
+		       copiedSoldier.deployment().arrivalGetupCounter() == 0 &&
+		       !copiedSoldier.deployment().isBetweenSectors() &&
+		       !copiedSoldier.deployment().insideMissionExitNode() &&
+		       !copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier initialization resets the complete deployment domain" );
 		CHECK( !copiedSoldier.schedule().assigned() &&
 		       copiedSoldier.schedule().progress() == 0 &&
@@ -10252,6 +10280,9 @@ int main( int, char** )
 		legacySoldier->sPreTraversalGridNo = 2303;
 		legacySoldier->ubLeaveHistoryCode = 8;
 		legacySoldier->uiTimeSoldierWillArrive = 15000;
+		legacySoldier->fBetweenSectors = 2;
+		legacySoldier->fInMissionExitNode = 3;
+		legacySoldier->fUseLandingZoneForArrival = 4;
 		legacySoldier->bEndDoorOpenCode = 2;
 		legacySoldier->ubScheduleID = 42;
 		legacySoldier->sEndDoorOpenCodeData = 2310;
@@ -10637,8 +10668,11 @@ int main( int, char** )
 		       convertedSoldier.deployment().arrivalTime() == 15000 &&
 		       !convertedSoldier.deployment().arrivalGetupPending() &&
 		       !convertedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       convertedSoldier.deployment().arrivalGetupCounter() == 0,
-		       "v101 soldier conversion retains deployment while clearing historically ignored arrival get-up state" );
+		       convertedSoldier.deployment().arrivalGetupCounter() == 0 &&
+		       convertedSoldier.deployment().betweenSectors() == 2 &&
+		       convertedSoldier.deployment().inMissionExitNode() == 3 &&
+		       convertedSoldier.deployment().useLandingZoneForArrival() == 4,
+		       "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state" );
 		CHECK( convertedSoldier.schedule().id() == 42 &&
 		       convertedSoldier.schedule().progress() == 3 &&
 		       !convertedSoldier.schedule().doorContinuationPending() &&
@@ -11075,6 +11109,9 @@ int main( int, char** )
 		savedSoldier.deployment().scheduleArrival(16000, 9);
 		savedSoldier.deployment().beginArrivalGetup();
 		savedSoldier.deployment().arrivalGetupCounter() = 17000;
+		savedSoldier.deployment().beginStrategicTransit();
+		savedSoldier.deployment().enterMissionExitNode();
+		savedSoldier.deployment().setUseLandingZoneForArrival(true);
 		savedSoldier.schedule().id() = 43;
 		savedSoldier.schedule().progress() = 4;
 		savedSoldier.schedule().beginDoorContinuation(2404);
@@ -11482,8 +11519,11 @@ int main( int, char** )
 		       loadedSoldier.deployment().arrivalTime() == 16000 &&
 		       loadedSoldier.deployment().arrivalGetupPending() &&
 		       loadedSoldier.deployment().ignoreCollapseGetupCheck() &&
-		       loadedSoldier.deployment().arrivalGetupCounter() == 17000,
-		       "soldier save/load round-trips deployment state at every established POD position" );
+		       loadedSoldier.deployment().arrivalGetupCounter() == 17000 &&
+		       loadedSoldier.deployment().isBetweenSectors() &&
+		       loadedSoldier.deployment().insideMissionExitNode() &&
+		       loadedSoldier.deployment().usesLandingZoneForArrival(),
+		       "soldier save/load round-trips deployment and transit state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.schedule().id() == 43 &&
 		       loadedSoldier.schedule().progress() == 4 &&

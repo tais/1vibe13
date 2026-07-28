@@ -466,7 +466,7 @@ BOOLEAN IsThisVehicleAccessibleToSoldier( SOLDIERTYPE *pSoldier, INT32 iId )
 	}
 
 	// if the soldier or the vehicle is between sectors
-	if( pSoldier->flags.fBetweenSectors || pVehicleList[ iId ].fBetweenSectors )
+	if( pSoldier->deployment().isBetweenSectors() || pVehicleList[ iId ].fBetweenSectors )
 	{
 		return( FALSE );
 	}
@@ -969,7 +969,7 @@ void RemoveSoldierFromVehicleBetweenSectors( pSoldier, iId )
 
 
 	// set up a mvt group for the grunt
-	pSoldier->flags.fBetweenSectors = TRUE;
+	pSoldier->deployment().beginStrategicTransit();
 
 	// ok, the guy wasn't in a squad
 	// get his mvt groups position and set the squads to this
@@ -1310,7 +1310,7 @@ void UpdatePositionOfMercsInVehicle( INT32 iId )
 		{
 			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorY() = pVehicleList[ iId ].sSectorY;
 			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().sectorX() = pVehicleList[ iId ].sSectorX;
-			pVehicleList[ iId ].pPassengers[ iCounter ]->flags.fBetweenSectors = FALSE;
+			pVehicleList[ iId ].pPassengers[ iCounter ]->deployment().completeStrategicTransit();
 		}
 	}
 

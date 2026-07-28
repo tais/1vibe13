@@ -616,7 +616,7 @@ BOOLEAN RemoveSoldierFromHelicopter( SOLDIERTYPE *pSoldier )
 	pSoldier->deployment().sectorZ() = 0;
 
 	// reset between sectors
-	pSoldier->flags.fBetweenSectors = FALSE;
+	pSoldier->deployment().completeStrategicTransit();
 
 
 	// remove from the vehicle

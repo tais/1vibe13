@@ -2370,13 +2370,13 @@ BOOLEAN CanCharacterOnDuty( SOLDIERTYPE *pSoldier )
 	}
 
 	// ARM: New rule: can't change squads or exit vehicles between sectors!
-	if( pSoldier->flags.fBetweenSectors )
+	if( pSoldier->deployment().isBetweenSectors() )
 	{
 		return ( FALSE );
 	}
 
 /*
-	if( pSoldier->flags.fBetweenSectors )
+	if( pSoldier->deployment().isBetweenSectors() )
 	{
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
@@ -2528,7 +2528,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	}
 	
 	// traveling?
-	if ( pSoldier->flags.fBetweenSectors )
+	if ( pSoldier->deployment().isBetweenSectors() )
 	{
 		// if walking
 		if ( pSoldier->assignment().current() != VEHICLE )
@@ -2747,7 +2747,7 @@ INT8 CanCharacterSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	}
 
 /* Driver can't abandon vehicle between sectors - OBSOLETE - nobody is allowed to change squads between sectors now!
-	if( pSoldier->flags.fBetweenSectors )
+	if( pSoldier->deployment().isBetweenSectors() )
 	{
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
@@ -4485,7 +4485,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	}
 
 	// can't be between sectors (possible to get here if ignoring assignment)
-	if ( pSoldier->flags.fBetweenSectors )
+	if ( pSoldier->deployment().isBetweenSectors() )
 	{
 		return(FALSE);
 	}
@@ -5912,7 +5912,7 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 
 	//KM: Added encumbrance calculation to soldiers moving on foot.	Anything above 100% will increase
 	//	rate of fatigue.	200% encumbrance will cause soldiers to tire twice as quickly.
-	if( pSoldier->flags.fBetweenSectors && pSoldier->assignment().current() != VEHICLE )
+	if( pSoldier->deployment().isBetweenSectors() && pSoldier->assignment().current() != VEHICLE )
 	{ //Soldier is on foot and travelling.	Factor encumbrance into fatigue rate.
 		iPercentEncumbrance = CalculateCarriedWeight( pSoldier );
 		if( iPercentEncumbrance > 100 )
@@ -5939,7 +5939,7 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 	if( gGameOptions.fNewTraitSystem )
 	{
 		// bonus for ranger travelling between sectors
-		if ( pSoldier->flags.fBetweenSectors && HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
+		if ( pSoldier->deployment().isBetweenSectors() && HAS_SKILL_TRAIT( pSoldier, SURVIVAL_NT ) )
 		{
 			bMaxBreathLoss = (bMaxBreathLoss * (100 - gSkillTraitValues.ubSVBreathForTravellingReduction * NUM_SKILL_TRAITS( pSoldier, SURVIVAL_NT )) / 100);
 		}
@@ -7268,7 +7268,7 @@ void HandleGatheringInformationBySoldier( SOLDIERTYPE* pSoldier )
 	if (!SectorOursAndPeaceful( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ))
 		return;
 
-	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->flags.fMercAsleep == TRUE || pSoldier->flags.fBetweenSectors == TRUE )
+	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->flags.fMercAsleep == TRUE || pSoldier->deployment().isBetweenSectors() == TRUE )
 	{
 		if( pSoldier->assignment().current() != SNITCH_GATHER_RUMOURS && pSoldier->assignment().current() != FACILITY_GATHER_RUMOURS )
 		{
@@ -9455,7 +9455,7 @@ BOOLEAN CharacterIsBetweenSectors( SOLDIERTYPE *pSoldier )
 	if( !pSoldier )
 		return ( FALSE );
 
-	return( pSoldier->flags.fBetweenSectors );
+	return( pSoldier->deployment().isBetweenSectors() );
 }
 
 void HandleNaturalHealing( void )
@@ -13134,7 +13134,7 @@ void SquadMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				iOldSquadValue = SquadCharacterIsIn( pSoldier );
 
 				// grab if char was between sectors
-				fCharacterWasBetweenSectors = pSoldier->flags.fBetweenSectors;
+				fCharacterWasBetweenSectors = pSoldier->deployment().isBetweenSectors();
 
 				if( fCharacterWasBetweenSectors )
 				{
@@ -16521,7 +16521,7 @@ void HandleRestFatigueAndSleepStatus( void )
 				if( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM )
 				{
 					// if between sectors, don't put tired mercs to sleep...	will be handled when they arrive at the next sector
-					if ( pSoldier->flags.fBetweenSectors )
+					if ( pSoldier->deployment().isBetweenSectors() )
 					{
 						continue;
 					}
@@ -16744,7 +16744,7 @@ BOOLEAN IsRobotInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 	if ( pSoldier != NULL )
 	{
-		if( ( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == bSectorZ ) && ( pSoldier->flags.fBetweenSectors == FALSE ) )
+		if( ( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == bSectorZ ) && ( pSoldier->deployment().isBetweenSectors() == FALSE ) )
 		{
 			return( TRUE );
 		}
@@ -19137,7 +19137,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 							// is the squad between sectors
 							if( Squad[ bAssignment ][ 0 ] )
 							{
-								if( Squad[ bAssignment ][ 0 ]->flags.fBetweenSectors )
+								if( Squad[ bAssignment ][ 0 ]->deployment().isBetweenSectors() )
 								{
 									// between sectors, remove from old mvt group
 									if ( pSoldier->assignment().previous() >= ON_DUTY )
@@ -19576,7 +19576,7 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 		return( FALSE );
 	}
 
-	if ( pOtherSoldier->flags.fBetweenSectors )
+	if ( pOtherSoldier->deployment().isBetweenSectors() )
 	{
 		return( FALSE );
 	}

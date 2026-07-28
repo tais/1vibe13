@@ -422,15 +422,17 @@ adapter, so save and load can never drift out of order. Extra methods:
   absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
   change.
 - Strategic sector, movement-group and vehicle membership, tactical insertion,
-  traversal origin, off-world staging, arrival bookkeeping, and the Unfinished
-  Business helicopter arrival get-up state are now stored by
-  `SoldierDeploymentComponent`. The visitor still emits all eighteen values at
-  their original scattered POD positions and widths; the arrival get-up tail
-  remains a boolean, signed 32-bit timer, and boolean. v101 conversion maps the
-  deployment fields it historically consumed and keeps its established
-  behavior of clearing the three ignored arrival get-up values. Strategic path
-  and group pointers remain serialization adapters. No save, packet, map, XML,
-  Lua, or installed-data bytes change.
+  traversal origin, off-world staging, between-sector transit, mission-exit
+  participation, landing-zone arrival policy, arrival bookkeeping, and the
+  Unfinished Business helicopter arrival get-up state are now stored by
+  `SoldierDeploymentComponent`. The visitor still emits all twenty-one values
+  at their original scattered POD positions and widths. The three transit and
+  arrival-policy flags remain at their historical boolean slots; the arrival
+  get-up tail remains a boolean, signed 32-bit timer, and boolean. v101
+  conversion maps the raw deployment values it historically consumed and
+  keeps its established behavior of clearing the three ignored arrival get-up
+  values. Strategic path and group pointers remain serialization adapters. No
+  save, packet, map, XML, Lua, or installed-data bytes change.
 - NPC schedule identity and progress plus the open-door continuation phase and
   grid are now stored by `SoldierScheduleComponent`. The visitor still emits
   the four values at their three original POD sites and widths. v101

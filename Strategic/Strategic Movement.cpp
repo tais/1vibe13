@@ -1951,7 +1951,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			curr = pGroup->pPlayerList;
 			while( curr )
 			{
-				curr->pSoldier->flags.fBetweenSectors = FALSE;
+				curr->pSoldier->deployment().completeStrategicTransit();
 				curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 				curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 				curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2028,7 +2028,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				pSoldier = GetSoldierStructureForVehicle( iVehId );
 				Assert( pSoldier );
 
-				pSoldier->flags.fBetweenSectors = FALSE;
+				pSoldier->deployment().completeStrategicTransit();
 				pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 				pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 				pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2050,7 +2050,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				curr = pGroup->pPlayerList;
 				while( curr )
 				{
-					curr->pSoldier->flags.fBetweenSectors = FALSE;
+					curr->pSoldier->deployment().completeStrategicTransit();
 					curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
 					curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
 					curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
@@ -2456,7 +2456,7 @@ void PrepareGroupsForSimultaneousArrival()
 
 			if( pSoldier )
 			{
-				pSoldier->flags.fBetweenSectors = TRUE;
+				pSoldier->deployment().beginStrategicTransit();
 			}
 		}
 	}
@@ -2805,7 +2805,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 
 			if ( pSoldier )
 			{
-				pSoldier->flags.fBetweenSectors = TRUE;
+				pSoldier->deployment().beginStrategicTransit();
 
 				// OK, Remove the guy from tactical engine!
 				RemoveSoldierFromTacticalSector( pSoldier, TRUE );
@@ -2830,7 +2830,7 @@ void InitiateGroupMovementToNextSector( GROUP *pGroup )
 		curr = pGroup->pPlayerList;
 		while ( curr )
 		{
-			curr->pSoldier->flags.fBetweenSectors = TRUE;
+			curr->pSoldier->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
 			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );
@@ -3032,7 +3032,7 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 			pPlayer->pSoldier->deployment().sectorX() = sSectorX;
 			pPlayer->pSoldier->deployment().sectorY() = sSectorY;
 			pPlayer->pSoldier->deployment().sectorZ() = (UINT8)sSectorZ;
-			pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
+			pPlayer->pSoldier->deployment().completeStrategicTransit();
 			pPlayer->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			pPlayer = pPlayer->next;
 		}
@@ -3824,7 +3824,7 @@ void MoveAllGroupsInCurrentSectorToSector( UINT8 ubSectorX, UINT8 ubSectorY, UIN
 				pPlayer->pSoldier->deployment().sectorX() = ubSectorX;
 				pPlayer->pSoldier->deployment().sectorY() = ubSectorY;
 				pPlayer->pSoldier->deployment().sectorZ() = ubSectorZ;
-				pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
+				pPlayer->pSoldier->deployment().completeStrategicTransit();
 				pPlayer = pPlayer->next;
 			}
 		}
@@ -3896,7 +3896,7 @@ void SetGroupPosition( UINT8 ubNextX, UINT8 ubNextY, UINT8 ubPrevX, UINT8 ubPrev
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->flags.fBetweenSectors = TRUE;
+			pPlayer->pSoldier->deployment().beginStrategicTransit();
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -4633,7 +4633,7 @@ void RetreatGroupToPreviousSector( GROUP *pGroup )
 
 		while( curr )
 		{
-			curr->pSoldier->flags.fBetweenSectors = TRUE;
+			curr->pSoldier->deployment().beginStrategicTransit();
 
 			// OK, Remove the guy from tactical engine!
 			RemoveSoldierFromTacticalSector( curr->pSoldier, TRUE );

@@ -4821,6 +4821,19 @@ foreach(retired_deployment_field IN ITEMS
       "Retired flat SOLDIERTYPE deployment field '${retired_deployment_name}' returned; strategic placement belongs to SoldierDeploymentComponent")
   endif()
 endforeach()
+foreach(retired_deployment_flag IN ITEMS
+  fBetweenSectors
+  fInMissionExitNode
+  fUseLandingZoneForArrival)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_deployment_flag}[ \t]*;"
+    retired_current_deployment_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_deployment_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags deployment field '${retired_deployment_flag}' returned; strategic transit and arrival policy belong to SoldierDeploymentComponent")
+  endif()
+endforeach()
 foreach(owned_arrival_getup_field IN ITEMS
   "BOOLEAN;ignoreCollapseGetupCheck;FALSE"
   "INT32;arrivalGetupCounter;0"
@@ -4837,6 +4850,19 @@ foreach(owned_arrival_getup_field IN ITEMS
   if(NOT owned_soldier_arrival_getup)
     message(FATAL_ERROR
       "SoldierDeploymentComponent no longer owns initialized '${owned_arrival_getup_name}_' arrival-getup storage")
+  endif()
+endforeach()
+foreach(owned_deployment_boolean_field IN ITEMS
+  betweenSectors
+  inMissionExitNode
+  useLandingZoneForArrival)
+  string(REGEX MATCH
+    "BOOLEAN[ \t]+${owned_deployment_boolean_field}_[ \t]*=[ \t]*FALSE[ \t]*;"
+    owned_soldier_deployment_boolean
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_deployment_boolean)
+    message(FATAL_ERROR
+      "SoldierDeploymentComponent no longer owns initialized '${owned_deployment_boolean_field}_' transit/arrival storage")
   endif()
 endforeach()
 
@@ -4895,6 +4921,9 @@ string(FIND "${soldier_control_source_contents}"
 foreach(required_deployment_operation IN ITEMS
   "bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept"
   "bool hasVehicle() const noexcept"
+  "bool isBetweenSectors() const noexcept"
+  "bool insideMissionExitNode() const noexcept"
+  "bool usesLandingZoneForArrival() const noexcept"
   "void setSector(INT16 x, INT16 y, INT8 z) noexcept"
   "void clearVehicle() noexcept"
   "void setStrategicInsertion(UINT8 code, INT32 data) noexcept"
@@ -4903,7 +4932,12 @@ foreach(required_deployment_operation IN ITEMS
   "bool arrivalGetupPending() const noexcept"
   "void beginArrivalGetup() noexcept"
   "void completeArrivalGetup() noexcept"
-  "void clearCollapseGetupOverride() noexcept")
+  "void clearCollapseGetupOverride() noexcept"
+  "void beginStrategicTransit() noexcept"
+  "void completeStrategicTransit() noexcept"
+  "void enterMissionExitNode() noexcept"
+  "void leaveMissionExitNode() noexcept"
+  "void setUseLandingZoneForArrival(bool enabled) noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${required_deployment_operation}"
     soldier_deployment_operation)
@@ -4918,9 +4952,25 @@ if(soldier_deployment_accessor EQUAL -1 OR
     "SoldierDeploymentComponent must remain directly accessible and reset with its soldier")
 endif()
 
+foreach(deployment_transit_conversion IN ITEMS
+  "deployment().betweenSectors() = src.fBetweenSectors;"
+  "deployment().inMissionExitNode() = src.fInMissionExitNode;"
+  "deployment().useLandingZoneForArrival() = src.fUseLandingZoneForArrival;")
+  string(FIND "${soldier_control_source_contents}"
+    "${deployment_transit_conversion}"
+    soldier_deployment_transit_conversion_site)
+  if(soldier_deployment_transit_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost deployment transit mapping '${deployment_transit_conversion}'")
+  endif()
+endforeach()
+
 string(FIND "${save_load_game_contents}"
   "SoldierDeploymentComponent& deployment = s.deployment();"
   serialized_soldier_deployment_adapter)
+string(FIND "${save_load_game_contents}"
+  "SoldierDeploymentComponent& deployment = soldier.deployment();"
+  serialized_soldier_deployment_flag_adapter)
 string(REGEX MATCH
   "ar\\.u8\\(s\\.ubWaitActionToDo\\);[ \t]*ar\\.i8\\(deployment\\.insertionDirection\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bGunType\\);"
   serialized_soldier_deployment_direction_order
@@ -4961,7 +5011,16 @@ string(REGEX MATCH
   "ar\\.boolean\\(deployment\\.ignoreCollapseGetupCheck\\(\\)\\);[ \t\r\n]*ar\\.i32\\(deployment\\.arrivalGetupCounter\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(deployment\\.waitingForArrivalGetup\\(\\)\\);"
   serialized_soldier_deployment_arrival_getup_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fReloading\\);[ \t]*ar\\.boolean\\(f\\.fPauseAim\\);[ \t]*ar\\.boolean\\(deployment\\.inMissionExitNode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(deployment\\.betweenSectors\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fReactingFromBeingShot\\);"
+  serialized_soldier_deployment_transit_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);"
+  serialized_soldier_deployment_landing_zone_order
+  "${save_load_game_contents}")
 if(serialized_soldier_deployment_adapter EQUAL -1 OR
+   serialized_soldier_deployment_flag_adapter EQUAL -1 OR
    NOT serialized_soldier_deployment_direction_order OR
    NOT serialized_soldier_deployment_group_order OR
    NOT serialized_soldier_deployment_grid_order OR
@@ -4971,15 +5030,19 @@ if(serialized_soldier_deployment_adapter EQUAL -1 OR
    NOT serialized_soldier_deployment_previous_sector_order OR
    NOT serialized_soldier_deployment_reentry_order OR
    NOT serialized_soldier_deployment_arrival_order OR
-   NOT serialized_soldier_deployment_arrival_getup_order)
+   NOT serialized_soldier_deployment_arrival_getup_order OR
+   NOT serialized_soldier_deployment_transit_order OR
+   NOT serialized_soldier_deployment_landing_zone_order)
   message(FATAL_ERROR
-    "Soldier deployment state moved in the portable save schema; keep all eighteen values at their established POD positions")
+    "Soldier deployment state moved in the portable save schema; keep all twenty-one values at their established POD positions")
 endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Merc Hiring.cpp"
   soldier_arrival_getup_hiring_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
   soldier_arrival_getup_overhead_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Strategic Movement.cpp"
+  soldier_deployment_transit_movement_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
   soldier_arrival_getup_dialogue_contents)
 file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
@@ -5027,9 +5090,38 @@ if(soldier_arrival_getup_timer_site EQUAL -1)
   message(FATAL_ERROR
     "The legacy clock must advance the component-owned arrival get-up timer")
 endif()
+foreach(deployment_transit_movement_fragment IN ITEMS
+  "deployment().beginStrategicTransit();"
+  "deployment().completeStrategicTransit();")
+  string(FIND "${soldier_deployment_transit_movement_contents}"
+    "${deployment_transit_movement_fragment}"
+    soldier_deployment_transit_movement_site)
+  if(soldier_deployment_transit_movement_site EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic movement bypassed deployment transition '${deployment_transit_movement_fragment}'")
+  endif()
+endforeach()
+foreach(deployment_arrival_policy_fragment IN ITEMS
+  "pSoldier->deployment().setUseLandingZoneForArrival( pHireMerc->fUseLandingZoneForArrival != FALSE );"
+  "pSoldier->deployment().usesLandingZoneForArrival()")
+  string(FIND "${soldier_arrival_getup_hiring_contents}"
+    "${deployment_arrival_policy_fragment}"
+    soldier_deployment_arrival_policy_site)
+  if(soldier_deployment_arrival_policy_site EQUAL -1)
+    message(FATAL_ERROR
+      "Mercenary hiring bypassed deployment arrival policy '${deployment_arrival_policy_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_arrival_getup_overhead_contents}"
+  "pSoldier->deployment().insideMissionExitNode()"
+  soldier_deployment_mission_exit_site)
+if(soldier_deployment_mission_exit_site EQUAL -1)
+  message(FATAL_ERROR
+    "Mission-exit handling bypassed SoldierDeploymentComponent")
+endif()
 foreach(arrival_getup_test_fragment IN ITEMS
   "deployment completes arrival get-up while retaining the historical timer value"
-  "v101 soldier conversion retains deployment while clearing historically ignored arrival get-up state"
+  "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state"
   "loadedSoldier.deployment().arrivalGetupCounter() == 17000")
   string(FIND "${headless_test_contents}"
     "${arrival_getup_test_fragment}"
@@ -5037,6 +5129,18 @@ foreach(arrival_getup_test_fragment IN ITEMS
   if(soldier_arrival_getup_test_site EQUAL -1)
     message(FATAL_ERROR
       "Headless coverage lost arrival get-up fixture '${arrival_getup_test_fragment}'")
+  endif()
+endforeach()
+foreach(deployment_transit_test_fragment IN ITEMS
+  "deployment completes strategic transit and clears mission-exit and landing-zone policy"
+  "convertedSoldier.deployment().betweenSectors() == 2"
+  "soldier save/load round-trips deployment and transit state at every established POD position")
+  string(FIND "${headless_test_contents}"
+    "${deployment_transit_test_fragment}"
+    soldier_deployment_transit_test_site)
+  if(soldier_deployment_transit_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost deployment transit fixture '${deployment_transit_test_fragment}'")
   endif()
 endforeach()
 string(FIND "${engine_architecture_documentation}"
@@ -5053,6 +5157,21 @@ if(soldier_arrival_getup_architecture_documented EQUAL -1 OR
    soldier_arrival_getup_save_documented EQUAL -1)
   message(FATAL_ERROR
     "Engine and save documentation must describe component-owned arrival get-up state")
+endif()
+string(FIND "${engine_architecture_documentation}"
+  "between-sector transit"
+  soldier_deployment_transit_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "between-sector transit"
+  soldier_deployment_transit_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "all twenty-one values"
+  soldier_deployment_transit_save_documented)
+if(soldier_deployment_transit_architecture_documented EQUAL -1 OR
+   soldier_deployment_transit_sdk_documented EQUAL -1 OR
+   soldier_deployment_transit_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Engine and save documentation must describe component-owned deployment transit state")
 endif()
 
 # NPC schedule execution has one live owner while schedule nodes, editor
@@ -8225,7 +8344,7 @@ string(REGEX MATCH
   serialized_soldier_animation_stance_cost_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(f\\.fUseLandingZoneForArrival\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
+  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
