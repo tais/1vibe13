@@ -11372,8 +11372,8 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldier->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), pSoldierToSurrender->position().gridNo() ) );
 			pSoldierToSurrender->EVENT_SetSoldierDesiredDirection( GetDirectionToGridNoFromGridNo( pSoldierToSurrender->position().gridNo(), pSoldier->position().gridNo() ) );
 
-			pSoldierToSurrender->usChatPartnerID = gusSelectedSoldier;
-			pSoldier->usChatPartnerID = prisonerdialoguetargetID;
+			pSoldierToSurrender->interaction().beginChatWith( gusSelectedSoldier );
+			pSoldier->interaction().beginChatWith( prisonerdialoguetargetID );
 		}
 		else
 		{
@@ -11424,7 +11424,7 @@ void CheckChatPartners()
 					GetJa2SoldierRepository().resolve(ubLoop.i);
 				SOLDIERTYPE* chatPartner = pSoldier
 					? GetJa2SoldierRepository().resolve(
-						pSoldier->usChatPartnerID.i)
+						pSoldier->interaction().chatPartner().i)
 					: nullptr;
 
 				if ( pSoldier && pSoldier->awareness().visibility() && chatPartner && chatPartner->awareness().visibility() )

@@ -1014,6 +1014,16 @@ the engine must not contain SDL types in its public domain model.
   hack validation and completion consistently dispatch against the retained
   target grid and treat skill equal to difficulty as success.
   All three save fields retain their original positions and widths.
+  `SoldierInteractionComponent` owns the complementary direct-interaction
+  domain: non-profile merchant identity, mutually exclusive person, corpse, or
+  structure dragging, and the reciprocal chat partner. Named drag, clone,
+  chat, clear, and reset operations replace scattered sentinel manipulation.
+  Fresh soldiers now explicitly start with no corpse target instead of
+  accidentally naming corpse zero, and structure placement tests an explicit
+  drag state so grid zero remains valid while negative grids remain invalid.
+  The referenced soldiers, corpses, and structures retain their existing
+  repositories and lifetimes. All five scattered save fields retain their
+  original positions and widths; v101 conversion clears this later domain.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

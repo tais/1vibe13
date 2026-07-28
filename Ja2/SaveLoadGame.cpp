@@ -1670,6 +1670,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
+	SoldierInteractionComponent& interaction = s.interaction();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1807,8 +1808,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
 	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());
 	ar.i16(assignment.facilityType()); ar.i8(attackSelection.scopeMode());
-	ar.u8(s.ubMilitiaAssists); ar.i8(s.sNonNPCTraderID); ar.u16(s.usDragPersonID.i);
-	ar.i16(s.sDragCorpseID); ar.u16(s.usChatPartnerID.i);
+	ar.u8(s.ubMilitiaAssists); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);
+	ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);
 	ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());
 	ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
@@ -1823,7 +1824,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
 	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
-	ar.u32(condition.disabilityFlags()); ar.i32(s.sDragGridNo);
+	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(s.fIgnoreGetupFromCollapseCheck);
 	ar.i32(s.GetupFromJA25StartCounter);
 	ar.boolean(s.fWaitingToGetupFromJA25Start);

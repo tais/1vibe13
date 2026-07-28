@@ -2133,12 +2133,9 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->fireControl().bulletsLeft()				= 0;
 	pSoldier->assignment().clearRepairVehicle();
 	pSoldier->assignment().clearFacility(); // HEADROCK HAM 3.6: Facility Operated
-	pSoldier->usChatPartnerID			= NOBODY;
-
 	// sevenfm: initialize additional data
 	pSoldier->InitializeExtraData();
 
-	pSoldier->sDragGridNo = NOWHERE;
 	pSoldier->skillState().clearFocus();
 }
 
@@ -3567,14 +3564,14 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 		// set correct civ group
 		pSoldier->ubCivilianGroup = usCivilianGroup;
 
-		pSoldier->sNonNPCTraderID = -1;
+		pSoldier->interaction().nonNpcTraderId() = -1;
 
 		if ( gGameExternalOptions.bExtraMerchants )
 		{
-			pSoldier->sNonNPCTraderID = usTraderID;
+			pSoldier->interaction().nonNpcTraderId() = usTraderID;
 
 			// if we're a dealer, don't walk around that much
-			if ( pSoldier->sNonNPCTraderID > 0 )
+			if ( pSoldier->interaction().isNonNpcTrader() )
 				pSoldier->aiData.bOrders = ONGUARD;
 		}
 

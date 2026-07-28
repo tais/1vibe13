@@ -331,6 +331,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   emits the signed 16-bit AP cost, signed 32-bit grid, and unsigned 8-bit action
   consecutively at their original position; v101 conversion clears this later
   domain. No save, packet, map, XML, Lua, or installed-data bytes change.
+- Non-profile merchant identity, dragged-person identity, dragged-corpse
+  identity, chat-partner identity, and dragged-structure grid are now stored by
+  `SoldierInteractionComponent`. The visitor still emits the signed 8-bit
+  merchant ID, unsigned 16-bit person ID, signed 16-bit corpse ID, unsigned
+  16-bit chat ID, and later signed 32-bit structure grid at their original
+  scattered positions. v101 conversion clears this later domain and restores
+  explicit no-corpse/no-structure sentinels. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

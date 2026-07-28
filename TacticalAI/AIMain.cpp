@@ -1599,7 +1599,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 	}
 	
 	// Flugente: if we are distracted by chatting and not alert, do nothing
-	if ( pSoldier->usChatPartnerID != NOBODY )
+	if ( pSoldier->interaction().chatting() )
 	{
 		if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
 		{

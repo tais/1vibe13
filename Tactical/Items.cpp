@@ -3174,11 +3174,11 @@ UINT32 CalculateCarriedWeight( SOLDIERTYPE * pSoldier, BOOLEAN fConsiderDragging
 	// Flugente: if we drag someone, add their weight to ours
 	if ( fConsiderDragging && pSoldier->IsDragging() )
 	{
-		if (pSoldier->usDragPersonID != NOBODY)
+		if (pSoldier->interaction().draggingPerson())
 		{
 			SOLDIERTYPE* pOtherSoldier =
 				GetJa2SoldierRepository().resolve(
-					pSoldier->usDragPersonID );
+					pSoldier->interaction().draggedPerson() );
 
 			if ( pOtherSoldier != nullptr )
 			{
@@ -3186,7 +3186,7 @@ UINT32 CalculateCarriedWeight( SOLDIERTYPE * pSoldier, BOOLEAN fConsiderDragging
 				uiTotalWeight += pOtherSoldier->GetBodyWeight();
 			}
 		}
-		else if (pSoldier->sDragCorpseID >= 0)
+		else if (pSoldier->interaction().draggingCorpse())
 		{
 			// just give corpses a flat weight
 			uiTotalWeight += 100.0f;

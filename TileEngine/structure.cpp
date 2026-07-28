@@ -948,7 +948,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 			{
 				// Flugente: we allow this if this structure is being dragged by a soldier, otherwise we can't move containers our of rooms (and are likely to unintenionally bar rooms)
 				if (pExistingStructure->fFlags & STRUCTURE_OPENABLE
-					&& !( dragBuildSoldier && dragBuildSoldier->sDragGridNo ) )
+					&& !( dragBuildSoldier && dragBuildSoldier->interaction().draggingStructure() ) )
 				{
 					// don't allow two openable structures in the same tile or things will screw
 					// up on an interface level

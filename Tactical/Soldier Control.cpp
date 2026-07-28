@@ -623,6 +623,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		skillState().reset();
 		condition().reset();
 		longAction().reset();
+		interaction().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -1057,8 +1058,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->ubMilitiaAssists = 0;
 
-		this->CancelDrag();
-		
 		this->bAIIndex = 0;
 		this->usSoldierProfile = 0;
 		this->usIndividualMilitiaID = 0;
@@ -1137,6 +1136,7 @@ void SOLDIERTYPE::initialize( )
 	skillState().reset();
 	condition().reset();
 	longAction().reset();
+	interaction().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -1167,8 +1167,6 @@ void SOLDIERTYPE::initialize( )
 	this->ubOppNum = NOBODY;
 	this->ubRobotRemoteHolderID = NOBODY;
 	this->ubCTGTTargetID = NOBODY;
-	this->usDragPersonID = NOBODY;
-	this->usChatPartnerID = NOBODY;
 }
 
 
@@ -9853,7 +9851,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 			{
 				pSoldier =
 					GetJa2SoldierRepository().resolve( uiLoop );
-				if (pSoldier && pSoldier->usDragPersonID == this->ubID)
+				if (pSoldier && pSoldier->interaction().draggedPerson() == this->ubID)
 				{
 					pSoldier->CancelDrag();
 				}
@@ -11563,11 +11561,11 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 	{
 		bool dragaborted = false;
 
-		if ( this->usDragPersonID != NOBODY )
+		if ( this->interaction().draggingPerson() )
 		{
 			SOLDIERTYPE* pSoldier =
 				GetJa2SoldierRepository().resolve(
-					this->usDragPersonID );
+					this->interaction().draggedPerson() );
 			
 			if ( pSoldier )
 			{
@@ -11604,9 +11602,9 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 				dragaborted = true;
 			}
 		}
-		else if ( this->sDragCorpseID >= 0 )
+		else if ( this->interaction().draggingCorpse() )
 		{
-			ROTTING_CORPSE* pCorpse = GetRottingCorpse( this->sDragCorpseID );
+			ROTTING_CORPSE* pCorpse = GetRottingCorpse( this->interaction().draggedCorpse() );
 
 			if ( pCorpse )
 			{
@@ -11662,14 +11660,15 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 
 				CorpseDef.ubDirection	= this->position().direction();
 
-				this->sDragCorpseID = AddRottingCorpse(&CorpseDef);
+				this->interaction().dragCorpse(
+					static_cast<INT16>( AddRottingCorpse(&CorpseDef) ) );
 			}
 			else
 			{
 				dragaborted = true;
 			}
 		}
-		else if ( sOldGridNo != this->position().gridNo() && this->sDragGridNo != NOWHERE )
+		else if ( sOldGridNo != this->position().gridNo() && this->interaction().draggingStructure() )
 		{
 			bool success = false;
 			UINT32 arusTileType;
@@ -11677,7 +11676,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 			UINT8 hitpoints;
 			UINT8 decalflag;
 			
-			if ( IsDragStructurePresent( this->sDragGridNo, this->position().level(), arusTileType, arusStructureNumber, hitpoints, decalflag ) )
+			if ( IsDragStructurePresent( this->interaction().draggedStructureGrid(), this->position().level(), arusTileType, arusStructureNumber, hitpoints, decalflag ) )
 			{
 				// add
 				if ( BuildStructDrag( sOldGridNo, gsInterfaceLevel, arusTileType, arusStructureNumber, this->ubID ) )
@@ -11686,10 +11685,10 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 					CorrectDragStructData( sOldGridNo, (INT8)gsInterfaceLevel, hitpoints, decalflag );
 
 					// remove
-					RemoveStructDrag( this->sDragGridNo, (INT8)gsInterfaceLevel, arusTileType );
+					RemoveStructDrag( this->interaction().draggedStructureGrid(), (INT8)gsInterfaceLevel, arusTileType );
 
 					// also move doors, this includes moving locks and traps
-					DOOR* pDoor = FindDoorInfoAtGridNo( this->sDragGridNo );
+					DOOR* pDoor = FindDoorInfoAtGridNo( this->interaction().draggedStructureGrid() );
 					if ( pDoor )
 						pDoor->sGridNo = sOldGridNo;
 
@@ -11700,9 +11699,9 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 			if ( success )
 			{
 				// move all items in/on the structure along
-				MoveItemPools_ForDragging( this->sDragGridNo, sOldGridNo, this->position().level(), this->position().level() );
+				MoveItemPools_ForDragging( this->interaction().draggedStructureGrid(), sOldGridNo, this->position().level(), this->position().level() );
 
-				this->sDragGridNo = sOldGridNo;
+				this->interaction().dragStructure( sOldGridNo );
 			}
 			else
 			{
@@ -20913,23 +20912,23 @@ BOOLEAN		SOLDIERTYPE::CanDragStructure(INT32 sGridNo, BOOLEAN fCheckStance)
 
 BOOLEAN		SOLDIERTYPE::IsDragging( bool aStopIfConditionNotSatisfied )
 {
-	if (this->sDragCorpseID >= 0)
+	if (this->interaction().draggingCorpse())
 	{
-		if (this->CanDragCorpse(this->sDragCorpseID, TRUE))
+		if (this->CanDragCorpse(this->interaction().draggedCorpse(), TRUE))
 			return TRUE;
 		else if (aStopIfConditionNotSatisfied)
 			CancelDrag();
 	}
-	else if (this->usDragPersonID != NOBODY)
+	else if (this->interaction().draggingPerson())
 	{
-		if (this->CanDragPerson(this->usDragPersonID, TRUE))
+		if (this->CanDragPerson(this->interaction().draggedPerson(), TRUE))
 			return TRUE;
 		else if (aStopIfConditionNotSatisfied)
 			CancelDrag();
 	}
-	else if (this->sDragGridNo != NOWHERE)
+	else if (this->interaction().draggingStructure())
 	{
-		if (this->CanDragStructure(this->sDragGridNo, TRUE))
+		if (this->CanDragStructure(this->interaction().draggedStructureGrid(), TRUE))
 			return TRUE;
 		else if (aStopIfConditionNotSatisfied)
 			CancelDrag();
@@ -20948,7 +20947,7 @@ void	SOLDIERTYPE::SetDragOrderPerson( SoldierID usID )
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve( uiLoop );
-			if (pSoldier && pSoldier->usDragPersonID == usID)
+			if (pSoldier && pSoldier->interaction().draggedPerson() == usID)
 			{
 				pSoldier->CancelDrag();
 			}
@@ -20956,7 +20955,7 @@ void	SOLDIERTYPE::SetDragOrderPerson( SoldierID usID )
 
 		CancelDrag();
 
-		this->usDragPersonID = usID;
+		this->interaction().dragPerson( usID );
 	}
 }
 
@@ -20970,7 +20969,8 @@ void	SOLDIERTYPE::SetDragOrderCorpse( UINT32 uiCorpseID )
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve( uiLoop );
-			if (pSoldier && pSoldier->sDragCorpseID == uiCorpseID)
+			if (pSoldier && pSoldier->interaction().draggingCorpse() &&
+				static_cast<UINT32>( pSoldier->interaction().draggedCorpse() ) == uiCorpseID)
 			{
 				pSoldier->CancelDrag();
 			}
@@ -20978,7 +20978,7 @@ void	SOLDIERTYPE::SetDragOrderCorpse( UINT32 uiCorpseID )
 
 		CancelDrag();
 
-		this->sDragCorpseID = uiCorpseID;
+		this->interaction().dragCorpse( static_cast<INT16>( uiCorpseID ) );
 	}
 }
 
@@ -20992,7 +20992,7 @@ void	SOLDIERTYPE::SetDragOrderStructure( INT32 sGridNo )
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve( uiLoop );
-			if ( pSoldier && pSoldier->sDragGridNo == sGridNo )
+			if ( pSoldier && pSoldier->interaction().draggedStructureGrid() == sGridNo )
 			{
 				pSoldier->CancelDrag();
 			}
@@ -21000,24 +21000,24 @@ void	SOLDIERTYPE::SetDragOrderStructure( INT32 sGridNo )
 
 		CancelDrag();
 
-		this->sDragGridNo = sGridNo;
+		this->interaction().dragStructure( sGridNo );
 	}
 }
 
 void	SOLDIERTYPE::CancelDrag()
 {
 	// sevenfm: update face icon
-	if (this->usDragPersonID != NOBODY || this->sDragCorpseID != -1 || this->sDragGridNo != NOWHERE)
+	if (this->interaction().dragging())
 	{
 		fInterfacePanelDirty = DIRTYLEVEL2;
 	}
 
 	// if we are dragging a person, set them to the center of their gridno, otherwise their position might be off
-	if (this->usDragPersonID != NOBODY)
+	if (this->interaction().draggingPerson())
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(
-				this->usDragPersonID );
+				this->interaction().draggedPerson() );
 
 		if ( pSoldier && !TileIsOutOfBounds(pSoldier->position().gridNo()) )
 		{
@@ -21029,9 +21029,7 @@ void	SOLDIERTYPE::CancelDrag()
 		}
 	}
 
-	this->usDragPersonID = NOBODY;
-	this->sDragCorpseID = -1;
-	this->sDragGridNo = NOWHERE;
+	this->interaction().clearDrag();
 }
 
 // Flugente: spy assignments
@@ -21149,18 +21147,18 @@ FLOAT		SOLDIERTYPE::GetIntelGain()
 
 void		SOLDIERTYPE::StopChatting()
 {
-	if ( this->usChatPartnerID != NOBODY )
+	if ( this->interaction().chatting() )
 	{
 		SOLDIERTYPE* chatPartner =
 			GetJa2SoldierRepository().resolve(
-				this->usChatPartnerID );
+				this->interaction().chatPartner() );
 		if ( chatPartner != nullptr )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[DISTRACT_STOP_STR], this->GetName(), chatPartner->GetName() );
 
-			chatPartner->usChatPartnerID = NOBODY;
+			chatPartner->interaction().endChat();
 		}
-		this->usChatPartnerID = NOBODY;
+		this->interaction().endChat();
 	}
 }
 
@@ -23451,7 +23449,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 				HandleSurrenderOffer( pTSoldier );
 				return(FALSE);
 			}
-			else if ( pTSoldier->sNonNPCTraderID > 0 )
+			else if ( pTSoldier->interaction().isNonNpcTrader() )
 			{
 				DeductPoints( this, sAPCost, 0, UNTRIGGERED_INTERRUPT );
 
@@ -23475,7 +23473,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 				}		
 				// not possible of loyalty too low
 				// however, if we are covert as a soldier, this check does not apply - merchants know better than do defy the army
-				else if ( ubTownID != BLANK_SECTOR && gTownLoyalty[ubTownID].ubRating < armsDealerInfo[pTSoldier->sNonNPCTraderID].nonprofile_loyaltyrequired && !(this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER) )
+				else if ( ubTownID != BLANK_SECTOR && gTownLoyalty[ubTownID].ubRating < armsDealerInfo[pTSoldier->interaction().nonNpcTraderId()].nonprofile_loyaltyrequired && !(this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER) )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[3] );
 				}
@@ -23483,7 +23481,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 				else
 				{
 					DeductPoints( this, sAPCost, 0, UNTRIGGERED_INTERRUPT );
-					EnterShopKeeperInterfaceScreen_NonNPC( pTSoldier->sNonNPCTraderID, pTSoldier->ubID );
+					EnterShopKeeperInterfaceScreen_NonNPC( pTSoldier->interaction().nonNpcTraderId(), pTSoldier->ubID );
 				}
 
 				return FALSE;
