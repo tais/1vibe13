@@ -480,7 +480,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
 	// The transient v101 door continuation phase is deliberately not converted.
-	this->fMuzzleFlash = src.fMuzzleFlash;
 	this->fSoldierWasMoving = src.fSoldierWasMoving;
 	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
@@ -497,11 +496,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSignedAnotherContract = src.fSignedAnotherContract;
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
-	this->fForceShade = src.fForceShade;
-	this->fForceRenderColor = src.fForceRenderColor;
-	this->fForceNoRenderPaletteCycle = src.fForceNoRenderPaletteCycle;
 	this->fFlashPortrait = src.fFlashPortrait;
-	this->fBeginFade = src.fBeginFade;
 	this->fPrevInWater = src.fPrevInWater;
 	this->fUIMovementFast = src.fUIMovementFast;
 	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
@@ -632,6 +627,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		combatContribution().reset();
 		suppression().reset();
 		damageDisplay().reset();
+		renderState().reset();
 		uiPresentation().reset();
 		aiData.ConvertFrom_101_To_102( src );
 		pendingAction().action() = src.ubPendingAction;
@@ -642,6 +638,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().doorHandleCode() = src.ubDoorHandleCode;
 		pendingAction().quaternaryData() = src.uiPendingActionData4;
 		flags.ConvertFrom_101_To_102( src );
+		renderState().fadeMode() = src.fBeginFade;
+		renderState().forceRenderColor() = src.fForceRenderColor;
+		renderState().forceNoPaletteCycle() = src.fForceNoRenderPaletteCycle;
+		renderState().forceShade() = src.fForceShade;
+		renderState().muzzleFlashVisible() = src.fMuzzleFlash;
 		suppression().underFire() = src.bUnderFire;
 		suppression().shock() = src.bShock;
 		suppression().closeCall() = src.fCloseCall;
@@ -698,11 +699,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 			sizeof(src.sSpreadLocations));
 		memcpy( &(this->usFrontArcFullTileList), &(src.usFrontArcFullTileList), sizeof(UINT16)* MAX_FULLTILE_DIRECTIONS );
 		memcpy( &(this->usFrontArcFullTileGridNos), &(src.usFrontArcFullTileGridNos), sizeof(INT16)* MAX_FULLTILE_DIRECTIONS );
-		memcpy( &(this->HeadPal), &(src.HeadPal), sizeof(PaletteRepID) );	// 30
-		memcpy( &(this->PantsPal), &(src.PantsPal), sizeof(PaletteRepID) );	// 30
-		memcpy( &(this->VestPal), &(src.VestPal), sizeof(PaletteRepID) );	// 30
-		memcpy( &(this->SkinPal), &(src.SkinPal), sizeof(PaletteRepID) );	// 30
-		memcpy( &(this->MiscPal), &(src.MiscPal), sizeof(PaletteRepID) );	// 30
+		memcpy( renderState().headPalette(), src.HeadPal, sizeof(PaletteRepID) );	// 30
+		memcpy( renderState().pantsPalette(), src.PantsPal, sizeof(PaletteRepID) );	// 30
+		memcpy( renderState().vestPalette(), src.VestPal, sizeof(PaletteRepID) );	// 30
+		memcpy( renderState().skinPalette(), src.SkinPal, sizeof(PaletteRepID) );	// 30
+		memcpy( renderState().miscPalette(), src.MiscPal, sizeof(PaletteRepID) );	// 30
 		this->movementHistory().recentLocations()[0] = src.sLastTwoLocations[0];
 		this->movementHistory().recentLocations()[1] = src.sLastTwoLocations[1];
 
@@ -813,7 +814,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->p8BPPPalette = src.p8BPPPalette; // 4
 		this->p16BPPPalette = src.p16BPPPalette;
 		this->pCurrentShade = src.pCurrentShade;
-		this->ubFadeLevel = src.ubFadeLevel;
+		this->renderState().fadeLevel() = src.ubFadeLevel;
 		this->service().providerCount() = src.ubServiceCount;
 		this->service().partner() = static_cast<UINT16>( src.ubServicePartner );
 		this->pThrowParams = src.pThrowParams;
@@ -824,18 +825,16 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->pBackGround = src.pBackGround;
 		this->pZBackground = src.pZBackground;
-		this->usUnblitX = src.usUnblitX;
-		this->usUnblitY = src.usUnblitY;
-		this->usUnblitWidth = src.usUnblitWidth;
-		this->usUnblitHeight = src.usUnblitHeight;
+		this->renderState().setUnblitRect(
+			src.usUnblitX, src.usUnblitY, src.usUnblitWidth, src.usUnblitHeight);
 
 		this->deployment().strategicInsertionCode() = src.ubStrategicInsertionCode;
 		this->deployment().strategicInsertionData() = src.usStrategicInsertionData;
 
 
-		this->iLight = src.iLight;
-		this->iMuzFlash = src.iMuzFlash;
-		this->bMuzFlashCount = src.bMuzFlashCount;
+		this->renderState().lightSprite() = src.iLight;
+		this->renderState().muzzleFlashSprite() = src.iMuzFlash;
+		this->renderState().muzzleFlashFrame() = src.bMuzFlashCount;
 
 
 		this->position().worldXInt() = src.sX;
@@ -964,10 +963,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().animationDirection() = src.bMovementDirection;
 		this->movementHistory().previousGrid() = src.sOldGridNo;
 		this->movement().gridUpdatePolicy() = src.usDontUpdateNewGridNoOnMoveAnimChange;
-		this->sBoundingBoxWidth = src.sBoundingBoxWidth;
-		this->sBoundingBoxHeight = src.sBoundingBoxHeight;
-		this->sBoundingBoxOffsetX = src.sBoundingBoxOffsetX;
-		this->sBoundingBoxOffsetY = src.sBoundingBoxOffsetY;
+		this->renderState().setBoundingBox(
+			src.sBoundingBoxWidth, src.sBoundingBoxHeight,
+			src.sBoundingBoxOffsetX, src.sBoundingBoxOffsetY);
 		this->dialogue().repeatedBattleSoundAt() = src.uiTimeSameBattleSndDone;
 		this->dialogue().previousBattleSound() = src.bOldBattleSnd;
 		this->audio().burstSoundId() = src.iBurstSoundID;
@@ -1021,7 +1019,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubMiscSoldierFlags = src.ubMiscSoldierFlags;
 		this->movement().stopReason() = src.ubReasonCantFinishMove;
 
-		this->sLocationOfFadeStart = src.sLocationOfFadeStart;
+		this->renderState().fadeOriginGrid() = src.sLocationOfFadeStart;
 		this->deployment().useExitGridForReentryDirection() = src.bUseExitGridForReentryDirection;
 
 		this->dialogue().lastSpokeAt() = src.uiTimeSinceLastSpoke;
@@ -1174,6 +1172,7 @@ void SOLDIERTYPE::initialize( )
 	combatContribution().reset();
 	suppression().reset();
 	damageDisplay().reset();
+	renderState().reset();
 	uiPresentation().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
@@ -2732,51 +2731,51 @@ BOOLEAN SOLDIERTYPE::CreateSoldierLight( void )
 	}
 
 	// DO ONLY IF WE'RE AT A GOOD LEVEL
-	if ( this->iLight == -1 )
+	if ( this->renderState().lightSprite() == -1 )
 	{
 		INT16 visionrangebonus = GetTotalVisionRangeBonus( this, NORMAL_LIGHTLEVEL_NIGHT );
 
 		// ATE: Check for goggles in headpos....
 		if ( visionrangebonus >= UVGOGGLES_BONUS )
 		{
-			if ( (this->iLight = LightSpriteCreate( "Light4", 0 )) == (-1) )
+			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light4", 0 )) == (-1) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
 				return(FALSE);
 			}
 			else
 			{
-				LightSprites[this->iLight].uiFlags |= MERC_LIGHT;
+				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
 			}
 		}
 		else if ( visionrangebonus >= NIGHTSIGHTGOGGLES_BONUS )
 		{
-			if ( (this->iLight = LightSpriteCreate( "Light3", 0 )) == (-1) )
+			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light3", 0 )) == (-1) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
 				return(FALSE);
 			}
 			else
 			{
-				LightSprites[this->iLight].uiFlags |= MERC_LIGHT;
+				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
 			}
 		}
 		else
 		{
-			if ( (this->iLight = LightSpriteCreate( "Light2", 0 )) == (-1) )
+			if ( (this->renderState().lightSprite() = LightSpriteCreate( "Light2", 0 )) == (-1) )
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier: Failed loading light" ) );
 				return(FALSE);
 			}
 			else
 			{
-				LightSprites[this->iLight].uiFlags |= MERC_LIGHT;
+				LightSprites[this->renderState().lightSprite()].uiFlags |= MERC_LIGHT;
 			}
 		}
 
 		if ( this->position().level() != 0 )
 		{
-			LightSpriteRoofStatus( this->iLight, TRUE );
+			LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
 		}
 	}
 
@@ -2803,7 +2802,7 @@ BOOLEAN SOLDIERTYPE::ReCreateSoldierLight( void )
 	// Delete Light!
 	this->DeleteSoldierLight( );
 
-	if ( this->iLight == -1 )
+	if ( this->renderState().lightSprite() == -1 )
 	{
 		this->CreateSoldierLight( );
 	}
@@ -2833,10 +2832,10 @@ BOOLEAN ReCreateSelectedSoldierLight( )
 
 BOOLEAN SOLDIERTYPE::DeleteSoldierLight( void )
 {
-	if ( this->iLight != (-1) )
+	if ( this->renderState().hasLightSprite() )
 	{
-		LightSpriteDestroy( this->iLight );
-		this->iLight = -1;
+		LightSpriteDestroy( this->renderState().lightSprite() );
+		this->renderState().clearLightSprite();
 	}
 
 	return(TRUE);
@@ -4378,7 +4377,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	this->HandleAnimationProfile( usNewState, this->animationPlayback().surface(), FALSE );
 
 	// Reset some animation values
-	this->flags.fForceShade = FALSE;
+	this->renderState().disableForceShade();
 
 	// ATE; For some animations that could use some variations, do so....
 	if ( usNewState == CHARIOTS_OF_FIRE || usNewState == BODYEXPLODING )
@@ -4785,24 +4784,24 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			// If we are in the middle of climbing the roof!
 			if ( this->animationPlayback().state() == CLIMBUPROOF )
 			{
-				if ( this->iLight != (-1) )
-					LightSpriteRoofStatus( this->iLight, TRUE );
+				if ( this->renderState().lightSprite() != (-1) )
+					LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
 			}
 			else if ( this->animationPlayback().state() == CLIMBDOWNROOF )
 			{
-				if ( this->iLight != (-1) )
-					LightSpriteRoofStatus( this->iLight, FALSE );
+				if ( this->renderState().lightSprite() != (-1) )
+					LightSpriteRoofStatus( this->renderState().lightSprite(), FALSE );
 			}
 
 			if ( this->animationPlayback().state() == JUMPUPWALL )
 			{
-				if ( this->iLight != (-1) )
-					LightSpriteRoofStatus( this->iLight, TRUE );
+				if ( this->renderState().lightSprite() != (-1) )
+					LightSpriteRoofStatus( this->renderState().lightSprite(), TRUE );
 			}
 			else if ( this->animationPlayback().state() == JUMPDOWNWALL )
 			{
-				if ( this->iLight != (-1) )
-					LightSpriteRoofStatus( this->iLight, FALSE );
+				if ( this->renderState().lightSprite() != (-1) )
+					LightSpriteRoofStatus( this->renderState().lightSprite(), FALSE );
 			}
 
 			//JA2Gold:
@@ -4994,15 +4993,15 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	//switch ( this->inv[ this->attackSelection().hand() ][0]->data.gun.ubGunAmmoType )
 	//{
 	//	case AMMO_SLEEP_DART:
-	//		this->flags.fMuzzleFlash = FALSE;
+	//		this->renderState().hideMuzzleFlash();
 	//		break;
 	//	default:
-	//		this->flags.fMuzzleFlash = TRUE;
+	//		this->renderState().showMuzzleFlash();
 	//		break;
 	//}
 
 
-	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "EVENT_FireSoldierWeapon: Muzzle flash = %d", this->flags.fMuzzleFlash ) );
+	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "EVENT_FireSoldierWeapon: Muzzle flash = %d", this->renderState().muzzleFlashVisible() ) );
 
 	// Increment the number of people busy doing stuff because of an attack
 	//if ( IsJa2TacticalTurnBasedCombat() )
@@ -8691,10 +8690,10 @@ BOOLEAN SOLDIERTYPE::CreateSoldierPalettes( void )
 			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
 			// Substitute based on head, etc
-			SetPaletteReplacement( this->p8BPPPalette, this->HeadPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->VestPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->PantsPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->SkinPal );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().headPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().vestPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().pantsPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().skinPalette() );
 		}
 	}
 	else if ( bBodyTypePalette == 0 )
@@ -14738,10 +14737,7 @@ void SetSoldierLocatorOffsets( SOLDIERTYPE *pSoldier )
 	// OK, here, use the difference between center of animation ( sWidth/2 ) and our offset!
 	//pSoldier->uiPresentation().locatorOffsetX() = ( abs( sOffsetX ) ) - ( sWidth / 2 );
 
-	pSoldier->sBoundingBoxWidth = sWidth;
-	pSoldier->sBoundingBoxHeight = sHeight;
-	pSoldier->sBoundingBoxOffsetX = sOffsetX;
-	pSoldier->sBoundingBoxOffsetY = sOffsetY;
+	pSoldier->renderState().setBoundingBox(sWidth, sHeight, sOffsetX, sOffsetY);
 
 }
 
@@ -15724,7 +15720,7 @@ INT8		SOLDIERTYPE::GetUniformType( )
 	for ( UINT8 i = UNIFORM_ENEMY_ADMIN; i < NUM_UNIFORMS; ++i )
 	{
 		// both parts have to fit. We cant mix different uniforms and get soldier disguise
-		if ( COMPARE_PALETTEREP_ID( this->VestPal, gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->PantsPal, gUniformColors[i].pants ) )
+		if ( COMPARE_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[i].pants ) )
 		{
 			return i;
 		}
@@ -16414,7 +16410,7 @@ void	SOLDIERTYPE::ApplyCovert( BOOLEAN aWithMessage )
 			for ( UINT8 i = UNIFORM_ENEMY_ADMIN; i <= UNIFORM_ENEMY_ELITE; ++i )
 			{
 				// both parts have to fit. We cant mix different uniforms and get soldier disguise
-				if ( COMPARE_PALETTEREP_ID( this->VestPal, gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->PantsPal, gUniformColors[i].pants ) )
+				if ( COMPARE_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[i].vest ) && COMPARE_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[i].pants ) )
 				{
 					this->usSoldierFlagMask |= SOLDIER_COVERT_SOLDIER;
 
@@ -16459,7 +16455,7 @@ void	SOLDIERTYPE::Strip()
 		if ( (this->usSoldierFlagMask & SOLDIER_NEW_VEST) && !(this->usSoldierFlagMask & SOLDIER_DAMAGED_VEST) )
 		{
 			UINT16 vestitem = 0;
-			if ( GetFirstClothesItemWithSpecificData( &vestitem, this->VestPal, "blank" ) )
+			if ( GetFirstClothesItemWithSpecificData( &vestitem, this->renderState().vestPalette(), "blank" ) )
 			{
 				CreateItem( vestitem, 100, &gTempObject );
 				if ( !AutoPlaceObject( this, &gTempObject, FALSE ) )
@@ -16472,7 +16468,7 @@ void	SOLDIERTYPE::Strip()
 		if ( (this->usSoldierFlagMask & SOLDIER_NEW_PANTS) && !(this->usSoldierFlagMask & SOLDIER_DAMAGED_PANTS) )
 		{
 			UINT16 pantsitem = 0;
-			if ( GetFirstClothesItemWithSpecificData( &pantsitem, "blank", this->PantsPal ) )
+			if ( GetFirstClothesItemWithSpecificData( &pantsitem, "blank", this->renderState().pantsPalette() ) )
 			{
 				CreateItem( pantsitem, 100, &gTempObject );
 				if ( !AutoPlaceObject( this, &gTempObject, FALSE ) )
@@ -16498,22 +16494,22 @@ void	SOLDIERTYPE::Strip()
 				ubProfileIndex = this->ubProfile;
 				pProfile = &(gMercProfiles[ubProfileIndex]);
 
-				SET_PALETTEREP_ID( this->VestPal, pProfile->VEST );
-				SET_PALETTEREP_ID( this->PantsPal, pProfile->PANTS );
+				SET_PALETTEREP_ID( this->renderState().vestPalette(), pProfile->VEST );
+				SET_PALETTEREP_ID( this->renderState().pantsPalette(), pProfile->PANTS );
 			}
 			else if ( this->usSoldierFlagMask & SOLDIER_ASSASSIN )
 			{
-				SET_PALETTEREP_ID( this->VestPal, gUniformColors[UNIFORM_ENEMY_ELITE].vest );
-				SET_PALETTEREP_ID( this->PantsPal, gUniformColors[UNIFORM_ENEMY_ELITE].pants );
+				SET_PALETTEREP_ID( this->renderState().vestPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].vest );
+				SET_PALETTEREP_ID( this->renderState().pantsPalette(), gUniformColors[UNIFORM_ENEMY_ELITE].pants );
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
 			memcpy( this->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( this->p8BPPPalette, this->HeadPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->VestPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->PantsPal );
-			SetPaletteReplacement( this->p8BPPPalette, this->SkinPal );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().headPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().vestPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().pantsPalette() );
+			SetPaletteReplacement( this->p8BPPPalette, this->renderState().skinPalette() );
 
 			this->CreateSoldierPalettes( );
 		}
@@ -17985,7 +17981,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 	}
 
 	// sevenfm: stop muzzle flash
-	if (this->flags.fMuzzleFlash)
+	if (this->renderState().muzzleFlashVisible())
 	{
 		EndMuzzleFlash(this);
 	}
@@ -22295,17 +22291,17 @@ void SOLDIERTYPE::PositionSoldierLight( void )
 		return;
 	}
 
-	if ( this->iLight == -1 )
+	if ( this->renderState().lightSprite() == -1 )
 	{
 		this->CreateSoldierLight( );
 	}
 
 	//if ( this->ubID == gusSelectedSoldier )
 	{
-		LightSpritePower( this->iLight, TRUE );
-		LightSpriteFake( this->iLight );
+		LightSpritePower( this->renderState().lightSprite(), TRUE );
+		LightSpriteFake( this->renderState().lightSprite() );
 
-		LightSpritePosition( this->iLight, (INT16)(this->position().worldXInt() / CELL_X_SIZE), (INT16)(this->position().worldYInt() / CELL_Y_SIZE) );
+		LightSpritePosition( this->renderState().lightSprite(), (INT16)(this->position().worldXInt() / CELL_X_SIZE), (INT16)(this->position().worldYInt() / CELL_Y_SIZE) );
 	}
 }
 

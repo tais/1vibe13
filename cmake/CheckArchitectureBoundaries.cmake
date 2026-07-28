@@ -2171,7 +2171,7 @@ string(REGEX MATCH
   serialized_soldier_service_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubFadeLevel\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);[ \t]*ar\\.u16\\(service\\.partner\\(\\)\\.i\\);"
+  "ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);[ \t]*ar\\.u16\\(service\\.partner\\(\\)\\.i\\);"
   serialized_soldier_service_relationship_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4182,7 +4182,7 @@ if(soldier_collapse_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(f\\.fMuzzleFlash\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
+  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
   serialized_soldier_fatigue_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4934,7 +4934,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_grid_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.strategicInsertionData\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iLight\\);"
+  "ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.strategicInsertionData\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.lightSprite\\(\\)\\);"
   serialized_soldier_deployment_insertion_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4950,7 +4950,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_previous_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sLocationOfFadeStart\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.lastSpokeAt\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
+  "ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.lastSpokeAt\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
   serialized_soldier_deployment_reentry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5403,7 +5403,7 @@ string(REGEX MATCH
   serialized_soldier_level_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iLight\\);[ \t]*ar\\.i32\\(s\\.iMuzFlash\\);[ \t]*ar\\.i8\\(s\\.bMuzFlashCount\\);[ \t\r\n]*ar\\.i16\\(position\\.worldXInt\\(\\)\\);[ \t]*ar\\.i16\\(position\\.worldYInt\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);"
+  "ar\\.i32\\(renderState\\.lightSprite\\(\\)\\);[ \t]*ar\\.i32\\(renderState\\.muzzleFlashSprite\\(\\)\\);[ \t]*ar\\.i8\\(renderState\\.muzzleFlashFrame\\(\\)\\);[ \t\r\n]*ar\\.i16\\(position\\.worldXInt\\(\\)\\);[ \t]*ar\\.i16\\(position\\.worldYInt\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);"
   serialized_soldier_integer_world_position_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_world_position_order OR
@@ -6621,6 +6621,428 @@ if(NOT serialized_soldier_damage_display_flag_order OR
     "Soldier combat-result or damage-display state moved in the portable save schema; keep every value at its established byte position")
 endif()
 
+# Pointer-free soldier rendering values have one private owner. Backend palette,
+# shade, surface, level-node, and background pointers deliberately remain in
+# the compatibility adapter and must not leak into this copy-safe component.
+foreach(retired_render_flag IN ITEMS
+  fBeginFade
+  fForceRenderColor
+  fForceNoRenderPaletteCycle
+  fForceShade
+  fMuzzleFlash)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(BOOLEAN|INT8|UINT8)[ \t]+${retired_render_flag}[ \t]*;"
+    retired_current_render_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_render_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags render field '${retired_render_flag}' returned; soldier render values belong to SoldierRenderStateComponent")
+  endif()
+endforeach()
+
+foreach(retired_render_field IN ITEMS
+  HeadPal
+  PantsPal
+  VestPal
+  SkinPal
+  MiscPal
+  ubFadeLevel
+  usUnblitX
+  usUnblitY
+  usUnblitWidth
+  usUnblitHeight
+  iLight
+  iMuzFlash
+  bMuzFlashCount
+  sBoundingBoxWidth
+  sBoundingBoxHeight
+  sBoundingBoxOffsetX
+  sBoundingBoxOffsetY
+  sLocationOfFadeStart)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(PaletteRepID|UINT8|UINT16|INT8|INT16|INT32)[ \t]+${retired_render_field}[ \t]*;"
+    retired_current_render_field
+    "${current_soldier_contents}")
+  if(retired_current_render_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE render field '${retired_render_field}' returned; canonical values belong to SoldierRenderStateComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierRenderStateComponent[ \t\r\n]+renderState_[ \t]*;"
+  soldier_render_state_owner
+  "${current_soldier_contents}")
+string(FIND "${soldier_control_header_contents}"
+  "SoldierRenderStateComponent& renderState() noexcept"
+  soldier_render_state_accessor)
+string(FIND "${soldier_control_header_contents}"
+  "const SoldierRenderStateComponent& renderState() const noexcept"
+  const_soldier_render_state_accessor)
+string(FIND "${soldier_components_header_contents}"
+  "class SoldierRenderStateComponent"
+  soldier_render_state_component_begin)
+string(FIND "${soldier_components_header_contents}"
+  "class SoldierUiPresentationComponent"
+  soldier_render_state_component_end)
+if(NOT soldier_render_state_owner OR
+   soldier_render_state_accessor EQUAL -1 OR
+   const_soldier_render_state_accessor EQUAL -1 OR
+   soldier_render_state_component_begin EQUAL -1 OR
+   soldier_render_state_component_end EQUAL -1 OR
+   soldier_render_state_component_end LESS soldier_render_state_component_begin)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own and expose one private SoldierRenderStateComponent")
+endif()
+math(EXPR soldier_render_state_component_length
+  "${soldier_render_state_component_end} - ${soldier_render_state_component_begin}")
+string(SUBSTRING "${soldier_components_header_contents}"
+  ${soldier_render_state_component_begin} ${soldier_render_state_component_length}
+  soldier_render_state_component_contents)
+
+string(FIND "${soldier_render_state_component_contents}"
+  "static constexpr INT32 NoLightSprite = -1;"
+  soldier_render_state_no_light_sentinel)
+if(soldier_render_state_no_light_sentinel EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierRenderStateComponent must retain an explicit no-light sentinel")
+endif()
+foreach(render_palette_name IN ITEMS
+  headPalette
+  pantsPalette
+  vestPalette
+  skinPalette
+  miscPalette)
+  string(REGEX MATCH
+    "PaletteRepID[ \t]+${render_palette_name}_[ \t]*\\{\\}[ \t]*;"
+    owned_render_palette
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_palette)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost zero-initialized palette identity '${render_palette_name}_'")
+  endif()
+endforeach()
+foreach(render_uint8_name IN ITEMS fadeMode fadeLevel)
+  string(REGEX MATCH
+    "UINT8[ \t]+${render_uint8_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_render_uint8
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_uint8)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost initialized UINT8 storage '${render_uint8_name}_'")
+  endif()
+endforeach()
+foreach(render_boolean_name IN ITEMS
+  forceRenderColor
+  forceNoPaletteCycle
+  forceShade
+  muzzleFlashVisible)
+  string(REGEX MATCH
+    "BOOLEAN[ \t]+${render_boolean_name}_[ \t]*=[ \t]*FALSE[ \t]*;"
+    owned_render_boolean
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_boolean)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost initialized policy storage '${render_boolean_name}_'")
+  endif()
+endforeach()
+foreach(render_unblit_name IN ITEMS
+  unblitX
+  unblitY
+  unblitWidth
+  unblitHeight)
+  string(REGEX MATCH
+    "UINT16[ \t]+${render_unblit_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_render_unblit
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_unblit)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost initialized redraw storage '${render_unblit_name}_'")
+  endif()
+endforeach()
+foreach(render_light_name IN ITEMS lightSprite muzzleFlashSprite)
+  string(REGEX MATCH
+    "INT32[ \t]+${render_light_name}_[ \t]*=[ \t]*NoLightSprite[ \t]*;"
+    owned_render_light
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_light)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost explicit no-light initialization for '${render_light_name}_'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "INT8[ \t]+muzzleFlashFrame_[ \t]*=[ \t]*0[ \t]*;"
+  owned_render_flash_frame
+  "${soldier_render_state_component_contents}")
+if(NOT owned_render_flash_frame)
+  message(FATAL_ERROR
+    "SoldierRenderStateComponent lost initialized muzzle-flash cadence")
+endif()
+foreach(render_geometry_name IN ITEMS
+  boundingBoxWidth
+  boundingBoxHeight
+  boundingBoxOffsetX
+  boundingBoxOffsetY)
+  string(REGEX MATCH
+    "INT16[ \t]+${render_geometry_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_render_geometry
+    "${soldier_render_state_component_contents}")
+  if(NOT owned_render_geometry)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost initialized geometry storage '${render_geometry_name}_'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "INT32[ \t]+fadeOriginGrid_[ \t]*=[ \t]*0[ \t]*;"
+  owned_render_fade_origin
+  "${soldier_render_state_component_contents}")
+string(REGEX MATCH
+  "(SGPPaletteEntry|PIXEL|LEVELNODE|UINT16)[ \t]*\\*[ \t]*[A-Za-z_]"
+  soldier_render_state_raw_pointer
+  "${soldier_render_state_component_contents}")
+if(NOT owned_render_fade_origin OR soldier_render_state_raw_pointer)
+  message(FATAL_ERROR
+    "SoldierRenderStateComponent must remain initialized and pointer-free")
+endif()
+
+foreach(render_state_operation IN ITEMS
+  "bool fading() const noexcept"
+  "bool hasLightSprite() const noexcept"
+  "bool hasMuzzleFlashSprite() const noexcept"
+  "bool muzzleFlashExpired(INT8 maximumFrame) const noexcept"
+  "void beginFade(UINT8 mode, UINT8 level, INT32 originGrid) noexcept"
+  "void finishFade() noexcept"
+  "void setUnblitRect(UINT16 x, UINT16 y, UINT16 width, UINT16 height) noexcept"
+  "void setBoundingBox(INT16 width, INT16 height, INT16 offsetX, INT16 offsetY) noexcept"
+  "void startMuzzleFlashSprite(INT32 sprite) noexcept"
+  "void advanceMuzzleFlashFrame() noexcept"
+  "void clearMuzzleFlashSprite() noexcept"
+  "void showMuzzleFlash() noexcept"
+  "void hideMuzzleFlash() noexcept"
+  "void enableForceShade() noexcept"
+  "void disableForceShade() noexcept"
+  "void clearLightSprite() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_render_state_component_contents}"
+    "${render_state_operation}"
+    soldier_render_state_operation)
+  if(soldier_render_state_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierRenderStateComponent lost coordinated operation '${render_state_operation}'")
+  endif()
+endforeach()
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierRenderStateComponent{};"
+  soldier_render_state_default_reset)
+string(REGEX MATCHALL
+  "renderState\\(\\)\\.reset\\(\\);"
+  soldier_render_state_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_render_state_reset_sites
+  soldier_render_state_reset_site_count)
+if(soldier_render_state_default_reset EQUAL -1 OR
+   soldier_render_state_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierRenderStateComponent must reset during v101 conversion and current soldier initialization")
+endif()
+
+foreach(render_state_conversion IN ITEMS
+  "renderState().fadeMode() = src.fBeginFade;"
+  "renderState().forceRenderColor() = src.fForceRenderColor;"
+  "renderState().forceNoPaletteCycle() = src.fForceNoRenderPaletteCycle;"
+  "renderState().forceShade() = src.fForceShade;"
+  "renderState().muzzleFlashVisible() = src.fMuzzleFlash;"
+  "memcpy( renderState().headPalette(), src.HeadPal, sizeof(PaletteRepID) );"
+  "memcpy( renderState().pantsPalette(), src.PantsPal, sizeof(PaletteRepID) );"
+  "memcpy( renderState().vestPalette(), src.VestPal, sizeof(PaletteRepID) );"
+  "memcpy( renderState().skinPalette(), src.SkinPal, sizeof(PaletteRepID) );"
+  "memcpy( renderState().miscPalette(), src.MiscPal, sizeof(PaletteRepID) );"
+  "renderState().fadeLevel() = src.ubFadeLevel;"
+  "renderState().lightSprite() = src.iLight;"
+  "renderState().muzzleFlashSprite() = src.iMuzFlash;"
+  "renderState().muzzleFlashFrame() = src.bMuzFlashCount;"
+  "renderState().fadeOriginGrid() = src.sLocationOfFadeStart;")
+  string(FIND "${soldier_control_source_contents}"
+    "${render_state_conversion}"
+    soldier_render_state_conversion)
+  if(soldier_render_state_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier render-state mapping '${render_state_conversion}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "renderState\\(\\)\\.setUnblitRect\\([ \t\r\n]*src\\.usUnblitX,[ \t]*src\\.usUnblitY,[ \t]*src\\.usUnblitWidth,[ \t]*src\\.usUnblitHeight\\);"
+  converted_v101_render_unblit
+  "${soldier_control_source_contents}")
+string(REGEX MATCH
+  "renderState\\(\\)\\.setBoundingBox\\([ \t\r\n]*src\\.sBoundingBoxWidth,[ \t]*src\\.sBoundingBoxHeight,[ \t\r\n]*src\\.sBoundingBoxOffsetX,[ \t]*src\\.sBoundingBoxOffsetY\\);"
+  converted_v101_render_bounds
+  "${soldier_control_source_contents}")
+if(NOT converted_v101_render_unblit OR NOT converted_v101_render_bounds)
+  message(FATAL_ERROR
+    "v101 conversion must map the complete soldier redraw rectangle and bounding box")
+endif()
+
+# Keep all 23 values at their established scattered save positions. Fade mode
+# is intentionally a raw u8 because the live fade-in state uses value 2.
+string(FIND "${save_load_game_contents}"
+  "SoldierRenderStateComponent& renderState = soldier.renderState();"
+  soldier_render_state_flags_adapter)
+string(FIND "${save_load_game_contents}"
+  "SoldierRenderStateComponent& renderState = s.renderState();"
+  soldier_render_state_pod_adapter)
+string(REGEX MATCH
+  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);"
+  serialized_render_fade_mode_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(renderState\\.forceRenderColor\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);[ \t]*ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);"
+  serialized_render_policy_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);"
+  serialized_render_flash_visibility_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.str8\\(renderState\\.headPalette\\(\\),[ \t]*sizeof\\(renderState\\.headPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.pantsPalette\\(\\),[ \t]*sizeof\\(renderState\\.pantsPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.vestPalette\\(\\),[ \t]*sizeof\\(renderState\\.vestPalette\\(\\)\\)\\);[ \t]*ar\\.str8\\(renderState\\.skinPalette\\(\\),[ \t]*sizeof\\(renderState\\.skinPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.miscPalette\\(\\),[ \t]*sizeof\\(renderState\\.miscPalette\\(\\)\\)\\);[ \t\r\n]*ar\\.ptr\\(s\\.p8BPPPalette\\);[ \t]*ar\\.ptr\\(s\\.p16BPPPalette\\);"
+  serialized_render_palette_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pCurrentShade\\);[ \t\r\n]*ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);"
+  serialized_render_fade_level_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pBackGround\\);[ \t]*ar\\.ptr\\(s\\.pZBackground\\);[ \t\r\n]*ar\\.u16\\(renderState\\.unblitX\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitY\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitWidth\\(\\)\\);[ \t]*ar\\.u16\\(renderState\\.unblitHeight\\(\\)\\);[ \t\r\n]*ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);"
+  serialized_render_unblit_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(deployment\\.strategicInsertionData\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.lightSprite\\(\\)\\);[ \t]*ar\\.i32\\(renderState\\.muzzleFlashSprite\\(\\)\\);[ \t]*ar\\.i8\\(renderState\\.muzzleFlashFrame\\(\\)\\);[ \t\r\n]*ar\\.i16\\(position\\.worldXInt\\(\\)\\);"
+  serialized_render_light_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);[ \t\r\n]*ar\\.i16\\(renderState\\.boundingBoxWidth\\(\\)\\);[ \t]*ar\\.i16\\(renderState\\.boundingBoxHeight\\(\\)\\);[ \t]*ar\\.i16\\(renderState\\.boundingBoxOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(renderState\\.boundingBoxOffsetY\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.repeatedBattleSoundAt\\(\\)\\);"
+  serialized_render_bounds_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);"
+  serialized_render_fade_origin_order
+  "${save_load_game_contents}")
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(renderState.fadeMode())"
+  serialized_render_boolean_fade_mode)
+if(soldier_render_state_flags_adapter EQUAL -1 OR
+   soldier_render_state_pod_adapter EQUAL -1 OR
+   NOT serialized_render_fade_mode_order OR
+   NOT serialized_render_policy_order OR
+   NOT serialized_render_flash_visibility_order OR
+   NOT serialized_render_palette_order OR
+   NOT serialized_render_fade_level_order OR
+   NOT serialized_render_unblit_order OR
+   NOT serialized_render_light_order OR
+   NOT serialized_render_bounds_order OR
+   NOT serialized_render_fade_origin_order OR
+   NOT serialized_render_boolean_fade_mode EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier render state moved or narrowed in the portable save schema; preserve all positions and raw fade mode 2")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  soldier_render_state_overhead_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  soldier_render_state_animation_contents)
+foreach(render_overhead_transition IN ITEMS
+  "pSoldier->renderState().beginFade("
+  "pSoldier->renderState().finishFade();")
+  string(FIND "${soldier_render_state_overhead_contents}"
+    "${render_overhead_transition}"
+    soldier_render_overhead_transition)
+  if(soldier_render_overhead_transition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical visibility lost named render-state transition '${render_overhead_transition}'")
+  endif()
+endforeach()
+foreach(render_animation_transition IN ITEMS
+  "pSoldier->renderState().muzzleFlashExpired(MAX_ANIFRAMES_PER_FLASH)"
+  "pSoldier->renderState().advanceMuzzleFlashFrame();"
+  "pSoldier->renderState().startMuzzleFlashSprite("
+  "pSoldier->renderState().clearMuzzleFlashSprite();"
+  "pSoldier->renderState().showMuzzleFlash();"
+  "pSoldier->renderState().hideMuzzleFlash();"
+  "pSoldier->renderState().enableForceShade();"
+  "pSoldier->renderState().disableForceShade();"
+  "pSoldier->renderState().clearLightSprite();")
+  string(FIND "${soldier_render_state_animation_contents}"
+    "${render_animation_transition}"
+    soldier_render_animation_transition)
+  if(soldier_render_animation_transition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier animation lost named render-state transition '${render_animation_transition}'")
+  endif()
+endforeach()
+foreach(render_control_transition IN ITEMS
+  "this->renderState().hasLightSprite()"
+  "this->renderState().clearLightSprite();"
+  "pSoldier->renderState().setBoundingBox(sWidth, sHeight, sOffsetX, sOffsetY);")
+  string(FIND "${soldier_control_source_contents}"
+    "${render_control_transition}"
+    soldier_render_control_transition)
+  if(soldier_render_control_transition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier rendering lost component-owned transition '${render_control_transition}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  soldier_render_state_multiplayer_contents)
+foreach(render_palette_packet_fragment IN ITEMS
+  "w.putbytes( s->HeadPal,  sizeof(PaletteRepID) );"
+  "w.putbytes( s->PantsPal, sizeof(PaletteRepID) );"
+  "w.putbytes( s->VestPal,  sizeof(PaletteRepID) );"
+  "w.putbytes( s->SkinPal,  sizeof(PaletteRepID) );"
+  "w.putbytes( s->MiscPal,  sizeof(PaletteRepID) );"
+  "r.getbytes( s.HeadPal,  sizeof(PaletteRepID) );"
+  "r.getbytes( s.PantsPal, sizeof(PaletteRepID) );"
+  "r.getbytes( s.VestPal,  sizeof(PaletteRepID) );"
+  "r.getbytes( s.SkinPal,  sizeof(PaletteRepID) );"
+  "r.getbytes( s.MiscPal,  sizeof(PaletteRepID) );")
+  string(FIND "${soldier_render_state_multiplayer_contents}"
+    "${render_palette_packet_fragment}"
+    soldier_render_palette_packet_fragment)
+  if(soldier_render_palette_packet_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERCREATE_STRUCT multiplayer palette wire layout changed at '${render_palette_packet_fragment}'")
+  endif()
+endforeach()
+
+foreach(render_state_test_fragment IN ITEMS
+  "SoldierRenderStateComponent renderLifecycle;"
+  "soldier render-state component owns palette identity, fade, light, redraw, and geometry values"
+  "v101 soldier conversion retains palette, fade, light, redraw, and geometry render state"
+  "soldier save/load round-trips render state while preserving fade mode 2")
+  string(FIND "${headless_test_contents}"
+    "${render_state_test_fragment}"
+    soldier_render_state_test_fragment)
+  if(soldier_render_state_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierRenderStateComponent fixture '${render_state_test_fragment}'")
+  endif()
+endforeach()
+string(FIND "${engine_architecture_documentation}"
+  "SoldierRenderStateComponent"
+  soldier_render_state_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierRenderStateComponent"
+  soldier_render_state_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierRenderStateComponent"
+  soldier_render_state_save_documented)
+if(soldier_render_state_architecture_documented EQUAL -1 OR
+   soldier_render_state_sdk_documented EQUAL -1 OR
+   soldier_render_state_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierRenderStateComponent ownership and compatibility guarantees must remain documented")
+endif()
+
 # Pointer-free tactical UI state has one private owner. Render-resource
 # pointers deliberately remain legacy adapter state, while locator, panel, and
 # planned-target coordinates cannot return as scattered SOLDIERTYPE fields.
@@ -7184,7 +7606,7 @@ endforeach()
 # continuation mode intentionally uses raw u8 transfer: legacy code stores
 # mode 2 here, so boolean normalization would corrupt a live transition.
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fForceNoRenderPaletteCycle\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);"
+  "ar\\.boolean\\(renderState\\.forceNoPaletteCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationIntent\\.stopPendingNextTile\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIMovementFast\\);"
   serialized_soldier_animation_stop_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7431,7 +7853,7 @@ endforeach()
 # hitPhase intentionally transfers as raw u8: the live state machine uses phase
 # 2, which the former boolean serializer silently normalized back to phase 1.
 string(REGEX MATCH
-  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.boolean\\(f\\.fBeginFade\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fPrevInWater\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
+  "ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);[ \t]*ar\\.u8\\(renderState\\.fadeMode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.turningFromProneMode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.readyCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fPrevInWater\\);[ \t\r\n]*ar\\.i8\\(animationActivity\\.postHitStance\\(\\)\\);"
   serialized_soldier_animation_turn_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

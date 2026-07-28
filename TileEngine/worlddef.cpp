@@ -4186,7 +4186,7 @@ void SaveMapLights( HWFILE hfile )
 			{
 				if( GetSoldier( &pSoldier, cnt2 ) )
 				{
-					if ( pSoldier->iLight == (INT32)cnt )
+					if ( pSoldier->renderState().lightSprite() == (INT32)cnt )
 						fSoldierLight = TRUE;
 				}
 			}
@@ -4208,7 +4208,7 @@ void SaveMapLights( HWFILE hfile )
 			{
 				if ( GetSoldier( &pSoldier, cnt2 ) )
 				{
-					if ( pSoldier->iLight == (INT32)cnt )
+					if ( pSoldier->renderState().lightSprite() == (INT32)cnt )
 						fSoldierLight = TRUE;
 				}
 			}

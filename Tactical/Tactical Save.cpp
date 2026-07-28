@@ -2707,10 +2707,10 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 	Corpse.sHeightAdjustment	= pSoldier->position().heightAdjustment();
 	Corpse.bVisible				=	TRUE;
 
-	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->HeadPal );
-	SET_PALETTEREP_ID ( Corpse.VestPal,		pSoldier->VestPal );
-	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->SkinPal );
-	SET_PALETTEREP_ID ( Corpse.PantsPal,   pSoldier->PantsPal );
+	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->renderState().headPalette() );
+	SET_PALETTEREP_ID ( Corpse.VestPal,		pSoldier->renderState().vestPalette() );
+	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->renderState().skinPalette() );
+	SET_PALETTEREP_ID ( Corpse.PantsPal,   pSoldier->renderState().pantsPalette() );
 
 	Corpse.ubDirection	= pSoldier->position().direction();
 

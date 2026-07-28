@@ -1187,13 +1187,21 @@ the engine must not contain SDL types in its public domain model.
   coordinates cannot become combat state. Accumulated damage deliberately
   remains simulation-owned because torso-hit and death rules inspect it before
   the number is rendered.
+  `SoldierRenderStateComponent` owns the pointer-free values shared by soldier
+  rendering: the five palette-replacement identities, fade mode/level/origin,
+  forced-colour and shade policy, muzzle-flash visibility and light handles,
+  the unblit rectangle, and the projected bounding box. Named fade,
+  muzzle-flash, shade, redraw, and light-lifetime operations keep paired state
+  coherent. Raw palette, shade, surface, level-node, and background pointers
+  remain legacy render-adapter resources; they are rebuilt or retired by their
+  existing owners rather than copied into the component.
   `SoldierUiPresentationComponent` owns the wider soldier-local tactical view
   state: portrait flash, locator animation and offsets, interface elevation,
   panel animation and face placement, planned-action overlay, and the
   enemy-cycle cursor. Named locator, panel-position, and planned-target
-  transitions keep paired UI coordinates coherent. Palette, surface, level
-  node, shade, and background pointers remain outside this component as legacy
-  render-adapter resources rather than view-model state.
+  transitions keep paired UI coordinates coherent. Render-resource pointers
+  remain outside this component and its render-state neighbour rather than
+  becoming view-model state.
   `SoldierCombatContributionComponent` separately owns outgoing militia kills
   and assists plus the fixed 156-slot player-team damage attribution record.
   Named kill, assist, promotion-credit, transfer, and reset operations give
@@ -1231,8 +1239,8 @@ the engine must not contain SDL types in its public domain model.
   slot used by global surface-usage history.
   These components are independent of the legacy soldier declaration;
   old-save conversion and the explicit serializer still emit every value at
-  its established byte position. Continuation mode and hit phase are
-  transferred as their real 8-bit values, so valid mode/phase `2` is no
+  its established byte position. Fade mode, continuation mode, and hit phase
+  are transferred as their real 8-bit values, so valid mode/phase `2` is no
   longer normalized to boolean `1`. Retired cache-pointer transfers emitted
   no bytes, so load simply resets the inline working set. The unused legacy
   8-bit delayed-cause-merc slot remains a zero compatibility byte rather than

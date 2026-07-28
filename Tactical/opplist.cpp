@@ -1372,7 +1372,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		//bSubjectDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pOpponent->position().worldXInt(),pOpponent->position().worldYInt());
 	}
 
-	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT) || (pSubject && pSubject->flags.fMuzzleFlash)) )
+	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT) || (pSubject && pSubject->renderState().muzzleFlashVisible())) )
 	{
 		sDistVisible = MaxNormalDistanceVisible();
 	}
@@ -1466,8 +1466,8 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 
 	// Snap: I think this was intended to give maximum visibility to targets with muzzle flash...
 	// Corrected accordingly:
-	//if ( pSubject && !( pSubject->flags.fMuzzleFlash && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
-	if ( !( pSubject && pSubject->flags.fMuzzleFlash && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
+	//if ( pSubject && !( pSubject->renderState().muzzleFlashVisible() && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
+	if ( !( pSubject && pSubject->renderState().muzzleFlashVisible() && (bLightLevel > NORMAL_LIGHTLEVEL_DAY) ) )
 	{
 		// ATE: Made function to adjust light distance...
 		sDistVisible = AdjustMaxSightRangeForEnvEffects( pSoldier, bLightLevel, sDistVisible );
@@ -1553,7 +1553,7 @@ void EndMuzzleFlash( SOLDIERTYPE * pSoldier )
 	UINT32					uiLoop;
 	SOLDIERTYPE *		pOtherSoldier;
 
-	pSoldier->flags.fMuzzleFlash = FALSE;
+	pSoldier->renderState().hideMuzzleFlash();
 /*comm by ddd
 #ifdef WE_SEE_WHAT_MILITIA_SEES_AND_VICE_VERSA
 	if ( pSoldier->bTeam != gbPlayerNum && pSoldier->bTeam != MILITIA_TEAM )
@@ -1653,7 +1653,7 @@ void TurnOffEveryonesMuzzleFlashes( void )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier != NULL && pSoldier->flags.fMuzzleFlash )
+		if ( pSoldier != NULL && pSoldier->renderState().muzzleFlashVisible() )
 		{
 			EndMuzzleFlash( pSoldier );
 		}
@@ -1672,7 +1672,7 @@ void TurnOffTeamsMuzzleFlashes( UINT8 ubTeam )
 			continue;
 		}
 
-		if ( pSoldier->flags.fMuzzleFlash )
+		if ( pSoldier->renderState().muzzleFlashVisible() )
 		{
 			EndMuzzleFlash( pSoldier );
 		}
@@ -2881,23 +2881,23 @@ if(SEE_MENT)
 
 		//ATE: Cancel any fading going on!
 		// ATE: Added for fade in.....
-		if ( pOpponent->flags.fBeginFade == 1 || pOpponent->flags.fBeginFade == 2 )
+		if ( pOpponent->renderState().fadeMode() == 1 || pOpponent->renderState().fadeMode() == 2 )
 		{
-			pOpponent->flags.fBeginFade = FALSE;
+			pOpponent->renderState().finishFade();
 
 			if ( pOpponent->position().level() > 0 && gpWorldLevelData[ pOpponent->position().gridNo() ].pRoofHead != NULL )
 			{
-				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->position().gridNo() ].pRoofHead->ubShadeLevel;
+				pOpponent->renderState().fadeLevel() = gpWorldLevelData[ pOpponent->position().gridNo() ].pRoofHead->ubShadeLevel;
 			}
 			else
 			{
-				pOpponent->ubFadeLevel = gpWorldLevelData[ pOpponent->position().gridNo() ].pLandHead->ubShadeLevel;
+				pOpponent->renderState().fadeLevel() = gpWorldLevelData[ pOpponent->position().gridNo() ].pLandHead->ubShadeLevel;
 			}
 
 			// Set levelnode shade level....
 			if ( pOpponent->pLevelNode )
 			{
-				pOpponent->pLevelNode->ubShadeLevel = pOpponent->ubFadeLevel;
+				pOpponent->pLevelNode->ubShadeLevel = pOpponent->renderState().fadeLevel();
 			}
 		}
 
@@ -6582,14 +6582,14 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 
 	// ignore muzzle flashes when turning head to see noise
 	if ( ubNoiseType == NOISE_GUNFIRE && noiseMaker != nullptr &&
-		noiseMaker->flags.fMuzzleFlash )
+		noiseMaker->renderState().muzzleFlashVisible() )
 	{
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
 		bDirection = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),sNoiseX,sNoiseY);
 		if ( pSoldier->position().direction() != bDirection && pSoldier->position().direction() != gOneCDirection[ bDirection ] && pSoldier->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
-			noiseMaker->flags.fMuzzleFlash = FALSE;
+			noiseMaker->renderState().hideMuzzleFlash();
 			fMuzzleFlash = TRUE;
 		}
 	}
@@ -6599,7 +6599,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	if ( fMuzzleFlash )
 	{
 		// turn flash on again
-		noiseMaker->flags.fMuzzleFlash = TRUE;
+		noiseMaker->renderState().showMuzzleFlash();
 	}
 
 	if (PythSpacesAway(pSoldier->position().gridNo(),sGridNo) <= sDistVisible )
@@ -7527,13 +7527,13 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	bOldOppList = pDefender->aiData.bOppList[ pAttacker->ubID ];
 	// check LOS, considering we are now aware of the attacker
 	// ignore muzzle flashes when must turning head
-	if ( pAttacker->flags.fMuzzleFlash )
+	if ( pAttacker->renderState().muzzleFlashVisible() )
 	{
 		bDirection = atan8( pDefender->position().worldXInt(),pDefender->position().worldYInt(), pAttacker->position().worldXInt(), pAttacker->position().worldYInt() );
 		if ( pDefender->position().direction() != bDirection && pDefender->position().direction() != gOneCDirection[ bDirection ] && pDefender->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
-			pAttacker->flags.fMuzzleFlash = FALSE;
+			pAttacker->renderState().hideMuzzleFlash();
 			fMuzzleFlash = TRUE;
 		}
 	}
@@ -7544,7 +7544,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	}
 	if ( fMuzzleFlash )
 	{
-		pAttacker->flags.fMuzzleFlash = TRUE;
+		pAttacker->renderState().showMuzzleFlash();
 	}
 
 	if (fSeesAttacker)

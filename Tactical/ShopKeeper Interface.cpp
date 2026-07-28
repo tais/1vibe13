@@ -1504,7 +1504,7 @@ BOOLEAN RenderShopKeeperInterface()
 														 sCenX, sCenY,
 														 pSoldier->animationPlayback().frame(),
 														 &rect,
-														 pSoldier->pShades[pSoldier->ubFadeLevel],
+														 pSoldier->pShades[pSoldier->renderState().fadeLevel()],
 														 TRUE
 					);
 				

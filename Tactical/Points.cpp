@@ -862,7 +862,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 		pSoldier->StopChatting();
 
 		// sevenfm: stop muzzle flash
-		if (pSoldier->flags.fMuzzleFlash)
+		if (pSoldier->renderState().muzzleFlashVisible())
 		{
 			EndMuzzleFlash(pSoldier);
 		}

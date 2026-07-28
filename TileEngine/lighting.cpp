@@ -315,7 +315,7 @@ UINT32 uiCount;
 			GetJa2SoldierRepository().resolve(uiCount);
 		if (soldier)
 		{
-			soldier->iLight = -1;
+			soldier->renderState().lightSprite() = -1;
 		}
 	}
 

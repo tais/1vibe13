@@ -501,6 +501,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   flags/POD position, and the v101 converter maps the original fields into
   their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
   and installed data are unchanged.
+- The five palette-replacement identities, fade mode/level/origin, three
+  forced-render policy flags, muzzle-flash visibility, four unblit values,
+  ambient and muzzle-flash sprite handles plus frame, and four bounding-box
+  values are now stored by `SoldierRenderStateComponent`. The visitor emits
+  all 23 values at their established scattered positions and widths, and v101
+  conversion maps every historical value. Fade mode remains one unsigned byte;
+  mode `2` is now preserved instead of being normalized to boolean `1`.
+  Palette/shade/surface pointers remain non-persisted legacy adapters, and the
+  `SOLDIERCREATE_STRUCT` palette bytes used by multiplayer remain unchanged.
+  Save layout, maps, XML, Lua, and installed data are unchanged.
 - Portrait flash, locator frame/offset/cycles, interface level, panel
   animation/position, planned-action overlay, and enemy-cycle cursor are now
   stored by `SoldierUiPresentationComponent`. The visitor emits all fifteen

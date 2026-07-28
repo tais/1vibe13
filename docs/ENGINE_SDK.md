@@ -469,6 +469,13 @@ history operations preserve killer and assister attribution as one transition.
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render
 coordinates cannot leak into those rules.
+`SoldierRenderStateComponent` owns soldier-local rendering values: the five
+palette-replacement identities, fade mode/level/origin, forced colour and shade
+policy, muzzle-flash visibility and light handles, the unblit rectangle, and
+projected bounds. Use `renderState()` and its named fade, flash, shade, redraw,
+and light-lifetime operations from tactical graphics adapters. Raw palette,
+shade, surface, level-node, and background pointers remain with the legacy
+graphics adapter and are not component or package API.
 `SoldierUiPresentationComponent` owns the remaining pointer-free tactical view
 model for a soldier: portrait and locator animation, interface elevation,
 panel placement, planned-action overlay, and enemy cycling. Use
@@ -503,10 +510,11 @@ fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning
 pointers, and repository replacement keeps loaded-surface identity attached
 to its canonical slot. The serializer keeps targeting, attack selection,
-fire-control, incoming combat results, damage-display presentation, and
-suppression reaction state at their established byte positions and preserves
-both continuation mode `2` and hit phase `2` as 8-bit values rather than
-reducing them to boolean `1`. The retired cache-pointer
+fire-control, incoming combat results, damage-display presentation,
+render-state values, and suppression reaction state at their established byte
+positions and preserves fade mode `2`, continuation mode `2`, and hit phase
+`2` as 8-bit values rather than reducing them to boolean `1`. The retired
+cache-pointer
 visitors emitted no bytes; load now resets the inline cache directly. The
 unused legacy delayed-cause-merc byte is retained only at its save position and
 is no longer live soldier state. The v101 converter copies all six 32-bit

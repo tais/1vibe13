@@ -603,8 +603,8 @@ void GetSoldierScreenRect( SOLDIERTYPE *pSoldier, SGPRect *pRect )
 
 		pRect->iLeft		= sMercScreenX;
 		pRect->iTop			= sMercScreenY;
-		pRect->iBottom	= sMercScreenY + pSoldier->sBoundingBoxHeight;
-		pRect->iRight		= sMercScreenX + pSoldier->sBoundingBoxWidth;
+		pRect->iBottom	= sMercScreenY + pSoldier->renderState().boundingBoxHeight();
+		pRect->iRight		= sMercScreenX + pSoldier->renderState().boundingBoxWidth();
 }
 
 void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth )
@@ -625,8 +625,8 @@ void GetSoldierAnimDims( SOLDIERTYPE *pSoldier, INT16 *psHeight, INT16 *psWidth 
 	// depending on the frame and the value returned here will vary thusly. However, for the
 	// uses of this function, we should be able to use just the first frame...
 
-	*psHeight					= (INT16)pSoldier->sBoundingBoxHeight;
-	*psWidth					= (INT16)pSoldier->sBoundingBoxWidth;
+	*psHeight					= (INT16)pSoldier->renderState().boundingBoxHeight();
+	*psWidth					= (INT16)pSoldier->renderState().boundingBoxWidth();
 }
 
 void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffsetY )
@@ -643,8 +643,8 @@ void GetSoldierAnimOffsets( SOLDIERTYPE *pSoldier, INT16 *sOffsetX, INT16 *sOffs
 		return;
 	}
 
-	*sOffsetX					= (INT16)pSoldier->sBoundingBoxOffsetX;
-	*sOffsetY					= (INT16)pSoldier->sBoundingBoxOffsetY;
+	*sOffsetX					= (INT16)pSoldier->renderState().boundingBoxOffsetX();
+	*sOffsetY					= (INT16)pSoldier->renderState().boundingBoxOffsetY();
 }
 
 void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScreenY )
@@ -695,8 +695,8 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 		// Add to start position of dest buffer
 		//sMercScreenX += pTrav->sOffsetX;
 		//sMercScreenY += pTrav->sOffsetY;
-		sMercScreenX += pSoldier->sBoundingBoxOffsetX;
-		sMercScreenY += pSoldier->sBoundingBoxOffsetY;
+		sMercScreenX += pSoldier->renderState().boundingBoxOffsetX();
+		sMercScreenY += pSoldier->renderState().boundingBoxOffsetY();
 
 
 		sMercScreenY -= pSoldier->position().heightAdjustment();

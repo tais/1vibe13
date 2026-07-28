@@ -7552,6 +7552,22 @@ int main( int, char** )
 		damageDisplay.activateAt(13, -9);
 		damageDisplay.counter() = 2;
 		damageDisplay.direction() = -1;
+		SoldierRenderStateComponent& renderState = soldier.renderState();
+		std::strcpy(renderState.headPalette(), "BROWNHEAD");
+		std::strcpy(renderState.pantsPalette(), "GREENPANTS");
+		std::strcpy(renderState.vestPalette(), "REDVEST");
+		std::strcpy(renderState.skinPalette(), "PINKSKIN");
+		std::strcpy(renderState.miscPalette(), "MISC");
+		renderState.beginFade(2, 17, 1301);
+		renderState.forceRenderColor() = TRUE;
+		renderState.forceNoPaletteCycle() = TRUE;
+		renderState.enableForceShade();
+		renderState.showMuzzleFlash();
+		renderState.setUnblitRect(11, 12, 13, 14);
+		renderState.lightSprite() = 501;
+		renderState.startMuzzleFlashSprite(502);
+		renderState.muzzleFlashFrame() = 3;
+		renderState.setBoundingBox(41, 42, -3, -4);
 		SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();
 		uiPresentation.portraitFlashFrame() = 3;
 		uiPresentation.startLocator(5);
@@ -7963,6 +7979,30 @@ int main( int, char** )
 		       constSoldier.damageDisplay().offsetY() == -9 &&
 		       constSoldier.damageDisplay().direction() == -1,
 		       "soldier damage-display component owns floating-number presentation state" );
+		CHECK( std::strcmp(constSoldier.renderState().headPalette(), "BROWNHEAD") == 0 &&
+		       std::strcmp(constSoldier.renderState().pantsPalette(), "GREENPANTS") == 0 &&
+		       std::strcmp(constSoldier.renderState().vestPalette(), "REDVEST") == 0 &&
+		       std::strcmp(constSoldier.renderState().skinPalette(), "PINKSKIN") == 0 &&
+		       std::strcmp(constSoldier.renderState().miscPalette(), "MISC") == 0 &&
+		       constSoldier.renderState().fadeMode() == 2 &&
+		       constSoldier.renderState().fadeLevel() == 17 &&
+		       constSoldier.renderState().fadeOriginGrid() == 1301 &&
+		       constSoldier.renderState().forceRenderColor() &&
+		       constSoldier.renderState().forceNoPaletteCycle() &&
+		       constSoldier.renderState().forceShade() &&
+		       constSoldier.renderState().muzzleFlashVisible() &&
+		       constSoldier.renderState().unblitX() == 11 &&
+		       constSoldier.renderState().unblitY() == 12 &&
+		       constSoldier.renderState().unblitWidth() == 13 &&
+		       constSoldier.renderState().unblitHeight() == 14 &&
+		       constSoldier.renderState().lightSprite() == 501 &&
+		       constSoldier.renderState().muzzleFlashSprite() == 502 &&
+		       constSoldier.renderState().muzzleFlashFrame() == 3 &&
+		       constSoldier.renderState().boundingBoxWidth() == 41 &&
+		       constSoldier.renderState().boundingBoxHeight() == 42 &&
+		       constSoldier.renderState().boundingBoxOffsetX() == -3 &&
+		       constSoldier.renderState().boundingBoxOffsetY() == -4,
+		       "soldier render-state component owns palette identity, fade, light, redraw, and geometry values" );
 		CHECK( constSoldier.uiPresentation().portraitFlashFrame() == 3 &&
 		       constSoldier.uiPresentation().locatorFrame() == 2 &&
 		       constSoldier.uiPresentation().locatorOffsetX() == 7 &&
@@ -8843,6 +8883,18 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == -9 &&
 		       copiedSoldier.damageDisplay().direction() == -1,
 		       "soldier copies retain their owned persistent damage-display state" );
+		CHECK( std::strcmp(copiedSoldier.renderState().headPalette(), "BROWNHEAD") == 0 &&
+		       copiedSoldier.renderState().fadeMode() == 2 &&
+		       copiedSoldier.renderState().fadeLevel() == 17 &&
+		       copiedSoldier.renderState().fadeOriginGrid() == 1301 &&
+		       copiedSoldier.renderState().forceShade() &&
+		       copiedSoldier.renderState().muzzleFlashVisible() &&
+		       copiedSoldier.renderState().unblitWidth() == 13 &&
+		       copiedSoldier.renderState().lightSprite() == 501 &&
+		       copiedSoldier.renderState().muzzleFlashSprite() == 502 &&
+		       copiedSoldier.renderState().muzzleFlashFrame() == 3 &&
+		       copiedSoldier.renderState().boundingBoxOffsetY() == -4,
+		       "soldier copies retain their owned persistent render state" );
 		CHECK( copiedSoldier.uiPresentation().portraitFlashFrame() == 3 &&
 		       copiedSoldier.uiPresentation().locatorFrame() == 2 &&
 		       copiedSoldier.uiPresentation().locatorOffsetX() == 7 &&
@@ -8992,6 +9044,49 @@ int main( int, char** )
 		displayLifecycle.clear();
 		CHECK( !displayLifecycle.displaying() && displayLifecycle.counter() == 0,
 		       "damage-display lifecycle clears its active cursor atomically" );
+
+		SoldierRenderStateComponent renderLifecycle;
+		renderLifecycle.beginFade(2, 18, 1401);
+		renderLifecycle.setUnblitRect(21, 22, 23, 24);
+		renderLifecycle.setBoundingBox(51, 52, -5, -6);
+		renderLifecycle.lightSprite() = 601;
+		renderLifecycle.startMuzzleFlashSprite(602);
+		renderLifecycle.advanceMuzzleFlashFrame();
+		renderLifecycle.showMuzzleFlash();
+		renderLifecycle.enableForceShade();
+		CHECK( renderLifecycle.fading() &&
+		       renderLifecycle.fadeMode() == 2 &&
+		       renderLifecycle.fadeLevel() == 18 &&
+		       renderLifecycle.fadeOriginGrid() == 1401 &&
+		       renderLifecycle.hasLightSprite() &&
+		       renderLifecycle.hasMuzzleFlashSprite() &&
+		       renderLifecycle.muzzleFlashFrame() == 2 &&
+		       renderLifecycle.muzzleFlashExpired(1) &&
+		       renderLifecycle.muzzleFlashVisible() &&
+		       renderLifecycle.forceShade() &&
+		       renderLifecycle.unblitHeight() == 24 &&
+		       renderLifecycle.boundingBoxOffsetY() == -6,
+		       "render-state transitions coordinate fade, light, redraw, and screen geometry" );
+		renderLifecycle.finishFade();
+		renderLifecycle.clearMuzzleFlashSprite();
+		renderLifecycle.clearLightSprite();
+		renderLifecycle.hideMuzzleFlash();
+		renderLifecycle.disableForceShade();
+		CHECK( !renderLifecycle.fading() &&
+		       !renderLifecycle.hasLightSprite() &&
+		       !renderLifecycle.hasMuzzleFlashSprite() &&
+		       renderLifecycle.muzzleFlashFrame() == 0 &&
+		       !renderLifecycle.muzzleFlashVisible() &&
+		       !renderLifecycle.forceShade(),
+		       "render-state transitions clear completed fade and light lifecycles atomically" );
+		std::strcpy(renderLifecycle.headPalette(), "STALE");
+		renderLifecycle.forceRenderColor() = TRUE;
+		renderLifecycle.reset();
+		CHECK( renderLifecycle.headPalette()[0] == '\0' &&
+		       !renderLifecycle.forceRenderColor() &&
+		       !renderLifecycle.hasLightSprite() &&
+		       !renderLifecycle.hasMuzzleFlashSprite(),
+		       "render-state reset restores empty palettes and explicit no-light sentinels" );
 
 		SoldierUiPresentationComponent uiPresentationLifecycle;
 		uiPresentationLifecycle.startLocator(7);
@@ -9728,6 +9823,23 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == 0 &&
 		       copiedSoldier.damageDisplay().direction() == 0,
 		       "soldier initialization resets the complete damage-display domain" );
+		CHECK( copiedSoldier.renderState().headPalette()[0] == '\0' &&
+		       copiedSoldier.renderState().pantsPalette()[0] == '\0' &&
+		       !copiedSoldier.renderState().fading() &&
+		       copiedSoldier.renderState().fadeLevel() == 0 &&
+		       copiedSoldier.renderState().fadeOriginGrid() == 0 &&
+		       !copiedSoldier.renderState().forceRenderColor() &&
+		       !copiedSoldier.renderState().forceNoPaletteCycle() &&
+		       !copiedSoldier.renderState().forceShade() &&
+		       !copiedSoldier.renderState().muzzleFlashVisible() &&
+		       copiedSoldier.renderState().unblitWidth() == 0 &&
+		       copiedSoldier.renderState().unblitHeight() == 0 &&
+		       !copiedSoldier.renderState().hasLightSprite() &&
+		       !copiedSoldier.renderState().hasMuzzleFlashSprite() &&
+		       copiedSoldier.renderState().muzzleFlashFrame() == 0 &&
+		       copiedSoldier.renderState().boundingBoxWidth() == 0 &&
+		       copiedSoldier.renderState().boundingBoxHeight() == 0,
+		       "soldier initialization resets the complete render-state domain" );
 		CHECK( copiedSoldier.uiPresentation().portraitFlashFrame() == 0 &&
 		       copiedSoldier.uiPresentation().locatorFrame() == 0 &&
 		       copiedSoldier.uiPresentation().locatorOffsetX() == 0 &&
@@ -9814,6 +9926,29 @@ int main( int, char** )
 		legacySoldier->fIgnoreGetupFromCollapseCheck = TRUE;
 		legacySoldier->GetupFromJA25StartCounter = 1704;
 		legacySoldier->fWaitingToGetupFromJA25Start = TRUE;
+		std::strcpy(legacySoldier->HeadPal, "BLACKHEAD");
+		std::strcpy(legacySoldier->PantsPal, "BLUEPANTS");
+		std::strcpy(legacySoldier->VestPal, "BLUEVEST");
+		std::strcpy(legacySoldier->SkinPal, "TANSKIN");
+		std::strcpy(legacySoldier->MiscPal, "OLDMISC");
+		legacySoldier->fBeginFade = 2;
+		legacySoldier->ubFadeLevel = 19;
+		legacySoldier->fForceRenderColor = TRUE;
+		legacySoldier->fForceNoRenderPaletteCycle = TRUE;
+		legacySoldier->fForceShade = TRUE;
+		legacySoldier->fMuzzleFlash = TRUE;
+		legacySoldier->usUnblitX = 31;
+		legacySoldier->usUnblitY = 32;
+		legacySoldier->usUnblitWidth = 33;
+		legacySoldier->usUnblitHeight = 34;
+		legacySoldier->iLight = 701;
+		legacySoldier->iMuzFlash = 702;
+		legacySoldier->bMuzFlashCount = 4;
+		legacySoldier->sBoundingBoxWidth = 61;
+		legacySoldier->sBoundingBoxHeight = 62;
+		legacySoldier->sBoundingBoxOffsetX = -7;
+		legacySoldier->sBoundingBoxOffsetY = -8;
+		legacySoldier->sLocationOfFadeStart = 1705;
 		legacySoldier->bMovedPriorToInterrupt = 1;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
@@ -10039,6 +10174,16 @@ int main( int, char** )
 		convertedSoldier.uiPresentation().startLocator(98);
 		convertedSoldier.uiPresentation().setPlannedTarget(999, 998, 97);
 		convertedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 96 };
+		std::strcpy(convertedSoldier.renderState().headPalette(), "STALE");
+		convertedSoldier.renderState().beginFade(1, 99, 9999);
+		convertedSoldier.renderState().forceRenderColor() = FALSE;
+		convertedSoldier.renderState().forceNoPaletteCycle() = FALSE;
+		convertedSoldier.renderState().disableForceShade();
+		convertedSoldier.renderState().hideMuzzleFlash();
+		convertedSoldier.renderState().setUnblitRect(91, 92, 93, 94);
+		convertedSoldier.renderState().lightSprite() = 991;
+		convertedSoldier.renderState().startMuzzleFlashSprite(992);
+		convertedSoldier.renderState().setBoundingBox(91, 92, 93, 94);
 		convertedSoldier.movementMetrics().carriedWeightAtTurnStart() = 190;
 		convertedSoldier.movementMetrics().tilesMoved() = 90;
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
@@ -10382,6 +10527,30 @@ int main( int, char** )
 		       convertedSoldier.damageDisplay().offsetY() == -8 &&
 		       convertedSoldier.damageDisplay().direction() == -1,
 		       "v101 soldier conversion retains floating damage-display presentation state" );
+		CHECK( std::strcmp(convertedSoldier.renderState().headPalette(), "BLACKHEAD") == 0 &&
+		       std::strcmp(convertedSoldier.renderState().pantsPalette(), "BLUEPANTS") == 0 &&
+		       std::strcmp(convertedSoldier.renderState().vestPalette(), "BLUEVEST") == 0 &&
+		       std::strcmp(convertedSoldier.renderState().skinPalette(), "TANSKIN") == 0 &&
+		       std::strcmp(convertedSoldier.renderState().miscPalette(), "OLDMISC") == 0 &&
+		       convertedSoldier.renderState().fadeMode() == 2 &&
+		       convertedSoldier.renderState().fadeLevel() == 19 &&
+		       convertedSoldier.renderState().fadeOriginGrid() == 1705 &&
+		       convertedSoldier.renderState().forceRenderColor() &&
+		       convertedSoldier.renderState().forceNoPaletteCycle() &&
+		       convertedSoldier.renderState().forceShade() &&
+		       convertedSoldier.renderState().muzzleFlashVisible() &&
+		       convertedSoldier.renderState().unblitX() == 31 &&
+		       convertedSoldier.renderState().unblitY() == 32 &&
+		       convertedSoldier.renderState().unblitWidth() == 33 &&
+		       convertedSoldier.renderState().unblitHeight() == 34 &&
+		       convertedSoldier.renderState().lightSprite() == 701 &&
+		       convertedSoldier.renderState().muzzleFlashSprite() == 702 &&
+		       convertedSoldier.renderState().muzzleFlashFrame() == 4 &&
+		       convertedSoldier.renderState().boundingBoxWidth() == 61 &&
+		       convertedSoldier.renderState().boundingBoxHeight() == 62 &&
+		       convertedSoldier.renderState().boundingBoxOffsetX() == -7 &&
+		       convertedSoldier.renderState().boundingBoxOffsetY() == -8,
+		       "v101 soldier conversion retains palette, fade, light, redraw, and geometry render state" );
 		CHECK( convertedSoldier.suppression().underFire() == 2 &&
 		       convertedSoldier.suppression().shock() == 9 &&
 		       convertedSoldier.suppression().points() == 5 &&
@@ -10535,6 +10704,21 @@ int main( int, char** )
 		savedSoldier.audio().startBurstSound(601);
 		savedSoldier.audio().startPositionSound(602);
 		savedSoldier.audio().startTurningSound(603);
+		std::strcpy(savedSoldier.renderState().headPalette(), "WHITEHEAD");
+		std::strcpy(savedSoldier.renderState().pantsPalette(), "BLACKPANTS");
+		std::strcpy(savedSoldier.renderState().vestPalette(), "BLACKSHIRT");
+		std::strcpy(savedSoldier.renderState().skinPalette(), "DARKSKIN");
+		std::strcpy(savedSoldier.renderState().miscPalette(), "SAVEMISC");
+		savedSoldier.renderState().beginFade(2, 20, 2500);
+		savedSoldier.renderState().forceRenderColor() = TRUE;
+		savedSoldier.renderState().forceNoPaletteCycle() = TRUE;
+		savedSoldier.renderState().enableForceShade();
+		savedSoldier.renderState().showMuzzleFlash();
+		savedSoldier.renderState().setUnblitRect(41, 42, 43, 44);
+		savedSoldier.renderState().lightSprite() = 801;
+		savedSoldier.renderState().startMuzzleFlashSprite(802);
+		savedSoldier.renderState().muzzleFlashFrame() = 5;
+		savedSoldier.renderState().setBoundingBox(71, 72, -9, -10);
 		savedSoldier.uiPresentation().portraitFlashFrame() = -5;
 		savedSoldier.uiPresentation().startLocator(8);
 		savedSoldier.uiPresentation().locatorFrame() = 6;
@@ -11201,6 +11385,31 @@ int main( int, char** )
 		       loadedSoldier.damageDisplay().offsetY() == -12 &&
 		       loadedSoldier.damageDisplay().direction() == -1,
 		       "soldier save/load round-trips damage-display state at established schema positions" );
+		CHECK( saved && loaded &&
+		       std::strcmp(loadedSoldier.renderState().headPalette(), "WHITEHEAD") == 0 &&
+		       std::strcmp(loadedSoldier.renderState().pantsPalette(), "BLACKPANTS") == 0 &&
+		       std::strcmp(loadedSoldier.renderState().vestPalette(), "BLACKSHIRT") == 0 &&
+		       std::strcmp(loadedSoldier.renderState().skinPalette(), "DARKSKIN") == 0 &&
+		       std::strcmp(loadedSoldier.renderState().miscPalette(), "SAVEMISC") == 0 &&
+		       loadedSoldier.renderState().fadeMode() == 2 &&
+		       loadedSoldier.renderState().fadeLevel() == 20 &&
+		       loadedSoldier.renderState().fadeOriginGrid() == 2500 &&
+		       loadedSoldier.renderState().forceRenderColor() &&
+		       loadedSoldier.renderState().forceNoPaletteCycle() &&
+		       loadedSoldier.renderState().forceShade() &&
+		       loadedSoldier.renderState().muzzleFlashVisible() &&
+		       loadedSoldier.renderState().unblitX() == 41 &&
+		       loadedSoldier.renderState().unblitY() == 42 &&
+		       loadedSoldier.renderState().unblitWidth() == 43 &&
+		       loadedSoldier.renderState().unblitHeight() == 44 &&
+		       loadedSoldier.renderState().lightSprite() == 801 &&
+		       loadedSoldier.renderState().muzzleFlashSprite() == 802 &&
+		       loadedSoldier.renderState().muzzleFlashFrame() == 5 &&
+		       loadedSoldier.renderState().boundingBoxWidth() == 71 &&
+		       loadedSoldier.renderState().boundingBoxHeight() == 72 &&
+		       loadedSoldier.renderState().boundingBoxOffsetX() == -9 &&
+		       loadedSoldier.renderState().boundingBoxOffsetY() == -10,
+		       "soldier save/load round-trips render state while preserving fade mode 2" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.suppression().underFire() == 2 &&
 		       loadedSoldier.suppression().shock() == 10 &&

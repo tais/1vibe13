@@ -762,13 +762,13 @@ BOOLEAN TeleportSoldier( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fForce )
 		// Change light....
 		if ( pSoldier->position().level() == 0 )
 		{
-			if(pSoldier->iLight!=(-1))
-				LightSpriteRoofStatus(pSoldier->iLight, FALSE );
+			if(pSoldier->renderState().lightSprite()!=(-1))
+				LightSpriteRoofStatus(pSoldier->renderState().lightSprite(), FALSE );
 		}
 		else
 		{
-			if(pSoldier->iLight!=(-1))
-				LightSpriteRoofStatus(pSoldier->iLight, TRUE );
+			if(pSoldier->renderState().lightSprite()!=(-1))
+				LightSpriteRoofStatus(pSoldier->renderState().lightSprite(), TRUE );
 		}
 		return( TRUE );
 	}

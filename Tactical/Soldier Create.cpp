@@ -292,11 +292,11 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	memcpy( this->sPatrolGrid, Soldier.aiData.sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
 
 	//copy colors for soldier based on the body type.
-	strcpy(this->HeadPal, Soldier.HeadPal);
-	strcpy(this->VestPal, Soldier.VestPal);
-	strcpy(this->SkinPal, Soldier.SkinPal);
-	strcpy(this->PantsPal, Soldier.PantsPal);
-	strcpy(this->MiscPal, Soldier.MiscPal);
+	strcpy(this->HeadPal, Soldier.renderState().headPalette());
+	strcpy(this->VestPal, Soldier.renderState().vestPalette());
+	strcpy(this->SkinPal, Soldier.renderState().skinPalette());
+	strcpy(this->PantsPal, Soldier.renderState().pantsPalette());
+	strcpy(this->MiscPal, Soldier.renderState().miscPalette());
 
 	//copy soldier's inventory
 	this->Inv = Soldier.inv;
@@ -1204,7 +1204,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.iFaceIndex = InitSoldierFace( &Soldier );
 
 		// ATE: Reset soldier's light value to -1....
-		Soldier.iLight = -1;
+		Soldier.renderState().lightSprite() = -1;
 
 			if ( Soldier.ubBodyType == HUMVEE || Soldier.ubBodyType == ICECREAMTRUCK )
 		{
@@ -1276,10 +1276,10 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	ubProfileIndex = pCreateStruct->ubProfile;
 	pProfile = &(gMercProfiles[ubProfileIndex]);
 
-	SET_PALETTEREP_ID ( pSoldier->HeadPal,		pProfile->HAIR );
-	SET_PALETTEREP_ID ( pSoldier->VestPal,		pProfile->VEST );
-	SET_PALETTEREP_ID ( pSoldier->SkinPal,		pProfile->SKIN );
-	SET_PALETTEREP_ID ( pSoldier->PantsPal,	pProfile->PANTS );
+	SET_PALETTEREP_ID ( pSoldier->renderState().headPalette(),		pProfile->HAIR );
+	SET_PALETTEREP_ID ( pSoldier->renderState().vestPalette(),		pProfile->VEST );
+	SET_PALETTEREP_ID ( pSoldier->renderState().skinPalette(),		pProfile->SKIN );
+	SET_PALETTEREP_ID ( pSoldier->renderState().pantsPalette(),	pProfile->PANTS );
 
 	// Set profile index!
 	pSoldier->ubProfile									= ubProfileIndex;
@@ -1481,17 +1481,17 @@ void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT
 	{
 		switch ( aVest )
 		{
-		case WHITEVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "WHITEVEST" );	break;
-		case GYELLOWSHIRT:	SET_PALETTEREP_ID( pSoldier->VestPal, "GYELLOWSHIRT" );	break;
-		case YELLOWVEST:	SET_PALETTEREP_ID( pSoldier->VestPal, "YELLOWVEST" );	break;
-		case GREYVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "greyVEST" );		break;
-		case BROWNVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "BROWNVEST" );	break;
-		case PURPLESHIRT:	SET_PALETTEREP_ID( pSoldier->VestPal, "PURPLESHIRT" );	break;
-		case BLUEVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "BLUEVEST" );		break;
-		case JEANVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "JEANVEST" );		break;
-		case GREENVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "GREENVEST" );	break;		
-		case REDVEST:		SET_PALETTEREP_ID( pSoldier->VestPal, "REDVEST" );		break;		
-		case BLACKSHIRT:	SET_PALETTEREP_ID( pSoldier->VestPal, "BLACKSHIRT" );	break;
+		case WHITEVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "WHITEVEST" );	break;
+		case GYELLOWSHIRT:	SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GYELLOWSHIRT" );	break;
+		case YELLOWVEST:	SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "YELLOWVEST" );	break;
+		case GREYVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "greyVEST" );		break;
+		case BROWNVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BROWNVEST" );	break;
+		case PURPLESHIRT:	SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "PURPLESHIRT" );	break;
+		case BLUEVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLUEVEST" );		break;
+		case JEANVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "JEANVEST" );		break;
+		case GREENVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GREENVEST" );	break;
+		case REDVEST:		SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST" );		break;
+		case BLACKSHIRT:	SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT" );	break;
 		
 		}
 	}
@@ -1501,12 +1501,12 @@ void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT
 	{
 		switch ( aPants )
 		{
-		case BLUEPANTS:		SET_PALETTEREP_ID( pSoldier->PantsPal, "BLUEPANTS" );	break;
-		case BLACKPANTS:	SET_PALETTEREP_ID( pSoldier->PantsPal, "BLACKPANTS" );	break;
-		case JEANPANTS:		SET_PALETTEREP_ID( pSoldier->PantsPal, "JEANPANTS" );	break;
-		case TANPANTS:		SET_PALETTEREP_ID( pSoldier->PantsPal, "TANPANTS" );	break;
-		case BEIGEPANTS:	SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS" );	break;
-		case GREENPANTS:	SET_PALETTEREP_ID( pSoldier->PantsPal, "GREENPANTS" );	break;
+		case BLUEPANTS:		SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLUEPANTS" );	break;
+		case BLACKPANTS:	SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLACKPANTS" );	break;
+		case JEANPANTS:		SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "JEANPANTS" );	break;
+		case TANPANTS:		SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "TANPANTS" );	break;
+		case BEIGEPANTS:	SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS" );	break;
+		case GREENPANTS:	SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS" );	break;
 		}
 	}
 
@@ -1515,11 +1515,11 @@ void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT
 	{
 		switch ( aHair )
 		{
-		case BROWNHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "BROWNHEAD" );	break;
-		case BLACKHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "BLACKHEAD" );	break;
-		case WHITEHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "WHITEHEAD" );	break;
-		case BLONDEHEAD:SET_PALETTEREP_ID( pSoldier->HeadPal, "BLONDHEAD" );	break;
-		case REDHEAD:	SET_PALETTEREP_ID( pSoldier->HeadPal, "REDHEAD" );		break;
+		case BROWNHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BROWNHEAD" );	break;
+		case BLACKHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLACKHEAD" );	break;
+		case WHITEHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "WHITEHEAD" );	break;
+		case BLONDEHEAD:SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLONDHEAD" );	break;
+		case REDHEAD:	SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "REDHEAD" );		break;
 		}
 	}
 
@@ -1528,10 +1528,10 @@ void SetClothes( SOLDIERTYPE* pSoldier, INT8 aVest, INT8 aPants, INT8 aHair, INT
 	{
 		switch ( aSkin )
 		{
-		case PINKSKIN:	SET_PALETTEREP_ID( pSoldier->SkinPal, "PINKSKIN" );		break;
-		case TANSKIN:	SET_PALETTEREP_ID( pSoldier->SkinPal, "TANSKIN" );		break;
-		case DARKSKIN:	SET_PALETTEREP_ID( pSoldier->SkinPal, "DARKSKIN" );		break;
-		case BLACKSKIN:	SET_PALETTEREP_ID( pSoldier->SkinPal, "BLACKSKIN" );	break;
+		case PINKSKIN:	SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "PINKSKIN" );		break;
+		case TANSKIN:	SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "TANSKIN" );		break;
+		case DARKSKIN:	SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "DARKSKIN" );		break;
+		case BLACKSKIN:	SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "BLACKSKIN" );	break;
 		}
 	}
 }
@@ -1543,7 +1543,7 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	hair = -1;
 
 	// Flugente: if all palettes are already set, no need to rebuild them. This allows zombies to use a corpses palettes
-	if( pSoldier->PantsPal[0] && pSoldier->VestPal[0] && pSoldier->SkinPal[0] && pSoldier->HeadPal[0] )
+	if( pSoldier->renderState().pantsPalette()[0] && pSoldier->renderState().vestPalette()[0] && pSoldier->renderState().skinPalette()[0] && pSoldier->renderState().headPalette()[0] )
 		return;
 
 	//choose random skin tone which will limit the choice of hair colors.
@@ -1572,16 +1572,16 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	switch( skin )
 	{
 		case PINKSKIN:
-			SET_PALETTEREP_ID( pSoldier->SkinPal,	"PINKSKIN" );
+			SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(),	"PINKSKIN" );
 			break;
 		case TANSKIN:
-			SET_PALETTEREP_ID( pSoldier->SkinPal,	"TANSKIN" );
+			SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(),	"TANSKIN" );
 			break;
 		case DARKSKIN:
-			SET_PALETTEREP_ID( pSoldier->SkinPal,	"DARKSKIN" );
+			SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(),	"DARKSKIN" );
 			break;
 		case BLACKSKIN:
-			SET_PALETTEREP_ID( pSoldier->SkinPal,	"BLACKSKIN" );
+			SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(),	"BLACKSKIN" );
 			break;
 		default:
 			AssertMsg( 0, "Skin type not accounted for." );
@@ -1590,11 +1590,11 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 
 	switch( hair )
 	{
-		case BROWNHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "BROWNHEAD" ); break;
-		case BLACKHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "BLACKHEAD" ); break;
-		case WHITEHEAD: SET_PALETTEREP_ID( pSoldier->HeadPal, "WHITEHEAD" ); break;
-		case BLONDEHEAD:SET_PALETTEREP_ID( pSoldier->HeadPal, "BLONDHEAD" ); break;
-		case REDHEAD:	SET_PALETTEREP_ID( pSoldier->HeadPal, "REDHEAD"	); break;
+		case BROWNHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BROWNHEAD" ); break;
+		case BLACKHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLACKHEAD" ); break;
+		case WHITEHEAD: SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "WHITEHEAD" ); break;
+		case BLONDEHEAD:SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLONDHEAD" ); break;
+		case REDHEAD:	SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), "REDHEAD"	); break;
 		default:	AssertMsg( 0, "Hair type not accounted for.");						break;
 	}
 
@@ -1603,50 +1603,50 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	{
 		// HEADROCK HAM 3.6: Now reads default colors from XML.
 		case SOLDIER_CLASS_ADMINISTRATOR:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "YELLOWVEST"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "GREENPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_ENEMY_ADMIN ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_ENEMY_ADMIN ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "YELLOWVEST"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_ADMIN ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_ADMIN ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ELITE:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "BLACKSHIRT"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "BLACKPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_ENEMY_ELITE ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_ENEMY_ELITE ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLACKPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_ELITE ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_ELITE ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ARMY:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "REDVEST"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "GREENPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_ENEMY_TROOP ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_ENEMY_TROOP ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_TROOP ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_TROOP ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_GREEN_MILITIA:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "GREENVEST"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_MILITIA_ROOKIE ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_MILITIA_ROOKIE ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GREENVEST"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_ROOKIE ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_ROOKIE ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_REG_MILITIA:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "JEANVEST"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_MILITIA_REGULAR ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_MILITIA_REGULAR ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "JEANVEST"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_REGULAR ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_REGULAR ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ELITE_MILITIA:
-			//SET_PALETTEREP_ID( pSoldier->VestPal, "BLUEVEST"	);
-			//SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS"	);
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[ UNIFORM_MILITIA_ELITE ].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[ UNIFORM_MILITIA_ELITE ].pants );
+			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLUEVEST"	);
+			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_ELITE ].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_ELITE ].pants );
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_MINER:
-			SET_PALETTEREP_ID( pSoldier->VestPal, "greyVEST"	);
-			SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "greyVEST"	);
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
 			pSoldier->ubSoldierClass = ubSoldierClass;
 			return;
 	}
@@ -1655,7 +1655,7 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	//merc clothing scheme is much larger and general and is an exclusive superset
 	//of the civilian clothing scheme which means the civilians will choose the
 	//merc clothing scheme often ( actually 60% of the time ).
-	if( !pSoldier->PantsPal[0] || !pSoldier->VestPal[0] )
+	if( !pSoldier->renderState().pantsPalette()[0] || !pSoldier->renderState().vestPalette()[0] )
 	{
 		fMercClothingScheme = TRUE;
 		if( pSoldier->bTeam == CIV_TEAM && Random( 100 ) < 40 )
@@ -1666,26 +1666,26 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 		{
 			if( Random( 100 ) < 30 )
 			{ //30% chance that the civilian will choose a gaudy yellow shirt with pants.
-				SET_PALETTEREP_ID( pSoldier->VestPal, "GYELLOWSHIRT" );
+				SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GYELLOWSHIRT" );
 				switch( Random( 3 ) )
 				{
-					case 0:	SET_PALETTEREP_ID( pSoldier->PantsPal, "TANPANTS"	); break;
-					case 1: SET_PALETTEREP_ID( pSoldier->PantsPal, "BEIGEPANTS" ); break;
-					case 2: SET_PALETTEREP_ID( pSoldier->PantsPal, "GREENPANTS" ); break;
+					case 0:	SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "TANPANTS"	); break;
+					case 1: SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS" ); break;
+					case 2: SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS" ); break;
 				}
 			}
 			else
 			{ //70% chance that the civilian will choose jeans with a shirt.
-				SET_PALETTEREP_ID( pSoldier->PantsPal, "JEANPANTS" );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "JEANPANTS" );
 				switch( Random( 7 ) )
 				{
-					case 0:	SET_PALETTEREP_ID( pSoldier->VestPal, "WHITEVEST"	); break;
-					case 1: SET_PALETTEREP_ID( pSoldier->VestPal, "BLACKSHIRT"	); break;
-					case 2: SET_PALETTEREP_ID( pSoldier->VestPal, "PURPLESHIRT" ); break;
-					case 3: SET_PALETTEREP_ID( pSoldier->VestPal, "BLUEVEST"	); break;
-					case 4: SET_PALETTEREP_ID( pSoldier->VestPal, "BROWNVEST"	); break;
-					case 5: SET_PALETTEREP_ID( pSoldier->VestPal, "JEANVEST"	); break;
-					case 6: SET_PALETTEREP_ID( pSoldier->VestPal, "REDVEST"	 ); break;
+					case 0:	SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "WHITEVEST"	); break;
+					case 1: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT"	); break;
+					case 2: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "PURPLESHIRT" ); break;
+					case 3: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLUEVEST"	); break;
+					case 4: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BROWNVEST"	); break;
+					case 5: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "JEANVEST"	); break;
+					case 6: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST"	 ); break;
 				}
 			}
 			return;
@@ -1694,37 +1694,37 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 		switch( Random( 3 ) )
 		{
 			case 0:
-				SET_PALETTEREP_ID( pSoldier->PantsPal, "GREENPANTS" );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS" );
 				switch( Random( 4 ) )
 				{
-					case 0: SET_PALETTEREP_ID( pSoldier->VestPal, "YELLOWVEST" ); break;
-					case 1: SET_PALETTEREP_ID( pSoldier->VestPal, "WHITEVEST"	); break;
-					case 2: SET_PALETTEREP_ID( pSoldier->VestPal, "BROWNVEST"	); break;
-					case 3: SET_PALETTEREP_ID( pSoldier->VestPal, "GREENVEST"	); break;
+					case 0: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "YELLOWVEST" ); break;
+					case 1: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "WHITEVEST"	); break;
+					case 2: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BROWNVEST"	); break;
+					case 3: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GREENVEST"	); break;
 				}
 				break;
 			case 1:
-				SET_PALETTEREP_ID( pSoldier->PantsPal, "TANPANTS" );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "TANPANTS" );
 				switch( Random( 8 ) )
 				{
-					case 0: SET_PALETTEREP_ID( pSoldier->VestPal, "YELLOWVEST" ); break;
-					case 1: SET_PALETTEREP_ID( pSoldier->VestPal, "WHITEVEST"	); break;
-					case 2: SET_PALETTEREP_ID( pSoldier->VestPal, "BLACKSHIRT" ); break;
-					case 3: SET_PALETTEREP_ID( pSoldier->VestPal, "BLUEVEST"	); break;
-					case 4: SET_PALETTEREP_ID( pSoldier->VestPal, "BROWNVEST"	); break;
-					case 5: SET_PALETTEREP_ID( pSoldier->VestPal, "GREENVEST"	); break;
-					case 6: SET_PALETTEREP_ID( pSoldier->VestPal, "JEANVEST"	); break;
-					case 7: SET_PALETTEREP_ID( pSoldier->VestPal, "REDVEST"	); break;
+					case 0: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "YELLOWVEST" ); break;
+					case 1: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "WHITEVEST"	); break;
+					case 2: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT" ); break;
+					case 3: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLUEVEST"	); break;
+					case 4: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BROWNVEST"	); break;
+					case 5: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GREENVEST"	); break;
+					case 6: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "JEANVEST"	); break;
+					case 7: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST"	); break;
 				}
 				break;
 			case 2:
-				SET_PALETTEREP_ID( pSoldier->PantsPal, "BLUEPANTS" );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLUEPANTS" );
 				switch( Random( 4 ) )
 				{
-					case 0: SET_PALETTEREP_ID( pSoldier->VestPal, "YELLOWVEST" ); break;
-					case 1: SET_PALETTEREP_ID( pSoldier->VestPal, "WHITEVEST"	); break;
-					case 2: SET_PALETTEREP_ID( pSoldier->VestPal, "REDVEST"	); break;
-					case 3: SET_PALETTEREP_ID( pSoldier->VestPal, "BLACKSHIRT" ); break;
+					case 0: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "YELLOWVEST" ); break;
+					case 1: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "WHITEVEST"	); break;
+					case 2: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST"	); break;
+					case 3: SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT" ); break;
 				}
 				break;
 		}
@@ -1813,10 +1813,10 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 	if( pCreateStruct->fVisible )
 	{
-		strcpy(pSoldier->HeadPal, pCreateStruct->HeadPal);
-		strcpy(pSoldier->PantsPal, pCreateStruct->PantsPal);
-		strcpy(pSoldier->VestPal, pCreateStruct->VestPal);
-		strcpy(pSoldier->SkinPal, pCreateStruct->SkinPal);
+		strcpy(pSoldier->renderState().headPalette(), pCreateStruct->HeadPal);
+		strcpy(pSoldier->renderState().pantsPalette(), pCreateStruct->PantsPal);
+		strcpy(pSoldier->renderState().vestPalette(), pCreateStruct->VestPal);
+		strcpy(pSoldier->renderState().skinPalette(), pCreateStruct->SkinPal);
 	}
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2096,7 +2096,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	//Set AI Delay!
 	pSoldier->uiAIDelay = 100;
 
-	pSoldier->iLight = -1;
+	pSoldier->renderState().lightSprite() = -1;
 	pSoldier->iFaceIndex = -1;
 
 	// Set update time to new speed
@@ -2104,7 +2104,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->perception().viewRange()					= NORMAL_VIEW_RANGE;
 	pSoldier->bInSector					= FALSE;
 	pSoldier->position().gridNo()					= NOWHERE;
-	pSoldier->iMuzFlash					= -1;
+	pSoldier->renderState().muzzleFlashSprite()					= -1;
 	pSoldier->animationIntent().clearPendingAnimations();
 	pSoldier->animationIntent().clearPendingStance();
 	pSoldier->animationIntent().clearPendingDirection();
@@ -3587,10 +3587,10 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 				// Use palette from HVOBJECT, then use substitution for pants, etc
 				memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->PantsPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->SkinPal );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
 
 				pSoldier->CreateSoldierPalettes();
 
@@ -3715,10 +3715,10 @@ SOLDIERTYPE* TacticalCreateBandit()
 				// Use palette from HVOBJECT, then use substitution for pants, etc
 				memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->PantsPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->SkinPal );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
 
 				pSoldier->CreateSoldierPalettes();
 			}
@@ -3905,16 +3905,16 @@ void CreatePrisonerOfWar()
 
 			if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 			{
-				SET_PALETTEREP_ID( pSoldier->VestPal, "greyVEST" );
-				SET_PALETTEREP_ID( pSoldier->PantsPal, "BLACKPANTS" );
+				SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "greyVEST" );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLACKPANTS" );
 
 				// Use palette from HVOBJECT, then use substitution for pants, etc
 				memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->PantsPal );
-				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->SkinPal );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
+				SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
 
 				pSoldier->CreateSoldierPalettes();
 
@@ -3978,16 +3978,16 @@ void CreateDownedPilot( )
 
 		if ( usPaletteAnimSurface != INVALID_ANIMATION_SURFACE )
 		{
-			SET_PALETTEREP_ID( pSoldier->VestPal, gUniformColors[UNIFORM_ENEMY_ADMIN].vest );
-			SET_PALETTEREP_ID( pSoldier->PantsPal, gUniformColors[UNIFORM_ENEMY_ADMIN].pants );
+			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[UNIFORM_ENEMY_ADMIN].vest );
+			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[UNIFORM_ENEMY_ADMIN].pants );
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
 			memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[usPaletteAnimSurface].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->PantsPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->SkinPal );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
 
 			pSoldier->CreateSoldierPalettes( );
 

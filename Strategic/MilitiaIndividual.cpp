@@ -590,16 +590,16 @@ UINT32 CreateNewIndividualMilitiaFromSoldier( SOLDIERTYPE* pSoldier, UINT8 aOrig
 
 	newmilitia.bodytype = pSoldier->ubBodyType;
 
-	if ( COMPARE_PALETTEREP_ID( pSoldier->SkinPal, "PINKSKIN" ) )	newmilitia.skin = PINKSKIN;
-	else if ( COMPARE_PALETTEREP_ID( pSoldier->SkinPal, "TANSKIN" ) )	newmilitia.skin = TANSKIN;
-	else if ( COMPARE_PALETTEREP_ID( pSoldier->SkinPal, "DARKSKIN" ) )	newmilitia.skin = DARKSKIN;
-	else if ( COMPARE_PALETTEREP_ID( pSoldier->SkinPal, "BLACKSKIN" ) )	newmilitia.skin = BLACKSKIN;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "PINKSKIN" ) )	newmilitia.skin = PINKSKIN;
+	else if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "TANSKIN" ) )	newmilitia.skin = TANSKIN;
+	else if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "DARKSKIN" ) )	newmilitia.skin = DARKSKIN;
+	else if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().skinPalette(), "BLACKSKIN" ) )	newmilitia.skin = BLACKSKIN;
 
-	if ( COMPARE_PALETTEREP_ID( pSoldier->HeadPal, "BROWNHEAD" ) )	newmilitia.hair = BROWNHEAD;
-	if ( COMPARE_PALETTEREP_ID( pSoldier->HeadPal, "BLACKHEAD" ) )	newmilitia.hair = BLACKHEAD;
-	if ( COMPARE_PALETTEREP_ID( pSoldier->HeadPal, "WHITEHEAD" ) )	newmilitia.hair = WHITEHEAD;
-	if ( COMPARE_PALETTEREP_ID( pSoldier->HeadPal, "BLONDHEAD" ) )	newmilitia.hair = BLONDEHEAD;
-	if ( COMPARE_PALETTEREP_ID( pSoldier->HeadPal, "REDHEAD" ) )	newmilitia.hair = REDHEAD;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BROWNHEAD" ) )	newmilitia.hair = BROWNHEAD;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLACKHEAD" ) )	newmilitia.hair = BLACKHEAD;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().headPalette(), "WHITEHEAD" ) )	newmilitia.hair = WHITEHEAD;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().headPalette(), "BLONDHEAD" ) )	newmilitia.hair = BLONDEHEAD;
+	if ( COMPARE_PALETTEREP_ID( pSoldier->renderState().headPalette(), "REDHEAD" ) )	newmilitia.hair = REDHEAD;
 	
 	// age is random
 	newmilitia.age = 16 + Random( 2 ) * ( 1 + Random( 8 ) )
