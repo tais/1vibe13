@@ -386,6 +386,49 @@ private:
 	UINT16 lastRealtimeMovementAnimation_ = 0;
 };
 
+// Canonical tactical-AI planning scratch for one actor. Flanking progress,
+// sniper posture, and modular plan selection are execution state rather than
+// permanent character data; keeping them together gives AI turns one explicit
+// reset boundary and prevents narrow progress counters from wrapping.
+class SoldierAiPlanningComponent
+{
+public:
+	static constexpr INT8 MaximumFlankCount = 127;
+
+	INT8& flankCount() noexcept { return flankCount_; }
+	const INT8& flankCount() const noexcept { return flankCount_; }
+	INT32& flankAnchorGrid() noexcept { return flankAnchorGrid_; }
+	const INT32& flankAnchorGrid() const noexcept { return flankAnchorGrid_; }
+	INT8& sniperPosture() noexcept { return sniperPosture_; }
+	const INT8& sniperPosture() const noexcept { return sniperPosture_; }
+	INT16& flankOriginDirection() noexcept { return flankOriginDirection_; }
+	const INT16& flankOriginDirection() const noexcept { return flankOriginDirection_; }
+	INT16& planIndex() noexcept { return planIndex_; }
+	const INT16& planIndex() const noexcept { return planIndex_; }
+
+	bool flanking(INT8 terminalCount) const noexcept
+	{
+		return flankCount_ > 0 && flankCount_ < terminalCount;
+	}
+	bool sniperPostureActive() const noexcept { return sniperPosture_ != 0; }
+	bool hasPlanIndex() const noexcept { return planIndex_ != 0; }
+	void recordFlankStep(INT32 anchorGrid, INT16 originDirection) noexcept;
+	void advanceFlank() noexcept;
+	void finishFlank(INT8 terminalCount) noexcept { flankCount_ = terminalCount; }
+	void clearFlank() noexcept { flankCount_ = 0; }
+	void raiseSniperPosture() noexcept { sniperPosture_ = 1; }
+	void lowerSniperPosture() noexcept { sniperPosture_ = 0; }
+	INT16 ensurePlanIndex(INT16 fallback) noexcept;
+	void reset() noexcept;
+
+private:
+	INT8 flankCount_ = 0;
+	INT32 flankAnchorGrid_ = 0;
+	INT8 sniperPosture_ = 0;
+	INT16 flankOriginDirection_ = 0;
+	INT16 planIndex_ = 0;
+};
+
 // Canonical skill execution and persistence state. Repeated mechanical checks,
 // the AI's selected skill, trait counters, heterogeneous cooldowns, and focus
 // targeting share one reset boundary without absorbing permanent statistics or

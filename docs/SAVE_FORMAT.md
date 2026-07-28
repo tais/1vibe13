@@ -329,6 +329,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   maps all four raw values. Runtime recording saturates both narrow distance
   counters without changing their representation. No save, packet, map, XML,
   Lua, or installed-data bytes change.
+- Tactical-AI flank count, flank anchor, sniper posture, flank origin
+  direction, and modular plan index are now stored by
+  `SoldierAiPlanningComponent`. The visitor emits the signed 8-bit count,
+  signed 32-bit anchor, signed 8-bit posture, signed 16-bit direction, and
+  signed 16-bit plan index at their two original groups and widths. v101
+  conversion maps its first four raw values and resets the later plan index.
+  Runtime flank progress saturates without changing its representation. No
+  save, packet, map, XML, Lua, AI-plan, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
   focus target are now stored by `SoldierSkillStateComponent`. The visitor

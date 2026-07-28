@@ -1671,6 +1671,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAudioComponent& audio = s.audio();
 	SoldierReplicationComponent& replication = s.replication();
 	SoldierMovementMetricsComponent& movementMetrics = s.movementMetrics();
+	SoldierAiPlanningComponent& aiPlanning = s.aiPlanning();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
@@ -1813,7 +1814,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(movementHistory.recentLocations()[i]);
 	ar.i32(vitals.lastBleedGruntAt()); ar.u16(combatResult.earlierAttacker().i);
-	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);
+	ar.u8(fireControl.autofireShots()); ar.i8(aiPlanning.flankCount()); ar.i32(aiPlanning.flankAnchorGrid());
+	ar.i8(aiPlanning.sniperPosture()); ar.i16(aiPlanning.flankOriginDirection());
 	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
 	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());
 	ar.i16(assignment.facilityType()); ar.i8(attackSelection.scopeMode());
@@ -1824,7 +1826,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
 	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
-	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
+	ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
 	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));

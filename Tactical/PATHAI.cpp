@@ -3581,7 +3581,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					{
 						nextCost += 40;
 					}
-					else if (DeepWater(newLoc, bLevel) && (s->numFlanks == 0 || s->numFlanks >= MAX_FLANKS_RED))
+					else if (DeepWater(newLoc, bLevel) && (s->aiPlanning().flankCount() == 0 || s->aiPlanning().flankCount() >= MAX_FLANKS_RED))
 					{
 						nextCost += 20;
 					}

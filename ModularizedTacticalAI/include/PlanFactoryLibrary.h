@@ -26,7 +26,7 @@ namespace AI
          * their get_name() function.
          *
          * Used as one "entry point" for the new AI system within the legacy code (the other being the 'execute()' methods of Plan)
-         * Handles the mapping of a SOLDIERTYPE's bAIIndex to a concrete plan factory instantiation.
+         * Handles the mapping of a soldier AI-planning component's plan index to a concrete plan factory instantiation.
          */
         class PlanFactoryLibrary
         {
@@ -35,7 +35,7 @@ namespace AI
                 static PlanFactoryLibrary* instance_;
                 /// A mapping of factory names to pointers of said factories
                 std::map<std::string, AbstractPlanFactory*> registred_factories_;
-                /// A mapping of bAIIndex to factory pointers
+                /// A mapping of soldier plan indices to factory pointers
                 std::deque<AbstractPlanFactory*> ai_index_to_factory_mapping_;
                 PlanFactoryLibrary();
             public:

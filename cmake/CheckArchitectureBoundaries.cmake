@@ -3013,6 +3013,224 @@ if(soldier_movement_metrics_architecture_documented EQUAL -1 OR
     "SoldierMovementMetricsComponent ownership and compatibility guarantees must remain documented")
 endif()
 
+# Flanking progress, sniper posture, and modular plan selection form the
+# tactical AI's soldier-local execution state. Keep the two established save
+# groups and v101 mappings while preventing narrow flank progress from wrapping.
+foreach(retired_ai_planning_field IN ITEMS
+  numFlanks
+  lastFlankSpot
+  sniper
+  origDir
+  bAIIndex)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|INT16|INT32)[ \t]+${retired_ai_planning_field}[ \t]*;"
+    retired_current_ai_planning_field
+    "${current_soldier_contents}")
+  if(retired_current_ai_planning_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE AI planning field '${retired_ai_planning_field}' returned; tactical AI execution belongs to SoldierAiPlanningComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAiPlanningComponent[ \t\r\n]+aiPlanning_[ \t]*;"
+  soldier_ai_planning_owner
+  "${current_soldier_contents}")
+if(NOT soldier_ai_planning_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAiPlanningComponent")
+endif()
+
+foreach(owned_ai_planning_pattern IN ITEMS
+  "INT8[ \t]+flankCount_[ \t]*=[ \t]*0"
+  "INT32[ \t]+flankAnchorGrid_[ \t]*=[ \t]*0"
+  "INT8[ \t]+sniperPosture_[ \t]*=[ \t]*0"
+  "INT16[ \t]+flankOriginDirection_[ \t]*=[ \t]*0"
+  "INT16[ \t]+planIndex_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_ai_planning_pattern}"
+    owned_soldier_ai_planning_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_ai_planning_field)
+    message(FATAL_ERROR
+      "SoldierAiPlanningComponent lost initialized owned storage matching '${owned_ai_planning_pattern}'")
+  endif()
+endforeach()
+
+foreach(ai_planning_accessor IN ITEMS
+  flankCount
+  flankAnchorGrid
+  sniperPosture
+  flankOriginDirection
+  planIndex)
+  string(REGEX MATCH
+    "${ai_planning_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_ai_planning_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_ai_planning_accessor)
+    message(FATAL_ERROR
+      "SoldierAiPlanningComponent lost the '${ai_planning_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(ai_planning_operation IN ITEMS
+  "bool flanking(INT8 terminalCount) const noexcept"
+  "bool sniperPostureActive() const noexcept"
+  "bool hasPlanIndex() const noexcept"
+  "void recordFlankStep(INT32 anchorGrid, INT16 originDirection) noexcept"
+  "void advanceFlank() noexcept"
+  "void finishFlank(INT8 terminalCount) noexcept"
+  "void clearFlank() noexcept"
+  "void raiseSniperPosture() noexcept"
+  "void lowerSniperPosture() noexcept"
+  "INT16 ensurePlanIndex(INT16 fallback) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${ai_planning_operation}"
+    soldier_ai_planning_operation)
+  if(soldier_ai_planning_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanningComponent lost required planning operation '${ai_planning_operation}'")
+  endif()
+endforeach()
+
+foreach(ai_planning_saturation_fragment IN ITEMS
+  "static constexpr INT8 MaximumFlankCount = 127;"
+  "flankCount_ < MaximumFlankCount"
+  "++flankCount_;")
+  string(FIND "${soldier_components_header_contents}${soldier_components_source_contents}"
+    "${ai_planning_saturation_fragment}"
+    soldier_ai_planning_saturation)
+  if(soldier_ai_planning_saturation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanningComponent lost bounded flank behavior '${ai_planning_saturation_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierAiPlanningComponent& aiPlanning() noexcept"
+  soldier_ai_planning_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierAiPlanningComponent{};"
+  soldier_ai_planning_default_reset)
+string(REGEX MATCHALL
+  "aiPlanning\\(\\)\\.reset\\(\\);"
+  soldier_ai_planning_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_ai_planning_reset_sites soldier_ai_planning_reset_site_count)
+if(soldier_ai_planning_accessor EQUAL -1 OR
+   soldier_ai_planning_default_reset EQUAL -1 OR
+   soldier_ai_planning_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierAiPlanningComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(ai_planning_conversion IN ITEMS
+  "this->aiPlanning().flankCount() = src.numFlanks;"
+  "this->aiPlanning().flankAnchorGrid() = src.lastFlankSpot;"
+  "this->aiPlanning().sniperPosture() = src.sniper;"
+  "this->aiPlanning().flankOriginDirection() = src.origDir;"
+  "this->aiPlanning().planIndex() = 0;")
+  string(FIND "${soldier_control_source_contents}"
+    "${ai_planning_conversion}"
+    soldier_ai_planning_conversion_site)
+  if(soldier_ai_planning_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier AI planning mapping '${ai_planning_conversion}'")
+  endif()
+endforeach()
+
+foreach(ai_planning_save_position IN ITEMS
+  "ar.u8(fireControl.autofireShots()); ar.i8(aiPlanning.flankCount()); ar.i32(aiPlanning.flankAnchorGrid());"
+  "ar.i8(aiPlanning.sniperPosture()); ar.i16(aiPlanning.flankOriginDirection());"
+  "ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());")
+  string(FIND "${save_load_game_contents}"
+    "${ai_planning_save_position}"
+    soldier_ai_planning_save_position)
+  if(soldier_ai_planning_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier AI planning moved in the portable save schema at '${ai_planning_save_position}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/DecideAction.cpp"
+  soldier_ai_planning_decide_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  soldier_ai_planning_main_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/Realtime.cpp"
+  soldier_ai_planning_realtime_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/AIUtils.cpp"
+  soldier_ai_planning_utils_contents)
+file(READ "${SOURCE_ROOT}/Tactical/PATHAI.cpp"
+  soldier_ai_planning_path_contents)
+foreach(ai_planning_runtime_fragment IN ITEMS
+  "pSoldier->aiPlanning().recordFlankStep("
+  "pSoldier->aiPlanning().advanceFlank();"
+  "pSoldier->aiPlanning().finishFlank("
+  "pSoldier->aiPlanning().clearFlank();"
+  "pSoldier->aiPlanning().raiseSniperPosture();"
+  "pSoldier->aiPlanning().lowerSniperPosture();")
+  string(FIND "${soldier_ai_planning_decide_contents}"
+    "${ai_planning_runtime_fragment}"
+    soldier_ai_planning_runtime_site)
+  if(soldier_ai_planning_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Turn-based tactical AI lost SoldierAiPlanningComponent transition '${ai_planning_runtime_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_ai_planning_main_contents}"
+  "pSoldier->aiPlanning().ensurePlanIndex("
+  soldier_ai_planning_turn_plan)
+string(FIND "${soldier_ai_planning_realtime_contents}"
+  "pSoldier->aiPlanning().ensurePlanIndex("
+  soldier_ai_planning_realtime_plan)
+string(FIND "${soldier_ai_planning_utils_contents}"
+  "pFriend->aiPlanning().flankCount()"
+  soldier_ai_planning_friend_query)
+string(FIND "${soldier_ai_planning_path_contents}"
+  "s->aiPlanning().flankCount()"
+  soldier_ai_planning_path_query)
+string(FIND "${soldier_control_source_contents}"
+  "!this->aiPlanning().flanking(MAX_FLANKS_RED)"
+  soldier_ai_planning_soldier_query)
+if(soldier_ai_planning_turn_plan EQUAL -1 OR
+   soldier_ai_planning_realtime_plan EQUAL -1 OR
+   soldier_ai_planning_friend_query EQUAL -1 OR
+   soldier_ai_planning_path_query EQUAL -1 OR
+   soldier_ai_planning_soldier_query EQUAL -1)
+  message(FATAL_ERROR
+    "Turn-based, realtime, pathing, and soldier AI paths must use SoldierAiPlanningComponent")
+endif()
+
+foreach(ai_planning_test_fragment IN ITEMS
+  "SoldierAiPlanningComponent aiPlanningLifecycle;"
+  "v101 soldier conversion maps established AI planning and clears the later modular plan index"
+  "soldier save/load round-trips AI planning at every established schema position")
+  string(FIND "${headless_test_contents}"
+    "${ai_planning_test_fragment}"
+    soldier_ai_planning_test_fragment)
+  if(soldier_ai_planning_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierAiPlanningComponent fixture '${ai_planning_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierAiPlanningComponent"
+  soldier_ai_planning_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierAiPlanningComponent"
+  soldier_ai_planning_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierAiPlanningComponent"
+  soldier_ai_planning_save_documented)
+if(soldier_ai_planning_architecture_documented EQUAL -1 OR
+   soldier_ai_planning_sdk_documented EQUAL -1 OR
+   soldier_ai_planning_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAiPlanningComponent ownership and compatibility guarantees must remain documented")
+endif()
+
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
 # lifecycle. Keep their fixed-capacity save representation intact while the
@@ -3161,7 +3379,7 @@ endforeach()
 foreach(skill_state_save_position IN ITEMS
   "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
   "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());"
-  "ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
+  "ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
   "for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));"
   "for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));"
   "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);")
@@ -4291,7 +4509,7 @@ string(REGEX MATCH
   serialized_soldier_camouflage_applied_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.origDir\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.jungleWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.desertApplied\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.desertWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(assignment\\.facilityType\\(\\)\\);"
+  "ar\\.i16\\(aiPlanning\\.flankOriginDirection\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.jungleWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.urbanWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.desertApplied\\(\\)\\);[ \t\r\n]*ar\\.i8\\(camouflage\\.desertWorn\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowApplied\\(\\)\\);[ \t]*ar\\.i8\\(camouflage\\.snowWorn\\(\\)\\);[ \t\r\n]*ar\\.i16\\(assignment\\.facilityType\\(\\)\\);"
   serialized_soldier_camouflage_equipment_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_camouflage_applied_order OR
@@ -4551,7 +4769,7 @@ string(REGEX MATCH
   serialized_soldier_assignment_facility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.bAIIndex\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(skillState\\.selectedAiSkill\\(\\)\\);"
+  "ar\\.i16\\(aiPlanning\\.planIndex\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(skillState\\.selectedAiSkill\\(\\)\\);"
   serialized_soldier_assignment_item_move_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5669,7 +5887,7 @@ string(REGEX MATCH
   serialized_soldier_fire_targets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(s\\.numFlanks\\);"
+  "ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(aiPlanning\\.flankCount\\(\\)\\);"
   serialized_soldier_fire_autofire_order
   "${save_load_game_contents}")
 string(REGEX MATCH

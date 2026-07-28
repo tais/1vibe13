@@ -1002,6 +1002,8 @@ public:
 	const SoldierReplicationComponent& replication() const noexcept { return replication_; }
 	SoldierMovementMetricsComponent& movementMetrics() noexcept { return movementMetrics_; }
 	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
+	SoldierAiPlanningComponent& aiPlanning() noexcept { return aiPlanning_; }
+	const SoldierAiPlanningComponent& aiPlanning() const noexcept { return aiPlanning_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
@@ -1214,17 +1216,10 @@ public:
 	INT8					bDelayedStrategicMoraleMod;
 	struct GROUP			*pGroup;
 
-	INT8					numFlanks;
-	INT32				lastFlankSpot;
-	INT8					sniper;
-	INT16				origDir;
-
 	// Flugente: Is this the correct position?
 	///////////////////////////////////////////////////////
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
-
-	INT16	bAIIndex;			    // feynman: PlanFactory from the modularized tactical AI that shall be used
 
 	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
 
@@ -1271,6 +1266,7 @@ private:
 	SoldierAudioComponent	audio_;
 	SoldierReplicationComponent	replication_;
 	SoldierMovementMetricsComponent	movementMetrics_;
+	SoldierAiPlanningComponent	aiPlanning_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;

@@ -318,6 +318,13 @@ AP, agility, visibility, accuracy, suppression, medical, and breath rules read
 the same owner. The signed and unsigned narrow distance counters saturate
 instead of wrapping, while the serializer and v101 conversion retain all four
 original positions, widths, and raw values.
+`SoldierAiPlanningComponent` separately owns flank progress and geometry,
+sniper posture, and modular plan selection. Tactical AI records flank steps,
+terminal progress, posture changes, and default plan selection through named
+transitions shared by realtime and turn-based execution. The signed flank
+counter saturates instead of wrapping; the serializer retains all five original
+positions and widths, and v101 conversion maps its four established values
+while clearing the later plan index.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,
 heterogeneous cooldowns, and the focus target. Named check, per-turn aging,
