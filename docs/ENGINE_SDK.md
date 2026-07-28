@@ -322,6 +322,14 @@ deletion, initialization, v101 conversion, and current loading use explicit
 activate/reset transitions. The outer soldier save adapter still emits the
 same presence byte and fixed payload; content-facing key tables, items, maps,
 XML, Lua, multiplayer, packages, and installed data do not change.
+Temporary item actions now use `SoldierPendingItemComponent`. It uniquely owns
+the copied `OBJECTTYPE` shared by give, drop, robot reload, placement, throw,
+and launcher flows, while optional `THROW_PARAMS` live inline beside it.
+Whole-soldier copies deep-copy the object, and named completion/cancellation
+operations prevent interrupted actions from leaking or retaining stale
+ballistic state. The component is runtime-only: both former pointer positions
+remain zero-byte serializer landmarks, and multiplayer packets and all
+content-facing formats remain unchanged.
 The post-v101 extension banks remain deliberately separate from those former
 general flags. `SoldierFeatureFlagsComponent` privately owns the unsigned
 8-bit gunshot/explosion/X-ray event markers and both unsigned 32-bit 1.13

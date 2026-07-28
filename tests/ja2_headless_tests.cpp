@@ -7290,6 +7290,12 @@ int main( int, char** )
 			decltype(std::declval<const SOLDIERTYPE&>().keyRing()),
 			const SoldierKeyRingComponent&>);
 		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().pendingItem()),
+			SoldierPendingItemComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().pendingItem()),
+			const SoldierPendingItemComponent&>);
+		static_assert(std::is_same_v<
 			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
 			SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
@@ -7378,6 +7384,16 @@ int main( int, char** )
 		soldier.keyRing().activate();
 		soldier.keyRing()[17].ubKeyID = 42;
 		soldier.keyRing()[17].ubNumber = 3;
+		OBJECTTYPE pendingObject;
+		pendingObject.usItem = 77;
+		pendingObject.ubNumberOfObjects = 2;
+		pendingObject.fFlags = 0x12;
+		THROW_PARAMS& pendingThrow =
+			soldier.pendingItem().prepareThrow(pendingObject);
+		pendingThrow.dX = 12.5f;
+		pendingThrow.dY = 13.5f;
+		pendingThrow.ubActionCode = THROW_ARM_ITEM;
+		pendingThrow.uiActionData = 0x10203040u;
 		soldier.replication().updatedFromNetwork() = TRUE;
 		soldier.aiPlanning().lastFlankLeft() = TRUE;
 		soldier.condition().gasHitFlags() = 0xA5;
@@ -8556,6 +8572,52 @@ int main( int, char** )
 		       keyRingLifecycle[9].ubKeyID == INVALID_KEY_NUMBER &&
 		       keyRingLifecycle[9].ubNumber == 0,
 		       "soldier key-ring reset clears every slot and its presence marker" );
+		SoldierPendingItemComponent pendingItemLifecycle;
+		CHECK( !pendingItemLifecycle.hasObject() &&
+		       !pendingItemLifecycle.hasThrowParameters() &&
+		       !pendingItemLifecycle.readyToThrow(),
+		       "soldier pending-item transactions default to empty process-local state" );
+		OBJECTTYPE lifecycleObject;
+		lifecycleObject.usItem = 91;
+		lifecycleObject.ubNumberOfObjects = 3;
+		lifecycleObject.fFlags = 0x34;
+		THROW_PARAMS& lifecycleThrow =
+			pendingItemLifecycle.prepareThrow(lifecycleObject);
+		lifecycleThrow.dX = 21.5f;
+		lifecycleThrow.dForceZ = 4.25f;
+		lifecycleThrow.ubActionCode = THROW_ARM_ITEM;
+		lifecycleThrow.uiActionData = 0x55667788u;
+		CHECK( pendingItemLifecycle.readyToThrow() &&
+		       pendingItemLifecycle.object() != &lifecycleObject &&
+		       pendingItemLifecycle.object()->usItem == 91 &&
+		       pendingItemLifecycle.throwParameters()->dX == 21.5f &&
+		       pendingItemLifecycle.throwParameters()->uiActionData == 0x55667788u,
+		       "soldier pending-item owner binds a copied object and inline throw parameters as one transaction" );
+		SoldierPendingItemComponent copiedPendingItem = pendingItemLifecycle;
+		copiedPendingItem.object()->usItem = 92;
+		copiedPendingItem.throwParameters()->dX = 22.5f;
+		CHECK( copiedPendingItem.readyToThrow() &&
+		       copiedPendingItem.object() != pendingItemLifecycle.object() &&
+		       pendingItemLifecycle.object()->usItem == 91 &&
+		       pendingItemLifecycle.throwParameters()->dX == 21.5f,
+		       "soldier pending-item copies deep-copy temporary objects and inline ballistic state" );
+		SoldierPendingItemComponent movedPendingItem =
+			std::move(copiedPendingItem);
+		CHECK( movedPendingItem.readyToThrow() &&
+		       movedPendingItem.object()->usItem == 92 &&
+		       movedPendingItem.throwParameters()->dX == 22.5f &&
+		       !copiedPendingItem.hasObject() &&
+		       !copiedPendingItem.hasThrowParameters(),
+		       "soldier pending-item moves transfer ownership and clear the source transaction" );
+		movedPendingItem.clearObject();
+		CHECK( !movedPendingItem.hasObject() &&
+		       movedPendingItem.hasThrowParameters() &&
+		       !movedPendingItem.readyToThrow(),
+		       "soldier pending-item object and throw-parameter lifetimes remain independently observable" );
+		movedPendingItem.clearThrowTransaction();
+		CHECK( !movedPendingItem.hasObject() &&
+		       !movedPendingItem.hasThrowParameters(),
+		       "soldier pending-item transaction cleanup releases both ownership domains" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -9176,6 +9238,20 @@ int main( int, char** )
 		CHECK( copiedSoldierKeyRingIsIndependent &&
 		       soldier.keyRing()[17].ubNumber == 3,
 		       "soldier copies retain key contents without aliasing key-ring storage" );
+		const bool copiedPendingItemIsIndependent =
+			copiedSoldier.pendingItem().readyToThrow() &&
+			copiedSoldier.pendingItem().object() !=
+				soldier.pendingItem().object() &&
+			copiedSoldier.pendingItem().object()->usItem == 77 &&
+			copiedSoldier.pendingItem().throwParameters()->dX == 12.5f &&
+			copiedSoldier.pendingItem().throwParameters()->uiActionData ==
+				0x10203040u;
+		copiedSoldier.pendingItem().object()->usItem = 78;
+		copiedSoldier.pendingItem().throwParameters()->dX = 14.5f;
+		CHECK( copiedPendingItemIsIndependent &&
+		       soldier.pendingItem().object()->usItem == 77 &&
+		       soldier.pendingItem().throwParameters()->dX == 12.5f,
+		       "soldier copies retain pending tactical transactions without pointer aliasing" );
 		CHECK( copiedSoldier.identity().id() == SoldierID{ 37 } &&
 		       copiedSoldier.identity().name()[0] == L'J' &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
@@ -10443,6 +10519,9 @@ int main( int, char** )
 		       copiedSoldier.keyRing()[17].ubKeyID == INVALID_KEY_NUMBER &&
 		       copiedSoldier.keyRing()[17].ubNumber == 0,
 		       "soldier initialization clears key-ring contents and presence" );
+		CHECK( !copiedSoldier.pendingItem().hasObject() &&
+		       !copiedSoldier.pendingItem().hasThrowParameters(),
+		       "soldier initialization releases pending tactical transaction state" );
 		CHECK( copiedSoldier.identity().id() == NOBODY &&
 		       copiedSoldier.identity().name()[0] == 0 &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == 0 &&
@@ -11150,6 +11229,10 @@ int main( int, char** )
 
 	{
 		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		OBJECTTYPE legacyProcessObject;
+		THROW_PARAMS legacyProcessThrow{};
+		legacySoldier->pTempObject = &legacyProcessObject;
+		legacySoldier->pThrowParams = &legacyProcessThrow;
 		legacySoldier->ubID = 37;
 		legacySoldier->name[0] = L'V';
 		legacySoldier->name[9] = L'1';
@@ -11570,6 +11653,9 @@ int main( int, char** )
 		convertedSoldier.keyRing().activate();
 		convertedSoldier.keyRing()[4].ubKeyID = 44;
 		convertedSoldier.keyRing()[4].ubNumber = 4;
+		OBJECTTYPE staleConvertedObject;
+		staleConvertedObject.usItem = 93;
+		convertedSoldier.pendingItem().prepareThrow(staleConvertedObject);
 		convertedSoldier.replication().updatedFromNetwork() = FALSE;
 		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
 		convertedSoldier.aiPlanning().actionData() = 99901;
@@ -11853,6 +11939,9 @@ int main( int, char** )
 		       convertedSoldier.keyRing()[4].ubKeyID == INVALID_KEY_NUMBER &&
 		       convertedSoldier.keyRing()[4].ubNumber == 0,
 		       "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration" );
+		CHECK( !convertedSoldier.pendingItem().hasObject() &&
+		       !convertedSoldier.pendingItem().hasThrowParameters(),
+		       "v101 soldier conversion retires temporary object and throw pointers instead of adopting process-local addresses" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -12876,6 +12965,13 @@ int main( int, char** )
 		savedSoldier.keyRing().activate();
 		savedSoldier.keyRing()[23].ubKeyID = 62;
 		savedSoldier.keyRing()[23].ubNumber = 5;
+		OBJECTTYPE savedPendingObject;
+		savedPendingObject.usItem = 94;
+		savedPendingObject.ubNumberOfObjects = 2;
+		THROW_PARAMS& savedThrowParameters =
+			savedSoldier.pendingItem().prepareThrow(savedPendingObject);
+		savedThrowParameters.dLifeSpan = 4.5f;
+		savedThrowParameters.ubActionCode = THROW_ARM_ITEM;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -12883,6 +12979,9 @@ int main( int, char** )
 		if ( output ) FileClose( output );
 
 		SOLDIERTYPE loadedSoldier;
+		OBJECTTYPE staleLoadedObject;
+		staleLoadedObject.usItem = 95;
+		loadedSoldier.pendingItem().prepareThrow(staleLoadedObject);
 		HWFILE input = FileOpen( const_cast<char*>( path.c_str() ),
 		                         FILE_ACCESS_READ | FILE_OPEN_EXISTING );
 		const bool loaded = input && loadedSoldier.Load( input );
@@ -12894,6 +12993,10 @@ int main( int, char** )
 		       !loadedSoldier.keyRing().active() &&
 		       loadedSoldier.keyRing().data() == nullptr,
 		       "soldier POD save/load keeps key-ring storage runtime-only for separate payload restoration" );
+		CHECK( saved && loaded &&
+		       !loadedSoldier.pendingItem().hasObject() &&
+		       !loadedSoldier.pendingItem().hasThrowParameters(),
+		       "soldier POD save/load retires temporary action pointers and clears process-local transaction state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
 		       loadedSoldier.identity().name()[0] == L'S' &&

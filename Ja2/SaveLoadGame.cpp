@@ -1757,7 +1757,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.identity().bodyType());
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
 	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());
-	ar.ptr(s.pTempObject);
+	if (Ar::isLoading) s.pendingItem().reset();
+	ar.retiredPtr();
 	if (Ar::isLoading) s.keyRing().reset();
 	ar.retiredPtr();
 	ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
@@ -1803,7 +1804,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 20; ++i) ar.ptr(s.pGlowShades[i]);
 	ar.ptr(s.pCurrentShade);
 	ar.u8(renderState.fadeLevel()); ar.u8(service.providerCount()); ar.u16(service.partner().i);
-	ar.ptr(s.pThrowParams); ar.i8(movement.reverse());
+	ar.retiredPtr(); ar.i8(movement.reverse());
 	ar.ptr(s.pLevelNode); ar.ptr(s.pExternShadowLevelNode); ar.ptr(s.pRoofUILevelNode);
 	ar.ptr(s.pBackGround); ar.ptr(s.pZBackground);
 	ar.u16(renderState.unblitX()); ar.u16(renderState.unblitY()); ar.u16(renderState.unblitWidth()); ar.u16(renderState.unblitHeight());
@@ -6342,14 +6343,13 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			}
 
 			//Make sure all the pointer references are NULL'ed out.	
-			SavedSoldierInfo.pTempObject	= NULL;
+			SavedSoldierInfo.pendingItem().reset();
 			SavedSoldierInfo.keyRing().reset();
 			SavedSoldierInfo.p8BPPPalette	= NULL;
 			SavedSoldierInfo.p16BPPPalette	= NULL;
 			memset( SavedSoldierInfo.pShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_SHADES );
 			memset( SavedSoldierInfo.pGlowShades, 0, sizeof( UINT16* ) * 20 );
 			SavedSoldierInfo.pCurrentShade	= NULL;
-			SavedSoldierInfo.pThrowParams	= NULL;
 			SavedSoldierInfo.pLevelNode	= NULL;
 			SavedSoldierInfo.pExternShadowLevelNode	= NULL;
 			SavedSoldierInfo.pRoofUILevelNode	= NULL;

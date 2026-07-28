@@ -5122,27 +5122,24 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	// Flugente: depending on fire mode, delay explosion
 	if ( pSoldier->fireControl().delaysGrenadeLauncherExplosion() )
 	{
-		( *pSoldier->pTempObject )[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
+		( *pSoldier->pendingItem().object() )[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
 	}
 
-	iID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,  pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
+	iID = CreatePhysicalObject( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,  pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, FALSE );
 
 	// OJW - 20091002 - Explosives
 	if (is_networked && is_client)
 	{
 		if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 		{
-			send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, sTargetGridNo, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iID, false);
+			send_grenade( pSoldier->pendingItem().object(), pSoldier->pendingItem().throwParameters()->dLifeSpan,	pSoldier->pendingItem().throwParameters()->dX, pSoldier->pendingItem().throwParameters()->dY, pSoldier->pendingItem().throwParameters()->dZ, pSoldier->pendingItem().throwParameters()->dForceX, pSoldier->pendingItem().throwParameters()->dForceY, pSoldier->pendingItem().throwParameters()->dForceZ, sTargetGridNo, pSoldier->identity().id(), pSoldier->pendingItem().throwParameters()->ubActionCode, pSoldier->pendingItem().throwParameters()->uiActionData, iID, false);
 		}
 	}
 
 	pObject = &( ObjectSlots[ iID ] );
   //pObject->fPotentialForDebug = TRUE;
 
-	OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
-
-	MemFree( pSoldier->pThrowParams );
-	pSoldier->pThrowParams = NULL;
+	pSoldier->pendingItem().clearThrowTransaction();
 
 	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
 	{

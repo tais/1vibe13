@@ -652,20 +652,6 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
 
-typedef struct
-{
-	float				dX;
-	float				dY;
-	float				dZ;
-	float				dForceX;
-	float				dForceY;
-	float				dForceZ;
-	float				dLifeSpan;
-	UINT8				ubActionCode;
-	UINT32			uiActionData;
-
-} THROW_PARAMS;
-
 #define DELAYED_MOVEMENT_FLAG_PATH_THROUGH_PEOPLE 0x01
 
 // reasons for being unable to continue movement
@@ -781,6 +767,8 @@ public:
 	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
 	SoldierKeyRingComponent& keyRing() noexcept { return keyRing_; }
 	const SoldierKeyRingComponent& keyRing() const noexcept { return keyRing_; }
+	SoldierPendingItemComponent& pendingItem() noexcept { return pendingItem_; }
+	const SoldierPendingItemComponent& pendingItem() const noexcept { return pendingItem_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -883,8 +871,6 @@ public:
 public:
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
 
-	OBJECTTYPE		*pTempObject;
-
 	INT32			iFaceIndex;
 
 	// PALETTE MANAGEMENT STUFF
@@ -893,7 +879,6 @@ public:
 	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
 	PIXEL			*pGlowShades[ 20 ]; // 
 	PIXEL			*pCurrentShade;
-	THROW_PARAMS		*pThrowParams;
 	LEVELNODE		*pLevelNode;
 	LEVELNODE		*pExternShadowLevelNode;
 	LEVELNODE		*pRoofUILevelNode;
@@ -937,6 +922,7 @@ private:
 	SoldierFeatureFlagsComponent	featureFlags_;
 	SoldierInventoryStateComponent	inventoryState_;
 	SoldierKeyRingComponent	keyRing_;
+	SoldierPendingItemComponent	pendingItem_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;

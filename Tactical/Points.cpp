@@ -3640,8 +3640,8 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 
 	// if grenade, or  if we've thrown the object for real, it disapears from our hands and is converted to TempObject
 	if ( Item[usInHand].usItemClass & IC_GRENADE
-		|| ( pSoldier->pTempObject != NULL && pSoldier->pThrowParams != NULL &&
-			pSoldier->pThrowParams->ubActionCode == THROW_ARM_ITEM && ( Item[pSoldier->pTempObject->usItem].usItemClass & IC_GRENADE ) ) )
+		|| ( pSoldier->pendingItem().readyToThrow() &&
+			pSoldier->pendingItem().throwParameters()->ubActionCode == THROW_ARM_ITEM && ( Item[pSoldier->pendingItem().object()->usItem].usItemClass & IC_GRENADE ) ) )
 	{
 		grenadAPreductionpossible = true;
 

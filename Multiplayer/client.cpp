@@ -3797,33 +3797,25 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			if ( gren->usItem == 0 || gren->usItem >= MAXITEMS )
 				return;
 
-			// A second throw cannot safely replace animation state that is still in
-			// use. Allocate before mutating inventory or creating the physical object
-			// so an out-of-memory failure also leaves the remote soldier untouched.
-			THROW_PARAMS* pRemoteThrowParams = NULL;
-			if ( gren->IsThrownGrenade )
-			{
-				if ( pThrower->pThrowParams != NULL )
-					return;
-				pRemoteThrowParams = (THROW_PARAMS*)malloc( sizeof( THROW_PARAMS ) );
-				if ( pRemoteThrowParams == NULL )
-					return;
-			}
-			OBJECTTYPE* newObj = new OBJECTTYPE();
+			// A second item transaction cannot safely replace animation state that
+			// is still in use. Reject it before mutating inventory or physics state.
+			SoldierPendingItemComponent& pendingItem = pThrower->pendingItem();
+			if ( pendingItem.hasObject() || pendingItem.hasThrowParameters() )
+				return;
+
+			OBJECTTYPE newObject;
 			INT16 sItemStatus = gren->sItemStatus;
 			// guard against an old/corrupt peer sending a zeroed status
 			if ( sItemStatus <= 0 || sItemStatus > 100 )
 				sItemStatus = 99;
 			UINT8 ubNumObjects = ( gren->ubNumberOfObjects > 0 ) ? gren->ubNumberOfObjects : 1;
-			CreateItems( gren->usItem, sItemStatus, ubNumObjects, newObj );
+			CreateItems( gren->usItem, sItemStatus, ubNumObjects, &newObject );
 			// Restore the loaded round count for launcher shells. ubGunShotsLeft lives
 			// at a distinct offset in the data union, so it does not disturb the status
 			// already written above; CreateItems leaves it at the item default.
-			if ( (*newObj)[0] != NULL )
-				(*newObj)[0]->data.gun.ubGunShotsLeft = gren->usShotsLeft;
-			OBJECTTYPE::CopyToOrCreateAt(&pThrower->pTempObject, newObj);
-			delete newObj;   // copied into pTempObject; the throw below uses pTempObject (was leaked on the success path)
-			newObj = NULL;   // the error-path delete below is now a safe no-op
+			if ( newObject[0] != NULL )
+				newObject[0]->data.gun.ubGunShotsLeft = gren->usShotsLeft;
+			pendingItem.copyObject(newObject);
 
 			// M12 - broadcast item consumption: mirror the throwing client, which
 			// removed the thrown stack from its hand (Weapons.cpp:5064). Without this
@@ -3835,13 +3827,12 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 				pThrower->inv[ HANDPOS ].RemoveObjectsFromStack( ubNumObjects );
 			}
 			// this will create a grenade and launch it
-			INT32 i = CreatePhysicalObject( pThrower->pTempObject, gren->dLifeSpan, gren->dX, gren->dY, gren->dZ, gren->dForceX, gren->dForceY, gren->dForceZ, pThrower->identity().id(), gren->ubActionCode, gren->uiActionData, false);
+			INT32 i = CreatePhysicalObject( pendingItem.object(), gren->dLifeSpan, gren->dX, gren->dY, gren->dZ, gren->dForceX, gren->dForceY, gren->dForceZ, pThrower->identity().id(), gren->ubActionCode, gren->uiActionData, false);
 			// M8: CreatePhysicalObject returns -1 on slot exhaustion -> ObjectSlots[-1]
 			// OOB write. Drop the frame (free the temp object) rather than write past the array.
 			if ( i < 0 || i >= NUM_OBJECT_SLOTS )
 			{
-				OBJECTTYPE::DeleteMe( &pThrower->pTempObject );
-				free( pRemoteThrowParams );
+				pendingItem.clearThrowTransaction();
 				return;
 			}
 			// save extra state info so we can check and feed it result later
@@ -3854,23 +3845,23 @@ void recieveGRENADE (RPCParameters *rpcParameters)
 			// Do grenade animation (todo fix this for mortars)
 			if (gren->IsThrownGrenade)
 			{
-				{
-					// not a mem leak
-					// will be freed in AdjustToNextAnimationFrame(SOLDIERTYPE*), case 461
-					pThrower->pThrowParams = pRemoteThrowParams;
-					pThrower->pThrowParams->dForceX = gren->dForceX;
-					pThrower->pThrowParams->dForceY = gren->dForceY;
-					pThrower->pThrowParams->dForceZ = gren->dForceZ;
-					pThrower->pThrowParams->dLifeSpan = gren->dLifeSpan;
-					pThrower->pThrowParams->dX = gren->dX;
-					pThrower->pThrowParams->dY = gren->dY;
-					pThrower->pThrowParams->dZ = gren->dZ;
-					pThrower->pThrowParams->ubActionCode = gren->ubActionCode;
-					pThrower->pThrowParams->uiActionData = gren->uiActionData;
-				}
+				THROW_PARAMS& throwParameters = pendingItem.beginThrow();
+				throwParameters.dForceX = gren->dForceX;
+				throwParameters.dForceY = gren->dForceY;
+				throwParameters.dForceZ = gren->dForceZ;
+				throwParameters.dLifeSpan = gren->dLifeSpan;
+				throwParameters.dX = gren->dX;
+				throwParameters.dY = gren->dY;
+				throwParameters.dZ = gren->dZ;
+				throwParameters.ubActionCode = gren->ubActionCode;
+				throwParameters.uiActionData = gren->uiActionData;
 
 				pThrower->runtime.pendingAction.grenadeItem = 0;
 				HandleSoldierThrowItem( pThrower, gren->sTargetGridNo );
+			}
+			else
+			{
+				pendingItem.clearObject();
 			}
 		}
 	}

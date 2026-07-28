@@ -7,6 +7,24 @@
 #include "types.h"
 
 #include <functional>
+#include <memory>
+
+class OBJECTTYPE;
+
+// Ballistic data paired with a temporary item while a throw or launcher
+// transaction is pending. Runtime addresses are never persisted.
+struct THROW_PARAMS
+{
+	float dX;
+	float dY;
+	float dZ;
+	float dForceX;
+	float dForceY;
+	float dForceZ;
+	float dLifeSpan;
+	UINT8 ubActionCode;
+	UINT32 uiActionData;
+};
 
 // Stable indices for persistent critical-stat damage. Keep the order aligned
 // with the established soldier save fields.
@@ -383,6 +401,56 @@ public:
 private:
 	Slots slots_{};
 	bool active_ = false;
+};
+
+// Canonical owner for the temporary object used by give/drop/reload/throw
+// actions and the optional ballistic data paired with a throw. The object stays
+// heap-backed because OBJECTTYPE is a large non-trivial stack, while the small
+// throw payload is inline and presence-tagged. Whole-soldier copies deep-copy
+// the object instead of aliasing one transaction.
+class SoldierPendingItemComponent
+{
+public:
+	SoldierPendingItemComponent() noexcept = default;
+	~SoldierPendingItemComponent();
+	SoldierPendingItemComponent(const SoldierPendingItemComponent& source);
+	SoldierPendingItemComponent& operator=(
+		const SoldierPendingItemComponent& source);
+	SoldierPendingItemComponent(SoldierPendingItemComponent&& source) noexcept;
+	SoldierPendingItemComponent& operator=(
+		SoldierPendingItemComponent&& source) noexcept;
+
+	bool hasObject() const noexcept { return object_ != nullptr; }
+	bool hasThrowParameters() const noexcept { return hasThrowParameters_; }
+	bool readyToThrow() const noexcept
+	{
+		return hasObject() && hasThrowParameters();
+	}
+	OBJECTTYPE* object() noexcept { return object_.get(); }
+	const OBJECTTYPE* object() const noexcept { return object_.get(); }
+	THROW_PARAMS* throwParameters() noexcept
+	{
+		return hasThrowParameters_ ? &throwParameters_ : nullptr;
+	}
+	const THROW_PARAMS* throwParameters() const noexcept
+	{
+		return hasThrowParameters_ ? &throwParameters_ : nullptr;
+	}
+
+	void copyObject(const OBJECTTYPE& object);
+	OBJECTTYPE& createObject();
+	void clearObject() noexcept;
+	THROW_PARAMS& beginThrow() noexcept;
+	THROW_PARAMS& prepareThrow(const OBJECTTYPE& object);
+	void setThrowParameters(const THROW_PARAMS& parameters) noexcept;
+	void clearThrowParameters() noexcept;
+	void clearThrowTransaction() noexcept;
+	void reset() noexcept;
+
+private:
+	std::unique_ptr<OBJECTTYPE> object_;
+	THROW_PARAMS throwParameters_{};
+	bool hasThrowParameters_ = false;
 };
 
 // Canonical tactical service relationship. A provider points at one patient,

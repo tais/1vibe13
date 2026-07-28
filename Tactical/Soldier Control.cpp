@@ -429,6 +429,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		status().reset();
 		featureFlags().reset();
 		inventoryState().reset();
+		pendingItem().reset();
 		service().reset();
 		dialogue().reset();
 		audio().reset();
@@ -788,7 +789,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->renderState().fadeLevel() = src.ubFadeLevel;
 		this->service().providerCount() = src.ubServiceCount;
 		this->service().partner() = static_cast<UINT16>( src.ubServicePartner );
-		this->pThrowParams = src.pThrowParams;
+		// Temporary objects and ballistic parameters are process-local action
+		// state. V101 pointer values are deliberately not adopted.
 		this->movement().reverse() = src.bReverse;
 		this->pLevelNode = src.pLevelNode;
 		this->pExternShadowLevelNode = src.pExternShadowLevelNode;
@@ -1109,6 +1111,7 @@ void SOLDIERTYPE::initialize( )
 	featureFlags().reset();
 	inventoryState().reset();
 	keyRing().reset();
+	pendingItem().reset();
 	service().reset();
 	dialogue().reset();
 	audio().reset();
@@ -2606,6 +2609,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 
 		// Clear inline key-ring storage and its historical presence marker.
 		this->keyRing().deactivate();
+		// Tear down any interrupted give/drop/reload/throw transaction.
+		this->pendingItem().reset();
 
 		// Delete faces
 		DeleteSoldierFace( this );
@@ -8317,7 +8322,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		if ( this->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_ON )
 		{
 			// ATE: Don't do this if we have something in our hands we are going to throw!
-			if ( IsValidStance( this, ANIM_PRONE ) && this->pTempObject == NULL )
+			if ( IsValidStance( this, ANIM_PRONE ) && !this->pendingItem().hasObject() )
 			{
 				SendChangeSoldierStanceEvent( this, ANIM_PRONE );
 			}
@@ -12490,7 +12495,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginGiveItem( void )
 	{
 		UnSetEngagedInConvFromPCAction( this );
 
-		OBJECTTYPE::DeleteMe( &this->pTempObject );
+		this->pendingItem().clearObject();
 	}
 }
 
@@ -13915,16 +13920,17 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	}
 
 	// OK, check if we were going to throw something, and give it back if so!
-	if ( this->pTempObject != NULL && fFromSightingEnemy )
+	if ( this->pendingItem().hasObject() && fFromSightingEnemy )
 	{
-		if ( this->pThrowParams->ubActionCode == THROW_ARM_ITEM )
+		THROW_PARAMS* throwParameters = this->pendingItem().throwParameters();
+		if ( throwParameters != nullptr && throwParameters->ubActionCode == THROW_ARM_ITEM )
 		{
 			if (!this->inv[HANDPOS].exists())
 			{
 				// put the one-handed weapon in the guy's hand...
-				if (!PlaceObject(this, HANDPOS, this->pTempObject))
+				if (!PlaceObject(this, HANDPOS, this->pendingItem().object()))
 				{
-					AutoPlaceObject(this, this->pTempObject, FALSE);
+					AutoPlaceObject(this, this->pendingItem().object(), FALSE);
 				}
 			}	
 			//AXP 25.03.2007: Not needed anymore, grenade costs are only deducted on throwing the object
@@ -13934,11 +13940,11 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 		else
 		{
 			// Place it back into inv....
-			AutoPlaceObject(this, this->pTempObject, FALSE);
+			AutoPlaceObject(this, this->pendingItem().object(), FALSE);
 		}
 
 
-		OBJECTTYPE::DeleteMe( &this->pTempObject );
+		this->pendingItem().clearThrowTransaction();
 		this->animationIntent().clearPendingAnimations();
 
 		// Decrement attack counter...
@@ -13955,7 +13961,8 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	// Kaiden: Added fix from UB for seeing new enemies when throwing Knives.
 	// ATE: Dave, don't kill me
 	// Here, we need to handle the situation when we're throweing a knife and we see somebody
-	// cause for some reason throwing a knie does not use the pTempObject stuff that all other stuff does...
+	// because throwing a knife does not use the pending-item transaction that
+	// the other throw paths use...
 	if ( this->animationIntent().pendingAnimation() == THROW_KNIFE || this->animationIntent().pendingAnimation() == THROW_KNIFE_SP_BM )
 	{
 		// Decrement attack counter...
@@ -14029,7 +14036,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	}
 
 	// Unset UI!
-	if ( fFromSightingEnemy || (this->pTempObject == NULL && !this->animationActivity().turningToShoot()) )
+	if ( fFromSightingEnemy || (!this->pendingItem().hasObject() && !this->animationActivity().turningToShoot()) )
 	{
 		UnSetUIBusy( this->identity().id() );
 	}
@@ -23931,11 +23938,11 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 					FreeUpAttacker( );
 				}
 
-				if ( pSoldier->pTempObject != NULL )
+				if ( pSoldier->pendingItem().hasObject() )
 				{
 					// Place it back into inv....
-					AutoPlaceObject( pSoldier, pSoldier->pTempObject, FALSE );
-					OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
+					AutoPlaceObject( pSoldier, pSoldier->pendingItem().object(), FALSE );
+					pSoldier->pendingItem().clearThrowTransaction();
 					pSoldier->animationIntent().clearPendingAnimations();
 
 					// Decrement attack counter...

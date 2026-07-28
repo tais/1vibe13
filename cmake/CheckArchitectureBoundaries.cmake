@@ -4984,7 +4984,7 @@ foreach(required_key_ring_runtime IN ITEMS
   endif()
 endforeach()
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pTempObject\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(s\\.roster\\(\\)\\.inSector\\(\\)\\);"
+  "if \\(Ar::isLoading\\) s\\.pendingItem\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(s\\.roster\\(\\)\\.inSector\\(\\)\\);"
   serialized_soldier_key_ring_landmark
   "${save_load_game_contents}")
 if(NOT serialized_soldier_key_ring_landmark)
@@ -5033,6 +5033,186 @@ foreach(key_ring_documentation IN ITEMS
   if(soldier_key_ring_documented EQUAL -1)
     message(FATAL_ERROR
       "Soldier key-ring inline ownership and save compatibility must remain documented")
+  endif()
+endforeach()
+
+# Temporary give/drop/reload/throw state is one process-local ownership domain.
+# Keep the large OBJECTTYPE uniquely owned and deep-copied, keep the small
+# ballistic payload inline, and retain both former pointer positions as
+# byte-neutral save landmarks.
+foreach(retired_pending_item_pointer IN ITEMS
+  pTempObject
+  pThrowParams)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_pending_item_pointer}([^A-Za-z0-9_]|$)"
+    retired_current_pending_item_pointer
+    "${current_soldier_contents}")
+  if(retired_current_pending_item_pointer)
+    message(FATAL_ERROR
+      "Retired SOLDIERTYPE ${retired_pending_item_pointer} pointer returned; use SoldierPendingItemComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierPendingItemComponent[ \t\r\n]+pendingItem_[ \t]*;"
+  soldier_pending_item_owner
+  "${current_soldier_contents}")
+if(NOT soldier_pending_item_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierPendingItemComponent")
+endif()
+foreach(required_pending_item_accessor IN ITEMS
+  "SoldierPendingItemComponent& pendingItem() noexcept"
+  "const SoldierPendingItemComponent& pendingItem() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_pending_item_accessor}"
+    soldier_pending_item_accessor)
+  if(soldier_pending_item_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost pending-item accessor '${required_pending_item_accessor}'")
+  endif()
+endforeach()
+foreach(required_pending_item_contract IN ITEMS
+  "class SoldierPendingItemComponent"
+  "SoldierPendingItemComponent(const SoldierPendingItemComponent& source);"
+  "SoldierPendingItemComponent& operator=("
+  "SoldierPendingItemComponent(SoldierPendingItemComponent&& source) noexcept;"
+  "bool hasObject() const noexcept"
+  "bool hasThrowParameters() const noexcept"
+  "bool readyToThrow() const noexcept"
+  "OBJECTTYPE* object() noexcept"
+  "const OBJECTTYPE* object() const noexcept"
+  "THROW_PARAMS* throwParameters() noexcept"
+  "const THROW_PARAMS* throwParameters() const noexcept"
+  "void copyObject(const OBJECTTYPE& object);"
+  "OBJECTTYPE& createObject();"
+  "void clearObject() noexcept;"
+  "THROW_PARAMS& beginThrow() noexcept;"
+  "THROW_PARAMS& prepareThrow(const OBJECTTYPE& object);"
+  "void clearThrowParameters() noexcept;"
+  "void clearThrowTransaction() noexcept;"
+  "void reset() noexcept;"
+  "std::unique_ptr<OBJECTTYPE> object_;"
+  "THROW_PARAMS throwParameters_{};"
+  "bool hasThrowParameters_ = false;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_pending_item_contract}"
+    soldier_pending_item_contract)
+  if(soldier_pending_item_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPendingItemComponent lost contract '${required_pending_item_contract}'")
+  endif()
+endforeach()
+foreach(required_pending_item_transition IN ITEMS
+  "SoldierPendingItemComponent::~SoldierPendingItemComponent() = default;"
+  "SoldierPendingItemComponent::SoldierPendingItemComponent("
+  "SoldierPendingItemComponent& SoldierPendingItemComponent::operator=("
+  "void SoldierPendingItemComponent::copyObject(const OBJECTTYPE& object)"
+  "OBJECTTYPE& SoldierPendingItemComponent::createObject()"
+  "THROW_PARAMS& SoldierPendingItemComponent::beginThrow() noexcept"
+  "THROW_PARAMS& SoldierPendingItemComponent::prepareThrow("
+  "void SoldierPendingItemComponent::clearObject() noexcept"
+  "void SoldierPendingItemComponent::clearThrowParameters() noexcept"
+  "void SoldierPendingItemComponent::clearThrowTransaction() noexcept"
+  "void SoldierPendingItemComponent::reset() noexcept"
+  "std::make_unique<OBJECTTYPE>(*source.object_)"
+  "object_ = std::make_unique<OBJECTTYPE>(object);")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_pending_item_transition}"
+    soldier_pending_item_transition)
+  if(soldier_pending_item_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPendingItemComponent lost lifecycle transition '${required_pending_item_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "pendingItem\\(\\)\\.reset\\(\\)"
+  soldier_pending_item_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_pending_item_reset_sites
+  soldier_pending_item_reset_site_count)
+if(NOT soldier_pending_item_reset_site_count EQUAL 3)
+  message(FATAL_ERROR
+    "Pending-item state must reset during v101 conversion, initialization, and soldier deletion")
+endif()
+string(REGEX MATCH
+  "if \\(Ar::isLoading\\) s\\.pendingItem\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);"
+  serialized_pending_object_landmark
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(renderState\\.fadeLevel\\(\\)\\);[ \t]*ar\\.u8\\(service\\.providerCount\\(\\)\\);[ \t]*ar\\.u16\\(service\\.partner\\(\\)\\.i\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
+  serialized_throw_parameters_landmark
+  "${save_load_game_contents}")
+string(FIND "${save_load_game_contents}"
+  "SavedSoldierInfo.pendingItem().reset();"
+  outer_pending_item_load_reset)
+if(NOT serialized_pending_object_landmark OR
+   NOT serialized_throw_parameters_landmark OR
+   outer_pending_item_load_reset EQUAL -1)
+  message(FATAL_ERROR
+    "Pending-item runtime ownership moved or became persistent in the soldier save schema")
+endif()
+
+file(READ "${SOURCE_ROOT}/TileEngine/physics.cpp"
+  pending_item_physics_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  pending_item_animation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  pending_item_control_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  pending_item_weapons_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Handle Items.cpp"
+  pending_item_handle_items_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Items.cpp"
+  pending_item_items_contents)
+file(READ "${SOURCE_ROOT}/Multiplayer/client.cpp"
+  pending_item_multiplayer_contents)
+set(pending_item_runtime_contents
+  "${pending_item_physics_contents}${pending_item_animation_contents}${pending_item_control_contents}${pending_item_weapons_contents}${pending_item_handle_items_contents}${pending_item_items_contents}${pending_item_multiplayer_contents}")
+foreach(required_pending_item_adapter IN ITEMS
+  "pendingItem().prepareThrow(*pItem)"
+  "pendingItem().clearThrowTransaction();"
+  "pendingItem().copyObject(*pObject);"
+  "pendingItem().createObject();"
+  "if ( !pendingItem.readyToThrow() )"
+  "SoldierPendingItemComponent& pendingItem = pThrower->pendingItem();"
+  "THROW_PARAMS& throwParameters = pendingItem.beginThrow();")
+  string(FIND "${pending_item_runtime_contents}"
+    "${required_pending_item_adapter}"
+    pending_item_adapter)
+  if(pending_item_adapter EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical pending-item path bypassed component transition '${required_pending_item_adapter}'")
+  endif()
+endforeach()
+foreach(required_pending_item_test IN ITEMS
+  "soldier pending-item transactions default to empty process-local state"
+  "soldier pending-item owner binds a copied object and inline throw parameters as one transaction"
+  "soldier pending-item copies deep-copy temporary objects and inline ballistic state"
+  "soldier pending-item moves transfer ownership and clear the source transaction"
+  "soldier pending-item object and throw-parameter lifetimes remain independently observable"
+  "soldier pending-item transaction cleanup releases both ownership domains"
+  "soldier copies retain pending tactical transactions without pointer aliasing"
+  "soldier initialization releases pending tactical transaction state"
+  "v101 soldier conversion retires temporary object and throw pointers instead of adopting process-local addresses"
+  "soldier POD save/load retires temporary action pointers and clears process-local transaction state")
+  string(FIND "${headless_test_contents}"
+    "${required_pending_item_test}"
+    pending_item_test)
+  if(pending_item_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost pending-item fixture '${required_pending_item_test}'")
+  endif()
+endforeach()
+foreach(pending_item_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${pending_item_documentation}"
+    "SoldierPendingItemComponent"
+    soldier_pending_item_documented)
+  if(soldier_pending_item_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier pending-item ownership and byte-neutral persistence must remain documented")
   endif()
 endforeach()
 
@@ -8665,7 +8845,7 @@ string(REGEX MATCH
   serialized_soldier_movement_stealth_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pThrowParams\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
   serialized_soldier_movement_reverse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -11952,6 +12132,24 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(direct_retired_key_ring_access)
     message(FATAL_ERROR
       "Application code accesses retired SOLDIERTYPE pKeyRing in ${source_file}; use keyRing()")
+  endif()
+  if(NOT source_file MATCHES "/tests/")
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*(pTempObject|pThrowParams)([^A-Za-z0-9_]|$)"
+      direct_retired_pending_item_access
+      "${contents}")
+    if(direct_retired_pending_item_access)
+      message(FATAL_ERROR
+        "Application code accesses retired SOLDIERTYPE pending-item pointers in ${source_file}; use pendingItem()")
+    endif()
+    string(REGEX MATCH
+      "(malloc|MemAlloc)[ \t\r\n]*\\([^)]*THROW_PARAMS"
+      raw_throw_parameters_allocation
+      "${contents}")
+    if(raw_throw_parameters_allocation)
+      message(FATAL_ERROR
+        "Application code heap-allocates THROW_PARAMS in ${source_file}; use SoldierPendingItemComponent inline storage")
+    endif()
   endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"

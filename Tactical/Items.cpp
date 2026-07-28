@@ -8903,10 +8903,11 @@ BOOLEAN PlaceObjectInSoldierProfile( UINT8 ubProfile, OBJECTTYPE *pObject )
 				if ( pSoldier->identity().profile() == MADLAB )
 				{
 					// remove ammo and drop
-					pSoldier->pTempObject = new OBJECTTYPE;
-					EmptyWeaponMagazine( pObject, pSoldier->pTempObject );
-					AddItemToPool( pSoldier->position().gridNo(), pSoldier->pTempObject, 1, 0, 0, 0 );
-					pSoldier->pTempObject = NULL;
+					OBJECTTYPE& temporaryMagazine =
+						pSoldier->pendingItem().createObject();
+					EmptyWeaponMagazine( pObject, &temporaryMagazine );
+					AddItemToPool( pSoldier->position().gridNo(), &temporaryMagazine, 1, 0, 0, 0 );
+					pSoldier->pendingItem().clearObject();
 					// remove attachments and drop them
 					for (attachmentList::iterator iter = (*pObject)[0]->attachments.begin(); iter != (*pObject)[0]->attachments.end();) {
 						//CHRISL: Because MADLAB needs to remove all attachments, even inseparable ones, we need to temporarily

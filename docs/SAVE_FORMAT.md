@@ -324,6 +324,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   followed by 255 two-byte `KEY_ON_RING` entries (or 64 entries for historical
   saves). Key tables, items, maps, XML, Lua, multiplayer, packages, installed
   data, and current save bytes are unchanged.
+- The temporary object used by give, drop, robot reload, placement, throw, and
+  launcher actions, together with optional ballistic parameters, is now owned
+  by `SoldierPendingItemComponent`. `OBJECTTYPE` is uniquely heap-backed and
+  deep-copied; `THROW_PARAMS` is inline and presence-tagged. Neither value was
+  persistent: the former `pTempObject` and `pThrowParams` positions both
+  remain zero-byte retired pointer landmarks, and load explicitly clears any
+  process-local transaction. Current and historical save byte streams, maps,
+  XML, Lua, multiplayer packets, packages, and installed data are unchanged.
 - The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
   32-bit 1.13 feature-mask banks are now stored by
   `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their

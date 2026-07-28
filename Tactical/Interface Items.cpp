@@ -9358,7 +9358,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 					 if ( sActionGridNo != -1 && gbItemPointerSrcSlot != NO_SLOT )
 					 {
 							// Make a temp object for ammo...
-							OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, &gTempObject);
+							GetItemPointerSoldier()->pendingItem().copyObject(gTempObject);
 
 							// Remove from soldier's inv...
 							GetItemPointerSoldier()->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
@@ -9459,8 +9459,8 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				{
 					case ANIM_STAND:
 
-						OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, gpItemPointer);
-						if (GetItemPointerSoldier()->pTempObject != NULL)
+						GetItemPointerSoldier()->pendingItem().copyObject(*gpItemPointer);
+						if (GetItemPointerSoldier()->pendingItem().hasObject())
 						{
 							GetItemPointerSoldier()->pendingAction().secondaryData() = usMapPos;
 

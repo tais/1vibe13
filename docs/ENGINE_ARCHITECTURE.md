@@ -998,6 +998,16 @@ the engine must not contain SDL types in its public domain model.
   outer soldier save path still writes the same presence byte followed by the
   same fixed key payload. No key table, item, save, map, XML, Lua, package, or
   installed-data format changes.
+  `SoldierPendingItemComponent` now owns the process-local object used while a
+  give, drop, robot reload, placement, throw, or launcher action is in flight.
+  The large `OBJECTTYPE` remains uniquely heap-backed and is deep-copied with a
+  whole soldier; the small `THROW_PARAMS` payload is inline and presence-tagged.
+  Named preparation and cleanup transitions pair ballistic state with its
+  object and release both on completion, interruption, soldier deletion, or
+  failed multiplayer physics allocation. This removes the former independent
+  raw-pointer allocation paths and their cancellation leaks. Both historical
+  pointer positions remain byte-neutral retired landmarks, so save, map, XML,
+  Lua, multiplayer packet, package, and installed-data formats are unchanged.
   The three later, independent compatibility banks are now privately owned by
   `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
   event markers and the two unsigned 32-bit feature masks introduced by 1.13
