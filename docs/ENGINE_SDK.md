@@ -314,6 +314,16 @@ using an unsigned shift. Disease rules and installed content stay outside this
 owner, and the dependency-neutral disease-capacity header removes the former
 `Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
+`SoldierLongActionComponent` owns the complementary extended-work lifecycle:
+the tactical action kind, its retained context grid, and the AP cost remaining
+across turns. The established grid slot also carries the return location while
+an intel assignment temporarily removes a soldier from the tactical world.
+Named begin, bounded AP consumption, context retention, completion, clear, and
+reset transitions keep those values coherent. Tactical startup rejects unknown
+action IDs and validates the requested action instead of stale prior state;
+hack validation and result dispatch use the retained target grid consistently,
+including the established skill-equals-difficulty success boundary.
+The serializer retains all three original positions and widths.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

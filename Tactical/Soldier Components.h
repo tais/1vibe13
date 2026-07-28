@@ -399,6 +399,36 @@ private:
 	UINT32 disabilityFlags_ = 0;
 };
 
+// Canonical state for work that spans tactical turns. The retained context
+// grid also carries the established return location while an intel assignment
+// temporarily removes a soldier from the tactical world; it deliberately
+// remains independent of the soldier's current position.
+class SoldierLongActionComponent
+{
+public:
+	INT16& remainingActionPoints() noexcept { return remainingActionPoints_; }
+	const INT16& remainingActionPoints() const noexcept { return remainingActionPoints_; }
+	INT32& contextGrid() noexcept { return contextGrid_; }
+	const INT32& contextGrid() const noexcept { return contextGrid_; }
+	UINT8& action() noexcept { return action_; }
+	const UINT8& action() const noexcept { return action_; }
+
+	bool active() const noexcept { return action_ != 0; }
+	void begin(UINT8 action, INT32 contextGrid, INT16 actionPoints) noexcept;
+	void rememberContextGrid(INT32 contextGrid) noexcept { contextGrid_ = contextGrid; }
+	void completeCost() noexcept { remainingActionPoints_ = 0; }
+	void consumeActionPoints(INT16 actionPoints) noexcept;
+	void clear() noexcept;
+	void reset() noexcept;
+
+private:
+	static constexpr INT32 NoContextGrid = -1;
+
+	INT16 remainingActionPoints_ = 0;
+	INT32 contextGrid_ = NoContextGrid;
+	UINT8 action_ = 0;
+};
+
 // Canonical tactical action-point budget. The current amount and the turn-start
 // snapshot form one lifecycle: turn setup records them together, while network
 // reconciliation may still update only the authoritative current amount.

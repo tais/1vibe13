@@ -1669,6 +1669,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDialogueComponent& dialogue = s.dialogue();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
+	SoldierLongActionComponent& longAction = s.longAction();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1812,7 +1813,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
-	ar.i16(s.bOverTurnAPS); ar.i32(s.sMTActionGridNo); ar.u8(s.usMultiTurnAction);
+	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
 	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
 	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));

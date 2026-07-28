@@ -325,6 +325,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   clears this whole later domain. The independent `NUM_DISEASES == 20`
   declaration is a C++ dependency cleanup, not a data-format change; no save,
   packet, map, XML, Lua, or installed-data bytes change.
+- Multi-turn action kind, retained context grid, and remaining AP cost are now
+  stored by `SoldierLongActionComponent`. The context grid continues to double
+  as the return location for off-world intel assignments. The visitor still
+  emits the signed 16-bit AP cost, signed 32-bit grid, and unsigned 8-bit action
+  consecutively at their original position; v101 conversion clears this later
+  domain. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

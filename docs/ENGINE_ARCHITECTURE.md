@@ -1003,6 +1003,17 @@ the engine must not contain SDL types in its public domain model.
   avoiding undefined behavior on invalid input. Every scalar, disease slot,
   field width, and serialized position remains unchanged; v101 conversion
   clears the whole domain because that record predates it.
+  `SoldierLongActionComponent` owns the action kind, retained context grid,
+  and remaining AP cost for work spanning tactical turns. The same established
+  grid slot deliberately retains a soldier's return location while intel work
+  temporarily removes them from the tactical world. Named begin, AP
+  consumption, context-retention, completion, and clear operations update the
+  lifecycle atomically and clamp malformed negative or excessive costs.
+  Startup now validates and inspects the requested action rather than stale
+  prior state, preventing unknown or roof-invalid work from being persisted;
+  hack validation and completion consistently dispatch against the retained
+  target grid and treat skill equal to difficulty as success.
+  All three save fields retain their original positions and widths.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while
