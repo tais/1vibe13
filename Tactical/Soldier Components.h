@@ -170,8 +170,9 @@ private:
 };
 
 // Canonical spoken-dialogue state. NPC quote plans, quote-history masks,
-// battle-voice selection and playback throttling, civilian quote progression,
-// speech cooldowns, and corpse-comment tolerance share one reset boundary.
+// battle-voice selection and playback throttling, queued tactical feedback,
+// civilian quote progression, speech cooldowns, and corpse-comment tolerance
+// share one reset boundary.
 // World-position and mechanical-loop sounds deliberately remain outside this
 // component because they are spatial audio rather than soldier speech.
 class SoldierDialogueComponent
@@ -205,9 +206,24 @@ public:
 	const UINT32& lastSpokeAt() const noexcept { return lastSpokeAt_; }
 	INT8& corpseQuoteTolerance() noexcept { return corpseQuoteTolerance_; }
 	const INT8& corpseQuoteTolerance() const noexcept { return corpseQuoteTolerance_; }
+	BOOLEAN& deadSoundPlayedState() noexcept { return deadSoundPlayed_; }
+	const BOOLEAN& deadSoundPlayedState() const noexcept { return deadSoundPlayed_; }
+	BOOLEAN& bleedingWarningSpokenState() noexcept { return bleedingWarningSpoken_; }
+	const BOOLEAN& bleedingWarningSpokenState() const noexcept { return bleedingWarningSpoken_; }
+	BOOLEAN& dyingCommentSpokenState() noexcept { return dyingCommentSpoken_; }
+	const BOOLEAN& dyingCommentSpokenState() const noexcept { return dyingCommentSpoken_; }
+	BOOLEAN& ammoQuotePendingState() noexcept { return ammoQuotePending_; }
+	const BOOLEAN& ammoQuotePendingState() const noexcept { return ammoQuotePending_; }
+	BOOLEAN& dieSoundUsedState() noexcept { return dieSoundUsed_; }
+	const BOOLEAN& dieSoundUsedState() const noexcept { return dieSoundUsed_; }
 
 	bool hasQuoteRecord() const noexcept { return quoteRecord_ != 0; }
 	bool hasQuoteAction() const noexcept { return quoteActionId_ != 0; }
+	bool deathSoundPlayed() const noexcept { return deadSoundPlayed_ != FALSE; }
+	bool hasWarnedAboutBleeding() const noexcept { return bleedingWarningSpoken_ != FALSE; }
+	bool hasMadeDyingComment() const noexcept { return dyingCommentSpoken_ != FALSE; }
+	bool ammoQuotePending() const noexcept { return ammoQuotePending_ != FALSE; }
+	bool deathBattleSoundUsed() const noexcept { return dieSoundUsed_ != FALSE; }
 	bool hasSaid(UINT16 flag) const noexcept { return (saidFlags_ & flag) != 0; }
 	bool hasSaidExtended(UINT16 flag) const noexcept
 	{
@@ -247,6 +263,16 @@ public:
 		civilianQuoteDelta_ = 0;
 	}
 	void recordSpokeAt(UINT32 now) noexcept { lastSpokeAt_ = now; }
+	void markDeathSoundPlayed() noexcept { deadSoundPlayed_ = TRUE; }
+	void clearDeathSoundPlayed() noexcept { deadSoundPlayed_ = FALSE; }
+	void markBleedingWarningSpoken() noexcept { bleedingWarningSpoken_ = TRUE; }
+	void clearBleedingWarning() noexcept { bleedingWarningSpoken_ = FALSE; }
+	void markDyingCommentSpoken() noexcept { dyingCommentSpoken_ = TRUE; }
+	void clearDyingComment() noexcept { dyingCommentSpoken_ = FALSE; }
+	void queueAmmoQuote() noexcept { ammoQuotePending_ = TRUE; }
+	void consumeAmmoQuote() noexcept { ammoQuotePending_ = FALSE; }
+	void markDeathBattleSoundUsed() noexcept { dieSoundUsed_ = TRUE; }
+	void clearDeathBattleSoundUsed() noexcept { dieSoundUsed_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -264,6 +290,11 @@ private:
 	INT8 civilianQuoteDelta_ = 0;
 	UINT32 lastSpokeAt_ = 0;
 	INT8 corpseQuoteTolerance_ = 0;
+	BOOLEAN deadSoundPlayed_ = FALSE;
+	BOOLEAN bleedingWarningSpoken_ = FALSE;
+	BOOLEAN dyingCommentSpoken_ = FALSE;
+	BOOLEAN ammoQuotePending_ = FALSE;
+	BOOLEAN dieSoundUsed_ = FALSE;
 };
 
 // Canonical non-dialogue audio state. Footstep variation and door noise are

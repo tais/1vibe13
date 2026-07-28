@@ -2518,7 +2518,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			pSoldier->bTeam == gbPlayerNum &&
 			(Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(pObjHand) > 4))
 		{
-			pSoldier->flags.fSayAmmoQuotePending = TRUE;
+			pSoldier->dialogue().queueAmmoQuote();
 		}
 	}
 	else	//  throwing knife
@@ -3365,7 +3365,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			pSoldier->bTeam == gbPlayerNum &&
 			(Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(pObjUsed) > 4))
 		{
-			pSoldier->flags.fSayAmmoQuotePending = TRUE;
+			pSoldier->dialogue().queueAmmoQuote();
 		}
 		// NB bDoBurst will be 2 at this point for the first shot since it was incremented
 		// above

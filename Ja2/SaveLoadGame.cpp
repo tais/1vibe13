@@ -1571,6 +1571,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	STRUCT_Flags& f = soldier.flags;
 	SoldierCollapseComponent& collapseState = soldier.collapseState();
 	SoldierDeploymentComponent& deployment = soldier.deployment();
+	SoldierDialogueComponent& dialogue = soldier.dialogue();
 	SoldierMovementComponent& movement = soldier.movement();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
@@ -1586,10 +1587,10 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.i8(animationActivity.postHitStance());
 	ar.boolean(renderState.forceRenderColor()); ar.boolean(renderState.forceNoPaletteCycle());
 	ar.boolean(animationIntent.stopPendingNextTile()); ar.boolean(movement.uiMovementFast()); ar.boolean(renderState.forceShade());
-	ar.boolean(f.fDeadSoundPlayed); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());
+	ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());
 	ar.boolean(uiPresentation.deadPanelActive()); ar.boolean(uiPresentation.panelOpenRequested()); ar.boolean(f.fIntendedTarget);
 	ar.boolean(animationActivity.paused()); ar.u8(animationIntent.continuationMode());
-	ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(f.fWarnedAboutBleeding); ar.boolean(f.fDyingComment);
+	ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(dialogue.bleedingWarningSpokenState()); ar.boolean(dialogue.dyingCommentSpokenState());
 	ar.boolean(animationActivity.turningToShoot()); ar.boolean(animationActivity.turningToFall()); ar.boolean(animationActivity.turningUntilDone());
 	ar.u8(animationActivity.hitPhase()); ar.boolean(animationActivity.nonInterruptible()); ar.boolean(uiPresentation.locatorFlashCycle());
 	ar.boolean(uiPresentation.locatorVisibleState()); ar.boolean(uiPresentation.portraitFlashPhase()); ar.boolean(movement.noActionPointsToFinish());
@@ -1602,11 +1603,11 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(f.fSignedAnotherContract); ar.boolean(animationActivity.turningCostWaived());
 	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(f.fForcedToStayAwake); ar.boolean(fireControl.spreadIndex());
 	ar.boolean(movement.movementClockActive()); ar.boolean(movement.networkDelayed()); ar.boolean(f.fSoldierUpdatedFromNetwork);
-	ar.boolean(f.fSayAmmoQuotePending); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());
+	ar.boolean(dialogue.ammoQuotePendingState()); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());
 	ar.boolean(f.fDoneAssignmentAndNothingToDoFlag); ar.boolean(f.fMercAsleep);
 	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(movement.wasMoving());
 	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
-	ar.boolean(f.fDieSoundUsed); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(f.fComplainedThatTired);
+	ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(f.fComplainedThatTired);
 	ar.boolean(animationActivity.realtimeNonInterruptible());
 	ar.u8(f.fHitByGasFlags);
 	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(movement.pastXDestination()); ar.i8(movement.pastYDestination());

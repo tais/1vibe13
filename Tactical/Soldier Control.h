@@ -801,10 +801,7 @@ public:
 public:
 	// flags from before the changes to the memory structure
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-	BOOLEAN											fDeadSoundPlayed;
 	BOOLEAN											fIntendedTarget; // intentionally shot?
-	BOOLEAN											fWarnedAboutBleeding;
-	BOOLEAN											fDyingComment;
 	BOOLEAN											fReloading;
 	BOOLEAN											fPauseAim;
 	BOOLEAN											fReactingFromBeingShot;
@@ -815,11 +812,9 @@ public:
 	BOOLEAN											fSignedAnotherContract; 
 	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	BOOLEAN											fSoldierUpdatedFromNetwork;
-	BOOLEAN											fSayAmmoQuotePending;
 	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
 	BOOLEAN											fMercAsleep;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
-	BOOLEAN											fDieSoundUsed;
  	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 

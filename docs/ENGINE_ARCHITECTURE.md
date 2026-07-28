@@ -977,11 +977,12 @@ the engine must not contain SDL types in its public domain model.
   width.
   `SoldierDialogueComponent` owns the spoken-state lifecycle: queued NPC quote
   records and actions, normal and extended said-history masks, battle-voice
-  selection and active playback, repeat throttling, heard-noise cooldown,
-  civilian quote progression, last-spoke time, vocal volume, and corpse-comment
-  tolerance. Named history, cooldown, quote-plan, playback, and reset
-  transitions replace scattered bit manipulation while all fourteen save
-  fields retain their established positions and widths.
+  selection and active playback, repeat throttling, bleeding/dying feedback,
+  queued out-of-ammo speech, death-sound gates, heard-noise cooldown, civilian
+  quote progression, last-spoke time, vocal volume, and corpse-comment
+  tolerance. Named history, tactical-feedback, cooldown, quote-plan, playback,
+  and reset transitions replace scattered bit manipulation while all nineteen
+  save fields retain their established positions and widths.
   `SoldierAudioComponent` owns the complementary non-dialogue audio lifecycle:
   footstep variation, remembered door-opening noise, and the burst,
   world-position, and turret-turning sound handles. Named start, clear, record,

@@ -2223,12 +2223,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					//HandleSoldierDeath( pSoldier );
 
 					// If guy is now dead, and we have not played death sound before, play
-					if ( pSoldier->vitals().health() == 0 && !pSoldier->flags.fDeadSoundPlayed	)
+					if ( pSoldier->vitals().health() == 0 && !pSoldier->dialogue().deathSoundPlayed()	)
 					{
 						if ( pSoldier->animationPlayback().state() != JFK_HITDEATH )
 						{
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-							pSoldier->flags.fDeadSoundPlayed = TRUE;
+							pSoldier->dialogue().markDeathSoundPlayed();
 						}
 					}
 
@@ -3060,7 +3060,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// Play die sound
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pSoldier->flags.fDeadSoundPlayed = TRUE;
+				pSoldier->dialogue().markDeathSoundPlayed();
 				break;
 
 			case 750:
@@ -4453,7 +4453,7 @@ void CheckForAndHandleSoldierIncompacitated( SOLDIERTYPE *pSoldier )
 #endif
 			{
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pSoldier->flags.fDeadSoundPlayed = TRUE;
+				pSoldier->dialogue().markDeathSoundPlayed();
 			}
 		}
 
@@ -4612,7 +4612,7 @@ BOOLEAN CheckForAndHandleSoldierDyingNotFromHit( SOLDIERTYPE *pSoldier )
 	if ( pSoldier->vitals().health() == 0 )
 	{
 		pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-		pSoldier->flags.fDeadSoundPlayed = TRUE;
+		pSoldier->dialogue().markDeathSoundPlayed();
 
 		// 0verhaul:	The bBeingAttackedCount is now obsolete.
 		// Increment	being attacked count

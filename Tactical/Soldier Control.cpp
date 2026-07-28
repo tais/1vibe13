@@ -478,9 +478,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
 	// The transient v101 door continuation phase is deliberately not converted.
-	this->fSayAmmoQuotePending = src.fSayAmmoQuotePending;
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
-	this->fDieSoundUsed = src.fDieSoundUsed;
 	this->fComplainedThatTired = src.fComplainedThatTired;
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
 	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
@@ -490,13 +488,10 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSignedAnotherContract = src.fSignedAnotherContract;
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
-	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
-	this->fWarnedAboutBleeding = src.fWarnedAboutBleeding;
-	this->fDyingComment = src.fDyingComment;
 	this->lastFlankLeft = src.lastFlankLeft;
 	this->uiStatusFlags = src.uiStatusFlags;
 }
@@ -635,6 +630,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		uiPresentation().closeMercUiPendingState() = src.fUICloseMerc;
 		uiPresentation().firstNoActionPointsState() = src.fUIFirstTimeNOAP;
 		uiPresentation().firstUnconsciousState() = src.fUIFirstTimeUNCON;
+		dialogue().deadSoundPlayedState() = src.fDeadSoundPlayed;
+		dialogue().bleedingWarningSpokenState() = src.fWarnedAboutBleeding;
+		dialogue().dyingCommentSpokenState() = src.fDyingComment;
+		dialogue().ammoQuotePendingState() = src.fSayAmmoQuotePending;
+		dialogue().dieSoundUsedState() = src.fDieSoundUsed;
 		deployment().betweenSectors() = src.fBetweenSectors;
 		deployment().inMissionExitNode() = src.fInMissionExitNode;
 		deployment().useLandingZoneForArrival() = src.fUseLandingZoneForArrival;
@@ -2478,11 +2478,11 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 		// Set some quote flags
 		if ( this->vitals().health() >= OKLIFE )
 		{
-			this->flags.fDyingComment = FALSE;
+			this->dialogue().clearDyingComment();
 		}
 		else
 		{
-			this->flags.fDyingComment = TRUE;
+			this->dialogue().markDyingCommentSpoken();
 		}
 	}
 
@@ -9957,7 +9957,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 				if ( ubReason != TAKE_DAMAGE_BLOODLOSS )
 				{
 					pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-					pSoldier->flags.fDeadSoundPlayed = TRUE;
+					pSoldier->dialogue().markDeathSoundPlayed();
 				}
 			}
 
@@ -10003,9 +10003,9 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 				StrategicHandlePlayerTeamMercDeath( pSoldier );
 
 				// ATE: Here, force always to use die sound...
-				pSoldier->flags.fDieSoundUsed = FALSE;
+				pSoldier->dialogue().clearDeathBattleSoundUsed();
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_DIE1 );
-				pSoldier->flags.fDeadSoundPlayed = TRUE;
+				pSoldier->dialogue().markDeathSoundPlayed();
 
 				// ATE: DO death sound
 				PlayJA2Sample( (UINT8)DOORCR_1, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
@@ -10813,7 +10813,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	// If a death sound, and we have already done ours...
 	if ( ubBattleSoundID == BATTLE_SOUND_DIE1 )
 	{
-		if ( pSoldier->flags.fDieSoundUsed )
+		if ( pSoldier->dialogue().deathBattleSoundUsed() )
 		{
 			return(TRUE);
 		}
@@ -13580,7 +13580,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 			//pVictim->shootOn = TRUE;
 
 			// turn off merc QUOTE flags
-			pVictim->flags.fDyingComment = FALSE;
+			pVictim->dialogue().clearDyingComment();
 		}
 
 		// update patient's entire panel (could have regained consciousness, etc.)
@@ -13734,7 +13734,7 @@ UINT32 SOLDIERTYPE::SoldierDressWound( SOLDIERTYPE *pVictim, INT16 sKitPts, INT1
 	// the "warned about bleeding" flag so merc tells us about the next bleeding
 	if ( pVictim->vitals().bleeding() <= MIN_BLEEDING_THRESHOLD )
 	{
-		pVictim->flags.fWarnedAboutBleeding = FALSE;
+		pVictim->dialogue().clearBleedingWarning();
 	}
 
 	//CHRISL: If by some chance ubPtsLeft ends up being higher then uiActual, we'll end up with a huge value since uiActual is an unsigned variable.
@@ -21916,11 +21916,11 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 						if ( pSoldier->vitals().health() < OKLIFE )		// if he's dying
 						{
 							// if he's conscious, and he hasn't already, say his "dying quote"
-							if ( (pSoldier->vitals().health() >= CONSCIOUSNESS) && !pSoldier->flags.fDyingComment )
+							if ( (pSoldier->vitals().health() >= CONSCIOUSNESS) && !pSoldier->dialogue().hasMadeDyingComment() )
 							{
 								TacticalCharacterDialogue( pSoldier, QUOTE_SERIOUSLY_WOUNDED );
 
-								pSoldier->flags.fDyingComment = TRUE;
+								pSoldier->dialogue().markDyingCommentSpoken();
 							}
 
 							// can't permit lifemax to ever bleed beneath OKLIFE, or that
@@ -21960,12 +21960,12 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 					// if he's not dying (which includes him saying the dying quote just
 					// now), and he hasn't warned us that he's bleeding yet, he does so
 					// Also, not if they are being bandaged....
-					if ( (pSoldier->vitals().health() >= OKLIFE) && !pSoldier->flags.fDyingComment && !pSoldier->flags.fWarnedAboutBleeding && !gTacticalStatus.fAutoBandageMode && !pSoldier->service().hasProviders() )
+					if ( (pSoldier->vitals().health() >= OKLIFE) && !pSoldier->dialogue().hasMadeDyingComment() && !pSoldier->dialogue().hasWarnedAboutBleeding() && !gTacticalStatus.fAutoBandageMode && !pSoldier->service().hasProviders() )
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_STARTING_TO_BLEED );
 
 						// "starting to bleed" quote
-						pSoldier->flags.fWarnedAboutBleeding = TRUE;
+						pSoldier->dialogue().markBleedingWarningSpoken();
 					}
 
 					pSoldier->vitals().nextBleedAt() = CalcSoldierNextBleed( pSoldier );
@@ -25938,12 +25938,12 @@ UINT32 VirtualSoldierDressWound( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVictim, OB
 		// if this healing brought the patient out of the worst of it, cancel dying
 		if ( pVictim->vitals().health() >= OKLIFE )
 		{ // turn off merc QUOTE flags
-			pVictim->flags.fDyingComment = FALSE;
+			pVictim->dialogue().clearDyingComment();
 		}
 
 		if ( pVictim->vitals().bleeding() <= MIN_BLEEDING_THRESHOLD )
 		{
-			pVictim->flags.fWarnedAboutBleeding = FALSE;
+			pVictim->dialogue().clearBleedingWarning();
 		}
 	}
 

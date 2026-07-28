@@ -2199,9 +2199,10 @@ if(NOT serialized_soldier_service_activity_order OR
 endif()
 
 # Soldier speech is one persistent behavior domain: queued NPC quote work,
-# quote-history masks, battle-voice selection/playback throttling, civilian
-# quote progression, speech cooldowns, and corpse-comment tolerance. Spatial
-# and mechanical-loop sound handles intentionally remain outside this owner.
+# quote-history masks, battle-voice selection/playback throttling, tactical
+# feedback gates, civilian quote progression, speech cooldowns, and
+# corpse-comment tolerance. Spatial and mechanical-loop sound handles
+# intentionally remain outside this owner.
 foreach(retired_dialogue_field IN ITEMS
   ubQuoteRecord
   ubQuoteActionID
@@ -2224,6 +2225,21 @@ foreach(retired_dialogue_field IN ITEMS
   if(retired_current_dialogue_field)
     message(FATAL_ERROR
       "Retired flat SOLDIERTYPE dialogue field '${retired_dialogue_field}' returned; spoken state belongs to SoldierDialogueComponent")
+  endif()
+endforeach()
+foreach(retired_dialogue_flag IN ITEMS
+  fDeadSoundPlayed
+  fWarnedAboutBleeding
+  fDyingComment
+  fSayAmmoQuotePending
+  fDieSoundUsed)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_dialogue_flag}[ \t]*;"
+    retired_current_dialogue_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_dialogue_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags dialogue field '${retired_dialogue_flag}' returned; tactical spoken feedback belongs to SoldierDialogueComponent")
   endif()
 endforeach()
 
@@ -2250,7 +2266,12 @@ foreach(owned_dialogue_pattern IN ITEMS
   "INT8[ \t]+currentCivilianQuote_[ \t]*=[ \t]*0"
   "INT8[ \t]+civilianQuoteDelta_[ \t]*=[ \t]*0"
   "UINT32[ \t]+lastSpokeAt_[ \t]*=[ \t]*0"
-  "INT8[ \t]+corpseQuoteTolerance_[ \t]*=[ \t]*0")
+  "INT8[ \t]+corpseQuoteTolerance_[ \t]*=[ \t]*0"
+  "BOOLEAN[ \t]+deadSoundPlayed_[ \t]*=[ \t]*FALSE"
+  "BOOLEAN[ \t]+bleedingWarningSpoken_[ \t]*=[ \t]*FALSE"
+  "BOOLEAN[ \t]+dyingCommentSpoken_[ \t]*=[ \t]*FALSE"
+  "BOOLEAN[ \t]+ammoQuotePending_[ \t]*=[ \t]*FALSE"
+  "BOOLEAN[ \t]+dieSoundUsed_[ \t]*=[ \t]*FALSE")
   string(REGEX MATCH
     "${owned_dialogue_pattern}"
     owned_soldier_dialogue_field
@@ -2275,7 +2296,12 @@ foreach(dialogue_accessor IN ITEMS
   currentCivilianQuote
   civilianQuoteDelta
   lastSpokeAt
-  corpseQuoteTolerance)
+  corpseQuoteTolerance
+  deadSoundPlayedState
+  bleedingWarningSpokenState
+  dyingCommentSpokenState
+  ammoQuotePendingState
+  dieSoundUsedState)
   string(REGEX MATCH
     "${dialogue_accessor}\\(\\)[ \t]+noexcept"
     owned_soldier_dialogue_accessor
@@ -2289,6 +2315,11 @@ endforeach()
 foreach(dialogue_operation IN ITEMS
   "bool hasQuoteRecord() const noexcept"
   "bool hasQuoteAction() const noexcept"
+  "bool deathSoundPlayed() const noexcept"
+  "bool hasWarnedAboutBleeding() const noexcept"
+  "bool hasMadeDyingComment() const noexcept"
+  "bool ammoQuotePending() const noexcept"
+  "bool deathBattleSoundUsed() const noexcept"
   "bool hasSaid(UINT16 flag) const noexcept"
   "bool hasSaidExtended(UINT16 flag) const noexcept"
   "void markSaid(UINT16 flag) noexcept"
@@ -2301,6 +2332,16 @@ foreach(dialogue_operation IN ITEMS
   "void ageHeardNoiseCooldown() noexcept"
   "void clearCivilianQuote() noexcept"
   "void recordSpokeAt(UINT32 now) noexcept"
+  "void markDeathSoundPlayed() noexcept"
+  "void clearDeathSoundPlayed() noexcept"
+  "void markBleedingWarningSpoken() noexcept"
+  "void clearBleedingWarning() noexcept"
+  "void markDyingCommentSpoken() noexcept"
+  "void clearDyingComment() noexcept"
+  "void queueAmmoQuote() noexcept"
+  "void consumeAmmoQuote() noexcept"
+  "void markDeathBattleSoundUsed() noexcept"
+  "void clearDeathBattleSoundUsed() noexcept"
   "void reset() noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${dialogue_operation}"
@@ -2343,7 +2384,12 @@ foreach(dialogue_conversion IN ITEMS
   "this->dialogue().currentCivilianQuote() = src.bCurrentCivQuote;"
   "this->dialogue().civilianQuoteDelta() = src.bCurrentCivQuoteDelta;"
   "this->dialogue().lastSpokeAt() = src.uiTimeSinceLastSpoke;"
-  "this->dialogue().corpseQuoteTolerance() = src.bCorpseQuoteTolerance;")
+  "this->dialogue().corpseQuoteTolerance() = src.bCorpseQuoteTolerance;"
+  "dialogue().deadSoundPlayedState() = src.fDeadSoundPlayed;"
+  "dialogue().bleedingWarningSpokenState() = src.fWarnedAboutBleeding;"
+  "dialogue().dyingCommentSpokenState() = src.fDyingComment;"
+  "dialogue().ammoQuotePendingState() = src.fSayAmmoQuotePending;"
+  "dialogue().dieSoundUsedState() = src.fDieSoundUsed;")
   string(FIND "${soldier_control_source_contents}"
     "${dialogue_conversion}"
     soldier_dialogue_conversion_site)
@@ -2363,13 +2409,74 @@ foreach(dialogue_save_position IN ITEMS
   "ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);"
   "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());"
   "ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());"
-  "ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());")
+  "ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());"
+  "ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());"
+  "ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(dialogue.bleedingWarningSpokenState()); ar.boolean(dialogue.dyingCommentSpokenState());"
+  "ar.boolean(dialogue.ammoQuotePendingState()); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());"
+  "ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(f.fComplainedThatTired);")
   string(FIND "${save_load_game_contents}"
     "${dialogue_save_position}"
     soldier_dialogue_save_position)
   if(soldier_dialogue_save_position EQUAL -1)
     message(FATAL_ERROR
       "Soldier dialogue moved in the portable save schema at '${dialogue_save_position}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  soldier_dialogue_animation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  soldier_dialogue_weapons_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  soldier_dialogue_overhead_contents)
+foreach(dialogue_animation_feedback_fragment IN ITEMS
+  "pSoldier->dialogue().deathSoundPlayed()"
+  "pSoldier->dialogue().markDeathSoundPlayed();")
+  string(FIND "${soldier_dialogue_animation_contents}"
+    "${dialogue_animation_feedback_fragment}"
+    soldier_dialogue_animation_feedback_site)
+  if(soldier_dialogue_animation_feedback_site EQUAL -1)
+    message(FATAL_ERROR
+      "Death animation bypassed dialogue feedback transition '${dialogue_animation_feedback_fragment}'")
+  endif()
+endforeach()
+foreach(dialogue_damage_feedback_fragment IN ITEMS
+  "pSoldier->dialogue().hasMadeDyingComment()"
+  "pSoldier->dialogue().hasWarnedAboutBleeding()"
+  "pSoldier->dialogue().markDyingCommentSpoken();"
+  "pSoldier->dialogue().markBleedingWarningSpoken();"
+  "pVictim->dialogue().clearDyingComment();"
+  "pVictim->dialogue().clearBleedingWarning();"
+  "pSoldier->dialogue().deathBattleSoundUsed()")
+  string(FIND "${soldier_control_source_contents}"
+    "${dialogue_damage_feedback_fragment}"
+    soldier_dialogue_damage_feedback_site)
+  if(soldier_dialogue_damage_feedback_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical feedback bypassed dialogue transition '${dialogue_damage_feedback_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_dialogue_weapons_contents}"
+  "pSoldier->dialogue().queueAmmoQuote();"
+  soldier_dialogue_ammo_queue_site)
+string(FIND "${soldier_dialogue_overhead_contents}"
+  "pSoldier->dialogue().consumeAmmoQuote();"
+  soldier_dialogue_ammo_consume_site)
+if(soldier_dialogue_ammo_queue_site EQUAL -1 OR
+   soldier_dialogue_ammo_consume_site EQUAL -1)
+  message(FATAL_ERROR
+    "Out-of-ammo speech must queue and consume through SoldierDialogueComponent")
+endif()
+foreach(dialogue_test_fragment IN ITEMS
+  "soldier dialogue component coordinates quote, tactical-feedback, history, playback, and cooldown transitions"
+  "convertedSoldier.dialogue().deadSoundPlayedState() == 2"
+  "soldier save/load round-trips dialogue and tactical-feedback state at every established schema position")
+  string(FIND "${headless_test_contents}"
+    "${dialogue_test_fragment}"
+    soldier_dialogue_test_site)
+  if(soldier_dialogue_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierDialogueComponent fixture '${dialogue_test_fragment}'")
   endif()
 endforeach()
 
@@ -2589,6 +2696,21 @@ file(READ "${SOURCE_ROOT}/docs/ENGINE_SDK.md"
   engine_sdk_documentation)
 file(READ "${SOURCE_ROOT}/docs/SAVE_FORMAT.md"
   save_format_documentation)
+string(FIND "${engine_architecture_documentation}"
+  "tactical-feedback"
+  soldier_dialogue_feedback_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "tactical-feedback"
+  soldier_dialogue_feedback_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "all nineteen values"
+  soldier_dialogue_feedback_save_documented)
+if(soldier_dialogue_feedback_architecture_documented EQUAL -1 OR
+   soldier_dialogue_feedback_sdk_documented EQUAL -1 OR
+   soldier_dialogue_feedback_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierDialogueComponent tactical-feedback ownership and compatibility guarantees must remain documented")
+endif()
 string(FIND "${engine_architecture_documentation}"
   "SoldierAudioComponent"
   soldier_audio_architecture_documented)
@@ -4182,7 +4304,7 @@ if(soldier_collapse_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
+  "ar\\.boolean\\(dialogue\\.ammoQuotePendingState\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
   serialized_soldier_fatigue_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5016,7 +5138,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_transit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);"
+  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);"
   serialized_soldier_deployment_landing_zone_order
   "${save_load_game_contents}")
 if(serialized_soldier_deployment_adapter EQUAL -1 OR
@@ -5838,7 +5960,7 @@ string(REGEX MATCH
   serialized_soldier_movement_block_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);[ \t]*ar\\.boolean\\(movement\\.usesMoveSpeedOverride\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDieSoundUsed\\);"
+  "ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);[ \t]*ar\\.boolean\\(movement\\.usesMoveSpeedOverride\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);"
   serialized_soldier_movement_speed_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7207,7 +7329,7 @@ string(REGEX MATCH
   serialized_render_policy_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fSayAmmoQuotePending\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);"
+  "ar\\.boolean\\(dialogue\\.ammoQuotePendingState\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);"
   serialized_render_flash_visibility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7571,7 +7693,7 @@ foreach(ui_presentation_save_position IN ITEMS
   endif()
 endforeach()
 string(REGEX MATCH
-  "ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDeadSoundPlayed\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseRequested\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseForDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.deadPanelActive\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelOpenRequested\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fIntendedTarget\\);"
+  "ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.deadSoundPlayedState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseRequested\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseForDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.deadPanelActive\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelOpenRequested\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fIntendedTarget\\);"
   serialized_ui_panel_lifecycle_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8332,7 +8454,7 @@ string(REGEX MATCH
   serialized_soldier_animation_turn_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fWarnedAboutBleeding\\);[ \t]*ar\\.boolean\\(f\\.fDyingComment\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.turningToShoot\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningToFall\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningUntilDone\\(\\)\\);[ \t\r\n]*ar\\.u8\\(animationActivity\\.hitPhase\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.locatorFlashCycle\\(\\)\\);"
+  "ar\\.boolean\\(dialogue\\.bleedingWarningSpokenState\\(\\)\\);[ \t]*ar\\.boolean\\(dialogue\\.dyingCommentSpokenState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.turningToShoot\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningToFall\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningUntilDone\\(\\)\\);[ \t\r\n]*ar\\.u8\\(animationActivity\\.hitPhase\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.locatorFlashCycle\\(\\)\\);"
   serialized_soldier_animation_hit_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8344,7 +8466,7 @@ string(REGEX MATCH
   serialized_soldier_animation_stance_cost_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDieSoundUsed\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
+  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

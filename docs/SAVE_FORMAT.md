@@ -300,11 +300,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   fields into that owner. No save, packet, map, XML, Lua, or installed-data
   bytes change.
 - NPC quote plans, standard and extended quote-history masks, battle-voice
-  selection and playback throttling, heard-noise speech cooldown, civilian
+  selection and playback throttling, bleeding/dying feedback, queued
+  out-of-ammo speech, death-sound gates, heard-noise speech cooldown, civilian
   quote progression, last-spoke time, and corpse-comment tolerance are now
-  stored by `SoldierDialogueComponent`. The visitor emits all fourteen values
+  stored by `SoldierDialogueComponent`. The visitor emits all nineteen values
   at their original scattered positions and widths, and v101 conversion maps
-  every established field. No save, packet, map, XML, Lua, dialogue, or
+  every established raw value. No save, packet, map, XML, Lua, dialogue, or
   installed-data bytes change.
 - Footstep variation, remembered door-opening noise, and burst,
   positional-ambience, and turret-turning sound handles are now stored by

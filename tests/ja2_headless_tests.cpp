@@ -7298,6 +7298,11 @@ int main( int, char** )
 		dialogue.civilianQuoteDelta() = 2;
 		dialogue.recordSpokeAt(12343);
 		dialogue.corpseQuoteTolerance() = 3;
+		dialogue.markDeathSoundPlayed();
+		dialogue.markBleedingWarningSpoken();
+		dialogue.markDyingCommentSpoken();
+		dialogue.queueAmmoQuote();
+		dialogue.markDeathBattleSoundUsed();
 		SoldierAudioComponent& audio = soldier.audio();
 		audio.recordFootstepVariant(2);
 		audio.recordDoorOpeningNoise(17);
@@ -7699,8 +7704,13 @@ int main( int, char** )
 		       constSoldier.dialogue().currentCivilianQuote() == -2 &&
 		       constSoldier.dialogue().civilianQuoteDelta() == 2 &&
 		       constSoldier.dialogue().lastSpokeAt() == 12343 &&
-		       constSoldier.dialogue().corpseQuoteTolerance() == 3,
-		       "soldier dialogue component owns quote planning, spoken history, voice playback, and cooldown state" );
+		       constSoldier.dialogue().corpseQuoteTolerance() == 3 &&
+		       constSoldier.dialogue().deathSoundPlayed() &&
+		       constSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       constSoldier.dialogue().hasMadeDyingComment() &&
+		       constSoldier.dialogue().ammoQuotePending() &&
+		       constSoldier.dialogue().deathBattleSoundUsed(),
+		       "soldier dialogue component owns quote planning, tactical feedback, spoken history, voice playback, and cooldown state" );
 		CHECK( constSoldier.audio().lastFootstepVariant() == 2 &&
 		       constSoldier.audio().hasDoorOpeningNoise() &&
 		       constSoldier.audio().doorOpeningNoise() == 17 &&
@@ -8184,6 +8194,11 @@ int main( int, char** )
 		dialogueLifecycle.currentCivilianQuote() = 6;
 		dialogueLifecycle.civilianQuoteDelta() = 1;
 		dialogueLifecycle.recordSpokeAt(5000);
+		dialogueLifecycle.markDeathSoundPlayed();
+		dialogueLifecycle.markBleedingWarningSpoken();
+		dialogueLifecycle.markDyingCommentSpoken();
+		dialogueLifecycle.queueAmmoQuote();
+		dialogueLifecycle.markDeathBattleSoundUsed();
 		CHECK( dialogueLifecycle.hasQuoteRecord() &&
 		       dialogueLifecycle.hasQuoteAction() &&
 		       dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
@@ -8191,19 +8206,34 @@ int main( int, char** )
 		       dialogueLifecycle.previousBattleSound() == BATTLE_SOUND_OK1 &&
 		       dialogueLifecycle.repeatedBattleSoundAt() == 4000 &&
 		       dialogueLifecycle.heardNoiseCooldownTurns() == 1 &&
-		       dialogueLifecycle.lastSpokeAt() == 5000,
-		       "soldier dialogue component coordinates quote, history, playback, and cooldown transitions" );
+		       dialogueLifecycle.lastSpokeAt() == 5000 &&
+		       dialogueLifecycle.deathSoundPlayed() &&
+		       dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       dialogueLifecycle.hasMadeDyingComment() &&
+		       dialogueLifecycle.ammoQuotePending() &&
+		       dialogueLifecycle.deathBattleSoundUsed(),
+		       "soldier dialogue component coordinates quote, tactical-feedback, history, playback, and cooldown transitions" );
 		dialogueLifecycle.clearQuotePlan();
 		dialogueLifecycle.clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 		dialogueLifecycle.clearSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
 		dialogueLifecycle.clearCivilianQuote();
+		dialogueLifecycle.clearDeathSoundPlayed();
+		dialogueLifecycle.clearBleedingWarning();
+		dialogueLifecycle.clearDyingComment();
+		dialogueLifecycle.consumeAmmoQuote();
+		dialogueLifecycle.clearDeathBattleSoundUsed();
 		CHECK( !dialogueLifecycle.hasQuoteRecord() &&
 		       !dialogueLifecycle.hasQuoteAction() &&
 		       !dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
 		       !dialogueLifecycle.hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
 		       dialogueLifecycle.currentCivilianQuote() == -1 &&
-		       dialogueLifecycle.civilianQuoteDelta() == 0,
-		       "soldier dialogue component clears coordinated quote plans, history bits, and civilian progression" );
+		       dialogueLifecycle.civilianQuoteDelta() == 0 &&
+		       !dialogueLifecycle.deathSoundPlayed() &&
+		       !dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       !dialogueLifecycle.hasMadeDyingComment() &&
+		       !dialogueLifecycle.ammoQuotePending() &&
+		       !dialogueLifecycle.deathBattleSoundUsed(),
+		       "soldier dialogue component clears coordinated quote plans, tactical feedback, history bits, and civilian progression" );
 		dialogueLifecycle.reset();
 		CHECK( dialogueLifecycle.quoteRecord() == 0 &&
 		       dialogueLifecycle.quoteActionId() == 0 &&
@@ -8218,7 +8248,12 @@ int main( int, char** )
 		       dialogueLifecycle.currentCivilianQuote() == 0 &&
 		       dialogueLifecycle.civilianQuoteDelta() == 0 &&
 		       dialogueLifecycle.lastSpokeAt() == 0 &&
-		       dialogueLifecycle.corpseQuoteTolerance() == 0,
+		       dialogueLifecycle.corpseQuoteTolerance() == 0 &&
+		       !dialogueLifecycle.deathSoundPlayed() &&
+		       !dialogueLifecycle.hasWarnedAboutBleeding() &&
+		       !dialogueLifecycle.hasMadeDyingComment() &&
+		       !dialogueLifecycle.ammoQuotePending() &&
+		       !dialogueLifecycle.deathBattleSoundUsed(),
 		       "soldier dialogue reset clears the complete spoken-state domain" );
 
 		SoldierAudioComponent audioLifecycle;
@@ -8669,7 +8704,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().currentCivilianQuote() == -2 &&
 		       copiedSoldier.dialogue().civilianQuoteDelta() == 2 &&
 		       copiedSoldier.dialogue().lastSpokeAt() == 12343 &&
-		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3,
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3 &&
+		       copiedSoldier.dialogue().deathSoundPlayed() &&
+		       copiedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       copiedSoldier.dialogue().hasMadeDyingComment() &&
+		       copiedSoldier.dialogue().ammoQuotePending() &&
+		       copiedSoldier.dialogue().deathBattleSoundUsed(),
 		       "soldier copies retain their owned persistent dialogue state" );
 		CHECK( copiedSoldier.audio().lastFootstepVariant() == 2 &&
 		       copiedSoldier.audio().doorOpeningNoise() == 17 &&
@@ -9715,7 +9755,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().currentCivilianQuote() == 0 &&
 		       copiedSoldier.dialogue().civilianQuoteDelta() == 0 &&
 		       copiedSoldier.dialogue().lastSpokeAt() == 0 &&
-		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0,
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0 &&
+		       !copiedSoldier.dialogue().deathSoundPlayed() &&
+		       !copiedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       !copiedSoldier.dialogue().hasMadeDyingComment() &&
+		       !copiedSoldier.dialogue().ammoQuotePending() &&
+		       !copiedSoldier.dialogue().deathBattleSoundUsed(),
 		       "soldier initialization resets the complete dialogue domain" );
 		CHECK( copiedSoldier.audio().lastFootstepVariant() == 0 &&
 		       copiedSoldier.audio().doorOpeningNoise() == 0 &&
@@ -10179,6 +10224,11 @@ int main( int, char** )
 		legacySoldier->bCurrentCivQuoteDelta = 1;
 		legacySoldier->uiTimeSinceLastSpoke = 12351;
 		legacySoldier->bCorpseQuoteTolerance = 2;
+		legacySoldier->fDeadSoundPlayed = 2;
+		legacySoldier->fWarnedAboutBleeding = 3;
+		legacySoldier->fDyingComment = 4;
+		legacySoldier->fSayAmmoQuotePending = 5;
+		legacySoldier->fDieSoundUsed = 6;
 		legacySoldier->bFlashPortraitFrame = -3;
 		legacySoldier->sLocatorFrame = 4;
 		legacySoldier->sLocatorOffX = 12;
@@ -10489,8 +10539,13 @@ int main( int, char** )
 		       convertedSoldier.dialogue().currentCivilianQuote() == -3 &&
 		       convertedSoldier.dialogue().civilianQuoteDelta() == 1 &&
 		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
-		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2,
-		       "v101 soldier conversion retains the complete spoken-dialogue domain" );
+		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2 &&
+		       convertedSoldier.dialogue().deadSoundPlayedState() == 2 &&
+		       convertedSoldier.dialogue().bleedingWarningSpokenState() == 3 &&
+		       convertedSoldier.dialogue().dyingCommentSpokenState() == 4 &&
+		       convertedSoldier.dialogue().ammoQuotePendingState() == 5 &&
+		       convertedSoldier.dialogue().dieSoundUsedState() == 6,
+		       "v101 soldier conversion retains the complete spoken-dialogue and tactical-feedback domain" );
 		CHECK( convertedSoldier.audio().lastFootstepVariant() == 4 &&
 		       convertedSoldier.audio().doorOpeningNoise() == 19 &&
 		       convertedSoldier.audio().burstSoundId() == 501 &&
@@ -10938,6 +10993,11 @@ int main( int, char** )
 		savedSoldier.dialogue().civilianQuoteDelta() = 3;
 		savedSoldier.dialogue().recordSpokeAt(12353);
 		savedSoldier.dialogue().corpseQuoteTolerance() = 4;
+		savedSoldier.dialogue().markDeathSoundPlayed();
+		savedSoldier.dialogue().markBleedingWarningSpoken();
+		savedSoldier.dialogue().markDyingCommentSpoken();
+		savedSoldier.dialogue().queueAmmoQuote();
+		savedSoldier.dialogue().markDeathBattleSoundUsed();
 		savedSoldier.audio().recordFootstepVariant(5);
 		savedSoldier.audio().recordDoorOpeningNoise(20);
 		savedSoldier.audio().startBurstSound(601);
@@ -11313,8 +11373,13 @@ int main( int, char** )
 		       loadedSoldier.dialogue().currentCivilianQuote() == -4 &&
 		       loadedSoldier.dialogue().civilianQuoteDelta() == 3 &&
 		       loadedSoldier.dialogue().lastSpokeAt() == 12353 &&
-		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4,
-		       "soldier save/load round-trips dialogue state at every established schema position" );
+		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4 &&
+		       loadedSoldier.dialogue().deathSoundPlayed() &&
+		       loadedSoldier.dialogue().hasWarnedAboutBleeding() &&
+		       loadedSoldier.dialogue().hasMadeDyingComment() &&
+		       loadedSoldier.dialogue().ammoQuotePending() &&
+		       loadedSoldier.dialogue().deathBattleSoundUsed(),
+		       "soldier save/load round-trips dialogue and tactical-feedback state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.audio().lastFootstepVariant() == 5 &&
 		       loadedSoldier.audio().doorOpeningNoise() == 20 &&

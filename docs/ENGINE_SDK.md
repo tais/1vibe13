@@ -293,10 +293,12 @@ underflow. The face UI keeps only its old-value render cache, and persistence
 retains all four established positions and widths.
 `SoldierDialogueComponent` separately owns NPC quote planning, normal and
 extended spoken-history masks, battle-voice selection and playback throttling,
-heard-noise speech cooldown, civilian quote progression, last-spoke time, vocal
-volume, and corpse-comment tolerance. Named history, quote-plan, cooldown, and
-playback transitions give tactical AI and dialogue one authority while the
-portable serializer and v101 conversion retain every original byte position.
+bleeding/dying feedback, queued out-of-ammo speech, death-sound gates,
+heard-noise speech cooldown, civilian quote progression, last-spoke time,
+vocal volume, and corpse-comment tolerance. Named history, tactical-feedback,
+quote-plan, cooldown, and playback transitions give tactical AI and dialogue
+one authority while the portable serializer and v101 conversion retain every
+original byte position.
 `SoldierAudioComponent` separately owns footstep variation, remembered
 door-opening noise, and burst, positional-ambience, and turret-turning sound
 handles. Named record, start, clear, query, and reset transitions give weapon,

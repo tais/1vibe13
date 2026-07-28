@@ -9801,9 +9801,9 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             fEnterCombat = FALSE;
         }
 
-		if (pSoldier->flags.fSayAmmoQuotePending)
+		if (pSoldier->dialogue().ammoQuotePending())
         {
-            pSoldier->flags.fSayAmmoQuotePending = FALSE;
+            pSoldier->dialogue().consumeAmmoQuote();
             TacticalCharacterDialogue( pSoldier, QUOTE_OUT_OF_AMMO );
         }
 
