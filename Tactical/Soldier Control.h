@@ -1010,6 +1010,8 @@ public:
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
+	SoldierLongActionComponent& longAction() noexcept { return longAction_; }
+	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1276,11 +1278,6 @@ public:
 	
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
 
-	// Flugente: multi-turn actions	
-	INT16	bOverTurnAPS;			// remaining AP cost for the next turns	(allows actions to be performed for more than one turn)
-	INT32	sMTActionGridNo;		// gridno on which we perfrom our multi-turn action
-	UINT8	usMultiTurnAction;		// specifies which multi-turn action we are currently performing, 0: none
-
 	INT16	bAIIndex;			    // feynman: PlanFactory from the modularized tactical AI that shall be used
 
 	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
@@ -1332,6 +1329,7 @@ private:
 	SoldierDialogueComponent	dialogue_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
+	SoldierLongActionComponent	longAction_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

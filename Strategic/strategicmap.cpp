@@ -3049,7 +3049,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 						if ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
 						{
 							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-							pSoldier->deployment().strategicInsertionData() = pSoldier->sMTActionGridNo;
+							pSoldier->deployment().strategicInsertionData() = pSoldier->longAction().contextGrid();
 						}
 					}
 

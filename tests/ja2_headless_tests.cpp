@@ -7332,6 +7332,8 @@ int main( int, char** )
 		condition.diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		condition.addDisability(2);
 		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
+		SoldierLongActionComponent& longAction = soldier.longAction();
+		longAction.begin(MTA_FORTIFY, 1300, 37);
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7600,6 +7602,11 @@ int main( int, char** )
 		       constSoldier.condition().hasDisability(2) &&
 		       constSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier condition component owns temporary stats, nutrition, starvation, disease, and acquired disabilities" );
+		CHECK( constSoldier.longAction().active() &&
+		       constSoldier.longAction().action() == MTA_FORTIFY &&
+		       constSoldier.longAction().contextGrid() == 1300 &&
+		       constSoldier.longAction().remainingActionPoints() == 37,
+		       "soldier long-action component owns the action, retained grid, and remaining AP cost" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7991,6 +7998,30 @@ int main( int, char** )
 		       conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       conditionLifecycle.disabilityFlags() == 0,
 		       "soldier condition reset clears scalar state and the complete fixed disease capacity" );
+		SoldierLongActionComponent longActionLifecycle;
+		longActionLifecycle.begin(MTA_HACK, 1700, -5);
+		CHECK( longActionLifecycle.active() &&
+		       longActionLifecycle.action() == MTA_HACK &&
+		       longActionLifecycle.contextGrid() == 1700 &&
+		       longActionLifecycle.remainingActionPoints() == 0,
+		       "soldier long-action begin keeps its state coherent and clamps invalid negative costs" );
+		longActionLifecycle.begin(MTA_REMOVE_FORTIFY, 1701, 40);
+		longActionLifecycle.consumeActionPoints(13);
+		longActionLifecycle.consumeActionPoints(-4);
+		CHECK( longActionLifecycle.remainingActionPoints() == 27,
+		       "soldier long-action AP consumption ignores invalid negative input" );
+		longActionLifecycle.consumeActionPoints(100);
+		longActionLifecycle.rememberContextGrid(1702);
+		CHECK( longActionLifecycle.active() &&
+		       longActionLifecycle.remainingActionPoints() == 0 &&
+		       longActionLifecycle.contextGrid() == 1702,
+		       "soldier long-action AP consumption saturates without discarding retained context" );
+		longActionLifecycle.clear();
+		CHECK( !longActionLifecycle.active() &&
+		       longActionLifecycle.action() == MTA_NONE &&
+		       longActionLifecycle.contextGrid() == -1 &&
+		       longActionLifecycle.remainingActionPoints() == 0,
+		       "soldier long-action clear releases action, grid, and AP state atomically" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -8073,6 +8104,11 @@ int main( int, char** )
 		       copiedSoldier.condition().hasDisability(2) &&
 		       copiedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier copies retain their owned persistent condition state" );
+		CHECK( copiedSoldier.longAction().active() &&
+		       copiedSoldier.longAction().action() == MTA_FORTIFY &&
+		       copiedSoldier.longAction().contextGrid() == 1300 &&
+		       copiedSoldier.longAction().remainingActionPoints() == 37,
+		       "soldier copies retain their owned persistent long-action state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8700,6 +8736,11 @@ int main( int, char** )
 		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       copiedSoldier.condition().disabilityFlags() == 0,
 		       "soldier initialization resets the complete condition domain" );
+		CHECK( !copiedSoldier.longAction().active() &&
+		       copiedSoldier.longAction().action() == MTA_NONE &&
+		       copiedSoldier.longAction().contextGrid() == -1 &&
+		       copiedSoldier.longAction().remainingActionPoints() == 0,
+		       "soldier initialization resets the complete long-action domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -9046,6 +9087,7 @@ int main( int, char** )
 		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
 		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		convertedSoldier.condition().addDisability(2);
+		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
@@ -9109,6 +9151,11 @@ int main( int, char** )
 		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       convertedSoldier.condition().disabilityFlags() == 0,
 		       "v101 soldier conversion clears condition state absent from that schema" );
+		CHECK( !convertedSoldier.longAction().active() &&
+		       convertedSoldier.longAction().action() == MTA_NONE &&
+		       convertedSoldier.longAction().contextGrid() == -1 &&
+		       convertedSoldier.longAction().remainingActionPoints() == 0,
+		       "v101 soldier conversion clears long-action state absent from that schema" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -9391,6 +9438,7 @@ int main( int, char** )
 		savedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		savedSoldier.condition().addDisability(5);
 		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
+		savedSoldier.longAction().begin(MTA_REMOVE_FORTIFY, 1520, 34);
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9647,6 +9695,12 @@ int main( int, char** )
 		       loadedSoldier.condition().hasDisability(5) &&
 		       loadedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier save/load round-trips condition state at every established schema position and fixed-capacity edge" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.longAction().active() &&
+		       loadedSoldier.longAction().action() == MTA_REMOVE_FORTIFY &&
+		       loadedSoldier.longAction().contextGrid() == 1520 &&
+		       loadedSoldier.longAction().remainingActionPoints() == 34,
+		       "soldier save/load round-trips long-action state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

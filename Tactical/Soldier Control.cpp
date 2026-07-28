@@ -622,6 +622,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		dialogue().reset();
 		skillState().reset();
 		condition().reset();
+		longAction().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -1135,6 +1136,7 @@ void SOLDIERTYPE::initialize( )
 	dialogue().reset();
 	skillState().reset();
 	condition().reset();
+	longAction().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -16679,7 +16681,7 @@ BOOLEAN		SOLDIERTYPE::IsAssassin( )
 
 UINT8	SOLDIERTYPE::GetMultiTurnAction( )
 {
-	return usMultiTurnAction;
+	return longAction().action();
 }
 
 void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
@@ -16688,8 +16690,12 @@ void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 	if ( !this->bActive || !this->bInSector || this->vitals().health() < OKLIFE || TileIsOutOfBounds( asGridNo ) || this->collapseState().tactical() )
 		return;
 
+	// Do not persist an unknown action as a zero-cost multi-turn operation.
+	if ( usActionType <= MTA_NONE || usActionType >= NUM_MTA )
+		return;
+
 	// wether an action is possible or not depends on action itself (there are actions without a gridno)
-	switch ( usMultiTurnAction )
+	switch ( usActionType )
 	{
 	case MTA_FORTIFY:
 	case MTA_REMOVE_FORTIFY:
@@ -16699,17 +16705,12 @@ void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 	}
 
 	// if we already perform a multi-turn action, overwrite it
-	if ( GetMultiTurnAction( ) > MTA_NONE )
+	if ( longAction().active() )
 		CancelMultiTurnAction( FALSE );
 
-	// set up the action and costs
-	usMultiTurnAction = usActionType;
-
-	// the action shall be performed on the gridno directly in front of us
-	sMTActionGridNo = asGridNo;
-
-	// for now, adding and removing a structure has the same AP cost - that might change in the future
-	bOverTurnAPS = GetAPsForMultiTurnAction( this, usMultiTurnAction );
+	// Set up the action, its context grid, and remaining cost atomically.
+	longAction().begin(
+		usActionType, asGridNo, GetAPsForMultiTurnAction( this, usActionType ) );
 
 	// immediately starting the action would leave us without APs, thus removing the benefit of multi-turn actions (ability to do something else while performing a longer action)
 	// for this reason, we only do this when we are not in combat
@@ -16719,20 +16720,22 @@ void	SOLDIERTYPE::StartMultiTurnAction( UINT8 usActionType, INT32 asGridNo )
 
 void	SOLDIERTYPE::CancelMultiTurnAction( BOOLEAN fFinished )
 {
-	// stop action
-	if ( !fFinished && this->usMultiTurnAction )
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szMTATextStr[STR_MTA_CANCEL], this->GetName( ), szMTATextStr[this->usMultiTurnAction] );
+	const UINT8 action = longAction().action();
 
-	bOverTurnAPS = 0;
-	sMTActionGridNo = NOWHERE;
-	usMultiTurnAction = MTA_NONE;
+	// stop action
+	if ( !fFinished && action > MTA_NONE && action < NUM_MTA )
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szMTATextStr[STR_MTA_CANCEL], this->GetName( ), szMTATextStr[action] );
+
+	longAction().clear();
 }
 
 // if we are doing any multiturn-action, remove our current APs from it, and if possible, perform the action and finish the process
 BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 {
+	SoldierLongActionComponent& longActionState = longAction();
+
 	// nothing to do here
-	if ( this->usMultiTurnAction == MTA_NONE )
+	if ( !longActionState.active() )
 		return FALSE;
 
 	// check wether we can perform any action at all
@@ -16743,7 +16746,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 	}
 
 	// wether an action is possible or not depends on action itself (there are actions without a gridno)
-	switch ( usMultiTurnAction )
+	switch ( longActionState.action() )
 	{
 	case MTA_FORTIFY:
 	case MTA_REMOVE_FORTIFY:
@@ -16780,16 +16783,16 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 	OBJECTTYPE* pObj = &(this->inv[HANDPOS]);
 
 	// error if object is missing
-	if ( usMultiTurnAction == MTA_FORTIFY || usMultiTurnAction == MTA_REMOVE_FORTIFY )
+	if ( longActionState.action() == MTA_FORTIFY || longActionState.action() == MTA_REMOVE_FORTIFY )
 	{
 		if ( !pObj || !(pObj->exists( )) )
 			fActionStillValid = FALSE;
 	}
 
 	// error if the gridno we started working on is not the gridno we are currently looking at
-	if ( usMultiTurnAction == MTA_FORTIFY || usMultiTurnAction == MTA_REMOVE_FORTIFY )//|| usMultiTurnAction == MTA_HACK )
+	if ( longActionState.action() == MTA_FORTIFY || longActionState.action() == MTA_REMOVE_FORTIFY )//|| longActionState.action() == MTA_HACK )
 	{
-		if ( this->sMTActionGridNo != NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) ) )
+		if ( longActionState.contextGrid() != NewGridNo( this->position().gridNo(), DirectionInc( this->position().direction() ) ) )
 			fActionStillValid = FALSE;
 	}
 
@@ -16801,16 +16804,16 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 
 	INT16 entireapcost = 0;
 	INT16 entirebpcost = 0;
-	switch ( usMultiTurnAction )
+	switch ( longActionState.action() )
 	{
 		case MTA_FORTIFY:
 		{
 			entireapcost = GetAPsForMultiTurnAction( this, MTA_FORTIFY );
 			entirebpcost = APBPConstants[BP_FORTIFICATION];
 
-			if ( !IsFortificationPossibleAtGridNo( this->sMTActionGridNo ) )
+			if ( !IsFortificationPossibleAtGridNo( longActionState.contextGrid() ) )
 				fActionStillValid = FALSE;
-			else if ( !IsStructureConstructItem( this->inv[HANDPOS].usItem, this->sMTActionGridNo, this ) )
+			else if ( !IsStructureConstructItem( this->inv[HANDPOS].usItem, longActionState.contextGrid(), this ) )
 				fActionStillValid = FALSE;
 		}
 		break;
@@ -16820,7 +16823,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 			entireapcost = GetAPsForMultiTurnAction( this, MTA_REMOVE_FORTIFY );
 			entirebpcost = APBPConstants[BP_REMOVE_FORTIFICATION];
 
-			if ( !IsStructureDeconstructItem( this->inv[HANDPOS].usItem, this->sMTActionGridNo, this ) )
+			if ( !IsStructureDeconstructItem( this->inv[HANDPOS].usItem, longActionState.contextGrid(), this ) )
 				fActionStillValid = FALSE;
 		}
 		break;
@@ -16831,8 +16834,8 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 			entirebpcost = 0;		// hacking isn't exactly hard to do physically :-)
 
 			UINT16 structindex;
-			if ( !this->GetInteractiveActionSkill( this->sMTActionGridNo, this->position().level(), INTERACTIVE_STRUCTURE_HACKABLE ) ||
-				 !InteractiveActionPossibleAtGridNo( this->sMTActionGridNo, this->position().level(), structindex ) == INTERACTIVE_STRUCTURE_HACKABLE )
+			if ( !this->GetInteractiveActionSkill( longActionState.contextGrid(), this->position().level(), INTERACTIVE_STRUCTURE_HACKABLE ) ||
+				 InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex ) != INTERACTIVE_STRUCTURE_HACKABLE )
 				fActionStillValid = FALSE;
 		}
 		break;
@@ -16845,14 +16848,14 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 	}
 
 	// refresh animations
-	switch ( usMultiTurnAction )
+	switch ( longActionState.action() )
 	{
 		case MTA_FORTIFY:
 		case MTA_REMOVE_FORTIFY:
 		{
 			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
 			if ( !(IsJa2TacticalTurnBasedCombat()) )
-				bOverTurnAPS = 0;
+				longActionState.completeCost();
 			// otherwise this might take longer, so we refresh our animation
 			else
 			{
@@ -16862,7 +16865,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 					this->ChangeSoldierState( CUTTING_FENCE, 0, 0 );
 
 				// as setting the new animation costs APBPConstants[AP_USEWIRECUTTERS] APs every time, account for that
-				bOverTurnAPS = max( 0, bOverTurnAPS - APBPConstants[AP_USEWIRECUTTERS] );
+				longActionState.consumeActionPoints( APBPConstants[AP_USEWIRECUTTERS] );
 			}
 		}
 		break;
@@ -16871,20 +16874,20 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 		{
 			// if we are not in turnbased and no enemies are around, we reduce the number of necessary action points to 0. No need to keep waiting if there's nobody around anyway
 			if ( !(IsJa2TacticalTurnBasedCombat()) )
-				bOverTurnAPS = 0;
+				longActionState.completeCost();
 		}
 		break;
 	}
 
 	// if we can afford it, do it now
-	if ( bOverTurnAPS <= this->actionPoints().current() )
+	if ( longActionState.remainingActionPoints() <= this->actionPoints().current() )
 	{
-		switch ( usMultiTurnAction )
+		switch ( longActionState.action() )
 		{
 			case MTA_FORTIFY:
 			{
 				// Build the thing
-				if ( BuildFortification( this->sMTActionGridNo, this, pObj ) )
+				if ( BuildFortification( longActionState.contextGrid(), this, pObj ) )
 				{
 					// we gain a bit of experience...
 					StatChange( this, STRAMT, 4, TRUE );
@@ -16895,7 +16898,7 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 
 			case MTA_REMOVE_FORTIFY:
 			{
-				if ( RemoveFortification( this->sMTActionGridNo, this, pObj ) )
+				if ( RemoveFortification( longActionState.contextGrid(), this, pObj ) )
 				{
 					// we gain a bit of experience...
 					StatChange( this, STRAMT, 3, TRUE );
@@ -16907,8 +16910,8 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 			case MTA_HACK:
 			{
 				UINT16 structindex;
-				UINT16 possibleaction = InteractiveActionPossibleAtGridNo( this->sMTActionGridNo, this->position().level(), structindex );
-				UINT16 skill = this->GetInteractiveActionSkill( position().gridNo(), this->position().level(), possibleaction );
+				UINT16 possibleaction = InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex );
+				UINT16 skill = this->GetInteractiveActionSkill( longActionState.contextGrid(), this->position().level(), possibleaction );
 
 				INT32 difficulty = gInteractiveStructure[structindex].difficulty;
 				INT32 luaactionid = gInteractiveStructure[structindex].luaactionid;
@@ -16920,18 +16923,18 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 				// call lua with the action id - perhaps we might do something special here
 				if ( luaactionid >= 0 )
 				{
-					LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, position().gridNo(), this->position().level(), this->ubID, possibleaction, luaactionid, difficulty, skill );
+					LuaHandleInteractiveActionResult( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, longActionState.contextGrid(), this->position().level(), this->ubID, possibleaction, luaactionid, difficulty, skill );
 				}
 				else
 				{
-					DoInteractiveActionDefaultResult( position().gridNo(), this->ubID, (skill > difficulty) );
+					DoInteractiveActionDefaultResult( longActionState.contextGrid(), this->ubID, success );
 				}
 			}
 			break;
 		}
 
 		if ( entireapcost > 0 )
-			DeductPoints( this, bOverTurnAPS, (INT32)(entirebpcost * this->bOverTurnAPS / entireapcost), 0 );
+			DeductPoints( this, longActionState.remainingActionPoints(), (INT32)(entirebpcost * longActionState.remainingActionPoints() / entireapcost), 0 );
 
 		// we're done here!
 		CancelMultiTurnAction( TRUE );
@@ -16940,10 +16943,10 @@ BOOLEAN	SOLDIERTYPE::UpdateMultiTurnAction( )
 	else if ( this->actionPoints().current() > 0 )
 	{
 		INT16 oldAPs = this->actionPoints().current();
-		if ( bOverTurnAPS > 0 )
+		if ( longActionState.remainingActionPoints() > 0 )
 			DeductPoints( this, this->actionPoints().current(), (INT32)(entirebpcost * this->actionPoints().current() / entireapcost), 0 );
 
-		bOverTurnAPS -= oldAPs;
+		longActionState.consumeActionPoints( oldAPs );
 	}
 
 	return TRUE;
@@ -18302,7 +18305,7 @@ BOOLEAN SOLDIERTYPE::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 			TakeSoldierOutOfVehicle( this );
 
 			// we store our location and later retrieve it, as the gridno will be set to NOWHERE
-			this->sMTActionGridNo = this->position().gridNo();
+			this->longAction().rememberContextGrid( this->position().gridNo() );
 
 			// remove from squad
 			RemoveCharacterFromSquads( this );

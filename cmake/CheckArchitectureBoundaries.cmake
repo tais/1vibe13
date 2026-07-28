@@ -2731,6 +2731,128 @@ foreach(condition_save_position IN ITEMS
   endif()
 endforeach()
 
+# Multi-turn tactical work and the retained grid used while intel assignments
+# temporarily remove a soldier share one established persistent context. Keep
+# the three values under one lifecycle owner, preserve their visitor widths and
+# order, and reject unknown action IDs before they can become zero-cost work.
+foreach(retired_long_action_field IN ITEMS
+  bOverTurnAPS
+  sMTActionGridNo
+  usMultiTurnAction)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_long_action_field}([^A-Za-z0-9_]|$)"
+    retired_current_long_action_field
+    "${current_soldier_contents}")
+  if(retired_current_long_action_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE long-action field '${retired_long_action_field}' returned; extended work belongs to SoldierLongActionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierLongActionComponent[ \t\r\n]+longAction_[ \t]*;"
+  soldier_long_action_owner
+  "${current_soldier_contents}")
+if(NOT soldier_long_action_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierLongActionComponent")
+endif()
+
+foreach(owned_long_action_pattern IN ITEMS
+  "INT16[ \t]+remainingActionPoints_[ \t]*=[ \t]*0"
+  "INT32[ \t]+contextGrid_[ \t]*=[ \t]*NoContextGrid"
+  "UINT8[ \t]+action_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_long_action_pattern}"
+    owned_soldier_long_action_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_long_action_field)
+    message(FATAL_ERROR
+      "SoldierLongActionComponent lost initialized owned storage matching '${owned_long_action_pattern}'")
+  endif()
+endforeach()
+
+foreach(long_action_accessor IN ITEMS
+  remainingActionPoints
+  contextGrid
+  action)
+  string(REGEX MATCH
+    "${long_action_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_long_action_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_long_action_accessor)
+    message(FATAL_ERROR
+      "SoldierLongActionComponent lost the '${long_action_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(long_action_operation IN ITEMS
+  "bool active() const noexcept"
+  "void begin(UINT8 action, INT32 contextGrid, INT16 actionPoints) noexcept"
+  "void rememberContextGrid(INT32 contextGrid) noexcept"
+  "void completeCost() noexcept"
+  "void consumeActionPoints(INT16 actionPoints) noexcept"
+  "void clear() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${long_action_operation}"
+    soldier_long_action_operation)
+  if(soldier_long_action_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierLongActionComponent lost required lifecycle operation '${long_action_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierLongActionComponent& longAction() noexcept"
+  soldier_long_action_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierLongActionComponent{};"
+  soldier_long_action_default_reset)
+string(REGEX MATCHALL
+  "longAction\\(\\)\\.reset\\(\\);"
+  soldier_long_action_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_long_action_reset_sites soldier_long_action_reset_site_count)
+if(soldier_long_action_accessor EQUAL -1 OR
+   soldier_long_action_default_reset EQUAL -1 OR
+   soldier_long_action_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierLongActionComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+string(FIND "${save_load_game_contents}"
+  "ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());"
+  soldier_long_action_save_position)
+if(soldier_long_action_save_position EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier long-action state moved or changed width in the portable save schema")
+endif()
+
+string(FIND "${soldier_control_source_contents}"
+  "if ( usActionType <= MTA_NONE || usActionType >= NUM_MTA )"
+  soldier_long_action_type_validation)
+string(FIND "${soldier_control_source_contents}"
+  "switch ( usActionType )"
+  soldier_long_action_requested_type_switch)
+string(FIND "${soldier_control_source_contents}"
+  "if ( !fFinished && action > MTA_NONE && action < NUM_MTA )"
+  soldier_long_action_cancel_type_bounds)
+string(FIND "${soldier_control_source_contents}"
+  "InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex ) != INTERACTIVE_STRUCTURE_HACKABLE"
+  soldier_long_action_hack_validation)
+string(FIND "${soldier_control_source_contents}"
+  "DoInteractiveActionDefaultResult( longActionState.contextGrid(), this->ubID, success );"
+  soldier_long_action_hack_result_context)
+if(soldier_long_action_type_validation EQUAL -1 OR
+   soldier_long_action_requested_type_switch EQUAL -1 OR
+   soldier_long_action_cancel_type_bounds EQUAL -1 OR
+   soldier_long_action_hack_validation EQUAL -1 OR
+   soldier_long_action_hack_result_context EQUAL -1)
+  message(FATAL_ERROR
+    "Multi-turn actions must bound IDs and retain the validated target through completion")
+endif()
+
 # The tactical AP budget is a lifecycle pair, not two unrelated public
 # counters. Current and turn-start values have one private owner, while the
 # explicit field visitor and multiplayer packet adapters retain their formats.

@@ -130,6 +130,37 @@ void SoldierConditionComponent::reset() noexcept
 	*this = SoldierConditionComponent{};
 }
 
+void SoldierLongActionComponent::begin(
+	UINT8 action, INT32 contextGrid, INT16 actionPoints) noexcept
+{
+	action_ = action;
+	contextGrid_ = contextGrid;
+	remainingActionPoints_ = std::max<INT16>(0, actionPoints);
+}
+
+void SoldierLongActionComponent::consumeActionPoints(INT16 actionPoints) noexcept
+{
+	if (actionPoints <= 0)
+	{
+		return;
+	}
+
+	remainingActionPoints_ =
+		std::max<INT16>(0, remainingActionPoints_ - actionPoints);
+}
+
+void SoldierLongActionComponent::clear() noexcept
+{
+	remainingActionPoints_ = 0;
+	contextGrid_ = NoContextGrid;
+	action_ = 0;
+}
+
+void SoldierLongActionComponent::reset() noexcept
+{
+	*this = SoldierLongActionComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;
