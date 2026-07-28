@@ -1961,6 +1961,10 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 {
 	UINT32 uiNumBytesRead;
 
+	// Modular AI plans are process-local and retain a back-reference to this
+	// record. Never carry one across an in-place load.
+	this->aiPlan().reset();
+
 	//if we are at the most current version, then fine
 	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
 	{

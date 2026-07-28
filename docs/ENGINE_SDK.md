@@ -330,6 +330,15 @@ operations prevent interrupted actions from leaking or retaining stale
 ballistic state. The component is runtime-only: both former pointer positions
 remain zero-byte serializer landmarks, and multiplayer packets and all
 content-facing formats remain unchanged.
+Modular tactical-AI plan trees are likewise process-local and now belong to
+`SoldierAiPlanComponent`. Because each plan points back to the exact
+`SOLDIERTYPE` that created it, application record copies, repository
+replacement, and slot swaps discard the plan instead of copying its address;
+the selected factory recreates it lazily on the next AI decision. Initialization,
+deletion, loading, and v101 conversion also release it deterministically. This
+is an application ownership boundary, not an SDK or package API. The former
+pointer was after `endOfPOD` and had no save-schema position, so saves, maps,
+XML, Lua, multiplayer packets, packages, and installed data do not change.
 The post-v101 extension banks remain deliberately separate from those former
 general flags. `SoldierFeatureFlagsComponent` privately owns the unsigned
 8-bit gunshot/explosion/X-ray event markers and both unsigned 32-bit 1.13

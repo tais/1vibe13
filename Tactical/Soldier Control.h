@@ -720,15 +720,6 @@ public:
 private:
 	std::vector<OBJECTTYPE>	inv;
 };
-// forward declaration for modularized tactical ai
-namespace AI
-{
-    namespace tactical
-    {
-        class Plan;
-    }
-}
-
 enum class BackgroundVectorTypes;
 
 class SOLDIERTYPE//last edited at version 102
@@ -781,6 +772,8 @@ public:
 	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
 	SoldierAiPlanningComponent& aiPlanning() noexcept { return aiPlanning_; }
 	const SoldierAiPlanningComponent& aiPlanning() const noexcept { return aiPlanning_; }
+	SoldierAiPlanComponent& aiPlan() noexcept { return aiPlan_; }
+	const SoldierAiPlanComponent& aiPlan() const noexcept { return aiPlan_; }
 	SoldierAiBehaviorComponent& aiBehavior() noexcept { return aiBehavior_; }
 	const SoldierAiBehaviorComponent& aiBehavior() const noexcept { return aiBehavior_; }
 	SoldierAiCommunicationComponent& aiCommunication() noexcept { return aiCommunication_; }
@@ -911,7 +904,6 @@ public:
 	// properly until it is all fixed and the files updated.
 
 	Inventory inv;
-    AI::tactical::Plan*		ai_masterplan_; // Interface object for ModularizedTacticalAI
 
 private:
 	SoldierIdentityComponent	identity_;
@@ -929,6 +921,7 @@ private:
 	SoldierReplicationComponent	replication_;
 	SoldierMovementMetricsComponent	movementMetrics_;
 	SoldierAiPlanningComponent	aiPlanning_;
+	SoldierAiPlanComponent	aiPlan_;
 	SoldierAiBehaviorComponent	aiBehavior_;
 	SoldierAiCommunicationComponent	aiCommunication_;
 	SoldierMoraleComponent	morale_;

@@ -1008,6 +1008,17 @@ the engine must not contain SDL types in its public domain model.
   raw-pointer allocation paths and their cancellation leaks. Both historical
   pointer positions remain byte-neutral retired landmarks, so save, map, XML,
   Lua, multiplayer packet, package, and installed-data formats are unchanged.
+  `SoldierAiPlanComponent` now owns the runtime-only modular tactical-AI plan
+  tree. A plan retains a back-reference to the exact soldier record that
+  created it, so whole-record copies, replacements, and swaps intentionally
+  discard this cache and rebuild it lazily for the destination rather than
+  shallow-copying an invalid owner. Initialization, deletion, current loading,
+  and v101 conversion release any existing plan through the same boundary.
+  The legacy factory's raw result is confined to the `adopt` transfer point;
+  callers query and execute through the component and tolerate a factory that
+  returns no plan. The retired pointer followed `endOfPOD` and was never part
+  of the save visitor, so no save, map, XML, Lua, multiplayer, package, or
+  installed-data format changes.
   The three later, independent compatibility banks are now privately owned by
   `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
   event markers and the two unsigned 32-bit feature masks introduced by 1.13

@@ -3827,6 +3827,146 @@ if(soldier_ai_planning_architecture_documented EQUAL -1 OR
     "SoldierAiPlanningComponent ownership and compatibility guarantees must remain documented")
 endif()
 
+# Modular tactical-AI plans are process-local ownership, not persisted planning
+# values. Their Plan base stores a SOLDIERTYPE back-reference, so copying or
+# swapping a record must clear the destination cache instead of copying or
+# moving that pointer.
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])ai_masterplan_([^A-Za-z0-9_]|$)"
+  retired_modular_ai_plan_pointer
+  "${current_soldier_contents}")
+if(retired_modular_ai_plan_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE ai_masterplan_ returned; use SoldierAiPlanComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierAiPlanComponent[ \t\r\n]+aiPlan_[ \t]*;"
+  soldier_ai_plan_owner
+  "${current_soldier_contents}")
+if(NOT soldier_ai_plan_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierAiPlanComponent")
+endif()
+
+foreach(required_ai_plan_accessor IN ITEMS
+  "SoldierAiPlanComponent& aiPlan() noexcept"
+  "const SoldierAiPlanComponent& aiPlan() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_ai_plan_accessor}"
+    soldier_ai_plan_accessor)
+  if(soldier_ai_plan_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost modular AI-plan accessor '${required_ai_plan_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_contract IN ITEMS
+  "class SoldierAiPlanComponent"
+  "SoldierAiPlanComponent() noexcept;"
+  "~SoldierAiPlanComponent();"
+  "SoldierAiPlanComponent(const SoldierAiPlanComponent&) noexcept;"
+  "bool hasPlan() const noexcept"
+  "void adopt(AI::tactical::Plan* plan) noexcept;"
+  "bool execute(AI::tactical::PlanInputData& input);"
+  "void reset() noexcept;"
+  "std::unique_ptr<AI::tactical::Plan> plan_;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_ai_plan_contract}"
+    soldier_ai_plan_contract)
+  if(soldier_ai_plan_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanComponent lost ownership contract '${required_ai_plan_contract}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_transition IN ITEMS
+  "SoldierAiPlanComponent::SoldierAiPlanComponent() noexcept = default;"
+  "SoldierAiPlanComponent::~SoldierAiPlanComponent() = default;"
+  "SoldierAiPlanComponent::SoldierAiPlanComponent("
+  "SoldierAiPlanComponent& SoldierAiPlanComponent::operator=("
+  "void SoldierAiPlanComponent::adopt(AI::tactical::Plan* plan) noexcept"
+  "bool SoldierAiPlanComponent::execute("
+  "void SoldierAiPlanComponent::reset() noexcept"
+  "plan_.reset(plan);"
+  "plan_->execute(input);"
+  "plan_.reset();")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_ai_plan_transition}"
+    soldier_ai_plan_transition)
+  if(soldier_ai_plan_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAiPlanComponent lost lifecycle transition '${required_ai_plan_transition}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "aiPlan\\(\\)\\.reset\\(\\)"
+  soldier_ai_plan_control_resets
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_ai_plan_control_resets
+  soldier_ai_plan_control_reset_count)
+string(REGEX MATCHALL
+  "aiPlan\\(\\)\\.reset\\(\\)"
+  soldier_ai_plan_load_resets
+  "${save_load_game_contents}")
+list(LENGTH soldier_ai_plan_load_resets
+  soldier_ai_plan_load_reset_count)
+if(NOT soldier_ai_plan_control_reset_count EQUAL 3 OR
+   NOT soldier_ai_plan_load_reset_count EQUAL 1)
+  message(FATAL_ERROR
+    "Modular AI plans must reset during v101 conversion, initialization, deletion, and current loading")
+endif()
+
+file(READ "${SOURCE_ROOT}/ModularizedTacticalAI/src/LegacyAIPlanFactory.cpp"
+  soldier_ai_plan_factory_contents)
+set(soldier_ai_plan_runtime_contents
+  "${soldier_ai_planning_main_contents}${soldier_ai_planning_realtime_contents}${soldier_ai_plan_factory_contents}")
+foreach(required_ai_plan_runtime_fragment IN ITEMS
+  "pSoldier->aiPlan().hasPlan()"
+  "pSoldier->aiPlan().adopt("
+  "pSoldier->aiPlan().execute(plan_input);"
+  "npc->aiPlan().hasPlan()"
+  "npc->aiPlan().adopt(create_plan(npc, input));")
+  string(FIND "${soldier_ai_plan_runtime_contents}"
+    "${required_ai_plan_runtime_fragment}"
+    soldier_ai_plan_runtime_fragment)
+  if(soldier_ai_plan_runtime_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Modular tactical AI bypassed SoldierAiPlanComponent at '${required_ai_plan_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_ai_plan_test IN ITEMS
+  "soldier AI-plan ownership executes an adopted modular plan"
+  "soldier copies discard plans whose back-references belong to another record"
+  "soldier AI plans are released by explicit reset and record reuse"
+  "soldier repository owns bounded replacement and discards destination-bound runtime plans"
+  "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily"
+  "v101 soldier conversion releases process-local modular AI plans"
+  "soldier POD load clears process-local modular AI plans before restoring persistent state")
+  string(FIND "${headless_test_contents}"
+    "${required_ai_plan_test}"
+    soldier_ai_plan_test)
+  if(soldier_ai_plan_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost modular AI-plan fixture '${required_ai_plan_test}'")
+  endif()
+endforeach()
+
+foreach(ai_plan_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${ai_plan_documentation}"
+    "SoldierAiPlanComponent"
+    soldier_ai_plan_documented)
+  if(soldier_ai_plan_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier modular AI-plan ownership and runtime-only persistence must remain documented")
+  endif()
+endforeach()
+
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
 # lifecycle. Keep their fixed-capacity save representation intact while the
@@ -12124,6 +12264,14 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(retired_soldier_ai_data_access)
     message(FATAL_ERROR
       "Application code accesses retired SOLDIERTYPE aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
+  endif()
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])ai_masterplan_([^A-Za-z0-9_]|$)"
+    retired_modular_ai_plan_access
+    "${contents}")
+  if(retired_modular_ai_plan_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE ai_masterplan_ in ${source_file}; use aiPlan()")
   endif()
   string(REGEX MATCH
     "(->|\\.)[ \t\r\n]*pKeyRing([^A-Za-z0-9_]|$)"

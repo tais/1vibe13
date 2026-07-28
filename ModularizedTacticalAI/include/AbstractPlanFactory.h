@@ -103,9 +103,9 @@ namespace AI
                  * If no plan exists, it is created; this should not be the general case, but might happen for
                  * 'interrupted' NPCs that haven't had the chance to plan yet.
                  *
-                 * @param npc A pointer to the npc owning the ai_masterplan_ to be changed.
+                 * @param npc A pointer to the npc owning the plan to be changed.
                  * @param input A reference to a structure containing all required input data in order for the AI
-                 * @post npc->ai_masterplan_ is not null
+                 * @post npc->aiPlan().hasPlan() is true when the factory can create a plan
                  */
                 virtual void update_plan(SOLDIERTYPE* npc, const AIInputData& input) = 0;
         };

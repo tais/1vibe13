@@ -1,6 +1,7 @@
 #include "Soldier Components.h"
 
 #include "Item Types.h"
+#include "../ModularizedTacticalAI/include/Plan.h"
 
 #include <algorithm>
 #include <limits>
@@ -307,6 +308,50 @@ INT16 SoldierAiPlanningComponent::ensurePlanIndex(INT16 fallback) noexcept
 void SoldierAiPlanningComponent::reset() noexcept
 {
 	*this = SoldierAiPlanningComponent{};
+}
+
+SoldierAiPlanComponent::SoldierAiPlanComponent() noexcept = default;
+
+SoldierAiPlanComponent::~SoldierAiPlanComponent() = default;
+
+SoldierAiPlanComponent::SoldierAiPlanComponent(
+	const SoldierAiPlanComponent&) noexcept
+{
+}
+
+SoldierAiPlanComponent& SoldierAiPlanComponent::operator=(
+	const SoldierAiPlanComponent& source) noexcept
+{
+	if (this != &source)
+	{
+		reset();
+	}
+	return *this;
+}
+
+void SoldierAiPlanComponent::adopt(AI::tactical::Plan* plan) noexcept
+{
+	if (plan_.get() != plan)
+	{
+		plan_.reset(plan);
+	}
+}
+
+bool SoldierAiPlanComponent::execute(
+	AI::tactical::PlanInputData& input)
+{
+	if (!plan_)
+	{
+		return false;
+	}
+
+	plan_->execute(input);
+	return true;
+}
+
+void SoldierAiPlanComponent::reset() noexcept
+{
+	plan_.reset();
 }
 
 void SoldierAiBehaviorComponent::reset() noexcept

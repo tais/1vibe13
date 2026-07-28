@@ -332,6 +332,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   remain zero-byte retired pointer landmarks, and load explicitly clears any
   process-local transaction. Current and historical save byte streams, maps,
   XML, Lua, multiplayer packets, packages, and installed data are unchanged.
+- The modular tactical-AI plan tree is now uniquely owned by
+  `SoldierAiPlanComponent`. The retired `ai_masterplan_` pointer was declared
+  after `endOfPOD` and was never visited or written, so the component adds no
+  save field or compatibility landmark. Current load and v101 conversion
+  release any process-local plan already attached to a reused record; copied
+  or swapped soldiers also rebuild plans lazily because a plan's back-reference
+  cannot be rebound safely. Save, map, XML, Lua, multiplayer packet, package,
+  and installed-data formats are unchanged.
 - The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
   32-bit 1.13 feature-mask banks are now stored by
   `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their

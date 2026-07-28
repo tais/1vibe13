@@ -1727,17 +1727,17 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 
 			if (!(gTacticalStatus.uiFlags & ENGAGED_IN_CONV))
 			{
-				if(!pSoldier->ai_masterplan_) // if the Soldier has no plan, create one
+				if(!pSoldier->aiPlan().hasPlan()) // if the Soldier has no plan, create one
 				{
 					AI::tactical::AIInputData ai_input;
 					AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
 					const INT16 planIndex =
 						pSoldier->aiPlanning().ensurePlanIndex(pSoldier->roster().team() + 1);
-					pSoldier->ai_masterplan_ =
-						plan_lib->create_plan(planIndex, pSoldier, ai_input);
+					pSoldier->aiPlan().adopt(
+						plan_lib->create_plan(planIndex, pSoldier, ai_input));
 				}
 				AI::tactical::PlanInputData plan_input(true, gTacticalStatus);
-				pSoldier->ai_masterplan_->execute(plan_input);
+				pSoldier->aiPlan().execute(plan_input);
 			}
 		}
 

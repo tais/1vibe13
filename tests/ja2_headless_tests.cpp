@@ -110,6 +110,7 @@
 #include "Game Events.h"
 #include "popup_class.h"
 #include "Soldier Control.h"
+#include "Plan.h"
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
@@ -174,6 +175,31 @@ static BOOLEAN InjectedLegacyClockKeyState( INT32 key )
 #define CHECK( cond, msg ) \
 	do { if ( !( cond ) ) { ++g_failures; std::printf( "FAIL  %s\n", msg ); } \
 	     else std::printf( "ok    %s\n", msg ); } while ( 0 )
+
+class HeadlessOwnedAiPlan final : public AI::tactical::Plan
+{
+public:
+	HeadlessOwnedAiPlan(
+		SOLDIERTYPE* soldier, int& destructionCount, int& executionCount)
+		: Plan(soldier),
+		  destructionCount_(destructionCount),
+		  executionCount_(executionCount)
+	{
+	}
+
+	~HeadlessOwnedAiPlan() override { ++destructionCount_; }
+
+	void execute(AI::tactical::PlanInputData&) override
+	{
+		++executionCount_;
+	}
+
+	bool done() const override { return false; }
+
+private:
+	int& destructionCount_;
+	int& executionCount_;
+};
 
 class HeadlessRuntimeMessageSink final : public RuntimeMessageSink
 {
@@ -7231,13 +7257,20 @@ int main( int, char** )
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
 		source.runtime.pendingAction.pathSearchSourceGrid = 99;
+		int repositoryPlanDestructions = 0;
+		int repositoryPlanExecutions = 0;
+		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[1], repositoryPlanDestructions,
+			repositoryPlanExecutions));
 		SOLDIERTYPE* replaced = repository.replace(1, source);
 		CHECK( replaced == &records[1] &&
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
 		       records[1].runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       !records[1].aiPlan().hasPlan() &&
+		       repositoryPlanDestructions == 1 &&
 		       repository.replace(2, source) == nullptr,
-		       "soldier repository owns bounded whole-record replacement and clone reset semantics" );
+		       "soldier repository owns bounded replacement and discards destination-bound runtime plans" );
 
 		slots[1] = &records[0];
 		CHECK( repository.replace(1, source) == nullptr,
@@ -7247,15 +7280,24 @@ int main( int, char** )
 		records[0].position().gridNo() = 100;
 		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
+		records[0].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[0], repositoryPlanDestructions,
+			repositoryPlanExecutions));
+		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&records[1], repositoryPlanDestructions,
+			repositoryPlanExecutions));
 		const bool swapped = repository.swapRecords(0, 1);
 		CHECK( swapped &&
 		       records[0].identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
 		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
+		       !records[0].aiPlan().hasPlan() &&
+		       !records[1].aiPlan().hasPlan() &&
+		       repositoryPlanDestructions == 3 &&
 		       !repository.swapRecords(0, 0) &&
 		       !repository.swapRecords(0, 2),
-		       "soldier repository relocates complete records while preserving slot identities" );
+		       "soldier repository relocates records, preserves slot identities, and rebuilds owner-bound plans lazily" );
 	}
 
 	{
@@ -7296,11 +7338,47 @@ int main( int, char** )
 			decltype(std::declval<const SOLDIERTYPE&>().pendingItem()),
 			const SoldierPendingItemComponent&>);
 		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().aiPlan()),
+			SoldierAiPlanComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().aiPlan()),
+			const SoldierAiPlanComponent&>);
+		static_assert(std::is_same_v<
 			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
 			SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
 			const SoldierFrontArcComponent&>);
+
+		int aiPlanDestructions = 0;
+		int aiPlanExecutions = 0;
+		SOLDIERTYPE aiPlanOwner;
+		aiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&aiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		AI::tactical::PlanInputData aiPlanInput(false, gTacticalStatus);
+		CHECK( aiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanOwner.aiPlan().execute(aiPlanInput) &&
+		       aiPlanExecutions == 1 &&
+		       aiPlanDestructions == 0,
+		       "soldier AI-plan ownership executes an adopted modular plan" );
+		SOLDIERTYPE copiedAiPlanOwner = aiPlanOwner;
+		SOLDIERTYPE assignedAiPlanOwner;
+		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		assignedAiPlanOwner = aiPlanOwner;
+		CHECK( aiPlanOwner.aiPlan().hasPlan() &&
+		       !copiedAiPlanOwner.aiPlan().hasPlan() &&
+		       !assignedAiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanDestructions == 1,
+		       "soldier copies discard plans whose back-references belong to another record" );
+		aiPlanOwner.aiPlan().reset();
+		assignedAiPlanOwner.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&assignedAiPlanOwner, aiPlanDestructions, aiPlanExecutions));
+		assignedAiPlanOwner.initialize();
+		CHECK( !aiPlanOwner.aiPlan().hasPlan() &&
+		       !assignedAiPlanOwner.aiPlan().hasPlan() &&
+		       aiPlanDestructions == 3,
+		       "soldier AI plans are released by explicit reset and record reuse" );
 
 		SoldierFrontArcComponent frontArcLifecycle;
 		frontArcLifecycle.bindOccluder(1, 401, 1401);
@@ -11795,7 +11873,15 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaKills() = 9;
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
+		int convertedPlanDestructions = 0;
+		int convertedPlanExecutions = 0;
+		convertedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&convertedSoldier, convertedPlanDestructions,
+			convertedPlanExecutions));
 		convertedSoldier = *legacySoldier;
+		CHECK( !convertedSoldier.aiPlan().hasPlan() &&
+		       convertedPlanDestructions == 1,
+		       "v101 soldier conversion releases process-local modular AI plans" );
 		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
 		       convertedSoldier.identity().name()[0] == L'V' &&
 		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
@@ -12982,6 +13068,11 @@ int main( int, char** )
 		OBJECTTYPE staleLoadedObject;
 		staleLoadedObject.usItem = 95;
 		loadedSoldier.pendingItem().prepareThrow(staleLoadedObject);
+		int loadedPlanDestructions = 0;
+		int loadedPlanExecutions = 0;
+		loadedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
+			&loadedSoldier, loadedPlanDestructions,
+			loadedPlanExecutions));
 		HWFILE input = FileOpen( const_cast<char*>( path.c_str() ),
 		                         FILE_ACCESS_READ | FILE_OPEN_EXISTING );
 		const bool loaded = input && loadedSoldier.Load( input );
@@ -12997,6 +13088,10 @@ int main( int, char** )
 		       !loadedSoldier.pendingItem().hasObject() &&
 		       !loadedSoldier.pendingItem().hasThrowParameters(),
 		       "soldier POD save/load retires temporary action pointers and clears process-local transaction state" );
+		CHECK( saved && loaded &&
+		       !loadedSoldier.aiPlan().hasPlan() &&
+		       loadedPlanDestructions == 1,
+		       "soldier POD load clears process-local modular AI plans before restoring persistent state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
 		       loadedSoldier.identity().name()[0] == L'S' &&

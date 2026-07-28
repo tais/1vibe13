@@ -11,6 +11,15 @@
 
 class OBJECTTYPE;
 
+namespace AI
+{
+namespace tactical
+{
+class Plan;
+class PlanInputData;
+}
+}
+
 // Ballistic data paired with a temporary item while a throw or launcher
 // transaction is pending. Runtime addresses are never persisted.
 struct THROW_PARAMS
@@ -836,6 +845,27 @@ private:
 	INT16 flankOriginDirection_ = 0;
 	INT16 planIndex_ = 0;
 	BOOLEAN lastFlankLeft_ = FALSE;
+};
+
+// Runtime-only owner for the modular tactical-AI plan tree. Plans retain a
+// back-reference to their soldier, so whole-record copies deliberately discard
+// this cache and let the destination lazily build a correctly bound plan.
+class SoldierAiPlanComponent
+{
+public:
+	SoldierAiPlanComponent() noexcept;
+	~SoldierAiPlanComponent();
+	SoldierAiPlanComponent(const SoldierAiPlanComponent&) noexcept;
+	SoldierAiPlanComponent& operator=(
+		const SoldierAiPlanComponent& source) noexcept;
+
+	bool hasPlan() const noexcept { return plan_ != nullptr; }
+	void adopt(AI::tactical::Plan* plan) noexcept;
+	bool execute(AI::tactical::PlanInputData& input);
+	void reset() noexcept;
+
+private:
+	std::unique_ptr<AI::tactical::Plan> plan_;
 };
 
 // Canonical tactical-AI behavioral mode. Alertness, orders, attitude, escort

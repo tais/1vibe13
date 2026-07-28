@@ -435,6 +435,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		audio().reset();
 		replication().reset();
 		movementMetrics().reset();
+		aiPlan().reset();
 		aiPlanning().reset();
 		aiBehavior().reset();
 		aiCommunication().reset();
@@ -1047,11 +1048,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 	return *this;
 }
 
-SOLDIERTYPE::~SOLDIERTYPE( )
-{
-	if ( ai_masterplan_ )
-		delete ai_masterplan_;
-}
+SOLDIERTYPE::~SOLDIERTYPE( ) = default;
 
 SOLDIERTYPE::SOLDIERTYPE( ) {
 	initialize( );
@@ -1101,7 +1098,6 @@ void SOLDIERTYPE::initialize( )
 	}
 	memset( (void*)this, 0, SIZEOF_SOLDIERTYPE_POD );
 	inv.clear( );
-	ai_masterplan_ = 0;
 
 	identity().reset();
 	roster().reset();
@@ -1117,6 +1113,7 @@ void SOLDIERTYPE::initialize( )
 	audio().reset();
 	replication().reset();
 	movementMetrics().reset();
+	aiPlan().reset();
 	aiPlanning().reset();
 	aiBehavior().reset();
 	aiCommunication().reset();
@@ -2611,6 +2608,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		this->keyRing().deactivate();
 		// Tear down any interrupted give/drop/reload/throw transaction.
 		this->pendingItem().reset();
+		// Modular AI plans retain a back-reference to this exact record.
+		this->aiPlan().reset();
 
 		// Delete faces
 		DeleteSoldierFace( this );
