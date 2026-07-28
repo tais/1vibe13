@@ -151,7 +151,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 		MercFlags	|=	UNCONSCIOUS_MERC;
 	}
 
-	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		MercFlags |= UNCONSCIOUS_MERC;
 
 	if ( pSoldier->vitals().health() == 0 )

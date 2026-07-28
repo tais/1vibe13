@@ -620,6 +620,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		vitals().reset();
 		service().reset();
 		dialogue().reset();
+		skillState().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -872,8 +873,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->combatResult().hitsThisTurn() = src.bNumHitsThisTurn;
 		this->dialogue().saidFlags() = src.usQuoteSaidFlags;
-		this->bLastSkillCheck = src.bLastSkillCheck;
-		this->ubSkillCheckAttempts = src.ubSkillCheckAttempts;
+		this->skillState().lastCheckReason() = src.bLastSkillCheck;
+		this->skillState().checkAttempts() = src.ubSkillCheckAttempts;
 
 		this->dialogue().vocalVolume() = src.bVocalVolume;	// verbal sounds need to differ in volume
 
@@ -984,7 +985,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->vitals().regenerationCounter() = src.bRegenerationCounter;
 		this->vitals().regenerationBoostersUsedToday() = src.bRegenBoostersUsedToday;
 		this->combatResult().pelletsHitBy() = src.bNumPelletsHitBy;
-		this->sSkillCheckGridNo = src.sSkillCheckGridNo;
+		this->skillState().checkGrid() = src.sSkillCheckGridNo;
 		this->ubLastEnemyCycledID = static_cast<UINT16>( src.ubLastEnemyCycledID );
 
 		this->deployment().previousSectorId() = src.ubPrevSectorID;
@@ -1064,10 +1065,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->usSoldierProfile = 0;
 		this->usIndividualMilitiaID = 0;
 
-		this->usAISkillUse = 0;
-		for ( UINT8 i = 0; i < SOLDIER_COUNTER_MAX; ++i )		this->usSkillCounter[i] = 0;
-		for ( UINT8 i = 0; i < SOLDIER_COOLDOWN_MAX; ++i )	this->usSkillCooldown[i] = 0;
-
 		this->InitializeExtraData();
 	}
 	return *this;
@@ -1139,6 +1136,7 @@ void SOLDIERTYPE::initialize( )
 	vitals().reset();
 	service().reset();
 	dialogue().reset();
+	skillState().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -4405,8 +4403,8 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 			// in realtime mode, remember the second when this event happened. Once suspicion is checked, we are either uncovered or, if enough time has passed, no longer suspicious
 			// in turnbase mode, remember our current APs. If a new turn has started or enough APs have been used, remove the flag
-			this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
-			this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = appenalty;
+			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
+			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = appenalty;
 		}
 	}
 
@@ -6413,7 +6411,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// Flugente: cryo death
-	if (this->vitals().health() <= 0 && this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if (this->vitals().health() <= 0 && this->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 	{
 		if ( gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 			this->EVENT_InitNewSoldierAnim( CRYO_DEATH, 0, TRUE );
@@ -11196,7 +11194,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 
 BOOLEAN SOLDIERTYPE::DoMercBattleSound( UINT8 ubBattleSoundID )
 {
-	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
 	// We WANT to play some RIGHT AWAY.....
@@ -15115,7 +15113,7 @@ INT32 SOLDIERTYPE::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBreat
 	resistance += this->GetBackgroundValue( BG_RESI_PHYSICAL );
 
 	// frozen targets go down HARD
-	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		resistance -= 1000;
 
 	// resistance is between -100% and 95%
@@ -15976,10 +15974,10 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 	if ( ubObserverID != this->ubID && this->usSoldierFlagMask & SOLDIER_COVERT_TEMPORARY_OVERT )
 	{
 		// if enough time has passed, or we have spend enough AP, lose the flag
-		if ( this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] == 0 || GetWorldTotalSeconds( ) >= this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] )
+		if ( this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) == 0 || GetWorldTotalSeconds( ) >= this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) )
 		{
-			this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] = 0;
-			this->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = 0;
+			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = 0;
+			this->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = 0;
 			this->usSoldierFlagMask &= ~SOLDIER_COVERT_TEMPORARY_OVERT;
 		}
 		else
@@ -17989,26 +17987,15 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 		SetOffBombsByFrequency( this->ubID, 1 + Random( 8 ) );
 
 	// effects eventually run out
-	for ( UINT8 counter = 0; counter < SOLDIER_COUNTER_MAX; ++counter )
-	{
-		if ( counter == SOLDIER_COUNTER_ROLE_OBSERVED )
-			continue;
-		else if ( counter == SOLDIER_COUNTER_SPOTTER && usSkillCounter[counter] > 0 )
-			usSkillCounter[counter] = min( 255, usSkillCounter[counter] + 1 );
-		else
-			usSkillCounter[counter] = max( 0, usSkillCounter[counter] - 1 );
-	}
+	this->skillState().ageTurnCounters();
 
-	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
-		this->usSkillCooldown[SOLDIER_COOLDOWN_CRYO]--;
-
-	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT] )
-		this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT]--;
+	this->skillState().decrementCooldown(SOLDIER_COOLDOWN_CRYO);
+	this->skillState().decrementCooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT);
 
 	if (AM_A_ROBOT(this) && ItemHasXRay(this->inv[ROBOT_UTILITY_SLOT].usItem))
 	{
-		if (this->usSkillCooldown[SOLDIER_COOLDOWN_ROBOT_XRAY])
-			this->usSkillCooldown[SOLDIER_COOLDOWN_ROBOT_XRAY]--;
+		if (this->skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY))
+			this->skillState().decrementCooldown(SOLDIER_COOLDOWN_ROBOT_XRAY);
 		else if(this->bInSector)
 		{
 			// this allows the robot to do an x-ray ping if there are enemies in sector
@@ -18023,7 +18010,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 				{
 					if (!pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0))
 					{
-						this->usSkillCooldown[SOLDIER_COOLDOWN_ROBOT_XRAY] += 2;
+						this->skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) += 2;
 						ActivateXRayDevice(this);
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szRobotText[ROBOT_TEXT_XRAY_ACTIVATED] );
 						break;
@@ -18039,7 +18026,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 	{
 		this->usSoldierFlagMask &= ~SOLDIER_ENEMY_OBSERVEDTHISTURN;
 
-		++usSkillCounter[SOLDIER_COUNTER_ROLE_OBSERVED];
+		++this->skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED);
 	}
 
 	// if there is a combat going and we are in sector, note that in the battle report
@@ -18378,17 +18365,17 @@ BOOLEAN SOLDIERTYPE::UseSkill( UINT8 iSkill, INT32 usMapPos, UINT32 ID )
 
 	case SKILLS_FOCUS:
 		// activating skill on same gridno again deactivates it
-		if ((usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS) && sFocusGridNo == usMapPos)
+		if ((usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS) && skillState().focusGrid() == usMapPos)
 		{
 			usSoldierFlagMask2 &= ~SOLDIER_TRAIT_FOCUS;
-			sFocusGridNo = NOWHERE;
+			skillState().clearFocus();
 
 			return FALSE;
 		}
 		else
 		{
 			usSoldierFlagMask2 |= SOLDIER_TRAIT_FOCUS;
-			sFocusGridNo = usMapPos;
+			skillState().focusOn(usMapPos);
 
 			return TRUE;
 		}
@@ -18760,7 +18747,7 @@ BOOLEAN SOLDIERTYPE::CanAnyArtilleryStrikeBeOrdered( UINT32* pSectorID )		// can
 		return FALSE;
 
 	// if we are AI-controlled, we have to wait for our timer to run out
-	if ( this->bTeam != gbPlayerNum && this->usSkillCounter[SOLDIER_COUNTER_RADIO_ARTILLERY] )
+	if ( this->bTeam != gbPlayerNum && this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) )
 		return FALSE;
 
 	// check wether we can call artillery from the 4 adjacent sectors
@@ -18987,7 +18974,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 		StatChange( this, EXPERAMT, 10, TRUE );
 
 		// we add a bit to the counter, thus the AI has to wait a bit between ordering strikes (otherwise they'll instantly order all available strikes)
-		this->usSkillCounter[SOLDIER_COUNTER_RADIO_ARTILLERY] = 2;
+		this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
 	}
 	else if ( bTeam == OUR_TEAM )
 	{
@@ -19168,7 +19155,7 @@ BOOLEAN SOLDIERTYPE::OrderArtilleryStrike( UINT32 usSectorNr, INT32 sTargetGridN
 			StatChange( this, EXPERAMT, 10, TRUE );
 
 			// we add a bit to the counter, thus the AI has to wait a bit between ordering strikes (otherwise they'll instantly order all available strikes)
-			this->usSkillCounter[SOLDIER_COUNTER_RADIO_ARTILLERY] = 2;
+			this->skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
 		}
 	}
 	else
@@ -19366,20 +19353,20 @@ SOLDIERTYPE::RadioFail( )
 // Flugente: spotter
 BOOLEAN SOLDIERTYPE::IsSpotting( )
 {
-	if ( this->usSkillCounter[SOLDIER_COUNTER_SPOTTER] > 0 )
+	if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0 )
 	{
 		// do we still fulfil the requirements?
 		if ( CanSpot( ) )
 		{
 			// we are only a spotter if we did this long enough
-			if ( this->usSkillCounter[SOLDIER_COUNTER_SPOTTER] >= gGameExternalOptions.usSpotterPreparationTurns )
+			if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) >= gGameExternalOptions.usSpotterPreparationTurns )
 				return TRUE;
 			else
 				return FALSE;
 		}
 
 		// no item -> lose status
-		this->usSkillCounter[SOLDIER_COUNTER_SPOTTER] = 0;
+		this->skillState().clearCounter(SOLDIER_COUNTER_SPOTTER);
 	}
 
 	return FALSE;
@@ -19413,7 +19400,7 @@ BOOLEAN SOLDIERTYPE::CanSpot( INT32 sTargetGridNo )
 BOOLEAN SOLDIERTYPE::BecomeSpotter( INT32 sTargetGridNo )
 {
 	// not possible if already scanning
-	if ( this->usSkillCounter[SOLDIER_COUNTER_SPOTTER] )
+	if ( this->skillState().counter(SOLDIER_COUNTER_SPOTTER) )
 	{
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_ALREADY_SPOTTING] );
 		return FALSE;
@@ -19429,7 +19416,7 @@ BOOLEAN SOLDIERTYPE::BecomeSpotter( INT32 sTargetGridNo )
 	DeductPoints( this, APBPConstants[AP_SPOTTER], 0, 0 );
 
 	// add to counter
-	this->usSkillCounter[SOLDIER_COUNTER_SPOTTER] = 1;
+	this->skillState().counter(SOLDIER_COUNTER_SPOTTER) = 1;
 
 	// stop any multi-turn action
 	CancelMultiTurnAction( FALSE );
@@ -21082,7 +21069,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 	// if we do this disguised as a soldier, risk will be much higer, as we are under much more scrutiny. This makes up for the increased gain in soldier disguise
 	// less risk if we are asleep, just hiding or forced to hide
 	UINT8 typemultiplier = ( this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER ) ? 5 : 2;
-	if ( ( this->assignment().current() == CONCEALED ) || this->flags.fMercAsleep || this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10 )
+	if ( ( this->assignment().current() == CONCEALED ) || this->flags.fMercAsleep || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		typemultiplier = 1;
 		
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
@@ -21108,7 +21095,7 @@ FLOAT		SOLDIERTYPE::GetIntelGain()
 		return 0.0f;
 
 	// if we're asleep, or on a penalty, we accomplish nothing
-	if ( this->flags.fMercAsleep || this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10 )
+	if ( this->flags.fMercAsleep || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		return 0.0f;
 
 	// the covert trait isn't that important in determining the intel gain. It is much more important in mitigating the risk of exposure, however
@@ -21185,7 +21172,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 	if ( !( IsJa2TacticalCombatActive() || IsJa2TacticalTurnBased() ) )
 		return;
 
-	if ( this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT] )
+	if ( this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) )
 		return;
 
 	INT8 invsize = (INT8)inv.size();									// remember inventorysize, so we don't call size() repeatedly
@@ -21214,7 +21201,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 					{
 						ApplyConsumable( this, &( this->inv[bLoop] ), TRUE, FALSE );
 
-						this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT] += 6;
+						this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) += 6;
 
 						return;
 					}
@@ -21222,7 +21209,7 @@ void		SOLDIERTYPE::DrugAutoUse()
 					{
 						ApplyConsumable( this, &( this->inv[bLoop] ), TRUE, FALSE );
 
-						this->usSkillCooldown[SOLDIER_COOLDOWN_DRUGUSER_COMBAT] += 6;
+						this->skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) += 6;
 
 						return;
 					}
@@ -21541,7 +21528,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 		|| this->flags.fMercAsleep
 		|| this->collapseState().tactical()
 		|| ( this->usSoldierFlagMask & SOLDIER_POW )
-		|| this->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 20
+		|| this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 20
 		|| usID == NOBODY )
 		return FALSE;
 
@@ -25673,7 +25660,7 @@ UINT16	GridNoSpotterCTHBonus( SOLDIERTYPE* pSniper, INT32 sGridNo, INT8 bTeam )
 				value = (value * effectivity ) / 100;
 
 				// longer spotting gives a linear bonus - up to 100% -> value between 0 and 4000, nominal 2000
-				value = (value * min(pSoldier->usSkillCounter[SOLDIER_COUNTER_SPOTTER], 2 * gGameExternalOptions.usSpotterPreparationTurns)) / gGameExternalOptions.usSpotterPreparationTurns;
+				value = (value * min(pSoldier->skillState().counter(SOLDIER_COUNTER_SPOTTER), 2 * gGameExternalOptions.usSpotterPreparationTurns)) / gGameExternalOptions.usSpotterPreparationTurns;
 				
 				// reasonable values: 0 to gGameExternalOptions.usSpotterMaxCTHBoost
 				value = (value * gGameExternalOptions.usSpotterMaxCTHBoost) / 2000;
@@ -26469,17 +26456,18 @@ BOOLEAN	SOLDIERTYPE::IsGivingAid(void)
 
 void	SOLDIERTYPE::RetreatCounterStart(UINT16 usValue)
 {
-	usSkillCounter[SOLDIER_COUNTER_RETREAT] = max(usValue, usSkillCounter[SOLDIER_COUNTER_RETREAT]);
+	skillState().counter(SOLDIER_COUNTER_RETREAT) =
+		max(usValue, skillState().counter(SOLDIER_COUNTER_RETREAT));
 }
 
 void	SOLDIERTYPE::RetreatCounterStop(void)
 {
-	usSkillCounter[SOLDIER_COUNTER_RETREAT] = 0;
+	skillState().clearCounter(SOLDIER_COUNTER_RETREAT);
 }
 
 UINT16	SOLDIERTYPE::RetreatCounterValue(void)
 {
-	return usSkillCounter[SOLDIER_COUNTER_RETREAT];
+	return skillState().counter(SOLDIER_COUNTER_RETREAT);
 }
 
 void SOLDIERTYPE::StartRadioAnimation(void)

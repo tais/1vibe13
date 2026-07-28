@@ -2225,7 +2225,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] && pSoldier->animationPlayback().state() != CRYO_DEATH && pSoldier->animationPlayback().state() != CRYO_DEATH_CROUCHED )
+					if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) && pSoldier->animationPlayback().state() != CRYO_DEATH && pSoldier->animationPlayback().state() != CRYO_DEATH_CROUCHED )
 					{
 						if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 							pSoldier->ChangeSoldierState( CRYO_DEATH, 0, TRUE );

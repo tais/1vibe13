@@ -21,7 +21,7 @@
 // Checks if our guy can be controllable .... checks bInSector, team, on duty, etc...
 
 // Checks if our guy is controllable but doesn't care about current assignment
-#define OK_CONTROL_MERC( p ) ( p->vitals().health() >= OKLIFE && p->bActive && p->bInSector && p->bTeam == gbPlayerNum && !(p->usSkillCooldown[SOLDIER_COOLDOWN_CRYO]) )
+#define OK_CONTROL_MERC( p ) ( p->vitals().health() >= OKLIFE && p->bActive && p->bInSector && p->bTeam == gbPlayerNum && !(p->skillState().cooldown(SOLDIER_COOLDOWN_CRYO)) )
 
 #define OK_CONTROLLABLE_MERC( p ) ( OK_CONTROL_MERC(p) && ( p->assignment().current() < ON_DUTY || p->assignment().current() == VEHICLE )	)
 

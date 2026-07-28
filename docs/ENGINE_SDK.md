@@ -298,6 +298,13 @@ volume, and corpse-comment tolerance. Named history, quote-plan, cooldown, and
 playback transitions give tactical AI and dialogue one authority while the
 portable serializer and v101 conversion retain every original byte position.
 Spatial ambience and mechanical-loop handles remain outside this speech owner.
+`SoldierSkillStateComponent` separately owns repeated mechanical-check
+identity and attempts, the AI's selected skill, fixed-capacity trait counters,
+heterogeneous cooldowns, and the focus target. Named check, per-turn aging,
+cooldown, focus, and reset transitions give tactical and AI code one authority.
+The explicit serializer retains both 20-entry capacities and every established
+position and width; v101 conversion maps its three skill-check values and
+clears the later fields absent from that record.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

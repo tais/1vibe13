@@ -1667,6 +1667,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierVitalsComponent& vitals = s.vitals();
 	SoldierServiceComponent& service = s.service();
 	SoldierDialogueComponent& dialogue = s.dialogue();
+	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1746,7 +1747,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
 	ar.u8(s.ubClosePanelFrame); ar.u8(s.ubDeadPanelFrame); ar.i8(s.bOpenPanelFrame);
 	ar.i16(s.sPanelFaceX); ar.i16(s.sPanelFaceY);
-	ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);
+	ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());
 	ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());
 	ar.u8(s.animationIntent().pendingDirection()); ar.u32(s.animationPlayback().subFlags());
 	ar.u8(attackSelection.shotLocation()); ar.u8(combatResult.hitLocation()); ar.u8(attackSelection.meleeLocation());
@@ -1782,7 +1783,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());
 	ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());
-	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);
+	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());
 	ar.u16(s.ubLastEnemyCycledID.i);
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);
@@ -1811,15 +1812,15 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.bFoodLevel); ar.i32(s.bDrinkLevel);
 	ar.u8(s.usStarveDamageHealth); ar.u8(s.usStarveDamageStrength);
 	ar.i16(s.bOverTurnAPS); ar.i32(s.sMTActionGridNo); ar.u8(s.usMultiTurnAction);
-	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(s.usAISkillUse);
-	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(s.usSkillCounter[i]);
-	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(s.usSkillCooldown[i]);
+	ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
+	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));
+	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(s.sDiseasePoints[i]);
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(s.sDiseaseFlag[i]);
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
-	ar.i32(s.sFocusGridNo); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
+	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(s.usDisabilityFlagMask); ar.i32(s.sDragGridNo);
 	ar.boolean(s.fIgnoreGetupFromCollapseCheck);
 	ar.i32(s.GetupFromJA25StartCounter);

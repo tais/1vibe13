@@ -69,7 +69,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 	}
 
 	// Flugente: prisoners of war don't do anything
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return;
 
 	// Flugente: if we are distracted by chatting and not alert, do nothing

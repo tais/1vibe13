@@ -2127,7 +2127,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"ExpControl pSoldier->flags.fHitByGasFlags: %d", pSoldier->flags.fHitByGasFlags );
 
 		// Flugente: if we're frozen, we take no gas damage at all (because I say so)
-		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		{
 			sWoundAmt = 0;
 			sBreathAmt = 0;
@@ -2135,7 +2135,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 			// fire makes us thaw faster
 			if ( pExplosive->ubType == EXPLOSV_BURNABLEGAS )
 			{
-				pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO]--;
+				pSoldier->skillState().decrementCooldown(SOLDIER_COOLDOWN_CRYO);
 			}
 		}
 
@@ -4374,19 +4374,19 @@ void HandleExplosionWarningAnimations( )
 			{
 				// checking whether this skill is active is relatively cheap. If it fails, deactivate skill properly
 				// we cannot use CanUseSkill(...) again though, as this would fail upon opening the menu
-				if (pSoldier->CanUseSkill(SKILLS_FOCUS, FALSE, pSoldier->sFocusGridNo))
+				if (pSoldier->CanUseSkill(SKILLS_FOCUS, FALSE, pSoldier->skillState().focusGrid()))
 				{
 					// radius depends on range
-					INT16 range = PythSpacesAway(pSoldier->sFocusGridNo, pSoldier->position().gridNo());
+					INT16 range = PythSpacesAway(pSoldier->skillState().focusGrid(), pSoldier->position().gridNo());
 					INT16 radius = gSkillTraitValues.ubSNFocusRadius * range / 20;
 
-					DrawTraitRadius(pSoldier->sFocusGridNo, pSoldier->position().level(), sqrt(0.5) * (20 + 40 * radius), 8, usBlue);
+					DrawTraitRadius(pSoldier->skillState().focusGrid(), pSoldier->position().level(), sqrt(0.5) * (20 + 40 * radius), 8, usBlue);
 				}
 				else
 				{
 					// if conditions don't apply, deactivate skill. This will cause it to update to status changes very fast
 					pSoldier->usSoldierFlagMask2 &= ~SOLDIER_TRAIT_FOCUS;
-					pSoldier->sFocusGridNo = NOWHERE;
+					pSoldier->skillState().clearFocus();
 				}
 			}
 

@@ -7297,6 +7297,23 @@ int main( int, char** )
 		dialogue.civilianQuoteDelta() = 2;
 		dialogue.recordSpokeAt(12343);
 		dialogue.corpseQuoteTolerance() = 3;
+		SoldierSkillStateComponent& skillState = soldier.skillState();
+		skillState.beginCheck(-7, 1234);
+		skillState.recordCheckAttempt();
+		skillState.selectedAiSkill() = SKILLS_FOCUS;
+		skillState.counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 3;
+		skillState.counter(SOLDIER_COUNTER_SPOTTER) = 4;
+		skillState.counter(SOLDIER_COUNTER_ROLE_OBSERVED) = 5;
+		skillState.counter(SOLDIER_COUNTER_RETREAT) = 6;
+		skillState.counter(SOLDIER_COUNTER_MAX - 1) = 19;
+		skillState.cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = 12344;
+		skillState.cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = 12;
+		skillState.cooldown(SOLDIER_COOLDOWN_CRYO) = 2;
+		skillState.cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) = 33;
+		skillState.cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) = 4;
+		skillState.cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) = 5;
+		skillState.cooldown(SOLDIER_COOLDOWN_MAX - 1) = 190;
+		skillState.focusOn(1290);
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7528,6 +7545,23 @@ int main( int, char** )
 		       constSoldier.dialogue().lastSpokeAt() == 12343 &&
 		       constSoldier.dialogue().corpseQuoteTolerance() == 3,
 		       "soldier dialogue component owns quote planning, spoken history, voice playback, and cooldown state" );
+		CHECK( constSoldier.skillState().isRepeatedCheck(-7, 1234) &&
+		       constSoldier.skillState().checkAttempts() == 2 &&
+		       constSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
+		       constSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 3 &&
+		       constSoldier.skillState().counter(SOLDIER_COUNTER_SPOTTER) == 4 &&
+		       constSoldier.skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) == 5 &&
+		       constSoldier.skillState().counter(SOLDIER_COUNTER_RETREAT) == 6 &&
+		       constSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 19 &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) == 12344 &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) == 12 &&
+		       constSoldier.skillState().hasCooldown(SOLDIER_COOLDOWN_CRYO) &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) == 33 &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) == 4 &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) == 5 &&
+		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 190 &&
+		       constSoldier.skillState().focusGrid() == 1290,
+		       "soldier skill-state component owns checks, AI selection, counters, cooldowns, and focus" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7829,6 +7863,54 @@ int main( int, char** )
 		       dialogueLifecycle.lastSpokeAt() == 0 &&
 		       dialogueLifecycle.corpseQuoteTolerance() == 0,
 		       "soldier dialogue reset clears the complete spoken-state domain" );
+		SoldierSkillStateComponent skillStateLifecycle;
+		skillStateLifecycle.beginCheck(-5, 700);
+		skillStateLifecycle.recordCheckAttempt();
+		skillStateLifecycle.selectedAiSkill() = SKILLS_RADIO_JAM;
+		skillStateLifecycle.counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 2;
+		skillStateLifecycle.counter(SOLDIER_COUNTER_SPOTTER) = 254;
+		skillStateLifecycle.counter(SOLDIER_COUNTER_ROLE_OBSERVED) = 9;
+		skillStateLifecycle.cooldown(SOLDIER_COOLDOWN_CRYO) = 2;
+		skillStateLifecycle.focusOn(701);
+		skillStateLifecycle.ageTurnCounters();
+		skillStateLifecycle.decrementCooldown(SOLDIER_COOLDOWN_CRYO);
+		CHECK( skillStateLifecycle.isRepeatedCheck(-5, 700) &&
+		       skillStateLifecycle.checkAttempts() == 2 &&
+		       skillStateLifecycle.selectedAiSkill() == SKILLS_RADIO_JAM &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 1 &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_SPOTTER) == 255 &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_ROLE_OBSERVED) == 9 &&
+		       skillStateLifecycle.cooldown(SOLDIER_COOLDOWN_CRYO) == 1 &&
+		       skillStateLifecycle.focusGrid() == 701,
+		       "soldier skill-state component coordinates repeated checks, counter aging, cooldowns, and focus" );
+		skillStateLifecycle.counter(SOLDIER_COUNTER_SPOTTER) = 65535;
+		skillStateLifecycle.ageTurnCounters();
+		CHECK( skillStateLifecycle.counter(SOLDIER_COUNTER_SPOTTER) == 255,
+		       "soldier skill-state spotter aging saturates safely even when persisted input is out of range" );
+		skillStateLifecycle.checkAttempts() = SoldierSkillStateComponent::MaximumCheckAttempts;
+		skillStateLifecycle.recordCheckAttempt();
+		CHECK( skillStateLifecycle.checkAttempts() == SoldierSkillStateComponent::MaximumCheckAttempts,
+		       "soldier skill-state repeated-check attempts saturate before signed overflow" );
+		skillStateLifecycle.clearCounter(SOLDIER_COUNTER_RADIO_ARTILLERY);
+		skillStateLifecycle.clearCooldown(SOLDIER_COOLDOWN_CRYO);
+		skillStateLifecycle.clearFocus();
+		CHECK( !skillStateLifecycle.hasCounter(SOLDIER_COUNTER_RADIO_ARTILLERY) &&
+		       !skillStateLifecycle.hasCooldown(SOLDIER_COOLDOWN_CRYO) &&
+		       skillStateLifecycle.focusGrid() == -1,
+		       "soldier skill-state component clears independent counters, cooldowns, and focus targets" );
+		skillStateLifecycle.counter(SOLDIER_COUNTER_MAX - 1) = 19;
+		skillStateLifecycle.cooldown(SOLDIER_COOLDOWN_MAX - 1) = 190;
+		skillStateLifecycle.reset();
+		CHECK( skillStateLifecycle.lastCheckReason() == 0 &&
+		       skillStateLifecycle.checkAttempts() == 0 &&
+		       skillStateLifecycle.checkGrid() == 0 &&
+		       skillStateLifecycle.selectedAiSkill() == 0 &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_SPOTTER) == 0 &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_ROLE_OBSERVED) == 0 &&
+		       skillStateLifecycle.counter(SOLDIER_COUNTER_MAX - 1) == 0 &&
+		       skillStateLifecycle.cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
+		       skillStateLifecycle.focusGrid() == 0,
+		       "soldier skill-state reset clears every persisted field and the full fixed-capacity arrays" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -7885,6 +7967,16 @@ int main( int, char** )
 		       copiedSoldier.dialogue().lastSpokeAt() == 12343 &&
 		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3,
 		       "soldier copies retain their owned persistent dialogue state" );
+		CHECK( copiedSoldier.skillState().lastCheckReason() == -7 &&
+		       copiedSoldier.skillState().checkAttempts() == 2 &&
+		       copiedSoldier.skillState().checkGrid() == 1234 &&
+		       copiedSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
+		       copiedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 3 &&
+		       copiedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 19 &&
+		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 2 &&
+		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 190 &&
+		       copiedSoldier.skillState().focusGrid() == 1290,
+		       "soldier copies retain their owned persistent skill state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8487,6 +8579,16 @@ int main( int, char** )
 		       copiedSoldier.dialogue().lastSpokeAt() == 0 &&
 		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0,
 		       "soldier initialization resets the complete dialogue domain" );
+		CHECK( copiedSoldier.skillState().lastCheckReason() == 0 &&
+		       copiedSoldier.skillState().checkAttempts() == 0 &&
+		       copiedSoldier.skillState().checkGrid() == 0 &&
+		       copiedSoldier.skillState().selectedAiSkill() == 0 &&
+		       copiedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 0 &&
+		       copiedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 0 &&
+		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 0 &&
+		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
+		       copiedSoldier.skillState().focusGrid() == 0,
+		       "soldier initialization resets the complete skill-state domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -8722,6 +8824,9 @@ int main( int, char** )
 		legacySoldier->bCurrentCivQuoteDelta = 1;
 		legacySoldier->uiTimeSinceLastSpoke = 12351;
 		legacySoldier->bCorpseQuoteTolerance = 2;
+		legacySoldier->bLastSkillCheck = -6;
+		legacySoldier->ubSkillCheckAttempts = 3;
+		legacySoldier->sSkillCheckGridNo = 1410;
 		legacySoldier->bCollapsed = TRUE;
 		legacySoldier->bBreathCollapsed = TRUE;
 		legacySoldier->bTurnsCollapsed = 3;
@@ -8813,6 +8918,12 @@ int main( int, char** )
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
+		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
+		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
+		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
+		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) = 7;
+		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) = 17;
+		convertedSoldier.skillState().focusOn(1411);
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
@@ -8851,6 +8962,16 @@ int main( int, char** )
 		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
 		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2,
 		       "v101 soldier conversion retains the complete spoken-dialogue domain" );
+		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
+		       convertedSoldier.skillState().checkAttempts() == 3 &&
+		       convertedSoldier.skillState().checkGrid() == 1410 &&
+		       convertedSoldier.skillState().selectedAiSkill() == 0 &&
+		       convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 0 &&
+		       convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 0 &&
+		       convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 0 &&
+		       convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
+		       convertedSoldier.skillState().focusGrid() == 0,
+		       "v101 soldier conversion maps established skill checks and clears skill state absent from that schema" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -9099,6 +9220,23 @@ int main( int, char** )
 		savedSoldier.dialogue().civilianQuoteDelta() = 3;
 		savedSoldier.dialogue().recordSpokeAt(12353);
 		savedSoldier.dialogue().corpseQuoteTolerance() = 4;
+		savedSoldier.skillState().beginCheck(-8, 1500);
+		savedSoldier.skillState().recordCheckAttempt();
+		savedSoldier.skillState().recordCheckAttempt();
+		savedSoldier.skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
+		savedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 21;
+		savedSoldier.skillState().counter(SOLDIER_COUNTER_SPOTTER) = 22;
+		savedSoldier.skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) = 23;
+		savedSoldier.skillState().counter(SOLDIER_COUNTER_RETREAT) = 24;
+		savedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 219;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = 12354;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = 25;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) = 26;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) = 27;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) = 28;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) = 29;
+		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) = 229;
+		savedSoldier.skillState().focusOn(1510);
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9317,6 +9455,25 @@ int main( int, char** )
 		       loadedSoldier.dialogue().lastSpokeAt() == 12353 &&
 		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4,
 		       "soldier save/load round-trips dialogue state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.skillState().lastCheckReason() == -8 &&
+		       loadedSoldier.skillState().checkAttempts() == 3 &&
+		       loadedSoldier.skillState().checkGrid() == 1500 &&
+		       loadedSoldier.skillState().selectedAiSkill() == SKILLS_RADIO_JAM &&
+		       loadedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) == 21 &&
+		       loadedSoldier.skillState().counter(SOLDIER_COUNTER_SPOTTER) == 22 &&
+		       loadedSoldier.skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) == 23 &&
+		       loadedSoldier.skillState().counter(SOLDIER_COUNTER_RETREAT) == 24 &&
+		       loadedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) == 219 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) == 12354 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) == 25 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) == 26 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) == 27 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_DRUGUSER_COMBAT) == 28 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) == 29 &&
+		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 229 &&
+		       loadedSoldier.skillState().focusGrid() == 1510,
+		       "soldier save/load round-trips skill state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

@@ -6410,7 +6410,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 	}
 
 	// Flugente: frozen soldiers can't be selected
-	if ( soldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( soldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 	{
 		LocateSoldier( ubID, SETLOCATOR );
 		return;

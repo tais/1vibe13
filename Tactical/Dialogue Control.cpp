@@ -1471,7 +1471,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
-	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1508,7 +1508,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 		if (pSoldier->vitals().health() < CONSCIOUSNESS )
 			return( FALSE );
 
-		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1530,7 +1530,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 		if (pSoldier->vitals().health() < CONSCIOUSNESS )
 			return( FALSE );
 
-		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
@@ -1584,7 +1584,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
-	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
 	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
@@ -1685,7 +1685,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	if (pSoldier->vitals().health() < CONSCIOUSNESS )
 		return( FALSE );
 
-	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
 	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
@@ -1746,7 +1746,7 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 	     AreInMeanwhile() )
 		return( FALSE );
 	
-	if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
 	if ( pSoldier->vitals().health() < OKLIFE )
@@ -2053,7 +2053,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 			return( FALSE );
 		}
 
-		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
 		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )

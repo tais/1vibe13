@@ -307,6 +307,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   every established field. Positional ambience and turret-loop sound handles
   remain spatial-audio state. No save, packet, map, XML, Lua, dialogue, or
   installed-data bytes change.
+- Repeated skill-check identity and attempts, the AI's selected skill,
+  20 persistent trait counters, 20 heterogeneous cooldown values, and the
+  focus target are now stored by `SoldierSkillStateComponent`. The visitor
+  emits each value at its original scattered position and width, including all
+  unused fixed-capacity entries. v101 conversion maps its three skill-check
+  fields and clears AI selection, counters, cooldowns, and focus, which were
+  absent from that record. No save, packet, map, XML, Lua, or installed-data
+  bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

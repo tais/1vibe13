@@ -1881,7 +1881,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		}
 
 		// Flugente: frozen soldiers are, well, frozen
-		if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		{
 			// Blit Closed eyes here!
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 2, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -2192,7 +2192,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: spotter
-			if (pSoldier->usSkillCounter[SOLDIER_COUNTER_SPOTTER] > 0)
+			if (pSoldier->skillState().counter(SOLDIER_COUNTER_SPOTTER) > 0)
 			{
 				if (pSoldier->IsSpotting())
 				{
@@ -2434,9 +2434,9 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 				fDoIcon_Assignment = TRUE;
 				fShowCustomText = TRUE;
 
-				if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10)
+				if (pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10)
 				{
-					swprintf(sString, L"Hide %dh", pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] / 10);
+					swprintf(sString, L"Hide %dh", pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) / 10);
 				}
 				else
 				{
@@ -3120,7 +3120,7 @@ void HandleAutoFaces( )
 				}
 
 				// Flugente: frozen soldiers can't be selected
-				if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+				if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 					fHandleFace = FALSE;
 			}
 

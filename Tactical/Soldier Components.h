@@ -23,6 +23,38 @@ enum
 	NUM_DAMAGABLE_STATS,
 };
 
+// Stable indices for persistent skill/trait counters and heterogeneous
+// cooldown values. The unused capacity is part of the established save schema.
+enum
+{
+	// Prevent one AI operator from ordering several artillery strikes at once.
+	SOLDIER_COUNTER_RADIO_ARTILLERY,
+	// Track how long the soldier has prepared as a spotter.
+	SOLDIER_COUNTER_SPOTTER,
+	// Accumulate turns in which the player observes an enemy's role.
+	SOLDIER_COUNTER_ROLE_OBSERVED,
+	// Track retreating from the current position.
+	SOLDIER_COUNTER_RETREAT,
+
+	SOLDIER_COUNTER_MAX = 20,
+};
+
+enum
+{
+	SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS = 0,
+	SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS,
+	// Count turns for which a character remains frozen.
+	SOLDIER_COOLDOWN_CRYO,
+	// Block intel gathering for a number of strategic hours after discovery.
+	SOLDIER_COOLDOWN_INTEL_PENALTY,
+	// Delay autonomous drug use after deliberate combat use.
+	SOLDIER_COOLDOWN_DRUGUSER_COMBAT,
+	// Rate-limit the robot's X-ray detector.
+	SOLDIER_COOLDOWN_ROBOT_XRAY,
+
+	SOLDIER_COOLDOWN_MAX = 20,
+};
+
 // Canonical soldier vitals and recovery storage. Reference accessors keep
 // legacy mutation sites zero-cost while health, breath, treatable trauma,
 // surgery, critical-stat damage, and bleed timing share one reset boundary.
@@ -224,6 +256,75 @@ private:
 	INT8 civilianQuoteDelta_ = 0;
 	UINT32 lastSpokeAt_ = 0;
 	INT8 corpseQuoteTolerance_ = 0;
+};
+
+// Canonical skill execution and persistence state. Repeated mechanical checks,
+// the AI's selected skill, trait counters, heterogeneous cooldowns, and focus
+// targeting share one reset boundary without absorbing permanent statistics or
+// rule definitions.
+class SoldierSkillStateComponent
+{
+public:
+	using Counters = UINT16[SOLDIER_COUNTER_MAX];
+	using Cooldowns = UINT32[SOLDIER_COOLDOWN_MAX];
+	static constexpr INT8 MaximumCheckAttempts = 127;
+
+	INT8& lastCheckReason() noexcept { return lastCheckReason_; }
+	const INT8& lastCheckReason() const noexcept { return lastCheckReason_; }
+	INT8& checkAttempts() noexcept { return checkAttempts_; }
+	const INT8& checkAttempts() const noexcept { return checkAttempts_; }
+	INT32& checkGrid() noexcept { return checkGrid_; }
+	const INT32& checkGrid() const noexcept { return checkGrid_; }
+	UINT8& selectedAiSkill() noexcept { return selectedAiSkill_; }
+	const UINT8& selectedAiSkill() const noexcept { return selectedAiSkill_; }
+	UINT16& counter(UINT8 index) noexcept { return counters_[index]; }
+	const UINT16& counter(UINT8 index) const noexcept { return counters_[index]; }
+	UINT32& cooldown(UINT8 index) noexcept { return cooldowns_[index]; }
+	const UINT32& cooldown(UINT8 index) const noexcept { return cooldowns_[index]; }
+	INT32& focusGrid() noexcept { return focusGrid_; }
+	const INT32& focusGrid() const noexcept { return focusGrid_; }
+
+	bool isRepeatedCheck(INT8 reason, INT32 grid) const noexcept
+	{
+		return lastCheckReason_ == reason && checkGrid_ == grid;
+	}
+	bool hasCounter(UINT8 index) const noexcept { return counters_[index] != 0; }
+	bool hasCooldown(UINT8 index) const noexcept { return cooldowns_[index] != 0; }
+	void beginCheck(INT8 reason, INT32 grid) noexcept
+	{
+		lastCheckReason_ = reason;
+		checkAttempts_ = 1;
+		checkGrid_ = grid;
+	}
+	void recordCheckAttempt() noexcept
+	{
+		if (checkAttempts_ < MaximumCheckAttempts)
+		{
+			++checkAttempts_;
+		}
+	}
+	void clearCounter(UINT8 index) noexcept { counters_[index] = 0; }
+	void decrementCooldown(UINT8 index) noexcept
+	{
+		if (cooldowns_[index] > 0)
+		{
+			--cooldowns_[index];
+		}
+	}
+	void clearCooldown(UINT8 index) noexcept { cooldowns_[index] = 0; }
+	void ageTurnCounters() noexcept;
+	void focusOn(INT32 grid) noexcept { focusGrid_ = grid; }
+	void clearFocus() noexcept { focusGrid_ = -1; }
+	void reset() noexcept;
+
+private:
+	INT8 lastCheckReason_ = 0;
+	INT8 checkAttempts_ = 0;
+	INT32 checkGrid_ = 0;
+	UINT8 selectedAiSkill_ = 0;
+	Counters counters_{};
+	Cooldowns cooldowns_{};
+	INT32 focusGrid_ = 0;
 };
 
 // Canonical tactical action-point budget. The current amount and the turn-start

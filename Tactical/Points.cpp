@@ -850,11 +850,11 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	if ( sAPCost > 0 )
 	{
 		// ... then spotter status ends
-		pSoldier->usSkillCounter[SOLDIER_COUNTER_SPOTTER] = 0;
+		pSoldier->skillState().clearCounter(SOLDIER_COUNTER_SPOTTER);
 
 		// if we are temporarily overt
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_TEMPORARY_OVERT && pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] > 0 )
-			pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = max( 0, (INT16)(pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] - sAPCost) );
+		if ( pSoldier->usSoldierFlagMask & SOLDIER_COVERT_TEMPORARY_OVERT && pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) > 0 )
+			pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = max( 0, (INT16)(pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) - sAPCost) );
 
 		// sevenfm: indicate in realtime that soldier spent some action point this turn
 		pSoldier->usSoldierFlagMask2 |= SOLDIER_SPENT_AP;

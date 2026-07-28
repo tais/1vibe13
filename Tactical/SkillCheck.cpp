@@ -886,10 +886,10 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	iMadeItBy = iChance - iRoll;
 	if (iMadeItBy < 0)
 	{
-		if ( (pSoldier->bLastSkillCheck == bReason) && (pSoldier->position().gridNo() == pSoldier->sSkillCheckGridNo) )
+		if ( pSoldier->skillState().isRepeatedCheck(bReason, pSoldier->position().gridNo()) )
 		{
-			pSoldier->ubSkillCheckAttempts++;
-			if (pSoldier->ubSkillCheckAttempts > 2)
+			pSoldier->skillState().recordCheckAttempt();
+			if (pSoldier->skillState().checkAttempts() > 2)
 			{
 				if (iChance == 0)
 				{
@@ -904,7 +904,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 						}
 					}
 					// do we realize that we just can't do this?
-					if ( (100 - (pSoldier->ubSkillCheckAttempts - 2) * 20) < EffectiveWisdom( pSoldier ) )
+					if ( (100 - (pSoldier->skillState().checkAttempts() - 2) * 20) < EffectiveWisdom( pSoldier ) )
 					{
 						// say "I can't do this" quote
 						TacticalCharacterDialogue( pSoldier, QUOTE_DEFINITE_CANT_DO );
@@ -915,9 +915,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 		}
 		else
 		{
-			pSoldier->bLastSkillCheck = bReason;
-			pSoldier->ubSkillCheckAttempts = 1;
-			pSoldier->sSkillCheckGridNo = pSoldier->position().gridNo();
+			pSoldier->skillState().beginCheck(bReason, pSoldier->position().gridNo());
 		}
 
 		if ( fForceDamnSound || Random( 100 ) < 40 )

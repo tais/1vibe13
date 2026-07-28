@@ -14063,8 +14063,8 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 
 					// in realtime mode, remember the second when this event happened. Once suspicion is checked, we are either uncovered or, if enough time has passed, no longer suspicious
 					// in turnbase mode, remember our current APs. If a new turn has started or enough APs have been used, remove the flag
-					GetItemDescSoldier()->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS] = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
-					GetItemDescSoldier()->usSkillCooldown[SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS] = appenalty;
+					GetItemDescSoldier()->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS) = GetWorldTotalSeconds( ) + max( 1, appenalty / 25 );
+					GetItemDescSoldier()->skillState().cooldown(SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS) = appenalty;
 				}
 			}
 
