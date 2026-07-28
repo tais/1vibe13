@@ -2359,7 +2359,7 @@ foreach(dialogue_save_position IN ITEMS
   "ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
   "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
   "ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());"
-  "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);"
+  "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);"
   "ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());"
   "ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());"
   "ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);"
@@ -2374,6 +2374,238 @@ foreach(dialogue_save_position IN ITEMS
       "Soldier dialogue moved in the portable save schema at '${dialogue_save_position}'")
   endif()
 endforeach()
+
+# Footstep variation, remembered door noise, and the opaque burst, positional,
+# and turret-loop handles form one non-dialogue audio lifecycle. Keep the
+# established save/v101 representation while rejecting stale flat owners and
+# stopped handles that remain marked live.
+foreach(retired_audio_field IN ITEMS
+  ubLastFootPrintSound
+  ubDoorOpeningNoise
+  iBurstSoundID
+  iPositionSndID
+  iTuringSoundID)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT8|INT32)[ \t]+${retired_audio_field}[ \t]*;"
+    retired_current_audio_field
+    "${current_soldier_contents}")
+  if(retired_current_audio_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE audio field '${retired_audio_field}' returned; non-dialogue audio state belongs to SoldierAudioComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierAudioComponent[ \t\r\n]+audio_[ \t]*;"
+  soldier_audio_owner
+  "${current_soldier_contents}")
+if(NOT soldier_audio_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierAudioComponent")
+endif()
+
+foreach(owned_audio_pattern IN ITEMS
+  "UINT8[ \t]+lastFootstepVariant_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+doorOpeningNoise_[ \t]*=[ \t]*0"
+  "INT32[ \t]+burstSoundId_[ \t]*=[ \t]*NoSample"
+  "INT32[ \t]+positionSoundId_[ \t]*=[ \t]*NoSample"
+  "INT32[ \t]+turningSoundId_[ \t]*=[ \t]*NoSample")
+  string(REGEX MATCH
+    "${owned_audio_pattern}"
+    owned_soldier_audio_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_audio_field)
+    message(FATAL_ERROR
+      "SoldierAudioComponent lost initialized owned storage matching '${owned_audio_pattern}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_header_contents}"
+  "static constexpr INT32 NoSample = -1;"
+  soldier_audio_no_sample_sentinel)
+if(soldier_audio_no_sample_sentinel EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAudioComponent must initialize opaque handles with the explicit no-sample sentinel")
+endif()
+
+foreach(audio_accessor IN ITEMS
+  lastFootstepVariant
+  doorOpeningNoise
+  burstSoundId
+  positionSoundId
+  turningSoundId)
+  string(REGEX MATCH
+    "${audio_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_audio_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_audio_accessor)
+    message(FATAL_ERROR
+      "SoldierAudioComponent lost the '${audio_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(audio_operation IN ITEMS
+  "bool hasDoorOpeningNoise() const noexcept"
+  "bool hasBurstSound() const noexcept"
+  "bool hasPositionSound() const noexcept"
+  "bool hasTurningSound() const noexcept"
+  "void recordFootstepVariant(UINT8 variant) noexcept"
+  "void recordDoorOpeningNoise(UINT8 volume) noexcept"
+  "void clearDoorOpeningNoise() noexcept"
+  "void startBurstSound(INT32 soundId) noexcept"
+  "void clearBurstSound() noexcept"
+  "void startPositionSound(INT32 soundId) noexcept"
+  "void clearPositionSound() noexcept"
+  "void startTurningSound(INT32 soundId) noexcept"
+  "void clearTurningSound() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${audio_operation}"
+    soldier_audio_operation)
+  if(soldier_audio_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAudioComponent lost required lifecycle operation '${audio_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierAudioComponent& audio() noexcept"
+  soldier_audio_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierAudioComponent{};"
+  soldier_audio_default_reset)
+string(REGEX MATCHALL
+  "audio\\(\\)\\.reset\\(\\);"
+  soldier_audio_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_audio_reset_sites soldier_audio_reset_site_count)
+if(soldier_audio_accessor EQUAL -1 OR
+   soldier_audio_default_reset EQUAL -1 OR
+   soldier_audio_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierAudioComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(audio_conversion IN ITEMS
+  "this->audio().lastFootstepVariant() = src.ubLastFootPrintSound;"
+  "this->audio().doorOpeningNoise() = src.ubDoorOpeningNoise;"
+  "this->audio().burstSoundId() = src.iBurstSoundID;"
+  "this->audio().positionSoundId() = src.iPositionSndID;"
+  "this->audio().turningSoundId() = src.iTuringSoundID;")
+  string(FIND "${soldier_control_source_contents}"
+    "${audio_conversion}"
+    soldier_audio_conversion_site)
+  if(soldier_audio_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost non-dialogue audio mapping '${audio_conversion}'")
+  endif()
+endforeach()
+
+foreach(audio_save_position IN ITEMS
+  "ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(audio.lastFootstepVariant());"
+  "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);"
+  "ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());"
+  "ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());")
+  string(FIND "${save_load_game_contents}"
+    "${audio_save_position}"
+    soldier_audio_save_position)
+  if(soldier_audio_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier non-dialogue audio moved in the portable save schema at '${audio_save_position}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  soldier_audio_animation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  soldier_audio_weapons_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Handle Doors.cpp"
+  soldier_audio_doors_contents)
+file(READ "${SOURCE_ROOT}/Tactical/opplist.cpp"
+  soldier_audio_opplist_contents)
+string(REGEX MATCH
+  "SoundStop\\( pSoldier->audio\\(\\)\\.burstSoundId\\(\\) \\);[ \t\r\n]*pSoldier->audio\\(\\)\\.clearBurstSound\\(\\);"
+  soldier_audio_jam_stop
+  "${soldier_audio_animation_contents}")
+string(FIND "${soldier_audio_animation_contents}"
+  "pSoldier->audio().recordDoorOpeningNoise("
+  soldier_audio_door_record)
+string(FIND "${soldier_audio_weapons_contents}"
+  "pSoldier->audio().startBurstSound("
+  soldier_audio_burst_start)
+string(FIND "${soldier_control_source_contents}"
+  "this->audio().startPositionSound("
+  soldier_audio_position_start)
+string(FIND "${soldier_control_source_contents}"
+  "this->audio().clearPositionSound();"
+  soldier_audio_position_clear)
+string(FIND "${soldier_control_source_contents}"
+  "this->audio().startTurningSound("
+  soldier_audio_turning_start)
+string(FIND "${soldier_control_source_contents}"
+  "this->audio().clearTurningSound();"
+  soldier_audio_turning_clear)
+string(FIND "${soldier_control_source_contents}"
+  "pSoldier->audio().recordFootstepVariant("
+  soldier_audio_footstep_record)
+string(FIND "${soldier_audio_doors_contents}"
+  "pSoldier->audio().hasDoorOpeningNoise()"
+  soldier_audio_door_query)
+string(FIND "${soldier_audio_doors_contents}"
+  "pSoldier->audio().doorOpeningNoise()"
+  soldier_audio_door_value)
+string(FIND "${soldier_audio_opplist_contents}"
+  "noiseMaker->audio().clearDoorOpeningNoise();"
+  soldier_audio_door_clear)
+if(NOT soldier_audio_jam_stop OR
+   soldier_audio_door_record EQUAL -1 OR
+   soldier_audio_burst_start EQUAL -1 OR
+   soldier_audio_position_start EQUAL -1 OR
+   soldier_audio_position_clear EQUAL -1 OR
+   soldier_audio_turning_start EQUAL -1 OR
+   soldier_audio_turning_clear EQUAL -1 OR
+   soldier_audio_footstep_record EQUAL -1 OR
+   soldier_audio_door_query EQUAL -1 OR
+   soldier_audio_door_value EQUAL -1 OR
+   soldier_audio_door_clear EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier audio runtime paths must use component lifecycle transitions and clear stopped/no-longer-relevant handles")
+endif()
+
+foreach(audio_test_fragment IN ITEMS
+  "SoldierAudioComponent audioLifecycle;"
+  "v101 soldier conversion retains the complete non-dialogue audio domain"
+  "soldier save/load round-trips non-dialogue audio state at every established schema position")
+  string(FIND "${headless_test_contents}"
+    "${audio_test_fragment}"
+    soldier_audio_test_fragment)
+  if(soldier_audio_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierAudioComponent fixture '${audio_test_fragment}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  engine_architecture_documentation)
+file(READ "${SOURCE_ROOT}/docs/ENGINE_SDK.md"
+  engine_sdk_documentation)
+file(READ "${SOURCE_ROOT}/docs/SAVE_FORMAT.md"
+  save_format_documentation)
+string(FIND "${engine_architecture_documentation}"
+  "SoldierAudioComponent"
+  soldier_audio_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierAudioComponent"
+  soldier_audio_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierAudioComponent"
+  soldier_audio_save_documented)
+if(soldier_audio_architecture_documented EQUAL -1 OR
+   soldier_audio_sdk_documented EQUAL -1 OR
+   soldier_audio_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierAudioComponent ownership and compatibility guarantees must remain documented")
+endif()
 
 # Repeated mechanical checks, the AI's selected skill, persistent trait
 # counters, heterogeneous cooldowns, and the focus target form one skill-state
@@ -3454,7 +3686,7 @@ string(REGEX MATCH
   serialized_soldier_xray_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.corpseQuoteTolerance\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
+  "ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.corpseQuoteTolerance\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(audio\\.positionSoundId\\(\\)\\);"
   serialized_soldier_deafness_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_noise_order OR
@@ -4551,7 +4783,7 @@ string(REGEX MATCH
   serialized_soldier_previous_grid_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
+  "ar\\.i32\\(audio\\.positionSoundId\\(\\)\\);[ \t]*ar\\.i32\\(audio\\.turningSoundId\\(\\)\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
   serialized_soldier_recent_locations_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5246,7 +5478,7 @@ string(REGEX MATCH
   serialized_soldier_pellet_hits_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
+  "ar\\.i32\\(audio\\.positionSoundId\\(\\)\\);[ \t]*ar\\.i32\\(audio\\.turningSoundId\\(\\)\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
   serialized_soldier_damage_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH

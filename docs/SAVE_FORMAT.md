@@ -304,9 +304,15 @@ adapter, so save and load can never drift out of order. Extra methods:
   quote progression, last-spoke time, and corpse-comment tolerance are now
   stored by `SoldierDialogueComponent`. The visitor emits all fourteen values
   at their original scattered positions and widths, and v101 conversion maps
-  every established field. Positional ambience and turret-loop sound handles
-  remain spatial-audio state. No save, packet, map, XML, Lua, dialogue, or
+  every established field. No save, packet, map, XML, Lua, dialogue, or
   installed-data bytes change.
+- Footstep variation, remembered door-opening noise, and burst,
+  positional-ambience, and turret-turning sound handles are now stored by
+  `SoldierAudioComponent`. The visitor emits the two unsigned bytes and three
+  signed 32-bit values at their four original scattered positions; v101
+  conversion maps every established raw value. Fresh handles use the explicit
+  no-sample sentinel, without altering values loaded from either schema. No
+  save, packet, map, XML, Lua, audio, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
   focus target are now stored by `SoldierSkillStateComponent`. The visitor

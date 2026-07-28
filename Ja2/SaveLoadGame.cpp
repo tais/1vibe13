@@ -1668,6 +1668,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierVitalsComponent& vitals = s.vitals();
 	SoldierServiceComponent& service = s.service();
 	SoldierDialogueComponent& dialogue = s.dialogue();
+	SoldierAudioComponent& audio = s.audio();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
@@ -1781,11 +1782,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(schedule.id()); ar.i32(schedule.doorGrid()); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
-	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
+	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(audio.lastFootstepVariant());
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(movementHistory.previousGrid());
 	ar.u16(s.usDontUpdateNewGridNoOnMoveAnimChange);
 	ar.i16(s.sBoundingBoxWidth); ar.i16(s.sBoundingBoxHeight); ar.i16(s.sBoundingBoxOffsetX); ar.i16(s.sBoundingBoxOffsetY);
-	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);
+	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);
 	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
@@ -1802,12 +1803,12 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.sLocationOfFadeStart); ar.u8(deployment.useExitGridForReentryDirection());
 	ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
 	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(pendingAction.inventorySlot());
-	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
+	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());
 	ar.ptr(s.pGroup); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(deployment.arrivalTime());
 	ar.i8(assignment.repairVehicleId()); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
 	ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());
-	ar.i32(s.iPositionSndID); ar.i32(s.iTuringSoundID); ar.u8(combatResult.lastDamageReason());
+	ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());
 	for (i = 0; i < 2; ++i) ar.i32(movementHistory.recentLocations()[i]);
 	ar.i32(vitals.lastBleedGruntAt()); ar.u16(combatResult.earlierAttacker().i);
 	ar.u8(fireControl.autofireShots()); ar.i8(s.numFlanks); ar.i32(s.lastFlankSpot); ar.i8(s.sniper); ar.i16(s.origDir);

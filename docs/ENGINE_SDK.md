@@ -297,7 +297,13 @@ heard-noise speech cooldown, civilian quote progression, last-spoke time, vocal
 volume, and corpse-comment tolerance. Named history, quote-plan, cooldown, and
 playback transitions give tactical AI and dialogue one authority while the
 portable serializer and v101 conversion retain every original byte position.
-Spatial ambience and mechanical-loop handles remain outside this speech owner.
+`SoldierAudioComponent` separately owns footstep variation, remembered
+door-opening noise, and burst, positional-ambience, and turret-turning sound
+handles. Named record, start, clear, query, and reset transitions give weapon,
+door, movement, and spatial-audio code one lifecycle boundary; stopped burst
+handles are invalidated immediately and fresh handles use the explicit
+no-sample sentinel. The serializer and v101 conversion retain all five raw
+values at their original positions and widths.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,
 heterogeneous cooldowns, and the focus target. Named check, per-turn aging,

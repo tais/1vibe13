@@ -2194,7 +2194,10 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						sprintf(zFilename, gzBurstSndStrings[Weapon[usUBItem].sSilencedBurstSound], bShotsToFire);
 
 						// Try playing sound...
-						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
+						pSoldier->audio().startBurstSound(
+							PlayJA2SampleFromFile(zFilename, RATE_11025,
+								SoundVolume(HIGHVOLUME, pSoldier->position().gridNo()),
+								1, SoundDir(pSoldier->position().gridNo())));
 					}
 					else
 					{
@@ -2202,7 +2205,10 @@ void PlayWeaponSound(SOLDIERTYPE *pSoldier, OBJECTTYPE *pObjHand, OBJECTTYPE *pO
 						sprintf(zFilename, gzBurstSndStrings[Weapon[usUBItem].sBurstSound], bShotsToFire);
 
 						// Try playing sound...
-						pSoldier->iBurstSoundID = PlayJA2SampleFromFile(zFilename, RATE_11025, SoundVolume((INT8)bVolume, pSoldier->position().gridNo()), 1, SoundDir(pSoldier->position().gridNo()));
+						pSoldier->audio().startBurstSound(
+							PlayJA2SampleFromFile(zFilename, RATE_11025,
+								SoundVolume((INT8)bVolume, pSoldier->position().gridNo()),
+								1, SoundDir(pSoldier->position().gridNo())));
 					}
 				}
 			}

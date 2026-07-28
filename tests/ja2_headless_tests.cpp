@@ -7298,6 +7298,12 @@ int main( int, char** )
 		dialogue.civilianQuoteDelta() = 2;
 		dialogue.recordSpokeAt(12343);
 		dialogue.corpseQuoteTolerance() = 3;
+		SoldierAudioComponent& audio = soldier.audio();
+		audio.recordFootstepVariant(2);
+		audio.recordDoorOpeningNoise(17);
+		audio.startBurstSound(301);
+		audio.startPositionSound(302);
+		audio.startTurningSound(303);
 		SoldierSkillStateComponent& skillState = soldier.skillState();
 		skillState.beginCheck(-7, 1234);
 		skillState.recordCheckAttempt();
@@ -7606,6 +7612,16 @@ int main( int, char** )
 		       constSoldier.dialogue().lastSpokeAt() == 12343 &&
 		       constSoldier.dialogue().corpseQuoteTolerance() == 3,
 		       "soldier dialogue component owns quote planning, spoken history, voice playback, and cooldown state" );
+		CHECK( constSoldier.audio().lastFootstepVariant() == 2 &&
+		       constSoldier.audio().hasDoorOpeningNoise() &&
+		       constSoldier.audio().doorOpeningNoise() == 17 &&
+		       constSoldier.audio().hasBurstSound() &&
+		       constSoldier.audio().burstSoundId() == 301 &&
+		       constSoldier.audio().hasPositionSound() &&
+		       constSoldier.audio().positionSoundId() == 302 &&
+		       constSoldier.audio().hasTurningSound() &&
+		       constSoldier.audio().turningSoundId() == 303,
+		       "soldier audio component owns footstep/noise state and non-dialogue sound handles" );
 		CHECK( constSoldier.skillState().isRepeatedCheck(-7, 1234) &&
 		       constSoldier.skillState().checkAttempts() == 2 &&
 		       constSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
@@ -8002,6 +8018,40 @@ int main( int, char** )
 		       dialogueLifecycle.lastSpokeAt() == 0 &&
 		       dialogueLifecycle.corpseQuoteTolerance() == 0,
 		       "soldier dialogue reset clears the complete spoken-state domain" );
+
+		SoldierAudioComponent audioLifecycle;
+		CHECK( !audioLifecycle.hasDoorOpeningNoise() &&
+		       !audioLifecycle.hasBurstSound() &&
+		       !audioLifecycle.hasPositionSound() &&
+		       !audioLifecycle.hasTurningSound(),
+		       "soldier audio handles begin at the explicit no-sample sentinel" );
+		audioLifecycle.recordFootstepVariant(3);
+		audioLifecycle.recordDoorOpeningNoise(18);
+		audioLifecycle.startBurstSound(401);
+		audioLifecycle.startPositionSound(402);
+		audioLifecycle.startTurningSound(403);
+		CHECK( audioLifecycle.lastFootstepVariant() == 3 &&
+		       audioLifecycle.doorOpeningNoise() == 18 &&
+		       audioLifecycle.burstSoundId() == 401 &&
+		       audioLifecycle.positionSoundId() == 402 &&
+		       audioLifecycle.turningSoundId() == 403,
+		       "soldier audio records gameplay noise and opaque adapter handles together" );
+		audioLifecycle.clearDoorOpeningNoise();
+		audioLifecycle.clearBurstSound();
+		audioLifecycle.clearPositionSound();
+		audioLifecycle.clearTurningSound();
+		CHECK( !audioLifecycle.hasDoorOpeningNoise() &&
+		       !audioLifecycle.hasBurstSound() &&
+		       !audioLifecycle.hasPositionSound() &&
+		       !audioLifecycle.hasTurningSound(),
+		       "soldier audio closes every independent sound lifecycle through named transitions" );
+		audioLifecycle.reset();
+		CHECK( audioLifecycle.lastFootstepVariant() == 0 &&
+		       audioLifecycle.doorOpeningNoise() == 0 &&
+		       audioLifecycle.burstSoundId() == SoldierAudioComponent::NoSample &&
+		       audioLifecycle.positionSoundId() == SoldierAudioComponent::NoSample &&
+		       audioLifecycle.turningSoundId() == SoldierAudioComponent::NoSample,
+		       "soldier audio reset restores gameplay values and handle sentinels" );
 		SoldierSkillStateComponent skillStateLifecycle;
 		skillStateLifecycle.beginCheck(-5, 700);
 		skillStateLifecycle.recordCheckAttempt();
@@ -8323,6 +8373,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().lastSpokeAt() == 12343 &&
 		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3,
 		       "soldier copies retain their owned persistent dialogue state" );
+		CHECK( copiedSoldier.audio().lastFootstepVariant() == 2 &&
+		       copiedSoldier.audio().doorOpeningNoise() == 17 &&
+		       copiedSoldier.audio().burstSoundId() == 301 &&
+		       copiedSoldier.audio().positionSoundId() == 302 &&
+		       copiedSoldier.audio().turningSoundId() == 303,
+		       "soldier copies retain their owned audio state" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == -7 &&
 		       copiedSoldier.skillState().checkAttempts() == 2 &&
 		       copiedSoldier.skillState().checkGrid() == 1234 &&
@@ -9030,6 +9086,12 @@ int main( int, char** )
 		       copiedSoldier.dialogue().lastSpokeAt() == 0 &&
 		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0,
 		       "soldier initialization resets the complete dialogue domain" );
+		CHECK( copiedSoldier.audio().lastFootstepVariant() == 0 &&
+		       copiedSoldier.audio().doorOpeningNoise() == 0 &&
+		       !copiedSoldier.audio().hasBurstSound() &&
+		       !copiedSoldier.audio().hasPositionSound() &&
+		       !copiedSoldier.audio().hasTurningSound(),
+		       "soldier initialization resets non-dialogue audio with valid inactive sentinels" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == 0 &&
 		       copiedSoldier.skillState().checkAttempts() == 0 &&
 		       copiedSoldier.skillState().checkGrid() == 0 &&
@@ -9419,6 +9481,11 @@ int main( int, char** )
 		legacySoldier->ubScheduleID = 42;
 		legacySoldier->sEndDoorOpenCodeData = 2310;
 		legacySoldier->bAIScheduleProgress = 3;
+		legacySoldier->ubLastFootPrintSound = 4;
+		legacySoldier->ubDoorOpeningNoise = 19;
+		legacySoldier->iBurstSoundID = 501;
+		legacySoldier->iPositionSndID = 502;
+		legacySoldier->iTuringSoundID = 503;
 		legacySoldier->dXPos = 321.5f;
 		legacySoldier->dYPos = 654.25f;
 		legacySoldier->sX = 319;
@@ -9475,6 +9542,11 @@ int main( int, char** )
 		convertedSoldier.schedule().progress() = 98;
 		convertedSoldier.schedule().beginDoorContinuation(9999);
 		convertedSoldier.schedule().completeDoorAnimation();
+		convertedSoldier.audio().recordFootstepVariant(98);
+		convertedSoldier.audio().recordDoorOpeningNoise(97);
+		convertedSoldier.audio().startBurstSound(9996);
+		convertedSoldier.audio().startPositionSound(9997);
+		convertedSoldier.audio().startTurningSound(9998);
 		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
@@ -9542,6 +9614,12 @@ int main( int, char** )
 		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
 		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2,
 		       "v101 soldier conversion retains the complete spoken-dialogue domain" );
+		CHECK( convertedSoldier.audio().lastFootstepVariant() == 4 &&
+		       convertedSoldier.audio().doorOpeningNoise() == 19 &&
+		       convertedSoldier.audio().burstSoundId() == 501 &&
+		       convertedSoldier.audio().positionSoundId() == 502 &&
+		       convertedSoldier.audio().turningSoundId() == 503,
+		       "v101 soldier conversion retains the complete non-dialogue audio domain" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -9871,6 +9949,11 @@ int main( int, char** )
 		savedSoldier.dialogue().civilianQuoteDelta() = 3;
 		savedSoldier.dialogue().recordSpokeAt(12353);
 		savedSoldier.dialogue().corpseQuoteTolerance() = 4;
+		savedSoldier.audio().recordFootstepVariant(5);
+		savedSoldier.audio().recordDoorOpeningNoise(20);
+		savedSoldier.audio().startBurstSound(601);
+		savedSoldier.audio().startPositionSound(602);
+		savedSoldier.audio().startTurningSound(603);
 		savedSoldier.skillState().beginCheck(-8, 1500);
 		savedSoldier.skillState().recordCheckAttempt();
 		savedSoldier.skillState().recordCheckAttempt();
@@ -10161,6 +10244,13 @@ int main( int, char** )
 		       loadedSoldier.dialogue().lastSpokeAt() == 12353 &&
 		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4,
 		       "soldier save/load round-trips dialogue state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.audio().lastFootstepVariant() == 5 &&
+		       loadedSoldier.audio().doorOpeningNoise() == 20 &&
+		       loadedSoldier.audio().burstSoundId() == 601 &&
+		       loadedSoldier.audio().positionSoundId() == 602 &&
+		       loadedSoldier.audio().turningSoundId() == 603,
+		       "soldier save/load round-trips non-dialogue audio state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.skillState().lastCheckReason() == -8 &&
 		       loadedSoldier.skillState().checkAttempts() == 3 &&

@@ -981,8 +981,15 @@ the engine must not contain SDL types in its public domain model.
   civilian quote progression, last-spoke time, vocal volume, and corpse-comment
   tolerance. Named history, cooldown, quote-plan, playback, and reset
   transitions replace scattered bit manipulation while all fourteen save
-  fields retain their established positions and widths. World-position and
-  mechanical-loop sound handles remain with spatial audio.
+  fields retain their established positions and widths.
+  `SoldierAudioComponent` owns the complementary non-dialogue audio lifecycle:
+  footstep variation, remembered door-opening noise, and the burst,
+  world-position, and turret-turning sound handles. Named start, clear, record,
+  query, and reset transitions close stale-handle paths, including invalidating
+  a burst handle immediately after a jam stops it. Fresh transient handles use
+  the sound system's explicit no-sample sentinel, while all five serialized
+  values and v101 mappings retain their established positions, widths, and raw
+  values.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.
