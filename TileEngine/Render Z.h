@@ -135,9 +135,9 @@ INT16 ShadowZLevel( INT16 sMapX, INT16 sMapY, INT16& sWorldY );
 			}\
 		}\
 	\
-		if ( pSoldier->sZLevelOverride != -1 )\
+		if ( pSoldier->animationActivity().hasRenderZOverride() )\
 		{\
-			sZLevel = pSoldier->sZLevelOverride;\
+			sZLevel = pSoldier->animationActivity().renderZOverride();\
 		}\
 	\
 		if ( gsForceSoldierZLevel != 0 )\

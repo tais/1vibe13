@@ -228,7 +228,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 									{
 										if ( pSoldier->fireControl().burstCounter() )
 										{
-											pSoldier->sStartGridNo = usMapPos;
+											pSoldier->fireControl().beginSpreadDrag(usMapPos);
 											ResetBurstLocations( );
 											pSoldier->fireControl().autofireShots() = 6;
 											*puiNewEvent = A_CHANGE_TO_CONFIM_ACTION;
@@ -480,11 +480,11 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 								{
 									if ( pSoldier->fireControl().burstCounter() )
 									{
-										pSoldier->sEndGridNo = usMapPos;
+										pSoldier->fireControl().updateSpreadDrag(usMapPos);
 
 										gfBeginBurstSpreadTracking = FALSE;
 
-										if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo )
+										if ( pSoldier->fireControl().spreadDragMoved() )
 										{
 											pSoldier->fireControl().spreadIndex() = TRUE;
 
@@ -576,7 +576,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 													//*puiNewEvent = A_CHANGE_TO_CONFIM_ACTION;
 													//if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 													//{
-													//	pSoldier->sStartGridNo = sMapPos;
+													//	pSoldier->fireControl().beginSpreadDrag(sMapPos);
 													//	ResetBurstLocations( );
 													//}
 													*puiNewEvent = CA_MERC_SHOOT;
@@ -1596,10 +1596,10 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 			{
 				if ( pSoldier->fireControl().burstCounter() )
 				{
-					pSoldier->sEndGridNo = usMapPos;
+					pSoldier->fireControl().updateSpreadDrag(usMapPos);
 
 
-					if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo && fLeftButtonDown )
+					if ( pSoldier->fireControl().spreadDragMoved() && fLeftButtonDown )
 					{
 						pSoldier->fireControl().spreadIndex() = TRUE;
 						gfBeginBurstSpreadTracking = TRUE;

@@ -935,7 +935,7 @@ void StartInterrupt( void )
 		}
 		if ( pTempSoldier->bActive )
 		{
-			pTempSoldier->bMovedPriorToInterrupt = pTempSoldier->aiData.bMoved;
+			pTempSoldier->interruptSnapshot().captureMoved(pTempSoldier->aiData.bMoved);
 			pTempSoldier->aiData.bMoved = TRUE;
 		}
 	}
@@ -1129,7 +1129,7 @@ void StartInterrupt( void )
 		{
 			if ( pTempSoldier->bActive )
 			{
-				pTempSoldier->bMovedPriorToInterrupt = pTempSoldier->aiData.bMoved;
+				pTempSoldier->interruptSnapshot().captureMoved(pTempSoldier->aiData.bMoved);
 				pTempSoldier->aiData.bMoved = TRUE;
 			}
 		}
@@ -1401,7 +1401,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				}
 				else
 				{
-					pTempSoldier->aiData.bMoved = pTempSoldier->bMovedPriorToInterrupt;
+					pTempSoldier->aiData.bMoved = pTempSoldier->interruptSnapshot().movedBeforeInterrupt();
 				}
 			}
 		}
@@ -1433,7 +1433,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			{
 				if ( pTempSoldier->bActive )
 				{
-					pTempSoldier->aiData.bMoved = pTempSoldier->bMovedPriorToInterrupt;
+					pTempSoldier->aiData.bMoved = pTempSoldier->interruptSnapshot().movedBeforeInterrupt();
 				}
 			}
 			*/

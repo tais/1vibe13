@@ -2116,7 +2116,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->flags.fShowLocator			= FALSE;
 	pSoldier->targeting().lastGridNo()				= NOWHERE;
 	pSoldier->movement().absoluteDestination() = NOWHERE;
-	pSoldier->sZLevelOverride			= -1;
+	pSoldier->animationActivity().clearRenderZOverride();
 	pSoldier->service().finishProviding();
 	pSoldier->attackSelection().hand()			= HANDPOS;
 	pSoldier->animationPlayback().state()				= STANDING;

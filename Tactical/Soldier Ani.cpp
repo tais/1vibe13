@@ -713,11 +713,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: End Hop Fence
 				// MOVE TO FORCASTED GRIDNO
-				ConvertGridNoToCenterCellXY(pSoldier->sForcastGridno, &sX, &sY);
+				ConvertGridNoToCenterCellXY(pSoldier->animationActivity().traversalForecastGrid(), &sX, &sY);
 
 				pSoldier->EVENT_InternalSetSoldierPosition( (FLOAT) sX, (FLOAT) sY, FALSE, FALSE, FALSE );
 				pSoldier->EVENT_SetSoldierDirection(	gTwoCDirection[ pSoldier->position().direction() ] );
-				pSoldier->sZLevelOverride = -1;
+				pSoldier->animationActivity().clearRenderZOverride();
 				pSoldier->EVENT_SetSoldierDesiredDirection( pSoldier->position().direction() );
 
 				if ( gTacticalStatus.bBoxingState == BOXING_WAITING_FOR_PLAYER || gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING )
@@ -996,12 +996,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// MOVE TWO FACGIN GRIDNOS
 				// Flugente: the old complicated method relied on the route path being filled correctly, which it often wasn't.
 				// This is unneccessary, as we've already filled sTempNewGridNo with the correct data
-				// we could fill sForcastGridno when initiating the jump, but lets keep this as a hook
+				// We could fill the traversal forecast when initiating the jump,
+				// but keep this animation-script hook.
 				if ( pSoldier->position().temporaryGrid() != NOWHERE )
-					pSoldier->sForcastGridno = pSoldier->position().temporaryGrid();
+					pSoldier->animationActivity().forecastTraversalAt(pSoldier->position().temporaryGrid());
 				else
 					// hey, it's better than nowhere
-					pSoldier->sForcastGridno = pSoldier->position().gridNo();
+					pSoldier->animationActivity().forecastTraversalAt(pSoldier->position().gridNo());
 
 				break;
 
@@ -1014,7 +1015,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				case NORTH:
 				case WEST:
 
-					pSoldier->sZLevelOverride = TOPMOST_Z_LEVEL;
+					pSoldier->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
 					break;
 				}
 				break;
@@ -1027,13 +1028,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				case SOUTH:
 				case EAST:
 
-					pSoldier->sZLevelOverride = TOPMOST_Z_LEVEL;
+					pSoldier->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
 					break;
 
 				case NORTH:
 				case WEST:
 
-					pSoldier->sZLevelOverride = -1;
+					pSoldier->animationActivity().clearRenderZOverride();
 					break;
 
 				}

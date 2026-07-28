@@ -1147,7 +1147,11 @@ the engine must not contain SDL types in its public domain model.
   override no longer live in the generic flag bucket or distant public fields.
   UI, AI, animation, pathing, and simulation-command code now select and
   consume one movement mode through `movement().mode()`. Named operations update
-  paired state such as a blocker and direction together. Current attack target grid,
+  paired state such as a blocker and direction together.
+  `SoldierInterruptSnapshotComponent` separately retains the AI scheduler's
+  moved flag while an interrupt temporarily rewrites it; interrupt begin and
+  end now capture and restore that state through one explicit seam.
+  Current attack target grid,
   elevation, cube level, previous target grid, and target soldier identity now
   have one private `SoldierTargetingComponent` owner. Tactical UI, AI,
   weapons, simulation commands, animation events, and multiplayer adapters all
@@ -1156,13 +1160,19 @@ the engine must not contain SDL types in its public domain model.
   selected attacking hand and weapon, weapon and scope modes, and ranged and
   melee body locations. This keeps target geometry independent from the means
   of attack while giving UI, AI, weapons, simulation, and network ingress one
-  canonical selection. `SoldierFireControlComponent` then owns the mutable
+  canonical selection. The melee path-cost optimization has its own
+  `SoldierMeleeApproachComponent`, keeping the cached target grid and movement
+  mode coupled to their cost and terminal direction without making cache state
+  part of target identity. `SoldierFireControlComponent` then owns the mutable
   firing sequence: burst and autofire progress, bullets in flight, the
   one-based spread cursor and its six fixed targets, recoil and counterforce
   history, initial muzzle offsets, the autofire UI edge state, and the active
-  multi-barrel cursor. Named operations coordinate single-shot, burst, and
-  autofire selection without mixing target choice or presentation-only sound
-  and muzzle-flash handles into this simulation boundary. AI dual-wield spread
+  multi-barrel cursor. It also owns the start/end grids for the burst-spread
+  drag gesture, with named capture, update, and moved queries shared by
+  real-time and turn-based input. Named operations coordinate single-shot,
+  burst, and autofire selection without mixing target choice or
+  presentation-only sound and muzzle-flash handles into this simulation
+  boundary. AI dual-wield spread
   generation is clamped after its shot count is doubled, preventing twelve
   writes into the established six-target buffer.
   `SoldierCombatResultComponent` separately owns incoming hit attribution:
@@ -1205,7 +1215,9 @@ the engine must not contain SDL types in its public domain model.
   `SoldierAnimationActivityComponent` owns the surrounding lifecycle:
   prone-turn mode, pausing, turn-to-completion state, hit and fall phases,
   interruptibility, suppression stance changes, and animation AP-cost
-  waivers. Named operations update coordinated lifecycle state together.
+  waivers. Traversal landing forecast and its temporary render-depth override
+  live here as well, rather than as distant public render scratch. Named
+  operations update coordinated lifecycle state together.
   Runtime surface residency has a fourth private boundary:
   `SoldierAnimationCacheComponent` replaces the public two-pointer
   `AnimCache` with fixed-capacity inline storage. Soldier creation cannot fail

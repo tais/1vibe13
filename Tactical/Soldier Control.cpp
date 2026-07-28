@@ -625,6 +625,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		assignment().reset();
 		deployment().reset();
 		schedule().reset();
+		interruptSnapshot().reset();
+		meleeApproach().reset();
 		fireControl().reset();
 		combatResult().reset();
 		combatContribution().reset();
@@ -851,8 +853,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationPlayback().surface() = src.usAnimSurface;
 		this->animationPlayback().zLevel() = src.sZLevel;
 
-		this->sWalkToAttackGridNo = src.sWalkToAttackGridNo;
-		this->sWalkToAttackWalkToCost = src.sWalkToAttackWalkToCost;
+		this->meleeApproach().grid() = src.sWalkToAttackGridNo;
+		this->meleeApproach().cost() = src.sWalkToAttackWalkToCost;
 
 
 		this->uiPresentation().locatorOffsetX() = src.sLocatorOffX;
@@ -901,11 +903,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->uiPresentation().plannedTargetX() = src.sPlannedTargetX;
 		this->uiPresentation().plannedTargetY() = src.sPlannedTargetY;
 
-		this->sStartGridNo = src.sStartGridNo;
-		this->sEndGridNo = src.sEndGridNo;
-		this->sForcastGridno = src.sForcastGridNo;
-		this->sZLevelOverride = src.sZLevelOverride;
-		this->bMovedPriorToInterrupt = src.bMovedPriorToInterrupt;
+		this->fireControl().spreadDragStartGrid() = src.sStartGridNo;
+		this->fireControl().spreadDragEndGrid() = src.sEndGridNo;
+		this->animationActivity().traversalForecastGrid() = src.sForcastGridNo;
+		this->animationActivity().renderZOverride() = src.sZLevelOverride;
+		this->interruptSnapshot().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;
 		this->employment().endTime() = src.iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.  -2 for NPC and player generated
 		this->employment().startTime() = src.iStartContractTime;
 		this->employment().totalLength() = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
@@ -1163,8 +1165,10 @@ void SOLDIERTYPE::initialize( )
 	movementHistory().reset();
 	pathing().reset();
 	movement().reset();
+	interruptSnapshot().reset();
 	targeting().reset();
 	attackSelection().reset();
+	meleeApproach().reset();
 	fireControl().reset();
 	combatResult().reset();
 	combatContribution().reset();
@@ -4334,7 +4338,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		ReduceAttackBusyCount( );
 	}
 
-	this->sZLevelOverride = -1;
+	this->animationActivity().clearRenderZOverride();
 
 	if ( !(this->flags.uiStatusFlags & SOLDIER_LOCKPENDINGACTIONCOUNTER) )
 	{
@@ -4698,7 +4702,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 
 		// Reset some flags for optimizations..
-		this->sWalkToAttackGridNo = NOWHERE;
+		this->meleeApproach().invalidate();
 
 		// ATE: Make sure!
 		// RemoveMerc( this->sGridNo, this, FALSE );
@@ -4741,7 +4745,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		}
 
 		// HANDLE ANY SPECIAL RENDERING SITUATIONS
-		this->sZLevelOverride = -1;
+		this->animationActivity().clearRenderZOverride();
 		// If we are over a fence ( hopping ), make us higher!
 
 		if ( IsJumpableFencePresentAtGridNo( sNewGridNo ) )
@@ -4749,8 +4753,8 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			//sX = MapX( sNewGridNo );
 			//sY = MapY( sNewGridNo );
 			//GetWorldXYAbsoluteScreenXY( sX, sY, &sWorldX, &sZLevel);
-			//this->sZLevelOverride = (sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL;
-			this->sZLevelOverride = TOPMOST_Z_LEVEL;
+			//this->animationActivity().setRenderZOverride((sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL);
+			this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
 		}
 		/*
 		if ( IsJumpableWindowPresentAtGridNo( sNewGridNo ) )
@@ -4758,15 +4762,15 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		//sX = MapX( sNewGridNo );
 		//sY = MapY( sNewGridNo );
 		//GetWorldXYAbsoluteScreenXY( sX, sY, &sWorldX, &sZLevel);
-		//this->sZLevelOverride = (sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL;
-		this->sZLevelOverride = TOPMOST_Z_LEVEL;
+		//this->animationActivity().setRenderZOverride((sZLevel*Z_SUBLAYERS)+ROOF_Z_LEVEL);
+		this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
 		}
 		*/
 
 		//ddd window{ ???????
 		//if ( IsOknoFencePresentAtGridno( sNewGridNo ) )
 		//{
-		//	this->sZLevelOverride = TOPMOST_Z_LEVEL;
+		//	this->animationActivity().setRenderZOverride(TOPMOST_Z_LEVEL);
 		//}
 		//ddd window}
 

@@ -466,11 +466,20 @@ adapter, so save and load can never drift out of order. Extra methods:
 - Mutable volley execution is now stored by `SoldierFireControlComponent`.
   Spread and autofire flags, recoil/counterforce history, initial muzzle
   offsets, bullets in flight, burst progress, all six spread targets, autofire
-  count, and the multi-barrel cursor remain at their established field-visitor
-  positions. The v101 converter now copies the complete six-element `INT32`
-  spread array instead of only its first half. This is an in-memory ownership
-  and old-conversion correctness change; it does not change the current save
-  stream, multiplayer packets, or installed data.
+  count, the multi-barrel cursor, and the burst-drag start/end grids remain at
+  their established field-visitor positions. The v101 converter now copies the
+  complete six-element `INT32` spread array instead of only its first half.
+  This is an in-memory ownership and old-conversion correctness change; it does
+  not change the current save stream, multiplayer packets, or installed data.
+- The four walk-to-attack cache values are now stored by
+  `SoldierMeleeApproachComponent`; the pre-interrupt moved snapshot is stored
+  by `SoldierInterruptSnapshotComponent`; and traversal forecast/render-depth
+  state is stored by `SoldierAnimationActivityComponent`. The visitor emits
+  all seven values at their original signed/unsigned widths and scattered byte
+  positions. v101 conversion maps its historical grid, cost, drag, traversal,
+  and interrupt values while fields introduced after v101 retain their
+  established zero defaults. No current save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Incoming attacker history, hit metadata, hit/pellet counters, and accumulated
   damage are now stored by `SoldierCombatResultComponent`. Floating-number
   flag, cursor, offsets, and direction are stored separately by

@@ -7492,6 +7492,7 @@ int main( int, char** )
 		movement.delayedFlags() = 5;
 		movement.stopReason() = 2;
 		movement.overrideMoveSpeedWith(SoldierID{ 4 });
+		soldier.interruptSnapshot().captureMoved(1);
 		SoldierTargetingComponent& targeting = soldier.targeting();
 		targeting.selectLocation(1280, 1, 3);
 		targeting.lastGridNo() = 1279;
@@ -7502,6 +7503,9 @@ int main( int, char** )
 		attackSelection.scopeMode() = USE_ALT_WEAPON_HOLD;
 		attackSelection.shotLocation() = AIM_SHOT_HEAD;
 		attackSelection.meleeLocation() = AIM_SHOT_LEGS;
+		SoldierMeleeApproachComponent& meleeApproach = soldier.meleeApproach();
+		meleeApproach.recordPath(SWATTING, 11, 6);
+		meleeApproach.rememberGrid(1275);
 		SoldierFireControlComponent& fireControl = soldier.fireControl();
 		fireControl.selectAutofire(7);
 		fireControl.bulletsLeft() = 3;
@@ -7520,6 +7524,8 @@ int main( int, char** )
 		fireControl.initialMuzzleOffsetX() = 4.0f;
 		fireControl.initialMuzzleOffsetY() = -5.0f;
 		fireControl.barrelCounter() = 2;
+		fireControl.beginSpreadDrag(1287);
+		fireControl.updateSpreadDrag(1288);
 		SoldierCombatResultComponent& combatResult = soldier.combatResult();
 		combatResult.recordHit(SoldierID{ 6 }, AIM_SHOT_HEAD);
 		combatResult.previousAttacker() = SoldierID{ 5 };
@@ -7594,6 +7600,8 @@ int main( int, char** )
 		animationActivity.beginFall( 6 );
 		animationActivity.fallClockwise() = TRUE;
 		animationActivity.turningIncrement() = -1;
+		animationActivity.forecastTraversalAt(1290);
+		animationActivity.setRenderZOverride(999);
 		CHECK( vitals.alive() &&
 		       vitals.hasHealableInjury() &&
 		       vitals.isUndergoingSurgery() &&
@@ -7870,6 +7878,8 @@ int main( int, char** )
 		       constSoldier.movement().usesMoveSpeedOverride() &&
 		       constSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier movement component owns tactical intent and contention state" );
+		CHECK( constSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       "soldier interrupt snapshot owns the pre-interrupt scheduler state" );
 		CHECK( constSoldier.targeting().gridNo() == 1280 &&
 		       constSoldier.targeting().level() == 1 &&
 		       constSoldier.targeting().cubeLevel() == 3 &&
@@ -7884,6 +7894,10 @@ int main( int, char** )
 		       constSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
 		       constSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier attack-selection component owns weapon and aim choices" );
+		CHECK( constSoldier.meleeApproach().matches(1275, SWATTING) &&
+		       constSoldier.meleeApproach().cost() == 11 &&
+		       constSoldier.meleeApproach().endDirection() == 6,
+		       "soldier melee-approach component owns the reusable path-cost result" );
 		CHECK( constSoldier.fireControl().bursting() &&
 		       constSoldier.fireControl().burstCounter() == 1 &&
 		       constSoldier.fireControl().autofiring() &&
@@ -7897,7 +7911,10 @@ int main( int, char** )
 		       constSoldier.fireControl().previousCounterForceY()[1] == -1.25f &&
 		       constSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
 		       constSoldier.fireControl().initialMuzzleOffsetY() == -5.0f &&
-		       constSoldier.fireControl().barrelCounter() == 2,
+		       constSoldier.fireControl().barrelCounter() == 2 &&
+		       constSoldier.fireControl().spreadDragStartGrid() == 1287 &&
+		       constSoldier.fireControl().spreadDragEndGrid() == 1288 &&
+		       constSoldier.fireControl().spreadDragMoved(),
 		       "soldier fire-control component owns volley selection and execution state" );
 		CHECK(
 			SoldierFireControlComponent::clampSpreadTargetCount(4) == 4 &&
@@ -7997,7 +8014,10 @@ int main( int, char** )
 		       constSoldier.animationActivity().tryingToFall() &&
 		       constSoldier.animationActivity().fallClockwise() &&
 		       constSoldier.animationActivity().fallDirection() == 6 &&
-		       constSoldier.animationActivity().turningIncrement() == -1,
+		       constSoldier.animationActivity().turningIncrement() == -1 &&
+		       constSoldier.animationActivity().traversalForecastGrid() == 1290 &&
+		       constSoldier.animationActivity().hasRenderZOverride() &&
+		       constSoldier.animationActivity().renderZOverride() == 999,
 		       "soldier animation-activity component owns coordinated turn, hit, fall, and AP lifecycle state" );
 		SoldierAnimationCacheComponent invalidOwnerCache;
 		invalidOwnerCache.initialize( NOBODY );
@@ -8740,6 +8760,8 @@ int main( int, char** )
 		       copiedSoldier.movement().usesMoveSpeedOverride() &&
 		       copiedSoldier.movement().moveSpeedOverride() == SoldierID{ 4 },
 		       "soldier copies retain their owned persistent movement state" );
+		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       "soldier copies retain their owned interrupt snapshot" );
 		CHECK( copiedSoldier.targeting().gridNo() == 1280 &&
 		       copiedSoldier.targeting().level() == 1 &&
 		       copiedSoldier.targeting().cubeLevel() == 3 &&
@@ -8753,6 +8775,10 @@ int main( int, char** )
 		       copiedSoldier.attackSelection().shotLocation() == AIM_SHOT_HEAD &&
 		       copiedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier copies retain their owned persistent attack selection" );
+		CHECK( copiedSoldier.meleeApproach().matches(1275, SWATTING) &&
+		       copiedSoldier.meleeApproach().cost() == 11 &&
+		       copiedSoldier.meleeApproach().endDirection() == 6,
+		       "soldier copies retain their owned melee-approach cache" );
 		CHECK( copiedSoldier.fireControl().burstCounter() == 1 &&
 		       copiedSoldier.fireControl().autofireShots() == 7 &&
 		       copiedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8763,7 +8789,9 @@ int main( int, char** )
 		       copiedSoldier.fireControl().previousMuzzleOffsetY()[1] == -3.0f &&
 		       copiedSoldier.fireControl().previousCounterForceX()[1] == 1.0f &&
 		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
-		       copiedSoldier.fireControl().barrelCounter() == 2,
+		       copiedSoldier.fireControl().barrelCounter() == 2 &&
+		       copiedSoldier.fireControl().spreadDragStartGrid() == 1287 &&
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 1288,
 		       "soldier copies retain their owned persistent fire-control state" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       copiedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
@@ -8844,7 +8872,9 @@ int main( int, char** )
 		       copiedSoldier.animationActivity().tryingToFall() &&
 		       copiedSoldier.animationActivity().fallClockwise() &&
 		       copiedSoldier.animationActivity().fallDirection() == 6 &&
-		       copiedSoldier.animationActivity().turningIncrement() == -1,
+		       copiedSoldier.animationActivity().turningIncrement() == -1 &&
+		       copiedSoldier.animationActivity().traversalForecastGrid() == 1290 &&
+		       copiedSoldier.animationActivity().renderZOverride() == 999,
 		       "soldier copies retain their owned persistent animation activity" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
@@ -8945,6 +8975,55 @@ int main( int, char** )
 		       uiPresentationLifecycle.plannedTargetX() == 0 &&
 		       uiPresentationLifecycle.plannedTargetY() == 0,
 		       "UI-presentation reset restores the established fresh-soldier defaults" );
+
+		SoldierMeleeApproachComponent meleeApproachLifecycle;
+		meleeApproachLifecycle.recordPath(SWATTING, 13, 5);
+		meleeApproachLifecycle.rememberGrid(1400);
+		CHECK( meleeApproachLifecycle.matches(1400, SWATTING) &&
+		       meleeApproachLifecycle.cost() == 13 &&
+		       meleeApproachLifecycle.endDirection() == 5,
+		       "melee-approach cache coordinates its path key and calculated result" );
+		meleeApproachLifecycle.clearCost();
+		meleeApproachLifecycle.invalidate();
+		CHECK( !meleeApproachLifecycle.matches(1400, SWATTING) &&
+		       meleeApproachLifecycle.cost() == 0 &&
+		       meleeApproachLifecycle.movementMode() == SWATTING &&
+		       meleeApproachLifecycle.endDirection() == 5,
+		       "melee-approach invalidation preserves the historical partial-cache semantics" );
+		meleeApproachLifecycle.reset();
+		CHECK( meleeApproachLifecycle.grid() == 0 &&
+		       meleeApproachLifecycle.movementMode() == 0 &&
+		       meleeApproachLifecycle.cost() == 0 &&
+		       meleeApproachLifecycle.endDirection() == 0,
+		       "melee-approach reset restores established fresh-soldier defaults" );
+
+		SoldierFireControlComponent spreadDragLifecycle;
+		spreadDragLifecycle.beginSpreadDrag(1500);
+		spreadDragLifecycle.updateSpreadDrag(1500);
+		CHECK( !spreadDragLifecycle.spreadDragMoved(),
+		       "burst-spread gesture distinguishes a stationary click" );
+		spreadDragLifecycle.updateSpreadDrag(1501);
+		CHECK( spreadDragLifecycle.spreadDragMoved(),
+		       "burst-spread gesture detects movement from its captured start grid" );
+
+		SoldierAnimationActivityComponent traversalLifecycle;
+		traversalLifecycle.forecastTraversalAt(1600);
+		traversalLifecycle.setRenderZOverride(777);
+		CHECK( traversalLifecycle.traversalForecastGrid() == 1600 &&
+		       traversalLifecycle.hasRenderZOverride() &&
+		       traversalLifecycle.renderZOverride() == 777,
+		       "animation activity coordinates traversal forecast and render-depth override" );
+		traversalLifecycle.clearRenderZOverride();
+		CHECK( !traversalLifecycle.hasRenderZOverride(),
+		       "animation activity clears traversal render-depth override explicitly" );
+
+		SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;
+		interruptSnapshotLifecycle.captureMoved(1);
+		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 1,
+		       "interrupt snapshot captures scheduler movement state" );
+		interruptSnapshotLifecycle.reset();
+		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 0,
+		       "interrupt snapshot reset restores the established default" );
 
 		SoldierSuppressionComponent suppressionLifecycle;
 		suppressionLifecycle.underFire() = 3;
@@ -9520,6 +9599,8 @@ int main( int, char** )
 		       copiedSoldier.movement().moveSpeedOverride() == NOBODY &&
 		       !copiedSoldier.movement().usesMoveSpeedOverride(),
 		       "soldier initialization resets the complete movement domain" );
+		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 0,
+		       "soldier initialization resets the interrupt snapshot domain" );
 		CHECK( copiedSoldier.targeting().gridNo() == 0 &&
 		       copiedSoldier.targeting().level() == 0 &&
 		       copiedSoldier.targeting().cubeLevel() == 0 &&
@@ -9534,6 +9615,11 @@ int main( int, char** )
 		       copiedSoldier.attackSelection().shotLocation() == 0 &&
 		       copiedSoldier.attackSelection().meleeLocation() == 0,
 		       "soldier initialization resets the complete attack-selection domain" );
+		CHECK( copiedSoldier.meleeApproach().movementMode() == 0 &&
+		       copiedSoldier.meleeApproach().grid() == 0 &&
+		       copiedSoldier.meleeApproach().cost() == 0 &&
+		       copiedSoldier.meleeApproach().endDirection() == 0,
+		       "soldier initialization resets the complete melee-approach cache" );
 		CHECK( copiedSoldier.fireControl().burstCounter() == 0 &&
 		       copiedSoldier.fireControl().autofireShots() == 0 &&
 		       copiedSoldier.fireControl().bulletsLeft() == 0 &&
@@ -9545,7 +9631,9 @@ int main( int, char** )
 		       copiedSoldier.fireControl().previousCounterForceY()[1] == 0.0f &&
 		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 0.0f &&
 		       copiedSoldier.fireControl().initialMuzzleOffsetY() == 0.0f &&
-		       copiedSoldier.fireControl().barrelCounter() == 0,
+		       copiedSoldier.fireControl().barrelCounter() == 0 &&
+		       copiedSoldier.fireControl().spreadDragStartGrid() == 0 &&
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 0,
 		       "soldier initialization resets the complete fire-control domain" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == NOBODY &&
 		       copiedSoldier.combatResult().previousAttacker() == NOBODY &&
@@ -9625,7 +9713,10 @@ int main( int, char** )
 		       !copiedSoldier.animationActivity().tryingToFall() &&
 		       !copiedSoldier.animationActivity().fallClockwise() &&
 		       copiedSoldier.animationActivity().fallDirection() == 0 &&
-		       copiedSoldier.animationActivity().turningIncrement() == 0,
+		       copiedSoldier.animationActivity().turningIncrement() == 0 &&
+		       copiedSoldier.animationActivity().traversalForecastGrid() == 0 &&
+		       copiedSoldier.animationActivity().hasRenderZOverride() &&
+		       copiedSoldier.animationActivity().renderZOverride() == 0,
 		       "soldier initialization resets the complete animation-activity domain" );
 	}
 
@@ -9636,6 +9727,13 @@ int main( int, char** )
 		legacySoldier->bBulletsLeft = 3;
 		legacySoldier->bDoBurst = 4;
 		legacySoldier->bDoAutofire = 8;
+		legacySoldier->sWalkToAttackGridNo = 1700;
+		legacySoldier->sWalkToAttackWalkToCost = 23;
+		legacySoldier->sStartGridNo = 1701;
+		legacySoldier->sEndGridNo = 1702;
+		legacySoldier->sForcastGridNo = 1703;
+		legacySoldier->sZLevelOverride = 701;
+		legacySoldier->bMovedPriorToInterrupt = 1;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
 		legacySoldier->bOldLife = 72;
@@ -9858,6 +9956,13 @@ int main( int, char** )
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
 		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
 		convertedSoldier.movement().mode() = RUNNING;
+		convertedSoldier.interruptSnapshot().captureMoved(9);
+		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
+		convertedSoldier.meleeApproach().rememberGrid(9997);
+		convertedSoldier.fireControl().beginSpreadDrag(9998);
+		convertedSoldier.fireControl().updateSpreadDrag(9999);
+		convertedSoldier.animationActivity().forecastTraversalAt(10000);
+		convertedSoldier.animationActivity().setRenderZOverride(1001);
 		convertedSoldier.aiPlanning().flankCount() = 90;
 		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
 		convertedSoldier.aiPlanning().raiseSniperPosture();
@@ -10122,6 +10227,17 @@ int main( int, char** )
 		       "v101 soldier conversion retains every historical tactical movement-history value" );
 		CHECK( convertedSoldier.movement().mode() == SWATTING,
 		       "v101 soldier conversion maps the established tactical movement mode" );
+		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
+		       convertedSoldier.meleeApproach().grid() == 1700 &&
+		       convertedSoldier.meleeApproach().cost() == 23 &&
+		       convertedSoldier.meleeApproach().endDirection() == 0,
+		       "v101 soldier conversion maps the historical melee cache and clears later key fields" );
+		CHECK( convertedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       "v101 soldier conversion retains the pre-interrupt moved snapshot" );
+		CHECK( convertedSoldier.animationActivity().traversalForecastGrid() == 1703 &&
+		       convertedSoldier.animationActivity().hasRenderZOverride() &&
+		       convertedSoldier.animationActivity().renderZOverride() == 701,
+		       "v101 soldier conversion retains traversal forecast and render-depth state" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -10132,7 +10248,10 @@ int main( int, char** )
 		       convertedSoldier.fireControl().spreadLocations()[2] == 22003 &&
 		       convertedSoldier.fireControl().spreadLocations()[3] == 22004 &&
 		       convertedSoldier.fireControl().spreadLocations()[4] == 22005 &&
-		       convertedSoldier.fireControl().spreadLocations()[5] == 22006,
+		       convertedSoldier.fireControl().spreadLocations()[5] == 22006 &&
+		       convertedSoldier.fireControl().spreadDragStartGrid() == 1701 &&
+		       convertedSoldier.fireControl().spreadDragEndGrid() == 1702 &&
+		       convertedSoldier.fireControl().spreadDragMoved(),
 		       "v101 soldier conversion retains the complete fire-control spread array" );
 		CHECK( convertedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       convertedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
@@ -10488,6 +10607,7 @@ int main( int, char** )
 		savedSoldier.movement().delayedFlags() = 3;
 		savedSoldier.movement().stopReason() = 4;
 		savedSoldier.movement().overrideMoveSpeedWith(SoldierID{ 8 });
+		savedSoldier.interruptSnapshot().captureMoved(1);
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
 		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
@@ -10496,6 +10616,8 @@ int main( int, char** )
 		savedSoldier.attackSelection().scopeMode() = USE_SCOPE_3;
 		savedSoldier.attackSelection().shotLocation() = AIM_SHOT_HEAD;
 		savedSoldier.attackSelection().meleeLocation() = AIM_SHOT_LEGS;
+		savedSoldier.meleeApproach().recordPath(WALKING_WEAPON_RDY, 25, 6);
+		savedSoldier.meleeApproach().rememberGrid(1490);
 		savedSoldier.fireControl().selectAutofire(9);
 		savedSoldier.fireControl().bulletsLeft() = 4;
 		savedSoldier.fireControl().spreadIndex() = TRUE;
@@ -10513,6 +10635,8 @@ int main( int, char** )
 		savedSoldier.fireControl().initialMuzzleOffsetX() = 3.5f;
 		savedSoldier.fireControl().initialMuzzleOffsetY() = -4.5f;
 		savedSoldier.fireControl().barrelCounter() = 3;
+		savedSoldier.fireControl().beginSpreadDrag(1510);
+		savedSoldier.fireControl().updateSpreadDrag(1512);
 		savedSoldier.combatResult().recordHit(SoldierID{ 12 }, AIM_SHOT_HEAD);
 		savedSoldier.combatResult().previousAttacker() = SoldierID{ 11 };
 		savedSoldier.combatResult().earlierAttacker() = SoldierID{ 10 };
@@ -10567,6 +10691,8 @@ int main( int, char** )
 		savedSoldier.animationActivity().beginFall( 4 );
 		savedSoldier.animationActivity().fallClockwise() = TRUE;
 		savedSoldier.animationActivity().turningIncrement() = -1;
+		savedSoldier.animationActivity().forecastTraversalAt(1520);
+		savedSoldier.animationActivity().setRenderZOverride(888);
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -10883,6 +11009,9 @@ int main( int, char** )
 		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
 		       "soldier save/load round-trips component-owned movement speed state" );
 		CHECK( saved && loaded &&
+		       loadedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       "soldier save/load round-trips the interrupt scheduler snapshot" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.targeting().gridNo() == 1480 &&
 		       loadedSoldier.targeting().level() == 1 &&
 		       loadedSoldier.targeting().cubeLevel() == 4 &&
@@ -10898,6 +11027,11 @@ int main( int, char** )
 		       loadedSoldier.attackSelection().meleeLocation() == AIM_SHOT_LEGS,
 		       "soldier save/load round-trips component-owned attack selection at established schema positions" );
 		CHECK( saved && loaded &&
+		       loadedSoldier.meleeApproach().matches(1490, WALKING_WEAPON_RDY) &&
+		       loadedSoldier.meleeApproach().cost() == 25 &&
+		       loadedSoldier.meleeApproach().endDirection() == 6,
+		       "soldier save/load round-trips the melee-approach cache at established schema positions" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.fireControl().burstCounter() == 1 &&
 		       loadedSoldier.fireControl().autofireShots() == 9 &&
 		       loadedSoldier.fireControl().bulletsLeft() == 4 &&
@@ -10911,7 +11045,10 @@ int main( int, char** )
 		       loadedSoldier.fireControl().previousCounterForceY()[1] == -1.0f &&
 		       loadedSoldier.fireControl().initialMuzzleOffsetX() == 3.5f &&
 		       loadedSoldier.fireControl().initialMuzzleOffsetY() == -4.5f &&
-		       loadedSoldier.fireControl().barrelCounter() == 3,
+		       loadedSoldier.fireControl().barrelCounter() == 3 &&
+		       loadedSoldier.fireControl().spreadDragStartGrid() == 1510 &&
+		       loadedSoldier.fireControl().spreadDragEndGrid() == 1512 &&
+		       loadedSoldier.fireControl().spreadDragMoved(),
 		       "soldier save/load round-trips fire-control state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.combatResult().currentAttacker() == SoldierID{ 12 } &&
@@ -10985,7 +11122,10 @@ int main( int, char** )
 		       loadedSoldier.animationActivity().tryingToFall() &&
 		       loadedSoldier.animationActivity().fallClockwise() &&
 		       loadedSoldier.animationActivity().fallDirection() == 4 &&
-		       loadedSoldier.animationActivity().turningIncrement() == -1,
+		       loadedSoldier.animationActivity().turningIncrement() == -1 &&
+		       loadedSoldier.animationActivity().traversalForecastGrid() == 1520 &&
+		       loadedSoldier.animationActivity().hasRenderZOverride() &&
+		       loadedSoldier.animationActivity().renderZOverride() == 888,
 		       "soldier save/load round-trips animation activity without normalizing hit phase 2 to boolean 1" );
 	}
 
