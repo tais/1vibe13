@@ -205,6 +205,29 @@ void SoldierInteractionComponent::reset() noexcept
 	*this = SoldierInteractionComponent{};
 }
 
+void SoldierPendingActionComponent::clearPayload() noexcept
+{
+	primaryData_ = 0;
+	secondaryData_ = 0;
+	tertiaryData_ = 0;
+	doorHandleCode_ = 0;
+	quaternaryData_ = 0;
+	inventorySlot_ = 0;
+}
+
+void SoldierPendingActionComponent::recordAnimationTransition() noexcept
+{
+	if (animationCount_ < std::numeric_limits<UINT8>::max())
+	{
+		++animationCount_;
+	}
+}
+
+void SoldierPendingActionComponent::reset() noexcept
+{
+	*this = SoldierPendingActionComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;

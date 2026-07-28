@@ -2108,7 +2108,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->animationIntent().clearPendingAnimations();
 	pSoldier->animationIntent().clearPendingStance();
 	pSoldier->animationIntent().clearPendingDirection();
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 	pSoldier->awareness().syncRenderedVisibility();
 	pSoldier->vitals().breath()					= 99;
 	pSoldier->vitals().maximumBreath()					= 100;

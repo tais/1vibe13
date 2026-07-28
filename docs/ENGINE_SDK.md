@@ -332,6 +332,16 @@ entities. Fresh soldiers use explicit no-corpse and no-structure sentinels, and
 grid zero is handled as a valid structure location. The serializer retains all
 five original scattered positions and widths; v101 conversion clears this
 later domain.
+`SoldierPendingActionComponent` owns the complementary persisted action plan:
+the selected action, animation-transition count, its five polymorphic payload
+values, door operation, queued-AI special data, and interruption marker. Named
+begin, cancel, payload-clear, transition, and reset operations give tactical,
+AI, tile, and persistence code one authority. Fresh soldiers start at the
+explicit no-action sentinel, and transition counting saturates instead of
+wrapping. Runtime-only target incarnation, path-search, launcher, and callback
+scratch remain in `SoldierPendingActionRuntimeState`. The serializer retains
+all ten original scattered positions and widths; v101 conversion maps the
+complete historical domain.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

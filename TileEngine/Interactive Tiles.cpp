@@ -102,22 +102,22 @@ BOOLEAN StartInteractiveObject( INT32 sGridNo, UINT16 usStructureID, SOLDIERTYPE
 	if (pStructure->fFlags & STRUCTURE_ANYDOOR)
 	{
 		// Add soldier event for opening door....
-		pSoldier->aiData.ubPendingAction = MERC_OPENDOOR;
-		pSoldier->aiData.uiPendingActionData1 = usStructureID;
-		pSoldier->aiData.sPendingActionData2	= sGridNo;
-		pSoldier->aiData.bPendingActionData3	= ubDirection;
-		pSoldier->aiData.ubPendingActionAnimCount = 0;
+		pSoldier->pendingAction().begin(MERC_OPENDOOR);
+		pSoldier->pendingAction().primaryData() = usStructureID;
+		pSoldier->pendingAction().secondaryData()	= sGridNo;
+		pSoldier->pendingAction().tertiaryData()	= ubDirection;
+		pSoldier->pendingAction().resetAnimationCount();
 
 
 	}
 	else
 	{
 		// Add soldier event for opening door....
-		pSoldier->aiData.ubPendingAction = MERC_OPENSTRUCT;
-		pSoldier->aiData.uiPendingActionData1 = usStructureID;
-		pSoldier->aiData.sPendingActionData2	= sGridNo;
-		pSoldier->aiData.bPendingActionData3	= ubDirection;
-		pSoldier->aiData.ubPendingActionAnimCount = 0;
+		pSoldier->pendingAction().begin(MERC_OPENSTRUCT);
+		pSoldier->pendingAction().primaryData() = usStructureID;
+		pSoldier->pendingAction().secondaryData()	= sGridNo;
+		pSoldier->pendingAction().tertiaryData()	= ubDirection;
+		pSoldier->pendingAction().resetAnimationCount();
 
 	}
 
@@ -184,8 +184,8 @@ BOOLEAN SoldierHandleInteractiveObject( SOLDIERTYPE *pSoldier )
 	UINT16				usStructureID;
 	INT32 sGridNo;
 
-	sGridNo					= pSoldier->aiData.sPendingActionData2;
-	usStructureID		= (UINT16)pSoldier->aiData.uiPendingActionData1;
+	sGridNo					= pSoldier->pendingAction().secondaryData();
+	usStructureID		= (UINT16)pSoldier->pendingAction().primaryData();
 
 	// HANDLE SOLDIER ACTIONS
 	pStructure = FindStructureByID( sGridNo, usStructureID );

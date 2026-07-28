@@ -1386,7 +1386,7 @@ BOOLEAN ExecuteOverhead( )
                                         if ( gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALKOFF_SCREEN )
                                         {
                                             pSoldier->pathing().pathIndex()--; // ATE wanted this line here...
-                                            AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->position().gridNo(), (UINT8)pSoldier->aiData.uiPendingActionData1 );
+                                            AdjustSoldierPathToGoOffEdge( pSoldier, pSoldier->position().gridNo(), (UINT8)pSoldier->pendingAction().primaryData() );
                                             continue;
                                         }
                                     }
@@ -1402,14 +1402,14 @@ BOOLEAN ExecuteOverhead( )
                                         }
                                     }
                                 }
-                                else if ( pSoldier->aiData.ubPendingAction != NO_PENDING_ACTION )
+                                else if ( pSoldier->pendingAction().active() )
                                 {
                                     DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("We are inside the IF PENDING Animation with soldier #%d", pSoldier->ubID) );
 
-                                    if ( pSoldier->aiData.ubPendingAction == MERC_OPENDOOR ||   pSoldier->aiData.ubPendingAction == MERC_OPENSTRUCT )
+                                    if ( pSoldier->pendingAction().action() == MERC_OPENDOOR ||   pSoldier->pendingAction().action() == MERC_OPENSTRUCT )
                                     {
-                                        sGridNo                              = pSoldier->aiData.sPendingActionData2;
-                                        //usStructureID         = (UINT16)pSoldier->aiData.uiPendingActionData1;
+                                        sGridNo                              = pSoldier->pendingAction().secondaryData();
+                                        //usStructureID         = (UINT16)pSoldier->pendingAction().primaryData();
                                         //pStructure = FindStructureByID( sGridNo, usStructureID );
 
                                         // LOOK FOR STRUCT OPENABLE
@@ -1422,7 +1422,7 @@ BOOLEAN ExecuteOverhead( )
 #endif
 											// Flugente: if there is no structure for us to interact with, stop
 											pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
-											pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+											pSoldier->pendingAction().clearAction();
 
                                             fKeepMoving = FALSE;
                                         }
@@ -1432,7 +1432,7 @@ BOOLEAN ExecuteOverhead( )
 
                                             if ( EnoughPoints( pSoldier, sAPCost, sBPCost , TRUE ) )
                                             {
-                                                InteractWithInteractiveObject( pSoldier, pStructure, pSoldier->aiData.bPendingActionData3 );
+                                                InteractWithInteractiveObject( pSoldier, pStructure, pSoldier->pendingAction().tertiaryData() );
                                             }
                                             else
                                             {
@@ -1444,13 +1444,13 @@ BOOLEAN ExecuteOverhead( )
 									// Flugente: we are doing something here - stop multi-turn-action
 									pSoldier->CancelMultiTurnAction( FALSE );
 
-                                    if ( pSoldier->aiData.ubPendingAction == MERC_PICKUPITEM    )
+                                    if ( pSoldier->pendingAction().action() == MERC_PICKUPITEM    )
                                     {
                                         if ( !TryValidatePendingWorldItemPickup( *pSoldier ) )
                                         {
                                             continue;
                                         }
-                                        sGridNo = pSoldier->aiData.sPendingActionData2;
+                                        sGridNo = pSoldier->pendingAction().secondaryData();
 
                                         if ( sGridNo == pSoldier->position().gridNo() )
                                         {
@@ -1459,25 +1459,25 @@ BOOLEAN ExecuteOverhead( )
                                             {
                                                 // If the two gridnos are not the same, check to see if we can
                                                 // now go into it
-                                                if ( sGridNo != (pSoldier->aiData.uiPendingActionData4 ))
+                                                if ( sGridNo != (pSoldier->pendingAction().quaternaryData() ))
                                                 {
-                                                    if ( NewOKDestination( pSoldier, pSoldier->aiData.uiPendingActionData4, TRUE, pSoldier->position().level() ) )
+                                                    if ( NewOKDestination( pSoldier, pSoldier->pendingAction().quaternaryData(), TRUE, pSoldier->position().level() ) )
                                                     {
                                                         // GOTO NEW TILE!
-                                                        SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3, pSoldier->runtime.pendingAction.targetIncarnation );
+                                                        SoldierPickupItem( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData(), pSoldier->runtime.pendingAction.targetIncarnation );
                                                         continue;
                                                     }
                                                 }
                                             }
 
                                             // OK MORON, DOUBLE CHECK THAT THE ITEM EXISTS HERE...
-                                            if ( pSoldier->aiData.uiPendingActionData1 != ITEM_PICKUP_ACTION_ALL )
+                                            if ( pSoldier->pendingAction().primaryData() != ITEM_PICKUP_ACTION_ALL )
                                             {
-                                                PickPickupAnimation( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3 );
+                                                PickPickupAnimation( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData() );
                                             }
                                             else
                                             {
-                                                PickPickupAnimation( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3 );
+                                                PickPickupAnimation( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData() );
                                             }
                                         }
                                         else
@@ -1485,109 +1485,109 @@ BOOLEAN ExecuteOverhead( )
                                             pSoldier->SoldierGotoStationaryStance( );
                                         }
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_PUNCH    )
+                                    else if ( pSoldier->pendingAction().action() == MERC_PUNCH    )
                                     {
                                         // for the benefit of the AI
                                         pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
 
-                                        pSoldier->EVENT_SoldierBeginPunchAttack( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginPunchAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_TALK )
+                                    else if ( pSoldier->pendingAction().action() == MERC_TALK )
                                     {
                                         (void)TryCompletePendingConversationCommand( *pSoldier );
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_DROPBOMB )
+                                    else if ( pSoldier->pendingAction().action() == MERC_DROPBOMB )
                                     {
                                         pSoldier->EVENT_SoldierBeginDropBomb( );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_STEAL    )
+                                    else if ( pSoldier->pendingAction().action() == MERC_STEAL    )
                                     {
                                         (void)TryCompletePendingStealCommand( *pSoldier );
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_KNIFEATTACK)
+                                    else if ( pSoldier->pendingAction().action() == MERC_KNIFEATTACK)
                                     {
                                         // for the benefit of the AI
                                         pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
 
-                                        pSoldier->EVENT_SoldierBeginBladeAttack( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginBladeAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_GIVEAID  )
+                                    else if ( pSoldier->pendingAction().action() == MERC_GIVEAID  )
                                     {
-                                        pSoldier->EVENT_SoldierBeginFirstAid( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginFirstAid( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_REPAIR   )
+                                    else if ( pSoldier->pendingAction().action() == MERC_REPAIR   )
                                     {
-                                        pSoldier->EVENT_SoldierBeginRepair( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginRepair( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_FUEL_VEHICLE )
+                                    else if ( pSoldier->pendingAction().action() == MERC_FUEL_VEHICLE )
                                     {
-                                        pSoldier->EVENT_SoldierBeginRefuel( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginRefuel( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_RELOADROBOT  )
+                                    else if ( pSoldier->pendingAction().action() == MERC_RELOADROBOT  )
                                     {
-                                        pSoldier->EVENT_SoldierBeginReloadRobot( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3, (INT8)pSoldier->aiData.uiPendingActionData1 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginReloadRobot( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData(), (INT8)pSoldier->pendingAction().primaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_TAKEBLOOD    )
+                                    else if ( pSoldier->pendingAction().action() == MERC_TAKEBLOOD    )
                                     {
-                                        pSoldier->EVENT_SoldierBeginTakeBlood( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginTakeBlood( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_ATTACH_CAN )
+                                    else if ( pSoldier->pendingAction().action() == MERC_ATTACH_CAN )
                                     {
-                                        pSoldier->EVENT_SoldierBeginAttachCan( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginAttachCan( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_ENTER_VEHICLE    )
+                                    else if ( pSoldier->pendingAction().action() == MERC_ENTER_VEHICLE    )
                                     {
                                         (void)TryCompletePendingVehicleCommand( *pSoldier );
                                         continue;
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_CUTFFENCE )
+                                    else if ( pSoldier->pendingAction().action() == MERC_CUTFFENCE )
                                     {
-                                        pSoldier->EVENT_SoldierBeginCutFence( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBeginCutFence( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_BUILD_FORTIFICATION )
+                                    else if ( pSoldier->pendingAction().action() == MERC_BUILD_FORTIFICATION )
                                     {
-                                        pSoldier->EVENT_SoldierBuildStructure( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierBuildStructure( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_HANDCUFF_PERSON )
+                                    else if ( pSoldier->pendingAction().action() == MERC_HANDCUFF_PERSON )
                                     {
-                                        pSoldier->EVENT_SoldierHandcuffPerson( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierHandcuffPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_APPLYITEM )
+                                    else if ( pSoldier->pendingAction().action() == MERC_APPLYITEM )
                                     {
-                                        pSoldier->EVENT_SoldierApplyItemToPerson( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->EVENT_SoldierApplyItemToPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+                                        pSoldier->pendingAction().clearAction();
                                     }
-                                    else if ( pSoldier->aiData.ubPendingAction == MERC_GIVEITEM )
+                                    else if ( pSoldier->pendingAction().action() == MERC_GIVEITEM )
                                     {
                                         pSoldier->EVENT_SoldierBeginGiveItem( );
-                                        pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+                                        pSoldier->pendingAction().clearAction();
                                     }
-									else if ( pSoldier->aiData.ubPendingAction == MERC_INTERACTIVEACTION )
+									else if ( pSoldier->pendingAction().action() == MERC_INTERACTIVEACTION )
 									{
-										pSoldier->EVENT_SoldierInteractiveAction( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-										pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+										pSoldier->EVENT_SoldierInteractiveAction( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										pSoldier->pendingAction().clearAction();
 									}
-									else if ( pSoldier->aiData.ubPendingAction == MERC_FILLBLOODBAG )
+									else if ( pSoldier->pendingAction().action() == MERC_FILLBLOODBAG )
 									{
-										pSoldier->EVENT_SoldierTakeBloodFromPerson( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-										pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+										pSoldier->EVENT_SoldierTakeBloodFromPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										pSoldier->pendingAction().clearAction();
 									}
-									else if ( pSoldier->aiData.ubPendingAction == MERC_MEDICALSPLINT )
+									else if ( pSoldier->pendingAction().action() == MERC_MEDICALSPLINT )
 									{
-										pSoldier->EVENT_SoldierApplySplintToPerson( pSoldier->aiData.sPendingActionData2, pSoldier->aiData.bPendingActionData3 );
-										pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+										pSoldier->EVENT_SoldierApplySplintToPerson( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
+										pSoldier->pendingAction().clearAction();
 									}
 									
                                     if ( fNoAPsForPendingAction )
@@ -1637,7 +1637,7 @@ BOOLEAN ExecuteOverhead( )
                                                     pSoldier->AdjustNoAPToFinishMove( TRUE );
 
                                                     pSoldier->animationIntent().clearFacingAnimation();
-                                                    pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
+                                                    pSoldier->pendingAction().clearAction();
                                                 }
                                                 else
                                                 {
@@ -1982,7 +1982,7 @@ static void HaltGuyFromNewGridNoBecauseOfNoAPs( SOLDIERTYPE *pSoldier )
 {
     HaltMoveForSoldierOutOfPoints( pSoldier );
     pSoldier->animationIntent().clearFacingAnimation();
-    pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+    pSoldier->pendingAction().clearAction();
     UnMarkMovementReserved( pSoldier );
     // Display message if our merc...
     if ( pSoldier->bTeam == gbPlayerNum && ( IsJa2TacticalCombatActive() ) )
@@ -2817,7 +2817,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         return( FALSE );
     }
 
-	if (pSoldier->position().level() == 0 && pSoldier->aiData.ubPendingAction != MERC_PICKUPITEM && (pSoldier->bOverTerrainType == FLAT_FLOOR || pSoldier->bOverTerrainType == PAVED_ROAD))
+	if (pSoldier->position().level() == 0 && pSoldier->pendingAction().action() != MERC_PICKUPITEM && (pSoldier->bOverTerrainType == FLAT_FLOOR || pSoldier->bOverTerrainType == PAVED_ROAD))
 	{
 		INT32 iMarblesIndex;
 		if (MarblesExistAtLocation(pSoldier->position().gridNo(), 0, &iMarblesIndex))
@@ -2889,7 +2889,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         // ATE: Cancel only if our final destination
         if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
         {
-            pSoldier->aiData.ubPendingAction                = NO_PENDING_ACTION;
+            pSoldier->pendingAction().clearAction();
         }
 
         // this flag is set only to halt the currently moving guy; reset it now
@@ -6624,7 +6624,7 @@ void ExitCombatMode( )
 
             //Cancel pending events
             pSoldier->animationIntent().clearFacingAnimation();
-            pSoldier->aiData.ubPendingAction    = NO_PENDING_ACTION;
+            pSoldier->pendingAction().clearAction();
 
             // Reset moved flag
             pSoldier->aiData.bMoved = FALSE;

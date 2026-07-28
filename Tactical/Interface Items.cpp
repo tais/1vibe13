@@ -9363,16 +9363,16 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 							// Remove from soldier's inv...
 							GetItemPointerSoldier()->inv[ gbItemPointerSrcSlot ].RemoveObjectsFromStack(1);
 
-							GetItemPointerSoldier()->aiData.sPendingActionData2  = sAdjustedGridNo;
-							GetItemPointerSoldier()->aiData.uiPendingActionData1 = gbItemPointerSrcSlot;
-							GetItemPointerSoldier()->aiData.bPendingActionData3  = ubDirection;
-							GetItemPointerSoldier()->aiData.ubPendingActionAnimCount = 0;
+							GetItemPointerSoldier()->pendingAction().secondaryData()  = sAdjustedGridNo;
+							GetItemPointerSoldier()->pendingAction().primaryData() = gbItemPointerSrcSlot;
+							GetItemPointerSoldier()->pendingAction().tertiaryData()  = ubDirection;
+							GetItemPointerSoldier()->pendingAction().resetAnimationCount();
 
 							// CHECK IF WE ARE AT THIS GRIDNO NOW
 							if ( GetItemPointerSoldier()->position().gridNo() != sActionGridNo )
 							{
 								// SEND PENDING ACTION
-								GetItemPointerSoldier()->aiData.ubPendingAction = MERC_RELOADROBOT;
+								GetItemPointerSoldier()->pendingAction().begin(MERC_RELOADROBOT);
 
 								// WALK UP TO DEST FIRST
 								GetItemPointerSoldier()->EVENT_InternalGetNewSoldierPath( sActionGridNo, GetItemPointerSoldier()->usUIMovementMode, FALSE, FALSE );
@@ -9462,7 +9462,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 						OBJECTTYPE::CopyToOrCreateAt( &GetItemPointerSoldier()->pTempObject, gpItemPointer);
 						if (GetItemPointerSoldier()->pTempObject != NULL)
 						{
-							GetItemPointerSoldier()->aiData.sPendingActionData2 = usMapPos;
+							GetItemPointerSoldier()->pendingAction().secondaryData() = usMapPos;
 
 	 						// Turn towards.....gridno
 							GetItemPointerSoldier()->EVENT_SetSoldierDesiredDirection( (INT8)GetDirectionFromGridNo( usMapPos, GetItemPointerSoldier() ) );

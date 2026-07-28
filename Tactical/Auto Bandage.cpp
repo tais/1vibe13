@@ -180,7 +180,7 @@ void HandleAutoBandagePending( )
 			{
 				if ( soldier->deployment().sectorX() == gWorldSectorX && soldier->deployment().sectorY() == gWorldSectorY && soldier->deployment().sectorZ() == gbWorldSectorZ && !soldier->flags.fBetweenSectors )
 				{
-					if ( soldier->aiData.ubPendingAction != NO_PENDING_ACTION )
+					if ( soldier->pendingAction().active() )
 					{
 						return;
 					}

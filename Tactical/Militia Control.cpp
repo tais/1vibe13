@@ -1185,8 +1185,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTMilitiaSoldier->aiData.usActionData = ANIM_STAND;
 
 								// SEND PENDING ACTION
-								pTMilitiaSoldier->aiData.sPendingActionData2  = sActionGridNo;
-								pTMilitiaSoldier->aiData.ubPendingActionAnimCount = 0;
+								pTMilitiaSoldier->pendingAction().secondaryData()  = sActionGridNo;
+								pTMilitiaSoldier->pendingAction().resetAnimationCount();
 							}
 
 							if ( pTMilitiaSoldier->position().gridNo() != sActionGridNo )
@@ -1231,9 +1231,9 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							{
 								// SEND PENDING ACTION
 								//pTMilitiaSoldier->ubPendingAction = MERC_STEAL;
-								pTMilitiaSoldier->aiData.sPendingActionData2 = pSoldier->position().gridNo();
+								pTMilitiaSoldier->pendingAction().secondaryData() = pSoldier->position().gridNo();
 								//pTMilitiaSoldier->bPendingActionData3  = ubDirection;
-								pTMilitiaSoldier->aiData.ubPendingActionAnimCount = 0;
+								pTMilitiaSoldier->pendingAction().resetAnimationCount();
 								pTMilitiaSoldier->usUIMovementMode = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -1337,8 +1337,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							if (!TileIsOutOfBounds(sActionGridNo))
 							{
 								// SEND PENDING ACTION
-								pTMilitiaSoldier->aiData.sPendingActionData2  = sActionGridNo;
-								pTMilitiaSoldier->aiData.ubPendingActionAnimCount = 0;
+								pTMilitiaSoldier->pendingAction().secondaryData()  = sActionGridNo;
+								pTMilitiaSoldier->pendingAction().resetAnimationCount();
 								pTMilitiaSoldier->usUIMovementMode = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -1502,8 +1502,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->aiData.usActionData = ANIM_STAND;									
 
 									// SEND PENDING ACTION
-									pTeamSoldier->aiData.sPendingActionData2  = sActionGridNo;
-									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
+									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
+									pTeamSoldier->pendingAction().resetAnimationCount();
 								}
 
 								if ( pTeamSoldier->position().gridNo() != sActionGridNo )
@@ -1556,9 +1556,9 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								if (sActionGridNo != -1)
 								{
 									// SEND PENDING ACTION
-									pTeamSoldier->aiData.sPendingActionData2 = pSoldier->position().gridNo();
+									pTeamSoldier->pendingAction().secondaryData() = pSoldier->position().gridNo();
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
-									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
+									pTeamSoldier->pendingAction().resetAnimationCount();
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -1611,9 +1611,9 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								if ( sActionGridNo != -1 )
 								{
 									// SEND PENDING ACTION
-									pTeamSoldier->aiData.sPendingActionData2  = sActionGridNo;
+									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
-									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
+									pTeamSoldier->pendingAction().resetAnimationCount();
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
@@ -1748,9 +1748,9 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								if (!TileIsOutOfBounds(sActionGridNo))
 								{
 									// SEND PENDING ACTION
-									pTeamSoldier->aiData.sPendingActionData2  = sActionGridNo;
+									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
-									pTeamSoldier->aiData.ubPendingActionAnimCount = 0;
+									pTeamSoldier->pendingAction().resetAnimationCount();
 									pTeamSoldier->usUIMovementMode = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW

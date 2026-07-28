@@ -2051,7 +2051,7 @@ UINT32 UIHandleAOnTerrain( UI_EVENT *pUIEvent )
 		// If we are in realtime, and in a stationary animation, follow!
 		if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 		{
-			if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY && pSoldier->aiData.ubPendingAction == NO_PENDING_ACTION )
+			if ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_STATIONARY && !pSoldier->pendingAction().active() )
 			{
 				// Check if we have a shot waiting!
 				if ( gUITargetShotWaiting )
@@ -6449,7 +6449,7 @@ UINT32 UIHandleJumpOver( UI_EVENT *pUIEvent )
 
 	// OK, Start jumping!
 	// Remove any previous actions
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 
 	// Get direction to goto....
 	ubDirection = GetDirectionFromGridNo( usMapPos, pSoldier );

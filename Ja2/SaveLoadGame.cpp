@@ -1539,6 +1539,7 @@ BOOLEAN MERCPROFILESTRUCT::Save(HWFILE hFile)
 template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 {
 	STRUCT_AIData& a = soldier.aiData;
+	SoldierPendingActionComponent& pendingAction = soldier.pendingAction();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
 	int i;
 	for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.i8(a.bOppList[i]);
@@ -1554,9 +1555,9 @@ template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 	ar.f32(a.dHeightAdjustment);
 	ar.i8(a.bMorale); ar.i8(a.bTeamMoraleMod); ar.i8(a.bTacticalMoraleMod);
 	ar.i8(a.bStrategicMoraleMod); ar.i8(a.bAIMorale);
-	ar.u8(a.ubPendingAction); ar.u8(a.ubPendingActionAnimCount);
-	ar.u32(a.uiPendingActionData1); ar.i32(a.sPendingActionData2); ar.i8(a.bPendingActionData3);
-	ar.i8(a.ubDoorHandleCode); ar.u32(a.uiPendingActionData4);
+	ar.u8(pendingAction.action()); ar.u8(pendingAction.animationCount());
+	ar.u32(pendingAction.primaryData()); ar.i32(pendingAction.secondaryData()); ar.i8(pendingAction.tertiaryData());
+	ar.i8(pendingAction.doorHandleCode()); ar.u32(pendingAction.quaternaryData());
 	ar.i8(a.bInterruptDuelPts); ar.i8(a.bPassedLastInterrupt); ar.i16(a.bIntStartAPs);
 	ar.i8(a.bMoved); ar.i8(a.bHunting); ar.u8(a.ubLastCall);
 	ar.u16(a.ubCaller.i); ar.i32(a.sCallerGridNo); ar.u8(a.bCallPriority); ar.i8(a.bCallActedUpon);
@@ -1671,6 +1672,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
 	SoldierInteractionComponent& interaction = s.interaction();
+	SoldierPendingActionComponent& pendingAction = s.pendingAction();
 	SoldierActionPointComponent& actionPoints = s.actionPoints();
 	SoldierCollapseComponent& collapseState = s.collapseState();
 	SoldierPerceptionComponent& perception = s.perception();
@@ -1761,7 +1763,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.sStartGridNo); ar.i32(s.sEndGridNo); ar.i32(s.sForcastGridno); ar.i16(s.sZLevelOverride);
 	ar.i8(s.bMovedPriorToInterrupt);
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
-	ar.i32(s.iNextActionSpecialData); ar.u8(employment.mercenaryType());
+	ar.i32(pendingAction.nextSpecialData()); ar.u8(employment.mercenaryType());
 	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());
 	ar.i16(deployment.sectorX()); ar.i16(deployment.sectorY()); ar.i8(deployment.sectorZ()); ar.i32(deployment.vehicleId());
 	ar.ptr(s.pMercPath);
@@ -1786,7 +1788,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());
 	ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
-	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());
+	ar.u8(pendingAction.interruptionMarker()); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());
 	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());
 	ar.u16(s.ubLastEnemyCycledID.i);
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
@@ -1796,7 +1798,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(s.sLocationOfFadeStart); ar.u8(deployment.useExitGridForReentryDirection());
 	ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
-	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(s.bPendingActionData5);
+	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(pendingAction.inventorySlot());
 	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(s.ubDoorOpeningNoise);
 	ar.ptr(s.pGroup); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(deployment.arrivalTime());

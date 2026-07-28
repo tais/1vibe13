@@ -581,13 +581,6 @@ void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->bTacticalMoraleMod = src.bTacticalMoraleMod;
 	this->bStrategicMoraleMod = src.bStrategicMoraleMod;
 	this->bAIMorale = src.bAIMorale;
-	this->ubPendingAction = src.ubPendingAction;
-	this->ubPendingActionAnimCount = src.ubPendingActionAnimCount;
-	this->uiPendingActionData1 = src.uiPendingActionData1;
-	this->sPendingActionData2 = src.sPendingActionData2;
-	this->bPendingActionData3 = src.bPendingActionData3;
-	this->ubDoorHandleCode = src.ubDoorHandleCode;
-	this->uiPendingActionData4 = src.uiPendingActionData4;
 	this->bInterruptDuelPts = src.bInterruptDuelPts;
 	this->bPassedLastInterrupt = src.bPassedLastInterrupt;
 	this->bIntStartAPs = src.bIntStartAPs;
@@ -624,6 +617,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		condition().reset();
 		longAction().reset();
 		interaction().reset();
+		pendingAction().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -632,6 +626,13 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		suppression().reset();
 		damageDisplay().reset();
 		aiData.ConvertFrom_101_To_102( src );
+		pendingAction().action() = src.ubPendingAction;
+		pendingAction().animationCount() = src.ubPendingActionAnimCount;
+		pendingAction().primaryData() = src.uiPendingActionData1;
+		pendingAction().secondaryData() = src.sPendingActionData2;
+		pendingAction().tertiaryData() = src.bPendingActionData3;
+		pendingAction().doorHandleCode() = src.ubDoorHandleCode;
+		pendingAction().quaternaryData() = src.uiPendingActionData4;
 		flags.ConvertFrom_101_To_102( src );
 		suppression().underFire() = src.bUnderFire;
 		suppression().shock() = src.bShock;
@@ -904,7 +905,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().endTime() = src.iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.  -2 for NPC and player generated
 		this->employment().startTime() = src.iStartContractTime;
 		this->employment().totalLength() = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
-		this->iNextActionSpecialData = src.iNextActionSpecialData;		// AI special action data record for the next action
+		this->pendingAction().nextSpecialData() = src.iNextActionSpecialData;
 		this->employment().mercenaryType() = src.ubWhatKindOfMercAmI;			//Set to the type of character it is
 		this->assignment().current() = src.bAssignment;							// soldiers current assignment
 		this->assignment().previous() = src.bOldAssignment;						// old assignment, for autosleep purposes
@@ -990,7 +991,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->movement().continuedPathGrid() = src.sContPathLocation;
 		this->movement().continuedPathValid() = src.bGoodContPath;
-		this->ubPendingActionInterrupted = src.ubPendingActionInterrupted;
+		this->pendingAction().interruptionMarker() = src.ubPendingActionInterrupted;
 		this->vitals().regenerationCounter() = src.bRegenerationCounter;
 		this->vitals().regenerationBoostersUsedToday() = src.bRegenBoostersUsedToday;
 		this->combatResult().pelletsHitBy() = src.bNumPelletsHitBy;
@@ -1022,7 +1023,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().renewalQuoteCode() = src.ubContractRenewalQuoteCode;
 		this->deployment().preTraversalGrid() = src.sPreTraversalGridNo;
 		this->animationIntent().turningFromUi() = src.bTurningFromUI;
-		this->bPendingActionData5 = src.bPendingActionData5;
+		this->pendingAction().inventorySlot() = src.bPendingActionData5;
 
 		this->bDelayedStrategicMoraleMod = src.bDelayedStrategicMoraleMod;
 		this->ubDoorOpeningNoise = src.ubDoorOpeningNoise;
@@ -1141,6 +1142,7 @@ void SOLDIERTYPE::initialize( )
 	condition().reset();
 	longAction().reset();
 	interaction().reset();
+	pendingAction().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -3914,7 +3916,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case WALKING_ALTERNATIVE_RDY:
 
 			this->animationIntent().clearPendingAnimation();
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			break;
 
 		case SWATTING:
@@ -3923,14 +3925,14 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case CROUCHEDMOVE_DUAL_READY:
 
 			this->animationIntent().clearPendingAnimation();
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			break;
 
 		case CRAWLING:
 
 			// Turn off flag...
 			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			this->animationIntent().clearPendingAnimation();
 			break;
 
@@ -3952,16 +3954,16 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			}
 			*/
 			// Set pending action count to 0
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			this->animationIntent().clearPendingAnimation();
 			break;
 
 		case ADULTMONSTER_WALKING:
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			break;
 
 		case ROBOT_WALK:
-			this->aiData.ubPendingActionAnimCount = 0;
+			this->pendingAction().resetAnimationCount();
 			break;
 
 		case KNEEL_UP:
@@ -4134,7 +4136,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case QUEEN_SWIPE:
 
 			// ATE: set damage counter...
-			this->aiData.uiPendingActionData1 = 0;
+			this->pendingAction().primaryData() = 0;
 			break;
 
 		case CLIMBDOWNROOF:
@@ -4257,7 +4259,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		case BODYEXPLODING:
 
 			// Merc on fire!
-			this->aiData.uiPendingActionData1 = PlaySoldierJA2Sample( this->ubID, (FIRE_ON_MERC), RATE_11025, SoundVolume( HIGHVOLUME, this->position().gridNo() ), 5, SoundDir( this->position().gridNo() ), TRUE );
+			this->pendingAction().primaryData() = PlaySoldierJA2Sample( this->ubID, (FIRE_ON_MERC), RATE_11025, SoundVolume( HIGHVOLUME, this->position().gridNo() ), 5, SoundDir( this->position().gridNo() ), TRUE );
 			break;
 
 		case CRYO_DEATH:
@@ -4323,22 +4325,22 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	if ( !(this->flags.uiStatusFlags & SOLDIER_LOCKPENDINGACTIONCOUNTER) )
 	{
 		//ATE Cancel ANY pending action...
-		if ( this->aiData.ubPendingActionAnimCount > 0 && (gAnimControl[this->animationPlayback().previousState()].uiFlags & ANIM_MOVING) )
+		if ( this->pendingAction().animationCount() > 0 && (gAnimControl[this->animationPlayback().previousState()].uiFlags & ANIM_MOVING) )
 		{
 			// Do some special things for some actions
-			switch ( this->aiData.ubPendingAction )
+			switch ( this->pendingAction().action() )
 			{
 			case MERC_GIVEITEM:
 
 				// Unset target as enaged
 				if ( SOLDIERTYPE* target =
 						 GetJa2SoldierRepository().resolve(
-							 this->aiData.uiPendingActionData4 ) )
+							 this->pendingAction().quaternaryData() ) )
 					target->flags.uiStatusFlags &=
 						(~SOLDIER_ENGAGEDINACTION);
 				break;
 			}
-			this->aiData.ubPendingAction = NO_PENDING_ACTION;
+			this->pendingAction().clearAction();
 		}
 		else
 		{
@@ -4347,7 +4349,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			// ATE: Added to ignore this count if we are waiting for someone to move out of our way...
 			if ( usNewState != START_SWAT && usNewState != END_SWAT && !(gAnimControl[usNewState].uiFlags & ANIM_NOCHANGE_PENDINGCOUNT) && !this->movement().delayed() && !(this->flags.uiStatusFlags & SOLDIER_ENGAGEDINACTION) )
 			{
-				this->aiData.ubPendingActionAnimCount++;
+				this->pendingAction().recordAnimationTransition();
 			}
 		}
 	}
@@ -8381,7 +8383,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 				if ( this->animationIntent().pendingAnimation() != FALLFORWARD_ROOF && this->animationIntent().pendingAnimation() != FALLOFF && this->animationPlayback().state() != FALLFORWARD_ROOF && this->animationPlayback().state() != FALLOFF )
 				{
 					// Go back to original direction
-					this->EVENT_SetSoldierDesiredDirection( (INT8)this->aiData.uiPendingActionData1 );
+					this->EVENT_SetSoldierDesiredDirection( (INT8)this->pendingAction().primaryData() );
 
 					//SETUP GETTING HIT FLAG TO 2
 					this->animationActivity().advanceHit();
@@ -12505,8 +12507,8 @@ void SOLDIERTYPE::EVENT_SoldierBeginGiveItem( void )
 	if ( VerifyGiveItem( this, &pTSoldier ) )
 	{
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
-		this->pathing().desiredDirection() = this->aiData.bPendingActionData3;
-		this->position().direction() = this->aiData.bPendingActionData3;
+		this->pathing().desiredDirection() = this->pendingAction().tertiaryData();
+		this->position().direction() = this->pendingAction().tertiaryData();
 
 		// begin animation
 		this->EVENT_InitNewSoldierAnim( GIVE_ITEM, 0, FALSE );
@@ -12570,7 +12572,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 			((target->vitals().health() < OKLIFE && target->vitals().health() > 0) ||
 			 (target->vitals().breath() < OKBREATH && target->collapseState().tactical())) )
 		{
-			this->aiData.uiPendingActionData4 = ubTargetID;
+			this->pendingAction().quaternaryData() = ubTargetID;
 
 			// add regen bonus
 			this->newdrugs.size[DRUG_EFFECT_HP] += 10;
@@ -13147,7 +13149,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginDropBomb( )
 	default:
 
 		// Call hander for planting bomb...
-		HandleSoldierDropBomb( this, this->aiData.sPendingActionData2 );
+		HandleSoldierDropBomb( this, this->pendingAction().secondaryData() );
 		this->SoldierGotoStationaryStance( );
 		break;
 	}
@@ -13190,7 +13192,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginUseDetonator( void )
 	default:
 
 		// Call hander for planting bomb...
-		HandleSoldierUseRemote( this, this->aiData.sPendingActionData2 );
+		HandleSoldierUseRemote( this, this->pendingAction().secondaryData() );
 		break;
 	}
 }
@@ -14034,9 +14036,9 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 		// OK, if we are stopped at our destination, cancel pending action...
 		if ( fFromSightingEnemy )
 		{
-			if ( this->aiData.ubPendingAction != NO_PENDING_ACTION && this->position().gridNo() == this->pathing().finalDestinationGrid() )
+			if ( this->pendingAction().active() && this->position().gridNo() == this->pathing().finalDestinationGrid() )
 			{
-				this->aiData.ubPendingAction = NO_PENDING_ACTION;
+				this->pendingAction().clearAction();
 			}
 
 			// Stop pending animation....
@@ -14079,7 +14081,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	{
 		this->animationIntent().clearPendingAnimations();
 		this->animationIntent().clearPendingDirection();
-		this->aiData.ubPendingAction = NO_PENDING_ACTION;
+		this->pendingAction().clearAction();
 	}
 
 	this->bEndDoorOpenCode = 0;
@@ -14393,7 +14395,7 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// ATE: OK, don't cancel count, so pending actions are still valid...
-		pSoldier->aiData.ubPendingActionAnimCount = 0;
+		pSoldier->pendingAction().resetAnimationCount();
 	}
 
 	// get a path to dest...
@@ -22336,7 +22338,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 		{
 			UnSetUIBusy( pSoldier->ubID );
 			HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
-			pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+			pSoldier->pendingAction().clearAction();
 			pSoldier->SoldierGotoStationaryStance( );
 			if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
 			{
@@ -22411,7 +22413,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 
 				UnSetUIBusy( pSoldier->ubID );
 				HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
-				pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+				pSoldier->pendingAction().clearAction();
 				pSoldier->SoldierGotoStationaryStance( );
 				if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
 				{
@@ -22553,7 +22555,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginTakeBlood( INT32 sGridNo, UINT8 ubDirection 
 
 	if ( pCorpse != NULL )
 	{
-		this->aiData.uiPendingActionData4 = pCorpse->iID;
+		this->pendingAction().quaternaryData() = pCorpse->iID;
 
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
@@ -23190,7 +23192,7 @@ void SOLDIERTYPE::ChangeToFlybackAnimation( UINT8 flyBackDirection )
 
 
 	// Remove any previous actions
-	this->aiData.ubPendingAction = NO_PENDING_ACTION;
+	this->pendingAction().clearAction();
 
 	this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
 
@@ -23237,7 +23239,7 @@ void SOLDIERTYPE::ChangeToFallbackAnimation( UINT8 fallBackDirection )
 	//usNewGridNo = NewGridNo( (UINT16)usNewGridNo, (UINT16)(-1 * DirectionInc( bDirection ) ) );
 
 	// Remove any previous actions
-	this->aiData.ubPendingAction = NO_PENDING_ACTION;
+	this->pendingAction().clearAction();
 
 	this->runtime.pendingAction.pathSearchSourceGrid = this->position().gridNo();
 
@@ -23318,15 +23320,15 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		}
 
 		// SEND PENDING ACTION
-		pSoldier->aiData.ubPendingAction = MERC_STEAL;
+		pSoldier->pendingAction().begin(MERC_STEAL);
 		pSoldier->targeting().level() = pTarget->position().level(); // Overhaul:  Update the level too!
-		pSoldier->aiData.uiPendingActionData1 = pTarget->ubID;
-		pSoldier->aiData.sPendingActionData2 = pTarget->position().gridNo();
-		pSoldier->aiData.bPendingActionData3 = ubDirection;
-		pSoldier->aiData.uiPendingActionData4 = 0;
+		pSoldier->pendingAction().primaryData() = pTarget->ubID;
+		pSoldier->pendingAction().secondaryData() = pTarget->position().gridNo();
+		pSoldier->pendingAction().tertiaryData() = ubDirection;
+		pSoldier->pendingAction().quaternaryData() = 0;
 		pSoldier->runtime.pendingAction.targetIncarnation =
 			pTarget->uiUniqueSoldierIdValue;
-		pSoldier->aiData.ubPendingActionAnimCount = 0;
+		pSoldier->pendingAction().resetAnimationCount();
 
 		// CHECK IF WE ARE AT THIS GRIDNO NOW
 		if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -23952,7 +23954,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 			pSoldier->animationIntent().clearSecondaryPendingAnimation();
 			pSoldier->animationActivity().turningFromProneMode() = FALSE;
 			pSoldier->animationIntent().clearPendingDirection();
-			pSoldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+			pSoldier->pendingAction().clearAction();
 			pSoldier->bEndDoorOpenCode = 0;
 
 			// if this guy isn't under direct AI control, WHO GIVES A FLYING FLICK?
@@ -24375,7 +24377,7 @@ void SOLDIERTYPE::BreakWindow(void)
 		this->attackSelection().weapon() = this->inv[HANDPOS].usItem;
 		this->aiData.bAction = AI_ACTION_KNIFE_STAB;
 		this->aiData.usActionData = this->position().gridNo();
-		this->aiData.ubPendingAction = NO_PENDING_ACTION;
+		this->pendingAction().clearAction();
 		this->targeting().gridNo() = this->position().gridNo();
 		this->targeting().level() = this->position().level();
 		//this->targeting().lastGridNo()		= sGridNo;	//dnl ch73 021013

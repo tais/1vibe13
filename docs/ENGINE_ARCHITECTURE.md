@@ -1024,6 +1024,17 @@ the engine must not contain SDL types in its public domain model.
   The referenced soldiers, corpses, and structures retain their existing
   repositories and lifetimes. All five scattered save fields retain their
   original positions and widths; v101 conversion clears this later domain.
+  `SoldierPendingActionComponent` owns the persistent action plan previously
+  split between `STRUCT_AIData` and flat `SOLDIERTYPE`: selected action,
+  animation-transition count, five action-dependent payloads, door operation,
+  queued-AI special data, and interruption marker. Fresh soldiers now start
+  with the explicit no-action sentinel, and the transition count saturates
+  rather than wrapping during pathological animation churn. Current-action
+  payload cleanup deliberately leaves queued-AI and interruption state
+  independent. Target incarnation, path-search source, launcher choice, and
+  deferred callbacks remain runtime-only in
+  `SoldierPendingActionRuntimeState`. Every established save position and
+  visitor width remains unchanged, and v101 conversion retains all ten values.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

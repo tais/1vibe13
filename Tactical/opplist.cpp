@@ -5612,7 +5612,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier )
 {
 	// door being opened gridno is always the pending-action-data2 value
-	INT32 sGridNo = pSoldier->aiData.sPendingActionData2;
+	INT32 sGridNo = pSoldier->pendingAction().secondaryData();
 	DOOR_STATUS	*pDoorStatus = GetDoorStatus( sGridNo );
 	UINT8 ubDoorNoise = 0;
 

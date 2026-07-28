@@ -213,22 +213,22 @@ namespace
 
 	void ClearPendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
 	{
-		soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
-		soldier.aiData.uiPendingActionData1 = 0;
-		soldier.aiData.sPendingActionData2 = 0;
-		soldier.aiData.bPendingActionData3 = 0;
-		soldier.aiData.uiPendingActionData4 = 0;
+		soldier.pendingAction().clearAction();
+		soldier.pendingAction().primaryData() = 0;
+		soldier.pendingAction().secondaryData() = 0;
+		soldier.pendingAction().tertiaryData() = 0;
+		soldier.pendingAction().quaternaryData() = 0;
 		soldier.runtime.pendingAction.targetIncarnation = 0;
 		UnSetUIBusy(soldier.ubID);
 	}
 
 	void ClearPendingSteal(SOLDIERTYPE& soldier) noexcept
 	{
-		soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
-		soldier.aiData.uiPendingActionData1 = 0;
-		soldier.aiData.sPendingActionData2 = 0;
-		soldier.aiData.bPendingActionData3 = 0;
-		soldier.aiData.uiPendingActionData4 = 0;
+		soldier.pendingAction().clearAction();
+		soldier.pendingAction().primaryData() = 0;
+		soldier.pendingAction().secondaryData() = 0;
+		soldier.pendingAction().tertiaryData() = 0;
+		soldier.pendingAction().quaternaryData() = 0;
 		soldier.runtime.pendingAction.targetIncarnation = 0;
 		UnSetUIBusy(soldier.ubID);
 	}
@@ -236,7 +236,7 @@ namespace
 	SOLDIERTYPE* ResolveStablePendingStealTarget(
 		const SOLDIERTYPE& soldier) noexcept
 	{
-		const UINT32 rawSlot = soldier.aiData.uiPendingActionData1;
+		const UINT32 rawSlot = soldier.pendingAction().primaryData();
 		if (rawSlot >= TOTAL_SOLDIERS ||
 			soldier.runtime.pendingAction.targetIncarnation == 0)
 			return nullptr;
@@ -253,15 +253,15 @@ namespace
 	{
 		if (soldier.runtime.pendingAction.targetIncarnation == 0)
 			return true;
-		const UINT32 rawSlot = soldier.aiData.uiPendingActionData1;
+		const UINT32 rawSlot = soldier.pendingAction().primaryData();
 		const TacticalWorldItemId itemId{
 			rawSlot, soldier.runtime.pendingAction.targetIncarnation};
 		WORLDITEM* item = ResolveJa2TacticalWorldItem(itemId);
 		return item &&
 			itemIndex >= 0 &&
 			static_cast<UINT32>(itemIndex) == rawSlot &&
-			grid == soldier.aiData.uiPendingActionData4 &&
-			level == soldier.aiData.bPendingActionData3 &&
+			grid == soldier.pendingAction().quaternaryData() &&
+			level == soldier.pendingAction().tertiaryData() &&
 			item->sGridNo == grid &&
 			item->ubLevel == soldier.position().level() &&
 			(level == ITEM_IGNORE_Z_LEVEL ||
@@ -392,7 +392,7 @@ namespace
 				soldier->usUIMovementMode = value.movementMode;
 				soldier->bReverse = value.reverse ? TRUE : FALSE;
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
-					soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+					soldier->pendingAction().clearAction();
 				return soldier->EVENT_InternalGetNewSoldierPath(
 					value.destinationGrid, value.movementMode,
 					static_cast<BOOLEAN>(value.origin),
@@ -586,7 +586,7 @@ namespace
 
 				soldier->usUIMovementMode = value.movementMode;
 				soldier->bReverse = value.reverse ? TRUE : FALSE;
-				soldier->aiData.ubPendingAction = NO_PENDING_ACTION;
+				soldier->pendingAction().clearAction();
 				if (!soldier->EVENT_InternalGetNewSoldierPath(
 						value.destinationGrid, value.movementMode,
 						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
@@ -619,45 +619,45 @@ namespace
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
-				const UINT8 previousAction = soldier->aiData.ubPendingAction;
+				const UINT8 previousAction = soldier->pendingAction().action();
 				const UINT32 previousData1 =
-					soldier->aiData.uiPendingActionData1;
+					soldier->pendingAction().primaryData();
 				const INT32 previousData2 =
-					soldier->aiData.sPendingActionData2;
+					soldier->pendingAction().secondaryData();
 				const INT8 previousData3 =
-					soldier->aiData.bPendingActionData3;
+					soldier->pendingAction().tertiaryData();
 				const UINT32 previousData4 =
-					soldier->aiData.uiPendingActionData4;
+					soldier->pendingAction().quaternaryData();
 				const UINT32 previousTargetIncarnation =
 					soldier->runtime.pendingAction.targetIncarnation;
 				const UINT8 previousAnimCount =
-					soldier->aiData.ubPendingActionAnimCount;
+					soldier->pendingAction().animationCount();
 				const UINT16 previousMovementMode =
 					soldier->usUIMovementMode;
 
 				soldier->usUIMovementMode = value.movementMode;
-				soldier->aiData.ubPendingAction = MERC_TALK;
-				soldier->aiData.uiPendingActionData1 = value.target.slot;
-				soldier->aiData.sPendingActionData2 = 0;
-				soldier->aiData.bPendingActionData3 = 0;
-				soldier->aiData.uiPendingActionData4 = 0;
+				soldier->pendingAction().begin(MERC_TALK);
+				soldier->pendingAction().primaryData() = value.target.slot;
+				soldier->pendingAction().secondaryData() = 0;
+				soldier->pendingAction().tertiaryData() = 0;
+				soldier->pendingAction().quaternaryData() = 0;
 				soldier->runtime.pendingAction.targetIncarnation =
 					value.target.incarnation;
-				soldier->aiData.ubPendingActionAnimCount = 0;
+				soldier->pendingAction().resetAnimationCount();
 				if (soldier->EVENT_InternalGetNewSoldierPath(
 						value.destinationGrid, value.movementMode,
 						static_cast<BOOLEAN>(TacticalMoveOrigin::PlayerUi),
 						value.forceRestart ? TRUE : FALSE))
 					return CommandDisposition::Applied;
 
-				soldier->aiData.ubPendingAction = previousAction;
-				soldier->aiData.uiPendingActionData1 = previousData1;
-				soldier->aiData.sPendingActionData2 = previousData2;
-				soldier->aiData.bPendingActionData3 = previousData3;
-				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->pendingAction().action() = previousAction;
+				soldier->pendingAction().primaryData() = previousData1;
+				soldier->pendingAction().secondaryData() = previousData2;
+				soldier->pendingAction().tertiaryData() = previousData3;
+				soldier->pendingAction().quaternaryData() = previousData4;
 				soldier->runtime.pendingAction.targetIncarnation =
 					previousTargetIncarnation;
-				soldier->aiData.ubPendingActionAnimCount =
+				soldier->pendingAction().animationCount() =
 					previousAnimCount;
 				soldier->usUIMovementMode = previousMovementMode;
 				return CommandDisposition::Discard;
@@ -689,48 +689,48 @@ namespace
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
-				const UINT8 previousAction = soldier->aiData.ubPendingAction;
+				const UINT8 previousAction = soldier->pendingAction().action();
 				const UINT32 previousData1 =
-					soldier->aiData.uiPendingActionData1;
+					soldier->pendingAction().primaryData();
 				const INT32 previousData2 =
-					soldier->aiData.sPendingActionData2;
+					soldier->pendingAction().secondaryData();
 				const INT8 previousData3 =
-					soldier->aiData.bPendingActionData3;
+					soldier->pendingAction().tertiaryData();
 				const UINT32 previousData4 =
-					soldier->aiData.uiPendingActionData4;
+					soldier->pendingAction().quaternaryData();
 				const UINT32 previousTargetIncarnation =
 					soldier->runtime.pendingAction.targetIncarnation;
 				const UINT8 previousAnimCount =
-					soldier->aiData.ubPendingActionAnimCount;
+					soldier->pendingAction().animationCount();
 				const UINT16 previousMovementMode =
 					soldier->usUIMovementMode;
 
 				soldier->usUIMovementMode = value.movementMode;
-				soldier->aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-				soldier->aiData.uiPendingActionData1 = 0;
+				soldier->pendingAction().begin(MERC_ENTER_VEHICLE);
+				soldier->pendingAction().primaryData() = 0;
 				soldier->runtime.pendingAction.targetIncarnation =
 					value.vehicle.incarnation;
 				// The old field held a grid. All production scheduling now
 				// stores the vehicle slot so completion can resolve the exact
 				// incarnation even if the target moves.
-				soldier->aiData.sPendingActionData2 = value.vehicle.slot;
-				soldier->aiData.bPendingActionData3 = value.direction;
-				soldier->aiData.uiPendingActionData4 = value.seatIndex;
-				soldier->aiData.ubPendingActionAnimCount = 0;
+				soldier->pendingAction().secondaryData() = value.vehicle.slot;
+				soldier->pendingAction().tertiaryData() = value.direction;
+				soldier->pendingAction().quaternaryData() = value.seatIndex;
+				soldier->pendingAction().resetAnimationCount();
 				if (soldier->EVENT_InternalGetNewSoldierPath(
 						value.destinationGrid, value.movementMode,
 						static_cast<BOOLEAN>(TacticalMoveOrigin::TeamAwareUi),
 						value.forceRestart ? TRUE : FALSE))
 					return CommandDisposition::Applied;
 
-				soldier->aiData.ubPendingAction = previousAction;
-				soldier->aiData.uiPendingActionData1 = previousData1;
-				soldier->aiData.sPendingActionData2 = previousData2;
-				soldier->aiData.bPendingActionData3 = previousData3;
-				soldier->aiData.uiPendingActionData4 = previousData4;
+				soldier->pendingAction().action() = previousAction;
+				soldier->pendingAction().primaryData() = previousData1;
+				soldier->pendingAction().secondaryData() = previousData2;
+				soldier->pendingAction().tertiaryData() = previousData3;
+				soldier->pendingAction().quaternaryData() = previousData4;
 				soldier->runtime.pendingAction.targetIncarnation =
 					previousTargetIncarnation;
-				soldier->aiData.ubPendingActionAnimCount =
+				soldier->pendingAction().animationCount() =
 					previousAnimCount;
 				soldier->usUIMovementMode = previousMovementMode;
 				return CommandDisposition::Discard;
@@ -2202,17 +2202,17 @@ SimulationCommandDispatchResult TryDispatchExchangePositionsCommandNow(
 
 bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 {
-	if (soldier.aiData.ubPendingAction != MERC_TALK) return false;
-	const UINT32 targetSlot = soldier.aiData.uiPendingActionData1;
+	if (soldier.pendingAction().action() != MERC_TALK) return false;
+	const UINT32 targetSlot = soldier.pendingAction().primaryData();
 	const TacticalEntityId targetId{
 		targetSlot < TOTAL_SOLDIERS
 			? static_cast<std::uint16_t>(targetSlot)
 			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
 		soldier.runtime.pendingAction.targetIncarnation};
 
-	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
-	soldier.aiData.uiPendingActionData1 = 0;
-	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.pendingAction().clearAction();
+	soldier.pendingAction().primaryData() = 0;
+	soldier.pendingAction().quaternaryData() = 0;
 	soldier.runtime.pendingAction.targetIncarnation = 0;
 
 	SOLDIERTYPE* target = ResolveLiveCommandActor(targetId);
@@ -2223,21 +2223,21 @@ bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 
 bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 {
-	if (soldier.aiData.ubPendingAction != MERC_ENTER_VEHICLE) return false;
-	const INT32 targetSlot = soldier.aiData.sPendingActionData2;
-	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
-	const UINT32 rawSeatIndex = soldier.aiData.uiPendingActionData4;
+	if (soldier.pendingAction().action() != MERC_ENTER_VEHICLE) return false;
+	const INT32 targetSlot = soldier.pendingAction().secondaryData();
+	const INT32 rawDirection = soldier.pendingAction().tertiaryData();
+	const UINT32 rawSeatIndex = soldier.pendingAction().quaternaryData();
 	const TacticalEntityId vehicleId{
 		targetSlot >= 0 && targetSlot < TOTAL_SOLDIERS
 			? static_cast<std::uint16_t>(targetSlot)
 			: static_cast<std::uint16_t>(TOTAL_SOLDIERS),
 		soldier.runtime.pendingAction.targetIncarnation};
 
-	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
-	soldier.aiData.uiPendingActionData1 = 0;
-	soldier.aiData.sPendingActionData2 = 0;
-	soldier.aiData.bPendingActionData3 = 0;
-	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.pendingAction().clearAction();
+	soldier.pendingAction().primaryData() = 0;
+	soldier.pendingAction().secondaryData() = 0;
+	soldier.pendingAction().tertiaryData() = 0;
+	soldier.pendingAction().quaternaryData() = 0;
 	soldier.runtime.pendingAction.targetIncarnation = 0;
 
 	SOLDIERTYPE* vehicle = ResolveLiveCommandActor(vehicleId);
@@ -2259,7 +2259,7 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 
 bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 {
-	if (soldier.aiData.ubPendingAction != MERC_STEAL) return false;
+	if (soldier.pendingAction().action() != MERC_STEAL) return false;
 
 	SOLDIERTYPE* target = nullptr;
 	if (soldier.runtime.pendingAction.targetIncarnation != 0)
@@ -2269,7 +2269,7 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 	else
 	{
 		SoldierID targetId = WhoIsThere2(
-			soldier.aiData.sPendingActionData2,
+			soldier.pendingAction().secondaryData(),
 			soldier.targeting().level());
 		if (targetId != NOBODY)
 		{
@@ -2277,9 +2277,9 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 		}
 	}
 
-	const INT32 rawDirection = soldier.aiData.bPendingActionData3;
+	const INT32 rawDirection = soldier.pendingAction().tertiaryData();
 	if (!target ||
-		target->position().gridNo() != soldier.aiData.sPendingActionData2 ||
+		target->position().gridNo() != soldier.pendingAction().secondaryData() ||
 		target->position().level() != soldier.targeting().level() ||
 		soldier.position().level() != target->position().level() ||
 		PythSpacesAway(soldier.position().gridNo(), target->position().gridNo()) != 1 ||
@@ -2304,7 +2304,7 @@ bool TryCompletePendingStealCommand(SOLDIERTYPE& soldier) noexcept
 	{
 		soldier.EVENT_InitNewSoldierAnim(STEAL_ITEM, 0, FALSE);
 	}
-	soldier.aiData.ubPendingAction = NO_PENDING_ACTION;
+	soldier.pendingAction().clearAction();
 	return true;
 }
 
@@ -2323,10 +2323,10 @@ SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
 		target = SimpleFindSoldier(targetGrid, targetLevel);
 	}
 
-	soldier.aiData.uiPendingActionData1 = 0;
-	soldier.aiData.sPendingActionData2 = 0;
-	soldier.aiData.bPendingActionData3 = 0;
-	soldier.aiData.uiPendingActionData4 = 0;
+	soldier.pendingAction().primaryData() = 0;
+	soldier.pendingAction().secondaryData() = 0;
+	soldier.pendingAction().tertiaryData() = 0;
+	soldier.pendingAction().quaternaryData() = 0;
 	soldier.runtime.pendingAction.targetIncarnation = 0;
 
 	if (!target || target->position().gridNo() != targetGrid ||
@@ -2342,13 +2342,13 @@ SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
 
 bool TryValidatePendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept
 {
-	if (soldier.aiData.ubPendingAction != MERC_PICKUPITEM)
+	if (soldier.pendingAction().action() != MERC_PICKUPITEM)
 		return true;
 	if (PendingWorldItemMatches(
 			soldier,
-			static_cast<INT32>(soldier.aiData.uiPendingActionData1),
-			static_cast<INT32>(soldier.aiData.uiPendingActionData4),
-			soldier.aiData.bPendingActionData3))
+			static_cast<INT32>(soldier.pendingAction().primaryData()),
+			static_cast<INT32>(soldier.pendingAction().quaternaryData()),
+			soldier.pendingAction().tertiaryData()))
 		return true;
 	ClearPendingWorldItemPickup(soldier);
 	return false;
@@ -2360,7 +2360,7 @@ bool TryConsumePendingWorldItemPickup(
 	std::int32_t grid,
 	std::int8_t level) noexcept
 {
-	if (soldier.aiData.ubPendingAction != MERC_PICKUPITEM)
+	if (soldier.pendingAction().action() != MERC_PICKUPITEM)
 	{
 		soldier.runtime.pendingAction.targetIncarnation = 0;
 		return true;

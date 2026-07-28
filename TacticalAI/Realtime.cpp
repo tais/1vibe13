@@ -164,7 +164,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 				if (pSoldier->aiData.bAction == AI_ACTION_PICKUP_ITEM)
 				{
 					// the item pool index was stored in the special data field
-					pSoldier->aiData.uiPendingActionData1 = pSoldier->iNextActionSpecialData;
+					pSoldier->pendingAction().primaryData() = pSoldier->pendingAction().nextSpecialData();
 				}
 			}			
 			else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
@@ -185,7 +185,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 				pSoldier->aiData.bNextAction = AI_ACTION_NONE;
 				pSoldier->aiData.usNextActionData = 0;
 				pSoldier->aiData.bNextTargetLevel = 0;
-				pSoldier->iNextActionSpecialData = 0;
+				pSoldier->pendingAction().nextSpecialData() = 0;
 
 				if (!(gTacticalStatus.uiFlags & ENGAGED_IN_CONV))
 				{

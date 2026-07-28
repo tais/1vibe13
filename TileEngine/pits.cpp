@@ -235,7 +235,7 @@ void SearchForOtherMembersWithinPitRadiusAndMakeThemFall( INT32 sGridNo, INT16 s
 					continue;
 				}
 
-				pSoldier->aiData.uiPendingActionData4 = sNewGridNo;
+				pSoldier->pendingAction().quaternaryData() = sNewGridNo;
 
 				pSoldier->EVENT_InitNewSoldierAnim( FALL_INTO_PIT, 0 , FALSE );
 			}
@@ -255,7 +255,7 @@ void HandleFallIntoPitFromAnimation( SoldierID ubID )
 	INT32 sPitGridNo;
 	// OK, get exit grid...
 
-	sPitGridNo = pSoldier->aiData.uiPendingActionData4;
+	sPitGridNo = pSoldier->pendingAction().quaternaryData();
 
 	GetExitGrid( sPitGridNo, &ExitGrid );
 
