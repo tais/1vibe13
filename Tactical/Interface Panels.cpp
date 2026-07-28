@@ -4101,7 +4101,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 		// CJC: OK, get source, dest guy if different, don't allow panels to be brought up
 		/*
-		if ( gpItemPointer && GetSMCurrentMerc()->ubID != GetItemPointerSoldier()->ubID )
+		if ( gpItemPointer && GetSMCurrentMerc()->identity().id() != GetItemPointerSoldier()->identity().id() )
 		{
 			return;
 		}
@@ -7587,11 +7587,11 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				//InvSlot.ItemObject = GetSMCurrentMerc()->inv[ uiHandPos ];
 				//InvSlot.ubLocationOfObject = PLAYERS_INVENTORY;
 
-				//InvSlot.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->ubProfile;
+				//InvSlot.ubIdOfMercWhoOwnsTheItem = GetSMCurrentMerc()->identity().profile();
 
 
 				//Add the item to the Players Offer Area
-				//AddItemToPlayersOfferArea( GetSMCurrentMerc()->ubProfile, &InvSlot, (UINT8)uiHandPos );
+				//AddItemToPlayersOfferArea( GetSMCurrentMerc()->identity().profile(), &InvSlot, (UINT8)uiHandPos );
 
 				// Dirty
 				fInterfacePanelDirty = DIRTYLEVEL2;

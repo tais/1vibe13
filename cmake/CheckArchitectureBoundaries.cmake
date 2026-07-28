@@ -11205,6 +11205,14 @@ list(REMOVE_DUPLICATES soldier_storage_sources)
 foreach(source_file IN LISTS soldier_storage_sources)
   file(READ "${source_file}" contents)
   string(REGEX MATCH
+    "(p(Soldier|TeamSoldier|TSoldier|TargetSoldier|Merc)|get_npc[ \t\r\n]*\\([ \t\r\n]*\\)|GetSMCurrentMerc[ \t\r\n]*\\([ \t\r\n]*\\)|GetItemPointerSoldier[ \t\r\n]*\\([ \t\r\n]*\\)|MercSlots[ \t\r\n]*\\[[^]]+\\]|AwaySlots[ \t\r\n]*\\[[^]]+\\])[ \t\r\n]*->[ \t\r\n]*(ubID|name|ubBodyType|ubProfile|uiUniqueSoldierIdValue|usSoldierProfile|usIndividualMilitiaID|bActive|bTeam|bInSector|bSide|ubSoldierClass|ubCivilianGroup)([^A-Za-z0-9_]|$)"
+    direct_retired_identity_roster_access
+    "${contents}")
+  if(direct_retired_identity_roster_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE identity/roster storage in ${source_file}; use identity() or roster()")
+  endif()
+  string(REGEX MATCH
     "(->|\\.)[ \t\r\n]*aiData([^A-Za-z0-9_]|$)"
     retired_soldier_ai_data_access
     "${contents}")

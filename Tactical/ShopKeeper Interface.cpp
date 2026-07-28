@@ -3214,7 +3214,7 @@ UINT8		ubItemsNotCounted = 0; //ja25 UB
 
 		// Flugente: used in backgrounds now, old code in comments for historical reasons
 		/*// if Flo is doing the dealin' and wheelin'
-		if ( GetSMCurrentMerc()->ubProfile == FLO )
+		if ( GetSMCurrentMerc()->identity().profile() == FLO )
 		{
 			// if it's a GUN or AMMO (but not Launchers, and all attachments and payload is included)
 			switch ( Item [ usItemID ].usItemClass )

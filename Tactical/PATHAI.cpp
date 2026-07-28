@@ -2293,13 +2293,13 @@ INT32 FindBestPath(SOLDIERTYPE *s , INT32 sDestination, INT8 bLevel, INT16 usMov
 //dnl??? ch53 111009
 if(!GridNoOnVisibleWorldTile(iOrigination))
 {
-	SendFmtMsg("shuuu=%d,%d", s->ubID, iOrigination);//dnl???
+	SendFmtMsg("shuuu=%d,%d", s->identity().id(), iOrigination);//dnl???
 //bad!!!	return(0);
 }
 if(!GridNoOnVisibleWorldTile(iDestination))
 {
 //iDestination != (guiWorldCols*guiWorldRows)
-	SendFmtMsg("blaaa=%d,%d", s->ubID, iDestination);//dnl???
+	SendFmtMsg("blaaa=%d,%d", s->identity().id(), iDestination);//dnl???
 //bad!!!	return(0);
 }
 */
@@ -3183,7 +3183,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 						SoldierToSoldierLineOfSightTest(
 							s, blockingSoldier, TRUE,
 							CALC_FROM_ALL_DIRS)))
-				//if ( ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID )
+				//if ( ubMerc < TOTAL_SOLDIERS && ubMerc != s->identity().id() )
 				{
 					goto NEXTDIR;
 				}

@@ -7651,15 +7651,15 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					// temporary add soldiers to your list for equipment inspection and general testing
 					for(UINT32 ubLoop=0; ubLoop<guiNumMercSlots&&gGameExternalOptions.fEnableInventoryPoolQ; ubLoop++)
 					{
-						if(MercSlots[ubLoop] != NULL && MercSlots[ubLoop]->bTeam == ENEMY_TEAM && MercSlots[ubLoop]->bActive)
+						if(MercSlots[ubLoop] != NULL && MercSlots[ubLoop]->roster().team() == ENEMY_TEAM && MercSlots[ubLoop]->roster().active())
 						{
 							for(int i=0; i<CODE_MAXIMUM_NUMBER_OF_PLAYER_SLOTS; i++)
 							{
-								if(gCharactersList[i].usSolID == MercSlots[ubLoop]->ubID)
+								if(gCharactersList[i].usSolID == MercSlots[ubLoop]->identity().id())
 									break;
 								if(gCharactersList[i].usSolID == 0 && gCharactersList[i].fValid == FALSE)
 								{
-									gCharactersList[i].usSolID = MercSlots[ubLoop]->ubID;
+									gCharactersList[i].usSolID = MercSlots[ubLoop]->identity().id();
 									gCharactersList[i].fValid = TRUE;
 									break;
 								}
