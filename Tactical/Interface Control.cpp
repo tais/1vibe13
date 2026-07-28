@@ -1358,8 +1358,8 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 
 		if ( pSoldier->ubBodyType == QUEENMONSTER )
 		{
-			sSuppressionX = sMercScreenX - pSoldier->sBoundingBoxOffsetX;
-			sSuppressionY = sMercScreenY - pSoldier->sBoundingBoxOffsetY;
+			sSuppressionX = sMercScreenX - pSoldier->renderState().boundingBoxOffsetX();
+			sSuppressionY = sMercScreenY - pSoldier->renderState().boundingBoxOffsetY();
 			sSuppressionX += 25;
 			sSuppressionY += 10;
 		}
@@ -1374,8 +1374,8 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		// coordinates for damage counter
 		if ( pSoldier->ubBodyType == QUEENMONSTER )
 		{
-			sDamageX = sMercScreenX + pSoldier->damageDisplay().offsetX() - pSoldier->sBoundingBoxOffsetX;
-			sDamageY = sMercScreenY + pSoldier->damageDisplay().offsetY() - pSoldier->sBoundingBoxOffsetY;
+			sDamageX = sMercScreenX + pSoldier->damageDisplay().offsetX() - pSoldier->renderState().boundingBoxOffsetX();
+			sDamageY = sMercScreenY + pSoldier->damageDisplay().offsetY() - pSoldier->renderState().boundingBoxOffsetY();
 			sDamageX += 25;
 			sDamageY += 10;
 		}

@@ -931,10 +931,10 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		Corpse.sHeightAdjustment			= (INT16)( pSoldier->position().heightAdjustment() - WALL_HEIGHT );
 	}
 
-	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->HeadPal );
-	SET_PALETTEREP_ID ( Corpse.VestPal,		pSoldier->VestPal );
-	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->SkinPal );
-	SET_PALETTEREP_ID ( Corpse.PantsPal,	pSoldier->PantsPal );
+	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->renderState().headPalette() );
+	SET_PALETTEREP_ID ( Corpse.VestPal,		pSoldier->renderState().vestPalette() );
+	SET_PALETTEREP_ID ( Corpse.SkinPal,		pSoldier->renderState().skinPalette() );
+	SET_PALETTEREP_ID ( Corpse.PantsPal,	pSoldier->renderState().pantsPalette() );
 
 	int urban = pSoldier->camouflage().urbanApplied() + pSoldier->camouflage().urbanWorn();
 	int jungle = pSoldier->camouflage().jungleApplied() + pSoldier->camouflage().jungleWorn();

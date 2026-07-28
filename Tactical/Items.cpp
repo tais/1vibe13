@@ -10086,7 +10086,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_VEST )
 				{
 					UINT16 vestitem = 0;
-					if ( GetFirstClothesItemWithSpecificData(&vestitem, pSoldier->VestPal, "blank")  )
+					if ( GetFirstClothesItemWithSpecificData(&vestitem, pSoldier->renderState().vestPalette(), "blank")  )
 					{
 						CreateItem( vestitem, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
@@ -10096,7 +10096,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
 				}
 
-				SET_PALETTEREP_ID( pSoldier->VestPal, Clothes[clothestype].vest );
+				SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), Clothes[clothestype].vest );
 				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_VEST;
 
 				// this vest is not damaged, so remove the damaged vest flag
@@ -10109,7 +10109,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_PANTS )
 				{
 					UINT16 pantsitem = 0;
-					if ( GetFirstClothesItemWithSpecificData(&pantsitem, "blank", pSoldier->PantsPal)  )
+					if ( GetFirstClothesItemWithSpecificData(&pantsitem, "blank", pSoldier->renderState().pantsPalette())  )
 					{
 						CreateItem( pantsitem, 100, &gTempObject );
 						if ( !AutoPlaceObject( pSoldier, &gTempObject, FALSE ) )
@@ -10119,7 +10119,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_NO_CLOTHES_ITEM] );
 				}
 
-				SET_PALETTEREP_ID( pSoldier->PantsPal, Clothes[clothestype].pants );
+				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), Clothes[clothestype].pants );
 				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_PANTS;
 
 				// these pants are not damaged, so remove the damaged pants flag
@@ -10129,10 +10129,10 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 			// Use palette from HVOBJECT, then use substitution for pants, etc
 			memcpy( pSoldier->p8BPPPalette, gAnimSurfaceDatabase[ usPaletteAnimSurface ].hVideoObject->pPaletteEntry, sizeof(SGPPaletteEntry) * 256 );
 
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->HeadPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->VestPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->PantsPal );
-			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->SkinPal );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().headPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().vestPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().pantsPalette() );
+			SetPaletteReplacement( pSoldier->p8BPPPalette, pSoldier->renderState().skinPalette() );
 
 			pSoldier->CreateSoldierPalettes();
 		}

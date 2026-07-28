@@ -152,21 +152,20 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 		sNewAniFrame = gusAnimInst[ pSoldier->animationPlayback().state() ][ pSoldier->animationPlayback().code() ];
 
 		// Handle muzzle flashes
-		if ( pSoldier->bMuzFlashCount > 0 )
+		if ( pSoldier->renderState().muzzleFlashFrame() > 0 )
 		{
 			// FLash for about 3 frames
-			if ( pSoldier->bMuzFlashCount > MAX_ANIFRAMES_PER_FLASH )
+			if ( pSoldier->renderState().muzzleFlashExpired(MAX_ANIFRAMES_PER_FLASH) )
 			{
-				pSoldier->bMuzFlashCount = 0;
-				if ( pSoldier->iMuzFlash != -1 )
+				if ( pSoldier->renderState().hasMuzzleFlashSprite() )
 				{
-					LightSpriteDestroy( pSoldier->iMuzFlash );
-					pSoldier->iMuzFlash = -1;
+					LightSpriteDestroy( pSoldier->renderState().muzzleFlashSprite() );
 				}
+				pSoldier->renderState().clearMuzzleFlashSprite();
 			}
 			else
 			{
-				pSoldier->bMuzFlashCount++;
+				pSoldier->renderState().advanceMuzzleFlashFrame();
 			}
 
 		}
@@ -580,13 +579,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 438:
 
 				//CODE: START HOLD FLASH
-				pSoldier->flags.fForceShade = TRUE;
+				pSoldier->renderState().enableForceShade();
 				break;
 
 			case 439:
 
 				//CODE: END HOLD FLASH
-				pSoldier->flags.fForceShade = FALSE;
+				pSoldier->renderState().disableForceShade();
 				break;
 
 			case 440:
@@ -621,15 +620,15 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					OBJECTTYPE* pObjAttHand = pSoldier->GetUsedWeapon(&pSoldier->inv[pSoldier->attackSelection().hand()]);
 					if (IsFlashSuppressor(pObjAttHand, pSoldier) || (*pObjAttHand)[0]->data.gun.bGunAmmoStatus < 0)
 					{
-						pSoldier->flags.fMuzzleFlash = FALSE;
+						pSoldier->renderState().hideMuzzleFlash();
 					}
 					else
 					{
-						pSoldier->flags.fMuzzleFlash = TRUE;
+						pSoldier->renderState().showMuzzleFlash();
 					}
-					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("UseGun: Muzzle flash = %d", pSoldier->flags.fMuzzleFlash));
+					DebugMsg(TOPIC_JA2, DBG_LEVEL_3, String("UseGun: Muzzle flash = %d", pSoldier->renderState().muzzleFlashVisible()));
 				}
-				if ( !pSoldier->flags.fMuzzleFlash )
+				if ( !pSoldier->renderState().muzzleFlashVisible() )
 				{
 					break;
 				}
@@ -640,12 +639,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					break;
 				}
 
-				if( ( pSoldier->iMuzFlash=LightSpriteCreate("L-R03.LHT", 0 ) )==(-1))
+				if( ( pSoldier->renderState().muzzleFlashSprite()=LightSpriteCreate("L-R03.LHT", 0 ) )==(-1))
 				{
 					return( TRUE );
 				}
 
-				LightSpritePower(pSoldier->iMuzFlash, TRUE);
+				LightSpritePower(pSoldier->renderState().muzzleFlashSprite(), TRUE);
 				// Get one move forward
 				{
 					INT32	usNewGridNo;
@@ -653,10 +652,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( pSoldier->position().direction() ) );
 					ConvertGridNoToCenterCellXY( usNewGridNo, &sXPos, &sYPos );
-					LightSpritePosition( pSoldier->iMuzFlash, (INT16)(sXPos/CELL_X_SIZE), (INT16)(sYPos/CELL_Y_SIZE));
+					LightSpritePosition( pSoldier->renderState().muzzleFlashSprite(), (INT16)(sXPos/CELL_X_SIZE), (INT16)(sYPos/CELL_Y_SIZE));
 
 					// Start count
-					pSoldier->bMuzFlashCount = 1;
+					pSoldier->renderState().startMuzzleFlashSprite(
+						pSoldier->renderState().muzzleFlashSprite());
 				}
 				break;
 
@@ -1138,19 +1138,20 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						Explosive[Item[usItem].ubClassIndex].ubType == EXPLOSV_BURNABLEGAS ||
 						usBuddyItem && (Item[usBuddyItem].usItemClass & IC_EXPLOSV) && (ItemIsFlare(usBuddyItem) || Explosive[Item[usBuddyItem].ubClassIndex].ubType == EXPLOSV_FLARE)))
 					{
-						if ((pSoldier->iMuzFlash = LightSpriteCreate("L-R03.LHT", 0)) != -1)
+						if ((pSoldier->renderState().muzzleFlashSprite() = LightSpriteCreate("L-R03.LHT", 0)) != -1)
 						{
-							LightSpritePower(pSoldier->iMuzFlash, TRUE);
+							LightSpritePower(pSoldier->renderState().muzzleFlashSprite(), TRUE);
 
 							INT32	usNewGridNo;
 							INT16 sXPos, sYPos;
 
 							usNewGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(pSoldier->position().direction()));
 							ConvertGridNoToCenterCellXY(usNewGridNo, &sXPos, &sYPos);
-							LightSpritePosition(pSoldier->iMuzFlash, (INT16)(sXPos / CELL_X_SIZE), (INT16)(sYPos / CELL_Y_SIZE));
+							LightSpritePosition(pSoldier->renderState().muzzleFlashSprite(), (INT16)(sXPos / CELL_X_SIZE), (INT16)(sYPos / CELL_Y_SIZE));
 
 							// Start count
-							pSoldier->bMuzFlashCount = 1;
+							pSoldier->renderState().startMuzzleFlashSprite(
+								pSoldier->renderState().muzzleFlashSprite());
 						}
 					}
 
@@ -3989,14 +3990,15 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		pSoldier->ReceivingSoldierCancelServices( );
 		pSoldier->GivingSoldierCancelServices( );
 
-		if ( pSoldier->iMuzFlash != -1 )
+		if ( pSoldier->renderState().hasMuzzleFlashSprite() )
 		{
-			LightSpriteDestroy( pSoldier->iMuzFlash );
-			pSoldier->iMuzFlash = -1;
+			LightSpriteDestroy( pSoldier->renderState().muzzleFlashSprite() );
+			pSoldier->renderState().clearMuzzleFlashSprite();
 		}
-		if ( pSoldier->iLight != -1 )
+		if ( pSoldier->renderState().hasLightSprite() )
 		{
-			LightSpriteDestroy( pSoldier->iLight );
+			LightSpriteDestroy( pSoldier->renderState().lightSprite() );
+			pSoldier->renderState().clearLightSprite();
 		}
 
 		//FREEUP GETTING HIT FLAG

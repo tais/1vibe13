@@ -1778,16 +1778,16 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 		ubShadeLevel |= (ubShadeLevel & 0x30);
 
 
-		if (pSoldier->flags.fBeginFade)
+		if (pSoldier->renderState().fadeMode())
 		{
-			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[pSoldier->ubFadeLevel];
+			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[pSoldier->renderState().fadeLevel()];
 		}
 		else
 		{
 			pShadeTable = pPaletteTable->pCurrentShade = pPaletteTable->pShades[ubShadeLevel];
 		}
 	}
-	if (!pSoldier->flags.fBeginFade)
+	if (!pSoldier->renderState().fadeMode())
 	{
 		// Special effect - draw ghost if is seen by a guy in player's team but not current guy
 		// ATE: Todo: setup flag for 'bad-guy' - can releive some checks in renderer
@@ -1893,7 +1893,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	}
 	if (!(uiFlags & TILES_DIRTY))
 	{
-		if (pSoldier->flags.fForceShade)
+		if (pSoldier->renderState().forceShade())
 		{
 			pShadeTable = pSoldier->pForcedShade;
 		}

@@ -1077,20 +1077,20 @@ BOOLEAN ExecuteOverhead( )
             }               
 
             // Checkout fading
-            if ( pSoldier->flags.fBeginFade )
+            if ( pSoldier->renderState().fadeMode() )
             {
                 if ( TIMECOUNTERDONE( pSoldier->timeCounters.FadeCounter, NEW_FADE_DELAY ) )
                 {
                     RESETTIMECOUNTER( pSoldier->timeCounters.FadeCounter, NEW_FADE_DELAY );
 
                     // Fade out....
-                    if ( pSoldier->flags.fBeginFade == 1 )
+                    if ( pSoldier->renderState().fadeMode() == 1 )
                     {
-                        bShadeLevel = (pSoldier->ubFadeLevel&0x0f);
+                        bShadeLevel = (pSoldier->renderState().fadeLevel()&0x0f);
                         bShadeLevel=__min(bShadeLevel+1, SHADE_MIN);
                         if ( bShadeLevel >= ( SHADE_MIN - 3 ) )
                         {
-                            pSoldier->flags.fBeginFade = FALSE;
+                            pSoldier->renderState().finishFade();
                             pSoldier->awareness().markHidden();
                             // Set levelnode shade level....
                             if ( pSoldier->pLevelNode )
@@ -1100,12 +1100,12 @@ BOOLEAN ExecuteOverhead( )
                             // Set Anim speed accordingly!
                             SetSoldierAniSpeed( pSoldier );
                         }
-                        bShadeLevel|=(pSoldier->ubFadeLevel&0x30);
-                        pSoldier->ubFadeLevel = bShadeLevel;
+                        bShadeLevel|=(pSoldier->renderState().fadeLevel()&0x30);
+                        pSoldier->renderState().fadeLevel() = bShadeLevel;
                     }
-                    else if ( pSoldier->flags.fBeginFade == 2 )
+                    else if ( pSoldier->renderState().fadeMode() == 2 )
                     {
-                        bShadeLevel = (pSoldier->ubFadeLevel&0x0f);
+                        bShadeLevel = (pSoldier->renderState().fadeLevel()&0x0f);
                         bShadeLevel = bShadeLevel-1;
                         if ( bShadeLevel <= 0 )
                         {
@@ -1114,7 +1114,7 @@ BOOLEAN ExecuteOverhead( )
                         if ( bShadeLevel <= (gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel ) )
                         {
                             bShadeLevel = (gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel );
-                            pSoldier->flags.fBeginFade = FALSE;
+                            pSoldier->renderState().finishFade();
                             // Set levelnode shade level....
                             if ( pSoldier->pLevelNode )
                             {
@@ -1123,8 +1123,8 @@ BOOLEAN ExecuteOverhead( )
                             // Set Anim speed accordingly!
                             SetSoldierAniSpeed( pSoldier );
                         }
-                        bShadeLevel|=(pSoldier->ubFadeLevel&0x30);
-                        pSoldier->ubFadeLevel = bShadeLevel;
+                        bShadeLevel|=(pSoldier->renderState().fadeLevel()&0x30);
+                        pSoldier->renderState().fadeLevel() = bShadeLevel;
                     }
                 }
             }
@@ -1138,10 +1138,12 @@ BOOLEAN ExecuteOverhead( )
                 {                       
                     if (!TileIsOutOfBounds(pSoldier->position().gridNo()))
                     {
-                        pSoldier->ubFadeLevel = gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel;
+                        pSoldier->renderState().fadeLevel() =
+                            gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel;
                     }
-                    pSoldier->flags.fBeginFade  = TRUE;
-                    pSoldier->sLocationOfFadeStart = pSoldier->position().gridNo();
+                    pSoldier->renderState().beginFade(
+                        TRUE, pSoldier->renderState().fadeLevel(),
+                        pSoldier->position().gridNo());
                     // OK, re-evaluate guy's roof marker
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), FALSE, FALSE );
                     pSoldier->awareness().beginFadeOut();
@@ -1149,9 +1151,8 @@ BOOLEAN ExecuteOverhead( )
                 // Check for fade in.....
                 if ( !pSoldier->awareness().fullyHidden() && pSoldier->awareness().lastRenderedVisibility() == -1 && pSoldier->bTeam != gbPlayerNum )
                 {
-                    pSoldier->ubFadeLevel = ( SHADE_MIN - 3 );
-                    pSoldier->flags.fBeginFade  = 2;
-                    pSoldier->sLocationOfFadeStart = pSoldier->position().gridNo();
+                    pSoldier->renderState().beginFade(
+                        2, ( SHADE_MIN - 3 ), pSoldier->position().gridNo());
 
                     // OK, re-evaluate guy's roof marker
                     HandlePlacingRoofMarker( pSoldier, pSoldier->position().gridNo(), TRUE, FALSE );
@@ -2723,26 +2724,26 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     // ATE; Handle bad guys, as they fade, to cancel it if
     // too long...
     // ONLY if fading IN!
-    if ( pSoldier->flags.fBeginFade == 1 )
+    if ( pSoldier->renderState().fadeMode() == 1 )
     {
-        if ( pSoldier->sLocationOfFadeStart != pSoldier->position().gridNo() )
+        if ( pSoldier->renderState().fadeOriginGrid() != pSoldier->position().gridNo() )
         {
             // Turn off
-            pSoldier->flags.fBeginFade = FALSE;
+            pSoldier->renderState().finishFade();
 
             if ( pSoldier->position().level() > 0 && gpWorldLevelData[pSoldier->position().gridNo()].pRoofHead != NULL )
             {
-                pSoldier->ubFadeLevel = gpWorldLevelData[ pSoldier->position().gridNo() ].pRoofHead->ubShadeLevel;
+                pSoldier->renderState().fadeLevel() = gpWorldLevelData[ pSoldier->position().gridNo() ].pRoofHead->ubShadeLevel;
             }
             else
             {
-                pSoldier->ubFadeLevel = gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel;
+                pSoldier->renderState().fadeLevel() = gpWorldLevelData[ pSoldier->position().gridNo() ].pLandHead->ubShadeLevel;
             }
 
             // Set levelnode shade level....
             if ( pSoldier->pLevelNode )
             {
-                pSoldier->pLevelNode->ubShadeLevel = pSoldier->ubFadeLevel;
+                pSoldier->pLevelNode->ubShadeLevel = pSoldier->renderState().fadeLevel();
             }
             pSoldier->awareness().markHidden();
 

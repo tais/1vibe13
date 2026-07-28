@@ -417,101 +417,101 @@ void ProcessMercEditing()
 			{
 				case 0:
 					ubType = EDIT_COLOR_HEAD;
-					GetPaletteRepIndexFromID( pSoldier->HeadPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().headPalette(), &ubPaletteRep );
 
 					ubPaletteRep--;
 					if ( (ubPaletteRep < (UINT8)iEditColorStart[ubType]) || (ubPaletteRep > ((UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType])) )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
-					SET_PALETTEREP_ID( pSoldier->HeadPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->HeadPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->renderState().headPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 1:
 					ubType = EDIT_COLOR_HEAD;
-					GetPaletteRepIndexFromID( pSoldier->HeadPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().headPalette(), &ubPaletteRep );
 
 					ubPaletteRep++;
 					if ( ubPaletteRep >= ((UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType]) )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
-					SET_PALETTEREP_ID( pSoldier->HeadPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->HeadPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().headPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", pSoldier->renderState().headPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
 				case 2:
 					ubType = EDIT_COLOR_SKIN;
-					GetPaletteRepIndexFromID( pSoldier->SkinPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().skinPalette(), &ubPaletteRep );
 
 					ubPaletteRep--;
 					if ( ubPaletteRep < (UINT8)iEditColorStart[ubType] )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
-					SET_PALETTEREP_ID( pSoldier->SkinPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->SkinPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->renderState().skinPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 3:
 					ubType = EDIT_COLOR_SKIN;
-					GetPaletteRepIndexFromID( pSoldier->SkinPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().skinPalette(), &ubPaletteRep );
 
 					ubPaletteRep++;
 					if ( ubPaletteRep >= ((UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType]) )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
-					SET_PALETTEREP_ID( pSoldier->SkinPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->SkinPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().skinPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", pSoldier->renderState().skinPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
 				case 4:
 					ubType = EDIT_COLOR_VEST;
-					GetPaletteRepIndexFromID( pSoldier->VestPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().vestPalette(), &ubPaletteRep );
 
 					ubPaletteRep--;
 					if ( ubPaletteRep < (UINT8)iEditColorStart[ubType] )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
-					SET_PALETTEREP_ID( pSoldier->VestPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->VestPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->renderState().vestPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 5:
 					ubType = EDIT_COLOR_VEST;
-					GetPaletteRepIndexFromID( pSoldier->VestPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().vestPalette(), &ubPaletteRep );
 
 					ubPaletteRep++;
 					if ( ubPaletteRep >= ((UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType]) )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
-					SET_PALETTEREP_ID( pSoldier->VestPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->VestPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", pSoldier->renderState().vestPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 
 				case 6:
 					ubType = EDIT_COLOR_PANTS;
-					GetPaletteRepIndexFromID( pSoldier->PantsPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().pantsPalette(), &ubPaletteRep );
 
 					ubPaletteRep--;
 					if ( ubPaletteRep < (UINT8)iEditColorStart[ubType] )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType] - 1;
 
-					SET_PALETTEREP_ID( pSoldier->PantsPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->PantsPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->renderState().pantsPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 				case 7:
 					ubType = EDIT_COLOR_PANTS;
-					GetPaletteRepIndexFromID( pSoldier->PantsPal, &ubPaletteRep );
+					GetPaletteRepIndexFromID( pSoldier->renderState().pantsPalette(), &ubPaletteRep );
 
 					ubPaletteRep++;
 					if ( ubPaletteRep >= ((UINT8)iEditColorStart[ubType] + gubpNumReplacementsPerRange[ubType]) )
 						ubPaletteRep = (UINT8)iEditColorStart[ubType];
 
-					SET_PALETTEREP_ID( pSoldier->PantsPal, gpPalRep[ ubPaletteRep ].ID );
-					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->PantsPal );
+					SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gpPalRep[ ubPaletteRep ].ID );
+					snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", pSoldier->renderState().pantsPalette() );
 					pSoldier->CreateSoldierPalettes( );
 					break;
 			}
@@ -1146,10 +1146,10 @@ void MercsToggleColorModeCallback( GUI_BUTTON *btn, INT32 reason )
 		{
 			EnableEditorButtons( FIRST_MERCS_COLOR_BUTTON, LAST_MERCS_COLOR_BUTTON );
 			gpSelected->pDetailedPlacement->fVisible = TRUE;
-			snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", gpSelected->pSoldier->HeadPal );
-			snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", gpSelected->pSoldier->SkinPal );
-			snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", gpSelected->pSoldier->VestPal );
-			snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", gpSelected->pSoldier->PantsPal );
+			snprintf( gpSelected->pDetailedPlacement->HeadPal, sizeof(gpSelected->pDetailedPlacement->HeadPal), "%s", gpSelected->pSoldier->renderState().headPalette() );
+			snprintf( gpSelected->pDetailedPlacement->SkinPal, sizeof(gpSelected->pDetailedPlacement->SkinPal), "%s", gpSelected->pSoldier->renderState().skinPalette() );
+			snprintf( gpSelected->pDetailedPlacement->VestPal, sizeof(gpSelected->pDetailedPlacement->VestPal), "%s", gpSelected->pSoldier->renderState().vestPalette() );
+			snprintf( gpSelected->pDetailedPlacement->PantsPal, sizeof(gpSelected->pDetailedPlacement->PantsPal), "%s", gpSelected->pSoldier->renderState().pantsPalette() );
 		}
 		else //button is unchecked.
 		{
@@ -1231,37 +1231,37 @@ void ShowEditMercPalettes( SOLDIERTYPE *pSoldier )
 
 	if( pSoldier )
 	{
-		if( !strlen( pSoldier->HeadPal ) )
+		if( !strlen( pSoldier->renderState().headPalette() ) )
 			ubPaletteRep = 0xff;
 		else
-			GetPaletteRepIndexFromID( pSoldier->HeadPal, &ubPaletteRep );
+			GetPaletteRepIndexFromID( pSoldier->renderState().headPalette(), &ubPaletteRep );
 	}
 	ShowEditMercColorSet( ubPaletteRep, 0 );
 
 	if( pSoldier )
 	{
-		if( !strlen( pSoldier->SkinPal ) )
+		if( !strlen( pSoldier->renderState().skinPalette() ) )
 			ubPaletteRep = 0xff;
 		else
-			GetPaletteRepIndexFromID( pSoldier->SkinPal, &ubPaletteRep );
+			GetPaletteRepIndexFromID( pSoldier->renderState().skinPalette(), &ubPaletteRep );
 	}
 	ShowEditMercColorSet( ubPaletteRep, 1 );
 
 	if( pSoldier )
 	{
-		if( !strlen( pSoldier->VestPal ) )
+		if( !strlen( pSoldier->renderState().vestPalette() ) )
 			ubPaletteRep = 0xff;
 		else
-			GetPaletteRepIndexFromID( pSoldier->VestPal, &ubPaletteRep );
+			GetPaletteRepIndexFromID( pSoldier->renderState().vestPalette(), &ubPaletteRep );
 	}
 	ShowEditMercColorSet( ubPaletteRep, 2 );
 
 	if( pSoldier )
 	{
-		if( !strlen( pSoldier->VestPal ) )
+		if( !strlen( pSoldier->renderState().vestPalette() ) )
 			ubPaletteRep = 0xff;
 		else
-			GetPaletteRepIndexFromID( pSoldier->PantsPal, &ubPaletteRep );
+			GetPaletteRepIndexFromID( pSoldier->renderState().pantsPalette(), &ubPaletteRep );
 	}
 	ShowEditMercColorSet( ubPaletteRep, 3 );
 }
@@ -2599,10 +2599,10 @@ void UpdateMercsInfo()
 			SetFontForeground( FONT_BLACK );
 			if( gpSelected->pDetailedPlacement->fVisible || gpSelected->pDetailedPlacement->ubProfile != NO_PROFILE )
 			{
-				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 374, L"%S	", gpSelected->pSoldier->HeadPal );
-				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 398, L"%S	", gpSelected->pSoldier->SkinPal );
-				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 422, L"%S	", gpSelected->pSoldier->VestPal );
-				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 446, L"%S	", gpSelected->pSoldier->PantsPal );
+				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 374, L"%S	", gpSelected->pSoldier->renderState().headPalette() );
+				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 398, L"%S	", gpSelected->pSoldier->renderState().skinPalette() );
+				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 422, L"%S	", gpSelected->pSoldier->renderState().vestPalette() );
+				mprintfEditor( iScreenWidthOffset + 396, 2 * iScreenHeightOffset + 446, L"%S	", gpSelected->pSoldier->renderState().pantsPalette() );
 				ShowEditMercPalettes( gpSelected->pSoldier );
 			}
 			else
@@ -3120,8 +3120,8 @@ void SetEnemyColorCode( UINT8 ubColorCode )
 			gubSoldierClass = SOLDIER_CLASS_ARMY;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->ubSoldierClass = SOLDIER_CLASS_ARMY;
-			SET_PALETTEREP_ID( gpSelected->pSoldier->VestPal, "REDVEST"	);
-			SET_PALETTEREP_ID( gpSelected->pSoldier->PantsPal, "GREENPANTS"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().vestPalette(), "REDVEST"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().pantsPalette(), "GREENPANTS"	);
 			ClickEditorButton( MERCS_ARMY_CODE );
 			break;
 		case SOLDIER_CLASS_ADMINISTRATOR:
@@ -3130,16 +3130,16 @@ void SetEnemyColorCode( UINT8 ubColorCode )
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->ubSoldierClass = SOLDIER_CLASS_ADMINISTRATOR;
 			ClickEditorButton( MERCS_ADMIN_CODE );
-			SET_PALETTEREP_ID( gpSelected->pSoldier->VestPal, "BLUEVEST"	);
-			SET_PALETTEREP_ID( gpSelected->pSoldier->PantsPal, "BLUEPANTS"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().vestPalette(), "BLUEVEST"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().pantsPalette(), "BLUEPANTS"	);
 			break;
 		case SOLDIER_CLASS_ELITE:
 			gpSelected->pBasicPlacement->ubSoldierClass = SOLDIER_CLASS_ELITE;
 			gubSoldierClass = SOLDIER_CLASS_ELITE;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->ubSoldierClass = SOLDIER_CLASS_ELITE;
-			SET_PALETTEREP_ID( gpSelected->pSoldier->VestPal, "BLACKSHIRT"	);
-			SET_PALETTEREP_ID( gpSelected->pSoldier->PantsPal, "BLACKPANTS"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().vestPalette(), "BLACKSHIRT"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().pantsPalette(), "BLACKPANTS"	);
 			ClickEditorButton( MERCS_ELITE_CODE );
 			break;
 		case SOLDIER_CLASS_MINER:
@@ -3151,8 +3151,8 @@ void SetEnemyColorCode( UINT8 ubColorCode )
 			gubSoldierClass = SOLDIER_CLASS_MINER;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->ubSoldierClass = SOLDIER_CLASS_MINER;
-			SET_PALETTEREP_ID( gpSelected->pSoldier->VestPal, "greyVEST"	);
-			SET_PALETTEREP_ID( gpSelected->pSoldier->PantsPal, "BEIGEPANTS"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().vestPalette(), "greyVEST"	);
+			SET_PALETTEREP_ID( gpSelected->pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
 			break;
 
 		default:

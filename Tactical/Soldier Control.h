@@ -802,12 +802,8 @@ public:
 	// flags from before the changes to the memory structure
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
 	BOOLEAN											fTurnInProgress;
-	BOOLEAN											fBeginFade;
 	BOOLEAN											fPrevInWater;
-	BOOLEAN											fForceRenderColor;
-	BOOLEAN											fForceNoRenderPaletteCycle;
 	BOOLEAN											fUIMovementFast;
-	BOOLEAN											fForceShade;
 	BOOLEAN											fDeadSoundPlayed;
 	BOOLEAN											fClosePanel;
 	BOOLEAN											fClosePanelToDie;
@@ -841,7 +837,6 @@ public:
 	BOOLEAN											fIsSoldierDelayed;						//Is the soldier delayed Soldier 
 	BOOLEAN											fSoldierUpdatedFromNetwork;
 	BOOLEAN											fSayAmmoQuotePending;
-	BOOLEAN											fMuzzleFlash;
 	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
 	BOOLEAN											fMercAsleep;
 	BOOLEAN											fSoldierWasMoving;
@@ -1058,6 +1053,8 @@ public:
 	const SoldierSuppressionComponent& suppression() const noexcept { return suppression_; }
 	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
 	const SoldierDamageDisplayComponent& damageDisplay() const noexcept { return damageDisplay_; }
+	SoldierRenderStateComponent& renderState() noexcept { return renderState_; }
+	const SoldierRenderStateComponent& renderState() const noexcept { return renderState_; }
 	SoldierUiPresentationComponent& uiPresentation() noexcept { return uiPresentation_; }
 	const SoldierUiPresentationComponent& uiPresentation() const noexcept { return uiPresentation_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
@@ -1113,18 +1110,11 @@ public:
 	
 
 	// PALETTE MANAGEMENT STUFF
-	PaletteRepID		HeadPal;	// 30 
-	PaletteRepID		PantsPal;	// 30
-	PaletteRepID		VestPal;	// 30
-	PaletteRepID		SkinPal;	// 30
-	PaletteRepID		MiscPal;	// 30
-
 	SGPPaletteEntry	*p8BPPPalette; // 4
 	PIXEL			*p16BPPPalette;
 	PIXEL			*pShades[ NUM_SOLDIER_SHADES ]; // Shading tables
 	PIXEL			*pGlowShades[ 20 ]; // 
 	PIXEL			*pCurrentShade;
-	UINT8			ubFadeLevel;
 	THROW_PARAMS		*pThrowParams;
 	LEVELNODE		*pLevelNode;
 	LEVELNODE		*pExternShadowLevelNode;
@@ -1134,14 +1124,6 @@ public:
 	// UNBLIT BACKGROUND
 	UINT16			*pBackGround;
 	UINT16			*pZBackground;
-	UINT16			usUnblitX, usUnblitY;
-	UINT16			usUnblitWidth, usUnblitHeight;
-
-	
-	INT32			iLight;
-	INT32			iMuzFlash;
-	INT8				bMuzFlashCount;
-
 
 	PIXEL			*pForcedShade;
 
@@ -1162,10 +1144,6 @@ public:
 
 	struct TAG_anitile	*pAniTile;	
 	INT8					bVehicleID;
-	INT16				sBoundingBoxWidth;
-	INT16				sBoundingBoxHeight;
-	INT16				sBoundingBoxOffsetX;
-	INT16				sBoundingBoxOffsetY;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
 
@@ -1174,7 +1152,6 @@ public:
 	SoldierID			ubCTGTTargetID;
 
 	UINT8				ubMiscSoldierFlags;
-	INT32				sLocationOfFadeStart;
 
 	INT8					bDelayedStrategicMoraleMod;
 	struct GROUP			*pGroup;
@@ -1252,6 +1229,7 @@ private:
 	SoldierCombatContributionComponent	combatContribution_;
 	SoldierSuppressionComponent	suppression_;
 	SoldierDamageDisplayComponent	damageDisplay_;
+	SoldierRenderStateComponent	renderState_;
 	SoldierUiPresentationComponent	uiPresentation_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;

@@ -507,10 +507,10 @@ void PalEditRenderHook(	)
 	if ( gusSelectedSoldier < NOBODY && selectedSoldier &&
 		selectedSoldier->bActive)
 	{
-		DisplayPaletteRep( selectedSoldier->HeadPal, 50, 10, FRAME_BUFFER );
-		DisplayPaletteRep( selectedSoldier->PantsPal, 50, 50, FRAME_BUFFER );
-		DisplayPaletteRep( selectedSoldier->VestPal, 50, 90, FRAME_BUFFER );
-		DisplayPaletteRep( selectedSoldier->SkinPal, 50, 130, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->renderState().headPalette(), 50, 10, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->renderState().pantsPalette(), 50, 50, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->renderState().vestPalette(), 50, 90, FRAME_BUFFER );
+		DisplayPaletteRep( selectedSoldier->renderState().skinPalette(), 50, 130, FRAME_BUFFER );
 	}
 }
 
@@ -539,7 +539,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 	if ((pInputEvent->usEvent == KEY_DOWN )&& ( pInputEvent->usParam == 'h' ))
 	{
 			// Get index of current
-			CHECKF( GetPaletteRepIndexFromID( pSoldier->HeadPal, &ubPaletteRep ) );
+			CHECKF( GetPaletteRepIndexFromID( pSoldier->renderState().headPalette(), &ubPaletteRep ) );
 			ubType = gpPalRep[ ubPaletteRep ].ubType;
 
 			ubPaletteRep++;
@@ -556,7 +556,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			{
 				ubPaletteRep = ubStartRep;
 			}
-			SET_PALETTEREP_ID ( pSoldier->HeadPal,	gpPalRep[ ubPaletteRep ].ID );
+			SET_PALETTEREP_ID ( pSoldier->renderState().headPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
 			pSoldier->CreateSoldierPalettes( );
 
@@ -567,7 +567,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 	if ((pInputEvent->usEvent == KEY_DOWN )&& ( pInputEvent->usParam == 'v' ))
 	{
 			// Get index of current
-			CHECKF( GetPaletteRepIndexFromID( pSoldier->VestPal, &ubPaletteRep ) );
+			CHECKF( GetPaletteRepIndexFromID( pSoldier->renderState().vestPalette(), &ubPaletteRep ) );
 			ubType = gpPalRep[ ubPaletteRep ].ubType;
 
 			ubPaletteRep++;
@@ -584,7 +584,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			{
 				ubPaletteRep = ubStartRep;
 			}
-			SET_PALETTEREP_ID ( pSoldier->VestPal,	gpPalRep[ ubPaletteRep ].ID );
+			SET_PALETTEREP_ID ( pSoldier->renderState().vestPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
 			pSoldier->CreateSoldierPalettes( );
 
@@ -594,7 +594,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 	if ((pInputEvent->usEvent == KEY_DOWN )&& ( pInputEvent->usParam == 'p' ))
 	{
 			// Get index of current
-			CHECKF( GetPaletteRepIndexFromID( pSoldier->PantsPal, &ubPaletteRep ) );
+			CHECKF( GetPaletteRepIndexFromID( pSoldier->renderState().pantsPalette(), &ubPaletteRep ) );
 			ubType = gpPalRep[ ubPaletteRep ].ubType;
 
 			ubPaletteRep++;
@@ -611,7 +611,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			{
 				ubPaletteRep = ubStartRep;
 			}
-			SET_PALETTEREP_ID ( pSoldier->PantsPal,	gpPalRep[ ubPaletteRep ].ID );
+			SET_PALETTEREP_ID ( pSoldier->renderState().pantsPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
 			pSoldier->CreateSoldierPalettes( );
 
@@ -621,7 +621,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 	if ((pInputEvent->usEvent == KEY_DOWN )&& ( pInputEvent->usParam == 's' ))
 	{
 			// Get index of current
-			CHECKF( GetPaletteRepIndexFromID( pSoldier->SkinPal, &ubPaletteRep ) );
+			CHECKF( GetPaletteRepIndexFromID( pSoldier->renderState().skinPalette(), &ubPaletteRep ) );
 			ubType = gpPalRep[ ubPaletteRep ].ubType;
 
 			ubPaletteRep++;
@@ -638,7 +638,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 			{
 				ubPaletteRep = ubStartRep;
 			}
-			SET_PALETTEREP_ID ( pSoldier->SkinPal,	gpPalRep[ ubPaletteRep ].ID );
+			SET_PALETTEREP_ID ( pSoldier->renderState().skinPalette(),	gpPalRep[ ubPaletteRep ].ID );
 
 			pSoldier->CreateSoldierPalettes( );
 

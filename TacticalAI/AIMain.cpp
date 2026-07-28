@@ -532,7 +532,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	// if this NPC is dying, bail
 	if (pSoldier->vitals().health() < OKLIFE || !pSoldier->bActive )
 	{
-		if ( pSoldier->bActive && pSoldier->flags.fMuzzleFlash )
+		if ( pSoldier->bActive && pSoldier->renderState().muzzleFlashVisible() )
 		{
 			EndMuzzleFlash( pSoldier );
 		}
@@ -601,7 +601,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	if (pSoldier->collapseState().tactical())
 	{
 		// being handled so turn off muzzle flash
-		if ( pSoldier->flags.fMuzzleFlash )
+		if ( pSoldier->renderState().muzzleFlashVisible() )
 		{
 			EndMuzzleFlash( pSoldier );
 		}
@@ -736,7 +736,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	if (pSoldier->aiData.bAction == AI_ACTION_NONE)
 	{
 		// being handled so turn off muzzle flash
-		if ( pSoldier->flags.fMuzzleFlash )
+		if ( pSoldier->renderState().muzzleFlashVisible() )
 		{
 			EndMuzzleFlash( pSoldier );
 		}

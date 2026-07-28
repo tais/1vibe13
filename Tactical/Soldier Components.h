@@ -1749,6 +1749,134 @@ private:
 	INT8 direction_ = 0;
 };
 
+// Canonical value state consumed by soldier rendering. Palette resource
+// pointers remain legacy adapters, while their stable replacement identities,
+// fade lifecycle, light handles, redraw bounds, and screen geometry share one
+// reset boundary.
+class SoldierRenderStateComponent
+{
+public:
+	static constexpr INT32 NoLightSprite = -1;
+
+	PaletteRepID& headPalette() noexcept { return headPalette_; }
+	const PaletteRepID& headPalette() const noexcept { return headPalette_; }
+	PaletteRepID& pantsPalette() noexcept { return pantsPalette_; }
+	const PaletteRepID& pantsPalette() const noexcept { return pantsPalette_; }
+	PaletteRepID& vestPalette() noexcept { return vestPalette_; }
+	const PaletteRepID& vestPalette() const noexcept { return vestPalette_; }
+	PaletteRepID& skinPalette() noexcept { return skinPalette_; }
+	const PaletteRepID& skinPalette() const noexcept { return skinPalette_; }
+	PaletteRepID& miscPalette() noexcept { return miscPalette_; }
+	const PaletteRepID& miscPalette() const noexcept { return miscPalette_; }
+	UINT8& fadeMode() noexcept { return fadeMode_; }
+	const UINT8& fadeMode() const noexcept { return fadeMode_; }
+	BOOLEAN& forceRenderColor() noexcept { return forceRenderColor_; }
+	const BOOLEAN& forceRenderColor() const noexcept { return forceRenderColor_; }
+	BOOLEAN& forceNoPaletteCycle() noexcept { return forceNoPaletteCycle_; }
+	const BOOLEAN& forceNoPaletteCycle() const noexcept { return forceNoPaletteCycle_; }
+	BOOLEAN& forceShade() noexcept { return forceShade_; }
+	const BOOLEAN& forceShade() const noexcept { return forceShade_; }
+	BOOLEAN& muzzleFlashVisible() noexcept { return muzzleFlashVisible_; }
+	const BOOLEAN& muzzleFlashVisible() const noexcept { return muzzleFlashVisible_; }
+	UINT8& fadeLevel() noexcept { return fadeLevel_; }
+	const UINT8& fadeLevel() const noexcept { return fadeLevel_; }
+	UINT16& unblitX() noexcept { return unblitX_; }
+	const UINT16& unblitX() const noexcept { return unblitX_; }
+	UINT16& unblitY() noexcept { return unblitY_; }
+	const UINT16& unblitY() const noexcept { return unblitY_; }
+	UINT16& unblitWidth() noexcept { return unblitWidth_; }
+	const UINT16& unblitWidth() const noexcept { return unblitWidth_; }
+	UINT16& unblitHeight() noexcept { return unblitHeight_; }
+	const UINT16& unblitHeight() const noexcept { return unblitHeight_; }
+	INT32& lightSprite() noexcept { return lightSprite_; }
+	const INT32& lightSprite() const noexcept { return lightSprite_; }
+	INT32& muzzleFlashSprite() noexcept { return muzzleFlashSprite_; }
+	const INT32& muzzleFlashSprite() const noexcept { return muzzleFlashSprite_; }
+	INT8& muzzleFlashFrame() noexcept { return muzzleFlashFrame_; }
+	const INT8& muzzleFlashFrame() const noexcept { return muzzleFlashFrame_; }
+	INT16& boundingBoxWidth() noexcept { return boundingBoxWidth_; }
+	const INT16& boundingBoxWidth() const noexcept { return boundingBoxWidth_; }
+	INT16& boundingBoxHeight() noexcept { return boundingBoxHeight_; }
+	const INT16& boundingBoxHeight() const noexcept { return boundingBoxHeight_; }
+	INT16& boundingBoxOffsetX() noexcept { return boundingBoxOffsetX_; }
+	const INT16& boundingBoxOffsetX() const noexcept { return boundingBoxOffsetX_; }
+	INT16& boundingBoxOffsetY() noexcept { return boundingBoxOffsetY_; }
+	const INT16& boundingBoxOffsetY() const noexcept { return boundingBoxOffsetY_; }
+	INT32& fadeOriginGrid() noexcept { return fadeOriginGrid_; }
+	const INT32& fadeOriginGrid() const noexcept { return fadeOriginGrid_; }
+
+	bool fading() const noexcept { return fadeMode_ != FALSE; }
+	bool hasLightSprite() const noexcept { return lightSprite_ != NoLightSprite; }
+	bool hasMuzzleFlashSprite() const noexcept { return muzzleFlashSprite_ != NoLightSprite; }
+	bool muzzleFlashExpired(INT8 maximumFrame) const noexcept
+	{
+		return muzzleFlashFrame_ > maximumFrame;
+	}
+	void beginFade(UINT8 mode, UINT8 level, INT32 originGrid) noexcept
+	{
+		fadeMode_ = mode;
+		fadeLevel_ = level;
+		fadeOriginGrid_ = originGrid;
+	}
+	void finishFade() noexcept { fadeMode_ = FALSE; }
+	void setUnblitRect(UINT16 x, UINT16 y, UINT16 width, UINT16 height) noexcept
+	{
+		unblitX_ = x;
+		unblitY_ = y;
+		unblitWidth_ = width;
+		unblitHeight_ = height;
+	}
+	void setBoundingBox(INT16 width, INT16 height, INT16 offsetX, INT16 offsetY) noexcept
+	{
+		boundingBoxWidth_ = width;
+		boundingBoxHeight_ = height;
+		boundingBoxOffsetX_ = offsetX;
+		boundingBoxOffsetY_ = offsetY;
+	}
+	void startMuzzleFlashSprite(INT32 sprite) noexcept
+	{
+		muzzleFlashSprite_ = sprite;
+		muzzleFlashFrame_ = 1;
+	}
+	void advanceMuzzleFlashFrame() noexcept { ++muzzleFlashFrame_; }
+	void clearMuzzleFlashSprite() noexcept
+	{
+		muzzleFlashSprite_ = NoLightSprite;
+		muzzleFlashFrame_ = 0;
+	}
+	void showMuzzleFlash() noexcept { muzzleFlashVisible_ = TRUE; }
+	void hideMuzzleFlash() noexcept { muzzleFlashVisible_ = FALSE; }
+	void enableForceShade() noexcept { forceShade_ = TRUE; }
+	void disableForceShade() noexcept { forceShade_ = FALSE; }
+	void clearLightSprite() noexcept { lightSprite_ = NoLightSprite; }
+	void reset() noexcept;
+
+private:
+	PaletteRepID headPalette_{};
+	PaletteRepID pantsPalette_{};
+	PaletteRepID vestPalette_{};
+	PaletteRepID skinPalette_{};
+	PaletteRepID miscPalette_{};
+	UINT8 fadeMode_ = 0;
+	BOOLEAN forceRenderColor_ = FALSE;
+	BOOLEAN forceNoPaletteCycle_ = FALSE;
+	BOOLEAN forceShade_ = FALSE;
+	BOOLEAN muzzleFlashVisible_ = FALSE;
+	UINT8 fadeLevel_ = 0;
+	UINT16 unblitX_ = 0;
+	UINT16 unblitY_ = 0;
+	UINT16 unblitWidth_ = 0;
+	UINT16 unblitHeight_ = 0;
+	INT32 lightSprite_ = NoLightSprite;
+	INT32 muzzleFlashSprite_ = NoLightSprite;
+	INT8 muzzleFlashFrame_ = 0;
+	INT16 boundingBoxWidth_ = 0;
+	INT16 boundingBoxHeight_ = 0;
+	INT16 boundingBoxOffsetX_ = 0;
+	INT16 boundingBoxOffsetY_ = 0;
+	INT32 fadeOriginGrid_ = 0;
+};
+
 // Canonical soldier-local tactical UI presentation state. Locator and portrait
 // animation, panel placement, planned-action overlays, and enemy cycling are
 // view state rather than simulation identity or render-resource ownership.

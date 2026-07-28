@@ -2524,7 +2524,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	else	//  throwing knife
 	{
 		fBuckshot = FALSE;
-		pSoldier->flags.fMuzzleFlash = FALSE;
+		pSoldier->renderState().hideMuzzleFlash();
 
 		// Deduct knife from inv! (not here, later?)
 	}
@@ -3424,11 +3424,11 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		if (!CREATURE_OR_BLOODCAT( pSoldier ) )
 		{
 			if ( IsFlashSuppressor( pObjUsed, pSoldier ) )
-				pSoldier->flags.fMuzzleFlash = FALSE;
+				pSoldier->renderState().hideMuzzleFlash();
 			else
-				pSoldier->flags.fMuzzleFlash = TRUE;
+				pSoldier->renderState().showMuzzleFlash();
 
-			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("UseGun: Muzzle flash = %d",pSoldier->flags.fMuzzleFlash));
+			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("UseGun: Muzzle flash = %d",pSoldier->renderState().muzzleFlashVisible()));
 						
 			if ( AmmoTypes[(*pObjUsed)[0]->data.gun.ubGunAmmoType].numberOfBullets > 1 )
 				fBuckshot = TRUE;
@@ -3439,7 +3439,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			//		fBuckshot = TRUE;
 			//		break;
 			//	case AMMO_SLEEP_DART:
-			//		pSoldier->flags.fMuzzleFlash = FALSE;
+			//		pSoldier->renderState().hideMuzzleFlash();
 			//		break;
 			//	default:
 			//		break;
@@ -3449,7 +3449,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	else	//  throwing knife
 	{
 		fBuckshot = FALSE;
-		pSoldier->flags.fMuzzleFlash = FALSE;
+		pSoldier->renderState().hideMuzzleFlash();
 
 		// Deduct knife from inv! (not here, later?)
 

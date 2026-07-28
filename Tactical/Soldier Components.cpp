@@ -768,6 +768,11 @@ void SoldierDamageDisplayComponent::reset() noexcept
 	*this = SoldierDamageDisplayComponent{};
 }
 
+void SoldierRenderStateComponent::reset() noexcept
+{
+	*this = SoldierRenderStateComponent{};
+}
+
 void SoldierUiPresentationComponent::reset() noexcept
 {
 	*this = SoldierUiPresentationComponent{};

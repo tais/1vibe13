@@ -3276,7 +3276,7 @@ void ShowLightPositionHandles( void )
 			{
 				if ( GetSoldier( &pSoldier, cnt ) )
 				{
-					if ( pSoldier->iLight == iCount )
+					if ( pSoldier->renderState().lightSprite() == iCount )
 						fSoldierLight = TRUE;
 				}
 			}
@@ -3319,7 +3319,7 @@ void RemoveLightPositionHandles( void )
 			{
 				if ( GetSoldier( &pSoldier, cnt ) )
 				{
-					if ( pSoldier->iLight == iCount )
+					if ( pSoldier->renderState().lightSprite() == iCount )
 						fSoldierLight = TRUE;
 				}
 			}
@@ -4638,7 +4638,7 @@ BOOLEAN FindLight(INT32 iGridNo, INT8 bLightType, UINT8 *pubLightRadius, UINT8 *
 		if((LightSprites[iCount].uiFlags & LIGHT_SPR_ACTIVE) && LightSprites[iCount].iX == sX && LightSprites[iCount].iY == sY && (bLightType == bSpriteLightType || bLightType == ANY_LIGHT))
 		{
 			for(cnt=0; cnt<MAX_NUM_SOLDIERS; cnt++)
-				if(GetSoldier(&pSoldier, cnt) && pSoldier->iLight == iCount)
+				if(GetSoldier(&pSoldier, cnt) && pSoldier->renderState().lightSprite() == iCount)
 					break;
 			if(cnt == MAX_NUM_SOLDIERS)
 			{
