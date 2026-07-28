@@ -516,14 +516,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   Palette/shade/surface pointers remain non-persisted legacy adapters, and the
   `SOLDIERCREATE_STRUCT` palette bytes used by multiplayer remain unchanged.
   Save layout, maps, XML, Lua, and installed data are unchanged.
-- Portrait flash, locator frame/offset/cycles, interface level, panel
-  animation/position, planned-action overlay, and enemy-cycle cursor are now
-  stored by `SoldierUiPresentationComponent`. The visitor emits all fifteen
+- Portrait flash frame/phase, locator frame/offset/cycles/visibility, interface
+  level, panel animation/position/lifecycle, merc-panel requests, first-time
+  AP/unconscious notifications, planned-action overlay, and enemy-cycle cursor
+  are now stored by `SoldierUiPresentationComponent`. The visitor emits all 27
   values at their original scattered positions and widths, including the
-  widened current `SoldierID` cursor, and v101 conversion maps every historical
-  raw value. Palette, shade, surface, and level-node pointers remain separate
-  legacy render resources. No save, packet, map, XML, Lua, or installed-data
-  bytes change.
+  widened current `SoldierID` cursor. The twelve historical `BOOLEAN` lifecycle
+  slots keep their established boolean encoding, while v101 conversion maps
+  every raw historical value. Palette, shade, surface, and level-node pointers
+  remain separate legacy render resources. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Militia kills, militia assists, and the fixed 156-entry player-team damage
   attribution table are now stored by `SoldierCombatContributionComponent`.
   The visitor emits the two unsigned 8-bit counters and every unsigned 8-bit

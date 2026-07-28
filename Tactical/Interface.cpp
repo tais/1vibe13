@@ -1676,11 +1676,11 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		return;
 	}
 
-	if ( pSoldier->flags.fFlashLocator )
+	if ( pSoldier->uiPresentation().locatorFlashing() )
 	{
 		if ( pSoldier->awareness().visibility() == -1 )
 		{
-			pSoldier->flags.fFlashLocator = FALSE;
+			pSoldier->uiPresentation().stopLocatorFlash();
 		}
 		else
 		{
@@ -1688,9 +1688,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			{
 				RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 80 );
 
-			//	pSoldier->flags.fShowLocator = !pSoldier->flags.fShowLocator;
+			//	Toggle the component-owned locator visibility.
 
-				pSoldier->flags.fShowLocator = TRUE;
+				pSoldier->uiPresentation().showLocator();
 
 				// Update frame
 				pSoldier->uiPresentation().locatorFrame()++;
@@ -1698,7 +1698,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				if ( pSoldier->uiPresentation().locatorFrame() == 5 )
 				{
 					// Update time we do this
-					pSoldier->flags.fFlashLocator++;
+					pSoldier->uiPresentation().advanceLocatorCycle();
 					pSoldier->uiPresentation().locatorFrame() = 0;
 				}
 			}
@@ -1707,17 +1707,15 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			//{
 			//	RESETTIMECOUNTER( pSoldier->timeCounters.FlashSelCounter, 5000 );
 
-			//	pSoldier->flags.fFlashLocator = FALSE;
-			//	pSoldier->flags.fShowLocator = FALSE;
+			//	pSoldier->uiPresentation().stopLocator();
 
 			//}
-			if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
+			if ( pSoldier->uiPresentation().locatorFlashCycle() == pSoldier->uiPresentation().locateCycles() )
 			{
-				pSoldier->flags.fFlashLocator = FALSE;
-				pSoldier->flags.fShowLocator = FALSE;
+				pSoldier->uiPresentation().stopLocator();
 			}
 
-			//if ( pSoldier->flags.fShowLocator )
+			//if ( pSoldier->uiPresentation().locatorVisible() )
 			{
 				// Render the beastie
 				// anv: if soldier is in vehicle, draw above middle of the vehicle
@@ -1778,9 +1776,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			}
 		}
 
-		if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
+		if ( pSoldier->uiPresentation().locatorFlashCycle() == pSoldier->uiPresentation().locateCycles() )
 		{
-				pSoldier->flags.fShowLocator = FALSE;
+				pSoldier->uiPresentation().hideLocator();
 		}
 		
 		if ( gGameExternalOptions.ubShowHealthBarsOnHead )
@@ -1818,7 +1816,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		ShowSoldierRoleSymbol(pSoldier);
 	}
 
-	if ( !pSoldier->flags.fShowLocator )
+	if ( !pSoldier->uiPresentation().locatorVisible() )
 	{
 		// RETURN IF MERC IS NOT SELECTED
 		if ( gfUIHandleSelectionAboveGuy && pSoldier->ubID == gsSelectedGuy && pSoldier->ubID != gusSelectedSoldier && !gfIgnoreOnSelectedGuy )

@@ -1952,8 +1952,9 @@ private:
 };
 
 // Canonical soldier-local tactical UI presentation state. Locator and portrait
-// animation, panel placement, planned-action overlays, and enemy cycling are
-// view state rather than simulation identity or render-resource ownership.
+// animation, panel placement and lifecycle, planned-action overlays, UI
+// notifications, and enemy cycling are view state rather than simulation
+// identity or render-resource ownership.
 class SoldierUiPresentationComponent
 {
 public:
@@ -1987,6 +1988,43 @@ public:
 	const SoldierID& lastEnemyCycled() const noexcept { return lastEnemyCycled_; }
 	UINT8& locateCycles() noexcept { return locateCycles_; }
 	const UINT8& locateCycles() const noexcept { return locateCycles_; }
+	BOOLEAN& panelCloseRequested() noexcept { return panelCloseRequested_; }
+	const BOOLEAN& panelCloseRequested() const noexcept { return panelCloseRequested_; }
+	BOOLEAN& panelCloseForDeath() noexcept { return panelCloseForDeath_; }
+	const BOOLEAN& panelCloseForDeath() const noexcept { return panelCloseForDeath_; }
+	BOOLEAN& deadPanelActive() noexcept { return deadPanelActive_; }
+	const BOOLEAN& deadPanelActive() const noexcept { return deadPanelActive_; }
+	BOOLEAN& panelOpenRequested() noexcept { return panelOpenRequested_; }
+	const BOOLEAN& panelOpenRequested() const noexcept { return panelOpenRequested_; }
+	BOOLEAN& locatorFlashCycle() noexcept { return locatorFlashCycle_; }
+	const BOOLEAN& locatorFlashCycle() const noexcept { return locatorFlashCycle_; }
+	BOOLEAN& locatorVisibleState() noexcept { return locatorVisible_; }
+	const BOOLEAN& locatorVisibleState() const noexcept { return locatorVisible_; }
+	BOOLEAN& portraitFlashPhase() noexcept { return portraitFlashPhase_; }
+	const BOOLEAN& portraitFlashPhase() const noexcept { return portraitFlashPhase_; }
+	BOOLEAN& deadMercUiPendingState() noexcept { return deadMercUiPending_; }
+	const BOOLEAN& deadMercUiPendingState() const noexcept { return deadMercUiPending_; }
+	BOOLEAN& newMercUiPendingState() noexcept { return newMercUiPending_; }
+	const BOOLEAN& newMercUiPendingState() const noexcept { return newMercUiPending_; }
+	BOOLEAN& closeMercUiPendingState() noexcept { return closeMercUiPending_; }
+	const BOOLEAN& closeMercUiPendingState() const noexcept { return closeMercUiPending_; }
+	BOOLEAN& firstNoActionPointsState() noexcept { return firstNoActionPoints_; }
+	const BOOLEAN& firstNoActionPointsState() const noexcept { return firstNoActionPoints_; }
+	BOOLEAN& firstUnconsciousState() noexcept { return firstUnconscious_; }
+	const BOOLEAN& firstUnconsciousState() const noexcept { return firstUnconscious_; }
+
+	bool panelClosing() const noexcept { return panelCloseRequested_ != FALSE; }
+	bool panelClosingForDeath() const noexcept { return panelCloseForDeath_ != FALSE; }
+	bool deadPanelShowing() const noexcept { return deadPanelActive_ != FALSE; }
+	bool panelOpening() const noexcept { return panelOpenRequested_ != FALSE; }
+	bool locatorFlashing() const noexcept { return locatorFlashCycle_ != FALSE; }
+	bool locatorVisible() const noexcept { return locatorVisible_ != FALSE; }
+	bool portraitFlashing() const noexcept { return portraitFlashPhase_ != FALSE; }
+	bool deadMercUiPending() const noexcept { return deadMercUiPending_ != FALSE; }
+	bool newMercUiPending() const noexcept { return newMercUiPending_ != FALSE; }
+	bool closeMercUiPending() const noexcept { return closeMercUiPending_ != FALSE; }
+	bool firstNoActionPoints() const noexcept { return firstNoActionPoints_ != FALSE; }
+	bool firstUnconscious() const noexcept { return firstUnconscious_ != FALSE; }
 
 	void setLocatorOffset(INT16 x, INT16 y) noexcept
 	{
@@ -1997,6 +2035,16 @@ public:
 	{
 		locatorFrame_ = 0;
 		locateCycles_ = cycles;
+		locatorFlashCycle_ = TRUE;
+	}
+	void advanceLocatorCycle() noexcept { ++locatorFlashCycle_; }
+	void showLocator() noexcept { locatorVisible_ = TRUE; }
+	void hideLocator() noexcept { locatorVisible_ = FALSE; }
+	void stopLocatorFlash() noexcept { locatorFlashCycle_ = FALSE; }
+	void stopLocator() noexcept
+	{
+		locatorFlashCycle_ = FALSE;
+		locatorVisible_ = FALSE;
 	}
 	void setPanelFacePosition(INT16 x, INT16 y) noexcept
 	{
@@ -2009,6 +2057,64 @@ public:
 		deadPanelFrame_ = 0;
 		openPanelFrame_ = 0;
 	}
+	void requestPanelClose() noexcept
+	{
+		panelCloseRequested_ = TRUE;
+		panelCloseForDeath_ = FALSE;
+	}
+	void beginDeathPanelTransition() noexcept
+	{
+		deadMercUiPending_ = FALSE;
+		panelCloseRequested_ = TRUE;
+		panelCloseForDeath_ = TRUE;
+		closePanelFrame_ = 0;
+		deadPanelFrame_ = 0;
+	}
+	bool completePanelClose(UINT8 finalFrame) noexcept
+	{
+		panelCloseRequested_ = FALSE;
+		closePanelFrame_ = finalFrame;
+		if (panelCloseForDeath_ != FALSE)
+		{
+			deadPanelActive_ = TRUE;
+			return true;
+		}
+		return false;
+	}
+	void completeDeadPanel(UINT8 finalFrame) noexcept
+	{
+		deadPanelActive_ = FALSE;
+		deadPanelFrame_ = finalFrame;
+		panelCloseForDeath_ = FALSE;
+	}
+	void requestPanelOpen(INT8 startFrame) noexcept
+	{
+		panelOpenRequested_ = TRUE;
+		openPanelFrame_ = startFrame;
+	}
+	void completePanelOpen() noexcept
+	{
+		panelOpenRequested_ = FALSE;
+		openPanelFrame_ = 0;
+	}
+	void startPortraitFlash() noexcept { portraitFlashPhase_ = TRUE; }
+	void setPortraitFlashPhase(BOOLEAN phase) noexcept { portraitFlashPhase_ = phase; }
+	void stopPortraitFlash() noexcept { portraitFlashPhase_ = FALSE; }
+	void queueDeadMercUi() noexcept { deadMercUiPending_ = TRUE; }
+	void clearDeadMercUi() noexcept { deadMercUiPending_ = FALSE; }
+	void queueNewMercUi() noexcept { newMercUiPending_ = TRUE; }
+	void clearNewMercUi() noexcept { newMercUiPending_ = FALSE; }
+	void queueCloseMercUi() noexcept { closeMercUiPending_ = TRUE; }
+	void clearCloseMercUi() noexcept { closeMercUiPending_ = FALSE; }
+	void finishDeathUi() noexcept
+	{
+		deadMercUiPending_ = FALSE;
+		panelCloseForDeath_ = FALSE;
+	}
+	void markNoActionPoints() noexcept { firstNoActionPoints_ = TRUE; }
+	void clearNoActionPoints() noexcept { firstNoActionPoints_ = FALSE; }
+	void markUnconscious() noexcept { firstUnconscious_ = TRUE; }
+	void clearUnconscious() noexcept { firstUnconscious_ = FALSE; }
 	bool hasPlannedTarget() const noexcept { return plannedTargetX_ != -1; }
 	void setPlannedTarget(INT16 x, INT16 y, UINT8 actionPointCost) noexcept
 	{
@@ -2039,6 +2145,18 @@ private:
 	INT16 plannedTargetY_ = 0;
 	SoldierID lastEnemyCycled_{};
 	UINT8 locateCycles_ = 0;
+	BOOLEAN panelCloseRequested_ = FALSE;
+	BOOLEAN panelCloseForDeath_ = FALSE;
+	BOOLEAN deadPanelActive_ = FALSE;
+	BOOLEAN panelOpenRequested_ = FALSE;
+	BOOLEAN locatorFlashCycle_ = FALSE;
+	BOOLEAN locatorVisible_ = FALSE;
+	BOOLEAN portraitFlashPhase_ = FALSE;
+	BOOLEAN deadMercUiPending_ = FALSE;
+	BOOLEAN newMercUiPending_ = FALSE;
+	BOOLEAN closeMercUiPending_ = FALSE;
+	BOOLEAN firstNoActionPoints_ = FALSE;
+	BOOLEAN firstUnconscious_ = FALSE;
 };
 
 // Canonical requests that bridge tactical decisions into animation playback.

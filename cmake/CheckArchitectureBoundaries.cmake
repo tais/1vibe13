@@ -5699,7 +5699,7 @@ string(REGEX MATCH
   serialized_soldier_movement_ui_speed_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fShowLocator\\);[ \t]*ar\\.boolean\\(f\\.fFlashPortrait\\);[ \t]*ar\\.boolean\\(movement\\.noActionPointsToFinish\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fUIdeadMerc\\);"
+  "ar\\.boolean\\(uiPresentation\\.locatorVisibleState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.portraitFlashPhase\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.noActionPointsToFinish\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.deadMercUiPendingState\\(\\)\\);"
   serialized_soldier_movement_halt_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7260,6 +7260,29 @@ foreach(retired_ui_presentation_field IN ITEMS
   endif()
 endforeach()
 
+foreach(retired_ui_presentation_flag IN ITEMS
+  fClosePanel
+  fClosePanelToDie
+  fDeadPanel
+  fOpenPanel
+  fFlashLocator
+  fShowLocator
+  fFlashPortrait
+  fUIdeadMerc
+  fUInewMerc
+  fUICloseMerc
+  fUIFirstTimeNOAP
+  fUIFirstTimeUNCON)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_ui_presentation_flag}[ \t]*;"
+    retired_current_ui_presentation_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_ui_presentation_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags UI field '${retired_ui_presentation_flag}' returned; tactical view lifecycle belongs to SoldierUiPresentationComponent")
+  endif()
+endforeach()
+
 string(REGEX MATCH
   "SoldierUiPresentationComponent[ \t\r\n]+uiPresentation_[ \t]*;"
   soldier_ui_presentation_owner
@@ -7284,7 +7307,19 @@ foreach(owned_ui_presentation_fragment IN ITEMS
   "INT16 plannedTargetX_ = 0;"
   "INT16 plannedTargetY_ = 0;"
   "SoldierID lastEnemyCycled_{};"
-  "UINT8 locateCycles_ = 0;")
+  "UINT8 locateCycles_ = 0;"
+  "BOOLEAN panelCloseRequested_ = FALSE;"
+  "BOOLEAN panelCloseForDeath_ = FALSE;"
+  "BOOLEAN deadPanelActive_ = FALSE;"
+  "BOOLEAN panelOpenRequested_ = FALSE;"
+  "BOOLEAN locatorFlashCycle_ = FALSE;"
+  "BOOLEAN locatorVisible_ = FALSE;"
+  "BOOLEAN portraitFlashPhase_ = FALSE;"
+  "BOOLEAN deadMercUiPending_ = FALSE;"
+  "BOOLEAN newMercUiPending_ = FALSE;"
+  "BOOLEAN closeMercUiPending_ = FALSE;"
+  "BOOLEAN firstNoActionPoints_ = FALSE;"
+  "BOOLEAN firstUnconscious_ = FALSE;")
   string(FIND "${soldier_components_header_contents}"
     "${owned_ui_presentation_fragment}"
     owned_soldier_ui_presentation_fragment)
@@ -7297,8 +7332,33 @@ endforeach()
 foreach(ui_presentation_operation IN ITEMS
   "void setLocatorOffset(INT16 x, INT16 y) noexcept"
   "void startLocator(UINT8 cycles) noexcept"
+  "void advanceLocatorCycle() noexcept"
+  "void showLocator() noexcept"
+  "void hideLocator() noexcept"
+  "void stopLocatorFlash() noexcept"
+  "void stopLocator() noexcept"
   "void setPanelFacePosition(INT16 x, INT16 y) noexcept"
   "void clearPanelAnimation() noexcept"
+  "void requestPanelClose() noexcept"
+  "void beginDeathPanelTransition() noexcept"
+  "bool completePanelClose(UINT8 finalFrame) noexcept"
+  "void completeDeadPanel(UINT8 finalFrame) noexcept"
+  "void requestPanelOpen(INT8 startFrame) noexcept"
+  "void completePanelOpen() noexcept"
+  "void startPortraitFlash() noexcept"
+  "void setPortraitFlashPhase(BOOLEAN phase) noexcept"
+  "void stopPortraitFlash() noexcept"
+  "void queueDeadMercUi() noexcept"
+  "void clearDeadMercUi() noexcept"
+  "void queueNewMercUi() noexcept"
+  "void clearNewMercUi() noexcept"
+  "void queueCloseMercUi() noexcept"
+  "void clearCloseMercUi() noexcept"
+  "void finishDeathUi() noexcept"
+  "void markNoActionPoints() noexcept"
+  "void clearNoActionPoints() noexcept"
+  "void markUnconscious() noexcept"
+  "void clearUnconscious() noexcept"
   "bool hasPlannedTarget() const noexcept"
   "void setPlannedTarget(INT16 x, INT16 y, UINT8 actionPointCost) noexcept"
   "void clearPlannedTarget() noexcept"
@@ -7345,7 +7405,19 @@ foreach(ui_presentation_conversion IN ITEMS
   "this->uiPresentation().plannedTargetX() = src.sPlannedTargetX;"
   "this->uiPresentation().plannedTargetY() = src.sPlannedTargetY;"
   "this->uiPresentation().lastEnemyCycled() = static_cast<UINT16>( src.ubLastEnemyCycledID );"
-  "this->uiPresentation().locateCycles() = src.ubNumLocateCycles;")
+  "this->uiPresentation().locateCycles() = src.ubNumLocateCycles;"
+  "uiPresentation().panelCloseRequested() = src.fClosePanel;"
+  "uiPresentation().panelCloseForDeath() = src.fClosePanelToDie;"
+  "uiPresentation().deadPanelActive() = src.fDeadPanel;"
+  "uiPresentation().panelOpenRequested() = src.fOpenPanel;"
+  "uiPresentation().locatorFlashCycle() = src.fFlashLocator;"
+  "uiPresentation().locatorVisibleState() = src.fShowLocator;"
+  "uiPresentation().portraitFlashPhase() = src.fFlashPortrait;"
+  "uiPresentation().deadMercUiPendingState() = src.fUIdeadMerc;"
+  "uiPresentation().newMercUiPendingState() = src.fUInewMerc;"
+  "uiPresentation().closeMercUiPendingState() = src.fUICloseMerc;"
+  "uiPresentation().firstNoActionPointsState() = src.fUIFirstTimeNOAP;"
+  "uiPresentation().firstUnconsciousState() = src.fUIFirstTimeUNCON;")
   string(FIND "${soldier_control_source_contents}"
     "${ui_presentation_conversion}"
     soldier_ui_presentation_conversion_site)
@@ -7358,6 +7430,9 @@ endforeach()
 string(FIND "${save_load_game_contents}"
   "SoldierUiPresentationComponent& uiPresentation = s.uiPresentation();"
   soldier_ui_presentation_save_alias)
+string(FIND "${save_load_game_contents}"
+  "SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();"
+  soldier_ui_presentation_flags_save_alias)
 foreach(ui_presentation_save_position IN ITEMS
   "ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
   "ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);"
@@ -7376,9 +7451,25 @@ foreach(ui_presentation_save_position IN ITEMS
       "Soldier UI presentation moved in the portable save schema at '${ui_presentation_save_position}'")
   endif()
 endforeach()
-if(soldier_ui_presentation_save_alias EQUAL -1)
+string(REGEX MATCH
+  "ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDeadSoundPlayed\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseRequested\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseForDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.deadPanelActive\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelOpenRequested\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fIntendedTarget\\);"
+  serialized_ui_panel_lifecycle_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.locatorFlashCycle\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.locatorVisibleState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.portraitFlashPhase\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.noActionPointsToFinish\\(\\)\\);"
+  serialized_ui_locator_portrait_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.deadMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.newMercUiPendingState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.closeMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstNoActionPointsState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstUnconsciousState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fReloading\\);"
+  serialized_ui_notification_order
+  "${save_load_game_contents}")
+if(soldier_ui_presentation_save_alias EQUAL -1 OR
+   soldier_ui_presentation_flags_save_alias EQUAL -1 OR
+   NOT serialized_ui_panel_lifecycle_order OR
+   NOT serialized_ui_locator_portrait_order OR
+   NOT serialized_ui_notification_order)
   message(FATAL_ERROR
-    "Soldier serializer must use the canonical UI-presentation owner")
+    "Soldier serializer must retain the canonical UI-presentation owner at every established save position")
 endif()
 
 file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
@@ -7387,6 +7478,14 @@ file(READ "${SOURCE_ROOT}/Tactical/Handle UI Plan.cpp"
   soldier_ui_presentation_plan_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
   soldier_ui_presentation_interface_control_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface.cpp"
+  soldier_ui_presentation_interface_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Faces.cpp"
+  soldier_ui_presentation_faces_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Points.cpp"
+  soldier_ui_presentation_points_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Ani.cpp"
+  soldier_ui_presentation_animation_contents)
 foreach(ui_presentation_runtime_fragment IN ITEMS
   "soldier->uiPresentation().startLocator(locateCycles);"
   "pSoldier->uiPresentation().setPanelFacePosition("
@@ -7404,10 +7503,67 @@ foreach(ui_presentation_runtime_fragment IN ITEMS
   endif()
 endforeach()
 
+foreach(ui_presentation_panel_lifecycle IN ITEMS
+  "soldier->uiPresentation().stopLocator();"
+  "pSoldier->uiPresentation().beginDeathPanelTransition();"
+  "pSoldier->uiPresentation().completePanelClose(5)"
+  "pSoldier->uiPresentation().completeDeadPanel(5);"
+  "soldier->uiPresentation().queueNewMercUi();"
+  "soldier->uiPresentation().queueCloseMercUi();")
+  string(FIND "${soldier_ui_presentation_panels_contents}"
+    "${ui_presentation_panel_lifecycle}"
+    soldier_ui_presentation_panel_lifecycle_site)
+  if(soldier_ui_presentation_panel_lifecycle_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical panel lifecycle bypassed SoldierUiPresentationComponent at '${ui_presentation_panel_lifecycle}'")
+  endif()
+endforeach()
+foreach(ui_presentation_locator_lifecycle IN ITEMS
+  "pSoldier->uiPresentation().advanceLocatorCycle();"
+  "pSoldier->uiPresentation().showLocator();"
+  "pSoldier->uiPresentation().stopLocator();")
+  string(FIND "${soldier_ui_presentation_interface_contents}"
+    "${ui_presentation_locator_lifecycle}"
+    soldier_ui_presentation_locator_lifecycle_site)
+  if(soldier_ui_presentation_locator_lifecycle_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical locator lifecycle bypassed SoldierUiPresentationComponent at '${ui_presentation_locator_lifecycle}'")
+  endif()
+endforeach()
+foreach(ui_presentation_notification_lifecycle IN ITEMS
+  "pSoldier->uiPresentation().startPortraitFlash();"
+  "pSoldier->uiPresentation().setPortraitFlashPhase(FLASH_PORTRAIT_WAITING);"
+  "pSoldier->uiPresentation().stopPortraitFlash();")
+  string(FIND "${soldier_ui_presentation_faces_contents}"
+    "${ui_presentation_notification_lifecycle}"
+    soldier_ui_presentation_notification_lifecycle_site)
+  if(soldier_ui_presentation_notification_lifecycle_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical portrait lifecycle bypassed SoldierUiPresentationComponent at '${ui_presentation_notification_lifecycle}'")
+  endif()
+endforeach()
+string(FIND "${soldier_ui_presentation_points_contents}"
+  "pSoldier->uiPresentation().markNoActionPoints();"
+  soldier_ui_no_action_points_transition)
+string(FIND "${soldier_ui_presentation_animation_contents}"
+  "pSoldier->uiPresentation().queueDeadMercUi();"
+  soldier_ui_dead_merc_transition)
+string(FIND "${soldier_control_source_contents}"
+  "this->uiPresentation().markUnconscious();"
+  soldier_ui_unconscious_transition)
+if(soldier_ui_no_action_points_transition EQUAL -1 OR
+   soldier_ui_dead_merc_transition EQUAL -1 OR
+   soldier_ui_unconscious_transition EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier UI notifications must enter SoldierUiPresentationComponent through named transitions")
+endif()
+
 foreach(ui_presentation_test_fragment IN ITEMS
   "SoldierUiPresentationComponent uiPresentationLifecycle;"
-  "v101 soldier conversion retains the complete UI-presentation domain"
-  "soldier save/load round-trips UI presentation at every established schema position")
+  "soldier UI presentation component owns complete locator, panel, notification, planning, and enemy-cycle view state"
+  "UI-presentation lifecycle clears coordinated transient view state"
+  "v101 soldier conversion retains the complete UI-presentation and lifecycle domain"
+  "soldier save/load round-trips UI presentation and lifecycle at every established schema position")
   string(FIND "${headless_test_contents}"
     "${ui_presentation_test_fragment}"
     soldier_ui_presentation_test_fragment)
@@ -7426,9 +7582,21 @@ string(FIND "${engine_sdk_documentation}"
 string(FIND "${save_format_documentation}"
   "SoldierUiPresentationComponent"
   soldier_ui_presentation_save_documented)
+string(FIND "${engine_architecture_documentation}"
+  "panel animation/lifecycle"
+  soldier_ui_lifecycle_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "merc-panel requests"
+  soldier_ui_lifecycle_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "all 27"
+  soldier_ui_lifecycle_save_documented)
 if(soldier_ui_presentation_architecture_documented EQUAL -1 OR
    soldier_ui_presentation_sdk_documented EQUAL -1 OR
-   soldier_ui_presentation_save_documented EQUAL -1)
+   soldier_ui_presentation_save_documented EQUAL -1 OR
+   soldier_ui_lifecycle_architecture_documented EQUAL -1 OR
+   soldier_ui_lifecycle_sdk_documented EQUAL -1 OR
+   soldier_ui_lifecycle_save_documented EQUAL -1)
   message(FATAL_ERROR
     "SoldierUiPresentationComponent ownership and compatibility guarantees must remain documented")
 endif()
@@ -8045,7 +8213,7 @@ string(REGEX MATCH
   serialized_soldier_animation_turn_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fWarnedAboutBleeding\\);[ \t]*ar\\.boolean\\(f\\.fDyingComment\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.turningToShoot\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningToFall\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningUntilDone\\(\\)\\);[ \t\r\n]*ar\\.u8\\(animationActivity\\.hitPhase\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fFlashLocator\\);"
+  "ar\\.boolean\\(f\\.fWarnedAboutBleeding\\);[ \t]*ar\\.boolean\\(f\\.fDyingComment\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.turningToShoot\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningToFall\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningUntilDone\\(\\)\\);[ \t\r\n]*ar\\.u8\\(animationActivity\\.hitPhase\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.nonInterruptible\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.locatorFlashCycle\\(\\)\\);"
   serialized_soldier_animation_hit_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

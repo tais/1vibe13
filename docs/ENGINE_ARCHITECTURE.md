@@ -1200,12 +1200,13 @@ the engine must not contain SDL types in its public domain model.
   remain legacy render-adapter resources; they are rebuilt or retired by their
   existing owners rather than copied into the component.
   `SoldierUiPresentationComponent` owns the wider soldier-local tactical view
-  state: portrait flash, locator animation and offsets, interface elevation,
-  panel animation and face placement, planned-action overlay, and the
-  enemy-cycle cursor. Named locator, panel-position, and planned-target
-  transitions keep paired UI coordinates coherent. Render-resource pointers
-  remain outside this component and its render-state neighbour rather than
-  becoming view-model state.
+  state: portrait flash frame and phase, locator animation/cycles/visibility
+  and offsets, interface elevation, panel animation/lifecycle and face
+  placement, merc-panel requests, first-time AP/unconscious notifications,
+  planned-action overlay, and the enemy-cycle cursor. Named locator, panel,
+  notification, and planned-target transitions keep related UI state coherent.
+  Render-resource pointers remain outside this component and its render-state
+  neighbour rather than becoming view-model state.
   `SoldierCombatContributionComponent` separately owns outgoing militia kills
   and assists plus the fixed 156-slot player-team damage attribution record.
   Named kill, assist, promotion-credit, transfer, and reset operations give

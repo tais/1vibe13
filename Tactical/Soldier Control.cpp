@@ -491,12 +491,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fSignedAnotherContract = src.fSignedAnotherContract;
 	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
 	this->fMercAsleep = src.fMercAsleep;
-	this->fFlashPortrait = src.fFlashPortrait;
 	this->fDeadSoundPlayed = src.fDeadSoundPlayed;
-	this->fClosePanel = src.fClosePanel;
-	this->fClosePanelToDie = src.fClosePanelToDie;
-	this->fDeadPanel = src.fDeadPanel;
-	this->fOpenPanel = src.fOpenPanel;
 	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
@@ -504,14 +499,7 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
 	this->fWarnedAboutBleeding = src.fWarnedAboutBleeding;
 	this->fDyingComment = src.fDyingComment;
-	this->fUIdeadMerc = src.fUIdeadMerc;				// UI Flags for removing a newly dead merc
-	this->fUInewMerc = src.fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
-	this->fUICloseMerc = src.fUICloseMerc;				// UI Flags for closing panels
-	this->fUIFirstTimeNOAP = src.fUIFirstTimeNOAP;		// UI Flag for diming guys when no APs ( dirty flags )
-	this->fUIFirstTimeUNCON = src.fUIFirstTimeUNCON;	// UI FLAG For unconscious dirty
 	this->fBetweenSectors = src.fBetweenSectors;	//set when the group isn't actually in a sector.
-	this->fFlashLocator = src.fFlashLocator;
-	this->fShowLocator = src.fShowLocator;
 	this->lastFlankLeft = src.lastFlankLeft;
 	this->uiStatusFlags = src.uiStatusFlags;
 }
@@ -638,6 +626,18 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		movement().wasMoving() = src.fSoldierWasMoving;
 		movement().pastXDestination() = src.fPastXDest;
 		movement().pastYDestination() = src.fPastYDest;
+		uiPresentation().panelCloseRequested() = src.fClosePanel;
+		uiPresentation().panelCloseForDeath() = src.fClosePanelToDie;
+		uiPresentation().deadPanelActive() = src.fDeadPanel;
+		uiPresentation().panelOpenRequested() = src.fOpenPanel;
+		uiPresentation().locatorFlashCycle() = src.fFlashLocator;
+		uiPresentation().locatorVisibleState() = src.fShowLocator;
+		uiPresentation().portraitFlashPhase() = src.fFlashPortrait;
+		uiPresentation().deadMercUiPendingState() = src.fUIdeadMerc;
+		uiPresentation().newMercUiPendingState() = src.fUInewMerc;
+		uiPresentation().closeMercUiPendingState() = src.fUICloseMerc;
+		uiPresentation().firstNoActionPointsState() = src.fUIFirstTimeNOAP;
+		uiPresentation().firstUnconsciousState() = src.fUIFirstTimeUNCON;
 		renderState().fadeMode() = src.fBeginFade;
 		renderState().forceRenderColor() = src.fForceRenderColor;
 		renderState().forceNoPaletteCycle() = src.fForceNoRenderPaletteCycle;
@@ -8061,7 +8061,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// If soldier has new APs, reset flags!
 		if ( this->actionPoints().current() > 0 )
 		{
-			this->flags.fUIFirstTimeNOAP = FALSE;
+			this->uiPresentation().clearNoActionPoints();
 			this->aiData.bMoved = FALSE;
 			this->aiData.bPassedLastInterrupt = FALSE;
 		}
@@ -10616,7 +10616,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	{
 		if ( this->vitals().health() < OKLIFE && this->vitals().health() > 0 && bOldLife >= OKLIFE )
 		{
-			this->flags.fUIFirstTimeUNCON = TRUE;
+			this->uiPresentation().markUnconscious();
 			fInterfacePanelDirty = DIRTYLEVEL2;
 		}
 	}
@@ -21985,7 +21985,7 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 	// ATE: Do this ONLY if buddy is in sector.....
 	if ( (pSoldier->bInSector && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN )
 	{
-		pSoldier->flags.fFlashPortrait = TRUE;
+		pSoldier->uiPresentation().startPortraitFlash();
 		pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 		RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
 
@@ -23930,7 +23930,7 @@ void SOLDIERTYPE::HandleSoldierTakeDamageFeedback( void )
 	if ((this->bInSector && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN)
 	{
 		// Flash portrait....
-		this->flags.fFlashPortrait = TRUE;
+		this->uiPresentation().startPortraitFlash();
 		this->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 		RESETTIMECOUNTER(this->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY);
 	}

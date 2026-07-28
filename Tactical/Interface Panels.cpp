@@ -5643,7 +5643,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			}
 
 			// Update animations....
-			if ( pSoldier->flags.fClosePanel || pSoldier->flags.fClosePanelToDie )
+			if ( pSoldier->uiPresentation().panelClosing() || pSoldier->uiPresentation().panelClosingForDeath() )
 			{
 				pSoldier->uiPresentation().setPanelFacePosition(
 					gFacesData[ pSoldier->iFaceIndex ].usFaceX,
@@ -6423,7 +6423,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 		{
 			// Select merc
 			InternalSelectSoldier( ubID, TRUE, FALSE, TRUE);
-			soldier->flags.fFlashLocator = FALSE;
+			soldier->uiPresentation().stopLocatorFlash();
 			ResetMultiSelection( );
 		}
 		else
@@ -6434,7 +6434,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 	}
 	else
 	{
-		if ( soldier->flags.fFlashLocator == FALSE )
+		if ( !soldier->uiPresentation().locatorFlashing() )
 		{
 			if ( gGameSettings.fOptions[ TOPTION_OLD_SELECTION_METHOD ] )
 			{
@@ -6525,7 +6525,6 @@ void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 	RESETTIMECOUNTER( soldier->timeCounters.FlashSelCounter, FLASH_SELECTOR_DELAY );
 
 	//LocateSoldier( ubID, FALSE );	// IC - this is already being done outside of this function :)
-	soldier->flags.fFlashLocator = TRUE;
 	//gbPanelSelectedGuy = ubID;	IC - had to move this outside to make this function versatile
 	const UINT8 locateCycles =
 		ubLocatorSpeed == SHOW_LOCATOR_NORMAL ? 5 : 3;
@@ -6540,8 +6539,7 @@ void EndRadioLocator( SoldierID ubID )
 		return;
 	}
 
-	soldier->flags.fFlashLocator = FALSE;
-	soldier->flags.fShowLocator = FALSE;
+	soldier->uiPresentation().stopLocator();
 }
 
 
@@ -6555,7 +6553,7 @@ void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sP
 	}
 
 
-	if ( pSoldier->flags.fUIdeadMerc	)
+	if ( pSoldier->uiPresentation().deadMercUiPending() )
 	{
 //		pSoldier->uiPresentation().panelFaceX()	= sPanelX;
 //		pSoldier->uiPresentation().panelFaceY()	= sPanelY;
@@ -6580,12 +6578,11 @@ void FinishAnySkullPanelAnimations( )
 		}
 		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() == 0 )
 		{
-			if ( pTeamSoldier->flags.fUIdeadMerc || pTeamSoldier->flags.fClosePanelToDie )
+			if ( pTeamSoldier->uiPresentation().deadMercUiPending() || pTeamSoldier->uiPresentation().panelClosingForDeath() )
 			{
 				HandlePlayerTeamMemberDeathAfterSkullAnimation( pTeamSoldier );
 
-				pTeamSoldier->flags.fUIdeadMerc = FALSE;
-				pTeamSoldier->flags.fClosePanelToDie = FALSE;
+				pTeamSoldier->uiPresentation().finishDeathUi();
 			}
 		}
 	}
@@ -6611,31 +6608,27 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	}
 
 	// If this is the first time we are active, open panel!
-	if ( pSoldier->flags.fUInewMerc )
+	if ( pSoldier->uiPresentation().newMercUiPending() )
 	{
-		pSoldier->flags.fUInewMerc = FALSE;
+		pSoldier->uiPresentation().clearNewMercUi();
 	}
 
-	if ( pSoldier->flags.fUICloseMerc )
+	if ( pSoldier->uiPresentation().closeMercUiPending() )
 	{
-		pSoldier->flags.fUICloseMerc = FALSE;
+		pSoldier->uiPresentation().clearCloseMercUi();
 	}
 
-	if ( pSoldier->flags.fUIdeadMerc	)
+	if ( pSoldier->uiPresentation().deadMercUiPending() )
 	{
 		pSoldier->uiPresentation().setPanelFacePosition(
 			gFacesData[ pSoldier->iFaceIndex ].usFaceX,
 			gFacesData[ pSoldier->iFaceIndex ].usFaceY);
 
-		pSoldier->flags.fUIdeadMerc = FALSE;
-		pSoldier->flags.fClosePanel		= TRUE;
-		pSoldier->flags.fClosePanelToDie = TRUE;
-		pSoldier->uiPresentation().closePanelFrame() = 0;
-		pSoldier->uiPresentation().deadPanelFrame() = 0;
+		pSoldier->uiPresentation().beginDeathPanelTransition();
 		RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
 	}
 
-	if ( pSoldier->flags.fClosePanel )
+	if ( pSoldier->uiPresentation().panelClosing() )
 	{
 		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
@@ -6643,12 +6636,8 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 				if ( pSoldier->uiPresentation().closePanelFrame() > 5 )
 				{
-					pSoldier->flags.fClosePanel = FALSE;
-					pSoldier->uiPresentation().closePanelFrame() = 5;
-
-					if ( pSoldier->flags.fClosePanelToDie )
+					if ( pSoldier->uiPresentation().completePanelClose(5) )
 					{
-						pSoldier->flags.fDeadPanel = TRUE;
 						//PlayJA2Sample( (UINT8)HEADCR_1, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 					}
 					else
@@ -6663,7 +6652,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( pSoldier->flags.fClosePanel )
+	if ( pSoldier->uiPresentation().panelClosing() )
 	{
 		// Render panel!
 		//if(gbPixelDepth==16)
@@ -6678,7 +6667,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	}
 
 
-	if ( pSoldier->flags.fDeadPanel )
+	if ( pSoldier->uiPresentation().deadPanelShowing() )
 	{
 		if ( TIMECOUNTERDONE(	pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
@@ -6694,9 +6683,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 				if ( pSoldier->uiPresentation().deadPanelFrame() > 5 )
 				{
-					pSoldier->flags.fDeadPanel = FALSE;
-					pSoldier->uiPresentation().deadPanelFrame() = 5;
-					pSoldier->flags.fClosePanelToDie = FALSE;
+					pSoldier->uiPresentation().completeDeadPanel(5);
 
 					// Finish!
 					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
@@ -6715,7 +6702,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( pSoldier->flags.fDeadPanel )
+	if ( pSoldier->uiPresentation().deadPanelShowing() )
 	{
 		// Render panel!
 		//if(gbPixelDepth==16)
@@ -6733,7 +6720,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	}
 
 
-	if ( pSoldier->flags.fOpenPanel )
+	if ( pSoldier->uiPresentation().panelOpening() )
 	{
 		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
@@ -6741,8 +6728,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 				if ( pSoldier->uiPresentation().openPanelFrame() < 0 )
 				{
-					pSoldier->flags.fOpenPanel = FALSE;
-					pSoldier->uiPresentation().openPanelFrame() = 0;
+					pSoldier->uiPresentation().completePanelOpen();
 
 					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 					{
@@ -6753,7 +6739,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( pSoldier->flags.fOpenPanel )
+	if ( pSoldier->uiPresentation().panelOpening() )
 	{
 		// Render panel!
 		//if(gbPixelDepth==16)
@@ -7054,7 +7040,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 					fInterfacePanelDirty = DIRTYLEVEL2;
 
 					// Set ID to do open anim
-					soldier->flags.fUInewMerc						= TRUE;
+					soldier->uiPresentation().queueNewMercUi();
 
 					break;
 				}
@@ -7084,7 +7070,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 						fInterfacePanelDirty = DIRTYLEVEL2;
 
 						// Set ID to do open anim
-						soldier->flags.fUInewMerc = TRUE;
+						soldier->uiPresentation().queueNewMercUi();
 	
 						return;
 					}
@@ -7154,7 +7140,7 @@ BOOLEAN RemovePlayerFromInterfaceTeamSlot( UINT8 ubPanelSlot )
 			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
 			{
 				// Set Id to close
-				soldier->flags.fUICloseMerc = TRUE;
+				soldier->uiPresentation().queueCloseMercUi();
 			}
 
 			// Set face to inactive...
@@ -7219,7 +7205,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 
 					if( pSoldier->assignment().current() == ASSIGNMENT_DEAD )
 					{
-						pSoldier->flags.fUICloseMerc = FALSE;
+						pSoldier->uiPresentation().clearCloseMercUi();
 					}
 					// ATE: ALrighty, if we have the insertion code of helicopter..... don't add just yet!
 					/// ( will add in heli code )

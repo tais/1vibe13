@@ -7590,6 +7590,17 @@ int main( int, char** )
 		uiPresentation.setPanelFacePosition(91, 92);
 		uiPresentation.setPlannedTarget(500, 600, 12);
 		uiPresentation.lastEnemyCycled() = SoldierID{ 9 };
+		uiPresentation.panelCloseRequested() = TRUE;
+		uiPresentation.panelCloseForDeath() = TRUE;
+		uiPresentation.deadPanelActive() = TRUE;
+		uiPresentation.panelOpenRequested() = TRUE;
+		uiPresentation.showLocator();
+		uiPresentation.setPortraitFlashPhase(2);
+		uiPresentation.queueDeadMercUi();
+		uiPresentation.queueNewMercUi();
+		uiPresentation.queueCloseMercUi();
+		uiPresentation.markNoActionPoints();
+		uiPresentation.markUnconscious();
 		SoldierSuppressionComponent& suppression = soldier.suppression();
 		suppression.underFire() = 2;
 		suppression.shock() = 9;
@@ -8037,8 +8048,20 @@ int main( int, char** )
 		       constSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       constSoldier.uiPresentation().plannedTargetY() == 600 &&
 		       constSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
-		       constSoldier.uiPresentation().locateCycles() == 5,
-		       "soldier UI presentation component owns locator, panel, planning, and enemy-cycle view state" );
+		       constSoldier.uiPresentation().locateCycles() == 5 &&
+		       constSoldier.uiPresentation().panelClosing() &&
+		       constSoldier.uiPresentation().panelClosingForDeath() &&
+		       constSoldier.uiPresentation().deadPanelShowing() &&
+		       constSoldier.uiPresentation().panelOpening() &&
+		       constSoldier.uiPresentation().locatorFlashing() &&
+		       constSoldier.uiPresentation().locatorVisible() &&
+		       constSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       constSoldier.uiPresentation().deadMercUiPending() &&
+		       constSoldier.uiPresentation().newMercUiPending() &&
+		       constSoldier.uiPresentation().closeMercUiPending() &&
+		       constSoldier.uiPresentation().firstNoActionPoints() &&
+		       constSoldier.uiPresentation().firstUnconscious(),
+		       "soldier UI presentation component owns complete locator, panel, notification, planning, and enemy-cycle view state" );
 		CHECK( constSoldier.suppression().active() &&
 		       constSoldier.suppression().underFire() == 2 &&
 		       constSoldier.suppression().shock() == 9 &&
@@ -8937,7 +8960,19 @@ int main( int, char** )
 		       copiedSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       copiedSoldier.uiPresentation().plannedTargetY() == 600 &&
 		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
-		       copiedSoldier.uiPresentation().locateCycles() == 5,
+		       copiedSoldier.uiPresentation().locateCycles() == 5 &&
+		       copiedSoldier.uiPresentation().panelClosing() &&
+		       copiedSoldier.uiPresentation().panelClosingForDeath() &&
+		       copiedSoldier.uiPresentation().deadPanelShowing() &&
+		       copiedSoldier.uiPresentation().panelOpening() &&
+		       copiedSoldier.uiPresentation().locatorFlashing() &&
+		       copiedSoldier.uiPresentation().locatorVisible() &&
+		       copiedSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       copiedSoldier.uiPresentation().deadMercUiPending() &&
+		       copiedSoldier.uiPresentation().newMercUiPending() &&
+		       copiedSoldier.uiPresentation().closeMercUiPending() &&
+		       copiedSoldier.uiPresentation().firstNoActionPoints() &&
+		       copiedSoldier.uiPresentation().firstUnconscious(),
 		       "soldier copies retain their owned UI presentation state" );
 		CHECK( copiedSoldier.suppression().underFire() == 2 &&
 		       copiedSoldier.suppression().shock() == 9 &&
@@ -9136,26 +9171,83 @@ int main( int, char** )
 
 		SoldierUiPresentationComponent uiPresentationLifecycle;
 		uiPresentationLifecycle.startLocator(7);
+		uiPresentationLifecycle.showLocator();
+		uiPresentationLifecycle.advanceLocatorCycle();
 		uiPresentationLifecycle.setLocatorOffset(10, -11);
 		uiPresentationLifecycle.setPanelFacePosition(120, 121);
 		uiPresentationLifecycle.setPlannedTarget(700, 701, 22);
 		uiPresentationLifecycle.clearPlannedTarget();
+		uiPresentationLifecycle.setPortraitFlashPhase(2);
+		uiPresentationLifecycle.queueDeadMercUi();
+		uiPresentationLifecycle.queueNewMercUi();
+		uiPresentationLifecycle.queueCloseMercUi();
+		uiPresentationLifecycle.markNoActionPoints();
+		uiPresentationLifecycle.markUnconscious();
+		uiPresentationLifecycle.beginDeathPanelTransition();
 		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
+		       uiPresentationLifecycle.locatorFlashCycle() == 2 &&
 		       uiPresentationLifecycle.locateCycles() == 7 &&
+		       uiPresentationLifecycle.locatorVisible() &&
 		       uiPresentationLifecycle.locatorOffsetX() == 10 &&
 		       uiPresentationLifecycle.locatorOffsetY() == -11 &&
 		       uiPresentationLifecycle.panelFaceX() == 120 &&
 		       uiPresentationLifecycle.panelFaceY() == 121 &&
+		       uiPresentationLifecycle.panelClosing() &&
+		       uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.deadMercUiPending() &&
+		       uiPresentationLifecycle.newMercUiPending() &&
+		       uiPresentationLifecycle.closeMercUiPending() &&
+		       uiPresentationLifecycle.portraitFlashPhase() == 2 &&
+		       uiPresentationLifecycle.firstNoActionPoints() &&
+		       uiPresentationLifecycle.firstUnconscious() &&
 		       !uiPresentationLifecycle.hasPlannedTarget() &&
 		       uiPresentationLifecycle.plannedTargetX() == -1 &&
 		       uiPresentationLifecycle.plannedTargetY() == -1 &&
 		       uiPresentationLifecycle.plannedActionPointCost() == 22,
-		       "UI-presentation transitions coordinate locator, panel, and planned-target state" );
+		       "UI-presentation transitions coordinate locator, panel, notification, and planned-target state" );
+		CHECK( uiPresentationLifecycle.completePanelClose(5) &&
+		       !uiPresentationLifecycle.panelClosing() &&
+		       uiPresentationLifecycle.deadPanelShowing() &&
+		       uiPresentationLifecycle.closePanelFrame() == 5,
+		       "UI-presentation panel close atomically enters the queued death panel" );
+		uiPresentationLifecycle.completeDeadPanel(5);
+		uiPresentationLifecycle.requestPanelOpen(4);
+		uiPresentationLifecycle.completePanelOpen();
+		uiPresentationLifecycle.stopLocator();
+		uiPresentationLifecycle.stopPortraitFlash();
+		uiPresentationLifecycle.clearNewMercUi();
+		uiPresentationLifecycle.clearCloseMercUi();
+		uiPresentationLifecycle.clearNoActionPoints();
+		uiPresentationLifecycle.clearUnconscious();
+		CHECK( !uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.panelOpening() &&
+		       !uiPresentationLifecycle.locatorFlashing() &&
+		       !uiPresentationLifecycle.locatorVisible() &&
+		       !uiPresentationLifecycle.portraitFlashing() &&
+		       !uiPresentationLifecycle.newMercUiPending() &&
+		       !uiPresentationLifecycle.closeMercUiPending() &&
+		       !uiPresentationLifecycle.firstNoActionPoints() &&
+		       !uiPresentationLifecycle.firstUnconscious(),
+		       "UI-presentation lifecycle clears coordinated transient view state" );
 		uiPresentationLifecycle.reset();
 		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
 		       uiPresentationLifecycle.locateCycles() == 0 &&
 		       uiPresentationLifecycle.plannedTargetX() == 0 &&
-		       uiPresentationLifecycle.plannedTargetY() == 0,
+		       uiPresentationLifecycle.plannedTargetY() == 0 &&
+		       !uiPresentationLifecycle.panelClosing() &&
+		       !uiPresentationLifecycle.panelClosingForDeath() &&
+		       !uiPresentationLifecycle.deadPanelShowing() &&
+		       !uiPresentationLifecycle.panelOpening() &&
+		       !uiPresentationLifecycle.locatorFlashing() &&
+		       !uiPresentationLifecycle.locatorVisible() &&
+		       !uiPresentationLifecycle.portraitFlashing() &&
+		       !uiPresentationLifecycle.deadMercUiPending() &&
+		       !uiPresentationLifecycle.newMercUiPending() &&
+		       !uiPresentationLifecycle.closeMercUiPending() &&
+		       !uiPresentationLifecycle.firstNoActionPoints() &&
+		       !uiPresentationLifecycle.firstUnconscious(),
 		       "UI-presentation reset restores the established fresh-soldier defaults" );
 
 		SoldierMeleeApproachComponent meleeApproachLifecycle;
@@ -9909,7 +10001,19 @@ int main( int, char** )
 		       copiedSoldier.uiPresentation().plannedTargetX() == 0 &&
 		       copiedSoldier.uiPresentation().plannedTargetY() == 0 &&
 		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{} &&
-		       copiedSoldier.uiPresentation().locateCycles() == 0,
+		       copiedSoldier.uiPresentation().locateCycles() == 0 &&
+		       !copiedSoldier.uiPresentation().panelClosing() &&
+		       !copiedSoldier.uiPresentation().panelClosingForDeath() &&
+		       !copiedSoldier.uiPresentation().deadPanelShowing() &&
+		       !copiedSoldier.uiPresentation().panelOpening() &&
+		       !copiedSoldier.uiPresentation().locatorFlashing() &&
+		       !copiedSoldier.uiPresentation().locatorVisible() &&
+		       !copiedSoldier.uiPresentation().portraitFlashing() &&
+		       !copiedSoldier.uiPresentation().deadMercUiPending() &&
+		       !copiedSoldier.uiPresentation().newMercUiPending() &&
+		       !copiedSoldier.uiPresentation().closeMercUiPending() &&
+		       !copiedSoldier.uiPresentation().firstNoActionPoints() &&
+		       !copiedSoldier.uiPresentation().firstUnconscious(),
 		       "soldier initialization resets the complete UI-presentation domain" );
 		CHECK( copiedSoldier.suppression().underFire() == 0 &&
 		       copiedSoldier.suppression().shock() == 0 &&
@@ -10062,6 +10166,18 @@ int main( int, char** )
 		legacySoldier->sPlannedTargetY = 501;
 		legacySoldier->ubLastEnemyCycledID = 15;
 		legacySoldier->ubNumLocateCycles = 6;
+		legacySoldier->fClosePanel = TRUE;
+		legacySoldier->fClosePanelToDie = TRUE;
+		legacySoldier->fDeadPanel = TRUE;
+		legacySoldier->fOpenPanel = TRUE;
+		legacySoldier->fFlashLocator = 3;
+		legacySoldier->fShowLocator = TRUE;
+		legacySoldier->fFlashPortrait = 2;
+		legacySoldier->fUIdeadMerc = TRUE;
+		legacySoldier->fUInewMerc = TRUE;
+		legacySoldier->fUICloseMerc = TRUE;
+		legacySoldier->fUIFirstTimeNOAP = TRUE;
+		legacySoldier->fUIFirstTimeUNCON = TRUE;
 		legacySoldier->bLastSkillCheck = -6;
 		legacySoldier->ubSkillCheckAttempts = 3;
 		legacySoldier->sSkillCheckGridNo = 1410;
@@ -10383,8 +10499,20 @@ int main( int, char** )
 		       convertedSoldier.uiPresentation().plannedTargetX() == 500 &&
 		       convertedSoldier.uiPresentation().plannedTargetY() == 501 &&
 		       convertedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 15 } &&
-		       convertedSoldier.uiPresentation().locateCycles() == 6,
-		       "v101 soldier conversion retains the complete UI-presentation domain" );
+		       convertedSoldier.uiPresentation().locateCycles() == 6 &&
+		       convertedSoldier.uiPresentation().panelClosing() &&
+		       convertedSoldier.uiPresentation().panelClosingForDeath() &&
+		       convertedSoldier.uiPresentation().deadPanelShowing() &&
+		       convertedSoldier.uiPresentation().panelOpening() &&
+		       convertedSoldier.uiPresentation().locatorFlashCycle() == 3 &&
+		       convertedSoldier.uiPresentation().locatorVisible() &&
+		       convertedSoldier.uiPresentation().portraitFlashPhase() == 2 &&
+		       convertedSoldier.uiPresentation().deadMercUiPending() &&
+		       convertedSoldier.uiPresentation().newMercUiPending() &&
+		       convertedSoldier.uiPresentation().closeMercUiPending() &&
+		       convertedSoldier.uiPresentation().firstNoActionPoints() &&
+		       convertedSoldier.uiPresentation().firstUnconscious(),
+		       "v101 soldier conversion retains the complete UI-presentation and lifecycle domain" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -10807,6 +10935,17 @@ int main( int, char** )
 		savedSoldier.uiPresentation().setPanelFacePosition(110, 111);
 		savedSoldier.uiPresentation().setPlannedTarget(600, 601, 16);
 		savedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 17 };
+		savedSoldier.uiPresentation().panelCloseRequested() = TRUE;
+		savedSoldier.uiPresentation().panelCloseForDeath() = TRUE;
+		savedSoldier.uiPresentation().deadPanelActive() = TRUE;
+		savedSoldier.uiPresentation().panelOpenRequested() = TRUE;
+		savedSoldier.uiPresentation().showLocator();
+		savedSoldier.uiPresentation().startPortraitFlash();
+		savedSoldier.uiPresentation().queueDeadMercUi();
+		savedSoldier.uiPresentation().queueNewMercUi();
+		savedSoldier.uiPresentation().queueCloseMercUi();
+		savedSoldier.uiPresentation().markNoActionPoints();
+		savedSoldier.uiPresentation().markUnconscious();
 		savedSoldier.replication().movementStartedAt() = 26001;
 		savedSoldier.replication().optimumMovementTime() = 26002;
 		savedSoldier.replication().recordUpdate(26003);
@@ -11161,8 +11300,20 @@ int main( int, char** )
 		       loadedSoldier.uiPresentation().plannedTargetX() == 600 &&
 		       loadedSoldier.uiPresentation().plannedTargetY() == 601 &&
 		       loadedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 17 } &&
-		       loadedSoldier.uiPresentation().locateCycles() == 8,
-		       "soldier save/load round-trips UI presentation at every established schema position" );
+		       loadedSoldier.uiPresentation().locateCycles() == 8 &&
+		       loadedSoldier.uiPresentation().panelClosing() &&
+		       loadedSoldier.uiPresentation().panelClosingForDeath() &&
+		       loadedSoldier.uiPresentation().deadPanelShowing() &&
+		       loadedSoldier.uiPresentation().panelOpening() &&
+		       loadedSoldier.uiPresentation().locatorFlashing() &&
+		       loadedSoldier.uiPresentation().locatorVisible() &&
+		       loadedSoldier.uiPresentation().portraitFlashing() &&
+		       loadedSoldier.uiPresentation().deadMercUiPending() &&
+		       loadedSoldier.uiPresentation().newMercUiPending() &&
+		       loadedSoldier.uiPresentation().closeMercUiPending() &&
+		       loadedSoldier.uiPresentation().firstNoActionPoints() &&
+		       loadedSoldier.uiPresentation().firstUnconscious(),
+		       "soldier save/load round-trips UI presentation and lifecycle at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.replication().movementStartedAt() == 26001 &&
 		       loadedSoldier.replication().optimumMovementTime() == 26002 &&

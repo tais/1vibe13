@@ -481,11 +481,13 @@ and light-lifetime operations from tactical graphics adapters. Raw palette,
 shade, surface, level-node, and background pointers remain with the legacy
 graphics adapter and are not component or package API.
 `SoldierUiPresentationComponent` owns the remaining pointer-free tactical view
-model for a soldier: portrait and locator animation, interface elevation,
-panel placement, planned-action overlay, and enemy cycling. Use
-`uiPresentation()` or its named locator, panel-position, and planned-target
-transitions from UI adapters. Render-resource pointers deliberately remain
-behind the legacy graphics adapter rather than entering this view model.
+model for a soldier: portrait animation and flash phase, locator animation,
+cycle and visibility, interface elevation, panel placement and lifecycle,
+merc-panel requests, first-time AP/unconscious notifications, planned-action
+overlay, and enemy cycling. Use `uiPresentation()` or its named locator, panel,
+notification, and planned-target transitions from UI adapters. Render-resource
+pointers deliberately remain behind the legacy graphics adapter rather than
+entering this view model.
 `SoldierCombatContributionComponent` separately owns outgoing militia kills,
 assists, promotion points, and the fixed 156-slot player-team damage
 attribution record. Named accrual and transfer operations coordinate tactical

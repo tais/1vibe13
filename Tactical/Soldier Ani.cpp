@@ -4013,7 +4013,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 			{
 				fInterfacePanelDirty = DIRTYLEVEL2;
 			}
-			pSoldier->flags.fUIdeadMerc = TRUE;
+			pSoldier->uiPresentation().queueDeadMercUi();
 
 			if ( !gfKillingGuysForLosingBattle )
 			{

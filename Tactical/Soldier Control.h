@@ -802,21 +802,9 @@ public:
 	// flags from before the changes to the memory structure
 	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
 	BOOLEAN											fDeadSoundPlayed;
-	BOOLEAN											fClosePanel;
-	BOOLEAN											fClosePanelToDie;
-	BOOLEAN											fDeadPanel;
-	BOOLEAN											fOpenPanel;
 	BOOLEAN											fIntendedTarget; // intentionally shot?
 	BOOLEAN											fWarnedAboutBleeding;
 	BOOLEAN											fDyingComment;
-	BOOLEAN											fFlashLocator;
-	BOOLEAN											fShowLocator;
-	BOOLEAN											fFlashPortrait;
-	BOOLEAN											fUIdeadMerc;				// UI Flags for removing a newly dead merc
-	BOOLEAN											fUInewMerc;					// UI Flags for adding newly created merc ( panels, etc )
-	BOOLEAN											fUICloseMerc;				// UI Flags for closing panels
-	BOOLEAN											fUIFirstTimeNOAP;		// UI Flag for diming guys when no APs ( dirty flags )
-	BOOLEAN											fUIFirstTimeUNCON;	// UI FLAG For unconscious dirty		
 	BOOLEAN											fReloading;
 	BOOLEAN											fPauseAim;
 	BOOLEAN											fInMissionExitNode;

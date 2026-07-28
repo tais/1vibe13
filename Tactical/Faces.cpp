@@ -1401,7 +1401,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 	// ATE: Don't shade for damage if blitting extern face...
 	if (!fExternBlit)
 	{
-		if (pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START)
+		if (pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START)
 		{
 			return pSoldier->uiPresentation().portraitFlashFrame();
 		}
@@ -1865,7 +1865,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			//------------------------------------end of tactical face gear-----------------------------
 		}
 
-		if ( (pSoldier->vitals().health() < CONSCIOUSNESS || pSoldier->flags.fDeadPanel ) )
+		if ( (pSoldier->vitals().health() < CONSCIOUSNESS || pSoldier->uiPresentation().deadPanelShowing() ) )
 		{
 			// Blit Closed eyes here!
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 1, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -1893,7 +1893,10 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
 		{
 			// IF we are in the process of doing any deal/close animations, show face, not skill...
-			if ( !pSoldier->flags.fClosePanel && !pSoldier->flags.fDeadPanel && !pSoldier->flags.fUIdeadMerc && !pSoldier->flags.fUICloseMerc )
+			if ( !pSoldier->uiPresentation().panelClosing() &&
+				 !pSoldier->uiPresentation().deadPanelShowing() &&
+				 !pSoldier->uiPresentation().deadMercUiPending() &&
+				 !pSoldier->uiPresentation().closeMercUiPending() )
 			{
 				// Put close panel there
 				BltVideoObjectFromIndex( uiRenderBuffer, guiDEAD, 5, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -3050,15 +3053,15 @@ void HandleAutoFaces( )
 						pFace->fOldShowMoveHilight = FALSE;
 				}
 
-				if ( pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_STOP )
+				if ( pSoldier->animationActivity().hitPhase() && pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_STOP )
 				{
-					pSoldier->flags.fFlashPortrait = TRUE;
+					pSoldier->uiPresentation().startPortraitFlash();
 					pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 					RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START )
+				if ( pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START )
 				{
 					// Loop through flash values
 					if ( TIMECOUNTERDONE( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY ) )
@@ -3072,12 +3075,12 @@ void HandleAutoFaces( )
 
 							if ( pSoldier->animationActivity().hitPhase() )
 							{
-								pSoldier->flags.fFlashPortrait = FLASH_PORTRAIT_WAITING;
+								pSoldier->uiPresentation().setPortraitFlashPhase(FLASH_PORTRAIT_WAITING);
 							}
 							else
 							{
 								// Render face again!
-								pSoldier->flags.fFlashPortrait = FLASH_PORTRAIT_STOP;
+								pSoldier->uiPresentation().stopPortraitFlash();
 							}
 
 							fRerender = TRUE;
@@ -3086,13 +3089,13 @@ void HandleAutoFaces( )
 				}
 					
 				// CHECK IF WE WERE WAITING FOR GETTING HIT TO FINISH!
-				if ( !pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_WAITING )
+				if ( !pSoldier->animationActivity().hitPhase() && pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_WAITING )
 				{
-					pSoldier->flags.fFlashPortrait = FALSE;
+					pSoldier->uiPresentation().stopPortraitFlash();
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START )
+				if ( pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START )
 				{
 					fRerender = TRUE;
 				}

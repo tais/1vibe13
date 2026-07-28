@@ -3273,8 +3273,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
         // Get guy
         pOldSoldier =
             GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
-        pOldSoldier->flags.fShowLocator     = FALSE;
-        pOldSoldier->flags.fFlashLocator = FALSE;
+        pOldSoldier->uiPresentation().stopLocator();
 
         // DB This used to say pSoldier... I fixed it
         if ( pOldSoldier->position().level() == 0 )
@@ -3483,7 +3482,7 @@ void SlideTo(SoldierID usSoldierID, BOOLEAN fSetLocator)
             if ( other->bActive && other->bInSector )
             {
                 // Remove all existing locators...
-                other->flags.fFlashLocator = FALSE;
+                other->uiPresentation().stopLocatorFlash();
             }
         }
     }

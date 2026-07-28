@@ -886,7 +886,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	// If this is the first time with no action points, set UI flag
 	if ( sNewAP <= 0 && pSoldier->actionPoints().current() > 0 )
 	{
-		pSoldier->flags.fUIFirstTimeNOAP = TRUE;
+		pSoldier->uiPresentation().markNoActionPoints();
 		fInterfacePanelDirty = TRUE;
 	}
 

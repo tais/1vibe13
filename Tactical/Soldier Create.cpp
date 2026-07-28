@@ -2113,7 +2113,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->vitals().breath()					= 99;
 	pSoldier->vitals().maximumBreath()					= 100;
 	pSoldier->bActive					= TRUE;
-	pSoldier->flags.fShowLocator			= FALSE;
+	pSoldier->uiPresentation().hideLocator();
 	pSoldier->targeting().lastGridNo()				= NOWHERE;
 	pSoldier->movement().absoluteDestination() = NOWHERE;
 	pSoldier->animationActivity().clearRenderZOverride();

@@ -66,7 +66,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 		ReBuildCharactersList( );
 
 		// ste merc as dead
-		// pSoldier->flags.fUIdeadMerc = TRUE;
+		// pSoldier->uiPresentation().queueDeadMercUi();
 
 		// attempt to remove character from squad
 		RemoveCharacterFromSquads( pSoldier );
