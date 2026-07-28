@@ -758,6 +758,11 @@ void SoldierDamageDisplayComponent::reset() noexcept
 	*this = SoldierDamageDisplayComponent{};
 }
 
+void SoldierUiPresentationComponent::reset() noexcept
+{
+	*this = SoldierUiPresentationComponent{};
+}
+
 void SoldierAnimationIntentComponent::clearPendingAnimations() noexcept
 {
 	clearPendingAnimation();

@@ -840,7 +840,7 @@ void RenderTopmostTacticalInterface( )
 					static_cast<UINT32>(cnt));
 			if ( plannedSoldier && plannedSoldier->bActive )
 			{
-				if ( plannedSoldier->sPlannedTargetX != -1 )
+				if ( plannedSoldier->uiPresentation().hasPlannedTarget() )
 				{
 					// Blit bogus target
 					if ( uiBogTarget == 0 )
@@ -851,11 +851,11 @@ void RenderTopmostTacticalInterface( )
 						AddVideoObject( &VObjectDesc, &uiBogTarget );
 					}
 
-					if ( GridNoOnScreen( MAPROWCOLTOPOS( ( plannedSoldier->sPlannedTargetY/CELL_Y_SIZE), ( plannedSoldier->sPlannedTargetX / CELL_X_SIZE ) ) ) )
+					if ( GridNoOnScreen( MAPROWCOLTOPOS( ( plannedSoldier->uiPresentation().plannedTargetY()/CELL_Y_SIZE), ( plannedSoldier->uiPresentation().plannedTargetX() / CELL_X_SIZE ) ) ) )
 					{
 						// GET SCREEN COORDINATES
-						sOffsetX = (plannedSoldier->sPlannedTargetX - gsRenderCenterX);
-						sOffsetY = (plannedSoldier->sPlannedTargetY - gsRenderCenterY);
+						sOffsetX = (plannedSoldier->uiPresentation().plannedTargetX() - gsRenderCenterX);
+						sOffsetY = (plannedSoldier->uiPresentation().plannedTargetY() - gsRenderCenterY);
 
 						FromCellToScreenCoordinates( sOffsetX, sOffsetY, &sTempX_S, &sTempY_S );
 

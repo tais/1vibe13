@@ -1054,6 +1054,8 @@ public:
 	const SoldierSuppressionComponent& suppression() const noexcept { return suppression_; }
 	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
 	const SoldierDamageDisplayComponent& damageDisplay() const noexcept { return damageDisplay_; }
+	SoldierUiPresentationComponent& uiPresentation() noexcept { return uiPresentation_; }
+	const SoldierUiPresentationComponent& uiPresentation() const noexcept { return uiPresentation_; }
 	SoldierAnimationIntentComponent& animationIntent() noexcept { return animationIntent_; }
 	const SoldierAnimationIntentComponent& animationIntent() const noexcept { return animationIntent_; }
 	SoldierAnimationPlaybackComponent& animationPlayback() noexcept { return animationPlayback_; }
@@ -1084,7 +1086,6 @@ public:
 	KEY_ON_RING		*pKeyRing;
 
 	UINT8			bInSector;
-	INT8				bFlashPortraitFrame;
 	INT8				bStealthMode;
 	
 
@@ -1100,8 +1101,6 @@ public:
 	INT16			sReloadDelay;
 
 	UINT8			bSide;
-
-	INT16			sLocatorFrame;
 
 	INT32			iFaceIndex;
 
@@ -1152,27 +1151,13 @@ public:
 	INT16			sWalkToAttackWalkToCost;
 
 
-	INT16			sLocatorOffX;
-	INT16			sLocatorOffY;
 	PIXEL			*pForcedShade;
 
 	UINT8			sWalkToAttackEndDirection;//shadooow: stores direction of merc at the destination grid
-	INT8				bUIInterfaceLevel;
 
 	UINT8			ubProfile;
 
-	UINT8			ubClosePanelFrame;
-	UINT8			ubDeadPanelFrame;
-	INT8				bOpenPanelFrame;
-
-	INT16			sPanelFaceX;
-	INT16			sPanelFaceY;
-
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
-
-	UINT8			ubPlannedUIAPCost;
-	INT16			sPlannedTargetX;
-	INT16			sPlannedTargetY;
 
 	INT32			sStartGridNo;	
 	INT32			sEndGridNo;	
@@ -1202,11 +1187,9 @@ public:
 	INT16				sBoundingBoxOffsetY;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
-	SoldierID			ubLastEnemyCycledID;
 
 	UINT16				usValueGoneUp;
 
-	UINT8				ubNumLocateCycles;
 	SoldierID			ubCTGTTargetID;
 
 	UINT8				ubMiscSoldierFlags;
@@ -1291,6 +1274,7 @@ private:
 	SoldierCombatContributionComponent	combatContribution_;
 	SoldierSuppressionComponent	suppression_;
 	SoldierDamageDisplayComponent	damageDisplay_;
+	SoldierUiPresentationComponent	uiPresentation_;
 	SoldierAnimationIntentComponent	animationIntent_;
 	SoldierAnimationPlaybackComponent	animationPlayback_;
 	SoldierAnimationActivityComponent	animationActivity_;

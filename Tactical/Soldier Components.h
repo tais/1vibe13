@@ -1635,6 +1635,96 @@ private:
 	INT8 direction_ = 0;
 };
 
+// Canonical soldier-local tactical UI presentation state. Locator and portrait
+// animation, panel placement, planned-action overlays, and enemy cycling are
+// view state rather than simulation identity or render-resource ownership.
+class SoldierUiPresentationComponent
+{
+public:
+	INT8& portraitFlashFrame() noexcept { return portraitFlashFrame_; }
+	const INT8& portraitFlashFrame() const noexcept { return portraitFlashFrame_; }
+	INT16& locatorFrame() noexcept { return locatorFrame_; }
+	const INT16& locatorFrame() const noexcept { return locatorFrame_; }
+	INT16& locatorOffsetX() noexcept { return locatorOffsetX_; }
+	const INT16& locatorOffsetX() const noexcept { return locatorOffsetX_; }
+	INT16& locatorOffsetY() noexcept { return locatorOffsetY_; }
+	const INT16& locatorOffsetY() const noexcept { return locatorOffsetY_; }
+	INT8& interfaceLevel() noexcept { return interfaceLevel_; }
+	const INT8& interfaceLevel() const noexcept { return interfaceLevel_; }
+	UINT8& closePanelFrame() noexcept { return closePanelFrame_; }
+	const UINT8& closePanelFrame() const noexcept { return closePanelFrame_; }
+	UINT8& deadPanelFrame() noexcept { return deadPanelFrame_; }
+	const UINT8& deadPanelFrame() const noexcept { return deadPanelFrame_; }
+	INT8& openPanelFrame() noexcept { return openPanelFrame_; }
+	const INT8& openPanelFrame() const noexcept { return openPanelFrame_; }
+	INT16& panelFaceX() noexcept { return panelFaceX_; }
+	const INT16& panelFaceX() const noexcept { return panelFaceX_; }
+	INT16& panelFaceY() noexcept { return panelFaceY_; }
+	const INT16& panelFaceY() const noexcept { return panelFaceY_; }
+	UINT8& plannedActionPointCost() noexcept { return plannedActionPointCost_; }
+	const UINT8& plannedActionPointCost() const noexcept { return plannedActionPointCost_; }
+	INT16& plannedTargetX() noexcept { return plannedTargetX_; }
+	const INT16& plannedTargetX() const noexcept { return plannedTargetX_; }
+	INT16& plannedTargetY() noexcept { return plannedTargetY_; }
+	const INT16& plannedTargetY() const noexcept { return plannedTargetY_; }
+	SoldierID& lastEnemyCycled() noexcept { return lastEnemyCycled_; }
+	const SoldierID& lastEnemyCycled() const noexcept { return lastEnemyCycled_; }
+	UINT8& locateCycles() noexcept { return locateCycles_; }
+	const UINT8& locateCycles() const noexcept { return locateCycles_; }
+
+	void setLocatorOffset(INT16 x, INT16 y) noexcept
+	{
+		locatorOffsetX_ = x;
+		locatorOffsetY_ = y;
+	}
+	void startLocator(UINT8 cycles) noexcept
+	{
+		locatorFrame_ = 0;
+		locateCycles_ = cycles;
+	}
+	void setPanelFacePosition(INT16 x, INT16 y) noexcept
+	{
+		panelFaceX_ = x;
+		panelFaceY_ = y;
+	}
+	void clearPanelAnimation() noexcept
+	{
+		closePanelFrame_ = 0;
+		deadPanelFrame_ = 0;
+		openPanelFrame_ = 0;
+	}
+	bool hasPlannedTarget() const noexcept { return plannedTargetX_ != -1; }
+	void setPlannedTarget(INT16 x, INT16 y, UINT8 actionPointCost) noexcept
+	{
+		plannedTargetX_ = x;
+		plannedTargetY_ = y;
+		plannedActionPointCost_ = actionPointCost;
+	}
+	void clearPlannedTarget() noexcept
+	{
+		plannedTargetX_ = -1;
+		plannedTargetY_ = -1;
+	}
+	void reset() noexcept;
+
+private:
+	INT8 portraitFlashFrame_ = 0;
+	INT16 locatorFrame_ = 0;
+	INT16 locatorOffsetX_ = 0;
+	INT16 locatorOffsetY_ = 0;
+	INT8 interfaceLevel_ = 0;
+	UINT8 closePanelFrame_ = 0;
+	UINT8 deadPanelFrame_ = 0;
+	INT8 openPanelFrame_ = 0;
+	INT16 panelFaceX_ = 0;
+	INT16 panelFaceY_ = 0;
+	UINT8 plannedActionPointCost_ = 0;
+	INT16 plannedTargetX_ = 0;
+	INT16 plannedTargetY_ = 0;
+	SoldierID lastEnemyCycled_{};
+	UINT8 locateCycles_ = 0;
+};
+
 // Canonical requests that bridge tactical decisions into animation playback.
 // The playback state itself remains separate: this component owns only queued
 // animations, stance/facing intent, and the movement continuation policy that

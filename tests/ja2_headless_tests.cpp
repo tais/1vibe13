@@ -7539,6 +7539,18 @@ int main( int, char** )
 		damageDisplay.activateAt(13, -9);
 		damageDisplay.counter() = 2;
 		damageDisplay.direction() = -1;
+		SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();
+		uiPresentation.portraitFlashFrame() = 3;
+		uiPresentation.startLocator(5);
+		uiPresentation.locatorFrame() = 2;
+		uiPresentation.setLocatorOffset(7, -8);
+		uiPresentation.interfaceLevel() = 1;
+		uiPresentation.closePanelFrame() = 2;
+		uiPresentation.deadPanelFrame() = 3;
+		uiPresentation.openPanelFrame() = 4;
+		uiPresentation.setPanelFacePosition(91, 92);
+		uiPresentation.setPlannedTarget(500, 600, 12);
+		uiPresentation.lastEnemyCycled() = SoldierID{ 9 };
 		SoldierSuppressionComponent& suppression = soldier.suppression();
 		suppression.underFire() = 2;
 		suppression.shock() = 9;
@@ -7916,6 +7928,23 @@ int main( int, char** )
 		       constSoldier.damageDisplay().offsetY() == -9 &&
 		       constSoldier.damageDisplay().direction() == -1,
 		       "soldier damage-display component owns floating-number presentation state" );
+		CHECK( constSoldier.uiPresentation().portraitFlashFrame() == 3 &&
+		       constSoldier.uiPresentation().locatorFrame() == 2 &&
+		       constSoldier.uiPresentation().locatorOffsetX() == 7 &&
+		       constSoldier.uiPresentation().locatorOffsetY() == -8 &&
+		       constSoldier.uiPresentation().interfaceLevel() == 1 &&
+		       constSoldier.uiPresentation().closePanelFrame() == 2 &&
+		       constSoldier.uiPresentation().deadPanelFrame() == 3 &&
+		       constSoldier.uiPresentation().openPanelFrame() == 4 &&
+		       constSoldier.uiPresentation().panelFaceX() == 91 &&
+		       constSoldier.uiPresentation().panelFaceY() == 92 &&
+		       constSoldier.uiPresentation().hasPlannedTarget() &&
+		       constSoldier.uiPresentation().plannedActionPointCost() == 12 &&
+		       constSoldier.uiPresentation().plannedTargetX() == 500 &&
+		       constSoldier.uiPresentation().plannedTargetY() == 600 &&
+		       constSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
+		       constSoldier.uiPresentation().locateCycles() == 5,
+		       "soldier UI presentation component owns locator, panel, planning, and enemy-cycle view state" );
 		CHECK( constSoldier.suppression().active() &&
 		       constSoldier.suppression().underFire() == 2 &&
 		       constSoldier.suppression().shock() == 9 &&
@@ -8756,6 +8785,22 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == -9 &&
 		       copiedSoldier.damageDisplay().direction() == -1,
 		       "soldier copies retain their owned persistent damage-display state" );
+		CHECK( copiedSoldier.uiPresentation().portraitFlashFrame() == 3 &&
+		       copiedSoldier.uiPresentation().locatorFrame() == 2 &&
+		       copiedSoldier.uiPresentation().locatorOffsetX() == 7 &&
+		       copiedSoldier.uiPresentation().locatorOffsetY() == -8 &&
+		       copiedSoldier.uiPresentation().interfaceLevel() == 1 &&
+		       copiedSoldier.uiPresentation().closePanelFrame() == 2 &&
+		       copiedSoldier.uiPresentation().deadPanelFrame() == 3 &&
+		       copiedSoldier.uiPresentation().openPanelFrame() == 4 &&
+		       copiedSoldier.uiPresentation().panelFaceX() == 91 &&
+		       copiedSoldier.uiPresentation().panelFaceY() == 92 &&
+		       copiedSoldier.uiPresentation().plannedActionPointCost() == 12 &&
+		       copiedSoldier.uiPresentation().plannedTargetX() == 500 &&
+		       copiedSoldier.uiPresentation().plannedTargetY() == 600 &&
+		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 9 } &&
+		       copiedSoldier.uiPresentation().locateCycles() == 5,
+		       "soldier copies retain their owned UI presentation state" );
 		CHECK( copiedSoldier.suppression().underFire() == 2 &&
 		       copiedSoldier.suppression().shock() == 9 &&
 		       copiedSoldier.suppression().points() == 4 &&
@@ -8876,6 +8921,30 @@ int main( int, char** )
 		displayLifecycle.clear();
 		CHECK( !displayLifecycle.displaying() && displayLifecycle.counter() == 0,
 		       "damage-display lifecycle clears its active cursor atomically" );
+
+		SoldierUiPresentationComponent uiPresentationLifecycle;
+		uiPresentationLifecycle.startLocator(7);
+		uiPresentationLifecycle.setLocatorOffset(10, -11);
+		uiPresentationLifecycle.setPanelFacePosition(120, 121);
+		uiPresentationLifecycle.setPlannedTarget(700, 701, 22);
+		uiPresentationLifecycle.clearPlannedTarget();
+		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
+		       uiPresentationLifecycle.locateCycles() == 7 &&
+		       uiPresentationLifecycle.locatorOffsetX() == 10 &&
+		       uiPresentationLifecycle.locatorOffsetY() == -11 &&
+		       uiPresentationLifecycle.panelFaceX() == 120 &&
+		       uiPresentationLifecycle.panelFaceY() == 121 &&
+		       !uiPresentationLifecycle.hasPlannedTarget() &&
+		       uiPresentationLifecycle.plannedTargetX() == -1 &&
+		       uiPresentationLifecycle.plannedTargetY() == -1 &&
+		       uiPresentationLifecycle.plannedActionPointCost() == 22,
+		       "UI-presentation transitions coordinate locator, panel, and planned-target state" );
+		uiPresentationLifecycle.reset();
+		CHECK( uiPresentationLifecycle.locatorFrame() == 0 &&
+		       uiPresentationLifecycle.locateCycles() == 0 &&
+		       uiPresentationLifecycle.plannedTargetX() == 0 &&
+		       uiPresentationLifecycle.plannedTargetY() == 0,
+		       "UI-presentation reset restores the established fresh-soldier defaults" );
 
 		SoldierSuppressionComponent suppressionLifecycle;
 		suppressionLifecycle.underFire() = 3;
@@ -9497,6 +9566,22 @@ int main( int, char** )
 		       copiedSoldier.damageDisplay().offsetY() == 0 &&
 		       copiedSoldier.damageDisplay().direction() == 0,
 		       "soldier initialization resets the complete damage-display domain" );
+		CHECK( copiedSoldier.uiPresentation().portraitFlashFrame() == 0 &&
+		       copiedSoldier.uiPresentation().locatorFrame() == 0 &&
+		       copiedSoldier.uiPresentation().locatorOffsetX() == 0 &&
+		       copiedSoldier.uiPresentation().locatorOffsetY() == 0 &&
+		       copiedSoldier.uiPresentation().interfaceLevel() == 0 &&
+		       copiedSoldier.uiPresentation().closePanelFrame() == 0 &&
+		       copiedSoldier.uiPresentation().deadPanelFrame() == 0 &&
+		       copiedSoldier.uiPresentation().openPanelFrame() == 0 &&
+		       copiedSoldier.uiPresentation().panelFaceX() == 0 &&
+		       copiedSoldier.uiPresentation().panelFaceY() == 0 &&
+		       copiedSoldier.uiPresentation().plannedActionPointCost() == 0 &&
+		       copiedSoldier.uiPresentation().plannedTargetX() == 0 &&
+		       copiedSoldier.uiPresentation().plannedTargetY() == 0 &&
+		       copiedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{} &&
+		       copiedSoldier.uiPresentation().locateCycles() == 0,
+		       "soldier initialization resets the complete UI-presentation domain" );
 		CHECK( copiedSoldier.suppression().underFire() == 0 &&
 		       copiedSoldier.suppression().shock() == 0 &&
 		       copiedSoldier.suppression().points() == 0 &&
@@ -9583,6 +9668,21 @@ int main( int, char** )
 		legacySoldier->bCurrentCivQuoteDelta = 1;
 		legacySoldier->uiTimeSinceLastSpoke = 12351;
 		legacySoldier->bCorpseQuoteTolerance = 2;
+		legacySoldier->bFlashPortraitFrame = -3;
+		legacySoldier->sLocatorFrame = 4;
+		legacySoldier->sLocatorOffX = 12;
+		legacySoldier->sLocatorOffY = -13;
+		legacySoldier->bUIInterfaceLevel = 1;
+		legacySoldier->ubClosePanelFrame = 2;
+		legacySoldier->ubDeadPanelFrame = 3;
+		legacySoldier->bOpenPanelFrame = -4;
+		legacySoldier->sPanelFaceX = 100;
+		legacySoldier->sPanelFaceY = 101;
+		legacySoldier->ubPlannedUIAPCost = 14;
+		legacySoldier->sPlannedTargetX = 500;
+		legacySoldier->sPlannedTargetY = 501;
+		legacySoldier->ubLastEnemyCycledID = 15;
+		legacySoldier->ubNumLocateCycles = 6;
 		legacySoldier->bLastSkillCheck = -6;
 		legacySoldier->ubSkillCheckAttempts = 3;
 		legacySoldier->sSkillCheckGridNo = 1410;
@@ -9749,6 +9849,10 @@ int main( int, char** )
 		convertedSoldier.replication().updateType() = 99;
 		convertedSoldier.replication().scheduleStop(9994);
 		convertedSoldier.replication().recordChecksum(9995);
+		convertedSoldier.uiPresentation().portraitFlashFrame() = 99;
+		convertedSoldier.uiPresentation().startLocator(98);
+		convertedSoldier.uiPresentation().setPlannedTarget(999, 998, 97);
+		convertedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 96 };
 		convertedSoldier.movementMetrics().carriedWeightAtTurnStart() = 190;
 		convertedSoldier.movementMetrics().tilesMoved() = 90;
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
@@ -9851,6 +9955,22 @@ int main( int, char** )
 		       convertedSoldier.aiPlanning().flankOriginDirection() == 6 &&
 		       !convertedSoldier.aiPlanning().hasPlanIndex(),
 		       "v101 soldier conversion maps established AI planning and clears the later modular plan index" );
+		CHECK( convertedSoldier.uiPresentation().portraitFlashFrame() == -3 &&
+		       convertedSoldier.uiPresentation().locatorFrame() == 4 &&
+		       convertedSoldier.uiPresentation().locatorOffsetX() == 12 &&
+		       convertedSoldier.uiPresentation().locatorOffsetY() == -13 &&
+		       convertedSoldier.uiPresentation().interfaceLevel() == 1 &&
+		       convertedSoldier.uiPresentation().closePanelFrame() == 2 &&
+		       convertedSoldier.uiPresentation().deadPanelFrame() == 3 &&
+		       convertedSoldier.uiPresentation().openPanelFrame() == -4 &&
+		       convertedSoldier.uiPresentation().panelFaceX() == 100 &&
+		       convertedSoldier.uiPresentation().panelFaceY() == 101 &&
+		       convertedSoldier.uiPresentation().plannedActionPointCost() == 14 &&
+		       convertedSoldier.uiPresentation().plannedTargetX() == 500 &&
+		       convertedSoldier.uiPresentation().plannedTargetY() == 501 &&
+		       convertedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 15 } &&
+		       convertedSoldier.uiPresentation().locateCycles() == 6,
+		       "v101 soldier conversion retains the complete UI-presentation domain" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -10187,6 +10307,17 @@ int main( int, char** )
 		savedSoldier.audio().startBurstSound(601);
 		savedSoldier.audio().startPositionSound(602);
 		savedSoldier.audio().startTurningSound(603);
+		savedSoldier.uiPresentation().portraitFlashFrame() = -5;
+		savedSoldier.uiPresentation().startLocator(8);
+		savedSoldier.uiPresentation().locatorFrame() = 6;
+		savedSoldier.uiPresentation().setLocatorOffset(14, -15);
+		savedSoldier.uiPresentation().interfaceLevel() = 1;
+		savedSoldier.uiPresentation().closePanelFrame() = 4;
+		savedSoldier.uiPresentation().deadPanelFrame() = 5;
+		savedSoldier.uiPresentation().openPanelFrame() = -6;
+		savedSoldier.uiPresentation().setPanelFacePosition(110, 111);
+		savedSoldier.uiPresentation().setPlannedTarget(600, 601, 16);
+		savedSoldier.uiPresentation().lastEnemyCycled() = SoldierID{ 17 };
 		savedSoldier.replication().movementStartedAt() = 26001;
 		savedSoldier.replication().optimumMovementTime() = 26002;
 		savedSoldier.replication().recordUpdate(26003);
@@ -10500,6 +10631,23 @@ int main( int, char** )
 		       loadedSoldier.audio().positionSoundId() == 602 &&
 		       loadedSoldier.audio().turningSoundId() == 603,
 		       "soldier save/load round-trips non-dialogue audio state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.uiPresentation().portraitFlashFrame() == -5 &&
+		       loadedSoldier.uiPresentation().locatorFrame() == 6 &&
+		       loadedSoldier.uiPresentation().locatorOffsetX() == 14 &&
+		       loadedSoldier.uiPresentation().locatorOffsetY() == -15 &&
+		       loadedSoldier.uiPresentation().interfaceLevel() == 1 &&
+		       loadedSoldier.uiPresentation().closePanelFrame() == 4 &&
+		       loadedSoldier.uiPresentation().deadPanelFrame() == 5 &&
+		       loadedSoldier.uiPresentation().openPanelFrame() == -6 &&
+		       loadedSoldier.uiPresentation().panelFaceX() == 110 &&
+		       loadedSoldier.uiPresentation().panelFaceY() == 111 &&
+		       loadedSoldier.uiPresentation().plannedActionPointCost() == 16 &&
+		       loadedSoldier.uiPresentation().plannedTargetX() == 600 &&
+		       loadedSoldier.uiPresentation().plannedTargetY() == 601 &&
+		       loadedSoldier.uiPresentation().lastEnemyCycled() == SoldierID{ 17 } &&
+		       loadedSoldier.uiPresentation().locateCycles() == 8,
+		       "soldier save/load round-trips UI presentation at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.replication().movementStartedAt() == 26001 &&
 		       loadedSoldier.replication().optimumMovementTime() == 26002 &&

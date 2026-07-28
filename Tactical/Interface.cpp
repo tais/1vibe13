@@ -1572,12 +1572,12 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	{
 		if (fRadio)
 		{
-			*psX = sMercScreenX - (80 / 2) - pSoldier->sLocatorOffX;
+			*psX = sMercScreenX - (80 / 2) - pSoldier->uiPresentation().locatorOffsetX();
 			*psY = sMercScreenY - sTextBodyTypeYOffset + sStanceOffset;
 		}
 		else
 		{
-			*psX = sMercScreenX - (80 / 2) - pSoldier->sLocatorOffX;
+			*psX = sMercScreenX - (80 / 2) - pSoldier->uiPresentation().locatorOffsetX();
 			*psY = sMercScreenY - sTextBodyTypeYOffset + sStanceOffset;
 
 			// OK, Check if we need to go below....
@@ -1587,7 +1587,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 			// If we are getting hit, lower them!
 			if (pSoldier->damageDisplay().displayFlag() || *psY < gsVIEWPORT_WINDOW_START_Y)
 			{
-				*psX = sMercScreenX - (80 / 2) - pSoldier->sLocatorOffX;
+				*psX = sMercScreenX - (80 / 2) - pSoldier->uiPresentation().locatorOffsetX();
 				*psY = sMercScreenY;
 			}
 		}
@@ -1595,7 +1595,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	else
 	{
 		//Display Text!
-		*psX = sMercScreenX - (80 / 2) - pSoldier->sLocatorOffX;
+		*psX = sMercScreenX - (80 / 2) - pSoldier->uiPresentation().locatorOffsetX();
 		*psY = sMercScreenY - sTextBodyTypeYOffset + sStanceOffset;
 	}
 }
@@ -1693,13 +1693,13 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				pSoldier->flags.fShowLocator = TRUE;
 
 				// Update frame
-				pSoldier->sLocatorFrame++;
+				pSoldier->uiPresentation().locatorFrame()++;
 
-				if ( pSoldier->sLocatorFrame == 5 )
+				if ( pSoldier->uiPresentation().locatorFrame() == 5 )
 				{
 					// Update time we do this
 					pSoldier->flags.fFlashLocator++;
-					pSoldier->sLocatorFrame = 0;
+					pSoldier->uiPresentation().locatorFrame() = 0;
 				}
 			}
 
@@ -1711,7 +1711,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			//	pSoldier->flags.fShowLocator = FALSE;
 
 			//}
-			if ( pSoldier->flags.fFlashLocator == pSoldier->ubNumLocateCycles )
+			if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
 			{
 				pSoldier->flags.fFlashLocator = FALSE;
 				pSoldier->flags.fShowLocator = FALSE;
@@ -1750,11 +1750,11 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 
 				if ( !pSoldier->aiData.bNeutral && ( pSoldier->bSide != gbPlayerNum ) )
 				{
-					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO2, pSoldier->sLocatorFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
+					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO2, pSoldier->uiPresentation().locatorFrame(), sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 				}
 				else
 				{
-					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, pSoldier->sLocatorFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
+					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, pSoldier->uiPresentation().locatorFrame(), sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 
 					//BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO, 0, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 				}
@@ -1769,16 +1769,16 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 320 );
 			
 			// Update frame
-			pSoldier->sLocatorFrame++;
+			pSoldier->uiPresentation().locatorFrame()++;
 
-			if ( pSoldier->sLocatorFrame == 5 )
+			if ( pSoldier->uiPresentation().locatorFrame() == 5 )
 			{
 				// Update time we do this
-				pSoldier->sLocatorFrame = 0;
+				pSoldier->uiPresentation().locatorFrame() = 0;
 			}
 		}
 
-		if ( pSoldier->flags.fFlashLocator == pSoldier->ubNumLocateCycles )
+		if ( pSoldier->flags.fFlashLocator == pSoldier->uiPresentation().locateCycles() )
 		{
 				pSoldier->flags.fShowLocator = FALSE;
 		}
@@ -1809,7 +1809,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				SetBackgroundRectFilled( iBack );
 			}
 
-			BltVideoObjectFromIndex( FRAME_BUFFER, guiUNDERWATER, pSoldier->sLocatorFrame, sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
+			BltVideoObjectFromIndex( FRAME_BUFFER, guiUNDERWATER, pSoldier->uiPresentation().locatorFrame(), sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 		}
 	}
 

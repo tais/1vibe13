@@ -8067,9 +8067,9 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
             if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
             {
                 // If we are > ok start, this is the one!
-                if ( enemy > pSrcSoldier->ubLastEnemyCycledID )
+                if ( enemy > pSrcSoldier->uiPresentation().lastEnemyCycled() )
                 {
-                    pSrcSoldier->ubLastEnemyCycledID = enemy;
+                    pSrcSoldier->uiPresentation().lastEnemyCycled() = enemy;
 
                     //ATE: Change to Slide To...
                     SlideTo( enemy, SETANDREMOVEPREVIOUSLOCATOR );
@@ -8082,7 +8082,7 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
     }
 
     // If here.. reset to zero...
-    pSrcSoldier->ubLastEnemyCycledID = 0;
+    pSrcSoldier->uiPresentation().lastEnemyCycled() = 0;
 
 
     usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
@@ -8097,9 +8097,9 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
             {
 
                 // If we are > ok start, this is the one!
-                if ( enemy > pSrcSoldier->ubLastEnemyCycledID )
+                if ( enemy > pSrcSoldier->uiPresentation().lastEnemyCycled() )
                 {
-                    pSrcSoldier->ubLastEnemyCycledID = enemy;
+                    pSrcSoldier->uiPresentation().lastEnemyCycled() = enemy;
 
                     //ATE: Change to Slide To...
                     SlideTo(enemy, SETANDREMOVEPREVIOUSLOCATOR );
@@ -8127,9 +8127,9 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
             if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
             {
                 // If we are > ok start, this is the one!
-                if ( enemy < pSrcSoldier->ubLastEnemyCycledID )
+                if ( enemy < pSrcSoldier->uiPresentation().lastEnemyCycled() )
                 {
-                    pSrcSoldier->ubLastEnemyCycledID = enemy;
+                    pSrcSoldier->uiPresentation().lastEnemyCycled() = enemy;
 
                     //ATE: Change to Slide To...
                     SlideTo( enemy, SETANDREMOVEPREVIOUSLOCATOR );
@@ -8142,7 +8142,7 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
     }
 
     // If here.. reset to max
-    pSrcSoldier->ubLastEnemyCycledID = TOTAL_SOLDIERS;
+    pSrcSoldier->uiPresentation().lastEnemyCycled() = TOTAL_SOLDIERS;
 
 
     usStartToLook = gTacticalStatus.Team[ gbPlayerNum ].bLastID;
@@ -8157,9 +8157,9 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
             {
 
                 // If we are > ok start, this is the one!
-                if ( enemy < pSrcSoldier->ubLastEnemyCycledID )
+                if ( enemy < pSrcSoldier->uiPresentation().lastEnemyCycled() )
                 {
-                    pSrcSoldier->ubLastEnemyCycledID = enemy;
+                    pSrcSoldier->uiPresentation().lastEnemyCycled() = enemy;
 
                     //ATE: Change to Slide To...
                     SlideTo( enemy, SETANDREMOVEPREVIOUSLOCATOR );

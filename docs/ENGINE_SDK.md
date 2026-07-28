@@ -459,6 +459,12 @@ history operations preserve killer and assister attribution as one transition.
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render
 coordinates cannot leak into those rules.
+`SoldierUiPresentationComponent` owns the remaining pointer-free tactical view
+model for a soldier: portrait and locator animation, interface elevation,
+panel placement, planned-action overlay, and enemy cycling. Use
+`uiPresentation()` or its named locator, panel-position, and planned-target
+transitions from UI adapters. Render-resource pointers deliberately remain
+behind the legacy graphics adapter rather than entering this view model.
 `SoldierCombatContributionComponent` separately owns outgoing militia kills,
 assists, promotion points, and the fixed 156-slot player-team damage
 attribution record. Named accrual and transfer operations coordinate tactical

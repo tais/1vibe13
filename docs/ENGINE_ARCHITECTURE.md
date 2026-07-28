@@ -1173,6 +1173,13 @@ the engine must not contain SDL types in its public domain model.
   coordinates cannot become combat state. Accumulated damage deliberately
   remains simulation-owned because torso-hit and death rules inspect it before
   the number is rendered.
+  `SoldierUiPresentationComponent` owns the wider soldier-local tactical view
+  state: portrait flash, locator animation and offsets, interface elevation,
+  panel animation and face placement, planned-action overlay, and the
+  enemy-cycle cursor. Named locator, panel-position, and planned-target
+  transitions keep paired UI coordinates coherent. Palette, surface, level
+  node, shade, and background pointers remain outside this component as legacy
+  render-adapter resources rather than view-model state.
   `SoldierCombatContributionComponent` separately owns outgoing militia kills
   and assists plus the fixed 156-slot player-team damage attribution record.
   Named kill, assist, promotion-credit, transfer, and reset operations give

@@ -2577,7 +2577,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					if ( gsCurInterfacePanel == SM_PANEL )
 					{
 						// Remember soldier's new value
-						GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+						GetSMCurrentMerc()->uiPresentation().interfaceLevel() = (INT8)gsInterfaceLevel;
 					}
 				}
 				break;
@@ -8614,7 +8614,7 @@ void HandleTBLevelDown(void)
 		if (gsCurInterfacePanel == SM_PANEL)
 		{
 			// Remember soldier's new value
-			GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+			GetSMCurrentMerc()->uiPresentation().interfaceLevel() = (INT8)gsInterfaceLevel;
 		}
 	}
 }
@@ -8630,7 +8630,7 @@ void HandleTBLevelUp(void)
 		if (gsCurInterfacePanel == SM_PANEL)
 		{
 			// Remember soldier's new value
-			GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+			GetSMCurrentMerc()->uiPresentation().interfaceLevel() = (INT8)gsInterfaceLevel;
 		}
 	}
 }
