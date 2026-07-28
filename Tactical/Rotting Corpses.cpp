@@ -1488,7 +1488,7 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 void MercLooksForCorpses( SOLDIERTYPE *pSoldier )
 {
 	// Should we say disgust quote?
-	if ( ( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_ROTTINGCORPSE ) )
+	if ( pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_ROTTINGCORPSE) )
 	{
 		return;
 	}
@@ -1535,7 +1535,7 @@ void MercLooksForCorpses( SOLDIERTYPE *pSoldier )
 				{
 					TacticalCharacterDialogue( pSoldier, QUOTE_HEADSHOT );
 
-					pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_ROTTINGCORPSE;
+					pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_ROTTINGCORPSE);
 
 					BeginMultiPurposeLocator( sGridNo, pCorpse->def.bLevel, FALSE );
 
@@ -2659,7 +2659,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 	}
 
 	// Check tolerance
-	if ( pSoldier->bCorpseQuoteTolerance <= bToleranceThreshold )
+	if ( pSoldier->dialogue().corpseQuoteTolerance() <= bToleranceThreshold )
 	{
 		// Say quote...
 		TacticalCharacterDialogue( pSoldier, QUOTE_HEADSHOT );
@@ -2667,7 +2667,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 		BeginMultiPurposeLocator( sGridNo, ubLevel, FALSE );
 
 		// Reset values....
-		pSoldier->bCorpseQuoteTolerance = (INT8)( Random(3) + 1 );
+		pSoldier->dialogue().corpseQuoteTolerance() = (INT8)( Random(3) + 1 );
 
 		// 50% chance of adding 1 to other mercs....
 		if ( Random( 2 ) == 1 )
@@ -2687,7 +2687,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 				// ATE: Ok, lets check for some basic things here!				
 				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
-					pTeamSoldier->bCorpseQuoteTolerance++;
+					pTeamSoldier->dialogue().corpseQuoteTolerance()++;
 				}
 			}
 		}

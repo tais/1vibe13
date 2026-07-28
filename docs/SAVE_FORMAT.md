@@ -299,6 +299,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   original scattered positions; v101 conversion maps its four narrower legacy
   fields into that owner. No save, packet, map, XML, Lua, or installed-data
   bytes change.
+- NPC quote plans, standard and extended quote-history masks, battle-voice
+  selection and playback throttling, heard-noise speech cooldown, civilian
+  quote progression, last-spoke time, and corpse-comment tolerance are now
+  stored by `SoldierDialogueComponent`. The visitor emits all fourteen values
+  at their original scattered positions and widths, and v101 conversion maps
+  every established field. Positional ambience and turret-loop sound handles
+  remain spatial-audio state. No save, packet, map, XML, Lua, dialogue, or
+  installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

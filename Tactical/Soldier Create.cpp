@@ -1028,7 +1028,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		if ( Soldier.ubProfile == NO_PROFILE )
 		{
 			// default (men) badguy battlesound sets 0-5
-			Soldier.ubBattleSoundID = (UINT8)Random( 6 );
+			Soldier.dialogue().battleSoundSet() = (UINT8)Random( 6 );
 		}
 
 		//Set some flags, actions based on what body type we are
@@ -1040,7 +1040,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			case HATKIDCIV:
 			case KIDCIV:
 				// kids have 2 battlesound sets
-				Soldier.ubBattleSoundID = (UINT8)Random( 2 );
+				Soldier.dialogue().battleSoundSet() = (UINT8)Random( 2 );
 				break;
 
 			case REGFEMALE:
@@ -1048,7 +1048,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			case DRESSCIV:
 
 				// women get badguy battlesound sets 6-11
-				Soldier.ubBattleSoundID = 6 + (UINT8) Random( 6 );
+				Soldier.dialogue().battleSoundSet() = 6 + (UINT8) Random( 6 );
 				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
 				break;
 
@@ -1305,7 +1305,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	pSoldier->vitals().healableInjury() = 0;
 
-	pSoldier->bVocalVolume							= MIDVOLUME;
+	pSoldier->dialogue().vocalVolume()						= MIDVOLUME;
 	pSoldier->animationPlayback().subFlags()						= pProfile->uiBodyTypeSubFlags;
 	pSoldier->ubBodyType								= pProfile->ubBodyType;
 	pSoldier->ubCivilianGroup						= pProfile->ubCivilianGroup;
@@ -1756,7 +1756,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->aiData.bOrders								= pCreateStruct->bOrders;
 	pSoldier->aiData.bMorale								= pCreateStruct->bMorale;
 	pSoldier->aiData.bAIMorale							= pCreateStruct->bAIMorale;
-	pSoldier->bVocalVolume					= MIDVOLUME;
+	pSoldier->dialogue().vocalVolume()			= MIDVOLUME;
 	pSoldier->ubBodyType					= pCreateStruct->ubBodyType;
 	pSoldier->ubCivilianGroup				= pCreateStruct->ubCivilianGroup;
 
@@ -2126,9 +2126,8 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->aiData.sNoiseGridno		= NOWHERE;
 	pSoldier->deployment().previousSectorId()				= 255;
 	pSoldier->aiData.bNextPatrolPnt		= 1;
-	pSoldier->bCurrentCivQuote			= -1;
-	pSoldier->bCurrentCivQuoteDelta		= 0;
-	pSoldier->uiBattleSoundID			= NO_SAMPLE;
+	pSoldier->dialogue().clearCivilianQuote();
+	pSoldier->dialogue().activeBattleSound()	= NO_SAMPLE;
 	pSoldier->aiData.ubXRayedBy			= NOBODY;
 	pSoldier->perception().deactivateXray();
 	pSoldier->fireControl().bulletsLeft()				= 0;

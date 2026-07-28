@@ -729,7 +729,7 @@ void HandleDialogue( )
 							}
 
 							TacticalCharacterDialogue( pSoldier, QUOTE_JOINING_CAUSE_LEARNED_TO_LIKE_BUDDY_ON_TEAM );
-							pSoldier->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_MORRIS;
+							pSoldier->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_EXT_MORRIS);
 						}
 					}
 
@@ -835,7 +835,7 @@ void HandleDialogue( )
 
 	if ( pSoldier != NULL )
 	{
-		if ( SoundIsPlaying( pSoldier->uiBattleSoundID ) )
+		if ( SoundIsPlaying( pSoldier->dialogue().activeBattleSound() ) )
 		{
 			//Place back in!
 			ghDialogueQ.push(QItem);
@@ -2121,11 +2121,11 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 				if ( (pTeamSoldier->ubProfile != ubCharacterNum) && (OK_INSECTOR_MERC( pTeamSoldier )) && (SpacesAway( pSoldier->sGridNo, pTeamSoldier->sGridNo ) < 5) )
 				{
 					// if this merc disliked the whining character sufficiently and hasn't already retorted
-					if ( gMercProfiles[ pTeamSoldier->ubProfile ].bMercOpinion[ ubCharacterNum ] < -2 && !( pTeamSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_ANNOYING_MERC ) )
+					if ( gMercProfiles[ pTeamSoldier->ubProfile ].bMercOpinion[ ubCharacterNum ] < -2 && !pTeamSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC) )
 					{
 						// make a comment!
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_ANNOYING_PC );
-						pTeamSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_ANNOYING_MERC;
+						pTeamSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC);
 						break;
 					}
 				}

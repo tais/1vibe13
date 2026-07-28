@@ -429,7 +429,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	{
 		// if we're in autobandage, or the AI control flag is set and the player has a quote record to perform, or is a boxer,
 		// let AI process this merc; otherwise abort
-		if ( !(gTacticalStatus.fAutoBandageMode) && !(pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL && (pSoldier->ubQuoteRecord != 0 || pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) ) )
+		if ( !(gTacticalStatus.fAutoBandageMode) && !(pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL && (pSoldier->dialogue().hasQuoteRecord() || pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) ) )
 		{
 			// patch...
 			if ( pSoldier->aiData.fAIFlags & AI_HANDLE_EVERY_FRAME )
@@ -454,7 +454,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		// why do we let the quote record thing be in here?  we're in turnbased the quote record doesn't matter,
 		// we can't act out of turn!
 		if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
-			//if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && (pSoldier->ubQuoteRecord == 0))
+			//if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && !pSoldier->dialogue().hasQuoteRecord())
 		{
 			return;
 		}
@@ -500,7 +500,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	if ( pSoldier->aiData.fAIFlags & AI_HANDLE_EVERY_FRAME ) // if set to handle every frame, ignore delay!
 	{
-		if (pSoldier->ubQuoteActionID != QUOTE_ACTION_ID_TURNTOWARDSPLAYER)
+		if (pSoldier->dialogue().quoteActionId() != QUOTE_ACTION_ID_TURNTOWARDSPLAYER)
 		{
 			// turn off flag!
 			pSoldier->aiData.fAIFlags &= (~AI_HANDLE_EVERY_FRAME);
@@ -646,12 +646,12 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 		if ( fProcessNewSituation )
 		{
-			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST &&
-                    pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH && !GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) )
+			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST &&
+                    pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH && !GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) )
 			{
 				// traversing offmap, ignore new situations
 			}
-			else if ( pSoldier->ubQuoteRecord == 0 && !gTacticalStatus.fAutoBandageMode  )
+			else if ( !pSoldier->dialogue().hasQuoteRecord() && !gTacticalStatus.fAutoBandageMode  )
 			{
 				// don't force, don't want escorted mercs reacting to new opponents, etc.
 				// now we don't have AI controlled escorted mercs though - CJC
@@ -666,7 +666,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 			}
 			else
 			{
-				if ( pSoldier->ubQuoteRecord )
+				if ( pSoldier->dialogue().hasQuoteRecord() )
 				{
 					// make sure we're not using combat AI
 					pSoldier->aiData.bAlertStatus = STATUS_GREEN;
@@ -777,7 +777,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 					{
 						pSoldier->movement().absoluteDestination() = NOWHERE;
 
-						if ( !ACTING_ON_SCHEDULE( pSoldier ) && pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST )
+						if ( !ACTING_ON_SCHEDULE( pSoldier ) && pSoldier->dialogue().hasQuoteRecord() && pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST )
 						{
 							NPCReachedDestination( pSoldier, FALSE );
 							// wait just a little bit so the queue can be processed
@@ -785,7 +785,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 							pSoldier->aiData.usNextActionData = 500;
 
 						}
-						else if (pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH)
+						else if (pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH)
 						{
 							HandleAITacticalTraversal( pSoldier );
 							return;
@@ -798,7 +798,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 					}
 				}
 				// for regular guys still have to check for leaving the map
-				else if (pSoldier->ubQuoteActionID >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->ubQuoteActionID <= QUOTE_ACTION_ID_TRAVERSE_NORTH &&
+				else if (pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST && pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH &&
 						GridNoOnEdgeOfMap(pSoldier->position().gridNo(), &bEscapeDirection) && EscapeDirectionIsValid(&bEscapeDirection))
 				{
 					HandleAITacticalTraversal( pSoldier );
@@ -897,11 +897,11 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 			{
 				if ( pMerc->suppression().closeCall() )
 				{
-					if ( !gTacticalStatus.fSomeoneHit && pMerc->combatResult().hitsThisTurn() == 0 && !(pMerc->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
+					if ( !gTacticalStatus.fSomeoneHit && pMerc->combatResult().hitsThisTurn() == 0 && !pMerc->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) && Random( 3 ) == 0 )
 					{
 						// say close call quote!
 						TacticalCharacterDialogue( pMerc, QUOTE_CLOSE_CALL );
-						pMerc->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
+						pMerc->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
 					}
 					pMerc->suppression().clearCloseCall();
 				}
@@ -1240,10 +1240,10 @@ void FreeUpNPCFromPendingAction( 	SOLDIERTYPE *pSoldier )
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE )
 			{
-				if ( pSoldier->ubQuoteRecord == NPC_ACTION_KYLE_GETS_MONEY )
+				if ( pSoldier->dialogue().quoteRecord() == NPC_ACTION_KYLE_GETS_MONEY )
 				{
 					// Kyle after getting money
-					pSoldier->ubQuoteRecord = 0;
+					pSoldier->dialogue().quoteRecord() = 0;
 					TriggerNPCRecord( KYLE, 11 );
 				}
 				else if (pSoldier->animationPlayback().state() == END_OPENSTRUCT)
@@ -2136,7 +2136,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
                         {
                             // This is close enough...
                             ReplaceLocationInNPCDataFromProfileID( pSoldier->ubProfile, pSoldier->movement().absoluteDestination(), pSoldier->position().gridNo() );
-                            NPCGotoGridNo( pSoldier->ubProfile, pSoldier->position().gridNo(), (UINT8) (pSoldier->ubQuoteRecord - 1) );
+                            NPCGotoGridNo( pSoldier->ubProfile, pSoldier->position().gridNo(), (UINT8) (pSoldier->dialogue().quoteRecord() - 1) );
                         }
                         else
                         {
@@ -2171,7 +2171,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             }
 
             // add on anything necessary to traverse off map edge
-            switch( pSoldier->ubQuoteActionID )
+            switch( pSoldier->dialogue().quoteActionId() )
             {
             case QUOTE_ACTION_ID_TRAVERSE_EAST:
                 pSoldier->deployment().offWorldGrid() = pSoldier->aiData.usActionData;
@@ -2918,7 +2918,7 @@ void SetNewSituation( SOLDIERTYPE * pSoldier )
 {
 	if ( pSoldier->bTeam != gbPlayerNum )
 	{
-		if ( pSoldier->ubQuoteRecord == 0 && !gTacticalStatus.fAutoBandageMode && !(pSoldier->aiData.bNeutral && gTacticalStatus.uiFlags & ENGAGED_IN_CONV) )
+		if ( !pSoldier->dialogue().hasQuoteRecord() && !gTacticalStatus.fAutoBandageMode && !(pSoldier->aiData.bNeutral && gTacticalStatus.uiFlags & ENGAGED_IN_CONV) )
 		{
             // 0verhaul:  Let's see if we can do without this.
             pSoldier->aiData.bNewSituation = IS_NEW_SITUATION;
@@ -2940,7 +2940,7 @@ void SetNewSituation( SOLDIERTYPE * pSoldier )
 
 void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
 {
-	UINT8 ubQuoteActionID = pSoldier->ubQuoteActionID;
+	UINT8 ubQuoteActionID = pSoldier->dialogue().quoteActionId();
 
 	HandleNPCChangesForTacticalTraversal( pSoldier );
 
@@ -2950,7 +2950,7 @@ void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
 	}
 	else
 	{
-		pSoldier->ubQuoteActionID = 0;
+		pSoldier->dialogue().quoteActionId() = 0;
 	}
 
 #ifdef TESTAICONTROL

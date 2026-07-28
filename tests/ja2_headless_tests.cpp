@@ -112,6 +112,7 @@
 #include "Animation Control.h"
 #include "Map Information.h"
 #include "Overhead.h"
+#include "ai.h"
 #include "Vehicles.h"
 #include "World Items.h"
 #include "Strategic Movement.h"
@@ -7282,6 +7283,20 @@ int main( int, char** )
 		service.addProvider();
 		service.beginProvidingTo( SoldierID{ 7 } );
 		service.assignAutoBandagingMedic( SoldierID{ 8 } );
+		SoldierDialogueComponent& dialogue = soldier.dialogue();
+		dialogue.quoteRecord() = 13;
+		dialogue.quoteActionId() = QUOTE_ACTION_ID_CHECKFORDEST;
+		dialogue.battleSoundSet() = 4;
+		dialogue.markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
+		dialogue.vocalVolume() = 87;
+		dialogue.recordBattleSound(BATTLE_SOUND_ATTN1, 12342);
+		dialogue.startHeardNoiseCooldown(5);
+		dialogue.markSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
+		dialogue.activeBattleSound() = 77;
+		dialogue.currentCivilianQuote() = -2;
+		dialogue.civilianQuoteDelta() = 2;
+		dialogue.recordSpokeAt(12343);
+		dialogue.corpseQuoteTolerance() = 3;
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7496,6 +7511,23 @@ int main( int, char** )
 		       constSoldier.service().hasAutoBandagingMedic() &&
 		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
 		       "soldier service component owns service activity, providers, partner, and automatic-bandage reservation" );
+		CHECK( constSoldier.dialogue().hasQuoteRecord() &&
+		       constSoldier.dialogue().quoteRecord() == 13 &&
+		       constSoldier.dialogue().hasQuoteAction() &&
+		       constSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
+		       constSoldier.dialogue().battleSoundSet() == 4 &&
+		       constSoldier.dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) &&
+		       constSoldier.dialogue().vocalVolume() == 87 &&
+		       constSoldier.dialogue().previousBattleSound() == BATTLE_SOUND_ATTN1 &&
+		       constSoldier.dialogue().repeatedBattleSoundAt() == 12342 &&
+		       constSoldier.dialogue().heardNoiseCooldownTurns() == 5 &&
+		       constSoldier.dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
+		       constSoldier.dialogue().activeBattleSound() == 77 &&
+		       constSoldier.dialogue().currentCivilianQuote() == -2 &&
+		       constSoldier.dialogue().civilianQuoteDelta() == 2 &&
+		       constSoldier.dialogue().lastSpokeAt() == 12343 &&
+		       constSoldier.dialogue().corpseQuoteTolerance() == 3,
+		       "soldier dialogue component owns quote planning, spoken history, voice playback, and cooldown state" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7750,6 +7782,53 @@ int main( int, char** )
 		       !serviceLifecycle.hasPartner() &&
 		       !serviceLifecycle.hasAutoBandagingMedic(),
 		       "soldier service component clears relationships without underflowing its provider count" );
+		SoldierDialogueComponent dialogueLifecycle;
+		dialogueLifecycle.quoteRecord() = 4;
+		dialogueLifecycle.quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
+		dialogueLifecycle.markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
+		dialogueLifecycle.markSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
+		dialogueLifecycle.recordBattleSound(BATTLE_SOUND_OK1, 4000);
+		dialogueLifecycle.startHeardNoiseCooldown(2);
+		dialogueLifecycle.ageHeardNoiseCooldown();
+		dialogueLifecycle.currentCivilianQuote() = 6;
+		dialogueLifecycle.civilianQuoteDelta() = 1;
+		dialogueLifecycle.recordSpokeAt(5000);
+		CHECK( dialogueLifecycle.hasQuoteRecord() &&
+		       dialogueLifecycle.hasQuoteAction() &&
+		       dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
+		       dialogueLifecycle.hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
+		       dialogueLifecycle.previousBattleSound() == BATTLE_SOUND_OK1 &&
+		       dialogueLifecycle.repeatedBattleSoundAt() == 4000 &&
+		       dialogueLifecycle.heardNoiseCooldownTurns() == 1 &&
+		       dialogueLifecycle.lastSpokeAt() == 5000,
+		       "soldier dialogue component coordinates quote, history, playback, and cooldown transitions" );
+		dialogueLifecycle.clearQuotePlan();
+		dialogueLifecycle.clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
+		dialogueLifecycle.clearSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
+		dialogueLifecycle.clearCivilianQuote();
+		CHECK( !dialogueLifecycle.hasQuoteRecord() &&
+		       !dialogueLifecycle.hasQuoteAction() &&
+		       !dialogueLifecycle.hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) &&
+		       !dialogueLifecycle.hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
+		       dialogueLifecycle.currentCivilianQuote() == -1 &&
+		       dialogueLifecycle.civilianQuoteDelta() == 0,
+		       "soldier dialogue component clears coordinated quote plans, history bits, and civilian progression" );
+		dialogueLifecycle.reset();
+		CHECK( dialogueLifecycle.quoteRecord() == 0 &&
+		       dialogueLifecycle.quoteActionId() == 0 &&
+		       dialogueLifecycle.battleSoundSet() == 0 &&
+		       dialogueLifecycle.saidFlags() == 0 &&
+		       dialogueLifecycle.vocalVolume() == 0 &&
+		       dialogueLifecycle.repeatedBattleSoundAt() == 0 &&
+		       dialogueLifecycle.previousBattleSound() == 0 &&
+		       dialogueLifecycle.heardNoiseCooldownTurns() == 0 &&
+		       dialogueLifecycle.saidExtendedFlags() == 0 &&
+		       dialogueLifecycle.activeBattleSound() == 0 &&
+		       dialogueLifecycle.currentCivilianQuote() == 0 &&
+		       dialogueLifecycle.civilianQuoteDelta() == 0 &&
+		       dialogueLifecycle.lastSpokeAt() == 0 &&
+		       dialogueLifecycle.corpseQuoteTolerance() == 0,
+		       "soldier dialogue reset clears the complete spoken-state domain" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -7791,6 +7870,21 @@ int main( int, char** )
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
 		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
 		       "soldier copies retain their owned persistent service relationships" );
+		CHECK( copiedSoldier.dialogue().quoteRecord() == 13 &&
+		       copiedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
+		       copiedSoldier.dialogue().battleSoundSet() == 4 &&
+		       copiedSoldier.dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) &&
+		       copiedSoldier.dialogue().vocalVolume() == 87 &&
+		       copiedSoldier.dialogue().repeatedBattleSoundAt() == 12342 &&
+		       copiedSoldier.dialogue().previousBattleSound() == BATTLE_SOUND_ATTN1 &&
+		       copiedSoldier.dialogue().heardNoiseCooldownTurns() == 5 &&
+		       copiedSoldier.dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL) &&
+		       copiedSoldier.dialogue().activeBattleSound() == 77 &&
+		       copiedSoldier.dialogue().currentCivilianQuote() == -2 &&
+		       copiedSoldier.dialogue().civilianQuoteDelta() == 2 &&
+		       copiedSoldier.dialogue().lastSpokeAt() == 12343 &&
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 3,
+		       "soldier copies retain their owned persistent dialogue state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8378,6 +8472,21 @@ int main( int, char** )
 		       !copiedSoldier.service().hasPartner() &&
 		       !copiedSoldier.service().hasAutoBandagingMedic(),
 		       "soldier initialization resets the complete tactical service domain" );
+		CHECK( copiedSoldier.dialogue().quoteRecord() == 0 &&
+		       copiedSoldier.dialogue().quoteActionId() == 0 &&
+		       copiedSoldier.dialogue().battleSoundSet() == 0 &&
+		       copiedSoldier.dialogue().saidFlags() == 0 &&
+		       copiedSoldier.dialogue().vocalVolume() == 0 &&
+		       copiedSoldier.dialogue().repeatedBattleSoundAt() == 0 &&
+		       copiedSoldier.dialogue().previousBattleSound() == 0 &&
+		       copiedSoldier.dialogue().heardNoiseCooldownTurns() == 0 &&
+		       copiedSoldier.dialogue().saidExtendedFlags() == 0 &&
+		       copiedSoldier.dialogue().activeBattleSound() == 0 &&
+		       copiedSoldier.dialogue().currentCivilianQuote() == 0 &&
+		       copiedSoldier.dialogue().civilianQuoteDelta() == 0 &&
+		       copiedSoldier.dialogue().lastSpokeAt() == 0 &&
+		       copiedSoldier.dialogue().corpseQuoteTolerance() == 0,
+		       "soldier initialization resets the complete dialogue domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -8599,6 +8708,20 @@ int main( int, char** )
 		legacySoldier->ubServiceCount = 3;
 		legacySoldier->ubServicePartner = 7;
 		legacySoldier->ubAutoBandagingMedic = 8;
+		legacySoldier->ubQuoteRecord = 14;
+		legacySoldier->ubQuoteActionID = QUOTE_ACTION_ID_CHECKFORDEST;
+		legacySoldier->ubBattleSoundID = 5;
+		legacySoldier->usQuoteSaidFlags = SOLDIER_QUOTE_SAID_LOW_BREATH;
+		legacySoldier->bVocalVolume = 86;
+		legacySoldier->uiTimeSameBattleSndDone = 12350;
+		legacySoldier->bOldBattleSnd = BATTLE_SOUND_DIE1;
+		legacySoldier->ubTurnsUntilCanSayHeardNoise = 4;
+		legacySoldier->usQuoteSaidExtFlags = SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
+		legacySoldier->uiBattleSoundID = 78;
+		legacySoldier->bCurrentCivQuote = -3;
+		legacySoldier->bCurrentCivQuoteDelta = 1;
+		legacySoldier->uiTimeSinceLastSpoke = 12351;
+		legacySoldier->bCorpseQuoteTolerance = 2;
 		legacySoldier->bCollapsed = TRUE;
 		legacySoldier->bBreathCollapsed = TRUE;
 		legacySoldier->bTurnsCollapsed = 3;
@@ -8713,6 +8836,21 @@ int main( int, char** )
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
 		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
 		       "v101 soldier conversion retains the complete tactical service relationship" );
+		CHECK( convertedSoldier.dialogue().quoteRecord() == 14 &&
+		       convertedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
+		       convertedSoldier.dialogue().battleSoundSet() == 5 &&
+		       convertedSoldier.dialogue().saidFlags() == SOLDIER_QUOTE_SAID_LOW_BREATH &&
+		       convertedSoldier.dialogue().vocalVolume() == 86 &&
+		       convertedSoldier.dialogue().repeatedBattleSoundAt() == 12350 &&
+		       convertedSoldier.dialogue().previousBattleSound() == BATTLE_SOUND_DIE1 &&
+		       convertedSoldier.dialogue().heardNoiseCooldownTurns() == 4 &&
+		       convertedSoldier.dialogue().saidExtendedFlags() == SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL &&
+		       convertedSoldier.dialogue().activeBattleSound() == 78 &&
+		       convertedSoldier.dialogue().currentCivilianQuote() == -3 &&
+		       convertedSoldier.dialogue().civilianQuoteDelta() == 1 &&
+		       convertedSoldier.dialogue().lastSpokeAt() == 12351 &&
+		       convertedSoldier.dialogue().corpseQuoteTolerance() == 2,
+		       "v101 soldier conversion retains the complete spoken-dialogue domain" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -8948,6 +9086,19 @@ int main( int, char** )
 		savedSoldier.service().addProvider();
 		savedSoldier.service().beginProvidingTo( SoldierID{ 15 } );
 		savedSoldier.service().assignAutoBandagingMedic( SoldierID{ 16 } );
+		savedSoldier.dialogue().quoteRecord() = 15;
+		savedSoldier.dialogue().quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
+		savedSoldier.dialogue().battleSoundSet() = 6;
+		savedSoldier.dialogue().saidFlags() = SOLDIER_QUOTE_SAID_PERSONALITY;
+		savedSoldier.dialogue().vocalVolume() = 85;
+		savedSoldier.dialogue().recordBattleSound(BATTLE_SOUND_OK1, 12352);
+		savedSoldier.dialogue().startHeardNoiseCooldown(3);
+		savedSoldier.dialogue().saidExtendedFlags() = SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL;
+		savedSoldier.dialogue().activeBattleSound() = 79;
+		savedSoldier.dialogue().currentCivilianQuote() = -4;
+		savedSoldier.dialogue().civilianQuoteDelta() = 3;
+		savedSoldier.dialogue().recordSpokeAt(12353);
+		savedSoldier.dialogue().corpseQuoteTolerance() = 4;
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9150,6 +9301,22 @@ int main( int, char** )
 		       loadedSoldier.service().partner() == SoldierID{ 15 } &&
 		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 },
 		       "soldier save/load round-trips tactical service state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.dialogue().quoteRecord() == 15 &&
+		       loadedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_TURNTOWARDSPLAYER &&
+		       loadedSoldier.dialogue().battleSoundSet() == 6 &&
+		       loadedSoldier.dialogue().saidFlags() == SOLDIER_QUOTE_SAID_PERSONALITY &&
+		       loadedSoldier.dialogue().vocalVolume() == 85 &&
+		       loadedSoldier.dialogue().repeatedBattleSoundAt() == 12352 &&
+		       loadedSoldier.dialogue().previousBattleSound() == BATTLE_SOUND_OK1 &&
+		       loadedSoldier.dialogue().heardNoiseCooldownTurns() == 3 &&
+		       loadedSoldier.dialogue().saidExtendedFlags() == SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL &&
+		       loadedSoldier.dialogue().activeBattleSound() == 79 &&
+		       loadedSoldier.dialogue().currentCivilianQuote() == -4 &&
+		       loadedSoldier.dialogue().civilianQuoteDelta() == 3 &&
+		       loadedSoldier.dialogue().lastSpokeAt() == 12353 &&
+		       loadedSoldier.dialogue().corpseQuoteTolerance() == 4,
+		       "soldier save/load round-trips dialogue state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

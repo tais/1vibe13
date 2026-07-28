@@ -227,7 +227,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 			if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
 			{
 				// unalerted, barely handle
-				if ( fDoRandomChecks && PreRandom( 10 ) && !(pSoldier->ubQuoteRecord) )
+				if ( fDoRandomChecks && PreRandom( 10 ) && !pSoldier->dialogue().hasQuoteRecord() )
 				{
 					return( FALSE );
 				}

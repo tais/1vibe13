@@ -1141,7 +1141,7 @@ BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fF
 	}
 
 	//if the soldier is a NOT new merc AND this item is from the ground AND the merc didnt say this quote recently
-	if( !fNewMerc && fFromGround && ( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE ) == 0 )
+	if( !fNewMerc && fFromGround && !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE) )
 	{
 		//if the merc can say it
 		if( QuoteExp_GotGunOrUsedGun[ pSoldier->ubProfile ] == QUOTE_FOUND_SOMETHING_SPECIAL )
@@ -1149,7 +1149,7 @@ BOOLEAN HandleNewGunComment( SOLDIERTYPE *pSoldier, INT32 iItemIndex, BOOLEAN fF
 			//Have the merc say his cool item quote
 			TacticalCharacterDialogue( pSoldier, QUOTE_FOUND_SOMETHING_SPECIAL );
 
-			pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE;
+			pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE);
 		}
 	}
 

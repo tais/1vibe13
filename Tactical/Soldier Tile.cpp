@@ -658,7 +658,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					// if either on a mission from god, or two AI guys not on stationary...
 					if ( ubPerson != NOBODY &&
 						blockingPerson != nullptr &&
-						( pSoldier->ubQuoteRecord != 0 ||
+						( pSoldier->dialogue().hasQuoteRecord() ||
 							( pSoldier->bTeam != gbPlayerNum &&
 								pSoldier->aiData.bOrders != STATIONARY &&
 								blockingPerson->bTeam != gbPlayerNum &&

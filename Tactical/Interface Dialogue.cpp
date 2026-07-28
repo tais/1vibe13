@@ -1858,8 +1858,8 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	// Go for it!
 
 	// Set flags to do stuff once there...
-	pSoldier->ubQuoteRecord		= ( ubQuoteNum + 1 );
-	pSoldier->ubQuoteActionID = ActionIDForMovementRecord( ubTargetNPC, ubQuoteNum );
+	pSoldier->dialogue().quoteRecord() = ( ubQuoteNum + 1 );
+	pSoldier->dialogue().quoteActionId() = ActionIDForMovementRecord( ubTargetNPC, ubQuoteNum );
 
 	// Set absolute dest
 	pSoldier->movement().absoluteDestination() = usGridNo;
@@ -2183,8 +2183,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				pSoldier->ubQuoteRecord = ubQuoteNum;
-				pSoldier->ubQuoteActionID = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
+				pSoldier->dialogue().quoteRecord() = ubQuoteNum;
+				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
 
 				// handle AI for this person every frame until a player merc is near
 				pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
@@ -2444,7 +2444,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				pSoldier->ubQuoteActionID = QUOTE_ACTION_ID_TRAVERSE_EAST;
+				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TRAVERSE_EAST;
 				break;
 
 			case NPC_ACTION_TRAVERSE_MAP_SOUTH:
@@ -2454,7 +2454,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				pSoldier->ubQuoteActionID = QUOTE_ACTION_ID_TRAVERSE_SOUTH;
+				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TRAVERSE_SOUTH;
 				break;
 
 			case NPC_ACTION_TRAVERSE_MAP_WEST:
@@ -2464,7 +2464,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				pSoldier->ubQuoteActionID = QUOTE_ACTION_ID_TRAVERSE_WEST;
+				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TRAVERSE_WEST;
 				break;
 
 			case NPC_ACTION_TRAVERSE_MAP_NORTH:
@@ -2474,7 +2474,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				pSoldier->ubQuoteActionID = QUOTE_ACTION_ID_TRAVERSE_NORTH;
+				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TRAVERSE_NORTH;
 				break;
 
 			case NPC_ACTION_REPORT_SHIPMENT_SIZE:
@@ -2698,7 +2698,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						// until the pickup is completed
 						CancelAIAction(pSoldier,FORCE);
 						pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
-						pSoldier->ubQuoteRecord = NPC_ACTION_KYLE_GETS_MONEY;
+						pSoldier->dialogue().quoteRecord() = NPC_ACTION_KYLE_GETS_MONEY;
 
 						SoldierPickupItem( pSoldier, iWorldItem, sGridNo, ITEM_IGNORE_Z_LEVEL );
 					}

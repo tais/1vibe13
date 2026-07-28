@@ -222,20 +222,20 @@ void MercDailyUpdate()
 		if ( ( pSoldier->bActive )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			//CJC: Reset dialogue flags for quotes that can be said once/day
-			pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_ANNOYING_MERC );
+			pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC);
 			// ATE: Reset likes gun flag
-			pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_LIKESGUN );
+			pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_LIKESGUN);
 			// ATE: Reset seen corpse flag
-			pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_ROTTINGCORPSE );
+			pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_ROTTINGCORPSE);
 			// ATE; Reset found something nice flag...
-			pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE );
+			pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_FOUND_SOMETHING_NICE);
 
 			// ATE: Decrement tolerance value...
-			pSoldier->bCorpseQuoteTolerance--;
+			pSoldier->dialogue().corpseQuoteTolerance()--;
 
-			if ( pSoldier->bCorpseQuoteTolerance < 0 )
+			if ( pSoldier->dialogue().corpseQuoteTolerance() < 0 )
 			{
-				pSoldier->bCorpseQuoteTolerance = 0;
+				pSoldier->dialogue().corpseQuoteTolerance() = 0;
 			}
 
 			// CJC: For some personalities, reset personality quote said flag
@@ -249,7 +249,7 @@ void MercDailyUpdate()
 					case FEAR_OF_INSECTS:
 					case AFRAID_OF_HEIGHTS:
 						// repeatable once per day
-						pSoldier->usQuoteSaidFlags &= ( ~SOLDIER_QUOTE_SAID_PERSONALITY );
+						pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 						break;
 					default:
 						break;

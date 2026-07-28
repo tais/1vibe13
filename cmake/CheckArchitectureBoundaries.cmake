@@ -2196,6 +2196,181 @@ if(NOT serialized_soldier_service_activity_order OR
     "Soldier service state moved in the portable save schema; retain all four established positions and widths")
 endif()
 
+# Soldier speech is one persistent behavior domain: queued NPC quote work,
+# quote-history masks, battle-voice selection/playback throttling, civilian
+# quote progression, speech cooldowns, and corpse-comment tolerance. Spatial
+# and mechanical-loop sound handles intentionally remain outside this owner.
+foreach(retired_dialogue_field IN ITEMS
+  ubQuoteRecord
+  ubQuoteActionID
+  ubBattleSoundID
+  usQuoteSaidFlags
+  bVocalVolume
+  uiTimeSameBattleSndDone
+  bOldBattleSnd
+  ubTurnsUntilCanSayHeardNoise
+  usQuoteSaidExtFlags
+  uiBattleSoundID
+  bCurrentCivQuote
+  bCurrentCivQuoteDelta
+  uiTimeSinceLastSpoke
+  bCorpseQuoteTolerance)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8|UINT16|UINT32)[ \t]+${retired_dialogue_field}[ \t]*;"
+    retired_current_dialogue_field
+    "${current_soldier_contents}")
+  if(retired_current_dialogue_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE dialogue field '${retired_dialogue_field}' returned; spoken state belongs to SoldierDialogueComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierDialogueComponent[ \t\r\n]+dialogue_[ \t]*;"
+  soldier_dialogue_owner
+  "${current_soldier_contents}")
+if(NOT soldier_dialogue_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierDialogueComponent")
+endif()
+
+foreach(owned_dialogue_pattern IN ITEMS
+  "UINT8[ \t]+quoteRecord_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+quoteActionId_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+battleSoundSet_[ \t]*=[ \t]*0"
+  "UINT16[ \t]+saidFlags_[ \t]*=[ \t]*0"
+  "INT8[ \t]+vocalVolume_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+repeatedBattleSoundAt_[ \t]*=[ \t]*0"
+  "INT8[ \t]+previousBattleSound_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+heardNoiseCooldownTurns_[ \t]*=[ \t]*0"
+  "UINT16[ \t]+saidExtendedFlags_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+activeBattleSound_[ \t]*=[ \t]*0"
+  "INT8[ \t]+currentCivilianQuote_[ \t]*=[ \t]*0"
+  "INT8[ \t]+civilianQuoteDelta_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+lastSpokeAt_[ \t]*=[ \t]*0"
+  "INT8[ \t]+corpseQuoteTolerance_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_dialogue_pattern}"
+    owned_soldier_dialogue_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_dialogue_field)
+    message(FATAL_ERROR
+      "SoldierDialogueComponent lost initialized owned storage matching '${owned_dialogue_pattern}'")
+  endif()
+endforeach()
+
+foreach(dialogue_accessor IN ITEMS
+  quoteRecord
+  quoteActionId
+  battleSoundSet
+  saidFlags
+  vocalVolume
+  repeatedBattleSoundAt
+  previousBattleSound
+  heardNoiseCooldownTurns
+  saidExtendedFlags
+  activeBattleSound
+  currentCivilianQuote
+  civilianQuoteDelta
+  lastSpokeAt
+  corpseQuoteTolerance)
+  string(REGEX MATCH
+    "${dialogue_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_dialogue_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_dialogue_accessor)
+    message(FATAL_ERROR
+      "SoldierDialogueComponent lost the '${dialogue_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(dialogue_operation IN ITEMS
+  "bool hasQuoteRecord() const noexcept"
+  "bool hasQuoteAction() const noexcept"
+  "bool hasSaid(UINT16 flag) const noexcept"
+  "bool hasSaidExtended(UINT16 flag) const noexcept"
+  "void markSaid(UINT16 flag) noexcept"
+  "void clearSaid(UINT16 flag) noexcept"
+  "void markSaidExtended(UINT16 flag) noexcept"
+  "void clearSaidExtended(UINT16 flag) noexcept"
+  "void clearQuotePlan() noexcept"
+  "void recordBattleSound(INT8 sound, UINT32 now) noexcept"
+  "void startHeardNoiseCooldown(UINT8 turns) noexcept"
+  "void ageHeardNoiseCooldown() noexcept"
+  "void clearCivilianQuote() noexcept"
+  "void recordSpokeAt(UINT32 now) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${dialogue_operation}"
+    soldier_dialogue_operation)
+  if(soldier_dialogue_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierDialogueComponent lost required speech operation '${dialogue_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierDialogueComponent& dialogue() noexcept"
+  soldier_dialogue_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierDialogueComponent{};"
+  soldier_dialogue_default_reset)
+string(REGEX MATCHALL
+  "dialogue\\(\\)\\.reset\\(\\);"
+  soldier_dialogue_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_dialogue_reset_sites soldier_dialogue_reset_site_count)
+if(soldier_dialogue_accessor EQUAL -1 OR
+   soldier_dialogue_default_reset EQUAL -1 OR
+   soldier_dialogue_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierDialogueComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(dialogue_conversion IN ITEMS
+  "this->dialogue().quoteRecord() = src.ubQuoteRecord;"
+  "this->dialogue().quoteActionId() = src.ubQuoteActionID;"
+  "this->dialogue().battleSoundSet() = src.ubBattleSoundID;"
+  "this->dialogue().saidFlags() = src.usQuoteSaidFlags;"
+  "this->dialogue().vocalVolume() = src.bVocalVolume;"
+  "this->dialogue().repeatedBattleSoundAt() = src.uiTimeSameBattleSndDone;"
+  "this->dialogue().previousBattleSound() = src.bOldBattleSnd;"
+  "this->dialogue().heardNoiseCooldownTurns() = src.ubTurnsUntilCanSayHeardNoise;"
+  "this->dialogue().saidExtendedFlags() = src.usQuoteSaidExtFlags;"
+  "this->dialogue().activeBattleSound() = src.uiBattleSoundID;"
+  "this->dialogue().currentCivilianQuote() = src.bCurrentCivQuote;"
+  "this->dialogue().civilianQuoteDelta() = src.bCurrentCivQuoteDelta;"
+  "this->dialogue().lastSpokeAt() = src.uiTimeSinceLastSpoke;"
+  "this->dialogue().corpseQuoteTolerance() = src.bCorpseQuoteTolerance;")
+  string(FIND "${soldier_control_source_contents}"
+    "${dialogue_conversion}"
+    soldier_dialogue_conversion_site)
+  if(soldier_dialogue_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier dialogue mapping '${dialogue_conversion}'")
+  endif()
+endforeach()
+
+foreach(dialogue_save_position IN ITEMS
+  "ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
+  "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);"
+  "ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());"
+  "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);"
+  "ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());"
+  "ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());"
+  "ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);"
+  "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());"
+  "ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());"
+  "ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());")
+  string(FIND "${save_load_game_contents}"
+    "${dialogue_save_position}"
+    soldier_dialogue_save_position)
+  if(soldier_dialogue_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier dialogue moved in the portable save schema at '${dialogue_save_position}'")
+  endif()
+endforeach()
+
 # The tactical AP budget is a lifecycle pair, not two unrelated public
 # counters. Current and turn-start values have one private owner, while the
 # explicit field visitor and multiplayer packet adapters retain their formats.
@@ -2483,7 +2658,7 @@ string(REGEX MATCH
   serialized_soldier_xray_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
+  "ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.corpseQuoteTolerance\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.deafnessTurns\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iPositionSndID\\);"
   serialized_soldier_deafness_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_noise_order OR
@@ -2805,15 +2980,15 @@ string(REGEX MATCH
   serialized_soldier_employment_update_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(assignment\\.hours\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubTurnsUntilCanSayHeardNoise\\);"
+  "ar\\.u8\\(assignment\\.hours\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.justFired\\(\\)\\);[ \t]*ar\\.u8\\(dialogue\\.heardNoiseCooldownTurns\\(\\)\\);"
   serialized_soldier_employment_fired_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
+  "ar\\.u32\\(dialogue\\.lastSpokeAt\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
   serialized_soldier_employment_renewal_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bCorpseQuoteTolerance\\);"
+  "ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.corpseQuoteTolerance\\(\\)\\);"
   serialized_soldier_employment_signing_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_employment_contract_order OR
@@ -3100,7 +3275,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_previous_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sLocationOfFadeStart\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
+  "ar\\.i32\\(s\\.sLocationOfFadeStart\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.lastSpokeAt\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
   serialized_soldier_deployment_reentry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3358,7 +3533,7 @@ string(REGEX MATCH
   serialized_soldier_movement_destination_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.usQuoteSaidExtFlags\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.continuedPathGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.continuedPathValid\\(\\)\\);"
+  "ar\\.u16\\(dialogue\\.saidExtendedFlags\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.continuedPathGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.continuedPathValid\\(\\)\\);"
   serialized_soldier_movement_continued_path_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3366,7 +3541,7 @@ string(REGEX MATCH
   serialized_soldier_movement_delayed_flags_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bCurrentCivQuote\\);[ \t]*ar\\.i8\\(s\\.bCurrentCivQuoteDelta\\);[ \t]*ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
   serialized_soldier_movement_stop_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3902,7 +4077,7 @@ string(REGEX MATCH
   serialized_soldier_damage_display_payload_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sPanelFaceX\\);[ \t]*ar\\.i16\\(s\\.sPanelFaceY\\);[ \t\r\n]*ar\\.i8\\(combatResult\\.hitsThisTurn\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usQuoteSaidFlags\\);"
+  "ar\\.i16\\(s\\.sPanelFaceX\\);[ \t]*ar\\.i16\\(s\\.sPanelFaceY\\);[ \t\r\n]*ar\\.i8\\(combatResult\\.hitsThisTurn\\(\\)\\);[ \t]*ar\\.u16\\(dialogue\\.saidFlags\\(\\)\\);"
   serialized_soldier_hits_this_turn_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4190,7 +4365,7 @@ string(REGEX MATCH
   serialized_soldier_animation_primary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVocalVolume\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.fallDirection\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);"
+  "ar\\.i8\\(dialogue\\.vocalVolume\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.fallDirection\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.pendingDirection\\(\\)\\);[ \t]*ar\\.u32\\(s\\.animationPlayback\\(\\)\\.subFlags\\(\\)\\);"
   serialized_soldier_animation_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4411,7 +4586,7 @@ string(REGEX MATCH
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
+  "ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.activeBattleSound\\(\\)\\);"
   serialized_soldier_animation_turn_increment_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_turn_activity_order OR

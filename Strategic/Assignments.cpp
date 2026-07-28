@@ -9423,9 +9423,9 @@ void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 	}
 
 	// don't bother telling us again about guys we already know about
-	if ( !( pSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT ) )
+	if ( !pSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT) )
 	{
-		pSoldier->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT;
+		pSoldier->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT);
 
 		if ( fSayQuote )
 		{
@@ -18765,7 +18765,7 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 			// if he now has something to do, reset the quote flag
 			if ( !fNothingToDo )
 			{
-				pSoldier->usQuoteSaidExtFlags &= ~SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT;
+				pSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT);
 			}
 		}
 	}

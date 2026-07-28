@@ -233,7 +233,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 				if ( GridNoOnEdgeOfMap( usGridNo2, &bDirection ) )
 				{
 					// told to go to edge of map, so go off at that point!
-					pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
+					pSoldier->dialogue().quoteActionId() = GetTraversalQuoteActionID( bDirection );
 				}
 				pSoldier->aiData.usActionData = usGridNo2;
 				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
@@ -377,7 +377,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 				if ( GridNoOnEdgeOfMap( usGridNo2, &bDirection ) )
 				{
 					// told to go to edge of map, so go off at that point!
-					pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
+					pSoldier->dialogue().quoteActionId() = GetTraversalQuoteActionID( bDirection );
 				}
 				pSoldier->aiData.usActionData = usGridNo2;
 				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
@@ -449,7 +449,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 			}
 			else
 			{
-				pSoldier->ubQuoteActionID = GetTraversalQuoteActionID( bDirection );
+				pSoldier->dialogue().quoteActionId() = GetTraversalQuoteActionID( bDirection );
 				pSoldier->bAIScheduleProgress++;
 				pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 				return( AI_ACTION_SCHEDULE_MOVE );
@@ -618,7 +618,7 @@ INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
 	// to do...
 
 	// is this person close enough to trigger event?
-	if (pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_TURNTOWARDSPLAYER )
+	if (pSoldier->dialogue().hasQuoteRecord() && pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_TURNTOWARDSPLAYER )
 	{
 		sDesiredMercLoc = ClosestPC( pSoldier, &sDesiredMercDist );
 		
@@ -626,7 +626,7 @@ INT8 DecideActionNamedNPC( SOLDIERTYPE * pSoldier )
 		{
 			if ( sDesiredMercDist <= NPC_TALK_RADIUS * 2)
 			{
-				pSoldier->ubQuoteRecord = 0;
+				pSoldier->dialogue().quoteRecord() = 0;
 				// see if this triggers a conversation/NPC record
 				PCsNearNPC( pSoldier->ubProfile );
 				// clear "handle every frame" flag
@@ -890,12 +890,12 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 					return( pSoldier->aiData.bAction );
 				}
 				// can we act again? not for a minute since we were last spoken to/triggered a record
-				if ( pSoldier->uiTimeSinceLastSpoke && (GetJA2Clock() < pSoldier->uiTimeSinceLastSpoke + 60000) )
+				if ( pSoldier->dialogue().lastSpokeAt() && (GetJA2Clock() < pSoldier->dialogue().lastSpokeAt() + 60000) )
 				{
 					return( AI_ACTION_NONE );
 				}
 				// turn off counter so we don't check it again
-				pSoldier->uiTimeSinceLastSpoke = 0;
+				pSoldier->dialogue().lastSpokeAt() = 0;
 			}
 		}
 

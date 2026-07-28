@@ -291,6 +291,13 @@ reservation. Named relationship transitions give tactical AI, medical actions,
 and presentation one authority while guarding provider-count removal from
 underflow. The face UI keeps only its old-value render cache, and persistence
 retains all four established positions and widths.
+`SoldierDialogueComponent` separately owns NPC quote planning, normal and
+extended spoken-history masks, battle-voice selection and playback throttling,
+heard-noise speech cooldown, civilian quote progression, last-spoke time, vocal
+volume, and corpse-comment tolerance. Named history, quote-plan, cooldown, and
+playback transitions give tactical AI and dialogue one authority while the
+portable serializer and v101 conversion retain every original byte position.
+Spatial ambience and mechanical-loop handles remain outside this speech owner.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

@@ -1911,8 +1911,8 @@ void SaveNPCInformationToProfileStruct( )
 
 			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
 
-			pProfile->ubQuoteActionID = pSoldier->ubQuoteActionID;
-			pProfile->ubQuoteRecord = pSoldier->ubQuoteRecord;
+			pProfile->ubQuoteActionID = pSoldier->dialogue().quoteActionId();
+			pProfile->ubQuoteRecord = pSoldier->dialogue().quoteRecord();
 
 			// if the merc is NOT added due to flag set, return
 			if ( pProfile->ubMiscFlags2 & PROFILE_MISC_FLAG2_DONT_ADD_TO_SECTOR )
@@ -2025,8 +2025,8 @@ void LoadNPCInformationFromProfileStruct()
 		if( !GetSoldier( &pSoldier, sSoldierID ) )
 			continue;
 
-		pSoldier->ubQuoteActionID = gMercProfiles[ cnt ].ubQuoteActionID;
-		pSoldier->ubQuoteRecord = gMercProfiles[ cnt ].ubQuoteRecord;
+		pSoldier->dialogue().quoteActionId() = gMercProfiles[ cnt ].ubQuoteActionID;
+		pSoldier->dialogue().quoteRecord() = gMercProfiles[ cnt ].ubQuoteRecord;
 
 		if( gMercProfiles[ cnt ].fUseProfileInsertionInfo == PROFILE_USE_GRIDNO )
 		{
@@ -2046,7 +2046,7 @@ void LoadNPCInformationFromProfileStruct()
 			//If the NPC was supposed to do something when they reached their target destination
 			if( pSoldier->sGridNo == pSoldier->pathing().finalDestinationGrid() )
 			{
-				if (pSoldier->ubQuoteRecord && pSoldier->ubQuoteActionID == QUOTE_ACTION_ID_CHECKFORDEST )
+				if (pSoldier->dialogue().hasQuoteRecord() && pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST )
 				{
 					//the mercs gridno has to be the same as the final destination
 					pSoldier->EVENT_SetSoldierPosition( (FLOAT) sX, (FLOAT) sY );

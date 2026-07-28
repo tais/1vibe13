@@ -619,6 +619,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//member classes
 		vitals().reset();
 		service().reset();
+		dialogue().reset();
 		assignment().reset();
 		deployment().reset();
 		fireControl().reset();
@@ -858,9 +859,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bUIInterfaceLevel = src.bUIInterfaceLevel;
 
 		this->ubProfile = src.ubProfile;
-		this->ubQuoteRecord = src.ubQuoteRecord;
-		this->ubQuoteActionID = src.ubQuoteActionID;
-		this->ubBattleSoundID = src.ubBattleSoundID;
+		this->dialogue().quoteRecord() = src.ubQuoteRecord;
+		this->dialogue().quoteActionId() = src.ubQuoteActionID;
+		this->dialogue().battleSoundSet() = src.ubBattleSoundID;
 
 		this->ubClosePanelFrame = src.ubClosePanelFrame;
 		this->ubDeadPanelFrame = src.ubDeadPanelFrame;
@@ -870,11 +871,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sPanelFaceY = src.sPanelFaceY;
 
 		this->combatResult().hitsThisTurn() = src.bNumHitsThisTurn;
-		this->usQuoteSaidFlags = src.usQuoteSaidFlags;
+		this->dialogue().saidFlags() = src.usQuoteSaidFlags;
 		this->bLastSkillCheck = src.bLastSkillCheck;
 		this->ubSkillCheckAttempts = src.ubSkillCheckAttempts;
 
-		this->bVocalVolume = src.bVocalVolume;	// verbal sounds need to differ in volume
+		this->dialogue().vocalVolume() = src.bVocalVolume;	// verbal sounds need to differ in volume
 
 		this->animationActivity().fallDirection() = src.bStartFallDir;
 
@@ -956,8 +957,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sBoundingBoxHeight = src.sBoundingBoxHeight;
 		this->sBoundingBoxOffsetX = src.sBoundingBoxOffsetX;
 		this->sBoundingBoxOffsetY = src.sBoundingBoxOffsetY;
-		this->uiTimeSameBattleSndDone = src.uiTimeSameBattleSndDone;
-		this->bOldBattleSnd = src.bOldBattleSnd;
+		this->dialogue().repeatedBattleSoundAt() = src.uiTimeSameBattleSndDone;
+		this->dialogue().previousBattleSound() = src.bOldBattleSnd;
 		this->iBurstSoundID = src.iBurstSoundID;
 		this->bSlotItemTakenFrom = src.bSlotItemTakenFrom;
 		this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );
@@ -974,8 +975,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->employment().justFired() = src.ubMercJustFired;   // the merc was just fired..there may be dialogue events occuring, this flag will prevent any interaction with contracts
 		// until after the merc leaves
-		this->ubTurnsUntilCanSayHeardNoise = src.ubTurnsUntilCanSayHeardNoise;
-		this->usQuoteSaidExtFlags = src.usQuoteSaidExtFlags;
+		this->dialogue().heardNoiseCooldownTurns() = src.ubTurnsUntilCanSayHeardNoise;
+		this->dialogue().saidExtendedFlags() = src.usQuoteSaidExtFlags;
 
 		this->movement().continuedPathGrid() = src.sContPathLocation;
 		this->movement().continuedPathValid() = src.bGoodContPath;
@@ -989,7 +990,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->deployment().previousSectorId() = src.ubPrevSectorID;
 		this->awareness().tilesSinceForget() = src.ubNumTilesMovesSinceLastForget;
 		this->animationActivity().turningIncrement() = src.bTurningIncrement;
-		this->uiBattleSoundID = src.uiBattleSoundID;
+		this->dialogue().activeBattleSound() = src.uiBattleSoundID;
 
 
 		this->usValueGoneUp = src.usValueGoneUp;
@@ -999,15 +1000,15 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->uiMercChecksum = src.uiMercChecksum;
 
-		this->bCurrentCivQuote = src.bCurrentCivQuote;
-		this->bCurrentCivQuoteDelta = src.bCurrentCivQuoteDelta;
+		this->dialogue().currentCivilianQuote() = src.bCurrentCivQuote;
+		this->dialogue().civilianQuoteDelta() = src.bCurrentCivQuoteDelta;
 		this->ubMiscSoldierFlags = src.ubMiscSoldierFlags;
 		this->movement().stopReason() = src.ubReasonCantFinishMove;
 
 		this->sLocationOfFadeStart = src.sLocationOfFadeStart;
 		this->deployment().useExitGridForReentryDirection() = src.bUseExitGridForReentryDirection;
 
-		this->uiTimeSinceLastSpoke = src.uiTimeSinceLastSpoke;
+		this->dialogue().lastSpokeAt() = src.uiTimeSinceLastSpoke;
 		this->employment().renewalQuoteCode() = src.ubContractRenewalQuoteCode;
 		this->deployment().preTraversalGrid() = src.sPreTraversalGridNo;
 		this->animationIntent().turningFromUi() = src.bTurningFromUI;
@@ -1025,7 +1026,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().timeCanSignElsewhere() = src.iTimeCanSignElsewhere;
 		this->employment().hospitalPriceModifier() = src.bHospitalPriceModifier;
 		this->employment().insuranceStartTime() = src.uiStartTimeOfInsuranceContract;
-		this->bCorpseQuoteTolerance = src.bCorpseQuoteTolerance;
+		this->dialogue().corpseQuoteTolerance() = src.bCorpseQuoteTolerance;
 		this->iPositionSndID = src.iPositionSndID;
 		this->iTuringSoundID = src.iTuringSoundID;
 		this->combatResult().lastDamageReason() = src.ubLastDamageReason;
@@ -1137,6 +1138,7 @@ void SOLDIERTYPE::initialize( )
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
 	service().reset();
+	dialogue().reset();
 	actionPoints().reset();
 	collapseState().reset();
 	perception().reset();
@@ -2425,7 +2427,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 
 		if ( uiSoundID != SOUND_ERROR )
 		{
-			this->uiBattleSoundID = uiSoundID;
+			this->dialogue().activeBattleSound() = uiSoundID;
 
 			if ( this->ubProfile != NO_PROFILE )
 			{
@@ -2468,7 +2470,7 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 	}
 
 	// ATE: Reset some timer flags...
-	this->uiTimeSameBattleSndDone = 0;
+	this->dialogue().repeatedBattleSoundAt() = 0;
 	// ATE: Reset every time.....
 	this->flags.fSoldierWasMoving = TRUE;
 	this->iTuringSoundID = NO_SAMPLE;
@@ -7873,17 +7875,17 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// Set flag back to normal, after reaching a certain statge
 		if ( this->vitals().breath() > 80 )
 		{
-			this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_LOW_BREATH);
+			this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 		}
 		if ( this->vitals().breath() > 50 )
 		{
-			this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_DROWNING);
+			this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_DROWNING);
 		}
 
 
-		if ( this->ubTurnsUntilCanSayHeardNoise > 0 )
+		if ( this->dialogue().heardNoiseCooldownTurns() > 0 )
 		{
-			this->ubTurnsUntilCanSayHeardNoise--;
+			this->dialogue().ageHeardNoiseCooldown();
 		}
 
 		if ( this->bInSector )
@@ -7942,10 +7944,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					if ( MercIsHot( this ) )
 					{
 						HandleMoraleEvent( this, MORALE_HEAT_INTOLERANT_IN_DESERT, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
-						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
+						if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) && this->employment().mercenaryType() != MERC_TYPE__PLAYER_CHARACTER )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
-							this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+							this->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 							// Flugente: dynamic opinions
 							if (gGameExternalOptions.fDynamicOpinions)
@@ -7961,10 +7963,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					if ( MercSeesCreature( this ) )
 					{
 						HandleMoraleEvent( this, MORALE_INSECT_PHOBIC_SEES_CREATURE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
-						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
+						if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
-							this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+							this->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 							// Flugente: dynamic opinions
 							if (gGameExternalOptions.fDynamicOpinions)
@@ -7981,10 +7983,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					{
 						// underground!
 						HandleMoraleEvent( this, MORALE_CLAUSTROPHOBE_UNDERGROUND, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
-						if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
+						if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) )
 						{
 							TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
-							this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+							this->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 							// Flugente: dynamic opinions
 							if (gGameExternalOptions.fDynamicOpinions)
@@ -8003,10 +8005,10 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 						if ( this->aiData.bMorale < 50 )
 						{
 							HandleMoraleEvent( this, MORALE_NERVOUS_ALONE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
-							if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY) )
+							if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) )
 							{
 								TacticalCharacterDialogue( this, QUOTE_PERSONALITY_TRAIT );
-								this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+								this->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 								// Flugente: dynamic opinions
 								if (gGameExternalOptions.fDynamicOpinions)
@@ -8021,7 +8023,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 						if ( this->aiData.bMorale > 45 )
 						{
 							// turn flag off, so that we say it every two turns
-							this->usQuoteSaidFlags &= ~SOLDIER_QUOTE_SAID_PERSONALITY;
+							this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 						}
 					}
 				}
@@ -8029,8 +8031,8 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		}
 
 		// Reset quote flags for under heavy fire and close call!
-		this->usQuoteSaidFlags &= (~SOLDIER_QUOTE_SAID_BEING_PUMMELED);
-		this->usQuoteSaidExtFlags &= (~SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
+		this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_BEING_PUMMELED);
+		this->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_EXT_CLOSE_CALL);
 		this->combatResult().hitsThisTurn() = 0;
 
 		// HEADROCK HAM 3.5: After considerable testing, suppression is now cleared after every attack. Total APs lost
@@ -9534,12 +9536,12 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 				// Flugente: if we are afraid of heights, we complain
 				if (DoesMercHaveDisability(this, AFRAID_OF_HEIGHTS))
 				{
-					if (!(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_PERSONALITY))
+					if (!this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY))
 					{
 						HandleMoraleEvent(this, MORALE_FEAR_OF_HEIGHTS, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ());
 
 						TacticalCharacterDialogue(this, QUOTE_PERSONALITY_TRAIT);
-						this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_PERSONALITY;
+						this->dialogue().markSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 
 						// Flugente: dynamic opinions
 						if (gGameExternalOptions.fDynamicOpinions)
@@ -9550,7 +9552,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 					// otherwise remove flag, so we'll complain every second time we climb roof
 					else
 					{
-						this->usQuoteSaidFlags &= ~SOLDIER_QUOTE_SAID_PERSONALITY;
+						this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
 					}
 				}
 
@@ -10647,7 +10649,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		}
 
 		// Check for quote
-		if ( !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_BEING_PUMMELED) )
+		if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_BEING_PUMMELED) )
 		{
 			// Check attacker!
 			if ( ubAttacker != NOBODY && ubAttacker != this->ubID )
@@ -10659,7 +10661,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 					if ( Random( 100 ) < (UINT16)((40 * (this->combatResult().hitsThisTurn() - 2))) )
 					{
 						DelayedTacticalCharacterDialogue( this, QUOTE_TAKEN_A_BREATING );
-						this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_BEING_PUMMELED;
+						this->dialogue().markSaid(SOLDIER_QUOTE_SAID_BEING_PUMMELED);
 						this->combatResult().hitsThisTurn() = 0;
 					}
 				}
@@ -10698,7 +10700,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		if ( this->vitals().health() < bOldLife && this->vitals().health() > 0 )
 		{
 			//if he hasnt said his quote #1 before
-			if ( !(attacker->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
+			if ( !attacker->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
 			{
 				//said a flag so morris can say this quote next turn
 				gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn = TRUE;
@@ -10712,7 +10714,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		else if ( gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn &&
 				  gJa25SaveStruct.ubPlayerMorrisHurt == this->ubProfile &&
 				  this->vitals().health() <= 0 &&
-				  !(attacker->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
+				  !attacker->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_THOUGHT_KILLED_YOU) )
 		{
 			//said a flag so morris can say this quote next turn
 			gJa25SaveStruct.fMorrisToSayHurtPlayerQuoteNextTurn = FALSE;
@@ -10955,24 +10957,24 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	}
 
 	// Check if this is the same one we just played...
-	if ( pSoldier->bOldBattleSnd == ubBattleSoundID && gBattleSndsData[ubBattleSoundID].fDontAllowTwoInRow )
+	if ( pSoldier->dialogue().previousBattleSound() == ubBattleSoundID && gBattleSndsData[ubBattleSoundID].fDontAllowTwoInRow )
 	{
 		// Are we below the min delay?
-		if ( (GetJA2Clock( ) - pSoldier->uiTimeSameBattleSndDone) < MIN_SUBSEQUENT_SNDS_DELAY )
+		if ( (GetJA2Clock( ) - pSoldier->dialogue().repeatedBattleSoundAt()) < MIN_SUBSEQUENT_SNDS_DELAY )
 		{
 			return(TRUE);
 		}
 	}
 
 	// If a battle snd is STILL playing....
-	if ( SoundIsPlaying( pSoldier->uiBattleSoundID ) )
+	if ( SoundIsPlaying( pSoldier->dialogue().activeBattleSound() ) )
 	{
 		// We can do a few things here....
 		// Is this a crutial one...?
 		if ( gBattleSndsData[ubBattleSoundID].fStopDialogue == 1 )
 		{
 			// Stop playing origonal
-			SoundStop( pSoldier->uiBattleSoundID );
+			SoundStop( pSoldier->dialogue().activeBattleSound() );
 		}
 		else
 		{
@@ -10998,8 +11000,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	}
 
 	// Save this one we're doing...
-	pSoldier->bOldBattleSnd = ubBattleSoundID;
-	pSoldier->uiTimeSameBattleSndDone = GetJA2Clock( );
+	pSoldier->dialogue().recordBattleSound(ubBattleSoundID, GetJA2Clock());
 	
 	//if the sound to be played is a confirmation, check to see if we are to play it
 	if ( ubBattleSoundID == BATTLE_SOUND_OK1 )
@@ -11095,7 +11096,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 		if ( pSoldier->IsZombie() ) // Madd: add zombie sounds
 		{
 			entrynum = 2;
-			pSoldier->ubBattleSoundID = 0;		// atm only one soundset for zombies
+			pSoldier->dialogue().battleSoundSet() = 0;		// atm only one soundset for zombies
 		}
 		else if ( pSoldier->ubBodyType == HATKIDCIV || pSoldier->ubBodyType == KIDCIV )
 			entrynum = 1;
@@ -11107,34 +11108,34 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 		// There are three categories for npc sound files here: bad (for ordinary humans), kid for kids and zombie
 		// Due to legacy reasons, the first sound can either have a '1' at the end (212_OK1.xx) or no number at all (212_HUMM.xxx)
 		// Otherwise we'd have to rename quite a lot of vanilla files
-		while ( !BattleSoundSearchDone_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID] )
+		while ( !BattleSoundSearchDone_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID] )
 		{
 			// at least one sound exists (if not, we use a fallback solution anyway)
-			numBattleSounds_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID] = max( 1, numBattleSounds_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID] );
+			numBattleSounds_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID] = max( 1, numBattleSounds_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID] );
 
-			UINT32 numsounds = numBattleSounds_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID];
+			UINT32 numsounds = numBattleSounds_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID];
 
 			// check: is there a sound with a bigger number?			
-			sprintf( zFilename, "BATTLESNDS\\%s%d_%s%d", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->ubBattleSoundID, gBattleSndsData[ubSoundID].zName, numsounds + 1 );
+			sprintf( zFilename, "BATTLESNDS\\%s%d_%s%d", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->dialogue().battleSoundSet(), gBattleSndsData[ubSoundID].zName, numsounds + 1 );
 
 			if ( SoundFileExists( zFilename, zFilename_Used ) )
 			{
-				numBattleSounds_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID]++;
+				numBattleSounds_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID]++;
 			}
 			else
 			{
-				BattleSoundSearchDone_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID] = true;
+				BattleSoundSearchDone_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID] = true;
 			}
 		}
 
-		UINT32 soundtoplay = 1 + Random( numBattleSounds_Npc[entrynum][pSoldier->ubBattleSoundID][ubSoundID] );
+		UINT32 soundtoplay = 1 + Random( numBattleSounds_Npc[entrynum][pSoldier->dialogue().battleSoundSet()][ubSoundID] );
 
-		sprintf( zFilename, "BATTLESNDS\\%s%d_%s%d", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->ubBattleSoundID, gBattleSndsData[ubSoundID].zName, soundtoplay );
+		sprintf( zFilename, "BATTLESNDS\\%s%d_%s%d", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->dialogue().battleSoundSet(), gBattleSndsData[ubSoundID].zName, soundtoplay );
 
 		// due to legacy reasons, we both have to check for versions with '1' and without a number here
 		if ( !SoundFileExists( zFilename, zFilename_Used ) )
 		{
-			sprintf( zFilename, "BATTLESNDS\\%s%d_%s", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->ubBattleSoundID, gBattleSndsData[ubSoundID].zName );
+			sprintf( zFilename, "BATTLESNDS\\%s%d_%s", gBattleSndsNpcHelperData[entrynum].zName, pSoldier->dialogue().battleSoundSet(), gBattleSndsData[ubSoundID].zName );
 		}
 	}
 
@@ -11145,7 +11146,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	memset( &spParms, 0xff, sizeof(SOUNDPARMS) );
 
 	spParms.uiSpeed = RATE_11025;
-	//spParms.uiVolume = CalculateSpeechVolume( pSoldier->bVocalVolume );
+	//spParms.uiVolume = CalculateSpeechVolume( pSoldier->dialogue().vocalVolume() );
 
 	spParms.uiVolume = (INT8)CalculateSpeechVolume( HIGHVOLUME );
 
@@ -11175,7 +11176,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	}
 	else
 	{
-		pSoldier->uiBattleSoundID = uiSoundID;
+		pSoldier->dialogue().activeBattleSound() = uiSoundID;
 
 		if ( pSoldier->ubProfile != NO_PROFILE )
 		{
@@ -14434,7 +14435,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 	// Only check if > 70
 	if ( this->vitals().maximumBreath() > 70 )
 	{
-		if ( this->vitals().breath() < 20 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH) &&
+		if ( this->vitals().breath() < 20 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) &&
 			 gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_STAND && !this->service().hasProviders() ) // SANDRO - added check to not play this if on healing
 		{
 			// SANDRO - say our personality quote for being out of breath caused by heat 
@@ -14454,18 +14455,18 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 				TacticalCharacterDialogue( this, QUOTE_OUT_OF_BREATH );
 			}
 			// Set flag indicating we were warned!
-			this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
+			this->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 		}
 	}
 
 	// Check for drowing.....
-	//if ( this->vitals().breath() < 10 && !(this->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_DROWNING ) && this->bOverTerrainType == DEEP_WATER )
+	//if ( this->vitals().breath() < 10 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_DROWNING ) && this->bOverTerrainType == DEEP_WATER )
 	//{
 	// WARN!
 	//	TacticalCharacterDialogue( this, QUOTE_DROWNING );
 
 	// Set flag indicating we were warned!
-	//	this->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_DROWNING;
+	//	this->dialogue().markSaid(SOLDIER_QUOTE_SAID_DROWNING);
 
 	// WISDOM GAIN (25):  Starting to drown
 	//  StatChange( this, WISDOMAMT, 25, FALSE );

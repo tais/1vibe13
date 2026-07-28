@@ -3525,7 +3525,7 @@ BOOLEAN ShouldMercSayHappyWithGunQuote( SOLDIERTYPE *pSoldier )
 	if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpGotGunOrUsedGun == QUOTE_SATISFACTION_WITH_GUN_AFTER_KILL )
 	{
 		// For one, only once a day...
-		if ( pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LIKESGUN )
+		if ( pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LIKESGUN) )
 		{
 			return( FALSE );
 		}
@@ -3593,42 +3593,42 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 				switch( bTempBuddyIndex )
 				{
 				case 0:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED) )
 					{
 						continue;
 					}
 					break;
 
 				case 1:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED) )
 					{
 						continue;
 					}
 					break;
 
 				case 2:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED) )
 					{
 						continue;
 					}
 					break;
 
 				case 3:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED) )
 					{
 						continue;
 					}
 					break;
 
 				case 4:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED) )
 					{
 						continue;
 					}
 					break;
 
 				case 5:
-					if ( pTeamSoldier->usQuoteSaidExtFlags & SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED )
+					if ( pTeamSoldier->dialogue().hasSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED) )
 					{
 						continue;
 					}
@@ -3669,12 +3669,12 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 		{
 		case 0:
 			usQuoteNum = QUOTE_BUDDY_1_GOOD;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_1_WITNESSED);
 			break;
 
 		case 1:
 			usQuoteNum = QUOTE_BUDDY_2_GOOD;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_2_WITNESSED);
 			break;
 
 		case 2:
@@ -3682,7 +3682,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 				usQuoteNum = QUOTE_AIM_BUDDY_3_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_3_GOOD;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_3_WITNESSED);
 			break;
 
 		case 3:
@@ -3690,7 +3690,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 				usQuoteNum = QUOTE_AIM_BUDDY_4_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_4_GOOD;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_4_WITNESSED);
 			break;
 
 		case 4:
@@ -3698,12 +3698,12 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 				usQuoteNum = QUOTE_AIM_BUDDY_5_GOOD;
 			else
 				usQuoteNum = QUOTE_NON_AIM_BUDDY_5_GOOD;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_5_WITNESSED);
 			break;
 
 		case 5:
 			usQuoteNum = QUOTE_LEARNED_TO_LIKE_WITNESSED;
-			pChosen->usQuoteSaidExtFlags |= SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED;
+			pChosen->dialogue().markSaidExtended(SOLDIER_QUOTE_SAID_BUDDY_6_WITNESSED);
 			break;
 		}
 
@@ -3891,7 +3891,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 					if ( ShouldMercSayHappyWithGunQuote( pKillerSoldier )	)
 					{
 						TacticalCharacterDialogue( pKillerSoldier, QUOTE_SATISFACTION_WITH_GUN_AFTER_KILL );
-						pKillerSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LIKESGUN;
+						pKillerSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LIKESGUN);
 					}
 					else if ( pKillerSoldier->bSide == pKilledSoldier->bSide )
 					{
@@ -4760,10 +4760,10 @@ BOOLEAN CheckForImproperFireGunEnd( SOLDIERTYPE *pSoldier )
 		else if ( (GetBPCostPer10APsForGunHolding( pSoldier ) * 10) >= (300 * gGameExternalOptions.ubEnergyCostForWeaponWeight / 100) ) 
 		{
 			// throw quote
-			if ( !(pSoldier->usQuoteSaidFlags & SOLDIER_QUOTE_SAID_LOW_BREATH ) )
+			if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_BREATH) )
 			{
 				TacticalCharacterDialogue( pSoldier, QUOTE_OUT_OF_BREATH );
-				pSoldier->usQuoteSaidFlags |= SOLDIER_QUOTE_SAID_LOW_BREATH;
+				pSoldier->dialogue().markSaid(SOLDIER_QUOTE_SAID_LOW_BREATH);
 			}
 			// Put gun down....
 			pSoldier->InternalSoldierReadyWeapon(pSoldier->position().direction(), TRUE, FALSE );
