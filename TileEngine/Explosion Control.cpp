@@ -3550,7 +3550,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			if ( participant && participant->bTeam == gbPlayerNum )
 			{
 				if ( InARoom( sGridNo, &usRoom ) &&
-					InARoom( participant->sOldGridNo, &usOldRoom ) &&
+					InARoom( participant->movementHistory().previousGrid(), &usOldRoom ) &&
 					usOldRoom != usRoom )
 				{
 					// also require there to be a miniskirt civ in the room

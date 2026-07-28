@@ -695,8 +695,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		memcpy( &(this->VestPal), &(src.VestPal), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->SkinPal), &(src.SkinPal), sizeof(PaletteRepID) );	// 30
 		memcpy( &(this->MiscPal), &(src.MiscPal), sizeof(PaletteRepID) );	// 30
-		this->sLastTwoLocations[0] = src.sLastTwoLocations[0];
-		this->sLastTwoLocations[1] = src.sLastTwoLocations[1];
+		this->movementHistory().recentLocations()[0] = src.sLastTwoLocations[0];
+		this->movementHistory().recentLocations()[1] = src.sLastTwoLocations[1];
 
 		this->ubID = static_cast<UINT16>( src.ubID );
 		//this->bReserved1 = src.bReserved1;
@@ -955,7 +955,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubLastFootPrintSound = src.ubLastFootPrintSound;
 		this->bVehicleID = src.bVehicleID;
 		this->bMovementDirection = src.bMovementDirection;
-		this->sOldGridNo = src.sOldGridNo;
+		this->movementHistory().previousGrid() = src.sOldGridNo;
 		this->usDontUpdateNewGridNoOnMoveAnimChange = src.usDontUpdateNewGridNoOnMoveAnimChange;
 		this->sBoundingBoxWidth = src.sBoundingBoxWidth;
 		this->sBoundingBoxHeight = src.sBoundingBoxHeight;
@@ -1150,6 +1150,7 @@ void SOLDIERTYPE::initialize( )
 	assignment().reset();
 	deployment().reset();
 	position().reset();
+	movementHistory().reset();
 	pathing().reset();
 	movement().reset();
 	targeting().reset();
@@ -4651,7 +4652,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			}
 		}
 
-		this->sOldGridNo = this->position().gridNo();
+		this->movementHistory().recordDeparture(this->position().gridNo());
 
 		if ( this->ubBodyType == QUEENMONSTER )
 		{

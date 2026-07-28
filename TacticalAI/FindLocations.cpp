@@ -1419,10 +1419,12 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	// so we don't consider it
 	gpWorldLevelData[pSoldier->position().gridNo()].uiFlags &= ~(MAPELEMENT_REACHABLE);
 	//dnl ch58 170813 also don't use last two locations to avoid looping same decisions per turn
-	if(!TileIsOutOfBounds(pSoldier->sLastTwoLocations[0]))
-		gpWorldLevelData[pSoldier->sLastTwoLocations[0]].uiFlags &= ~(MAPELEMENT_REACHABLE);
-	else if(!TileIsOutOfBounds(pSoldier->sLastTwoLocations[1]))
-		gpWorldLevelData[pSoldier->sLastTwoLocations[1]].uiFlags &= ~(MAPELEMENT_REACHABLE);
+	const SoldierMovementHistoryComponent::RecentLocations& recentLocations =
+		pSoldier->movementHistory().recentLocations();
+	if(!TileIsOutOfBounds(recentLocations[0]))
+		gpWorldLevelData[recentLocations[0]].uiFlags &= ~(MAPELEMENT_REACHABLE);
+	else if(!TileIsOutOfBounds(recentLocations[1]))
+		gpWorldLevelData[recentLocations[1]].uiFlags &= ~(MAPELEMENT_REACHABLE);
 
 	for (sYOffset = -sMaxUp; sYOffset <= sMaxDown; sYOffset++)
 	{

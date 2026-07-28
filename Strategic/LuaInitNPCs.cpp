@@ -6551,7 +6551,7 @@ static int l_ACTION_ITEM_SEX(lua_State* L)
 			if (pSoldier && pSoldier->bTeam == gbPlayerNum)
 			{
 				if (InARoom(sGridNo, &usRoom) &&
-					InARoom(pSoldier->sOldGridNo, &usOldRoom) &&
+					InARoom(pSoldier->movementHistory().previousGrid(), &usOldRoom) &&
 					usOldRoom != usRoom)
 				{
 					// also require there to be a miniskirt civ in the room

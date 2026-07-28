@@ -1016,6 +1016,32 @@ private:
 	INT8 previousTerrainType_ = 0;
 };
 
+// Canonical history of tactical grid movement. Current placement belongs to
+// SoldierPositionComponent; this component owns the grid departed most
+// recently and the bounded two-location history used to stop AI oscillation.
+class SoldierMovementHistoryComponent
+{
+public:
+	using RecentLocations = INT32[2];
+
+	INT32& previousGrid() noexcept { return previousGrid_; }
+	const INT32& previousGrid() const noexcept { return previousGrid_; }
+	RecentLocations& recentLocations() noexcept { return recentLocations_; }
+	const RecentLocations& recentLocations() const noexcept { return recentLocations_; }
+
+	void recordDeparture(INT32 gridNo) noexcept { previousGrid_ = gridNo; }
+	void resetAiLoop() noexcept;
+	bool observeAiMovement(
+		INT32 currentGrid, INT32 destinationGrid, INT32 gridCount) noexcept;
+	void reset() noexcept;
+
+private:
+	static constexpr INT32 NoGrid = -1;
+
+	INT32 previousGrid_ = 0;
+	RecentLocations recentLocations_{};
+};
+
 // Canonical tactical route ownership. The fixed-capacity path and its cursor
 // deliberately retain the established JA2 representation, while private
 // storage prevents unrelated SOLDIERTYPE fields from becoming a second route

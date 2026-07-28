@@ -387,12 +387,14 @@ owned by `SoldierPositionComponent` as one persistent storage domain.
 Zero-cost reference accessors remain available to application hot paths,
 while named coordinate and terrain transitions keep paired values coherent.
 Old-save conversion and explicit persistence retain every established field
-position. Previous-grid and AI loop-prevention history remain separate
-movement-history concerns. The remaining fixed-capacity tactical route now
-follows the same rule through `SoldierPathingComponent`: destinations, cursor,
-directions,
-lookup flags, and blacklist have one private owner and reset boundary instead
-of a public `STRUCT_Pathing`. Its reference accessors preserve hot-path
+position. `SoldierMovementHistoryComponent` separately owns the last departed
+grid and the bounded two-location AI loop memory. Named departure, AI reset,
+observation, and full-reset transitions retain the original world-bound
+oscillation behavior without confusing history with current placement. The
+remaining fixed-capacity tactical route now follows the same rule through
+`SoldierPathingComponent`: destinations, cursor, directions, lookup flags, and
+blacklist have one private owner and reset boundary instead of a public
+`STRUCT_Pathing`. Its reference accessors preserve hot-path
 mutation while the portable serializer retains the established byte sequence.
 `SoldierMovementComponent` now owns the complementary route-execution domain:
 delayed-tile counters and causes, movement reservation, merc contention,

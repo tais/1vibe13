@@ -7433,6 +7433,10 @@ int main( int, char** )
 		position.roomNo() = 8;
 		position.terrainType() = PAVED_ROAD;
 		position.enterTerrain(LOW_GRASS);
+		SoldierMovementHistoryComponent& movementHistory = soldier.movementHistory();
+		movementHistory.recordDeparture(1233);
+		movementHistory.recentLocations()[0] = 1220;
+		movementHistory.recentLocations()[1] = 1221;
 		SoldierPathingComponent& pathing = soldier.pathing();
 		pathing.desiredDirection() = 7;
 		pathing.destinationX() = 14;
@@ -7755,6 +7759,10 @@ int main( int, char** )
 		       constSoldier.position().terrainType() == LOW_GRASS &&
 		       constSoldier.position().previousTerrainType() == PAVED_ROAD,
 		       "soldier position component owns precise, projected, historical, vertical, room, and terrain placement" );
+		CHECK( constSoldier.movementHistory().previousGrid() == 1233 &&
+		       constSoldier.movementHistory().recentLocations()[0] == 1220 &&
+		       constSoldier.movementHistory().recentLocations()[1] == 1221,
+		       "soldier movement-history component owns departed-grid and bounded AI location memory" );
 		CHECK( constSoldier.pathing().desiredDirection() == 7 &&
 		       constSoldier.pathing().destinationGrid() == 1235 &&
 		       constSoldier.pathing().finalDestinationGrid() == 1240 &&
@@ -8146,6 +8154,40 @@ int main( int, char** )
 		       interactionLifecycle.draggedCorpse() == -1 &&
 		       !interactionLifecycle.chatting(),
 		       "soldier interaction reset clears every relationship and restores invalid drag sentinels" );
+		SoldierMovementHistoryComponent movementHistoryLifecycle;
+		movementHistoryLifecycle.recordDeparture(1719);
+		movementHistoryLifecycle.resetAiLoop();
+		CHECK( movementHistoryLifecycle.previousGrid() == 1719 &&
+		       movementHistoryLifecycle.recentLocations()[0] == -1 &&
+		       movementHistoryLifecycle.recentLocations()[1] == -1,
+		       "soldier movement-history AI reset preserves departed-grid context and clears both loop slots" );
+		CHECK( !movementHistoryLifecycle.observeAiMovement(1720, 1721, 2000) &&
+		       movementHistoryLifecycle.recentLocations()[0] == 1720 &&
+		       movementHistoryLifecycle.recentLocations()[1] == -1,
+		       "soldier movement-history seeds the first valid AI location" );
+		CHECK( !movementHistoryLifecycle.observeAiMovement(1721, 1720, 2000) &&
+		       movementHistoryLifecycle.recentLocations()[0] == 1720 &&
+		       movementHistoryLifecycle.recentLocations()[1] == 1721,
+		       "soldier movement-history seeds the second valid AI location" );
+		CHECK( movementHistoryLifecycle.observeAiMovement(1720, 1721, 2000) &&
+		       movementHistoryLifecycle.recentLocations()[0] == 1720 &&
+		       movementHistoryLifecycle.recentLocations()[1] == 1721,
+		       "soldier movement-history detects a two-location oscillation without advancing it" );
+		CHECK( !movementHistoryLifecycle.observeAiMovement(1722, 1800, 2000) &&
+		       movementHistoryLifecycle.recentLocations()[0] == 1721 &&
+		       movementHistoryLifecycle.recentLocations()[1] == 1722,
+		       "soldier movement-history advances its bounded window for a non-looping move" );
+		movementHistoryLifecycle.recentLocations()[0] = 2000;
+		movementHistoryLifecycle.recentLocations()[1] = -2;
+		CHECK( !movementHistoryLifecycle.observeAiMovement(1730, 1731, 2000) &&
+		       movementHistoryLifecycle.recentLocations()[0] == 1730 &&
+		       movementHistoryLifecycle.recentLocations()[1] == -2,
+		       "soldier movement-history replaces out-of-world legacy values using the supplied world bound" );
+		movementHistoryLifecycle.reset();
+		CHECK( movementHistoryLifecycle.previousGrid() == 0 &&
+		       movementHistoryLifecycle.recentLocations()[0] == 0 &&
+		       movementHistoryLifecycle.recentLocations()[1] == 0,
+		       "soldier movement-history reset restores the established zero-initialized persistent state" );
 		SoldierPendingActionComponent pendingActionLifecycle;
 		CHECK( !pendingActionLifecycle.active() &&
 		       pendingActionLifecycle.action() == SoldierPendingActionComponent::NoAction &&
@@ -8406,6 +8448,10 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == LOW_GRASS &&
 		       copiedSoldier.position().previousTerrainType() == PAVED_ROAD,
 		       "soldier copies retain their complete owned persistent position" );
+		CHECK( copiedSoldier.movementHistory().previousGrid() == 1233 &&
+		       copiedSoldier.movementHistory().recentLocations()[0] == 1220 &&
+		       copiedSoldier.movementHistory().recentLocations()[1] == 1221,
+		       "soldier copies retain their owned persistent movement history" );
 		CHECK( copiedSoldier.pathing().desiredDirection() == 7 &&
 		       copiedSoldier.pathing().destinationX() == 14 &&
 		       copiedSoldier.pathing().destinationY() == 28 &&
@@ -9080,6 +9126,10 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == 0 &&
 		       copiedSoldier.position().previousTerrainType() == 0,
 		       "soldier initialization resets the complete position domain" );
+		CHECK( copiedSoldier.movementHistory().previousGrid() == 0 &&
+		       copiedSoldier.movementHistory().recentLocations()[0] == 0 &&
+		       copiedSoldier.movementHistory().recentLocations()[1] == 0,
+		       "soldier initialization resets the complete movement-history domain" );
 		CHECK( copiedSoldier.pathing().desiredDirection() == 0 &&
 		       copiedSoldier.pathing().destinationX() == 0 &&
 		       copiedSoldier.pathing().destinationY() == 0 &&
@@ -9328,6 +9378,9 @@ int main( int, char** )
 		legacySoldier->sRoomNo = 13;
 		legacySoldier->bOverTerrainType = HIGH_GRASS;
 		legacySoldier->bOldOverTerrainType = DIRT_ROAD;
+		legacySoldier->sOldGridNo = 2307;
+		legacySoldier->sLastTwoLocations[0] = 2308;
+		legacySoldier->sLastTwoLocations[1] = 2309;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -9568,6 +9621,10 @@ int main( int, char** )
 		       convertedSoldier.position().terrainType() == HIGH_GRASS &&
 		       convertedSoldier.position().previousTerrainType() == DIRT_ROAD,
 		       "v101 soldier conversion retains every historical tactical world-placement value" );
+		CHECK( convertedSoldier.movementHistory().previousGrid() == 2307 &&
+		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
+		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
+		       "v101 soldier conversion retains every historical tactical movement-history value" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -9874,6 +9931,9 @@ int main( int, char** )
 		savedSoldier.position().roomNo() = 11;
 		savedSoldier.position().terrainType() = HIGH_GRASS;
 		savedSoldier.position().previousTerrainType() = DIRT_ROAD;
+		savedSoldier.movementHistory().recordDeparture(1426);
+		savedSoldier.movementHistory().recentLocations()[0] = 1410;
+		savedSoldier.movementHistory().recentLocations()[1] = 1411;
 		savedSoldier.pathing().desiredDirection() = 4;
 		savedSoldier.pathing().destinationX() = 321;
 		savedSoldier.pathing().destinationY() = 654;
@@ -10192,6 +10252,9 @@ int main( int, char** )
 		       loadedSoldier.position().roomNo() == 11 &&
 		       loadedSoldier.position().terrainType() == HIGH_GRASS &&
 		       loadedSoldier.position().previousTerrainType() == DIRT_ROAD &&
+		       loadedSoldier.movementHistory().previousGrid() == 1426 &&
+		       loadedSoldier.movementHistory().recentLocations()[0] == 1410 &&
+		       loadedSoldier.movementHistory().recentLocations()[1] == 1411 &&
 		       loadedSoldier.pathing().desiredDirection() == 4 &&
 		       loadedSoldier.pathing().destinationX() == 321 &&
 		       loadedSoldier.pathing().destinationY() == 654 &&
@@ -10205,7 +10268,7 @@ int main( int, char** )
 		       loadedSoldier.pathing().pathIndex() == 1 &&
 		       loadedSoldier.pathing().blackListGrid() == 1444 &&
 		       loadedSoldier.pathing().stored() == 1,
-		       "soldier save/load round-trips complete position and pathing state through every established schema site" );
+		       "soldier save/load round-trips complete position, movement-history, and pathing state through every established schema site" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayCounter() == 12,
 		       "soldier save/load round-trips the component-owned movement delay counter" );
