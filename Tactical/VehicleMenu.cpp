@@ -169,7 +169,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 		return;
 	}
 
-	if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->iVehicleId == pCurrentVehicle->bVehicleID )
+	if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
 	{
 		if( SwapVehicleSeat( pCurrentVehicle, pCurrentSoldier, aVal ) )
 		{

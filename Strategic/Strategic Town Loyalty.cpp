@@ -538,7 +538,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive )
 		{
 			// if soldier is in this sector
-			if( SectorIsPartOfTown( bTownId, pSoldier->sSectorX, pSoldier->sSectorY ) == TRUE )
+			if( SectorIsPartOfTown( bTownId, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == TRUE )
 			{
 				// if onduty or in a vehicle
 				if( ( pSoldier->assignment().current() < ON_DUTY ) || pSoldier->assignment().current() == VEHICLE ) )
@@ -750,12 +750,12 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	if( bKillerTeam == OUR_TEAM )
 	{
 		// apply morale penalty for killing a civilian!
-		HandleMoraleEvent( pKiller, MORALE_KILLED_CIVILIAN, pKiller->sSectorX, pKiller->sSectorY, pKiller->bSectorZ );
+		HandleMoraleEvent( pKiller, MORALE_KILLED_CIVILIAN, pKiller->deployment().sectorX(), pKiller->deployment().sectorY(), pKiller->deployment().sectorZ() );
 	}
 
 
 	// get town id
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// if civilian is NOT in a town
 	if( bTownId == BLANK_SECTOR )
@@ -869,7 +869,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 
 		case ENEMY_TEAM:
 			// check whose sector this is
-			if( StrategicMap[( pSoldier->sSectorX ) + ( MAP_WORLD_X * ( pSoldier->sSectorY ) )].fEnemyControlled == TRUE )
+			if( StrategicMap[( pSoldier->deployment().sectorX() ) + ( MAP_WORLD_X * ( pSoldier->deployment().sectorY() ) )].fEnemyControlled == TRUE )
 			{
 				// enemy soldiers... in enemy controlled sector.	Gain loyalty
 				fIncrement = TRUE;
@@ -917,7 +917,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 				iLoyaltyChange *= MULTIPLIER_FOR_MURDER_BY_MONSTER;
 
 				// check whose sector this is
-				if( StrategicMap[CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY )].fEnemyControlled == TRUE )
+				if( StrategicMap[CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].fEnemyControlled == TRUE )
 				{
 					// enemy controlled sector - gain loyalty
 					fIncrement = TRUE;
@@ -988,7 +988,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	iLoyaltyChange *= 100;
 	iLoyaltyChange /= (100 + ( 25 * LOYALTY_EVENT_DISTANCE_THRESHOLD ) );
 
-	AffectAllTownsLoyaltyByDistanceFrom( iLoyaltyChange, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+	AffectAllTownsLoyaltyByDistanceFrom( iLoyaltyChange, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 }
 
 
@@ -1000,7 +1000,7 @@ void HandleTownLoyaltyForNPCRecruitment( SOLDIERTYPE *pSoldier )
 	UINT32 uiLoyaltyValue = 0;
 
 	// get town id civilian
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// is the merc currently in their home town?
 	if( bTownId == gMercProfiles[ pSoldier->ubProfile ].bTown )
@@ -1033,7 +1033,7 @@ BOOLEAN HandleLoyaltyAdjustmentForRobbery( SOLDIERTYPE *pSoldier )
 	INT8 bTownId = 0;
 
 	// get town id
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 
 	// debug message
@@ -1061,7 +1061,7 @@ void HandleLoyaltyForDemolitionOfBuilding( SOLDIERTYPE *pSoldier, INT16 sPointsD
 	sPolicingLoyalty = sPointsDmg * MULTIPLIER_FOR_NOT_PREVENTING_BUILDING_DAMAGE;
 
 	// get town id
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// Flugente: for safety reasons, exit if not in a town
 	if( bTownId == BLANK_SECTOR )
@@ -1091,7 +1091,7 @@ void HandleLoyaltyForDemolitionOfBuilding( SOLDIERTYPE *pSoldier, INT16 sPointsD
 
 
 	// penalize the side that should have stopped it
-	if( StrategicMap[CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY )].fEnemyControlled == TRUE )
+	if( StrategicMap[CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].fEnemyControlled == TRUE )
 	{
 		// enemy should have prevented it, let them suffer a little
 		IncrementTownLoyalty( bTownId, sPolicingLoyalty );
@@ -2131,7 +2131,7 @@ UINT32 PlayerStrength( void )
 		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
 		if ( pSoldier->bActive )
 		{
-			if ( pSoldier->bInSector || (pSoldier->flags.fBetweenSectors && SECTORX( pSoldier->ubPrevSectorID ) == gWorldSectorX && SECTORY( pSoldier->ubPrevSectorID ) == gWorldSectorY && (pSoldier->bSectorZ == gbWorldSectorZ)) )
+			if ( pSoldier->bInSector || (pSoldier->flags.fBetweenSectors && SECTORX( pSoldier->deployment().previousSectorId() ) == gWorldSectorX && SECTORY( pSoldier->deployment().previousSectorId() ) == gWorldSectorY && (pSoldier->deployment().sectorZ() == gbWorldSectorZ)) )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
 				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;

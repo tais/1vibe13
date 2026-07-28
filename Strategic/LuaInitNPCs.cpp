@@ -5344,7 +5344,7 @@ static int l_usStrategicInsertionDataProfileID(lua_State* L)
 		SOLDIERTYPE* pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			sGridNo = pSoldier->usStrategicInsertionData;
+			sGridNo = pSoldier->deployment().strategicInsertionData();
 		}
 
 		lua_pushinteger(L, sGridNo);
@@ -8321,13 +8321,13 @@ static int l_CheckMercPtsrTeleportToSector(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			pSoldier->sSectorX = SectorX;
-			pSoldier->sSectorY = SectorY;
-			pSoldier->bSectorZ = SectorZ;
+			pSoldier->deployment().sectorX() = SectorX;
+			pSoldier->deployment().sectorY() = SectorY;
+			pSoldier->deployment().sectorZ() = SectorZ;
 
 			// Set gridno
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-			pSoldier->usStrategicInsertionData = GridNo;
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() = GridNo;
 		}
 	}
 
@@ -8342,7 +8342,7 @@ static int l_GetMercPtrsGroup(lua_State* L)
 
 		if (ubID != NOBODY)
 		{
-			UINT8 GroupID = GetJa2SoldierRepository().resolve(ubID)->ubGroupID;
+			UINT8 GroupID = GetJa2SoldierRepository().resolve(ubID)->deployment().groupId();
 			lua_pushinteger(L, GroupID);
 		}
 	}
@@ -8450,7 +8450,7 @@ static int l_AnimMercPtsrusStrategicInsertionData(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->bInSector)
-			pSoldier->usStrategicInsertionData = GridNo;
+			pSoldier->deployment().strategicInsertionData() = GridNo;
 	}
 	return 0;
 }
@@ -8467,7 +8467,7 @@ static int l_AnimMercPtsrubStrategicInsertionCode(lua_State* L)
 
 
 		if (pSoldier && pSoldier->bInSector)
-			pSoldier->ubStrategicInsertionCode = GridNo;
+			pSoldier->deployment().strategicInsertionCode() = GridNo;
 	}
 	return 0;
 }
@@ -10723,7 +10723,7 @@ static int l_SetSoldierbGroupID(lua_State* L)
 		SOLDIERTYPE* pSoldier = FindSoldierByProfileID(UID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->ubGroupID = bGroupID;
+			pSoldier->deployment().groupId() = bGroupID;
 		}
 	}
 
@@ -10740,7 +10740,7 @@ static int l_CheckSoldierbGroupID(lua_State* L)
 		INT8 bGroupID = NUMBER_OF_SQUADS;
 		if (pSoldier)
 		{
-			bGroupID = pSoldier->ubGroupID;
+			bGroupID = pSoldier->deployment().groupId();
 		}
 
 		lua_pushinteger(L, bGroupID);
@@ -10759,7 +10759,7 @@ static int l_CheckSoldierSectorY(lua_State* L)
 		INT16 SectorY = 0;
 		if (pSoldier)
 		{
-			SectorY = pSoldier->sSectorY;
+			SectorY = pSoldier->deployment().sectorY();
 		}
 
 		lua_pushinteger(L, SectorY);
@@ -10778,7 +10778,7 @@ static int l_CheckSoldierSectorX(lua_State* L)
 		INT16 SectorX = 0;
 		if (pSoldier)
 		{
-			SectorX = pSoldier->sSectorX;
+			SectorX = pSoldier->deployment().sectorX();
 		}
 
 		lua_pushinteger(L, SectorX);
@@ -10797,7 +10797,7 @@ static int l_CheckSoldierSectorZ(lua_State* L)
 		INT8 SectorZ = 0;
 		if (pSoldier)
 		{
-			SectorZ = pSoldier->bSectorZ;
+			SectorZ = pSoldier->deployment().sectorZ();
 		}
 
 		lua_pushinteger(L, SectorZ);
@@ -10816,7 +10816,7 @@ static int l_SetSoldierSectorY(lua_State* L)
 
 		if (pSoldier)
 		{
-			pSoldier->sSectorY = SectorY;
+			pSoldier->deployment().sectorY() = SectorY;
 		}
 	}
 
@@ -10833,7 +10833,7 @@ static int l_SetSoldierSectorX(lua_State* L)
 
 		if (pSoldier)
 		{
-			pSoldier->sSectorX = SectorX;
+			pSoldier->deployment().sectorX() = SectorX;
 		}
 	}
 
@@ -10850,7 +10850,7 @@ static int l_SetSoldierSectorZ(lua_State* L)
 
 		if (pSoldier)
 		{
-			pSoldier->bSectorZ = SectorZ;
+			pSoldier->deployment().sectorZ() = SectorZ;
 		}
 	}
 
@@ -10868,7 +10868,7 @@ static int l_SetMercPtsrSectorZ(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			pSoldier->bSectorZ = SectorZ;
+			pSoldier->deployment().sectorZ() = SectorZ;
 		}
 	}
 	return 0;
@@ -10885,7 +10885,7 @@ static int l_SetMercPtsrSectorX(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			pSoldier->sSectorX = SectorX;
+			pSoldier->deployment().sectorX() = SectorX;
 		}
 	}
 	return 0;
@@ -10902,7 +10902,7 @@ static int l_SetMercPtsrSectorY(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			pSoldier->sSectorY = SectorY;
+			pSoldier->deployment().sectorY() = SectorY;
 		}
 	}
 	return 0;
@@ -10918,7 +10918,7 @@ static int l_SetMercPtsrubGroupID(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
-			pSoldier->ubGroupID = GroupID;
+			pSoldier->deployment().groupId() = GroupID;
 	}
 	return 0;
 }
@@ -10934,7 +10934,7 @@ static int l_CheckMercPtsrSectorY(lua_State* L)
 
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
-			SectorY = pSoldier->sSectorY;
+			SectorY = pSoldier->deployment().sectorY();
 
 		lua_pushinteger(L, SectorY);
 	}
@@ -10952,7 +10952,7 @@ static int l_CheckMercPtsrSectorX(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			SectorX = pSoldier->sSectorX;
+			SectorX = pSoldier->deployment().sectorX();
 		}
 
 		lua_pushinteger(L, SectorX);
@@ -10971,7 +10971,7 @@ static int l_CheckMercPtsrSectorZ(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			SectorZ = pSoldier->bSectorZ;
+			SectorZ = pSoldier->deployment().sectorZ();
 		}
 
 		lua_pushinteger(L, SectorZ);
@@ -10990,7 +10990,7 @@ static int l_CheckMercPtsrubGroupID(lua_State* L)
 
 		if (pSoldier && pSoldier->bInSector && pSoldier->bActive)
 		{
-			GroupID = pSoldier->ubGroupID;
+			GroupID = pSoldier->deployment().groupId();
 		}
 
 		lua_pushinteger(L, GroupID);
@@ -11349,8 +11349,8 @@ static int l_CreateArmedCivilain(lua_State* L)
 			{
 				if (sGridNo != NOWHERE)
 				{
-					pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					pSoldier->sInsertionGridNo = sGridNo;
+					pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+					pSoldier->deployment().insertionGrid() = sGridNo;
 				}
 
 				AddSoldierToSector(pSoldier->ubID);

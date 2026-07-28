@@ -733,24 +733,24 @@ static void AddCreaturesToBattle( UINT8 ubNumYoungMales, UINT8 ubNumYoungFemales
 			return;
 		}
 
-		pSoldier->ubInsertionDirection = bDesiredDirection;
+		pSoldier->deployment().insertionDirection() = bDesiredDirection;
 		//Setup the position
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 		pSoldier->aiData.bHunting = TRUE;
 		if( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
 		{
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = (UINT8)gsCreatureInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = (UINT8)gsCreatureInsertionCode;
 			}
 		}
 		else
 		{
-			pSoldier->usStrategicInsertionData = gsCreatureInsertionGridNo;
+			pSoldier->deployment().strategicInsertionData() = gsCreatureInsertionGridNo;
 		}
 		UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 	}
@@ -808,10 +808,10 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 			break;
 		}
 
-		pSoldier->ubInsertionDirection = bDesiredDirection;
+		pSoldier->deployment().insertionDirection() = bDesiredDirection;
 
 		//Setup the position
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 		pSoldier->aiData.bHunting = TRUE;
 
 		if ( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
@@ -819,17 +819,17 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 			if ( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{
 				//using an edgepoint
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ubCurrSlot++];
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ubCurrSlot++];
 			}
 			else
 			{
 				//no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = (UINT8)gsCreatureInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = (UINT8)gsCreatureInsertionCode;
 			}
 		}
 		else
 		{
-			pSoldier->usStrategicInsertionData = gsCreatureInsertionGridNo;
+			pSoldier->deployment().strategicInsertionData() = gsCreatureInsertionGridNo;
 		}
 
 		UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
@@ -2264,9 +2264,9 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(i);
 			if( pSoldier->bActive && pSoldier->vitals().health() &&
-					pSoldier->sSectorX == sSectorX &&
-					pSoldier->sSectorY == sSectorY &&
-					pSoldier->bSectorZ == bSectorZ &&
+					pSoldier->deployment().sectorX() == sSectorX &&
+					pSoldier->deployment().sectorY() == sSectorY &&
+					pSoldier->deployment().sectorZ() == bSectorZ &&
 					!pSoldier->flags.fBetweenSectors )
 			{
 				return TRUE;

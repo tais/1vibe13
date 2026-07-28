@@ -611,9 +611,9 @@ BOOLEAN RemoveSoldierFromHelicopter( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	pSoldier->sSectorX = pVehicleList[ iHelicopterVehicleId ].sSectorX;
-	pSoldier->sSectorY = pVehicleList[ iHelicopterVehicleId ].sSectorY;
-	pSoldier->bSectorZ = 0;
+	pSoldier->deployment().sectorX() = pVehicleList[ iHelicopterVehicleId ].sSectorX;
+	pSoldier->deployment().sectorY() = pVehicleList[ iHelicopterVehicleId ].sSectorY;
+	pSoldier->deployment().sectorZ() = 0;
 
 	// reset between sectors
 	pSoldier->flags.fBetweenSectors = FALSE;
@@ -1633,7 +1633,7 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 		{
 			// better really be in there!
 			Assert ( pSoldier->assignment().current() == VEHICLE );
-			Assert ( pSoldier->iVehicleId == iHelicopterVehicleId );
+			Assert ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId );
 
 			fAnyoneAboard = TRUE;
 
@@ -1647,14 +1647,14 @@ UINT8 MoveAllInHelicopterToFootMovementGroup( INT8 bNewSquad )
 			// the first merc, so the rest are going to use whatever they had previously....
 			if ( !fInsertionCodeSet )
 			{
-				ubInsertionCode = pSoldier->ubStrategicInsertionCode;
-				usInsertionData = pSoldier->usStrategicInsertionData;
+				ubInsertionCode = pSoldier->deployment().strategicInsertionCode();
+				usInsertionData = pSoldier->deployment().strategicInsertionData();
 				fInsertionCodeSet = TRUE;
 			}
 			else
 			{
-				pSoldier->ubStrategicInsertionCode = ubInsertionCode;
-				pSoldier->usStrategicInsertionData = usInsertionData;
+				pSoldier->deployment().strategicInsertionCode() = ubInsertionCode;
+				pSoldier->deployment().strategicInsertionData() = usInsertionData;
 			}
 				
 			// Flugente: we are leaving the helicopter and instantly deploy into combat - this must be an airdrop
@@ -3002,7 +3002,7 @@ BOOLEAN SoldierAboardAirborneHeli( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier );
 
 	// if not in a vehicle, or not aboard the helicopter
-	if ( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != iHelicopterVehicleId ) )
+	if ( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->deployment().vehicleId() != iHelicopterVehicleId ) )
 	{
 		return( FALSE );
 	}

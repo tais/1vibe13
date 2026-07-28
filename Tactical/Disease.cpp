@@ -113,7 +113,7 @@ void HandleDisease()
 			{
 				pTeamSoldier = soldiers.resolve(uiCnt2);
 				if ( pTeamSoldier->bActive && pTeamSoldier != pSoldier
-					 && pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ
+					 && pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ()
 					 && pTeamSoldier->vitals().health() > 0 )
 				{
 					// infection chance gets modified depending on assignments
@@ -122,7 +122,7 @@ void HandleDisease()
 					// if both are in the same squad or vehicle, chance is increased
 					if (pTeamSoldier->assignment().current() == pSoldier->assignment().current() &&
 						 (pSoldier->assignment().current() < ON_DUTY ||
-						 (pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId == pTeamSoldier->iVehicleId)))
+						 (pSoldier->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() == pTeamSoldier->deployment().vehicleId())))
 					{
 						modifier = 1.5;
 					}
@@ -140,7 +140,7 @@ void HandleDisease()
 			// we can also be infected by the disease left from corpses
 			if ( gGameExternalOptions.fDiseaseStrategic )
 			{
-				SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )] );
+				SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
 
 				if ( pSectorInfo && pSectorInfo->fDiseasePoints )
 				{
@@ -171,7 +171,7 @@ void HandleDisease()
 		pSoldier = soldiers.resolve(uiCnt);
 		if ( pSoldier->bActive )
 		{
-			UINT8 ubSector = (UINT8)SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 ubSector = (UINT8)SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			UINT8 ubTraverseType = SectorInfo[ubSector].ubTraversability[THROUGH_STRATEGIC_MOVE];
 
 			switch ( ubTraverseType )

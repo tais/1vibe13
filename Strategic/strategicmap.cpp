@@ -3015,7 +3015,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 			if ( pSoldier->bActive )
 			{
-				if ( pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == bSectorZ && !pSoldier->flags.fBetweenSectors )
+				if ( pSoldier->deployment().sectorX() == sSectorX && pSoldier->deployment().sectorY() == sSectorY && pSoldier->deployment().sectorZ() == bSectorZ && !pSoldier->flags.fBetweenSectors )
 				{
 					if ( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 					{
@@ -3027,29 +3027,29 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 							{
 								UINT8 ubDirection;
 
-								pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-								pSoldier->usStrategicInsertionData = FindRandomGridNoFromSweetSpotExcludingSweetSpot( pSoldier, gMapInformation.sCenterGridNo, gGameExternalOptions.usAmbushSpreadRadiusMercs, &ubDirection );
+								pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+								pSoldier->deployment().strategicInsertionData() = FindRandomGridNoFromSweetSpotExcludingSweetSpot( pSoldier, gMapInformation.sCenterGridNo, gGameExternalOptions.usAmbushSpreadRadiusMercs, &ubDirection );
 
 								// have the merc look outward. We add + 100 because later on we use this to signify that we want really enforce this direction
-								pSoldier->ubInsertionDirection = (UINT8)GetDirectionToGridNoFromGridNo( gMapInformation.sCenterGridNo, pSoldier->usStrategicInsertionData ) + 100;
+								pSoldier->deployment().insertionDirection() = (UINT8)GetDirectionToGridNoFromGridNo( gMapInformation.sCenterGridNo, pSoldier->deployment().strategicInsertionData() ) + 100;
 							}
 							else
 							{
-								pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-								pSoldier->usStrategicInsertionData = gMapInformation.sCenterGridNo;
+								pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+								pSoldier->deployment().strategicInsertionData() = gMapInformation.sCenterGridNo;
 							}
 						}
 						else if ( gfOverrideInsertionWithExitGrid )
 						{
-							pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-							pSoldier->usStrategicInsertionData = gExitGrid.usGridNo;
+							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+							pSoldier->deployment().strategicInsertionData() = gExitGrid.usGridNo;
 						}
 
 						// Flugente: override if entering from concealment
 						if ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
 						{
-							pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-							pSoldier->usStrategicInsertionData = pSoldier->sMTActionGridNo;
+							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+							pSoldier->deployment().strategicInsertionData() = pSoldier->sMTActionGridNo;
 						}
 					}
 
@@ -3119,7 +3119,7 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 	BOOLEAN fError = FALSE;
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_IS_TACTICALLY_VALID )
 	{
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 	}
 	// OK, determine entrence direction and get sweetspot
 	// Only if we are an OK guy to control....
@@ -3130,13 +3130,13 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 		if ( pSoldier->assignment().current() != IN_TRANSIT )
 		{
 			// CHECK UBINSERTION CODE..
-			if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_PRIMARY_EDGEINDEX ||
-				 pSoldier->ubStrategicInsertionCode == INSERTION_CODE_SECONDARY_EDGEINDEX )
+			if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_PRIMARY_EDGEINDEX ||
+				 pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SECONDARY_EDGEINDEX )
 			{
 				if ( !fUsingEdgePointsForStrategicEntry )
 				{
 					// If we are not supposed to use this now, pick something better...
-					pSoldier->ubStrategicInsertionCode = (UINT8)pSoldier->usStrategicInsertionData;
+					pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
 				}
 			}
 
@@ -3148,46 +3148,46 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 				pSoldier->aiData.bOrders = STATIONARY;
 			}
 
-			if (pSoldier->ubStrategicInsertionCode == INSERTION_CODE_SECONDARY_EDGEINDEX && (
+			if (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SECONDARY_EDGEINDEX && (
 				   (gubTacticalDirection == NORTH && gus2ndNorthEdgepointArraySize == 0)
 				|| (gubTacticalDirection == EAST && gus2ndEastEdgepointArraySize == 0)
 				|| (gubTacticalDirection == SOUTH && gus2ndSouthEdgepointArraySize == 0)
 				|| (gubTacticalDirection == WEST && gus2ndWestEdgepointArraySize == 0)
 				)) 
 			{
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_PRIMARY_EDGEINDEX;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_PRIMARY_EDGEINDEX;
 			}
 
 			// Use insertion direction from loaded map!
-			switch (pSoldier->ubStrategicInsertionCode)
+			switch (pSoldier->deployment().strategicInsertionCode())
 			{
 			case INSERTION_CODE_NORTH:
-				pSoldier->sInsertionGridNo = gMapInformation.sNorthGridNo;
+				pSoldier->deployment().insertionGrid() = gMapInformation.sNorthGridNo;
 				if ( !gfEditMode && gMapInformation.sNorthGridNo == -1 )
 					fError = TRUE;
 				break;
 			case INSERTION_CODE_SOUTH:
-				pSoldier->sInsertionGridNo = gMapInformation.sSouthGridNo;
+				pSoldier->deployment().insertionGrid() = gMapInformation.sSouthGridNo;
 				if ( !gfEditMode && gMapInformation.sSouthGridNo == -1 )
 					fError = TRUE;
 				break;
 			case INSERTION_CODE_EAST:
-				pSoldier->sInsertionGridNo = gMapInformation.sEastGridNo;
+				pSoldier->deployment().insertionGrid() = gMapInformation.sEastGridNo;
 				if ( !gfEditMode && gMapInformation.sEastGridNo == -1 )
 					fError = TRUE;
 				break;
 			case INSERTION_CODE_WEST:
-				pSoldier->sInsertionGridNo = gMapInformation.sWestGridNo;
+				pSoldier->deployment().insertionGrid() = gMapInformation.sWestGridNo;
 				if ( !gfEditMode && gMapInformation.sWestGridNo == -1 )
 					fError = TRUE;
 				break;
 			case INSERTION_CODE_CENTER:
-				pSoldier->sInsertionGridNo = gMapInformation.sCenterGridNo;
+				pSoldier->deployment().insertionGrid() = gMapInformation.sCenterGridNo;
 				if ( !gfEditMode && gMapInformation.sCenterGridNo == -1 )
 					fError = TRUE;
 				break;
 			case INSERTION_CODE_GRIDNO:
-				pSoldier->sInsertionGridNo = pSoldier->usStrategicInsertionData;
+				pSoldier->deployment().insertionGrid() = pSoldier->deployment().strategicInsertionData();
 				break;
 
 			case INSERTION_CODE_PRIMARY_EDGEINDEX:
@@ -3222,36 +3222,36 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 					// Save this gridNo....
 					pSoldier->aiData.sPendingActionData2 = GETWORLDINDEXFROMWORLDCOORDS( sWorldY, sWorldX );
 				}
-				pSoldier->sInsertionGridNo = SearchForClosestPrimaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->usStrategicInsertionData );
+				pSoldier->deployment().insertionGrid() = SearchForClosestPrimaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->deployment().strategicInsertionData() );
 #ifdef JA2BETAVERSION
 				{
 					CHAR8 str[256];
 					sprintf( str, "%S's primary insertion gridno is %d using %d as initial search gridno and %d insertion code.",
-							 pSoldier->name, pSoldier->sInsertionGridNo, pSoldier->aiData.sPendingActionData2, pSoldier->usStrategicInsertionData );
+							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->aiData.sPendingActionData2, pSoldier->deployment().strategicInsertionData() );
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, str );
 				}
 #endif					
-				if ( TileIsOutOfBounds( pSoldier->sInsertionGridNo ) )
+				if ( TileIsOutOfBounds( pSoldier->deployment().insertionGrid() ) )
 				{
 					ScreenMsg( FONT_RED, MSG_ERROR, L"Main edgepoint search failed for %s -- substituting entrypoint.", pSoldier->name );
-					pSoldier->ubStrategicInsertionCode = (UINT8)pSoldier->usStrategicInsertionData;
+					pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
 					goto MAPEDGEPOINT_SEARCH_FAILED;
 				}
 				break;
 			case INSERTION_CODE_SECONDARY_EDGEINDEX:
-				pSoldier->sInsertionGridNo = SearchForClosestSecondaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->usStrategicInsertionData );
+				pSoldier->deployment().insertionGrid() = SearchForClosestSecondaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->deployment().strategicInsertionData() );
 #ifdef JA2BETAVERSION
 				{
 					CHAR8 str[256];
 					sprintf( str, "%S's isolated insertion gridno is %d using %d as initial search gridno and %d insertion code.",
-							 pSoldier->name, pSoldier->sInsertionGridNo, pSoldier->aiData.sPendingActionData2, pSoldier->usStrategicInsertionData );
+							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->aiData.sPendingActionData2, pSoldier->deployment().strategicInsertionData() );
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, str );
 				}
 #endif					
-				if ( TileIsOutOfBounds( pSoldier->sInsertionGridNo ) )
+				if ( TileIsOutOfBounds( pSoldier->deployment().insertionGrid() ) )
 				{
 					ScreenMsg( FONT_RED, MSG_ERROR, L"Isolated edgepont search failed for %s -- substituting entrypoint.", pSoldier->name );
-					pSoldier->ubStrategicInsertionCode = (UINT8)pSoldier->usStrategicInsertionData;
+					pSoldier->deployment().strategicInsertionCode() = (UINT8)pSoldier->deployment().strategicInsertionData();
 					goto MAPEDGEPOINT_SEARCH_FAILED;
 				}
 				break;
@@ -3259,35 +3259,35 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 			case INSERTION_CODE_ARRIVING_GAME:
 				if ( IsUnfinishedBusinessCampaign() )
 				{
-					pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-					pSoldier->sInsertionGridNo = gGameUBOptions.LOCATEGRIDNO;
+					pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+					pSoldier->deployment().insertionGrid() = gGameUBOptions.LOCATEGRIDNO;
 				}
 				else
 				{
 					extern BOOLEAN gfFirstHeliRun;
 					if (gfFirstHeliRun)
 					{
-						pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-						pSoldier->sInsertionGridNo = gGameExternalOptions.iInitialMercArrivalLocation;
+						pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+						pSoldier->deployment().insertionGrid() = gGameExternalOptions.iInitialMercArrivalLocation;
 					}
 					else
 					{
-						pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
-						pSoldier->sInsertionGridNo = gMapInformation.sCenterGridNo;
+						pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
+						pSoldier->deployment().insertionGrid() = gMapInformation.sCenterGridNo;
 					}
 				}
 				break;
 			case INSERTION_CODE_CHOPPER:
 				// Try another location and walk into map
 				// Add merc to chopper....
-				//pSoldier->sInsertionGridNo = 4058;
+				//pSoldier->deployment().insertionGrid() = 4058;
 				AddMercToHeli( pSoldier->ubID );
 				return;
 				break;
 			default:
 				//Moa: Hardcoded grid number set to CenterGrid
-				pSoldier->sInsertionGridNo = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Improper insertion code %d given to UpdateMercsInSector", pSoldier->ubStrategicInsertionCode ) );
+				pSoldier->deployment().insertionGrid() = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Improper insertion code %d given to UpdateMercsInSector", pSoldier->deployment().strategicInsertionCode() ) );
 				break;
 			}
 
@@ -3326,12 +3326,12 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 				else
 				{
 					ScreenMsg( FONT_RED, MSG_BETAVERSION, L"Sector %s has NO entrypoints -- using precise center of map for %s.", szSector, pSoldier->name );
-					pSoldier->sInsertionGridNo = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
+					pSoldier->deployment().insertionGrid() = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
 					AddSoldierToSector( pSoldier->ubID );
 					return;
 				}
-				pSoldier->sInsertionGridNo = sGridNo;
-				switch ( pSoldier->ubStrategicInsertionCode )
+				pSoldier->deployment().insertionGrid() = sGridNo;
+				switch ( pSoldier->deployment().strategicInsertionCode() )
 				{
 				case INSERTION_CODE_NORTH:
 					ScreenMsg( FONT_RED, MSG_BETAVERSION, L"Sector %s doesn't have a north entrypoint -- substituting  %s entrypoint for %s.", szSector, szEntry, pSoldier->name );
@@ -3354,10 +3354,10 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 			// catch ANY off-world insertion gridno (e.g. the unguarded INSERTION_CODE_GRIDNO
 			// case forwarding usStrategicInsertionData), not only NOWHERE(-1), so a counted
 			// enemy is never inserted off the map (ghost/invisible enemy).
-			if ( TileIsOutOfBounds( pSoldier->sInsertionGridNo ) )
+			if ( TileIsOutOfBounds( pSoldier->deployment().insertionGrid() ) )
 			{
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Insertion gridno for direction %d not added to map sector %d %d", pSoldier->ubStrategicInsertionCode, sSectorX, sSectorY ) );
-				pSoldier->sInsertionGridNo = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Insertion gridno for direction %d not added to map sector %d %d", pSoldier->deployment().strategicInsertionCode(), sSectorX, sSectorY ) );
+				pSoldier->deployment().insertionGrid() = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;//12880
 			}
 
 			AddSoldierToSector( pSoldier->ubID );
@@ -3597,26 +3597,26 @@ UINT8 SetInsertionDataFromAdjacentMoveDirection( SOLDIERTYPE *pSoldier, UINT8 ub
 			AssertMsg( 0, String( "No valid Exit grid can be found when one was expected: SetInsertionDataFromAdjacentMoveDirection." ) );
 		}
 		ubDirection = 255;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-		pSoldier->usStrategicInsertionData = ExitGrid.usGridNo;
-		pSoldier->bUseExitGridForReentryDirection = TRUE;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionData() = ExitGrid.usGridNo;
+		pSoldier->deployment().useExitGridForReentryDirection() = TRUE;
 		break;
 
 	case NORTH:
 		ubDirection = NORTH_STRATEGIC_MOVE;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_SOUTH;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_SOUTH;
 		break;
 	case SOUTH:
 		ubDirection = SOUTH_STRATEGIC_MOVE;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_NORTH;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_NORTH;
 		break;
 	case EAST:
 		ubDirection = EAST_STRATEGIC_MOVE;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_WEST;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_WEST;
 		break;
 	case WEST:
 		ubDirection = WEST_STRATEGIC_MOVE;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_EAST;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_EAST;
 		break;
 	default:
 		// Wrong direction given!
@@ -3625,7 +3625,7 @@ UINT8 SetInsertionDataFromAdjacentMoveDirection( SOLDIERTYPE *pSoldier, UINT8 ub
 		ScreenMsg( FONT_RED, MSG_ERROR, L"Improper insertion direction %d given to SetInsertionDataFromAdjacentMoveDirection", ubTacticalDirection );
 #endif
 		ubDirection = EAST_STRATEGIC_MOVE;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_WEST;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_WEST;
 	}
 
 	return(ubDirection);
@@ -3735,8 +3735,8 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 				pValidSoldier = pSoldier;
 				//This now gets handled by strategic movement.  It is possible that the
 				//group won't move instantaneously.
-				//pSoldier->sSectorX = sNewX;
-				//pSoldier->sSectorY = sNewY;
+				//pSoldier->deployment().sectorX() = sNewX;
+				//pSoldier->deployment().sectorY() = sNewY;
 
 				ubDirection = GetInsertionDataFromAdjacentMoveDirection( ubTacticalDirection, sAdditionalData );
 				break;
@@ -3756,7 +3756,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 		// save info for desired squad and and time for all single mercs leaving their squad.
 		Assert( pValidSoldier );
 		bPrevAssignment = pValidSoldier->assignment().current();
-		ubPrevGroupID = pValidSoldier->ubGroupID;
+		ubPrevGroupID = pValidSoldier->deployment().groupId();
 
 		if ( ubJumpCode == JUMP_SINGLE_NO_LOAD )
 		{ // handle soldier moving by themselves
@@ -3797,8 +3797,8 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 
 
 	//Now, determine the traversal time.
-	pGroup = GetGroup( pValidSoldier->ubGroupID );
-	AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->ubGroupID ) );
+	pGroup = GetGroup( pValidSoldier->deployment().groupId() );
+	AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->deployment().groupId() ) );
 
 	// If we are going through an exit grid, don't get traversal direction!
 	if ( ubTacticalDirection != 255 )
@@ -3839,7 +3839,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 	{
 		gsAdjacentSectorX = (INT16)(gWorldSectorX + DirXIncrementer[ubTacticalDirection]);
 		gsAdjacentSectorY = (INT16)(gWorldSectorY + DirYIncrementer[ubTacticalDirection]);
-		gbAdjacentSectorZ = pValidSoldier->bSectorZ;
+		gbAdjacentSectorZ = pValidSoldier->deployment().sectorZ();
 	}
 	else
 	{
@@ -3877,7 +3877,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 				{
 					sGridNo = PickGridNoNearestEdge( curr->pSoldier, ubTacticalDirection );
 
-					curr->pSoldier->sPreTraversalGridNo = curr->pSoldier->position().gridNo();
+					curr->pSoldier->deployment().preTraversalGrid() = curr->pSoldier->position().gridNo();
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
@@ -4001,7 +4001,7 @@ void JumpIntoEscapedSector(UINT8 ubTacticalDirection)
 			SOLDIERTYPE* pSoldier = Squad[i][j];
 			if (pSoldier && OK_CONTROLLABLE_MERC(pSoldier))
 			{
-				GROUP* pGroup = GetGroup(pSoldier->ubGroupID);
+				GROUP* pGroup = GetGroup(pSoldier->deployment().groupId());
 				switch (ubTacticalDirection)
 				{
 				case NORTH:
@@ -4041,31 +4041,31 @@ void HandleSoldierLeavingSectorByThemSelf( SOLDIERTYPE *pSoldier )
 		RemoveCharacterFromSquads( pSoldier );
 
 		// are they in a group?..remove from group
-		if ( pSoldier->ubGroupID != 0 )
+		if ( pSoldier->deployment().groupId() != 0 )
 		{
 			// remove from group
-			RemovePlayerFromGroup( pSoldier->ubGroupID, pSoldier );
-			pSoldier->ubGroupID = 0;
+			RemovePlayerFromGroup( pSoldier->deployment().groupId(), pSoldier );
+			pSoldier->deployment().groupId() = 0;
 		}
 	}
 	else
 	{
 		// otherwise, they are on thier own, not in a squad, simply remove mvt group
-		if ( pSoldier->ubGroupID && pSoldier->assignment().current() != VEHICLE )
+		if ( pSoldier->deployment().groupId() && pSoldier->assignment().current() != VEHICLE )
 		{ //Can only remove groups if they aren't persistant (not in a squad or vehicle)
 			// delete group
-			RemoveGroup( pSoldier->ubGroupID );
-			pSoldier->ubGroupID = 0;
+			RemoveGroup( pSoldier->deployment().groupId() );
+			pSoldier->deployment().groupId() = 0;
 		}
 	}
 
 	// set to guard
 	AddCharacterToUniqueSquad( pSoldier );
 
-	if ( pSoldier->ubGroupID == 0 )
+	if ( pSoldier->deployment().groupId() == 0 )
 	{
 		// create independant group
-		UINT8 ubGroupId = CreateNewPlayerGroupDepartingFromSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY );
+		UINT8 ubGroupId = CreateNewPlayerGroupDepartingFromSector( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY() );
 		AddPlayerToGroup( ubGroupId, pSoldier );
 	}
 }
@@ -4227,9 +4227,9 @@ void SetupTacticalTraversalInformation( )
 			// Save this gridNo....
 			pSoldier->aiData.sPendingActionData2 = GETWORLDINDEXFROMWORLDCOORDS( pSoldier->sY, pSoldier->sX );
 			// Copy CODe computed earlier into data
-			pSoldier->usStrategicInsertionData = pSoldier->ubStrategicInsertionCode;
+			pSoldier->deployment().strategicInsertionData() = pSoldier->deployment().strategicInsertionCode();
 			// Now use NEW code....
-			pSoldier->ubStrategicInsertionCode = CalcMapEdgepointClassInsertionCode( pSoldier->sPreTraversalGridNo );
+			pSoldier->deployment().strategicInsertionCode() = CalcMapEdgepointClassInsertionCode( pSoldier->deployment().preTraversalGrid() );
 			if ( gubAdjacentJumpCode == JUMP_SINGLE_LOAD_NEW || gubAdjacentJumpCode == JUMP_ALL_LOAD_NEW )
 				fUsingEdgePointsForStrategicEntry = TRUE;
 		}
@@ -4670,7 +4670,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// If we are controllable
 		if ( OK_CONTROLLABLE_MERC( pSoldier ) && (pSoldier->assignment().current() == CurrentSquad( ) ||
-			(pSoldier->assignment().current() == VEHICLE && pSoldier->iVehicleId != iHelicopterVehicleId && GetSoldierStructureForVehicle( pSoldier->iVehicleId )->assignment().current() == CurrentSquad( ))) )
+			(pSoldier->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() != iHelicopterVehicleId && GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() )->assignment().current() == CurrentSquad( ))) )
 		{
 			//Need to keep a copy of a good soldier, so we can access it later, and
 			//not more than once.
@@ -4722,7 +4722,7 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 
 					//Now, determine if this is a valid path.
 					pGroup = GetGroup(soldierGroupId);
-					AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->ubGroupID ) );
+					AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->deployment().groupId() ) );
 					
 					if ( !gbWorldSectorZ )
 					{
@@ -4782,8 +4782,8 @@ BOOLEAN OKForSectorExit( INT8 bExitDirection, INT32 usAdditionalData, UINT32 *pu
 		{
 			GROUP *pGroup;
 			//Now, determine if this is a valid path.
-			pGroup = GetGroup( pValidSoldier->ubGroupID );
-			AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->ubGroupID ) );
+			pGroup = GetGroup( pValidSoldier->deployment().groupId() );
+			AssertMsg( pGroup, String( "%S is not in a valid group (pSoldier->ubGroupID is %d)", pValidSoldier->name, pValidSoldier->deployment().groupId() ) );
 			if ( !gbWorldSectorZ )
 			{
 				*puiTraverseTimeInMinutes = GetSectorMvtTimeForGroup( (UINT8)SECTOR( pGroup->ubSectorX, pGroup->ubSectorY ), bExitDirection, pGroup );
@@ -4961,7 +4961,7 @@ BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 		//if( (SectorInfo[ SECTOR( gWorldSectorX,gWorldSectorY) ].uiFlags & SF_ALREADY_VISITED) )
 		if ( GetSectorFlagStatus( sSelMapX, sSelMapY, (UINT8)iCurrentMapSectorZ, SF_ALREADY_VISITED ) == TRUE )
 		{
-			if ( !pSoldier->flags.fBetweenSectors && pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && pSoldier->bSectorZ == ubZ )
+			if ( !pSoldier->flags.fBetweenSectors && pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && pSoldier->deployment().sectorZ() == ubZ )
 			{
 				return(TRUE);
 			}
@@ -6146,7 +6146,7 @@ void HandleSlayDailyEvent( void )
 	//if the user hasnt renewed yet, and is still leaving today
 	if ( (pSoldier->employment().endTime() / 1440) <= (INT32)GetWorldDay( ) )
 	{
-		pSoldier->ubLeaveHistoryCode = HISTORY_SLAY_MYSTERIOUSLY_LEFT;
+		pSoldier->deployment().leaveHistoryCode() = HISTORY_SLAY_MYSTERIOUSLY_LEFT;
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );
 	}
 }
@@ -6304,18 +6304,18 @@ BOOLEAN HandlePotentialBringUpAutoresolveToFinishBattle( int pSectorX, int pSect
 		SOLDIERTYPE *pEnemy = GetJa2SoldierRepository().resolve(i);
 		if ( pEnemy->bActive && pEnemy->vitals().health() )
 		{
-			if ( pEnemy->sSectorX == pSectorX &&
-				 pEnemy->sSectorY == pSectorY &&
-				 pEnemy->bSectorZ == pSectorZ )
+			if ( pEnemy->deployment().sectorX() == pSectorX &&
+				 pEnemy->deployment().sectorY() == pSectorY &&
+				 pEnemy->deployment().sectorZ() == pSectorZ )
 			{ //We have enemies, now look for militia!
 				for ( SoldierID j = gTacticalStatus.Team[MILITIA_TEAM].bFirstID; j <= gTacticalStatus.Team[MILITIA_TEAM].bLastID; ++j )
 				{
 					SOLDIERTYPE *pMilitia = GetJa2SoldierRepository().resolve(j);
 					if ( pMilitia->bActive && pMilitia->vitals().health() && pMilitia->bSide == OUR_TEAM )
 					{
-						if ( pMilitia->sSectorX == pSectorX &&
-							 pMilitia->sSectorY == pSectorY &&
-							 pMilitia->bSectorZ == pSectorZ )
+						if ( pMilitia->deployment().sectorX() == pSectorX &&
+							 pMilitia->deployment().sectorY() == pSectorY &&
+							 pMilitia->deployment().sectorZ() == pSectorZ )
 						{ //We have militia and enemies and no mercs!  Let's finish this battle in autoresolve.
 							gfEnteringMapScreen = TRUE;
 							gfEnteringMapScreenToEnterPreBattleInterface = TRUE;
@@ -6381,9 +6381,9 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 				{
-					if ( pSoldier->sSectorX == gWorldSectorX &&
-						 pSoldier->sSectorY == gWorldSectorY &&
-						 pSoldier->bSectorZ == gbWorldSectorZ )
+					if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
+						 pSoldier->deployment().sectorY() == gWorldSectorY &&
+						 pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 					{
 						pSoldier->RemoveSoldierFromGridNo( );
 						InitSoldierOppList( pSoldier );
@@ -6399,9 +6399,9 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 			if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 			{
-				if ( pSoldier->sSectorX == gWorldSectorX &&
-					 pSoldier->sSectorY == gWorldSectorY &&
-					 pSoldier->bSectorZ == gbWorldSectorZ )
+				if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
+					 pSoldier->deployment().sectorY() == gWorldSectorY &&
+					 pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 				{
 					return FALSE;
 				}
@@ -6566,7 +6566,7 @@ void SetupProfileInsertionDataForSoldier( SOLDIERTYPE *pSoldier )
 
 		//It appears to set the soldier's strategic insertion code everytime a group arrives in a new sector.  The insertion data
 		//isn't needed for these cases as the code is a direction only.
-		gMercProfiles[pSoldier->ubProfile].ubStrategicInsertionCode = pSoldier->ubStrategicInsertionCode;
+		gMercProfiles[pSoldier->ubProfile].ubStrategicInsertionCode = pSoldier->deployment().strategicInsertionCode();
 		gMercProfiles[pSoldier->ubProfile].usStrategicInsertionData = 0;
 
 		//Strategic system should now work.

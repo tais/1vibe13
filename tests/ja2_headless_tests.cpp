@@ -116,6 +116,7 @@
 #include "World Items.h"
 #include "Strategic Movement.h"
 #include "strategicmap.h"
+#include "strategic.h"
 #include "MovementDestinationPolicy.h"
 #include "Rain.h"
 #include "Render Dirty.h"
@@ -7321,6 +7322,17 @@ int main( int, char** )
 		assignment.facilityType() = 5;
 		assignment.itemMoveSectorId() = 47;
 		assignment.miniEventHoursRemaining() = 12;
+		SoldierDeploymentComponent& deployment = soldier.deployment();
+		deployment.insertionDirection() = -3;
+		deployment.groupId() = 42;
+		deployment.insertionGrid() = 2200;
+		deployment.setStrategicInsertion(INSERTION_CODE_GRIDNO, 2201);
+		deployment.setSector(9, 4, 1);
+		deployment.vehicleId() = 7;
+		deployment.offWorldGrid() = 2202;
+		deployment.setTraversalOrigin(31, 2203);
+		deployment.useExitGridForReentryDirection() = 1;
+		deployment.scheduleArrival(14000, 6);
 		SoldierPositionComponent& position = soldier.position();
 		position.gridNo() = 1234;
 		position.level() = 1;
@@ -7499,6 +7511,21 @@ int main( int, char** )
 		       constSoldier.assignment().miniEventHoursRemaining() == 12 &&
 		       constSoldier.assignment().hasMiniEventTime(),
 		       "soldier assignment component owns strategic duty and its subsidiary context" );
+		CHECK( constSoldier.deployment().insertionDirection() == -3 &&
+		       constSoldier.deployment().groupId() == 42 &&
+		       constSoldier.deployment().insertionGrid() == 2200 &&
+		       constSoldier.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
+		       constSoldier.deployment().strategicInsertionData() == 2201 &&
+		       constSoldier.deployment().isInSector(9, 4, 1) &&
+		       constSoldier.deployment().vehicleId() == 7 &&
+		       constSoldier.deployment().hasVehicle() &&
+		       constSoldier.deployment().offWorldGrid() == 2202 &&
+		       constSoldier.deployment().previousSectorId() == 31 &&
+		       constSoldier.deployment().useExitGridForReentryDirection() == 1 &&
+		       constSoldier.deployment().preTraversalGrid() == 2203 &&
+		       constSoldier.deployment().leaveHistoryCode() == 6 &&
+		       constSoldier.deployment().arrivalTime() == 14000,
+		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival state" );
 		CHECK( constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
 		       constSoldier.position().direction() == 6,
@@ -7716,6 +7743,20 @@ int main( int, char** )
 		       copiedSoldier.assignment().itemMoveSectorId() == 47 &&
 		       copiedSoldier.assignment().miniEventHoursRemaining() == 12,
 		       "soldier copies retain their owned persistent assignment state" );
+		CHECK( copiedSoldier.deployment().insertionDirection() == -3 &&
+		       copiedSoldier.deployment().groupId() == 42 &&
+		       copiedSoldier.deployment().insertionGrid() == 2200 &&
+		       copiedSoldier.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
+		       copiedSoldier.deployment().strategicInsertionData() == 2201 &&
+		       copiedSoldier.deployment().isInSector(9, 4, 1) &&
+		       copiedSoldier.deployment().vehicleId() == 7 &&
+		       copiedSoldier.deployment().offWorldGrid() == 2202 &&
+		       copiedSoldier.deployment().previousSectorId() == 31 &&
+		       copiedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
+		       copiedSoldier.deployment().preTraversalGrid() == 2203 &&
+		       copiedSoldier.deployment().leaveHistoryCode() == 6 &&
+		       copiedSoldier.deployment().arrivalTime() == 14000,
+		       "soldier copies retain their owned persistent deployment state" );
 		CHECK( copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
 		       copiedSoldier.position().direction() == 6,
@@ -8168,6 +8209,44 @@ int main( int, char** )
 		       assignmentLifecycle.itemMoveSectorId() == 0 &&
 		       assignmentLifecycle.miniEventHoursRemaining() == 0,
 		       "assignment reset clears the complete strategic duty lifecycle" );
+
+		SoldierDeploymentComponent deploymentLifecycle;
+		deploymentLifecycle.insertionDirection() = 5;
+		deploymentLifecycle.groupId() = 9;
+		deploymentLifecycle.insertionGrid() = 3300;
+		deploymentLifecycle.setStrategicInsertion(INSERTION_CODE_GRIDNO, 3301);
+		deploymentLifecycle.setSector(11, 5, 2);
+		deploymentLifecycle.vehicleId() = 8;
+		deploymentLifecycle.offWorldGrid() = 3302;
+		deploymentLifecycle.setTraversalOrigin(55, 3303);
+		deploymentLifecycle.useExitGridForReentryDirection() = 1;
+		deploymentLifecycle.scheduleArrival(4400, 7);
+		CHECK( deploymentLifecycle.isInSector(11, 5, 2) &&
+		       deploymentLifecycle.hasVehicle() &&
+		       deploymentLifecycle.strategicInsertionData() == 3301 &&
+		       deploymentLifecycle.previousSectorId() == 55 &&
+		       deploymentLifecycle.preTraversalGrid() == 3303 &&
+		       deploymentLifecycle.arrivalTime() == 4400 &&
+		       deploymentLifecycle.leaveHistoryCode() == 7,
+		       "deployment exposes named sector, insertion, traversal, vehicle, and arrival transitions" );
+		deploymentLifecycle.clearVehicle();
+		CHECK( !deploymentLifecycle.hasVehicle() && deploymentLifecycle.vehicleId() == -1,
+		       "deployment clears vehicle membership through a named transition" );
+		deploymentLifecycle.reset();
+		CHECK( deploymentLifecycle.insertionDirection() == 0 &&
+		       deploymentLifecycle.groupId() == 0 &&
+		       deploymentLifecycle.insertionGrid() == 0 &&
+		       deploymentLifecycle.strategicInsertionCode() == 0 &&
+		       deploymentLifecycle.strategicInsertionData() == 0 &&
+		       deploymentLifecycle.isInSector(0, 0, 0) &&
+		       deploymentLifecycle.vehicleId() == -1 &&
+		       deploymentLifecycle.offWorldGrid() == 0 &&
+		       deploymentLifecycle.previousSectorId() == 0 &&
+		       deploymentLifecycle.useExitGridForReentryDirection() == 0 &&
+		       deploymentLifecycle.preTraversalGrid() == 0 &&
+		       deploymentLifecycle.leaveHistoryCode() == 0 &&
+		       deploymentLifecycle.arrivalTime() == 0,
+		       "deployment reset clears the complete strategic placement lifecycle" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -8238,6 +8317,20 @@ int main( int, char** )
 		       copiedSoldier.assignment().itemMoveSectorId() == 0 &&
 		       copiedSoldier.assignment().miniEventHoursRemaining() == 0,
 		       "soldier initialization resets the complete assignment domain" );
+		CHECK( copiedSoldier.deployment().insertionDirection() == 0 &&
+		       copiedSoldier.deployment().groupId() == 0 &&
+		       copiedSoldier.deployment().insertionGrid() == 0 &&
+		       copiedSoldier.deployment().strategicInsertionCode() == 0 &&
+		       copiedSoldier.deployment().strategicInsertionData() == 0 &&
+		       copiedSoldier.deployment().isInSector(0, 0, 0) &&
+		       copiedSoldier.deployment().vehicleId() == -1 &&
+		       copiedSoldier.deployment().offWorldGrid() == 0 &&
+		       copiedSoldier.deployment().previousSectorId() == 0 &&
+		       copiedSoldier.deployment().useExitGridForReentryDirection() == 0 &&
+		       copiedSoldier.deployment().preTraversalGrid() == 0 &&
+		       copiedSoldier.deployment().leaveHistoryCode() == 0 &&
+		       copiedSoldier.deployment().arrivalTime() == 0,
+		       "soldier initialization resets the complete deployment domain" );
 		CHECK( copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
 		       copiedSoldier.position().direction() == 0,
@@ -8412,6 +8505,21 @@ int main( int, char** )
 		legacySoldier->ubNumTraversalsAllowedToMerge = 5;
 		legacySoldier->ubHoursOnAssignment = 7;
 		legacySoldier->bVehicleUnderRepairID = -1;
+		legacySoldier->ubInsertionDirection = 4;
+		legacySoldier->ubGroupID = 43;
+		legacySoldier->sInsertionGridNo = 2300;
+		legacySoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+		legacySoldier->usStrategicInsertionData = 2301;
+		legacySoldier->sSectorX = 10;
+		legacySoldier->sSectorY = 6;
+		legacySoldier->bSectorZ = 2;
+		legacySoldier->iVehicleId = 9;
+		legacySoldier->sOffWorldGridNo = 2302;
+		legacySoldier->ubPrevSectorID = 32;
+		legacySoldier->bUseExitGridForReentryDirection = 1;
+		legacySoldier->sPreTraversalGridNo = 2303;
+		legacySoldier->ubLeaveHistoryCode = 8;
+		legacySoldier->uiTimeSoldierWillArrive = 15000;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -8498,6 +8606,20 @@ int main( int, char** )
 		       convertedSoldier.assignment().itemMoveSectorId() == 0 &&
 		       convertedSoldier.assignment().miniEventHoursRemaining() == 0,
 		       "v101 soldier conversion retains legacy assignment state and clears fields absent from v101" );
+		CHECK( convertedSoldier.deployment().insertionDirection() == 4 &&
+		       convertedSoldier.deployment().groupId() == 43 &&
+		       convertedSoldier.deployment().insertionGrid() == 2300 &&
+		       convertedSoldier.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
+		       convertedSoldier.deployment().strategicInsertionData() == 2301 &&
+		       convertedSoldier.deployment().isInSector(10, 6, 2) &&
+		       convertedSoldier.deployment().vehicleId() == 9 &&
+		       convertedSoldier.deployment().offWorldGrid() == 2302 &&
+		       convertedSoldier.deployment().previousSectorId() == 32 &&
+		       convertedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
+		       convertedSoldier.deployment().preTraversalGrid() == 2303 &&
+		       convertedSoldier.deployment().leaveHistoryCode() == 8 &&
+		       convertedSoldier.deployment().arrivalTime() == 15000,
+		       "v101 soldier conversion retains the complete deployment and arrival lifecycle" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -8694,6 +8816,16 @@ int main( int, char** )
 		savedSoldier.assignment().facilityType() = 7;
 		savedSoldier.assignment().itemMoveSectorId() = 48;
 		savedSoldier.assignment().miniEventHoursRemaining() = 14;
+		savedSoldier.deployment().insertionDirection() = -4;
+		savedSoldier.deployment().groupId() = 44;
+		savedSoldier.deployment().insertionGrid() = 2400;
+		savedSoldier.deployment().setStrategicInsertion(INSERTION_CODE_GRIDNO, 2401);
+		savedSoldier.deployment().setSector(12, 7, 3);
+		savedSoldier.deployment().vehicleId() = 10;
+		savedSoldier.deployment().offWorldGrid() = 2402;
+		savedSoldier.deployment().setTraversalOrigin(33, 2403);
+		savedSoldier.deployment().useExitGridForReentryDirection() = 1;
+		savedSoldier.deployment().scheduleArrival(16000, 9);
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
@@ -8882,6 +9014,21 @@ int main( int, char** )
 		       loadedSoldier.assignment().itemMoveSectorId() == 48 &&
 		       loadedSoldier.assignment().miniEventHoursRemaining() == 14,
 		       "soldier save/load round-trips assignment state at every established POD position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.deployment().insertionDirection() == -4 &&
+		       loadedSoldier.deployment().groupId() == 44 &&
+		       loadedSoldier.deployment().insertionGrid() == 2400 &&
+		       loadedSoldier.deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO &&
+		       loadedSoldier.deployment().strategicInsertionData() == 2401 &&
+		       loadedSoldier.deployment().isInSector(12, 7, 3) &&
+		       loadedSoldier.deployment().vehicleId() == 10 &&
+		       loadedSoldier.deployment().offWorldGrid() == 2402 &&
+		       loadedSoldier.deployment().previousSectorId() == 33 &&
+		       loadedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
+		       loadedSoldier.deployment().preTraversalGrid() == 2403 &&
+		       loadedSoldier.deployment().leaveHistoryCode() == 9 &&
+		       loadedSoldier.deployment().arrivalTime() == 16000,
+		       "soldier save/load round-trips deployment state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&

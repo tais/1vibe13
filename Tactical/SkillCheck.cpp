@@ -216,7 +216,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 		// Flugente: drugs can temporarily cause a merc to be claustrophobic
 		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->bActive && pSoldier->bInSector )
 		{
-			INT8 sectorz = pSoldier->bSectorZ;
+			INT8 sectorz = pSoldier->deployment().sectorZ();
 			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 				sectorz -= 10;
 

@@ -4082,7 +4082,7 @@ void GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText )
 	//the soldier is in this sector
 	else if( pSoldier != NULL )
 	{
-		GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, pzText );
+		GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pzText );
 	}
 
 	//else the soldier is in a different map

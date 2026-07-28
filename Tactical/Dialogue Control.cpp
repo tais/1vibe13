@@ -473,7 +473,7 @@ static BOOLEAN ExecuteAdditionalCharacterDialogue(UINT8 ubProfile, INT32 iFaceIn
 		return FALSE;
 
 	// call Lua script on whether we can play something here, and get text and sound file
-	LuaHandleAdditionalDialogue(pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, ubProfile, iFaceIndex, usEventNr, aData1, aData2, aData3);
+	LuaHandleAdditionalDialogue(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), ubProfile, iFaceIndex, usEventNr, aData1, aData2, aData3);
 
 	return(TRUE);
 }
@@ -1799,7 +1799,7 @@ void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSect
 		}
 		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive &&
 			pSoldier->ubProfile != ausIgnoreProfile &&
-			pSoldier->sSectorX == aSectorX && pSoldier->sSectorY == aSectorY && pSoldier->bSectorZ == aSectorZ &&
+			pSoldier->deployment().sectorX() == aSectorX && pSoldier->deployment().sectorY() == aSectorY && pSoldier->deployment().sectorZ() == aSectorZ &&
 			pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			(aAroundGridno == NOWHERE || PythSpacesAway( pSoldier->position().gridNo(), aAroundGridno ) <= aRadius ) &&
 			!pSoldier->flags.fBetweenSectors )
@@ -3279,9 +3279,9 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter )
 			mprintf( sFontX, sFontY, L"%s", pSoldier->name );
 
 			// What sector are we in, ( and is it the same as ours? )
-			if ( pSoldier->sSectorX != gWorldSectorX || pSoldier->sSectorY != gWorldSectorY || pSoldier->bSectorZ != gbWorldSectorZ || pSoldier->flags.fBetweenSectors )
+			if ( pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY || pSoldier->deployment().sectorZ() != gbWorldSectorZ || pSoldier->flags.fBetweenSectors )
 			{
-				GetSectorIDString( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, zTownIDString, FALSE );
+				GetSectorIDString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), zTownIDString, FALSE );
 
 				ReduceStringLength( zTownIDString, 64 , BLOCKFONT2 );
 
@@ -3453,7 +3453,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		if ( pTeamSoldier->bActive )
 		{
 			// Add guy if he's a candidate...
-			if( pTeamSoldier->sSectorX == sSectorX && pTeamSoldier->sSectorY == sSectorY && pTeamSoldier->bSectorZ == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
 			{
 				ubMercsInSector[ ubNumMercs ] = (UINT16)cnt;
 				++ubNumMercs;

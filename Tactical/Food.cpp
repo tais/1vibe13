@@ -220,13 +220,13 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	{
 		while ( moralemod > 0 && moralemod >= gMoraleSettings.bValues[MORALE_GOOD_FOOD] )
 		{
-			HandleMoraleEvent( pSoldier, MORALE_GOOD_FOOD, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+			HandleMoraleEvent( pSoldier, MORALE_GOOD_FOOD, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			moralemod -= gMoraleSettings.bValues[MORALE_GOOD_FOOD];
 		}
 
 		while ( moralemod > 0 && moralemod >= gMoraleSettings.bValues[MORALE_FOOD] )
 		{
-			HandleMoraleEvent( pSoldier, MORALE_FOOD, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+			HandleMoraleEvent( pSoldier, MORALE_FOOD, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			moralemod -= gMoraleSettings.bValues[MORALE_FOOD];
 		}
 	}
@@ -234,13 +234,13 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	{
 		while ( moralemod < 0 && moralemod <= gMoraleSettings.bValues[MORALE_LOATHSOME_FOOD] )
 		{
-			HandleMoraleEvent( pSoldier, MORALE_LOATHSOME_FOOD, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+			HandleMoraleEvent( pSoldier, MORALE_LOATHSOME_FOOD, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			moralemod -= gMoraleSettings.bValues[MORALE_LOATHSOME_FOOD];
 		}
 
 		while ( moralemod < 0 && moralemod <= gMoraleSettings.bValues[MORALE_BAD_FOOD] )
 		{
-			HandleMoraleEvent( pSoldier, MORALE_BAD_FOOD, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+			HandleMoraleEvent( pSoldier, MORALE_BAD_FOOD, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			moralemod -= gMoraleSettings.bValues[MORALE_BAD_FOOD];
 		}
 	}
@@ -385,7 +385,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 		activitymodifier = gGameExternalOptions.sFoodDigestionCombat;
 		
 	// for some odd reason, the time isn't even needed here, so we just use 0 :-)
-	INT8 sectortemperaturemod = SectorTemperature( 0, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+	INT8 sectortemperaturemod = SectorTemperature( 0, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 	// if we are heat intolerant, increase modifier
 	if ( sectortemperaturemod > 0 && DoesMercHaveDisability( pSoldier, HEAT_INTOLERANT ) )
@@ -625,7 +625,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 		for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 		{
 			// Is this facility here?
-			if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
+			if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][cnt].fFacilityHere)
 			{
 				// Does it allow training militia?
 				if (gFacilityTypes[cnt].AssignmentData[FAC_FOOD].sCantinaFoodModifier > 0)
@@ -840,7 +840,7 @@ void SectorFillCanteens( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
-			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
 
@@ -915,7 +915,7 @@ void SectorFillCanteens( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
-			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ) )
+			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
 
@@ -1066,7 +1066,7 @@ void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 
 	// determine if there are any patches of water in this sector.
 	// If so, fill up all refillable water containers (= canteens)
-	UINT8 waterquality = GetWaterQuality(pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+	UINT8 waterquality = GetWaterQuality(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 
 	// drink from sector only if water is ok - this happens automatically, so if we use poisoned water, we will slowly poison ourselves without the player noticing
 	if ( waterquality == WATER_DRINKABLE )

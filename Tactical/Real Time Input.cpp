@@ -191,7 +191,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 			if ( subjectSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
 			{
 				pVehicle = GetSoldierStructureForVehicle(
-					subjectSoldier->iVehicleId);
+					subjectSoldier->deployment().vehicleId());
 				usSubjectSoldier = pVehicle->ubID;
 				subjectSoldier = pVehicle;
 			}
@@ -1244,9 +1244,9 @@ void	QueryRTRightButton( UINT32 *puiNewEvent )
 													gusSelectedSoldier.i);
 											if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 											{
-												SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+												SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 												INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
-												if( gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
+												if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 												{
 													ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pVehicleSeatsStrings[0] );
 													break;

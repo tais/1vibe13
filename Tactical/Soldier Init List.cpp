@@ -811,7 +811,7 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 		curr->ubSoldierID = ubID;
 		if (pGroup)
 		{
-			pSoldier->ubGroupID = pGroup->ubGroupID;
+			pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			pSoldier->pGroup = pGroup;
 		}
 
@@ -1921,10 +1921,10 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 			if ( pSoldier )
 			{
 				//no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = RandomGridNo();
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = RandomGridNo();
 
-				pSoldier->ubInsertionDirection = DIRECTION_IRRELEVANT;
+				pSoldier->deployment().insertionDirection() = DIRECTION_IRRELEVANT;
 
 				// Lesh: militia came from another sector can't reach opposite side of map in case of battle there
 				//		they are often stop at a half way. trying to fix this
@@ -2671,8 +2671,8 @@ void AddProfilesUsingProfileInsertionData()
 		}
 		if ( pSoldier )
 		{ //Now, insert the soldier.
-			pSoldier->ubStrategicInsertionCode = gMercProfiles[ i ].ubStrategicInsertionCode;
-			pSoldier->usStrategicInsertionData = gMercProfiles[ i ].usStrategicInsertionData;
+			pSoldier->deployment().strategicInsertionCode() = gMercProfiles[ i ].ubStrategicInsertionCode;
+			pSoldier->deployment().strategicInsertionData() = gMercProfiles[ i ].usStrategicInsertionData;
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			// CJC: Note well that unless an error occurs, UpdateMercInSector calls
 			// AddSoldierToSector
@@ -3047,7 +3047,7 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			if ( !pSoldier )
 				return;
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 
 			// Lesh: militia came from another sector can't reach opposite side of map in case of battle there
 			//		they are often stop at a half way. trying to fix this
@@ -3067,12 +3067,12 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -3087,7 +3087,7 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			if ( !pSoldier )
 				return;
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 
 			// Lesh: militia came from another sector can't reach opposite side of map in case of battle there
 			//		they are often stop at a half way. trying to fix this
@@ -3107,12 +3107,12 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -3127,7 +3127,7 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			if ( !pSoldier )
 				return;
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 
 			// Lesh: militia came from another sector can't reach opposite side of map in case of battle there
 			//		they are often stop at a half way. trying to fix this
@@ -3151,12 +3151,12 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -3215,7 +3215,7 @@ void SectorAddAssassins( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
-		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->sSectorX == sMapX && pTeamSoldier->sSectorY == sMapY && pTeamSoldier->bSectorZ == sMapZ )
+		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
 			++numberofcivs;
 	}
 
@@ -3288,7 +3288,7 @@ void SectorAddPrisonersofWar( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
-		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->sSectorX == sMapX && pTeamSoldier->sSectorY == sMapY && pTeamSoldier->bSectorZ == sMapZ )
+		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
 			++numberofcivs;
 
 		// count how many pows are already placed

@@ -408,12 +408,12 @@ void HourlyLarryUpdate()
 				if ( usTemptation < BAR_TEMPTATION )
 				{
 					// sevenfm: check facility
-					if (pSoldier->bSectorZ == 0)
+					if (pSoldier->deployment().sectorZ() == 0)
 					{
 						for (UINT16 usFacilityType = 0; usFacilityType < NUM_FACILITY_TYPES; usFacilityType++)
 						{
 							// Is this facility here?
-							if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][usFacilityType].fFacilityHere)
+							if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][usFacilityType].fFacilityHere)
 							{
 								for (UINT16 usFacilityAssignment = 0; usFacilityAssignment < NUM_FACILITY_ASSIGNMENTS; usFacilityAssignment++)
 								{
@@ -488,7 +488,7 @@ void HourlyLarryUpdate()
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
-								if( pSoldier->sSectorX == pOtherSoldier->sSectorX && pSoldier->sSectorY == pOtherSoldier->sSectorY && pSoldier->bSectorZ == pOtherSoldier->bSectorZ )
+								if( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
 									UINT16 bPreventChance = ( EffectiveLeadership( pOtherSoldier ) + EffectiveExpLevel( pOtherSoldier, FALSE) / 2);
 									if (gGameOptions.fNewTraitSystem)
@@ -505,7 +505,7 @@ void HourlyLarryUpdate()
 									if( bPreventChance > PreRandom( 100 ) )
 									{
 										// merc is not amused by being prevented
-										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->sSectorX, pSoldier->sSectorX, pSoldier->bSectorZ );
+										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 										// also here would be a place for dynamic relationship decrease between them
 										// Flugente: then lets do that, shall we?
 										AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
@@ -669,7 +669,7 @@ void HourlyDisabilityUpdate( )
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
-								if ( pSoldier->sSectorX == pOtherSoldier->sSectorX && pSoldier->sSectorY == pOtherSoldier->sSectorY && pSoldier->bSectorZ == pOtherSoldier->bSectorZ )
+								if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
 									UINT16 bPreventChance = (EffectiveLeadership( pOtherSoldier ) + EffectiveExpLevel( pOtherSoldier, FALSE) / 2);
 									if ( gGameOptions.fNewTraitSystem )
@@ -687,7 +687,7 @@ void HourlyDisabilityUpdate( )
 									if ( Chance( bPreventChance ) )
 									{
 										// merc is not amused by being prevented
-										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->sSectorX, pSoldier->sSectorX, pSoldier->bSectorZ );
+										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 										// also here would be a place for dynamic relationship decrease between them
 										// Flugente: then lets do that, shall we?
 										AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
@@ -771,16 +771,16 @@ void HourlyStealUpdate()
 			&& pSoldier->assignment().current() != ASSIGNMENT_POW
 			&& pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
 			&& pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
-			&& !( ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == pSoldier->bSectorZ ) ) && ( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) ) )
+			&& !( ( ( gWorldSectorX == pSoldier->deployment().sectorX() ) && ( gWorldSectorY == pSoldier->deployment().sectorY() ) && ( gbWorldSectorZ == pSoldier->deployment().sectorZ() ) ) && ( gTacticalStatus.fEnemyInSector || GetCurrentScreen() == GAME_SCREEN ) ) )
 		{
-			UINT8 ubSectorId = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 ubSectorId = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			UINT16 wealth = SectorExternalData[ubSectorId][0].wealth;
 
 			// only try to steal if there's something worth stealing in the first place
 			if ( !wealth )
 				continue;
 
-			INT8 sectorz = pSoldier->bSectorZ;
+			INT8 sectorz = pSoldier->deployment().sectorZ();
 			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 				sectorz = max( 0, sectorz - 10 );
 
@@ -808,7 +808,7 @@ void HourlyStealUpdate()
 				{
 					if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 					{
-						if ( pSoldier->sSectorX == pOtherSoldier->sSectorX && pSoldier->sSectorY == pOtherSoldier->sSectorY && sectorz == pOtherSoldier->bSectorZ )
+						if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && sectorz == pOtherSoldier->deployment().sectorZ() )
 						{
 							UINT16 bPreventChance = ( EffectiveLeadership( pOtherSoldier ) + EffectiveExpLevel( pOtherSoldier, FALSE ) / 2 );
 							if ( gGameOptions.fNewTraitSystem )
@@ -826,7 +826,7 @@ void HourlyStealUpdate()
 							if ( bPreventChance > PreRandom( 100 ) )
 							{
 								// merc is not amused by being prevented
-								HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->sSectorX, pSoldier->sSectorX, pSoldier->bSectorZ );
+								HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 								// also here would be a place for dynamic relationship decrease between them
 								// Flugente: then lets do that, shall we?
 								AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
@@ -865,13 +865,13 @@ void HourlyStealUpdate()
 				if ( !AutoPlaceObject( pSoldier, &( gTempObject ), TRUE ) )
 				{
 					// drop money in the sector itself
-					if ( ( gWorldSectorX == pSoldier->sSectorX ) && ( gWorldSectorY == pSoldier->sSectorY ) && ( gbWorldSectorZ == sectorz ) )
+					if ( ( gWorldSectorX == pSoldier->deployment().sectorX() ) && ( gWorldSectorY == pSoldier->deployment().sectorY() ) && ( gbWorldSectorZ == sectorz ) )
 					{
 						AddItemToPool( pSoldier->position().gridNo(), &gTempObject, 1, pSoldier->position().level(), ( WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE ), 0 );
 					}
 					else
 					{
-						AddItemsToUnLoadedSector( pSoldier->sSectorX, pSoldier->sSectorY, sectorz, NOWHERE, 1, &gTempObject, 0, ( WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE ), 0, 1, FALSE );
+						AddItemsToUnLoadedSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), sectorz, NOWHERE, 1, &gTempObject, 0, ( WOLRD_ITEM_FIND_SWEETSPOT_FROM_GRIDNO | WORLD_ITEM_REACHABLE ), 0, 1, FALSE );
 					}
 				}
 			}
@@ -887,7 +887,7 @@ void HourlyStealUpdate()
 				{
 					// we were caught. Since we have guns and the locals don't, they can't do much apart from being pissed
 					// lower loyalty in closest town the player has ever controlled (the penalty is lowered by distance)
-					AffectClosestTownLoyaltyByDistanceFrom( -LOYALTY_STOLE_MONEY_FROM_LOCALS, pSoldier->sSectorX, pSoldier->sSectorY, sectorz );
+					AffectClosestTownLoyaltyByDistanceFrom( -LOYALTY_STOLE_MONEY_FROM_LOCALS, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), sectorz );
 				}
 			}
 			
@@ -1096,7 +1096,7 @@ void HourlyFactoryUpdate()
 							for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 							{
 								pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-								if ( pSoldier->bActive && ( pSoldier->sSectorX == SECTORX( sector ) ) && ( pSoldier->sSectorY == SECTORY( sector ) ) && ( pSoldier->bSectorZ == 0 ) )
+								if ( pSoldier->bActive && ( pSoldier->deployment().sectorX() == SECTORX( sector ) ) && ( pSoldier->deployment().sectorY() == SECTORY( sector ) ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 								{
 									if ( pSoldier->assignment().facilityType() == cnt )
 									{
@@ -1237,11 +1237,11 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 	{
 		return;
 	}
-	if( PlayerMercsInSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, pSoldier->bSectorZ ) == 1 )
+	if( PlayerMercsInSector( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == 1 )
 	{
 		if( Chance( gGameExternalOptions.ubHourlyChanceSlayWillLeave ) )
 		{
-			pSoldier->ubLeaveHistoryCode = HISTORY_SLAY_MYSTERIOUSLY_LEFT;
+			pSoldier->deployment().leaveHistoryCode() = HISTORY_SLAY_MYSTERIOUSLY_LEFT;
 			TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );
 		}
 	}

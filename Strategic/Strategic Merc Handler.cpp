@@ -83,10 +83,10 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 
 		// CJC Nov 11, 2002
 		// Use the soldier's sector location unless impossible
-		if (pSoldier->sSectorX != 0 && pSoldier->sSectorY != 0)
+		if (pSoldier->deployment().sectorX() != 0 && pSoldier->deployment().sectorY() != 0)
 		{
-			sSectorX = pSoldier->sSectorX;
-			sSectorY = pSoldier->sSectorY;
+			sSectorX = pSoldier->deployment().sectorX();
+			sSectorY = pSoldier->deployment().sectorY();
 		}
 		else
 		{
@@ -150,7 +150,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	if ( !AM_AN_EPC( pSoldier ) && !AM_A_ROBOT( pSoldier ) )
 	{
 		// Change morale of others based on this
-		HandleMoraleEvent( pSoldier, MORALE_TEAMMATE_DIED, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		HandleMoraleEvent( pSoldier, MORALE_TEAMMATE_DIED, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 
 	//if its a MERC merc, record the time of his death
@@ -675,7 +675,7 @@ void MercsContractIsFinished( SoldierID ubID )
 
 			TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );
 
-			pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
+			pSoldier->deployment().leaveHistoryCode() = HISTORY_MERC_QUIT;
 		}
 	}
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
@@ -688,7 +688,7 @@ void MercsContractIsFinished( SoldierID ubID )
 
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING_NO_ASK_EQUIP, 0, 0 );
 
-		pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
+		pSoldier->deployment().leaveHistoryCode() = HISTORY_MERC_QUIT;
 
 	}
 }
@@ -805,7 +805,7 @@ void MercComplainAboutEquipment( UINT8 ubProfile )
 				TacticalCharacterDialogue( pSoldier, QUOTE_WHINE_EQUIPMENT );
 
 				// anv: morale hit
-				HandleMoraleEvent( pSoldier, MORALE_BAD_EQUIPMENT, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				HandleMoraleEvent( pSoldier, MORALE_BAD_EQUIPMENT, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 				ModifyPlayerReputation( REPUTATION_TOWN_LOST );
 			}
 		}
@@ -845,7 +845,7 @@ void UpdateBuddyAndHatedCounters( void )
 			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
 
 			// if we're moving, we only check vs other people in our squad
-			if (pSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pSoldier->ubGroupID ))
+			if (pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ))
 			{
 				fSameGroupOnly = TRUE;
 			}
@@ -863,7 +863,7 @@ void UpdateBuddyAndHatedCounters( void )
 					if (fSameGroupOnly)
 					{
 						// all we have to check is the group ID
-						if (pSoldier->ubGroupID != pOtherSoldier->ubGroupID)
+						if (pSoldier->deployment().groupId() != pOtherSoldier->deployment().groupId())
 						{
 							continue;
 						}
@@ -871,15 +871,15 @@ void UpdateBuddyAndHatedCounters( void )
 					else
 					{
 						// check to see if the location is the same
-						if (pOtherSoldier->sSectorX != pSoldier->sSectorX ||
-							pOtherSoldier->sSectorY != pSoldier->sSectorY ||
-								pOtherSoldier->bSectorZ != pSoldier->bSectorZ)
+						if (pOtherSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() ||
+							pOtherSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() ||
+								pOtherSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ())
 						{
 							continue;
 						}
 
 						// if the OTHER soldier is in motion then we don't do anything!
-						if (pOtherSoldier->ubGroupID != 0 && PlayerIDGroupInMotion( pOtherSoldier->ubGroupID ))
+						if (pOtherSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pOtherSoldier->deployment().groupId() ))
 						{
 							continue;
 						}
@@ -971,7 +971,7 @@ void UpdateBuddyAndHatedCounters( void )
 												// Leave now! ( handle equipment too )....
 												TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING, 0,0 );
 
-												pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
+												pSoldier->deployment().leaveHistoryCode() = HISTORY_MERC_QUIT;
 											}
 											else
 											{
@@ -1096,7 +1096,7 @@ void UpdateBuddyAndHatedCounters( void )
 												// Leave now! ( handle equipment too )....
 												TacticalCharacterDialogue( pSoldier, QUOTE_MERC_QUIT_LEARN_TO_HATE );
 												TacticalCharacterDialogueWithSpecialEvent( pSoldier, 0, DIALOGUE_SPECIAL_EVENT_CONTRACT_ENDING, 0,0 );
-												pSoldier->ubLeaveHistoryCode = HISTORY_MERC_QUIT;
+												pSoldier->deployment().leaveHistoryCode() = HISTORY_MERC_QUIT;
 
 											}
 											else if (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC)

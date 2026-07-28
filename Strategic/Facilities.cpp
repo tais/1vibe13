@@ -230,7 +230,7 @@ INT16 GetSectorModifier( SOLDIERTYPE *pSoldier, UINT8 ubModifierType )
 {
 	INT16 sCurrent;
 	INT16 Result;
-	UINT8 ubSectorID = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+	UINT8 ubSectorID = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 	INT8 bAssignmentType = GetSoldierFacilityAssignmentIndex(pSoldier);
 
 	// Set "default" value.
@@ -358,11 +358,11 @@ void UpdateStrategicDetectionLevel( )
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  &&
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
-			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
@@ -422,9 +422,9 @@ void UpdateStrategicDetectionLevel( )
 					// Loop through all nearby sectors.
 					UINT8 sMapX;
 					UINT8 sMapY;
-					for (sMapX = pSoldier->sSectorX - usImmediateDetectionRange; sMapX <= pSoldier->sSectorX + usImmediateDetectionRange; sMapX++)
+					for (sMapX = pSoldier->deployment().sectorX() - usImmediateDetectionRange; sMapX <= pSoldier->deployment().sectorX() + usImmediateDetectionRange; sMapX++)
 					{
-						for (sMapY = pSoldier->sSectorY - usImmediateDetectionRange; sMapY <= pSoldier->sSectorY + usImmediateDetectionRange; sMapY++)
+						for (sMapY = pSoldier->deployment().sectorY() - usImmediateDetectionRange; sMapY <= pSoldier->deployment().sectorY() + usImmediateDetectionRange; sMapY++)
 						{
 							if (sMapX <= 0 || sMapX >= MAP_WORLD_X - 1 ||
 								sMapY <= 0 || sMapY >= MAP_WORLD_Y - 1 )
@@ -433,8 +433,8 @@ void UpdateStrategicDetectionLevel( )
 								continue;
 							}
 
-							if (abs(pSoldier->sSectorX - sMapX) <= usImmediateDetectionRange &&
-								abs(pSoldier->sSectorY - sMapY) <= usImmediateDetectionRange)
+							if (abs(pSoldier->deployment().sectorX() - sMapX) <= usImmediateDetectionRange &&
+								abs(pSoldier->deployment().sectorY() - sMapY) <= usImmediateDetectionRange)
 							{
 								// Sector within range. Update its detection flag.
 								SectorInfo[SECTOR(sMapX, sMapY)].ubDetectionLevel |= 1;
@@ -500,11 +500,11 @@ void UpdateSkyriderCostModifier()
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  &&
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
-			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
@@ -563,11 +563,11 @@ void UpdateFacilityUsageCosts( )
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  &&
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
-			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
@@ -705,11 +705,11 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  &&
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
-			UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 			if (GetSoldierFacilityAssignmentIndex( pSoldier ) == -1)
 			{
@@ -725,7 +725,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 			{
 				if (GetFacilityModifier( FACILITY_MINE_INCOME_MOD, ubFacilityType, ubAssignmentType ) && // Facility adjusts mine income
 					(gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].fOnlyLocalMineAffected == 0 || // All mines affected
-					GetMineIndexForSector( pSoldier->sSectorX, pSoldier->sSectorY ) == ubMine ) ) // This mine is here
+					GetMineIndexForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == ubMine ) ) // This mine is here
 				{
 					iModifier += (gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].usMineIncomeModifier - 100);
 				}
@@ -944,9 +944,9 @@ INT16 FacilityRiskResult( SOLDIERTYPE *pSoldier, UINT8 ubRiskType, UINT8 ubFacil
 	UINT8 ubExplosives = EffectiveExplosive( pSoldier );
 	UINT8 ubExpLevel = EffectiveExpLevel( pSoldier, FALSE);
 	UINT8 ubLocalLoyalty = 0;
-	if (GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) != BLANK_SECTOR )
+	if (GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) != BLANK_SECTOR )
 	{
-		ubLocalLoyalty = gTownLoyalty[ GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) ].ubRating;
+		ubLocalLoyalty = gTownLoyalty[ GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].ubRating;
 	}
 	else
 	{
@@ -1113,7 +1113,7 @@ void HandleHourlyRisks()
 
 		// Is character truly valid?
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  &&
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
@@ -1143,7 +1143,7 @@ void HandleRisksForSoldier( SOLDIERTYPE *pSoldier )
 	// Test for triggers related to any AMBIENT facility in the same sector.
 	for ( ; iCounterB < NUM_FACILITY_TYPES; iCounterB++)
 	{
-		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][iCounterB].fFacilityHere)
+		if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][iCounterB].fFacilityHere)
 		{
 			// Test this facility for ambient effects.
 			HandleRisksForSoldierFacilityAssignment( pSoldier, iCounterB, FAC_AMBIENT );
@@ -1176,7 +1176,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 		{
 			if (iCounter == RISK_LOYALTY_LOCAL)
 			{
-				ubTownID = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+				ubTownID = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 				if (ubTownID == BLANK_SECTOR)
 				{
 					// No town here, so this risk doesn't have any effect anyway...
@@ -1232,7 +1232,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[0], szSectorGrid );
 							else
@@ -1284,7 +1284,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[1], szSectorGrid );
 							else
@@ -1336,7 +1336,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[2], szSectorGrid );
 							else
@@ -1388,7 +1388,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[3], szSectorGrid );
 							else
@@ -1447,7 +1447,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							if (pSoldier->vitals().health() >= OKLIFE)
 							{
 								// Do Screen Message and stop time.
-								GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+								GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 								if (!fOperatingFacility)
 									swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[4], szSectorGrid );
 								else
@@ -1459,7 +1459,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// Soldier's health is driven very low. Automatically removed from duty.
 								// Do Screen Message and stop time.
-								GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+								GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 								if (!fOperatingFacility)
 									swprintf( sString, gzFacilityErrorMessage[28], pSoldier->GetName(), szSectorGrid );
 								else
@@ -1513,7 +1513,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[5], szSectorGrid );
 							else
@@ -1565,7 +1565,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[6], szSectorGrid );
 							else
@@ -1617,7 +1617,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[7], szSectorGrid );
 							else
@@ -1669,7 +1669,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 														if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[8], szSectorGrid );
 							else
@@ -1721,7 +1721,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[17], pSoldier->GetName(), gzFacilityRiskResultStrings[9], szSectorGrid );
 							else
@@ -1746,12 +1746,12 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								if (pSoldier->vitals().bleeding() > MIN_BLEEDING_THRESHOLD)
 								{
 									// Log message
-									GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+									GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 									swprintf( sString, gzFacilityErrorMessage[31], pSoldier->GetName(), szSectorGrid );
 									ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 									// Do Screen Message, stop time, and take character off duty immediately.
-									GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+									GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 									if (!fOperatingFacility)
 										swprintf( sString, gzFacilityErrorMessage[19], pSoldier->GetName(), szSectorGrid );
 									else
@@ -1763,13 +1763,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								else
 								{
 									// Log message
-									GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+									GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 									swprintf( sString, gzFacilityErrorMessage[30], pSoldier->GetName(), szSectorGrid );
 									ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 									// Soldier isn't bleeding too bad. Let the player know, but don't take any action.
 									// Do Screen Message and stop time.
-									GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+									GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 									if (!fOperatingFacility)
 										swprintf( sString, gzFacilityErrorMessage[21], pSoldier->GetName(), szSectorGrid );
 									else
@@ -1958,7 +1958,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 						{
 							DecrementTownLoyaltyEverywhere( abs(Result) );
 							// Log message
-							GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, szSectorGrid );
+							GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), szSectorGrid );
 							if (!fOperatingFacility)
 								swprintf( sString, gzFacilityErrorMessage[25], pSoldier->GetName(), szSectorGrid );
 							else
@@ -1996,7 +1996,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 
 		// Is character truly valid?
 		if( pSoldier != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-				pSoldier->bSectorZ == 0  && 
+				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->flags.fMercAsleep) )
 		{
@@ -2008,7 +2008,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 				continue;
 			}
 
-			//UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+			//UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			INT16 ubFacilityType = pSoldier->assignment().facilityType();
 
 			if (!fPositive && ubFacilityType != -1 && // We want facilities that cost money to operate

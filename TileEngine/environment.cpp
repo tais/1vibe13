@@ -1131,7 +1131,7 @@ void HandleEnvironmentHazard( )
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->vitals().health() > 0 )
+			if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->vitals().health() > 0 )
 			{
 				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->position().level() <= 0 )
 				{

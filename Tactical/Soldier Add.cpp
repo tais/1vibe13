@@ -1194,22 +1194,22 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		// Add to interface if the are ours
 		if ( pSoldier->bTeam == CREATURE_TEAM )
 		{
-			sGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, STANDING, pSoldier->sInsertionGridNo, 7, &ubCalculatedDirection, FALSE );
+			sGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, STANDING, pSoldier->deployment().insertionGrid(), 7, &ubCalculatedDirection, FALSE );
 			if( fCalculateDirection )
 				ubDirection = ubCalculatedDirection;
 			else
 			{
 				// Override calculated direction if we were told to....
-				if ( pSoldier->ubInsertionDirection >= 100 )
+				if ( pSoldier->deployment().insertionDirection() >= 100 )
 				{
-					pSoldier->ubInsertionDirection -= 100;
+					pSoldier->deployment().insertionDirection() -= 100;
 				}
-				ubDirection = pSoldier->ubInsertionDirection;
+				ubDirection = pSoldier->deployment().insertionDirection();
 			}
 		}
 		else
 		{			
-			if(TileIsOutOfBounds(pSoldier->sInsertionGridNo))
+			if(TileIsOutOfBounds(pSoldier->deployment().insertionGrid()))
 			{ //Add the soldier to the respective entrypoint.	This is an error condition.
 				// So treat it like an error already then
 				
@@ -1223,7 +1223,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				// middle of the map), and fall back to map center only if that edge's
 				// entrypoint is itself unset.
 				INT16 sRecover;
-				switch( pSoldier->ubStrategicInsertionCode )
+				switch( pSoldier->deployment().strategicInsertionCode() )
 				{
 					case INSERTION_CODE_NORTH: sRecover = gMapInformation.sNorthGridNo; break;
 					case INSERTION_CODE_SOUTH: sRecover = gMapInformation.sSouthGridNo; break;
@@ -1233,36 +1233,36 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				}
 				if( TileIsOutOfBounds( sRecover ) ) sRecover = gMapInformation.sCenterGridNo;
 				if( TileIsOutOfBounds( sRecover ) ) sRecover = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;
-				pSoldier->sInsertionGridNo = sRecover;
+				pSoldier->deployment().insertionGrid() = sRecover;
 			}
 			if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 			{
-				sGridNo = FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( pSoldier, STANDING, pSoldier->sInsertionGridNo, 12, &ubCalculatedDirection, FALSE, pSoldier->ubInsertionDirection );
+				sGridNo = FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( pSoldier, STANDING, pSoldier->deployment().insertionGrid(), 12, &ubCalculatedDirection, FALSE, pSoldier->deployment().insertionDirection() );
 				// ATE: Override insertion direction				
 				if (TileIsOutOfBounds(sGridNo))
 				{
 					// Well, we gotta place this soldier/vehicle somewhere.	Just use the first position for now
-					sGridNo = pSoldier->position().gridNo() = pSoldier->sInsertionGridNo;
+					sGridNo = pSoldier->position().gridNo() = pSoldier->deployment().insertionGrid();
 				}
 				else
 				{
-					pSoldier->ubInsertionDirection = ubCalculatedDirection;
+					pSoldier->deployment().insertionDirection() = ubCalculatedDirection;
 				}
 			}
 			else
 			{
-				if ( ( is_client && (pSoldier->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO) ) || ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
+				if ( ( is_client && (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO) ) || ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) )
 				{
-					sGridNo = pSoldier->sInsertionGridNo;
+					sGridNo = pSoldier->deployment().insertionGrid();
 					ubCalculatedDirection = pSoldier->position().direction();
 				}
 				else 
-					sGridNo = FindGridNoFromSweetSpot( pSoldier, pSoldier->sInsertionGridNo, 7, &ubCalculatedDirection );
+					sGridNo = FindGridNoFromSweetSpot( pSoldier, pSoldier->deployment().insertionGrid(), 7, &ubCalculatedDirection );
 				//hayden
 				// ATE: Error condition - if nowhere use insertion gridno!				
 				if (TileIsOutOfBounds(sGridNo))
 				{
-					sGridNo = pSoldier->sInsertionGridNo;
+					sGridNo = pSoldier->deployment().insertionGrid();
 				}
 			}
 
@@ -1272,28 +1272,28 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 
 			// problem: soldiers already present in a sector have ubStrategicInsertionCode = 0, which is INSERTION_CODE_NORTH - but they don't actually come from north, as they are already present
 			// we thus count them as coming from north if they have valid usStrategicInsertionData
-			if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_NORTH && pSoldier->usStrategicInsertionData )//|| pSoldier->sGridNo != NOWHERE )
+			if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_NORTH && pSoldier->deployment().strategicInsertionData() )//|| pSoldier->sGridNo != NOWHERE )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH;
 				else if ( !pSoldier->aiData.bNeutral )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH_ENEMY;
 			}
-			else if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_SOUTH )
+			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SOUTH )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH;
 				else if ( !pSoldier->aiData.bNeutral )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH_ENEMY;
 			}
-			else if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_EAST )
+			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_EAST )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST;
 				else if ( !pSoldier->aiData.bNeutral )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST_ENEMY;
 			}
-			else if ( pSoldier->ubStrategicInsertionCode == INSERTION_CODE_WEST )
+			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_WEST )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST;
@@ -1305,9 +1305,9 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			pSoldier->usSoldierFlagMask |= SOLDIER_ASSAULT_BONUS;
 			
 			// Override calculated direction if we were told to....
-			if ( pSoldier->ubInsertionDirection >= 100 )
+			if ( pSoldier->deployment().insertionDirection() >= 100 )
 			{
-				pSoldier->ubInsertionDirection = pSoldier->ubInsertionDirection - 100;
+				pSoldier->deployment().insertionDirection() = pSoldier->deployment().insertionDirection() - 100;
 				fCalculateDirection = FALSE;
 				gfEnteredFromTacticalPlacement = TRUE;
 			}
@@ -1317,9 +1317,9 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				ubDirection = ubCalculatedDirection;
 
 				// Check if we need to get direction from exit grid...
-				if ( pSoldier->bUseExitGridForReentryDirection )
+				if ( pSoldier->deployment().useExitGridForReentryDirection() )
 				{
-					pSoldier->bUseExitGridForReentryDirection = FALSE;
+					pSoldier->deployment().useExitGridForReentryDirection() = FALSE;
 
 					// OK, we know there must be an exit gridno SOMEWHERE close...
 					sExitGridNo = FindClosestExitGrid( pSoldier, sGridNo, 10 );
@@ -1334,12 +1334,12 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			}
 			else
 			{
-				ubDirection = pSoldier->ubInsertionDirection;
+				ubDirection = pSoldier->deployment().insertionDirection();
 			}
 		}
 
 		//Add
-		if(gTacticalStatus.uiFlags & LOADING_SAVED_GAME || (pSoldier->ubStrategicInsertionCode == INSERTION_CODE_GRIDNO && !gfHandleHeli && !gfEnteredFromTacticalPlacement))
+		if(gTacticalStatus.uiFlags & LOADING_SAVED_GAME || (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_GRIDNO && !gfHandleHeli && !gfEnteredFromTacticalPlacement))
 			AddSoldierToSectorGridNo( pSoldier, sGridNo, pSoldier->position().direction(), TRUE, -1, 0);//shadooow: hack to make sure animations aren't changed
 		else
 			AddSoldierToSectorGridNo( pSoldier, sGridNo, ubDirection, fUseAnimation, usAnimState, usAnimCode );
@@ -1571,7 +1571,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 	pSoldier->movement().reservedGrid() = NOWHERE;
 
 	// Save OLD insertion code.. as this can change...
-	ubInsertionCode = pSoldier->ubStrategicInsertionCode;
+	ubInsertionCode = pSoldier->deployment().strategicInsertionCode();
 
 	// Remove any pending animations
 	pSoldier->animationIntent().clearPendingAnimations();
@@ -1740,23 +1740,23 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				// ATE: if we are below OK life, make them lie down!
 				if ( pSoldier->vitals().health() < OKLIFE )
 				{
-					SoldierInSectorIncompaciated( pSoldier, pSoldier->sInsertionGridNo );
+					SoldierInSectorIncompaciated( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
 				else if ( pSoldier->flags.fMercAsleep == TRUE )
 				{
-					InternalSoldierInSectorSleep( pSoldier, pSoldier->sInsertionGridNo, FALSE );
+					InternalSoldierInSectorSleep( pSoldier, pSoldier->deployment().insertionGrid(), FALSE );
 				}
 				else if ( IS_DOCTOR(pSoldier->assignment().current()) || pSoldier->assignment().current() == DOCTOR_MILITIA )
 				{
-					SoldierInSectorDoctor( pSoldier, pSoldier->sInsertionGridNo );
+					SoldierInSectorDoctor( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
 				else if ( IS_PATIENT(pSoldier->assignment().current()) )
 				{
-					SoldierInSectorPatient( pSoldier, pSoldier->sInsertionGridNo );
+					SoldierInSectorPatient( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
 				else if ( IS_REPAIR(pSoldier->assignment().current()) )
 				{
-					SoldierInSectorRepair( pSoldier, pSoldier->sInsertionGridNo );
+					SoldierInSectorRepair( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
 
 		// ATE: Make sure movement mode is up to date!

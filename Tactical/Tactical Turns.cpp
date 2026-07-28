@@ -101,8 +101,8 @@ void HandleRPCDescription(	)
 				if ( RPC_RECRUITED( pTeamSoldier ) )
 				{
 					if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
-						pTeamSoldier->sSectorX == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->sSectorY == gTacticalStatus.bGuideDescriptionSectorY &&
-						pTeamSoldier->bSectorZ == gbWorldSectorZ &&
+						pTeamSoldier->deployment().sectorX() == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->deployment().sectorY() == gTacticalStatus.bGuideDescriptionSectorY &&
+						pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 						!pTeamSoldier->flags.fBetweenSectors )
 					{
 						const GameCampaign campaign =
@@ -156,8 +156,8 @@ void HandleRPCDescription(	)
 					continue;
 				}
 				if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive &&
-					pTeamSoldier->sSectorX == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->sSectorY == gTacticalStatus.bGuideDescriptionSectorY &&
-					pTeamSoldier->bSectorZ == gbWorldSectorZ &&
+					pTeamSoldier->deployment().sectorX() == gTacticalStatus.bGuideDescriptionSectorX && pTeamSoldier->deployment().sectorY() == gTacticalStatus.bGuideDescriptionSectorY &&
+					pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 					!pTeamSoldier->flags.fBetweenSectors )
 				{
 					AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_SECTOR_COMMENTARY );

@@ -1487,7 +1487,7 @@ void send_hire( SoldierID iNewIndex, UINT8 ubCurrentSoldier, INT16 iTotalContrac
 	if (sectorEdge == MP_EDGE_CENTER)
 		sectorEdge = INSERTION_CODE_CENTER;
 
-	pSoldier->ubStrategicInsertionCode = sectorEdge;
+	pSoldier->deployment().strategicInsertionCode() = sectorEdge;
 
 	if(ubCurrentSoldier==64)//slay
 	{
@@ -1582,7 +1582,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 		if ( ownerIdx >= 0 && ownerIdx < 5 )
 		{
 			UINT8 edge = (UINT8)client_edges[ ownerIdx ];
-			pSoldier->ubStrategicInsertionCode = ( edge == MP_EDGE_CENTER ) ? (UINT8)INSERTION_CODE_CENTER : edge;
+			pSoldier->deployment().strategicInsertionCode() = ( edge == MP_EDGE_CENTER ) ? (UINT8)INSERTION_CODE_CENTER : edge;
 		}
 	}
 	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
@@ -1676,9 +1676,9 @@ void recieveguiPOS(RPCParameters *rpcParameters)
 	INT32 sNewGridNo;
 
 	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(gnPOS->dNewXPos, gnPOS->dNewYPos );
-	pSoldier->usStrategicInsertionData=sNewGridNo;
-	pSoldier->ubStrategicInsertionCode=INSERTION_CODE_GRIDNO;
-	pSoldier->sInsertionGridNo = pSoldier->usStrategicInsertionData;
+	pSoldier->deployment().strategicInsertionData()=sNewGridNo;
+	pSoldier->deployment().strategicInsertionCode()=INSERTION_CODE_GRIDNO;
+	pSoldier->deployment().insertionGrid() = pSoldier->deployment().strategicInsertionData();
 
 	pSoldier->EVENT_SetSoldierPosition( gnPOS->dNewXPos, gnPOS->dNewYPos );
 }
@@ -2294,7 +2294,7 @@ void start_battle ( void )
 			}
 
 			GROUP* battleGroup = pSoldier
-				? GetGroup(pSoldier->ubGroupID) : NULL;
+				? GetGroup(pSoldier->deployment().groupId()) : NULL;
 			if ( battleGroup && SetPreBattleGroup(battleGroup) )
 			{
 				gubPBSectorX = battleGroup->ubSectorX;
@@ -2930,7 +2930,7 @@ void overide_callback( UINT8 ubResult )
 			SOLDIERTYPE *pSoldier = SafeMerc(0);
 			if ( !pSoldier )
 				return;
-			UINT8 ubGroupID = pSoldier->ubGroupID;
+			UINT8 ubGroupID = pSoldier->deployment().groupId();
 
 			GROUP *pGroup = GetGroup( ubGroupID );
 			if (pGroup && SetPreBattleGroup(pGroup))

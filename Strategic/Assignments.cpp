@@ -746,9 +746,9 @@ void BuildSectorsWithSoldiersList( void )
 	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if(pTeamSoldier->bActive && pTeamSoldier->bSectorZ < 4)
+		if(pTeamSoldier->bActive && pTeamSoldier->deployment().sectorZ() < 4)
 		{
-			fSectorsWithSoldiers[ CALCULATE_STRATEGIC_INDEX(pTeamSoldier->sSectorX, pTeamSoldier->sSectorY ) ][ pTeamSoldier->bSectorZ ] = TRUE;
+			fSectorsWithSoldiers[ CALCULATE_STRATEGIC_INDEX(pTeamSoldier->deployment().sectorX(), pTeamSoldier->deployment().sectorY() ) ][ pTeamSoldier->deployment().sectorZ() ] = TRUE;
 		}
 	}
 }
@@ -765,12 +765,12 @@ void ChangeSoldiersAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment )
 	// This is exclusive, so make sure this is set correctly whenever we change assignments
 	if ( SPY_LOCATION(bAssignment) )
 	{
-		if ( pSoldier->bSectorZ < 10 )
-			pSoldier->bSectorZ += 10;
+		if ( pSoldier->deployment().sectorZ() < 10 )
+			pSoldier->deployment().sectorZ() += 10;
 	}
-	else if ( pSoldier->bSectorZ >= 10 )
+	else if ( pSoldier->deployment().sectorZ() >= 10 )
 	{
-		pSoldier->bSectorZ -= 10;
+		pSoldier->deployment().sectorZ() -= 10;
 	}
 
 	// if we are no longer a POW, erase possible knowledge flag
@@ -804,7 +804,7 @@ static BOOLEAN BasicCanCharacterAssignment( SOLDIERTYPE * pSoldier, BOOLEAN fNot
 {
 	AssertNotNIL(pSoldier);
 	// global conditions restricting all assignment changes
-	if ( SectorIsImpassable( (INT16) SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ) )
+	if ( SectorIsImpassable( (INT16) SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ) )
 	{
 		return( FALSE );
 	}
@@ -914,10 +914,10 @@ BOOLEAN CanCharacterDoctorButDoesntHaveMedKit( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -980,7 +980,7 @@ BOOLEAN CanCharacterDoctorMilitia( SOLDIERTYPE *pSoldier )
 	if ( !CanCharacterDoctor( pSoldier ) )
 		return FALSE;
 
-	UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+	UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	
 	std::vector<MILITIA>::iterator itend = gIndividualMilitiaVector.end();
 	for ( std::vector<MILITIA>::iterator it = gIndividualMilitiaVector.begin(); it != itend; ++it )
@@ -1048,7 +1048,7 @@ BOOLEAN  CanCharacterTreatSectorDisease( SOLDIERTYPE *pSoldier )
 		return(FALSE);
 	
 	// there has to officially be an outbreak in this sector - if we don't know of a disease, we cannot treat it!
-	UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+	UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	SECTORINFO *pSectorInfo = &(SectorInfo[sector]);
 
@@ -1069,10 +1069,10 @@ BOOLEAN CanCharacterFortify( SOLDIERTYPE *pSoldier )
 	if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		return( FALSE );
 
-	if ( pSoldier->bSectorZ )
+	if ( pSoldier->deployment().sectorZ() )
 	{
 		UNDERGROUND_SECTORINFO *pSectorInfo;
-		pSectorInfo = FindUnderGroundSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		pSectorInfo = FindUnderGroundSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 		if ( pSectorInfo && pSectorInfo->dFortification_MaxPossible > pSectorInfo->dFortification_UnappliedProgress )
 			return TRUE;
@@ -1080,7 +1080,7 @@ BOOLEAN CanCharacterFortify( SOLDIERTYPE *pSoldier )
 	else
 	{
 		SECTORINFO *pSectorInfo;
-		pSectorInfo = &SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )];
+		pSectorInfo = &SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )];
 
 		if ( pSectorInfo && pSectorInfo->dFortification_MaxPossible > pSectorInfo->dFortification_UnappliedProgress )
 			return TRUE;
@@ -1119,10 +1119,10 @@ BOOLEAN CanCharacterBurial( SOLDIERTYPE *pSoldier )
 	if ( !BasicCanCharacterAssignment( pSoldier, TRUE ) )
 		return( FALSE );
 
-	if ( pSoldier->bSectorZ )
+	if ( pSoldier->deployment().sectorZ() )
 		return FALSE;
 
-	SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )] );
+	SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
 
 	if ( !pSectorInfo || (!( pSectorInfo->uiFlags & SF_ROTTING_CORPSE_TEMP_FILE_EXISTS ) && !pSectorInfo->usNumCorpses ) )
 		return FALSE;
@@ -1137,7 +1137,7 @@ BOOLEAN CanCharacterAdministration( SOLDIERTYPE *pSoldier )
 	if ( !BasicCanCharacterAssignment( pSoldier, TRUE ) )
 		return( FALSE );
 
-	if ( pSoldier->bSectorZ )
+	if ( pSoldier->deployment().sectorZ() )
 		return FALSE;
 
 	// Flugente: we can't perform most assignments while concealed
@@ -1154,15 +1154,15 @@ BOOLEAN CanCharacterExplore( SOLDIERTYPE *pSoldier )
 	if ( !BasicCanCharacterAssignment( pSoldier, TRUE ) )
 		return FALSE;
 
-	if ( pSoldier->bSectorZ )
+	if ( pSoldier->deployment().sectorZ() )
 	{
-		UNDERGROUND_SECTORINFO* pSector = FindUnderGroundSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		UNDERGROUND_SECTORINFO* pSector = FindUnderGroundSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 		if ( !pSector || pSector->usExplorationProgress >= 250 )
 			return FALSE;
 	}
 	else
 	{
-		SECTORINFO* pSector = &( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )] );
+		SECTORINFO* pSector = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
 		if ( !pSector || pSector->usExplorationProgress >= 250 )
 			return FALSE;
 	}
@@ -1193,7 +1193,7 @@ BOOLEAN IsAnythingAroundForSoldierToRepair( SOLDIERTYPE * pSoldier )
 	}
 
 	// vehicles?
-	if ( pSoldier->bSectorZ == 0 )
+	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		for (INT32 iCounter = 0; iCounter < ubNumberOfVehicles; ++iCounter )
 		{
@@ -1430,10 +1430,10 @@ static BOOLEAN BasicCanCharacterRepair( SOLDIERTYPE * pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -1561,10 +1561,10 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -1620,7 +1620,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// underground training is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
@@ -1653,10 +1653,10 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -1667,9 +1667,9 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	// Tests to see whether this sector allows training militia for ANYBODY.
 
 	// is there a SAM Site in the character's current sector?
-	if( StrategicMap[ CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY ) ].bNameId == BLANK_SECTOR )
+	if( StrategicMap[ CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].bNameId == BLANK_SECTOR )
 	{
-		BOOLEAN fSamSitePresent = IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		BOOLEAN fSamSitePresent = IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 		// check if sam site
 		if( fSamSitePresent == FALSE )
@@ -1684,7 +1684,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// There's a city here. Does it allow training militia?
-		INT8 bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+		INT8 bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		if (!MilitiaTrainingAllowedInTown( bTownId ))
 		{
 			// City does not allow militia training at all.
@@ -1698,7 +1698,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][cnt].fFacilityHere)
 		{
 			// Does it allow training militia?
 			if (gFacilityTypes[cnt].ubMilitiaTrainersAllowed)
@@ -1741,7 +1741,7 @@ BOOLEAN BasicCanCharacterDrillMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// underground training is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if ( pSoldier->bSectorZ != 0 )
+	if ( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
@@ -1772,7 +1772,7 @@ BOOLEAN BasicCanCharacterDrillMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// enemies in sector
-	if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+	if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 	{
 		return( FALSE );
 	}
@@ -1805,7 +1805,7 @@ BOOLEAN CanCharacterDrillMilitia( SOLDIERTYPE *pSoldier, BOOLEAN aErrorReport )
 	}
 	
 	// enemies in sector
-	if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+	if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 	{
 		if ( aErrorReport )
 			DoScreenIndependantMessageBox( Message[STR_SECTOR_NOT_CLEARED], MSG_BOX_FLAG_OK, NULL );
@@ -1872,8 +1872,8 @@ BOOLEAN CanCharacterDrillMilitia( SOLDIERTYPE *pSoldier, BOOLEAN aErrorReport )
 	// are any militia that could be promoted present?
 	UINT32 militiaid = 0;
 	MILITIA militia;
-	if ( GetIdOfIndividualMilitiaWithClassSector( SOLDIER_CLASS_GREEN_MILITIA, SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ), militiaid ) ||
-		( gGameExternalOptions.gfTrainVeteranMilitia && GetIdOfIndividualMilitiaWithClassSector( SOLDIER_CLASS_REG_MILITIA, SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ), militiaid ) ) )
+	if ( GetIdOfIndividualMilitiaWithClassSector( SOLDIER_CLASS_GREEN_MILITIA, SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ), militiaid ) ||
+		( gGameExternalOptions.gfTrainVeteranMilitia && GetIdOfIndividualMilitiaWithClassSector( SOLDIER_CLASS_REG_MILITIA, SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ), militiaid ) ) )
 	{
 		if ( GetMilitia( militiaid, &militia ) )
 			return TRUE;
@@ -1911,7 +1911,7 @@ BOOLEAN CanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
@@ -1983,14 +1983,14 @@ BOOLEAN CanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; cnt++)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][cnt].fFacilityHere)
 		{
 			// Increase tally
 			ubFacilityTrainersAllowed += gFacilityTypes[cnt].ubMilitiaTrainersAllowed;
 		}
 	}
 
-	if (RebelCommand::CanTrainMilitiaAnywhere() && GetTownIdForSector(pSoldier->sSectorX, pSoldier->sSectorY) == BLANK_SECTOR)
+	if (RebelCommand::CanTrainMilitiaAnywhere() && GetTownIdForSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) == BLANK_SECTOR)
 		ubFacilityTrainersAllowed = RebelCommand::GetMaxTrainersForTrainMilitiaAnywhere();
 
 	// Count number of trainers already operating here
@@ -2038,17 +2038,17 @@ BOOLEAN DoesSectorMercIsInHaveSufficientLoyaltyToTrainMilitia( SOLDIERTYPE *pSol
 	AssertNotNIL(pSoldier);
 
 	// underground training is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
 
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// is there a town really here
 	if( bTownId == BLANK_SECTOR )
 	{
-		fSamSitePresent = IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		fSamSitePresent = IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 		// if there is a sam site here
 		if( fSamSitePresent )
@@ -2083,9 +2083,9 @@ INT8 CountMilitiaTrainersInSoldiersSector( SOLDIERTYPE * pSoldier, UINT8 ubMilit
 			GetJa2SoldierRepository().resolve(OtherSoldier);
 		if ( other && pSoldier != other && other->bActive &&
 			other->vitals().health() >= OKLIFE &&
-			other->sSectorX == pSoldier->sSectorX &&
-			other->sSectorY == pSoldier->sSectorY &&
-			pSoldier->bSectorZ == other->bSectorZ )
+			other->deployment().sectorX() == pSoldier->deployment().sectorX() &&
+			other->deployment().sectorY() == pSoldier->deployment().sectorY() &&
+			pSoldier->deployment().sectorZ() == other->deployment().sectorZ() )
 		{
 			// Count depends on Militia Type requested
 			if (ubMilitiaType == TOWN_MILITIA &&
@@ -2106,22 +2106,22 @@ BOOLEAN IsMilitiaTrainableFromSoldiersSectorMaxed( SOLDIERTYPE *pSoldier, INT8 i
 
 	AssertNotNIL(pSoldier);
 
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( TRUE );
 	}
 
-	bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// is there a town really here
 	if( bTownId == BLANK_SECTOR )
 	{
-		fSamSitePresent = IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) || RebelCommand::CanTrainMilitiaAnywhere();
+		fSamSitePresent = IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) || RebelCommand::CanTrainMilitiaAnywhere();
 
 		// if there is a sam site here
 		if( fSamSitePresent )
 		{
-			if( IsSAMSiteFullOfMilitia( pSoldier->sSectorX, pSoldier->sSectorY,iMilitiaType ) )
+			if( IsSAMSiteFullOfMilitia( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(),iMilitiaType ) )
 				{
 					return( TRUE );
 				}
@@ -2163,7 +2163,7 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 	}
 
 	// underground training is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
@@ -2171,10 +2171,10 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -2351,10 +2351,10 @@ BOOLEAN CanCharacterOnDuty( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				if( gGameExternalOptions.ubSkyriderHotLZ == 0 )
 					return( FALSE );
@@ -2380,7 +2380,7 @@ BOOLEAN CanCharacterOnDuty( SOLDIERTYPE *pSoldier )
 	{
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
-			if( GetNumberInVehicle( pSoldier->iVehicleId ) == 1 )
+			if( GetNumberInVehicle( pSoldier->deployment().vehicleId() ) == 1 )
 			{
 				// can't change, go away
 				return( FALSE );
@@ -2415,7 +2415,7 @@ BOOLEAN CanCharacterPractise( SOLDIERTYPE *pSoldier )
 		return ( FALSE );
 	}
 
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
@@ -2435,10 +2435,10 @@ BOOLEAN CanCharacterPractise( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -2467,7 +2467,7 @@ BOOLEAN CanCharacterTrainTeammates( SOLDIERTYPE *pSoldier )
 	}
 
 	// if alone in sector, can't enter the attributes submenu at all
-	if ( PlayerMercsInSector( ( UINT8 ) pSoldier->sSectorX, ( UINT8 ) pSoldier->sSectorY, pSoldier->bSectorZ ) == 0 )
+	if ( PlayerMercsInSector( ( UINT8 ) pSoldier->deployment().sectorX(), ( UINT8 ) pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == 0 )
 	{
 		return( FALSE );
 	}
@@ -2487,7 +2487,7 @@ static BOOLEAN CanCharacterBeTrainedByOther( SOLDIERTYPE *pSoldier )
 	}
 
 	// if alone in sector, can't enter the attributes submenu at all
-	if ( PlayerMercsInSector( ( UINT8 ) pSoldier->sSectorX, ( UINT8 ) pSoldier->sSectorY, pSoldier->bSectorZ ) == 0 )
+	if ( PlayerMercsInSector( ( UINT8 ) pSoldier->deployment().sectorX(), ( UINT8 ) pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == 0 )
 	{
 		return( FALSE );
 	}
@@ -2546,7 +2546,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 		else	// in a vehicle
 		{
 			// if this guy has to drive ('cause nobody else can)
-			if ( SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, FALSE ) )
+			if ( SoldierMustDriveVehicle( pSoldier, pSoldier->deployment().vehicleId(), FALSE ) )
 			{
 				// can't sleep while walking or driving a vehicle
 				if( fExplainWhyNot )
@@ -2577,7 +2577,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 			}
 
 			// on surface, and enemies are in the sector
-			if ( (pSoldier->bSectorZ == 0) && (NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0) )
+			if ( (pSoldier->deployment().sectorZ() == 0) && (NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0) )
 			{
 				if( fExplainWhyNot )
 				{
@@ -2668,7 +2668,7 @@ BOOLEAN CanCharacterVehicle( SOLDIERTYPE *pSoldier )
 	// if we're in BATTLE in the current sector, disallow
 	if ( gTacticalStatus.fEnemyInSector )
 	{
-		if ( ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ ) )
+		if ( ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ ) )
 		{
 			return( FALSE );
 		}
@@ -2687,7 +2687,7 @@ BOOLEAN CanCharacterVehicle( SOLDIERTYPE *pSoldier )
 	}
 
 	// underground?
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
@@ -2695,10 +2695,10 @@ BOOLEAN CanCharacterVehicle( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -2751,7 +2751,7 @@ INT8 CanCharacterSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	{
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
-			if( GetNumberInVehicle( pSoldier->iVehicleId ) == 1 )
+			if( GetNumberInVehicle( pSoldier->deployment().vehicleId() ) == 1 )
 			{
 				// can't change, go away
 				return( CHARACTER_CANT_JOIN_SQUAD );
@@ -2764,7 +2764,7 @@ INT8 CanCharacterSquad( SOLDIERTYPE *pSoldier, INT8 bSquadValue )
 	SectorSquadIsIn( bSquadValue, &sX, &sY, &sZ );
 
 	// check sector x y and z, if not same, cannot join squad
-	if( ( sX != pSoldier->sSectorX ) || ( sY != pSoldier->sSectorY ) || ( sZ != pSoldier->bSectorZ ) )
+	if( ( sX != pSoldier->deployment().sectorX() ) || ( sY != pSoldier->deployment().sectorY() ) || ( sZ != pSoldier->deployment().sectorZ() ) )
 	{
 		// is there anyone on this squad?
 		if( NumberOfPeopleInSquad( bSquadValue ) > 0 )
@@ -2812,7 +2812,7 @@ BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pSoldier )
 		return (FALSE);
 	}
 
-	if (pSoldier->bSectorZ != 0)
+	if (pSoldier->deployment().sectorZ() != 0)
 	{
 		return(FALSE);
 	}
@@ -2832,10 +2832,10 @@ BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pSoldier )
 	// check in helicopter in hostile sector
 	if (pSoldier->assignment().current() == VEHICLE)
 	{
-		if ((iHelicopterVehicleId != -1) && (pSoldier->iVehicleId == iHelicopterVehicleId))
+		if ((iHelicopterVehicleId != -1) && (pSoldier->deployment().vehicleId() == iHelicopterVehicleId))
 		{
 			// enemies in sector
-			if (NumNonPlayerTeamMembersInSector(pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM) > 0)
+			if (NumNonPlayerTeamMembersInSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM) > 0)
 			{
 				return(FALSE);
 			}
@@ -2870,21 +2870,21 @@ static BOOLEAN CanCharacterSpreadPropaganda( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 	// underground propaganda is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
 	// is there a town really here
-	if( GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) == BLANK_SECTOR )
+	if( GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == BLANK_SECTOR )
 	{
 		return( FALSE );
 	}
 	// it's not a major city (Tixa, Estoni, Orta)
-	if( !gfTownUsesLoyalty[GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY )] )
+	if( !gfTownUsesLoyalty[GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] )
 	{
 		return( FALSE );
 	}
-	if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM) )
+	if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM) )
 	{
 		return( FALSE );
 	}
@@ -2901,21 +2901,21 @@ static BOOLEAN CanCharacterGatherInformation( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 	// underground propaganda is not allowed (code doesn't support and it's a reasonable enough limitation)
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		return( FALSE );
 	}
 	// is there a town really here
-	if( GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) == BLANK_SECTOR )
+	if( GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == BLANK_SECTOR )
 	{
 		return( FALSE );
 	}
 	// it's not a major city (Tixa, Estoni, Orta)
-	if( !gfTownUsesLoyalty[GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY )] )
+	if( !gfTownUsesLoyalty[GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] )
 	{
 		return( FALSE );
 	}
-	if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) )
+	if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) )
 	{
 		return( FALSE );
 	}
@@ -2931,11 +2931,11 @@ static BOOLEAN CanCharacterSnitchInPrison( SOLDIERTYPE *pSoldier )
 	{
 		return( FALSE );
 	}
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
-	if( IsSoldierKnownAsMercInSector(pSoldier, pSoldier->sSectorX, pSoldier->sSectorY ) ) 
+	if( IsSoldierKnownAsMercInSector(pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 	{
 		return( FALSE );
 	}
@@ -2943,15 +2943,15 @@ static BOOLEAN CanCharacterSnitchInPrison( SOLDIERTYPE *pSoldier )
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )][cnt].fFacilityHere)
 		{
 			// we determine wether this is a prison by checking for usPrisonBaseLimit
 			if (gFacilityTypes[cnt].AssignmentData[FAC_INTERROGATE_PRISONERS].usPrisonBaseLimit > 0)
 			{
 				// Are there any prisoners in this prison? note that there are no underground prisons
-				if ( !pSoldier->bSectorZ )
+				if ( !pSoldier->deployment().sectorZ() )
 				{
-					SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
+					SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ] );
 		
 					INT16 aPrisoners[PRISONER_MAX] = {0};
 					if ( GetNumberOfPrisoners( pSectorInfo, aPrisoners ) > 0 )
@@ -3136,7 +3136,7 @@ void VerifyTownTrainingIsPaidFor( void )
 		if( pSoldier->bActive && ( pSoldier->assignment().current() == TRAIN_TOWN ) )
 		{
 			// make sure that sector is paid up!
-			if( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE )
+			if( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].fMilitiaTrainingPaid == FALSE )
 			{
 				// NOPE!	We've got a bug somewhere
 				StopTimeCompression();
@@ -3166,7 +3166,7 @@ UINT8 FindNumberInSectorWithAssignment( INT16 sX, INT16 sY, INT8 bAssignment )
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
-			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) &&( pTeamSoldier->assignment().current() == bAssignment ) )
+			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) &&( pTeamSoldier->assignment().current() == bAssignment ) )
 			{
 				// increment number of people who are on this assignment
 				if(pTeamSoldier->bActive)
@@ -3274,7 +3274,7 @@ UINT16 CalculateHealingPointsForDoctor(SOLDIERTYPE *pDoctor, UINT16 *pusMaxPts, 
 	}
 
 	// HEADROCK HAM 3.5: Read bonus directly from Sector Facility info
-	if (pDoctor->bSectorZ == 0 &&
+	if (pDoctor->deployment().sectorZ() == 0 &&
 		GetSoldierFacilityAssignmentIndex(pDoctor) == FAC_DOCTOR )
 	{
 		// Read percentage modifier from the facility in question, including ambient effects.
@@ -3450,7 +3450,7 @@ UINT8 CalculateRepairPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts
 		//ubKitEffectiveness = 100;
 	}
 
-	if (pSoldier->bSectorZ == 0)
+	if (pSoldier->deployment().sectorZ() == 0)
 	{
 		if (GetSoldierFacilityAssignmentIndex( pSoldier ) == FAC_REPAIR_ITEMS ||
 			GetSoldierFacilityAssignmentIndex( pSoldier ) == FAC_REPAIR_VEHICLE ||
@@ -3532,10 +3532,10 @@ UINT32 CalculateInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts )
 	*pusMaxPts = 0;
 
 	// no soldier (how does that happen?) or underground -> no interrogation points, as there are no underground prisons
-	if ( !pSoldier || pSoldier->bSectorZ )
+	if ( !pSoldier || pSoldier->deployment().sectorZ() )
 		return 0;
 
-	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
+	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ] );
 	
 	INT16 aPrisoners[PRISONER_MAX] = {0};
 	*pusMaxPts = GetNumberOfPrisoners( pSectorInfo, aPrisoners );
@@ -3559,7 +3559,7 @@ UINT32 CalculateInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts )
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )][cnt].fFacilityHere)
 		{
 			// we determine wether this is a prison by checking for usPrisonBaseLimit
 			if (gFacilityTypes[cnt].AssignmentData[FAC_INTERROGATE_PRISONERS].usPrisonBaseLimit > 0)
@@ -3672,8 +3672,8 @@ static UINT32 CalculateAllGuardsValueInPrison( INT16 sMapX, INT16 sMapY, INT8 bZ
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
-			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) )
+		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) )
 		{
 			prisonguardvalue += CalculatePrisonGuardValue( guard );
 		}
@@ -3695,8 +3695,8 @@ static UINT32 CalculateAllSnitchesGuardValueInPrison( INT16 sMapX, INT16 sMapY, 
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
-			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) &&
+		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
 			guard->flags.fMercAsleep == FALSE )
 		{
 			prisonguardvalue += CalculateSnitchGuardValue(guard);
@@ -3719,8 +3719,8 @@ static UINT32 CalculateAllGuardsNumberInPrison( INT16 sMapX, INT16 sMapY, INT8 b
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->sSectorX == sMapX ) &&
-			( guard->sSectorY == sMapY ) && ( guard->bSectorZ == bZ) &&
+		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
 			guard->flags.fMercAsleep == FALSE )
 		{
 			// anv: undercover snitches don't count as guards as they don't guard in traditional sense
@@ -3744,13 +3744,13 @@ UINT32 CalculateSnitchInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPt
 	*pusMaxPts = 0;
 
 	// no soldier (how does that happen?) or underground -> no interrogation points, as there are no underground prisons
-	if ( !pSoldier || pSoldier->bSectorZ )
+	if ( !pSoldier || pSoldier->deployment().sectorZ() )
 		return 0;
 
 	if ( !CanCharacterSnitchInPrison(pSoldier) )
 		return 0;
 
-	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
+	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ] );
 
 	INT16 aPrisoners[PRISONER_MAX] = {0};
 	*pusMaxPts = GetNumberOfPrisoners( pSectorInfo, aPrisoners );
@@ -3784,7 +3784,7 @@ UINT32 CalculateSnitchInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPt
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )][cnt].fFacilityHere)
 		{
 			// we determine wether this is a snitchable prison by checking for ubStaffLimit
 			if (gFacilityTypes[cnt].AssignmentData[FAC_PRISON_SNITCH].ubStaffLimit > 0)
@@ -3824,7 +3824,7 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && (pSoldier->sSectorX == sSectorX) && (pSoldier->sSectorY == sSectorY) && (pSoldier->bSectorZ == sSectorZ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && (pSoldier->deployment().sectorX() == sSectorX) && (pSoldier->deployment().sectorY() == sSectorY) && (pSoldier->deployment().sectorZ() == sSectorZ) )
 		{
 			INT16 personal_bestsamcth = 70.0f +
 				15 * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) +
@@ -3892,7 +3892,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 {
 	UINT32 uiSuspicion = 0;	
 	UINT32 uiCoverQuality = 0;
-	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
+	SECTORINFO *pSectorInfo = &( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ] );
 	INT16 aPrisoners[PRISONER_MAX] = {0};
 	UINT16 numprisoners = GetNumberOfPrisoners( pSectorInfo, aPrisoners );
 
@@ -3915,7 +3915,7 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 		// yes, he was exposed!
 
 		// remember that he was exposed in this prison/sector, and by how many people (so when they all are processed he can be a snitch again)
-		MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY );
+		MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 		// handle aftermath
 
@@ -3932,14 +3932,14 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 		{
 			ScreenMsg( FONT_GRAY2, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_FINE_EXPLEVEL ], pSoldier->GetName() );
 		}
-		else if( CalculateAllGuardsValueInPrison( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) > PreRandom(100) ) // guards prevented assassination
+		else if( CalculateAllGuardsValueInPrison( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) > PreRandom(100) ) // guards prevented assassination
 		{
 			ScreenMsg( FONT_GRAY2, MSG_INTERFACE, pSnitchPrisonExposedStrings[ SNITCH_PRISON_EXPOSED_FINE_GUARDS], pSoldier->GetName() );
 		}
 		else // no, he didn't
 		{
 			// calculate how long it will take guards to react
-			UINT8 ubReactionTime = numprisoners / max(1, CalculateAllGuardsValueInPrison( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) );
+			UINT8 ubReactionTime = numprisoners / max(1, CalculateAllGuardsValueInPrison( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) );
 			UINT16 usDamageTaken = 0;
 
 			// decide prisoners' action
@@ -4152,7 +4152,7 @@ void HandleDoctorsInSector( INT16 sX, INT16 sY, INT8 bZ )
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if(pTeamSoldier->bActive)
 		{
-			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ ) )
+			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ ) )
 			{
 				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) )
 				{
@@ -4184,7 +4184,7 @@ void HandleDoctorMilitia()
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pSoldier && pSoldier->bActive && !pSoldier->bSectorZ && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->flags.fMercAsleep ) )
+		if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->flags.fMercAsleep ) )
 		{
 			// character is in sector, check if can doctor, if so...heal people
 			if ( EnoughTimeOnAssignment( pSoldier ) && CanCharacterDoctorMilitia( pSoldier ) )
@@ -4211,7 +4211,7 @@ void HandleDoctorMilitia()
 				// each healing point normally represents 1 hundreth of a HP
 				healpoints *= gGameExternalOptions.dIndividualMilitiaDoctorHealModifier;
 
-				UINT32 healpointsused = MilitiaIndividual_Heal( healpoints, SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) );
+				UINT32 healpointsused = MilitiaIndividual_Heal( healpoints, SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) );
 
 				// Finally use all kit points (we are sure, we have that much)
 				if ( !UseTotalMedicalKitPoints( pSoldier, max( 1, ( (healpointsused / gGameExternalOptions.dIndividualMilitiaDoctorHealModifier ) * bMedFactor ) / 100 ) ) )
@@ -4402,7 +4402,7 @@ BOOLEAN IsSoldierCloseEnoughToADoctor( SOLDIERTYPE *pPatient )
 	INT32 iCounter = 0;
 	CHAR16 sString[ 128 ];
 
-	if( ( pPatient->sSectorX != gWorldSectorX ) || ( pPatient->sSectorY != gWorldSectorY ) || ( pPatient->bSectorZ != gbWorldSectorZ ) )
+	if( !pPatient->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
 	{
 		// not currently loaded
 		return( TRUE );
@@ -4416,7 +4416,7 @@ BOOLEAN IsSoldierCloseEnoughToADoctor( SOLDIERTYPE *pPatient )
 		{
 
 			// are they two of these guys in the same sector?
-			if( ( pSoldier->sSectorX == pPatient->sSectorX ) && ( pSoldier->sSectorY == pPatient->sSectorY ) && ( pSoldier->bSectorZ == pPatient->bSectorZ ) )
+			if( pSoldier->deployment().isInSector( pPatient->deployment().sectorX(), pPatient->deployment().sectorY(), pPatient->deployment().sectorZ() ) )
 			{
 
 				// is a doctor
@@ -4479,7 +4479,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	}
 
 	// must be in the same sector
-	if( ( pSoldier->sSectorX != pDoctor->sSectorX ) || ( pSoldier->sSectorY != pDoctor->sSectorY ) || ( pSoldier->bSectorZ != pDoctor->bSectorZ ) )
+	if( ( pSoldier->deployment().sectorX() != pDoctor->deployment().sectorX() ) || ( pSoldier->deployment().sectorY() != pDoctor->deployment().sectorY() ) || ( pSoldier->deployment().sectorZ() != pDoctor->deployment().sectorZ() ) )
 	{
 		return(FALSE);
 	}
@@ -4791,7 +4791,7 @@ void CheckForAndHandleHospitalPatients( void )
 		{
 			if ( pTeamSoldier->assignment().current() == ASSIGNMENT_HOSPITAL )
 			{
-				if ( (pTeamSoldier->sSectorX == gModSettings.ubHospitalSectorX) && (pTeamSoldier->sSectorY == gModSettings.ubHospitalSectorY) && (pTeamSoldier->bSectorZ == gModSettings.ubHospitalSectorZ) )
+				if ( (pTeamSoldier->deployment().sectorX() == gModSettings.ubHospitalSectorX) && (pTeamSoldier->deployment().sectorY() == gModSettings.ubHospitalSectorY) && (pTeamSoldier->deployment().sectorZ() == gModSettings.ubHospitalSectorZ) )
 				{
 					// heal this character
 					HealPatient( pTeamSoldier, NULL, gGameExternalOptions.ubHospitalHealingRate * 100 );
@@ -4817,7 +4817,7 @@ void HandleRepairmenInSector( INT16 sX, INT16 sY, INT8 bZ )
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier->bActive )
 		{
-			if( ( pTeamSoldier->sSectorX == sX ) && ( pTeamSoldier->sSectorY == sY ) && ( pTeamSoldier->bSectorZ == bZ) )
+			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ) )
 			{
 				if ( IS_REPAIR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) )
 				{
@@ -4845,11 +4845,11 @@ INT8 HandleRepairOfSAMSite( SOLDIERTYPE *pSoldier, INT8 bPointsAvailable, BOOLEA
 	INT8 bPtsUsed = 0;
 	INT16 sStrategicSector = 0;
 
-	if( IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) == FALSE )
+	if( IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == FALSE )
 	{
 		return( bPtsUsed );
 	}
-	else if( ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->bSectorZ == gbWorldSectorZ )&&( pSoldier->sSectorY == gWorldSectorY ) )
+	else if( pSoldier->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
 	{
 		if( CanSoldierRepairSAM( pSoldier, bPointsAvailable ) == FALSE )
 		{
@@ -4859,7 +4859,7 @@ INT8 HandleRepairOfSAMSite( SOLDIERTYPE *pSoldier, INT8 bPointsAvailable, BOOLEA
 
 	// repair the SAM
 
-	sStrategicSector = CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY );
+	sStrategicSector = CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// do we have more than enough?
 	if( 100 - StrategicMap[ sStrategicSector ].bSAMCondition >= bPointsAvailable / SAM_SITE_REPAIR_DIVISOR )
@@ -4881,7 +4881,7 @@ INT8 HandleRepairOfSAMSite( SOLDIERTYPE *pSoldier, INT8 bPointsAvailable, BOOLEA
 // FULL STRENGTH (condition 100), but as soon as it reaches MIN_CONDITION_TO_FIX_SAM!!!
 
 		// Bring Hit points back up to full, adjust graphic to full graphic.....
-		UpdateSAMDoneRepair( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+		UpdateSAMDoneRepair( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
 
 	if ( StrategicMap[ sStrategicSector ].bSAMCondition == 100 )
@@ -5481,7 +5481,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 		if ( CanSoldierRepairSAM( pSoldier ) && ubRepairPtsLeft > 0 )
 		{
 			// repair the SAM
-			INT16 sStrategicSector = CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY );
+			INT16 sStrategicSector = CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 			INT8 samrepairptsused = min( ubRepairPtsLeft / SAM_SITE_REPAIR_DIVISOR, 100 - StrategicMap[sStrategicSector].bSAMCondition );
 
@@ -5490,7 +5490,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 			if ( StrategicMap[sStrategicSector].bSAMCondition > MIN_CONDITION_SHOW_SAM_CONTROLLER )
 			{
 				// Bring Hit points back up to full, adjust graphic to full graphic.....
-				UpdateSAMDoneRepair( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				UpdateSAMDoneRepair( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			}
 			else
 			{
@@ -5728,7 +5728,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 		StatChange( pSoldier, DEXTAMT,	( UINT16 ) (ubRepairPtsUsed / 2), FALSE );
 
 		// HEADROCK HAM 3.6: Facilities can change the speed of kit degrade.
-		if (pSoldier->bSectorZ == 0)
+		if (pSoldier->deployment().sectorZ() == 0)
 		{
 			usKitDegrade = GetSectorModifier( pSoldier, FACILITY_KIT_DEGRADE_MOD );
 		}
@@ -5983,21 +5983,21 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 				CASE_REPAIR:
 				case TRAIN_TEAMMATE:
 					if ( Chance( 60 ) )
-						HandleMoraleEvent( pSoldier, MORALE_PACIFIST_GAIN_NONCOMBAT, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						HandleMoraleEvent( pSoldier, MORALE_PACIFIST_GAIN_NONCOMBAT, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 					break;
 				case TRAIN_BY_OTHER:
 				case TRAIN_SELF:
 				case SNITCH_SPREAD_PROPAGANDA:
 				case SNITCH_GATHER_RUMOURS:
 					if ( Chance( 20 ) )
-						HandleMoraleEvent( pSoldier, MORALE_PACIFIST_GAIN_NONCOMBAT, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						HandleMoraleEvent( pSoldier, MORALE_PACIFIST_GAIN_NONCOMBAT, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 					break;
 			}
 		}
 	}
 
 	// HEADROCK HAM 3.5: Read adjustment from local sector facilities
-	if (pSoldier->bSectorZ == 0)
+	if (pSoldier->deployment().sectorZ() == 0)
 	{
 		sSectorModifier = GetSectorModifier( pSoldier, FACILITY_FATIGUE_MOD );
 		bMaxBreathLoss = (bMaxBreathLoss * sSectorModifier) / 100;
@@ -6090,7 +6090,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ) )
+			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ) )
 			{
 				// if he's training teammates in this stat
 				if( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == ubStat) && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
@@ -6114,7 +6114,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	{
 		pStudent = GetJa2SoldierRepository().resolve(uiCnt);
 		// see if this merc is active and in the same sector
-		if( ( pStudent->bActive) && ( pStudent->sSectorX == sMapX ) && ( pStudent->sSectorY == sMapY ) && ( pStudent->bSectorZ == bZ ) )
+		if( ( pStudent->bActive) && ( pStudent->deployment().sectorX() == sMapX ) && ( pStudent->deployment().sectorY() == sMapY ) && ( pStudent->deployment().sectorZ() == bZ ) )
 		{
 			// if he's training himself (alone, or by others), then he's a student
 			if ( ( pStudent->assignment().current() == TRAIN_SELF ) || ( pStudent->assignment().current() == TRAIN_BY_OTHER ) )
@@ -6135,7 +6135,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 						{
 /* Assignment distance limits removed.	Sep/11/98.	ARM
 							// if this sector either ISN'T currently loaded, or it is but the trainer is close enough to the student
-							if ( ( sMapX != gWorldSectorX ) || ( sMapY != gWorldSectorY ) || ( pStudent->bSectorZ != gbWorldSectorZ ) ||
+							if ( ( sMapX != gWorldSectorX ) || ( sMapY != gWorldSectorY ) || ( pStudent->deployment().sectorZ() != gbWorldSectorZ ) ||
 									( PythSpacesAway( pStudent->sGridNo, pTrainer->sGridNo ) < MAX_DISTANCE_FOR_TRAINING ) && ( EnoughTimeOnAssignment( pTrainer ) ) )
 */
 							// NB this EnoughTimeOnAssignment() call is redundent since it is called up above
@@ -6185,7 +6185,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
+			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
 				if( ( pTrainer->assignment().current() == TRAIN_TOWN ) && ( EnoughTimeOnAssignment( pTrainer ) )	&& ( pTrainer->flags.fMercAsleep == FALSE ) )
 				{
@@ -6238,7 +6238,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
+			if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
 				if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
 				{
@@ -6276,7 +6276,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 				for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 				{
 					pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-					if ( pTrainer->bActive && ( pTrainer->sSectorX == sMapX ) && ( pTrainer->sSectorY == sMapY ) && ( pTrainer->bSectorZ == bZ ) )
+					if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 					{
 						if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
 						{
@@ -6315,7 +6315,7 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if( ( pSoldier->assignment().current() == RADIO_SCAN ) && ( EnoughTimeOnAssignment( pSoldier ) ) && ( pSoldier->flags.fMercAsleep == FALSE ) )
 			{
@@ -6389,7 +6389,7 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && (pSoldier->assignment().current() == RADIO_SCAN) && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -6438,7 +6438,7 @@ void HandleDiseaseDiagnosis()
 			{
 				pTeamSoldier = GetJa2SoldierRepository().resolve(uiCnt2);
 				if ( pTeamSoldier->bActive 
-						&& pTeamSoldier->sSectorX == pSoldier->sSectorX && pTeamSoldier->sSectorY == pSoldier->sSectorY && pTeamSoldier->bSectorZ == pSoldier->bSectorZ )
+						&& pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 				{
 					for ( int i = 0; i < NUM_DISEASES; ++i )
 					{
@@ -6492,7 +6492,7 @@ void HandleDiseaseDiagnosis()
 			// we can also diagnose disease in a sector
 			if ( gGameExternalOptions.fDiseaseStrategic )
 			{
-				UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+				UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 				SECTORINFO *pSectorInfo = &(SectorInfo[sector]);
 
@@ -6542,7 +6542,7 @@ void HandleStrategicDiseaseAndBurial()
 					{
 						pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 						if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->flags.fMercAsleep &&
-							pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && !pSoldier->bSectorZ && EnoughTimeOnAssignment( pSoldier ) )
+							pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 						{
 							corpseremovalpoints += pSoldier->GetBurialPoints( NULL );
 						}
@@ -6675,7 +6675,7 @@ void HandleStrategicDiseaseAndBurial()
 						{
 							pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 							if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->flags.fMercAsleep &&
-								pSoldier->sSectorX == sX && pSoldier->sSectorY == sY && !pSoldier->bSectorZ && EnoughTimeOnAssignment( pSoldier ) )
+								pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 							{
 								StatChange( pSoldier, STRAMT, 8, FALSE );
 							}
@@ -6702,11 +6702,11 @@ void HandleStrategicDiseaseAndBurial()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR && !pSoldier->bSectorZ &&
+		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR && !pSoldier->deployment().sectorZ() &&
 			!pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) && CanCharacterTreatSectorDisease( pSoldier ) )
 		{
 			// if we are doctoring in a sector, then we know for sure that there is disease here
-			SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )] );
+			SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
 
 			if ( pSectorInfo && pSectorInfo->fDiseasePoints )
 			{
@@ -6726,7 +6726,7 @@ void HandleStrategicDiseaseAndBurial()
 				// doctoring points are limited by medical supplies
 				ptsavailable = min( ptsavailable, usTotalMedPoints * 100 );
 
-				UINT32 ptsused = HealSectorPopulation( pSoldier->sSectorX, pSoldier->sSectorY, ptsavailable );
+				UINT32 ptsused = HealSectorPopulation( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ptsavailable );
 
 				// Finaly use all kit points (we are sure, we have that much)
 				if ( !UseTotalMedicalKitPoints( pSoldier, ptsused / 100 ) )
@@ -6793,10 +6793,10 @@ void HandleSpyAssignments()
 		{
 			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
-				INT8 sectorz = max( 0, pSoldier->bSectorZ - 10 );
+				INT8 sectorz = max( 0, pSoldier->deployment().sectorZ() - 10 );
 				
 				// if this sector no longer has an enemy presence, we cannot conceal anymore
-				if ( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, sectorz ) == 0 )
+				if ( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), sectorz ) == 0 )
 				{
 					// drop us into the sector on duty
 					INT8 bNewSquad = GetFirstEmptySquad();
@@ -6806,9 +6806,9 @@ void HandleSpyAssignments()
 
 						AddCharacterToSquad( pSoldier, bNewSquad );
 
-						UpdateMercsInSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						UpdateMercsInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
-						GroupArrivedAtSector( pSoldier->ubGroupID, TRUE, TRUE );
+						GroupArrivedAtSector( pSoldier->deployment().groupId(), TRUE, TRUE );
 
 						ScreenMsg( FONT_MCOLOR_RED, MSG_INTERFACE, szIntelText[0], pSoldier->GetName() );
 					}
@@ -6865,9 +6865,9 @@ void HandleSpyAssignments()
 
 			AddCharacterToSquad( pSoldier, bNewSquad );
 
-			UpdateMercsInSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+			UpdateMercsInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
-			GroupArrivedAtSector( pSoldier->ubGroupID, TRUE, TRUE );
+			GroupArrivedAtSector( pSoldier->deployment().groupId(), TRUE, TRUE );
 
 			ScreenMsg( FONT_MCOLOR_RED, MSG_INTERFACE, szIntelText[2], pSoldier->GetName() );
 		}
@@ -6896,13 +6896,13 @@ static UINT16 GetNumberofAdministratableMercs( INT16 sX, INT16 sY )
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier
 			&& !pSoldier->flags.fMercAsleep 
-			&& !pSoldier->bSectorZ
+			&& !pSoldier->deployment().sectorZ()
 			&& EnoughTimeOnAssignment( pSoldier )
 			)
 		{
-			UINT8 townid = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
-			if ( ( pSoldier->sSectorX == sX && pSoldier->sSectorY == sY )
+			if ( ( pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY )
 				|| ( townid == townid_origin ) )
 			{
 				if ( ADMINISTRATION_BONUS( pSoldier->assignment().current() ) )
@@ -6935,8 +6935,8 @@ FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY )
 			if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				// sum up the points for towns, if not a town, for sectors
-				UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
-				INT8 townid = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+				UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
+				INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 				if ( (data.sector == sector) || (data.townid != BLANK_SECTOR && data.townid == townid) )
 				{
@@ -6965,10 +6965,10 @@ void HandleAdministrationAssignments()
 		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// sum up the points for towns, if not a town, for sectors
-			UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
-			INT8 townid = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
+			INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			UINT32 val = pSoldier->GetAdministrationPoints();
-			UINT16 mercs = GetNumberofAdministratableMercs( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT16 mercs = GetNumberofAdministratableMercs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 			BOOLEAN found = FALSE;
 			for ( std::vector<admintmpstruct>::iterator it = helpervec.begin(), itend = helpervec.end(); it != itend; ++it )
@@ -7011,8 +7011,8 @@ void HandleAdministrationAssignments()
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 		{
-			UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
-			INT8 townid = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
+			INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			UINT32 val = pSoldier->GetAdministrationPoints();
 
 			FLOAT percentage = 0;
@@ -7061,10 +7061,10 @@ void HandleExplorationAssignments()
 
 			bool awardpts = false;
 
-			if ( pSoldier->bSectorZ )
+			if ( pSoldier->deployment().sectorZ() )
 			{
 				UNDERGROUND_SECTORINFO *pSector;
-				pSector = FindUnderGroundSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				pSector = FindUnderGroundSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 				if ( pSector && pSector->usExplorationProgress < 250 )
 				{
 					awardpts = true;
@@ -7077,7 +7077,7 @@ void HandleExplorationAssignments()
 						pSector->usExplorationProgress = 255;
 
 						CHAR16 wSectorName[64];
-						GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, wSectorName );
+						GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), wSectorName );
 
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_ASSIGNMENT_EXPLORATION_DONE], pSoldier->GetName(), wSectorName );
 
@@ -7095,7 +7095,7 @@ void HandleExplorationAssignments()
 			}
 			else
 			{
-				SECTORINFO* pSector = &( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )] );
+				SECTORINFO* pSector = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
 
 				if ( pSector && pSector->usExplorationProgress < 250 )
 				{
@@ -7109,7 +7109,7 @@ void HandleExplorationAssignments()
 						pSector->usExplorationProgress = 255;
 
 						CHAR16 wSectorName[64];
-						GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, wSectorName );
+						GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), wSectorName );
 
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_ASSIGNMENT_EXPLORATION_DONE], pSoldier->GetName(), wSectorName );
 
@@ -7149,9 +7149,9 @@ void HandleMiniEventAssignments()
 		{
 			if (--pSoldier->assignment().miniEventHoursRemaining() == 0)
 			{
-				pSoldier->bSectorZ -= MINI_EVENT_Z_OFFSET;
-				pSoldier->ubInsertionDirection = DIRECTION_IRRELEVANT;
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_CENTER;
+				pSoldier->deployment().sectorZ() -= MINI_EVENT_Z_OFFSET;
+				pSoldier->deployment().insertionDirection() = DIRECTION_IRRELEVANT;
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 				AssignmentDone(pSoldier, TRUE, FALSE);
 				AddCharacterToAnySquad(pSoldier);
 			}
@@ -7185,7 +7185,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
-			( ( pSnitch->sSectorX == sMapX && pSnitch->sSectorY == sMapY && pSnitch->bSectorZ == bZ ) || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
+			( ( pSnitch->deployment().sectorX() == sMapX && pSnitch->deployment().sectorY() == sMapY && pSnitch->deployment().sectorZ() == bZ ) || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
 			uiPropagandaEffect += GAIN_PTS_PER_LOYALTY_PT * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
@@ -7213,7 +7213,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSnitch->bActive && ( pSnitch->sSectorX == sMapX ) && ( pSnitch->sSectorY == sMapY ) && ( pSnitch->bSectorZ == bZ) )
+		if( pSnitch->bActive && ( pSnitch->deployment().sectorX() == sMapX ) && ( pSnitch->deployment().sectorY() == sMapY ) && ( pSnitch->deployment().sectorZ() == bZ) )
 		{
 			if( ( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA ) && ( EnoughTimeOnAssignment( pSnitch ) ) && ( pSnitch->flags.fMercAsleep == FALSE ) )
 			{
@@ -7238,7 +7238,7 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
-			( GetTownIdForSector( pSnitch->sSectorX, pSnitch->sSectorY ) == bTownId || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
+			( GetTownIdForSector( pSnitch->deployment().sectorX(), pSnitch->deployment().sectorY() ) == bTownId || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
 			fPropagandaEffect = 0.5 * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
@@ -7265,7 +7265,7 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 void HandleGatheringInformationBySoldier( SOLDIERTYPE* pSoldier )
 {
 	// if sector not under our control, has enemies in it, or is currently in combat mode
-	if (!SectorOursAndPeaceful( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ))
+	if (!SectorOursAndPeaceful( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ))
 		return;
 
 	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->flags.fMercAsleep == TRUE || pSoldier->flags.fBetweenSectors == TRUE )
@@ -7569,7 +7569,7 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 	// get special bonus if we're training marksmanship and we're in the gun range sector in Alma
 	// HEADROCK HAM 3.5: Now reads from XML facilities, and works for all stats.
 	UINT8 bFacilityModifier = 100;
-	if ( pInstructor->bSectorZ == 0 )
+	if ( pInstructor->deployment().sectorZ() == 0 )
 	{
 		bFacilityModifier = (UINT8)GetSectorModifier( pInstructor, FACILITY_PERFORMANCE_MOD );
 	}
@@ -7691,7 +7691,7 @@ INT16 GetSoldierTrainingPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pus
 
 	// get special bonus if we're training marksmanship and we're in the gun range sector in Alma
 	// HEADROCK HAM 3.5: Now reads from XML facilities, and works for all stats.
-	if ( pSoldier->bSectorZ == 0 )
+	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		bTrainingBonus += (GetSectorModifier( pSoldier, FACILITY_PERFORMANCE_MOD ) - 100 );
 	}
@@ -7818,7 +7818,7 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 
 	// get special bonus if we're training marksmanship and we're in the gun range sector in Alma
 	// HEADROCK HAM 3.5: Now reads from XML facilities, and works for all stats.
-	if ( pSoldier->bSectorZ == 0 )
+	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		bTrainingBonus += ( GetSectorModifier( pSoldier, FACILITY_PERFORMANCE_MOD ) - 100 );
 	}
@@ -7848,7 +7848,7 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pTrainer->bActive && ( pTrainer->sSectorX == pSoldier->sSectorX ) && ( pTrainer->sSectorY == pSoldier->sSectorY ) && ( pTrainer->bSectorZ == pSoldier->bSectorZ) )
+		if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == pSoldier->deployment().sectorX() ) && ( pTrainer->deployment().sectorY() == pSoldier->deployment().sectorY() ) && ( pTrainer->deployment().sectorZ() == pSoldier->deployment().sectorZ()) )
 		{
 			// if he's training teammates in this stat
 			// NB skip the EnoughTime requirement to display what the value should be even if haven't been training long yet...
@@ -7947,7 +7947,7 @@ BOOLEAN TrainTownInSector( SOLDIERTYPE *pTrainer, INT16 sMapX, INT16 sMapY, INT1
 	BOOLEAN fSamSiteInSector = IsThisSectorASAMSector( sMapX, sMapY, 0 );
 
 	// get town index
-	ubTownId = StrategicMap[CALCULATE_STRATEGIC_INDEX(pTrainer->sSectorX, pTrainer->sSectorY ) ].bNameId;
+	ubTownId = StrategicMap[CALCULATE_STRATEGIC_INDEX(pTrainer->deployment().sectorX(), pTrainer->deployment().sectorY() ) ].bNameId;
 	if( fSamSiteInSector == FALSE && !RebelCommand::CanTrainMilitiaAnywhere())
 	{
 		AssertNE(ubTownId, BLANK_SECTOR);
@@ -8263,7 +8263,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -8394,7 +8394,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -8852,7 +8852,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) && pSoldier->flags.fMercAsleep == FALSE )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->flags.fMercAsleep == FALSE )
 		{
 			if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
@@ -9098,7 +9098,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( ; id <= lastid; ++id)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if( pSoldier->bActive && ( pSoldier->sSectorX == sMapX ) && ( pSoldier->sSectorY == sMapY ) && ( pSoldier->bSectorZ == bZ) && pSoldier->flags.fMercAsleep == FALSE )
+			if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->flags.fMercAsleep == FALSE )
 			{
 				if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 				{
@@ -9127,14 +9127,14 @@ void HandleTrainWorkers()
 	for ( ; id <= lastid; ++id)
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && !pSoldier->bSectorZ && !pSoldier->flags.fMercAsleep )
+		if( pSoldier->bActive && !pSoldier->deployment().sectorZ() && !pSoldier->flags.fMercAsleep )
 		{
 			if( ( pSoldier->assignment().current() == TRAIN_WORKERS ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
-				if ( !SectorOursAndPeaceful( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+				if ( !SectorOursAndPeaceful( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 					continue;
 
-				UINT8 ubTownId = StrategicMap[ CALCULATE_STRATEGIC_INDEX(pSoldier->sSectorX, pSoldier->sSectorY) ].bNameId;
+				UINT8 ubTownId = StrategicMap[ CALCULATE_STRATEGIC_INDEX(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) ].bNameId;
 
 				// Flugente: adjust for workforce
 				UINT16 maxworkforce = 0;
@@ -9142,7 +9142,7 @@ void HandleTrainWorkers()
 
 				if ( workforce < maxworkforce && gGameExternalOptions.usWorkerTrainingPoints > 0 )
 				{
-					UINT8 sector = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+					UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 					SECTORINFO *pSectorInfo = &(SectorInfo[sector]);
 
 					if ( !pSectorInfo )
@@ -9185,10 +9185,10 @@ void HandleFortification()
 		{
 			if ( (pSoldier->assignment().current() == FORTIFICATION) && CanCharacterFortify( pSoldier ) )
 			{
-				if ( pSoldier->bSectorZ )
+				if ( pSoldier->deployment().sectorZ() )
 				{
 					UNDERGROUND_SECTORINFO *pSectorInfo;
-					pSectorInfo = FindUnderGroundSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+					pSectorInfo = FindUnderGroundSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 					if ( pSectorInfo )
 					{
@@ -9198,7 +9198,7 @@ void HandleFortification()
 				else
 				{
 					SECTORINFO *pSectorInfo;
-					pSectorInfo = &SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )];
+					pSectorInfo = &SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )];
 
 					if ( pSectorInfo )
 					{
@@ -9279,11 +9279,11 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 	sTrainingBonus += RebelCommand::GetMilitiaTrainingSpeedBonus();
 
 	// HEADROCK HAM 3.5: Training bonus given by local facilities
-	if (pTrainer->bSectorZ == 0)
+	if (pTrainer->deployment().sectorZ() == 0)
 	{
 		for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 		{
-			if (gFacilityLocations[SECTOR(pTrainer->sSectorX, pTrainer->sSectorY)][cnt].fFacilityHere)
+			if (gFacilityLocations[SECTOR(pTrainer->deployment().sectorX(), pTrainer->deployment().sectorY())][cnt].fFacilityHere)
 			{
 				if (pTrainer->assignment().current() == TRAIN_TOWN || pTrainer->assignment().current() == DRILL_MILITIA )
 				{
@@ -9313,7 +9313,7 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 
 /* ARM: Decided this didn't make much sense - the guys I'm training damn well BETTER be loyal - and screw the rest!
 	// get town index
-	ubTownId = StrategicMap[ pTrainer->sSectorX + pTrainer->sSectorY * MAP_WORLD_X ].bNameId;
+	ubTownId = StrategicMap[ pTrainer->deployment().sectorX() + pTrainer->deployment().sectorY() * MAP_WORLD_X ].bNameId;
 	AssertNE(ubTownId, BLANK_SECTOR);
 
 	// adjust for town loyalty
@@ -9331,15 +9331,15 @@ void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier )
 		// Set animation based on his assignment
 		if ( IS_DOCTOR(pSoldier->assignment().current()) )
 		{
-			SoldierInSectorDoctor( pSoldier, pSoldier->usStrategicInsertionData );
+			SoldierInSectorDoctor( pSoldier, pSoldier->deployment().strategicInsertionData() );
 		}
 		else if ( IS_PATIENT(pSoldier->assignment().current()) )
 		{
-			SoldierInSectorPatient( pSoldier, pSoldier->usStrategicInsertionData );
+			SoldierInSectorPatient( pSoldier, pSoldier->deployment().strategicInsertionData() );
 		}
 		else if ( IS_REPAIR(pSoldier->assignment().current()) )
 		{
-			SoldierInSectorRepair( pSoldier, pSoldier->usStrategicInsertionData );
+			SoldierInSectorRepair( pSoldier, pSoldier->deployment().strategicInsertionData() );
 		}
 		else
 		{
@@ -9527,7 +9527,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 	else if ( pSoldier->assignment().current() < ON_DUTY )
 	{
 		// if time is being compressed, and the soldier is not moving strategically
-		if ( IsTimeBeingCompressed() && !PlayerIDGroupInMotion( pSoldier->ubGroupID ) )
+		if ( IsTimeBeingCompressed() && !PlayerIDGroupInMotion( pSoldier->deployment().groupId() ) )
 		{
 			// basically resting
 			bActivityLevelDivisor = gGameExternalOptions.ubLowActivityLevel;
@@ -10042,7 +10042,7 @@ BOOLEAN DisplayRepairMenu( SOLDIERTYPE *pSoldier )
 	// PLEASE NOTE: make sure any changes you do here are reflected in all 3 routines which must remain in synch:
 	// CreateDestroyMouseRegionForRepairMenu(), DisplayRepairMenu(), and HandleShadingOfLinesForRepairMenu().
 
-	if( pSoldier->bSectorZ == 0 )
+	if( pSoldier->deployment().sectorZ() == 0 )
 	{
 		// run through list of vehicles and see if any in sector
 		for ( iVehicleIndex = 0; iVehicleIndex < ubNumberOfVehicles; ++iVehicleIndex )
@@ -10063,14 +10063,14 @@ BOOLEAN DisplayRepairMenu( SOLDIERTYPE *pSoldier )
 	}
 
 	// is there a SAM SITE Here?
-	if ( IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) && IsTheSAMSiteInSectorRepairable( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if ( IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) && IsTheSAMSiteInSectorRepairable( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		// SAM site
 		AddMonoString( (UINT32 *)&hStringHandle, pRepairStrings[1] );
 	}
 	
 	// is the ROBOT here?
-	if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		// robot
 		AddMonoString((UINT32 *)&hStringHandle, pRepairStrings[ 3 ] );
@@ -10113,7 +10113,7 @@ void HandleShadingOfLinesForRepairMenu( void )
 	// PLEASE NOTE: make sure any changes you do here are reflected in all 3 routines which must remain in synch:
 	// CreateDestroyMouseRegionForRepairMenu(), DisplayRepairMenu(), and HandleShadingOfLinesForRepairMenu().
 
-	if ( pSoldier->bSectorZ == 0 )
+	if ( pSoldier->deployment().sectorZ() == 0 )
 	{
 		for ( iVehicleIndex = 0; iVehicleIndex < ubNumberOfVehicles; ++iVehicleIndex )
 		{
@@ -10142,7 +10142,7 @@ void HandleShadingOfLinesForRepairMenu( void )
 		}
 	}
 	
-	if ( IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) && IsTheSAMSiteInSectorRepairable( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if ( IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) && IsTheSAMSiteInSectorRepairable( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		// handle enable disable of repair sam option
 		if( CanSoldierRepairSAM( pSoldier ) && bHasToolkit )
@@ -10159,7 +10159,7 @@ void HandleShadingOfLinesForRepairMenu( void )
 		++iCount;
 	}
 
-	if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		// handle shading of repair robot option
 		if( CanCharacterRepairRobot( pSoldier ) && bHasToolkit )
@@ -10237,7 +10237,7 @@ void CreateDestroyMouseRegionForRepairMenu( void )
 		// PLEASE NOTE: make sure any changes you do here are reflected in all 3 routines which must remain in synch:
 		// CreateDestroyMouseRegionForRepairMenu(), DisplayRepairMenu(), and HandleShadingOfLinesForRepairMenu().
 
-		if ( pSoldier->bSectorZ == 0 )
+		if ( pSoldier->deployment().sectorZ() == 0 )
 		{
 			// vehicles
 			for ( iVehicleIndex = 0; iVehicleIndex < ubNumberOfVehicles; ++iVehicleIndex )
@@ -10267,7 +10267,7 @@ void CreateDestroyMouseRegionForRepairMenu( void )
 		// Now there is. Flugente 2016-10-13
 		// No point in allowing SAM site repair any more.	Jan/13/99.	ARM
 		// SAM site
-		if ( IsThisSectorASAMSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) && IsTheSAMSiteInSectorRepairable( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+		if ( IsThisSectorASAMSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) && IsTheSAMSiteInSectorRepairable( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 		{
 			MSYS_DefineRegion( &gRepairMenuRegion[ iCount ], 	( INT16 )( iBoxXPosition ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * iCount ), ( INT16 )( iBoxXPosition + iBoxWidth ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * ( iCount + 1 ) ), MSYS_PRIORITY_HIGHEST - 4 ,
 								MSYS_NO_CURSOR, RepairMenuMvtCallback, RepairMenuBtnCallback );
@@ -10278,7 +10278,7 @@ void CreateDestroyMouseRegionForRepairMenu( void )
 		}
 		
 		// robot
-		if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+		if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 		{
 			MSYS_DefineRegion( &gRepairMenuRegion[ iCount ], 	( INT16 )( iBoxXPosition ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * iCount ), ( INT16 )( iBoxXPosition + iBoxWidth ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * ( iCount + 1 ) ), MSYS_PRIORITY_HIGHEST - 4 ,
 								MSYS_NO_CURSOR, RepairMenuMvtCallback, RepairMenuBtnCallback );
@@ -10882,7 +10882,7 @@ void HandleShadingOfLinesForAssignmentMenus( void )
 			// administration
 			if ( CanCharacterAdministration( pSoldier ) )
 			{
-				if ( GetNumberofAdministratableMercs( pSoldier->sSectorX, pSoldier->sSectorY ) )
+				if ( GetNumberofAdministratableMercs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 				{
 					UnShadeStringInBox( ghAssignmentBox, ASSIGN_MENU_ADMINISTRATION );
 					UnSecondaryShadeStringInBox( ghAssignmentBox, ASSIGN_MENU_ADMINISTRATION );
@@ -12871,7 +12871,7 @@ static void MercDismissConfirmCallBack( UINT8 bExitValue )
 	if ( bExitValue == MSG_BOX_RETURN_YES && soldier )
 	{
 		// Setup history code
-		soldier->ubLeaveHistoryCode = HISTORY_MERC_FIRED;
+		soldier->deployment().leaveHistoryCode() = HISTORY_MERC_FIRED;
 
 		BeginRemoveMercFromContract( soldier );
 	}
@@ -13140,7 +13140,7 @@ void SquadMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				{
 					if( pSoldier->assignment().current() == VEHICLE )
 					{
-						if( GetNumberInVehicle( pSoldier->iVehicleId ) == 1 )
+						if( GetNumberInVehicle( pSoldier->deployment().vehicleId() ) == 1 )
 						{
 							// can't change, go away
 							return;
@@ -13148,15 +13148,15 @@ void SquadMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					}
 				}
 
-				if( pSoldier->ubGroupID )
+				if( pSoldier->deployment().groupId() )
 				{
-					GetGroupPosition(&ubNextX, &ubNextY, &ubPrevX, &ubPrevY, &uiTraverseTime, &uiArriveTime, pSoldier->ubGroupID );
+					GetGroupPosition(&ubNextX, &ubNextY, &ubPrevX, &ubPrevY, &uiTraverseTime, &uiArriveTime, pSoldier->deployment().groupId() );
 				}
 */
 				pSoldier->assignment().previous() = pSoldier->assignment().current();
 
 				// silversurfer: This guy was in the heli and gets out in a hostile sector. Everyone else get out of the heli and start combat!
-				if ( pSoldier->assignment().previous() == VEHICLE && pSoldier->iVehicleId == iHelicopterVehicleId && NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+				if ( pSoldier->assignment().previous() == VEHICLE && pSoldier->deployment().vehicleId() == iHelicopterVehicleId && NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 				{
 					UINT8 ubGroupID = MoveAllInHelicopterToFootMovementGroup( iValue );
 					if(gGameExternalOptions.ubSkyriderHotLZ == 1) gfCantRetreatInPBI = TRUE;//shadooow: disable retreat if hotdrops can only be done in center of the map
@@ -13176,14 +13176,14 @@ void SquadMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// Flugente: if we manually set a concealed merc to no longer be concealed, we have to check on whether they enter combat
 					if ( SPY_LOCATION( pSoldier->assignment().previous() ) )
 					{
-						UpdateMercsInSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+						UpdateMercsInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
-						GroupArrivedAtSector( pSoldier->ubGroupID, TRUE, TRUE );
+						GroupArrivedAtSector( pSoldier->deployment().groupId(), TRUE, TRUE );
 					}
 
 					if( pSoldier->assignment().previous() == VEHICLE )
 					{
-						SetSoldierExitVehicleInsertionData( pSoldier, pSoldier->iVehicleId, pSoldier->ubGroupID );
+						SetSoldierExitVehicleInsertionData( pSoldier, pSoldier->deployment().vehicleId(), pSoldier->deployment().groupId() );
 					}
 
 					//Clear any desired squad assignments -- seeing the player has physically changed it!
@@ -13200,7 +13200,7 @@ void SquadMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						GetSquadPosition( &ubNextX, &ubNextY, &ubPrevX, &ubPrevY, &uiTraverseTime, &uiArriveTime,	( UINT8 )iOldSquadValue );
 					}
 
-					SetGroupPosition( ubNextX, ubNextY, ubPrevX, ubPrevY, uiTraverseTime, uiArriveTime, pSoldier->ubGroupID );
+					SetGroupPosition( ubNextX, ubNextY, ubPrevX, ubPrevY, uiTraverseTime, uiArriveTime, pSoldier->deployment().groupId() );
 				}
 */
 
@@ -14240,7 +14240,7 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 						pSoldier->assignment().previous() = pSoldier->assignment().current();
 						
-						if( pSoldier->bSectorZ == 0 && DisplayRepairMenu( pSoldier ) )
+						if( pSoldier->deployment().sectorZ() == 0 && DisplayRepairMenu( pSoldier ) )
 						{
 							gAssignMenuState = ASMENU_REPAIR;
 							DetermineBoxPositions();
@@ -14330,7 +14330,7 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 						pSoldier->assignment().previous() = pSoldier->assignment().current();
 
-						if( pSoldier->bSectorZ == 0 && DisplayMoveItemsMenu( pSoldier ) )
+						if( pSoldier->deployment().sectorZ() == 0 && DisplayMoveItemsMenu( pSoldier ) )
 						{
 							gAssignMenuState = ASMENU_MOVEITEM;
 							DetermineBoxPositions();
@@ -16495,7 +16495,7 @@ void HandleRestFatigueAndSleepStatus( void )
 			}
 
 			// HEADROCK HAM 3.5: Enforce breath limits from sector facilities
-			if (pSoldier->bSectorZ == 0)
+			if (pSoldier->deployment().sectorZ() == 0)
 			{
 				// Find maximum breath allowed by facilities (lowest limit found will be used)
 				UINT8 ubMaxFatigue = (UINT8)GetSectorModifier( pSoldier, FACILITY_MAX_BREATH );
@@ -16722,7 +16722,7 @@ BOOLEAN CanCharacterRepairVehicle( SOLDIERTYPE *pSoldier, INT32 iVehicleId )
 
 /* Assignment distance limits removed.	Sep/11/98.	ARM
 	// if currently loaded sector, are we close enough?
-	if( ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ ) )
+	if( pSoldier->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
 	{
 		if( PythSpacesAway( pSoldier->sGridNo, pVehicleList[ iVehicleId ].sGridNo ) > MAX_DISTANCE_FOR_REPAIR )
 		{
@@ -16744,7 +16744,7 @@ BOOLEAN IsRobotInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 
 	if ( pSoldier != NULL )
 	{
-		if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) && ( pSoldier->flags.fBetweenSectors == FALSE ) )
+		if( ( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == bSectorZ ) && ( pSoldier->flags.fBetweenSectors == FALSE ) )
 		{
 			return( TRUE );
 		}
@@ -16798,7 +16798,7 @@ BOOLEAN CanCharacterRepairRobot( SOLDIERTYPE *pSoldier )
 	}
 
 	// is the robot in the same sector
-	if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) == FALSE )
+	if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == FALSE )
 	{
 		return( FALSE );
 	}
@@ -16811,7 +16811,7 @@ BOOLEAN CanCharacterRepairRobot( SOLDIERTYPE *pSoldier )
 
 /* Assignment distance limits removed.	Sep/11/98.	ARM
 	// if that sector is currently loaded, check distance to robot
-	if( ( pSoldier->sSectorX == gWorldSectorX ) && ( pSoldier->sSectorY == gWorldSectorY ) && ( pSoldier->bSectorZ == gbWorldSectorZ ) )
+	if( pSoldier->deployment().isInSector( gWorldSectorX, gWorldSectorY, gbWorldSectorZ ) )
 	{
 		if( PythSpacesAway( pSoldier->sGridNo, pRobot->sGridNo ) > MAX_DISTANCE_FOR_REPAIR )
 		{
@@ -17015,7 +17015,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 
 				if( !IsMilitiaTrainingPromptActive() )
 				{
-					if( SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE )
+					if( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].fMilitiaTrainingPaid == FALSE )
 					{
 						// show a message to confirm player wants to charge cost
 						HandleInterfaceMessageForCostOfTrainingMilitia( pSoldier );
@@ -17270,7 +17270,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 					SetTimeOfAssignmentChangeForMerc( pSoldier );
 				}
 
-				MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY );
+				MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 				ChangeSoldiersAssignment( pSoldier, FACILITY_INTERROGATE_PRISONERS );
 				AssignMercToAMovementGroup( pSoldier );
 
@@ -17477,12 +17477,12 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 					}
 					else
 					{
-						if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->iVehicleId != ( UINT8 )iParam1 ) )
+						if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->deployment().vehicleId() != ( UINT8 )iParam1 ) )
 						{
 							SetTimeOfAssignmentChangeForMerc( pSoldier );
 						}
 
-						pSoldier->iVehicleId = iParam1;
+						pSoldier->deployment().vehicleId() = iParam1;
 						ChangeSoldiersAssignment( pSoldier, VEHICLE );
 						AssignMercToAMovementGroup( pSoldier );
 					}
@@ -17622,7 +17622,7 @@ BOOLEAN CanSoldierRepairSAM( SOLDIERTYPE *pSoldier )
 		return(FALSE);
 	
 	//can it be fixed?
-	if( !IsTheSAMSiteInSectorRepairable( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( !IsTheSAMSiteInSectorRepairable( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
@@ -18318,7 +18318,7 @@ BOOLEAN PlayerSoldierTooTiredToTravel( SOLDIERTYPE *pSoldier )
 	if ( CanChangeSleepStatusForSoldier( pSoldier ) )
 	{
 		// if walking, or only remaining possible driver for a vehicle group
-		if ( ( pSoldier->assignment().current() != VEHICLE ) || SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, TRUE ) )
+		if ( ( pSoldier->assignment().current() != VEHICLE ) || SoldierMustDriveVehicle( pSoldier, pSoldier->deployment().vehicleId(), TRUE ) )
 		{
 			// if awake, but so tired they can't move/drive anymore
 			if ( ( !pSoldier->flags.fMercAsleep ) && ( pSoldier->vitals().maximumBreath() < BREATHMAX_GOTTA_STOP_MOVING ) )
@@ -18361,13 +18361,13 @@ BOOLEAN AssignMercToAMovementGroup( SOLDIERTYPE *pSoldier )
 	}
 
 	// in a movement group?
-	if( pSoldier->ubGroupID != 0 )
+	if( pSoldier->deployment().groupId() != 0 )
 	{
 		return( FALSE );
 	}
 
 	// create group
-	bGroupId = CreateNewPlayerGroupDepartingFromSector( ( UINT8 )( pSoldier->sSectorX ), ( UINT8 )( pSoldier->sSectorY ) );
+	bGroupId = CreateNewPlayerGroupDepartingFromSector( ( UINT8 )( pSoldier->deployment().sectorX() ), ( UINT8 )( pSoldier->deployment().sectorY() ) );
 
 	if( bGroupId )
 	{
@@ -18733,7 +18733,7 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 					break;
 
 				case ADMINISTRATION:
-					fNothingToDo = !CanCharacterAdministration( pSoldier ) || !GetNumberofAdministratableMercs( pSoldier->sSectorX, pSoldier->sSectorY );
+					fNothingToDo = !CanCharacterAdministration( pSoldier ) || !GetNumberofAdministratableMercs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 					break;
 
 				case EXPLORATION:
@@ -18976,7 +18976,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 					if ( CanCharacterFacility( pSoldier, bParam, FAC_INTERROGATE_PRISONERS ) && pSoldier->CanProcessPrisoners() )
 					{
 						pSoldier->assignment().previous() = pSoldier->assignment().current();
-						MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY );
+						MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 						ChangeSoldiersAssignment( pSoldier, bAssignment );
 						pSoldier->assignment().facilityType() = bParam;
 						fItWorked = TRUE;
@@ -19144,10 +19144,10 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 									{
 										// remove from group
 										// the guy wasn't in a sqaud, but moving through a sector?
-										if ( pSoldier->ubGroupID != 0 )
+										if ( pSoldier->deployment().groupId() != 0 )
 										{
 											// now remove from mvt group
-											RemovePlayerFromGroup( pSoldier->ubGroupID, pSoldier );
+											RemovePlayerFromGroup( pSoldier->deployment().groupId(), pSoldier );
 										}
 									}
 								}
@@ -19276,9 +19276,9 @@ BOOLEAN ValidTrainingPartnerInSameSectorOnAssignmentFound( SOLDIERTYPE *pTargetS
 					// CJC: this seems incorrect in light of the check for bTargetStat and in any case would
 					// cause a problem if the trainer was assigned and we weren't!
 					//( pSoldier->assignment().trainingStat() == pTargetSoldier->assignment().trainingStat() ) &&
-					( pSoldier->sSectorX == pTargetSoldier->sSectorX ) &&
-					( pSoldier->sSectorY == pTargetSoldier->sSectorY ) &&
-					( pSoldier->bSectorZ == pTargetSoldier->bSectorZ ) &&
+					( pSoldier->deployment().sectorX() == pTargetSoldier->deployment().sectorX() ) &&
+					( pSoldier->deployment().sectorY() == pTargetSoldier->deployment().sectorY() ) &&
+					( pSoldier->deployment().sectorZ() == pTargetSoldier->deployment().sectorZ() ) &&
 					( pSoldier->assignment().trainingStat() == bTargetStat ) &&
 					( pSoldier->vitals().health() > 0 ) )
 			{
@@ -19569,9 +19569,9 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 	{
 		return( FALSE );
 	}
-	if ( pOtherSoldier->sSectorX != pSoldier->sSectorX ||
-			pOtherSoldier->sSectorY != pSoldier->sSectorY ||
-			pOtherSoldier->bSectorZ != pSoldier->bSectorZ )
+	if ( pOtherSoldier->deployment().sectorX() != pSoldier->deployment().sectorX() ||
+			pOtherSoldier->deployment().sectorY() != pSoldier->deployment().sectorY() ||
+			pOtherSoldier->deployment().sectorZ() != pSoldier->deployment().sectorZ() )
 	{
 		return( FALSE );
 	}
@@ -19629,7 +19629,7 @@ SOLDIERTYPE *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDr
 		//Assert( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) );
 		if(fReturnVehicleDriver && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 		{
-			pSoldier = GetDriver( pSoldier->iVehicleId );
+			pSoldier = GetDriver( pSoldier->deployment().vehicleId() );
 		}
 	}
 
@@ -19790,9 +19790,9 @@ BOOLEAN UnjamGunsOnSoldier( SOLDIERTYPE *pOwnerSoldier, SOLDIERTYPE *pRepairSold
 // HEADROCK HAM B2.8: A set of functions to synchronize sleeping periods of trainers and trainees
 BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 {
-	UINT16 sMapX = pThisTrainee->sSectorX;
-	UINT16 sMapY = pThisTrainee->sSectorY;
-	UINT16 sMapZ = pThisTrainee->bSectorZ;
+	UINT16 sMapX = pThisTrainee->deployment().sectorX();
+	UINT16 sMapY = pThisTrainee->deployment().sectorY();
+	UINT16 sMapZ = pThisTrainee->deployment().sectorZ();
 	UINT8 bStat = pThisTrainee->assignment().trainingStat();
 	INT32 iCounter, iNumberOnTeam;
 	
@@ -19814,7 +19814,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 	{
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
-			pOtherTrainee->sSectorX == sMapX && pOtherTrainee->sSectorY == sMapY && pOtherTrainee->bSectorZ == sMapZ &&			
+			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
 			pOtherTrainee->bActive && !pOtherTrainee->flags.fMercAsleep )
 		{
 			// Trainee is present and awake. Flag is reset to false.
@@ -19830,7 +19830,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 		{
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
-				pTrainer->sSectorX == sMapX && pTrainer->sSectorY == sMapY && pTrainer->bSectorZ == sMapZ &&	
+				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
 				pTrainer->bActive && !pTrainer->flags.fMercAsleep )
 			{
 				// Trainer will go to sleep
@@ -19867,9 +19867,9 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 
 BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 {
-	UINT16 sMapX = pTrainer->sSectorX;
-	UINT16 sMapY = pTrainer->sSectorY;
-	UINT16 sMapZ = pTrainer->bSectorZ;
+	UINT16 sMapX = pTrainer->deployment().sectorX();
+	UINT16 sMapY = pTrainer->deployment().sectorY();
+	UINT16 sMapZ = pTrainer->deployment().sectorZ();
 	UINT8 bStat = pTrainer->assignment().trainingStat();
 	INT32 iCounter, iNumberOnTeam;
 	BOOLEAN fTraineesSentToSleep = FALSE;
@@ -19888,7 +19888,7 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 	{
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
-			pTrainee->sSectorX == sMapX && pTrainee->sSectorY == sMapY && pTrainee->bSectorZ == sMapZ &&
+			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
 			pTrainee->bActive && !pTrainee->flags.fMercAsleep )
 		{
 			// Trainee will go to sleep
@@ -19913,9 +19913,9 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 
 BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 {
-	UINT16 sMapX = pThisTrainee->sSectorX;
-	UINT16 sMapY = pThisTrainee->sSectorY;
-	UINT16 sMapZ = pThisTrainee->bSectorZ;
+	UINT16 sMapX = pThisTrainee->deployment().sectorX();
+	UINT16 sMapY = pThisTrainee->deployment().sectorY();
+	UINT16 sMapZ = pThisTrainee->deployment().sectorZ();
 	UINT8 bStat = pThisTrainee->assignment().trainingStat();
 	INT32 iCounter, iNumberOnTeam;
 	
@@ -19937,7 +19937,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 	{
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
-			pOtherTrainee->sSectorX == sMapX && pOtherTrainee->sSectorY == sMapY && pOtherTrainee->bSectorZ == sMapZ &&			
+			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
 			pOtherTrainee->bActive && pOtherTrainee->flags.fMercAsleep )
 		{
 			// Trainee is present and asleep. Flag is reset to FALSE.
@@ -19953,7 +19953,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 		{
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
-				pTrainer->sSectorX == sMapX && pTrainer->sSectorY == sMapY && pTrainer->bSectorZ == sMapZ &&	
+				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
 				pTrainer->bActive && pTrainer->flags.fMercAsleep )
 			{
 				// Trainer will wake up
@@ -19981,9 +19981,9 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 
 BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 {
-	UINT16 sMapX = pTrainer->sSectorX;
-	UINT16 sMapY = pTrainer->sSectorY;
-	UINT16 sMapZ = pTrainer->bSectorZ;
+	UINT16 sMapX = pTrainer->deployment().sectorX();
+	UINT16 sMapY = pTrainer->deployment().sectorY();
+	UINT16 sMapZ = pTrainer->deployment().sectorZ();
 	UINT8 bStat = pTrainer->assignment().trainingStat();
 	INT32 iCounter, iNumberOnTeam;
 	BOOLEAN fTraineesWokenUp = FALSE;
@@ -20002,7 +20002,7 @@ BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 	{
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
-			pTrainee->sSectorX == sMapX && pTrainee->sSectorY == sMapY && pTrainee->bSectorZ == sMapZ &&
+			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
 			pTrainee->bActive && pTrainee->flags.fMercAsleep )
 		{
 			// Trainee will wake up
@@ -20057,9 +20057,9 @@ void HandleTrainingWakeSynchronize( SOLDIERTYPE *pSoldier )
 
 BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 {
-	UINT16 sMapX = pTrainee->sSectorX;
-	UINT16 sMapY = pTrainee->sSectorY;
-	UINT16 sMapZ = pTrainee->bSectorZ;
+	UINT16 sMapX = pTrainee->deployment().sectorX();
+	UINT16 sMapY = pTrainee->deployment().sectorY();
+	UINT16 sMapZ = pTrainee->deployment().sectorZ();
 	UINT8 bStat = pTrainee->assignment().trainingStat();
 	INT32 ubCounter = 0;
 	BOOLEAN fAllTrainersAsleep = TRUE;
@@ -20078,7 +20078,7 @@ BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 			
 		// Is trainer awake?
 		if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pTrainee->assignment().trainingStat() &&
-			pTrainer->sSectorX == sMapX && pTrainer->sSectorY == sMapY && pTrainer->bSectorZ == sMapZ &&
+			pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
 			pTrainer->bActive && !pTrainer->flags.fMercAsleep )
 		{
 			// Reset flag
@@ -20093,9 +20093,9 @@ BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 
 BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer )
 {
-	UINT16 sMapX = pTrainer->sSectorX;
-	UINT16 sMapY = pTrainer->sSectorY;
-	UINT16 sMapZ = pTrainer->bSectorZ;
+	UINT16 sMapX = pTrainer->deployment().sectorX();
+	UINT16 sMapY = pTrainer->deployment().sectorY();
+	UINT16 sMapZ = pTrainer->deployment().sectorZ();
 	UINT8 bStat = pTrainer->assignment().trainingStat();
 	INT32 ubCounter = 0;
 	BOOLEAN fAllTraineesAsleep = TRUE;
@@ -20114,7 +20114,7 @@ BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer )
 			
 		// Is trainee awake?
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
-			pTrainee->sSectorX == sMapX && pTrainee->sSectorY == sMapY && pTrainee->bSectorZ == sMapZ &&
+			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
 			pTrainee->bActive && !pTrainee->flags.fMercAsleep )
 		{
 			// Reset flag.
@@ -20141,7 +20141,7 @@ BOOLEAN CanCharacterTrainWorkers( SOLDIERTYPE *pSoldier )
 	if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		return( FALSE );
 
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
@@ -20160,7 +20160,7 @@ BOOLEAN CanCharacterTrainWorkers( SOLDIERTYPE *pSoldier )
 		return ( FALSE );
 	}	
 
-	INT8 bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	INT8 bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	UINT16 maxworkforce = 0;
 	UINT16 workforce = GetTownWorkers( bTownId, maxworkforce);
@@ -20178,7 +20178,7 @@ BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier )
 	CHAR16 sStringA[ 128 ];
 
 	// Enemies present?
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		// Report "Enemies present!"
 		DoScreenIndependantMessageBox( New113HAMMessage[5], MSG_BOX_FLAG_OK, NULL );
@@ -20261,7 +20261,7 @@ BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier )
 	////////////////////////
 	// Test for town loyalty
 
-	INT8 bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	INT8 bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// Is this a town sector?
 	if( bTownId != BLANK_SECTOR )
@@ -20283,7 +20283,7 @@ BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier )
 		if( bTownId == BLANK_SECTOR )
 		{
 			// SAM site
-			GetShortSectorString(	pSoldier->sSectorX, pSoldier->sSectorY, sStringA );
+			GetShortSectorString(	pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), sStringA );
 			swprintf( sString, zMarksMapScreenText[ 21 ], sStringA );
 		}
 		else
@@ -20309,14 +20309,14 @@ BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier )
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
 	{
 		// Is this facility here?
-		if (gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][cnt].fFacilityHere)
+		if (gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][cnt].fFacilityHere)
 		{
 			// Increase tally
 			ubFacilityTrainersAllowed += gFacilityTypes[cnt].ubMilitiaTrainersAllowed;
 		}
 	}
 
-	if (RebelCommand::CanTrainMilitiaAnywhere() && GetTownIdForSector(pSoldier->sSectorX, pSoldier->sSectorY) == BLANK_SECTOR)
+	if (RebelCommand::CanTrainMilitiaAnywhere() && GetTownIdForSector(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY()) == BLANK_SECTOR)
 		ubFacilityTrainersAllowed = RebelCommand::GetMaxTrainersForTrainMilitiaAnywhere();
 
 	// If we are here, then TrainersAllowed > 0. 
@@ -20356,7 +20356,7 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character underground?
-	if( pSoldier->bSectorZ != 0 )
+	if( pSoldier->deployment().sectorZ() != 0 )
 	{
 		// underground training is not allowed (code doesn't support and it's a reasonable enough limitation)
 		return( FALSE );
@@ -20390,10 +20390,10 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	// IS character inside a helicopter over a hostile sector?
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if( ( iHelicopterVehicleId != -1 ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			// enemies in sector
-			if ( NumNonPlayerTeamMembersInSector( pSoldier->sSectorX, pSoldier->sSectorY, ENEMY_TEAM ) > 0 )
+			if ( NumNonPlayerTeamMembersInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ENEMY_TEAM ) > 0 )
 			{
 				return( FALSE );
 			}
@@ -20403,7 +20403,7 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	////////////////////////////////////////////////////////////////////////
 	// Tests to see whether this sector contains any facilities that could be used at all.
 
-	UINT8 ubSector = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+	UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 	BOOLEAN fFoundUseableFacility = FALSE;
 	
 	for (UINT16 cnt = 0; cnt < NUM_FACILITY_TYPES; ++cnt)
@@ -20436,7 +20436,7 @@ BOOLEAN DisplayFacilityMenu( SOLDIERTYPE *pSoldier )
 	// run through list of staff/use facilities in sector and add them to pop up box
 	for ( iCounter = 0; iCounter < MAX_NUM_FACILITY_TYPES; ++iCounter )
 	{
-		if ( gFacilityLocations[ SECTOR(pSoldier->sSectorX,pSoldier->sSectorY) ][iCounter].fFacilityHere )
+		if ( gFacilityLocations[ SECTOR(pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY()) ][iCounter].fFacilityHere )
 		{
 			if ( gFacilityTypes[ iCounter ].ubTotalStaffLimit )
 			{
@@ -20469,7 +20469,7 @@ BOOLEAN DisplayFacilityMenu( SOLDIERTYPE *pSoldier )
 
 BOOLEAN DisplayFacilityAssignmentMenu( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType )
 {
-	if (!gFacilityLocations[SECTOR(pSoldier->sSectorX, pSoldier->sSectorY)][ubFacilityType].fFacilityHere)
+	if (!gFacilityLocations[SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY())][ubFacilityType].fFacilityHere)
 	{	
 		// Facility isn't here? Odd.
 		return (FALSE);
@@ -20522,7 +20522,7 @@ BOOLEAN DisplayFacilityAssignmentMenu( SOLDIERTYPE *pSoldier, UINT8 ubFacilityTy
 			else if ( iCounter == FAC_REPAIR_ROBOT )
 			{
 				// is the ROBOT here?
-				if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+				if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 				{
 					// robot
 					AddMonoString((UINT32 *)&hStringHandle, gzFacilityAssignmentStrings[ FAC_REPAIR_ROBOT ] );
@@ -20637,7 +20637,7 @@ void CreateDestroyMouseRegionForFacilityMenu( void )
 		// run through list of staff/use facilities in sector and add them to pop up box
 		for ( UINT32 iCounter = 0; iCounter < MAX_NUM_FACILITY_TYPES; ++iCounter )
 		{
-			if ( gFacilityLocations[ SECTOR(pSoldier->sSectorX,pSoldier->sSectorY) ][iCounter].fFacilityHere )
+			if ( gFacilityLocations[ SECTOR(pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY()) ][iCounter].fFacilityHere )
 			{
 				if ( gFacilityTypes[ iCounter ].ubTotalStaffLimit )
 				{
@@ -20817,7 +20817,7 @@ void FacilityMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8 ubAssignmentType )
 {
 	AssertNotNIL(pSoldier);
-	UINT8 ubSectorID = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+	UINT8 ubSectorID = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 	BOOLEAN fFoundVehicleToRepair = FALSE;
 
 	// Make sure the basic sector/merc variables are still applicable. This is simply a fail-safe.
@@ -20831,7 +20831,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 	if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		return( FALSE );
 
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
@@ -20868,7 +20868,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 	////////////////////////////////////////
 	// Check town loyalty
 
-	UINT8 ubTownID = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	UINT8 ubTownID = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	if (ubTownID != BLANK_SECTOR)
 	{
 		if (gTownLoyalty[ ubTownID ].ubRating < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLoyaltyHere )
@@ -20892,8 +20892,8 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 	if ( ubAssignmentType == GetSoldierFacilityAssignmentIndex( pSoldier ) )
 		bY = -1;
 
-	if ( CountFreeFacilitySlots( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, ubFacilityType) <= bX || // Too many people in the facility, or
-		CountFreeFacilityAssignmentSlots( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, ubFacilityType, ubAssignmentType ) <= bY ) // Too many people doing this assignment
+	if ( CountFreeFacilitySlots( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), ubFacilityType) <= bX || // Too many people in the facility, or
+		CountFreeFacilityAssignmentSlots( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), ubFacilityType, ubAssignmentType ) <= bY ) // Too many people doing this assignment
 	{
 		// No free slots.
 		return (FALSE);
@@ -20987,7 +20987,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 				}
 
 				// is the robot in the same sector
-				if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) == FALSE )
+				if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == FALSE )
 				{
 					return( FALSE );
 				}
@@ -21057,8 +21057,8 @@ INT8 CountFreeFacilitySlots( UINT8 sMapX, UINT8 sMapY, UINT8 ubFacilityType )
 
 			// Is character operating this facility?
 			if( (UINT8)pSoldier->assignment().facilityType() == ubFacilityType &&
-				pSoldier->sSectorX == sMapX &&  // Is he in the same sector?
-				pSoldier->sSectorY == sMapY )
+				pSoldier->deployment().sectorX() == sMapX &&  // Is he in the same sector?
+				pSoldier->deployment().sectorY() == sMapY )
 			{
 				// Increase tally.
 				ubStaffFoundHere++;
@@ -21100,8 +21100,8 @@ INT8 CountFreeFacilityAssignmentSlots( UINT8 sMapX, UINT8 sMapY, UINT8 ubFacilit
 
 			// Is character operating this facility?
 			if( (UINT8)pSoldier->assignment().facilityType() == ubFacilityType &&
-				pSoldier->sSectorX == sMapX &&  // Is he in the same sector?
-				pSoldier->sSectorY == sMapY )
+				pSoldier->deployment().sectorX() == sMapX &&  // Is he in the same sector?
+				pSoldier->deployment().sectorY() == sMapY )
 			{
 				// Is he performing the same exact assignment we're looking to do?
 				if (GetSoldierFacilityAssignmentIndex( pSoldier ) == ubAssignmentIndex)
@@ -21125,7 +21125,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 {
 	CHAR16 sString[ 256 ];
 	AssertNotNIL(pSoldier);
-	UINT8 ubSectorID = SECTOR(pSoldier->sSectorX, pSoldier->sSectorY);
+	UINT8 ubSectorID = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 	BOOLEAN fFoundVehicleToRepair = FALSE;
 
 	// Make sure the basic sector/merc variables are still applicable. This is simply a fail-safe.
@@ -21135,7 +21135,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		return( FALSE );
 	}
 
-	if( NumEnemiesInAnySector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+	if( NumEnemiesInAnySector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 	{
 		DoScreenIndependantMessageBox( New113HAMMessage[10], MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
@@ -21233,7 +21233,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 	////////////////////////////////////////
 	// Check town loyalty
 
-	UINT8 ubTownID = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	UINT8 ubTownID = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	if (ubTownID != BLANK_SECTOR)
 	{
 		if (gTownLoyalty[ ubTownID ].ubRating < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLoyaltyHere )
@@ -21259,14 +21259,14 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 	if ( ubAssignmentType == GetSoldierFacilityAssignmentIndex( pSoldier ) )
 		bY = -1;
 
-	if ( CountFreeFacilitySlots( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, ubFacilityType) <= bX )
+	if ( CountFreeFacilitySlots( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), ubFacilityType) <= bX )
 	{
 		// Too many people working at this facility (overall)
 		swprintf(sString, gzFacilityErrorMessage[14], gFacilityTypes[ubFacilityType].szFacilityName);
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return (FALSE);
 	}
-	else if (CountFreeFacilityAssignmentSlots( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, ubFacilityType, ubAssignmentType ) <= bY )
+	else if (CountFreeFacilityAssignmentSlots( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), ubFacilityType, ubAssignmentType ) <= bY )
 	{
 		// Too many people performing this specific assignment at this facility.
 		swprintf(sString, gzFacilityErrorMessage[15], gFacilityTypes[ubFacilityType].szFacilityName);
@@ -21368,7 +21368,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 				}
 
 				// is the robot in the same sector
-				if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) == FALSE )
+				if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) == FALSE )
 				{
 					return( FALSE );
 				}
@@ -21378,7 +21378,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 
 	if( ubAssignmentType == FAC_PRISON_SNITCH )
 	{
-		if( IsSoldierKnownAsMercInSector( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY ) )
+		if( IsSoldierKnownAsMercInSector( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 		{
 			//swprintf( sString, gzFacilityErrorMessage[32], pSoldier->GetName() );
 			swprintf( sString, gzFacilityErrorMessage[33], pSoldier->GetName(), gMercProfiles[pSoldier->ubProfile].ubSnitchExposedCooldown );
@@ -21412,7 +21412,7 @@ void HandleShadingOfLinesForFacilityMenu( void )
 	// run through list of staff/use facilities in sector and add them to pop up box
 	for ( INT32 iCounter = 0; iCounter < MAX_NUM_FACILITY_TYPES; ++iCounter )
 	{
-		if ( gFacilityLocations[ SECTOR(pSoldier->sSectorX,pSoldier->sSectorY) ][iCounter].fFacilityHere )
+		if ( gFacilityLocations[ SECTOR(pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY()) ][iCounter].fFacilityHere )
 		{
 			if ( gFacilityTypes[ iCounter ].ubTotalStaffLimit )
 			{
@@ -21715,7 +21715,7 @@ void CreateDestroyMouseRegionsForFacilityAssignmentMenu( void )
 				else if ( iCounter == FAC_REPAIR_ROBOT )
 				{
 					// is the ROBOT here?
-					if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+					if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 					{
 						// robot line only appears when it is around.
 						MSYS_DefineRegion( &gFacilityAssignmentMenuRegion[ uiMenuLine ],	( INT16 )( iBoxXPosition ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * uiMenuLine ), ( INT16 )( iBoxXPosition + iBoxWidth ), ( INT16 )( iBoxYPosition + GetTopMarginSize( ghAssignmentBox ) + ( iFontHeight ) * ( uiMenuLine + 1 ) ), MSYS_PRIORITY_HIGHEST - 2 ,
@@ -22046,7 +22046,7 @@ void FacilityAssignmentMenuBtnCallback ( MOUSE_REGION * pRegion, INT32 iReason )
 					ChangeSoldiersAssignment( pSoldier, TRAIN_TEAMMATE );
 					break;
 				case FAC_INTERROGATE_PRISONERS:
-					MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->sSectorX, pSoldier->sSectorY );
+					MakeSoldierKnownAsMercInPrison( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 					ChangeSoldiersAssignment( pSoldier, FACILITY_INTERROGATE_PRISONERS );
 					fShowAssignmentMenu = TRUE;
 					fShowPrisonerMenu = TRUE;
@@ -22169,7 +22169,7 @@ void HandleShadingOfLinesForFacilityAssignmentMenu( void )
 			else if ( iCounter == FAC_REPAIR_ROBOT )
 			{
 				// is the ROBOT here?
-				if( IsRobotInThisSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ ) )
+				if( IsRobotInThisSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
 				{
 					if ( CanCharacterFacility( pSoldier, ubFacilityType, iCounter ) )
 					{
@@ -22420,7 +22420,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ &&	pTrainer->assignment().current() == TRAIN_TOWN )
+		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ &&	pTrainer->assignment().current() == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 
@@ -22464,7 +22464,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->sSectorX == sX && pTrainer->sSectorY == sY && pTrainer->bSectorZ == bZ && pTrainer->assignment().current() == TRAIN_TOWN )
+		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ && pTrainer->assignment().current() == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 
@@ -22511,7 +22511,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 BOOLEAN CanMercBeAllowedToLeaveTeam( SOLDIERTYPE *pSoldier )
 {
 	//if we are in, or passed the tunnels
-	if( pSoldier->sSectorX >= 14 )
+	if( pSoldier->deployment().sectorX() >= 14 )
 	{
 		//dont allow anyone to leave
 		return( FALSE );
@@ -22556,7 +22556,7 @@ BOOLEAN DisplayMoveItemsMenu( SOLDIERTYPE *pSoldier )
 	}
 
 	// we now have to show every sector of the town we are in
-	INT8 bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+	INT8 bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	if ( bTownId != BLANK_SECTOR )
 	{
@@ -22570,7 +22570,7 @@ BOOLEAN DisplayMoveItemsMenu( SOLDIERTYPE *pSoldier )
 				continue;
 
 			// not if we are already here
-			if ( sectorX == pSoldier->sSectorX && sectorY == pSoldier->sSectorY )
+			if ( sectorX == pSoldier->deployment().sectorX() && sectorY == pSoldier->deployment().sectorY() )
 				continue;
 
 			// determine town sector we are running this assignemnt in
@@ -22622,7 +22622,7 @@ BOOLEAN DisplayMoveItemsMenu( SOLDIERTYPE *pSoldier )
 				if ( !SectorOursAndPeaceful( sectorX, sectorY, 0 ) )
 					continue;
 
-				if ( sectorX == pSoldier->sSectorX && sectorY == pSoldier->sSectorY )
+				if ( sectorX == pSoldier->deployment().sectorX() && sectorY == pSoldier->deployment().sectorY() )
 					continue;
 
 				// determine town sector we are running this assignemnt in
@@ -22731,10 +22731,10 @@ void CreateDestroyMouseRegionForMoveItemMenu( void )
 		// CreateDestroyMouseRegionForMoveItemMenu(), DisplayRepairMenu(), and HandleShadingOfLinesForMoveItemMenu().
 
 		// we now have to show every sector of the town we are in
-		INT8 bTownId = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+		INT8 bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 		// only in towns
-		if ( bTownId != BLANK_SECTOR && pSoldier->bSectorZ == 0 )
+		if ( bTownId != BLANK_SECTOR && pSoldier->deployment().sectorZ() == 0 )
 		{
 			for ( UINT8 i = 0; i < MOVEITEM_MAX_SECTORS_WITH_MODIFIER; ++i )
 			{
@@ -23656,7 +23656,7 @@ void MilitiaMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			// assign to a movement group
 			AssignMercToAMovementGroup( pSoldier );
-			if ( SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )].fMilitiaTrainingPaid == FALSE )
+			if ( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )].fMilitiaTrainingPaid == FALSE )
 			{
 				// show a message to confirm player wants to charge cost
 				HandleInterfaceMessageForCostOfTrainingMilitia( pSoldier );

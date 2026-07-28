@@ -461,9 +461,9 @@ UINT8 GetNumSoldierIdAndProfileIdOfTheNewMercsOnPlayerTeam( SoldierID *pSoldierI
 		//if the merc is alive, in sector, etc...
 		//Note: cant do the OK_CONTROLLABLE_MERC() cause it does bInSector which is not set when EnterSector is finshed ( we need it then )
 		if( pSoldier->bActive	&&
-				pSoldier->sSectorX == gWorldSectorX &&
-				pSoldier->sSectorY == gWorldSectorY &&
-				pSoldier->bSectorZ == gbWorldSectorZ &&
+				pSoldier->deployment().sectorX() == gWorldSectorX &&
+				pSoldier->deployment().sectorY() == gWorldSectorY &&
+				pSoldier->deployment().sectorZ() == gbWorldSectorZ &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!pSoldier->flags.fBetweenSectors )
 		{
@@ -1096,9 +1096,9 @@ BOOLEAN SayQuoteFromAllNewHiredMercButDoGastonLast( UINT8 ubProfile, UINT32 uiQu
 	//if Gaston is on the team, say his quote
 	pSoldier = FindSoldierByProfileID( GASTON_UB, TRUE ); // GASTON
 	if( pSoldier &&
-			pSoldier->sSectorX == gWorldSectorX &&
-			pSoldier->sSectorY == gWorldSectorY &&
-			pSoldier->bSectorZ == gbWorldSectorZ )
+			pSoldier->deployment().sectorX() == gWorldSectorX &&
+			pSoldier->deployment().sectorY() == gWorldSectorY &&
+			pSoldier->deployment().sectorZ() == gbWorldSectorZ )
 	{
 		TacticalCharacterDialogue( pSoldier, (UINT16)uiQuoteNum );
 	}
@@ -1974,7 +1974,7 @@ void HandlePlayerHittingSwitchToLaunchMissles()
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// if the soldier was in the complex
 		if( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector &&
-				pSoldier->sSectorX == SECTOR_LAUNCH_MISSLES_X && pSoldier->sSectorY == SECTOR_LAUNCH_MISSLES_Y && pSoldier->bSectorZ == SECTOR_LAUNCH_MISSLES_Z )
+				pSoldier->deployment().sectorX() == SECTOR_LAUNCH_MISSLES_X && pSoldier->deployment().sectorY() == SECTOR_LAUNCH_MISSLES_Y && pSoldier->deployment().sectorZ() == SECTOR_LAUNCH_MISSLES_Z )
 		{
 			if( PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO1 ) < PythSpacesAway( pSoldier->position().gridNo(), SWITCHTOLAUNCHMISSLES_GRIDNO2 ) )
 				pSoldier->EVENT_InternalGetNewSoldierPath( SWITCHTOLAUNCHMISSLES_GRIDNO1, RUNNING, TRUE, TRUE );

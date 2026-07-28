@@ -1097,7 +1097,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	INT32	iRunX, iRunY, iRunGridNo;
 	SOLDIERTYPE * pOpponent;
 
-	iSector = pSoldier->sSectorX + pSoldier->sSectorY * MAP_WORLD_X;
+	iSector = pSoldier->deployment().sectorX() + pSoldier->deployment().sectorY() * MAP_WORLD_X;
 
 	// first start by scanning through opposing mercs and find out what directions are blocked.
 	for (ubLoop = 0; ubLoop < MAXMERCS; ubLoop++)
@@ -1125,8 +1125,8 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 		if (bOkayDir[ubLoop])
 		{
 			// figure out sector # in that direction
-			iNewSectorX = pSoldier->sSectorX + DirXIncrementer[ubLoop];
-			iNewSectorY = pSoldier->sSectorY + DirYIncrementer[ubLoop];
+			iNewSectorX = pSoldier->deployment().sectorX() + DirXIncrementer[ubLoop];
+			iNewSectorY = pSoldier->deployment().sectorY() + DirYIncrementer[ubLoop];
 			iNewSector = iSectorX + iSectorY * MAP_WORLD_X;
 			// check movement
 			if (TravelBetweenSectorsIsBlockedFromFoot( (UINT16) iSector, (UINT16) iNewSector ) || StrategicMap[iSector].fEnemyControlled)

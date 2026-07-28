@@ -243,7 +243,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				GetLocationOfSquad( &sX, &sY, &bZ, bSquadValue );
 
 				// if not same, return false
-				if( ( pCharacter->sSectorX != sX ) || ( pCharacter->sSectorY != sY ) ||( pCharacter->bSectorZ != bZ) )
+				if( ( pCharacter->deployment().sectorX() != sX ) || ( pCharacter->deployment().sectorY() != sY ) ||( pCharacter->deployment().sectorZ() != bZ) )
 				{
 					return ( FALSE );
 				}
@@ -270,16 +270,16 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 			CopyPathOfSquadToCharacter( pCharacter, bSquadValue );
 
 			// check if old mvt group
-			if( pCharacter->ubGroupID != 0 )
+			if( pCharacter->deployment().groupId() != 0 )
 			{
 				// in valid group, remove from that group
-				RemovePlayerFromGroup(	pCharacter->ubGroupID , pCharacter );
+				RemovePlayerFromGroup(	pCharacter->deployment().groupId() , pCharacter );
 
 				// character not on a reserved group
 				if( ( pCharacter->assignment().current() >= ON_DUTY ) && ( pCharacter->assignment().current() != VEHICLE ) )
 				{
 					// get the group from the character
-					pGroup = GetGroup( pCharacter->ubGroupID );
+					pGroup = GetGroup( pCharacter->deployment().groupId() );
 
 					// if valid group, delete it
 					if( pGroup )
@@ -293,7 +293,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 
 
-			if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->iVehicleId == iHelicopterVehicleId ) && ( pCharacter->iVehicleId != -1 ) )
+			if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->deployment().vehicleId() == iHelicopterVehicleId ) && ( pCharacter->deployment().vehicleId() != -1 ) )
 			{
 				// if creating a new squad from guys exiting the chopper
 				fNewSquad = SquadIsEmpty( bSquadValue );
@@ -301,8 +301,8 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 				RemoveSoldierFromHelicopter( pCharacter );
 
 				AddPlayerToGroup( SquadMovementGroups[ bSquadValue ], pCharacter	);
-				SetGroupSectorValue( pCharacter->sSectorX, pCharacter->sSectorY, pCharacter->bSectorZ, SquadMovementGroups[ bSquadValue ] );
-				pCharacter->ubGroupID = SquadMovementGroups[ bSquadValue ];
+				SetGroupSectorValue( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY(), pCharacter->deployment().sectorZ(), SquadMovementGroups[ bSquadValue ] );
+				pCharacter->deployment().groupId() = SquadMovementGroups[ bSquadValue ];
 
 				// if we've just started a new squad
 				if ( fNewSquad )
@@ -321,7 +321,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 					}
 				}
 			}
-			else if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->iVehicleId != -1 ) )
+			else if( ( pCharacter->assignment().current() == VEHICLE ) && ( pCharacter->deployment().vehicleId() != -1 ) )
 			{
 				fExitingVehicleToSquad = TRUE;
 				// remove from vehicle
@@ -330,8 +330,8 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 
 				AddPlayerToGroup( SquadMovementGroups[ bSquadValue ], pCharacter	);
-				SetGroupSectorValue( pCharacter->sSectorX, pCharacter->sSectorY, pCharacter->bSectorZ, SquadMovementGroups[ bSquadValue ] );
-				pCharacter->ubGroupID = SquadMovementGroups[ bSquadValue ];
+				SetGroupSectorValue( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY(), pCharacter->deployment().sectorZ(), SquadMovementGroups[ bSquadValue ] );
+				pCharacter->deployment().groupId() = SquadMovementGroups[ bSquadValue ];
 			}
 			else if( IsVehicle(pCharacter) )
 			{
@@ -342,14 +342,14 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 						break;
 				}
 				//AddPlayerToGroup( pVehicleList[iCounter].ubMovementGroup, pCharacter	);
-				SetGroupSectorValue( pCharacter->sSectorX, pCharacter->sSectorY, pCharacter->bSectorZ, pVehicleList[iCounter].ubMovementGroup );
-				pCharacter->ubGroupID = pVehicleList[iCounter].ubMovementGroup;
+				SetGroupSectorValue( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY(), pCharacter->deployment().sectorZ(), pVehicleList[iCounter].ubMovementGroup );
+				pCharacter->deployment().groupId() = pVehicleList[iCounter].ubMovementGroup;
 			}
 			else
 			{
 				AddPlayerToGroup( SquadMovementGroups[ bSquadValue ], pCharacter	);
-				SetGroupSectorValue( pCharacter->sSectorX, pCharacter->sSectorY, pCharacter->bSectorZ, SquadMovementGroups[ bSquadValue ] );
-				pCharacter->ubGroupID = SquadMovementGroups[ bSquadValue ];
+				SetGroupSectorValue( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY(), pCharacter->deployment().sectorZ(), SquadMovementGroups[ bSquadValue ] );
+				pCharacter->deployment().groupId() = SquadMovementGroups[ bSquadValue ];
 			}
 
 
@@ -544,11 +544,11 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 				RemovePlayerFromGroup( SquadMovementGroups[ iCounterA ], pCharacter	);
 
 				// reset player mvt group id value
-				pCharacter->ubGroupID = 0;
+				pCharacter->deployment().groupId() = 0;
 
 				if( ( pCharacter->flags.fBetweenSectors )&&( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 				{
-					ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pCharacter->sSectorX ) , ( INT8 ) ( pCharacter->sSectorY ) );
+					ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pCharacter->deployment().sectorX() ) , ( INT8 ) ( pCharacter->deployment().sectorY() ) );
 
 					// assign to a group
 					AddPlayerToGroup( ubGroupId, pCharacter );
@@ -765,9 +765,9 @@ BOOLEAN SectorSquadIsIn(INT8 bSquadValue, INT16 *sMapX, INT16 *sMapY, INT16 *sMa
 		// if valid soldier, get current sector and return
 		if( Squad[ bSquadValue ][ bCounter ] != NULL )
 		{
-			*sMapX = Squad[ bSquadValue ][ bCounter ]->sSectorX;
-			*sMapY = Squad[ bSquadValue ][ bCounter ]->sSectorY;
-			*sMapZ = ( INT16 )Squad[ bSquadValue ][ bCounter ]->bSectorZ;
+			*sMapX = Squad[ bSquadValue ][ bCounter ]->deployment().sectorX();
+			*sMapY = Squad[ bSquadValue ][ bCounter ]->deployment().sectorY();
+			*sMapZ = ( INT16 )Squad[ bSquadValue ][ bCounter ]->deployment().sectorZ();
 
 			return ( TRUE );
 		}
@@ -1068,7 +1068,7 @@ BOOLEAN IsSquadOnCurrentTacticalMap( INT32 iCurrentSquad )
 		if(	Squad[ iCurrentSquad ][ iCounter ] != NULL )
 		{
 			// ATE; Added more checks here for being in sector ( fBetweenSectors and SectorZ )
-			if( ( Squad[ iCurrentSquad ][ iCounter ]->sSectorX == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->sSectorY == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->bSectorZ == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->flags.fBetweenSectors != TRUE )
+			if( ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorX() == gWorldSectorX ) && ( Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorY() == gWorldSectorY ) && Squad[ iCurrentSquad ][ iCounter ]->deployment().sectorZ() == gbWorldSectorZ && Squad[ iCurrentSquad ][ iCounter ]->flags.fBetweenSectors != TRUE )
 			{
 				return( TRUE );
 			}
@@ -1281,9 +1281,9 @@ void GetLocationOfSquad( INT16 *sX, INT16 *sY, INT8 *bZ, INT8 bSquadValue )
 		if( Squad[ bSquadValue ][ iCounter ] )
 		{
 			// valid guy
-			*sX = Squad[ bSquadValue ][ iCounter ]->sSectorX;
-			*sY = Squad[ bSquadValue ][ iCounter ]->sSectorY;
-			*bZ = Squad[ bSquadValue ][ iCounter ]->bSectorZ;
+			*sX = Squad[ bSquadValue ][ iCounter ]->deployment().sectorX();
+			*sY = Squad[ bSquadValue ][ iCounter ]->deployment().sectorY();
+			*bZ = Squad[ bSquadValue ][ iCounter ]->deployment().sectorZ();
 		}
 	}
 
@@ -1396,7 +1396,7 @@ BOOLEAN IsSquadInSector( SOLDIERTYPE *pSoldier, UINT8 ubSquad )
 		return( TRUE );
 	}
 
-	if( ( pSoldier->sSectorX != Squad[ ubSquad ][ 0 ]->sSectorX ) ||( pSoldier->sSectorY != Squad[ ubSquad ][ 0 ]->sSectorY ) || ( pSoldier->bSectorZ != Squad[ ubSquad ][ 0 ]->bSectorZ ) )
+	if( ( pSoldier->deployment().sectorX() != Squad[ ubSquad ][ 0 ]->deployment().sectorX() ) ||( pSoldier->deployment().sectorY() != Squad[ ubSquad ][ 0 ]->deployment().sectorY() ) || ( pSoldier->deployment().sectorZ() != Squad[ ubSquad ][ 0 ]->deployment().sectorZ() ) )
 	{
 		return( FALSE );
 	}
@@ -1709,11 +1709,11 @@ void CheckSquadMovementGroups( void )
 						if (pVehicleList[iCounter].ubProfileID == Squad[iSquad][iSoldier]->ubProfile)
 							break;
 					}
-					Squad[iSquad][iSoldier]->ubGroupID = pVehicleList[iCounter].ubMovementGroup;
+					Squad[iSquad][iSoldier]->deployment().groupId() = pVehicleList[iCounter].ubMovementGroup;
 				}
 				else
 				{
-					Squad[iSquad][iSoldier]->ubGroupID = pGroup->ubGroupID;
+					Squad[iSquad][iSoldier]->deployment().groupId() = pGroup->ubGroupID;
 				}
 			}
 		}

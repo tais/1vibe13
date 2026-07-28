@@ -432,8 +432,8 @@ ArtillerySector::Setup( UINT32 aVal )
 		// check wether we can call artillery from the 4 adjacent sectors
 		for (UINT8 i = 0; i < 4; ++i)
 		{
-			INT16 loopX = pSoldier->sSectorX;
-			INT16 loopY = pSoldier->sSectorY;
+			INT16 loopX = pSoldier->deployment().sectorX();
+			INT16 loopY = pSoldier->deployment().sectorY();
 
 			if ( i == 0 )		++loopY;
 			else if ( i == 1 )	++loopX;
@@ -450,7 +450,7 @@ ArtillerySector::Setup( UINT32 aVal )
 			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ArtilleryTeam, sectornr ) );
 
 			// grey out if no artillery can be called from this sector
-			if ( !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->bSectorZ, pSoldier->bTeam ) && !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->bSectorZ, MILITIA_TEAM ) )
+			if ( !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), pSoldier->bTeam ) && !IsValidArtilleryOrderSector( loopX, loopY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
 			{
 				// Set this option off.
 				pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -487,7 +487,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 	if ( pSoldier == NULL )
 		return;
 
-	if ( pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) && pSoldier->bSectorZ == 0)
+	if ( pSoldier->CanUseSkill(SKILLS_RADIO_ARTILLERY) && pSoldier->deployment().sectorZ() == 0)
 	{		
 		usSector = aVal;
 		
@@ -507,7 +507,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Function_ArtilleryTeam, MILITIA_TEAM ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
-		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->bSectorZ, MILITIA_TEAM ) )
+		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), MILITIA_TEAM ) )
 		{
 			// Set this option off.
 			pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -520,7 +520,7 @@ ArtilleryTeam::Setup( UINT32 aVal )
 		pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, INT8>( &Wrapper_Function_ArtilleryTeam, pSoldier->bTeam ) );
 
 		// grey out if no ArtilleryTeam can be called from this sector
-		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->bSectorZ, pSoldier->bTeam ) )
+		if ( !IsValidArtilleryOrderSector( sSectorX, sSectorY, pSoldier->deployment().sectorZ(), pSoldier->bTeam ) )
 		{
 			// Set this option off.
 			pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));
@@ -590,8 +590,8 @@ ReinforcementSector::Setup( UINT32 aVal )
 		// check wether we can call artillery from the 4 adjacent sectors
 		for (UINT8 i = 0; i < 4; ++i)
 		{
-			INT16 loopX = pSoldier->sSectorX;
-			INT16 loopY = pSoldier->sSectorY;
+			INT16 loopX = pSoldier->deployment().sectorX();
+			INT16 loopY = pSoldier->deployment().sectorY();
 
 			if ( i == 0 )		++loopY;
 			else if ( i == 1 )	++loopX;
@@ -608,7 +608,7 @@ ReinforcementSector::Setup( UINT32 aVal )
 			pOption = new POPUP_OPTION(&std::wstring( pStr ), new popupCallbackFunction<void, UINT32>( &Wrapper_Setup_ReinforcementNumber, sectornr ) );
 
 			// grey out if no reinforcements can be called from this sector
-			if ( !CanRequestMilitiaReinforcements( pSoldier->sSectorX, pSoldier->sSectorY, loopX, loopY ) )
+			if ( !CanRequestMilitiaReinforcements( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), loopX, loopY ) )
 			{
 				// Set this option off.
 				pOption->setAvail(new popupCallbackFunction<bool,void*>( &Popup_OptionOff, NULL ));

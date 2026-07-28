@@ -221,9 +221,9 @@ BOOLEAN BeginAirRaid( )
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
 			if ( pSoldier->bActive	)
 			{
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->sSectorX,pSoldier->sSectorY,pSoldier->bSectorZ ));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("BeginAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->sSectorX == gAirRaidDef.sSectorX && pSoldier->sSectorY == gAirRaidDef.sSectorY && pSoldier->bSectorZ == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;
@@ -1067,9 +1067,9 @@ void HandleAirRaid( )
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier id = %d, active = %d",pSoldier->ubID,pSoldier->bActive));
 			if ( pSoldier->bActive	)
 			{
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->sSectorX,pSoldier->sSectorY,pSoldier->bSectorZ ));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: soldier sectors: x = %d, y = %d, z = %d",pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleAirRaid: air raid sectors: x = %d, y = %d, z = %d",gAirRaidDef.sSectorX,gAirRaidDef.sSectorY,gAirRaidDef.sSectorZ ));
-				if( pSoldier->sSectorX == gAirRaidDef.sSectorX && pSoldier->sSectorY == gAirRaidDef.sSectorY && pSoldier->bSectorZ == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
+				if( pSoldier->deployment().sectorX() == gAirRaidDef.sSectorX && pSoldier->deployment().sectorY() == gAirRaidDef.sSectorY && pSoldier->deployment().sectorZ() == 	gAirRaidDef.sSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->vitals().health() && pSoldier->assignment().current() != IN_TRANSIT )
 				{
 					fOK = TRUE;
 					break;
@@ -1550,8 +1550,8 @@ static void CheckForAndSetupAirRaid ()
 	//		for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	//		{
 	//			pSoldier = GetJa2SoldierRepository().resolve(cnt);
-	//			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CheckForAndSetupAirRaid: soldier id = %d, (x,y,z) = (%d,%d,%d)",pSoldier->bActive,pSoldier->sSectorX,pSoldier->sSectorY,pSoldier->bSectorZ ));
-	//			if ( pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == 0 && pSoldier->bActive )
+	//			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CheckForAndSetupAirRaid: soldier id = %d, (x,y,z) = (%d,%d,%d)",pSoldier->bActive,pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY(),pSoldier->deployment().sectorZ() ));
+	//			if ( pSoldier->deployment().isInSector( sSectorX, sSectorY, 0 ) && pSoldier->bActive )
 	//				sMenInSector++;
 	//		}
 	//

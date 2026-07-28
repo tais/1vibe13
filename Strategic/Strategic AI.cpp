@@ -888,7 +888,7 @@ void RemovePlayersFromAllMismatchGroups( SOLDIERTYPE *pSoldier )
 			{
 				if( pPlayer->pSoldier == pSoldier )
 				{
-					if( pSoldier->ubGroupID != pGroup->ubGroupID )
+					if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 					{
 						fRemoveSoldierFromThisGroup = TRUE;
 						pTempGroup = pGroup;
@@ -926,14 +926,14 @@ void ValidatePlayersAreInOneGroupOnly()
 
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if( !pSoldier || !pSoldier->bActive || !pSoldier->vitals().health() || !pSoldier->ubGroupID )
+		if( !pSoldier || !pSoldier->bActive || !pSoldier->vitals().health() || !pSoldier->deployment().groupId() )
 		{ //non-existant, dead, or in no group (don't care, skip to next merc)
 			continue;
 		}
 
 		//Record the merc's group ID, as we may have to restore this later if the merc is found to exist
 		//in multiple groups.
-		ubGroupID = pSoldier->ubGroupID;
+		ubGroupID = pSoldier->deployment().groupId();
 
 		iGroups = 0;
 		iMismatches = 0;
@@ -951,7 +951,7 @@ void ValidatePlayersAreInOneGroupOnly()
 				{
 					if( pPlayer->pSoldier == pSoldier )
 					{
-						if( pSoldier->ubGroupID != pGroup->ubGroupID )
+						if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 						{
 							iMismatches++;
 						}
@@ -989,7 +989,7 @@ void ValidatePlayersAreInOneGroupOnly()
 							{
 								if( pPlayer->pSoldier == pSoldier )
 								{
-									if( pSoldier->ubGroupID != pGroup->ubGroupID )
+									if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 									{
 										pOtherGroup = pGroup;
 										iMismatches++;
@@ -1006,14 +1006,14 @@ void ValidatePlayersAreInOneGroupOnly()
 						}
 						pGroup = pGroup->next;
 					}
-					pGroup = GetGroup( pSoldier->ubGroupID );
+					pGroup = GetGroup( pSoldier->deployment().groupId() );
 					Assert( pGroup );
 					Assert( pOtherGroup );
 					swprintf( str, L"%s in %c%d thinks he/she is in group %d in %c%d but isn't. "
 												L"Group %d in %c%d thinks %s is in the group but isn't. %s will be assigned to a unique squad. "
 												L"Please send screenshot, PRIOR save (corrected by time you read this), and any theories.",
-												pSoldier->name, pSoldier->sSectorY + 'A' - 1, pSoldier->sSectorX,
-												pSoldier->ubGroupID, pGroup->ubSectorY + 'A' - 1, pGroup->ubSectorX,
+												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
+												pSoldier->deployment().groupId(), pGroup->ubSectorY + 'A' - 1, pGroup->ubSectorX,
 												pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX, pSoldier->name,
 												pSoldier->name );
 				}
@@ -1036,7 +1036,7 @@ void ValidatePlayersAreInOneGroupOnly()
 							{
 								if( pPlayer->pSoldier == pSoldier )
 								{
-									if( pSoldier->ubGroupID != pGroup->ubGroupID )
+									if( pSoldier->deployment().groupId() != pGroup->ubGroupID )
 									{
 										pOtherGroup = pGroup;
 										iMismatches++;
@@ -1049,14 +1049,14 @@ void ValidatePlayersAreInOneGroupOnly()
 						}
 						pGroup = pGroup->next;
 					}
-					pGroup = GetGroup( pSoldier->ubGroupID );
+					pGroup = GetGroup( pSoldier->deployment().groupId() );
 					Assert( pGroup );
 					Assert( pOtherGroup );
 
 					swprintf( str, L"%s in %c%d has been found in multiple groups. The group he/she is supposed "
 												L"to be in is group %d in %c%d, but %s was also found to be in group %d in %c%d. %s was found in %d groups "
 												L"total. Please send screenshot, PRIOR save (corrected by time you read this), and any theories.",
-												pSoldier->name, pSoldier->sSectorY + 'A' - 1, pSoldier->sSectorX,
+												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
 												pGroup->ubGroupID, pGroup->ubSectorY + 'A' - 1, pGroup->ubSectorX,
 												pSoldier->name, pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX,
 												pSoldier->name, iGroups );
@@ -1067,7 +1067,7 @@ void ValidatePlayersAreInOneGroupOnly()
 					swprintf( str, L"%s in %c%d cannot be found in any group. %s will be assigned to a unique group/squad. "
 												L"Please provide details on how you think this may have happened. Send screenshot and PRIOR save. Do not send a save "
 												L"you create after this point as the info will have been corrected by then.",
-												pSoldier->name, pSoldier->sSectorY + 'A' - 1, pSoldier->sSectorX, pSoldier->name );
+												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(), pSoldier->name );
 				}
 			}
 
@@ -1083,7 +1083,7 @@ void ValidatePlayersAreInOneGroupOnly()
 				//knows what group he is supposed to be in.	This error can be corrected, by manually removing the merc from all
 				//mismatch groups.	This is indicative of a merc being reassigned to another group without removing him first.
 				RemovePlayersFromAllMismatchGroups( pSoldier );
-				pSoldier->ubGroupID = ubGroupID;
+				pSoldier->deployment().groupId() = ubGroupID;
 			}
 			else if( !iGroups )
 			{ //The merc cannot be found in any group!	This should never happen!	We will assign the merc into his

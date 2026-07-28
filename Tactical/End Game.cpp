@@ -280,18 +280,18 @@ static void DoneFadeOutKilledQueen( void )
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			gfTacticalTraversal = TRUE;
-			SetGroupSectorValue( VICTORY_X, VICTORY_Y, 0, pSoldier->ubGroupID );
+			SetGroupSectorValue( VICTORY_X, VICTORY_Y, 0, pSoldier->deployment().groupId() );
 
 			// Set next sectore
-			pSoldier->sSectorX = VICTORY_X;
-			pSoldier->sSectorY = VICTORY_Y;
-			pSoldier->bSectorZ = 0;
+			pSoldier->deployment().sectorX() = VICTORY_X;
+			pSoldier->deployment().sectorY() = VICTORY_Y;
+			pSoldier->deployment().sectorZ() = 0;
 
 			// Set gridno
-			pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-			pSoldier->usStrategicInsertionData = gModSettings.iEndGameVictoryGridNo; //5687 dnl!!!
+			pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+			pSoldier->deployment().strategicInsertionData() = gModSettings.iEndGameVictoryGridNo; //5687 dnl!!!
 			// Set direction to face....
-			pSoldier->ubInsertionDirection		= 100 + NORTHWEST;
+			pSoldier->deployment().insertionDirection()		= 100 + NORTHWEST;
 		}
 	}
 
@@ -778,19 +778,19 @@ void DoneFadeOutJa25EndCinematic( void )
 		pSoldier = soldiers.resolve(cnt);
 		// if the soldier was in the complex
 		if( pSoldier->bActive && 
-				pSoldier->sSectorX == 15 && ( pSoldier->sSectorY == 11 || pSoldier->sSectorY == 12 ) )
+				pSoldier->deployment().sectorX() == 15 && ( pSoldier->deployment().sectorY() == 11 || pSoldier->deployment().sectorY() == 12 ) )
 		{
-			if ( GetGroup( pSoldier->ubGroupID ) )
+			if ( GetGroup( pSoldier->deployment().groupId() ) )
 			{
 				//move them to the 'fake' sector
-				//PlaceGroupInSector( pSoldier->ubGroupID, 15, 11, 16, 11, 0, FALSE );
-				  PlaceGroupInSector( pSoldier->ubGroupID, 15, 11, gGameUBOptions.ubEndDefaultSectorX, gGameUBOptions.ubEndDefaultSectorY, gGameUBOptions.ubEndDefaultSectorZ, FALSE );
+				//PlaceGroupInSector( pSoldier->deployment().groupId(), 15, 11, 16, 11, 0, FALSE );
+				  PlaceGroupInSector( pSoldier->deployment().groupId(), 15, 11, gGameUBOptions.ubEndDefaultSectorX, gGameUBOptions.ubEndDefaultSectorY, gGameUBOptions.ubEndDefaultSectorZ, FALSE );
 			}
 			else
 			{
-				pSoldier->sSectorX = gGameUBOptions.ubEndDefaultSectorX; //16;
-				pSoldier->sSectorY = gGameUBOptions.ubEndDefaultSectorY; //11;
-				pSoldier->bSectorZ = gGameUBOptions.ubEndDefaultSectorZ; //0;
+				pSoldier->deployment().sectorX() = gGameUBOptions.ubEndDefaultSectorX; //16;
+				pSoldier->deployment().sectorY() = gGameUBOptions.ubEndDefaultSectorY; //11;
+				pSoldier->deployment().sectorZ() = gGameUBOptions.ubEndDefaultSectorZ; //0;
 			}
 		}
 	}

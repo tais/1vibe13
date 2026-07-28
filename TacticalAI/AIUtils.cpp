@@ -2220,9 +2220,9 @@ INT16 DistanceToClosestFriend( SOLDIERTYPE * pSoldier )
 		else
 		{
 			// compare sector #s
-			if ( (pSoldier->sSectorX != pTargetSoldier->sSectorX) ||
-				(pSoldier->sSectorY != pTargetSoldier->sSectorY) ||
-				(pSoldier->bSectorZ != pTargetSoldier->bSectorZ) )
+			if ( (pSoldier->deployment().sectorX() != pTargetSoldier->deployment().sectorX()) ||
+				(pSoldier->deployment().sectorY() != pTargetSoldier->deployment().sectorY()) ||
+				(pSoldier->deployment().sectorZ() != pTargetSoldier->deployment().sectorZ()) )
 			{
 				continue;
 			}

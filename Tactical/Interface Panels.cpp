@@ -724,7 +724,7 @@ void CheckForDisabledForGiveItem( )
 					}
 				}
 				// anv: passengers in the same vehicle can pass items freely
-				else if ( sourceSoldier->iVehicleId != -1 && sourceSoldier->iVehicleId == currentMerc->iVehicleId )
+				else if ( sourceSoldier->deployment().vehicleId() != -1 && sourceSoldier->deployment().vehicleId() == currentMerc->deployment().vehicleId() )
 				{
 					gfSMDisableForItems = FALSE;
 				}
@@ -5535,7 +5535,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
 				{
 					// Get soldier pointer for vehicle.....
-					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 
 					// WDS 07/02/3008 - Fix bug of getting into vehicle you don't control
 					Assert (pVehicle != 0);
@@ -5698,7 +5698,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 							INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
 							if( bSeatIndex != (-1) )
 							{					
-								swprintf( sTemp, L"%s\n", gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[ bSeatIndex ].zSeatName );
+								swprintf( sTemp, L"%s\n", gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[ bSeatIndex ].zSeatName );
 								wcscat( pStr, sTemp );
 							}
 
@@ -6296,7 +6296,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			//if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			//if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
 			//{
-			//	pVehicle = GetSoldierStructureForVehicle( ubSoldierID->iVehicleId );
+			//	pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 
 			//	HandleLocateSelectMerc( pVehicle->ubID, 0 );
 			//}
@@ -6899,7 +6899,7 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		// anv: select vehicle by clicking on the steering wheel
 		//if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_DRIVER )
 		//{
-		//	SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->iVehicleId );
+		//	SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 		//	HandleLocateSelectMerc( pVehicle->ubID, 0 );
 		//}
 		//else
@@ -7079,12 +7079,12 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 		// anv: for passengers, position on team panel will be linked with seat in vehicle
 		if ( soldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 		{
-			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( soldier->iVehicleId );
+			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( soldier->deployment().vehicleId() );
 			if( pVehicle != NULL )
 			{
-				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->iVehicleId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
+				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->deployment().vehicleId() ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 				{
-					SOLDIERTYPE *pPassenger = pVehicleList[ soldier->iVehicleId ].pPassengers[ iCounter ];
+					SOLDIERTYPE *pPassenger = pVehicleList[ soldier->deployment().vehicleId() ].pPassengers[ iCounter ];
 					if( pPassenger != NULL && pPassenger->ubID == ubID )
 					{
 						gTeamPanel[ iCounter ].fOccupied = TRUE;
@@ -7224,7 +7224,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 		if ( pSoldier->bTeam == gbPlayerNum )
 		{
 			// Are we in the loaded sector?
-			if ( pSoldier->sSectorX == gWorldSectorX && pSoldier->sSectorY == gWorldSectorY && pSoldier->bSectorZ == gbWorldSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector )
+			if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && !pSoldier->flags.fBetweenSectors && pSoldier->bInSector )
 			{
 				// IF on duty....
 				if( ( pSoldier->assignment().current() ==	CurrentSquad( ) )|| ( SoldierIsDeadAndWasOnSquad( pSoldier, ( INT8 )( CurrentSquad( ) ) ) ) )
@@ -7236,7 +7236,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 					}
 					// ATE: ALrighty, if we have the insertion code of helicopter..... don't add just yet!
 					/// ( will add in heli code )
-					if ( pSoldier->ubStrategicInsertionCode != INSERTION_CODE_CHOPPER )
+					if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 					{
 						AddPlayerToInterfaceTeamSlot( pSoldier->ubID );
 					}

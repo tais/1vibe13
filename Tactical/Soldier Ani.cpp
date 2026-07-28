@@ -4248,17 +4248,17 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		// Flugente: VIPs
 		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
 		{
-			DeleteVIP( pSoldier->sSectorX, pSoldier->sSectorY );
+			DeleteVIP( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		}
 		
 		// Flugente: turncoats
 		if ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
-			RemoveOneTurncoat( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->ubSoldierClass, FALSE );
+			RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->ubSoldierClass, FALSE );
 
 		// Flugente: additional dialogue
 		if ( pSoldier->ubProfile != NO_PROFILE )
 		{
-			AdditionalTacticalCharacterDialogue_AllInSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, pSoldier->ubProfile, ADE_NPC_DEATH, 
+			AdditionalTacticalCharacterDialogue_AllInSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), pSoldier->ubProfile, ADE_NPC_DEATH,
 				pSoldier->ubProfile, pKillerSoldier ? pKillerSoldier->ubProfile : NO_PROFILE, pSoldier->ubBodyType );
 		}
 

@@ -2371,9 +2371,9 @@ POPUP * createPopupForPocket( SOLDIERTYPE *pSoldier, INT16 sPocket ){
 	if(	!(	
 		guiCurrentItemDescriptionScreen == MAP_SCREEN 
 		&&	fShowMapInventoryPool 
-		&&	( ( pSelectedSoldier->sSectorX == sSelMapX )
-		&&	( pSelectedSoldier->sSectorY == sSelMapY )
-		&&	( pSelectedSoldier->bSectorZ == iCurrentMapSectorZ ) 
+		&&	( ( pSelectedSoldier->deployment().sectorX() == sSelMapX )
+		&&	( pSelectedSoldier->deployment().sectorY() == sSelMapY )
+		&&	( pSelectedSoldier->deployment().sectorZ() == iCurrentMapSectorZ )
 		)
 		&&	CanPlayerUseSectorInventory( pSelectedSoldier )	
 		) )
@@ -4444,7 +4444,7 @@ void INVRenderSteeringWheel( UINT32 uiBuffer, UINT32 uiSteeringWheelIndex, SOLDI
 		return;
 	}
 
-	pVehicle = GetSoldierStructureForVehicle ( pSoldier->iVehicleId );
+	pVehicle = GetSoldierStructureForVehicle ( pSoldier->deployment().vehicleId() );
 
 	if ( pVehicle == NULL )
 	{
@@ -5883,9 +5883,9 @@ void UpdateAttachmentTooltips(OBJECTTYPE *pObject, UINT8 ubStatusIndex)
 				if(	guiCurrentItemDescriptionScreen == MAP_SCREEN 
 					&&	fShowMapInventoryPool 
 					&&	pSoldier
-					&&	( (pSoldier->sSectorX == sSelMapX )
-					&&	( pSoldier->sSectorY == sSelMapY )
-					&&	( pSoldier->bSectorZ == iCurrentMapSectorZ ) )
+					&&	( (pSoldier->deployment().sectorX() == sSelMapX )
+					&&	( pSoldier->deployment().sectorY() == sSelMapY )
+					&&	( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) )
 					&&	CanPlayerUseSectorInventory( pSoldier )
 					&&	attachList.size()>0 )	// silversurfer: no need to show popups if we have nothing to display
 				{
@@ -10727,9 +10727,9 @@ void ItemPopupRegionCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			return;
 		}
 
-		if( ( pSelected->sSectorX != sSelMapX ) ||
-				( pSelected->sSectorY != sSelMapY ) ||
-				( pSelected->bSectorZ != iCurrentMapSectorZ ) ||
+		if( ( pSelected->deployment().sectorX() != sSelMapX ) ||
+				( pSelected->deployment().sectorY() != sSelMapY ) ||
+				( pSelected->deployment().sectorZ() != iCurrentMapSectorZ ) ||
 				( pSelected->flags.fBetweenSectors ) )
 		{
 			if ( gpItemPointer == NULL )

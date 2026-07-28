@@ -776,11 +776,11 @@ void SetThisMercsSectorXYToTheseValues( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 s
 	// will move a merc ( pSoldier )to a sector sX, sY
 
 	// Ok, update soldier control pointer values
-	pSoldier->sSectorX = sX;
-	pSoldier->sSectorY = sY;
+	pSoldier->deployment().sectorX() = sX;
+	pSoldier->deployment().sectorY() = sY;
 
 	// Set insertion code....
-	pSoldier->ubStrategicInsertionCode = ubFromMapDirToInsertionCode[ ubFromDirection ];
+	pSoldier->deployment().strategicInsertionCode() = ubFromMapDirToInsertionCode[ ubFromDirection ];
 
 	// Are we the same as our current sector
 	if ( gWorldSectorX == sX && gWorldSectorY == sY && !gbWorldSectorZ )
@@ -1259,7 +1259,7 @@ PathStPtr RemoveSectorFromStrategicPathList( PathStPtr pList , INT16 sX, INT16 s
 INT16 GetLastSectorIdInCharactersPath( SOLDIERTYPE *pCharacter )
 {
 	// will return the last sector of the current path, or the current sector if there's no path
-	INT16 sLastSector = CALCULATE_STRATEGIC_INDEX( pCharacter->sSectorX, pCharacter->sSectorY );
+	INT16 sLastSector = CALCULATE_STRATEGIC_INDEX( pCharacter->deployment().sectorX(), pCharacter->deployment().sectorY() );
 	PathStPtr pNode = GetSoldierMercPathPtr( pCharacter );
 
 	while( pNode )
@@ -1421,7 +1421,7 @@ void CalculateEtaForCharacterPath( SOLDIERTYPE *pCharacter )
 		return;
 	}
 
-	if( ( fInVehicle == TRUE ) && ( VehicleIdIsValid( pCharacter->iVehicleId ) ) )
+	if( ( fInVehicle == TRUE ) && ( VehicleIdIsValid( pCharacter->deployment().vehicleId() ) ) )
 	{
 		// valid vehicle, is there a path for it?
 		if( pVehicleList[ iId ].pMercPath == NULL )
@@ -1539,8 +1539,8 @@ void MoveCharacterOnPath( SOLDIERTYPE *pCharacter )
 		pNode->pPrev = NULL;
 
 		// set up new location
-		pCharacter->sSectorX = ( INT16 )( pNode->uiSectorId ) % MAP_WORLD_X ;
-		pCharacter->sSectorY = ( INT16 )( pNode->uiSectorId ) / MAP_WORLD_X;
+		pCharacter->deployment().sectorX() = ( INT16 )( pNode->uiSectorId ) % MAP_WORLD_X ;
+		pCharacter->deployment().sectorY() = ( INT16 )( pNode->uiSectorId ) / MAP_WORLD_X;
 
 		// dirty map panel
 		fMapPanelDirty = TRUE;
@@ -1748,7 +1748,7 @@ void ClearMvtForThisSoldierAndGang( SOLDIERTYPE *pSoldier )
 	// check if valid grunt
 	Assert( pSoldier );
 
-	pGroup = GetGroup( pSoldier->ubGroupID );
+	pGroup = GetGroup( pSoldier->deployment().groupId() );
 	Assert( pGroup );
 
 	// clear their strategic movement (mercpaths and waypoints)
@@ -1975,7 +1975,7 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 	// IN a vehicle?
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		pMercPath = pVehicleList[ pSoldier->iVehicleId ].pMercPath;
+		pMercPath = pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath;
 	}
 	// IS a vehicle?
 	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -2042,7 +2042,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 	// IN a vehicle?
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
-		ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
+		ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 	}
 	// IS a vehicle?
 	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -2051,7 +2051,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 	}
 	else	// a person
 	{
-		ubGroupId = pSoldier->ubGroupID;
+		ubGroupId = pSoldier->deployment().groupId();
 	}
 
 	return( ubGroupId );
@@ -2108,7 +2108,7 @@ void ClearMercPathsAndWaypointsForAllInGroup( GROUP *pGroup )
 	// clear the waypoints for this group too - no mercpath = no waypoints!
 	RemovePGroupWaypoints( pGroup );
 	// not used anymore
-	//SetWayPointsAsCanceled( pCurrentMerc->ubGroupID );
+	//SetWayPointsAsCanceled( pCurrentMerc->deployment().groupId() );
 }
 
 
@@ -2120,7 +2120,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 
 
 	// clear the soldier's mercpath
-	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->ubGroupID );
+	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
 
 	// if a vehicle
 	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
@@ -2130,7 +2130,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 	// or in a vehicle
 	else if( pSoldier->assignment().current() == VEHICLE )
 	{
-		pVehicle = &( pVehicleList[ pSoldier->iVehicleId ] );
+		pVehicle = &( pVehicleList[ pSoldier->deployment().vehicleId() ] );
 	}
 
 	// if there's an associate vehicle structure

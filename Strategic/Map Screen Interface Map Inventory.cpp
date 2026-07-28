@@ -686,9 +686,9 @@ BOOLEAN RenderItemInPoolSlot( INT32 iCurrentSlot, INT32 iFirstSlotOnPage )
 		: nullptr;
 	if( !( pInventoryPoolList[ iCurrentSlot + iFirstSlotOnPage ].usFlags & WORLD_ITEM_REACHABLE ) ||
 			!selectedSoldier ||
-			!(( selectedSoldier->sSectorX == sSelMapX ) &&
-				( selectedSoldier->sSectorY == sSelMapY ) &&
-				( selectedSoldier->bSectorZ == iCurrentMapSectorZ )
+			!(( selectedSoldier->deployment().sectorX() == sSelMapX ) &&
+				( selectedSoldier->deployment().sectorY() == sSelMapY ) &&
+				( selectedSoldier->deployment().sectorZ() == iCurrentMapSectorZ )
 			) )
 	{
 		//Shade the item, but only if it is an active item!
@@ -1374,9 +1374,9 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 
 			//CHRISL: Try to update InSector value so we don't have to "activate" a sector
 			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
-			const auto x = pSelectedSoldier->sSectorX;
-			const auto y = pSelectedSoldier->sSectorY;
-			const auto z = pSelectedSoldier->bSectorZ;
+			const auto x = pSelectedSoldier->deployment().sectorX();
+			const auto y = pSelectedSoldier->deployment().sectorY();
+			const auto z = pSelectedSoldier->deployment().sectorZ();
 			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->flags.fBetweenSectors)
 			{
 				pSelectedSoldier->bInSector = TRUE;
@@ -1606,9 +1606,9 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			SOLDIERTYPE* pSelectedSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 
 			// not in sector?
-			if( ( pSelectedSoldier->sSectorX != sSelMapX ) ||
-					( pSelectedSoldier->sSectorY != sSelMapY ) ||
-					( pSelectedSoldier->bSectorZ != iCurrentMapSectorZ ) ||
+			if( ( pSelectedSoldier->deployment().sectorX() != sSelMapX ) ||
+					( pSelectedSoldier->deployment().sectorY() != sSelMapY ) ||
+					( pSelectedSoldier->deployment().sectorZ() != iCurrentMapSectorZ ) ||
 					( pSelectedSoldier->flags.fBetweenSectors ) )
 			{
 				if ( gpItemPointer == NULL )
@@ -1763,7 +1763,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 					INT8 bLevel = 0;
 
 					// is this sector loaded?
-					if (GetItemPointerSoldier() && (GetItemPointerSoldier()->sSectorX == gWorldSectorX) && (GetItemPointerSoldier()->sSectorY == gWorldSectorY) && (GetItemPointerSoldier()->bSectorZ == gbWorldSectorZ))
+					if (GetItemPointerSoldier() && (GetItemPointerSoldier()->deployment().sectorX() == gWorldSectorX) && (GetItemPointerSoldier()->deployment().sectorY() == gWorldSectorY) && (GetItemPointerSoldier()->deployment().sectorZ() == gbWorldSectorZ))
 					{
 						sGridNo = GetItemPointerSoldier()->position().gridNo();
 						bLevel = GetItemPointerSoldier()->position().level();
@@ -3086,7 +3086,7 @@ void MapInventoryReadEquipmentTemplate(GUI_BUTTON *btn, INT32 reason)
 		{
 			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
 			if ( pSoldier &&
-				 pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ &&
+				 pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ &&
 				 !pSoldier->flags.fBetweenSectors )
 			{
 				if ( (IsJa2TacticalCombatActive() || gTacticalStatus.fEnemyInSector) )
@@ -3538,9 +3538,9 @@ void HandleButtonStatesWhileMapInventoryActive( void )
 
 	// Selected Merc is in sector? Or is in combat?
 	SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
-	if( pSoldier->sSectorX != sSelMapX ||
-		pSoldier->sSectorY != sSelMapY || 
-		pSoldier->bSectorZ != iCurrentMapSectorZ ||
+	if( pSoldier->deployment().sectorX() != sSelMapX ||
+		pSoldier->deployment().sectorY() != sSelMapY ||
+		pSoldier->deployment().sectorZ() != iCurrentMapSectorZ ||
 		pSoldier->flags.fBetweenSectors ||
 		!CanPlayerUseSectorInventory( pSoldier ) ) 
 	{
@@ -3834,9 +3834,9 @@ BOOLEAN CanPlayerUseSectorInventory( SOLDIERTYPE *pSelectedSoldier )
 	if( fInCombat )
 	{
 		//if the selected soldier is in combat sector
-		if( ( ( pSelectedSoldier->sSectorX == sX ) &&
-					( pSelectedSoldier->sSectorY == sY ) &&
-					( pSelectedSoldier->bSectorZ == sZ )
+		if( ( ( pSelectedSoldier->deployment().sectorX() == sX ) &&
+					( pSelectedSoldier->deployment().sectorY() == sY ) &&
+					( pSelectedSoldier->deployment().sectorZ() == sZ )
 				)
 			)
 		{

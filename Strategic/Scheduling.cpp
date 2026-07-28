@@ -830,7 +830,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			if ( GridNoOnEdgeOfMap( pSchedule->usData2[ index ], &bDirection ) )
 			{
 				// civ should go off map; this tells us where the civ will return
-				pSoldier->sOffWorldGridNo = pSchedule->usData2[ index ];
+				pSoldier->deployment().offWorldGrid() = pSchedule->usData2[ index ];
 				MoveSoldierFromMercToAwaySlot( pSoldier );
 				pSoldier->bInSector = FALSE;
 			}
@@ -888,7 +888,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 
 			// ok, that tells us where the civ will return
-			pSoldier->sOffWorldGridNo = sGridNo;
+			pSoldier->deployment().offWorldGrid() = sGridNo;
 			MoveSoldierFromMercToAwaySlot( pSoldier );
 			pSoldier->bInSector = FALSE;
 			break;

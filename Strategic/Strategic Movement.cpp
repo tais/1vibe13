@@ -263,18 +263,18 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 		pGroup->pPlayerList = pPlayer;
 
 		// Flugente: no groups in odd locations
-		if ( pSoldier->bSectorZ >= 10 )
-			pSoldier->bSectorZ -= 10;
+		if ( pSoldier->deployment().sectorZ() >= 10 )
+			pSoldier->deployment().sectorZ() -= 10;
 
 		pGroup->ubGroupSize = 1;
-		pGroup->ubPrevX = SECTORX( pSoldier->ubPrevSectorID );
-		pGroup->ubPrevY = SECTORY( pSoldier->ubPrevSectorID );
-		pGroup->ubSectorX = (UINT8)pSoldier->sSectorX;
-		pGroup->ubSectorY = (UINT8)pSoldier->sSectorY;
-		pGroup->ubSectorZ = (UINT8)pSoldier->bSectorZ;
+		pGroup->ubPrevX = SECTORX( pSoldier->deployment().previousSectorId() );
+		pGroup->ubPrevY = SECTORY( pSoldier->deployment().previousSectorId() );
+		pGroup->ubSectorX = (UINT8)pSoldier->deployment().sectorX();
+		pGroup->ubSectorY = (UINT8)pSoldier->deployment().sectorY();
+		pGroup->ubSectorZ = (UINT8)pSoldier->deployment().sectorZ();
 
 		// set group id
-		pSoldier->ubGroupID = ubGroupID;
+		pSoldier->deployment().groupId() = ubGroupID;
 
 		return TRUE;
 	}
@@ -292,7 +292,7 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 		curr->next = pPlayer;
 
 		// set group id
-		pSoldier->ubGroupID = ubGroupID;
+		pSoldier->deployment().groupId() = ubGroupID;
 
 		pGroup->ubGroupSize++;
 		return TRUE;
@@ -325,8 +325,8 @@ BOOLEAN RemoveAllPlayersFromPGroup( GROUP *pGroup )
 	{
 		pGroup->pPlayerList = pGroup->pPlayerList->next;
 
-		curr->pSoldier->ubPrevSectorID = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
-		curr->pSoldier->ubGroupID = 0;
+		curr->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+		curr->pSoldier->deployment().groupId() = 0;
 
 		MemFree( curr );
 
@@ -367,8 +367,8 @@ BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 
 		//process info for soldier
 		pGroup->ubGroupSize--;
-		pSoldier->ubPrevSectorID = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
-		pSoldier->ubGroupID = 0;
+		pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+		pSoldier->deployment().groupId() = 0;
 
 		// if there's nobody left in the group
 		if( pGroup->ubGroupSize == 0 )
@@ -400,9 +400,9 @@ BOOLEAN RemovePlayerFromPGroup( GROUP *pGroup, SOLDIERTYPE *pSoldier )
 			MemFree( curr );
 
 			//process info for soldier
-			pSoldier->ubGroupID = 0;
+			pSoldier->deployment().groupId() = 0;
 			pGroup->ubGroupSize--;
-			pSoldier->ubPrevSectorID = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+			pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
 
 			return TRUE;
 		}
@@ -676,7 +676,7 @@ BOOLEAN AddWaypointToPGroup( GROUP* pGroup, UINT8 ubSectorX, UINT8 ubSectorY ) /
 		curr = pGroup->pPlayerList;
 		while( curr )
 		{
-			curr->pSoldier->ubStrategicInsertionCode = 0;
+			curr->pSoldier->deployment().strategicInsertionCode() = 0;
 			curr = curr->next;
 		}
 	}
@@ -1952,17 +1952,17 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			while( curr )
 			{
 				curr->pSoldier->flags.fBetweenSectors = FALSE;
-				curr->pSoldier->sSectorX = pGroup->ubSectorX;
-				curr->pSoldier->sSectorY = pGroup->ubSectorY;
-				curr->pSoldier->bSectorZ = pGroup->ubSectorZ;
-				curr->pSoldier->ubPrevSectorID = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
-				curr->pSoldier->ubInsertionDirection = ubInsertionDirection;
+				curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
+				curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
+				curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
+				curr->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+				curr->pSoldier->deployment().insertionDirection() = ubInsertionDirection;
 
 				// don't override if a tactical traversal
-				if( curr->pSoldier->ubStrategicInsertionCode != INSERTION_CODE_PRIMARY_EDGEINDEX &&
-						curr->pSoldier->ubStrategicInsertionCode != INSERTION_CODE_SECONDARY_EDGEINDEX )
+				if( curr->pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_PRIMARY_EDGEINDEX &&
+						curr->pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_SECONDARY_EDGEINDEX )
 				{
-					curr->pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+					curr->pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 				}
 
 				if( curr->pSoldier->pMercPath )
@@ -1992,15 +1992,15 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 						// squad
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
 						if ( gGameExternalOptions.fUseXMLSquadNames && pGroup->pPlayerList->pSoldier->assignment().current() < gSquadNameVector.size() )
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], gSquadNameVector[pGroup->pPlayerList->pSoldier->assignment().current()].c_str(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY() ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX() ]);
 						else
-							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ pGroup->pPlayerList->pSoldier->assignment().current() ], pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX ]);
+							ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pAssignmentStrings[ pGroup->pPlayerList->pSoldier->assignment().current() ], pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY() ], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX() ]);
 					}
 					else
 					{
 						// a loner
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->name, pMapVertIndex[ pGroup->pPlayerList->pSoldier->sSectorY	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->sSectorX	] );
+						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->name, pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
 					}
 				}
 			}
@@ -2029,15 +2029,15 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				Assert( pSoldier );
 
 				pSoldier->flags.fBetweenSectors = FALSE;
-				pSoldier->sSectorX = pGroup->ubSectorX;
-				pSoldier->sSectorY = pGroup->ubSectorY;
-				pSoldier->bSectorZ = pGroup->ubSectorZ;
-				pSoldier->ubInsertionDirection = ubInsertionDirection;
+				pSoldier->deployment().sectorX() = pGroup->ubSectorX;
+				pSoldier->deployment().sectorY() = pGroup->ubSectorY;
+				pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
+				pSoldier->deployment().insertionDirection() = ubInsertionDirection;
 
 				// ATE: Removed, may 21 - sufficient to use insertion direction...
 				//pSoldier->pathing().desiredDirection() = ubInsertionDirection;
 
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 
 				// if this sector is currently loaded
 				if ( pGroup->ubSectorX == gWorldSectorX && pGroup->ubSectorY == gWorldSectorY && pGroup->ubSectorZ == gbWorldSectorZ )
@@ -2051,15 +2051,15 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 				while( curr )
 				{
 					curr->pSoldier->flags.fBetweenSectors = FALSE;
-					curr->pSoldier->sSectorX = pGroup->ubSectorX;
-					curr->pSoldier->sSectorY = pGroup->ubSectorY;
-					curr->pSoldier->bSectorZ = pGroup->ubSectorZ;
-					curr->pSoldier->ubInsertionDirection = ubInsertionDirection;
+					curr->pSoldier->deployment().sectorX() = pGroup->ubSectorX;
+					curr->pSoldier->deployment().sectorY() = pGroup->ubSectorY;
+					curr->pSoldier->deployment().sectorZ() = pGroup->ubSectorZ;
+					curr->pSoldier->deployment().insertionDirection() = ubInsertionDirection;
 
 					// ATE: Removed, may 21 - sufficient to use insertion direction...
 					// curr->pSoldier->pathing().desiredDirection() = ubInsertionDirection;
 
-					curr->pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+					curr->pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 
 					// if this sector is currently loaded
 					if ( pGroup->ubSectorX == gWorldSectorX && pGroup->ubSectorY == gWorldSectorY && pGroup->ubSectorZ == gbWorldSectorZ )
@@ -2365,7 +2365,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
-				if ( ( pSoldier->sSectorX == ubSectorX ) && ( pSoldier->sSectorY == ubSectorY ) && ( pSoldier->bSectorZ - 10 == ubSectorZ ) )
+				if ( ( pSoldier->deployment().sectorX() == ubSectorX ) && ( pSoldier->deployment().sectorY() == ubSectorY ) && ( pSoldier->deployment().sectorZ() - 10 == ubSectorZ ) )
 				{
 					INT8 bNewSquad = GetFirstEmptySquad();
 					if ( bNewSquad == -1 )
@@ -3029,9 +3029,9 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->sSectorX = sSectorX;
-			pPlayer->pSoldier->sSectorY = sSectorY;
-			pPlayer->pSoldier->bSectorZ = (UINT8)sSectorZ;
+			pPlayer->pSoldier->deployment().sectorX() = sSectorX;
+			pPlayer->pSoldier->deployment().sectorY() = sSectorY;
+			pPlayer->pSoldier->deployment().sectorZ() = (UINT8)sSectorZ;
 			pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
 			pPlayer->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			pPlayer = pPlayer->next;
@@ -3664,7 +3664,7 @@ void HandleArrivalOfReinforcements( GROUP *pGroup )
 		{
 			pSoldier = pPlayer->pSoldier;
 			Assert( pSoldier );
-			pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+			pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			UpdateMercInSector( pSoldier, pGroup->ubSectorX, pGroup->ubSectorY, 0 );
 			pPlayer = pPlayer->next;
 
@@ -3821,9 +3821,9 @@ void MoveAllGroupsInCurrentSectorToSector( UINT8 ubSectorX, UINT8 ubSectorY, UIN
 			pPlayer = pGroup->pPlayerList;
 			while( pPlayer )
 			{
-				pPlayer->pSoldier->sSectorX = ubSectorX;
-				pPlayer->pSoldier->sSectorY = ubSectorY;
-				pPlayer->pSoldier->bSectorZ = ubSectorZ;
+				pPlayer->pSoldier->deployment().sectorX() = ubSectorX;
+				pPlayer->pSoldier->deployment().sectorY() = ubSectorY;
+				pPlayer->pSoldier->deployment().sectorZ() = ubSectorZ;
 				pPlayer->pSoldier->flags.fBetweenSectors = FALSE;
 				pPlayer = pPlayer->next;
 			}
@@ -4340,7 +4340,7 @@ BOOLEAN LoadEnemyGroupStructFromSavedGame( HWFILE hFile, GROUP *pGroup )
 void CheckMembersOfMvtGroupAndComplainAboutBleeding( SOLDIERTYPE *pSoldier )
 {
 	// run through members of group
-	UINT8 ubGroupId = pSoldier->ubGroupID;
+	UINT8 ubGroupId = pSoldier->deployment().groupId();
 	GROUP	*pGroup;
 	PLAYERGROUP *pPlayer=NULL;
 	SOLDIERTYPE *pCurrentSoldier=NULL;
@@ -4543,7 +4543,7 @@ void CalculateGroupRetreatSector( GROUP *pGroup )
 		pPlayer = pGroup->pPlayerList;
 		while( pPlayer )
 		{
-			pPlayer->pSoldier->ubPrevSectorID = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
+			pPlayer->pSoldier->deployment().previousSectorId() = (UINT8)SECTOR( pGroup->ubPrevX, pGroup->ubPrevY );
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -5093,9 +5093,9 @@ void SetLocationOfAllPlayerSoldiersInGroup( GROUP *pGroup, INT16 sSectorX, INT16
 
 		if ( pSoldier != NULL )
 		{
-			pSoldier->sSectorX = sSectorX;
-			pSoldier->sSectorY = sSectorY;
-			pSoldier->bSectorZ = bSectorZ;
+			pSoldier->deployment().sectorX() = sSectorX;
+			pSoldier->deployment().sectorY() = sSectorY;
+			pSoldier->deployment().sectorZ() = bSectorZ;
 		}
 
 		pPlayer = pPlayer->next;
@@ -5124,9 +5124,9 @@ void SetLocationOfAllPlayerSoldiersInGroup( GROUP *pGroup, INT16 sSectorX, INT16
 			Assert ( pSoldier );
 
 			// these are apparently unnecessary, since vehicles are part of the pPlayerList in a vehicle group. Oh well.
-			pSoldier->sSectorX = sSectorX;
-			pSoldier->sSectorY = sSectorY;
-			pSoldier->bSectorZ = bSectorZ;
+			pSoldier->deployment().sectorX() = sSectorX;
+			pSoldier->deployment().sectorY() = sSectorY;
+			pSoldier->deployment().sectorZ() = bSectorZ;
 		}
 	}
 }
@@ -5386,7 +5386,7 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
 				{
-					if ( pSoldier->sSectorX == pGroup->ubSectorX && pSoldier->sSectorY == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
+					if ( pSoldier->deployment().sectorX() == pGroup->ubSectorX && pSoldier->deployment().sectorY() == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
 						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->ubProfile != NO_PROFILE )
 						{
@@ -5875,8 +5875,8 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive &&
 			pSoldier->vitals().health() >= OKLIFE &&
-			pSoldier->sSectorX == ubSectorNumX &&
-			pSoldier->sSectorY == ubSectorNumY &&
+			pSoldier->deployment().sectorX() == ubSectorNumX &&
+			pSoldier->deployment().sectorY() == ubSectorNumY &&
 			pSoldier->assignment().current() < ON_DUTY &&
 			!pSoldier->flags.fMercAsleep &&
 			HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) )
@@ -5899,7 +5899,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
-			if ( pSoldier->sSectorX == ubSectorNumX && pSoldier->sSectorY == ubSectorNumY && pSoldier->bSectorZ == 10 )
+			if ( pSoldier->deployment().sectorX() == ubSectorNumX && pSoldier->deployment().sectorY() == ubSectorNumY && pSoldier->deployment().sectorZ() == 10 )
 			{
 				if ( !aScoutsOnly || HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) )
 				{

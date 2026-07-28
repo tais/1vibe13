@@ -292,7 +292,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
 		if ( pTeamSoldier->bActive && !pTeamSoldier->flags.fBetweenSectors  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) &&
-			 (pTeamSoldier->sSectorX == sSectorX && pTeamSoldier->sSectorY == sSectorY && pTeamSoldier->bSectorZ == sSectorZ) )
+			 (pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == sSectorZ) )
 		{
 			++teammemberspresent;
 		}
@@ -1030,7 +1030,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 				pSoldier = &GetJa2SoldierRepository().record(slot);
 
 				// Skip inactive and already grouped soldiers
-				if (!pSoldier->bActive || pSoldier->ubGroupID)
+				if (!pSoldier->bActive || pSoldier->deployment().groupId())
 				{
 					// if this guy already has an ID, reduce the number of people who still need one
 					--num;
@@ -1051,7 +1051,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumAdmins--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1061,7 +1061,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumTroops--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1071,7 +1071,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumElites--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1086,7 +1086,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 								num--;
 								sNumSlots--;
 								ubNumElites--;
-								pSoldier->ubGroupID = pGroup->ubGroupID;
+								pSoldier->deployment().groupId() = pGroup->ubGroupID;
 								firstSlot = slot + 1;
 							}
 						}
@@ -1097,7 +1097,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumRobots--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1107,7 +1107,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumTanks--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1117,7 +1117,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 							num--;
 							sNumSlots--;
 							ubNumJeeps--;
-							pSoldier->ubGroupID = pGroup->ubGroupID;
+							pSoldier->deployment().groupId() = pGroup->ubGroupID;
 							firstSlot = slot + 1;
 						}
 						break;
@@ -1203,9 +1203,9 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
 		pSoldier->ubProfile == MORRIS_UB )
 	{
-		if( !pSoldier->bSectorZ )
+		if( !pSoldier->deployment().sectorZ() )
 		{
-			pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
+			pSector = &SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ];
 			if( pSector->ubNumElites )
 			{
 				pSector->ubNumElites--;
@@ -1219,9 +1219,9 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 		{
 			UNDERGROUND_SECTORINFO *pUnderground =
 				FindUnderGroundSector(
-					(UINT8)pSoldier->sSectorX,
-					(UINT8)pSoldier->sSectorY,
-					(UINT8)pSoldier->bSectorZ );
+					(UINT8)pSoldier->deployment().sectorX(),
+					(UINT8)pSoldier->deployment().sectorY(),
+					(UINT8)pSoldier->deployment().sectorZ() );
 			Assert( pUnderground );
 			if( pUnderground )
 			{
@@ -1245,9 +1245,9 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			{ //Iggy is on our team!
 				break;
 			}
-			if( !pSoldier->bSectorZ )
+			if( !pSoldier->deployment().sectorZ() )
 			{
-				pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
+				pSector = &SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ];
 				if( pSector->ubNumElites )
 				{
 					pSector->ubNumElites--;
@@ -1260,7 +1260,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			else
 			{
 				UNDERGROUND_SECTORINFO *pUnderground;
-				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
+				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), (UINT8)pSoldier->deployment().sectorZ() );
 				Assert( pUnderground );
 				if( !pUnderground )
 				{
@@ -1277,9 +1277,9 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			}
 			break;
 		case TANK_CAR:
-			if( !pSoldier->bSectorZ )
+			if( !pSoldier->deployment().sectorZ() )
 			{
-				pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
+				pSector = &SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ];
 				if( pSector->ubNumTanks )
 				{
 					pSector->ubNumTanks--;
@@ -1292,7 +1292,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			else
 			{
 				UNDERGROUND_SECTORINFO *pUnderground;
-				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
+				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), (UINT8)pSoldier->deployment().sectorZ() );
 				Assert( pUnderground );
 				if( !pUnderground )
 				{
@@ -1310,9 +1310,9 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			break;
 
 		case COMBAT_JEEP_CAR:
-			if ( !pSoldier->bSectorZ )
+			if ( !pSoldier->deployment().sectorZ() )
 			{
-				pSector = &SectorInfo[SECTOR( pSoldier->sSectorX, pSoldier->sSectorY )];
+				pSector = &SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )];
 				if ( pSector->ubNumJeeps )
 				{
 					pSector->ubNumJeeps--;
@@ -1325,7 +1325,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			else
 			{
 				UNDERGROUND_SECTORINFO *pUnderground;
-				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->sSectorX, (UINT8)pSoldier->sSectorY, (UINT8)pSoldier->bSectorZ );
+				pUnderground = FindUnderGroundSector( (UINT8)pSoldier->deployment().sectorX(), (UINT8)pSoldier->deployment().sectorY(), (UINT8)pSoldier->deployment().sectorZ() );
 				Assert( pUnderground );
 				if( !pUnderground )
 				{
@@ -1347,16 +1347,16 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 		return;
 
 	//we are recording an enemy death
-	if( pSoldier->ubGroupID )
+	if( pSoldier->deployment().groupId() )
 	{
 		//The enemy was in a mobile group
 		GROUP *pGroup;
-		pGroup = GetGroup( pSoldier->ubGroupID );
+		pGroup = GetGroup( pSoldier->deployment().groupId() );
 		if( !pGroup )
 		{
 			#ifdef JA2BETAVERSION
 				CHAR16 str[256];
-				swprintf( str, L"Enemy soldier killed with ubGroupID of %d, and the group doesn't exist!", pSoldier->ubGroupID );
+				swprintf( str, L"Enemy soldier killed with ubGroupID of %d, and the group doesn't exist!", pSoldier->deployment().groupId() );
 				DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 			#endif
 			return;
@@ -1366,7 +1366,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 		{
 #ifdef JA2BETAVERSION
 				CHAR16 str[256];
-				swprintf( str, L"Attempting to process player group %d thinking it's an enemy group in ProcessQueenCmdImplicationsOfDeath()", pSoldier->ubGroupID );
+				swprintf( str, L"Attempting to process player group %d thinking it's an enemy group in ProcessQueenCmdImplicationsOfDeath()", pSoldier->deployment().groupId() );
 				DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 #endif
 			return;
@@ -1375,7 +1375,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 		{
 #ifdef JA2BETAVERSION
 			CHAR16 str[256];
-			swprintf( str, L"Attempting to process militia group %d thinking it's an enemy group in ProcessQueenCmdImplicationsOfDeath()", pSoldier->ubGroupID );
+			swprintf( str, L"Attempting to process militia group %d thinking it's an enemy group in ProcessQueenCmdImplicationsOfDeath()", pSoldier->deployment().groupId() );
 			DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 #endif
 			return;
@@ -1496,7 +1496,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 
 //			if( !IsAutoResolveActive() )
 //			{
-				pSector = &SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ];
+				pSector = &SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ];
 //			}
 //			else
 //			{
@@ -1622,7 +1622,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 
 					break;
 			}
-			RecalculateSectorWeight( (UINT8)SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) );
+			RecalculateSectorWeight( (UINT8)SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) );
 		}
 		else
 		{ //basement level (UNDERGROUND_SECTORINFO)
@@ -2311,19 +2311,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert(pSoldier = TacticalCreateEliteEnemy());
 			if( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2334,19 +2334,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert(pSoldier = TacticalCreateArmyTroop());
 			if( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2357,19 +2357,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert(pSoldier = TacticalCreateAdministrator());
 			if( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2380,19 +2380,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert(pSoldier = TacticalCreateEnemyRobot());
 			if( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2403,19 +2403,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert(pSoldier = TacticalCreateEnemyTank());
 			if( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ ubCurrSlot++ ];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2426,19 +2426,19 @@ void AddEnemiesToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			Assert( pSoldier = TacticalCreateEnemyJeep( ) );
 			if ( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if ( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ubCurrSlot++];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ubCurrSlot++];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2563,19 +2563,19 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if ( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ubCurrSlot++];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ubCurrSlot++];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2587,19 +2587,19 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if ( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ubCurrSlot++];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ubCurrSlot++];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2611,19 +2611,19 @@ void AddMilitiaToBattle( GROUP *pGroup, UINT8 ubStrategicInsertionCode, UINT16 u
 			if ( !pSoldier ) break;   // soldier pool exhausted -> stop (assignment-in-Assert was a no-op in release -> NULL/uninit deref)
 			if ( pGroup )
 			{
-				pSoldier->ubGroupID = pGroup->ubGroupID;
+				pSoldier->deployment().groupId() = pGroup->ubGroupID;
 			}
 
-			pSoldier->ubInsertionDirection = bDesiredDirection;
+			pSoldier->deployment().insertionDirection() = bDesiredDirection;
 			//Setup the position
 			if ( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
 			{ //using an edgepoint
-				pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-				pSoldier->usStrategicInsertionData = MapEdgepointInfo.sGridNo[ubCurrSlot++];
+				pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+				pSoldier->deployment().strategicInsertionData() = MapEdgepointInfo.sGridNo[ubCurrSlot++];
 			}
 			else
 			{ //no edgepoints left, so put him at the entrypoint.
-				pSoldier->ubStrategicInsertionCode = ubStrategicInsertionCode;
+				pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 			}
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
 		}
@@ -2928,7 +2928,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		// ATE: Patch fix If in a vehicle, remove from vehicle...
 		TakeSoldierOutOfVehicle(pSoldier);
 
-		HandleMoraleEvent(pSoldier, MORALE_MERC_CAPTURED, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ);
+		HandleMoraleEvent(pSoldier, MORALE_MERC_CAPTURED, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ());
 
 		// Change to POW....
 		//-add him to a POW assignment/group
@@ -2947,29 +2947,29 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		{
 			//-teleport him to NE Alma sector (not Tixa as originally planned)
 			pSoldier->aiData.bNeutral = TRUE;
-			pSoldier->sSectorX = gModSettings.ubInitialPOWSectorX; //13
-			pSoldier->sSectorY = gModSettings.ubInitialPOWSectorY; //9
-			pSoldier->bSectorZ = 0;
-			pSoldier->usStrategicInsertionData = gModSettings.iInitialPOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
+			pSoldier->deployment().sectorX() = gModSettings.ubInitialPOWSectorX; //13
+			pSoldier->deployment().sectorY() = gModSettings.ubInitialPOWSectorY; //9
+			pSoldier->deployment().sectorZ() = 0;
+			pSoldier->deployment().strategicInsertionData() = gModSettings.iInitialPOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
 			itemdropoffgridno = gModSettings.iInitialPOWItemGridNo[gStrategicStatus.ubNumCapturedForRescue];
 		}
 		else if (gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED)
 		{
 			//-teleport him to Tixa as originally planned
 			pSoldier->aiData.bNeutral = TRUE;
-			pSoldier->sSectorX = gModSettings.ubTixaPrisonSectorX;
-			pSoldier->sSectorY = gModSettings.ubTixaPrisonSectorY;
-			pSoldier->bSectorZ = 0;
-			pSoldier->usStrategicInsertionData = gModSettings.iTixaPrisonPOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
+			pSoldier->deployment().sectorX() = gModSettings.ubTixaPrisonSectorX;
+			pSoldier->deployment().sectorY() = gModSettings.ubTixaPrisonSectorY;
+			pSoldier->deployment().sectorZ() = 0;
+			pSoldier->deployment().strategicInsertionData() = gModSettings.iTixaPrisonPOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
 			itemdropoffgridno = gModSettings.iTixaPrisonPOWItemGridNo[gStrategicStatus.ubNumCapturedForRescue];
 		}
 		else //if ( gubQuest[QUEST_HELD_IN_ALMA] == QUESTDONE )
 		{
 			//-teleport him to N7
-			pSoldier->sSectorX = gModSettings.ubMeanwhileInterrogatePOWSectorX; //7
-			pSoldier->sSectorY = gModSettings.ubMeanwhileInterrogatePOWSectorY; //14
-			pSoldier->bSectorZ = 0;
-			pSoldier->usStrategicInsertionData = gModSettings.iMeanwhileInterrogatePOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
+			pSoldier->deployment().sectorX() = gModSettings.ubMeanwhileInterrogatePOWSectorX; //7
+			pSoldier->deployment().sectorY() = gModSettings.ubMeanwhileInterrogatePOWSectorY; //14
+			pSoldier->deployment().sectorZ() = 0;
+			pSoldier->deployment().strategicInsertionData() = gModSettings.iMeanwhileInterrogatePOWGridNo[gStrategicStatus.ubNumCapturedForRescue];
 			itemdropoffgridno = gModSettings.iMeanwhileInterrogatePOWItemGridNo[gStrategicStatus.ubNumCapturedForRescue];
 		}
 		
@@ -2992,11 +2992,11 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		AddWorldItemsToUnLoadedSector( pSoldier->sSectorX, pSoldier->sSectorY, 0, itemdropoffgridno, pWorldItem.size(), pWorldItem, FALSE );
+		AddWorldItemsToUnLoadedSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), 0, itemdropoffgridno, pWorldItem.size(), pWorldItem, FALSE );
 
 		// put him on the floor!!
 		pSoldier->position().level() = 0;
-		pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
+		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 
 		gStrategicStatus.ubNumCapturedForRescue++;
 

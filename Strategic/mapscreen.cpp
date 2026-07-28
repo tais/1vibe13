@@ -999,11 +999,11 @@ void DumpItemsList( void );
 
 BOOLEAN IsMercInActiveSector(SOLDIERTYPE * pSoldier)
 {
-	if(pSoldier->sSectorX != sSelMapX)
+	if(pSoldier->deployment().sectorX() != sSelMapX)
 		return( FALSE );
-	if(pSoldier->sSectorY != sSelMapY)
+	if(pSoldier->deployment().sectorY() != sSelMapY)
 		return( FALSE );
-	if(pSoldier->bSectorZ != iCurrentMapSectorZ)
+	if(pSoldier->deployment().sectorZ() != iCurrentMapSectorZ)
 		return( FALSE );
 
 	return( TRUE );
@@ -2990,8 +2990,8 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	if( pSoldier->assignment().current() == VEHICLE )
 	{
 		// show vehicle type
-	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ] );
-		wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].NewShortVehicleStrings );	
+	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ] );
+		wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].NewShortVehicleStrings );
 	}
 	else
 	{
@@ -3017,7 +3017,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	{
 		UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
 		// Print sector ID string
-		GetShortSectorString( pSoldier->sSectorX, pSoldier->sSectorY, sString );
+		GetShortSectorString( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), sString );
 		wcscat( sString, L": " );
 		wcscat( sString, gFacilityTypes[ubFacilityType].szFacilityShortName );
 		//wcscpy(sString, gFacilityTypes[ pSoldier->assignment().facilityType() ].szFacilityName);
@@ -3031,7 +3031,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// train town?
 	else if( pSoldier->assignment().current() == TRAIN_TOWN )
 	{
-		wcscpy(sString,pTownNames[GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY ) ] );
+		wcscpy(sString,pTownNames[GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ] );
 	}
 	// repairing?
 	else if( pSoldier->assignment().current() == REPAIR )
@@ -3062,7 +3062,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	else if( pSoldier->assignment().current() == IN_TRANSIT )
 	{
 		// show ETA
-		ConvertMinTimeToETADayHourMinString( pSoldier->uiTimeSoldierWillArrive, sString );
+		ConvertMinTimeToETADayHourMinString( pSoldier->deployment().arrivalTime(), sString );
 	}
 	// traveling ?
 	else if ( PlayerIDGroupInMotion( GetSoldierGroupId( pSoldier ) ) )
@@ -3566,7 +3566,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 
 		if( pSoldier->assignment().current() == VEHICLE )
 		{
-			ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
+			ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 			pGroup = GetGroup( ubGroupId );
 
 			if( pGroup == NULL )
@@ -3574,7 +3574,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 				SetUpMvtGroupForVehicle( pSoldier );
 
 				// get vehicle id
-				ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
+				ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 				pGroup = GetGroup( ubGroupId );
 				AssertNotNIL(pGroup);
 			}
@@ -3596,7 +3596,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 		}
 		else
 		{
-			ubGroupId = pSoldier->ubGroupID;
+			ubGroupId = pSoldier->deployment().groupId();
 			pGroup = GetGroup( ( UINT8 )( ubGroupId ) );
 			AssertNotNIL(pGroup);
 		}
@@ -4086,7 +4086,7 @@ void DisplayCharacterList()
 				ubForegroundColor = FONT_LTBLUE;
 			}
 			// in current sector?
-			else if ( pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY &&  pSoldier->bSectorZ == iCurrentMapSectorZ )
+			else if ( pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY &&  pSoldier->deployment().sectorZ() == iCurrentMapSectorZ )
 			{
 				// mobile ?
 				if( ( pSoldier->assignment().current() < ON_DUTY ) ||
@@ -6308,8 +6308,8 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 
 		UINT8 ubProgress = 0;
 		UINT16 usMaxProgress = 100;
-		UINT8 sMapX = (UINT8)pSoldier->sSectorX;
-		UINT8 sMapY = (UINT8)pSoldier->sSectorY;
+		UINT8 sMapX = (UINT8)pSoldier->deployment().sectorX();
+		UINT8 sMapY = (UINT8)pSoldier->deployment().sectorY();
 		if ( pSoldier->assignment().current() == TRAIN_TOWN )
 		{
 			ubProgress = SectorInfo[SECTOR(sMapX, sMapY)].ubMilitiaTrainingPercentDone;
@@ -6724,11 +6724,11 @@ UINT32 HandleMapUI( )
 					if ( GetItemPointerSoldier() != NULL )
 					{
 						// make sure it's the owner's sector that's selected
-						if ( ( GetItemPointerSoldier()->sSectorX != sSelMapX ) ||
-								( GetItemPointerSoldier()->sSectorY != sSelMapY ) ||
-								( GetItemPointerSoldier()->bSectorZ != iCurrentMapSectorZ ) )
+						if ( ( GetItemPointerSoldier()->deployment().sectorX() != sSelMapX ) ||
+								( GetItemPointerSoldier()->deployment().sectorY() != sSelMapY ) ||
+								( GetItemPointerSoldier()->deployment().sectorZ() != iCurrentMapSectorZ ) )
 						{
-							ChangeSelectedMapSector( GetItemPointerSoldier()->sSectorX, GetItemPointerSoldier()->sSectorY, GetItemPointerSoldier()->bSectorZ );
+							ChangeSelectedMapSector( GetItemPointerSoldier()->deployment().sectorX(), GetItemPointerSoldier()->deployment().sectorY(), GetItemPointerSoldier()->deployment().sectorZ() );
 						}
 					}
 
@@ -7822,7 +7822,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 						pSoldier->bInSector = FALSE;
 
 						//CHRISL: Try to update InSector value so we don't have to "activate" a sector
-						if(pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
+						if(pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
 							pSoldier->bInSector = TRUE;
 
 						if(OK_CONTROL_MERC( pSoldier ) && pSoldier->bInSector == TRUE)
@@ -8341,7 +8341,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
 
 							// can't teleport to where we already are
-							if ( ( sMapX == pSoldier->sSectorX ) && ( sMapY == pSoldier->sSectorY ) )
+							if ( ( sMapX == pSoldier->deployment().sectorX() ) && ( sMapY == pSoldier->deployment().sectorY() ) )
 								break;
 
 							// figure out where they would've come from						
@@ -8373,9 +8373,9 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							ChangeSelectedMapSector( sMapX, sMapY, 0 );
 
 							// check to see if this person is moving, if not...then assign them to mvt group
-							if( pSoldier->ubGroupID	== 0 )
+							if( pSoldier->deployment().groupId()	== 0 )
 							{
-								ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pSoldier->sSectorX ) , ( INT8 ) ( pSoldier->sSectorY ) );
+								ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pSoldier->deployment().sectorX() ) , ( INT8 ) ( pSoldier->deployment().sectorY() ) );
 								// assign to a group
 								AddPlayerToGroup( ubGroupId, pSoldier );
 							}
@@ -8384,8 +8384,8 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							if (!sPrevX || !sPrevY)
 							{
 								// figure out where they would've come from
-								sDeltaX = sMapX - pSoldier->sSectorX;
-								sDeltaY = sMapY - pSoldier->sSectorY;
+								sDeltaX = sMapX - pSoldier->deployment().sectorX();
+								sDeltaY = sMapY - pSoldier->deployment().sectorY();
 
 								if ( abs( sDeltaX ) >= abs( sDeltaY ) )
 								{
@@ -8420,7 +8420,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							}
 
 							// set where they are, were/are going, then make them arrive there and check for battle
-							PlaceGroupInSector( pSoldier->ubGroupID, sPrevX, sPrevY, sMapX, sMapY, 0, TRUE );
+							PlaceGroupInSector( pSoldier->deployment().groupId(), sPrevX, sPrevY, sMapX, sMapY, 0, TRUE );
 
 							// unload the sector they teleported out of
 							CheckAndHandleUnloadingOfCurrentWorld();
@@ -8505,7 +8505,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 							SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
 							//CHRISL: Try to update InSector value so we don't have to "activate" a sector
-							if (pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
+							if (pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->flags.fBetweenSectors)
 								pSoldier->bInSector=TRUE;
 
 							if (OK_CONTROL_MERC( pSoldier ))
@@ -11385,7 +11385,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			// if not dead or POW, select his sector
 			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) )//&& !SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
-				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				ChangeSelectedMapSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			}
 
 			// unhilight contract line
@@ -11441,7 +11441,7 @@ void TeamListInfoRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			// if not dead or POW, select his sector
 			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->assignment().current() ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 			{
-				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				ChangeSelectedMapSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			}
 
 			// unhilight contract line
@@ -11624,7 +11624,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			// if not dead or POW, select his sector
 			if( ( pSoldier->vitals().health() > 0 ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 			{
-				ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+				ChangeSelectedMapSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 			}
 
 			// Select all characters in squad
@@ -11782,7 +11782,7 @@ void TeamListDestinationRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 				if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->assignment().current() == VEHICLE )
 				{
 					// if he's in the helicopter
-					if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->iVehicleId == iHelicopterVehicleId )
+					if( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->deployment().vehicleId() == iHelicopterVehicleId )
 					{
 						if( RequestGiveSkyriderNewDestination( ) == FALSE )
 						{
@@ -13310,7 +13310,7 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					// IN a vehicle
-					iVehicleId = pSoldier->iVehicleId;
+					iVehicleId = pSoldier->deployment().vehicleId();
 				}
 				else
 				{
@@ -13394,7 +13394,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 				if( pSoldier->assignment().current() == VEHICLE )
 				{
 					// IN a vehicle
-					iVehicleId = pSoldier->iVehicleId;
+					iVehicleId = pSoldier->deployment().vehicleId();
 				}
 				else
 				{
@@ -13415,7 +13415,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 				//ppMovePath = &( GetJa2SoldierRepository().record(
 				//	gCharactersList[ bSelectedDestChar ].usSolID ).pMercPath );
 				ppMovePath = &( pSoldier->pMercPath );
-				ubGroupId = pSoldier->ubGroupID;
+				ubGroupId = pSoldier->deployment().groupId();
 			}
 
 			// if we haven't already rebuilt this group
@@ -13842,7 +13842,7 @@ INT16 GetLastValidCharacterInTeamPanelList( void )
 			{
 				if( fShowMapInventoryPool )
 				{
-					if( pSoldier->sSectorX == sSelMapX && pSoldier->sSectorY == sSelMapY && pSoldier->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
+					if( pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == ( INT8 )( iCurrentMapSectorZ ) )
 					{
 						iValue = iCounter;
 					}
@@ -13855,7 +13855,7 @@ INT16 GetLastValidCharacterInTeamPanelList( void )
 						{
 							if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 							{
-								if( pSoldier->sSectorX == pSelectedSoldier->sSectorX &&	pSoldier->sSectorY == pSelectedSoldier->sSectorY && pSoldier->bSectorZ == pSelectedSoldier->bSectorZ )
+								if( pSoldier->deployment().sectorX() == pSelectedSoldier->deployment().sectorX() &&	pSoldier->deployment().sectorY() == pSelectedSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pSelectedSoldier->deployment().sectorZ() )
 								{
 									iValue = iCounter;
 								}
@@ -13890,7 +13890,7 @@ INT8 GetPrevValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 			{
 				if( fShowMapInventoryPool )
 				{
-					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == sSelMapX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == sSelMapY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
+					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->deployment().isInSector( sSelMapX, sSelMapY, ( INT8 )( iCurrentMapSectorZ ) ) )
 					{
 						iValue = iCounter;
 					}
@@ -13903,7 +13903,10 @@ INT8 GetPrevValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 						{
 							if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 							{
-								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ ==GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->bSectorZ )
+								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->deployment().isInSector(
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorX(),
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorY(),
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorZ() ) )
 								{
 									iValue = iCounter;
 									iCounter = 0;
@@ -13937,7 +13940,7 @@ INT8 GetNextValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 			{
 				if( fShowMapInventoryPool )
 				{
-					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == sSelMapX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == sSelMapY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ == ( INT8 )( iCurrentMapSectorZ ) )
+					if(	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->deployment().isInSector( sSelMapX, sSelMapY, ( INT8 )( iCurrentMapSectorZ ) ) )
 					{
 						iValue = iCounter;
 					}
@@ -13950,7 +13953,10 @@ INT8 GetNextValidCharacterInTeamPanelList( INT8 bCurrentIndex )
 						{
 							if( gCharactersList[ bSelectedInfoChar ].fValid == TRUE )
 							{
-								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorX == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorX &&	GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->sSectorY == GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->sSectorY && GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->bSectorZ ==GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->bSectorZ )
+								if( GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->deployment().isInSector(
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorX(),
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorY(),
+										GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID)->deployment().sectorZ() ) )
 								{
 									iValue = iCounter;
 								}
@@ -14343,9 +14349,9 @@ BOOLEAN CharacterIsInLoadedSectorAndWantsToMoveInventoryButIsNotAllowed( INT16 b
 		return( FALSE );
 
 	// char is in loaded sector
-	if( pSoldier->sSectorX != gWorldSectorX ||
-		pSoldier->sSectorY != gWorldSectorY ||
-		pSoldier->bSectorZ != gbWorldSectorZ )
+	if( pSoldier->deployment().sectorX() != gWorldSectorX ||
+		pSoldier->deployment().sectorY() != gWorldSectorY ||
+		pSoldier->deployment().sectorZ() != gbWorldSectorZ )
 	{
 		return( FALSE );
 	}
@@ -14836,7 +14842,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						if( first->assignment().current() == VEHICLE )
 						{
 							// then also compare vehicle IDs
-							if( ( first->iVehicleId > second->iVehicleId ) &&
+							if( ( first->deployment().vehicleId() > second->deployment().vehicleId() ) &&
 								( iCounterA < iCounter ) )
 							{
 								SwapCharactersInList( iCounter, iCounterA );
@@ -15282,9 +15288,9 @@ BOOLEAN CanToggleSelectedCharInventory( void )
 			( GetItemPointerSoldier() == NULL ) )
 	{
 		// make sure he's in that sector
-		if ( ( pSoldier->sSectorX != sSelMapX ) ||
-				( pSoldier->sSectorY != sSelMapY ) ||
-				( pSoldier->bSectorZ != iCurrentMapSectorZ ) ||
+		if ( ( pSoldier->deployment().sectorX() != sSelMapX ) ||
+				( pSoldier->deployment().sectorY() != sSelMapY ) ||
+				( pSoldier->deployment().sectorZ() != iCurrentMapSectorZ ) ||
 				pSoldier->flags.fBetweenSectors )
 		{
 			return(FALSE);
@@ -15654,9 +15660,9 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							if ( pSoldier->assignment().current() == VEHICLE )
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
-								if ( (pSelected->assignment().current() == VEHICLE && pSoldier->iVehicleId == pSelected->iVehicleId) ||
-									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->iVehicleId == pSelected->bVehicleID ) ||
-									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->iVehicleId == pSoldier->bVehicleID ) )
+								if ( (pSelected->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId()) ||
+									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
+									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
 								{
 									// then also select this guy
 									SetEntryInSelectedCharacterList( iCounter );
@@ -15665,8 +15671,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 
 							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
 								(pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_BY_OTHER) &&
-								pSoldier->sSectorX == pSelected->sSectorX &&
-								pSoldier->sSectorY == pSelected->sSectorY &&
+								pSoldier->deployment().sectorX() == pSelected->deployment().sectorX() &&
+								pSoldier->deployment().sectorY() == pSelected->deployment().sectorY() &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
@@ -15677,8 +15683,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							}
 								
 							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
-								pSoldier->sSectorX == pSelected->sSectorX &&
-								pSoldier->sSectorY == pSelected->sSectorY &&
+								pSoldier->deployment().sectorX() == pSelected->deployment().sectorX() &&
+								pSoldier->deployment().sectorY() == pSelected->deployment().sectorY() &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								SetEntryInSelectedCharacterList( iCounter );
@@ -15709,9 +15715,9 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							if ( pSoldier->assignment().current() == VEHICLE )
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
-								if ( pSoldier->iVehicleId == pSelected->iVehicleId ||
-									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->iVehicleId == pSelected->bVehicleID ) ||
-									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->iVehicleId == pSoldier->bVehicleID ) )
+								if ( pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId() ||
+									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
+									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
 								{
 									// then also select this guy
 									ResetEntryForSelectedList( iCounter );
@@ -15720,8 +15726,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 
 							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
 								(pSoldier->assignment().current() == TRAIN_TEAMMATE || pSoldier->assignment().current() == TRAIN_BY_OTHER) &&
-								pSoldier->sSectorX == pSelected->sSectorX &&
-								pSoldier->sSectorY == pSelected->sSectorY &&
+								pSoldier->deployment().sectorX() == pSelected->deployment().sectorX() &&
+								pSoldier->deployment().sectorY() == pSelected->deployment().sectorY() &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								// make sure only trainers/trainees of the same stat are selected together.
@@ -15732,8 +15738,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							}
 								
 							else if ( pSoldier->assignment().current() == pSelected->assignment().current() &&
-								pSoldier->sSectorX == pSelected->sSectorX &&
-								pSoldier->sSectorY == pSelected->sSectorY &&
+								pSoldier->deployment().sectorX() == pSelected->deployment().sectorX() &&
+								pSoldier->deployment().sectorY() == pSelected->deployment().sectorY() &&
 								pSoldier->animationPlayback().zLevel() == pSelected->animationPlayback().zLevel() )
 							{
 								ResetEntryForSelectedList( iCounter );
@@ -15925,7 +15931,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 				}
 				else if( pSoldier->assignment().current() == VEHICLE )
 				{
-					pVehicleList[ pSoldier->iVehicleId ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->iVehicleId ].pMercPath );
+					pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath );
 				}
 				else
 				{
@@ -15958,7 +15964,7 @@ void CancelPathsOfAllSelectedCharacters()
 			if ( GetLengthOfMercPath( pSoldier ) > 0 )
 			{
 				// if he's in the chopper, but player can't redirect it
-				if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) && ( CanHelicopterFly( ) == FALSE ) )
+				if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) && ( CanHelicopterFly( ) == FALSE ) )
 				{
 					if ( !fSkyriderMsgShown )
 					{
@@ -16056,9 +16062,9 @@ INT16 CalcLocationValueForChar( INT32 iCounter )
 	// don't reveal location of POWs!
 	if( pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND )
 	{
-		sLocValue = SECTOR( pSoldier->sSectorX, pSoldier->sSectorY );
+		sLocValue = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		// underground: add 1000 per sublevel
-		sLocValue += 1000 * ( pSoldier->bSectorZ );
+		sLocValue += 1000 * ( pSoldier->deployment().sectorZ() );
 	}
 
 	return( sLocValue );
@@ -16092,7 +16098,7 @@ void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 
 		TurnOnShowTeamsMode( );
 
-		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			if ( gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE && gusMapDisplayColourMode != MAP_DISPLAY_AIRSPACE_COLOURED_SAMS )
 			{
@@ -16116,10 +16122,10 @@ void MakeMapModesSuitableForDestPlotting( INT8 bCharNumber )
 		}
 
 		// if viewing a different sublevel
-		if ( iCurrentMapSectorZ != pSoldier->bSectorZ )
+		if ( iCurrentMapSectorZ != pSoldier->deployment().sectorZ() )
 		{
 			// switch to that merc's sublevel
-			JumpToLevel( pSoldier->bSectorZ );
+			JumpToLevel( pSoldier->deployment().sectorZ() );
 		}
 	}
 }
@@ -16157,7 +16163,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 		}
 
 		// don't count mercs aboard Skyrider
-		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->iVehicleId == iHelicopterVehicleId ) )
+		if ( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier->deployment().vehicleId() == iHelicopterVehicleId ) )
 		{
 			continue;
 		}
@@ -16170,7 +16176,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 
 
 		// is he here?
-		if( ( pSoldier->sSectorX == sSectorX ) && ( pSoldier->sSectorY == sSectorY ) && ( pSoldier->bSectorZ == bSectorZ ) )
+		if( ( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == bSectorZ ) )
 		{
 			// NOTE that we consider mercs between sectors, mercs < OKLIFE, and sleeping mercs to be "movable".
 			// This lets CanCharacterMoveInStrategic() itself report the appropriate error message when character is clicked
@@ -16658,7 +16664,7 @@ void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void )
 			{
 				// and on foot or driving
 				if ( ( pSoldier->assignment().current() < ON_DUTY ) ||
-						( ( pSoldier->assignment().current() == VEHICLE ) && SoldierMustDriveVehicle( pSoldier, pSoldier->iVehicleId, FALSE ) ) )
+						( ( pSoldier->assignment().current() == VEHICLE ) && SoldierMustDriveVehicle( pSoldier, pSoldier->deployment().vehicleId(), FALSE ) ) )
 				{
 					// we should be guaranteed that he CAN wake up to get this far, so report errors, but don't force it
 					fSuccess = SetMercAwake( pSoldier, TRUE, FALSE );
@@ -16714,8 +16720,8 @@ void GetMapscreenMercAssignmentString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 {
 	if ( pSoldier->assignment().current() == VEHICLE )
 	{
-	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ] );
-		wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].NewShortVehicleStrings);	
+	//	wcscpy( sString, pShortVehicleStrings[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ] );
+		wcscpy( sString, gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].NewShortVehicleStrings);
 	}
 	else
 	{
@@ -16760,19 +16766,19 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 		else if (pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		{
 			// on a rebel command mission
-			sgp_swprintf( sString, 32,L"%s%s*", pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX] );
+			sgp_swprintf( sString, 32,L"%s%s*", pMapVertIndex[pSoldier->deployment().sectorY()], pMapHortIndex[pSoldier->deployment().sectorX()] );
 		}
 		else if ( SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			swprintf( pTempString, L"%s%s%s",
-				pMapVertIndex[pSoldier->sSectorY], pMapHortIndex[pSoldier->sSectorX], pMapDepthIndex[max(0, pSoldier->bSectorZ - 10)] );
+				pMapVertIndex[pSoldier->deployment().sectorY()], pMapHortIndex[pSoldier->deployment().sectorX()], pMapDepthIndex[max(0, pSoldier->deployment().sectorZ() - 10)] );
 
 			sgp_swprintf( sString, 32,L"%s*", pTempString );
 		}
 		else
 		{
 			swprintf( pTempString, L"%s%s%s",
-						pMapVertIndex[ pSoldier->sSectorY ], pMapHortIndex[ pSoldier->sSectorX ], pMapDepthIndex[ pSoldier->bSectorZ ] );
+						pMapVertIndex[ pSoldier->deployment().sectorY() ], pMapHortIndex[ pSoldier->deployment().sectorX() ], pMapDepthIndex[ pSoldier->deployment().sectorZ() ] );
 
 			if ( pSoldier->flags.fBetweenSectors )
 			{
@@ -17071,13 +17077,13 @@ void RestorePreviousPaths( void )
 				}
 				else if( pSoldier->assignment().current() == VEHICLE )
 				{
-					ppMovePath = &( pVehicleList[ pSoldier->iVehicleId ].pMercPath );
-					ubGroupId = pVehicleList[ pSoldier->iVehicleId ].ubMovementGroup;
+					ppMovePath = &( pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath );
+					ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 				}
 				else if( pSoldier->assignment().current() < ON_DUTY )
 				{
 					ppMovePath = &( pSoldier->pMercPath );
-					ubGroupId = pSoldier->ubGroupID;
+					ubGroupId = pSoldier->deployment().groupId();
 				}
 				else
 				{
@@ -17175,7 +17181,7 @@ void SelectAllCharactersInSquad( INT8 bSquadNumber )
 					ChangeSelectedInfoChar( bCounter, FALSE );
 
 					// select his sector
-					ChangeSelectedMapSector( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ );
+					ChangeSelectedMapSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 
 					fFirstOne = FALSE;
 				}
@@ -17736,13 +17742,13 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 		{
 			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );
 
-			INT16 sectordist = abs( sMapX - pSoldier->sSectorX ) + abs( sMapY - pSoldier->sSectorY );
+			INT16 sectordist = abs( sMapX - pSoldier->deployment().sectorX() ) + abs( sMapY - pSoldier->deployment().sectorY() );
 
 			// 1. + 3.
 			if ( fRadioOperator >= sectordist )
 				return TRUE;
 
-			UINT8 soldiertownid = GetTownIdForSector( pSoldier->sSectorX, pSoldier->sSectorY );
+			UINT8 soldiertownid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 			// 2.
 			if ( townid != BLANK_SECTOR && townid == soldiertownid )
@@ -17752,10 +17758,10 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 			if ( fRadioOperator && soldiertownid == BLANK_SECTOR && townid != BLANK_SECTOR )
 			{
 				// check whether adjacent sectors belong to the town we search for
-				if ( GetTownIdForSector( min( pSoldier->sSectorX + 1, MAP_WORLD_X - 2), pSoldier->sSectorY ) == townid )	return TRUE;
-				if ( GetTownIdForSector( max( pSoldier->sSectorX - 1, 1 ),				pSoldier->sSectorY ) == townid )	return TRUE;
-				if ( GetTownIdForSector( pSoldier->sSectorX, min( pSoldier->sSectorY + 1, MAP_WORLD_Y - 2 ) ) == townid )	return TRUE;
-				if ( GetTownIdForSector( pSoldier->sSectorX, max( pSoldier->sSectorY - 1, 1 ) ) == townid )					return TRUE;
+				if ( GetTownIdForSector( min( pSoldier->deployment().sectorX() + 1, MAP_WORLD_X - 2), pSoldier->deployment().sectorY() ) == townid )	return TRUE;
+				if ( GetTownIdForSector( max( pSoldier->deployment().sectorX() - 1, 1 ),				pSoldier->deployment().sectorY() ) == townid )	return TRUE;
+				if ( GetTownIdForSector( pSoldier->deployment().sectorX(), min( pSoldier->deployment().sectorY() + 1, MAP_WORLD_Y - 2 ) ) == townid )	return TRUE;
+				if ( GetTownIdForSector( pSoldier->deployment().sectorX(), max( pSoldier->deployment().sectorY() - 1, 1 ) ) == townid )					return TRUE;
 			}
 
 			// 5.

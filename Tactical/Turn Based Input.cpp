@@ -1068,9 +1068,9 @@ void	QueryTBRightButton( UINT32 *puiNewEvent )
 									pSoldier = selectedSoldier;
 									if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 									{
-										SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+										SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 										INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
-										if( gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
+										if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 										{
 											ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pVehicleSeatsStrings[0] );
 											break;
@@ -4165,7 +4165,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						{
 							continue;
 						}
-						if ( !AM_A_ROBOT( pTeamSoldier ) && pTeamSoldier->vitals().health() >= OKLIFE && (pTeamSoldier->sSectorX == gWorldSectorX) && (pTeamSoldier->sSectorY == gWorldSectorY) && (pTeamSoldier->bSectorZ == gbWorldSectorZ) )
+						if ( !AM_A_ROBOT( pTeamSoldier ) && pTeamSoldier->vitals().health() >= OKLIFE && (pTeamSoldier->deployment().sectorX() == gWorldSectorX) && (pTeamSoldier->deployment().sectorY() == gWorldSectorY) && (pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 						{
 							WearGasMaskIfAvailable( pTeamSoldier );
 						}
@@ -4214,7 +4214,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 						// HEADROCK HAM 3.5: When this INI setting is enabled, ALL mercs in the current sector will do a goggle swap.
 						if ( gGameExternalOptions.fGoggleSwapAffectsAllMercsInSector )
 						{
-							if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->sSectorX == gWorldSectorX && pTeamSoldier->sSectorY == gWorldSectorY && pTeamSoldier->bSectorZ == gbWorldSectorZ && !AM_A_ROBOT( pTeamSoldier ) )
+							if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ && !AM_A_ROBOT( pTeamSoldier ) )
 							{
 								SwapGogglesUniformly( pTeamSoldier, fToNightVision );
 							}
@@ -5339,7 +5339,7 @@ void ChangeSoldiersBodyType( UINT8 ubBodyType, BOOLEAN fCreateNewPalette )
 					//pSoldier->inv[ HANDPOS ].usItem = TANK_CANNON;
 
 					pSoldier->inv[ HANDPOS ].usItem = MINIMI;
-					pSoldier->bVehicleID = (INT8)AddVehicleToList( pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ, HUMMER );
+					pSoldier->bVehicleID = (INT8)AddVehicleToList( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ(), HUMMER );
 
 					break;
 				}
@@ -6137,7 +6137,7 @@ void HandleHandCursorRightClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				// anv: if we are passengers, only show menu when clicking on vehicle we're in
 				if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 				{
-					if( pSoldier->iVehicleId == pTSoldier->bVehicleID )
+					if( pSoldier->deployment().vehicleId() == pTSoldier->bVehicleID )
 					{
 						VehicleMenu(usMapPos, pSoldier, pTSoldier);
 					}
@@ -6191,14 +6191,14 @@ INT8 HandleMoveModeInteractiveClick( INT32 usMapPos, UINT32 *puiNewEvent )
 			//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ VEHICLE_CANT_MOVE_IN_TACTICAL ] );
 			// actually, you know what, let's switch to vehicle using the occasion
 			HandleLocateSelectMerc(
-				GetDriver(pSoldier->iVehicleId)->ubID, 0);
+				GetDriver(pSoldier->deployment().vehicleId())->ubID, 0);
 			return( -3 );
 		}
 
 		if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
 		{
 			pSoldier =
-				GetSoldierStructureForVehicle(pSoldier->iVehicleId);
+				GetSoldierStructureForVehicle(pSoldier->deployment().vehicleId());
 		}
 
 		// OK, check for height differences.....
@@ -6465,8 +6465,8 @@ void TestMeanWhile( INT32 iID )
 
 				ChangeSoldiersAssignment( pSoldier, ASSIGNMENT_POW );
 
-				pSoldier->sSectorX = gModSettings.ubMeanwhileInterrogatePOWSectorX; //7
-				pSoldier->sSectorY = gModSettings.ubMeanwhileInterrogatePOWSectorY; //14
+				pSoldier->deployment().sectorX() = gModSettings.ubMeanwhileInterrogatePOWSectorX; //7
+				pSoldier->deployment().sectorY() = gModSettings.ubMeanwhileInterrogatePOWSectorY; //14
 				if (++numPrisoners > 2) break;
 			}
 		}
@@ -6746,7 +6746,7 @@ bool BadGoggles(SOLDIERTYPE *pTeamSoldier)
 		for (int headSlot = HEAD1POS; headSlot <= HEAD2POS; ++headSlot)
 		{
 			// check if we are below ground
-			if ( pTeamSoldier->bSectorZ > 0 )
+			if ( pTeamSoldier->deployment().sectorZ() > 0 )
 			{
 				// we don't want a cave vision penalty
 				if ( Item[pTeamSoldier->inv[headSlot].usItem].cavevisionrangebonus < 0 )
@@ -6819,7 +6819,7 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 
 	// Find the best goggles for the current time of day anywhere in inventory
 	// silversurfer: also check if underground
-	if (DayTime() && pTeamSoldier->bSectorZ == 0) 
+	if (DayTime() && pTeamSoldier->deployment().sectorZ() == 0)
 	{
 		pGoggles = FindSunGogglesInInv( pTeamSoldier, &swapSlot, &isAttach, TRUE );
 	} 
@@ -6865,8 +6865,8 @@ void SwapGoggles(SOLDIERTYPE *pTeamSoldier)
 		// No goggles to equip, should the current ones be unequiped?
 		if (pTeamSoldier->inv[slotToUse].exists()) 
 		{
-			if ((DayTime() && Item[pTeamSoldier->inv[slotToUse].usItem].nightvisionrangebonus > 0 && pTeamSoldier->bSectorZ == 0) ||
-			    ((!DayTime() || pTeamSoldier->bSectorZ > 0) && (Item[pTeamSoldier->inv[slotToUse].usItem].brightlightvisionrangebonus > 0))) 
+			if ((DayTime() && Item[pTeamSoldier->inv[slotToUse].usItem].nightvisionrangebonus > 0 && pTeamSoldier->deployment().sectorZ() == 0) ||
+			    ((!DayTime() || pTeamSoldier->deployment().sectorZ() > 0) && (Item[pTeamSoldier->inv[slotToUse].usItem].brightlightvisionrangebonus > 0)))
 			{
 				// It's day and we're wearing night goggles (or vice-versa), find a place to stash them
 				if (pTeamSoldier->inv[ HELMETPOS ].exists()) 
@@ -7427,7 +7427,7 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	SoldierID ubTargetMerc;
 	INT32 iSourceFace;
 	INT32 iTargetFace;
-	UINT8 ubGroupID = pSoldier->ubGroupID;
+	UINT8 ubGroupID = pSoldier->deployment().groupId();
 	INT8 bOldPosition = GetTeamSlotFromPlayerID ( ubSourceMerc );
 	INT8 bNewPosition = bOldPosition + bDirection;
 	// bOldPosition/bNewPosition index gTeamPanel[NUM_TEAM_SLOTS] and feed SwapVehicleSeat;
@@ -7439,7 +7439,7 @@ void SwapMercPortraits ( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	// anv: vehicle passengers are swapped differently
 	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		if( pVehicle != NULL && bNewPosition < gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].iNewSeatingCapacities )
 		{
 			if( SwapVehicleSeat( pVehicle, pSoldier, bNewPosition ) )
@@ -8140,7 +8140,7 @@ void HandleTBSwapGoogles( void )
 		// HEADROCK HAM 3.5: When this INI setting is enabled, ALL mercs in the current sector will do a goggle swap.
 		if (gGameExternalOptions.fGoggleSwapAffectsAllMercsInSector)
 		{
-			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->sSectorX == gWorldSectorX && pTeamSoldier->sSectorY == gWorldSectorY && pTeamSoldier->bSectorZ == gbWorldSectorZ && !AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->deployment().sectorX() == gWorldSectorX && pTeamSoldier->deployment().sectorY() == gWorldSectorY && pTeamSoldier->deployment().sectorZ() == gbWorldSectorZ && !AM_A_ROBOT( pTeamSoldier ) )
 			{
 				SwapGoggles(pTeamSoldier);
 			}
@@ -8766,7 +8766,7 @@ void HandleTBSoldierRun( void )
 	}
 	if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
 	{
-		pSoldier = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 	}
 	if ( !pSoldier->MercInWater() && !(pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
 	{

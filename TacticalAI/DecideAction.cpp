@@ -475,7 +475,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		switch( pSoldier->bAIScheduleProgress )
 		{
 		case 0:
-			ConvertGridNoToCenterCellXY(pSoldier->sOffWorldGridNo, &sX, &sY);
+			ConvertGridNoToCenterCellXY(pSoldier->deployment().offWorldGrid(), &sX, &sY);
 			pSoldier->EVENT_SetSoldierPosition( sX, sY );
 			pSoldier->bInSector = TRUE;
 			MoveSoldierFromAwayToMercSlot( pSoldier );
@@ -3217,7 +3217,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			INT32 skilltargetgridno = 0;
 
 			// call reinforcements if we haven't yet done so
-			if (!gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->bTeam, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ))
+			if (!gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->bTeam, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()))
 			{
 				// if frequencies are jammed...
 				if (SectorJammed())
@@ -3249,7 +3249,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 	/*
 	// CALL IN AIR STRIKE & RADIO RED ALERT
-	if ( !fCivilian && pSoldier->bTeam != MILITIA_TEAM && gGameOptions.fAirStrikes && airstrikeavailable && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && !WillAirRaidBeStopped(pSoldier->sSectorX,pSoldier->sSectorY))
+	if ( !fCivilian && pSoldier->bTeam != MILITIA_TEAM && gGameOptions.fAirStrikes && airstrikeavailable && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && !WillAirRaidBeStopped(pSoldier->deployment().sectorX(),pSoldier->deployment().sectorY()))
 	{
 
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: checking to call in an air strike");
@@ -3297,7 +3297,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	{
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: decided to call in an air strike!");
 	SayQuoteFromAnyBodyInSector( QUOTE_WEARY_SLASH_SUSPUCIOUS );
-	EnemyCallInAirStrike ( pSoldier->sSectorX, pSoldier->sSectorY );
+	EnemyCallInAirStrike ( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	airstrikeavailable = FALSE;
 
 	return(AI_ACTION_RED_ALERT);
@@ -5430,7 +5430,7 @@ INT16 ubMinAPCost;
 			}
 		}
 		// no access to artillery... we can still call reinforcements if we haven't yet done so
-		else if ( !gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->bTeam, pSoldier->sSectorX, pSoldier->sSectorY, pSoldier->bSectorZ) )
+		else if ( !gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition && MoreFriendsThanEnemiesinNearbysectors(pSoldier->bTeam, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ()) )
 		{
 			// if frequencies are jammed...
 			if ( SectorJammed() )

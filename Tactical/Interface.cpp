@@ -1018,9 +1018,9 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	// anv: don't switch if passengers are blocked from attacking
 	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
-		if( gNewVehicle[ pVehicleList[ pSoldier->iVehicleId ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
+		if( gNewVehicle[ pVehicleList[ pSoldier->deployment().vehicleId() ].ubVehicleType ].VehicleSeats[bSeatIndex].fBlockedShots == TRUE )
 		{
 			fDisableAction = TRUE;
 		}
@@ -1727,7 +1727,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				}
 				else
 				{
-					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 					GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, TRUE );
 				}
 
@@ -1793,7 +1793,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			}
 			else
 			{
-				SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+				SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 				GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, TRUE );
 			}
 
@@ -1870,7 +1870,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 	else
 	{
-		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->iVehicleId );
+		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		GetSoldierAboveGuyPositions( pVehicle, &sXPos, &sYPos, FALSE );
 	}
 
@@ -1944,7 +1944,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		// anv: if soldier is in vehicle, write its name instead of "vehicle"
 		else if ( pSoldier->assignment().current() == VEHICLE )
 		{
-			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", GetSoldierStructureForVehicle( pSoldier->iVehicleId )->GetName() );
+			sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,L"(%s)", GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() )->GetName() );
 			FindFontCenterCoordinates( sXPos, (INT16)(sYPos ), (INT16)(80 ), 1, NameStr, TINYFONT1, &sX, &sY );
 			gprintfdirty( sX, sY, NameStr );
 			mprintf( sX, sY, NameStr );
@@ -2140,7 +2140,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 							{
 								if (zEnemyName[iCounter2].Enabled == 1)
 								{
-									if ( pSoldier->sSectorX == zEnemyName[iCounter2].SectorX && pSoldier->sSectorY == zEnemyName[iCounter2].SectorY )
+									if ( pSoldier->deployment().sectorX() == zEnemyName[iCounter2].SectorX && pSoldier->deployment().sectorY() == zEnemyName[iCounter2].SectorY )
 									{
 										swprintf(NameStr, zEnemyName[iCounter2].szCurGroup);
 
@@ -2281,7 +2281,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 					{
 						if (zEnemyName[iCounter2].Enabled == 1 )
 						{
-							if ( pSoldier->sSectorX == zEnemyName[iCounter2].SectorX && pSoldier->sSectorY == zEnemyName[iCounter2].SectorY )
+							if ( pSoldier->deployment().sectorX() == zEnemyName[iCounter2].SectorX && pSoldier->deployment().sectorY() == zEnemyName[iCounter2].SectorY )
 							{
 								swprintf(NameStr, zEnemyName[iCounter2].szCurGroup);
 
@@ -6292,9 +6292,9 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 	if ( pSoldier->usSkillCounter[SOLDIER_COUNTER_ROLE_OBSERVED] >= gGameExternalOptions.usTurnsToUncover )
 	{
 		// are we a VIP? show that only when the player knows a VIP is in this sector. otherwise, don't even show our officer property
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && !pSoldier->bSectorZ )
+		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && !pSoldier->deployment().sectorZ() )
 		{
-			if ( PlayerKnowsAboutVIP( pSoldier->sSectorX, pSoldier->sSectorY ) )
+			if ( PlayerKnowsAboutVIP( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 			{
 				// Add bars
 				iBack = RegisterBackgroundRect( BGND_FLAG_SINGLE, NULL, sXPos, sYPos, (INT16)( sXPos + 20 ), (INT16)( sYPos + 20 ) );

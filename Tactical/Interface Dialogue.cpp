@@ -2104,21 +2104,21 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
 					{
 						gfTacticalTraversal = TRUE;
-						SetGroupSectorValue( gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ, pSoldier->ubGroupID );
+						SetGroupSectorValue( gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ, pSoldier->deployment().groupId() );
 
 						// Set insertion gridno
 						if ( bNumDone < 10 )
 						{
 							// Set next sectore
 							//DBrot: Grids
-							pSoldier->sSectorX = gModSettings.ubHideoutSectorX;
-							pSoldier->sSectorY = gModSettings.ubHideoutSectorY;
-							pSoldier->bSectorZ = gModSettings.ubHideoutSectorZ;
+							pSoldier->deployment().sectorX() = gModSettings.ubHideoutSectorX;
+							pSoldier->deployment().sectorY() = gModSettings.ubHideoutSectorY;
+							pSoldier->deployment().sectorZ() = gModSettings.ubHideoutSectorZ;
 
 							// Set gridno
-							pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-							//pSoldier->usStrategicInsertionData = sBasementEnterGridNos[ bNumDone ];
-							pSoldier->usStrategicInsertionData = gModSettings.iBasementEntry[ bNumDone ];
+							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+							//pSoldier->deployment().strategicInsertionData() = sBasementEnterGridNos[ bNumDone ];
+							pSoldier->deployment().strategicInsertionData() = gModSettings.iBasementEntry[ bNumDone ];
 						}
 						bNumDone++;
 					}
@@ -2407,20 +2407,20 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					{
 						gfTacticalTraversal = TRUE;
 						//DBrot: Grids
-						SetGroupSectorValue( gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ, pSoldier->ubGroupID );
+						SetGroupSectorValue( gModSettings.ubHideoutSurfaceX, gModSettings.ubHideoutSurfaceY, gModSettings.ubHideoutSurfaceZ, pSoldier->deployment().groupId() );
 
 						// Set insertion gridno
 						if ( bNumDone < 12 )
 						{
 							// Set next sectore
-							pSoldier->sSectorX = gModSettings.ubHideoutSurfaceX;
-							pSoldier->sSectorY = gModSettings.ubHideoutSurfaceY;
-							pSoldier->bSectorZ = gModSettings.ubHideoutSurfaceZ;
+							pSoldier->deployment().sectorX() = gModSettings.ubHideoutSurfaceX;
+							pSoldier->deployment().sectorY() = gModSettings.ubHideoutSurfaceY;
+							pSoldier->deployment().sectorZ() = gModSettings.ubHideoutSurfaceZ;
 
 							// Set gridno
-							pSoldier->ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
-							//pSoldier->usStrategicInsertionData = sBasementExitGridNos[ bNumDone ];
-							pSoldier->usStrategicInsertionData = gModSettings.iBasementExit[ bNumDone ];
+							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
+							//pSoldier->deployment().strategicInsertionData() = sBasementExitGridNos[ bNumDone ];
+							pSoldier->deployment().strategicInsertionData() = gModSettings.iBasementExit[ bNumDone ];
 						}
 						bNumDone++;
 					}
@@ -5567,7 +5567,7 @@ void DelayedSayingOfMercQuote( UINT32 uiParam )
 		if( usQuoteNum == QUOTE_DEPARTING_COMMENT_CONTRACT_NOT_RENEWED_OR_48_OR_MORE )
 		{
 			//if the soldier is saying the 'brr its cold' quote, and he has left the sector
-			if( pSoldier->sSectorX != JA2_5_START_SECTOR_X || pSoldier->sSectorY != JA2_5_START_SECTOR_Y && pSoldier->bSectorZ != 0 )
+			if( pSoldier->deployment().sectorX() != JA2_5_START_SECTOR_X || pSoldier->deployment().sectorY() != JA2_5_START_SECTOR_Y && pSoldier->deployment().sectorZ() != 0 )
 			{
 				//dont say the quote
 				return;

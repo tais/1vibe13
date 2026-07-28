@@ -2233,7 +2233,7 @@ if(soldier_perception_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubGroupID\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);[ \t\r\n]*ar\\.f32\\(s\\.dXPos\\);"
+  "ar\\.u8\\(deployment\\.groupId\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);[ \t\r\n]*ar\\.f32\\(s\\.dXPos\\);"
   serialized_soldier_movement_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2362,7 +2362,7 @@ string(REGEX MATCH
   serialized_soldier_awareness_discovery_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);"
+  "ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);"
   serialized_soldier_awareness_forget_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_awareness_visibility_order OR
@@ -2448,7 +2448,7 @@ if(soldier_camouflage_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
   serialized_soldier_camouflage_applied_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2579,7 +2579,7 @@ string(REGEX MATCH
   serialized_soldier_employment_fired_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sPreTraversalGridNo\\);"
+  "ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
   serialized_soldier_employment_renewal_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2688,7 +2688,7 @@ if(soldier_assignment_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sSectorX\\);"
+  "ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);"
   serialized_soldier_assignment_identity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2704,7 +2704,7 @@ string(REGEX MATCH
   serialized_soldier_assignment_hours_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiTimeSoldierWillArrive\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);"
+  "ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);"
   serialized_soldier_assignment_repair_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2729,6 +2729,166 @@ if(NOT serialized_soldier_assignment_identity_order OR
    NOT serialized_soldier_assignment_mini_event_order)
   message(FATAL_ERROR
     "Soldier assignment state moved in the portable save schema; keep all eleven values at their established POD positions")
+endif()
+
+# Strategic/tactical placement, movement-group and vehicle membership,
+# insertion, traversal origin, off-world staging, and arrival bookkeeping now
+# have one deployment owner. Route and live group pointers remain adapters.
+foreach(retired_deployment_field IN ITEMS
+  "INT8;ubInsertionDirection"
+  "UINT8;ubGroupID"
+  "INT32;sInsertionGridNo"
+  "UINT8;ubStrategicInsertionCode"
+  "INT32;usStrategicInsertionData"
+  "INT16;sSectorX"
+  "INT16;sSectorY"
+  "INT8;bSectorZ"
+  "INT32;iVehicleId"
+  "INT32;sOffWorldGridNo"
+  "UINT8;ubPrevSectorID"
+  "UINT8;bUseExitGridForReentryDirection"
+  "INT32;sPreTraversalGridNo"
+  "UINT8;ubLeaveHistoryCode"
+  "UINT32;uiTimeSoldierWillArrive")
+  string(REPLACE ";" ";" retired_deployment_parts
+    "${retired_deployment_field}")
+  list(GET retired_deployment_parts 0 retired_deployment_type)
+  list(GET retired_deployment_parts 1 retired_deployment_name)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*${retired_deployment_type}[ \t]+${retired_deployment_name}[ \t]*;"
+    retired_current_deployment_field
+    "${current_soldier_contents}")
+  if(retired_current_deployment_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE deployment field '${retired_deployment_name}' returned; strategic placement belongs to SoldierDeploymentComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierDeploymentComponent[ \t\r\n]+deployment_[ \t]*;"
+  soldier_deployment_owner
+  "${current_soldier_contents}")
+if(NOT soldier_deployment_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierDeploymentComponent")
+endif()
+
+foreach(owned_deployment_field IN ITEMS
+  "INT8;insertionDirection"
+  "UINT8;groupId"
+  "INT32;insertionGrid"
+  "UINT8;strategicInsertionCode"
+  "INT32;strategicInsertionData"
+  "INT16;sectorX"
+  "INT16;sectorY"
+  "INT8;sectorZ"
+  "INT32;offWorldGrid"
+  "UINT8;previousSectorId"
+  "UINT8;useExitGridForReentryDirection"
+  "INT32;preTraversalGrid"
+  "UINT8;leaveHistoryCode"
+  "UINT32;arrivalTime")
+  string(REPLACE ";" ";" owned_deployment_parts
+    "${owned_deployment_field}")
+  list(GET owned_deployment_parts 0 owned_deployment_type)
+  list(GET owned_deployment_parts 1 owned_deployment_name)
+  string(REGEX MATCH
+    "${owned_deployment_type}[ \t]+${owned_deployment_name}_[ \t]*=[ \t]*0[ \t]*;"
+    owned_soldier_deployment_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_deployment_field)
+    message(FATAL_ERROR
+      "SoldierDeploymentComponent no longer owns initialized '${owned_deployment_name}_' storage")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "INT32[ \t]+vehicleId_[ \t]*=[ \t]*-1[ \t]*;"
+  owned_soldier_deployment_vehicle
+  "${soldier_components_header_contents}")
+if(NOT owned_soldier_deployment_vehicle)
+  message(FATAL_ERROR
+    "SoldierDeploymentComponent must retain -1 as the no-vehicle sentinel")
+endif()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierDeploymentComponent& deployment() noexcept"
+  soldier_deployment_accessor)
+string(FIND "${soldier_control_source_contents}"
+  "deployment().reset();"
+  soldier_deployment_reset)
+foreach(required_deployment_operation IN ITEMS
+  "bool isInSector(INT16 x, INT16 y, INT8 z) const noexcept"
+  "bool hasVehicle() const noexcept"
+  "void setSector(INT16 x, INT16 y, INT8 z) noexcept"
+  "void clearVehicle() noexcept"
+  "void setStrategicInsertion(UINT8 code, INT32 data) noexcept"
+  "void setTraversalOrigin(UINT8 previousSectorId, INT32 gridNo) noexcept"
+  "void scheduleArrival(UINT32 time, UINT8 historyCode) noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_deployment_operation}"
+    soldier_deployment_operation)
+  if(soldier_deployment_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierDeploymentComponent lost required lifecycle operation '${required_deployment_operation}'")
+  endif()
+endforeach()
+if(soldier_deployment_accessor EQUAL -1 OR
+   soldier_deployment_reset EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierDeploymentComponent must remain directly accessible and reset with its soldier")
+endif()
+
+string(FIND "${save_load_game_contents}"
+  "SoldierDeploymentComponent& deployment = s.deployment();"
+  serialized_soldier_deployment_adapter)
+string(REGEX MATCH
+  "ar\\.u8\\(s\\.ubWaitActionToDo\\);[ \t]*ar\\.i8\\(deployment\\.insertionDirection\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bGunType\\);"
+  serialized_soldier_deployment_direction_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(deployment\\.groupId\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);"
+  serialized_soldier_deployment_group_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(deployment\\.insertionGrid\\(\\)\\);"
+  serialized_soldier_deployment_grid_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(deployment\\.strategicInsertionCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.strategicInsertionData\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iLight\\);"
+  serialized_soldier_deployment_insertion_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);[ \t]*ar\\.i16\\(deployment\\.sectorY\\(\\)\\);[ \t]*ar\\.i8\\(deployment\\.sectorZ\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.vehicleId\\(\\)\\);[ \t\r\n]*ar\\.ptr\\(s\\.pMercPath\\);"
+  serialized_soldier_deployment_sector_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bAIScheduleProgress\\);[ \t\r\n]*ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);"
+  serialized_soldier_deployment_off_world_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(s\\.ubLastEnemyCycledID\\.i\\);[ \t\r\n]*ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);"
+  serialized_soldier_deployment_previous_sector_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.sLocationOfFadeStart\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiTimeSinceLastSpoke\\);[ \t]*ar\\.u8\\(employment\\.renewalQuoteCode\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.preTraversalGrid\\(\\)\\);"
+  serialized_soldier_deployment_reentry_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
+  serialized_soldier_deployment_arrival_order
+  "${save_load_game_contents}")
+if(serialized_soldier_deployment_adapter EQUAL -1 OR
+   NOT serialized_soldier_deployment_direction_order OR
+   NOT serialized_soldier_deployment_group_order OR
+   NOT serialized_soldier_deployment_grid_order OR
+   NOT serialized_soldier_deployment_insertion_order OR
+   NOT serialized_soldier_deployment_sector_order OR
+   NOT serialized_soldier_deployment_off_world_order OR
+   NOT serialized_soldier_deployment_previous_sector_order OR
+   NOT serialized_soldier_deployment_reentry_order OR
+   NOT serialized_soldier_deployment_arrival_order)
+  message(FATAL_ERROR
+    "Soldier deployment state moved in the portable save schema; keep all fifteen values at their established POD positions")
 endif()
 
 # Current tactical grid, elevation, and facing have completed the same storage
@@ -2964,7 +3124,7 @@ string(REGEX MATCH
   serialized_soldier_movement_block_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sOffWorldGridNo\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
+  "ar\\.i32\\(deployment\\.offWorldGrid\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pAniTile\\);[ \t]*ar\\.i8\\(camouflage\\.jungleApplied\\(\\)\\);[ \t]*ar\\.i32\\(s\\.movement\\(\\)\\.absoluteDestination\\(\\)\\);"
   serialized_soldier_movement_destination_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2980,7 +3140,7 @@ string(REGEX MATCH
   serialized_soldier_movement_stop_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(s\\.ubLeaveHistoryCode\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
+  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
   serialized_soldier_movement_speed_override_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_delay_flag_order OR
@@ -3504,7 +3664,7 @@ string(REGEX MATCH
   serialized_soldier_damage_display_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiAIDelay\\);[ \t]*ar\\.i16\\(s\\.sReloadDelay\\);[ \t]*ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(s\\.sInsertionGridNo\\);"
+  "ar\\.u32\\(s\\.uiAIDelay\\);[ \t]*ar\\.i16\\(s\\.sReloadDelay\\);[ \t]*ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(deployment\\.insertionGrid\\(\\)\\);"
   serialized_soldier_attacker_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4021,7 +4181,7 @@ string(REGEX MATCH
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubPrevSectorID\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
+  "ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(s\\.uiBattleSoundID\\);"
   serialized_soldier_animation_turn_increment_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_turn_activity_order OR

@@ -78,8 +78,8 @@ struct MilitiaTrainingPromptContext
 		trainer = capturedTrainer;
 		continuation = isContinuation;
 		militiaType = selectedMilitiaType;
-		sectorX = selectedTrainer->sSectorX;
-		sectorY = selectedTrainer->sSectorY;
+		sectorX = selectedTrainer->deployment().sectorX();
+		sectorY = selectedTrainer->deployment().sectorY();
 		totalCost = 0;
 		costMultiplier = 1;
 		return true;
@@ -315,7 +315,7 @@ void TownMilitiaTrainingCompleted( SOLDIERTYPE *pTrainer, INT16 sMapX, INT16 sMa
 	INT32 iMaxMilitiaPerSector = gGameExternalOptions.iMaxMilitiaPerSector;
 
 	// HEADROCK HAM 3.6: Leadership may affect the resulting squad size.
-	UINT8 ubTrainerEffectiveLeadership = FindBestMilitiaTrainingLeadershipInSector ( sMapX, sMapY, pTrainer->bSectorZ, TOWN_MILITIA );
+	UINT8 ubTrainerEffectiveLeadership = FindBestMilitiaTrainingLeadershipInSector ( sMapX, sMapY, pTrainer->deployment().sectorZ(), TOWN_MILITIA );
 	UINT8 iTrainingSquadSize = __min(iMaxMilitiaPerSector, CalcNumMilitiaTrained(ubTrainerEffectiveLeadership));
 	UINT8 promotionstodo = 0;
 
@@ -463,7 +463,7 @@ void TownMilitiaTrainingCompleted( SOLDIERTYPE *pTrainer, INT16 sMapX, INT16 sMa
 			}
 
 			// SANDRO - merc records (num militia trained)
-			RecordNumMilitiaTrainedForMercs( sMapX, sMapY, pTrainer->bSectorZ, ubMilitiaTrained );
+			RecordNumMilitiaTrainedForMercs( sMapX, sMapY, pTrainer->deployment().sectorZ(), ubMilitiaTrained );
 		}
 
 		if ( gGameExternalOptions.fMilitiaResources && !gGameExternalOptions.fMilitiaUseSectorInventory )
@@ -1014,8 +1014,8 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Militia3");
 		pSoldier->assignment().current() != TRAIN_TOWN)
 		return;
 
-	const INT16 sSectorX = pSoldier->sSectorX;
-	const INT16 sSectorY = pSoldier->sSectorY;
+	const INT16 sSectorX = pSoldier->deployment().sectorX();
+	const INT16 sSectorY = pSoldier->deployment().sectorY();
 	const INT8 bTownId = GetTownIdForSector( sSectorX, sSectorY );
 	const UINT8 ubMilitiaType = TOWN_MILITIA;
 
@@ -1125,8 +1125,8 @@ void PayMilitiaTrainingYesNoBoxCallback( UINT8 bExitValue )
 		gMilitiaTrainingPrompt.trainer.resolve();
 	if (!trainer ||
 		trainer->assignment().current() != TRAIN_TOWN ||
-		trainer->sSectorX != gMilitiaTrainingPrompt.sectorX ||
-		trainer->sSectorY != gMilitiaTrainingPrompt.sectorY)
+		trainer->deployment().sectorX() != gMilitiaTrainingPrompt.sectorX ||
+		trainer->deployment().sectorY() != gMilitiaTrainingPrompt.sectorY)
 	{
 		MilitiaTrainingRejected();
 		return;
@@ -1482,9 +1482,9 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 
 
 	// get the sector values
-	sSectorX = pTrainer->sSectorX;
-	sSectorY = pTrainer->sSectorY;
-	bSectorZ = pTrainer->bSectorZ;
+	sSectorX = pTrainer->deployment().sectorX();
+	sSectorY = pTrainer->deployment().sectorY();
+	bSectorZ = pTrainer->deployment().sectorZ();
 
 	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounter++ )
 	{
@@ -1508,7 +1508,7 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 		//if ( ubMilitiaType == TOWN_MILITIA)
 		if ( pTrainer->assignment().current() == pSoldier->assignment().current() )
 		{
-			if( /*( pSoldier->assignment().current() == TRAIN_TOWN ) &&*/ ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
+			if( /*( pSoldier->assignment().current() == TRAIN_TOWN ) &&*/ ( pSoldier->deployment().sectorX() == sSectorX )&&( pSoldier->deployment().sectorY() == sSectorY )&&( pSoldier->deployment().sectorZ() == bSectorZ ) )
 			{
 				// done assignment
 				AssignmentDone( pSoldier, FALSE, FALSE );
@@ -1516,7 +1516,7 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 		}
 /*		else
 		{
-			if( ( pSoldier->assignment().current() == TRAIN_MOBILE ) && ( pSoldier->sSectorX == sSectorX )&&( pSoldier->sSectorY == sSectorY )&&( pSoldier->bSectorZ == bSectorZ ) )
+			if( ( pSoldier->assignment().current() == TRAIN_MOBILE ) && pSoldier->deployment().isInSector( sSectorX, sSectorY, bSectorZ ) )
 			{
 				// done assignment
 				AssignmentDone( pSoldier, FALSE, FALSE );
@@ -1535,7 +1535,7 @@ void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE
 	SOLDIERTYPE *pCurrentSoldier = NULL;
 
 	// get the sector value
-	sSector = pSoldier->sSectorX + pSoldier->sSectorY * MAP_WORLD_X;
+	sSector = pSoldier->deployment().sectorX() + pSoldier->deployment().sectorY() * MAP_WORLD_X;
 
 	while( giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ] != NOBODY )
 	{
@@ -1543,7 +1543,7 @@ void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE
 		pCurrentSoldier = GetJa2SoldierRepository().resolve(giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ]);
 
 		// get the current sector value
-		sCurrentSector = CALCULATE_STRATEGIC_INDEX( pCurrentSoldier->sSectorX, pCurrentSoldier->sSectorY );
+		sCurrentSector = CALCULATE_STRATEGIC_INDEX( pCurrentSoldier->deployment().sectorX(), pCurrentSoldier->deployment().sectorY() );
 
 		// is the merc's sector already in the list?
 		// silversurfer: Doesn't matter if it's the same sector. We can have different assignments in the same sector so add the soldier to the list if he's on a different assignment.
@@ -1655,9 +1655,9 @@ void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 					{
 						if (CanCharacterTrainMilitia( pSoldier ) == TRUE )
 						{
-							if (SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE)
+							if (SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].fMilitiaTrainingPaid == FALSE)
 							{
-								gsUnpaidStrategicSector[ iCounter ] = CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY );
+								gsUnpaidStrategicSector[ iCounter ] = CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 							}
 						}
 					}
@@ -1675,9 +1675,9 @@ void BuildListOfUnpaidTrainableSectors( UINT8 ubMilitiaType )
 		{
 			if (CanCharacterTrainMilitia( pSoldier ) == TRUE )
 			{
-				if (SectorInfo[ SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) ].fMilitiaTrainingPaid == FALSE )
+				if (SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].fMilitiaTrainingPaid == FALSE )
 				{
-					gsUnpaidStrategicSector[ iCounter ] = CALCULATE_STRATEGIC_INDEX( pSoldier->sSectorX, pSoldier->sSectorY );
+					gsUnpaidStrategicSector[ iCounter ] = CALCULATE_STRATEGIC_INDEX( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 				}
 			}
 		}
@@ -1799,7 +1799,7 @@ void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitia
 			{
 				if( pSoldier->assignment().current() == TRAIN_TOWN )
 				{
-					if( ( SECTOR( pSoldier->sSectorX, pSoldier->sSectorY ) == ubSector ) && ( pSoldier->bSectorZ == 0 ) )
+					if( ( SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == ubSector ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 					{
 						pSoldier->flags.fDoneAssignmentAndNothingToDoFlag = FALSE;
 						pSoldier->usQuoteSaidExtFlags &= ~SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT;
@@ -1927,7 +1927,7 @@ UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8
 		pCheckedTrainer = GetJa2SoldierRepository().resolve(cnt);
 		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->assignment().current() == TRAIN_TOWN) )
 		{
-			if (pCheckedTrainer->sSectorX == sMapX && pCheckedTrainer->sSectorY == sMapY && pCheckedTrainer->bSectorZ == bMapZ )
+			if (pCheckedTrainer->deployment().sectorX() == sMapX && pCheckedTrainer->deployment().sectorY() == sMapY && pCheckedTrainer->deployment().sectorZ() == bMapZ )
 			{
 				usTrainerEffectiveLeadership = EffectiveLeadership(pCheckedTrainer);
 

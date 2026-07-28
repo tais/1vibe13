@@ -1172,7 +1172,7 @@ void HandleAllReachAbleItemsInTheSector( INT16 sSectorX, INT16 sSectorY, INT8 bS
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(uiCounter.i);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() > 0 && pSoldier->sSectorX == sSectorX && pSoldier->sSectorY == sSectorY && pSoldier->bSectorZ == bSectorZ )
+			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() > 0 && pSoldier->deployment().sectorX() == sSectorX && pSoldier->deployment().sectorY() == sSectorY && pSoldier->deployment().sectorZ() == bSectorZ )
 			{
 				if ( FindBestPath( pSoldier, sGridNo2, pSoldier->position().level(), WALKING, NO_COPYROUTE, 0 ) )
 				{
@@ -2541,7 +2541,7 @@ BOOLEAN SetSectorFlag( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet
 					GetJa2SoldierRepository().resolve(id.i);
 
 				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
-					pSoldier->sSectorX == sMapX && pSoldier->sSectorY == sMapY && pSoldier->bSectorZ == bMapZ && !pSoldier->flags.fBetweenSectors &&
+					pSoldier->deployment().sectorX() == sMapX && pSoldier->deployment().sectorY() == sMapY && pSoldier->deployment().sectorZ() == bMapZ && !pSoldier->flags.fBetweenSectors &&
 					pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD )
 				{
 					gMercProfiles[ pSoldier->ubProfile ].records.usSectorsDiscovered++;
