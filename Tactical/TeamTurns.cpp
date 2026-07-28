@@ -424,7 +424,7 @@ void EndAITurn( void )
 				pSoldier->aiData.bMoved = TRUE;
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
-				pSoldier->bOldLife = pSoldier->vitals().health();
+				pSoldier->vitals().snapshotHealth();
 			}
 		}
 
@@ -463,7 +463,7 @@ void EndAllAITurns( void )
 				pSoldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
-				pSoldier->bOldLife = pSoldier->vitals().health();
+				pSoldier->vitals().snapshotHealth();
 			}
 		}
 

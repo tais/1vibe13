@@ -1574,7 +1574,7 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 	// SANDRO - added check if having damaged stat
 	for ( UINT8 i = 0; i < NUM_DAMAGABLE_STATS; ++i)
 	{
-		if ( pSoldier->ubCriticalStatDamage[i] > 0 )
+		if ( pSoldier->vitals().criticalStatDamage()[i] > 0 )
 			return ( TRUE );
 
 		// Flugente: stats can also be damaged
@@ -4255,7 +4255,7 @@ void UpdatePatientsWhoAreDoneHealing( void )
 				// SANDRO - added check if we can help to heal lost stats to this one
 				for ( UINT8 cnt2 = 0; cnt2 < NUM_DAMAGABLE_STATS; ++cnt2 )
 				{
-					if ( pTeamSoldier->ubCriticalStatDamage[cnt2] > 0 )
+					if ( pTeamSoldier->vitals().criticalStatDamage()[cnt2] > 0 )
 						fHasDamagedStat = TRUE;
 				}
 
@@ -4509,7 +4509,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	}
 
 	// added check for surgery
-	if ( !fHealDamagedStat && fCheckForSurgery && pSoldier->iHealableInjury < 100 ) // at least one life can be healed
+	if ( !fHealDamagedStat && fCheckForSurgery && pSoldier->vitals().healableInjury() < 100 ) // at least one life can be healed
 	{
 		// cannot be healed
 		return( FALSE );
@@ -4602,8 +4602,8 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 	sHundredsToHeal = (pPatient->vitals().maximumHealth() - pPatient->vitals().health()) * 100;
 
 	// negative life hundreds also need to be healed
-	if ( pPatient->sFractLife < 0 )
-		sHundredsToHeal += -pPatient->sFractLife;
+	if ( pPatient->vitals().fractionalHealth() < 0 )
+		sHundredsToHeal += -pPatient->vitals().fractionalHealth();
 
 	if ( pPatient->vitals().health() < OKLIFE )
 		sHundredsToHeal += 100 * ((OKLIFE - pPatient->vitals().health()) * gGameExternalOptions.ubPointCostPerHealthBelowOkLife);
@@ -4700,30 +4700,30 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 			sHundredsToHeal_Used_withmodifier -= ((sHundredsToHeal_Used_withmodifier * gSkillTraitValues.ubDOHealingPenaltyIfAlsoStatRepair) / 100);
 
 		//  add life points to sFractLife. Add a lifepoint for every 100 hundreds
-		pPatient->sFractLife += sHundredsToHeal_Used_withmodifier;
+		pPatient->vitals().fractionalHealth() += sHundredsToHeal_Used_withmodifier;
 		
-		if ( pPatient->vitals().health() >= OKLIFE && pPatient->sFractLife >= 100 )
+		if ( pPatient->vitals().health() >= OKLIFE && pPatient->vitals().fractionalHealth() >= 100 )
 		{
 			// convert fractions into full points
-			bPointsHealed = (pPatient->sFractLife / 100);
-			pPatient->sFractLife %= 100;
+			bPointsHealed = (pPatient->vitals().fractionalHealth() / 100);
+			pPatient->vitals().fractionalHealth() %= 100;
 
 			pPatient->vitals().health() = min( pPatient->vitals().maximumHealth(), (pPatient->vitals().health() + bPointsHealed) );
 		}
-		else if ( pPatient->vitals().health() < OKLIFE && ((pPatient->sFractLife / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) >= 100) )
+		else if ( pPatient->vitals().health() < OKLIFE && ((pPatient->vitals().fractionalHealth() / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) >= 100) )
 		{
-			bPointsHealed = ((pPatient->sFractLife / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) / 100);
-			pPatient->sFractLife %= 100;
+			bPointsHealed = ((pPatient->vitals().fractionalHealth() / gGameExternalOptions.ubPointCostPerHealthBelowOkLife) / 100);
+			pPatient->vitals().fractionalHealth() %= 100;
 
 			pPatient->vitals().health() = min( pPatient->vitals().maximumHealth(), (pPatient->vitals().health() + bPointsHealed) );
 		}
 		
 		// when being healed normally, reduce insta-healable HPs value 
-		if ( pPatient->iHealableInjury > 0 && bPointsHealed > 0 )
+		if ( pPatient->vitals().healableInjury() > 0 && bPointsHealed > 0 )
 		{
-			pPatient->iHealableInjury -= (bPointsHealed * 100);
-			if ( pPatient->iHealableInjury < 0 )
-				pPatient->iHealableInjury = 0;
+			pPatient->vitals().healableInjury() -= (bPointsHealed * 100);
+			if ( pPatient->vitals().healableInjury() < 0 )
+				pPatient->vitals().healableInjury() = 0;
 		}
 	}
 
@@ -9580,24 +9580,24 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 		}
 		if (bRegenerationBonus > 0)
 		{
-			pSoldier->sFractLife += ( INT16 ) (((( uiPercentHealth / bActivityLevelDivisor ) * (100 + gSkillTraitValues.ubDONaturalRegenBonus * bRegenerationBonus) / 100 ) * usFacilityModifier ) / 100 );
+			pSoldier->vitals().fractionalHealth() += ( INT16 ) (((( uiPercentHealth / bActivityLevelDivisor ) * (100 + gSkillTraitValues.ubDONaturalRegenBonus * bRegenerationBonus) / 100 ) * usFacilityModifier ) / 100 );
 		}
 		else
 		{
 			// gain that many hundredths of life points back, divided by the activity level modifier
-			pSoldier->sFractLife += ( INT16 ) ((( uiPercentHealth / bActivityLevelDivisor ) * usFacilityModifier) / 100 );
+			pSoldier->vitals().fractionalHealth() += ( INT16 ) ((( uiPercentHealth / bActivityLevelDivisor ) * usFacilityModifier) / 100 );
 		}
 	}
 	else // original
 	{
 		// gain that many hundredths of life points back, divided by the activity level modifier
-		pSoldier->sFractLife += ( INT16 ) ((( uiPercentHealth / bActivityLevelDivisor ) * usFacilityModifier) / 100 );
+		pSoldier->vitals().fractionalHealth() += ( INT16 ) ((( uiPercentHealth / bActivityLevelDivisor ) * usFacilityModifier) / 100 );
 	}
 	
 	// Flugente: diseases can lower health regen
 	for ( int i = 0; i < NUM_DISEASES; ++i )
 	{
-		pSoldier->sFractLife += Disease[i].sLifeRegenHundreds * pSoldier->GetDiseaseMagnitude( i );
+		pSoldier->vitals().fractionalHealth() += Disease[i].sLifeRegenHundreds * pSoldier->GetDiseaseMagnitude( i );
 	}
 
 	// now update the real life values
@@ -9607,7 +9607,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 void UpDateSoldierLife( SOLDIERTYPE *pSoldier )
 {
 	// update soldier life, make sure we don't go out of bounds
-	INT8 sAddedLife		 = pSoldier->sFractLife/100;
+	INT8 sAddedLife		 = pSoldier->vitals().fractionalHealth()/100;
 	
 	INT8 oldlife = pSoldier->vitals().health();
 	pSoldier->vitals().health() += sAddedLife;
@@ -9627,16 +9627,16 @@ void UpDateSoldierLife( SOLDIERTYPE *pSoldier )
 		AddStrategicEvent( EVENT_BANDAGE_BLEEDING_MERCS, GetWorldTotalMin() + 1, 0 );
 
 	// SANDRO - when being healed normally, reduce insta-healable HPs value 
-	if ( gGameOptions.fNewTraitSystem && pSoldier->iHealableInjury > 0 ) 
+	if ( gGameOptions.fNewTraitSystem && pSoldier->vitals().healableInjury() > 0 )
 	{
-		pSoldier->iHealableInjury -= sAddedLife * 100;
+		pSoldier->vitals().healableInjury() -= sAddedLife * 100;
 
-		if (pSoldier->iHealableInjury < 0)
-			pSoldier->iHealableInjury = 0;
+		if (pSoldier->vitals().healableInjury() < 0)
+			pSoldier->vitals().healableInjury() = 0;
 	}
 
 	// keep remaining fract of life
-	pSoldier->sFractLife %= 100;
+	pSoldier->vitals().fractionalHealth() %= 100;
 
 	// check if we have gone too far
 	if( pSoldier->vitals().health() >= pSoldier->vitals().maximumHealth() )
@@ -9645,10 +9645,10 @@ void UpDateSoldierLife( SOLDIERTYPE *pSoldier )
 		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 
 		// only set sFractLife to be 0 if > 0
-		if ( pSoldier->sFractLife > 0 )
-			pSoldier->sFractLife = 0;
+		if ( pSoldier->vitals().fractionalHealth() > 0 )
+			pSoldier->vitals().fractionalHealth() = 0;
 
-		pSoldier->iHealableInjury = 0; // check added by SANDRO
+		pSoldier->vitals().healableInjury() = 0; // check added by SANDRO
 	}
 }
 
@@ -13841,7 +13841,7 @@ void PrisonerMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 {
-	if ( pSoldier->iHealableInjury >= 100 && gGameOptions.fNewTraitSystem ) // if we can heal at least one life point
+	if ( pSoldier->vitals().healableInjury() >= 100 && gGameOptions.fNewTraitSystem ) // if we can heal at least one life point
 	{
 		SOLDIERTYPE *pBestMedic = NULL;
 		INT8 bSlot;
@@ -13883,12 +13883,12 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 					pBestMedic, pSoldier))
 				return;
 
-			INT32 healwithout_bloodbag = pSoldier->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
+			INT32 healwithout_bloodbag = pSoldier->vitals().healableInjury() * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
 
 			// Flugente: check whether we have a bloodbag we can use
 			INT32 healwith_bloodbag = -1;
 			if ( gSkillTraitValues.ubDOSurgeryHealPercentBloodbag > 0 && pBestMedic->GetObjectWithItemFlag( BLOOD_BAG ) != NULL )
-				healwith_bloodbag = pSoldier->iHealableInjury * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
+				healwith_bloodbag = pSoldier->vitals().healableInjury() * (gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pBestMedic, DOCTOR_NT )) / 10000;
 
 			if ( healwith_bloodbag > healwithout_bloodbag )
 			{
@@ -14101,8 +14101,8 @@ void AssignmentMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 									{
 										pSurgeryPatient = pPatient;
 
-										INT32 healwithout_bloodbag = pSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
-										INT32 healwith_bloodbag    = pSurgeryPatient->iHealableInjury * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
+										INT32 healwithout_bloodbag = pSurgeryPatient->vitals().healableInjury() * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
+										INT32 healwith_bloodbag    = pSurgeryPatient->vitals().healableInjury() * ( gSkillTraitValues.ubDOSurgeryHealPercentBase + gSkillTraitValues.ubDOSurgeryHealPercentBloodbag + gSkillTraitValues.ubDOSurgeryHealPercentOnTop * NUM_SKILL_TRAITS( pSoldier, DOCTOR_NT ) ) / 10000;
 
 										if ( healwith_bloodbag > healwithout_bloodbag )
 										{
@@ -18540,9 +18540,9 @@ void BandageBleedingDyingPatientsBeingTreated( )
 				if ( pSoldier->vitals().health() < OKLIFE )
 				{
 					// SANDRO - added to alter the value of insta-healable injuries for doctors
-					if (pSoldier->iHealableInjury > 0)
+					if (pSoldier->vitals().healableInjury() > 0)
 					{
-						pSoldier->iHealableInjury -= ((OKLIFE - pSoldier->vitals().health()) * 100);
+						pSoldier->vitals().healableInjury() -= ((OKLIFE - pSoldier->vitals().health()) * 100);
 					}
 
 					pSoldier->vitals().health() = OKLIFE;
@@ -22376,7 +22376,7 @@ BOOLEAN MakeAutomaticSurgery( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pDoctor )
 	}
 
 	cnt = 0;
-	while( pSoldier->iHealableInjury >= 100 )
+	while( pSoldier->vitals().healableInjury() >= 100 )
 	{
 		bSlot = FindMedKit( pDoctor );
 		if ( bSlot != NO_SLOT )
@@ -22397,9 +22397,9 @@ BOOLEAN MakeAutomaticSurgery( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pDoctor )
 			break;
 	}
 
-	if ( pSoldier->iHealableInjury < 100 )
+	if ( pSoldier->vitals().healableInjury() < 100 )
 	{
-		pSoldier->iHealableInjury = 0;
+		pSoldier->vitals().healableInjury() = 0;
 		return( TRUE );
 	}
 	else

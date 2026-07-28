@@ -958,10 +958,15 @@ the engine must not contain SDL types in its public domain model.
   runtime aggregate instead of unrelated flat `SOLDIERTYPE` tail fields.
   Soldier clones start with an empty runtime aggregate, so deferred callbacks
   cannot retain and later mutate the source soldier.
-  Serialized health, maximum health, breath, maximum breath, and bleeding now
-  have one private `SoldierVitalsComponent` owner as well. Zero-cost reference
-  accessors preserve hot-path mutation semantics, while the portable field
-  serializer emits those values in their established save byte positions.
+  `SoldierVitalsComponent` now privately owns the complete persistent health,
+  breath, wound, and recovery lifecycle: current/max values, previous-turn and
+  fractional health, breath reduction, treatable trauma and surgery state,
+  unrecoverable breath, critical-stat damage, bleed scheduling and sound
+  throttling, plus the retired regeneration save slots. Named snapshot,
+  surgery, critical-damage cleanup, life-deduction, and reset operations
+  establish one lifecycle boundary. Zero-cost reference accessors preserve
+  hot-path mutation semantics, while the portable field serializer emits every
+  value at its established byte position and width.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

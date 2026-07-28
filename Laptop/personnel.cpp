@@ -1431,7 +1431,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( pSoldier->assignment().current() != ASSIGNMENT_POW )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				const INT16 change = pMercProfile->bLifeDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH]);
+				const INT16 change = pMercProfile->bLifeDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d/%d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 			}
@@ -1447,7 +1447,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bAgilityDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_AGILITY]);
+				INT16 change = pMercProfile->bAgilityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bAgility );
 			}
@@ -1463,7 +1463,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bDexterityDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY]);
+				INT16 change = pMercProfile->bDexterityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bDexterity );
 			}
@@ -1479,7 +1479,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bStrengthDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH]);
+				INT16 change = pMercProfile->bStrengthDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bStrength );
 			}
@@ -1495,7 +1495,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bLeadershipDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_LEADERSHIP]);
+				INT16 change = pMercProfile->bLeadershipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bLeadership );
 			}
@@ -1511,7 +1511,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bWisdomDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_WISDOM]);
+				INT16 change = pMercProfile->bWisdomDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bWisdom );
 			}
@@ -1551,7 +1551,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bMarksmanshipDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MARKSMANSHIP]);
+				INT16 change = pMercProfile->bMarksmanshipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bMarksmanship );
 			}
@@ -1567,7 +1567,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bMechanicDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MECHANICAL]);
+				INT16 change = pMercProfile->bMechanicDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bMechanical );
 			}
@@ -1583,7 +1583,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bExplosivesDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_EXPLOSIVES]);
+				INT16 change = pMercProfile->bExplosivesDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bExplosive );
 			}
@@ -1599,7 +1599,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 			if ( !fAmIaRobot )
 			{
 				// Flugente: stats can have gone up or down, find out which 
-				INT16 change = pMercProfile->bMedicalDelta - (INT16)(pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MEDICAL]);
+				INT16 change = pMercProfile->bMedicalDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL]);
 				PrintStatChange( change, x, y, sString );
 				swprintf( sString, L"%d", pSoldier->stats.bMedical );
 			}

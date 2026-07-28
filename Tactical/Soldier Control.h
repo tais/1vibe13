@@ -275,22 +275,6 @@ enum
 	MERC_TYPE__VEHICLE,
 };
 
-// SANDRO - added for healing damaged stats
-enum
-{
-	DAMAGED_STAT_HEALTH,
-	DAMAGED_STAT_DEXTERITY,
-	DAMAGED_STAT_AGILITY,
-	DAMAGED_STAT_STRENGTH,
-	DAMAGED_STAT_WISDOM,
-	DAMAGED_STAT_LEADERSHIP,
-	DAMAGED_STAT_MARKSMANSHIP,
-	DAMAGED_STAT_MECHANICAL,
-	DAMAGED_STAT_EXPLOSIVES,
-	DAMAGED_STAT_MEDICAL,
-	NUM_DAMAGABLE_STATS,
-};
-
 // SANDRO - this is for determining what stance to go back after being hit
 enum
 {
@@ -1096,7 +1080,6 @@ public:
 
 	// DESCRIPTION / STATS, ETC
 	UINT8			ubBodyType;
-	INT8				bOldLife;			// life at end of last turn, recorded for monster AI
 	INT8				bActive;
 	INT8				bTeam;				// Team identifier
 
@@ -1106,9 +1089,7 @@ public:
 
 	UINT8			bInSector;
 	INT8				bFlashPortraitFrame;
-	INT16			sFractLife;		// fraction of life pts (in hundreths)	
 	INT8				bStealthMode;
-	INT16			sBreathRed;			// current breath loss value
 	
 
 	UINT8			ubWaitActionToDo;
@@ -1119,12 +1100,6 @@ public:
 	/////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - added following
 	// values for surgery feature
-	INT32			iHealableInjury; 
-	BOOLEAN			fDoingSurgery; 
-	// value for unregainable breath feature (for Martial Arts)
-	signed long		lUnregainableBreath;
-	// this stores possible stats lost due to critical hits
-	UINT8			ubCriticalStatDamage[ NUM_DAMAGABLE_STATS ];
 	/////////////////////////////////////////////////////////////////////////////////
 
 	// WORLD POSITION STUFF
@@ -1152,8 +1127,6 @@ public:
 	
 
 	INT8				bTilesMoved;
-	FLOAT			dNextBleed;
-
 	UINT8			ubTilesMovedPerRTBreathUpdate;
 	UINT16			usLastMovementAnimPerRTBreathUpdate;
 	
@@ -1300,8 +1273,6 @@ public:
 	UINT16				usQuoteSaidExtFlags;
 
 	UINT8				ubPendingActionInterrupted;
-	INT8					bRegenerationCounter;					// Flugente: not used anymore!
-	INT8					bRegenBoostersUsedToday;				// Flugente: not used anymore!
 	INT32				sSkillCheckGridNo;
 	SoldierID			ubLastEnemyCycledID;
 
@@ -1331,7 +1302,6 @@ public:
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
 	INT32				sLastTwoLocations[2];
-	INT32				uiTimeSinceLastBleedGrunt;
 	INT8					numFlanks;
 	INT32				lastFlankSpot;
 	INT8					sniper;

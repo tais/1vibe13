@@ -6,11 +6,31 @@
 
 #include <functional>
 
-// Canonical soldier vitals storage. Reference accessors keep legacy mutation
-// sites zero-cost while the state itself has one owner and reset boundary.
+// Stable indices for persistent critical-stat damage. Keep the order aligned
+// with the established soldier save fields.
+enum
+{
+	DAMAGED_STAT_HEALTH,
+	DAMAGED_STAT_DEXTERITY,
+	DAMAGED_STAT_AGILITY,
+	DAMAGED_STAT_STRENGTH,
+	DAMAGED_STAT_WISDOM,
+	DAMAGED_STAT_LEADERSHIP,
+	DAMAGED_STAT_MARKSMANSHIP,
+	DAMAGED_STAT_MECHANICAL,
+	DAMAGED_STAT_EXPLOSIVES,
+	DAMAGED_STAT_MEDICAL,
+	NUM_DAMAGABLE_STATS,
+};
+
+// Canonical soldier vitals and recovery storage. Reference accessors keep
+// legacy mutation sites zero-cost while health, breath, treatable trauma,
+// surgery, critical-stat damage, and bleed timing share one reset boundary.
 class SoldierVitalsComponent
 {
 public:
+	using CriticalStatDamage = UINT8[NUM_DAMAGABLE_STATS];
+
 	INT8& health() noexcept { return health_; }
 	const INT8& health() const noexcept { return health_; }
 	INT8& maximumHealth() noexcept { return maximumHealth_; }
@@ -21,8 +41,36 @@ public:
 	const INT8& maximumBreath() const noexcept { return maximumBreath_; }
 	INT8& bleeding() noexcept { return bleeding_; }
 	const INT8& bleeding() const noexcept { return bleeding_; }
+	INT8& previousHealth() noexcept { return previousHealth_; }
+	const INT8& previousHealth() const noexcept { return previousHealth_; }
+	INT16& fractionalHealth() noexcept { return fractionalHealth_; }
+	const INT16& fractionalHealth() const noexcept { return fractionalHealth_; }
+	INT16& breathReduction() noexcept { return breathReduction_; }
+	const INT16& breathReduction() const noexcept { return breathReduction_; }
+	INT32& healableInjury() noexcept { return healableInjury_; }
+	const INT32& healableInjury() const noexcept { return healableInjury_; }
+	BOOLEAN& undergoingSurgery() noexcept { return undergoingSurgery_; }
+	const BOOLEAN& undergoingSurgery() const noexcept { return undergoingSurgery_; }
+	signed long& unregainableBreath() noexcept { return unregainableBreath_; }
+	const signed long& unregainableBreath() const noexcept { return unregainableBreath_; }
+	CriticalStatDamage& criticalStatDamage() noexcept { return criticalStatDamage_; }
+	const CriticalStatDamage& criticalStatDamage() const noexcept { return criticalStatDamage_; }
+	FLOAT& nextBleedAt() noexcept { return nextBleedAt_; }
+	const FLOAT& nextBleedAt() const noexcept { return nextBleedAt_; }
+	INT8& regenerationCounter() noexcept { return regenerationCounter_; }
+	const INT8& regenerationCounter() const noexcept { return regenerationCounter_; }
+	INT8& regenerationBoostersUsedToday() noexcept { return regenerationBoostersUsedToday_; }
+	const INT8& regenerationBoostersUsedToday() const noexcept { return regenerationBoostersUsedToday_; }
+	INT32& lastBleedGruntAt() noexcept { return lastBleedGruntAt_; }
+	const INT32& lastBleedGruntAt() const noexcept { return lastBleedGruntAt_; }
 
 	bool alive() const noexcept;
+	bool hasHealableInjury() const noexcept { return healableInjury_ > 0; }
+	bool isUndergoingSurgery() const noexcept { return undergoingSurgery_ != FALSE; }
+	void snapshotHealth() noexcept { previousHealth_ = health_; }
+	void beginSurgery() noexcept { undergoingSurgery_ = TRUE; }
+	void finishSurgery() noexcept { undergoingSurgery_ = FALSE; }
+	void clearCriticalStatDamage() noexcept;
 	void applyLifeDeduction(INT16 lifeDeduction);
 	void reset() noexcept;
 
@@ -32,6 +80,17 @@ private:
 	INT8 breath_ = 0;
 	INT8 maximumBreath_ = 0;
 	INT8 bleeding_ = 0;
+	INT8 previousHealth_ = 0;
+	INT16 fractionalHealth_ = 0;
+	INT16 breathReduction_ = 0;
+	INT32 healableInjury_ = 0;
+	BOOLEAN undergoingSurgery_ = FALSE;
+	signed long unregainableBreath_ = 0;
+	CriticalStatDamage criticalStatDamage_ = {};
+	FLOAT nextBleedAt_ = 0;
+	INT8 regenerationCounter_ = 0;
+	INT8 regenerationBoostersUsedToday_ = 0;
+	INT32 lastBleedGruntAt_ = 0;
 };
 
 // Canonical tactical action-point budget. The current amount and the turn-start

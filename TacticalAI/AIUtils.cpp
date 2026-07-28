@@ -3542,7 +3542,7 @@ SoldierID GetClosestWoundedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 			continue;
 		
 		// skip if this guy is dead, or not wounded (enough)
-		if ( pFriend->vitals().health() <= 0 || pFriend->iHealableInjury < gGameExternalOptions.sEnemyMedicsWoundMinAmount )
+		if ( pFriend->vitals().health() <= 0 || pFriend->vitals().healableInjury() < gGameExternalOptions.sEnemyMedicsWoundMinAmount )
 			continue;
 
 		// are we close enough?

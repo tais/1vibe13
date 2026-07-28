@@ -4573,20 +4573,20 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 								{
 									// Get breath back
 									pSoldier->vitals().breath() = 100;
-									pSoldier->sBreathRed = 10000;
+									pSoldier->vitals().breathReduction() = 10000;
 								}
 								else
 								{
 									// Get breath back
 									pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
-									pSoldier->sBreathRed = 0;
+									pSoldier->vitals().breathReduction() = 0;
 								}
 								// Get life back
 								pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
 								pSoldier->vitals().bleeding()	= 0;
 
 								// SANDRO - erase insta-healable injury 
-								pSoldier->iHealableInjury = 0; 
+								pSoldier->vitals().healableInjury() = 0;
 
 								fInterfacePanelDirty = DIRTYLEVEL2;
 							}

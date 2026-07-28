@@ -2440,7 +2440,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bStrength + pSoldier->bExtraStrength );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->usStarveDamageStrength > 0) )
+	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->usStarveDamageStrength > 0) )
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2478,7 +2478,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bDexterity + pSoldier->bExtraDexterity );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_DEXTERITY] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2516,7 +2516,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bAgility + pSoldier->bExtraAgility );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_AGILITY] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2554,7 +2554,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bWisdom + pSoldier->bExtraWisdom );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_WISDOM] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2592,7 +2592,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bLeadership );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_LEADERSHIP] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2659,7 +2659,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMarksmanship );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MARKSMANSHIP] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2693,7 +2693,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMechanical );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MECHANICAL] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2727,7 +2727,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bExplosive );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_EXPLOSIVES] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2761,7 +2761,7 @@ void DrawCharStats( INT16 sCharNum )
 	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bMedical );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if( gGameOptions.fNewTraitSystem && ( pSoldier->ubCriticalStatDamage[DAMAGED_STAT_MEDICAL] > 0 ))
+	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] > 0 ))
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2859,7 +2859,7 @@ void DrawCharHealth( INT16 sCharNum )
 		DrawString( sString, usX, y, CHAR_FONT );
 		usX += StringPixLength( sString, CHAR_FONT );
 
-		if (gGameOptions.fNewTraitSystem && pSoldier->ubCriticalStatDamage[DAMAGED_STAT_HEALTH] > 0)
+		if (gGameOptions.fNewTraitSystem && pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] > 0)
 		{
 			SetFontForeground(FONT_RED);
 		}
@@ -7949,7 +7949,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 
 						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 						{
-							pSoldier->sBreathRed = 10000;
+							pSoldier->vitals().breathReduction() = 10000;
 							pSoldier->vitals().breath() = 100;
 							ScreenMsg( FONT_MCOLOR_RED, MSG_TESTVERSION, L"Vehicle refueled" );
 

@@ -5012,7 +5012,7 @@ INT16 CalculateFuelCostBetweenSectors( UINT8 ubSectorID1, UINT8 ubSectorID2 )
 BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 {
 	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
-	if( pSoldier->sBreathRed )
+	if( pSoldier->vitals().breathReduction() )
 	{
 		return TRUE;
 	}
@@ -5022,15 +5022,15 @@ BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 INT16 VehicleFuelRemaining( SOLDIERTYPE *pSoldier )
 {
 	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
-	return pSoldier->sBreathRed;
+	return pSoldier->vitals().breathReduction();
 }
 
 BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
 {
 	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
-	pSoldier->sBreathRed -= sFuelSpent;
-	pSoldier->sBreathRed = (INT16)max( 0, pSoldier->sBreathRed );
-	pSoldier->vitals().breath() = (INT8)((pSoldier->sBreathRed+99) / 100);
+	pSoldier->vitals().breathReduction() -= sFuelSpent;
+	pSoldier->vitals().breathReduction() = (INT16)max( 0, pSoldier->vitals().breathReduction() );
+	pSoldier->vitals().breath() = (INT8)((pSoldier->vitals().breathReduction()+99) / 100);
 	return( FALSE );
 }
 
@@ -5050,18 +5050,18 @@ void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
 	}
 	//Soldier has gas can, so now add gas to vehicle while removing gas from the gas can.
 	//A gas can with 100 status translate to 50% of a fillup.
-	if( pVehicle->sBreathRed == 10000 )
+	if( pVehicle->vitals().breathReduction() == 10000 )
 	{ //Message for vehicle full?
 		return;
 	}
 	if( (*pItem)[0]->data.objectStatus )
 	{ //Fill 'er up.
-		sFuelNeeded = 10000 - pVehicle->sBreathRed;
+		sFuelNeeded = 10000 - pVehicle->vitals().breathReduction();
 		sFuelAvailable = (*pItem)[0]->data.objectStatus * 50;
 		sFuelAdded = min( sFuelNeeded, sFuelAvailable );
 		//Add to vehicle
-		pVehicle->sBreathRed += sFuelAdded;
-		pVehicle->vitals().breath() = (INT8)(pVehicle->sBreathRed / 100);
+		pVehicle->vitals().breathReduction() += sFuelAdded;
+		pVehicle->vitals().breath() = (INT8)(pVehicle->vitals().breathReduction() / 100);
 		//Subtract from item
 		(*pItem)[0]->data.objectStatus = (INT8)((*pItem)[0]->data.objectStatus - sFuelAdded / 50);
 		if( !(*pItem)[0]->data.objectStatus )

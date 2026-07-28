@@ -283,6 +283,15 @@ adapter, so save and load can never drift out of order. Extra methods:
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
+- Current/max health and breath, bleeding, previous and fractional health,
+  breath reduction, treatable injury, surgery, unrecoverable breath,
+  critical-stat damage, bleed scheduling and sound throttling, and the retired
+  regeneration slots are now stored by `SoldierVitalsComponent`. The visitor
+  emits every value at its original scattered position and width, including
+  32-bit-on-disk `slong` for unrecoverable breath. v101 conversion maps all
+  fields present in that record and clears the later injury, surgery,
+  unrecoverable-breath, and critical-damage fields. No save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

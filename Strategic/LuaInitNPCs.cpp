@@ -9404,12 +9404,12 @@ static int l_HealBoxers(lua_State* L)
 
 		// Get breath back
 		pBoxer->vitals().breath() = pBoxer->vitals().maximumBreath();
-		pBoxer->sBreathRed = 0;
+		pBoxer->vitals().breathReduction() = 0;
 		// Get life back
 		pBoxer->vitals().health() = pBoxer->vitals().maximumHealth();
 		pBoxer->vitals().bleeding() = 0;
 		// erase insta-healable injury 
-		pBoxer->iHealableInjury = 0;
+		pBoxer->vitals().healableInjury() = 0;
 
 		DebugQuestInfo(String("Lua: healed gubBoxerID[%d] %d back to full health", i, gubBoxerID[i]));
 	}
