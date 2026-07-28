@@ -3338,7 +3338,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
     ChangeInterfaceLevel( pSoldier->position().level() );
 
-    if( pSoldier->flags.fMercAsleep )
+    if( pSoldier->assignment().isAsleep() )
     {
         PutMercInAwakeState( pSoldier );
     }
@@ -6377,7 +6377,7 @@ void CommonEnterCombatModeCode( )
                 //CheckForPotentialAddToBattleIncrement( pSoldier );
 
                 // If guy is sleeping, wake him up!
-                if ( pSoldier->flags.fMercAsleep == TRUE )
+                if ( pSoldier->assignment().isAsleep() == TRUE )
                 {
                     pSoldier->ChangeSoldierState( WKAEUP_FROM_SLEEP, 1, TRUE );
                 }
@@ -6852,7 +6852,7 @@ static void SayBattleSoundFromAnyBodyInSector( INT32 iBattleSnd )
     {
         pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
         // Add guy if he's a candidate...
-        if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+        if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
         {
             ubMercsInSector[ ubNumMercs ] = cnt;
             ubNumMercs++;
@@ -10550,7 +10550,7 @@ void HandleCreatureTenseQuote( )
                         pTeamSoldier =
                             GetJa2SoldierRepository().resolve(cnt.i);
                         // Add guy if he's a candidate...
-                        if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+                        if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
                         {
                             ubMercsInSector[ ubNumMercs ] = cnt;
                             ubNumMercs++;

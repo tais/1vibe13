@@ -5671,7 +5671,7 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 		}
 
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->flags.fMercAsleep &&
+		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
 		{
 			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->ubID;

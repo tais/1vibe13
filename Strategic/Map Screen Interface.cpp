@@ -2442,7 +2442,7 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 		Assert( pSoldier );
 
 		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->flags.fMercAsleep )
+					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
 			ubNumMercs++;
@@ -7226,7 +7226,7 @@ BOOLEAN CheckIfSalaryIncreasedAndSayQuote( SOLDIERTYPE *pSoldier, BOOLEAN fTrigg
 	Assert( pSoldier );
 
 	// OK, check if their price has gone up
-	if( pSoldier->flags.fContractPriceHasIncreased )
+	if( pSoldier->employment().hasContractPriceIncrease() )
 	{
 		if ( fTriggerContractMenu )
 		{
@@ -7241,7 +7241,7 @@ BOOLEAN CheckIfSalaryIncreasedAndSayQuote( SOLDIERTYPE *pSoldier, BOOLEAN fTrigg
 			HandleImportantMercQuote( pSoldier, QUOTE_MERC_GONE_UP_IN_PRICE );
 		}
 
-		pSoldier->flags.fContractPriceHasIncreased = FALSE;
+		pSoldier->employment().acknowledgeContractPriceIncrease();
 
 		// said quote / triggered contract menu
 		return( TRUE );

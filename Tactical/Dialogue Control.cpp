@@ -866,9 +866,9 @@ void HandleDialogue( )
 		if( pSoldier )
 		{
 			// wake grunt up to say
-			if( pSoldier->flags.fMercAsleep )
+			if( pSoldier->assignment().isAsleep() )
 			{
-				pSoldier->flags.fMercAsleep = FALSE;
+				pSoldier->assignment().wakeUp();
 
 				// refresh map screen
 				fCharacterInfoPanelDirty = TRUE;
@@ -1432,11 +1432,11 @@ void HandleDialogue( )
 			// wake merc up or put them back down?
 			if( QItem.uiSpecialEventData == 1 )
 			{
-				pSoldier->flags.fMercAsleep = TRUE;
+				pSoldier->assignment().fallAsleep();
 			}
 			else
 			{
-				pSoldier->flags.fMercAsleep = FALSE;
+				pSoldier->assignment().wakeUp();
 			}
 
 			// refresh map screen
@@ -2081,7 +2081,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 			return( FALSE );
 
 		// sleeping guys don't talk.. go to standby to talk
-		if( pSoldier->flags.fMercAsleep == TRUE )
+		if( pSoldier->assignment().isAsleep() == TRUE )
 		{
 			// check if the soldier was compaining about lack of sleep and was alseep, if so, leave them alone
 			if( ( usQuoteNum == QUOTE_NEED_SLEEP ) || ( usQuoteNum == QUOTE_OUT_OF_BREATH ) )
@@ -3359,7 +3359,7 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 		{
 			if ( gTacticalStatus.bNumFoughtInBattle[ ENEMY_TEAM ] == 0 )
 			{
@@ -3453,7 +3453,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		if ( pTeamSoldier->bActive )
 		{
 			// Add guy if he's a candidate...
-			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 			{
 				ubMercsInSector[ ubNumMercs ] = (UINT16)cnt;
 				++ubNumMercs;
@@ -3514,7 +3514,7 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep &&
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
 		{
 			if ( usQuoteNum == 66 && (INT16) Random( 100 ) > EffectiveWisdom( pTeamSoldier ) )
@@ -3567,7 +3567,7 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep &&
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
 		{
 			// ATE: This is to check gedner for this quote...
@@ -3866,7 +3866,7 @@ void HandleShutDownOfMapScreenWhileExternfaceIsTalking( void )
 void HandleImportantMercQuote( SOLDIERTYPE * pSoldier, UINT16 usQuoteNumber )
 {
 	// wake merc up for THIS quote
-	if( pSoldier->flags.fMercAsleep )
+	if( pSoldier->assignment().isAsleep() )
 	{
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, usQuoteNumber, DIALOGUE_SPECIAL_EVENT_SLEEP, 0,0 );
 		TacticalCharacterDialogue( pSoldier, usQuoteNumber );

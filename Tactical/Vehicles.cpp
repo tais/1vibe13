@@ -2915,7 +2915,7 @@ BOOLEAN CanSoldierDriveVehicle( SOLDIERTYPE *pSoldier, INT32 iVehicleId, BOOLEAN
 		return( FALSE );
 	}
 
-	if( !fIgnoreAsleep && ( pSoldier->flags.fMercAsleep == TRUE ) )
+	if( !fIgnoreAsleep && ( pSoldier->assignment().isAsleep() == TRUE ) )
 	{
 		// asleep!
 		return( FALSE );

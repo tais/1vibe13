@@ -806,16 +806,8 @@ public:
 	BOOLEAN											fPauseAim;
 	BOOLEAN											fReactingFromBeingShot;
 	BOOLEAN											fCheckForNewlyAddedItems;
-	BOOLEAN											fContractPriceHasIncreased;
-	BOOLEAN											fFixingSAMSite;
-	BOOLEAN											fFixingRobot;
-	BOOLEAN											fSignedAnotherContract; 
-	BOOLEAN											fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	BOOLEAN											fSoldierUpdatedFromNetwork;
-	BOOLEAN											fDoneAssignmentAndNothingToDoFlag;
-	BOOLEAN											fMercAsleep;
 	BOOLEAN											fDontUnsetLastTargetFromTurn;
- 	BOOLEAN											fComplainedThatTired;
 
 	UINT8												fHitByGasFlags;						// flags 
 	BOOLEAN					 fDoingExternalDeath;

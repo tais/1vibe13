@@ -382,7 +382,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 {
 	INT32		iActualMorale;
 
-	if ( pSoldier->flags.fMercAsleep )
+	if ( pSoldier->assignment().isAsleep() )
 	{
 		// delay this till later!
 		return;
@@ -681,7 +681,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 
 	RefreshSoldierMorale( pSoldier );
 
-	if ( !pSoldier->flags.fMercAsleep )
+	if ( !pSoldier->assignment().isAsleep() )
 	{
 		if ( !gfSomeoneSaidMoraleQuote )
 		{
@@ -1174,7 +1174,7 @@ void HourlyMoraleUpdate( void )
 		//if the merc is active, in Arulco, and conscious, not POW
 		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
 																!(pSoldier->assignment().current() == IN_TRANSIT ||
-																pSoldier->flags.fMercAsleep == TRUE ||
+																pSoldier->assignment().isAsleep() == TRUE ||
 																pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
 																pSoldier->assignment().current() == ASSIGNMENT_POW) )
 		{
@@ -1209,7 +1209,7 @@ void HourlyMoraleUpdate( void )
 				// skip past ourselves and all inactive mercs
 				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
 					!(pOtherSoldier->assignment().current() == IN_TRANSIT ||
-						pOtherSoldier->flags.fMercAsleep == TRUE ||
+						pOtherSoldier->assignment().isAsleep() == TRUE ||
 						pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD ||
 						pOtherSoldier->assignment().current() == ASSIGNMENT_POW))
 				{
@@ -1478,7 +1478,7 @@ void HandleSnitchCheck( void )
 				if ( (pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC) )
 				{
 					// Only do this if they don't want to renew.....
-					if ( !(pSoldier->flags.fSignedAnotherContract) && !WillMercRenew( pSoldier, FALSE ) )
+					if ( !pSoldier->employment().hasSignedAnotherContract() && !WillMercRenew( pSoldier, FALSE ) )
 					{
 						RememberSnitchableEvent( pSoldier->ubProfile, NO_PROFILE, fSameGroupOnly, SNITCH_GONNA_QUIT, snitcheventvector );
 					}
@@ -1513,7 +1513,7 @@ void HandleSnitchesReports( std::vector<SnitchEvent>& aVec )
 			if (!pSnitch->bActive)
 				continue;
 
-			if (pSnitch->flags.fMercAsleep)
+			if (pSnitch->assignment().isAsleep())
 				fSleepingSnitch = TRUE;
 
 			if (pSnitch->usSoldierFlagMask2 & SOLDIER_SNITCHING_OFF)

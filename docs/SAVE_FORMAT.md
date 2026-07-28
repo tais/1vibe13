@@ -409,19 +409,21 @@ adapter, so save and load can never drift out of order. Extra methods:
   the original values into that owner while retaining the established kit-area
   caps. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Live contract timing, mercenary classification, deposits, insurance terms,
-  renewal/dismissal bookkeeping, signing eligibility, and the per-soldier
-  hospital modifier are now stored by `SoldierEmploymentComponent`. The field
-  visitor still emits all fifteen values at their original POD positions and
-  widths, and v101 conversion maps the original fields into that owner. Hire
-  requests, profiles, and all save, packet, map, XML, Lua, and installed-data
-  bytes remain unchanged.
+  renewal/dismissal bookkeeping, signing eligibility, price-change
+  acknowledgement, competing contract decisions, and the per-soldier hospital
+  modifier are now stored by `SoldierEmploymentComponent`. The field visitor
+  still emits all seventeen values at their original scattered POD positions
+  and widths, including the two historical boolean slots, and v101 conversion
+  maps the original raw values into that owner. Hire requests, profiles, and all
+  save, packet, map, XML, Lua, and installed-data bytes remain unchanged.
 - Current and previous duty, training choice, assignment timing, squad-merge
-  state, repair/facility context, item-moving sector, and mini-event time are
-  now stored by `SoldierAssignmentComponent`. The visitor still emits the
-  eleven values at their original scattered POD positions and widths. v101
-  conversion maps its eight historical fields and clears the three fields
-  absent from v101. No save, packet, map, XML, Lua, or installed-data bytes
-  change.
+  state, repair targets/facility context, completion/idle status, sleep and
+  forced-wake state, fatigue feedback, item-moving sector, and mini-event time
+  are now stored by `SoldierAssignmentComponent`. The visitor still emits all
+  seventeen values at their original scattered POD positions and widths,
+  including the six historical boolean slots. v101 conversion maps its fourteen
+  historical fields and clears the three fields absent from v101. No save,
+  packet, map, XML, Lua, or installed-data bytes change.
 - Strategic sector, movement-group and vehicle membership, tactical insertion,
   traversal origin, off-world staging, between-sector transit, mission-exit
   participation, landing-zone arrival policy, arrival bookkeeping, and the

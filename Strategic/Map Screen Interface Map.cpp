@@ -7080,7 +7080,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 				( pSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
 				( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
 				( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
-				( pSoldier->flags.fMercAsleep == TRUE ) ||
+				( pSoldier->assignment().isAsleep() == TRUE ) ||
 				( pSoldier->vitals().health() < OKLIFE ) )
 		{
 			continue;

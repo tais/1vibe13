@@ -2226,7 +2226,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				{
 					continue;
 				}
-				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->assignment().current() == CurrentSquad( ) && !pSoldier->flags.fMercAsleep )
+				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->assignment().current() == CurrentSquad( ) && !pSoldier->assignment().isAsleep() )
 				{
 					// If we can't be controlled, returninvalid...
 					if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
@@ -6040,7 +6040,7 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 				if( !GetGameContext().settings().fOptions[ TOPTION_MUTE_CONFIRMATIONS ] && fAcknowledge )
 					pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_ATTN1, BATTLE_SND_LOWER_VOLUME );
 
-				if ( pSoldier->flags.fMercAsleep )
+				if ( pSoldier->assignment().isAsleep() )
 				{
 					PutMercInAwakeState( pSoldier );
 				}

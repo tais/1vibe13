@@ -3036,12 +3036,12 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	// repairing?
 	else if( pSoldier->assignment().current() == REPAIR )
 	{
-		if ( pSoldier->flags.fFixingRobot )
+		if ( pSoldier->assignment().isFixingRobot() )
 		{
 			// robot
 			wcscpy( sString, pRepairStrings[ 3 ] );
 		}
-		else if ( pSoldier->flags.fFixingSAMSite )
+		else if ( pSoldier->assignment().isFixingSamSite() )
 		{
 			// SAM site
 			wcscpy( sString, pRepairStrings[ 1 ] );
@@ -6278,7 +6278,7 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 
 	if( fFlashAssignDone == TRUE )
 	{
-		if( pSoldier->flags.fDoneAssignmentAndNothingToDoFlag )
+		if( pSoldier->assignment().assignmentCompleteAndIdle() )
 		{
 			SetFontForeground( FONT_RED );
 		}
@@ -11948,7 +11948,7 @@ void TeamListSleepRegionBtnCallBack( MOUSE_REGION *pRegion, INT32 iReason )
 			{
 				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID);
 
-				if( pSoldier->flags.fMercAsleep == TRUE )
+				if( pSoldier->assignment().isAsleep() == TRUE )
 				{
 					// try to wake him up
 					if( SetMercAwake( pSoldier, gGameExternalOptions.fSleepDisplayFailNotification, FALSE ) )
@@ -14870,15 +14870,15 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 						continue;
 
 					if( !fReverse &&
-						( first->flags.fMercAsleep == TRUE ) &&
-						( second->flags.fMercAsleep == FALSE ) &&
+						( first->assignment().isAsleep() == TRUE ) &&
+						( second->assignment().isAsleep() == FALSE ) &&
 						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
 					}
 					else if( fReverse &&
-						( first->flags.fMercAsleep == FALSE ) &&
-						( second->flags.fMercAsleep == TRUE ) &&
+						( first->assignment().isAsleep() == FALSE ) &&
+						( second->assignment().isAsleep() == TRUE ) &&
 						( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
@@ -15163,7 +15163,7 @@ void HandleAssignmentsDoneAndAwaitingFurtherOrders( void )
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// toggle and redraw if flash was left ON even though the flag is OFF
-			if( pSoldier->flags.fDoneAssignmentAndNothingToDoFlag || fFlashAssignDone )
+			if( pSoldier->assignment().assignmentCompleteAndIdle() || fFlashAssignDone )
 			{
 				fFlashAssignDone = !fFlashAssignDone;
 				fDrawCharacterList = TRUE;
@@ -15196,7 +15196,7 @@ void DisplayIconsForMercsAsleep( void )
 		if( gCharactersList[ iCounter + FIRSTmercTOdisplay ].fValid == TRUE )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter + FIRSTmercTOdisplay ].usSolID);
-			if( pSoldier->bActive && pSoldier->flags.fMercAsleep && CanChangeSleepStatusForSoldier( pSoldier ) )
+			if( pSoldier->bActive && pSoldier->assignment().isAsleep() && CanChangeSleepStatusForSoldier( pSoldier ) )
 			{
 				BltVideoObject( guiSAVEBUFFER , hHandle, 0, UI_CHARLIST.xSleep + 2, ( INT16 )(UI_CHARLIST.y + (iCounter * ( Y_SIZE + 2 ) ) ) , VO_BLT_SRCTRANSPARENCY,NULL );
 			}
@@ -16397,7 +16397,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
-						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->flags.fMercAsleep )
+						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 			{
 				ubSelectedMercID[ ubNumMercs ] = pSoldier->ubID;
 				ubSelectedMercIndex[ ubNumMercs ] = (UINT16)iCounter;
@@ -16660,7 +16660,7 @@ void WakeUpAnySleepingSelectedMercsOnFootOrDriving( void )
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// if asleep
-			if ( pSoldier->flags.fMercAsleep )
+			if ( pSoldier->assignment().isAsleep() )
 			{
 				// and on foot or driving
 				if ( ( pSoldier->assignment().current() < ON_DUTY ) ||

@@ -7428,6 +7428,8 @@ int main( int, char** )
 		employment.timeCanSignElsewhere() = 13000;
 		employment.hospitalPriceModifier() = -2;
 		employment.insuranceStartTime() = 11000;
+		employment.markContractPriceIncreased();
+		employment.markSignedAnotherContract();
 		SoldierAssignmentComponent& assignment = soldier.assignment();
 		assignment.current() = TRAIN_TEAMMATE;
 		assignment.previous() = ON_DUTY;
@@ -7440,6 +7442,12 @@ int main( int, char** )
 		assignment.facilityType() = 5;
 		assignment.itemMoveSectorId() = 47;
 		assignment.miniEventHoursRemaining() = 12;
+		assignment.setFixingSamSite(TRUE);
+		assignment.setFixingRobot(TRUE);
+		assignment.forceAwake();
+		assignment.setAssignmentCompleteAndIdle(true);
+		assignment.fallAsleep();
+		assignment.markTiredComplaint();
 		SoldierDeploymentComponent& deployment = soldier.deployment();
 		deployment.insertionDirection() = -3;
 		deployment.groupId() = 42;
@@ -7854,8 +7862,10 @@ int main( int, char** )
 		       constSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       constSoldier.employment().timeCanSignElsewhere() == 13000 &&
 		       constSoldier.employment().hospitalPriceModifier() == -2 &&
-		       constSoldier.employment().insuranceStartTime() == 11000,
-		       "soldier employment component owns contract, classification, deposit, insurance, and renewal state" );
+		       constSoldier.employment().insuranceStartTime() == 11000 &&
+		       constSoldier.employment().hasContractPriceIncrease() &&
+		       constSoldier.employment().hasSignedAnotherContract(),
+		       "soldier employment component owns contract, classification, insurance, renewal, and contract-decision state" );
 		CHECK( constSoldier.assignment().isAssignedTo(TRAIN_TEAMMATE) &&
 		       constSoldier.assignment().previous() == ON_DUTY &&
 		       constSoldier.assignment().trainingStat() == STRENGTH &&
@@ -7868,8 +7878,14 @@ int main( int, char** )
 		       constSoldier.assignment().facilityType() == 5 &&
 		       constSoldier.assignment().itemMoveSectorId() == 47 &&
 		       constSoldier.assignment().miniEventHoursRemaining() == 12 &&
-		       constSoldier.assignment().hasMiniEventTime(),
-		       "soldier assignment component owns strategic duty and its subsidiary context" );
+		       constSoldier.assignment().hasMiniEventTime() &&
+		       constSoldier.assignment().isFixingSamSite() &&
+		       constSoldier.assignment().isFixingRobot() &&
+		       constSoldier.assignment().isForcedAwake() &&
+		       constSoldier.assignment().assignmentCompleteAndIdle() &&
+		       constSoldier.assignment().isAsleep() &&
+		       constSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier assignment component owns strategic duty plus repair, completion, and work/rest state" );
 		CHECK( constSoldier.deployment().insertionDirection() == -3 &&
 		       constSoldier.deployment().groupId() == 42 &&
 		       constSoldier.deployment().insertionGrid() == 2200 &&
@@ -8828,8 +8844,10 @@ int main( int, char** )
 		       copiedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       copiedSoldier.employment().timeCanSignElsewhere() == 13000 &&
 		       copiedSoldier.employment().hospitalPriceModifier() == -2 &&
-		       copiedSoldier.employment().insuranceStartTime() == 11000,
-		       "soldier copies retain their owned persistent employment state" );
+		       copiedSoldier.employment().insuranceStartTime() == 11000 &&
+		       copiedSoldier.employment().hasContractPriceIncrease() &&
+		       copiedSoldier.employment().hasSignedAnotherContract(),
+		       "soldier copies retain their owned persistent employment and contract-decision state" );
 		CHECK( copiedSoldier.assignment().current() == TRAIN_TEAMMATE &&
 		       copiedSoldier.assignment().previous() == ON_DUTY &&
 		       copiedSoldier.assignment().trainingStat() == STRENGTH &&
@@ -8840,8 +8858,14 @@ int main( int, char** )
 		       copiedSoldier.assignment().repairVehicleId() == 2 &&
 		       copiedSoldier.assignment().facilityType() == 5 &&
 		       copiedSoldier.assignment().itemMoveSectorId() == 47 &&
-		       copiedSoldier.assignment().miniEventHoursRemaining() == 12,
-		       "soldier copies retain their owned persistent assignment state" );
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 12 &&
+		       copiedSoldier.assignment().isFixingSamSite() &&
+		       copiedSoldier.assignment().isFixingRobot() &&
+		       copiedSoldier.assignment().isForcedAwake() &&
+		       copiedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       copiedSoldier.assignment().isAsleep() &&
+		       copiedSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier copies retain their owned persistent assignment and work/rest state" );
 		CHECK( copiedSoldier.deployment().insertionDirection() == -3 &&
 		       copiedSoldier.deployment().groupId() == 42 &&
 		       copiedSoldier.deployment().insertionGrid() == 2200 &&
@@ -9568,11 +9592,22 @@ int main( int, char** )
 		employmentLifecycle.medicalDeposit() = 1;
 		employmentLifecycle.lifeInsurance() = 1;
 		employmentLifecycle.justFired() = 1;
+		employmentLifecycle.markContractPriceIncreased();
+		employmentLifecycle.markSignedAnotherContract();
 		CHECK( employmentLifecycle.isMercenaryType(MERC_TYPE__MERC) &&
 		       employmentLifecycle.hasMedicalDeposit() &&
 		       employmentLifecycle.hasLifeInsurance() &&
-		       employmentLifecycle.wasJustFired(),
-		       "employment exposes named classification, deposit, insurance, and dismissal queries" );
+		       employmentLifecycle.wasJustFired() &&
+		       employmentLifecycle.hasContractPriceIncrease() &&
+		       employmentLifecycle.hasSignedAnotherContract(),
+		       "employment exposes named classification, insurance, dismissal, and contract-decision queries" );
+		employmentLifecycle.acknowledgeContractPriceIncrease();
+		employmentLifecycle.clearSignedAnotherContract();
+		CHECK( !employmentLifecycle.hasContractPriceIncrease() &&
+		       !employmentLifecycle.hasSignedAnotherContract(),
+		       "employment acknowledges price changes and clears re-signing decisions through named transitions" );
+		employmentLifecycle.markContractPriceIncreased();
+		employmentLifecycle.markSignedAnotherContract();
 		employmentLifecycle.reset();
 		CHECK( employmentLifecycle.endTime() == 0 &&
 		       employmentLifecycle.startTime() == 0 &&
@@ -9588,7 +9623,9 @@ int main( int, char** )
 		       employmentLifecycle.renewalQuoteCode() == 0 &&
 		       employmentLifecycle.timeCanSignElsewhere() == 0 &&
 		       employmentLifecycle.hospitalPriceModifier() == 0 &&
-		       employmentLifecycle.insuranceStartTime() == 0,
+		       employmentLifecycle.insuranceStartTime() == 0 &&
+		       !employmentLifecycle.hasContractPriceIncrease() &&
+		       !employmentLifecycle.hasSignedAnotherContract(),
 		       "employment reset clears the complete strategic contract lifecycle" );
 
 		SoldierAssignmentComponent assignmentLifecycle;
@@ -9597,15 +9634,44 @@ int main( int, char** )
 		assignmentLifecycle.miniEventHoursRemaining() = 3;
 		assignmentLifecycle.repairVehicleId() = 4;
 		assignmentLifecycle.facilityType() = 5;
+		assignmentLifecycle.setFixingSamSite(TRUE);
+		assignmentLifecycle.setFixingRobot(TRUE);
+		assignmentLifecycle.forceAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(true);
+		assignmentLifecycle.fallAsleep();
+		assignmentLifecycle.markTiredComplaint();
 		CHECK( assignmentLifecycle.isAssignedTo(TRAIN_BY_OTHER) &&
 		       assignmentLifecycle.hasAssignmentHours() &&
-		       assignmentLifecycle.hasMiniEventTime(),
-		       "assignment exposes named duty and elapsed-time queries" );
+		       assignmentLifecycle.hasMiniEventTime() &&
+		       assignmentLifecycle.isFixingSamSite() &&
+		       assignmentLifecycle.isFixingRobot() &&
+		       assignmentLifecycle.isForcedAwake() &&
+		       assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       assignmentLifecycle.isAsleep() &&
+		       assignmentLifecycle.hasComplainedAboutTiredness(),
+		       "assignment exposes named duty, repair, completion, and work/rest queries" );
 		assignmentLifecycle.clearRepairVehicle();
 		assignmentLifecycle.clearFacility();
+		assignmentLifecycle.clearRepairTargets();
+		assignmentLifecycle.releaseForcedAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(false);
+		assignmentLifecycle.wakeUp();
+		assignmentLifecycle.clearTiredComplaint();
 		CHECK( assignmentLifecycle.repairVehicleId() == -1 &&
-		       assignmentLifecycle.facilityType() == -1,
-		       "assignment clears subsidiary repair and facility context through named transitions" );
+		       assignmentLifecycle.facilityType() == -1 &&
+		       !assignmentLifecycle.isFixingSamSite() &&
+		       !assignmentLifecycle.isFixingRobot() &&
+		       !assignmentLifecycle.isForcedAwake() &&
+		       !assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       !assignmentLifecycle.isAsleep() &&
+		       !assignmentLifecycle.hasComplainedAboutTiredness(),
+		       "assignment clears repair, completion, and work/rest context through named transitions" );
+		assignmentLifecycle.setFixingSamSite(TRUE);
+		assignmentLifecycle.setFixingRobot(TRUE);
+		assignmentLifecycle.forceAwake();
+		assignmentLifecycle.setAssignmentCompleteAndIdle(true);
+		assignmentLifecycle.fallAsleep();
+		assignmentLifecycle.markTiredComplaint();
 		assignmentLifecycle.reset();
 		CHECK( assignmentLifecycle.current() == 0 &&
 		       assignmentLifecycle.previous() == 0 &&
@@ -9617,7 +9683,13 @@ int main( int, char** )
 		       assignmentLifecycle.repairVehicleId() == 0 &&
 		       assignmentLifecycle.facilityType() == 0 &&
 		       assignmentLifecycle.itemMoveSectorId() == 0 &&
-		       assignmentLifecycle.miniEventHoursRemaining() == 0,
+		       assignmentLifecycle.miniEventHoursRemaining() == 0 &&
+		       !assignmentLifecycle.isFixingSamSite() &&
+		       !assignmentLifecycle.isFixingRobot() &&
+		       !assignmentLifecycle.isForcedAwake() &&
+		       !assignmentLifecycle.assignmentCompleteAndIdle() &&
+		       !assignmentLifecycle.isAsleep() &&
+		       !assignmentLifecycle.hasComplainedAboutTiredness(),
 		       "assignment reset clears the complete strategic duty lifecycle" );
 
 		SoldierDeploymentComponent deploymentLifecycle;
@@ -9885,7 +9957,9 @@ int main( int, char** )
 		       copiedSoldier.employment().renewalQuoteCode() == 0 &&
 		       copiedSoldier.employment().timeCanSignElsewhere() == 0 &&
 		       copiedSoldier.employment().hospitalPriceModifier() == 0 &&
-		       copiedSoldier.employment().insuranceStartTime() == 0,
+		       copiedSoldier.employment().insuranceStartTime() == 0 &&
+		       !copiedSoldier.employment().hasContractPriceIncrease() &&
+		       !copiedSoldier.employment().hasSignedAnotherContract(),
 		       "soldier initialization resets the complete employment domain" );
 		CHECK( copiedSoldier.assignment().current() == 0 &&
 		       copiedSoldier.assignment().previous() == 0 &&
@@ -9897,7 +9971,13 @@ int main( int, char** )
 		       copiedSoldier.assignment().repairVehicleId() == 0 &&
 		       copiedSoldier.assignment().facilityType() == 0 &&
 		       copiedSoldier.assignment().itemMoveSectorId() == 0 &&
-		       copiedSoldier.assignment().miniEventHoursRemaining() == 0,
+		       copiedSoldier.assignment().miniEventHoursRemaining() == 0 &&
+		       !copiedSoldier.assignment().isFixingSamSite() &&
+		       !copiedSoldier.assignment().isFixingRobot() &&
+		       !copiedSoldier.assignment().isForcedAwake() &&
+		       !copiedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       !copiedSoldier.assignment().isAsleep() &&
+		       !copiedSoldier.assignment().hasComplainedAboutTiredness(),
 		       "soldier initialization resets the complete assignment domain" );
 		CHECK( copiedSoldier.deployment().insertionDirection() == 0 &&
 		       copiedSoldier.deployment().groupId() == 0 &&
@@ -10307,6 +10387,8 @@ int main( int, char** )
 		legacySoldier->iTimeCanSignElsewhere = 13001;
 		legacySoldier->bHospitalPriceModifier = -3;
 		legacySoldier->uiStartTimeOfInsuranceContract = 11001;
+		legacySoldier->fContractPriceHasIncreased = 2;
+		legacySoldier->fSignedAnotherContract = 3;
 		legacySoldier->bAssignment = TRAIN_BY_OTHER;
 		legacySoldier->bOldAssignment = ON_DUTY;
 		legacySoldier->bTrainStat = STRENGTH;
@@ -10315,6 +10397,12 @@ int main( int, char** )
 		legacySoldier->ubNumTraversalsAllowedToMerge = 5;
 		legacySoldier->ubHoursOnAssignment = 7;
 		legacySoldier->bVehicleUnderRepairID = -1;
+		legacySoldier->fFixingSAMSite = 4;
+		legacySoldier->fFixingRobot = 5;
+		legacySoldier->fForcedToStayAwake = 6;
+		legacySoldier->fDoneAssignmentAndNothingToDoFlag = 7;
+		legacySoldier->fMercAsleep = 8;
+		legacySoldier->fComplainedThatTired = 9;
 		legacySoldier->ubInsertionDirection = 4;
 		legacySoldier->ubGroupID = 43;
 		legacySoldier->sInsertionGridNo = 2300;
@@ -10694,8 +10782,10 @@ int main( int, char** )
 		       convertedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_115_USED &&
 		       convertedSoldier.employment().timeCanSignElsewhere() == 13001 &&
 		       convertedSoldier.employment().hospitalPriceModifier() == -3 &&
-		       convertedSoldier.employment().insuranceStartTime() == 11001,
-		       "v101 soldier conversion retains the complete employment and insurance lifecycle" );
+		       convertedSoldier.employment().insuranceStartTime() == 11001 &&
+		       convertedSoldier.employment().contractPriceIncreasedState() == 2 &&
+		       convertedSoldier.employment().signedAnotherContractState() == 3,
+		       "v101 soldier conversion retains the complete employment, insurance, and contract-decision lifecycle" );
 		CHECK( convertedSoldier.assignment().current() == TRAIN_BY_OTHER &&
 		       convertedSoldier.assignment().previous() == ON_DUTY &&
 		       convertedSoldier.assignment().trainingStat() == STRENGTH &&
@@ -10706,8 +10796,14 @@ int main( int, char** )
 		       convertedSoldier.assignment().repairVehicleId() == -1 &&
 		       convertedSoldier.assignment().facilityType() == 0 &&
 		       convertedSoldier.assignment().itemMoveSectorId() == 0 &&
-		       convertedSoldier.assignment().miniEventHoursRemaining() == 0,
-		       "v101 soldier conversion retains legacy assignment state and clears fields absent from v101" );
+		       convertedSoldier.assignment().miniEventHoursRemaining() == 0 &&
+		       convertedSoldier.assignment().fixingSamSiteState() == 4 &&
+		       convertedSoldier.assignment().fixingRobotState() == 5 &&
+		       convertedSoldier.assignment().forcedAwakeState() == 6 &&
+		       convertedSoldier.assignment().assignmentCompleteAndIdleState() == 7 &&
+		       convertedSoldier.assignment().asleepState() == 8 &&
+		       convertedSoldier.assignment().tiredComplaintState() == 9,
+		       "v101 soldier conversion retains legacy assignment repair, completion, and work/rest state" );
 		CHECK( convertedSoldier.deployment().insertionDirection() == 4 &&
 		       convertedSoldier.deployment().groupId() == 43 &&
 		       convertedSoldier.deployment().insertionGrid() == 2300 &&
@@ -11146,6 +11242,8 @@ int main( int, char** )
 		savedSoldier.employment().timeCanSignElsewhere() = 23000;
 		savedSoldier.employment().hospitalPriceModifier() = -4;
 		savedSoldier.employment().insuranceStartTime() = 21000;
+		savedSoldier.employment().markContractPriceIncreased();
+		savedSoldier.employment().markSignedAnotherContract();
 		savedSoldier.assignment().current() = TRAIN_SELF;
 		savedSoldier.assignment().previous() = TRAIN_TEAMMATE;
 		savedSoldier.assignment().trainingStat() = STRENGTH;
@@ -11157,6 +11255,12 @@ int main( int, char** )
 		savedSoldier.assignment().facilityType() = 7;
 		savedSoldier.assignment().itemMoveSectorId() = 48;
 		savedSoldier.assignment().miniEventHoursRemaining() = 14;
+		savedSoldier.assignment().setFixingSamSite(TRUE);
+		savedSoldier.assignment().setFixingRobot(TRUE);
+		savedSoldier.assignment().forceAwake();
+		savedSoldier.assignment().setAssignmentCompleteAndIdle(true);
+		savedSoldier.assignment().fallAsleep();
+		savedSoldier.assignment().markTiredComplaint();
 		savedSoldier.deployment().insertionDirection() = -4;
 		savedSoldier.deployment().groupId() = 44;
 		savedSoldier.deployment().insertionGrid() = 2400;
@@ -11553,8 +11657,10 @@ int main( int, char** )
 		       loadedSoldier.employment().renewalQuoteCode() == SOLDIER_CONTRACT_RENEW_QUOTE_89_USED &&
 		       loadedSoldier.employment().timeCanSignElsewhere() == 23000 &&
 		       loadedSoldier.employment().hospitalPriceModifier() == -4 &&
-		       loadedSoldier.employment().insuranceStartTime() == 21000,
-		       "soldier save/load round-trips employment state at every established POD position" );
+		       loadedSoldier.employment().insuranceStartTime() == 21000 &&
+		       loadedSoldier.employment().hasContractPriceIncrease() &&
+		       loadedSoldier.employment().hasSignedAnotherContract(),
+		       "soldier save/load round-trips employment and contract-decision state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.assignment().current() == TRAIN_SELF &&
 		       loadedSoldier.assignment().previous() == TRAIN_TEAMMATE &&
@@ -11566,8 +11672,14 @@ int main( int, char** )
 		       loadedSoldier.assignment().repairVehicleId() == 3 &&
 		       loadedSoldier.assignment().facilityType() == 7 &&
 		       loadedSoldier.assignment().itemMoveSectorId() == 48 &&
-		       loadedSoldier.assignment().miniEventHoursRemaining() == 14,
-		       "soldier save/load round-trips assignment state at every established POD position" );
+		       loadedSoldier.assignment().miniEventHoursRemaining() == 14 &&
+		       loadedSoldier.assignment().isFixingSamSite() &&
+		       loadedSoldier.assignment().isFixingRobot() &&
+		       loadedSoldier.assignment().isForcedAwake() &&
+		       loadedSoldier.assignment().assignmentCompleteAndIdle() &&
+		       loadedSoldier.assignment().isAsleep() &&
+		       loadedSoldier.assignment().hasComplainedAboutTiredness(),
+		       "soldier save/load round-trips assignment repair, completion, and work/rest state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.deployment().insertionDirection() == -4 &&
 		       loadedSoldier.deployment().groupId() == 44 &&

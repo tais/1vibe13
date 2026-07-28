@@ -1102,16 +1102,19 @@ the engine must not contain SDL types in its public domain model.
   `SoldierEmploymentComponent` owns the strategic engagement lifecycle:
   contract start, end, and accumulated length; mercenary classification;
   medical deposit and life-insurance terms; renewal bookkeeping; dismissal;
-  re-signing eligibility; and the per-soldier hospital modifier. Hiring,
-  personnel, insurance, contract, dialogue, tactical, and AI code now share
-  that owner. Profile economics and the transient `MERC_HIRE_STRUCT` request
-  remain separate adapters.
+  re-signing eligibility; contract price-change acknowledgement; competing
+  contract decisions; and the per-soldier hospital modifier. Hiring, personnel,
+  insurance, contract, dialogue, tactical, and AI code now share that owner.
+  Profile economics and the transient `MERC_HIRE_STRUCT` request remain
+  separate adapters.
   `SoldierAssignmentComponent` owns the complementary strategic duty
   lifecycle: current and previous assignments, training choice and elapsed
-  time, squad-merge intent, and assignment-specific facility, repair,
+  time, squad-merge intent, assignment-specific facility and repair targets,
+  completion/idle status, sleep and forced-wake state, fatigue feedback,
   item-moving, and mini-event context. Strategic position, travel path, and
-  vehicle occupancy remain separate domains. Named subsidiary-context clears
-  prevent a duty change from retaining stale repair or facility state.
+  vehicle occupancy remain separate domains. Named repair, sleep/wake, fatigue,
+  and subsidiary-context transitions prevent a duty change from retaining
+  stale state.
   `SoldierDeploymentComponent` now owns that separate strategic-placement
   domain: sector coordinates, movement-group and vehicle membership, tactical
   insertion, traversal origin, off-world staging, between-sector transit,

@@ -1040,7 +1040,7 @@ void HandleImportantPBIQuote( SOLDIERTYPE *pSoldier, GROUP *pInitiatingBattleGro
 		initiatingGroup.slot = pInitiatingBattleGroup->ubGroupID;
 
 	// wake merc up for THIS quote
-	if( pSoldier->flags.fMercAsleep )
+	if( pSoldier->assignment().isAsleep() )
 	{
 		TacticalCharacterDialogueWithSpecialEvent( pSoldier, QUOTE_ENEMY_PRESENCE, DIALOGUE_SPECIAL_EVENT_SLEEP, 0,0 );
 		TacticalCharacterDialogueWithSpecialEvent(
@@ -5878,7 +5878,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 			pSoldier->deployment().sectorX() == ubSectorNumX &&
 			pSoldier->deployment().sectorY() == ubSectorNumY &&
 			pSoldier->assignment().current() < ON_DUTY &&
-			!pSoldier->flags.fMercAsleep &&
+			!pSoldier->assignment().isAsleep() &&
 			HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) )
 		{
 			fScoutPresent = TRUE;

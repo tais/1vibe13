@@ -3004,10 +3004,10 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		pSoldier->vitals().bleeding() = 0;
 
 		// wake him up
-		if ( pSoldier->flags.fMercAsleep )
+		if ( pSoldier->assignment().isAsleep() )
 		{
 			PutMercInAwakeState( pSoldier );
-			pSoldier->flags.fForcedToStayAwake = FALSE;
+			pSoldier->assignment().releaseForcedAwake();
 		}
 
 		//Set his life to 50% + or - 10 HP.

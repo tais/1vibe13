@@ -370,7 +370,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 
 	// determine our current activity level
 	FLOAT activitymodifier = gGameExternalOptions.sFoodDigestionOnDuty;
-	if ( pSoldier->flags.fMercAsleep == TRUE )
+	if ( pSoldier->assignment().isAsleep() == TRUE )
 		activitymodifier = gGameExternalOptions.sFoodDigestionSleep;
 	else if ( !pSoldier->bInSector )
 	{
@@ -617,7 +617,7 @@ void HourlyFoodAutoDigestion( SOLDIERTYPE *pSoldier )
 	else
 	{
 		// no eating if not able to!
-		if ( pSoldier->flags.fMercAsleep == TRUE || pSoldier->vitals().health() < OKLIFE )
+		if ( pSoldier->assignment().isAsleep() == TRUE || pSoldier->vitals().health() < OKLIFE )
 			return;
 
 		// In certain facilities, we can also eat
@@ -1061,7 +1061,7 @@ OBJECTTYPE* GetUsableWaterDrumInSector( void )
 void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 {
 	// no functionality if in combat, invalid/travelling/asleep/non-profile soldier
-	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->bActive || pSoldier->flags.fMercAsleep || pSoldier->ubProfile == NO_PROFILE )
+	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->bActive || pSoldier->assignment().isAsleep() || pSoldier->ubProfile == NO_PROFILE )
 		return;
 
 	// determine if there are any patches of water in this sector.

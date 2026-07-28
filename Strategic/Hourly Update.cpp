@@ -370,7 +370,7 @@ void HourlyLarryUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->bActive && !pSoldier->flags.fMercAsleep && ( pSoldier->ubProfile == LARRY_NORMAL || pSoldier->ubProfile == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
+		if ( pSoldier && pSoldier->bActive && !pSoldier->assignment().isAsleep() && ( pSoldier->ubProfile == LARRY_NORMAL || pSoldier->ubProfile == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
 		{
 			fTookDrugs = FALSE;
 
@@ -484,7 +484,7 @@ void HourlyLarryUpdate()
 					{					
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->assignment().isAsleep() && pSoldier->ubProfile != pOtherSoldier->ubProfile )
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
@@ -615,7 +615,7 @@ void HourlySmokerUpdate( )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->bActive && !pSoldier->flags.fMercAsleep )
+		if ( pSoldier && pSoldier->bActive && !pSoldier->assignment().isAsleep() )
 		{
 			// if we are a smoker, there is a chance that we will look fo cigarettes in our inventory, and consume them if we find any
 			if ( Chance(33) && pSoldier->GetBackgroundValue( BG_SMOKERTYPE ) == 1 )
@@ -650,7 +650,7 @@ void HourlyDisabilityUpdate( )
 		if ( pSoldier && pSoldier->bActive )
 		{
 			// possible self-harm
-			if ( !pSoldier->flags.fMercAsleep && Chance(20) && DoesMercHaveDisability( pSoldier, SELF_HARM ) )
+			if ( !pSoldier->assignment().isAsleep() && Chance(20) && DoesMercHaveDisability( pSoldier, SELF_HARM ) )
 			{
 				// don't do this if we are at low health, or in combat, or travelling, or a patient or doctor
 				// only do this if we are rather healed
@@ -665,7 +665,7 @@ void HourlyDisabilityUpdate( )
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->flags.fMercAsleep && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->assignment().isAsleep() && pSoldier->ubProfile != pOtherSoldier->ubProfile )
 						{
 							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
@@ -766,7 +766,7 @@ void HourlyStealUpdate()
 			&& pSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING )
 			&& !pSoldier->deployment().isBetweenSectors()
 			&& pSoldier->bActive
-			&& !pSoldier->flags.fMercAsleep
+			&& !pSoldier->assignment().isAsleep()
 			&& pSoldier->assignment().current() != IN_TRANSIT
 			&& pSoldier->assignment().current() != ASSIGNMENT_POW
 			&& pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
@@ -803,7 +803,7 @@ void HourlyStealUpdate()
 					&& pOtherSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 					&& !SPY_LOCATION( pOtherSoldier->assignment().current() )
 					&& pOtherSoldier->bActive
-					&& !pOtherSoldier->flags.fMercAsleep
+					&& !pOtherSoldier->assignment().isAsleep()
 					&& pSoldier->ubProfile != pOtherSoldier->ubProfile )
 				{
 					if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
@@ -1103,7 +1103,7 @@ void HourlyFactoryUpdate()
 										isstaffed = true;
 
 										// check whether the staffing merc is asleep or has spent enough time on this
-										if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+										if ( !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 										{
 											isstaffed_andawake = true;
 											break;

@@ -118,7 +118,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	pSoldier->vitals().maximumBreath() = pSoldier->vitals().breath() = 0;
 
 	// not asleep, DEAD!
-	pSoldier->flags.fMercAsleep = FALSE;
+	pSoldier->assignment().wakeUp();
 
 
 	//if the merc had life insurance
@@ -796,7 +796,7 @@ void MercComplainAboutEquipment( UINT8 ubProfile )
 
 	if ( pSoldier != NULL && pSoldier->vitals().health() >= OKLIFE )
 	{
-		if ( pSoldier->flags.fMercAsleep != TRUE && pSoldier->assignment().current() < ON_DUTY )
+		if ( pSoldier->assignment().isAsleep() != TRUE && pSoldier->assignment().current() < ON_DUTY )
 		{
 			//ATE: Double check that this problem still exists!
 			if ( SoldierHasWorseEquipmentThanUsedTo( pSoldier ) )

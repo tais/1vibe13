@@ -397,14 +397,16 @@ while its applied-only total preserves camouflage-kit behavior. Existing item
 fields and XML data remain the content-facing API. Current
 `SoldierEmploymentComponent` owns live contract timing, mercenary
 classification, deposits, insurance, renewal/dismissal bookkeeping, signing
-eligibility, and the hospital modifier. Laptop, strategic, tactical, AI, and
-persistence adapters use the same owner; mercenary profiles and hire requests
-retain their existing content- and command-facing structures.
+eligibility, price-change acknowledgement, competing contract decisions, and
+the hospital modifier. Laptop, strategic, tactical, AI, and persistence
+adapters use the same owner; mercenary profiles and hire requests retain their
+existing content- and command-facing structures.
 `SoldierAssignmentComponent` separately owns current/previous duty, training,
-time on assignment, squad-merge intent, and the facility, repair, item-move,
-and mini-event context belonging to that duty. Strategic travel and sector
-location remain independent; existing assignment constants and gameplay
-entry points are unchanged. `SoldierDeploymentComponent` owns the complementary
+time on assignment, squad-merge intent, repair targets, completion/idle status,
+sleep and forced-wake state, fatigue feedback, and the facility, item-move, and
+mini-event context belonging to that duty. Strategic travel and sector location
+remain independent; existing assignment constants and gameplay entry points
+are unchanged. `SoldierDeploymentComponent` owns the complementary
 location boundary: strategic sector, movement group, vehicle, tactical
 insertion, traversal origin, off-world staging, between-sector transit,
 mission-exit participation, landing-zone arrival policy, arrival bookkeeping,

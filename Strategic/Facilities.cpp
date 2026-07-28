@@ -360,7 +360,7 @@ void UpdateStrategicDetectionLevel( )
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
@@ -502,7 +502,7 @@ void UpdateSkyriderCostModifier()
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
@@ -565,7 +565,7 @@ void UpdateFacilityUsageCosts( )
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
@@ -707,7 +707,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			UINT8 ubSector = SECTOR(pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY());
 			UINT8 ubFacilityType = (UINT8)pSoldier->assignment().facilityType();
@@ -768,7 +768,7 @@ INT8 GetSoldierFacilityAssignmentIndex( SOLDIERTYPE *pSoldier )
 			{
 				bAssignmentIndex = FAC_REPAIR_VEHICLE;
 			}
-			else if ( pSoldier->flags.fFixingRobot )
+			else if ( pSoldier->assignment().isFixingRobot() )
 			{
 				bAssignmentIndex = FAC_REPAIR_ROBOT;
 			}
@@ -1115,7 +1115,7 @@ void HandleHourlyRisks()
 		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			// Run this character's risks.
 			HandleRisksForSoldier( pSoldier );
@@ -1998,7 +1998,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 		if( pSoldier != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
-				!(pSoldier->flags.fMercAsleep) )
+				!(pSoldier->assignment().isAsleep()) )
 		{
 			INT8 ubAssignmentType = GetSoldierFacilityAssignmentIndex( pSoldier );
 			if (ubAssignmentType == -1)

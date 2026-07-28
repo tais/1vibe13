@@ -359,7 +359,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 			if( ( pCharacter->assignment().current() != bSquadValue ) )
 			{
 				// check to see if we should wake them up
-				if ( pCharacter->flags.fMercAsleep )
+				if ( pCharacter->assignment().isAsleep() )
 				{
 					// try to wake him up
 					SetMercAwake( pCharacter, FALSE, FALSE );
@@ -1424,7 +1424,7 @@ BOOLEAN IsAnyMercOnSquadAsleep( UINT8 ubSquadValue )
 	{
 		if( Squad[ ubSquadValue ][ iCounter ] != NULL )
 		{
-			if( Squad[ ubSquadValue ][ iCounter ]->flags.fMercAsleep )
+			if( Squad[ ubSquadValue ][ iCounter ]->assignment().isAsleep() )
 			{
 				return( TRUE );
 			}

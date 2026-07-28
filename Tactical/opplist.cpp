@@ -2147,7 +2147,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 	}
 
 	// Flugente: we already checked for OKLIFE above..
-	if ( pSoldier->flags.fMercAsleep )
+	if ( pSoldier->assignment().isAsleep() )
 	{
 		return( FALSE );
 	}
@@ -6497,7 +6497,7 @@ UINT8 CalcEffVolume(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT8 ubN
 	}
 
 	//if (pSoldier->assignment().current() == SLEEPING )
-	if( pSoldier->flags.fMercAsleep )
+	if( pSoldier->assignment().isAsleep() )
 	{
 		// decrease effective volume since we're asleep!
 		iEffVolume -= 5;

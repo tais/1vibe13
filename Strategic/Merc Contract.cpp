@@ -547,7 +547,7 @@ BOOLEAN WillMercRenew( SOLDIERTYPE	*pSoldier, BOOLEAN fSayQuote )
 		return( FALSE );
 
 	// does the merc have another contract already lined up?
-	if( pSoldier->flags.fSignedAnotherContract )
+	if( pSoldier->employment().hasSignedAnotherContract() )
 	{
 		// NOTE: Having a buddy around will NOT stop a merc from leaving on another contract (IC's call)
 
@@ -831,7 +831,7 @@ void HandleSoldierLeavingWithLowMorale( SOLDIERTYPE *pSoldier )
 
 void HandleSoldierLeavingForAnotherContract( SOLDIERTYPE *pSoldier )
 {
-	if (pSoldier->flags.fSignedAnotherContract)
+	if (pSoldier->employment().hasSignedAnotherContract())
 	{
 		// merc goes to work elsewhere
 		gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_WORKING_ELSEWHERE;
@@ -904,7 +904,7 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 	}
 
 	// if he doesn't already have another contract
-	if (!pSoldier->flags.fSignedAnotherContract)
+	if (!pSoldier->employment().hasSignedAnotherContract())
 	{
 		// chance depends on how much time he has left in his contract, and his experience level (determines demand)
 		uiFullDaysRemaining = (pSoldier->employment().endTime() - GetWorldTotalMin()) / (24 * 60);
@@ -940,7 +940,7 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 		if( (INT32) Random( 100 ) < iChance && gGameExternalOptions.fMercsOnAssignment < 2 )
 		{
 			// B'bye!
-			pSoldier->flags.fSignedAnotherContract = TRUE;
+			pSoldier->employment().markSignedAnotherContract();
 		}
 	}
 }
@@ -1255,12 +1255,12 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 	swprintf( gzUserDefinedButton1, L"%s", zShortTownIDString );
 
 
-	if( pSoldier->flags.fSignedAnotherContract == TRUE )
+	if( pSoldier->employment().hasSignedAnotherContract() )
 	{
 		fAddRehireButton = FALSE;
 	}
 
-	if( pSoldier->flags.fSignedAnotherContract == TRUE )
+	if( pSoldier->employment().hasSignedAnotherContract() )
 	{
 		fAddRehireButton = FALSE;
 	}
@@ -1376,7 +1376,7 @@ void NotifyPlayerOfMercDepartureAndPromptEquipmentPlacement( SOLDIERTYPE *pSoldi
 		}
 	}
 
-	if( pSoldier->flags.fSignedAnotherContract == TRUE )
+	if( pSoldier->employment().hasSignedAnotherContract() )
 	{
 		//fCurrentMercFired = FALSE;
 	}

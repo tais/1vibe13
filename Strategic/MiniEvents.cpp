@@ -972,7 +972,7 @@ namespace MiniEventHelpers
 
 		for (auto iter = gAllMercs.begin(); iter != gAllMercs.end(); ++iter)
 		{
-			if ((*iter)->ubProfile == profileId && (*iter)->flags.fMercAsleep)
+			if ((*iter)->ubProfile == profileId && (*iter)->assignment().isAsleep())
 			{
 				lua_pushboolean(LS, true);
 				return 1;

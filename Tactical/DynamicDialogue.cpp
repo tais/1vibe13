@@ -1979,7 +1979,7 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 			  !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if he's training teammates in this stat
-			if ( (pTeamSoldier->assignment().current() == TRAIN_TEAMMATE) && (pTeamSoldier->assignment().trainingStat() == trainstat) && (EnoughTimeOnAssignment( pTeamSoldier )) && !pTeamSoldier->flags.fMercAsleep )
+			if ( (pTeamSoldier->assignment().current() == TRAIN_TEAMMATE) && (pTeamSoldier->assignment().trainingStat() == trainstat) && (EnoughTimeOnAssignment( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 			{
 				AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, OPINIONEVENT_TEACHER );
 			}
@@ -2119,7 +2119,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 
 		// if fAwake is TRUE then only awake mercs count
-		if ( gDynamicOpinionEvent[usEvent].fAwake && pTeamSoldier->flags.fMercAsleep )
+		if ( gDynamicOpinionEvent[usEvent].fAwake && pTeamSoldier->assignment().isAsleep() )
 			continue;
 
 		// if fSquadsOnly is TRUE then only mercs in combat squads count
@@ -2265,7 +2265,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				continue;
 
 			// if fAwake is TRUE then only awake mercs count
-			if ( gDynamicOpinionEvent[usEvent].fAwake && pTeamSoldier->flags.fMercAsleep )
+			if ( gDynamicOpinionEvent[usEvent].fAwake && pTeamSoldier->assignment().isAsleep() )
 				continue;
 
 			// if fSquadsOnly is TRUE then only mercs in combat squads count

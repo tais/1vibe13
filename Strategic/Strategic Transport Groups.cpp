@@ -230,7 +230,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 		if( pSoldier->bActive &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			(pSoldier->assignment().current() < ON_DUTY || pSoldier->assignment().current() == GATHERINTEL) &&
-			!pSoldier->flags.fMercAsleep)
+			!pSoldier->assignment().isAsleep())
 		{
 			if (gGameOptions.fNewTraitSystem)
 			{

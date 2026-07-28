@@ -3590,7 +3590,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 
 		// Add guy if he's a candidate...		
 		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) 
-			&& !pTeamSoldier->flags.fMercAsleep && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
+			&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
 		{
 			// Are we a buddy of killer?
 			bTempBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pKillerSoldier->ubProfile );
@@ -3737,7 +3737,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 
 			// Add guy if he's a candidate...		
 			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !( AM_A_ROBOT( pTeamSoldier ) )
-				&& !pTeamSoldier->flags.fMercAsleep && !TileIsOutOfBounds( pTeamSoldier->position().gridNo() ) )//&& pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
+				&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds( pTeamSoldier->position().gridNo() ) )//&& pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
 			{
 				// TO LOS check to killed
 				// Can we see location of killer?

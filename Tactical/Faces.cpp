@@ -993,7 +993,7 @@ void BlinkAutoFace( INT32 iFaceIndex )
 			uiFaceShade = GetFaceShade(faceSoldier, pFace, FALSE);
 
 			if ( ( faceSoldier->vitals().health() < OKLIFE ) ||
-					( faceSoldier->flags.fMercAsleep == TRUE ) ||
+					( faceSoldier->assignment().isAsleep() == TRUE ) ||
 					( faceSoldier->assignment().current() == ASSIGNMENT_POW ) )
 			{
 				return;
@@ -1874,7 +1874,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
 		}
 
-		if( pSoldier->flags.fMercAsleep == TRUE )
+		if( pSoldier->assignment().isAsleep() == TRUE )
 		{
 			// blit eyes closed
 			BltVideoObjectFromIndex( uiRenderBuffer, pFace->uiVideoObject, 1, usEyesX, usEyesY, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -2321,7 +2321,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 					sPtsAvailable -= (sPtsAvailable % VEHICLE_REPAIR_POINTS_DIVISOR);
 					usMaximumPts -= (usMaximumPts	% VEHICLE_REPAIR_POINTS_DIVISOR);
 				}
-				else if (pSoldier->flags.fFixingSAMSite)
+				else if (pSoldier->assignment().isFixingSamSite())
 				{
 					sPtsAvailable = (sPtsAvailable / SAM_SITE_REPAIR_DIVISOR);
 

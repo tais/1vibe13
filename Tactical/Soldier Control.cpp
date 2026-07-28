@@ -479,16 +479,8 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
 	// The transient v101 door continuation phase is deliberately not converted.
 	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
-	this->fComplainedThatTired = src.fComplainedThatTired;
 	this->fDoingExternalDeath = src.fDoingExternalDeath;
 	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
-	this->fContractPriceHasIncreased = src.fContractPriceHasIncreased;
-	this->fFixingSAMSite = src.fFixingSAMSite;
-	this->fFixingRobot = src.fFixingRobot;
-	this->fSignedAnotherContract = src.fSignedAnotherContract;
-	this->fDoneAssignmentAndNothingToDoFlag = src.fDoneAssignmentAndNothingToDoFlag;
-	this->fMercAsleep = src.fMercAsleep;
-	this->fForcedToStayAwake = src.fForcedToStayAwake;				// forced by player to stay awake, reset to false, the moment they are set to rest or sleep
 	this->fReloading = src.fReloading;
 	this->fPauseAim = src.fPauseAim;
 	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
@@ -635,6 +627,14 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		dialogue().dyingCommentSpokenState() = src.fDyingComment;
 		dialogue().ammoQuotePendingState() = src.fSayAmmoQuotePending;
 		dialogue().dieSoundUsedState() = src.fDieSoundUsed;
+		employment().contractPriceIncreasedState() = src.fContractPriceHasIncreased;
+		employment().signedAnotherContractState() = src.fSignedAnotherContract;
+		assignment().fixingSamSiteState() = src.fFixingSAMSite;
+		assignment().fixingRobotState() = src.fFixingRobot;
+		assignment().forcedAwakeState() = src.fForcedToStayAwake;
+		assignment().assignmentCompleteAndIdleState() = src.fDoneAssignmentAndNothingToDoFlag;
+		assignment().asleepState() = src.fMercAsleep;
+		assignment().tiredComplaintState() = src.fComplainedThatTired;
 		deployment().betweenSectors() = src.fBetweenSectors;
 		deployment().inMissionExitNode() = src.fInMissionExitNode;
 		deployment().useLandingZoneForArrival() = src.fUseLandingZoneForArrival;
@@ -6148,10 +6148,10 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	{
 		if ( this->assignment().current() >= ON_DUTY && this->assignment().current() != ASSIGNMENT_POW && this->assignment().current() != ASSIGNMENT_MINIEVENT && this->assignment().current() != ASSIGNMENT_REBELCOMMAND)
 		{
-			if ( this->flags.fMercAsleep )
+			if ( this->assignment().isAsleep() )
 			{
-				this->flags.fMercAsleep = FALSE;
-				this->flags.fForcedToStayAwake = FALSE;
+				this->assignment().wakeUp();
+				this->assignment().releaseForcedAwake();
 
 				// refresh map screen
 				fCharacterInfoPanelDirty = TRUE;
@@ -16569,7 +16569,7 @@ BOOLEAN		SOLDIERTYPE::CanProcessPrisoners( )
 
 UINT32		SOLDIERTYPE::GetSurrenderStrength( )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->assignment().isAsleep() || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 value = 100 + 10 * EffectiveExpLevel( this ) + EffectiveStrength( this, FALSE ) + 3 * EffectiveMarksmanship( this ) + EffectiveLeadership( this ) / 4;
@@ -19382,7 +19382,7 @@ BOOLEAN SOLDIERTYPE::IsSpotting( )
 
 BOOLEAN SOLDIERTYPE::CanSpot( INT32 sTargetGridNo )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->assignment().isAsleep() || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return FALSE;
 
 	// additional checks if we want to know wether we can target a specific location
@@ -20242,7 +20242,7 @@ INT8	SOLDIERTYPE::GetSleepBreathRegeneration( )
 	// HEADROCK HAM 3.5: Read adjustment from local sector facilities
 	if ( this->deployment().sectorZ() == 0 )
 	{
-		if ( this->flags.fMercAsleep )
+		if ( this->assignment().isAsleep() )
 		{
 			sSectorModifier = GetSectorModifier( this, FACILITY_SLEEP_MOD );
 		}
@@ -20381,7 +20381,7 @@ BOOLEAN	SOLDIERTYPE::IsCrouchedAgainstCoverFromDir( UINT8 aDirection )
 // Flugente: fortification
 FLOAT	SOLDIERTYPE::GetConstructionPoints( )
 {
-	if ( this->vitals().health() < OKLIFE || this->flags.fMercAsleep || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
+	if ( this->vitals().health() < OKLIFE || this->assignment().isAsleep() || this->collapseState().tactical() || (this->usSoldierFlagMask & SOLDIER_POW) )
 		return 0;
 
 	UINT32 val = EffectiveStrength( this, FALSE );
@@ -21079,7 +21079,7 @@ UINT8		SOLDIERTYPE::GetUncoverRisk()
 	// if we do this disguised as a soldier, risk will be much higer, as we are under much more scrutiny. This makes up for the increased gain in soldier disguise
 	// less risk if we are asleep, just hiding or forced to hide
 	UINT8 typemultiplier = ( this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER ) ? 5 : 2;
-	if ( ( this->assignment().current() == CONCEALED ) || this->flags.fMercAsleep || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
+	if ( ( this->assignment().current() == CONCEALED ) || this->assignment().isAsleep() || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		typemultiplier = 1;
 		
 	// we now take the sector coolness as a measurement of how important the sector is, and thus how intel we gain
@@ -21105,7 +21105,7 @@ FLOAT		SOLDIERTYPE::GetIntelGain()
 		return 0.0f;
 
 	// if we're asleep, or on a penalty, we accomplish nothing
-	if ( this->flags.fMercAsleep || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
+	if ( this->assignment().isAsleep() || this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 		return 0.0f;
 
 	// the covert trait isn't that important in determining the intel gain. It is much more important in mitigating the risk of exposure, however
@@ -21535,7 +21535,7 @@ BOOLEAN	SOLDIERTYPE::InPositionForTurncoatAttempt( SoldierID usID )
 		return FALSE;
 
 	if ( this->vitals().health() < OKLIFE
-		|| this->flags.fMercAsleep
+		|| this->assignment().isAsleep()
 		|| this->collapseState().tactical()
 		|| ( this->usSoldierFlagMask & SOLDIER_POW )
 		|| this->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 20
@@ -22714,7 +22714,7 @@ void SOLDIERTYPE::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection 
 		// we found someone we can handcuff
 		// check wether we will be successful
 		BOOLEAN success = FALSE;
-		if ( pSoldier->flags.fMercAsleep || pSoldier->collapseState().tactical() )
+		if ( pSoldier->assignment().isAsleep() || pSoldier->collapseState().tactical() )
 			success = TRUE;
 		else
 		{

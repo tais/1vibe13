@@ -764,7 +764,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 				{
 					case MERC_TYPE__AIM_MERC:
 						// A.I.M.
-						pSoldier->flags.fContractPriceHasIncreased = TRUE;
+						pSoldier->employment().markContractPriceIncreased();
 						fChangeSalary = TRUE;
 						break;
 

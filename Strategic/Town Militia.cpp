@@ -1801,7 +1801,7 @@ void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitia
 				{
 					if( ( SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == ubSector ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 					{
-						pSoldier->flags.fDoneAssignmentAndNothingToDoFlag = FALSE;
+						pSoldier->assignment().setAssignmentCompleteAndIdle(false);
 						pSoldier->dialogue().clearSaidExtended(SOLDIER_QUOTE_SAID_DONE_ASSIGNMENT);
 					}
 				}

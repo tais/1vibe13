@@ -756,7 +756,7 @@ void BuildSectorsWithSoldiersList( void )
 void ChangeSoldiersAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment )
 {
 	// This is the most basic assignment-setting function.	It must be called before setting any subsidiary
-	// values like fFixingRobot.	It will clear all subsidiary values so we don't leave the merc in a messed
+	// values like the repair target. It will clear all subsidiary values so we don't leave the merc in a messed
 	// up state!
 
 	AssertNotNIL(pSoldier);
@@ -780,8 +780,7 @@ void ChangeSoldiersAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment )
 	pSoldier->assignment().current() = bAssignment;
 /// don't kill iVehicleId, though, 'cause militia training tries to put guys back in their vehicles when it's done(!)
 
-	pSoldier->flags.fFixingSAMSite = FALSE;
-	pSoldier->flags.fFixingRobot = FALSE;
+	pSoldier->assignment().clearRepairTargets();
 	pSoldier->assignment().clearRepairVehicle();
 
 	// HEADROCK HAM 3.6: Clean out new Facility Operation variable.
@@ -1284,11 +1283,11 @@ BOOLEAN HasCharacterFinishedRepairing( SOLDIERTYPE * pSoldier )
 		fCanStillRepair = CanCharacterRepairVehicle( pSoldier, pSoldier->assignment().repairVehicleId() );
 	}
 	// check if we are repairing a robot
-	else if( pSoldier->flags.fFixingRobot )
+	else if( pSoldier->assignment().isFixingRobot() )
 	{
 		fCanStillRepair = CanCharacterRepairRobot( pSoldier );
 	}
-	else if ( pSoldier->flags.fFixingSAMSite )
+	else if ( pSoldier->assignment().isFixingSamSite() )
 	{
 		fCanStillRepair = CanSoldierRepairSAM( pSoldier );
 	}
@@ -3599,7 +3598,7 @@ UINT32 CalculatePrisonGuardValue(SOLDIERTYPE *pSoldier )
 	UINT32 usValue = 0;	
 	
 	// for simplicity, ignore sleep status (forcing the player to finetune sleeping is annoying)
-	/*if ( psoldier->flags.fMercAsleep )
+	/*if ( psoldier->assignment().isAsleep() )
 		return 0;*/
 
 	// anv: undercover snitches don't count as guards as they don't guard in traditional sense
@@ -3631,7 +3630,7 @@ static UINT32 CalculateSnitchGuardValue(SOLDIERTYPE *pSoldier )
 	// this is an assignment
 	UINT32 usValue = 0;	
 	
-	if ( pSoldier->flags.fMercAsleep )
+	if ( pSoldier->assignment().isAsleep() )
 		return 0;
 
 	// only undercover snitches count
@@ -3697,7 +3696,7 @@ static UINT32 CalculateAllSnitchesGuardValueInPrison( INT16 sMapX, INT16 sMapY, 
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
 		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
 			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
-			guard->flags.fMercAsleep == FALSE )
+			guard->assignment().isAsleep() == FALSE )
 		{
 			prisonguardvalue += CalculateSnitchGuardValue(guard);
 		}
@@ -3721,7 +3720,7 @@ static UINT32 CalculateAllGuardsNumberInPrison( INT16 sMapX, INT16 sMapY, INT8 b
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
 		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
 			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
-			guard->flags.fMercAsleep == FALSE )
+			guard->assignment().isAsleep() == FALSE )
 		{
 			// anv: undercover snitches don't count as guards as they don't guard in traditional sense
 			if ( !(guard->assignment().current() == FACILITY_PRISON_SNITCH) )
@@ -3847,7 +3846,7 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 
 INT16 GetTrainWorkerPts(SOLDIERTYPE *pSoldier)
 {
-	if ( pSoldier->flags.fMercAsleep )
+	if ( pSoldier->assignment().isAsleep() )
 		return 0;
 
 	INT16 val = 3 * EffectiveExpLevel( pSoldier, FALSE) + EffectiveLeadership( pSoldier );
@@ -4154,7 +4153,7 @@ void HandleDoctorsInSector( INT16 sX, INT16 sY, INT8 bZ )
 		{
 			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ ) )
 			{
-				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) )
+				if ( IS_DOCTOR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->assignment().isAsleep() == FALSE ) )
 				{
 					MakeSureMedKitIsInHand( pTeamSoldier );
 					// character is in sector, check if can doctor, if so...heal people
@@ -4184,7 +4183,7 @@ void HandleDoctorMilitia()
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->flags.fMercAsleep ) )
+		if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->assignment().isAsleep() ) )
 		{
 			// character is in sector, check if can doctor, if so...heal people
 			if ( EnoughTimeOnAssignment( pSoldier ) && CanCharacterDoctorMilitia( pSoldier ) )
@@ -4819,7 +4818,7 @@ void HandleRepairmenInSector( INT16 sX, INT16 sY, INT8 bZ )
 		{
 			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ) )
 			{
-				if ( IS_REPAIR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->flags.fMercAsleep == FALSE ) )
+				if ( IS_REPAIR(pTeamSoldier->assignment().current()) && ( pTeamSoldier->assignment().isAsleep() == FALSE ) )
 				{
 					if ( MakeSureToolKitIsInHand( pTeamSoldier ) || pTeamSoldier->GetObjectWithFlag( CLEANING_KIT ) != NULL )
 					{
@@ -5440,7 +5439,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 		}
 	}
 	// check if we are repairing a robot
-	else if( pSoldier->flags.fFixingRobot )
+	else if( pSoldier->assignment().isFixingRobot() )
 	{
 		if ( CanCharacterRepairRobot( pSoldier ) && ubRepairPtsLeft > 0 )
 		{
@@ -5476,7 +5475,7 @@ void HandleRepairBySoldier( SOLDIERTYPE *pSoldier )
 			ubRepairPtsLeft -= HandleRepairOfRobotBySoldier( pSoldier, ubRepairPtsLeft, &fNothingLeftToRepair );
 		}
 	}
-	else if ( pSoldier->flags.fFixingSAMSite )
+	else if ( pSoldier->assignment().isFixingSamSite() )
 	{
 		if ( CanSoldierRepairSAM( pSoldier ) && ubRepairPtsLeft > 0 )
 		{
@@ -5839,7 +5838,7 @@ void RestCharacter( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->vitals().maximumBreath() >= BREATHMAX_CANCEL_TIRED )
 	{
-		pSoldier->flags.fComplainedThatTired = FALSE;
+		pSoldier->assignment().clearTiredComplaint();
 	}
 }
 
@@ -6093,7 +6092,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ) )
 			{
 				// if he's training teammates in this stat
-				if( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == ubStat) && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
+				if( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == ubStat) && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 				{
 					sTrainingPtsDueToInstructor = GetBonusTrainingPtsDueToInstructor( pTrainer, NULL, ubStat, &usMaxPts );
 
@@ -6119,7 +6118,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 			// if he's training himself (alone, or by others), then he's a student
 			if ( ( pStudent->assignment().current() == TRAIN_SELF ) || ( pStudent->assignment().current() == TRAIN_BY_OTHER ) )
 			{
-				if ( EnoughTimeOnAssignment( pStudent ) && ( pStudent->flags.fMercAsleep == FALSE ) )
+				if ( EnoughTimeOnAssignment( pStudent ) && ( pStudent->assignment().isAsleep() == FALSE ) )
 				{
 					// figure out how much the grunt can learn in one training period
 					sTotalTrainingPts = GetSoldierTrainingPts( pStudent, pStudent->assignment().trainingStat(), &usMaxPts );
@@ -6162,7 +6161,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					}
 					else if ( pTrainer != NULL )
 					{
-						if ( pTrainer->flags.fMercAsleep == FALSE )
+						if ( pTrainer->assignment().isAsleep() == FALSE )
 						{
 							// This only occurs if at least one trainer is awake.
 							TrainSoldierWithPts( pStudent, sTotalTrainingPts );
@@ -6187,7 +6186,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
-				if( ( pTrainer->assignment().current() == TRAIN_TOWN ) && ( EnoughTimeOnAssignment( pTrainer ) )	&& ( pTrainer->flags.fMercAsleep == FALSE ) )
+				if( ( pTrainer->assignment().current() == TRAIN_TOWN ) && ( EnoughTimeOnAssignment( pTrainer ) )	&& ( pTrainer->assignment().isAsleep() == FALSE ) )
 				{
 					sTownTrainingPts = GetTownTrainPtsForCharacter( pTrainer, &usMaxPts );
 
@@ -6240,7 +6239,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
-				if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
+				if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 				{
 					drillpoints += GetTownTrainPtsForCharacter( pTrainer, &usMaxPts );
 				}
@@ -6278,7 +6277,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
 					if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 					{
-						if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->flags.fMercAsleep == FALSE ) )
+						if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 						{
 							INT16 personaldrillpoints = GetTownTrainPtsForCharacter( pTrainer, &usMaxPts );
 
@@ -6317,7 +6316,7 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
-			if( ( pSoldier->assignment().current() == RADIO_SCAN ) && ( EnoughTimeOnAssignment( pSoldier ) ) && ( pSoldier->flags.fMercAsleep == FALSE ) )
+			if( ( pSoldier->assignment().current() == RADIO_SCAN ) && ( EnoughTimeOnAssignment( pSoldier ) ) && ( pSoldier->assignment().isAsleep() == FALSE ) )
 			{
 				++numberofradiooperators;
 			}
@@ -6391,7 +6390,7 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
-			if ( !pSoldier->flags.fMercAsleep && (pSoldier->assignment().current() == RADIO_SCAN) && EnoughTimeOnAssignment( pSoldier ) )
+			if ( !pSoldier->assignment().isAsleep() && (pSoldier->assignment().current() == RADIO_SCAN) && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				StatChange( pSoldier, WISDOMAMT, 5, TRUE );
 				StatChange( pSoldier, EXPERAMT, 3, TRUE );
@@ -6426,7 +6425,7 @@ void HandleDiseaseDiagnosis()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[GetJa2SoldierRepository().resolve(0)->bTeam].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// determine our skill at detecting disease
 			UINT16 skill = pSoldier->GetDiseaseDiagnosePoints();
@@ -6541,7 +6540,7 @@ void HandleStrategicDiseaseAndBurial()
 					for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 					{
 						pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-						if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->flags.fMercAsleep &&
+						if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
 							pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 						{
 							corpseremovalpoints += pSoldier->GetBurialPoints( NULL );
@@ -6674,7 +6673,7 @@ void HandleStrategicDiseaseAndBurial()
 						for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 						{
 							pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-							if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->flags.fMercAsleep &&
+							if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
 								pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 							{
 								StatChange( pSoldier, STRAMT, 8, FALSE );
@@ -6703,7 +6702,7 @@ void HandleStrategicDiseaseAndBurial()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR && !pSoldier->deployment().sectorZ() &&
-			!pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) && CanCharacterTreatSectorDisease( pSoldier ) )
+			!pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) && CanCharacterTreatSectorDisease( pSoldier ) )
 		{
 			// if we are doctoring in a sector, then we know for sure that there is disease here
 			SECTORINFO *pSectorInfo = &( SectorInfo[SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() )] );
@@ -6757,7 +6756,7 @@ void HandleMilitiaCommand()
 			GetJa2SoldierRepository().resolve(soldier);
 		if( commander &&
 			commander->assignment().current() == FACILITY_STRATEGIC_MILITIA_MOVEMENT &&
-			commander->flags.fMercAsleep == FALSE )
+			commander->assignment().isAsleep() == FALSE )
 		{
 			// every commander gets a bit of leadership and wisdom
 			StatChange( commander, LDRAMT,		2, TRUE );
@@ -6895,7 +6894,7 @@ static UINT16 GetNumberofAdministratableMercs( INT16 sX, INT16 sY )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 		if ( pSoldier
-			&& !pSoldier->flags.fMercAsleep 
+			&& !pSoldier->assignment().isAsleep()
 			&& !pSoldier->deployment().sectorZ()
 			&& EnoughTimeOnAssignment( pSoldier )
 			)
@@ -6932,7 +6931,7 @@ FLOAT GetAdministrationPercentage( INT16 sX, INT16 sY )
 		for ( ; id <= lastid; ++id )
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+			if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				// sum up the points for towns, if not a town, for sectors
 				UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
@@ -6962,7 +6961,7 @@ void HandleAdministrationAssignments()
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// sum up the points for towns, if not a town, for sectors
 			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
@@ -7009,7 +7008,7 @@ void HandleAdministrationAssignments()
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier && pSoldier->assignment().current() == ADMINISTRATION && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			UINT8 sector = SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			INT8 townid = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
@@ -7055,7 +7054,7 @@ void HandleExplorationAssignments()
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if ( pSoldier && pSoldier->assignment().current() == EXPLORATION && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier && pSoldier->assignment().current() == EXPLORATION && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			UINT32 pts = pSoldier->GetExplorationPoints();
 
@@ -7183,7 +7182,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; uiCnt++)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
+		if( ( pSnitch->bActive && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( ( pSnitch->deployment().sectorX() == sMapX && pSnitch->deployment().sectorY() == sMapY && pSnitch->deployment().sectorZ() == bZ ) || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
@@ -7215,7 +7214,7 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSnitch->bActive && ( pSnitch->deployment().sectorX() == sMapX ) && ( pSnitch->deployment().sectorY() == sMapY ) && ( pSnitch->deployment().sectorZ() == bZ) )
 		{
-			if( ( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA ) && ( EnoughTimeOnAssignment( pSnitch ) ) && ( pSnitch->flags.fMercAsleep == FALSE ) )
+			if( ( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA ) && ( EnoughTimeOnAssignment( pSnitch ) ) && ( pSnitch->assignment().isAsleep() == FALSE ) )
 			{
 				StatChange( pSnitch, WISDOMAMT, 1, TRUE );
 				StatChange( pSnitch, LDRAMT, 2, TRUE );
@@ -7236,7 +7235,7 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( ( pSnitch->bActive && pSnitch->flags.fMercAsleep == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
+		if( ( pSnitch->bActive && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( GetTownIdForSector( pSnitch->deployment().sectorX(), pSnitch->deployment().sectorY() ) == bTownId || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
@@ -7268,7 +7267,7 @@ void HandleGatheringInformationBySoldier( SOLDIERTYPE* pSoldier )
 	if (!SectorOursAndPeaceful( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ))
 		return;
 
-	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->flags.fMercAsleep == TRUE || pSoldier->deployment().isBetweenSectors() == TRUE )
+	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->assignment().isAsleep() == TRUE || pSoldier->deployment().isBetweenSectors() == TRUE )
 	{
 		if( pSoldier->assignment().current() != SNITCH_GATHER_RUMOURS && pSoldier->assignment().current() != FACILITY_GATHER_RUMOURS )
 		{
@@ -7852,7 +7851,7 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 		{
 			// if he's training teammates in this stat
 			// NB skip the EnoughTime requirement to display what the value should be even if haven't been training long yet...
-			if ( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == bTrainStat) && ( pTrainer->flags.fMercAsleep == FALSE ) )
+			if ( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == bTrainStat) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 			{
 				sTrainingPtsDueToInstructor = GetBonusTrainingPtsDueToInstructor( pTrainer, pSoldier, bTrainStat, &usMaxTrainerPts );
 
@@ -8265,7 +8264,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
-			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+			if ( !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				if( pSoldier->assignment().current() == FACILITY_INTERROGATE_PRISONERS )
 				{
@@ -8396,7 +8395,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
 		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
-			if ( !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+			if ( !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 			{
 				if ( (pSoldier->assignment().current() == FACILITY_INTERROGATE_PRISONERS) )
 				{
@@ -8852,7 +8851,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->flags.fMercAsleep == FALSE )
+		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
 		{
 			if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
@@ -9098,7 +9097,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( ; id <= lastid; ++id)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->flags.fMercAsleep == FALSE )
+			if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
 			{
 				if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 				{
@@ -9127,7 +9126,7 @@ void HandleTrainWorkers()
 	for ( ; id <= lastid; ++id)
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && !pSoldier->deployment().sectorZ() && !pSoldier->flags.fMercAsleep )
+		if( pSoldier->bActive && !pSoldier->deployment().sectorZ() && !pSoldier->assignment().isAsleep() )
 		{
 			if( ( pSoldier->assignment().current() == TRAIN_WORKERS ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
@@ -9181,7 +9180,7 @@ void HandleFortification()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && !pSoldier->flags.fMercAsleep && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier->bActive && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			if ( (pSoldier->assignment().current() == FORTIFICATION) && CanCharacterFortify( pSoldier ) )
 			{
@@ -9515,7 +9514,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 
 	// not bleeding and injured...
 
-	if ((pSoldier->flags.fMercAsleep == TRUE) || (IS_PATIENT(pSoldier->assignment().current()) && !IS_DOCTOR(pSoldier->assignment().current())) || (pSoldier->assignment().current() == ASSIGNMENT_HOSPITAL))
+	if ((pSoldier->assignment().isAsleep() == TRUE) || (IS_PATIENT(pSoldier->assignment().current()) && !IS_DOCTOR(pSoldier->assignment().current())) || (pSoldier->assignment().current() == ASSIGNMENT_HOSPITAL))
 	{
 		bActivityLevelDivisor = gGameExternalOptions.ubLowActivityLevel;
 	}
@@ -10361,7 +10360,7 @@ void RepairMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 			pSoldier->assignment().previous() = pSoldier->assignment().current();
 
-			if( ( pSoldier->assignment().current() != REPAIR )|| ( pSoldier->flags.fFixingRobot ) || ( pSoldier->flags.fFixingSAMSite ) )
+			if( ( pSoldier->assignment().current() != REPAIR )|| pSoldier->assignment().isFixingRobot() || pSoldier->assignment().isFixingSamSite() )
 			{
 				SetTimeOfAssignmentChangeForMerc( pSoldier );
 			}
@@ -10405,13 +10404,13 @@ void RepairMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			RemoveCharacterFromSquads( pSoldier );
 			MakeSureToolKitIsInHand( pSoldier );
 
-			if( ( pSoldier->assignment().current() != REPAIR )|| ( pSoldier->flags.fFixingSAMSite == FALSE ) )
+			if( ( pSoldier->assignment().current() != REPAIR )|| !pSoldier->assignment().isFixingSamSite() )
 			{
 				SetTimeOfAssignmentChangeForMerc( pSoldier );
 			}
 
 			ChangeSoldiersAssignment( pSoldier, REPAIR );
-			pSoldier->flags.fFixingSAMSite = TRUE;
+			pSoldier->assignment().setFixingSamSite(TRUE);
 
 			// the second argument is irrelevant here, function looks at pSoldier itself to know what's being repaired
 			SetAssignmentForList( ( INT8 ) REPAIR, 0 );
@@ -10436,13 +10435,13 @@ void RepairMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			RemoveCharacterFromSquads( pSoldier );
 			MakeSureToolKitIsInHand( pSoldier );
 
-			if( ( pSoldier->assignment().current() != REPAIR )|| ( pSoldier->flags.fFixingRobot == FALSE ) )
+			if( ( pSoldier->assignment().current() != REPAIR )|| !pSoldier->assignment().isFixingRobot() )
 			{
 				SetTimeOfAssignmentChangeForMerc( pSoldier );
 			}
 
 			ChangeSoldiersAssignment( pSoldier, REPAIR );
-			pSoldier->flags.fFixingRobot = TRUE;
+			pSoldier->assignment().setFixingRobot(TRUE);
 
 			// the second argument is irrelevant here, function looks at pSoldier itself to know what's being repaired
 			SetAssignmentForList( ( INT8 ) REPAIR, 0 );
@@ -16515,7 +16514,7 @@ void HandleRestFatigueAndSleepStatus( void )
 			// CHECK FOR MERCS GOING TO SLEEP
 
 			// if awake
-			if ( !pSoldier->flags.fMercAsleep )
+			if ( !pSoldier->assignment().isAsleep() )
 			{
 				// if dead tired
 				if( pSoldier->vitals().maximumBreath() <= BREATHMAX_ABSOLUTE_MINIMUM )
@@ -16547,7 +16546,7 @@ void HandleRestFatigueAndSleepStatus( void )
 					}
 				}
 				// if pretty tired, and not forced to stay awake
-				else if( ( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED ) && ( pSoldier->flags.fForcedToStayAwake == FALSE ) )
+				else if( ( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED ) && !pSoldier->assignment().isForcedAwake() )
 				{
 					// if not on squad/ in vehicle
 					if( ( pSoldier->assignment().current() >= ON_DUTY ) && ( pSoldier->assignment().current() != VEHICLE ) )
@@ -16582,7 +16581,7 @@ void HandleRestFatigueAndSleepStatus( void )
 					else	// tired, in a squad / vehicle
 					{
 						// if he hasn't complained yet
-						if ( !pSoldier->flags.fComplainedThatTired )
+						if ( !pSoldier->assignment().hasComplainedAboutTiredness() )
 						{
 							// say quote
 							if( fMeToo == FALSE )
@@ -16595,7 +16594,7 @@ void HandleRestFatigueAndSleepStatus( void )
 								TacticalCharacterDialogue( pSoldier, QUOTE_ME_TOO );
 							}
 
-							pSoldier->flags.fComplainedThatTired = TRUE;
+							pSoldier->assignment().markTiredComplaint();
 						}
 					}
 				}
@@ -16643,7 +16642,7 @@ void HandleRestFatigueAndSleepStatus( void )
 
 
 			// if asleep
-			if ( pSoldier->flags.fMercAsleep )
+			if ( pSoldier->assignment().isAsleep() )
 			{
 				// but has had enough rest?
 				// HEADROCK HAM 3.5: Facilities can reduce maximum fatigue below 95...
@@ -17213,7 +17212,7 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 					TakeSoldierOutOfVehicle( pSoldier );
 				}
 
-				if ((pSoldier->assignment().current() != bAssignment) || (pSoldier->flags.fFixingSAMSite != (UINT8)iParam1) || (pSoldier->flags.fFixingRobot != (UINT8)iParam2) || (pSoldier->assignment().repairVehicleId() != (UINT8)iParam3))
+				if ((pSoldier->assignment().current() != bAssignment) || (pSoldier->assignment().fixingSamSiteState() != (BOOLEAN)iParam1) || (pSoldier->assignment().fixingRobotState() != (BOOLEAN)iParam2) || (pSoldier->assignment().repairVehicleId() != (UINT8)iParam3))
 				{
 					SetTimeOfAssignmentChangeForMerc( pSoldier );
 				}
@@ -17221,8 +17220,8 @@ void SetSoldierAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment, INT32 iParam
 				ChangeSoldiersAssignment( pSoldier, bAssignment );
 				MakeSureToolKitIsInHand( pSoldier );
 				AssignMercToAMovementGroup( pSoldier );
-				pSoldier->flags.fFixingSAMSite = ( UINT8 )iParam1;
-				pSoldier->flags.fFixingRobot = ( UINT8 )iParam2;
+				pSoldier->assignment().setFixingSamSite((BOOLEAN)iParam1);
+				pSoldier->assignment().setFixingRobot((BOOLEAN)iParam2);
 				pSoldier->assignment().repairVehicleId() = ( INT8 )iParam3;
 			}
 			break;
@@ -18139,7 +18138,7 @@ BOOLEAN SetMercAsleep( SOLDIERTYPE *pSoldier, BOOLEAN fGiveWarning )
 
 BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier )
 {
-	if( pSoldier->flags.fMercAsleep == FALSE )
+	if( pSoldier->assignment().isAsleep() == FALSE )
 	{
 		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
@@ -18154,7 +18153,7 @@ BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier )
 		}
 
 		// set merc asleep
-		pSoldier->flags.fMercAsleep = TRUE;
+		pSoldier->assignment().fallAsleep();
 
 		// refresh panels
 		fCharacterInfoPanelDirty = TRUE;
@@ -18182,7 +18181,7 @@ BOOLEAN SetMercAwake( SOLDIERTYPE *pSoldier, BOOLEAN fGiveWarning, BOOLEAN fForc
 
 BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 {
-	if ( pSoldier->flags.fMercAsleep )
+	if ( pSoldier->assignment().isAsleep() )
 	{
 		if ( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
 		{
@@ -18197,7 +18196,7 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 		}
 
 		// set merc awake
-		pSoldier->flags.fMercAsleep = FALSE;
+		pSoldier->assignment().wakeUp();
 
 		// HEADROCK HAM 3.6: Merc hasn't been working all this time, so let's reset his assignment start time. This
 		// will squash an exploit, and is a bit more realistic anyway.
@@ -18210,11 +18209,11 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 		// determine if merc is being forced to stay awake
 		if ( pSoldier->vitals().maximumBreath() < BREATHMAX_PRETTY_TIRED )
 		{
-			pSoldier->flags.fForcedToStayAwake = TRUE;
+			pSoldier->assignment().forceAwake();
 		}
 		else
 		{
-			pSoldier->flags.fForcedToStayAwake = FALSE;
+			pSoldier->assignment().releaseForcedAwake();
 		}
 	}
 
@@ -18321,13 +18320,13 @@ BOOLEAN PlayerSoldierTooTiredToTravel( SOLDIERTYPE *pSoldier )
 		if ( ( pSoldier->assignment().current() != VEHICLE ) || SoldierMustDriveVehicle( pSoldier, pSoldier->deployment().vehicleId(), TRUE ) )
 		{
 			// if awake, but so tired they can't move/drive anymore
-			if ( ( !pSoldier->flags.fMercAsleep ) && ( pSoldier->vitals().maximumBreath() < BREATHMAX_GOTTA_STOP_MOVING ) )
+			if ( ( !pSoldier->assignment().isAsleep() ) && ( pSoldier->vitals().maximumBreath() < BREATHMAX_GOTTA_STOP_MOVING ) )
 			{
 				return( TRUE );
 			}
 
 			// asleep, and can't be awakened?
-			if ( ( pSoldier->flags.fMercAsleep ) && !CanCharacterBeAwakened( pSoldier, FALSE ) )
+			if ( ( pSoldier->assignment().isAsleep() ) && !CanCharacterBeAwakened( pSoldier, FALSE ) )
 			{
 				return( TRUE );
 			}
@@ -18753,10 +18752,10 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 			}
 
 			// if his flag is wrong
-			if ( fNothingToDo != pSoldier->flags.fDoneAssignmentAndNothingToDoFlag )
+			if ( (fNothingToDo != FALSE) != pSoldier->assignment().assignmentCompleteAndIdle() )
 			{
 				// update it!
-				pSoldier->flags.fDoneAssignmentAndNothingToDoFlag = fNothingToDo;
+				pSoldier->assignment().setAssignmentCompleteAndIdle(fNothingToDo != FALSE);
 
 				// update mapscreen's character list display
 				fDrawCharacterList = TRUE;
@@ -18858,7 +18857,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 
 						// make sure he can repair the SPECIFIC thing being repaired too (must be in its sector, for example)
 						
-						if ( pSelectedSoldier->flags.fFixingSAMSite )
+						if ( pSelectedSoldier->assignment().isFixingSamSite() )
 						{
 							fCanFixSpecificTarget = CanSoldierRepairSAM( pSoldier );
 						}
@@ -18866,7 +18865,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 						{
 							fCanFixSpecificTarget = CanCharacterRepairVehicle( pSoldier, pSelectedSoldier->assignment().repairVehicleId() ) && (pSoldier->assignment().facilityType() <= 0 || CanCharacterFacility( pSoldier, bParam, FAC_REPAIR_VEHICLE ));
 						}
-						else if (pSoldier->flags.fFixingRobot)
+						else if (pSoldier->assignment().isFixingRobot())
 						{
 							fCanFixSpecificTarget = CanCharacterRepairRobot( pSoldier ) && (pSoldier->assignment().facilityType() <= 0 || CanCharacterFacility( pSoldier, bParam, FAC_REPAIR_ROBOT ));
 						}
@@ -18879,7 +18878,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 						{
 							// set as repair
 							pSoldier->assignment().previous() = pSoldier->assignment().current();
-							SetSoldierAssignment( pSoldier, bAssignment, pSelectedSoldier->flags.fFixingSAMSite, pSelectedSoldier->flags.fFixingRobot, pSelectedSoldier->assignment().repairVehicleId() );
+							SetSoldierAssignment( pSoldier, bAssignment, pSelectedSoldier->assignment().fixingSamSiteState(), pSelectedSoldier->assignment().fixingRobotState(), pSelectedSoldier->assignment().repairVehicleId() );
 							fItWorked = TRUE;
 						}
 					}
@@ -19395,7 +19394,7 @@ void UnEscortEPC( SOLDIERTYPE *pSoldier )
 BOOLEAN CharacterIsTakingItEasy( SOLDIERTYPE *pSoldier )
 {
 	// actually asleep?
-	if ( pSoldier->flags.fMercAsleep == TRUE )
+	if ( pSoldier->assignment().isAsleep() == TRUE )
 	{
 		return( TRUE );
 	}
@@ -19434,7 +19433,7 @@ BOOLEAN CharacterIsTakingItEasy( SOLDIERTYPE *pSoldier )
 			}
 			// silversurfer: Fix for JaggZilla bug #591. This guy is set as student and there is a trainer available that is awake.
 			// Even if the trainer is not good enough this guy will still practice and therefore letting him fall through to 
-			// pSoldier->flags.fDoneAssignmentAndNothingToDoFlag will allow him to practice without breath loss. Lame exploit...
+			// assignmentCompleteAndIdle() will allow him to practice without breath loss. Lame exploit...
 			else
 				return( FALSE );
 		}
@@ -19446,7 +19445,7 @@ BOOLEAN CharacterIsTakingItEasy( SOLDIERTYPE *pSoldier )
 		}
 
 		// on a real assignment, but done with it?
-		if ( pSoldier->flags.fDoneAssignmentAndNothingToDoFlag )
+		if ( pSoldier->assignment().assignmentCompleteAndIdle() )
 		{
 			return( TRUE );
 		}
@@ -19815,7 +19814,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
-			pOtherTrainee->bActive && !pOtherTrainee->flags.fMercAsleep )
+			pOtherTrainee->bActive && !pOtherTrainee->assignment().isAsleep() )
 		{
 			// Trainee is present and awake. Flag is reset to false.
 			fAllTraineesAsleep = FALSE;
@@ -19831,7 +19830,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-				pTrainer->bActive && !pTrainer->flags.fMercAsleep )
+				pTrainer->bActive && !pTrainer->assignment().isAsleep() )
 			{
 				// Trainer will go to sleep
 				if( SetMercAsleep( pTrainer, FALSE ) )
@@ -19889,7 +19888,7 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && !pTrainee->flags.fMercAsleep )
+			pTrainee->bActive && !pTrainee->assignment().isAsleep() )
 		{
 			// Trainee will go to sleep
 			if( SetMercAsleep( pTrainee, FALSE ) )
@@ -19938,7 +19937,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
-			pOtherTrainee->bActive && pOtherTrainee->flags.fMercAsleep )
+			pOtherTrainee->bActive && pOtherTrainee->assignment().isAsleep() )
 		{
 			// Trainee is present and asleep. Flag is reset to FALSE.
 			fAllTraineesAwake = FALSE;
@@ -19954,7 +19953,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-				pTrainer->bActive && pTrainer->flags.fMercAsleep )
+				pTrainer->bActive && pTrainer->assignment().isAsleep() )
 			{
 				// Trainer will wake up
 				if( SetMercAwake( pTrainer, FALSE, FALSE ) )
@@ -20003,7 +20002,7 @@ BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && pTrainee->flags.fMercAsleep )
+			pTrainee->bActive && pTrainee->assignment().isAsleep() )
 		{
 			// Trainee will wake up
 			if( SetMercAwake( pTrainee, FALSE, FALSE ) )
@@ -20079,7 +20078,7 @@ BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 		// Is trainer awake?
 		if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pTrainee->assignment().trainingStat() &&
 			pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-			pTrainer->bActive && !pTrainer->flags.fMercAsleep )
+			pTrainer->bActive && !pTrainer->assignment().isAsleep() )
 		{
 			// Reset flag
 			fAllTrainersAsleep = FALSE;
@@ -20115,7 +20114,7 @@ BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer )
 		// Is trainee awake?
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && !pTrainee->flags.fMercAsleep )
+			pTrainee->bActive && !pTrainee->assignment().isAsleep() )
 		{
 			// Reset flag.
 			fAllTraineesAsleep = FALSE;
@@ -21912,22 +21911,20 @@ void FacilityAssignmentMenuBtnCallback ( MOUSE_REGION * pRegion, INT32 iReason )
 				case FAC_REPAIR_ITEMS:
 					MakeSureToolKitIsInHand( pSoldier );
 					ChangeSoldiersAssignment( pSoldier, FACILITY_REPAIR );
-					pSoldier->flags.fFixingRobot = FALSE;
-					pSoldier->flags.fFixingSAMSite = FALSE;
+					pSoldier->assignment().clearRepairTargets();
 					pSoldier->assignment().clearRepairVehicle();
 					break;
 				case FAC_REPAIR_VEHICLE:
 					MakeSureToolKitIsInHand( pSoldier );
 					ChangeSoldiersAssignment( pSoldier, FACILITY_REPAIR );
-					pSoldier->flags.fFixingRobot = FALSE;
-					pSoldier->flags.fFixingSAMSite = FALSE;
+					pSoldier->assignment().clearRepairTargets();
 					pSoldier->assignment().repairVehicleId() = (INT8)ubVehicleID;
 					break;
 				case FAC_REPAIR_ROBOT:
 					MakeSureToolKitIsInHand( pSoldier );
 					ChangeSoldiersAssignment( pSoldier, FACILITY_REPAIR );
-					pSoldier->flags.fFixingRobot = TRUE;
-					pSoldier->flags.fFixingSAMSite = FALSE;
+					pSoldier->assignment().clearRepairTargets();
+					pSoldier->assignment().setFixingRobot(TRUE);
 					pSoldier->assignment().clearRepairVehicle();
 					break;
 				case FAC_DOCTOR:
@@ -22901,7 +22898,7 @@ BOOLEAN MercStaffsMilitaryHQ()
 	for ( ; id <= lastid; ++id)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier && pSoldier->assignment().current() == FACILITY_STRATEGIC_MILITIA_MOVEMENT && pSoldier->flags.fMercAsleep == FALSE )
+		if( pSoldier && pSoldier->assignment().current() == FACILITY_STRATEGIC_MILITIA_MOVEMENT && pSoldier->assignment().isAsleep() == FALSE )
 		{
 			return TRUE;
 		}

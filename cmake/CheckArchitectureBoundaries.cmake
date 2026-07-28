@@ -2413,7 +2413,7 @@ foreach(dialogue_save_position IN ITEMS
   "ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());"
   "ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(dialogue.bleedingWarningSpokenState()); ar.boolean(dialogue.dyingCommentSpokenState());"
   "ar.boolean(dialogue.ammoQuotePendingState()); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());"
-  "ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(f.fComplainedThatTired);")
+  "ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(assignment.tiredComplaintState());")
   string(FIND "${save_load_game_contents}"
     "${dialogue_save_position}"
     soldier_dialogue_save_position)
@@ -4304,7 +4304,7 @@ if(soldier_collapse_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.boolean\\(dialogue\\.ammoQuotePendingState\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);"
+  "ar\\.boolean\\(dialogue\\.ammoQuotePendingState\\(\\)\\);[ \t]*ar\\.boolean\\(renderState\\.muzzleFlashVisible\\(\\)\\);[ \t]*ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(assignment\\.assignmentCompleteAndIdleState\\(\\)\\);"
   serialized_soldier_fatigue_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4639,8 +4639,9 @@ if(NOT serialized_soldier_camouflage_applied_order OR
 endif()
 
 # Live contract, mercenary classification, deposit, insurance, renewal,
-# dismissal, re-signing, and hospital state now have one strategic owner. Keep
-# hire requests and profile economics independent of the live soldier record.
+# dismissal, price-change acknowledgement, competing-contract decisions,
+# re-signing, and hospital state now have one strategic owner. Keep hire
+# requests and profile economics independent of the live soldier record.
 foreach(retired_employment_field IN ITEMS
   "INT32;iEndofContractTime"
   "INT32;iStartContractTime"
@@ -4668,6 +4669,18 @@ foreach(retired_employment_field IN ITEMS
   if(retired_current_employment_field)
     message(FATAL_ERROR
       "Retired flat SOLDIERTYPE employment field '${retired_employment_name}' returned; strategic engagement state belongs to SoldierEmploymentComponent")
+  endif()
+endforeach()
+foreach(retired_employment_flag IN ITEMS
+  fContractPriceHasIncreased
+  fSignedAnotherContract)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_employment_flag}[ \t]*;"
+    retired_current_employment_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_employment_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags employment field '${retired_employment_flag}' returned; contract decisions belong to SoldierEmploymentComponent")
   endif()
 endforeach()
 
@@ -4709,6 +4722,18 @@ foreach(owned_employment_field IN ITEMS
       "SoldierEmploymentComponent no longer owns initialized '${owned_employment_name}_' storage")
   endif()
 endforeach()
+foreach(owned_employment_flag IN ITEMS
+  contractPriceIncreased
+  signedAnotherContract)
+  string(REGEX MATCH
+    "BOOLEAN[ \t]+${owned_employment_flag}_[ \t]*=[ \t]*FALSE[ \t]*;"
+    owned_soldier_employment_flag
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_employment_flag)
+    message(FATAL_ERROR
+      "SoldierEmploymentComponent no longer owns initialized '${owned_employment_flag}_' storage")
+  endif()
+endforeach()
 
 string(FIND "${soldier_control_header_contents}"
   "SoldierEmploymentComponent& employment() noexcept"
@@ -4720,7 +4745,9 @@ foreach(required_employment_query IN ITEMS
   "bool isMercenaryType(UINT8 type) const noexcept"
   "bool hasMedicalDeposit() const noexcept"
   "bool hasLifeInsurance() const noexcept"
-  "bool wasJustFired() const noexcept")
+  "bool wasJustFired() const noexcept"
+  "bool hasContractPriceIncrease() const noexcept"
+  "bool hasSignedAnotherContract() const noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${required_employment_query}"
     soldier_employment_query)
@@ -4729,11 +4756,55 @@ foreach(required_employment_query IN ITEMS
       "SoldierEmploymentComponent lost required lifecycle query '${required_employment_query}'")
   endif()
 endforeach()
+foreach(required_employment_transition IN ITEMS
+  "void markContractPriceIncreased() noexcept"
+  "void acknowledgeContractPriceIncrease() noexcept"
+  "void markSignedAnotherContract() noexcept"
+  "void clearSignedAnotherContract() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_employment_transition}"
+    soldier_employment_transition)
+  if(soldier_employment_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierEmploymentComponent lost required lifecycle transition '${required_employment_transition}'")
+  endif()
+endforeach()
+foreach(required_employment_state_accessor IN ITEMS
+  "BOOLEAN& contractPriceIncreasedState() noexcept"
+  "BOOLEAN& signedAnotherContractState() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_employment_state_accessor}"
+    soldier_employment_state_accessor)
+  if(soldier_employment_state_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierEmploymentComponent lost save-compatibility accessor '${required_employment_state_accessor}'")
+  endif()
+endforeach()
 if(soldier_employment_accessor EQUAL -1 OR
    soldier_employment_reset EQUAL -1)
   message(FATAL_ERROR
     "SoldierEmploymentComponent must remain directly accessible and reset with its soldier")
 endif()
+
+string(FIND "${save_load_game_contents}"
+  "SoldierEmploymentComponent& employment = soldier.employment();"
+  serialized_soldier_employment_flag_adapter)
+if(serialized_soldier_employment_flag_adapter EQUAL -1)
+  message(FATAL_ERROR
+    "XferFlags must adapt employment decision slots through SoldierEmploymentComponent")
+endif()
+
+foreach(employment_conversion IN ITEMS
+  "employment().contractPriceIncreasedState() = src.fContractPriceHasIncreased;"
+  "employment().signedAnotherContractState() = src.fSignedAnotherContract;")
+  string(FIND "${soldier_control_source_contents}"
+    "${employment_conversion}"
+    soldier_employment_conversion_site)
+  if(soldier_employment_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier employment mapping '${employment_conversion}'")
+  endif()
+endforeach()
 
 string(REGEX MATCH
   "ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
@@ -4763,20 +4834,96 @@ string(REGEX MATCH
   "ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.timeCanSignElsewhere\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.hospitalPriceModifier\\(\\)\\);[ \t\r\n]*ar\\.u32\\(employment\\.insuranceStartTime\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.corpseQuoteTolerance\\(\\)\\);"
   serialized_soldier_employment_signing_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.fixingSamSiteState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.fixingRobotState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.signedAnotherContractState\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningCostWaived\\(\\)\\);"
+  serialized_soldier_employment_decision_order
+  "${save_load_game_contents}")
 if(NOT serialized_soldier_employment_contract_order OR
    NOT serialized_soldier_employment_deposit_order OR
    NOT serialized_soldier_employment_insurance_order OR
    NOT serialized_soldier_employment_update_order OR
    NOT serialized_soldier_employment_fired_order OR
    NOT serialized_soldier_employment_renewal_order OR
-   NOT serialized_soldier_employment_signing_order)
+   NOT serialized_soldier_employment_signing_order OR
+   NOT serialized_soldier_employment_decision_order)
   message(FATAL_ERROR
-    "Soldier employment state moved in the portable save schema; keep all fifteen values at their established POD positions")
+    "Soldier employment state moved in the portable save schema; keep all seventeen values at their established POD positions")
 endif()
 
-# Strategic duty and its subsidiary training, facility, repair, squad-merge,
-# item-moving, and mini-event context now have one lifecycle owner. Strategic
-# coordinates, travel paths, and vehicle occupancy remain independent.
+file(READ "${SOURCE_ROOT}/Strategic/Map Screen Interface.cpp"
+  soldier_employment_map_interface_contents)
+file(READ "${SOURCE_ROOT}/Strategic/Merc Contract.cpp"
+  soldier_employment_contract_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Campaign.cpp"
+  soldier_employment_campaign_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Morale.cpp"
+  soldier_employment_morale_contents)
+foreach(employment_price_runtime_fragment IN ITEMS
+  "pSoldier->employment().hasContractPriceIncrease()"
+  "pSoldier->employment().acknowledgeContractPriceIncrease();")
+  string(FIND "${soldier_employment_map_interface_contents}"
+    "${employment_price_runtime_fragment}"
+    soldier_employment_price_runtime_site)
+  if(soldier_employment_price_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Map-screen contract flow bypassed SoldierEmploymentComponent operation '${employment_price_runtime_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_employment_campaign_contents}"
+  "pSoldier->employment().markContractPriceIncreased();"
+  soldier_employment_price_raise_site)
+foreach(employment_contract_runtime_fragment IN ITEMS
+  "pSoldier->employment().hasSignedAnotherContract()"
+  "pSoldier->employment().markSignedAnotherContract();")
+  string(FIND "${soldier_employment_contract_contents}"
+    "${employment_contract_runtime_fragment}"
+    soldier_employment_contract_runtime_site)
+  if(soldier_employment_contract_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Merc contract flow bypassed SoldierEmploymentComponent operation '${employment_contract_runtime_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_employment_morale_contents}"
+  "pSoldier->employment().hasSignedAnotherContract()"
+  soldier_employment_morale_decision_site)
+if(soldier_employment_price_raise_site EQUAL -1 OR
+   soldier_employment_morale_decision_site EQUAL -1)
+  message(FATAL_ERROR
+    "Campaign salary and morale renewal flows must consume SoldierEmploymentComponent decisions")
+endif()
+
+foreach(employment_test_fragment IN ITEMS
+  "employment acknowledges price changes and clears re-signing decisions through named transitions"
+  "convertedSoldier.employment().contractPriceIncreasedState() == 2"
+  "soldier save/load round-trips employment and contract-decision state at every established POD position")
+  string(FIND "${headless_test_contents}"
+    "${employment_test_fragment}"
+    soldier_employment_test_site)
+  if(soldier_employment_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierEmploymentComponent fixture '${employment_test_fragment}'")
+  endif()
+endforeach()
+string(FIND "${engine_architecture_documentation}"
+  "price-change acknowledgement"
+  soldier_employment_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "price-change acknowledgement"
+  soldier_employment_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "competing contract decisions"
+  soldier_employment_save_format_documented)
+if(soldier_employment_architecture_documented EQUAL -1 OR
+   soldier_employment_sdk_documented EQUAL -1 OR
+   soldier_employment_save_format_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Employment documentation must retain the price-change and competing-contract decision boundary")
+endif()
+
+# Strategic duty and its subsidiary training, facility, repair-target,
+# completion, work/rest, fatigue-feedback, squad-merge, item-moving, and
+# mini-event context now have one lifecycle owner. Strategic coordinates,
+# travel paths, and vehicle occupancy remain independent.
 foreach(retired_assignment_field IN ITEMS
   "INT8;bAssignment"
   "INT8;bOldAssignment"
@@ -4800,6 +4947,22 @@ foreach(retired_assignment_field IN ITEMS
   if(retired_current_assignment_field)
     message(FATAL_ERROR
       "Retired flat SOLDIERTYPE assignment field '${retired_assignment_name}' returned; strategic duty state belongs to SoldierAssignmentComponent")
+  endif()
+endforeach()
+foreach(retired_assignment_flag IN ITEMS
+  fFixingSAMSite
+  fFixingRobot
+  fForcedToStayAwake
+  fDoneAssignmentAndNothingToDoFlag
+  fMercAsleep
+  fComplainedThatTired)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*BOOLEAN[ \t]+${retired_assignment_flag}[ \t]*;"
+    retired_current_assignment_flag
+    "${current_soldier_flags_contents}")
+  if(retired_current_assignment_flag)
+    message(FATAL_ERROR
+      "Retired STRUCT_Flags assignment field '${retired_assignment_flag}' returned; repair and work/rest state belong to SoldierAssignmentComponent")
   endif()
 endforeach()
 
@@ -4837,6 +5000,22 @@ foreach(owned_assignment_field IN ITEMS
       "SoldierAssignmentComponent no longer owns initialized '${owned_assignment_name}_' storage")
   endif()
 endforeach()
+foreach(owned_assignment_flag IN ITEMS
+  fixingSamSite
+  fixingRobot
+  forcedAwake
+  assignmentCompleteAndIdle
+  asleep
+  tiredComplaint)
+  string(REGEX MATCH
+    "BOOLEAN[ \t]+${owned_assignment_flag}_[ \t]*=[ \t]*FALSE[ \t]*;"
+    owned_soldier_assignment_flag
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_assignment_flag)
+    message(FATAL_ERROR
+      "SoldierAssignmentComponent no longer owns initialized '${owned_assignment_flag}_' storage")
+  endif()
+endforeach()
 
 string(FIND "${soldier_control_header_contents}"
   "SoldierAssignmentComponent& assignment() noexcept"
@@ -4848,8 +5027,24 @@ foreach(required_assignment_operation IN ITEMS
   "bool isAssignedTo(INT8 assignment) const noexcept"
   "bool hasAssignmentHours() const noexcept"
   "bool hasMiniEventTime() const noexcept"
+  "bool isFixingSamSite() const noexcept"
+  "bool isFixingRobot() const noexcept"
+  "bool isForcedAwake() const noexcept"
+  "bool assignmentCompleteAndIdle() const noexcept"
+  "bool isAsleep() const noexcept"
+  "bool hasComplainedAboutTiredness() const noexcept"
   "void clearRepairVehicle() noexcept"
-  "void clearFacility() noexcept")
+  "void clearFacility() noexcept"
+  "void setFixingSamSite(BOOLEAN active) noexcept"
+  "void setFixingRobot(BOOLEAN active) noexcept"
+  "void clearRepairTargets() noexcept"
+  "void forceAwake() noexcept"
+  "void releaseForcedAwake() noexcept"
+  "void setAssignmentCompleteAndIdle(bool complete) noexcept"
+  "void fallAsleep() noexcept"
+  "void wakeUp() noexcept"
+  "void markTiredComplaint() noexcept"
+  "void clearTiredComplaint() noexcept")
   string(FIND "${soldier_components_header_contents}"
     "${required_assignment_operation}"
     soldier_assignment_operation)
@@ -4858,11 +5053,50 @@ foreach(required_assignment_operation IN ITEMS
       "SoldierAssignmentComponent lost required lifecycle operation '${required_assignment_operation}'")
   endif()
 endforeach()
+foreach(required_assignment_state_accessor IN ITEMS
+  "BOOLEAN& fixingSamSiteState() noexcept"
+  "BOOLEAN& fixingRobotState() noexcept"
+  "BOOLEAN& forcedAwakeState() noexcept"
+  "BOOLEAN& assignmentCompleteAndIdleState() noexcept"
+  "BOOLEAN& asleepState() noexcept"
+  "BOOLEAN& tiredComplaintState() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_assignment_state_accessor}"
+    soldier_assignment_state_accessor)
+  if(soldier_assignment_state_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAssignmentComponent lost save-compatibility accessor '${required_assignment_state_accessor}'")
+  endif()
+endforeach()
 if(soldier_assignment_accessor EQUAL -1 OR
    soldier_assignment_reset EQUAL -1)
   message(FATAL_ERROR
     "SoldierAssignmentComponent must remain directly accessible and reset with its soldier")
 endif()
+
+string(FIND "${save_load_game_contents}"
+  "SoldierAssignmentComponent& assignment = soldier.assignment();"
+  serialized_soldier_assignment_flag_adapter)
+if(serialized_soldier_assignment_flag_adapter EQUAL -1)
+  message(FATAL_ERROR
+    "XferFlags must adapt assignment repair and work/rest slots through SoldierAssignmentComponent")
+endif()
+
+foreach(assignment_conversion IN ITEMS
+  "assignment().fixingSamSiteState() = src.fFixingSAMSite;"
+  "assignment().fixingRobotState() = src.fFixingRobot;"
+  "assignment().forcedAwakeState() = src.fForcedToStayAwake;"
+  "assignment().assignmentCompleteAndIdleState() = src.fDoneAssignmentAndNothingToDoFlag;"
+  "assignment().asleepState() = src.fMercAsleep;"
+  "assignment().tiredComplaintState() = src.fComplainedThatTired;")
+  string(FIND "${soldier_control_source_contents}"
+    "${assignment_conversion}"
+    soldier_assignment_conversion_site)
+  if(soldier_assignment_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier assignment mapping '${assignment_conversion}'")
+  endif()
+endforeach()
 
 string(REGEX MATCH
   "ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);"
@@ -4896,6 +5130,22 @@ string(REGEX MATCH
   "for[ \t]*\\(i[ \t]*=[ \t]*0;[ \t]*i[ \t]*<[ \t]*10;[ \t]*\\+\\+i\\)[ \t]*ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.usGLDelayMode\\);"
   serialized_soldier_assignment_mini_event_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.fixingSamSiteState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.fixingRobotState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.signedAnotherContractState\\(\\)\\);"
+  serialized_soldier_assignment_repair_target_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.forcedAwakeState\\(\\)\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);"
+  serialized_soldier_assignment_forced_awake_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(collapseState\\.fatigue\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(assignment\\.assignmentCompleteAndIdleState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.asleepState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);"
+  serialized_soldier_assignment_rest_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.tiredComplaintState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);"
+  serialized_soldier_assignment_tired_feedback_order
+  "${save_load_game_contents}")
 if(NOT serialized_soldier_assignment_identity_order OR
    NOT serialized_soldier_assignment_timestamp_order OR
    NOT serialized_soldier_assignment_merge_order OR
@@ -4903,10 +5153,74 @@ if(NOT serialized_soldier_assignment_identity_order OR
    NOT serialized_soldier_assignment_repair_order OR
    NOT serialized_soldier_assignment_facility_order OR
    NOT serialized_soldier_assignment_item_move_order OR
-   NOT serialized_soldier_assignment_mini_event_order)
+   NOT serialized_soldier_assignment_mini_event_order OR
+   NOT serialized_soldier_assignment_repair_target_order OR
+   NOT serialized_soldier_assignment_forced_awake_order OR
+   NOT serialized_soldier_assignment_rest_order OR
+   NOT serialized_soldier_assignment_tired_feedback_order)
   message(FATAL_ERROR
-    "Soldier assignment state moved in the portable save schema; keep all eleven values at their established POD positions")
+    "Soldier assignment state moved in the portable save schema; keep all seventeen values at their established POD positions")
 endif()
+
+file(READ "${SOURCE_ROOT}/Strategic/Assignments.cpp"
+  soldier_assignment_runtime_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Dialogue Control.cpp"
+  soldier_assignment_dialogue_contents)
+foreach(assignment_runtime_fragment IN ITEMS
+  "pSoldier->assignment().clearRepairTargets();"
+  "pSoldier->assignment().setFixingSamSite(TRUE);"
+  "pSoldier->assignment().setFixingRobot(TRUE);"
+  "pSoldier->assignment().forceAwake();"
+  "pSoldier->assignment().releaseForcedAwake();"
+  "pSoldier->assignment().setAssignmentCompleteAndIdle(fNothingToDo != FALSE);"
+  "pSoldier->assignment().fallAsleep();"
+  "pSoldier->assignment().wakeUp();"
+  "pSoldier->assignment().markTiredComplaint();"
+  "pSoldier->assignment().clearTiredComplaint();")
+  string(FIND "${soldier_assignment_runtime_contents}"
+    "${assignment_runtime_fragment}"
+    soldier_assignment_runtime_site)
+  if(soldier_assignment_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Strategic assignment flow bypassed SoldierAssignmentComponent operation '${assignment_runtime_fragment}'")
+  endif()
+endforeach()
+foreach(assignment_dialogue_runtime_fragment IN ITEMS
+  "pSoldier->assignment().fallAsleep();"
+  "pSoldier->assignment().wakeUp();")
+  string(FIND "${soldier_assignment_dialogue_contents}"
+    "${assignment_dialogue_runtime_fragment}"
+    soldier_assignment_dialogue_runtime_site)
+  if(soldier_assignment_dialogue_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Dialogue sleep restoration bypassed SoldierAssignmentComponent operation '${assignment_dialogue_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(assignment_test_fragment IN ITEMS
+  "assignment clears repair, completion, and work/rest context through named transitions"
+  "convertedSoldier.assignment().fixingSamSiteState() == 4"
+  "soldier save/load round-trips assignment repair, completion, and work/rest state at every established POD position")
+  string(FIND "${headless_test_contents}"
+    "${assignment_test_fragment}"
+    soldier_assignment_test_site)
+  if(soldier_assignment_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierAssignmentComponent fixture '${assignment_test_fragment}'")
+  endif()
+endforeach()
+foreach(assignment_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${assignment_documentation}"
+    "forced-wake state"
+    soldier_assignment_work_rest_documented)
+  if(soldier_assignment_work_rest_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Assignment documentation must retain the repair and work/rest lifecycle boundary")
+  endif()
+endforeach()
 
 # Strategic/tactical placement, movement-group and vehicle membership,
 # insertion, traversal origin, off-world staging, and arrival bookkeeping now
@@ -5138,7 +5452,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_transit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);"
+  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.tiredComplaintState\\(\\)\\);"
   serialized_soldier_deployment_landing_zone_order
   "${save_load_game_contents}")
 if(serialized_soldier_deployment_adapter EQUAL -1 OR
@@ -5956,7 +6270,7 @@ string(REGEX MATCH
   serialized_soldier_movement_axis_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fCheckForNewlyAddedItems\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fContractPriceHasIncreased\\);"
+  "ar\\.boolean\\(f\\.fCheckForNewlyAddedItems\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);"
   serialized_soldier_movement_block_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6784,7 +7098,7 @@ endforeach()
 # flags, recoil history, bullets in flight, burst cursor, spread targets,
 # autofire count, and multi-barrel cursor.
 string(REGEX MATCH
-  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);"
+  "ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.forcedAwakeState\\(\\)\\);[ \t]*ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);"
   serialized_soldier_fire_spread_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8458,15 +8772,15 @@ string(REGEX MATCH
   serialized_soldier_animation_hit_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fSignedAnotherContract\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningCostWaived\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fForcedToStayAwake\\);"
+  "ar\\.boolean\\(employment\\.signedAnotherContractState\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.turningCostWaived\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.suppressionStanceChange\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.forcedAwakeState\\(\\)\\);"
   serialized_soldier_animation_cost_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDoneAssignmentAndNothingToDoFlag\\);[ \t]*ar\\.boolean\\(f\\.fMercAsleep\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);"
+  "ar\\.boolean\\(assignment\\.assignmentCompleteAndIdleState\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.asleepState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);"
   serialized_soldier_animation_stance_cost_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fComplainedThatTired\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
+  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.tiredComplaintState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

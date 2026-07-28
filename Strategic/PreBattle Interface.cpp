@@ -2362,7 +2362,7 @@ void WakeUpAllMercsInSectorUnderAttack( void )
 		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but asleep
-			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->flags.fMercAsleep == TRUE ) )
+			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().isAsleep() == TRUE ) )
 			{
 				// FORCE him wake him up
 				SetMercAwake( pSoldier, FALSE, TRUE );

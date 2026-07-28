@@ -1740,7 +1740,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				{
 					SoldierInSectorIncompaciated( pSoldier, pSoldier->deployment().insertionGrid() );
 				}
-				else if ( pSoldier->flags.fMercAsleep == TRUE )
+				else if ( pSoldier->assignment().isAsleep() == TRUE )
 				{
 					InternalSoldierInSectorSleep( pSoldier, pSoldier->deployment().insertionGrid(), FALSE );
 				}

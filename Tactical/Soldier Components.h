@@ -950,8 +950,9 @@ private:
 };
 
 // Canonical strategic employment state. Contract timing, mercenary
-// classification, deposits, insurance, renewal bookkeeping, and re-signing
-// eligibility remain distinct values but share one lifecycle owner.
+// classification, deposits, insurance, renewal decisions, price-change
+// acknowledgement, and re-signing eligibility remain distinct values but
+// share one lifecycle owner.
 class SoldierEmploymentComponent
 {
 public:
@@ -985,11 +986,21 @@ public:
 	const INT8& hospitalPriceModifier() const noexcept { return hospitalPriceModifier_; }
 	UINT32& insuranceStartTime() noexcept { return insuranceStartTime_; }
 	const UINT32& insuranceStartTime() const noexcept { return insuranceStartTime_; }
+	BOOLEAN& contractPriceIncreasedState() noexcept { return contractPriceIncreased_; }
+	const BOOLEAN& contractPriceIncreasedState() const noexcept { return contractPriceIncreased_; }
+	BOOLEAN& signedAnotherContractState() noexcept { return signedAnotherContract_; }
+	const BOOLEAN& signedAnotherContractState() const noexcept { return signedAnotherContract_; }
 
 	bool isMercenaryType(UINT8 type) const noexcept { return mercenaryType_ == type; }
 	bool hasMedicalDeposit() const noexcept { return medicalDeposit_ != 0; }
 	bool hasLifeInsurance() const noexcept { return lifeInsurance_ != 0; }
 	bool wasJustFired() const noexcept { return justFired_ != 0; }
+	bool hasContractPriceIncrease() const noexcept { return contractPriceIncreased_ != FALSE; }
+	bool hasSignedAnotherContract() const noexcept { return signedAnotherContract_ != FALSE; }
+	void markContractPriceIncreased() noexcept { contractPriceIncreased_ = TRUE; }
+	void acknowledgeContractPriceIncrease() noexcept { contractPriceIncreased_ = FALSE; }
+	void markSignedAnotherContract() noexcept { signedAnotherContract_ = TRUE; }
+	void clearSignedAnotherContract() noexcept { signedAnotherContract_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -1008,12 +1019,15 @@ private:
 	INT32 timeCanSignElsewhere_ = 0;
 	INT8 hospitalPriceModifier_ = 0;
 	UINT32 insuranceStartTime_ = 0;
+	BOOLEAN contractPriceIncreased_ = FALSE;
+	BOOLEAN signedAnotherContract_ = FALSE;
 };
 
 // Canonical strategic assignment state. The active and previous assignment,
 // training/facility context, elapsed time, squad merge intent, and the
-// assignment-specific repair, item-move, and mini-event values share one
-// lifecycle owner. Strategic position and travel remain separate.
+// assignment-specific repair, rest, completion, item-move, and mini-event
+// values share one lifecycle owner. Strategic position and travel remain
+// separate.
 class SoldierAssignmentComponent
 {
 public:
@@ -1039,12 +1053,47 @@ public:
 	const UINT8& itemMoveSectorId() const noexcept { return itemMoveSectorId_; }
 	UINT16& miniEventHoursRemaining() noexcept { return miniEventHoursRemaining_; }
 	const UINT16& miniEventHoursRemaining() const noexcept { return miniEventHoursRemaining_; }
+	BOOLEAN& fixingSamSiteState() noexcept { return fixingSamSite_; }
+	const BOOLEAN& fixingSamSiteState() const noexcept { return fixingSamSite_; }
+	BOOLEAN& fixingRobotState() noexcept { return fixingRobot_; }
+	const BOOLEAN& fixingRobotState() const noexcept { return fixingRobot_; }
+	BOOLEAN& forcedAwakeState() noexcept { return forcedAwake_; }
+	const BOOLEAN& forcedAwakeState() const noexcept { return forcedAwake_; }
+	BOOLEAN& assignmentCompleteAndIdleState() noexcept { return assignmentCompleteAndIdle_; }
+	const BOOLEAN& assignmentCompleteAndIdleState() const noexcept { return assignmentCompleteAndIdle_; }
+	BOOLEAN& asleepState() noexcept { return asleep_; }
+	const BOOLEAN& asleepState() const noexcept { return asleep_; }
+	BOOLEAN& tiredComplaintState() noexcept { return tiredComplaint_; }
+	const BOOLEAN& tiredComplaintState() const noexcept { return tiredComplaint_; }
 
 	bool isAssignedTo(INT8 assignment) const noexcept { return current_ == assignment; }
 	bool hasAssignmentHours() const noexcept { return hours_ != 0; }
 	bool hasMiniEventTime() const noexcept { return miniEventHoursRemaining_ != 0; }
+	bool isFixingSamSite() const noexcept { return fixingSamSite_ != FALSE; }
+	bool isFixingRobot() const noexcept { return fixingRobot_ != FALSE; }
+	bool isForcedAwake() const noexcept { return forcedAwake_ != FALSE; }
+	bool assignmentCompleteAndIdle() const noexcept { return assignmentCompleteAndIdle_ != FALSE; }
+	bool isAsleep() const noexcept { return asleep_ != FALSE; }
+	bool hasComplainedAboutTiredness() const noexcept { return tiredComplaint_ != FALSE; }
 	void clearRepairVehicle() noexcept { repairVehicleId_ = -1; }
 	void clearFacility() noexcept { facilityType_ = -1; }
+	void setFixingSamSite(BOOLEAN active) noexcept { fixingSamSite_ = active; }
+	void setFixingRobot(BOOLEAN active) noexcept { fixingRobot_ = active; }
+	void clearRepairTargets() noexcept
+	{
+		fixingSamSite_ = FALSE;
+		fixingRobot_ = FALSE;
+	}
+	void forceAwake() noexcept { forcedAwake_ = TRUE; }
+	void releaseForcedAwake() noexcept { forcedAwake_ = FALSE; }
+	void setAssignmentCompleteAndIdle(bool complete) noexcept
+	{
+		assignmentCompleteAndIdle_ = complete ? TRUE : FALSE;
+	}
+	void fallAsleep() noexcept { asleep_ = TRUE; }
+	void wakeUp() noexcept { asleep_ = FALSE; }
+	void markTiredComplaint() noexcept { tiredComplaint_ = TRUE; }
+	void clearTiredComplaint() noexcept { tiredComplaint_ = FALSE; }
 	void reset() noexcept;
 
 private:
@@ -1059,6 +1108,12 @@ private:
 	INT16 facilityType_ = 0;
 	UINT8 itemMoveSectorId_ = 0;
 	UINT16 miniEventHoursRemaining_ = 0;
+	BOOLEAN fixingSamSite_ = FALSE;
+	BOOLEAN fixingRobot_ = FALSE;
+	BOOLEAN forcedAwake_ = FALSE;
+	BOOLEAN assignmentCompleteAndIdle_ = FALSE;
+	BOOLEAN asleep_ = FALSE;
+	BOOLEAN tiredComplaint_ = FALSE;
 };
 
 // Canonical strategic placement and deployment state. Sector coordinates,
