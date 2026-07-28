@@ -1178,7 +1178,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			if ( pSectorInfo && !(pSectorInfo->usSectorInfoFlag & SECTORINFO_VOLUNTEERS_RECENTLY_RECRUITED) )
 			{
 				if ( Chance(10) )
-					Soldier.usSoldierFlagMask2 |= SOLDIER_POTENTIAL_VOLUNTEER;
+					Soldier.featureFlags().secondaryFlags() |= SOLDIER_POTENTIAL_VOLUNTEER;
 			}
 		}
 
@@ -1361,13 +1361,13 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	// Flugente: VIPs: The general is, well, a general
 	if ( pSoldier->identity().profile() == GENERAL )
 	{
-		pSoldier->usSoldierFlagMask |= (SOLDIER_ENEMY_OFFICER | SOLDIER_VIP);
+		pSoldier->featureFlags().primaryFlags() |= (SOLDIER_ENEMY_OFFICER | SOLDIER_VIP);
 	}
 
 	// Flugente: if playing with the covert trait, the assassins come covert, so they are tougher to find	
 	if ( gGameExternalOptions.fAssassinsAreDisguised && gGameOptions.fNewTraitSystem && pSoldier->IsAssassin() )
 	{
-		pSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_SOLDIER|SOLDIER_COVERT_NPC_SPECIAL|SOLDIER_NEW_VEST|SOLDIER_NEW_PANTS);
+		pSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_SOLDIER|SOLDIER_COVERT_NPC_SPECIAL|SOLDIER_NEW_VEST|SOLDIER_NEW_PANTS);
 
 		SetClothes( pSoldier, Random( NUMSHIRTS ), Random( NUMPANTS ) );
 	}
@@ -1845,7 +1845,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 			// this guy becomes an officer if there are enough soldiers around, and we aren't already at max of officers
 			if ( numenemies > gGameExternalOptions.usEnemyOfficersPerTeamSize * numofficers && numofficers < gGameExternalOptions.usEnemyOfficersMax && !RebelCommand::NeutraliseRole(pSoldier) )
-				pSoldier->usSoldierFlagMask |= SOLDIER_ENEMY_OFFICER;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_ENEMY_OFFICER;
 		}
 	}
 
@@ -1859,12 +1859,12 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 			if ( !NumSoldiersWithFlagInSector( ENEMY_TEAM, SOLDIER_VIP ) && !NumSoldiersWithFlagInSector( CIV_TEAM, SOLDIER_VIP ) && (gWorldSectorX != gMercProfiles[GENERAL].sSectorX || gWorldSectorY != gMercProfiles[GENERAL].sSectorY) )
 			{
 				// nope, so this guy will become the VIP
-				pSoldier->usSoldierFlagMask |= SOLDIER_VIP;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_VIP;
 			}
 			// a VIP has bodyguards
 			else if ( NumSoldiersWithFlagInSector( ENEMY_TEAM, SOLDIER_BODYGUARD ) < gGameExternalOptions.usEnemyGeneralsBodyGuardsNumber )
 			{
-				pSoldier->usSoldierFlagMask |= SOLDIER_BODYGUARD;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_BODYGUARD;
 				pSoldier->aiBehavior().orders() = SEEKENEMY;		// required, otherwise stationary orders forbid them from moving to the VIP
 			}
 		}
@@ -1884,7 +1884,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 				{
 					// nope, so this guy will become the VIP
 					// generals are also officers...
-					pSoldier->usSoldierFlagMask |= (SOLDIER_ENEMY_OFFICER | SOLDIER_VIP);
+					pSoldier->featureFlags().primaryFlags() |= (SOLDIER_ENEMY_OFFICER | SOLDIER_VIP);
 				}
 			}
 		}
@@ -1895,7 +1895,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	{
 		if ( NumSoldiersofClassWithFlag2InSector( pCreateStruct->bTeam, pSoldier->roster().soldierClass(), SOLDIER_TURNCOAT ) < NumTurncoatsOfClassInSector( gWorldSectorX, gWorldSectorY, pSoldier->roster().soldierClass() ) )
 		{
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_TURNCOAT;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_TURNCOAT;
 		}
 	}
 	
@@ -3376,7 +3376,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 
 				// The militia in autoresolve drops its copied gear after combat,
 				// so the live repository record must not drop it a second time.
-				source->usSoldierFlagMask |= SOLDIER_EQUIPMENT_DROPPED;
+				source->featureFlags().primaryFlags() |= SOLDIER_EQUIPMENT_DROPPED;
 
 				//Assign a bogus ID, then return it
 				pSoldier->identity().id() = NUM_PROFILES;
@@ -3649,7 +3649,7 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 		pSoldier->statistics().agility() = (INT8)( 70 + Random( 16 ) );
 				
 		// add assassin flag
-		pSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_SOLDIER|SOLDIER_ASSASSIN);
+		pSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_SOLDIER|SOLDIER_ASSASSIN);
 
 		// add spy trait lvl2
 		pSoldier->statistics().skillTrait(0) = COVERT_NT;
@@ -3789,8 +3789,8 @@ void CreateAssassin(UINT8 disguisetype)
 		fInterfacePanelDirty = DIRTYLEVEL2;
 
 		// add correct flags. Undo SOLDIER_COVERT_CIV flag, we disguise as militia, not as a civilian (player cannot disguise as militia, thus he becomes a civilian)
-		pSoldier->usSoldierFlagMask &= ~SOLDIER_COVERT_CIV;
-		pSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_SOLDIER|SOLDIER_ASSASSIN);
+		pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_COVERT_CIV;
+		pSoldier->featureFlags().primaryFlags() |= (SOLDIER_COVERT_SOLDIER|SOLDIER_ASSASSIN);
 
 		// So we can see them!
 		AllTeamsLookForAll(NO_INTERRUPTS);
@@ -3891,7 +3891,7 @@ void CreatePrisonerOfWar()
 		AddSoldierToSector( pSoldier->identity().id() );
 
 		// mark this guy
-		pSoldier->usSoldierFlagMask |= SOLDIER_POW_PRISON;
+		pSoldier->featureFlags().primaryFlags() |= SOLDIER_POW_PRISON;
 
 		// set correct civ group
 		pSoldier->roster().civilianGroup() = POW_PRISON_CIV_GROUP;

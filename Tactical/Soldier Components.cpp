@@ -50,6 +50,11 @@ void SoldierStatusComponent::reset() noexcept
 	*this = SoldierStatusComponent{};
 }
 
+void SoldierFeatureFlagsComponent::reset() noexcept
+{
+	*this = SoldierFeatureFlagsComponent{};
+}
+
 void SoldierInventoryStateComponent::reset() noexcept
 {
 	*this = SoldierInventoryStateComponent{};

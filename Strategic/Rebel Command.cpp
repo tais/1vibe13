@@ -4472,7 +4472,7 @@ void ApplySoldierBounty(const SOLDIERTYPE* pSoldier)
 		return;
 
 	// payout per role
-	if (pSoldier->usSoldierFlagMask & SOLDIER_ENEMY_OFFICER && (evt.extraBits == MissionHelpers::SOLDIER_BOUNTIES_KINGPIN_OFFICER_PAYOUTS))
+	if (pSoldier->featureFlags().primaryFlags() & SOLDIER_ENEMY_OFFICER && (evt.extraBits == MissionHelpers::SOLDIER_BOUNTIES_KINGPIN_OFFICER_PAYOUTS))
 		payout += gRebelCommandSettings.iSoldierBountiesKingpinPayout_Officer;
 
 

@@ -989,6 +989,14 @@ the engine must not contain SDL types in its public domain model.
   clears zipper/drop-pack state absent from that record. Save data, profiles,
   packets, maps, XML, Lua, multiplayer protocols, packages, and installed game
   data are unchanged.
+  The three later, independent compatibility banks are now privately owned by
+  `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
+  event markers and the two unsigned 32-bit feature masks introduced by 1.13
+  systems. Named event, primary, and secondary query/set/clear operations make
+  their bank explicit while preserving every existing flag definition and
+  hot-path reference access. These banks are not a replacement for
+  `STRUCT_Flags`; they retain the later extension points already consumed by
+  gameplay and mods.
   `SoldierServiceComponent` owns the complementary tactical care relationship:
   the persisted service marker, the number of active providers on a patient,
   the provider's patient identity, and the medic reserved by automatic
@@ -1055,9 +1063,11 @@ the engine must not contain SDL types in its public domain model.
   mobility, realtime-combat mode, and AI flags.
   `SoldierAiCommunicationComponent` owns radio/call origin, location, priority,
   and acknowledgement, while `SoldierMoraleComponent` owns personal morale,
-  team/tactical/strategic modifiers, AI morale, and creature frenzy. Together
-  these boundaries remove `STRUCT_AIData` as a live catch-all without changing
-  AI policy, plan APIs, or content.
+  team/tactical/strategic modifiers, the delayed strategic modifier awaiting
+  the next morale refresh, AI morale, and creature frenzy. Together these
+  boundaries remove `STRUCT_AIData` as a live catch-all without changing AI
+  policy, plan APIs, or content. The morale owner also removes the separate
+  delayed-morale field from the public soldier tail.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.

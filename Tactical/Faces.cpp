@@ -2161,7 +2161,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: add an icon if we are currently in disguise
-			if (pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
+			if (pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 12);
 				bNumRightIcons++;
@@ -2182,12 +2182,12 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// Flugente: icons for radio operator actions (not the assignment)
 			if (pSoldier->assignment().current() != RADIO_SCAN)
 			{
-				if (pSoldier->usSoldierFlagMask & (SOLDIER_RADIO_OPERATOR_SCANNING | SOLDIER_RADIO_OPERATOR_LISTENING))
+				if (pSoldier->featureFlags().primaryFlags() & (SOLDIER_RADIO_OPERATOR_SCANNING | SOLDIER_RADIO_OPERATOR_LISTENING))
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 19);
 					bNumRightIcons++;
 				}
-				else if (pSoldier->usSoldierFlagMask & SOLDIER_RADIO_OPERATOR_JAMMING)
+				else if (pSoldier->featureFlags().primaryFlags() & SOLDIER_RADIO_OPERATOR_JAMMING)
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 20);
 					bNumRightIcons++;
@@ -2210,7 +2210,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			}
 
 			// Flugente: focus trait
-			if (pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS)
+			if (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS)
 			{
 				DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 17);
 				bNumRightIcons++;

@@ -1858,11 +1858,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());
 	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(targeting.lineOfFireTarget().i);
 	ar.u32(replication.checksum());
-	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
+	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.featureFlags().eventFlags()); ar.u8(s.movement().stopReason());
 	ar.i32(renderState.fadeOriginGrid()); ar.u8(deployment.useExitGridForReentryDirection());
 	ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
 	ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(pendingAction.inventorySlot());
-	ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());
+	ar.i8(s.morale().delayedStrategicModifier()); ar.u8(audio.doorOpeningNoise());
 	ar.ptr(s.pGroup); ar.u8(deployment.leaveHistoryCode()); ar.u16(s.movement().moveSpeedOverride().i);
 	ar.u32(deployment.arrivalTime());
 	ar.i8(assignment.repairVehicleId()); ar.i32(employment.timeCanSignElsewhere()); ar.i8(employment.hospitalPriceModifier());
@@ -1878,7 +1878,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(combatContribution.militiaAssists()); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);
 	ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);
 	ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());
-	ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);
+	ar.i8(condition.extraExperienceLevel()); ar.u32(s.featureFlags().primaryFlags());
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
 	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
@@ -1890,7 +1890,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
-	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());
+	ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(deployment.ignoreCollapseGetupCheck());
 	ar.i32(deployment.arrivalGetupCounter());
@@ -6093,8 +6093,8 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		}
 
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits
-		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
-			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
+		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
+			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
 			pTeamSoldier->LooseDisguise( );
 	}
 

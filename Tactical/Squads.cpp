@@ -395,7 +395,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 
 			if ( SPY_LOCATION( pCharacter->assignment().previous() ) )
 			{
-				pCharacter->usSoldierFlagMask2 |= SOLDIER_CONCEALINSERTION;
+				pCharacter->featureFlags().secondaryFlags() |= SOLDIER_CONCEALINSERTION;
 			}
 
 			return ( TRUE );

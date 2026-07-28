@@ -314,6 +314,12 @@ retains all fourteen original positions and widths. v101 conversion maps its
 twelve historical fields and clears the later zipper/drop-pack flags. No save,
 profile, packet, map, XML, Lua, multiplayer, package, or installed-data format
 changes.
+The post-v101 extension banks remain deliberately separate from those former
+general flags. `SoldierFeatureFlagsComponent` privately owns the unsigned
+8-bit gunshot/explosion/X-ray event markers and both unsigned 32-bit 1.13
+feature masks. Event, primary, and secondary query/set/clear operations expose
+which bank a mod feature consumes while retaining the established flag
+constants and zero-cost mutable references.
 `SoldierServiceComponent` separately owns the persisted service marker, patient
 provider count, provider-to-patient identity, and automatic-bandage medic
 reservation, plus the inventory slot temporarily borrowed by an autonomous
@@ -361,7 +367,8 @@ position and width and v101 conversion maps the historical fields.
 `SoldierAiBehaviorComponent` owns alert, disposition, orders, escort, creature,
 realtime, and AI-flag modes. `SoldierAiCommunicationComponent` owns radio and
 call exchange state, and `SoldierMoraleComponent` owns personal and calculated
-morale channels plus creature frenzy. These are state seams for AI and mod code,
+morale channels, the delayed strategic modifier, and creature frenzy. These are
+state seams for AI and mod code,
 not replacements for existing policy, plan, XML, or Lua APIs.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,

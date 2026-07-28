@@ -2330,7 +2330,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 	{
 		// Flugente: note that this enemy has been seen by mercs this turn
 		if ( pOpponent->roster().team() == ENEMY_TEAM && pSoldier->roster().team() == OUR_TEAM )
-			pOpponent->usSoldierFlagMask |= SOLDIER_ENEMY_OBSERVEDTHISTURN;
+			pOpponent->featureFlags().primaryFlags() |= SOLDIER_ENEMY_OBSERVEDTHISTURN;
 	}
 	// sevenfm: if soldier is unconscious, he can't see anybody
 	if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() == 0 )
@@ -2488,10 +2488,10 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			else if ( pSoldier->IsAssassin() && pSoldier->roster().team() == CIV_TEAM )
 			{
 				// if we are an assassin and still neutral and undercover, approach target and then become hostile
-				if ( pSoldier->aiBehavior().neutral() && pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
+				if ( pSoldier->aiBehavior().neutral() && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 				{
 					// only if this guy isn't disguised himself!
-					if ( (pOpponent->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) == 0)
+					if ( (pOpponent->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) == 0)
 					{
 						if ( pSoldier->roster().civilianGroup() != NON_CIV_GROUP && gTacticalStatus.fCivGroupHostile[ pSoldier->roster().civilianGroup() ] >= CIV_GROUP_WILL_BECOME_HOSTILE )
 						{
@@ -2692,10 +2692,10 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 		{
 			// ... check wether he is not neutral against us (account for the fact that we might be covert!)
 			// if we are an NPC assassin
-			if ( pSoldier->IsAssassin() && pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			if ( pSoldier->IsAssassin() && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// check wether our opponent would see us as an opponent if we weren't covert
-				if ( !( (pSoldier->aiBehavior().neutral() || pSoldier->usSoldierFlagMask & SOLDIER_POW) && ( pOpponent->roster().team() != CREATURE_TEAM || pOpponent->status().flags() & SOLDIER_VEHICLE ) ) )
+				if ( !( (pSoldier->aiBehavior().neutral() || pSoldier->featureFlags().primaryFlags() & SOLDIER_POW) && ( pOpponent->roster().team() != CREATURE_TEAM || pOpponent->status().flags() & SOLDIER_VEHICLE ) ) )
 					fAddAsOpponent = TRUE;
 			}
 			else
@@ -3220,7 +3220,7 @@ void RemoveManAsTarget(SOLDIERTYPE *pSoldier)
 			{
 				// Flugente: we consider enemies to be neutral if they are prisoners of war (otherwise the AI would kill prisoners). Bu as we want to remove them, we have to account for that
 				// we also move RecognizeAsCombatant to be the last condition checked, because it is the most computationally expensive one
-				if ( ( !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) || pSoldier->usSoldierFlagMask & SOLDIER_POW ) && pOpponent->RecognizeAsCombatant(pSoldier->identity().id()) )
+				if ( ( !CONSIDERED_NEUTRAL( pOpponent, pSoldier ) || pSoldier->featureFlags().primaryFlags() & SOLDIER_POW ) && pOpponent->RecognizeAsCombatant(pSoldier->identity().id()) )
 					RemoveOneOpponent(pOpponent);
 			}
 			UpdatePersonal(pOpponent, ubTarget, NOT_HEARD_OR_SEEN, NOWHERE, 0);
@@ -3713,7 +3713,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 		else
 		{
 			// Flugente: no quotes on seeing enemy when covert
-			if ( (pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) ) == 0 )
+			if ( (pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) ) == 0 )
 			{
 				// Flugente: apparently the goal was to have mercs only announce enemies shorter occasionally
 				if ( Chance( gGameExternalOptions.iChanceSayAnnoyingPhrase ) )
@@ -3753,7 +3753,7 @@ void OurTeamSeesSomeone( SOLDIERTYPE * pSoldier, INT8 bNumReRevealed, INT8 bNumN
 		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
 			// Flugente: disguised mercs do not alert us if they see an enemy, as otherwise one has to continously give them new orders
-			if ( !(pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) )
+			if ( !(pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER)) )
 			{
 				// STOP IF WE WERE MOVING....
 				/// Speek up!
@@ -6244,7 +6244,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 
 			if ( (pSoldier->roster().team() == CIV_TEAM) && (ubNoiseType == NOISE_GUNFIRE || ubNoiseType == NOISE_EXPLOSION) )
 			{
-				pSoldier->ubMiscSoldierFlags |= SOLDIER_MISC_HEARD_GUNSHOT;
+				pSoldier->featureFlags().eventFlags() |= SOLDIER_MISC_HEARD_GUNSHOT;
 			}
 
 #ifdef RECORDOPPLIST

@@ -11716,7 +11716,7 @@ void RemoveItemPickupMenu( )
 
 		// Flugente: remove the marker notifying we are currently stealing
 		if (pickupActor)
-			pickupActor->usSoldierFlagMask &= ~SOLDIER_ACCESSTEAMMEMBER;
+			pickupActor->featureFlags().primaryFlags() &= ~SOLDIER_ACCESSTEAMMEMBER;
 
 		// Remove graphics!
 		DeleteVideoObjectFromIndex( gItemPickupMenu.uiPanelVo );
@@ -14051,7 +14051,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			}
 
 			// Flugente: blowing up bombs in our inventory can be used to indirectly kill as a spy (via mustard gas), so make this a suspicious action
-			if ( GetItemDescSoldier()->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+			if ( GetItemDescSoldier()->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// if e perform a suspicious action, we are easier to identify 
 				UINT16 appenalty = 50;
@@ -14059,7 +14059,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 				if ( appenalty )
 				{
 					// mark us a easily identifiable
-					GetItemDescSoldier()->usSoldierFlagMask |= SOLDIER_COVERT_TEMPORARY_OVERT;
+					GetItemDescSoldier()->featureFlags().primaryFlags() |= SOLDIER_COVERT_TEMPORARY_OVERT;
 
 					// in realtime mode, remember the second when this event happened. Once suspicion is checked, we are either uncovered or, if enough time has passed, no longer suspicious
 					// in turnbase mode, remember our current APs. If a new turn has started or enough APs have been used, remove the flag

@@ -644,7 +644,7 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // but they can't attack empty vehicles!!
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
-										(them->aiBehavior().neutral() || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
+										(them->aiBehavior().neutral() || them->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
 										&& (me->roster().team() != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->identity().bodyType() == CROW)) \
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
@@ -778,6 +778,8 @@ public:
 	const SoldierStatisticsComponent& statistics() const noexcept { return statistics_; }
 	SoldierStatusComponent& status() noexcept { return status_; }
 	const SoldierStatusComponent& status() const noexcept { return status_; }
+	SoldierFeatureFlagsComponent& featureFlags() noexcept { return featureFlags_; }
+	const SoldierFeatureFlagsComponent& featureFlags() const noexcept { return featureFlags_; }
 	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
 	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
@@ -915,22 +917,12 @@ public:
 	//END
 
 	struct TAG_anitile	*pAniTile;	
-	UINT8				ubMiscSoldierFlags;
-
-	INT8					bDelayedStrategicMoraleMod;
 	struct GROUP			*pGroup;
 
-	// Flugente: Is this the correct position?
-	///////////////////////////////////////////////////////
-	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
-	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
-
-	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
-	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
+	// Reserved bytes remain explicit because the current save visitor preserves
+	// their established positions even though live feature flags have a typed
+	// owner outside this compatibility tail.
 	UINT8	ubFiller[10];
-	
-	// Flugente: modifiers to fire modes
-	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
@@ -948,6 +940,7 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierStatisticsComponent	statistics_;
 	SoldierStatusComponent	status_;
+	SoldierFeatureFlagsComponent	featureFlags_;
 	SoldierInventoryStateComponent	inventoryState_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;

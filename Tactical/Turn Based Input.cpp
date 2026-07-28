@@ -5889,7 +5889,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 			}
 			pTMilitiaSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 
-			//pTMilitiaSoldier->usSoldierFlagMask |= SOLDIER_MILITIA_ORDER;
+			//pTMilitiaSoldier->featureFlags().primaryFlags() |= SOLDIER_MILITIA_ORDER;
 		}
 		else
 		{

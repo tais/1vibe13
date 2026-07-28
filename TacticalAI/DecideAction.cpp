@@ -911,7 +911,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	}
 
 //ddd{
-	if( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->roster().team() == ENEMY_TEAM )
+	if( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		if ( !IsJa2TacticalTurnBased() && IsJa2TacticalCombatActive() )
 		{
@@ -1035,7 +1035,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 		
 		// are we a bodyguard?
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_BODYGUARD )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_BODYGUARD )
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
@@ -1711,7 +1711,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 						}
 					}
 				}
-				else if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition )
+				else if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition )
 				{
 					// raise alarm!
 					return( AI_ACTION_RED_ALERT );
@@ -1797,7 +1797,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		}
 		
 		// are we a bodyguard?
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_BODYGUARD )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_BODYGUARD )
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
@@ -3228,7 +3228,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					}
 				}
 				// frequencies are clear, lets call for help
-				else if (!(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT))
+				else if (!(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT))
 				{
 					// raise alarm!
 					return(AI_ACTION_RED_ALERT);
@@ -3428,7 +3428,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		}
 
 		// VIPs run away (but not the GENERAL)
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && pSoldier->identity().profile() != GENERAL )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP && pSoldier->identity().profile() != GENERAL )
 		{
 			// this is in red AI state - a firefight is going on, we try to escape
 			pSoldier->aiPlanning().actionData() = FindSpotMaxDistFromOpponents( pSoldier );
@@ -3447,7 +3447,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		}
 
 		// are we a bodyguard?
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_BODYGUARD )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_BODYGUARD )
 		{
 			// is VIP still alive?
 			SoldierID ubPerson = GetClosestFlaggedSoldierID( pSoldier, 100, pSoldier->roster().team(), SOLDIER_VIP, FALSE );
@@ -3575,7 +3575,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 	// if we're a computer merc, and we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && !fCivilian && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && !fCivilian && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
 	{
 
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: checking to radio red alert");
@@ -5437,7 +5437,7 @@ INT16 ubMinAPCost;
 				}
 			}
 			// frequencies are clear, lets call for help
-			else if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) )
+			else if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) )
 			{
 				// raise alarm!
 				return( AI_ACTION_RED_ALERT );
@@ -5453,7 +5453,7 @@ INT16 ubMinAPCost;
 	}
 
 	// VIPs run away (but not the GENERAL)
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && pSoldier->identity().profile() != GENERAL )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP && pSoldier->identity().profile() != GENERAL )
 	{
 		// this is in red AI state - a firefight is going on, we try to escape
 		pSoldier->aiPlanning().actionData() = FindSpotMaxDistFromOpponents( pSoldier );
@@ -7093,7 +7093,7 @@ L_NEWAIM:
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	// and we're not swimming in deep water, and somebody has called for spotters
 	// and we see the location of at least 2 opponents
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
 		(pSoldier->awareness().opponentCount() > 1) && !fCivilian &&
 		(gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) && !bInDeepWater)
 	{
@@ -7232,7 +7232,7 @@ L_NEWAIM:
 	// RADIO RED ALERT: determine %chance to call others and report contact
 	////////////////////////////////////////////////////////////////////////////
 	DebugAI(AI_MSG_TOPIC, pSoldier, String("[Report contacts]"));
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && pSoldier->roster().team() == MILITIA_TEAM && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && pSoldier->roster().team() == MILITIA_TEAM && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
 	{
 
 		// if there hasn't been an initial RED ALERT yet in this sector
@@ -7560,7 +7560,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 	bInWater = Water( pSoldier->position().gridNo(), pSoldier->position().level() );
 	
 	//ddd{
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->roster().team() == ENEMY_TEAM )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && gGameExternalOptions.bNewTacticalAIBehavior && pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		if ( !IsJa2TacticalTurnBased() && IsJa2TacticalCombatActive() )
 		{
@@ -7949,7 +7949,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 			{
 				// if we are close, we can release this guy
 				// possible only if not handcuffed (binders can be opened, handcuffs not)
-				if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition )
+				if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && !gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition )
 				{
 					// raise alarm!
 					return(AI_ACTION_RED_ALERT);
@@ -8715,7 +8715,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 
 	// if we're a computer merc, and we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) )
 	{
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: checking to radio red alert" );
 
@@ -10328,7 +10328,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
 	// and we're not swimming in deep water, and somebody has called for spotters
 	// and we see the location of at least 2 opponents
-	if ( !(pSoldier->usSoldierFlagMask & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
+	if ( !(pSoldier->featureFlags().primaryFlags() & SOLDIER_RAISED_REDALERT) && (gTacticalStatus.ubSpottersCalledForBy != NOBODY) && (pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) &&
 		 (pSoldier->awareness().opponentCount() > 1) &&
 		 (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1) && !bInDeepWater )
 	{

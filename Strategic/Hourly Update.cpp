@@ -486,7 +486,7 @@ void HourlyLarryUpdate()
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
 						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->roster().active() && !pOtherSoldier->assignment().isAsleep() && pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 						{
-							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
 								if( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
@@ -667,7 +667,7 @@ void HourlyDisabilityUpdate( )
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
 						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->roster().active() && !pOtherSoldier->assignment().isAsleep() && pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 						{
-							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
 								if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
@@ -806,7 +806,7 @@ void HourlyStealUpdate()
 					&& !pOtherSoldier->assignment().isAsleep()
 					&& pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 				{
-					if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+					if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 					{
 						if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && sectorz == pOtherSoldier->deployment().sectorZ() )
 						{

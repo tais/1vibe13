@@ -1558,7 +1558,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 		!pSoldier->roster().active() || !pSoldier->roster().inSector() || !pSoldier->vitals().health() )
 		return( FALSE );
 
-	if ( pSoldier->ubMiscSoldierFlags & SOLDIER_MISC_HURT_BY_EXPLOSION )
+	if ( pSoldier->featureFlags().eventFlags() & SOLDIER_MISC_HURT_BY_EXPLOSION )
 	{
 		// don't want to damage the guy twice
 		return( FALSE );
@@ -1897,7 +1897,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	// OJW - 20091028 - If from a remote client, use unadjusted damage amount
 	pSoldier->EVENT_SoldierGotHit( usItem, (fFromRemoteClient ? sWoundAmt : sNewWoundAmt), sBreathAmt, ubDirection, (INT16)uiDist, ubOwner, ubSpecial, ANIM_CROUCH, sSubsequent, sBombGridNo );
 	
-	pSoldier->ubMiscSoldierFlags |= SOLDIER_MISC_HURT_BY_EXPLOSION;
+	pSoldier->featureFlags().eventFlags() |= SOLDIER_MISC_HURT_BY_EXPLOSION;
 
 	if ( owner && owner->roster().team() == gbPlayerNum && pSoldier->roster().team() != gbPlayerNum )
 	{
@@ -3208,7 +3208,7 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 		{
 			if ( MercSlots[ cnt ] )
 			{
-				MercSlots[ cnt ]->ubMiscSoldierFlags &= ~SOLDIER_MISC_HURT_BY_EXPLOSION;
+				MercSlots[ cnt ]->featureFlags().eventFlags() &= ~SOLDIER_MISC_HURT_BY_EXPLOSION;
 			}
 		}
 	}
@@ -4370,7 +4370,7 @@ void HandleExplosionWarningAnimations( )
 
 		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector())
 		{
-			if (pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS)
+			if (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TRAIT_FOCUS)
 			{
 				// checking whether this skill is active is relatively cheap. If it fails, deactivate skill properly
 				// we cannot use CanUseSkill(...) again though, as this would fail upon opening the menu
@@ -4385,7 +4385,7 @@ void HandleExplosionWarningAnimations( )
 				else
 				{
 					// if conditions don't apply, deactivate skill. This will cause it to update to status changes very fast
-					pSoldier->usSoldierFlagMask2 &= ~SOLDIER_TRAIT_FOCUS;
+					pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_TRAIT_FOCUS;
 					pSoldier->skillState().clearFocus();
 				}
 			}

@@ -705,7 +705,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 					fScoutPresent = TRUE;
 				}
 
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_AIRDROP )
 				{
 					fAirDrop = TRUE;
 				}
@@ -729,7 +729,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 				gAmbushRadiusModifier = max( gAmbushRadiusModifier, ambushradiusmodifier / 100 );
 
 				// Flugente: if a merc is inserted from concealed state, retreat is forbidden, as at least this merc will have to extract manually
-				if ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+				if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 					fRetreatAnOption = FALSE;
 			}
 			else
@@ -782,7 +782,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 			if( GetEnemyEncounterCode() != BLOODCAT_AMBUSH_CODE && GetEnemyEncounterCode() != ENTERING_BLOODCAT_LAIR_CODE )
 			{
 				// Flugente: if the group that causes a battle is a result of a merc no longer being concealed, special code
-				if ( pBattleGroup->pPlayerList->pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+				if ( pBattleGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 				{
 					SetEnemyEncounterCode( CONCEALINSERTION_CODE );
 				}
@@ -943,7 +943,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		}
 
 		// haxx
-		if ( pBattleGroup && pBattleGroup->usGroupTeam == OUR_TEAM && pBattleGroup->pPlayerList->pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+		if ( pBattleGroup && pBattleGroup->usGroupTeam == OUR_TEAM && pBattleGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 		{
 			//SetEnemyEncounterCode( CONCEALINSERTION_CODE );
 		}

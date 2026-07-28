@@ -611,7 +611,7 @@ void RenderRadarScreen( )
 			if ( pSoldier != NULL )
 			{
 				// Don't place guys in radar until visible!
-				if ( pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) && !(pSoldier->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) )
+				if ( pSoldier->awareness().visibility() == -1 && !(gTacticalStatus.uiFlags&SHOW_ALL_MERCS) && !(pSoldier->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) )
 				{
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
 					continue;// ie dont render
@@ -699,7 +699,7 @@ void RenderRadarScreen( )
 					}
 
 					// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
-					if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
+					if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_ASSASSIN && pSoldier->featureFlags().primaryFlags() & SOLDIER_COVERT_SOLDIER )
 						usLineColor = Get16BPPColor( gTacticalStatus.Team[ MILITIA_TEAM ].RadarColor );
 
 					// Render different color if an enemy and he's unconscious

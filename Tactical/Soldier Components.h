@@ -302,6 +302,36 @@ private:
 	UINT32 flags_ = 0;
 };
 
+// Canonical owner for the three compatibility masks added by later gameplay
+// features. The named banks retain their established bit definitions and save
+// widths without leaving generic extension storage public on SOLDIERTYPE.
+class SoldierFeatureFlagsComponent
+{
+public:
+	UINT8& eventFlags() noexcept { return eventFlags_; }
+	const UINT8& eventFlags() const noexcept { return eventFlags_; }
+	UINT32& primaryFlags() noexcept { return primaryFlags_; }
+	const UINT32& primaryFlags() const noexcept { return primaryFlags_; }
+	UINT32& secondaryFlags() noexcept { return secondaryFlags_; }
+	const UINT32& secondaryFlags() const noexcept { return secondaryFlags_; }
+
+	bool hasEvent(UINT8 flags) const noexcept { return (eventFlags_ & flags) != 0; }
+	bool hasPrimary(UINT32 flags) const noexcept { return (primaryFlags_ & flags) != 0; }
+	bool hasSecondary(UINT32 flags) const noexcept { return (secondaryFlags_ & flags) != 0; }
+	void setEvent(UINT8 flags) noexcept { eventFlags_ |= flags; }
+	void setPrimary(UINT32 flags) noexcept { primaryFlags_ |= flags; }
+	void setSecondary(UINT32 flags) noexcept { secondaryFlags_ |= flags; }
+	void clearEvent(UINT8 flags) noexcept { eventFlags_ &= static_cast<UINT8>(~flags); }
+	void clearPrimary(UINT32 flags) noexcept { primaryFlags_ &= ~flags; }
+	void clearSecondary(UINT32 flags) noexcept { secondaryFlags_ &= ~flags; }
+	void reset() noexcept;
+
+private:
+	UINT8 eventFlags_ = 0;
+	UINT32 primaryFlags_ = 0;
+	UINT32 secondaryFlags_ = 0;
+};
+
 // Canonical persistent inventory-adjacent state. Key access, new-item refresh,
 // and load-bearing-equipment zipper/drop-pack flags share the inventory
 // lifecycle without exposing another generic soldier flag bucket.
@@ -801,6 +831,8 @@ public:
 	const INT8& tacticalModifier() const noexcept { return tacticalModifier_; }
 	INT8& strategicModifier() noexcept { return strategicModifier_; }
 	const INT8& strategicModifier() const noexcept { return strategicModifier_; }
+	INT8& delayedStrategicModifier() noexcept { return delayedStrategicModifier_; }
+	const INT8& delayedStrategicModifier() const noexcept { return delayedStrategicModifier_; }
 	INT8& aiMorale() noexcept { return aiMorale_; }
 	const INT8& aiMorale() const noexcept { return aiMorale_; }
 	INT8& frenzied() noexcept { return frenzied_; }
@@ -814,6 +846,7 @@ private:
 	INT8 teamModifier_ = 0;
 	INT8 tacticalModifier_ = 0;
 	INT8 strategicModifier_ = 0;
+	INT8 delayedStrategicModifier_ = 0;
 	INT8 aiMorale_ = 0;
 	INT8 frenzied_ = 0;
 };

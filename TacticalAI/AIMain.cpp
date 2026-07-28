@@ -1591,7 +1591,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 	// pSoldier->movement().setOutOfActionPoints(false);
 
 	// Flugente: pows don't do anything
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 	{
 		EndAIGuysTurn( pSoldier);
 		return;
@@ -2365,7 +2365,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             {
                 HandleInitialRedAlert(pSoldier->roster().team(), TRUE);
 
-				pSoldier->usSoldierFlagMask |= SOLDIER_RAISED_REDALERT;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_RAISED_REDALERT;
 
 				// SANDRO - ENEMY TAUNTS
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_ALERT );
@@ -2950,7 +2950,7 @@ void HandleAITacticalTraversal( SOLDIERTYPE * pSoldier )
 #endif
 
 	// Flugente: VIPs: if a VIP flees, he flees to Meduna (in fact te sodleir doesn't, we simply move the flag to another sector)
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
+	if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 	{
 		VIPFleesToMeduna();
 	}

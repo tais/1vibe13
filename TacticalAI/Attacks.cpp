@@ -3526,7 +3526,7 @@ BOOLEAN GetBestAoEGridNo(SOLDIERTYPE *pSoldier, INT32* pGridNo, INT16 aRadius, U
 			continue;
 
 		// dying or captured friends are 'helpless' anyway, we are willing to sacrifice them :-)
-		if ( uCheckFriends && pSoldier->roster().side() == pFriend->roster().side() && pFriend->vitals().health() >= OKLIFE && !(pFriend->usSoldierFlagMask & SOLDIER_POW) )
+		if ( uCheckFriends && pSoldier->roster().side() == pFriend->roster().side() && pFriend->vitals().health() >= OKLIFE && !(pFriend->featureFlags().primaryFlags() & SOLDIER_POW) )
 		{
 			// active friend, remember where he is so that we DON'T blow him up!
 			// this includes US, since we don't want to blow OURSELVES up either

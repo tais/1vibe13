@@ -2296,11 +2296,11 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					// anv: if shift is pressed, treat is as ram + move - flag has to be set for later add structure checks
 					if ( _KeyDown( SHIFT ) )
 					{
-						pSoldier->usSoldierFlagMask2 |= SOLDIER_RAM_THROUGH_OBSTACLES;
+						pSoldier->featureFlags().secondaryFlags() |= SOLDIER_RAM_THROUGH_OBSTACLES;
 					}
 					else
 					{
-						pSoldier->usSoldierFlagMask2 &= ~SOLDIER_RAM_THROUGH_OBSTACLES;
+						pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_RAM_THROUGH_OBSTACLES;
 					}
 				}
 
@@ -3041,7 +3041,7 @@ void SurgeryRequesterCallback( UINT8 bExitValue )
 					DeleteObj( pObj );
 				}
 
-				pRequester->usSoldierFlagMask2 |=
+				pRequester->featureFlags().secondaryFlags() |=
 					SOLDIER_SURGERY_BOOSTED;
 			}
 		}

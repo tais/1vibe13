@@ -10083,7 +10083,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 			if ( newvest )
 			{
 				// if we are already wearing a vest, give us back that item
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_VEST )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_NEW_VEST )
 				{
 					UINT16 vestitem = 0;
 					if ( GetFirstClothesItemWithSpecificData(&vestitem, pSoldier->renderState().vestPalette(), "blank")  )
@@ -10097,16 +10097,16 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				}
 
 				SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), Clothes[clothestype].vest );
-				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_VEST;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_NEW_VEST;
 
 				// this vest is not damaged, so remove the damaged vest flag
-				pSoldier->usSoldierFlagMask &= ~SOLDIER_DAMAGED_VEST;
+				pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_DAMAGED_VEST;
 			}
 
 			if ( newpants )
 			{
 				// if we are already wearing a vest, give us back that item
-				if ( pSoldier->usSoldierFlagMask & SOLDIER_NEW_PANTS )
+				if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_NEW_PANTS )
 				{
 					UINT16 pantsitem = 0;
 					if ( GetFirstClothesItemWithSpecificData(&pantsitem, "blank", pSoldier->renderState().pantsPalette())  )
@@ -10120,10 +10120,10 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 				}
 
 				SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), Clothes[clothestype].pants );
-				pSoldier->usSoldierFlagMask |= SOLDIER_NEW_PANTS;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_NEW_PANTS;
 
 				// these pants are not damaged, so remove the damaged pants flag
-				pSoldier->usSoldierFlagMask &= ~SOLDIER_DAMAGED_PANTS;
+				pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_DAMAGED_PANTS;
 			}
 
 			// Use palette from HVOBJECT, then use substitution for pants, etc
@@ -10141,7 +10141,7 @@ BOOLEAN ApplyClothes( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16 usPointsToUs
 		pSoldier->ApplyCovert( TRUE );
 
 		// to inform the player on whether this will work, test the disguise immediately (but only if we are now disguised in the first place)
-		if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+		if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			pSoldier->SpySelfTest();
 	}
 		
@@ -10221,9 +10221,9 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
@@ -10236,7 +10236,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
-				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
+				pSoldier2->featureFlags().eventFlags() |= SOLDIER_MISC_XRAYED;
 				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
@@ -10256,9 +10256,9 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
@@ -10271,7 +10271,7 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		{
 			if ( pSoldier2->roster().team() != pSoldier->roster().team() && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
-				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
+				pSoldier2->featureFlags().eventFlags() |= SOLDIER_MISC_XRAYED;
 				pSoldier2->perception().xraySource() = pSoldier->identity().id();
 			}
 		}
@@ -10296,9 +10296,9 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
+			if ( (pSoldier2->featureFlags().eventFlags() & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->identity().id()) )
 			{
-				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
+				pSoldier2->featureFlags().eventFlags() &= (~SOLDIER_MISC_XRAYED);
 				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}

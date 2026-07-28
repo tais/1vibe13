@@ -5685,7 +5685,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	wcscpy( gzUserDefinedButton[0], TacticalStr[FILL_CANTEEN_STR] );
 
 	// remove covert property/clothes
-	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_DISGUISE_STR] );
 	else
 		wcscpy( gzUserDefinedButton[1], TacticalStr[TAKE_OFF_CLOTHES_STR] );
@@ -5711,7 +5711,7 @@ void StartTacticalFunctionSelectionMessageBox( SOLDIERTYPE * pSoldier, INT32 sGr
 	}
 
 	// if disguised, allow testing our disguise
-	if ( pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
+	if ( pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		wcscpy( gzUserDefinedButton[6], TacticalStr[SPY_SELFTEST_STR] );
 	else
 		wcscpy( gzUserDefinedButton[6], TacticalStr[UNUSED_STR] );
@@ -6152,7 +6152,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			break;
 		case 7:
 			// test our disguise
-			if (gpTempSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
+			if (gpTempSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER))
 				gpTempSoldier->SpySelfTest();
 			break;
 
@@ -7629,7 +7629,7 @@ UINT8 StealItems(SOLDIERTYPE* pSoldier,SOLDIERTYPE* pOpponent, UINT8* ubIndexRet
 					//	- remove the 'steal from teammember' stuff from the usual stealing stuff, and add it as a new action (like handcuffing), complete with building the steal-sub-menu and everything
 					//	- or introduce a flag that prohibits teammembers from 'reaction-firing' on us. Set it upon stealing (here) and remove it after the steal menu is closed
 					// or simplicity reasons, I will do #2 here. Until it breaks, then I'll be forced to do #1.
-					pSoldier->usSoldierFlagMask |= SOLDIER_ACCESSTEAMMEMBER;
+					pSoldier->featureFlags().primaryFlags() |= SOLDIER_ACCESSTEAMMEMBER;
 
 					// if we are Nails, don't allow taking our vest
 					if ( pOpponent->identity().profile() == 34 && i == VESTPOS )

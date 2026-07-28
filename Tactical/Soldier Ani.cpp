@@ -4254,13 +4254,13 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		}
 
 		// Flugente: VIPs
-		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP )
+		if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_VIP )
 		{
 			DeleteVIP( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 		}
 		
 		// Flugente: turncoats
-		if ( pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT )
+		if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT )
 			RemoveOneTurncoat( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->roster().soldierClass(), FALSE );
 
 		// Flugente: additional dialogue

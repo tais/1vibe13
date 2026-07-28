@@ -665,7 +665,7 @@ BOOLEAN NPCHeardShot( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	return( pNPC->ubMiscSoldierFlags & SOLDIER_MISC_HEARD_GUNSHOT );
+	return( pNPC->featureFlags().eventFlags() & SOLDIER_MISC_HEARD_GUNSHOT );
 }
 
 BOOLEAN InTownSectorWithTrainingLoyalty( INT16 sSectorX, INT16 sSectorY )

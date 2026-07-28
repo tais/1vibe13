@@ -312,6 +312,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   twelve represented fields and resets zipper/drop-pack state, which that
   record did not contain. No save, profile, packet, map, XML, Lua, multiplayer,
   package, or installed-data bytes change.
+- The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
+  32-bit 1.13 feature-mask banks are now stored by
+  `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their
+  original scattered POD positions and widths, including the ten reserved
+  bytes between the two feature masks. v101 conversion maps its historical
+  event byte and clears the two later banks absent from that record. Existing
+  flag definitions and all save, profile, packet, map, XML, Lua, multiplayer,
+  package, and installed-data bytes remain unchanged.
 - Tactical service activity, patient provider count, provider-to-patient
   identity, the automatic-bandage medic reservation, and the signed inventory
   slot borrowed while servicing are now stored by `SoldierServiceComponent`.
@@ -356,10 +364,11 @@ adapter, so save and load can never drift out of order. Extra methods:
   `SoldierAiPlanningComponent`. Alert/disposition/order/escort/creature/flag
   modes are stored by `SoldierAiBehaviorComponent`; radio/call exchange by
   `SoldierAiCommunicationComponent`; and personal, modifier, calculated, and
-  frenzy morale by `SoldierMoraleComponent`. The historical `XferAIData`
-  visitor section emits every value at the same signed or unsigned width and in
-  the same order, and v101 conversion maps each historical raw field. Runtime
-  flank progress saturates without changing its representation. No save,
+  frenzy morale plus the separately persisted delayed strategic modifier by
+  `SoldierMoraleComponent`. The historical `XferAIData` visitor section and
+  delayed signed 8-bit POD slot emit every value at the same width and in the
+  same order, and v101 conversion maps each historical raw field. Runtime flank
+  progress saturates without changing its representation. No save,
   packet, map, XML, Lua, AI-plan, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the

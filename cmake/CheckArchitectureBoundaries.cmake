@@ -1976,6 +1976,7 @@ foreach(required_ai_storage IN ITEMS
   "INT8 teamModifier_ = 0;"
   "INT8 tacticalModifier_ = 0;"
   "INT8 strategicModifier_ = 0;"
+  "INT8 delayedStrategicModifier_ = 0;"
   "INT8 aiMorale_ = 0;"
   "INT8 frenzied_ = 0;"
   "OpponentKnowledge opponentKnowledge_{};"
@@ -2080,6 +2081,7 @@ foreach(required_ai_v101_fragment IN ITEMS
   "morale().teamModifier() = src.bTeamMoraleMod"
   "morale().tacticalModifier() = src.bTacticalMoraleMod"
   "morale().strategicModifier() = src.bStrategicMoraleMod"
+  "morale().delayedStrategicModifier() = src.bDelayedStrategicMoraleMod"
   "morale().aiMorale() = src.bAIMorale"
   "turnState().interruptDuelPoints() = src.bInterruptDuelPts"
   "turnState().passedLastInterrupt() = src.bPassedLastInterrupt"
@@ -2271,7 +2273,7 @@ foreach(required_identity_roster_save_fragment IN ITEMS
   "ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.roster().civilianGroup());"
   "ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());"
   "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
-  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
+  "ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());")
   string(FIND "${save_load_game_contents}"
     "${required_identity_roster_save_fragment}"
     identity_roster_save_fragment)
@@ -2866,7 +2868,7 @@ foreach(dialogue_save_position IN ITEMS
   "ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());"
   "ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());"
   "ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());"
-  "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());"
+  "ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.featureFlags().eventFlags()); ar.u8(s.movement().stopReason());"
   "ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());"
   "ar.u32(employment.insuranceStartTime()); ar.i8(dialogue.corpseQuoteTolerance()); ar.i8(perception.deafnessTurns());"
   "ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());"
@@ -3068,7 +3070,7 @@ endforeach()
 foreach(audio_save_position IN ITEMS
   "ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());"
   "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());"
-  "ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());"
+  "ar.i8(s.morale().delayedStrategicModifier()); ar.u8(audio.doorOpeningNoise());"
   "ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());")
   string(FIND "${save_load_game_contents}"
     "${audio_save_position}"
@@ -3976,7 +3978,7 @@ foreach(skill_state_save_position IN ITEMS
   "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
   "for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));"
   "for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));"
-  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
+  "ar.i32(skillState.focusGrid()); ar.u32(s.featureFlags().secondaryFlags()); ar.u32(s.identity().individualMilitiaId());")
   string(FIND "${save_load_game_contents}"
     "${skill_state_save_position}"
     soldier_skill_state_save_position)
@@ -4166,7 +4168,7 @@ endif()
 
 foreach(condition_save_position IN ITEMS
   "ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());"
-  "ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);"
+  "ar.i8(condition.extraExperienceLevel()); ar.u32(s.featureFlags().primaryFlags());"
   "ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());"
   "ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());"
   "for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));"
@@ -4852,13 +4854,13 @@ if(NOT soldier_flag_save_key_access LESS soldier_flag_save_intended_target OR
 endif()
 
 foreach(soldier_flag_test_fragment IN ITEMS
-  "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain"
+  "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags"
   "soldier status component provides explicit bit-mask queries and mutations"
   "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state"
-  "soldier copies retain every component-owned former general flag"
-  "soldier initialization resets every component-owned former general flag"
+  "soldier copies retain every status and feature compatibility flag"
+  "soldier initialization resets every status and feature compatibility flag"
   "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema"
-  "soldier save/load round-trips every former general flag through its established byte position and domain owner")
+  "soldier save/load round-trips all status and feature flags through established byte positions")
   string(FIND "${headless_test_contents}"
     "${soldier_flag_test_fragment}"
     soldier_flag_test_site)
@@ -4889,6 +4891,239 @@ string(FIND "${save_format_documentation}"
 if(soldier_flags_save_documented EQUAL -1)
   message(FATAL_ERROR
     "Former general-flag byte compatibility must remain documented")
+endif()
+
+# The three later feature banks and delayed strategic morale were independent
+# flat tail fields. Give the flag banks one explicit compatibility owner and
+# fold delayed morale into the existing morale lifecycle without moving any
+# persisted value.
+foreach(retired_feature_tail_field IN ITEMS
+  ubMiscSoldierFlags
+  bDelayedStrategicMoraleMod
+  usSoldierFlagMask
+  usSoldierFlagMask2)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_feature_tail_field}([^A-Za-z0-9_]|$)"
+    retired_current_feature_tail_field
+    "${current_soldier_contents}")
+  if(retired_current_feature_tail_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE feature-tail field '${retired_feature_tail_field}' returned")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierFeatureFlagsComponent[ \t\r\n]+featureFlags_[ \t]*;"
+  soldier_feature_flags_owner
+  "${current_soldier_contents}")
+if(NOT soldier_feature_flags_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierFeatureFlagsComponent")
+endif()
+
+foreach(required_feature_flags_accessor IN ITEMS
+  "SoldierFeatureFlagsComponent& featureFlags() noexcept"
+  "const SoldierFeatureFlagsComponent& featureFlags() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_feature_flags_accessor}"
+    soldier_feature_flags_accessor)
+  if(soldier_feature_flags_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost feature-flags accessor '${required_feature_flags_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_feature_flags_storage IN ITEMS
+  "class SoldierFeatureFlagsComponent"
+  "UINT8 eventFlags_ = 0;"
+  "UINT32 primaryFlags_ = 0;"
+  "UINT32 secondaryFlags_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_feature_flags_storage}"
+    soldier_feature_flags_storage)
+  if(soldier_feature_flags_storage EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFeatureFlagsComponent lost initialized storage '${required_feature_flags_storage}'")
+  endif()
+endforeach()
+
+foreach(required_feature_flags_operation IN ITEMS
+  "UINT8& eventFlags() noexcept"
+  "const UINT8& eventFlags() const noexcept"
+  "UINT32& primaryFlags() noexcept"
+  "const UINT32& primaryFlags() const noexcept"
+  "UINT32& secondaryFlags() noexcept"
+  "const UINT32& secondaryFlags() const noexcept"
+  "bool hasEvent(UINT8 flags) const noexcept"
+  "bool hasPrimary(UINT32 flags) const noexcept"
+  "bool hasSecondary(UINT32 flags) const noexcept"
+  "void setEvent(UINT8 flags) noexcept"
+  "void setPrimary(UINT32 flags) noexcept"
+  "void setSecondary(UINT32 flags) noexcept"
+  "void clearEvent(UINT8 flags) noexcept"
+  "void clearPrimary(UINT32 flags) noexcept"
+  "void clearSecondary(UINT32 flags) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_feature_flags_operation}"
+    soldier_feature_flags_operation)
+  if(soldier_feature_flags_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFeatureFlagsComponent lost operation '${required_feature_flags_operation}'")
+  endif()
+endforeach()
+
+foreach(required_delayed_morale_operation IN ITEMS
+  "INT8& delayedStrategicModifier() noexcept"
+  "const INT8& delayedStrategicModifier() const noexcept"
+  "INT8 delayedStrategicModifier_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_delayed_morale_operation}"
+    soldier_delayed_morale_operation)
+  if(soldier_delayed_morale_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMoraleComponent lost delayed strategic morale '${required_delayed_morale_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierFeatureFlagsComponent{};"
+  soldier_feature_flags_default_reset)
+string(REGEX MATCHALL
+  "featureFlags\\(\\)\\.reset\\(\\)"
+  soldier_feature_flags_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_feature_flags_reset_sites
+  soldier_feature_flags_reset_site_count)
+if(soldier_feature_flags_default_reset EQUAL -1 OR
+   NOT soldier_feature_flags_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Feature flags must reset through their defaults during v101 conversion and current initialization")
+endif()
+
+foreach(required_feature_tail_conversion IN ITEMS
+  "this->featureFlags().eventFlags() = src.ubMiscSoldierFlags;"
+  "this->morale().delayedStrategicModifier() = src.bDelayedStrategicMoraleMod;")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_feature_tail_conversion}"
+    soldier_feature_tail_conversion)
+  if(soldier_feature_tail_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost feature-tail mapping '${required_feature_tail_conversion}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  serialized_soldier_feature_event_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.morale\\(\\)\\.delayedStrategicModifier\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.doorOpeningNoise\\(\\)\\);"
+  serialized_soldier_delayed_morale_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(condition\\.extraExperienceLevel\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.primaryFlags\\(\\)\\);[ \t\r\n]*ar\\.i32\\(condition\\.foodLevel\\(\\)\\);"
+  serialized_soldier_primary_feature_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "for \\(i = 0; i < 10; \\+\\+i\\) ar\\.u8\\(s\\.ubFiller\\[i\\]\\);[ \t\r\n]*ar\\.u16\\(assignment\\.miniEventHoursRemaining\\(\\)\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.grenadeLauncherDelayMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelMode\\(\\)\\);[ \t]*ar\\.u8\\(fireControl\\.barrelCounter\\(\\)\\);[ \t\r\n]*ar\\.i32\\(skillState\\.focusGrid\\(\\)\\);[ \t]*ar\\.u32\\(s\\.featureFlags\\(\\)\\.secondaryFlags\\(\\)\\);[ \t]*ar\\.u32\\(s\\.identity\\(\\)\\.individualMilitiaId\\(\\)\\);"
+  serialized_soldier_secondary_feature_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_feature_event_order OR
+   NOT serialized_soldier_delayed_morale_order OR
+   NOT serialized_soldier_primary_feature_order OR
+   NOT serialized_soldier_secondary_feature_order)
+  message(FATAL_ERROR
+    "Feature flags or delayed morale moved or changed width in the current save schema")
+endif()
+
+set(soldier_control_source_file
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp")
+foreach(source_file IN LISTS world_state_declaration_files)
+  if("${source_file}" STREQUAL "${soldier_control_source_file}")
+    continue()
+  endif()
+  file(READ "${source_file}" feature_tail_source_contents)
+  foreach(retired_feature_tail_field IN ITEMS
+    ubMiscSoldierFlags
+    bDelayedStrategicMoraleMod
+    usSoldierFlagMask
+    usSoldierFlagMask2)
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*${retired_feature_tail_field}"
+      retired_feature_tail_access
+      "${feature_tail_source_contents}")
+    if(retired_feature_tail_access)
+      message(FATAL_ERROR
+        "Production code accesses retired soldier feature-tail member '${retired_feature_tail_field}' in ${source_file}")
+    endif()
+  endforeach()
+endforeach()
+foreach(legacy_feature_tail_field IN ITEMS
+  ubMiscSoldierFlags
+  bDelayedStrategicMoraleMod)
+  string(REGEX MATCHALL
+    "src\\.${legacy_feature_tail_field}"
+    legacy_feature_tail_accesses
+    "${soldier_control_source_contents}")
+  list(LENGTH legacy_feature_tail_accesses legacy_feature_tail_access_count)
+  if(NOT legacy_feature_tail_access_count EQUAL 1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp must access legacy '${legacy_feature_tail_field}' exactly once for v101 conversion")
+  endif()
+endforeach()
+foreach(retired_later_feature_tail_field IN ITEMS
+  usSoldierFlagMask
+  usSoldierFlagMask2)
+  string(FIND "${soldier_control_source_contents}"
+    "${retired_later_feature_tail_field}"
+    retired_later_feature_tail_access)
+  if(NOT retired_later_feature_tail_access EQUAL -1)
+    message(FATAL_ERROR
+      "Retired later feature field '${retired_later_feature_tail_field}' returned to Soldier Control.cpp")
+  endif()
+endforeach()
+
+foreach(required_feature_tail_test IN ITEMS
+  "soldier feature flags provide typed queries and mutations for every compatibility bank"
+  "soldier feature-flag reset clears all three persisted compatibility banks"
+  "soldier copies retain every status and feature compatibility flag"
+  "soldier initialization resets every status and feature compatibility flag"
+  "v101 soldier conversion maps historical event flags and clears later feature banks"
+  "soldier save/load round-trips all status and feature flags through established byte positions"
+  "v101 soldier conversion maps AI communication and every morale channel"
+  "soldier save/load round-trips component-owned AI communication and morale")
+  string(FIND "${headless_test_contents}"
+    "${required_feature_tail_test}"
+    soldier_feature_tail_test)
+  if(soldier_feature_tail_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost feature-tail regression '${required_feature_tail_test}'")
+  endif()
+endforeach()
+
+foreach(feature_tail_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${feature_tail_documentation}"
+    "SoldierFeatureFlagsComponent"
+    soldier_feature_flags_documented)
+  string(FIND "${feature_tail_documentation}"
+    "delayed strategic modifier"
+    soldier_delayed_morale_documented)
+  if(soldier_feature_flags_documented EQUAL -1 OR
+     soldier_delayed_morale_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Engine and save documentation must describe feature flags and delayed strategic morale")
+  endif()
+endforeach()
+string(FIND "${save_format_documentation}"
+  "ten reserved"
+  soldier_feature_padding_documented)
+if(soldier_feature_padding_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Save documentation must retain the reserved bytes between feature banks")
 endif()
 
 # Persistent stat-change presentation has one timestamp and direction-feedback
@@ -8191,7 +8426,7 @@ string(REGEX MATCH
   serialized_soldier_movement_delayed_flags_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
+  "ar\\.i8\\(dialogue\\.currentCivilianQuote\\(\\)\\);[ \t]*ar\\.i8\\(dialogue\\.civilianQuoteDelta\\(\\)\\);[ \t]*ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);"
   serialized_soldier_movement_stop_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -9739,7 +9974,7 @@ string(REGEX MATCH
   serialized_render_bounds_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubMiscSoldierFlags\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);"
+  "ar\\.u8\\(s\\.featureFlags\\(\\)\\.eventFlags\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.stopReason\\(\\)\\);[ \t\r\n]*ar\\.i32\\(renderState\\.fadeOriginGrid\\(\\)\\);[ \t]*ar\\.u8\\(deployment\\.useExitGridForReentryDirection\\(\\)\\);"
   serialized_render_fade_origin_order
   "${save_load_game_contents}")
 string(FIND "${save_load_game_contents}"

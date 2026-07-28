@@ -1646,7 +1646,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 	}
 
 	// rftr: unactivated turncoats intentionally try to miss - aim high
-	if (gSkillTraitValues.fCOTurncoats && pSoldier && (pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT))
+	if (gSkillTraitValues.fCOTurncoats && pSoldier && (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT))
 	{
 		dTargetZ += 100.f;
 	}
@@ -4098,7 +4098,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			}
 			// sevenfm: use sneak attack code
 			//else if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN )
-			else if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK)
+			else if (pTargetSoldier->featureFlags().secondaryFlags() & SOLDIER_SNEAK_ATTACK)
 			{
 				// give bonus for surprise, but not so much as struggle would still occur
 				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiPlanning().aimTime() ) + 20;
@@ -4117,7 +4117,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		{
 			// sevenfm: use sneak attack code
 			//if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
-			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical())
+			if (pTargetSoldier->featureFlags().secondaryFlags() & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical())
 			{
 				iHitChance = 100;
 			}
@@ -4131,7 +4131,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					!pSoldier->perception().blindnessTurns() &&
 					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
 					(pTargetSoldier->status().flags() & SOLDIER_BOXER) &&
-					pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK)
+					pTargetSoldier->featureFlags().secondaryFlags() & SOLDIER_BACK_ATTACK)
 				{
 					iHitChance += (100 - iHitChance) / 2;
 				}
@@ -4189,7 +4189,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			}
 
 			// Flugente: if we are disguised and try to steal from a conscious enemy, there is a chance that he notices us and we lose our disguise. If he can see us this always happens
-			if ( fNoticed && pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
+			if ( fNoticed && pSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			{
 				pSoldier->LooseDisguise();
 				
@@ -4725,7 +4725,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					IS_MERC_BODY_TYPE(pSoldier) &&
 					IS_MERC_BODY_TYPE(pTargetSoldier) &&
 					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
-					!(pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK) &&
+					!(pTargetSoldier->featureFlags().secondaryFlags() & SOLDIER_BACK_ATTACK) &&
 					(!pTargetSoldier->inv[HANDPOS].exists() || Item[pTargetSoldier->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH) || !pTargetSoldier->inv[SECONDHANDPOS].exists()))
 				{
 					if (!(Item[pTargetSoldier->inv[HANDPOS].usItem].usItemClass & (IC_BLADE | IC_THROWING_KNIFE | IC_PUNCH)) &&
@@ -7993,9 +7993,9 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )
 		{
 			if ( ubHitLocation == AIM_SHOT_HEAD  )
-				pTarget->usSoldierFlagMask |= SOLDIER_HEADSHOT;
+				pTarget->featureFlags().primaryFlags() |= SOLDIER_HEADSHOT;
 			else
-				pTarget->usSoldierFlagMask &= ~SOLDIER_HEADSHOT;
+				pTarget->featureFlags().primaryFlags() &= ~SOLDIER_HEADSHOT;
 		}
 	}
 
@@ -8845,7 +8845,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 			iBonus += gSkillTraitValues.ubMEDamageBonusBlades; // +30% damage
 
 			// if this attack happens directly after running, the attack is slightly more powerful due to extra force
-			if ( !autoresolve && pSoldier->usSoldierFlagMask2 & SOLDIER_BAYONET_RUNBONUS)
+			if ( !autoresolve && pSoldier->featureFlags().secondaryFlags() & SOLDIER_BAYONET_RUNBONUS)
 				iBonus += 20;
 		}
 		else if ( HAS_SKILL_TRAIT( pSoldier, MELEE_NT ) && ( gGameOptions.fNewTraitSystem ))
@@ -8869,7 +8869,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 	}
 
 	// remove flag, regardless of whether it was used
-	pSoldier->usSoldierFlagMask2 &= ~SOLDIER_BAYONET_RUNBONUS;
+	pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_BAYONET_RUNBONUS;
 
 	// bonus damage for aggressive characters
 	if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_AGGRESSIVE ) )
@@ -8917,7 +8917,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		// set a flag if this was a headshot, unset if it wasn't. Thus we can determine if this was a headshot kill (only if life > 0, ignore if already dead)
 		if ( gGameExternalOptions.fZombieOnlyHeadShotsPermanentlyKill && pTarget->vitals().health() > 0 )
 		{
-			pTarget->usSoldierFlagMask |= SOLDIER_HEADSHOT;
+			pTarget->featureFlags().primaryFlags() |= SOLDIER_HEADSHOT;
 		}
 	}
 
@@ -9065,7 +9065,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAimTime, UINT8 ubMode )
 {
 	// rftr: unactivated turncoats intentionally try to miss
-	if (gSkillTraitValues.fCOTurncoats && pAttacker && (pAttacker->usSoldierFlagMask2 & SOLDIER_TURNCOAT))
+	if (gSkillTraitValues.fCOTurncoats && pAttacker && (pAttacker->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT))
 		return gGameExternalOptions.ubMinimumCTH;
 
 	UINT16 usInHand;
@@ -10116,7 +10116,7 @@ INT32 CalcMaxTossRange( SOLDIERTYPE * pSoldier, UINT16 usItem, BOOLEAN fArmed, O
 UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime, UINT8 ubAimPos )
 {
 	// rftr: unactivated turncoats intentionally try to miss
-	if (gSkillTraitValues.fCOTurncoats && pSoldier && (pSoldier->usSoldierFlagMask2 & SOLDIER_TURNCOAT))
+	if (gSkillTraitValues.fCOTurncoats && pSoldier && (pSoldier->featureFlags().secondaryFlags() & SOLDIER_TURNCOAT))
 		return gGameExternalOptions.ubMinimumCTH;
 
 	INT32 iChance, iMaxRange, iRange;

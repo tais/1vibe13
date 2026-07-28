@@ -7277,6 +7277,12 @@ int main( int, char** )
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().vehicleState()),
 			const SoldierVehicleStateComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().featureFlags()),
+			SoldierFeatureFlagsComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
+			const SoldierFeatureFlagsComponent&>);
 
 		SOLDIERTYPE soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
@@ -7333,6 +7339,11 @@ int main( int, char** )
 		}
 		SoldierStatusComponent& status = soldier.status();
 		status.set(SOLDIER_PC | SOLDIER_MUTE);
+		SoldierFeatureFlagsComponent& featureFlags = soldier.featureFlags();
+		featureFlags.eventFlags() =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED;
+		featureFlags.primaryFlags() = SOLDIER_COVERT_CIV | SOLDIER_POW;
+		featureFlags.secondaryFlags() = SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT;
 		SoldierInventoryStateComponent& inventoryState =
 			soldier.inventoryState();
 		inventoryState.keyAccess() = -3;
@@ -7837,6 +7848,12 @@ int main( int, char** )
 		       "soldier statistics component owns every base attribute and the complete persistent trait capacity" );
 		CHECK( constSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
 		       constSoldier.status().hasAny(SOLDIER_PC) &&
+		       constSoldier.featureFlags().hasEvent(SOLDIER_MISC_HEARD_GUNSHOT) &&
+		       constSoldier.featureFlags().hasEvent(SOLDIER_MISC_XRAYED) &&
+		       constSoldier.featureFlags().hasPrimary(SOLDIER_COVERT_CIV) &&
+		       constSoldier.featureFlags().hasPrimary(SOLDIER_POW) &&
+		       constSoldier.featureFlags().hasSecondary(SOLDIER_TRAIT_FOCUS) &&
+		       constSoldier.featureFlags().hasSecondary(SOLDIER_TURNCOAT) &&
 		       constSoldier.inventoryState().keyAccess() == -3 &&
 		       constSoldier.inventoryState().checkForNewItems() &&
 		       constSoldier.inventoryState().zipperFlag() &&
@@ -7850,7 +7867,7 @@ int main( int, char** )
 		       constSoldier.fireControl().aimPaused() &&
 		       constSoldier.animationActivity().reactingFromShot() &&
 		       constSoldier.animationActivity().externalDeath(),
-		       "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain" );
+		       "soldier components own status, feature, inventory, replication, AI, condition, targeting, fire-control, and animation flags" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
@@ -8446,6 +8463,27 @@ int main( int, char** )
 		statusLifecycle.reset();
 		CHECK( statusLifecycle.flags() == 0,
 		       "soldier status reset clears the complete general status mask" );
+		SoldierFeatureFlagsComponent featureFlagsLifecycle;
+		featureFlagsLifecycle.setEvent(
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION);
+		featureFlagsLifecycle.setPrimary(SOLDIER_COVERT_CIV | SOLDIER_POW);
+		featureFlagsLifecycle.setSecondary(
+			SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT);
+		featureFlagsLifecycle.clearEvent(SOLDIER_MISC_HURT_BY_EXPLOSION);
+		featureFlagsLifecycle.clearPrimary(SOLDIER_POW);
+		featureFlagsLifecycle.clearSecondary(SOLDIER_TURNCOAT);
+		CHECK( featureFlagsLifecycle.eventFlags() == SOLDIER_MISC_HEARD_GUNSHOT &&
+		       featureFlagsLifecycle.primaryFlags() == SOLDIER_COVERT_CIV &&
+		       featureFlagsLifecycle.secondaryFlags() == SOLDIER_TRAIT_FOCUS &&
+		       featureFlagsLifecycle.hasEvent(SOLDIER_MISC_HEARD_GUNSHOT) &&
+		       featureFlagsLifecycle.hasPrimary(SOLDIER_COVERT_CIV) &&
+		       featureFlagsLifecycle.hasSecondary(SOLDIER_TRAIT_FOCUS),
+		       "soldier feature flags provide typed queries and mutations for every compatibility bank" );
+		featureFlagsLifecycle.reset();
+		CHECK( featureFlagsLifecycle.eventFlags() == 0 &&
+		       featureFlagsLifecycle.primaryFlags() == 0 &&
+		       featureFlagsLifecycle.secondaryFlags() == 0,
+		       "soldier feature-flag reset clears all three persisted compatibility banks" );
 		SoldierInventoryStateComponent inventoryStateLifecycle;
 		inventoryStateLifecycle.keyAccess() = -8;
 		inventoryStateLifecycle.checkForNewItems() = TRUE;
@@ -9126,6 +9164,12 @@ int main( int, char** )
 		       copiedStatisticsTraitsMatch,
 		       "soldier copies retain every owned base attribute and persistent trait slot" );
 		CHECK( copiedSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       copiedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED) &&
+		       copiedSoldier.featureFlags().primaryFlags() ==
+		           (SOLDIER_COVERT_CIV | SOLDIER_POW) &&
+		       copiedSoldier.featureFlags().secondaryFlags() ==
+		           (SOLDIER_TRAIT_FOCUS | SOLDIER_TURNCOAT) &&
 		       copiedSoldier.inventoryState().keyAccess() == -3 &&
 		       copiedSoldier.inventoryState().checkForNewItems() &&
 		       copiedSoldier.inventoryState().zipperFlag() &&
@@ -9139,7 +9183,7 @@ int main( int, char** )
 		       copiedSoldier.fireControl().aimPaused() &&
 		       copiedSoldier.animationActivity().reactingFromShot() &&
 		       copiedSoldier.animationActivity().externalDeath(),
-		       "soldier copies retain every component-owned former general flag" );
+		       "soldier copies retain every status and feature compatibility flag" );
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -10372,6 +10416,9 @@ int main( int, char** )
 		       initializedStatisticsTraitsCleared,
 		       "soldier initialization resets the complete base-statistics domain" );
 		CHECK( copiedSoldier.status().flags() == 0 &&
+		       copiedSoldier.featureFlags().eventFlags() == 0 &&
+		       copiedSoldier.featureFlags().primaryFlags() == 0 &&
+		       copiedSoldier.featureFlags().secondaryFlags() == 0 &&
 		       copiedSoldier.inventoryState().keyAccess() == 0 &&
 		       !copiedSoldier.inventoryState().checkForNewItems() &&
 		       !copiedSoldier.inventoryState().zipperFlag() &&
@@ -10385,7 +10432,7 @@ int main( int, char** )
 		       !copiedSoldier.fireControl().aimPaused() &&
 		       !copiedSoldier.animationActivity().reactingFromShot() &&
 		       !copiedSoldier.animationActivity().externalDeath(),
-		       "soldier initialization resets every component-owned former general flag" );
+		       "soldier initialization resets every status and feature compatibility flag" );
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
@@ -10887,6 +10934,7 @@ int main( int, char** )
 		morale.teamModifier() = -2;
 		morale.tacticalModifier() = 3;
 		morale.strategicModifier() = -4;
+		morale.delayedStrategicModifier() = -6;
 		morale.aiMorale() = 5;
 		morale.frenzied() = 1;
 
@@ -10948,6 +10996,7 @@ int main( int, char** )
 		       constAiOwnedSoldier.morale().teamModifier() == -2 &&
 		       constAiOwnedSoldier.morale().tacticalModifier() == 3 &&
 		       constAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       constAiOwnedSoldier.morale().delayedStrategicModifier() == -6 &&
 		       constAiOwnedSoldier.morale().aiMorale() == 5 &&
 		       constAiOwnedSoldier.morale().isFrenzied(),
 		       "soldier communication and morale domains retain their independent lifecycles" );
@@ -10977,6 +11026,7 @@ int main( int, char** )
 		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
 		       copiedAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       copiedAiOwnedSoldier.morale().delayedStrategicModifier() == -6 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == -2 &&
 		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
@@ -10994,6 +11044,7 @@ int main( int, char** )
 		       copiedAiOwnedSoldier.aiBehavior().flags() == 0 &&
 		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 0 } &&
 		       copiedAiOwnedSoldier.morale().morale() == 0 &&
+		       copiedAiOwnedSoldier.morale().delayedStrategicModifier() == 0 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[0] == 0 &&
 		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == 0 &&
@@ -11054,6 +11105,7 @@ int main( int, char** )
 		legacySoldier->bTeamMoraleMod = -2;
 		legacySoldier->bTacticalMoraleMod = 3;
 		legacySoldier->bStrategicMoraleMod = -4;
+		legacySoldier->bDelayedStrategicMoraleMod = -7;
 		legacySoldier->bAIMorale = 5;
 		legacySoldier->bInterruptDuelPts = -1;
 		legacySoldier->bPassedLastInterrupt = 1;
@@ -11066,6 +11118,8 @@ int main( int, char** )
 		legacySoldier->bCallPriority = 14;
 		legacySoldier->bCallActedUpon = -1;
 		legacySoldier->bFrenzied = 1;
+		legacySoldier->ubMiscSoldierFlags =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION;
 		legacySoldier->bNormalSmell = 15;
 		legacySoldier->bMonsterSmell = 16;
 		legacySoldier->bMobility = 2;
@@ -11425,6 +11479,10 @@ int main( int, char** )
 		convertedSoldier.aiBehavior().flags() = -1;
 		convertedSoldier.aiCommunication().caller() = SoldierID{ 99 };
 		convertedSoldier.morale().morale() = 99;
+		convertedSoldier.morale().delayedStrategicModifier() = 98;
+		convertedSoldier.featureFlags().eventFlags() = 0xFF;
+		convertedSoldier.featureFlags().primaryFlags() = 0xFFFFFFFFu;
+		convertedSoldier.featureFlags().secondaryFlags() = 0xFFFFFFFFu;
 		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
 		convertedSoldier.perception().noiseGrid() = 99903;
 		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
@@ -11607,9 +11665,15 @@ int main( int, char** )
 		       convertedSoldier.morale().teamModifier() == -2 &&
 		       convertedSoldier.morale().tacticalModifier() == 3 &&
 		       convertedSoldier.morale().strategicModifier() == -4 &&
+		       convertedSoldier.morale().delayedStrategicModifier() == -7 &&
 		       convertedSoldier.morale().aiMorale() == 5 &&
 		       convertedSoldier.morale().frenzied() == 1,
 		       "v101 soldier conversion maps AI communication and every morale channel" );
+		CHECK( convertedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_HURT_BY_EXPLOSION) &&
+		       convertedSoldier.featureFlags().primaryFlags() == 0 &&
+		       convertedSoldier.featureFlags().secondaryFlags() == 0,
+		       "v101 soldier conversion maps historical event flags and clears later feature banks" );
 		CHECK( convertedSoldier.awareness().opponentKnowledge()[0] == 2 &&
 		       convertedSoldier.awareness().opponentKnowledge()[
 			       MAX_NUM_SOLDIERS - 1] == -3 &&
@@ -12224,6 +12288,7 @@ int main( int, char** )
 		savedSoldier.morale().teamModifier() = -3;
 		savedSoldier.morale().tacticalModifier() = 4;
 		savedSoldier.morale().strategicModifier() = -5;
+		savedSoldier.morale().delayedStrategicModifier() = -8;
 		savedSoldier.morale().aiMorale() = 5;
 		savedSoldier.morale().frenzied() = 1;
 		savedSoldier.awareness().opponentKnowledge()[0] = 3;
@@ -12263,6 +12328,12 @@ int main( int, char** )
 		}
 		savedSoldier.status().flags() =
 			SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER;
+		savedSoldier.featureFlags().eventFlags() =
+			SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED;
+		savedSoldier.featureFlags().primaryFlags() =
+			SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION;
+		savedSoldier.featureFlags().secondaryFlags() =
+			SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED;
 		savedSoldier.inventoryState().keyAccess() = -7;
 		savedSoldier.inventoryState().checkForNewItems() = TRUE;
 		savedSoldier.inventoryState().zipperFlag() = TRUE;
@@ -12767,6 +12838,7 @@ int main( int, char** )
 		       loadedSoldier.morale().teamModifier() == -3 &&
 		       loadedSoldier.morale().tacticalModifier() == 4 &&
 		       loadedSoldier.morale().strategicModifier() == -5 &&
+		       loadedSoldier.morale().delayedStrategicModifier() == -8 &&
 		       loadedSoldier.morale().aiMorale() == 5 &&
 		       loadedSoldier.morale().frenzied() == 1,
 		       "soldier save/load round-trips component-owned AI communication and morale" );
@@ -12807,6 +12879,12 @@ int main( int, char** )
 		CHECK( saved && loaded &&
 		       loadedSoldier.status().flags() ==
 			       (SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER) &&
+		       loadedSoldier.featureFlags().eventFlags() ==
+		           (SOLDIER_MISC_HEARD_GUNSHOT | SOLDIER_MISC_XRAYED) &&
+		       loadedSoldier.featureFlags().primaryFlags() ==
+		           (SOLDIER_COVERT_SOLDIER | SOLDIER_BATTLE_PARTICIPATION) &&
+		       loadedSoldier.featureFlags().secondaryFlags() ==
+		           (SOLDIER_TRAIT_FOCUS | SOLDIER_SURGERY_BOOSTED) &&
 		       loadedSoldier.inventoryState().keyAccess() == -7 &&
 		       loadedSoldier.inventoryState().checkForNewItems() &&
 		       loadedSoldier.inventoryState().zipperFlag() &&
@@ -12820,7 +12898,7 @@ int main( int, char** )
 		       loadedSoldier.fireControl().aimPaused() &&
 		       loadedSoldier.animationActivity().reactingFromShot() &&
 		       loadedSoldier.animationActivity().externalDeath(),
-		       "soldier save/load round-trips every former general flag through its established byte position and domain owner" );
+		       "soldier save/load round-trips all status and feature flags through established byte positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&

@@ -1933,7 +1933,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 			ubInsertionDirection = SOUTHEAST;
 			ubStrategicInsertionCode = INSERTION_CODE_NORTH;
 		}
-		else if ( pGroup->usGroupTeam == OUR_TEAM && pGroup->pPlayerList->pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+		else if ( pGroup->usGroupTeam == OUR_TEAM && pGroup->pPlayerList->pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 		{
 			ubInsertionDirection = DIRECTION_IRRELEVANT;
 			ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
@@ -2371,7 +2371,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 					if ( bNewSquad == -1 )
 						continue;
 
-					pSoldier->usSoldierFlagMask2 |= SOLDIER_CONCEALINSERTION;
+					pSoldier->featureFlags().secondaryFlags() |= SOLDIER_CONCEALINSERTION;
 
 					AddCharacterToSquad( pSoldier, bNewSquad );
 				}

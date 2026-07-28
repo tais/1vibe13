@@ -775,7 +775,7 @@ void ChangeSoldiersAssignment( SOLDIERTYPE *pSoldier, INT8 bAssignment )
 
 	// if we are no longer a POW, erase possible knowledge flag
 	if ( pSoldier->assignment().current() == ASSIGNMENT_POW )
-		pSoldier->usSoldierFlagMask2 &= ~SOLDIER_MERC_POW_LOCATIONKNOWN;
+		pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_MERC_POW_LOCATIONKNOWN;
 
 	pSoldier->assignment().current() = bAssignment;
 /// don't kill iVehicleId, though, 'cause militia training tries to put guys back in their vehicles when it's done(!)
@@ -6801,7 +6801,7 @@ void HandleSpyAssignments()
 					INT8 bNewSquad = GetFirstEmptySquad();
 					if ( bNewSquad >= 0 )
 					{
-						pSoldier->usSoldierFlagMask2 |= SOLDIER_CONCEALINSERTION;
+						pSoldier->featureFlags().secondaryFlags() |= SOLDIER_CONCEALINSERTION;
 
 						AddCharacterToSquad( pSoldier, bNewSquad );
 
@@ -6860,7 +6860,7 @@ void HandleSpyAssignments()
 		{
 			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(usIdOfUncoveredMerc);
 
-			pSoldier->usSoldierFlagMask2 |= (SOLDIER_CONCEALINSERTION|SOLDIER_CONCEALINSERTION_DISCOVERED);
+			pSoldier->featureFlags().secondaryFlags() |= (SOLDIER_CONCEALINSERTION|SOLDIER_CONCEALINSERTION_DISCOVERED);
 
 			AddCharacterToSquad( pSoldier, bNewSquad );
 
@@ -8271,27 +8271,27 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					UINT16 tmp;
 					UINT32 points = CalculateInterrogationValue( pSoldier, &tmp );
 
-					if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_TROOP )
+					if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_TROOP )
 					{
 						++numinterrogators[PRISONER_REGULAR];
 						interrogationpoints[PRISONER_REGULAR] += points;
 					}
-					else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_ELITE )
+					else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_ELITE )
 					{
 						++numinterrogators[PRISONER_ELITE];
 						interrogationpoints[PRISONER_ELITE] += points;
 					}
-					else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_OFFICER )
+					else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_OFFICER )
 					{
 						++numinterrogators[PRISONER_OFFICER];
 						interrogationpoints[PRISONER_OFFICER] += points;
 					}
-					else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_GENERAL )
+					else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_GENERAL )
 					{
 						++numinterrogators[PRISONER_GENERAL];
 						interrogationpoints[PRISONER_GENERAL] += points;
 					}
-					else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_CIVILIAN )
+					else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_CIVILIAN )
 					{
 						++numinterrogators[PRISONER_CIVILIAN];
 						interrogationpoints[PRISONER_CIVILIAN] += points;
@@ -8494,7 +8494,7 @@ void BuildIntelInfoArray()
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 			// if this is a POW, and we don't know their location, we can use that
-			if ( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ) )
+			if ( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_MERC_POW_LOCATIONKNOWN ) )
 				intelarray[i] = ubID;
 		}
 		// next 6: terrorist locations
@@ -8680,7 +8680,7 @@ void BuyIntelInfo( int aInfoNumber )
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 		if ( pSoldier && pSoldier->assignment().current() == ASSIGNMENT_POW )
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_MERC_POW_LOCATIONKNOWN;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_MERC_POW_LOCATIONKNOWN;
 	}
 	// next 6: terrorist locations
 	else if ( aInfoNumber < 0 + gStrategicStatus.usVIPsTotal + gEnemyHeliVector.size() + (UINT16)gTacticalStatus.Team[gbPlayerNum].bLastID - (UINT16)gTacticalStatus.Team[gbPlayerNum].bFirstID + 6 )
@@ -8863,7 +8863,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					sectormercmap[targetsector].first++;
 
 					// it is possible that this guy only moves stuff that is not reserved for the militia
-					if ( pSoldier->usSoldierFlagMask & SOLDIER_MOVEITEM_RESTRICTED )
+					if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_MOVEITEM_RESTRICTED )
 						sectormercmap[targetsector].second++;
 				}
 				else
@@ -8872,7 +8872,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 					pair.first = 1;
 
 					// it is possible that this guy only moves stuff that is not reserved for the militia
-					if ( pSoldier->usSoldierFlagMask & SOLDIER_MOVEITEM_RESTRICTED )
+					if ( pSoldier->featureFlags().primaryFlags() & SOLDIER_MOVEITEM_RESTRICTED )
 						pair.second = 1;
 
 					sectormercmap[targetsector] = pair;
@@ -13625,9 +13625,9 @@ void SnitchToggleMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if( iValue == SNITCH_MENU_TOGGLE_ON )
 		{
-			if ( pSoldier->usSoldierFlagMask2 & SOLDIER_SNITCHING_OFF )
+			if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_SNITCHING_OFF )
 			{
-				pSoldier->usSoldierFlagMask2 &= ~SOLDIER_SNITCHING_OFF;
+				pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_SNITCHING_OFF;
 				fShowSnitchToggleMenu = FALSE;
 				fShowAssignmentMenu = FALSE;
 				giAssignHighLine = -1;
@@ -13635,9 +13635,9 @@ void SnitchToggleMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if( iValue == SNITCH_MENU_TOGGLE_OFF )
 		{
-			if ( !(pSoldier->usSoldierFlagMask2 & SOLDIER_SNITCHING_OFF) )
+			if ( !(pSoldier->featureFlags().secondaryFlags() & SOLDIER_SNITCHING_OFF) )
 			{
-				pSoldier->usSoldierFlagMask2 |= SOLDIER_SNITCHING_OFF;
+				pSoldier->featureFlags().secondaryFlags() |= SOLDIER_SNITCHING_OFF;
 				fShowSnitchToggleMenu = FALSE;
 				fShowAssignmentMenu = FALSE;
 				giAssignHighLine = -1;
@@ -13646,9 +13646,9 @@ void SnitchToggleMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if( iValue == SNITCH_MENU_MISBEHAVIOUR_ON )
 		{
-			if ( pSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF )
+			if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF )
 			{
-				pSoldier->usSoldierFlagMask2 &= ~SOLDIER_PREVENT_MISBEHAVIOUR_OFF;
+				pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_PREVENT_MISBEHAVIOUR_OFF;
 				fShowSnitchToggleMenu = FALSE;
 				fShowAssignmentMenu = FALSE;
 				giAssignHighLine = -1;
@@ -13656,9 +13656,9 @@ void SnitchToggleMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if( iValue == SNITCH_MENU_MISBEHAVIOUR_OFF)
 		{
-			if ( !(pSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF) )
+			if ( !(pSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF) )
 			{
-				pSoldier->usSoldierFlagMask2 |= SOLDIER_PREVENT_MISBEHAVIOUR_OFF;
+				pSoldier->featureFlags().secondaryFlags() |= SOLDIER_PREVENT_MISBEHAVIOUR_OFF;
 				fShowSnitchToggleMenu = FALSE;
 				fShowAssignmentMenu = FALSE;
 				giAssignHighLine = -1;
@@ -13783,48 +13783,48 @@ void PrisonerMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 		else if ( iValue == PRISONER_MENU_ADMIN )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_ADMIN;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_ADMIN;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
 		}
 		else if ( iValue == PRISONER_MENU_TROOP )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_TROOP;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_TROOP;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
 		}
 		else if ( iValue == PRISONER_MENU_ELITE )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_ELITE;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_ELITE;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
 		}
 		else if ( iValue == PRISONER_MENU_OFFICER )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_OFFICER;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_OFFICER;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
 		}
 		else if ( iValue == PRISONER_MENU_GENERAL )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_GENERAL;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_GENERAL;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
 		}
 		else if ( iValue == PRISONER_MENU_CIVILIAN )
 		{
-			pSoldier->usSoldierFlagMask2 &= ~SOLDIER_INTERROGATE_ALL;
-			pSoldier->usSoldierFlagMask2 |= SOLDIER_INTERROGATE_CIVILIAN;
+			pSoldier->featureFlags().secondaryFlags() &= ~SOLDIER_INTERROGATE_ALL;
+			pSoldier->featureFlags().secondaryFlags() |= SOLDIER_INTERROGATE_CIVILIAN;
 			fShowPrisonerMenu = FALSE;
 			fShowAssignmentMenu = FALSE;
 			giAssignHighLine = -1;
@@ -17999,7 +17999,7 @@ void HandleShadingOfLinesForSnitchToggleMenu( void )
 
 	SOLDIERTYPE* pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if( pSoldier->usSoldierFlagMask2 & SOLDIER_SNITCHING_OFF )
+	if( pSoldier->featureFlags().secondaryFlags() & SOLDIER_SNITCHING_OFF )
 	{
 		UnShadeStringInBox( ghSnitchToggleBox, SNITCH_MENU_TOGGLE_ON );
 		ShadeStringInBox( ghSnitchToggleBox, SNITCH_MENU_TOGGLE_OFF );
@@ -18010,7 +18010,7 @@ void HandleShadingOfLinesForSnitchToggleMenu( void )
 		UnShadeStringInBox( ghSnitchToggleBox, SNITCH_MENU_TOGGLE_OFF );
 	}
 
-	if( pSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF )
+	if( pSoldier->featureFlags().secondaryFlags() & SOLDIER_PREVENT_MISBEHAVIOUR_OFF )
 	{
 		UnShadeStringInBox( ghSnitchToggleBox, SNITCH_MENU_MISBEHAVIOUR_ON );
 		ShadeStringInBox( ghSnitchToggleBox, SNITCH_MENU_MISBEHAVIOUR_OFF );
@@ -18037,27 +18037,27 @@ void HandleShadingOfLinesForPrisonerMenu( void )
 	UnShadeStringInBox( ghPrisonerBox, PRISONER_MENU_GENERAL );
 	UnShadeStringInBox( ghPrisonerBox, PRISONER_MENU_CIVILIAN );
 
-	if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_ADMIN )
+	if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_ADMIN )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_ADMIN );
 	}
-	else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_TROOP )
+	else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_TROOP )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_TROOP );
 	}
-	else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_ELITE )
+	else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_ELITE )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_ELITE );
 	}
-	else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_OFFICER )
+	else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_OFFICER )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_OFFICER );
 	}
-	else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_GENERAL )
+	else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_GENERAL )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_GENERAL );
 	}
-	else if ( pSoldier->usSoldierFlagMask2 & SOLDIER_INTERROGATE_CIVILIAN )
+	else if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_INTERROGATE_CIVILIAN )
 	{
 		ShadeStringInBox( ghPrisonerBox, PRISONER_MENU_CIVILIAN );
 	}
@@ -22265,7 +22265,7 @@ static void ApplySurgeryBloodBagBoost(
 	pObj->RemoveObjectsFromStack(1);
 	if (pObj->ubNumberOfObjects <= 0)
 		DeleteObj(pObj);
-	doctor->usSoldierFlagMask2 |= SOLDIER_SURGERY_BOOSTED;
+	doctor->featureFlags().secondaryFlags() |= SOLDIER_SURGERY_BOOSTED;
 }
 
 // SANDRO - function for automatic surgery button callback
@@ -22298,7 +22298,7 @@ void SurgeryBeforeDoctoringRequesterCallback( UINT8 bExitValue )
 		}
 
 		// Flugente: after surgery is done, remove the optional blood bag boosting
-		doctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
+		doctor->featureFlags().secondaryFlags() &= ~SOLDIER_SURGERY_BOOSTED;
 	}
 }
 
@@ -22329,7 +22329,7 @@ void SurgeryBeforePatientingRequesterCallback( UINT8 bExitValue )
 		}
 
 		// Flugente: after surgery is done, remove the optional blood bag boosting
-		doctor->usSoldierFlagMask2 &= ~SOLDIER_SURGERY_BOOSTED;
+		doctor->featureFlags().secondaryFlags() &= ~SOLDIER_SURGERY_BOOSTED;
 	}
 }
 // SANDRO - function for automatic surgery on all patients
@@ -22832,13 +22832,13 @@ void MoveItemMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			{
 				pSoldier->assignment().itemMoveSectorId() = (UINT8)(usMoveItemSectors[iValue] - MOVEITEM_SECTOR_OFFSET);
 
-				pSoldier->usSoldierFlagMask &= ~SOLDIER_MOVEITEM_RESTRICTED;
+				pSoldier->featureFlags().primaryFlags() &= ~SOLDIER_MOVEITEM_RESTRICTED;
 			}
 			else if ( iValue < MOVEITEM_MAX_SECTORS_WITH_MODIFIER )
 			{				
 				pSoldier->assignment().itemMoveSectorId() = (UINT8)(usMoveItemSectors[iValue] - MOVEITEM_SECTOR_OFFSET);
 
-				pSoldier->usSoldierFlagMask |= SOLDIER_MOVEITEM_RESTRICTED;
+				pSoldier->featureFlags().primaryFlags() |= SOLDIER_MOVEITEM_RESTRICTED;
 			}
 
 			// assign to a movement group

@@ -3046,7 +3046,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 						}
 
 						// Flugente: override if entering from concealment
-						if ( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION )
+						if ( pSoldier->featureFlags().secondaryFlags() & SOLDIER_CONCEALINSERTION )
 						{
 							pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 							pSoldier->deployment().strategicInsertionData() = pSoldier->longAction().contextGrid();

@@ -1794,7 +1794,7 @@ INT32 ClosestUnDisguisedPC( SOLDIERTYPE *pSoldier, INT32 * psDistance )
 		if ( AM_AN_EPC( pTargetSoldier ) )
 			continue;
 
-		if ( pTargetSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
+		if ( pTargetSoldier->featureFlags().primaryFlags() & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER) )
 			continue;
 
 		sDist = PythSpacesAway(pSoldier->position().gridNo(),pTargetSoldier->position().gridNo());
@@ -3494,7 +3494,7 @@ SoldierID GetClosestFlaggedSoldierID( SOLDIERTYPE * pSoldier, INT16 aRange, UINT
 			continue;
 
 		// check for flag
-		if ( !(pFriend->usSoldierFlagMask & aFlag) )
+		if ( !(pFriend->featureFlags().primaryFlags() & aFlag) )
 			continue;
 
 		// are we close enough?

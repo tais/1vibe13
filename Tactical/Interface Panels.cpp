@@ -4081,7 +4081,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		}
 
 		// Flugente: we have to recheck our flashlights, as we changed items
-		//GetSMCurrentMerc()->usSoldierFlagMask |= SOLDIER_REDOFLASHLIGHT;
+		//GetSMCurrentMerc()->featureFlags().primaryFlags() |= SOLDIER_REDOFLASHLIGHT;
 		GetSMCurrentMerc()->HandleFlashLights();
 
 		// sevenfm: update morale, as we could add/remove walkman

@@ -16753,7 +16753,7 @@ void GetMapscreenMercLocationString( SOLDIERTYPE *pSoldier, CHAR16 sString[] )
 	else
 	{
 		// Flugente: if we have intel on a POW, DO show their location
-		if ( pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->usSoldierFlagMask2 & SOLDIER_MERC_POW_LOCATIONKNOWN ))
+		if ( pSoldier->assignment().current() == ASSIGNMENT_POW && !( pSoldier->featureFlags().secondaryFlags() & SOLDIER_MERC_POW_LOCATIONKNOWN ))
 		{
 			// POW - location unknown
 			sgp_swprintf( sString, 32,L"%s", pPOWStrings[ 1 ] );
