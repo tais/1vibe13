@@ -2956,8 +2956,8 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								Layers::LayerGraphIterator layerEnd;
 								if (bt != NULL)
 								{
-									layerIter = Layers::Instance().GetIterator(pSoldier->bMovementDirection);
-									layerEnd = Layers::Instance().GetIterationEnd(pSoldier->bMovementDirection);
+									layerIter = Layers::Instance().GetIterator(pSoldier->movement().animationDirection());
+									layerEnd = Layers::Instance().GetIterationEnd(pSoldier->movement().animationDirection());
 								}
 
 								HVOBJECT hVObjectAlpha = NULL;

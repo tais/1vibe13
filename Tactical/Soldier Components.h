@@ -1303,6 +1303,18 @@ class SoldierMovementComponent
 public:
 	INT16& mode() noexcept { return mode_; }
 	const INT16& mode() const noexcept { return mode_; }
+	INT8& stealthMode() noexcept { return stealthMode_; }
+	const INT8& stealthMode() const noexcept { return stealthMode_; }
+	INT8& reverse() noexcept { return reverse_; }
+	const INT8& reverse() const noexcept { return reverse_; }
+	UINT8& highResolutionDirection() noexcept { return highResolutionDirection_; }
+	const UINT8& highResolutionDirection() const noexcept { return highResolutionDirection_; }
+	UINT8& highResolutionDesiredDirection() noexcept { return highResolutionDesiredDirection_; }
+	const UINT8& highResolutionDesiredDirection() const noexcept { return highResolutionDesiredDirection_; }
+	INT8& animationDirection() noexcept { return animationDirection_; }
+	const INT8& animationDirection() const noexcept { return animationDirection_; }
+	UINT16& gridUpdatePolicy() noexcept { return gridUpdatePolicy_; }
+	const UINT16& gridUpdatePolicy() const noexcept { return gridUpdatePolicy_; }
 	UINT8& delayCounter() noexcept { return delayCounter_; }
 	const UINT8& delayCounter() const noexcept { return delayCounter_; }
 	INT32& delayedCauseGrid() noexcept { return delayedCauseGrid_; }
@@ -1328,7 +1340,18 @@ public:
 	BOOLEAN& usesMoveSpeedOverride() noexcept { return usesMoveSpeedOverride_; }
 	const BOOLEAN& usesMoveSpeedOverride() const noexcept { return usesMoveSpeedOverride_; }
 
+	bool stealthy() const noexcept { return stealthMode_ != FALSE; }
+	bool reversing() const noexcept { return reverse_ != FALSE; }
 	bool delayed() const noexcept { return delayCounter_ != 0; }
+	void setStealth(bool enabled) noexcept { stealthMode_ = enabled ? TRUE : FALSE; }
+	void setReverse(bool enabled) noexcept { reverse_ = enabled ? TRUE : FALSE; }
+	void setHighResolutionFacing(UINT8 current, UINT8 desired) noexcept
+	{
+		highResolutionDirection_ = current;
+		highResolutionDesiredDirection_ = desired;
+	}
+	void requestGridUpdateSuppression() noexcept { gridUpdatePolicy_ = 1; }
+	void clearGridUpdatePolicy() noexcept { gridUpdatePolicy_ = 0; }
 	void waitForGrid(INT32 gridNo, UINT8 counter) noexcept;
 	void clearDelay() noexcept { delayCounter_ = 0; }
 	void blockInDirection(INT8 direction) noexcept;
@@ -1341,6 +1364,12 @@ public:
 
 private:
 	INT16 mode_ = 0;
+	INT8 stealthMode_ = 0;
+	INT8 reverse_ = 0;
+	UINT8 highResolutionDirection_ = 0;
+	UINT8 highResolutionDesiredDirection_ = 0;
+	INT8 animationDirection_ = 0;
+	UINT16 gridUpdatePolicy_ = 0;
 	UINT8 delayCounter_ = 0;
 	INT32 delayedCauseGrid_ = 0;
 	INT32 reservedGrid_ = 0;

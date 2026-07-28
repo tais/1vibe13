@@ -325,7 +325,7 @@ void SetUpInterface( )
 				}
 				else
 				{
-					if ( selectedSoldier->bStealthMode )
+					if ( selectedSoldier->movement().stealthMode() )
 					{
 						AddTopmostToHead( gsUIHandleShowMoveGridLocation, GetSnapCursorIndex( FIRSTPOINTERS9 ) );
 						gpWorldLevelData[gsUIHandleShowMoveGridLocation].pTopmostHead->ubShadeLevel=DEFAULT_SHADE_LEVEL;

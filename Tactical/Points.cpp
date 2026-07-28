@@ -564,7 +564,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 				break;
 		}
 		// Check for reverse mode
-		if ( pSoldier->bReverse || gUIUseReverse )
+		if ( pSoldier->movement().reverse() || gUIUseReverse )
 			sPoints += APBPConstants[AP_REVERSE_MODIFIER];
 
 		// STOMP traits - Athletics trait decreases movement cost
@@ -617,7 +617,7 @@ static INT16 ActionPointCostFromTileCost( SOLDIERTYPE *pSoldier, INT32 sGridNo, 
 			sPoints += GetAPsToOpenDoor( pSoldier ) + GetAPsToOpenDoor( pSoldier ); // Include open and close costs!
 		}
 		// Check for stealth mode
-		if ( pSoldier->bStealthMode )
+		if ( pSoldier->movement().stealthMode() )
 		{
 			 // STOMP traits - Stealthy trait decreases stealth AP modifier
 			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, STEALTHY_NT ))

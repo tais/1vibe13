@@ -1090,7 +1090,6 @@ public:
 	KEY_ON_RING		*pKeyRing;
 
 	UINT8			bInSector;
-	INT8				bStealthMode;
 	
 
 	UINT8			ubWaitActionToDo;
@@ -1127,7 +1126,6 @@ public:
 	PIXEL			*pCurrentShade;
 	UINT8			ubFadeLevel;
 	THROW_PARAMS		*pThrowParams;
-	INT8				bReverse;
 	LEVELNODE		*pLevelNode;
 	LEVELNODE		*pExternShadowLevelNode;
 	LEVELNODE		*pRoofUILevelNode;
@@ -1168,11 +1166,7 @@ public:
 	UINT32			uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
 
 	struct TAG_anitile	*pAniTile;	
-	UINT8				ubHiResDirection;
-	UINT8				ubHiResDesiredDirection;
 	INT8					bVehicleID;
-	INT8					bMovementDirection;
-	UINT16				usDontUpdateNewGridNoOnMoveAnimChange;
 	INT16				sBoundingBoxWidth;
 	INT16				sBoundingBoxHeight;
 	INT16				sBoundingBoxOffsetX;

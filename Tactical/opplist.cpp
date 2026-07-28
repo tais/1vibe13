@@ -5533,7 +5533,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 
 	iStealthSkill = __max(iStealthSkill, 0);
 
-	if (!pSoldier->bStealthMode)	// REGULAR movement
+	if (!pSoldier->movement().stealthMode())	// REGULAR movement
 	{
 		//ubMaxVolume = MAX_MOVEMENT_NOISE - (iStealthSkill / 16);	// 9 - (0 to 6) => 3 to 9
 		sMaxVolume = MAX_MOVEMENT_NOISE - (iStealthSkill / 16) + bGroundVolumeModifier;	// 9 - (0 to 6) => 3 to 9
@@ -5649,7 +5649,7 @@ UINT8 DoorOpeningNoise( SOLDIERTYPE *pSoldier )
 			//shadooow: do not allow stealth to work if there is can attached to doors
 			ubDoorNoise += 4;
 		}
-		else if (pSoldier->bStealthMode)
+		else if (pSoldier->movement().stealthMode())
 		{
 			// CHANGED BY SANDRO - LET'S MAKE THE STEALTH BASED ON AGILITY LIKE IT SHOULD BE
 			INT32 iStealthSkill = 20 + 4 * EffectiveExpLevel(pSoldier) + ((EffectiveAgility(pSoldier, FALSE) * 4) / 10); // 24-100

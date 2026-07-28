@@ -3770,7 +3770,7 @@ int main( int, char** )
 			"actor-reference ingress rejects a detached object even when its slot and incarnation fields match a live merc" );
 
 		commandHostActor.movement().mode() = WALKING;
-		commandHostActor.bReverse = FALSE;
+		commandHostActor.movement().setReverse(false);
 		commandHostActor.pendingAction().action() = 7;
 		const SimulationCommandDispatchResult invalidImmediateMove =
 			TryDispatchMoveToGridCommandNow(
@@ -3794,12 +3794,12 @@ int main( int, char** )
 		       std::holds_alternative<MoveToGridCommand>(
 		           invalidImmediateMoveRecord->command ) &&
 		       commandHostActor.movement().mode() == WALKING &&
-		       commandHostActor.bReverse == FALSE &&
+		       !commandHostActor.movement().reversing() &&
 		       commandHostActor.pendingAction().action() == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
 
 		beginCommandTestFrame();
-		commandHostActor.bStealthMode = FALSE;
+		commandHostActor.movement().setStealth(false);
 		const SimulationCommandDispatchResult stealthEnabled =
 			TryDispatchSetStealthModeCommandNow(
 				commandHostActor, true,
@@ -3821,7 +3821,7 @@ int main( int, char** )
 			compiledContext.runtime().tacticalEntityDirectory().state(
 				TacticalEntityId{ 0, 0x12345678u } );
 		CHECK( stealthEnabled.status == SimulationCommandDispatchStatus::Applied &&
-		       commandHostActor.bStealthMode == TRUE &&
+		       commandHostActor.movement().stealthy() &&
 		       movementStopped.status == SimulationCommandDispatchStatus::Applied &&
 		       !commandHostActor.movement().delayed() &&
 		       commandHostActor.pathing().finalDestinationGrid() == commandHostActor.position().gridNo() &&
@@ -3837,7 +3837,7 @@ int main( int, char** )
 		RestoreJa2TacticalTurnState(ACTIVE | REALTIME, stanceTeam);
 		commandHostActor.animationPlayback().state() = WALKING;
 		commandHostActor.animationIntent().desiredHeight() = ANIM_STAND;
-		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
+		commandHostActor.movement().clearGridUpdatePolicy();
 		const UINT16 expectedMovingStance =
 			commandHostActor.GetMoveStateBasedOnStance(ANIM_CROUCH);
 		const UINT16 movingStanceSurface =
@@ -3901,7 +3901,7 @@ int main( int, char** )
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
 		commandHostActor.animationPlayback().state() = STANDING;
 		commandHostActor.animationIntent().clearDesiredHeight();
-		commandHostActor.usDontUpdateNewGridNoOnMoveAnimChange = 0;
+		commandHostActor.movement().clearGridUpdatePolicy();
 		CHECK( animationCacheHit,
 		       "inline soldier animation cache acquires surfaces and records bounded hits" );
 		CHECK( copiedCacheStartsEmpty,
@@ -7484,6 +7484,11 @@ int main( int, char** )
 		pathing.stored() = 1;
 		SoldierMovementComponent& movement = soldier.movement();
 		movement.mode() = SWATTING;
+		movement.setStealth(true);
+		movement.setReverse(true);
+		movement.setHighResolutionFacing(11, 13);
+		movement.animationDirection() = 5;
+		movement.requestGridUpdateSuppression();
 		movement.waitForGrid(1250, 9);
 		movement.reservedGrid() = 1251;
 		movement.blockInDirection(3);
@@ -7864,6 +7869,12 @@ int main( int, char** )
 		       !constSoldier.pathing().complete(),
 		       "soldier pathing component owns the canonical tactical route" );
 		CHECK( constSoldier.movement().mode() == SWATTING &&
+		       constSoldier.movement().stealthy() &&
+		       constSoldier.movement().reversing() &&
+		       constSoldier.movement().highResolutionDirection() == 11 &&
+		       constSoldier.movement().highResolutionDesiredDirection() == 13 &&
+		       constSoldier.movement().animationDirection() == 5 &&
+		       constSoldier.movement().gridUpdatePolicy() == 1 &&
 		       constSoldier.movement().delayed() &&
 		       constSoldier.movement().delayCounter() == 9 &&
 		       constSoldier.movement().delayedCauseGrid() == 1250 &&
@@ -8747,6 +8758,12 @@ int main( int, char** )
 		       copiedSoldier.pathing().stored() == 1,
 		       "soldier copies retain their owned persistent pathing state" );
 		CHECK( copiedSoldier.movement().mode() == SWATTING &&
+		       copiedSoldier.movement().stealthy() &&
+		       copiedSoldier.movement().reversing() &&
+		       copiedSoldier.movement().highResolutionDirection() == 11 &&
+		       copiedSoldier.movement().highResolutionDesiredDirection() == 13 &&
+		       copiedSoldier.movement().animationDirection() == 5 &&
+		       copiedSoldier.movement().gridUpdatePolicy() == 1 &&
 		       copiedSoldier.movement().delayCounter() == 9 &&
 		       copiedSoldier.movement().delayedCauseGrid() == 1250 &&
 		       copiedSoldier.movement().reservedGrid() == 1251 &&
@@ -8886,6 +8903,10 @@ int main( int, char** )
 		copiedSoldier.movement().clearBlock();
 		copiedSoldier.movement().clearContinuedPath();
 		copiedSoldier.movement().clearMoveSpeedOverride();
+		copiedSoldier.movement().setStealth(false);
+		copiedSoldier.movement().setReverse(false);
+		copiedSoldier.movement().setHighResolutionFacing(2, 3);
+		copiedSoldier.movement().clearGridUpdatePolicy();
 		copiedSoldier.animationIntent().clearDesiredHeight();
 		copiedSoldier.animationIntent().clearFacingAnimation();
 		copiedSoldier.animationIntent().queueAnimation( WALKING );
@@ -8902,7 +8923,12 @@ int main( int, char** )
 		CHECK( !copiedSoldier.movement().delayed() &&
 		       !copiedSoldier.movement().blockedByAnotherMerc() &&
 		       !copiedSoldier.movement().continuedPathValid() &&
-		       !copiedSoldier.movement().usesMoveSpeedOverride(),
+		       !copiedSoldier.movement().usesMoveSpeedOverride() &&
+		       !copiedSoldier.movement().stealthy() &&
+		       !copiedSoldier.movement().reversing() &&
+		       copiedSoldier.movement().highResolutionDirection() == 2 &&
+		       copiedSoldier.movement().highResolutionDesiredDirection() == 3 &&
+		       copiedSoldier.movement().gridUpdatePolicy() == 0,
 		       "soldier movement component clears coordinated movement modes through named transitions" );
 		CHECK( !copiedSoldier.animationIntent().hasDesiredHeight() &&
 		       !copiedSoldier.animationIntent().hasPendingAnimation() &&
@@ -9586,6 +9612,12 @@ int main( int, char** )
 		       copiedSoldier.pathing().stored() == 0,
 		       "soldier initialization resets the complete pathing domain" );
 		CHECK( copiedSoldier.movement().mode() == 0 &&
+		       !copiedSoldier.movement().stealthy() &&
+		       !copiedSoldier.movement().reversing() &&
+		       copiedSoldier.movement().highResolutionDirection() == 0 &&
+		       copiedSoldier.movement().highResolutionDesiredDirection() == 0 &&
+		       copiedSoldier.movement().animationDirection() == 0 &&
+		       copiedSoldier.movement().gridUpdatePolicy() == 0 &&
 		       copiedSoldier.movement().delayCounter() == 0 &&
 		       copiedSoldier.movement().delayedCauseGrid() == 0 &&
 		       copiedSoldier.movement().reservedGrid() == 0 &&
@@ -9860,6 +9892,8 @@ int main( int, char** )
 		legacySoldier->sEndDoorOpenCodeData = 2310;
 		legacySoldier->bAIScheduleProgress = 3;
 		legacySoldier->ubLastFootPrintSound = 4;
+		legacySoldier->ubHiResDirection = 11;
+		legacySoldier->ubHiResDesiredDirection = 13;
 		legacySoldier->ubDoorOpeningNoise = 19;
 		legacySoldier->iBurstSoundID = 501;
 		legacySoldier->iPositionSndID = 502;
@@ -9875,6 +9909,11 @@ int main( int, char** )
 		legacySoldier->ubTilesMovedPerRTBreathUpdate = 5;
 		legacySoldier->usLastMovementAnimPerRTBreathUpdate = WALKING;
 		legacySoldier->usUIMovementMode = SWATTING;
+		legacySoldier->bStealthMode = TRUE;
+		legacySoldier->bReverse = TRUE;
+		legacySoldier->bMovementDirection = 5;
+		legacySoldier->usDontUpdateNewGridNoOnMoveAnimChange =
+			LOCKED_NO_NEWGRIDNO;
 		legacySoldier->numFlanks = 4;
 		legacySoldier->lastFlankSpot = 16004;
 		legacySoldier->sniper = 1;
@@ -9956,6 +9995,11 @@ int main( int, char** )
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
 		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
 		convertedSoldier.movement().mode() = RUNNING;
+		convertedSoldier.movement().setStealth(false);
+		convertedSoldier.movement().setReverse(false);
+		convertedSoldier.movement().setHighResolutionFacing(1, 2);
+		convertedSoldier.movement().animationDirection() = 3;
+		convertedSoldier.movement().requestGridUpdateSuppression();
 		convertedSoldier.interruptSnapshot().captureMoved(9);
 		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
 		convertedSoldier.meleeApproach().rememberGrid(9997);
@@ -10225,8 +10269,15 @@ int main( int, char** )
 		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
 		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
 		       "v101 soldier conversion retains every historical tactical movement-history value" );
-		CHECK( convertedSoldier.movement().mode() == SWATTING,
-		       "v101 soldier conversion maps the established tactical movement mode" );
+		CHECK( convertedSoldier.movement().mode() == SWATTING &&
+		       convertedSoldier.movement().stealthy() &&
+		       convertedSoldier.movement().reversing() &&
+		       convertedSoldier.movement().highResolutionDirection() == 11 &&
+		       convertedSoldier.movement().highResolutionDesiredDirection() == 13 &&
+		       convertedSoldier.movement().animationDirection() == 5 &&
+		       convertedSoldier.movement().gridUpdatePolicy() ==
+		           LOCKED_NO_NEWGRIDNO,
+		       "v101 soldier conversion maps the established tactical movement intent and facing state" );
 		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
 		       convertedSoldier.meleeApproach().grid() == 1700 &&
 		       convertedSoldier.meleeApproach().cost() == 23 &&
@@ -10599,6 +10650,11 @@ int main( int, char** )
 		savedSoldier.pathing().blackListGrid() = 1444;
 		savedSoldier.pathing().stored() = 1;
 		savedSoldier.movement().mode() = WALKING_WEAPON_RDY;
+		savedSoldier.movement().setStealth(true);
+		savedSoldier.movement().setReverse(true);
+		savedSoldier.movement().setHighResolutionFacing(15, 17);
+		savedSoldier.movement().animationDirection() = 6;
+		savedSoldier.movement().gridUpdatePolicy() = LOCKED_NO_NEWGRIDNO;
 		savedSoldier.movement().waitForGrid(1451, 12);
 		savedSoldier.movement().reservedGrid() = 1452;
 		savedSoldier.movement().blockInDirection(6);
@@ -10983,8 +11039,15 @@ int main( int, char** )
 		       "soldier save/load round-trips complete position, movement-history, and pathing state through every established schema site" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().mode() == WALKING_WEAPON_RDY &&
+		       loadedSoldier.movement().stealthy() &&
+		       loadedSoldier.movement().reversing() &&
+		       loadedSoldier.movement().highResolutionDirection() == 15 &&
+		       loadedSoldier.movement().highResolutionDesiredDirection() == 17 &&
+		       loadedSoldier.movement().animationDirection() == 6 &&
+		       loadedSoldier.movement().gridUpdatePolicy() ==
+		           LOCKED_NO_NEWGRIDNO &&
 		       loadedSoldier.movement().delayCounter() == 12,
-		       "soldier save/load round-trips the component-owned movement mode and delay counter" );
+		       "soldier save/load round-trips component-owned movement intent, facing, grid policy, and delay counter" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayedCauseGrid() == 1451,
 		       "soldier save/load round-trips the component-owned movement delay cause" );

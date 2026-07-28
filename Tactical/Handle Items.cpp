@@ -6852,7 +6852,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 
 		ubDetectLevel = CalcTrapDetectLevel( pSoldier, FALSE );
 		/*
-		if (pSoldier->bStealthMode)
+		if (pSoldier->movement().stealthMode())
 		{
 		ubDetectLevel++;
 		}

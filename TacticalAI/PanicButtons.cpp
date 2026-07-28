@@ -320,7 +320,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 			{
 				// determine whether we can still get there
 				//iPathCost = PlotPath( pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, RUNNING, FALSE, FALSE, 0);
-				iPathCost = PlotPath(pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
+				iPathCost = PlotPath(pSoldier, sPanicTriggerGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
 
 				if (iPathCost != 0)
 				{

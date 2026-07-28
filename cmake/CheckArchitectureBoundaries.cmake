@@ -1159,7 +1159,7 @@ foreach(player_command_ingress_file IN LISTS player_command_ingress_files)
   endif()
 
   string(REGEX MATCH
-    "->bStealthMode[ \t]*=[ \t]*[^=]|(^|[^A-Za-z0-9_])StopSoldier[ \t\r\n]*\\("
+    "->movement\\(\\)\\.stealthMode\\(\\)[ \t]*=[ \t]*[^=]|->movement\\(\\)\\.setStealth[ \t\r\n]*\\(|(^|[^A-Za-z0-9_])StopSoldier[ \t\r\n]*\\("
     direct_player_squad_state_mutation "${contents}")
   if(direct_player_squad_state_mutation)
     message(FATAL_ERROR
@@ -1174,7 +1174,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Tactical/Handle UI.cpp"
   player_stance_input_contents)
 string(REGEX MATCH
-  "(^|[^A-Za-z0-9_])ChangeSoldierState[ \t\r\n]*\\(|usDontUpdateNewGridNoOnMoveAnimChange"
+  "(^|[^A-Za-z0-9_])ChangeSoldierState[ \t\r\n]*\\(|movement\\(\\)\\.gridUpdatePolicy"
   direct_player_stance_transition "${player_stance_input_contents}")
 if(direct_player_stance_transition)
   message(FATAL_ERROR
@@ -2045,7 +2045,7 @@ endif()
 file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
   save_load_game_contents)
 string(REGEX MATCH
-  "ar\\.i8\\(vitals\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumBreath\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bStealthMode\\);[ \t]*ar\\.i16\\(vitals\\.breathReduction\\(\\)\\);"
+  "ar\\.i8\\(vitals\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumBreath\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.stealthMode\\(\\)\\);[ \t]*ar\\.i16\\(vitals\\.breathReduction\\(\\)\\);"
   serialized_soldier_breath_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2502,7 +2502,7 @@ foreach(audio_conversion IN ITEMS
 endforeach()
 
 foreach(audio_save_position IN ITEMS
-  "ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(audio.lastFootstepVariant());"
+  "ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());"
   "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);"
   "ar.i8(s.bDelayedStrategicMoraleMod); ar.u8(audio.doorOpeningNoise());"
   "ar.i32(audio.positionSoundId()); ar.i32(audio.turningSoundId()); ar.u8(combatResult.lastDamageReason());")
@@ -5403,7 +5403,7 @@ endif()
 
 # Preserve both scattered persistence sites and every v101 value exactly.
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(s\\.bMovementDirection\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.usDontUpdateNewGridNoOnMoveAnimChange\\);"
+  "ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
   serialized_soldier_previous_grid_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5459,6 +5459,12 @@ foreach(retired_movement_flag IN ITEMS
 endforeach()
 
 foreach(retired_movement_field IN ITEMS
+  bStealthMode
+  bReverse
+  ubHiResDirection
+  ubHiResDesiredDirection
+  bMovementDirection
+  usDontUpdateNewGridNoOnMoveAnimChange
   ubDelayedMovementCauseMerc
   sDelayedMovementCauseGridNo
   sReservedMovementGridNo
@@ -5471,7 +5477,7 @@ foreach(retired_movement_field IN ITEMS
   ubReasonCantFinishMove
   bOverrideMoveSpeed)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(UINT8|INT8|INT16|INT32|SoldierID)[ \t]+${retired_movement_field}[ \t]*;"
+    "(^|[\r\n])[ \t]*(UINT8|UINT16|INT8|INT16|INT32|SoldierID)[ \t]+${retired_movement_field}[ \t]*;"
     retired_current_movement_field
     "${current_soldier_contents}")
   if(retired_current_movement_field)
@@ -5491,6 +5497,12 @@ endif()
 
 foreach(owned_movement_field IN ITEMS
   "INT16;mode"
+  "INT8;stealthMode"
+  "INT8;reverse"
+  "UINT8;highResolutionDirection"
+  "UINT8;highResolutionDesiredDirection"
+  "INT8;animationDirection"
+  "UINT16;gridUpdatePolicy"
   "UINT8;delayCounter"
   "INT32;delayedCauseGrid"
   "INT32;reservedGrid"
@@ -5524,8 +5536,20 @@ string(REGEX MATCH
   serialized_soldier_movement_alias
   "${save_load_game_contents}")
 string(REGEX MATCH
+  "ar\\.i8\\(vitals\\.bleeding\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.breath\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumBreath\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.stealthMode\\(\\)\\);[ \t]*ar\\.i16\\(vitals\\.breathReduction\\(\\)\\);"
+  serialized_soldier_movement_stealth_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pThrowParams\\);[ \t]*ar\\.i8\\(movement\\.reverse\\(\\)\\);"
+  serialized_soldier_movement_reverse_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
   "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(movement\\.mode\\(\\)\\);[ \t]*ar\\.i8\\(uiPresentation\\.interfaceLevel\\(\\)\\);"
   serialized_soldier_movement_mode_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
+  serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);"
@@ -5572,7 +5596,10 @@ string(REGEX MATCH
   serialized_soldier_movement_speed_override_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_alias OR
+   NOT serialized_soldier_movement_stealth_order OR
+   NOT serialized_soldier_movement_reverse_order OR
    NOT serialized_soldier_movement_mode_order OR
+   NOT serialized_soldier_movement_facing_order OR
    NOT serialized_soldier_movement_delay_flag_order OR
    NOT serialized_soldier_movement_block_flag_order OR
    NOT serialized_soldier_movement_speed_flag_order OR
@@ -5591,10 +5618,56 @@ endif()
 string(FIND "${soldier_control_source_contents}"
   "this->movement().mode() = src.usUIMovementMode;"
   soldier_movement_mode_conversion)
+foreach(movement_intent_conversion IN ITEMS
+  "this->movement().stealthMode() = src.bStealthMode;"
+  "this->movement().reverse() = src.bReverse;"
+  "this->movement().highResolutionDirection() = src.ubHiResDirection;"
+  "this->movement().highResolutionDesiredDirection() = src.ubHiResDesiredDirection;"
+  "this->movement().animationDirection() = src.bMovementDirection;"
+  "this->movement().gridUpdatePolicy() = src.usDontUpdateNewGridNoOnMoveAnimChange;")
+  string(FIND "${soldier_control_source_contents}"
+    "${movement_intent_conversion}"
+    soldier_movement_intent_conversion_site)
+  if(soldier_movement_intent_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost route-execution mapping '${movement_intent_conversion}'")
+  endif()
+endforeach()
+foreach(movement_intent_operation IN ITEMS
+  "bool stealthy() const noexcept"
+  "bool reversing() const noexcept"
+  "void setStealth(bool enabled) noexcept"
+  "void setReverse(bool enabled) noexcept"
+  "void setHighResolutionFacing(UINT8 current, UINT8 desired) noexcept"
+  "void requestGridUpdateSuppression() noexcept"
+  "void clearGridUpdatePolicy() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${movement_intent_operation}"
+    soldier_movement_intent_operation_site)
+  if(soldier_movement_intent_operation_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMovementComponent lost named route-execution operation '${movement_intent_operation}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Tactical/Simulation Commands.cpp"
+  movement_simulation_command_contents)
+foreach(movement_command_transition IN ITEMS
+  "soldier->movement().setReverse(value.reverse);"
+  "soldier->movement().setStealth(value.enabled);"
+  "soldier->movement().requestGridUpdateSuppression();")
+  string(FIND "${movement_simulation_command_contents}"
+    "${movement_command_transition}"
+    movement_command_transition_site)
+  if(movement_command_transition_site EQUAL -1)
+    message(FATAL_ERROR
+      "Simulation command execution bypassed movement transition '${movement_command_transition}'")
+  endif()
+endforeach()
 foreach(movement_mode_test_fragment IN ITEMS
-  "constSoldier.movement().mode() == SWATTING"
-  "v101 soldier conversion maps the established tactical movement mode"
-  "soldier save/load round-trips the component-owned movement mode and delay counter")
+  "constSoldier.movement().highResolutionDesiredDirection() == 13"
+  "v101 soldier conversion maps the established tactical movement intent and facing state"
+  "soldier save/load round-trips component-owned movement intent, facing, grid policy, and delay counter"
+  "soldier initialization resets the complete movement domain")
   string(FIND "${headless_test_contents}"
     "${movement_mode_test_fragment}"
     soldier_movement_mode_test_fragment)
@@ -5604,20 +5677,20 @@ foreach(movement_mode_test_fragment IN ITEMS
   endif()
 endforeach()
 string(FIND "${engine_architecture_documentation}"
-  "movement().mode()"
-  soldier_movement_mode_architecture_documented)
+  "high-resolution current"
+  soldier_movement_intent_architecture_documented)
 string(FIND "${engine_sdk_documentation}"
-  "movement().mode()"
-  soldier_movement_mode_sdk_documented)
+  "stealth/reverse intent"
+  soldier_movement_intent_sdk_documented)
 string(FIND "${save_format_documentation}"
-  "usUIMovementMode"
-  soldier_movement_mode_save_documented)
+  "usDontUpdateNewGridNoOnMoveAnimChange"
+  soldier_movement_intent_save_documented)
 if(soldier_movement_mode_conversion EQUAL -1 OR
-   soldier_movement_mode_architecture_documented EQUAL -1 OR
-   soldier_movement_mode_sdk_documented EQUAL -1 OR
-   soldier_movement_mode_save_documented EQUAL -1)
+   soldier_movement_intent_architecture_documented EQUAL -1 OR
+   soldier_movement_intent_sdk_documented EQUAL -1 OR
+   soldier_movement_intent_save_documented EQUAL -1)
   message(FATAL_ERROR
-    "Component-owned movement mode must retain v101 mapping and architecture/save documentation")
+    "Component-owned movement intent must retain v101 mapping and architecture/save documentation")
 endif()
 
 # Current tactical target geometry and actor identity now have one private

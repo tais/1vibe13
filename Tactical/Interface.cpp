@@ -3530,7 +3530,7 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 	{
 		DrawBar( sXPos+2, sYPos, sWidth + 2, 1 + interval*3, COLOR_BLACK, Get16BPPColor( FROMRGB( 0, 0, 0	) ), pDestBuf );
 		// draw border: light brown for stealth mode, grey for regular		
-		if(pSoldier->bStealthMode)
+		if(pSoldier->movement().stealthMode())
 		{
 			color8 = COLOR_BROWN;
 			color16 = Get16BPPColor( FROMRGB( 180, 140, 20 ) );

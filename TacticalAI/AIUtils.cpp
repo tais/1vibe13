@@ -655,7 +655,7 @@ SimulationCommandDispatchResult NewDest(
 	// This should be done if buddy was paused for fNoApstofinishMove...
 	return TryDispatchSystemMoveToGridCommand(
 		*pSoldier, usGridNo, pSoldier->movement().mode(),
-		pSoldier->bReverse != FALSE,
+		pSoldier->movement().reverse() != FALSE,
 		pSoldier->flags.fNoAPToFinishMove != FALSE);
 }
 

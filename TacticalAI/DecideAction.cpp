@@ -712,9 +712,9 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	LogDecideInfo(pSoldier);
 
 	// sevenfm: disable stealth mode
-	pSoldier->bStealthMode = FALSE;
+	pSoldier->movement().setStealth(false);
 	// disable reverse movement mode
-	pSoldier->bReverse = FALSE;
+	pSoldier->movement().setReverse(false);
 	// sevenfm: initialize data
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
@@ -1581,9 +1581,9 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 	LogDecideInfo(pSoldier);
 
 	// sevenfm: disable stealth mode
-	pSoldier->bStealthMode = FALSE;
+	pSoldier->movement().setStealth(false);
 	// disable reverse movement mode
-	pSoldier->bReverse = FALSE;
+	pSoldier->movement().setReverse(false);
 	// sevenfm: initialize data
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
@@ -2514,9 +2514,9 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	LogDecideInfo(pSoldier);
 
 	// sevenfm: disable stealth mode
-	pSoldier->bStealthMode = FALSE;
+	pSoldier->movement().setStealth(false);
 	// disable reverse movement mode
-	pSoldier->bReverse = FALSE;
+	pSoldier->movement().setReverse(false);
 	// sevenfm: initialize data
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
@@ -2793,7 +2793,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 						if (OKFallDirection(pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ubOpponentDir], pSoldier->animationPlayback().state()))
 						{
 							// sevenfm: check if we can reach this gridno
-							INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, FALSE, 0);
+							INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->movement().stealthMode(), FALSE, 0);
 							if (iPathCost != 0 && iPathCost + BestThrow.ubAPCost + GetAPsToLook(pSoldier) + GetAPsCrouch(pSoldier, FALSE) <= pSoldier->actionPoints().current())
 							{
 								DebugAI(AI_MSG_INFO, pSoldier, String("moving backwards to have more room to deploy mortar"));
@@ -4953,9 +4953,9 @@ INT16 ubMinAPCost;
 	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"DecideActionBlack");
 
 	// sevenfm: disable stealth mode
-	pSoldier->bStealthMode = FALSE;
+	pSoldier->movement().setStealth(false);
 	// disable reverse movement mode
-	pSoldier->bReverse = FALSE;
+	pSoldier->movement().setReverse(false);
 	// sevenfm: initialize data
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
@@ -5566,7 +5566,7 @@ INT16 ubMinAPCost;
 					if ( OKFallDirection( pSoldier, sCheckGridNo, pSoldier->position().level(), gOppositeDirection[ ubOpponentDir ], pSoldier->animationPlayback().state() ) )
 					{
 						// sevenfm: check if we can reach this gridno
-					INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, FALSE, 0);
+					INT32 iPathCost = EstimatePlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->movement().stealthMode(), FALSE, 0);
 					if (iPathCost != 0 && iPathCost <= pSoldier->actionPoints().current())
 					{
 							pSoldier->aiData.usActionData = sCheckGridNo;
@@ -5862,7 +5862,7 @@ INT16 ubMinAPCost;
 						NewOKDestination(pSoldier, sTempGridNo, FALSE, pSoldier->position().level()) &&
 						AIDirection(BestStab.sTarget, sTempGridNo) != bestStabOpponent->position().direction())
 					{
-						sPathCost = PlotPath(pSoldier, sTempGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->bStealthMode, pSoldier->bReverse, 0);
+						sPathCost = PlotPath(pSoldier, sTempGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_GET_CLOSER), pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0);
 						if (TileIsOutOfBounds(sBestSpot) || sPathCost < sBestPathCost)
 						{
 							sBestSpot = sTempGridNo;
@@ -6970,11 +6970,11 @@ L_NEWAIM:
 						pSoldier->position().direction() == gOneCDirection[ubOpponentDir] ||
 						pSoldier->position().direction() == gOneCCDirection[ubOpponentDir])
 					{
-						pSoldier->bReverse = TRUE;
+						pSoldier->movement().setReverse(true);
 					}
 
 					if (!NewOKDestination(pSoldier, sCheckGridNo, FALSE, pSoldier->position().level()) ||
-						PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->bStealthMode, pSoldier->bReverse, 0) > pSoldier->actionPoints().current() - 1)
+						PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0) > pSoldier->actionPoints().current() - 1)
 					{
 						//if (sPathcost > pSoldier->actionPoints().current() - (GetAPsToLook(pSoldier) + 1))
 						DebugAI(AI_MSG_INFO, pSoldier, String("boxer: bad destination or high path cost, cannot move away"));
@@ -6986,7 +6986,7 @@ L_NEWAIM:
 					{
 						sCheckGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(gOneCDirection[gOppositeDirection[ubOpponentDir]]));
 						if (!NewOKDestination(pSoldier, sCheckGridNo, FALSE, pSoldier->position().level()) ||
-							PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->bStealthMode, pSoldier->bReverse, 0) > pSoldier->actionPoints().current() - 1)
+							PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0) > pSoldier->actionPoints().current() - 1)
 						{
 							//if (sPathcost > pSoldier->actionPoints().current() - (GetAPsToLook(pSoldier) + 1))
 							DebugAI(AI_MSG_INFO, pSoldier, String("boxer: bad destination or high path cost, cannot move away"));
@@ -6997,7 +6997,7 @@ L_NEWAIM:
 					{
 						sCheckGridNo = NewGridNo(pSoldier->position().gridNo(), DirectionInc(gOneCCDirection[gOppositeDirection[ubOpponentDir]]));
 						if (!NewOKDestination(pSoldier, sCheckGridNo, FALSE, pSoldier->position().level()) ||
-							PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->bStealthMode, pSoldier->bReverse, 0) > pSoldier->actionPoints().current() - 1)
+							PlotPath(pSoldier, sCheckGridNo, FALSE, FALSE, FALSE, DetermineMovementMode(pSoldier, AI_ACTION_TAKE_COVER), pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0) > pSoldier->actionPoints().current() - 1)
 						{
 							//if (sPathcost > pSoldier->actionPoints().current() - (GetAPsToLook(pSoldier) + 1))
 							DebugAI(AI_MSG_INFO, pSoldier, String("boxer: bad destination or high path cost, cannot move away"));
@@ -7011,7 +7011,7 @@ L_NEWAIM:
 						DebugAI(AI_MSG_INFO, pSoldier, String("boxer: get away from opponent"));
 						return(AI_ACTION_TAKE_COVER);
 					}
-					pSoldier->bReverse = FALSE;
+					pSoldier->movement().setReverse(false);
 				}
 			}
 
@@ -7484,9 +7484,9 @@ INT8 ArmedVehicleDecideAction( SOLDIERTYPE *pSoldier )
 	INT8 bAction = AI_ACTION_NONE;
 
 	// sevenfm: disable stealth mode
-	pSoldier->bStealthMode = FALSE;
+	pSoldier->movement().setStealth(false);
 	// disable reverse movement mode
-	pSoldier->bReverse = FALSE;
+	pSoldier->movement().setReverse(false);
 	// sevenfm: initialize data
 	pSoldier->attackSelection().weaponMode() = WM_NORMAL;
 
