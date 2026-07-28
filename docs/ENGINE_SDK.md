@@ -409,6 +409,12 @@ history operations preserve killer and assister attribution as one transition.
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render
 coordinates cannot leak into those rules.
+`SoldierCombatContributionComponent` separately owns outgoing militia kills,
+assists, promotion points, and the fixed 156-slot player-team damage
+attribution record. Named accrual and transfer operations coordinate tactical
+combat, autoresolve, and militia persistence; counters saturate instead of
+wrapping. The serializer retains all three original scattered positions and
+widths, while v101 conversion preserves every historical attribution slot.
 `SoldierSuppressionComponent` owns under-fire aging, shock, per-attack
 suppression points, accumulated AP loss, suppressor identity, and close-call
 feedback. Combat, tactical AI, explosions, and turn transitions use the same

@@ -925,7 +925,7 @@ foreach(required_runtime_soldier_state_fragment IN ITEMS
     "fIgnoreGetupFromCollapseCheck"
     "GetupFromJA25StartCounter"
     "fWaitingToGetupFromJA25Start"
-    "ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS]")
+    "SoldierCombatContributionComponent")
   string(FIND "${runtime_campaign_soldier_state_contents}"
     "${required_runtime_soldier_state_fragment}" runtime_soldier_state_fragment_position)
   if(runtime_soldier_state_fragment_position EQUAL -1)
@@ -937,7 +937,7 @@ foreach(required_runtime_soldier_save_fragment IN ITEMS
     "ar.boolean(s.fIgnoreGetupFromCollapseCheck)"
     "ar.i32(s.GetupFromJA25StartCounter)"
     "ar.boolean(s.fWaitingToGetupFromJA25Start)"
-    "ar.u8(s.ubPercentDamageInflictedByTeam[i])")
+    "ar.u8(combatContribution.damageByTeam()[i])")
   string(FIND "${runtime_campaign_soldier_save_contents}"
     "${required_runtime_soldier_save_fragment}" runtime_soldier_save_fragment_position)
   if(runtime_soldier_save_fragment_position EQUAL -1)
@@ -2957,7 +2957,7 @@ if(soldier_interaction_accessor EQUAL -1 OR
 endif()
 
 foreach(interaction_save_position IN ITEMS
-  "ar.u8(s.ubMilitiaAssists); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);"
+  "ar.u8(combatContribution.militiaAssists()); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);"
   "ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);"
   "ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());")
   string(FIND "${save_load_game_contents}"
@@ -3173,7 +3173,7 @@ string(REGEX MATCH
   serialized_soldier_tactical_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);"
+  "ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);[ \t\r\n]*ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(combatContribution\\.militiaKills\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);"
   serialized_soldier_collapse_duration_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_fatigue_collapse_order OR
@@ -3279,7 +3279,7 @@ string(REGEX MATCH
   serialized_soldier_view_range_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubMilitiaKills\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(assignment\\.hours\\(\\)\\);"
+  "ar\\.i8\\(collapseState\\.sleepDrugCounter\\(\\)\\);[ \t]*ar\\.u8\\(combatContribution\\.militiaKills\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.blindnessTurns\\(\\)\\);[ \t\r\n]*ar\\.u8\\(assignment\\.hours\\(\\)\\);"
   serialized_soldier_blindness_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4357,7 +4357,7 @@ string(REGEX MATCH
   serialized_soldier_attack_weapon_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(assignment\\.facilityType\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.ubMilitiaAssists\\);"
+  "ar\\.i16\\(assignment\\.facilityType\\(\\)\\);[ \t]*ar\\.i8\\(attackSelection\\.scopeMode\\(\\)\\);[ \t\r\n]*ar\\.u8\\(combatContribution\\.militiaAssists\\(\\)\\);"
   serialized_soldier_attack_scope_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_attack_hand_order OR
@@ -4739,6 +4739,122 @@ if(NOT serialized_soldier_damage_display_flag_order OR
    NOT serialized_soldier_earlier_attacker_order)
   message(FATAL_ERROR
     "Soldier combat-result or damage-display state moved in the portable save schema; keep every value at its established byte position")
+endif()
+
+# Outgoing militia credit and the historical player-team assist table form a
+# separate combat-contribution record. Keep its counters saturating, retain the
+# fixed 156-slot payload, and preserve all three scattered serializer sites.
+foreach(retired_combat_contribution_field IN ITEMS
+  ubMilitiaKills
+  ubMilitiaAssists
+  ubPercentDamageInflictedByTeam)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_combat_contribution_field}([^A-Za-z0-9_]|$)"
+    retired_current_combat_contribution_field
+    "${current_soldier_contents}")
+  if(retired_current_combat_contribution_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE combat-contribution field '${retired_combat_contribution_field}' returned; outgoing credit belongs to SoldierCombatContributionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierCombatContributionComponent[ \t\r\n]+combatContribution_[ \t]*;"
+  soldier_combat_contribution_owner
+  "${current_soldier_contents}")
+if(NOT soldier_combat_contribution_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierCombatContributionComponent")
+endif()
+
+string(REGEX MATCH
+  "NUM_ASSIST_SLOTS[ \t]*=[ \t]*156"
+  soldier_combat_contribution_capacity
+  "${soldier_components_header_contents}")
+foreach(owned_combat_contribution_pattern IN ITEMS
+  "UINT8[ \t]+militiaKills_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+militiaAssists_[ \t]*=[ \t]*0"
+  "DamageByTeam[ \t]+damageByTeam_\\{\\}")
+  string(REGEX MATCH
+    "${owned_combat_contribution_pattern}"
+    owned_soldier_combat_contribution_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_combat_contribution_field)
+    message(FATAL_ERROR
+      "SoldierCombatContributionComponent lost initialized owned storage matching '${owned_combat_contribution_pattern}'")
+  endif()
+endforeach()
+if(NOT soldier_combat_contribution_capacity)
+  message(FATAL_ERROR
+    "Soldier combat contribution must retain the established 156 assist-attribution slots")
+endif()
+
+foreach(combat_contribution_operation IN ITEMS
+  "bool hasMilitiaKills() const noexcept"
+  "bool hasMilitiaCredit() const noexcept"
+  "UINT16 militiaPromotionPoints() const noexcept"
+  "void recordMilitiaKill() noexcept"
+  "void recordMilitiaAssist() noexcept"
+  "void clearMilitiaCredit() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${combat_contribution_operation}"
+    soldier_combat_contribution_operation)
+  if(soldier_combat_contribution_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierCombatContributionComponent lost required operation '${combat_contribution_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierCombatContributionComponent& combatContribution() noexcept"
+  soldier_combat_contribution_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierCombatContributionComponent{};"
+  soldier_combat_contribution_default_reset)
+string(REGEX MATCHALL
+  "combatContribution\\(\\)\\.reset\\(\\);"
+  soldier_combat_contribution_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_combat_contribution_reset_sites
+  soldier_combat_contribution_reset_site_count)
+string(REGEX MATCHALL
+  "if \\(militia(Kills|Assists)_ < std::numeric_limits<UINT8>::max\\(\\)\\)"
+  soldier_combat_contribution_saturation_sites
+  "${soldier_components_source_contents}")
+list(LENGTH soldier_combat_contribution_saturation_sites
+  soldier_combat_contribution_saturation_site_count)
+if(soldier_combat_contribution_accessor EQUAL -1 OR
+   soldier_combat_contribution_default_reset EQUAL -1 OR
+   soldier_combat_contribution_reset_site_count LESS 2 OR
+   soldier_combat_contribution_saturation_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierCombatContributionComponent must retain its accessor, conversion/initialization resets, and saturating credit accrual")
+endif()
+
+foreach(combat_contribution_save_position IN ITEMS
+  "ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());"
+  "ar.u8(combatContribution.militiaAssists()); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);"
+  "for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(combatContribution.damageByTeam()[i]);")
+  string(FIND "${save_load_game_contents}"
+    "${combat_contribution_save_position}"
+    soldier_combat_contribution_save_position)
+  if(soldier_combat_contribution_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier combat-contribution state moved or changed width in the portable save schema at '${combat_contribution_save_position}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_source_contents}"
+  "this->combatContribution().militiaKills() = src.ubMilitiaKills;"
+  soldier_combat_contribution_v101_kills)
+string(FIND "${soldier_control_source_contents}"
+  "src.ubPercentDamageInflictedByTeam[i];"
+  soldier_combat_contribution_v101_damage)
+if(soldier_combat_contribution_v101_kills EQUAL -1 OR
+   soldier_combat_contribution_v101_damage EQUAL -1)
+  message(FATAL_ERROR
+    "v101 conversion must retain militia kills and every historical assist-attribution slot")
 endif()
 
 # Hostile-fire reaction state is shared by combat rules and tactical AI, not

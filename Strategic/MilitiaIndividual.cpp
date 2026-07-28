@@ -281,10 +281,9 @@ void ApplyTacticalLifeRatioToMilitia()
 			militia.healthratio = 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth();
 
 			// while we're here, update kills and assists too
-			militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );
+			militia.AddKills( pSoldier->combatContribution().militiaKills(), pSoldier->combatContribution().militiaAssists() );
 
-			pSoldier->ubMilitiaKills = 0;
-			pSoldier->ubMilitiaAssists = 0;
+			pSoldier->combatContribution().clearMilitiaCredit();
 
 			UpdateMilitia( militia );
 		}
@@ -317,10 +316,9 @@ void ApplyMilitiaHealthRatioToTactical()
 			pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 
 			// while we're here, update kills and assists too
-			militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );
+			militia.AddKills( pSoldier->combatContribution().militiaKills(), pSoldier->combatContribution().militiaAssists() );
 
-			pSoldier->ubMilitiaKills = 0;
-			pSoldier->ubMilitiaAssists = 0;
+			pSoldier->combatContribution().clearMilitiaCredit();
 
 			UpdateMilitia( militia );
 		}
@@ -855,7 +853,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 	MILITIA militia;
 	if ( GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
 	{
-		militia.AddKills( pSoldier->ubMilitiaKills, pSoldier->ubMilitiaAssists );
+		militia.AddKills( pSoldier->combatContribution().militiaKills(), pSoldier->combatContribution().militiaAssists() );
 
 		// if we have enough points, promote
 		if ( militia.militiarank == GREEN_MILITIA)
@@ -917,7 +915,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 			if ( pSoldier->vitals().health() < OKLIFE )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_WOUNDED_COMA;
 
-			if ( pSoldier->ubMilitiaKills )
+			if ( pSoldier->combatContribution().hasMilitiaKills() )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
 			if ( militia.healthratio - 100.0f * pSoldier->vitals().health() / pSoldier->vitals().maximumHealth() > 50 )
@@ -942,10 +940,10 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 
 		UpdateMilitia( militia );
 	}
-	else if ( pSoldier->ubMilitiaKills + pSoldier->ubMilitiaAssists > 0 )
+	else if ( pSoldier->combatContribution().hasMilitiaCredit() )
 	{
 		UINT8 ubMilitiaRank = SoldierClassToMilitiaRank( pSoldier->ubSoldierClass );
-		UINT8 ubPromotions = CheckOneMilitiaForPromotion( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ubMilitiaRank, 2 * pSoldier->ubMilitiaKills + pSoldier->ubMilitiaAssists );
+		UINT8 ubPromotions = CheckOneMilitiaForPromotion( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), ubMilitiaRank, pSoldier->combatContribution().militiaPromotionPoints() );
 		if ( ubPromotions )
 		{
 			if ( ubPromotions == 2 )
@@ -972,8 +970,7 @@ void HandlePossibleMilitiaPromotion( SOLDIERTYPE* pSoldier, BOOLEAN aAutoResolve
 		}
 	}
 
-	pSoldier->ubMilitiaKills = 0;
-	pSoldier->ubMilitiaAssists = 0;
+	pSoldier->combatContribution().clearMilitiaCredit();
 }
 
 void MoveIndividualMilitiaProfiles( UINT8 aSourceSector, UINT8 aTargetSector, UINT16 usGreens, UINT16 usRegulars, UINT16 usElites )

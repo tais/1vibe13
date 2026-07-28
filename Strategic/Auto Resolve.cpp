@@ -2642,7 +2642,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 
 					report.flagmask |= MILITIA_BATTLEREPORT_FLAG_DIED;
 
-					if ( gpCivs[i].pSoldier->ubMilitiaKills )
+					if ( gpCivs[i].pSoldier->combatContribution().hasMilitiaKills() )
 						report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
 					militia.history.push_back( report );
@@ -4849,7 +4849,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 				report.id = GetIdOfCurrentlyOngoingIncident( );
 				report.flagmask = MILITIA_BATTLEREPORT_FLAG_DIED;
 
-				if ( pTarget->pSoldier->ubMilitiaKills )
+				if ( pTarget->pSoldier->combatContribution().hasMilitiaKills() )
 					report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
 				militia.history.push_back( report );
@@ -4919,7 +4919,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 			}
 			else if( pAttacker->uiFlags & CELL_MILITIA )
 			{
-				pAttacker->pSoldier->ubMilitiaKills += 1;
+				pAttacker->pSoldier->combatContribution().recordMilitiaKill();
 			}
 			if( pTarget->uiFlags & CELL_MERC && gpAR->fSound )
 			{
@@ -5086,7 +5086,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 			report.id = GetIdOfCurrentlyOngoingIncident( );
 			report.flagmask = MILITIA_BATTLEREPORT_FLAG_DIED;
 
-			if ( pTarget->pSoldier->ubMilitiaKills )
+			if ( pTarget->pSoldier->combatContribution().hasMilitiaKills() )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
 			militia.history.push_back( report );
@@ -5163,7 +5163,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					HandleMoraleEvent( pKiller->pSoldier, MORALE_KILLED_ENEMY, gpAR->ubSectorX, gpAR->ubSectorY, 0	);
 				}
 				else if( pKiller->uiFlags & CELL_MILITIA )
-					pKiller->pSoldier->ubMilitiaKills += 1;
+					pKiller->pSoldier->combatContribution().recordMilitiaKill();
 			}
 			if( pAssister1 )
 			{
@@ -5189,7 +5189,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					StatChange( pAssister1->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->position().level() ), FALSE );
 				}
 				else if( pAssister1->uiFlags & CELL_MILITIA )
-					pAssister1->pSoldier->ubMilitiaAssists++;
+					pAssister1->pSoldier->combatContribution().recordMilitiaAssist();
 			}
 			else if( pAssister2 )
 			{
@@ -5215,7 +5215,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					StatChange( pAssister2->pSoldier, EXPERAMT, ( UINT16 )( 5 * pTarget->pSoldier->position().level() ), FALSE );
 				}
 				else if( pAssister2->uiFlags & CELL_MILITIA )
-					pAssister2->pSoldier->ubMilitiaAssists++;
+					pAssister2->pSoldier->combatContribution().recordMilitiaAssist();
 			}
 		}
 		if( pTarget->uiFlags & CELL_MERC && gpAR->fSound )
@@ -6024,7 +6024,7 @@ void AutoResolveMilitiaDropAndPromote()
 					
 					report.flagmask |= MILITIA_BATTLEREPORT_FLAG_DIED;
 					
-					if ( gpCivs[i].pSoldier->ubMilitiaKills )
+					if ( gpCivs[i].pSoldier->combatContribution().hasMilitiaKills() )
 						report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 					
 					militia.history.push_back( report );

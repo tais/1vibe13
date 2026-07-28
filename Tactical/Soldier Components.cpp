@@ -485,6 +485,33 @@ void SoldierCombatResultComponent::reset() noexcept
 	*this = SoldierCombatResultComponent{};
 }
 
+void SoldierCombatContributionComponent::recordMilitiaKill() noexcept
+{
+	if (militiaKills_ < std::numeric_limits<UINT8>::max())
+	{
+		++militiaKills_;
+	}
+}
+
+void SoldierCombatContributionComponent::recordMilitiaAssist() noexcept
+{
+	if (militiaAssists_ < std::numeric_limits<UINT8>::max())
+	{
+		++militiaAssists_;
+	}
+}
+
+void SoldierCombatContributionComponent::clearMilitiaCredit() noexcept
+{
+	militiaKills_ = 0;
+	militiaAssists_ = 0;
+}
+
+void SoldierCombatContributionComponent::reset() noexcept
+{
+	*this = SoldierCombatContributionComponent{};
+}
+
 void SoldierSuppressionComponent::addPoints(UINT16 amount) noexcept
 {
 	// Preserve the established UINT8 accumulation semantics.

@@ -7472,6 +7472,13 @@ int main( int, char** )
 		combatResult.hitsThisTurn() = 3;
 		combatResult.pelletsHitBy() = 4;
 		combatResult.accumulatedDamage() = 27;
+		SoldierCombatContributionComponent& combatContribution =
+			soldier.combatContribution();
+		combatContribution.recordMilitiaKill();
+		combatContribution.recordMilitiaKill();
+		combatContribution.recordMilitiaAssist();
+		combatContribution.damageByTeam()[0] = 41;
+		combatContribution.damageByTeam()[NUM_ASSIST_SLOTS - 1] = 42;
 		SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
 		damageDisplay.activateAt(13, -9);
 		damageDisplay.counter() = 2;
@@ -7769,6 +7776,14 @@ int main( int, char** )
 		       constSoldier.combatResult().pelletsHitBy() == 4 &&
 		       constSoldier.combatResult().accumulatedDamage() == 27,
 		       "soldier combat-result component owns incoming hit attribution and outcome state" );
+		CHECK( constSoldier.combatContribution().hasMilitiaKills() &&
+		       constSoldier.combatContribution().hasMilitiaCredit() &&
+		       constSoldier.combatContribution().militiaKills() == 2 &&
+		       constSoldier.combatContribution().militiaAssists() == 1 &&
+		       constSoldier.combatContribution().militiaPromotionPoints() == 5 &&
+		       constSoldier.combatContribution().damageByTeam()[0] == 41 &&
+		       constSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 42,
+		       "soldier combat-contribution component owns militia credit and fixed assist attribution" );
 		CHECK( constSoldier.damageDisplay().displaying() &&
 		       constSoldier.damageDisplay().counter() == 2 &&
 		       constSoldier.damageDisplay().offsetX() == 13 &&
@@ -8085,6 +8100,34 @@ int main( int, char** )
 		       interactionLifecycle.draggedCorpse() == -1 &&
 		       !interactionLifecycle.chatting(),
 		       "soldier interaction reset clears every relationship and restores invalid drag sentinels" );
+		SoldierCombatContributionComponent contributionLifecycle;
+		CHECK( !contributionLifecycle.hasMilitiaCredit() &&
+		       contributionLifecycle.militiaPromotionPoints() == 0 &&
+		       contributionLifecycle.damageByTeam()[0] == 0 &&
+		       contributionLifecycle.damageByTeam()[NUM_ASSIST_SLOTS - 1] == 0,
+		       "soldier combat contribution defaults every credit and attribution slot" );
+		contributionLifecycle.recordMilitiaKill();
+		contributionLifecycle.recordMilitiaAssist();
+		contributionLifecycle.damageByTeam()[0] = 43;
+		CHECK( contributionLifecycle.militiaKills() == 1 &&
+		       contributionLifecycle.militiaAssists() == 1 &&
+		       contributionLifecycle.militiaPromotionPoints() == 3,
+		       "soldier combat contribution accrues named promotion credit" );
+		contributionLifecycle.militiaKills() = 255;
+		contributionLifecycle.militiaAssists() = 255;
+		contributionLifecycle.recordMilitiaKill();
+		contributionLifecycle.recordMilitiaAssist();
+		CHECK( contributionLifecycle.militiaKills() == 255 &&
+		       contributionLifecycle.militiaAssists() == 255,
+		       "soldier combat contribution saturates instead of wrapping long battles" );
+		contributionLifecycle.clearMilitiaCredit();
+		CHECK( !contributionLifecycle.hasMilitiaCredit() &&
+		       contributionLifecycle.damageByTeam()[0] == 43,
+		       "transferring militia credit leaves independent assist attribution intact" );
+		contributionLifecycle.reset();
+		CHECK( !contributionLifecycle.hasMilitiaCredit() &&
+		       contributionLifecycle.damageByTeam()[0] == 0,
+		       "soldier combat-contribution reset clears the complete persistent domain" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -8314,6 +8357,11 @@ int main( int, char** )
 		       copiedSoldier.combatResult().pelletsHitBy() == 4 &&
 		       copiedSoldier.combatResult().accumulatedDamage() == 27,
 		       "soldier copies retain their owned persistent combat-result state" );
+		CHECK( copiedSoldier.combatContribution().militiaKills() == 2 &&
+		       copiedSoldier.combatContribution().militiaAssists() == 1 &&
+		       copiedSoldier.combatContribution().damageByTeam()[0] == 41 &&
+		       copiedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 42,
+		       "soldier copies retain their owned persistent combat-contribution state" );
 		CHECK( copiedSoldier.damageDisplay().displaying() &&
 		       copiedSoldier.damageDisplay().counter() == 2 &&
 		       copiedSoldier.damageDisplay().offsetX() == 13 &&
@@ -8959,6 +9007,10 @@ int main( int, char** )
 		       copiedSoldier.combatResult().pelletsHitBy() == 0 &&
 		       copiedSoldier.combatResult().accumulatedDamage() == 0,
 		       "soldier initialization resets the complete combat-result domain" );
+		CHECK( !copiedSoldier.combatContribution().hasMilitiaCredit() &&
+		       copiedSoldier.combatContribution().damageByTeam()[0] == 0 &&
+		       copiedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 0,
+		       "soldier initialization resets the complete combat-contribution domain" );
 		CHECK( !copiedSoldier.damageDisplay().displaying() &&
 		       copiedSoldier.damageDisplay().counter() == 0 &&
 		       copiedSoldier.damageDisplay().offsetX() == 0 &&
@@ -9123,6 +9175,9 @@ int main( int, char** )
 		legacySoldier->bNumHitsThisTurn = 3;
 		legacySoldier->bNumPelletsHitBy = 2;
 		legacySoldier->sDamage = 26;
+		legacySoldier->ubMilitiaKills = 6;
+		legacySoldier->ubPercentDamageInflictedByTeam[0] = 71;
+		legacySoldier->ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS - 1] = 72;
 		legacySoldier->fDisplayDamage = 2;
 		legacySoldier->bDisplayDamageCount = 3;
 		legacySoldier->sDamageX = 15;
@@ -9168,6 +9223,9 @@ int main( int, char** )
 		convertedSoldier.interaction().draggedCorpse() = 27;
 		convertedSoldier.interaction().chatPartner() = SoldierID{ 28 };
 		convertedSoldier.interaction().draggedStructureGrid() = 1413;
+		convertedSoldier.combatContribution().militiaKills() = 9;
+		convertedSoldier.combatContribution().militiaAssists() = 8;
+		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
@@ -9338,6 +9396,11 @@ int main( int, char** )
 		       convertedSoldier.combatResult().pelletsHitBy() == 2 &&
 		       convertedSoldier.combatResult().accumulatedDamage() == 26,
 		       "v101 soldier conversion retains incoming combat attribution and outcome state" );
+		CHECK( convertedSoldier.combatContribution().militiaKills() == 6 &&
+		       convertedSoldier.combatContribution().militiaAssists() == 0 &&
+		       convertedSoldier.combatContribution().damageByTeam()[0] == 71 &&
+		       convertedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 72,
+		       "v101 soldier conversion retains militia kills and every established assist-attribution slot" );
 		CHECK( convertedSoldier.damageDisplay().displayFlag() == 2 &&
 		       convertedSoldier.damageDisplay().counter() == 3 &&
 		       convertedSoldier.damageDisplay().offsetX() == 15 &&
@@ -9650,6 +9713,10 @@ int main( int, char** )
 		savedSoldier.combatResult().hitsThisTurn() = 4;
 		savedSoldier.combatResult().pelletsHitBy() = 5;
 		savedSoldier.combatResult().accumulatedDamage() = 29;
+		savedSoldier.combatContribution().militiaKills() = 7;
+		savedSoldier.combatContribution().militiaAssists() = 8;
+		savedSoldier.combatContribution().damageByTeam()[0] = 81;
+		savedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] = 82;
 		savedSoldier.damageDisplay().activateAt(17, -12);
 		savedSoldier.damageDisplay().displayFlag() = 2;
 		savedSoldier.damageDisplay().counter() = 3;
@@ -9967,6 +10034,12 @@ int main( int, char** )
 		       loadedSoldier.combatResult().pelletsHitBy() == 5 &&
 		       loadedSoldier.combatResult().accumulatedDamage() == 29,
 		       "soldier save/load round-trips combat-result state at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.combatContribution().militiaKills() == 7 &&
+		       loadedSoldier.combatContribution().militiaAssists() == 8 &&
+		       loadedSoldier.combatContribution().damageByTeam()[0] == 81 &&
+		       loadedSoldier.combatContribution().damageByTeam()[NUM_ASSIST_SLOTS - 1] == 82,
+		       "soldier save/load round-trips militia credit and every fixed assist-attribution slot" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.damageDisplay().displayFlag() == 2 &&
 		       loadedSoldier.damageDisplay().counter() == 3 &&

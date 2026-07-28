@@ -628,6 +628,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		deployment().reset();
 		fireControl().reset();
 		combatResult().reset();
+		combatContribution().reset();
 		suppression().reset();
 		damageDisplay().reset();
 		aiData.ConvertFrom_101_To_102( src );
@@ -971,7 +972,12 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().lastContractType() = src.bTypeOfLastContract;
 		this->collapseState().turns() = src.bTurnsCollapsed;
 		this->collapseState().sleepDrugCounter() = src.bSleepDrugCounter;
-		this->ubMilitiaKills = src.ubMilitiaKills;
+		this->combatContribution().militiaKills() = src.ubMilitiaKills;
+		for (UINT16 i = 0; i < NUM_ASSIST_SLOTS; ++i)
+		{
+			this->combatContribution().damageByTeam()[i] =
+				src.ubPercentDamageInflictedByTeam[i];
+		}
 
 
 
@@ -1055,8 +1061,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->camouflage().snowWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornSnowCamo );
 
 		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
-
-		this->ubMilitiaAssists = 0;
 
 		this->bAIIndex = 0;
 		this->usSoldierProfile = 0;
@@ -1152,6 +1156,7 @@ void SOLDIERTYPE::initialize( )
 	attackSelection().reset();
 	fireControl().reset();
 	combatResult().reset();
+	combatContribution().reset();
 	suppression().reset();
 	damageDisplay().reset();
 	animationIntent().reset();
