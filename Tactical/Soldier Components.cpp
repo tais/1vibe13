@@ -66,6 +66,29 @@ void SoldierReplicationComponent::reset() noexcept
 	*this = SoldierReplicationComponent{};
 }
 
+void SoldierMovementMetricsComponent::recordTileMovement(
+	bool running, bool realtime, UINT16 animation) noexcept
+{
+	const INT16 distance = running ? 2 : 1;
+	const INT16 updatedDistance = static_cast<INT16>(tilesMoved_) + distance;
+	tilesMoved_ = static_cast<INT8>(
+		updatedDistance > MaximumTurnTiles ? MaximumTurnTiles : updatedDistance);
+
+	if (realtime)
+	{
+		if (realtimeBreathTiles_ < MaximumRealtimeBreathTiles)
+		{
+			++realtimeBreathTiles_;
+		}
+		lastRealtimeMovementAnimation_ = animation;
+	}
+}
+
+void SoldierMovementMetricsComponent::reset() noexcept
+{
+	*this = SoldierMovementMetricsComponent{};
+}
+
 void SoldierSkillStateComponent::ageTurnCounters() noexcept
 {
 	for (UINT8 index = 0; index < SOLDIER_COUNTER_MAX; ++index)

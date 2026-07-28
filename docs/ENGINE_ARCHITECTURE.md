@@ -999,6 +999,15 @@ the engine must not contain SDL types in its public domain model.
   serializer retains all seven original positions and widths, while v101
   conversion maps its six established values and clears the later scheduled
   stop.
+  `SoldierMovementMetricsComponent` owns the carried-weight snapshot, per-turn
+  distance, and realtime breath-update distance/animation telemetry consumed by
+  AP, agility, visibility, accuracy, suppression, medical, and breath rules.
+  One tile-recording transition counts running as the established double
+  distance and updates realtime cadence when applicable. Both narrow distance
+  counters now saturate instead of wrapping on exceptionally long movement,
+  while independent turn and realtime clear operations preserve their existing
+  lifecycles. All four save fields and v101 mappings retain their original
+  positions, widths, and raw values.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.

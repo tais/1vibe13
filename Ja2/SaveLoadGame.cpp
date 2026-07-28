@@ -1670,6 +1670,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDialogueComponent& dialogue = s.dialogue();
 	SoldierAudioComponent& audio = s.audio();
 	SoldierReplicationComponent& replication = s.replication();
+	SoldierMovementMetricsComponent& movementMetrics = s.movementMetrics();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
@@ -1702,7 +1703,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(s.bStealthMode); ar.i16(vitals.breathReduction());
 	ar.u8(s.ubWaitActionToDo); ar.i8(deployment.insertionDirection()); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
-	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(s.sWeightCarriedAtTurnStart);
+	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(movementMetrics.carriedWeightAtTurnStart());
 	ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);
 	ar.u8(deployment.groupId()); ar.u8(perception.movementNoiseDirections());
@@ -1727,8 +1728,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceX()[i]);
 	for (i = 0; i < 2; ++i) ar.f32(fireControl.previousCounterForceY()[i]);
 	ar.f32(fireControl.initialMuzzleOffsetX()); ar.f32(fireControl.initialMuzzleOffsetY());
-	ar.i8(s.bTilesMoved); ar.f32(vitals.nextBleedAt());
-	ar.u8(s.ubTilesMovedPerRTBreathUpdate); ar.u16(s.usLastMovementAnimPerRTBreathUpdate);
+	ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());
+	ar.u8(movementMetrics.realtimeBreathTiles()); ar.u16(movementMetrics.lastRealtimeMovementAnimation());
 	ar.i16(s.sLocatorFrame); ar.i32(s.iFaceIndex);
 	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.u16(s.usFrontArcFullTileList[i]);
 	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.i32(s.usFrontArcFullTileGridNos[i]);

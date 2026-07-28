@@ -352,6 +352,40 @@ private:
 	UINT32 checksum_ = 0;
 };
 
+// Canonical movement telemetry consumed by turn rules, visibility, accuracy,
+// suppression, medical estimates, and realtime breath updates. Recording tile
+// movement saturates the narrow persisted counters instead of allowing a long
+// route to wrap them negative or back to zero.
+class SoldierMovementMetricsComponent
+{
+public:
+	static constexpr INT8 MaximumTurnTiles = 127;
+	static constexpr UINT8 MaximumRealtimeBreathTiles = 255;
+
+	INT16& carriedWeightAtTurnStart() noexcept { return carriedWeightAtTurnStart_; }
+	const INT16& carriedWeightAtTurnStart() const noexcept { return carriedWeightAtTurnStart_; }
+	INT8& tilesMoved() noexcept { return tilesMoved_; }
+	const INT8& tilesMoved() const noexcept { return tilesMoved_; }
+	UINT8& realtimeBreathTiles() noexcept { return realtimeBreathTiles_; }
+	const UINT8& realtimeBreathTiles() const noexcept { return realtimeBreathTiles_; }
+	UINT16& lastRealtimeMovementAnimation() noexcept { return lastRealtimeMovementAnimation_; }
+	const UINT16& lastRealtimeMovementAnimation() const noexcept { return lastRealtimeMovementAnimation_; }
+
+	bool movedThisTurn() const noexcept { return tilesMoved_ != 0; }
+	bool hasRealtimeBreathMovement() const noexcept { return realtimeBreathTiles_ != 0; }
+	void recordCarriedWeightAtTurnStart(INT16 weight) noexcept { carriedWeightAtTurnStart_ = weight; }
+	void recordTileMovement(bool running, bool realtime, UINT16 animation) noexcept;
+	void clearTurnDistance() noexcept { tilesMoved_ = 0; }
+	void clearRealtimeBreathMovement() noexcept { realtimeBreathTiles_ = 0; }
+	void reset() noexcept;
+
+private:
+	INT16 carriedWeightAtTurnStart_ = 0;
+	INT8 tilesMoved_ = 0;
+	UINT8 realtimeBreathTiles_ = 0;
+	UINT16 lastRealtimeMovementAnimation_ = 0;
+};
+
 // Canonical skill execution and persistence state. Repeated mechanical checks,
 // the AI's selected skill, trait counters, heterogeneous cooldowns, and focus
 // targeting share one reset boundary without absorbing permanent statistics or

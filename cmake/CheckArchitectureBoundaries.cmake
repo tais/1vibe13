@@ -2065,7 +2065,7 @@ string(FIND "${save_load_game_contents}"
   "for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);"
   serialized_soldier_critical_damage_position)
 string(FIND "${save_load_game_contents}"
-  "ar.i8(s.bTilesMoved); ar.f32(vitals.nextBleedAt());"
+  "ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());"
   serialized_soldier_next_bleed_position)
 string(FIND "${save_load_game_contents}"
   "ar.u8(pendingAction.interruptionMarker()); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
@@ -2801,6 +2801,216 @@ if(soldier_replication_architecture_documented EQUAL -1 OR
    soldier_replication_save_documented EQUAL -1)
   message(FATAL_ERROR
     "SoldierReplicationComponent ownership and compatibility guarantees must remain documented")
+endif()
+
+# Turn movement distance, realtime breath cadence, and the carried-weight
+# snapshot are one movement-telemetry domain. Keep all persisted widths and
+# positions while preventing the legacy 8-bit counters from wrapping.
+foreach(retired_movement_metrics_field IN ITEMS
+  sWeightCarriedAtTurnStart
+  bTilesMoved
+  ubTilesMovedPerRTBreathUpdate
+  usLastMovementAnimPerRTBreathUpdate)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8|INT16|UINT16)[ \t]+${retired_movement_metrics_field}[ \t]*;"
+    retired_current_movement_metrics_field
+    "${current_soldier_contents}")
+  if(retired_current_movement_metrics_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE movement metric '${retired_movement_metrics_field}' returned; movement telemetry belongs to SoldierMovementMetricsComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierMovementMetricsComponent[ \t\r\n]+movementMetrics_[ \t]*;"
+  soldier_movement_metrics_owner
+  "${current_soldier_contents}")
+if(NOT soldier_movement_metrics_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierMovementMetricsComponent")
+endif()
+
+foreach(owned_movement_metrics_pattern IN ITEMS
+  "INT16[ \t]+carriedWeightAtTurnStart_[ \t]*=[ \t]*0"
+  "INT8[ \t]+tilesMoved_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+realtimeBreathTiles_[ \t]*=[ \t]*0"
+  "UINT16[ \t]+lastRealtimeMovementAnimation_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_movement_metrics_pattern}"
+    owned_soldier_movement_metrics_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_movement_metrics_field)
+    message(FATAL_ERROR
+      "SoldierMovementMetricsComponent lost initialized owned storage matching '${owned_movement_metrics_pattern}'")
+  endif()
+endforeach()
+
+foreach(movement_metrics_accessor IN ITEMS
+  carriedWeightAtTurnStart
+  tilesMoved
+  realtimeBreathTiles
+  lastRealtimeMovementAnimation)
+  string(REGEX MATCH
+    "${movement_metrics_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_movement_metrics_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_movement_metrics_accessor)
+    message(FATAL_ERROR
+      "SoldierMovementMetricsComponent lost the '${movement_metrics_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(movement_metrics_operation IN ITEMS
+  "bool movedThisTurn() const noexcept"
+  "bool hasRealtimeBreathMovement() const noexcept"
+  "void recordCarriedWeightAtTurnStart(INT16 weight) noexcept"
+  "void recordTileMovement(bool running, bool realtime, UINT16 animation) noexcept"
+  "void clearTurnDistance() noexcept"
+  "void clearRealtimeBreathMovement() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${movement_metrics_operation}"
+    soldier_movement_metrics_operation)
+  if(soldier_movement_metrics_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMovementMetricsComponent lost required telemetry operation '${movement_metrics_operation}'")
+  endif()
+endforeach()
+
+foreach(movement_metrics_saturation_fragment IN ITEMS
+  "static constexpr INT8 MaximumTurnTiles = 127;"
+  "static constexpr UINT8 MaximumRealtimeBreathTiles = 255;"
+  "updatedDistance > MaximumTurnTiles ? MaximumTurnTiles : updatedDistance"
+  "realtimeBreathTiles_ < MaximumRealtimeBreathTiles")
+  string(FIND "${soldier_components_header_contents}${soldier_components_source_contents}"
+    "${movement_metrics_saturation_fragment}"
+    soldier_movement_metrics_saturation)
+  if(soldier_movement_metrics_saturation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMovementMetricsComponent lost bounded counter behavior '${movement_metrics_saturation_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierMovementMetricsComponent& movementMetrics() noexcept"
+  soldier_movement_metrics_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierMovementMetricsComponent{};"
+  soldier_movement_metrics_default_reset)
+string(REGEX MATCHALL
+  "movementMetrics\\(\\)\\.reset\\(\\);"
+  soldier_movement_metrics_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_movement_metrics_reset_sites soldier_movement_metrics_reset_site_count)
+if(soldier_movement_metrics_accessor EQUAL -1 OR
+   soldier_movement_metrics_default_reset EQUAL -1 OR
+   soldier_movement_metrics_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierMovementMetricsComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(movement_metrics_conversion IN ITEMS
+  "this->movementMetrics().carriedWeightAtTurnStart() = src.sWeightCarriedAtTurnStart;"
+  "this->movementMetrics().tilesMoved() = src.bTilesMoved;"
+  "this->movementMetrics().realtimeBreathTiles() = src.ubTilesMovedPerRTBreathUpdate;"
+  "this->movementMetrics().lastRealtimeMovementAnimation() = src.usLastMovementAnimPerRTBreathUpdate;")
+  string(FIND "${soldier_control_source_contents}"
+    "${movement_metrics_conversion}"
+    soldier_movement_metrics_conversion_site)
+  if(soldier_movement_metrics_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost soldier movement telemetry mapping '${movement_metrics_conversion}'")
+  endif()
+endforeach()
+
+foreach(movement_metrics_save_position IN ITEMS
+  "ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(movementMetrics.carriedWeightAtTurnStart());"
+  "ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());"
+  "ar.u8(movementMetrics.realtimeBreathTiles()); ar.u16(movementMetrics.lastRealtimeMovementAnimation());")
+  string(FIND "${save_load_game_contents}"
+    "${movement_metrics_save_position}"
+    soldier_movement_metrics_save_position)
+  if(soldier_movement_metrics_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier movement telemetry moved in the portable save schema at '${movement_metrics_save_position}'")
+  endif()
+endforeach()
+
+file(READ "${SOURCE_ROOT}/Tactical/Points.cpp"
+  soldier_movement_metrics_points_contents)
+file(READ "${SOURCE_ROOT}/Tactical/SkillCheck.cpp"
+  soldier_movement_metrics_skill_check_contents)
+file(READ "${SOURCE_ROOT}/Tactical/LOS.cpp"
+  soldier_movement_metrics_los_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  soldier_movement_metrics_weapons_contents)
+string(FIND "${soldier_replication_overhead_contents}"
+  "pSoldier->movementMetrics().recordTileMovement("
+  soldier_movement_metrics_record)
+string(FIND "${soldier_replication_overhead_contents}"
+  "pSoldier->movementMetrics().clearTurnDistance();"
+  soldier_movement_metrics_combat_reset)
+string(FIND "${soldier_control_source_contents}"
+  "this->movementMetrics().recordCarriedWeightAtTurnStart("
+  soldier_movement_metrics_weight_snapshot)
+string(FIND "${soldier_control_source_contents}"
+  "this->movementMetrics().clearTurnDistance();"
+  soldier_movement_metrics_turn_reset)
+string(FIND "${soldier_movement_metrics_points_contents}"
+  "pSoldier->movementMetrics().clearRealtimeBreathMovement();"
+  soldier_movement_metrics_breath_reset)
+string(FIND "${soldier_movement_metrics_points_contents}"
+  "pSoldier->movementMetrics().lastRealtimeMovementAnimation()"
+  soldier_movement_metrics_breath_animation)
+string(FIND "${soldier_movement_metrics_skill_check_contents}"
+  "pSoldier->movementMetrics().carriedWeightAtTurnStart()"
+  soldier_movement_metrics_agility_weight)
+string(FIND "${soldier_movement_metrics_los_contents}"
+  "pSoldier->movementMetrics().tilesMoved()"
+  soldier_movement_metrics_visibility)
+string(FIND "${soldier_movement_metrics_weapons_contents}"
+  "pTarget->movementMetrics().tilesMoved()"
+  soldier_movement_metrics_accuracy)
+if(soldier_movement_metrics_record EQUAL -1 OR
+   soldier_movement_metrics_combat_reset EQUAL -1 OR
+   soldier_movement_metrics_weight_snapshot EQUAL -1 OR
+   soldier_movement_metrics_turn_reset EQUAL -1 OR
+   soldier_movement_metrics_breath_reset EQUAL -1 OR
+   soldier_movement_metrics_breath_animation EQUAL -1 OR
+   soldier_movement_metrics_agility_weight EQUAL -1 OR
+   soldier_movement_metrics_visibility EQUAL -1 OR
+   soldier_movement_metrics_accuracy EQUAL -1)
+  message(FATAL_ERROR
+    "Movement, breath, agility, visibility, and accuracy paths must use SoldierMovementMetricsComponent")
+endif()
+
+foreach(movement_metrics_test_fragment IN ITEMS
+  "SoldierMovementMetricsComponent movementMetricsLifecycle;"
+  "v101 soldier conversion retains the complete movement telemetry domain"
+  "soldier save/load round-trips movement telemetry at every established schema position")
+  string(FIND "${headless_test_contents}"
+    "${movement_metrics_test_fragment}"
+    soldier_movement_metrics_test_fragment)
+  if(soldier_movement_metrics_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierMovementMetricsComponent fixture '${movement_metrics_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierMovementMetricsComponent"
+  soldier_movement_metrics_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierMovementMetricsComponent"
+  soldier_movement_metrics_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierMovementMetricsComponent"
+  soldier_movement_metrics_save_documented)
+if(soldier_movement_metrics_architecture_documented EQUAL -1 OR
+   soldier_movement_metrics_sdk_documented EQUAL -1 OR
+   soldier_movement_metrics_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierMovementMetricsComponent ownership and compatibility guarantees must remain documented")
 endif()
 
 # Repeated mechanical checks, the AI's selected skill, persistent trait
@@ -3983,7 +4193,7 @@ string(REGEX MATCH
   serialized_soldier_awareness_visibility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.ubOppNum\\.i\\);[ \t\r\n]*ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
+  "ar\\.u16\\(s\\.ubOppNum\\.i\\);[ \t\r\n]*ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(movementMetrics\\.carriedWeightAtTurnStart\\(\\)\\);"
   serialized_soldier_awareness_render_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5297,7 +5507,7 @@ endif()
 # hand beside visibility, aimed locations around hit location, weapon/mode
 # beside target identity, and scope mode beside the facility field.
 string(REGEX MATCH
-  "ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(s\\.sWeightCarriedAtTurnStart\\);"
+  "ar\\.i8\\(awareness\\.lastRenderedVisibility\\(\\)\\);[ \t]*ar\\.u8\\(attackSelection\\.hand\\(\\)\\);[ \t]*ar\\.i16\\(movementMetrics\\.carriedWeightAtTurnStart\\(\\)\\);"
   serialized_soldier_attack_hand_order
   "${save_load_game_contents}")
 string(REGEX MATCH

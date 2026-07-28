@@ -2757,21 +2757,10 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
     // Default to TRUE
     (*pfKeepMoving ) = TRUE;
 
-    pSoldier->bTilesMoved++;
-    if ( pSoldier->animationPlayback().state() == RUNNING )
-    {
-        // count running as double
-        pSoldier->bTilesMoved++;
-    }
-
-    // First if we are in realtime combat or noncombat
-    if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive() ) )
-    {
-        // Update value for RT breath update
-        pSoldier->ubTilesMovedPerRTBreathUpdate++;
-        // Update last anim
-        pSoldier->usLastMovementAnimPerRTBreathUpdate = pSoldier->animationPlayback().state();
-    }
+    pSoldier->movementMetrics().recordTileMovement(
+        pSoldier->animationPlayback().state() == RUNNING,
+        (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()),
+        pSoldier->animationPlayback().state());
 
     // Update path if showing path in RT
     if ( gGameSettings.fOptions[ TOPTION_ALWAYS_SHOW_MOVEMENT_PATH ] )
@@ -8758,7 +8747,8 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
     // HEADROCK HAM 3.3: Moving rapidly makes one less prone to suppression.
     if (gGameExternalOptions.ubTilesMovedPerBonusTolerancePoint > 0)
     {
-        bTolerance += pSoldier->bTilesMoved / gGameExternalOptions.ubTilesMovedPerBonusTolerancePoint;
+        bTolerance += pSoldier->movementMetrics().tilesMoved() /
+            gGameExternalOptions.ubTilesMovedPerBonusTolerancePoint;
     }
 
     // HEADROCK HAM 3.6: This value has moved here. It reduces tolerance if the character is massively shocked.
@@ -10309,7 +10299,7 @@ void InitializeTacticalStatusAtBattleStart( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
         pSoldier->suppression().shock() = 0;
-        pSoldier->bTilesMoved = 0;
+        pSoldier->movementMetrics().clearTurnDistance();
     }
 
     // loop through everyone; clear misc flags

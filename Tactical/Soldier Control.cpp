@@ -615,6 +615,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		dialogue().reset();
 		audio().reset();
 		replication().reset();
+		movementMetrics().reset();
 		skillState().reset();
 		condition().reset();
 		longAction().reset();
@@ -738,7 +739,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->ubOppNum = static_cast<UINT16>( src.ubOppNum );
 		this->awareness().lastRenderedVisibility() = src.bLastRenderVisibleValue;
 		this->attackSelection().hand() = src.ubAttackingHand;
-		this->sWeightCarriedAtTurnStart = src.sWeightCarriedAtTurnStart;
+		this->movementMetrics().carriedWeightAtTurnStart() = src.sWeightCarriedAtTurnStart;
 
 		this->awareness().visibility() = src.bVisible;			// to render or not to render...
 
@@ -795,11 +796,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->targeting().cubeLevel() = src.bTargetCubeLevel;
 		this->targeting().lastGridNo() = src.sLastTarget;
 
-		this->bTilesMoved = src.bTilesMoved;
+		this->movementMetrics().tilesMoved() = src.bTilesMoved;
 		this->vitals().nextBleedAt() = src.dNextBleed;
 
-		this->ubTilesMovedPerRTBreathUpdate = src.ubTilesMovedPerRTBreathUpdate;
-		this->usLastMovementAnimPerRTBreathUpdate = src.usLastMovementAnimPerRTBreathUpdate;
+		this->movementMetrics().realtimeBreathTiles() = src.ubTilesMovedPerRTBreathUpdate;
+		this->movementMetrics().lastRealtimeMovementAnimation() = src.usLastMovementAnimPerRTBreathUpdate;
 
 		this->sLocatorFrame = src.sLocatorFrame;
 		this->iFaceIndex = src.iFaceIndex;
@@ -1140,6 +1141,7 @@ void SOLDIERTYPE::initialize( )
 	dialogue().reset();
 	audio().reset();
 	replication().reset();
+	movementMetrics().reset();
 	skillState().reset();
 	condition().reset();
 	longAction().reset();
@@ -2041,9 +2043,10 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	if ( soldierVitals.breath() < 100 && !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(this))
 		ubPoints -= (ubPoints * (100 - soldierVitals.breath())) / 200;
 
-	if ( this->sWeightCarriedAtTurnStart > 100 )
+	if ( this->movementMetrics().carriedWeightAtTurnStart() > 100 )
 	{
-		ubPoints = (UINT8)(((UINT32)ubPoints) * 100 / this->sWeightCarriedAtTurnStart);
+		ubPoints = (UINT8)(((UINT32)ubPoints) * 100 /
+			this->movementMetrics().carriedWeightAtTurnStart());
 	}
 
 	//CHRISL: Moved this down here so that all ubPoints adjustments can be made to the default 100AP system
@@ -7868,7 +7871,8 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// Flugente: drug users might consume useful drugs on their own in combat
 		this->DrugAutoUse();
 
-		this->sWeightCarriedAtTurnStart = (INT16)CalculateCarriedWeight( this );
+		this->movementMetrics().recordCarriedWeightAtTurnStart(
+			(INT16)CalculateCarriedWeight( this ) );
 
 		UnusedAPsToBreath( this );
 
@@ -7905,7 +7909,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		// If hasn't moved since the start of last round
 		// AND this function is being executed in Turn Based mode
 		// AND character is a player-controlled merc
-		if ( !fFromRealTime && !this->bTilesMoved && this->bTeam == OUR_TEAM )
+		if ( !fFromRealTime && !this->movementMetrics().movedThisTurn() && this->bTeam == OUR_TEAM )
 		{
 			// but are doing a movement animation
 			if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
@@ -7919,7 +7923,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 			//this->pathing().finalDestinationGrid() = this->sGridNo;
 		}
 
-		this->bTilesMoved = 0;
+		this->movementMetrics().clearTurnDistance();
 
 		if ( this->bInSector )
 		{
@@ -21864,7 +21868,7 @@ INT32 CheckBleeding( SOLDIERTYPE *pSoldier )
 			if ( !pSoldier->service().hasProviders() && (AnyDoctorWhoCanHealThisPatient( pSoldier, HEALABLE_EVER ) == NULL) )
 			{
 				// may drop blood whether or not any bleeding takes place this turn
-				if ( pSoldier->bTilesMoved < 1 )
+				if ( !pSoldier->movementMetrics().movedThisTurn() )
 				{
 					iBlood = max(0, ((pSoldier->vitals().bleeding() - MIN_BLEEDING_THRESHOLD) / BLOODDIVISOR) ); // + pSoldier->dying;
 					if ( iBlood > MAXBLOODQUANTITY )
@@ -22155,9 +22159,11 @@ FLOAT CalcSoldierNextBleed( SOLDIERTYPE *pSoldier )
 
 	// Flugente: hemophiliacs bleed a lot faster
 	if ( DoesMercHaveDisability( pSoldier, HEMOPHILIAC ) )
-		val += ((FLOAT)(pSoldier->vitals().health()) / (FLOAT)(30 + 2 * pSoldier->bTilesMoved));
+		val += ((FLOAT)(pSoldier->vitals().health()) /
+			(FLOAT)(30 + 2 * pSoldier->movementMetrics().tilesMoved()));
 	else
-		val += ((FLOAT)(pSoldier->vitals().health() + bBandaged / 2) / (FLOAT)(10 + pSoldier->bTilesMoved));
+		val += ((FLOAT)(pSoldier->vitals().health() + bBandaged / 2) /
+			(FLOAT)(10 + pSoldier->movementMetrics().tilesMoved()));
 
 	return val;
 }

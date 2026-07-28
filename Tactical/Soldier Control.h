@@ -1000,6 +1000,8 @@ public:
 	const SoldierAudioComponent& audio() const noexcept { return audio_; }
 	SoldierReplicationComponent& replication() noexcept { return replication_; }
 	const SoldierReplicationComponent& replication() const noexcept { return replication_; }
+	SoldierMovementMetricsComponent& movementMetrics() noexcept { return movementMetrics_; }
+	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
@@ -1087,8 +1089,6 @@ public:
 	UINT8			ubWaitActionToDo;
 	INT8				bGunType;
 	SoldierID		ubOppNum;
-	INT16			sWeightCarriedAtTurnStart;
-	
 	/////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - added following
 	// values for surgery feature
@@ -1099,10 +1099,6 @@ public:
 
 	UINT8			bSide;
 
-	INT8				bTilesMoved;
-	UINT8			ubTilesMovedPerRTBreathUpdate;
-	UINT16			usLastMovementAnimPerRTBreathUpdate;
-	
 	INT16			sLocatorFrame;
 
 	INT32			iFaceIndex;
@@ -1274,6 +1270,7 @@ private:
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;
 	SoldierReplicationComponent	replication_;
+	SoldierMovementMetricsComponent	movementMetrics_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;

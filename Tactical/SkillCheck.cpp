@@ -109,9 +109,10 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 
 	iEffAgility = EffectStatForBeingDrunk( pSoldier, iEffAgility );
 
-	if ( pSoldier->sWeightCarriedAtTurnStart > 100 )
+	if ( pSoldier->movementMetrics().carriedWeightAtTurnStart() > 100 )
 	{
-		iEffAgility = (iEffAgility * 100) / pSoldier->sWeightCarriedAtTurnStart;
+		iEffAgility = (iEffAgility * 100) /
+			pSoldier->movementMetrics().carriedWeightAtTurnStart();
 	}
 
 	// Flugente: diseases can affect stat effectivity
