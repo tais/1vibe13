@@ -4213,14 +4213,14 @@ void INVRenderItem( UINT32 uiBuffer, SOLDIERTYPE * pSoldier, OBJECTTYPE  *pObjec
 
 				if ( ( ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO ) ||
 					( Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_LAUNCHER && !ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem)) ) &&
-					pSoldier->usGLDelayMode )
+					pSoldier->fireControl().delaysGrenadeLauncherExplosion() )
 				{
 					wcscat( pStr, New113Message[MSG113_FIREMODE_GL_DELAYED] );
 				}
 
 				// Flugente: display barrel mode if necessary
-				if ( pSoldier->usBarrelMode > 1 )
-					swprintf( pStr2, L"%s x%d", pStr, pSoldier->usBarrelMode );
+				if ( pSoldier->fireControl().barrelMode() > 1 )
+					swprintf( pStr2, L"%s x%d", pStr, pSoldier->fireControl().barrelMode() );
 				else
 					swprintf( pStr2, L"%s", pStr );
 								

@@ -2258,11 +2258,11 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 		{
 			UINT16 usItem = pSoldier->inv[HANDPOS].usItem;
 			if (Item[usItem].usItemClass == IC_GUN)
-				PossiblyStartEnemyTaunt(pSoldier, TAUNT_FIRE_GUN, pSoldier->ubOppNum);
+				PossiblyStartEnemyTaunt(pSoldier, TAUNT_FIRE_GUN, pSoldier->targeting().engagedOpponent());
 			else if (ItemIsGrenadeLauncher(usItem) || ItemIsMortar(usItem) || ItemIsRocketLauncher(usItem))
-				PossiblyStartEnemyTaunt(pSoldier, TAUNT_FIRE_LAUNCHER, pSoldier->ubOppNum);
+				PossiblyStartEnemyTaunt(pSoldier, TAUNT_FIRE_LAUNCHER, pSoldier->targeting().engagedOpponent());
 			else if (pSoldier->aiData.bAction == AI_ACTION_TOSS_PROJECTILE && Item[usItem].usItemClass == IC_THROWN && !ItemIsFlare(usItem))
-				PossiblyStartEnemyTaunt(pSoldier, TAUNT_THROW_KNIFE, pSoldier->ubOppNum);
+				PossiblyStartEnemyTaunt(pSoldier, TAUNT_THROW_KNIFE, pSoldier->targeting().engagedOpponent());
 			else if (pSoldier->aiData.bAction == AI_ACTION_KNIFE_MOVE)
 			{
 				if (Item[usItem].usItemClass == IC_BLADE)

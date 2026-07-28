@@ -120,9 +120,9 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 	// OK, If we were waiting for stuff, do it here...
 
 	// ATE: Disabled stuff below, made obsolete by timeout...
-	//if ( pSoldier->ubWaitActionToDo	)
+	//if ( pSoldier->movement().waitAction()	)
 	//{
-	//	pSoldier->ubWaitActionToDo = 0;
+	//	pSoldier->movement().clearWaitAction();
 	//	gbNumMercsUntilWaitingOver--;
 	//}
 	pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
@@ -388,7 +388,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 		{
 			// Is the next gridno our destination?
 			// OK: Let's check if we are NOT walking off screen			
-			if ( sGridNo == sFinalDestTile && pSoldier->ubWaitActionToDo == 0 && (pSoldier->bTeam == gbPlayerNum || TileIsOutOfBounds(pSoldier->movement().absoluteDestination())) )
+			if ( sGridNo == sFinalDestTile && pSoldier->movement().waitAction() == 0 && (pSoldier->bTeam == gbPlayerNum || TileIsOutOfBounds(pSoldier->movement().absoluteDestination())) )
 			{
 				// Yah, well too bad, stop here.
 				SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
@@ -505,7 +505,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 			pSoldier->timing().start(SoldierTimingComponent::Timer::NextTile, NEXT_TILE_CHECK_DELAY);
 
 			// ATE: Allow path to exit grid!
-			if ( pSoldier->ubWaitActionToDo == 1 && gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO )
+			if ( pSoldier->movement().waitAction() == 1 && gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO )
 			{
 				gfPlotPathToExitGrid = TRUE;
 			}

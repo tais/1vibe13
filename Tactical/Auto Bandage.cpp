@@ -428,7 +428,7 @@ void AutoBandage( BOOLEAN fStart )
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			if ( pSoldier->bActive	)
 			{
-				pSoldier->bSlotItemTakenFrom = NO_SLOT;
+				pSoldier->service().clearBorrowedInventorySlot();
 				pSoldier->service().clearAutoBandagingMedic();
 			}
 		}
@@ -471,10 +471,10 @@ void AutoBandage( BOOLEAN fStart )
 			if (pSoldier->bActive && pSoldier->bInSector)
 			{
 				ActionDone( pSoldier );
-				if ( pSoldier->bSlotItemTakenFrom != NO_SLOT )
+				if ( pSoldier->service().borrowedInventorySlot() != NO_SLOT )
 				{
 					// swap our old hand item back to the main hand
-					SwapObjs( pSoldier, HANDPOS, pSoldier->bSlotItemTakenFrom, TRUE );
+					SwapObjs( pSoldier, HANDPOS, pSoldier->service().borrowedInventorySlot(), TRUE );
 				}
 
 				// ATE: Make everyone stand up!

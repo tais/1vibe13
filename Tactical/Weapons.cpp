@@ -1388,7 +1388,7 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	// SET ATTACKER TO NOBODY, WILL GET SET EVENTUALLY
-	pSoldier->ubOppNum = NOBODY ;
+	pSoldier->targeting().clearEngagedOpponent();
 
 	UINT32 usItemClass = Item[ pSoldier->attackSelection().weapon() ].usItemClass;
 	if ( pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO )
@@ -1532,7 +1532,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 	if ( pTargetSoldier )
 	{
 		// SAVE OPP ID
-		pSoldier->ubOppNum = pTargetSoldier->ubID;
+		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
 		ConvertGridNoToCenterCellXY(pTargetSoldier->position().gridNo(), &sX, &sY);
 		dTargetX = (FLOAT) sX;
 		dTargetY = (FLOAT) sY;
@@ -3024,13 +3024,13 @@ BOOLEAN UseGunWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 {
 	// determine how many barrels to fire - if we want more than 1, check whether the gun supports this, if not, adjust
 	UINT8 barrelstofire = 1;
-	pSoldier->usBarrelMode = max( 1, pSoldier->usBarrelMode );
-	if ( pSoldier->usBarrelMode > barrelstofire )
+	pSoldier->fireControl().selectBarrelMode( max( 1, pSoldier->fireControl().barrelMode() ) );
+	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
 		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 		
-		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->usBarrelMode );
+		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
 		// limit shots by ammo
 		barrelstofire = min( barrelstofire, ( *pObjUsed )[0]->data.gun.ubGunShotsLeft );
@@ -3839,7 +3839,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		pTargetSoldier->flags.fIntendedTarget = TRUE;
 
 		// SAVE OPP ID
-		pSoldier->ubOppNum = pTargetSoldier->ubID;
+		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
 
 		// CHECK IF BUDDY KNOWS ABOUT US
 		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
@@ -4082,7 +4082,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		pTargetSoldier->flags.fIntendedTarget = TRUE;
 
 		// SAVE OPP ID
-		pSoldier->ubOppNum = pTargetSoldier->ubID;
+		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
 
 		if (fStealing)
 		{
@@ -4916,13 +4916,13 @@ BOOLEAN UseLauncherWrapper( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 {
 	// determine how many barrels to fire - if we want more than 1, check whether the gun supports this, if not, adjust
 	UINT8 barrelstofire = 1;
-	pSoldier->usBarrelMode = max( 1, pSoldier->usBarrelMode );
-	if ( pSoldier->usBarrelMode > barrelstofire )
+	pSoldier->fireControl().selectBarrelMode( max( 1, pSoldier->fireControl().barrelMode() ) );
+	if ( pSoldier->fireControl().barrelMode() > barrelstofire )
 	{
 		// determine how many barrels the gun can fire in the first place (we need this check in case the weapon changed in our hands or we firing a different weapon from the second hand)
 		OBJECTTYPE* pObjUsed = pSoldier->GetUsedWeapon( &pSoldier->inv[pSoldier->attackSelection().hand()] );
 
-		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->usBarrelMode );
+		barrelstofire = GetFittingBarrelMode( pObjUsed->usItem, pSoldier->fireControl().barrelMode() );
 
 		// limit shots by ammo
 		//barrelstofire = min( barrelstofire, ( *pObjUsed )[0]->data.gun.ubGunShotsLeft );
@@ -5120,7 +5120,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	CalculateLaunchItemParamsForThrow( pSoldier, sTargetGridNo, pSoldier->targeting().level(), 0, &Launchable, uiHitChance, THROW_ARM_ITEM, 0, usItemNum );
 
 	// Flugente: depending on fire mode, delay explosion
-	if ( pSoldier->usGLDelayMode )
+	if ( pSoldier->fireControl().delaysGrenadeLauncherExplosion() )
 	{
 		( *pSoldier->pTempObject )[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
 	}
@@ -5482,11 +5482,11 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 
 	if ( fStopped && ubAttackerID != NOBODY )
 	{
-		if ( pAttacker->ubOppNum != NOBODY )
+		if ( pAttacker->targeting().hasEngagedOpponent() )
 		{
 			SOLDIERTYPE* opponent =
 				GetJa2SoldierRepository().resolve(
-					pAttacker->ubOppNum.i);
+					pAttacker->targeting().engagedOpponent().i);
 			// if it was another team shooting at someone under our control
 			if ( pAttacker->bTeam != opponent->bTeam )
 			{
@@ -5914,9 +5914,9 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 
 			pBullet->usLastStructureHit = usStructureID;
 			// anv: enemy taunt on miss
-			if( pBullet->pFirer != NULL && pBullet->pFirer->ubOppNum != NOBODY )
+			if( pBullet->pFirer != NULL && pBullet->pFirer->targeting().hasEngagedOpponent() )
 			{
-				SoldierID OpponentID = pBullet->pFirer->ubOppNum;
+				SoldierID OpponentID = pBullet->pFirer->targeting().engagedOpponent();
 				SOLDIERTYPE* opponent =
 					GetJa2SoldierRepository().resolve(
 						OpponentID.i);
@@ -8432,7 +8432,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								{
 									// make stat RED for a while...
 									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
-									pTarget->usValueGoneUp &= ~( WIS_INCREASE );
+									pTarget->statProgress().clearIncreased(WIS_INCREASE);
 
 									if (bStatLoss == 1)
 									{
@@ -8487,7 +8487,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									{
 										// make stat RED for a while...
 										pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
-										pTarget->usValueGoneUp &= ~( HEALTH_INCREASE );
+										pTarget->statProgress().clearIncreased(HEALTH_INCREASE);
 
 										if (bStatLoss == 1)
 										{
@@ -8527,7 +8527,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										{
 											// make stat RED for a while...
 											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
-											pTarget->usValueGoneUp &= ~( DEX_INCREASE );
+											pTarget->statProgress().clearIncreased(DEX_INCREASE);
 
 											if (bStatLoss == 1)
 											{
@@ -8564,7 +8564,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										{
 											// make stat RED for a while...
 											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
-											pTarget->usValueGoneUp &= ~( STRENGTH_INCREASE );
+											pTarget->statProgress().clearIncreased(STRENGTH_INCREASE);
 
 											if (bStatLoss == 1)
 											{
@@ -8602,7 +8602,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								{
 									// make stat RED for a while...
 									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-									pTarget->usValueGoneUp &= ~( AGIL_INCREASE );
+									pTarget->statProgress().clearIncreased(AGIL_INCREASE);
 
 									if (bStatLoss == 1)
 									{
@@ -8936,11 +8936,11 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	pAttacker =
 		GetJa2SoldierRepository().resolve(ubAttackerID.i);
 
-	if ( pAttacker->ubOppNum != NOBODY )
+	if ( pAttacker->targeting().hasEngagedOpponent() )
 	{
 		SOLDIERTYPE* opponent =
 			GetJa2SoldierRepository().resolve(
-				pAttacker->ubOppNum.i);
+				pAttacker->targeting().engagedOpponent().i);
 		// if it was another team shooting at someone under our control
 		if ( pAttacker->bTeam != opponent->bTeam )
 		{
@@ -9034,9 +9034,9 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 	// FreeUpAttacker( ubAttackerID );
 
 	// anv: enemy taunt on miss
-	if ( pAttacker != NULL && pAttacker->ubOppNum != NOBODY )
+	if ( pAttacker != NULL && pAttacker->targeting().hasEngagedOpponent() )
 	{
-		SoldierID OpponentID = pAttacker->ubOppNum;
+		SoldierID OpponentID = pAttacker->targeting().engagedOpponent();
 		SOLDIERTYPE* opponent =
 			GetJa2SoldierRepository().resolve(OpponentID.i);
 
@@ -10433,27 +10433,27 @@ void ChangeWeaponMode( SOLDIERTYPE * pSoldier )
 	// Flugente: if we are in a GL fire mode, switch between impact/delayed mode
 	if (((pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_BURST || pSoldier->attackSelection().weaponMode() == WM_ATTACHED_GL_AUTO) ||
 		(Item[pSoldier->inv[HANDPOS].usItem].usItemClass & IC_LAUNCHER && !ItemIsRocketLauncher(pSoldier->inv[HANDPOS].usItem))) &&
-		!pSoldier->usGLDelayMode &&
+		!pSoldier->fireControl().delaysGrenadeLauncherExplosion() &&
 		!gGameExternalOptions.fDelayedGrenadeExplosion)
 	{
-		pSoldier->usGLDelayMode = 1;
+		pSoldier->fireControl().setGrenadeLauncherDelay( true );
 	}
 	else
 	{
-		pSoldier->usGLDelayMode = 0;
+		pSoldier->fireControl().setGrenadeLauncherDelay( false );
 
 		// Flugente: if there is a higher barrel configuration, use that
 		// otherwise, go back to one barrel and try next mode
-		pSoldier->usBarrelMode = max( 1, pSoldier->usBarrelMode );
-		UINT8 nextbarrelmode = GetNextBarrelMode( pSoldier->inv[HANDPOS].usItem, pSoldier->usBarrelMode );
-		if ( nextbarrelmode > pSoldier->usBarrelMode )
+		pSoldier->fireControl().selectBarrelMode( max( 1, pSoldier->fireControl().barrelMode() ) );
+		UINT8 nextbarrelmode = GetNextBarrelMode( pSoldier->inv[HANDPOS].usItem, pSoldier->fireControl().barrelMode() );
+		if ( nextbarrelmode > pSoldier->fireControl().barrelMode() )
 		{
-			pSoldier->usBarrelMode = nextbarrelmode;
+			pSoldier->fireControl().selectBarrelMode( nextbarrelmode );
 		}
 		else
 		{
 			// start again with the first barrel configuration
-			pSoldier->usBarrelMode = nextbarrelmode;
+			pSoldier->fireControl().selectBarrelMode( nextbarrelmode );
 
 			do
 			{

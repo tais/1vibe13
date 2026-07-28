@@ -287,10 +287,11 @@ surgery, damage-recovery, life-deduction, and reset transitions keep the domain
 coherent; the explicit serializer retains every established position and width.
 `SoldierServiceComponent` separately owns the persisted service marker, patient
 provider count, provider-to-patient identity, and automatic-bandage medic
-reservation. Named relationship transitions give tactical AI, medical actions,
-and presentation one authority while guarding provider-count removal from
-underflow. The face UI keeps only its old-value render cache, and persistence
-retains all four established positions and widths.
+reservation, plus the inventory slot temporarily borrowed by an autonomous
+medic. Named relationship and borrow/return transitions give tactical AI,
+medical actions, and presentation one authority while guarding provider-count
+removal from underflow. The face UI keeps only its old-value render cache, and
+persistence retains all five established positions and widths.
 `SoldierDialogueComponent` separately owns NPC quote planning, normal and
 extended spoken-history masks, battle-voice selection and playback throttling,
 bleeding/dying feedback, queued out-of-ammo speech, death-sound gates,
@@ -344,14 +345,15 @@ owner, and the dependency-neutral disease-capacity header removes the former
 `Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
 `SoldierStatProgressComponent` separately owns all eleven persistent
-stat-change timestamps. Gameplay records a change by stat identity, and
-tactical and strategic presentation code share its wrap-safe recent-change
-query. This retires `STRUCT_TimeChanges` without absorbing profile stat values
-or the established value-gone-up mask. The serializer retains all eleven
-unsigned 32-bit positions in their historical order, and v101 conversion maps
-every raw timestamp exactly. Food, water, and explosion health damage now
-record the health timestamp rather than an unrelated strength or dexterity
-timestamp.
+stat-change timestamps and the value-gone-up direction mask. Gameplay records
+a change by stat identity and marks or clears increase feedback through named
+mask operations; tactical and strategic presentation code share its wrap-safe
+queries. This retires `STRUCT_TimeChanges` and the loose `usValueGoneUp`
+field without absorbing profile stat values. The serializer retains all eleven
+unsigned 32-bit timestamp positions and the scattered unsigned 16-bit mask
+position, while v101 conversion maps every raw value exactly. Food, water, and
+explosion health damage now record the health timestamp rather than an
+unrelated strength or dexterity timestamp.
 `SoldierTimingComponent` separately owns all ten soldier-local countdown
 timers and the AI/reload delay configuration. Gameplay starts, observes, and
 clears timers by purpose; only the platform clock updater asks the owner for
@@ -457,16 +459,17 @@ delayed-tile counters and causes, movement reservation, merc contention,
 scripted and continued destinations, stop reason, and coordinated speed
 override. Tactical turn ownership, prior water state, UI speed, AP exhaustion,
 pause state, movement-clock/network-delay flags, presentation motion, and
-destination-center crossing live there as well. UI, AI, animation, rendering,
-pathing, and simulation-command adapters all use `movement()` as the one
-authority. Named operations cover intent changes, synchronized extended
-facing, grid-update suppression, turn and pause lifecycles, water/UI-speed
-edges, and paired destination crossing instead of independently mutating
-generic flags.
+destination-center crossing, plus staged strategic-exit waits live there as
+well. UI, AI, animation, rendering, pathing, and simulation-command adapters
+all use `movement()` as the one authority. Named operations cover intent
+changes, synchronized extended facing, grid-update suppression, turn and pause
+lifecycles, water/UI-speed edges, strategic-exit waits, and paired destination
+crossing instead of independently mutating generic flags.
 `SoldierInterruptSnapshotComponent` captures the scheduler's moved state across
 temporary interrupt ownership without exposing another flat soldier field.
-`SoldierTargetingComponent` owns the selected target
-grid, elevation, cube level, previous target grid, and target soldier identity.
+`SoldierTargetingComponent` owns the selected target grid, elevation, cube
+level, previous target grid, selected target soldier, engaged opponent, and
+cached line-of-fire target identities.
 The application UI, AI, weapons, simulation-command, animation-event, and
 multiplayer adapters use this one private owner; packages still receive only
 stable pointer-free tactical identities and snapshots.
@@ -477,14 +480,16 @@ producer chooses how to attack through one boundary.
 `SoldierMeleeApproachComponent` owns the cached melee path key, cost, and
 terminal direction. Movement invalidates that cache through its named
 operation, while the historical partial-cache behavior remains intact.
-`SoldierFireControlComponent` owns that mutable firing sequence: burst and
-autofire progress, bullets in flight, the one-based spread cursor and six
-fixed spread targets, recoil and counterforce history, initial muzzle offsets,
-the autofire UI edge state, the active multi-barrel cursor, and burst-drag
-start/end grids. Real-time and turn-based input share named drag transitions.
-Named single-shot, burst, and autofire transitions keep these paired modes
-consistent. Target selection remains separate, as do presentation-only sound
-and muzzle-flash handles. AI dual-wield spread generation is clamped after
+`SoldierFireControlComponent` owns that mutable firing sequence and its
+persistent configuration: editor gun archetype, grenade-launcher delay mode,
+selected multi-barrel mode, burst and autofire progress, bullets in flight, the
+one-based spread cursor and six fixed spread targets, recoil and counterforce
+history, initial muzzle offsets, the autofire UI edge state, the active
+multi-barrel cursor, and burst-drag start/end grids. Real-time and turn-based
+input share named drag transitions. Named single-shot, burst, autofire,
+launcher-delay, and barrel-selection transitions keep these modes consistent.
+Target selection remains separate, as do presentation-only sound and
+muzzle-flash handles. AI dual-wield spread generation is clamped after
 doubling its shot count, so it cannot write twelve locations into the
 established six-target buffer.
 `SoldierCombatResultComponent` owns incoming attacker history, hit

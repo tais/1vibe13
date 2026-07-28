@@ -335,12 +335,12 @@ namespace MiniEventHelpers
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] -= amount;
 					gMercProfiles[merc->ubProfile].bLifeMax = merc->vitals().maximumHealth();
 					gMercProfiles[merc->ubProfile].bLife = min(gMercProfiles[merc->ubProfile].bLife, gMercProfiles[merc->ubProfile].bLifeMax);
-					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
+					merc->statProgress().clearIncreased(HEALTH_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bLifeDelta += amount;
-					merc->usValueGoneUp |= HEALTH_INCREASE;
+					merc->statProgress().markIncreased(HEALTH_INCREASE);
 				}
 				break;
 			case STAT_STRENGTH:
@@ -353,12 +353,12 @@ namespace MiniEventHelpers
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] -= amount;
 					gMercProfiles[merc->ubProfile].bStrength = merc->stats.bStrength;
-					merc->usValueGoneUp &= ~( STRENGTH_INCREASE );
+					merc->statProgress().clearIncreased(STRENGTH_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bStrengthDelta += amount;
-					merc->usValueGoneUp |= STRENGTH_INCREASE;
+					merc->statProgress().markIncreased(STRENGTH_INCREASE);
 				}
 				break;
 			case STAT_AGILITY:
@@ -371,12 +371,12 @@ namespace MiniEventHelpers
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] -= amount;
 					gMercProfiles[merc->ubProfile].bAgility = merc->stats.bAgility;
-					merc->usValueGoneUp &= ~( AGIL_INCREASE );
+					merc->statProgress().clearIncreased(AGIL_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bAgilityDelta += amount;
-					merc->usValueGoneUp |= AGIL_INCREASE;
+					merc->statProgress().markIncreased(AGIL_INCREASE);
 				}
 				break;
 			case STAT_DEXTERITY:
@@ -389,12 +389,12 @@ namespace MiniEventHelpers
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] -= amount;
 					gMercProfiles[merc->ubProfile].bDexterity = merc->stats.bDexterity;
-					merc->usValueGoneUp &= ~( DEX_INCREASE );
+					merc->statProgress().clearIncreased(DEX_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bDexterityDelta += amount;
-					merc->usValueGoneUp |= DEX_INCREASE;
+					merc->statProgress().markIncreased(DEX_INCREASE);
 				}
 				break;
 			case STAT_WISDOM:
@@ -407,12 +407,12 @@ namespace MiniEventHelpers
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] -= amount;
 					gMercProfiles[merc->ubProfile].bWisdom = merc->stats.bWisdom;
-					merc->usValueGoneUp &= ~( WIS_INCREASE );
+					merc->statProgress().clearIncreased(WIS_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bWisdomDelta += amount;
-					merc->usValueGoneUp |= WIS_INCREASE;
+					merc->statProgress().markIncreased(WIS_INCREASE);
 				}
 				break;
 			case STAT_LEADERSHIP:
@@ -424,12 +424,12 @@ namespace MiniEventHelpers
 				if (amount < 0)
 				{
 					gMercProfiles[merc->ubProfile].bLeadership = merc->stats.bLeadership;
-					merc->usValueGoneUp &= ~( LDR_INCREASE );
+					merc->statProgress().clearIncreased(LDR_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bLeadershipDelta += amount;
-					merc->usValueGoneUp |= LDR_INCREASE;
+					merc->statProgress().markIncreased(LDR_INCREASE);
 				}
 				break;
 			case STAT_MARKSMANSHIP:
@@ -441,12 +441,12 @@ namespace MiniEventHelpers
 				if (amount < 0)
 				{
 					gMercProfiles[merc->ubProfile].bMarksmanship = merc->stats.bMarksmanship;
-					merc->usValueGoneUp &= ~( MRK_INCREASE );
+					merc->statProgress().clearIncreased(MRK_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bMarksmanshipDelta += amount;
-					merc->usValueGoneUp |= MRK_INCREASE;
+					merc->statProgress().markIncreased(MRK_INCREASE);
 				}
 				break;
 			case STAT_MECHANICAL:
@@ -458,12 +458,12 @@ namespace MiniEventHelpers
 				if (amount < 0)
 				{
 					gMercProfiles[merc->ubProfile].bMechanical = merc->stats.bMechanical;
-					merc->usValueGoneUp &= ~( MECH_INCREASE );
+					merc->statProgress().clearIncreased(MECH_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bMechanicDelta += amount;
-					merc->usValueGoneUp |= MECH_INCREASE;
+					merc->statProgress().markIncreased(MECH_INCREASE);
 				}
 				break;
 			case STAT_EXPLOSIVE:
@@ -475,12 +475,12 @@ namespace MiniEventHelpers
 				if (amount < 0)
 				{
 					gMercProfiles[merc->ubProfile].bExplosive = merc->stats.bExplosive;
-					merc->usValueGoneUp &= ~( EXP_INCREASE );
+					merc->statProgress().clearIncreased(EXP_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bExplosivesDelta += amount;
-					merc->usValueGoneUp |= EXP_INCREASE;
+					merc->statProgress().markIncreased(EXP_INCREASE);
 				}
 				break;
 			case STAT_MEDICAL:
@@ -492,12 +492,12 @@ namespace MiniEventHelpers
 				if (amount < 0)
 				{
 					gMercProfiles[merc->ubProfile].bMedical = merc->stats.bMedical;
-					merc->usValueGoneUp &= ~( MED_INCREASE );
+					merc->statProgress().clearIncreased(MED_INCREASE);
 				}
 				else if (amount > 0)
 				{
 					gMercProfiles[merc->ubProfile].bMedicalDelta += amount;
-					merc->usValueGoneUp |= MED_INCREASE;
+					merc->statProgress().markIncreased(MED_INCREASE);
 				}
 				break;
 			}
@@ -641,7 +641,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
-					merc->usValueGoneUp &= ~( HEALTH_INCREASE );
+					merc->statProgress().clearIncreased(HEALTH_INCREASE);
 				}
 				break;
 			case STAT_STRENGTH:
@@ -659,7 +659,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
-					merc->usValueGoneUp &= ~( STRENGTH_INCREASE );
+					merc->statProgress().clearIncreased(STRENGTH_INCREASE);
 				}
 				break;
 			case STAT_AGILITY:
@@ -677,7 +677,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-					merc->usValueGoneUp &= ~( AGIL_INCREASE );
+					merc->statProgress().clearIncreased(AGIL_INCREASE);
 				}
 				break;
 			case STAT_DEXTERITY:
@@ -695,7 +695,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
-					merc->usValueGoneUp &= ~( DEX_INCREASE );
+					merc->statProgress().clearIncreased(DEX_INCREASE);
 				}
 				break;
 			case STAT_WISDOM:
@@ -713,7 +713,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
-					merc->usValueGoneUp &= ~( WIS_INCREASE );
+					merc->statProgress().clearIncreased(WIS_INCREASE);
 				}
 				break;
 			case STAT_LEADERSHIP:
@@ -731,7 +731,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
-					merc->usValueGoneUp &= ~( LDR_INCREASE );
+					merc->statProgress().clearIncreased(LDR_INCREASE);
 				}
 				break;
 			case STAT_MARKSMANSHIP:
@@ -749,7 +749,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
-					merc->usValueGoneUp &= ~( MRK_INCREASE );
+					merc->statProgress().clearIncreased(MRK_INCREASE);
 				}
 				break;
 			case STAT_MECHANICAL:
@@ -767,7 +767,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
-					merc->usValueGoneUp &= ~( MECH_INCREASE );
+					merc->statProgress().clearIncreased(MECH_INCREASE);
 				}
 				break;
 			case STAT_EXPLOSIVE:
@@ -785,7 +785,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
-					merc->usValueGoneUp &= ~( EXP_INCREASE );
+					merc->statProgress().clearIncreased(EXP_INCREASE);
 				}
 				break;
 			case STAT_MEDICAL:
@@ -803,7 +803,7 @@ namespace MiniEventHelpers
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
 				{
 					merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
-					merc->usValueGoneUp &= ~( MED_INCREASE );
+					merc->statProgress().clearIncreased(MED_INCREASE);
 				}
 				break;
 			}

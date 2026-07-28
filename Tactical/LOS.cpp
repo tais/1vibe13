@@ -4335,7 +4335,7 @@ UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTY
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
-	pStartSoldier->ubCTGTTargetID = pEndSoldier->ubID;
+	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->ubID );
 
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
@@ -4379,7 +4379,7 @@ UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, S
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
-	pStartSoldier->ubCTGTTargetID = pEndSoldier->ubID;
+	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->ubID );
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
@@ -4430,7 +4430,7 @@ UINT8 SoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 sG
 
 		// set startsoldier's target ID ... need an ID stored in case this
 		// is the AI calculating cover to a location where he might not be any more
-		pStartSoldier->ubCTGTTargetID = ubTargetID;
+		pStartSoldier->targeting().rememberLineOfFireTarget( ubTargetID );
 		return( ChanceToGetThrough( pStartSoldier, (FLOAT) sXPos, (FLOAT) sYPos, dEndZPos ) );
 	}
 }
@@ -4460,7 +4460,7 @@ UINT8 AISoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIER
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
-	pStartSoldier->ubCTGTTargetID = NOBODY;
+	pStartSoldier->targeting().clearLineOfFireTarget();
 
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	ubChance = ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos );
@@ -4517,7 +4517,7 @@ UINT8 AISoldierToLocationChanceToGetThrough( SOLDIERTYPE * pStartSoldier, INT32 
 
 		// set startsoldier's target ID ... need an ID stored in case this
 		// is the AI calculating cover to a location where he might not be any more
-		pStartSoldier->ubCTGTTargetID = NOBODY;
+		pStartSoldier->targeting().clearLineOfFireTarget();
 
 		usTrueState = pStartSoldier->animationPlayback().state();
 		pStartSoldier->animationPlayback().state() = STANDING;
@@ -4665,7 +4665,7 @@ INT8 FireBullet( SoldierID ubFirer, BULLET * pBullet, BOOLEAN fFake )
 	if (fFake)
 	{
 		if ( hasFirer )
-			pBullet->ubTargetID = pBullet->pFirer->ubCTGTTargetID;
+			pBullet->ubTargetID = pBullet->pFirer->targeting().lineOfFireTarget();
 		else
 			pBullet->ubTargetID = NOBODY;
 

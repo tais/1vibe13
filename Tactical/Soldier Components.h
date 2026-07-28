@@ -148,6 +148,8 @@ public:
 	const SoldierID& partner() const noexcept { return partner_; }
 	SoldierID& autoBandagingMedic() noexcept { return autoBandagingMedic_; }
 	const SoldierID& autoBandagingMedic() const noexcept { return autoBandagingMedic_; }
+	INT8& borrowedInventorySlot() noexcept { return borrowedInventorySlot_; }
+	const INT8& borrowedInventorySlot() const noexcept { return borrowedInventorySlot_; }
 
 	bool active() const noexcept { return activity_ != 0; }
 	bool hasProviders() const noexcept { return providerCount_ != 0; }
@@ -160,6 +162,8 @@ public:
 	void clearProviders() noexcept { providerCount_ = 0; }
 	void assignAutoBandagingMedic(SoldierID medic) noexcept { autoBandagingMedic_ = medic; }
 	void clearAutoBandagingMedic() noexcept { autoBandagingMedic_ = NOBODY; }
+	void borrowInventorySlot(INT8 slot) noexcept { borrowedInventorySlot_ = slot; }
+	void clearBorrowedInventorySlot() noexcept { borrowedInventorySlot_ = -1; }
 	void reset() noexcept;
 
 private:
@@ -167,6 +171,7 @@ private:
 	UINT8 providerCount_ = 0;
 	SoldierID partner_ = NOBODY;
 	SoldierID autoBandagingMedic_ = NOBODY;
+	INT8 borrowedInventorySlot_ = 0;
 };
 
 // Canonical spoken-dialogue state. NPC quote plans, quote-history masks,
@@ -626,6 +631,8 @@ public:
 
 	UINT32& changedAt(Stat stat) noexcept { return changeTimes_[index(stat)]; }
 	const UINT32& changedAt(Stat stat) const noexcept { return changeTimes_[index(stat)]; }
+	UINT16& increaseMask() noexcept { return increaseMask_; }
+	const UINT16& increaseMask() const noexcept { return increaseMask_; }
 
 	bool hasChange(Stat stat) const noexcept { return changedAt(stat) != 0; }
 	bool changedRecently(Stat stat, UINT32 now, UINT32 duration) const noexcept
@@ -635,6 +642,9 @@ public:
 	}
 	void recordChange(Stat stat, UINT32 now) noexcept { changedAt(stat) = now; }
 	void clear(Stat stat) noexcept { changedAt(stat) = 0; }
+	bool increased(UINT16 mask) const noexcept { return (increaseMask_ & mask) != 0; }
+	void markIncreased(UINT16 mask) noexcept { increaseMask_ |= mask; }
+	void clearIncreased(UINT16 mask) noexcept { increaseMask_ &= ~mask; }
 	void reset() noexcept;
 
 private:
@@ -644,6 +654,7 @@ private:
 	}
 
 	UINT32 changeTimes_[StatCount] = {};
+	UINT16 increaseMask_ = 0;
 };
 
 // Canonical soldier-local countdown timers and their AI/reload delay
@@ -1581,6 +1592,8 @@ public:
 	const INT8& pastXDestination() const noexcept { return pastXDestination_; }
 	INT8& pastYDestination() noexcept { return pastYDestination_; }
 	const INT8& pastYDestination() const noexcept { return pastYDestination_; }
+	UINT8& waitAction() noexcept { return waitAction_; }
+	const UINT8& waitAction() const noexcept { return waitAction_; }
 
 	bool stealthy() const noexcept { return stealthMode_ != FALSE; }
 	bool reversing() const noexcept { return reverse_ != FALSE; }
@@ -1592,6 +1605,7 @@ public:
 	bool movementPaused() const noexcept { return paused_ != FALSE; }
 	bool recordingMovement() const noexcept { return movementClockActive_ != FALSE; }
 	bool delayedByNetwork() const noexcept { return networkDelayed_ != FALSE; }
+	bool waitingForAction() const noexcept { return waitAction_ != 0; }
 	bool crossedDestinationCenter() const noexcept
 	{
 		return pastXDestination_ != FALSE && pastYDestination_ != FALSE;
@@ -1644,6 +1658,8 @@ public:
 		pastXDestination_ = FALSE;
 		pastYDestination_ = FALSE;
 	}
+	void requestWaitAction(UINT8 action) noexcept { waitAction_ = action; }
+	void clearWaitAction() noexcept { waitAction_ = 0; }
 	void reset() noexcept;
 
 private:
@@ -1676,6 +1692,7 @@ private:
 	BOOLEAN wasMoving_ = FALSE;
 	INT8 pastXDestination_ = FALSE;
 	INT8 pastYDestination_ = FALSE;
+	UINT8 waitAction_ = 0;
 };
 
 // Canonical snapshot used while an interrupt temporarily rewrites the AI turn
@@ -1711,11 +1728,21 @@ public:
 	const INT32& lastGridNo() const noexcept { return lastGridNo_; }
 	SoldierID& targetId() noexcept { return targetId_; }
 	const SoldierID& targetId() const noexcept { return targetId_; }
+	SoldierID& engagedOpponent() noexcept { return engagedOpponent_; }
+	const SoldierID& engagedOpponent() const noexcept { return engagedOpponent_; }
+	SoldierID& lineOfFireTarget() noexcept { return lineOfFireTarget_; }
+	const SoldierID& lineOfFireTarget() const noexcept { return lineOfFireTarget_; }
 
 	bool hasTargetSoldier() const noexcept { return targetId_ != NOBODY; }
+	bool hasEngagedOpponent() const noexcept { return engagedOpponent_ != NOBODY; }
+	bool hasLineOfFireTarget() const noexcept { return lineOfFireTarget_ != NOBODY; }
 	void selectLocation(INT32 gridNo, INT8 level, INT8 cubeLevel = 0) noexcept;
 	void selectSoldier(SoldierID target) noexcept { targetId_ = target; }
 	void clearTargetSoldier() noexcept { targetId_ = NOBODY; }
+	void engageOpponent(SoldierID target) noexcept { engagedOpponent_ = target; }
+	void clearEngagedOpponent() noexcept { engagedOpponent_ = NOBODY; }
+	void rememberLineOfFireTarget(SoldierID target) noexcept { lineOfFireTarget_ = target; }
+	void clearLineOfFireTarget() noexcept { lineOfFireTarget_ = NOBODY; }
 	void reset() noexcept;
 
 private:
@@ -1724,6 +1751,8 @@ private:
 	INT8 cubeLevel_ = 0;
 	INT32 lastGridNo_ = 0;
 	SoldierID targetId_ = NOBODY;
+	SoldierID engagedOpponent_ = NOBODY;
+	SoldierID lineOfFireTarget_ = NOBODY;
 };
 
 // Canonical weapon and aim selection for one tactical actor. Target geometry
@@ -1839,9 +1868,19 @@ public:
 	const INT32& spreadDragStartGrid() const noexcept { return spreadDragStartGrid_; }
 	INT32& spreadDragEndGrid() noexcept { return spreadDragEndGrid_; }
 	const INT32& spreadDragEndGrid() const noexcept { return spreadDragEndGrid_; }
+	INT8& gunType() noexcept { return gunType_; }
+	const INT8& gunType() const noexcept { return gunType_; }
+	UINT8& grenadeLauncherDelayMode() noexcept { return grenadeLauncherDelayMode_; }
+	const UINT8& grenadeLauncherDelayMode() const noexcept { return grenadeLauncherDelayMode_; }
+	UINT8& barrelMode() noexcept { return barrelMode_; }
+	const UINT8& barrelMode() const noexcept { return barrelMode_; }
 
 	bool bursting() const noexcept { return burstCounter_ != 0; }
 	bool autofiring() const noexcept { return autofireShots_ != 0; }
+	bool delaysGrenadeLauncherExplosion() const noexcept
+	{
+		return grenadeLauncherDelayMode_ != 0;
+	}
 	bool spreadDragMoved() const noexcept
 	{
 		return spreadDragEndGrid_ != spreadDragStartGrid_;
@@ -1858,6 +1897,11 @@ public:
 	void clearSpreadTargets() noexcept;
 	void beginSpreadDrag(INT32 grid) noexcept { spreadDragStartGrid_ = grid; }
 	void updateSpreadDrag(INT32 grid) noexcept { spreadDragEndGrid_ = grid; }
+	void setGrenadeLauncherDelay(bool enabled) noexcept
+	{
+		grenadeLauncherDelayMode_ = enabled ? 1 : 0;
+	}
+	void selectBarrelMode(UINT8 mode) noexcept { barrelMode_ = mode; }
 	void reset() noexcept;
 
 private:
@@ -1876,6 +1920,9 @@ private:
 	UINT8 barrelCounter_ = 0;
 	INT32 spreadDragStartGrid_ = 0;
 	INT32 spreadDragEndGrid_ = 0;
+	INT8 gunType_ = 0;
+	UINT8 grenadeLauncherDelayMode_ = 0;
+	UINT8 barrelMode_ = 0;
 };
 
 // Canonical result of incoming combat. This keeps the current/previous

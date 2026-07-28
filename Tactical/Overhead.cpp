@@ -1376,11 +1376,11 @@ BOOLEAN ExecuteOverhead( )
                                 }
 
                                 // CHECK IF WE HAVE A PENDING ACTION
-                                if ( pSoldier->ubWaitActionToDo )
+                                if ( pSoldier->movement().waitingForAction() )
                                 {
-                                    if ( pSoldier->ubWaitActionToDo == 2 )
+                                    if ( pSoldier->movement().waitAction() == 2 )
                                     {
-                                        pSoldier->ubWaitActionToDo = 1;
+                                        pSoldier->movement().requestWaitAction( 1 );
 
                                         if ( gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALKOFF_SCREEN )
                                         {
@@ -1389,9 +1389,9 @@ BOOLEAN ExecuteOverhead( )
                                             continue;
                                         }
                                     }
-                                    else if ( pSoldier->ubWaitActionToDo == 1 )
+                                    else if ( pSoldier->movement().waitAction() == 1 )
                                     {
-                                        pSoldier->ubWaitActionToDo = 0;
+                                        pSoldier->movement().clearWaitAction();
 										gusNumMercsUntilWaitingOver = max(0, gusNumMercsUntilWaitingOver - 1);
                                         pSoldier->SoldierGotoStationaryStance( );
                                         // If we are at an exit-grid, make disappear.....
@@ -1918,7 +1918,7 @@ BOOLEAN ExecuteOverhead( )
                 pSoldier = MercSlots[ cnt ];
                 if ( pSoldier != NULL )
                 {
-                    pSoldier->ubWaitActionToDo = 0;
+                    pSoldier->movement().clearWaitAction();
                 }
             }
         }

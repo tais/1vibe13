@@ -1684,6 +1684,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAiPlanningComponent& aiPlanning = s.aiPlanning();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
+	SoldierStatProgressComponent& statProgress = s.statProgress();
 	SoldierTimingComponent& timing = s.timing();
 	SoldierLongActionComponent& longAction = s.longAction();
 	SoldierInteractionComponent& interaction = s.interaction();
@@ -1719,7 +1720,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
 	ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(movement.stealthMode()); ar.i16(vitals.breathReduction());
-	ar.u8(s.ubWaitActionToDo); ar.i8(deployment.insertionDirection()); ar.i8(s.bGunType); ar.u16(s.ubOppNum.i);
+	ar.u8(movement.waitAction()); ar.i8(deployment.insertionDirection()); ar.i8(fireControl.gunType()); ar.u16(targeting.engagedOpponent().i);
 	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(movementMetrics.carriedWeightAtTurnStart());
 	ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);
@@ -1805,7 +1806,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(s.bVehicleID); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
 	ar.u16(movement.gridUpdatePolicy());
 	ar.i16(renderState.boundingBoxWidth()); ar.i16(renderState.boundingBoxHeight()); ar.i16(renderState.boundingBoxOffsetX()); ar.i16(renderState.boundingBoxOffsetY());
-	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(s.bSlotItemTakenFrom);
+	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());
 	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
@@ -1815,8 +1816,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());
 	ar.u16(uiPresentation.lastEnemyCycled().i);
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
-	ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);
-	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
+	ar.u32(dialogue.activeBattleSound()); ar.u16(statProgress.increaseMask());
+	ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(targeting.lineOfFireTarget().i);
 	ar.u32(replication.checksum());
 	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(renderState.fadeOriginGrid()); ar.u8(deployment.useExitGridForReentryDirection());
@@ -1849,7 +1850,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
-	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
+	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
 	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(deployment.ignoreCollapseGetupCheck());

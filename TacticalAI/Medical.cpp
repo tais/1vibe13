@@ -457,7 +457,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 		pSoldier->aiData.usActionData = pSoldier->position().gridNo();
 		if (bSlot != HANDPOS)
 		{
-			pSoldier->bSlotItemTakenFrom = bSlot;
+			pSoldier->service().borrowInventorySlot( bSlot );
 
 			SwapObjs( pSoldier, HANDPOS, bSlot, TRUE );
 			/*
@@ -480,7 +480,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 		pSoldier->movement().mode() = RUNNING;
 		if (bSlot != HANDPOS)
 		{
-			pSoldier->bSlotItemTakenFrom = bSlot;
+			pSoldier->service().borrowInventorySlot( bSlot );
 
 			SwapObjs( pSoldier, HANDPOS, bSlot, TRUE );
 		}

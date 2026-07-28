@@ -1214,7 +1214,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
+								pSoldier->statProgress().clearIncreased(STRENGTH_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
@@ -1266,7 +1266,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( AGIL_INCREASE );
+								pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->stats.bAgility;
@@ -1318,7 +1318,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( DEX_INCREASE );
+								pSoldier->statProgress().clearIncreased(DEX_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bDexterity	= pSoldier->stats.bDexterity;
@@ -1370,7 +1370,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( WIS_INCREASE );
+								pSoldier->statProgress().clearIncreased(WIS_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->stats.bWisdom;
@@ -1423,7 +1423,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
+								pSoldier->statProgress().clearIncreased(HEALTH_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
@@ -1495,7 +1495,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( MRK_INCREASE );
+								pSoldier->statProgress().clearIncreased(MRK_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bMarksmanship	= pSoldier->stats.bMarksmanship;
@@ -1547,7 +1547,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( LDR_INCREASE );
+								pSoldier->statProgress().clearIncreased(LDR_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bLeadership	= pSoldier->stats.bLeadership;
@@ -1599,7 +1599,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( MECH_INCREASE );
+								pSoldier->statProgress().clearIncreased(MECH_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bMechanical	= pSoldier->stats.bMechanical;
@@ -1651,7 +1651,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( MED_INCREASE );
+								pSoldier->statProgress().clearIncreased(MED_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bMedical	= pSoldier->stats.bMedical;
@@ -1703,7 +1703,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							{
 								// make this stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( EXP_INCREASE );
+								pSoldier->statProgress().clearIncreased(EXP_INCREASE);
 							}
 							// Update Profile
 							gMercProfiles[ pSoldier->ubProfile ].bExplosive	= pSoldier->stats.bExplosive;
@@ -1904,13 +1904,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								// make those stats RED for a while...
 								// SANDRO - we don't need to do this with new system, as we simply show all damaged stats in red until healed
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( WIS_INCREASE );
+								pSoldier->statProgress().clearIncreased(WIS_INCREASE);
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( DEX_INCREASE );
+								pSoldier->statProgress().clearIncreased(DEX_INCREASE);
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
+								pSoldier->statProgress().clearIncreased(STRENGTH_INCREASE);
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~( AGIL_INCREASE );
+								pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 							}
 
 							// export stat changes to profile

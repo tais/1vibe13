@@ -782,7 +782,7 @@ BOOLEAN EnoughPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, BOOLE
 	if(pSoldier == NULL)
 		return( TRUE );
 	// If this guy is on a special move... don't care about APS, OR BPSs!
-	if ( pSoldier->ubWaitActionToDo	)
+	if ( pSoldier->movement().waitAction()	)
 	{
 		return( TRUE );
 	}

@@ -730,10 +730,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->vitals().breathReduction() = src.sBreathRed;			// current breath value
 
-		this->ubWaitActionToDo = src.ubWaitActionToDo;
+		this->movement().waitAction() = src.ubWaitActionToDo;
 		this->deployment().insertionDirection() = src.ubInsertionDirection;
-		this->bGunType = src.bGunType;
-		this->ubOppNum = static_cast<UINT16>( src.ubOppNum );
+		this->fireControl().gunType() = src.bGunType;
+		this->targeting().engagedOpponent() = static_cast<UINT16>( src.ubOppNum );
 		this->awareness().lastRenderedVisibility() = src.bLastRenderVisibleValue;
 		this->attackSelection().hand() = src.ubAttackingHand;
 		this->movementMetrics().carriedWeightAtTurnStart() = src.sWeightCarriedAtTurnStart;
@@ -961,7 +961,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->dialogue().repeatedBattleSoundAt() = src.uiTimeSameBattleSndDone;
 		this->dialogue().previousBattleSound() = src.bOldBattleSnd;
 		this->audio().burstSoundId() = src.iBurstSoundID;
-		this->bSlotItemTakenFrom = src.bSlotItemTakenFrom;
+		this->service().borrowedInventorySlot() = src.bSlotItemTakenFrom;
 		this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );
 		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
 		this->employment().lastContractUpdateTime() = src.uiTimeOfLastContractUpdate;
@@ -999,10 +999,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->dialogue().activeBattleSound() = src.uiBattleSoundID;
 
 
-		this->usValueGoneUp = src.usValueGoneUp;
+		this->statProgress().increaseMask() = src.usValueGoneUp;
 		this->uiPresentation().locateCycles() = src.ubNumLocateCycles;
 		this->movement().delayedFlags() = src.ubDelayedMovementFlags;
-		this->ubCTGTTargetID = static_cast<UINT16>( src.ubCTGTTargetID );
+		this->targeting().lineOfFireTarget() = static_cast<UINT16>( src.ubCTGTTargetID );
 
 		this->replication().checksum() = src.uiMercChecksum;
 
@@ -1176,9 +1176,9 @@ void SOLDIERTYPE::initialize( )
 
 	// Initialize all SoldierID fields to NOBODY. 0 is a valid value!
 	this->ubID = NOBODY;
-	this->ubOppNum = NOBODY;
+	this->targeting().clearEngagedOpponent();
 	this->ubRobotRemoteHolderID = NOBODY;
-	this->ubCTGTTargetID = NOBODY;
+	this->targeting().clearLineOfFireTarget();
 }
 
 
@@ -14165,8 +14165,9 @@ void SOLDIERTYPE::ReLoadSoldierAnimationDueToHandItemChange( UINT16 usOldItem, U
 		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
 	// Flugente: use lowest valid barrel configuration
-	this->usBarrelMode = 1;
-	this->usBarrelMode = GetNextBarrelMode( usNewItem, this->usBarrelMode );
+	this->fireControl().selectBarrelMode( 1 );
+	this->fireControl().selectBarrelMode(
+		GetNextBarrelMode( usNewItem, this->fireControl().barrelMode() ) );
 
 	if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_FIREREADY )
 	{

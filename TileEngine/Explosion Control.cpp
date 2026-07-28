@@ -1691,7 +1691,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
-							pSoldier->usValueGoneUp &= ~( WIS_INCREASE );
+							pSoldier->statProgress().clearIncreased(WIS_INCREASE);
 
 							if (ubStatLoss == 1)
 							{
@@ -1724,7 +1724,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
-							pSoldier->usValueGoneUp &= ~( DEX_INCREASE );
+							pSoldier->statProgress().clearIncreased(DEX_INCREASE);
 
 							if (ubStatLoss == 1)
 							{
@@ -1758,7 +1758,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
-							pSoldier->usValueGoneUp &= ~( STRENGTH_INCREASE );
+							pSoldier->statProgress().clearIncreased(STRENGTH_INCREASE);
 
 							if (ubStatLoss == 1)
 							{
@@ -1792,7 +1792,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-							pSoldier->usValueGoneUp &= ~( AGIL_INCREASE );
+							pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 
 							if (ubStatLoss == 1)
 							{
@@ -1830,7 +1830,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
-							pSoldier->usValueGoneUp &= ~( HEALTH_INCREASE );
+							pSoldier->statProgress().clearIncreased(HEALTH_INCREASE);
 
 							if (ubStatLoss == 1)
 							{
@@ -4067,7 +4067,7 @@ void HandleExplosionQueue( void )
 							{
 								// make stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
-								pSoldier->usValueGoneUp &= ~(AGIL_INCREASE);
+								pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 
 								if ( bStatLoss == 1 )
 								{

@@ -798,7 +798,7 @@ void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier )
 	pSoldier->stats.bScientific = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 
 	pSoldier->stats.bExpLevel = (UINT8)sBaseExpLvl[sCurBaseDiff];
-	pSoldier->bGunType = (INT8)Random(BASE_GUNTYPE_DEVIATION);
+	pSoldier->fireControl().gunType() = (INT8)Random(BASE_GUNTYPE_DEVIATION);
 
 	pSoldier->actionPoints().current() = pSoldier->CalcActionPoints( );
 }

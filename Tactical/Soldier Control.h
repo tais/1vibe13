@@ -1021,9 +1021,6 @@ public:
 	UINT8			bInSector;
 	
 
-	UINT8			ubWaitActionToDo;
-	INT8				bGunType;
-	SoldierID		ubOppNum;
 	/////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - added following
 	// values for surgery feature
@@ -1073,12 +1070,7 @@ public:
 
 	struct TAG_anitile	*pAniTile;	
 	INT8					bVehicleID;
-	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
-
-	UINT16				usValueGoneUp;
-
-	SoldierID			ubCTGTTargetID;
 
 	UINT8				ubMiscSoldierFlags;
 
@@ -1097,9 +1089,6 @@ public:
 	UINT8	ubFiller[10];
 	
 	// Flugente: modifiers to fire modes
-	UINT8	usGLDelayMode;			// if > 0, delay GL grenade explosions
-	UINT8	usBarrelMode;			// states how many barrels we are currently using as modifier for our fire mode
-
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
 	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data

@@ -717,11 +717,11 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 
 			if( fChangeTypeIncrease )
 			{
-				pSoldier->usValueGoneUp |= usIncreaseValue;
+				pSoldier->statProgress().markIncreased(usIncreaseValue);
 			}
 			else
 			{
-				pSoldier->usValueGoneUp &= ~( usIncreaseValue );
+				pSoldier->statProgress().clearIncreased(usIncreaseValue);
 			}
 
 			fInterfacePanelDirty = DIRTYLEVEL2;

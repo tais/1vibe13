@@ -2446,7 +2446,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & STRENGTH_INCREASE )
+		if( pSoldier->statProgress().increased(STRENGTH_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2484,7 +2484,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & DEX_INCREASE )
+		if( pSoldier->statProgress().increased(DEX_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2522,7 +2522,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & AGIL_INCREASE )
+		if( pSoldier->statProgress().increased(AGIL_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2560,7 +2560,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & WIS_INCREASE )
+		if( pSoldier->statProgress().increased(WIS_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2598,7 +2598,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & LDR_INCREASE )
+		if( pSoldier->statProgress().increased(LDR_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2627,7 +2627,7 @@ void DrawCharStats( INT16 sCharNum )
 
 	if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Level, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & LVL_INCREASE )
+		if( pSoldier->statProgress().increased(LVL_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2665,7 +2665,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & MRK_INCREASE )
+		if( pSoldier->statProgress().increased(MRK_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2699,7 +2699,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & MECH_INCREASE )
+		if( pSoldier->statProgress().increased(MECH_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2733,7 +2733,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & EXP_INCREASE )
+		if( pSoldier->statProgress().increased(EXP_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2767,7 +2767,7 @@ void DrawCharStats( INT16 sCharNum )
 	}
 	else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 	{
-		if( pSoldier->usValueGoneUp & MED_INCREASE )
+		if( pSoldier->statProgress().increased(MED_INCREASE) )
 		{
 			SetFontForeground( FONT_LTGREEN );
 		}
@@ -2865,7 +2865,7 @@ void DrawCharHealth( INT16 sCharNum )
 		}
 		else if( pSoldier->statProgress().changedRecently(SoldierStatProgressComponent::Stat::Health, GetJA2Clock(), CHANGE_STAT_RECENTLY_DURATION) )
 		{
-			if( pSoldier->usValueGoneUp & HEALTH_INCREASE )
+			if( pSoldier->statProgress().increased(HEALTH_INCREASE) )
 			{
 				SetFontForeground( FONT_LTGREEN );
 			}

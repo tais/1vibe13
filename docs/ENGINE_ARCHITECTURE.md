@@ -970,11 +970,12 @@ the engine must not contain SDL types in its public domain model.
   `SoldierServiceComponent` owns the complementary tactical care relationship:
   the persisted service marker, the number of active providers on a patient,
   the provider's patient identity, and the medic reserved by automatic
-  bandaging. Named begin/end, add/remove, reservation, and reset operations keep
-  both sides coherent and prevent a mismatched cancellation from underflowing
-  the provider count. Face rendering observes the component but retains only
-  its presentation cache; every save field keeps its established position and
-  width.
+  bandaging. It also retains the inventory slot from which an autonomous medic
+  temporarily borrowed the kit now held in hand. Named begin/end, add/remove,
+  reservation, borrow/return, and reset operations keep both sides coherent
+  and prevent a mismatched cancellation from underflowing the provider count.
+  Face rendering observes the component but retains only its presentation
+  cache; every save field keeps its established position and width.
   `SoldierDialogueComponent` owns the spoken-state lifecycle: queued NPC quote
   records and actions, normal and extended said-history masks, battle-voice
   selection and active playback, repeat throttling, bleeding/dying feedback,
@@ -1038,15 +1039,16 @@ the engine must not contain SDL types in its public domain model.
   field width, and serialized position remains unchanged; v101 conversion
   clears the whole domain because that record predates it.
   `SoldierStatProgressComponent` owns all eleven persistent stat-change
-  timestamps and exposes them by stat identity. Gameplay records changes
-  through one operation, while tactical and strategic UI share a wrap-safe
-  recent-change query instead of duplicating clock arithmetic. The former
-  `STRUCT_TimeChanges` wrapper is retired; profile stat values and the
-  established value-gone-up mask remain separate concerns. All eleven
-  unsigned 32-bit save values retain their historical order and width, and
-  v101 conversion maps every raw timestamp exactly. Typed stat identities also
-  correct three legacy presentation-bookkeeping mistakes where food, water,
-  and explosion health damage recorded a strength or dexterity timestamp.
+  timestamps and the complementary value-gone-up direction mask. Gameplay
+  records changes through stat and mask operations, while tactical and
+  strategic UI share wrap-safe recent-change and increase queries instead of
+  duplicating clock arithmetic and bit manipulation. The former
+  `STRUCT_TimeChanges` wrapper and loose `usValueGoneUp` field are retired.
+  All eleven unsigned 32-bit timestamps and the scattered unsigned 16-bit mask
+  retain their historical positions and widths, and v101 conversion maps
+  every raw value exactly. Typed stat identities also correct three legacy
+  presentation-bookkeeping mistakes where food, water, and explosion health
+  damage recorded a strength or dexterity timestamp.
   `SoldierTimingComponent` owns the ten soldier-local countdowns plus AI and
   reload delay configuration. Timer purposes are explicit, gameplay uses
   named start, elapsed, and clear operations, and the platform clock updater
@@ -1172,40 +1174,42 @@ the engine must not contain SDL types in its public domain model.
   continued destinations, stop reason, coordinated speed override, tactical
   turn ownership, water and UI-speed state, AP exhaustion and pauses, movement
   timing/network delay, presentation motion, and destination-center crossing
-  no longer live in the generic flag bucket or distant public fields. UI, AI,
-  animation, rendering, pathing, and simulation-command code consume that one
-  route-execution owner. Named operations select stealth/reverse behavior,
-  synchronize extended facing, request grid-update suppression, begin and end
-  turns, coordinate pause/AP and UI-speed state, detect presentation-motion
-  edges, and update paired state such as a blocker/direction or crossed X/Y
-  destination together.
+  plus the staged strategic-exit wait action no longer live in the generic flag
+  bucket or distant public fields. UI, AI, animation, rendering, pathing, and
+  simulation-command code consume that one route-execution owner. Named
+  operations select stealth/reverse behavior, synchronize extended facing,
+  request grid-update suppression, begin and end turns, coordinate pause/AP,
+  UI-speed and strategic-exit waits, detect presentation-motion edges, and
+  update paired state such as a blocker/direction or crossed X/Y destination
+  together.
   `SoldierInterruptSnapshotComponent` separately retains the AI scheduler's
   moved flag while an interrupt temporarily rewrites it; interrupt begin and
   end now capture and restore that state through one explicit seam.
-  Current attack target grid,
-  elevation, cube level, previous target grid, and target soldier identity now
-  have one private `SoldierTargetingComponent` owner. Tactical UI, AI,
-  weapons, simulation commands, animation events, and multiplayer adapters all
-  read and mutate that same component instead of independent public
-  `SOLDIERTYPE` fields. `SoldierAttackSelectionComponent` separately owns the
-  selected attacking hand and weapon, weapon and scope modes, and ranged and
-  melee body locations. This keeps target geometry independent from the means
-  of attack while giving UI, AI, weapons, simulation, and network ingress one
-  canonical selection. The melee path-cost optimization has its own
+  Current attack target grid, elevation, cube level, previous target grid,
+  selected target soldier, engaged opponent, and cached line-of-fire target
+  identities now have one private `SoldierTargetingComponent` owner. Tactical
+  UI, AI, weapons, simulation commands, animation events, and multiplayer
+  adapters all read and mutate that same component instead of independent
+  public `SOLDIERTYPE` fields. `SoldierAttackSelectionComponent` separately
+  owns the selected attacking hand and weapon, weapon and scope modes, and
+  ranged and melee body locations. This keeps target geometry independent from
+  the means of attack while giving UI, AI, weapons, simulation, and network
+  ingress one canonical selection. The melee path-cost optimization has its own
   `SoldierMeleeApproachComponent`, keeping the cached target grid and movement
   mode coupled to their cost and terminal direction without making cache state
   part of target identity. `SoldierFireControlComponent` then owns the mutable
-  firing sequence: burst and autofire progress, bullets in flight, the
-  one-based spread cursor and its six fixed targets, recoil and counterforce
-  history, initial muzzle offsets, the autofire UI edge state, and the active
-  multi-barrel cursor. It also owns the start/end grids for the burst-spread
-  drag gesture, with named capture, update, and moved queries shared by
-  real-time and turn-based input. Named operations coordinate single-shot,
-  burst, and autofire selection without mixing target choice or
-  presentation-only sound and muzzle-flash handles into this simulation
-  boundary. AI dual-wield spread
-  generation is clamped after its shot count is doubled, preventing twelve
-  writes into the established six-target buffer.
+  firing sequence and configuration: editor gun archetype, grenade-launcher
+  delay mode, selected multi-barrel mode, burst and autofire progress, bullets
+  in flight, the one-based spread cursor and its six fixed targets, recoil and
+  counterforce history, initial muzzle offsets, the autofire UI edge state, and
+  the active multi-barrel cursor. It also owns the start/end grids for the
+  burst-spread drag gesture, with named capture, update, and moved queries
+  shared by real-time and turn-based input. Named operations coordinate
+  single-shot, burst, autofire, launcher-delay, and barrel selection without
+  mixing target choice or presentation-only sound and muzzle-flash handles
+  into this simulation boundary. AI dual-wield spread generation is clamped
+  after its shot count is doubled, preventing twelve writes into the
+  established six-target buffer.
   `SoldierCombatResultComponent` separately owns incoming hit attribution:
   current, previous, and earlier attackers, hit location and reason, per-turn
   hit and pellet counts, and accumulated damage. Its history operations keep

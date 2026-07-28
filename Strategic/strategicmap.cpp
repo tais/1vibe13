@@ -3869,7 +3869,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 			// anv: passengers can't move anyway
 			if ( curr->pSoldier->assignment().current() == VEHICLE )
 			{
-				curr->pSoldier->ubWaitActionToDo = 0;
+				curr->pSoldier->movement().clearWaitAction();
 			}
 			else if ( OK_CONTROLLABLE_MERC( curr->pSoldier ) )
 			{
@@ -3882,7 +3882,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
 						// Save wait code - this will make buddy walk off screen into oblivion
-						curr->pSoldier->ubWaitActionToDo = 2;
+						curr->pSoldier->movement().requestWaitAction( 2 );
 						// This will set the direction so we know now to move into oblivion
 						curr->pSoldier->pendingAction().primaryData() = ubTacticalDirection;
 					}
@@ -3901,7 +3901,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
 						// Save wait code - this will make buddy walk off screen into oblivion
-						//	curr->pSoldier->ubWaitActionToDo = 2;
+						//	curr->pSoldier->movement().requestWaitAction( 2 );
 					}
 					else
 					{
@@ -3909,7 +3909,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 					}
 
 					// Don't worry about walk off screen, just stay at gridno...
-					curr->pSoldier->ubWaitActionToDo = 1;
+					curr->pSoldier->movement().requestWaitAction( 1 );
 
 					// Set buddy go!
 					gfPlotPathToExitGrid = TRUE;
@@ -4480,7 +4480,7 @@ void DoneFadeOutAdjacentSector( )
 
 					if ( !TileIsOutOfBounds( sGridNo ) )
 					{
-						curr->pSoldier->ubWaitActionToDo = 1;
+						curr->pSoldier->movement().requestWaitAction( 1 );
 						// OK, here we have been given a position, a gridno has been given to use as well....
 						sOldGridNo = curr->pSoldier->position().gridNo();
 						ConvertGridNoToCenterCellXY(sGridNo, &sWorldX, &sWorldY);

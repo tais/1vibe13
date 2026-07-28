@@ -7284,6 +7284,7 @@ int main( int, char** )
 		service.addProvider();
 		service.beginProvidingTo( SoldierID{ 7 } );
 		service.assignAutoBandagingMedic( SoldierID{ 8 } );
+		service.borrowInventorySlot( 12 );
 		SoldierDialogueComponent& dialogue = soldier.dialogue();
 		dialogue.quoteRecord() = 13;
 		dialogue.quoteActionId() = QUOTE_ACTION_ID_CHECKFORDEST;
@@ -7375,6 +7376,7 @@ int main( int, char** )
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Explosives, 1009);
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Medical, 1010);
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Mechanical, 1011);
+		statProgress.markIncreased(HEALTH_INCREASE | AGIL_INCREASE);
 		SoldierTimingComponent& timing = soldier.timing();
 		for (UINT8 timerIndex = 0;
 		     timerIndex < SoldierTimingComponent::TimerCount;
@@ -7547,11 +7549,14 @@ int main( int, char** )
 		movement.syncPresentationMotion(true);
 		movement.markPastXDestination();
 		movement.markPastYDestination();
+		movement.requestWaitAction(2);
 		soldier.interruptSnapshot().captureMoved(1);
 		SoldierTargetingComponent& targeting = soldier.targeting();
 		targeting.selectLocation(1280, 1, 3);
 		targeting.lastGridNo() = 1279;
 		targeting.selectSoldier(SoldierID{ 5 });
+		targeting.engageOpponent(SoldierID{ 10 });
+		targeting.rememberLineOfFireTarget(SoldierID{ 11 });
 		SoldierAttackSelectionComponent& attackSelection = soldier.attackSelection();
 		attackSelection.selectWeapon(SECONDHANDPOS, 321);
 		attackSelection.weaponMode() = WM_ATTACHED_UB_AUTO;
@@ -7581,6 +7586,9 @@ int main( int, char** )
 		fireControl.barrelCounter() = 2;
 		fireControl.beginSpreadDrag(1287);
 		fireControl.updateSpreadDrag(1288);
+		fireControl.gunType() = -4;
+		fireControl.setGrenadeLauncherDelay(true);
+		fireControl.selectBarrelMode(4);
 		SoldierCombatResultComponent& combatResult = soldier.combatResult();
 		combatResult.recordHit(SoldierID{ 6 }, AIM_SHOT_HEAD);
 		combatResult.previousAttacker() = SoldierID{ 5 };
@@ -7717,8 +7725,9 @@ int main( int, char** )
 		       constSoldier.service().hasPartner() &&
 		       constSoldier.service().partner() == SoldierID{ 7 } &&
 		       constSoldier.service().hasAutoBandagingMedic() &&
-		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
-		       "soldier service component owns service activity, providers, partner, and automatic-bandage reservation" );
+		       constSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       constSoldier.service().borrowedInventorySlot() == 12,
+		       "soldier service component owns service relationships and temporary inventory borrowing" );
 		CHECK( constSoldier.dialogue().hasQuoteRecord() &&
 		       constSoldier.dialogue().quoteRecord() == 13 &&
 		       constSoldier.dialogue().hasQuoteAction() &&
@@ -7822,8 +7831,11 @@ int main( int, char** )
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
+		       constSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | AGIL_INCREASE) &&
+		       constSoldier.statProgress().increased(HEALTH_INCREASE) &&
 		       constSoldier.statProgress().changedRecently(SoldierStatProgressComponent::Stat::Strength, 1050, 100),
-		       "soldier stat-progress component owns every persistent change timestamp and recent-change query" );
+		       "soldier stat-progress component owns timestamps and stat-change direction feedback" );
 		bool canonicalTimingMatches = constSoldier.timing().aiDelay() == 1111 &&
 			constSoldier.timing().reloadDelay() == -1112;
 		for (UINT8 timerIndex = 0;
@@ -8022,8 +8034,10 @@ int main( int, char** )
 		       constSoldier.movement().recordingMovement() &&
 		       constSoldier.movement().delayedByNetwork() &&
 		       constSoldier.movement().wasMoving() &&
-		       constSoldier.movement().crossedDestinationCenter(),
-		       "soldier movement component owns tactical intent, contention, and activity state" );
+		       constSoldier.movement().crossedDestinationCenter() &&
+		       constSoldier.movement().waitingForAction() &&
+		       constSoldier.movement().waitAction() == 2,
+		       "soldier movement component owns tactical intent, contention, activity, and wait transitions" );
 		CHECK( constSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
 		       "soldier interrupt snapshot owns the pre-interrupt scheduler state" );
 		CHECK( constSoldier.targeting().gridNo() == 1280 &&
@@ -8031,8 +8045,12 @@ int main( int, char** )
 		       constSoldier.targeting().cubeLevel() == 3 &&
 		       constSoldier.targeting().lastGridNo() == 1279 &&
 		       constSoldier.targeting().hasTargetSoldier() &&
-		       constSoldier.targeting().targetId() == SoldierID{ 5 },
-		       "soldier targeting component owns current target geometry and identity" );
+		       constSoldier.targeting().targetId() == SoldierID{ 5 } &&
+		       constSoldier.targeting().hasEngagedOpponent() &&
+		       constSoldier.targeting().engagedOpponent() == SoldierID{ 10 } &&
+		       constSoldier.targeting().hasLineOfFireTarget() &&
+		       constSoldier.targeting().lineOfFireTarget() == SoldierID{ 11 },
+		       "soldier targeting component owns geometry, selection, engagement, and line-of-fire identity" );
 		CHECK( constSoldier.attackSelection().hand() == SECONDHANDPOS &&
 		       constSoldier.attackSelection().weapon() == 321 &&
 		       constSoldier.attackSelection().weaponMode() == WM_ATTACHED_UB_AUTO &&
@@ -8060,8 +8078,11 @@ int main( int, char** )
 		       constSoldier.fireControl().barrelCounter() == 2 &&
 		       constSoldier.fireControl().spreadDragStartGrid() == 1287 &&
 		       constSoldier.fireControl().spreadDragEndGrid() == 1288 &&
-		       constSoldier.fireControl().spreadDragMoved(),
-		       "soldier fire-control component owns volley selection and execution state" );
+		       constSoldier.fireControl().spreadDragMoved() &&
+		       constSoldier.fireControl().gunType() == -4 &&
+		       constSoldier.fireControl().delaysGrenadeLauncherExplosion() &&
+		       constSoldier.fireControl().barrelMode() == 4,
+		       "soldier fire-control component owns volley execution and persistent firing configuration" );
 		CHECK(
 			SoldierFireControlComponent::clampSpreadTargetCount(4) == 4 &&
 			SoldierFireControlComponent::clampSpreadTargetCount(12) ==
@@ -8236,18 +8257,22 @@ int main( int, char** )
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.beginProvidingTo( SoldierID{ 9 } );
 		serviceLifecycle.assignAutoBandagingMedic( SoldierID{ 10 } );
+		serviceLifecycle.borrowInventorySlot( 14 );
 		CHECK( serviceLifecycle.providerCount() == 1 &&
 		       serviceLifecycle.hasPartner() &&
 		       serviceLifecycle.partner() == SoldierID{ 9 } &&
-		       serviceLifecycle.hasAutoBandagingMedic(),
-		       "soldier service component coordinates provider, partner, and automatic-bandage lifecycles" );
+		       serviceLifecycle.hasAutoBandagingMedic() &&
+		       serviceLifecycle.borrowedInventorySlot() == 14,
+		       "soldier service component coordinates provider, partner, automatic-bandage, and borrowed-slot lifecycles" );
 		serviceLifecycle.clearProviders();
 		serviceLifecycle.finishProviding();
 		serviceLifecycle.clearAutoBandagingMedic();
+		serviceLifecycle.clearBorrowedInventorySlot();
 		serviceLifecycle.removeProvider();
 		CHECK( !serviceLifecycle.hasProviders() &&
 		       !serviceLifecycle.hasPartner() &&
-		       !serviceLifecycle.hasAutoBandagingMedic(),
+		       !serviceLifecycle.hasAutoBandagingMedic() &&
+		       serviceLifecycle.borrowedInventorySlot() == -1,
 		       "soldier service component clears relationships without underflowing its provider count" );
 		SoldierDialogueComponent dialogueLifecycle;
 		dialogueLifecycle.quoteRecord() = 4;
@@ -8550,14 +8575,19 @@ int main( int, char** )
 		       !statProgressLifecycle.changedRecently(SoldierStatProgressComponent::Stat::Strength, 4, 9),
 		       "soldier stat-progress recent-change query remains correct across clock wraparound" );
 		statProgressLifecycle.recordChange(SoldierStatProgressComponent::Stat::Health, 500);
+		statProgressLifecycle.markIncreased(HEALTH_INCREASE | DEX_INCREASE);
+		statProgressLifecycle.clearIncreased(DEX_INCREASE);
 		statProgressLifecycle.clear(SoldierStatProgressComponent::Stat::Health);
 		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Health) &&
-		       statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength),
-		       "soldier stat-progress clear removes one timestamp without disturbing adjacent stats" );
+		       statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
+		       statProgressLifecycle.increased(HEALTH_INCREASE) &&
+		       !statProgressLifecycle.increased(DEX_INCREASE),
+		       "soldier stat-progress clears timestamps and selected increase feedback independently" );
 		statProgressLifecycle.reset();
 		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
-		       statProgressLifecycle.changedAt(SoldierStatProgressComponent::Stat::Strength) == 0,
-		       "soldier stat-progress reset clears the complete change-timestamp lifecycle" );
+		       statProgressLifecycle.changedAt(SoldierStatProgressComponent::Stat::Strength) == 0 &&
+		       statProgressLifecycle.increaseMask() == 0,
+		       "soldier stat-progress reset clears timestamps and change-direction feedback" );
 		SoldierTimingComponent timingLifecycle;
 		timingLifecycle.aiDelay() = 100;
 		timingLifecycle.reloadDelay() = 250;
@@ -8798,7 +8828,8 @@ int main( int, char** )
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
-		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
+		       copiedSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       copiedSoldier.service().borrowedInventorySlot() == 12,
 		       "soldier copies retain their owned persistent service relationships" );
 		CHECK( copiedSoldier.dialogue().quoteRecord() == 13 &&
 		       copiedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
@@ -8881,8 +8912,10 @@ int main( int, char** )
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 1008 &&
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 1009 &&
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
-		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011,
-		       "soldier copies retain every owned persistent stat-change timestamp" );
+		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
+		       copiedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | AGIL_INCREASE),
+		       "soldier copies retain every owned persistent stat-change value" );
 		bool copiedTimingMatches = copiedSoldier.timing().aiDelay() == 1111 &&
 			copiedSoldier.timing().reloadDelay() == -1112;
 		for (UINT8 timerIndex = 0;
@@ -9070,7 +9103,8 @@ int main( int, char** )
 		       copiedSoldier.movement().recordingMovement() &&
 		       copiedSoldier.movement().delayedByNetwork() &&
 		       copiedSoldier.movement().wasMoving() &&
-		       copiedSoldier.movement().crossedDestinationCenter(),
+		       copiedSoldier.movement().crossedDestinationCenter() &&
+		       copiedSoldier.movement().waitAction() == 2,
 		       "soldier copies retain their owned persistent movement state" );
 		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
 		       "soldier copies retain their owned interrupt snapshot" );
@@ -9078,7 +9112,9 @@ int main( int, char** )
 		       copiedSoldier.targeting().level() == 1 &&
 		       copiedSoldier.targeting().cubeLevel() == 3 &&
 		       copiedSoldier.targeting().lastGridNo() == 1279 &&
-		       copiedSoldier.targeting().targetId() == SoldierID{ 5 },
+		       copiedSoldier.targeting().targetId() == SoldierID{ 5 } &&
+		       copiedSoldier.targeting().engagedOpponent() == SoldierID{ 10 } &&
+		       copiedSoldier.targeting().lineOfFireTarget() == SoldierID{ 11 },
 		       "soldier copies retain their owned persistent targeting state" );
 		CHECK( copiedSoldier.attackSelection().hand() == SECONDHANDPOS &&
 		       copiedSoldier.attackSelection().weapon() == 321 &&
@@ -9103,7 +9139,10 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetX() == 4.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 2 &&
 		       copiedSoldier.fireControl().spreadDragStartGrid() == 1287 &&
-		       copiedSoldier.fireControl().spreadDragEndGrid() == 1288,
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 1288 &&
+		       copiedSoldier.fireControl().gunType() == -4 &&
+		       copiedSoldier.fireControl().grenadeLauncherDelayMode() == 1 &&
+		       copiedSoldier.fireControl().barrelMode() == 4,
 		       "soldier copies retain their owned persistent fire-control state" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       copiedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
@@ -9237,6 +9276,7 @@ int main( int, char** )
 		copiedSoldier.movement().setNetworkDelayed(false);
 		copiedSoldier.movement().syncPresentationMotion(false);
 		copiedSoldier.movement().clearPastDestination();
+		copiedSoldier.movement().clearWaitAction();
 		copiedSoldier.animationIntent().clearDesiredHeight();
 		copiedSoldier.animationIntent().clearFacingAnimation();
 		copiedSoldier.animationIntent().queueAnimation( WALKING );
@@ -9267,7 +9307,8 @@ int main( int, char** )
 		       !copiedSoldier.movement().recordingMovement() &&
 		       !copiedSoldier.movement().delayedByNetwork() &&
 		       !copiedSoldier.movement().wasMoving() &&
-		       !copiedSoldier.movement().crossedDestinationCenter(),
+		       !copiedSoldier.movement().crossedDestinationCenter() &&
+		       !copiedSoldier.movement().waitingForAction(),
 		       "soldier movement component clears coordinated movement activity through named transitions" );
 		CHECK( !copiedSoldier.animationIntent().hasDesiredHeight() &&
 		       !copiedSoldier.animationIntent().hasPendingAnimation() &&
@@ -9468,8 +9509,32 @@ int main( int, char** )
 		CHECK( !spreadDragLifecycle.spreadDragMoved(),
 		       "burst-spread gesture distinguishes a stationary click" );
 		spreadDragLifecycle.updateSpreadDrag(1501);
-		CHECK( spreadDragLifecycle.spreadDragMoved(),
-		       "burst-spread gesture detects movement from its captured start grid" );
+		spreadDragLifecycle.gunType() = -5;
+		spreadDragLifecycle.setGrenadeLauncherDelay(true);
+		spreadDragLifecycle.selectBarrelMode(3);
+		CHECK( spreadDragLifecycle.spreadDragMoved() &&
+		       spreadDragLifecycle.gunType() == -5 &&
+		       spreadDragLifecycle.delaysGrenadeLauncherExplosion() &&
+		       spreadDragLifecycle.barrelMode() == 3,
+		       "fire-control coordinates spread movement and persistent firing configuration" );
+		spreadDragLifecycle.reset();
+		CHECK( !spreadDragLifecycle.spreadDragMoved() &&
+		       spreadDragLifecycle.gunType() == 0 &&
+		       !spreadDragLifecycle.delaysGrenadeLauncherExplosion() &&
+		       spreadDragLifecycle.barrelMode() == 0,
+		       "fire-control reset clears spread and persistent firing configuration" );
+
+		SoldierTargetingComponent targetingLifecycle;
+		targetingLifecycle.engageOpponent(SoldierID{ 21 });
+		targetingLifecycle.rememberLineOfFireTarget(SoldierID{ 22 });
+		CHECK( targetingLifecycle.hasEngagedOpponent() &&
+		       targetingLifecycle.hasLineOfFireTarget(),
+		       "targeting owns engaged-opponent and line-of-fire identities independently" );
+		targetingLifecycle.clearEngagedOpponent();
+		targetingLifecycle.clearLineOfFireTarget();
+		CHECK( !targetingLifecycle.hasEngagedOpponent() &&
+		       !targetingLifecycle.hasLineOfFireTarget(),
+		       "targeting clears transient combat identities through named transitions" );
 
 		SoldierAnimationActivityComponent traversalLifecycle;
 		traversalLifecycle.forecastTraversalAt(1600);
@@ -9930,7 +9995,8 @@ int main( int, char** )
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
-		       !copiedSoldier.service().hasAutoBandagingMedic(),
+		       !copiedSoldier.service().hasAutoBandagingMedic() &&
+		       copiedSoldier.service().borrowedInventorySlot() == 0,
 		       "soldier initialization resets the complete tactical service domain" );
 		CHECK( copiedSoldier.dialogue().quoteRecord() == 0 &&
 		       copiedSoldier.dialogue().quoteActionId() == 0 &&
@@ -10011,8 +10077,9 @@ int main( int, char** )
 				copiedSoldier.statProgress().changedAt(
 					static_cast<SoldierStatProgressComponent::Stat>(statIndex)) == 0;
 		}
-		CHECK( initializedStatProgressCleared,
-		       "soldier initialization resets every stat-progress timestamp" );
+		CHECK( initializedStatProgressCleared &&
+		       copiedSoldier.statProgress().increaseMask() == 0,
+		       "soldier initialization resets every stat-progress timestamp and direction bit" );
 		bool initializedTimingCleared =
 			copiedSoldier.timing().aiDelay() == 0 &&
 			copiedSoldier.timing().reloadDelay() == 0;
@@ -10208,7 +10275,9 @@ int main( int, char** )
 		       !copiedSoldier.movement().recordingMovement() &&
 		       !copiedSoldier.movement().delayedByNetwork() &&
 		       !copiedSoldier.movement().wasMoving() &&
-		       !copiedSoldier.movement().crossedDestinationCenter(),
+		       !copiedSoldier.movement().crossedDestinationCenter() &&
+		       !copiedSoldier.movement().waitingForAction() &&
+		       copiedSoldier.movement().waitAction() == 0,
 		       "soldier initialization resets the complete movement domain" );
 		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 0,
 		       "soldier initialization resets the interrupt snapshot domain" );
@@ -10217,7 +10286,9 @@ int main( int, char** )
 		       copiedSoldier.targeting().cubeLevel() == 0 &&
 		       copiedSoldier.targeting().lastGridNo() == 0 &&
 		       !copiedSoldier.targeting().hasTargetSoldier() &&
-		       copiedSoldier.targeting().targetId() == NOBODY,
+		       copiedSoldier.targeting().targetId() == NOBODY &&
+		       !copiedSoldier.targeting().hasEngagedOpponent() &&
+		       !copiedSoldier.targeting().hasLineOfFireTarget(),
 		       "soldier initialization resets the complete targeting domain" );
 		CHECK( copiedSoldier.attackSelection().hand() == 0 &&
 		       copiedSoldier.attackSelection().weapon() == 0 &&
@@ -10244,7 +10315,10 @@ int main( int, char** )
 		       copiedSoldier.fireControl().initialMuzzleOffsetY() == 0.0f &&
 		       copiedSoldier.fireControl().barrelCounter() == 0 &&
 		       copiedSoldier.fireControl().spreadDragStartGrid() == 0 &&
-		       copiedSoldier.fireControl().spreadDragEndGrid() == 0,
+		       copiedSoldier.fireControl().spreadDragEndGrid() == 0 &&
+		       copiedSoldier.fireControl().gunType() == 0 &&
+		       !copiedSoldier.fireControl().delaysGrenadeLauncherExplosion() &&
+		       copiedSoldier.fireControl().barrelMode() == 0,
 		       "soldier initialization resets the complete fire-control domain" );
 		CHECK( copiedSoldier.combatResult().currentAttacker() == NOBODY &&
 		       copiedSoldier.combatResult().previousAttacker() == NOBODY &&
@@ -10377,6 +10451,12 @@ int main( int, char** )
 		legacySoldier->sZLevelOverride = 701;
 		legacySoldier->uiTimeOfLastRandomAction = 73;
 		legacySoldier->usLastRandomAnim = 702;
+		legacySoldier->ubWaitActionToDo = 2;
+		legacySoldier->bGunType = -5;
+		legacySoldier->ubOppNum = 21;
+		legacySoldier->bSlotItemTakenFrom = -7;
+		legacySoldier->usValueGoneUp = HEALTH_INCREASE | DEX_INCREASE;
+		legacySoldier->ubCTGTTargetID = 22;
 		legacySoldier->fIgnoreGetupFromCollapseCheck = TRUE;
 		legacySoldier->GetupFromJA25StartCounter = 1704;
 		legacySoldier->fWaitingToGetupFromJA25Start = TRUE;
@@ -10711,11 +10791,17 @@ int main( int, char** )
 		convertedSoldier.movement().requestGridUpdateSuppression();
 		convertedSoldier.movement().clearUiMovementFast();
 		convertedSoldier.movement().clearPastDestination();
+		convertedSoldier.movement().requestWaitAction(9);
 		convertedSoldier.interruptSnapshot().captureMoved(9);
+		convertedSoldier.targeting().engageOpponent(SoldierID{ 90 });
+		convertedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 91 });
 		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
 		convertedSoldier.meleeApproach().rememberGrid(9997);
 		convertedSoldier.fireControl().beginSpreadDrag(9998);
 		convertedSoldier.fireControl().updateSpreadDrag(9999);
+		convertedSoldier.fireControl().gunType() = 9;
+		convertedSoldier.fireControl().setGrenadeLauncherDelay(true);
+		convertedSoldier.fireControl().selectBarrelMode(9);
 		convertedSoldier.animationActivity().forecastTraversalAt(10000);
 		convertedSoldier.animationActivity().setRenderZOverride(1001);
 		convertedSoldier.animationActivity().randomActionCheckCounter() = 99;
@@ -10746,6 +10832,8 @@ int main( int, char** )
 		convertedSoldier.condition().addDisability(2);
 		convertedSoldier.statProgress().recordChange(
 			SoldierStatProgressComponent::Stat::Level, 9999);
+		convertedSoldier.statProgress().markIncreased(AGIL_INCREASE);
+		convertedSoldier.service().borrowInventorySlot(99);
 		convertedSoldier.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 9998);
 		convertedSoldier.timing().aiDelay() = 9997;
 		convertedSoldier.timing().reloadDelay() = 9996;
@@ -10782,8 +10870,9 @@ int main( int, char** )
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
-		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 },
-		       "v101 soldier conversion retains the complete tactical service relationship" );
+		       convertedSoldier.service().autoBandagingMedic() == SoldierID{ 8 } &&
+		       convertedSoldier.service().borrowedInventorySlot() == -7,
+		       "v101 soldier conversion retains the complete tactical service and borrowed-slot state" );
 		CHECK( convertedSoldier.dialogue().quoteRecord() == 14 &&
 		       convertedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST &&
 		       convertedSoldier.dialogue().battleSoundSet() == 5 &&
@@ -10892,8 +10981,10 @@ int main( int, char** )
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 2108 &&
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 2109 &&
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 2110 &&
-		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111,
-		       "v101 soldier conversion retains every historical stat-change timestamp" );
+		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111 &&
+		       convertedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | DEX_INCREASE),
+		       "v101 soldier conversion retains every historical stat-change value" );
 		CHECK( convertedSoldier.timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) == 2201 &&
 		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::DamageDisplay) == 2202 &&
 		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Reload) == 2203 &&
@@ -11062,8 +11153,12 @@ int main( int, char** )
 		       convertedSoldier.movement().delayedByNetwork() &&
 		       convertedSoldier.movement().wasMoving() &&
 		       convertedSoldier.movement().pastXDestination() == -2 &&
-		       convertedSoldier.movement().pastYDestination() == 3,
-		       "v101 soldier conversion retains movement intent, facing, and complete activity state" );
+		       convertedSoldier.movement().pastYDestination() == 3 &&
+		       convertedSoldier.movement().waitAction() == 2,
+		       "v101 soldier conversion retains movement intent, facing, wait, and complete activity state" );
+		CHECK( convertedSoldier.targeting().engagedOpponent() == SoldierID{ 21 } &&
+		       convertedSoldier.targeting().lineOfFireTarget() == SoldierID{ 22 },
+		       "v101 soldier conversion retains engaged-opponent and line-of-fire identities" );
 		CHECK( convertedSoldier.meleeApproach().movementMode() == 0 &&
 		       convertedSoldier.meleeApproach().grid() == 1700 &&
 		       convertedSoldier.meleeApproach().cost() == 23 &&
@@ -11090,8 +11185,11 @@ int main( int, char** )
 		       convertedSoldier.fireControl().spreadLocations()[5] == 22006 &&
 		       convertedSoldier.fireControl().spreadDragStartGrid() == 1701 &&
 		       convertedSoldier.fireControl().spreadDragEndGrid() == 1702 &&
-		       convertedSoldier.fireControl().spreadDragMoved(),
-		       "v101 soldier conversion retains the complete fire-control spread array" );
+		       convertedSoldier.fireControl().spreadDragMoved() &&
+		       convertedSoldier.fireControl().gunType() == -5 &&
+		       convertedSoldier.fireControl().grenadeLauncherDelayMode() == 0 &&
+		       convertedSoldier.fireControl().barrelMode() == 0,
+		       "v101 soldier conversion retains historical fire control and clears later firing modes" );
 		CHECK( convertedSoldier.combatResult().currentAttacker() == SoldierID{ 6 } &&
 		       convertedSoldier.combatResult().previousAttacker() == SoldierID{ 5 } &&
 		       convertedSoldier.combatResult().earlierAttacker() == SoldierID{ 4 } &&
@@ -11271,6 +11369,7 @@ int main( int, char** )
 		savedSoldier.service().addProvider();
 		savedSoldier.service().beginProvidingTo( SoldierID{ 15 } );
 		savedSoldier.service().assignAutoBandagingMedic( SoldierID{ 16 } );
+		savedSoldier.service().borrowInventorySlot( -9 );
 		savedSoldier.dialogue().quoteRecord() = 15;
 		savedSoldier.dialogue().quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
 		savedSoldier.dialogue().battleSoundSet() = 6;
@@ -11391,6 +11490,7 @@ int main( int, char** )
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, 3109);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, 3110);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, 3111);
+		savedSoldier.statProgress().markIncreased(HEALTH_INCREASE | WIS_INCREASE);
 		for (UINT8 timerIndex = 0;
 		     timerIndex < SoldierTimingComponent::TimerCount;
 		     ++timerIndex)
@@ -11550,10 +11650,13 @@ int main( int, char** )
 		savedSoldier.movement().syncPresentationMotion(true);
 		savedSoldier.movement().pastXDestination() = -3;
 		savedSoldier.movement().pastYDestination() = 4;
+		savedSoldier.movement().requestWaitAction(2);
 		savedSoldier.interruptSnapshot().captureMoved(1);
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
 		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
+		savedSoldier.targeting().engageOpponent(SoldierID{ 18 });
+		savedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 19 });
 		savedSoldier.attackSelection().selectWeapon(SECONDHANDPOS, 444);
 		savedSoldier.attackSelection().weaponMode() = WM_ATTACHED_GL_AUTO;
 		savedSoldier.attackSelection().scopeMode() = USE_SCOPE_3;
@@ -11580,6 +11683,9 @@ int main( int, char** )
 		savedSoldier.fireControl().barrelCounter() = 3;
 		savedSoldier.fireControl().beginSpreadDrag(1510);
 		savedSoldier.fireControl().updateSpreadDrag(1512);
+		savedSoldier.fireControl().gunType() = -6;
+		savedSoldier.fireControl().setGrenadeLauncherDelay(true);
+		savedSoldier.fireControl().selectBarrelMode(5);
 		savedSoldier.combatResult().recordHit(SoldierID{ 12 }, AIM_SHOT_HEAD);
 		savedSoldier.combatResult().previousAttacker() = SoldierID{ 11 };
 		savedSoldier.combatResult().earlierAttacker() = SoldierID{ 10 };
@@ -11677,8 +11783,9 @@ int main( int, char** )
 		       loadedSoldier.service().activity() == 3 &&
 		       loadedSoldier.service().providerCount() == 3 &&
 		       loadedSoldier.service().partner() == SoldierID{ 15 } &&
-		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 },
-		       "soldier save/load round-trips tactical service state at established schema positions" );
+		       loadedSoldier.service().autoBandagingMedic() == SoldierID{ 16 } &&
+		       loadedSoldier.service().borrowedInventorySlot() == -9,
+		       "soldier save/load round-trips tactical service and borrowed-slot state at established positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.dialogue().quoteRecord() == 15 &&
 		       loadedSoldier.dialogue().quoteActionId() == QUOTE_ACTION_ID_TURNTOWARDSPLAYER &&
@@ -11808,8 +11915,10 @@ int main( int, char** )
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Marksmanship) == 3108 &&
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) == 3109 &&
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 3110 &&
-		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 3111,
-		       "soldier save/load round-trips all stat-progress timestamps at their established positions" );
+		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 3111 &&
+		       loadedSoldier.statProgress().increaseMask() ==
+		           (HEALTH_INCREASE | WIS_INCREASE),
+		       "soldier save/load round-trips stat timestamps and direction feedback at established positions" );
 		bool loadedTimingMatches = saved && loaded &&
 			loadedSoldier.timing().aiDelay() == 3211 &&
 			loadedSoldier.timing().reloadDelay() == -3212;
@@ -12003,7 +12112,8 @@ int main( int, char** )
 		       loadedSoldier.movement().delayedByNetwork() &&
 		       loadedSoldier.movement().wasMoving() &&
 		       loadedSoldier.movement().pastXDestination() == -3 &&
-		       loadedSoldier.movement().pastYDestination() == 4,
+		       loadedSoldier.movement().pastYDestination() == 4 &&
+		       loadedSoldier.movement().waitAction() == 2,
 		       "soldier save/load round-trips component-owned movement intent, facing, and activity state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayedCauseGrid() == 1451,
@@ -12036,7 +12146,9 @@ int main( int, char** )
 		       loadedSoldier.targeting().level() == 1 &&
 		       loadedSoldier.targeting().cubeLevel() == 4 &&
 		       loadedSoldier.targeting().lastGridNo() == 1479 &&
-		       loadedSoldier.targeting().targetId() == SoldierID{ 9 },
+		       loadedSoldier.targeting().targetId() == SoldierID{ 9 } &&
+		       loadedSoldier.targeting().engagedOpponent() == SoldierID{ 18 } &&
+		       loadedSoldier.targeting().lineOfFireTarget() == SoldierID{ 19 },
 		       "soldier save/load round-trips component-owned targeting state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.attackSelection().hand() == SECONDHANDPOS &&
@@ -12068,7 +12180,10 @@ int main( int, char** )
 		       loadedSoldier.fireControl().barrelCounter() == 3 &&
 		       loadedSoldier.fireControl().spreadDragStartGrid() == 1510 &&
 		       loadedSoldier.fireControl().spreadDragEndGrid() == 1512 &&
-		       loadedSoldier.fireControl().spreadDragMoved(),
+		       loadedSoldier.fireControl().spreadDragMoved() &&
+		       loadedSoldier.fireControl().gunType() == -6 &&
+		       loadedSoldier.fireControl().grenadeLauncherDelayMode() == 1 &&
+		       loadedSoldier.fireControl().barrelMode() == 5,
 		       "soldier save/load round-trips fire-control state at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.combatResult().currentAttacker() == SoldierID{ 12 } &&
