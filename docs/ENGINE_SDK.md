@@ -380,13 +380,17 @@ location boundary: strategic sector, movement group, vehicle, tactical
 insertion, traversal origin, off-world staging, and arrival bookkeeping.
 Strategic route/group objects remain adapters, and all existing sector,
 insertion, vehicle, and arrival gameplay entry points continue to operate on
-the same values. Current
-tactical grid, elevation, and facing
-are privately owned by `SoldierPositionComponent` as the next persistent
-storage domain, with zero-cost reference accessors for the application hot
-paths. Old-save conversion and explicit persistence retain the established
-field order. The remaining fixed-capacity tactical route now follows the same
-rule through `SoldierPathingComponent`: destinations, cursor, directions,
+the same values. Precise and integer-projected world coordinates, turn-start
+coordinates, initial/current grid, elevation and facing, current/desired
+height, temporary animation grid, room, and terrain history are privately
+owned by `SoldierPositionComponent` as one persistent storage domain.
+Zero-cost reference accessors remain available to application hot paths,
+while named coordinate and terrain transitions keep paired values coherent.
+Old-save conversion and explicit persistence retain every established field
+position. Previous-grid and AI loop-prevention history remain separate
+movement-history concerns. The remaining fixed-capacity tactical route now
+follows the same rule through `SoldierPathingComponent`: destinations, cursor,
+directions,
 lookup flags, and blacklist have one private owner and reset boundary instead
 of a public `STRUCT_Pathing`. Its reference accessors preserve hot-path
 mutation while the portable serializer retains the established byte sequence.

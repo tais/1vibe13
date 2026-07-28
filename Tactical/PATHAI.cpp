@@ -1689,25 +1689,25 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 	// this is theoretical, and I'm not actually at sMyGridNo right now
 	sMyRealGridNo = pMe->position().gridNo();		// remember where I REALLY am
-	dMyX = pMe->dXPos;
-	dMyY = pMe->dYPos;
+	dMyX = pMe->position().worldX();
+	dMyY = pMe->position().worldY();
 
 	pMe->position().gridNo() = sMyGridNo;				// but pretend I'm standing at sMyGridNo
 	ConvertGridNoToCenterCellXY( sMyGridNo, &sTempX, &sTempY );
-	pMe->dXPos = (FLOAT) sTempX;
-	pMe->dYPos = (FLOAT) sTempY;
+	pMe->position().worldX() = (FLOAT) sTempX;
+	pMe->position().worldY() = (FLOAT) sTempY;
 
 	// if this is theoretical, and he's not actually at hisGrid right now
 	if (pHim->position().gridNo() != sHisGridNo)
 	{
 		sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
-		dHisX = pHim->dXPos;
-		dHisY = pHim->dYPos;
+		dHisX = pHim->position().worldX();
+		dHisY = pHim->position().worldY();
 
 		pHim->position().gridNo() = sHisGridNo;			// but pretend he's standing at sHisGridNo
 		ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
-		pHim->dXPos = (FLOAT) sTempX;
-		pHim->dYPos = (FLOAT) sTempY;
+		pHim->position().worldX() = (FLOAT) sTempX;
+		pHim->position().worldY() = (FLOAT) sTempY;
 	}
 
 
@@ -1732,8 +1732,8 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 		if (TileIsOutOfBounds(sHisRealGridNo))
 		{
 			sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
-			dHisX = pHim->dXPos;
-			dHisY = pHim->dYPos;
+			dHisX = pHim->position().worldX();
+			dHisY = pHim->position().worldY();
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
@@ -1760,8 +1760,8 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 		{
 			pHim->position().gridNo() = sHisGridNo;
 			ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
-			pHim->dXPos = (FLOAT) sTempX;
-			pHim->dYPos = (FLOAT) sTempY;
+			pHim->position().worldX() = (FLOAT) sTempX;
+			pHim->position().worldY() = (FLOAT) sTempY;
 		}
 
 		// let's not assume anything about the stance the enemy might take, so take an average
@@ -1779,14 +1779,14 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 	// UNDO ANY TEMPORARY "DAMAGE" DONE ABOVE
 	pMe->position().gridNo() = sMyRealGridNo;		// put me back where I belong!
-	pMe->dXPos = dMyX;						// also change the 'x'
-	pMe->dYPos = dMyY;						// and the 'y'
+	pMe->position().worldX() = dMyX;						// also change the 'x'
+	pMe->position().worldY() = dMyY;						// and the 'y'
 
 	if (!TileIsOutOfBounds(sHisRealGridNo))
 	{
 		pHim->position().gridNo() = sHisRealGridNo;		// put HIM back where HE belongs!
-		pHim->dXPos = dHisX;					// also change the 'x'
-		pHim->dYPos = dHisY;					// and the 'y'
+		pHim->position().worldX() = dHisX;					// also change the 'x'
+		pHim->position().worldY() = dHisY;					// and the 'y'
 	}
 
 

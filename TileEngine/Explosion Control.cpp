@@ -4651,7 +4651,7 @@ void DecayBombTimers( void )
 								}
 
 								// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-								IgniteExplosion( gubPersonToSetOffExplosions, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
+								IgniteExplosion( gubPersonToSetOffExplosions, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
 
 								DeleteObj( pObj );
 							}
@@ -4822,7 +4822,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 									gubPersonToSetOffExplosions = ubID;
 
 									// ignite explosions manually - this item is not in the WorldBobms-structure, so we can't add it to the queue
-									IgniteExplosion( ubID, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
+									IgniteExplosion( ubID, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pObj->usItem, pSoldier->position().level(), pSoldier->position().direction(), pObj );
 
 									DeleteObj( pObj );
 								}

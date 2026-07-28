@@ -258,11 +258,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Move merc up
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->sHeightAdjustment + 2 )	);
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().heightAdjustment() + 2 )	);
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->sHeightAdjustment + 3 ) );
+					pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 3 ) );
 				}
 				break;
 
@@ -279,7 +279,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					INT16		sXPos, sYPos;
 
 					//sNewGridNo = NewGridNo( pSoldier->sGridNo, (UINT16)DirectionInc( pSoldier->ubDirection ) );
-					ConvertGridNoToCenterCellXY( pSoldier->sTempNewGridNo, &sXPos, &sYPos );
+					ConvertGridNoToCenterCellXY( pSoldier->position().temporaryGrid(), &sXPos, &sYPos );
 					pSoldier->EVENT_SetSoldierPosition( (FLOAT)sXPos, (FLOAT)sYPos );
 				}
 
@@ -333,7 +333,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 409:
 
 				//CODE: MOVE DOWN
-				pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->sHeightAdjustment - 2 ) );
+				pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 2 ) );
 				break;
 
 			case 410:
@@ -993,8 +993,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Flugente: the old complicated method relied on the route path being filled correctly, which it often wasn't.
 				// This is unneccessary, as we've already filled sTempNewGridNo with the correct data
 				// we could fill sForcastGridno when initiating the jump, but lets keep this as a hook
-				if ( pSoldier->sTempNewGridNo != NOWHERE )
-					pSoldier->sForcastGridno = pSoldier->sTempNewGridNo;
+				if ( pSoldier->position().temporaryGrid() != NOWHERE )
+					pSoldier->sForcastGridno = pSoldier->position().temporaryGrid();
 				else
 					// hey, it's better than nowhere
 					pSoldier->sForcastGridno = pSoldier->position().gridNo();
@@ -1177,7 +1177,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: MOVE UP FROM CLIFF CLIMB
 				pSoldier->aiData.dHeightAdjustment += (float)2.1;
-				pSoldier->sHeightAdjustment = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
 				// Move over some...
 				//MoveMercFacingDirection( pSoldier , FALSE, (FLOAT)0.5 );
 				break;
@@ -1193,7 +1193,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// CODE: END CLIFF CLIMB
 				pSoldier->aiData.dHeightAdjustment = (float)0;
-				pSoldier->sHeightAdjustment = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
 
 				// Set new gridno
 				{
@@ -1229,9 +1229,9 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 466:
 
 				// CODE: ADJUST TO OUR DEST HEIGHT
-				if ( pSoldier->sHeightAdjustment != pSoldier->sDesiredHeight )
+				if ( pSoldier->position().heightAdjustment() != pSoldier->position().desiredHeight() )
 				{
-					INT16 sDiff = pSoldier->sHeightAdjustment - pSoldier->sDesiredHeight;
+					INT16 sDiff = pSoldier->position().heightAdjustment() - pSoldier->position().desiredHeight();
 
 					if ( abs( sDiff ) > 4 )
 					{
@@ -1249,13 +1249,13 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					else
 					{
 						// Adjust!
-						pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->sDesiredHeight) );
+						pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().desiredHeight()) );
 					}
 				}
 				else
 				{
 					// Goto eating animation
-					if ( pSoldier->sDesiredHeight == 0 )
+					if ( pSoldier->position().desiredHeight() == 0 )
 					{
 						pSoldier->ChangeSoldierState( CROW_EAT, 0 , FALSE );
 					}
@@ -3061,7 +3061,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: Move Vehicle UP
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{
-					//	pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->sHeightAdjustment + 1 ) );
+					//	pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 1 ) );
 				}
 				break;
 
@@ -3070,7 +3070,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: Move vehicle down
 				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 				{
-					//		pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->sHeightAdjustment - 1 ) );
+					//		pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 1 ) );
 				}
 				break;
 

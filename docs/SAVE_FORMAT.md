@@ -398,6 +398,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   maps every historical field into that owner. Strategic path and group
   pointers remain serialization adapters. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- Precise and integer-projected world coordinates, turn-start coordinates,
+  initial/current grid, elevation and facing, current/desired height, the
+  advanced-animation staging grid, room, and terrain history are now stored by
+  `SoldierPositionComponent`. The visitor still emits all sixteen values at
+  their original scattered POD positions and widths, and v101 conversion maps
+  every historical value into the owner. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

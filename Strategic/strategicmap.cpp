@@ -4225,7 +4225,7 @@ void SetupTacticalTraversalInformation( )
 		if ( guiAdjacentTraverseTime <= 5 )
 		{
 			// Save this gridNo....
-			pSoldier->pendingAction().secondaryData() = GETWORLDINDEXFROMWORLDCOORDS( pSoldier->sY, pSoldier->sX );
+			pSoldier->pendingAction().secondaryData() = GETWORLDINDEXFROMWORLDCOORDS( pSoldier->position().worldYInt(), pSoldier->position().worldXInt() );
 			// Copy CODe computed earlier into data
 			pSoldier->deployment().strategicInsertionData() = pSoldier->deployment().strategicInsertionCode();
 			// Now use NEW code....

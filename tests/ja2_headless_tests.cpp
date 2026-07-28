@@ -7421,9 +7421,18 @@ int main( int, char** )
 		deployment.useExitGridForReentryDirection() = 1;
 		deployment.scheduleArrival(14000, 6);
 		SoldierPositionComponent& position = soldier.position();
+		position.setWorldCoordinates(123.75f, 456.25f);
+		position.recordTurnStart(120, 450);
+		position.initialGrid() = 1200;
 		position.gridNo() = 1234;
 		position.level() = 1;
 		position.direction() = 6;
+		position.heightAdjustment() = 17;
+		position.desiredHeight() = 25;
+		position.temporaryGrid() = 1236;
+		position.roomNo() = 8;
+		position.terrainType() = PAVED_ROAD;
+		position.enterTerrain(LOW_GRASS);
 		SoldierPathingComponent& pathing = soldier.pathing();
 		pathing.desiredDirection() = 7;
 		pathing.destinationX() = 14;
@@ -7728,10 +7737,24 @@ int main( int, char** )
 		       constSoldier.deployment().leaveHistoryCode() == 6 &&
 		       constSoldier.deployment().arrivalTime() == 14000,
 		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival state" );
-		CHECK( constSoldier.position().gridNo() == 1234 &&
+		CHECK( constSoldier.position().worldX() == 123.75f &&
+		       constSoldier.position().worldY() == 456.25f &&
+		       constSoldier.position().worldXInt() == 123 &&
+		       constSoldier.position().worldYInt() == 456 &&
+		       constSoldier.position().hasTurnStart() &&
+		       constSoldier.position().turnStartX() == 120 &&
+		       constSoldier.position().turnStartY() == 450 &&
+		       constSoldier.position().initialGrid() == 1200 &&
+		       constSoldier.position().gridNo() == 1234 &&
 		       constSoldier.position().level() == 1 &&
-		       constSoldier.position().direction() == 6,
-		       "soldier position component owns the canonical tactical location" );
+		       constSoldier.position().direction() == 6 &&
+		       constSoldier.position().heightAdjustment() == 17 &&
+		       constSoldier.position().desiredHeight() == 25 &&
+		       constSoldier.position().temporaryGrid() == 1236 &&
+		       constSoldier.position().roomNo() == 8 &&
+		       constSoldier.position().terrainType() == LOW_GRASS &&
+		       constSoldier.position().previousTerrainType() == PAVED_ROAD,
+		       "soldier position component owns precise, projected, historical, vertical, room, and terrain placement" );
 		CHECK( constSoldier.pathing().desiredDirection() == 7 &&
 		       constSoldier.pathing().destinationGrid() == 1235 &&
 		       constSoldier.pathing().finalDestinationGrid() == 1240 &&
@@ -8366,10 +8389,23 @@ int main( int, char** )
 		       copiedSoldier.deployment().leaveHistoryCode() == 6 &&
 		       copiedSoldier.deployment().arrivalTime() == 14000,
 		       "soldier copies retain their owned persistent deployment state" );
-		CHECK( copiedSoldier.position().gridNo() == 1234 &&
+		CHECK( copiedSoldier.position().worldX() == 123.75f &&
+		       copiedSoldier.position().worldY() == 456.25f &&
+		       copiedSoldier.position().worldXInt() == 123 &&
+		       copiedSoldier.position().worldYInt() == 456 &&
+		       copiedSoldier.position().turnStartX() == 120 &&
+		       copiedSoldier.position().turnStartY() == 450 &&
+		       copiedSoldier.position().initialGrid() == 1200 &&
+		       copiedSoldier.position().gridNo() == 1234 &&
 		       copiedSoldier.position().level() == 1 &&
-		       copiedSoldier.position().direction() == 6,
-		       "soldier copies retain their owned persistent position" );
+		       copiedSoldier.position().direction() == 6 &&
+		       copiedSoldier.position().heightAdjustment() == 17 &&
+		       copiedSoldier.position().desiredHeight() == 25 &&
+		       copiedSoldier.position().temporaryGrid() == 1236 &&
+		       copiedSoldier.position().roomNo() == 8 &&
+		       copiedSoldier.position().terrainType() == LOW_GRASS &&
+		       copiedSoldier.position().previousTerrainType() == PAVED_ROAD,
+		       "soldier copies retain their complete owned persistent position" );
 		CHECK( copiedSoldier.pathing().desiredDirection() == 7 &&
 		       copiedSoldier.pathing().destinationX() == 14 &&
 		       copiedSoldier.pathing().destinationY() == 28 &&
@@ -9026,9 +9062,23 @@ int main( int, char** )
 		       copiedSoldier.deployment().leaveHistoryCode() == 0 &&
 		       copiedSoldier.deployment().arrivalTime() == 0,
 		       "soldier initialization resets the complete deployment domain" );
-		CHECK( copiedSoldier.position().gridNo() == 0 &&
+		CHECK( copiedSoldier.position().worldX() == 0 &&
+		       copiedSoldier.position().worldY() == 0 &&
+		       copiedSoldier.position().worldXInt() == 0 &&
+		       copiedSoldier.position().worldYInt() == 0 &&
+		       !copiedSoldier.position().hasTurnStart() &&
+		       copiedSoldier.position().turnStartX() == 0 &&
+		       copiedSoldier.position().turnStartY() == 0 &&
+		       copiedSoldier.position().initialGrid() == 0 &&
+		       copiedSoldier.position().gridNo() == 0 &&
 		       copiedSoldier.position().level() == 0 &&
-		       copiedSoldier.position().direction() == 0,
+		       copiedSoldier.position().direction() == 0 &&
+		       copiedSoldier.position().heightAdjustment() == 0 &&
+		       copiedSoldier.position().desiredHeight() == 0 &&
+		       copiedSoldier.position().temporaryGrid() == 0 &&
+		       copiedSoldier.position().roomNo() == 0 &&
+		       copiedSoldier.position().terrainType() == 0 &&
+		       copiedSoldier.position().previousTerrainType() == 0,
 		       "soldier initialization resets the complete position domain" );
 		CHECK( copiedSoldier.pathing().desiredDirection() == 0 &&
 		       copiedSoldier.pathing().destinationX() == 0 &&
@@ -9262,6 +9312,22 @@ int main( int, char** )
 		legacySoldier->sPreTraversalGridNo = 2303;
 		legacySoldier->ubLeaveHistoryCode = 8;
 		legacySoldier->uiTimeSoldierWillArrive = 15000;
+		legacySoldier->dXPos = 321.5f;
+		legacySoldier->dYPos = 654.25f;
+		legacySoldier->sX = 319;
+		legacySoldier->sY = 649;
+		legacySoldier->sOldXPos = 300;
+		legacySoldier->sOldYPos = 600;
+		legacySoldier->sInitialGridNo = 2304;
+		legacySoldier->sGridNo = 2305;
+		legacySoldier->bLevel = 1;
+		legacySoldier->ubDirection = 6;
+		legacySoldier->sHeightAdjustment = 21;
+		legacySoldier->sDesiredHeight = 29;
+		legacySoldier->sTempNewGridNo = 2306;
+		legacySoldier->sRoomNo = 13;
+		legacySoldier->bOverTerrainType = HIGH_GRASS;
+		legacySoldier->bOldOverTerrainType = DIRT_ROAD;
 		legacySoldier->ubAttackerID = 6;
 		legacySoldier->ubPreviousAttackerID = 5;
 		legacySoldier->ubNextToPreviousAttackerID = 4;
@@ -9485,6 +9551,23 @@ int main( int, char** )
 		       convertedSoldier.deployment().leaveHistoryCode() == 8 &&
 		       convertedSoldier.deployment().arrivalTime() == 15000,
 		       "v101 soldier conversion retains the complete deployment and arrival lifecycle" );
+		CHECK( convertedSoldier.position().worldX() == 321.5f &&
+		       convertedSoldier.position().worldY() == 654.25f &&
+		       convertedSoldier.position().worldXInt() == 319 &&
+		       convertedSoldier.position().worldYInt() == 649 &&
+		       convertedSoldier.position().turnStartX() == 300 &&
+		       convertedSoldier.position().turnStartY() == 600 &&
+		       convertedSoldier.position().initialGrid() == 2304 &&
+		       convertedSoldier.position().gridNo() == 2305 &&
+		       convertedSoldier.position().level() == 1 &&
+		       convertedSoldier.position().direction() == 6 &&
+		       convertedSoldier.position().heightAdjustment() == 21 &&
+		       convertedSoldier.position().desiredHeight() == 29 &&
+		       convertedSoldier.position().temporaryGrid() == 2306 &&
+		       convertedSoldier.position().roomNo() == 13 &&
+		       convertedSoldier.position().terrainType() == HIGH_GRASS &&
+		       convertedSoldier.position().previousTerrainType() == DIRT_ROAD,
+		       "v101 soldier conversion retains every historical tactical world-placement value" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -9777,9 +9860,20 @@ int main( int, char** )
 		savedSoldier.deployment().setTraversalOrigin(33, 2403);
 		savedSoldier.deployment().useExitGridForReentryDirection() = 1;
 		savedSoldier.deployment().scheduleArrival(16000, 9);
+		savedSoldier.position().setWorldCoordinates(242.5f, 668.75f);
+		savedSoldier.position().worldXInt() = 241;
+		savedSoldier.position().worldYInt() = 667;
+		savedSoldier.position().recordTurnStart(230, 650);
+		savedSoldier.position().initialGrid() = 1400;
 		savedSoldier.position().gridNo() = 1427;
 		savedSoldier.position().level() = 1;
 		savedSoldier.position().direction() = 5;
+		savedSoldier.position().heightAdjustment() = 19;
+		savedSoldier.position().desiredHeight() = 27;
+		savedSoldier.position().temporaryGrid() = 1428;
+		savedSoldier.position().roomNo() = 11;
+		savedSoldier.position().terrainType() = HIGH_GRASS;
+		savedSoldier.position().previousTerrainType() = DIRT_ROAD;
 		savedSoldier.pathing().desiredDirection() = 4;
 		savedSoldier.pathing().destinationX() = 321;
 		savedSoldier.pathing().destinationY() = 654;
@@ -10082,9 +10176,22 @@ int main( int, char** )
 		       loadedSoldier.deployment().arrivalTime() == 16000,
 		       "soldier save/load round-trips deployment state at every established POD position" );
 		CHECK( saved && loaded &&
+		       loadedSoldier.position().worldX() == 242.5f &&
+		       loadedSoldier.position().worldY() == 668.75f &&
+		       loadedSoldier.position().worldXInt() == 241 &&
+		       loadedSoldier.position().worldYInt() == 667 &&
+		       loadedSoldier.position().turnStartX() == 230 &&
+		       loadedSoldier.position().turnStartY() == 650 &&
+		       loadedSoldier.position().initialGrid() == 1400 &&
 		       loadedSoldier.position().gridNo() == 1427 &&
 		       loadedSoldier.position().level() == 1 &&
 		       loadedSoldier.position().direction() == 5 &&
+		       loadedSoldier.position().heightAdjustment() == 19 &&
+		       loadedSoldier.position().desiredHeight() == 27 &&
+		       loadedSoldier.position().temporaryGrid() == 1428 &&
+		       loadedSoldier.position().roomNo() == 11 &&
+		       loadedSoldier.position().terrainType() == HIGH_GRASS &&
+		       loadedSoldier.position().previousTerrainType() == DIRT_ROAD &&
 		       loadedSoldier.pathing().desiredDirection() == 4 &&
 		       loadedSoldier.pathing().destinationX() == 321 &&
 		       loadedSoldier.pathing().destinationY() == 654 &&
@@ -10098,7 +10205,7 @@ int main( int, char** )
 		       loadedSoldier.pathing().pathIndex() == 1 &&
 		       loadedSoldier.pathing().blackListGrid() == 1444 &&
 		       loadedSoldier.pathing().stored() == 1,
-		       "soldier save/load round-trips component-owned persistent state through the established schema" );
+		       "soldier save/load round-trips complete position and pathing state through every established schema site" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayCounter() == 12,
 		       "soldier save/load round-trips the component-owned movement delay counter" );

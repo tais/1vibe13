@@ -772,10 +772,7 @@ static void DoDive(	)
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,"DoDive: move plane");
 			MoveDiveAirplane( dAngle );
 
-			gpRaidSoldier->dXPos	= gsDiveX;
-			gpRaidSoldier->sX			= gsDiveX;
-			gpRaidSoldier->dYPos	= gsDiveY;
-			gpRaidSoldier->sY			= gsDiveY;
+			gpRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
@@ -834,10 +831,7 @@ static void DoDive(	)
 				sX = (INT16)( gsDiveX + ( (FLOAT)sin( dAngle + ( PI/2) ) * 40 ) );
 				sY = (INT16)( gsDiveY + ( (FLOAT)cos( dAngle + ( PI/2) ) * 40 ) );
 
-				gpRaidSoldier->dXPos	= sX;
-				gpRaidSoldier->sX			= sX;
-				gpRaidSoldier->dYPos	= sY;
-				gpRaidSoldier->sY			= sY;
+				gpRaidSoldier->position().setWorldCoordinates(sX, sY);
 				gpRaidSoldier->position().gridNo() = GETWORLDINDEXFROMWORLDCOORDS( sY, sX );
 
 				// Get target.....
@@ -943,10 +937,7 @@ static void DoBombing(	)
 
 			MoveDiveAirplane( dAngle );
 
-			gpRaidSoldier->dXPos	= gsDiveX;
-			gpRaidSoldier->sX			= gsDiveX;
-			gpRaidSoldier->dYPos	= gsDiveY;
-			gpRaidSoldier->sY			= gsDiveY;
+			gpRaidSoldier->position().setWorldCoordinates(gsDiveX, gsDiveY);
 
 			// Figure gridno....
 			sGridNo = GETWORLDINDEXFROMWORLDCOORDS( gsDiveY, gsDiveX );
@@ -1343,10 +1334,10 @@ BOOLEAN SaveAirRaidInfoToSaveGameFile( HWFILE hFile )
 //		sAirRaidSaveStruct.bSide = gpRaidSoldier->bSide;
 //		sAirRaidSaveStruct.ubAttackerID = gpRaidSoldier->combatResult().currentAttacker();
 //		sAirRaidSaveStruct.usAttackingWeapon = gpRaidSoldier->attackSelection().weapon();
-//		sAirRaidSaveStruct.dXPos = gpRaidSoldier->dXPos;
-//		sAirRaidSaveStruct.dYPos = gpRaidSoldier->dYPos;
-//		sAirRaidSaveStruct.sX = gpRaidSoldier->sX;
-//		sAirRaidSaveStruct.sY = gpRaidSoldier->sY;
+//		sAirRaidSaveStruct.dXPos = gpRaidSoldier->position().worldX();
+//		sAirRaidSaveStruct.dYPos = gpRaidSoldier->position().worldY();
+//		sAirRaidSaveStruct.sX = gpRaidSoldier->position().worldXInt();
+//		sAirRaidSaveStruct.sY = gpRaidSoldier->position().worldYInt();
 //		sAirRaidSaveStruct.sGridNo = gpRaidSoldier->sGridNo;
 //
 //		sAirRaidSaveStruct.sRaidSoldierID = MAX_NUM_SOLDIERS - 1;
@@ -1421,10 +1412,10 @@ BOOLEAN LoadAirRaidInfoFromSaveGameFile( HWFILE hFile )
 		gpRaidSoldier->bSide = sAirRaidSaveStruct.bSide;
 		gpRaidSoldier->combatResult().currentAttacker() = sAirRaidSaveStruct.ubAttackerID;
 		gpRaidSoldier->attackSelection().weapon() = sAirRaidSaveStruct.usAttackingWeapon;
-		gpRaidSoldier->dXPos = sAirRaidSaveStruct.dXPos;
-		gpRaidSoldier->dYPos = sAirRaidSaveStruct.dYPos;
-		gpRaidSoldier->sX = sAirRaidSaveStruct.sX;
-		gpRaidSoldier->sY = sAirRaidSaveStruct.sY;
+		gpRaidSoldier->position().setWorldCoordinates(
+			sAirRaidSaveStruct.dXPos, sAirRaidSaveStruct.dYPos);
+		gpRaidSoldier->position().worldXInt() = sAirRaidSaveStruct.sX;
+		gpRaidSoldier->position().worldYInt() = sAirRaidSaveStruct.sY;
 		gpRaidSoldier->position().gridNo() = sAirRaidSaveStruct.sGridNo;
 	}
 	else

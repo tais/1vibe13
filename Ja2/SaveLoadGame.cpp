@@ -1681,6 +1681,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierEmploymentComponent& employment = s.employment();
 	SoldierAssignmentComponent& assignment = s.assignment();
 	SoldierDeploymentComponent& deployment = s.deployment();
+	SoldierPositionComponent& position = s.position();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1701,10 +1702,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());
 	for (i = 0; i < NUM_DAMAGABLE_STATS; ++i) ar.u8(vitals.criticalStatDamage()[i]);
 	ar.u8(deployment.groupId()); ar.u8(perception.movementNoiseDirections());
-	ar.f32(s.dXPos); ar.f32(s.dYPos); ar.i16(s.sOldXPos); ar.i16(s.sOldYPos);
-	ar.i32(s.sInitialGridNo); ar.i32(s.position().gridNo()); ar.u8(s.position().direction());
-	ar.i16(s.sHeightAdjustment); ar.i16(s.sDesiredHeight); ar.i32(s.sTempNewGridNo); ar.i16(s.sRoomNo);
-	ar.i8(s.bOverTerrainType); ar.i8(s.bOldOverTerrainType); ar.i8(collapseState.tactical()); ar.i8(collapseState.breathTriggered());
+	ar.f32(position.worldX()); ar.f32(position.worldY()); ar.i16(position.turnStartX()); ar.i16(position.turnStartY());
+	ar.i32(position.initialGrid()); ar.i32(position.gridNo()); ar.u8(position.direction());
+	ar.i16(position.heightAdjustment()); ar.i16(position.desiredHeight()); ar.i32(position.temporaryGrid()); ar.i16(position.roomNo());
+	ar.i8(position.terrainType()); ar.i8(position.previousTerrainType()); ar.i8(collapseState.tactical()); ar.i8(collapseState.breathTriggered());
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
 	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
@@ -1741,7 +1742,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(s.usUnblitX); ar.u16(s.usUnblitY); ar.u16(s.usUnblitWidth); ar.u16(s.usUnblitHeight);
 	ar.u8(deployment.strategicInsertionCode()); ar.i32(deployment.strategicInsertionData());
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
-	ar.i16(s.sX); ar.i16(s.sY); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
+	ar.i16(position.worldXInt()); ar.i16(position.worldYInt()); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
 	ar.i8(fireControl.bulletsLeft()); ar.u8(suppression.points());
 	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());

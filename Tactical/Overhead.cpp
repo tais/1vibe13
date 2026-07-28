@@ -951,7 +951,7 @@ BOOLEAN ExecuteOverhead( )
         if(pSoldier->bActive)
         {
             if(pSoldier->flags.uiStatusFlags&SOLDIER_GREEN_RAY)
-                LightShowRays((INT16)(pSoldier->dXPos/CELL_X_SIZE), (INT16)(pSoldier->dYPos/CELL_Y_SIZE), FALSE);
+                LightShowRays((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE), FALSE);
         }
     }
     // Diagnostic Stuff
@@ -1279,8 +1279,8 @@ BOOLEAN ExecuteOverhead( )
                             // (to prevent mercs from going through corners of tiles and producing
                             // structure data complaints)
 
-                            //pSoldier->dXPos = pSoldier->pathing().destinationX();
-                            //pSoldier->dYPos = pSoldier->pathing().destinationY();
+                            //pSoldier->position().worldX() = pSoldier->pathing().destinationX();
+                            //pSoldier->position().worldY() = pSoldier->pathing().destinationY();
                             HandleBloodForNewGridNo( pSoldier );
                             if ( !( ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_SPECIALMOVE ) && pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid()) )
                             {
@@ -1607,7 +1607,7 @@ BOOLEAN ExecuteOverhead( )
                                         if ( pSoldier->ubBodyType == CROW )
                                         {
                                             // If we are flying, don't stop!
-                                            if ( pSoldier->sHeightAdjustment == 0 )
+                                            if ( pSoldier->position().heightAdjustment() == 0 )
                                             {
                                                 pSoldier->SoldierGotoStationaryStance( );
                                             }
@@ -1783,8 +1783,8 @@ BOOLEAN ExecuteOverhead( )
                         if ( executeCondition )
                         {
                             // Determine deltas
-                            //  dDeltaX = pSoldier->pathing().destinationX() - pSoldier->dXPos;
-                            //dDeltaY = pSoldier->pathing().destinationY() - pSoldier->dYPos;
+                            //  dDeltaX = pSoldier->pathing().destinationX() - pSoldier->position().worldX();
+                            //dDeltaY = pSoldier->pathing().destinationY() - pSoldier->position().worldY();
 
                             // Determine angle
                             //  dAngle = (FLOAT)atan2( dDeltaX, dDeltaY );
@@ -2817,7 +2817,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         return( FALSE );
     }
 
-	if (pSoldier->position().level() == 0 && pSoldier->pendingAction().action() != MERC_PICKUPITEM && (pSoldier->bOverTerrainType == FLAT_FLOOR || pSoldier->bOverTerrainType == PAVED_ROAD))
+	if (pSoldier->position().level() == 0 && pSoldier->pendingAction().action() != MERC_PICKUPITEM && (pSoldier->position().terrainType() == FLAT_FLOOR || pSoldier->position().terrainType() == PAVED_ROAD))
 	{
 		INT32 iMarblesIndex;
 		if (MarblesExistAtLocation(pSoldier->position().gridNo(), 0, &iMarblesIndex))
@@ -2847,7 +2847,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         ubVolume = MovementNoise( pSoldier );
         if (ubVolume > 0)
         {
-            MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_MOVEMENT );
+            MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_MOVEMENT );
             if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->bStealthMode) )
             {
                 PlayStealthySoldierFootstepSound( pSoldier );
@@ -3292,15 +3292,15 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
         // DB This used to say pSoldier... I fixed it
         if ( pOldSoldier->position().level() == 0 )
         {
-            //ConcealWalls((INT16)(pSoldier->dXPos/CELL_X_SIZE), (INT16)(pSoldier->dYPos/CELL_Y_SIZE), REVEAL_WALLS_RADIUS);
-            //  ApplyTranslucencyToWalls((INT16)(pOldSoldier->dXPos/CELL_X_SIZE), (INT16)(pOldSoldier->dYPos/CELL_Y_SIZE));
-            //LightHideTrees((INT16)(pOldSoldier->dXPos/CELL_X_SIZE), (INT16)(pOldSoldier->dYPos/CELL_Y_SIZE));
+            //ConcealWalls((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE), REVEAL_WALLS_RADIUS);
+            //  ApplyTranslucencyToWalls((INT16)(pOldSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pOldSoldier->position().worldY()/CELL_Y_SIZE));
+            //LightHideTrees((INT16)(pOldSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pOldSoldier->position().worldY()/CELL_Y_SIZE));
         }
         //DeleteSoldierLight( pOldSoldier );
 
         if(pOldSoldier->flags.uiStatusFlags&SOLDIER_GREEN_RAY)
         {
-            LightHideRays((INT16)(pOldSoldier->dXPos/CELL_X_SIZE), (INT16)(pOldSoldier->dYPos/CELL_Y_SIZE));
+            LightHideRays((INT16)(pOldSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pOldSoldier->position().worldY()/CELL_Y_SIZE));
             pOldSoldier->flags.uiStatusFlags &= (~SOLDIER_GREEN_RAY);
         }
 
@@ -3326,9 +3326,9 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
     if ( pSoldier->position().level() == 0 )
     {
-        //RevealWalls((INT16)(pSoldier->dXPos/CELL_X_SIZE), (INT16)(pSoldier->dYPos/CELL_Y_SIZE), REVEAL_WALLS_RADIUS);
-        //  CalcTranslucentWalls((INT16)(pSoldier->dXPos/CELL_X_SIZE), (INT16)(pSoldier->dYPos/CELL_Y_SIZE));
-        //LightTranslucentTrees((INT16)(pSoldier->dXPos/CELL_X_SIZE), (INT16)(pSoldier->dYPos/CELL_Y_SIZE));
+        //RevealWalls((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE), REVEAL_WALLS_RADIUS);
+        //  CalcTranslucentWalls((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE));
+        //LightTranslucentTrees((INT16)(pSoldier->position().worldX()/CELL_X_SIZE), (INT16)(pSoldier->position().worldY()/CELL_Y_SIZE));
     }
 
     //pSoldier->SetCheckSoldierLightFlag( );
@@ -3427,8 +3427,8 @@ void LocateSoldier( SoldierID usID, BOOLEAN fSetLocator)
         }
 
         // Center on guy
-        sNewCenterWorldX = (INT16)pSoldier->dXPos;
-        sNewCenterWorldY = (INT16)pSoldier->dYPos;
+        sNewCenterWorldX = (INT16)pSoldier->position().worldX();
+        sNewCenterWorldY = (INT16)pSoldier->position().worldY();
 
         SetRenderCenter( sNewCenterWorldX, sNewCenterWorldY );
 

@@ -2820,7 +2820,7 @@ INT16 RoamingRange(SOLDIERTYPE *pSoldier, INT32 * pusFromGridNo)
 	else
 	{
 		// roam around where mercs started
-		//*pusFromGridNo = pSoldier->sInitialGridNo;
+		//*pusFromGridNo = pSoldier->position().initialGrid();
 		*pusFromGridNo = pSoldier->aiData.sPatrolGrid[0];
 	}
 

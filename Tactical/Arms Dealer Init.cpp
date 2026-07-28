@@ -1739,7 +1739,7 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 	for (DealerItemList::iterator iter = gArmsDealersInventory[bArmsDealer].begin();
 		iter != gArmsDealersInventory[bArmsDealer].end(); ++iter) {
 		if (iter->ItemIsInInventory() == true) {
-			AddItemToPool( pSoldier->sInitialGridNo, &(iter->object), INVISIBLE, 0, 0, 0 );
+			AddItemToPool( pSoldier->position().initialGrid(), &(iter->object), INVISIBLE, 0, 0, 0 );
 		}
 	}
 
@@ -1755,7 +1755,7 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 		}
 
 		//add the money item to the dealers feet
-		AddItemToPool( pSoldier->sInitialGridNo, &gTempObject, INVISIBLE, 0, 0, 0 );
+		AddItemToPool( pSoldier->position().initialGrid(), &gTempObject, INVISIBLE, 0, 0, 0 );
 
 		gArmsDealerStatus[ bArmsDealer ].uiArmsDealersCash = 0;
 	}

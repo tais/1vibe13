@@ -2704,7 +2704,7 @@ BOOLEAN AddDeadSoldierToUnLoadedSector( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, S
 	Corpse.sGridNo				= sGridNo;
 	Corpse.dXPos				= (FLOAT)( sXPos );
 	Corpse.dYPos				= (FLOAT)( sYPos );
-	Corpse.sHeightAdjustment	= pSoldier->sHeightAdjustment;
+	Corpse.sHeightAdjustment	= pSoldier->position().heightAdjustment();
 	Corpse.bVisible				=	TRUE;
 
 	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->HeadPal );

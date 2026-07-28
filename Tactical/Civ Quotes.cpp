@@ -1964,7 +1964,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		uiTauntFinishTimes[pCiv->ubID] = GetJA2Clock() + min( gTauntsSettings.sMaxDelay , max( gTauntsSettings.sMinDelay, FindDelayForString( gzTauntQuote ) + gTauntsSettings.sModDelay ) ); 
 
 		if( gTauntsSettings.fTauntMakeNoise == TRUE )
-			MakeNoise( pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->bOverTerrainType, (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, gzTauntQuote );
+			MakeNoise( pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, gzTauntQuote );
 		else
 		{
 			if(gTauntsSettings.fTauntShowPopupBox == TRUE)
@@ -2336,7 +2336,7 @@ BOOLEAN PlayVoiceTaunt(SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTa
 		// convert char to char16
 		mbstowcs(noise, filename, strlen(filename) + 1);
 		// use filename as taunt text, play sound later
-		MakeNoise(pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->bOverTerrainType, (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, noise);
+		MakeNoise(pCiv->ubID, pCiv->position().gridNo(), pCiv->position().level(), pCiv->position().terrainType(), (UINT8)gTauntsSettings.sVolume, NOISE_VOICE, noise);
 	}
 	else
 	{

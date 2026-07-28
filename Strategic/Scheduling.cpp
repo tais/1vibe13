@@ -862,11 +862,11 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_WAKE:
-			BumpAnyExistingMerc( pSoldier->sInitialGridNo );
-			ConvertGridNoToCellXY( pSoldier->sInitialGridNo, &sCellX, &sCellY );
+			BumpAnyExistingMerc( pSoldier->position().initialGrid() );
+			ConvertGridNoToCellXY( pSoldier->position().initialGrid(), &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSoldier->sInitialGridNo;
+			pSoldier->aiData.sPatrolGrid[0] = pSoldier->position().initialGrid();
 			break;
 		case SCHEDULE_ACTION_SLEEP:
 			pSoldier->aiData.fAIFlags |= AI_ASLEEP;
@@ -1104,7 +1104,7 @@ void PostDefaultSchedule( SOLDIERTYPE *pSoldier )
 	//Have the default schedule enter between 7AM and 8AM
 	gpScheduleList->ubAction[0] = SCHEDULE_ACTION_ENTERSECTOR;
 	gpScheduleList->usTime[0] = (UINT16)(420 + Random( 61 ));
-	gpScheduleList->usData1[0] = pSoldier->sInitialGridNo;
+	gpScheduleList->usData1[0] = pSoldier->position().initialGrid();
 	//Have the default schedule leave between 6PM and 8PM
 	gpScheduleList->ubAction[1] = SCHEDULE_ACTION_LEAVESECTOR;
 	gpScheduleList->usTime[1] = (UINT16)(1080 + Random( 121 ));

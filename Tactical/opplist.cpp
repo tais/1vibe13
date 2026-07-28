@@ -1369,7 +1369,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		// always calculate direction for tanks so we have something to work with
 		bFacingDir = pSoldier->pathing().desiredDirection();
 		bSubjectDir = (INT8) GetDirectionToGridNoFromGridNo( pSoldier->position().gridNo(), sSubjectGridNo );
-		//bSubjectDir = atan8(pSoldier->sX,pSoldier->sY,pOpponent->sX,pOpponent->sY);
+		//bSubjectDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pOpponent->position().worldXInt(),pOpponent->position().worldYInt());
 	}
 
 	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT) || (pSubject && pSubject->flags.fMuzzleFlash)) )
@@ -2220,7 +2220,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 	else   // soldier is not currently known about
 	{
 		// distance we "see" then depends on the direction he is located from us
-		bDir = atan8(pSoldier->sX,pSoldier->sY,pOpponent->sX,pOpponent->sY);
+		bDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pOpponent->position().worldXInt(),pOpponent->position().worldYInt());
 		// BIG NOTE: must use desdir instead of direction, since in a projected
 		// situation, the direction may still be changing if it's one of the first
 		// few animation steps when this guy's turn to do his stepped look comes up
@@ -6117,7 +6117,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			}
 
 			// Can the listener hear noise of that volume given his circumstances?
-			ubEffVolume = CalcEffVolume(pSoldier, sGridNo, bLevel, ubNoiseType, ubBaseVolume, pSoldier->bOverTerrainType, ubSourceTerrType);
+			ubEffVolume = CalcEffVolume(pSoldier, sGridNo, bLevel, ubNoiseType, ubBaseVolume, pSoldier->position().terrainType(), ubSourceTerrType);
 
 			// if a the noise maker is a person, not just NOBODY
 			if (noiseMaker != nullptr)
@@ -6585,7 +6585,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		noiseMaker->flags.fMuzzleFlash )
 	{
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
-		bDirection = atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY);
+		bDirection = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),sNoiseX,sNoiseY);
 		if ( pSoldier->position().direction() != bDirection && pSoldier->position().direction() != gOneCDirection[ bDirection ] && pSoldier->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
@@ -6607,7 +6607,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		// just use the XXadjustedXX center of the gridno
 		ConvertGridNoToCenterCellXY(sGridNo, &sNoiseX, &sNoiseY);
 
-		if (pSoldier->position().direction() != atan8(pSoldier->sX,pSoldier->sY,sNoiseX,sNoiseY))
+		if (pSoldier->position().direction() != atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),sNoiseX,sNoiseY))
 		{
 			bHadToTurn = TRUE;
 		}
@@ -6640,7 +6640,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 #ifdef RECORDOPPLIST
 		fprintf(OpplistFile,"HN: %s by %2d(g%4d,x%3d,y%3d) at %2d(g%4d,x%3d,y%3d), hTT=%d\n",
 			(bSourceSeen) ? "SCS" : "FLR",
-			pSoldier->guynum,pSoldier->position().gridNo(),pSoldier->sX,pSoldier->sY,
+			pSoldier->guynum,pSoldier->position().gridNo(),pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),
 			ubNoiseMaker.i,sGridNo,sNoiseX,sNoiseY,
 			bHadToTurn);
 #endif
@@ -7529,7 +7529,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	// ignore muzzle flashes when must turning head
 	if ( pAttacker->flags.fMuzzleFlash )
 	{
-		bDirection = atan8( pDefender->sX,pDefender->sY, pAttacker->sX, pAttacker->sY );
+		bDirection = atan8( pDefender->position().worldXInt(),pDefender->position().worldYInt(), pAttacker->position().worldXInt(), pAttacker->position().worldYInt() );
 		if ( pDefender->position().direction() != bDirection && pDefender->position().direction() != gOneCDirection[ bDirection ] && pDefender->position().direction() != gOneCCDirection[ bDirection ] )
 		{
 			// temporarily turn off muzzle flash so DistanceVisible can be calculated without it
@@ -7661,7 +7661,7 @@ void CheckForAlertWhenEnemyDies( SOLDIERTYPE * pDyingSoldier )
 			// this guy might have seen the man die
 
 			// distance we "see" then depends on the direction he is located from us
-			bDir = atan8(pSoldier->sX,pSoldier->sY,pDyingSoldier->sX,pDyingSoldier->sY);
+			bDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pDyingSoldier->position().worldXInt(),pDyingSoldier->position().worldYInt());
 			sDistVisible = DistanceVisible( pSoldier, pSoldier->pathing().desiredDirection(), bDir, pDyingSoldier->position().gridNo(), pDyingSoldier->position().level(), pSoldier->IsCowering(), GetPercentTunnelVision(pSoldier));
 			sDistAway = PythSpacesAway( pSoldier->position().gridNo(), pDyingSoldier->position().gridNo() );
 

@@ -378,8 +378,8 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 	INT16 sWorldScreenY, sY;
 
 	// Get Screen position of guy.....
-	sX = pSoldier->sX;
-	sY = pSoldier->sY;
+	sX = pSoldier->position().worldXInt();
+	sY = pSoldier->position().worldYInt();
 
 	sX -= ((giXA - 0) * CELL_X_SIZE);
 	sY -= ((giYA - WORLD_ROWS/2) * CELL_Y_SIZE);
@@ -388,7 +388,7 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 		return;
 
 	sWorldScreenX = gsStartRestrictedX + (sWorldScreenX/5) + 5;
-	sWorldScreenY = gsStartRestrictedY + (sWorldScreenY/5) + (pSoldier->sHeightAdjustment/5) + (gpWorldLevelData[pSoldier->position().gridNo()].sHeight/5) - 8;
+	sWorldScreenY = gsStartRestrictedY + (sWorldScreenY/5) + (pSoldier->position().heightAdjustment()/5) + (gpWorldLevelData[pSoldier->position().gridNo()].sHeight/5) - 8;
 
 	sWorldScreenY += (gsRenderHeight/5);
 
@@ -1488,7 +1488,7 @@ void RenderOverheadOverlays()
 		sY -= ( GetOffsetLandHeight( pSoldier->position().gridNo() ) /5);
 
 		// Adjust for height...
-		sY -= ( pSoldier->sHeightAdjustment / 5 );
+		sY -= ( pSoldier->position().heightAdjustment() / 5 );
 
 		sY += ( gsRenderHeight / 5 );
 
@@ -1496,7 +1496,7 @@ void RenderOverheadOverlays()
 		SetObjectShade( hVObject, 0 );
 
 		// If on roof....
-		if ( pSoldier->sHeightAdjustment )
+		if ( pSoldier->position().heightAdjustment() )
 		{
 			SetObjectShade( hVObject, 1 );
 		}
@@ -1937,13 +1937,13 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 						else
 						{
 							// Adjust for height...
-							sY -= ( pSoldier->sHeightAdjustment / 5 );
+							sY -= ( pSoldier->position().heightAdjustment() / 5 );
 
 							// Adjust shade a bit...
 							SetObjectShade( hVObject, 0 );
 
 							// If on roof....
-							if ( pSoldier->sHeightAdjustment )
+							if ( pSoldier->position().heightAdjustment() )
 							{
 								SetObjectShade( hVObject, 1 );
 							}
