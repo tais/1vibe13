@@ -5542,7 +5542,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 		{
 			sMaxVolume++;		// in water, can be even louder
 		}
-		switch (pSoldier->usUIMovementMode)
+		switch (pSoldier->movement().mode())
 		{
 		case CRAWLING:
 			sMaxVolume -= 2;
@@ -5581,7 +5581,7 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 		else	// OOPS!
 		{
 			sVolume = 1 + ((iRoll - iStealthSkill + 1) / 16);	// volume is 1 - 7 ...
-			switch (pSoldier->usUIMovementMode)
+			switch (pSoldier->movement().mode())
 			{
 			case CRAWLING:
 				sVolume -= 2;

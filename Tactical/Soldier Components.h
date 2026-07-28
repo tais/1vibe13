@@ -1295,11 +1295,14 @@ private:
 };
 
 // Canonical tactical movement intent and contention state. Route geometry
-// belongs to SoldierPathingComponent; this component owns the mutable state
-// used while executing that route around reservations and other soldiers.
+// belongs to SoldierPathingComponent; this component owns the selected
+// movement-animation mode and mutable state used while executing that route
+// around reservations and other soldiers.
 class SoldierMovementComponent
 {
 public:
+	INT16& mode() noexcept { return mode_; }
+	const INT16& mode() const noexcept { return mode_; }
 	UINT8& delayCounter() noexcept { return delayCounter_; }
 	const UINT8& delayCounter() const noexcept { return delayCounter_; }
 	INT32& delayedCauseGrid() noexcept { return delayedCauseGrid_; }
@@ -1337,6 +1340,7 @@ public:
 	void reset() noexcept;
 
 private:
+	INT16 mode_ = 0;
 	UINT8 delayCounter_ = 0;
 	INT32 delayedCauseGrid_ = 0;
 	INT32 reservedGrid_ = 0;

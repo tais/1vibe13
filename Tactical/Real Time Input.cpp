@@ -778,7 +778,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 																	}
 																	else
 																	{
-																		//if ( FindBestPath( pSoldier, sMapPos, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) == 0 )
+																		//if ( FindBestPath( pSoldier, sMapPos, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, 0 ) == 0 )
 																		if (gsCurrentActionPoints == 0 && !gfUIAllMoveOn && !gTacticalStatus.fAtLeastOneGuyOnMultiSelect )
 																		{
 																			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );

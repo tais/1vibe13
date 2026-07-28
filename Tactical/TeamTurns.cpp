@@ -1469,7 +1469,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 					if ( selectedSoldier->position().gridNo() != selectedSoldier->pathing().finalDestinationGrid() )
 					{
-						selectedSoldier->EVENT_GetNewSoldierPath( selectedSoldier->pathing().finalDestinationGrid(), selectedSoldier->usUIMovementMode );
+						selectedSoldier->EVENT_GetNewSoldierPath( selectedSoldier->pathing().finalDestinationGrid(), selectedSoldier->movement().mode() );
 					}
 					else
 					{

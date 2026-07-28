@@ -181,13 +181,13 @@ VehicleSelection::Functions( UINT32 aVal  )
 	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->ubProfile ) )
 	{
 		// Find a gridno closest to sweetspot...
-		sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pCurrentSoldier, pCurrentSoldier->usUIMovementMode, 5, &ubDirection, 0, pCurrentVehicle, TRUE );
+		sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pCurrentSoldier, pCurrentSoldier->movement().mode(), 5, &ubDirection, 0, pCurrentVehicle, TRUE );
 				
 		if (!TileIsOutOfBounds(sActionGridNo))
 		{
 			// Calculate AP costs...
 			//sAPCost = GetAPsToBeginFirstAid( pSoldier );
-			sAPCost += PlotPath( pCurrentSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pCurrentSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pCurrentSoldier->actionPoints().current());
+			sAPCost += PlotPath( pCurrentSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pCurrentSoldier->movement().mode(), NOT_STEALTH, FORWARD, pCurrentSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pCurrentSoldier, sAPCost, 0, TRUE ) )
 			{
@@ -199,7 +199,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 							ubDirection,
 							static_cast<UINT8>(aVal),
 							sActionGridNo,
-							pCurrentSoldier->usUIMovementMode,
+							pCurrentSoldier->movement().mode(),
 							pCurrentSoldier->flags.fNoAPToFinishMove != FALSE)
 						: TryDispatchEnterVehicleCommandNow(
 							*pCurrentSoldier,

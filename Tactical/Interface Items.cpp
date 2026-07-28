@@ -9375,7 +9375,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 								GetItemPointerSoldier()->pendingAction().begin(MERC_RELOADROBOT);
 
 								// WALK UP TO DEST FIRST
-								GetItemPointerSoldier()->EVENT_InternalGetNewSoldierPath( sActionGridNo, GetItemPointerSoldier()->usUIMovementMode, FALSE, FALSE );
+								GetItemPointerSoldier()->EVENT_InternalGetNewSoldierPath( sActionGridNo, GetItemPointerSoldier()->movement().mode(), FALSE, FALSE );
 							}
 							else
 							{

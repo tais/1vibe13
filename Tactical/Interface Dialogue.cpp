@@ -5388,7 +5388,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 	}
 	else
 	{
-		SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->usUIMovementMode );
+		SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->movement().mode() );
 	}
 
 	pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;

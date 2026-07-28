@@ -144,7 +144,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 	BOOLEAN				bOKFireWeapon;
 	BOOLEAN				bWeaponJammed;
 	BOOLEAN				fFreeUpAttacker=FALSE;
-	UINT16		usUIMovementMode;
+	UINT16		usMovementMode;
 
 	do
 	{
@@ -295,8 +295,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				pSoldier->animationIntent().desiredHeight() = ANIM_CROUCH;
 
 				// Madd
-				usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
-				pSoldier->usUIMovementMode = usUIMovementMode;
+				usMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				pSoldier->movement().mode() = usMovementMode;
 
 				// ATE: Change interface level.....
 				// CJC: only if we are a player merc
@@ -732,10 +732,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				}
 
 				// take the correct stance
-				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != gAnimControl[ pSoldier->usUIMovementMode ].ubEndHeight )
+				if ( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight != gAnimControl[ pSoldier->movement().mode() ].ubEndHeight )
 				{
 					// Goto Stance...
-					pSoldier->ChangeSoldierStance( gAnimControl[ pSoldier->usUIMovementMode ].ubEndHeight );
+					pSoldier->ChangeSoldierStance( gAnimControl[ pSoldier->movement().mode() ].ubEndHeight );
 
 					if ( pSoldier->position().gridNo() == pSoldier->pathing().finalDestinationGrid() )
 					{
@@ -1531,8 +1531,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					FreeUpNPCFromRoofClimb( pSoldier );
 				}
-				if(pSoldier->usUIMovementMode != RUNNING)
-					pSoldier->usUIMovementMode = WALKING;
+				if(pSoldier->movement().mode() != RUNNING)
+					pSoldier->movement().mode() = WALKING;
 
 				// ATE: Handle sight...
 				HandleSight( pSoldier,SIGHT_LOOK | SIGHT_RADIO | SIGHT_INTERRUPT );
@@ -2420,16 +2420,16 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Adjust movement mode......
 					if ( pSoldier->bTeam == gbPlayerNum && !pSoldier->animationIntent().continuationMode() )
 					{
-						usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+						usMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 						// ATE: if we are currently running but have been told to walk, don't!
-						if ( pSoldier->usUIMovementMode == RUNNING && usUIMovementMode == WALKING )
+						if ( pSoldier->movement().mode() == RUNNING && usMovementMode == WALKING )
 						{
 							// No!
 						}
 						else
 						{
-							pSoldier->usUIMovementMode = usUIMovementMode;
+							pSoldier->movement().mode() = usMovementMode;
 						}
 					}
 
@@ -2571,7 +2571,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							pSoldier->schedule().completeDoorAnimation();
 
 							// yes..
-							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
+							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 
 							if ( !( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ( ANIM_MOVING ) ) )
 							{								
@@ -2620,14 +2620,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								// path continuation code so that any other bug fixes won't need to be duplicated in other areas.
 								if ( pSoldier->position().gridNo() != pSoldier->pathing().finalDestinationGrid())
 								{
-									if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode, 2, FALSE ) )
+									if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), 2, FALSE ) )
 									{
 									}
 								}
 							}
 							else
 							{
-								pSoldier->EVENT_InitNewSoldierAnim( pSoldier->usUIMovementMode, 0 , FALSE );
+								pSoldier->EVENT_InitNewSoldierAnim( pSoldier->movement().mode(), 0 , FALSE );
 
 								// UNSET LOCK PENDING ACTION COUNTER FLAG
 								pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );

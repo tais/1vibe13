@@ -735,7 +735,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			// Calculate AP costs...
 			sAPCost = 0;//GetAPsToHandcuff( pSoldier, sActionGridNo );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -768,7 +768,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 				}
 				else
 				{
@@ -1216,7 +1216,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath(sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath(sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1249,7 +1249,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToBeginFirstAid( pSoldier );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1274,7 +1274,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1306,7 +1306,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToCutFence( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1323,7 +1323,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode , FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode() , FALSE, TRUE );
 				}
 				else
 				{
@@ -1371,7 +1371,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( vehicle == nullptr )
 				return( ITEM_HANDLE_CANNOT_GETTO_LOCATION );
 
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, vehicle );
+			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, vehicle );
 			
 			if (!TileIsOutOfBounds(sNewGridNo))
 			{
@@ -1390,7 +1390,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToBeginRepair( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1407,7 +1407,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 				}
 				else
 				{
@@ -1448,7 +1448,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( vehicle == nullptr )
 				return( ITEM_HANDLE_CANNOT_GETTO_LOCATION );
 
-			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, vehicle );
+			sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, vehicle );
 			
 			if (!TileIsOutOfBounds(sNewGridNo))
 			{
@@ -1466,7 +1466,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToRefuelVehicle( pSoldier );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1480,7 +1480,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 				}
 				else
 				{
@@ -1517,7 +1517,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			// Calculate AP costs...
 			sAPCost = GetAPsToUseJar( pSoldier, sActionGridNo );
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 			{
@@ -1531,7 +1531,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 				}
 				else
 				{
@@ -1590,7 +1590,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		if ( !TileIsOutOfBounds( sActionGridNo ) )
 		{			
 			// Calculate AP costs...
-			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			if ( pSoldier->actionPoints().current() > 0 )
 			{
@@ -1604,7 +1604,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
-					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 				}
 				else
 				{
@@ -1655,7 +1655,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToHandcuff( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1687,7 +1687,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1754,7 +1754,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToApplyItem( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 		{
@@ -1786,7 +1786,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1823,7 +1823,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToFillBloodbag( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		// if we are at the action gridno, the item is a bomb, but nobody is at the gridno, do not apply and do not return - we will plant the bomb instead (handlded later in this function)
 		if ( Item[usHandItem].usItemClass == IC_BOMB && pSoldier->position().gridNo() == sActionGridNo && WhoIsThere2( usMapPos, pSoldier->position().level() ) == NOBODY )
@@ -1860,7 +1860,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1897,7 +1897,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		// Calculate AP costs...
 		sAPCost = GetAPsToApplyItem( pSoldier, sActionGridNo );
-		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		// if we are at the action gridno, the item is a bomb, but nobody is at the gridno, do not apply and do not return - we will plant the bomb instead (handlded later in this function)
 		if ( Item[usHandItem].usItemClass == IC_BOMB && pSoldier->position().gridNo() == sActionGridNo && WhoIsThere2( usMapPos, pSoldier->position().level() ) == NOBODY )
@@ -1934,7 +1934,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1973,7 +1973,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			{
 				// Calculate AP costs...
 				sAPCost = APBPConstants[AP_ATTACH_CAN];
-				sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 				if ( EnoughPoints( pSoldier, sAPCost, 0, fFromUI ) )
 				{
@@ -1987,7 +1987,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 						pSoldier->pendingAction().resetAnimationCount();
 
 						// WALK UP TO DEST FIRST
-						pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+						pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 					}
 					else
 					{
@@ -2086,7 +2086,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			pSoldier->pendingAction().resetAnimationCount();
 
 			// WALK UP TO DEST FIRST
-			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 		}
 		else
 		{
@@ -2140,7 +2140,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
-				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 			}
 			else
 			{
@@ -2636,7 +2636,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
 			// WALK UP TO DEST FIRST
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 		}
 		else
 		{
@@ -2697,7 +2697,7 @@ void SoldierPickupItem(
 	{
 		if ( pSoldier->bTeam == gbPlayerNum )
 		{
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, TRUE, TRUE );
+			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), TRUE, TRUE );
 
 			// Say it only if we don;t have to go too far!
 			if ( pSoldier->pathing().pathSize() > 5 )
@@ -2707,7 +2707,7 @@ void SoldierPickupItem(
 		}
 		else
 		{
-			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+			pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 		}
 	}
 	else

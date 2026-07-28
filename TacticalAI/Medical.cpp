@@ -477,7 +477,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	pSoldier->aiData.bAction = FindBestPatient( pSoldier, &fDoClimb );
 	if (pSoldier->aiData.bAction != AI_ACTION_NONE)
 	{
-		pSoldier->usUIMovementMode = RUNNING;
+		pSoldier->movement().mode() = RUNNING;
 		if (bSlot != HANDPOS)
 		{
 			pSoldier->bSlotItemTakenFrom = bSlot;

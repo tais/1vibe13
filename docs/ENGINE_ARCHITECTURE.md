@@ -1141,11 +1141,13 @@ the engine must not contain SDL types in its public domain model.
   movement cursor,
   fixed-capacity direction list, lookup flags, and blacklist now have one
   private `SoldierPathingComponent` owner as well. Tactical route
-  execution has a separate private `SoldierMovementComponent`: delayed-tile
-  state, reservations, merc contention, scripted and continued destinations,
-  stop reason, and coordinated speed override no longer live in the generic
-  flag bucket or distant public fields. Named operations update paired state
-  such as a blocker and direction together. Current attack target grid,
+  execution has a separate private `SoldierMovementComponent`: the selected
+  movement-animation mode, delayed-tile state, reservations, merc contention,
+  scripted and continued destinations, stop reason, and coordinated speed
+  override no longer live in the generic flag bucket or distant public fields.
+  UI, AI, animation, pathing, and simulation-command code now select and
+  consume one movement mode through `movement().mode()`. Named operations update
+  paired state such as a blocker and direction together. Current attack target grid,
   elevation, cube level, previous target grid, and target soldier identity now
   have one private `SoldierTargetingComponent` owner. Tactical UI, AI,
   weapons, simulation commands, animation events, and multiplayer adapters all

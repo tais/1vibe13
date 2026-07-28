@@ -864,7 +864,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->damageDisplay().offsetY() = src.sDamageY;
 		this->damageDisplay().direction() = src.bDamageDir;
 		this->fireControl().burstCounter() = src.bDoBurst;
-		this->usUIMovementMode = src.usUIMovementMode;
+		this->movement().mode() = src.usUIMovementMode;
 		this->bUIInterfaceLevel = src.bUIInterfaceLevel;
 
 		this->ubProfile = src.ubProfile;
@@ -3862,7 +3862,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	{
 		if ( this->bTeam == gbPlayerNum )
 		{
-			// this->usUIMovementMode =  GetMoveStateBasedOnStance( this, gAnimControl[ usNewState ].ubEndHeight );
+			// this->movement().mode() =  GetMoveStateBasedOnStance( this, gAnimControl[ usNewState ].ubEndHeight );
 		}
 	}
 
@@ -4832,7 +4832,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 		// OK, check that our animation is up to date!
 		// Check our water value
-		INT16 usUIMovementModeToSet = this->usUIMovementMode;
+		INT16 usUIMovementModeToSet = this->movement().mode();
 		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			fInWaterValue = this->MercInWater( );
@@ -7118,7 +7118,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 		this->position().gridNo() = this->pathing().destinationGrid();
 
 		// Check if path is good before copying it into guy's path...
-		if ( !(uiDist = FindBestPath( this, sDestGridNo, this->position().level(), this->usUIMovementMode, COPYROUTE, fFlags )) )
+		if ( !(uiDist = FindBestPath( this, sDestGridNo, this->position().level(), this->movement().mode(), COPYROUTE, fFlags )) )
 		{
 			// Set to old....
 			this->position().gridNo() = sMercGridNo;
@@ -7126,7 +7126,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 			return(FALSE);
 		}
 
-		//uiDist =  FindBestPath( this, sDestGridNo, this->position().level(), this->usUIMovementMode, COPYROUTE, fFlags );
+		//uiDist =  FindBestPath( this, sDestGridNo, this->position().level(), this->movement().mode(), COPYROUTE, fFlags );
 
 		this->position().gridNo() = sMercGridNo;
 		this->pathing().finalDestinationGrid() = sDestGridNo;
@@ -7151,7 +7151,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 				}
 			}
 
-			usMoveAnimState = this->usUIMovementMode;
+			usMoveAnimState = this->movement().mode();
 
 			if ( this->MercInDeepWater( ) )
 			{
@@ -7492,9 +7492,9 @@ INT8 MultiTiledTurnDirection( SOLDIERTYPE * pSoldier, INT8 bStartDirection, INT8
 	// start by trying to turn in quickest direction
 	bTurningIncrement = (INT8)QuickestDirection( bStartDirection, bDesiredDirection );
 
-	usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, pSoldier->usUIMovementMode );
+	usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, pSoldier->movement().mode() );
 
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->usUIMovementMode );
+	pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->movement().mode() );
 	if ( !pStructureFileRef )
 	{
 		// without structure data, well, assume quickest direction
@@ -8372,7 +8372,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			// Else swat for a tile so that there's room to resume prone
 			else
 			{
-				this->EVENT_InitNewSoldierAnim( this->usUIMovementMode, 0, FALSE );
+				this->EVENT_InitNewSoldierAnim( this->movement().mode(), 0, FALSE );
 			}
 		}
 
@@ -14405,7 +14405,7 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 	}
 
 	// get a path to dest...
-	if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) )
+	if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, 0 ) )
 	{
 		sAPCost = PtsToMoveDirection( pSoldier, (UINT8)guiPathingData[0] );
 
@@ -14428,7 +14428,7 @@ void ContinueMercMovement( SOLDIERTYPE *pSoldier )
 			SetUIBusy( pSoldier->ubID );
 
 			// OK, try and get a path to out dest!
-			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
+			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->movement().mode(), FALSE, TRUE );
 		}
 	}
 }
@@ -22044,7 +22044,7 @@ void SoldierCollapse( SOLDIERTYPE *pSoldier )
 
 	pSoldier->collapseState().collapse();
 
-	pSoldier->usUIMovementMode = CRAWLING;
+	pSoldier->movement().mode() = CRAWLING;
 
 	pSoldier->ReceivingSoldierCancelServices( );
 
@@ -23342,7 +23342,7 @@ BOOLEAN MercStealFromMerc( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTarget )
 		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
 			// WALK UP TO DEST FIRST
-			SendGetNewSoldierPathEvent( pSoldier, sActionGridNo, pSoldier->usUIMovementMode );
+			SendGetNewSoldierPathEvent( pSoldier, sActionGridNo, pSoldier->movement().mode() );
 		}
 		else
 		{

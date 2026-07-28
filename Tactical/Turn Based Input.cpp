@@ -993,10 +993,10 @@ void	QueryTBRightButton( UINT32 *puiNewEvent )
 										gfFirstCycleMovementStarted = TRUE;
 
 										// OK, set this guy's movement mode to crawling fo rthat we will start cycling in run.....
-										if ( selectedSoldier->usUIMovementMode != RUNNING )
+										if ( selectedSoldier->movement().mode() != RUNNING )
 										{
 											// ATE: UNLESS WE ARE IN RUNNING MODE ALREADY
-											selectedSoldier->usUIMovementMode = CRAWLING;
+											selectedSoldier->movement().mode() = CRAWLING;
 										}
 									}
 
@@ -5799,13 +5799,13 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 			if ( ( GetNumberInVehicle( pTSoldier->bVehicleID ) == 0 ) || !fMovementMode )
 			{
 				// Find a gridno closest to sweetspot...
-				sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, pTSoldier, TRUE );
+				sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, pTSoldier, TRUE );
 				
 				if (!TileIsOutOfBounds(sActionGridNo))
 				{
 					// Calculate AP costs...
 					//sAPCost = GetAPsToBeginFirstAid( pSoldier );
-					sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+					sAPCost += PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 					if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 					{
@@ -5817,7 +5817,7 @@ INT8 CheckForAndHandleHandleVehicleInteractiveClick( SOLDIERTYPE *pSoldier, UINT
 									ubDirection,
 									ubSeatIndex,
 									sActionGridNo,
-									pSoldier->usUIMovementMode,
+									pSoldier->movement().mode(),
 									pSoldier->flags.fNoAPToFinishMove != FALSE)
 								: TryDispatchEnterVehicleCommandNow(
 									*pSoldier,
@@ -6551,7 +6551,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					// If we want to run we have to press "r" which is handled elsewhere.
 					if ( ubAnimHeight == ANIM_STAND )
 					{
-						if ( pSoldier->usUIMovementMode != WALKING && pSoldier->usUIMovementMode != RUNNING && pSoldier->usUIMovementMode != WALKING_WEAPON_RDY && pSoldier->usUIMovementMode != WALKING_DUAL_RDY && pSoldier->usUIMovementMode != WALKING_ALTERNATIVE_RDY )
+						if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 						{
 							UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
 							pSoldier->flags.fUIMovementFast = 0;
@@ -6559,7 +6559,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 						else
 						{
 							pSoldier->flags.fUIMovementFast = 0;
-							pSoldier->usUIMovementMode = WALKING;
+							pSoldier->movement().mode() = WALKING;
 							gfPlotNewMovement = TRUE;
 						}
 					}
@@ -6584,7 +6584,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 			// If we want to run we have to press "r" which is handled elsewhere.
 			if ( ubAnimHeight == ANIM_STAND )
 			{
-				if ( pSoldier->usUIMovementMode != WALKING && pSoldier->usUIMovementMode != RUNNING && pSoldier->usUIMovementMode != WALKING_WEAPON_RDY && pSoldier->usUIMovementMode != WALKING_DUAL_RDY && pSoldier->usUIMovementMode != WALKING_ALTERNATIVE_RDY )
+				if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 				{
 					UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
 					pSoldier->flags.fUIMovementFast = 0;
@@ -6599,7 +6599,7 @@ void HandleStanceChangeFromUIKeys( UINT8 ubAnimHeight )
 					}
 
 					pSoldier->flags.fUIMovementFast = 0;
-					pSoldier->usUIMovementMode = WALKING;
+					pSoldier->movement().mode() = WALKING;
 					gfPlotNewMovement = TRUE;
 				}
 			}
@@ -8771,11 +8771,11 @@ void HandleTBSoldierRun( void )
 	if ( !pSoldier->MercInWater() && !(pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
 	{
 		//change selected merc to run
-		if ( pSoldier->usUIMovementMode != WALKING 
-		   && pSoldier->usUIMovementMode != RUNNING
-			&& pSoldier->usUIMovementMode != WALKING_WEAPON_RDY
-			 && pSoldier->usUIMovementMode != WALKING_DUAL_RDY
-			  && pSoldier->usUIMovementMode != WALKING_ALTERNATIVE_RDY )
+		if ( pSoldier->movement().mode() != WALKING
+		   && pSoldier->movement().mode() != RUNNING
+			&& pSoldier->movement().mode() != WALKING_WEAPON_RDY
+			 && pSoldier->movement().mode() != WALKING_DUAL_RDY
+			  && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 		{
 			UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
 			pSoldier->flags.fUIMovementFast = 1;
@@ -8790,7 +8790,7 @@ void HandleTBSoldierRun( void )
 			}
 
 			pSoldier->flags.fUIMovementFast = 1;
-			pSoldier->usUIMovementMode = RUNNING;
+			pSoldier->movement().mode() = RUNNING;
 			gfPlotNewMovement = TRUE;
 		}
 	}

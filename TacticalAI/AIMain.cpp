@@ -2248,7 +2248,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         case AI_ACTION_KNIFE_MOVE:            // preparing to stab opponent
             if (pSoldier->aiData.bAction == AI_ACTION_KNIFE_MOVE) // if statement because toss falls through
             {
-                pSoldier->usUIMovementMode = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
+                pSoldier->movement().mode() = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
             }
 
             // fall through
@@ -2490,7 +2490,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             break;
 
         case AI_ACTION_GIVE_AID:              // help injured/dying friend
-            //pSoldier->usUIMovementMode = RUNNING;
+            //pSoldier->movement().mode() = RUNNING;
             iRetCode = HandleItem( pSoldier, pSoldier->aiData.usActionData, 0, pSoldier->inv[HANDPOS].usItem, FALSE );
             if ( iRetCode != ITEM_HANDLE_OK)
             {
@@ -2616,7 +2616,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         case AI_ACTION_STEAL_MOVE:            // preparing to steal opponents weapon
             
             pSoldier->pendingAction().clearAction();
-            pSoldier->usUIMovementMode = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
+            pSoldier->movement().mode() = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
             usSoldierIndex = WhoIsThere2( pSoldier->aiData.usActionData, pSoldier->targeting().level());
             if ( usSoldierIndex != NOBODY )
 			{

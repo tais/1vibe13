@@ -1688,6 +1688,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierScheduleComponent& schedule = s.schedule();
 	SoldierPositionComponent& position = s.position();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
+	SoldierMovementComponent& movement = s.movement();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
@@ -1756,7 +1757,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(s.sLocatorOffX); ar.i16(s.sLocatorOffY); ar.ptr(s.pForcedShade);
 	ar.i8(damageDisplay.counter()); ar.u8(s.sWalkToAttackEndDirection);
 	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
-	ar.i16(s.usUIMovementMode); ar.i8(s.bUIInterfaceLevel);
+	ar.i16(movement.mode()); ar.i8(s.bUIInterfaceLevel);
 	ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
 	ar.u8(s.ubClosePanelFrame); ar.u8(s.ubDeadPanelFrame); ar.i8(s.bOpenPanelFrame);
 	ar.i16(s.sPanelFaceX); ar.i16(s.sPanelFaceY);

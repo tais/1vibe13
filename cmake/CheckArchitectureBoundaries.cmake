@@ -5462,6 +5462,7 @@ foreach(retired_movement_field IN ITEMS
   ubDelayedMovementCauseMerc
   sDelayedMovementCauseGridNo
   sReservedMovementGridNo
+  usUIMovementMode
   bBlockedByAnotherMercDirection
   sAbsoluteFinalDestination
   sContPathLocation
@@ -5470,7 +5471,7 @@ foreach(retired_movement_field IN ITEMS
   ubReasonCantFinishMove
   bOverrideMoveSpeed)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(UINT8|INT8|INT32|SoldierID)[ \t]+${retired_movement_field}[ \t]*;"
+    "(^|[\r\n])[ \t]*(UINT8|INT8|INT16|INT32|SoldierID)[ \t]+${retired_movement_field}[ \t]*;"
     retired_current_movement_field
     "${current_soldier_contents}")
   if(retired_current_movement_field)
@@ -5489,6 +5490,7 @@ if(NOT soldier_movement_owner)
 endif()
 
 foreach(owned_movement_field IN ITEMS
+  "INT16;mode"
   "UINT8;delayCounter"
   "INT32;delayedCauseGrid"
   "INT32;reservedGrid"
@@ -5517,6 +5519,14 @@ endforeach()
 # Movement storage is independent of schema layout. Keep each value at its
 # established flag/POD byte position; the unused 8-bit cause-merc slot remains
 # an explicit zero-valued compatibility byte rather than live soldier state.
+string(REGEX MATCH
+  "SoldierMovementComponent&[ \t]+movement[ \t]*=[ \t]*s\\.movement\\(\\);"
+  serialized_soldier_movement_alias
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(movement\\.mode\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bUIInterfaceLevel\\);"
+  serialized_soldier_movement_mode_order
+  "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fTurnInProgress\\);"
   serialized_soldier_movement_delay_flag_order
@@ -5561,7 +5571,9 @@ string(REGEX MATCH
   "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
   serialized_soldier_movement_speed_override_order
   "${save_load_game_contents}")
-if(NOT serialized_soldier_movement_delay_flag_order OR
+if(NOT serialized_soldier_movement_alias OR
+   NOT serialized_soldier_movement_mode_order OR
+   NOT serialized_soldier_movement_delay_flag_order OR
    NOT serialized_soldier_movement_block_flag_order OR
    NOT serialized_soldier_movement_speed_flag_order OR
    NOT serialized_soldier_retired_movement_cause OR
@@ -5574,6 +5586,38 @@ if(NOT serialized_soldier_movement_delay_flag_order OR
    NOT serialized_soldier_movement_speed_override_order)
   message(FATAL_ERROR
     "Soldier movement state moved in the portable save schema; keep its established byte positions while storage evolves")
+endif()
+
+string(FIND "${soldier_control_source_contents}"
+  "this->movement().mode() = src.usUIMovementMode;"
+  soldier_movement_mode_conversion)
+foreach(movement_mode_test_fragment IN ITEMS
+  "constSoldier.movement().mode() == SWATTING"
+  "v101 soldier conversion maps the established tactical movement mode"
+  "soldier save/load round-trips the component-owned movement mode and delay counter")
+  string(FIND "${headless_test_contents}"
+    "${movement_mode_test_fragment}"
+    soldier_movement_mode_test_fragment)
+  if(soldier_movement_mode_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost component-owned movement-mode fixture '${movement_mode_test_fragment}'")
+  endif()
+endforeach()
+string(FIND "${engine_architecture_documentation}"
+  "movement().mode()"
+  soldier_movement_mode_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "movement().mode()"
+  soldier_movement_mode_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "usUIMovementMode"
+  soldier_movement_mode_save_documented)
+if(soldier_movement_mode_conversion EQUAL -1 OR
+   soldier_movement_mode_architecture_documented EQUAL -1 OR
+   soldier_movement_mode_sdk_documented EQUAL -1 OR
+   soldier_movement_mode_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Component-owned movement mode must retain v101 mapping and architecture/save documentation")
 endif()
 
 # Current tactical target geometry and actor identity now have one private
@@ -5879,7 +5923,7 @@ string(REGEX MATCH
   serialized_soldier_fire_bullets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.usUIMovementMode\\);"
+  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(movement\\.mode\\(\\)\\);"
   serialized_soldier_fire_burst_order
   "${save_load_game_contents}")
 string(REGEX MATCH

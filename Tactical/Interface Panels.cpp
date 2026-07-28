@@ -4397,7 +4397,7 @@ void HandleMouseOverSoldierFaceForContMove( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 			}
 
 			// While our mouse is here, draw a path!
-			PlotPath( pSoldier, sGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			PlotPath( pSoldier, sGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		}
 	}
 	else
@@ -6117,7 +6117,7 @@ void HandleMouseOverTeamFaceForContMove( BOOLEAN fOn )
 			wcscpy( pFace->zDisplayText, TacticalStr[ CONTINUE_OVER_FACE_STR ] );
 
 			// While our mouse is here, draw a path!
-			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing().finalDestinationGrid(), NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->usUIMovementMode, NOT_STEALTH, FORWARD, GetSMCurrentMerc()->actionPoints().current() );
+			PlotPath( GetSMCurrentMerc(), GetSMCurrentMerc()->pathing().finalDestinationGrid(), NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)GetSMCurrentMerc()->movement().mode(), NOT_STEALTH, FORWARD, GetSMCurrentMerc()->actionPoints().current() );
 		}
 	}
 	else
