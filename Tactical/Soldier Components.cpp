@@ -82,6 +82,54 @@ void SoldierSkillStateComponent::reset() noexcept
 	*this = SoldierSkillStateComponent{};
 }
 
+bool SoldierConditionComponent::hasExtraStats() const noexcept
+{
+	return extraStrength_ != 0 ||
+	       extraDexterity_ != 0 ||
+	       extraAgility_ != 0 ||
+	       extraWisdom_ != 0 ||
+	       extraExperienceLevel_ != 0;
+}
+
+bool SoldierConditionComponent::hasStarvationDamage() const noexcept
+{
+	return starvationHealthDamage_ != 0 || starvationStrengthDamage_ != 0;
+}
+
+bool SoldierConditionComponent::hasDisability(UINT8 disability) const noexcept
+{
+	if (disability == 0 || disability > DisabilityBitCount)
+	{
+		return false;
+	}
+
+	return (disabilityFlags_ & (UINT32{1} << (disability - 1))) != 0;
+}
+
+void SoldierConditionComponent::addDisability(UINT8 disability) noexcept
+{
+	if (disability == 0 || disability > DisabilityBitCount)
+	{
+		return;
+	}
+
+	disabilityFlags_ |= UINT32{1} << (disability - 1);
+}
+
+void SoldierConditionComponent::clearExtraStats() noexcept
+{
+	extraStrength_ = 0;
+	extraDexterity_ = 0;
+	extraAgility_ = 0;
+	extraWisdom_ = 0;
+	extraExperienceLevel_ = 0;
+}
+
+void SoldierConditionComponent::reset() noexcept
+{
+	*this = SoldierConditionComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;

@@ -673,10 +673,10 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 					ptstolower -= oldctrpts - pSoldier->vitals().criticalStatDamage()[ bDamagedStatToRaise ];
 				}
 								
-				if ( bDamagedStatToRaise == DAMAGED_STAT_STRENGTH && pSoldier->usStarveDamageStrength > 0 )
-					pSoldier->usStarveDamageStrength = max(0, pSoldier->usStarveDamageStrength - ptstolower);
-				else if ( bDamagedStatToRaise == DAMAGED_STAT_HEALTH && pSoldier->usStarveDamageHealth > 0 )
-					pSoldier->usStarveDamageHealth = max(0, pSoldier->usStarveDamageHealth - ptstolower);
+				if ( bDamagedStatToRaise == DAMAGED_STAT_STRENGTH && pSoldier->condition().starvationStrengthDamage() > 0 )
+					pSoldier->condition().starvationStrengthDamage() = max(0, pSoldier->condition().starvationStrengthDamage() - ptstolower);
+				else if ( bDamagedStatToRaise == DAMAGED_STAT_HEALTH && pSoldier->condition().starvationHealthDamage() > 0 )
+					pSoldier->condition().starvationHealthDamage() = max(0, pSoldier->condition().starvationHealthDamage() - ptstolower);
 			}
 
 			// if it's a level gain, or sometimes for other stats

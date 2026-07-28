@@ -1,6 +1,7 @@
 #ifndef TACTICAL_SOLDIER_COMPONENTS_H
 #define TACTICAL_SOLDIER_COMPONENTS_H
 
+#include "Disease Types.h"
 #include "Overhead Types.h"
 #include "types.h"
 
@@ -325,6 +326,77 @@ private:
 	Counters counters_{};
 	Cooldowns cooldowns_{};
 	INT32 focusGrid_ = 0;
+};
+
+// Canonical ongoing condition state outside core health/breath vitals.
+// Temporary stat effects, nutrition and starvation harm, disease progress, and
+// acquired disabilities share one reset boundary without importing disease
+// rule definitions or content records.
+class SoldierConditionComponent
+{
+public:
+	using DiseasePoints = INT16[NUM_DISEASES];
+	using DiseaseFlags = UINT8[NUM_DISEASES];
+	static constexpr UINT8 DisabilityBitCount = 32;
+
+	INT16& extraStrength() noexcept { return extraStrength_; }
+	const INT16& extraStrength() const noexcept { return extraStrength_; }
+	INT16& extraDexterity() noexcept { return extraDexterity_; }
+	const INT16& extraDexterity() const noexcept { return extraDexterity_; }
+	INT16& extraAgility() noexcept { return extraAgility_; }
+	const INT16& extraAgility() const noexcept { return extraAgility_; }
+	INT16& extraWisdom() noexcept { return extraWisdom_; }
+	const INT16& extraWisdom() const noexcept { return extraWisdom_; }
+	INT8& extraExperienceLevel() noexcept { return extraExperienceLevel_; }
+	const INT8& extraExperienceLevel() const noexcept { return extraExperienceLevel_; }
+	INT32& foodLevel() noexcept { return foodLevel_; }
+	const INT32& foodLevel() const noexcept { return foodLevel_; }
+	INT32& drinkLevel() noexcept { return drinkLevel_; }
+	const INT32& drinkLevel() const noexcept { return drinkLevel_; }
+	UINT8& starvationHealthDamage() noexcept { return starvationHealthDamage_; }
+	const UINT8& starvationHealthDamage() const noexcept { return starvationHealthDamage_; }
+	UINT8& starvationStrengthDamage() noexcept { return starvationStrengthDamage_; }
+	const UINT8& starvationStrengthDamage() const noexcept { return starvationStrengthDamage_; }
+	INT16& diseasePoints(UINT8 index) noexcept { return diseasePoints_[index]; }
+	const INT16& diseasePoints(UINT8 index) const noexcept { return diseasePoints_[index]; }
+	UINT8& diseaseFlags(UINT8 index) noexcept { return diseaseFlags_[index]; }
+	const UINT8& diseaseFlags(UINT8 index) const noexcept { return diseaseFlags_[index]; }
+	UINT32& disabilityFlags() noexcept { return disabilityFlags_; }
+	const UINT32& disabilityFlags() const noexcept { return disabilityFlags_; }
+
+	bool hasExtraStats() const noexcept;
+	bool hasStarvationDamage() const noexcept;
+	bool infected(UINT8 index) const noexcept { return diseasePoints_[index] > 0; }
+	bool hasDiseaseFlag(UINT8 index, UINT8 flag) const noexcept
+	{
+		return (diseaseFlags_[index] & flag) != 0;
+	}
+	bool hasDisability(UINT8 disability) const noexcept;
+	void markDiseaseFlag(UINT8 index, UINT8 flag) noexcept
+	{
+		diseaseFlags_[index] |= flag;
+	}
+	void clearDiseaseFlags(UINT8 index, UINT8 flags) noexcept
+	{
+		diseaseFlags_[index] &= static_cast<UINT8>(~flags);
+	}
+	void addDisability(UINT8 disability) noexcept;
+	void clearExtraStats() noexcept;
+	void reset() noexcept;
+
+private:
+	INT16 extraStrength_ = 0;
+	INT16 extraDexterity_ = 0;
+	INT16 extraAgility_ = 0;
+	INT16 extraWisdom_ = 0;
+	INT8 extraExperienceLevel_ = 0;
+	INT32 foodLevel_ = 0;
+	INT32 drinkLevel_ = 0;
+	UINT8 starvationHealthDamage_ = 0;
+	UINT8 starvationStrengthDamage_ = 0;
+	DiseasePoints diseasePoints_{};
+	DiseaseFlags diseaseFlags_{};
+	UINT32 disabilityFlags_ = 0;
 };
 
 // Canonical tactical action-point budget. The current amount and the turn-start

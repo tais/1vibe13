@@ -991,6 +991,18 @@ the engine must not contain SDL types in its public domain model.
   every serialized position, and every visitor width remain unchanged; v101
   conversion maps its three skill-check fields and clears state that did not
   exist in that record.
+  `SoldierConditionComponent` owns the complementary ongoing-effect domain:
+  temporary strength, dexterity, agility, wisdom, and experience modifiers;
+  food and drink levels; accumulated starvation harm; disease progress and
+  flags; and the acquired-disability mask. Disease rule definitions remain
+  content, while the fixed 20-slot storage capacity now lives in a small
+  dependency-neutral type header so `Disease.h` no longer includes the entire
+  soldier definition. Named effect, disease-flag, disability, and reset
+  operations replace scattered field and bit manipulation. Disability
+  insertion validates the established 1..32 domain and uses an unsigned shift,
+  avoiding undefined behavior on invalid input. Every scalar, disease slot,
+  field width, and serialized position remains unchanged; v101 conversion
+  clears the whole domain because that record predates it.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

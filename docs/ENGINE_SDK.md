@@ -305,6 +305,15 @@ cooldown, focus, and reset transitions give tactical and AI code one authority.
 The explicit serializer retains both 20-entry capacities and every established
 position and width; v101 conversion maps its three skill-check values and
 clears the later fields absent from that record.
+`SoldierConditionComponent` separately owns temporary stat modifiers, nutrition
+levels, starvation damage, the fixed 20-slot disease progress/flag arrays, and
+the acquired-disability mask. Named effect, disease-flag, disability, and reset
+operations give tactical, strategic, UI, and persistence code one authority.
+Acquired-disability operations validate the persisted 1..32 bit domain before
+using an unsigned shift. Disease rules and installed content stay outside this
+owner, and the dependency-neutral disease-capacity header removes the former
+`Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
+position and width; v101 conversion clears this later domain.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

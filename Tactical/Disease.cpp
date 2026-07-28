@@ -75,20 +75,20 @@ void HandleDisease()
 		{
 			for ( int i = 0; i < NUM_DISEASES; ++i )
 			{
-				if ( pSoldier->sDiseasePoints[i] > 0 )
+				if ( pSoldier->condition().infected(i) )
 				{
 					INT32 pointgain = Disease[i].sInfectionPtsGainPerHour;
 
 					// if the arm/leg is severely wounded, a splint increases the healing speed (assuming the gain is negative to begin with and doesn't reverse)
 					if ( gGameExternalOptions.fDiseaseSevereLimitations
 						&& Disease[i].usDiseaseProperties & (DISEASE_PROPERTY_LIMITED_USE_ARMS| DISEASE_PROPERTY_LIMITED_USE_LEGS)
-						&& ( pSoldier->sDiseaseFlag[i] & (SOLDIERDISEASE_SPLINTAPPLIED_ARM| SOLDIERDISEASE_SPLINTAPPLIED_LEG) ) )
+						&& pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_SPLINTAPPLIED_ARM | SOLDIERDISEASE_SPLINTAPPLIED_LEG) )
 					{
 						pointgain *= 2;
 					}
 
 					// some diseases can reverse on certain states
-					if ( pSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_REVERSEAL )
+					if ( pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_REVERSEAL) )
 						pointgain *= -1;
 
 					// add disease points - some diseases can reverse on certain states
@@ -154,8 +154,8 @@ void HandleDisease()
 				for (int i = 0; i < NUM_DISEASES; ++i)
 				{
 					if ((Disease[i].usDiseaseProperties & DISEASE_PROPERTY_DISGUSTING) &&
-						(pSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_DIAGNOSED) &&
-						(pSoldier->sDiseaseFlag[i] & SOLDIERDISEASE_OUTBREAK))
+						pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_DIAGNOSED) &&
+						pSoldier->condition().hasDiseaseFlag(i, SOLDIERDISEASE_OUTBREAK))
 					{
 						HandleDynamicOpinionChange(pSoldier, OPINIONEVENT_DISEASE_DISGUSTING, TRUE, TRUE);
 						break;
@@ -224,7 +224,7 @@ void HandlePossibleInfection( SOLDIERTYPE *pSoldier, SOLDIERTYPE* pOtherSoldier,
 		else if ( aInfectionType == INFECTION_TYPE_CONTACT_HUMAN )
 		{
 			// if we check a specific soldier, he must have the disease himself
-			if ( pOtherSoldier && pOtherSoldier->sDiseasePoints[i] <= 0 )
+			if ( pOtherSoldier && !pOtherSoldier->condition().infected(i) )
 				dChance = 0;
 
 			// if we wear face or hand protection, lower chance of infection

@@ -2128,13 +2128,13 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			// Flugente: food system - symbols used if hungry or thirsty
 			if (UsingFoodSystem())
 			{
-				if (pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold)
+				if (pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold)
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 9);
 					bNumRightIcons++;
 				}
 
-				if (pSoldier->bFoodLevel < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold)
+				if (pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold)
 				{
 					DoRightIcon(uiRenderBuffer, pFace, sFaceX, sFaceY, bNumRightIcons, 10);
 					bNumRightIcons++;

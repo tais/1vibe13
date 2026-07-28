@@ -2437,10 +2437,10 @@ void DrawCharStats( INT16 sCharNum )
 	SetFontBackground(FONT_BLACK);
 
 	// strength
-	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bStrength + pSoldier->bExtraStrength );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bStrength + pSoldier->condition().extraStrength() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
-	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->usStarveDamageStrength > 0) )
+	if ( ( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] > 0 )) || ( UsingFoodSystem() && pSoldier->condition().starvationStrengthDamage() > 0) )
 	{
 		SetFontForeground( FONT_RED );
 	}
@@ -2455,7 +2455,7 @@ void DrawCharStats( INT16 sCharNum )
 			SetFontForeground( FONT_RED );
 		}
 	}
-	else if ( pSoldier->bExtraStrength )
+	else if ( pSoldier->condition().extraStrength() )
 	{
 		SetRGBFontForeground( 250, 5, 250 );
 	}
@@ -2475,7 +2475,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.STR.iY,CHAR_FONT );
 
 	// dexterity
-	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bDexterity + pSoldier->bExtraDexterity );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bDexterity + pSoldier->condition().extraDexterity() );
 
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] > 0 ))
@@ -2493,7 +2493,7 @@ void DrawCharStats( INT16 sCharNum )
 			SetFontForeground( FONT_RED );
 		}
 	}
-	else if ( pSoldier->bExtraDexterity )
+	else if ( pSoldier->condition().extraDexterity() )
 	{
 		SetRGBFontForeground( 250, 5, 250 );
 	}
@@ -2513,7 +2513,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.DEX.iY,CHAR_FONT );
 
 	// agility
-	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bAgility + pSoldier->bExtraAgility );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bAgility + pSoldier->condition().extraAgility() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] > 0 ))
@@ -2531,7 +2531,7 @@ void DrawCharStats( INT16 sCharNum )
 			SetFontForeground( FONT_RED );
 		}
 	}
-	else if ( pSoldier->bExtraAgility )
+	else if ( pSoldier->condition().extraAgility() )
 	{
 		SetRGBFontForeground( 250, 5, 250 );
 	}
@@ -2551,7 +2551,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.AGL.iY,CHAR_FONT );
 
 	// wisdom
-	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bWisdom + pSoldier->bExtraWisdom );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bWisdom + pSoldier->condition().extraWisdom() );
 	
 	// SANDRO - if damaged stat we could regain, show in red until repaired
 	if( gGameOptions.fNewTraitSystem && ( pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] > 0 ))
@@ -2569,7 +2569,7 @@ void DrawCharStats( INT16 sCharNum )
 			SetFontForeground( FONT_RED );
 		}
 	}
-	else if ( pSoldier->bExtraWisdom )
+	else if ( pSoldier->condition().extraWisdom() )
 	{
 		SetRGBFontForeground( 250, 5, 250 );
 	}
@@ -2623,7 +2623,7 @@ void DrawCharStats( INT16 sCharNum )
 	DrawString(sString,usX, UI_CHARPANEL.Attr.LDR.iY,CHAR_FONT );
 
 	// experience level
-	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bExpLevel + pSoldier->bExtraExpLevel );
+	sgp_swprintf( sString, 32,L"%d", pSoldier->stats.bExpLevel + pSoldier->condition().extraExperienceLevel() );
 
 	if( ( GetJA2Clock() < CHANGE_STAT_RECENTLY_DURATION + pSoldier->timeChanges.uiChangeLevelTime)&&( pSoldier->timeChanges.uiChangeLevelTime != 0 ) )
 	{
@@ -2636,7 +2636,7 @@ void DrawCharStats( INT16 sCharNum )
 			SetFontForeground( FONT_RED );
 		}
 	}
-	else if ( pSoldier->bExtraExpLevel )
+	else if ( pSoldier->condition().extraExperienceLevel() )
 	{
 		SetRGBFontForeground( 250, 5, 250 );
 	}

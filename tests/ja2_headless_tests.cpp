@@ -7314,6 +7314,24 @@ int main( int, char** )
 		skillState.cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) = 5;
 		skillState.cooldown(SOLDIER_COOLDOWN_MAX - 1) = 190;
 		skillState.focusOn(1290);
+		SoldierConditionComponent& condition = soldier.condition();
+		condition.extraStrength() = 11;
+		condition.extraDexterity() = -12;
+		condition.extraAgility() = 13;
+		condition.extraWisdom() = -14;
+		condition.extraExperienceLevel() = 2;
+		condition.foodLevel() = 54000;
+		condition.drinkLevel() = -24000;
+		condition.starvationHealthDamage() = 7;
+		condition.starvationStrengthDamage() = 8;
+		condition.diseasePoints(0) = 101;
+		condition.diseaseFlags(0) = 0x03;
+		condition.diseasePoints(6) = -202;
+		condition.diseaseFlags(6) = 0x40;
+		condition.diseasePoints(NUM_DISEASES - 1) = 303;
+		condition.diseaseFlags(NUM_DISEASES - 1) = 0x80;
+		condition.addDisability(2);
+		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7562,6 +7580,26 @@ int main( int, char** )
 		       constSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 190 &&
 		       constSoldier.skillState().focusGrid() == 1290,
 		       "soldier skill-state component owns checks, AI selection, counters, cooldowns, and focus" );
+		CHECK( constSoldier.condition().hasExtraStats() &&
+		       constSoldier.condition().extraStrength() == 11 &&
+		       constSoldier.condition().extraDexterity() == -12 &&
+		       constSoldier.condition().extraAgility() == 13 &&
+		       constSoldier.condition().extraWisdom() == -14 &&
+		       constSoldier.condition().extraExperienceLevel() == 2 &&
+		       constSoldier.condition().foodLevel() == 54000 &&
+		       constSoldier.condition().drinkLevel() == -24000 &&
+		       constSoldier.condition().hasStarvationDamage() &&
+		       constSoldier.condition().starvationHealthDamage() == 7 &&
+		       constSoldier.condition().starvationStrengthDamage() == 8 &&
+		       constSoldier.condition().infected(0) &&
+		       constSoldier.condition().hasDiseaseFlag(0, 0x02) &&
+		       constSoldier.condition().diseasePoints(6) == -202 &&
+		       constSoldier.condition().diseaseFlags(6) == 0x40 &&
+		       constSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 303 &&
+		       constSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0x80 &&
+		       constSoldier.condition().hasDisability(2) &&
+		       constSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
+		       "soldier condition component owns temporary stats, nutrition, starvation, disease, and acquired disabilities" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -7911,6 +7949,48 @@ int main( int, char** )
 		       skillStateLifecycle.cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
 		       skillStateLifecycle.focusGrid() == 0,
 		       "soldier skill-state reset clears every persisted field and the full fixed-capacity arrays" );
+		SoldierConditionComponent conditionLifecycle;
+		conditionLifecycle.extraStrength() = 4;
+		conditionLifecycle.extraExperienceLevel() = -1;
+		conditionLifecycle.foodLevel() = 50000;
+		conditionLifecycle.drinkLevel() = 40000;
+		conditionLifecycle.starvationHealthDamage() = 2;
+		conditionLifecycle.diseasePoints(0) = 10;
+		conditionLifecycle.markDiseaseFlag(0, 0x01);
+		conditionLifecycle.markDiseaseFlag(0, 0x02);
+		conditionLifecycle.addDisability(0);
+		conditionLifecycle.addDisability(1);
+		conditionLifecycle.addDisability(SoldierConditionComponent::DisabilityBitCount);
+		conditionLifecycle.addDisability(SoldierConditionComponent::DisabilityBitCount + 1);
+		CHECK( conditionLifecycle.hasExtraStats() &&
+		       conditionLifecycle.hasStarvationDamage() &&
+		       conditionLifecycle.infected(0) &&
+		       conditionLifecycle.hasDiseaseFlag(0, 0x03) &&
+		       conditionLifecycle.hasDisability(1) &&
+		       conditionLifecycle.hasDisability(SoldierConditionComponent::DisabilityBitCount) &&
+		       !conditionLifecycle.hasDisability(0) &&
+		       !conditionLifecycle.hasDisability(SoldierConditionComponent::DisabilityBitCount + 1),
+		       "soldier condition component coordinates effect, disease, and validated disability transitions" );
+		conditionLifecycle.clearExtraStats();
+		conditionLifecycle.clearDiseaseFlags(0, 0x01);
+		CHECK( !conditionLifecycle.hasExtraStats() &&
+		       !conditionLifecycle.hasDiseaseFlag(0, 0x01) &&
+		       conditionLifecycle.hasDiseaseFlag(0, 0x02),
+		       "soldier condition component clears temporary stats and selected disease flags without disturbing adjacent state" );
+		conditionLifecycle.diseasePoints(NUM_DISEASES - 1) = 20;
+		conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) = 0x80;
+		conditionLifecycle.reset();
+		CHECK( conditionLifecycle.extraStrength() == 0 &&
+		       conditionLifecycle.extraExperienceLevel() == 0 &&
+		       conditionLifecycle.foodLevel() == 0 &&
+		       conditionLifecycle.drinkLevel() == 0 &&
+		       !conditionLifecycle.hasStarvationDamage() &&
+		       conditionLifecycle.diseasePoints(0) == 0 &&
+		       conditionLifecycle.diseaseFlags(0) == 0 &&
+		       conditionLifecycle.diseasePoints(NUM_DISEASES - 1) == 0 &&
+		       conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) == 0 &&
+		       conditionLifecycle.disabilityFlags() == 0,
+		       "soldier condition reset clears scalar state and the complete fixed disease capacity" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -7977,6 +8057,22 @@ int main( int, char** )
 		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 190 &&
 		       copiedSoldier.skillState().focusGrid() == 1290,
 		       "soldier copies retain their owned persistent skill state" );
+		CHECK( copiedSoldier.condition().extraStrength() == 11 &&
+		       copiedSoldier.condition().extraDexterity() == -12 &&
+		       copiedSoldier.condition().extraAgility() == 13 &&
+		       copiedSoldier.condition().extraWisdom() == -14 &&
+		       copiedSoldier.condition().extraExperienceLevel() == 2 &&
+		       copiedSoldier.condition().foodLevel() == 54000 &&
+		       copiedSoldier.condition().drinkLevel() == -24000 &&
+		       copiedSoldier.condition().starvationHealthDamage() == 7 &&
+		       copiedSoldier.condition().starvationStrengthDamage() == 8 &&
+		       copiedSoldier.condition().diseasePoints(0) == 101 &&
+		       copiedSoldier.condition().diseaseFlags(0) == 0x03 &&
+		       copiedSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 303 &&
+		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0x80 &&
+		       copiedSoldier.condition().hasDisability(2) &&
+		       copiedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
+		       "soldier copies retain their owned persistent condition state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8589,6 +8685,21 @@ int main( int, char** )
 		       copiedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
 		       copiedSoldier.skillState().focusGrid() == 0,
 		       "soldier initialization resets the complete skill-state domain" );
+		CHECK( copiedSoldier.condition().extraStrength() == 0 &&
+		       copiedSoldier.condition().extraDexterity() == 0 &&
+		       copiedSoldier.condition().extraAgility() == 0 &&
+		       copiedSoldier.condition().extraWisdom() == 0 &&
+		       copiedSoldier.condition().extraExperienceLevel() == 0 &&
+		       copiedSoldier.condition().foodLevel() == 0 &&
+		       copiedSoldier.condition().drinkLevel() == 0 &&
+		       copiedSoldier.condition().starvationHealthDamage() == 0 &&
+		       copiedSoldier.condition().starvationStrengthDamage() == 0 &&
+		       copiedSoldier.condition().diseasePoints(0) == 0 &&
+		       copiedSoldier.condition().diseaseFlags(0) == 0 &&
+		       copiedSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 0 &&
+		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
+		       copiedSoldier.condition().disabilityFlags() == 0,
+		       "soldier initialization resets the complete condition domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -8924,6 +9035,17 @@ int main( int, char** )
 		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_CRYO) = 7;
 		convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) = 17;
 		convertedSoldier.skillState().focusOn(1411);
+		convertedSoldier.condition().extraStrength() = 15;
+		convertedSoldier.condition().extraExperienceLevel() = 3;
+		convertedSoldier.condition().foodLevel() = 51000;
+		convertedSoldier.condition().drinkLevel() = 41000;
+		convertedSoldier.condition().starvationHealthDamage() = 5;
+		convertedSoldier.condition().starvationStrengthDamage() = 6;
+		convertedSoldier.condition().diseasePoints(0) = 111;
+		convertedSoldier.condition().diseaseFlags(0) = 0x03;
+		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
+		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
+		convertedSoldier.condition().addDisability(2);
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
@@ -8972,6 +9094,21 @@ int main( int, char** )
 		       convertedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 0 &&
 		       convertedSoldier.skillState().focusGrid() == 0,
 		       "v101 soldier conversion maps established skill checks and clears skill state absent from that schema" );
+		CHECK( convertedSoldier.condition().extraStrength() == 0 &&
+		       convertedSoldier.condition().extraDexterity() == 0 &&
+		       convertedSoldier.condition().extraAgility() == 0 &&
+		       convertedSoldier.condition().extraWisdom() == 0 &&
+		       convertedSoldier.condition().extraExperienceLevel() == 0 &&
+		       convertedSoldier.condition().foodLevel() == 0 &&
+		       convertedSoldier.condition().drinkLevel() == 0 &&
+		       convertedSoldier.condition().starvationHealthDamage() == 0 &&
+		       convertedSoldier.condition().starvationStrengthDamage() == 0 &&
+		       convertedSoldier.condition().diseasePoints(0) == 0 &&
+		       convertedSoldier.condition().diseaseFlags(0) == 0 &&
+		       convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 0 &&
+		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
+		       convertedSoldier.condition().disabilityFlags() == 0,
+		       "v101 soldier conversion clears condition state absent from that schema" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -9237,6 +9374,23 @@ int main( int, char** )
 		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) = 29;
 		savedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) = 229;
 		savedSoldier.skillState().focusOn(1510);
+		savedSoldier.condition().extraStrength() = 16;
+		savedSoldier.condition().extraDexterity() = -17;
+		savedSoldier.condition().extraAgility() = 18;
+		savedSoldier.condition().extraWisdom() = -19;
+		savedSoldier.condition().extraExperienceLevel() = 3;
+		savedSoldier.condition().foodLevel() = 52000;
+		savedSoldier.condition().drinkLevel() = -42000;
+		savedSoldier.condition().starvationHealthDamage() = 9;
+		savedSoldier.condition().starvationStrengthDamage() = 10;
+		savedSoldier.condition().diseasePoints(0) = 120;
+		savedSoldier.condition().diseaseFlags(0) = 0x05;
+		savedSoldier.condition().diseasePoints(7) = -230;
+		savedSoldier.condition().diseaseFlags(7) = 0x40;
+		savedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 340;
+		savedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
+		savedSoldier.condition().addDisability(5);
+		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9474,6 +9628,25 @@ int main( int, char** )
 		       loadedSoldier.skillState().cooldown(SOLDIER_COOLDOWN_MAX - 1) == 229 &&
 		       loadedSoldier.skillState().focusGrid() == 1510,
 		       "soldier save/load round-trips skill state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.condition().extraStrength() == 16 &&
+		       loadedSoldier.condition().extraDexterity() == -17 &&
+		       loadedSoldier.condition().extraAgility() == 18 &&
+		       loadedSoldier.condition().extraWisdom() == -19 &&
+		       loadedSoldier.condition().extraExperienceLevel() == 3 &&
+		       loadedSoldier.condition().foodLevel() == 52000 &&
+		       loadedSoldier.condition().drinkLevel() == -42000 &&
+		       loadedSoldier.condition().starvationHealthDamage() == 9 &&
+		       loadedSoldier.condition().starvationStrengthDamage() == 10 &&
+		       loadedSoldier.condition().diseasePoints(0) == 120 &&
+		       loadedSoldier.condition().diseaseFlags(0) == 0x05 &&
+		       loadedSoldier.condition().diseasePoints(7) == -230 &&
+		       loadedSoldier.condition().diseaseFlags(7) == 0x40 &&
+		       loadedSoldier.condition().diseasePoints(NUM_DISEASES - 1) == 340 &&
+		       loadedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0x80 &&
+		       loadedSoldier.condition().hasDisability(5) &&
+		       loadedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
+		       "soldier save/load round-trips condition state at every established schema position and fixed-capacity edge" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

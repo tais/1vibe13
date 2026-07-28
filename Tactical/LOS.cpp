@@ -2618,7 +2618,7 @@ BOOLEAN DamageRiotShield_Bullet( SOLDIERTYPE* pSoldier, BULLET* pBullet )
 		NotifySoldiersToLookforItems( );
 
 		// Flugente: if this guy has the disease, or the blade was already infected, the new one will be too
-		if ( pSoldier->sDiseasePoints[0] > 0 || pBullet->usFlags & BULLET_FLAG_INFECTED )
+		if ( pSoldier->condition().infected(0) || pBullet->usFlags & BULLET_FLAG_INFECTED )
 			(*&gTempObject)[0]->data.sObjectFlag |= INFECTED;
 
 		ubAmmoType = AMMO_KNIFE;
@@ -2719,7 +2719,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			NotifySoldiersToLookforItems();
 
 			// Flugente: if this guy has the disease, or the blade was already infected, the new one will be too
-			if ( pTarget->sDiseasePoints[0] > 0 || pBullet->usFlags & BULLET_FLAG_INFECTED )
+			if ( pTarget->condition().infected(0) || pBullet->usFlags & BULLET_FLAG_INFECTED )
 				(*&gTempObject)[0]->data.sObjectFlag |= INFECTED;
 		}
 		else
@@ -2727,7 +2727,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			CreateItem(usItem, usItemStatus, &pTarget->inv[bSlot]);
 
 			// Flugente: if this guy has the disease, or the blade was already infected, the new one will be too
-			if ( pTarget->sDiseasePoints[0] > 0 || pBullet->usFlags & BULLET_FLAG_INFECTED )
+			if ( pTarget->condition().infected(0) || pBullet->usFlags & BULLET_FLAG_INFECTED )
 				pTarget->inv[bSlot][0]->data.sObjectFlag |= INFECTED;
 		}
 

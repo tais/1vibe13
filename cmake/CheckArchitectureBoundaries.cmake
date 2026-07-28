@@ -1948,6 +1948,10 @@ file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
   soldier_control_source_contents)
 file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.cpp"
   soldier_components_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Disease Types.h"
+  disease_types_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Disease.h"
+  disease_header_contents)
 foreach(owned_vital_pattern IN ITEMS
   "INT8[ \t]+health_[ \t]*=[ \t]*0"
   "INT8[ \t]+maximumHealth_[ \t]*=[ \t]*0"
@@ -2529,6 +2533,201 @@ foreach(skill_state_save_position IN ITEMS
   if(soldier_skill_state_save_position EQUAL -1)
     message(FATAL_ERROR
       "Soldier skill state moved in the portable save schema at '${skill_state_save_position}'")
+  endif()
+endforeach()
+
+# Temporary stat effects, nutrition and starvation harm, disease progress,
+# and acquired disabilities form one ongoing-condition domain outside core
+# health/breath vitals. Preserve every established field width and array slot
+# while preventing the flat fields and the Disease/SOLDIERTYPE header cycle
+# from returning.
+foreach(retired_condition_field IN ITEMS
+  bExtraStrength
+  bExtraDexterity
+  bExtraAgility
+  bExtraWisdom
+  bExtraExpLevel
+  bFoodLevel
+  bDrinkLevel
+  usStarveDamageHealth
+  usStarveDamageStrength
+  usDisabilityFlagMask)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_condition_field}([^A-Za-z0-9_]|$)"
+    retired_current_condition_field
+    "${current_soldier_contents}")
+  if(retired_current_condition_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE condition field '${retired_condition_field}' returned; ongoing effects belong to SoldierConditionComponent")
+  endif()
+endforeach()
+
+foreach(retired_condition_array IN ITEMS sDiseasePoints sDiseaseFlag)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_condition_array}([^A-Za-z0-9_]|$)"
+    retired_current_condition_array
+    "${current_soldier_contents}")
+  if(retired_current_condition_array)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE disease array '${retired_condition_array}' returned; disease progress belongs to SoldierConditionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierConditionComponent[ \t\r\n]+condition_[ \t]*;"
+  soldier_condition_owner
+  "${current_soldier_contents}")
+if(NOT soldier_condition_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierConditionComponent")
+endif()
+
+foreach(owned_condition_pattern IN ITEMS
+  "INT16[ \t]+extraStrength_[ \t]*=[ \t]*0"
+  "INT16[ \t]+extraDexterity_[ \t]*=[ \t]*0"
+  "INT16[ \t]+extraAgility_[ \t]*=[ \t]*0"
+  "INT16[ \t]+extraWisdom_[ \t]*=[ \t]*0"
+  "INT8[ \t]+extraExperienceLevel_[ \t]*=[ \t]*0"
+  "INT32[ \t]+foodLevel_[ \t]*=[ \t]*0"
+  "INT32[ \t]+drinkLevel_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+starvationHealthDamage_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+starvationStrengthDamage_[ \t]*=[ \t]*0"
+  "DiseasePoints[ \t]+diseasePoints_[ \t]*\\{\\}"
+  "DiseaseFlags[ \t]+diseaseFlags_[ \t]*\\{\\}"
+  "UINT32[ \t]+disabilityFlags_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_condition_pattern}"
+    owned_soldier_condition_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_condition_field)
+    message(FATAL_ERROR
+      "SoldierConditionComponent lost initialized owned storage matching '${owned_condition_pattern}'")
+  endif()
+endforeach()
+
+foreach(condition_capacity IN ITEMS
+  "using DiseasePoints = INT16[NUM_DISEASES];"
+  "using DiseaseFlags = UINT8[NUM_DISEASES];"
+  "static constexpr UINT8 DisabilityBitCount = 32;")
+  string(FIND "${soldier_components_header_contents}"
+    "${condition_capacity}"
+    soldier_condition_capacity)
+  if(soldier_condition_capacity EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierConditionComponent lost fixed save capacity '${condition_capacity}'")
+  endif()
+endforeach()
+string(FIND "${disease_types_header_contents}"
+  "inline constexpr UINT8 NUM_DISEASES = 20;"
+  soldier_condition_disease_capacity)
+if(soldier_condition_disease_capacity EQUAL -1)
+  message(FATAL_ERROR
+    "The established soldier disease save capacity must remain exactly 20")
+endif()
+
+foreach(condition_accessor IN ITEMS
+  extraStrength
+  extraDexterity
+  extraAgility
+  extraWisdom
+  extraExperienceLevel
+  foodLevel
+  drinkLevel
+  starvationHealthDamage
+  starvationStrengthDamage
+  diseasePoints
+  diseaseFlags
+  disabilityFlags)
+  string(REGEX MATCH
+    "${condition_accessor}\\([^)]*\\)[ \t]+noexcept"
+    owned_soldier_condition_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_condition_accessor)
+    message(FATAL_ERROR
+      "SoldierConditionComponent lost the '${condition_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(condition_operation IN ITEMS
+  "bool hasExtraStats() const noexcept"
+  "bool hasStarvationDamage() const noexcept"
+  "bool infected(UINT8 index) const noexcept"
+  "bool hasDiseaseFlag(UINT8 index, UINT8 flag) const noexcept"
+  "bool hasDisability(UINT8 disability) const noexcept"
+  "void markDiseaseFlag(UINT8 index, UINT8 flag) noexcept"
+  "void clearDiseaseFlags(UINT8 index, UINT8 flags) noexcept"
+  "void addDisability(UINT8 disability) noexcept"
+  "void clearExtraStats() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${condition_operation}"
+    soldier_condition_operation)
+  if(soldier_condition_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierConditionComponent lost required condition operation '${condition_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierConditionComponent& condition() noexcept"
+  soldier_condition_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierConditionComponent{};"
+  soldier_condition_default_reset)
+string(REGEX MATCHALL
+  "condition\\(\\)\\.reset\\(\\);"
+  soldier_condition_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_condition_reset_sites soldier_condition_reset_site_count)
+if(soldier_condition_accessor EQUAL -1 OR
+   soldier_condition_default_reset EQUAL -1 OR
+   soldier_condition_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierConditionComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+string(FIND "${soldier_components_source_contents}"
+  "if (disability == 0 || disability > DisabilityBitCount)"
+  soldier_condition_disability_bounds)
+string(FIND "${soldier_components_source_contents}"
+  "UINT32{1} << (disability - 1)"
+  soldier_condition_unsigned_disability_bit)
+if(soldier_condition_disability_bounds EQUAL -1 OR
+   soldier_condition_unsigned_disability_bit EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierConditionComponent acquired-disability operations must validate the 1..32 domain and use an unsigned shift")
+endif()
+
+string(FIND "${disease_header_contents}"
+  "#include \"Disease Types.h\""
+  disease_capacity_include)
+string(FIND "${disease_header_contents}"
+  "class SOLDIERTYPE;"
+  disease_soldier_forward_declaration)
+string(FIND "${disease_header_contents}"
+  "#include \"Soldier Control.h\""
+  disease_soldier_control_include)
+if(disease_capacity_include EQUAL -1 OR
+   disease_soldier_forward_declaration EQUAL -1 OR
+   NOT disease_soldier_control_include EQUAL -1)
+  message(FATAL_ERROR
+    "Disease.h must consume the independent disease capacity and forward-declare SOLDIERTYPE without recreating the header cycle")
+endif()
+
+foreach(condition_save_position IN ITEMS
+  "ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());"
+  "ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);"
+  "ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());"
+  "ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());"
+  "for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));"
+  "for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));"
+  "ar.u32(condition.disabilityFlags()); ar.i32(s.sDragGridNo);")
+  string(FIND "${save_load_game_contents}"
+    "${condition_save_position}"
+    soldier_condition_save_position)
+  if(soldier_condition_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier condition state moved in the portable save schema at '${condition_save_position}'")
   endif()
 endforeach()
 

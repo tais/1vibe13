@@ -2207,8 +2207,8 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 		break;
 
 	case OPINIONEVENT_NOSHARINGFOOD:
-		fCheckFood = (pSoldier->bFoodLevel < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold);
-		fCheckDrink = (pSoldier->bDrinkLevel < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold);
+		fCheckFood = (pSoldier->condition().foodLevel() < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold);
+		fCheckDrink = (pSoldier->condition().drinkLevel() < FoodMoraleMods[FOOD_MERC_START_SHOW_HUNGER_SYMBOL].bThreshold);
 
 		//  no hunger - no problem
 		if ( !fCheckFood && !fCheckDrink )
