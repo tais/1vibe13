@@ -380,7 +380,7 @@ BOOLEAN AttemptToCrowbarLock( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			// we came close... so do some damage to the lock
 			pDoor->bLockDamage += (INT8) (10 + iResult);
 		}
-		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->sSkillCheckGridNo )
+		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->skillState().checkGrid() )
 		{
 			// give token point for effort :-)
 			StatChange( pSoldier, STRAMT, 1, FALSE );
@@ -464,7 +464,7 @@ BOOLEAN AttemptToSmashDoor( SOLDIERTYPE * pSoldier, DOOR * pDoor )
 			// we came close... so do some damage to the lock
 			pDoor->bLockDamage += (INT8) (10 + iResult);
 		}
-		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->sSkillCheckGridNo )
+		else if ( iResult > -40 && pSoldier->position().gridNo() != pSoldier->skillState().checkGrid() )
 		{
 			// give token point for effort :-)
 			StatChange( pSoldier, STRAMT, 1, FALSE );

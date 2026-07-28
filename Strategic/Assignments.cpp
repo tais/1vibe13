@@ -6822,13 +6822,13 @@ void HandleSpyAssignments()
 					if ( Chance( uncoverrisk ) )
 					{
 						// if we are already in hiding, we will be uncovered
-						if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10 )
+						if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10 )
 							vector_uncoveredmercs.push_back( id );
 
 						// we get a penalty, and a chance to be uncovered
-						pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] += 20 + Random( 30 );
+						pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) += 20 + Random( 30 );
 
-						ScreenMsg( FONT_MCOLOR_RED, MSG_INTERFACE, szIntelText[1], pSoldier->GetName(), (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] - 10) / 10 );
+						ScreenMsg( FONT_MCOLOR_RED, MSG_INTERFACE, szIntelText[1], pSoldier->GetName(), (pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) - 10) / 10 );
 
 						continue;
 					}
@@ -6839,10 +6839,10 @@ void HandleSpyAssignments()
 			}
 
 			// penalty runs out for every soldier, regardless of whether they are on an intel assignment
-			if ( pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] > 10)
-				pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] -= 10;
+			if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) > 10)
+				pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) -= 10;
 			else
-				pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] = 0;
+				pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) = 0;
 		}
 	}
 

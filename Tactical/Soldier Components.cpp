@@ -56,6 +56,32 @@ void SoldierDialogueComponent::reset() noexcept
 	*this = SoldierDialogueComponent{};
 }
 
+void SoldierSkillStateComponent::ageTurnCounters() noexcept
+{
+	for (UINT8 index = 0; index < SOLDIER_COUNTER_MAX; ++index)
+	{
+		if (index == SOLDIER_COUNTER_ROLE_OBSERVED)
+		{
+			continue;
+		}
+
+		if (index == SOLDIER_COUNTER_SPOTTER && counters_[index] > 0)
+		{
+			counters_[index] = static_cast<UINT16>(
+				std::min<UINT32>(255, static_cast<UINT32>(counters_[index]) + 1));
+		}
+		else if (counters_[index] > 0)
+		{
+			--counters_[index];
+		}
+	}
+}
+
+void SoldierSkillStateComponent::reset() noexcept
+{
+	*this = SoldierSkillStateComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;

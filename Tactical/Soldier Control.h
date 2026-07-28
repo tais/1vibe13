@@ -616,28 +616,6 @@ enum{
 	SKILLS_MAX,
 };
 
-// Flugente: certain skills/traits/taints add effects that require a counter, here are enums for these
-enum {
-	SOLDIER_COUNTER_RADIO_ARTILLERY,		// there is actually no need for an artillery timer, but we use one to forbid the same AI guy ordering multiple strikes at once
-	SOLDIER_COUNTER_SPOTTER,				// used to determine wether we are a spotter
-	SOLDIER_COUNTER_ROLE_OBSERVED,			// every turn that the player observes an enemy, the enemies counter is increased. If it is high enough, we know his role
-	SOLDIER_COUNTER_RETREAT,				// use to retreat from position
-	
-	SOLDIER_COUNTER_MAX = 20,				// enough space for fillers
-};
-
-// Flugente: certain skills/traits/taints require a cooldown timer 
-enum {
-	SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_SECONDS = 0,
-	SOLDIER_COOLDOWN_COVERTOPS_TEMPORARYOVERT_APS,
-	SOLDIER_COOLDOWN_CRYO,					// counts how many turns character will be frozen
-	SOLDIER_COOLDOWN_INTEL_PENALTY,			// after being discovered, we can't gain intel from the assignment for this many hours
-	SOLDIER_COOLDOWN_DRUGUSER_COMBAT,		// after a drug user deliberately took drugs, he will not do so on his own for a while
-	SOLDIER_COOLDOWN_ROBOT_XRAY,			// rftr: robot can use x-ray detector
-
-	SOLDIER_COOLDOWN_MAX = 20,				// enough space for fillers
-};
-
 // enum of uniform pieces
 typedef struct
 {
@@ -1028,6 +1006,8 @@ public:
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
 	const SoldierDialogueComponent& dialogue() const noexcept { return dialogue_; }
+	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
+	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1203,9 +1183,6 @@ public:
 	INT16			sPanelFaceX;
 	INT16			sPanelFaceY;
 
-	INT8				bLastSkillCheck;
-	INT8				ubSkillCheckAttempts;
-
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	UINT8			ubPlannedUIAPCost;
@@ -1259,7 +1236,6 @@ public:
 	UINT8				ubMilitiaKills;
 
 	UINT8				ubPendingActionInterrupted;
-	INT32				sSkillCheckGridNo;
 	SoldierID			ubLastEnemyCycledID;
 
 	UINT16				usValueGoneUp;
@@ -1321,11 +1297,6 @@ public:
 
 	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
 
-	// Flugente: skill stuff
-	UINT8	usAISkillUse;							// this variable allows the AI to remember which skill it wants to use
-	UINT16	usSkillCounter[SOLDIER_COUNTER_MAX];	// counters used for various skill/trait/taint effects
-	UINT32	usSkillCooldown[SOLDIER_COOLDOWN_MAX];	// cooldown used for various skill/trait/taint effects
-
 	// Flugente: diseases
 	INT16	sDiseasePoints[NUM_DISEASES];			// we store the state of our diseases here
 	UINT8	sDiseaseFlag[NUM_DISEASES];				// we need to store some special flags for every disease
@@ -1337,9 +1308,6 @@ public:
 	// Flugente: modifiers to fire modes
 	UINT8	usGLDelayMode;			// if > 0, delay GL grenade explosions
 	UINT8	usBarrelMode;			// states how many barrels we are currently using as modifier for our fire mode
-
-	// Flugente: focus skill gridno
-	INT32	sFocusGridNo;
 
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
@@ -1381,6 +1349,7 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
+	SoldierSkillStateComponent	skillState_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

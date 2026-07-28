@@ -1906,7 +1906,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	}
 
 	// Flugente: frozen soldiers appear to be in ice, which we simulate by having the soldier be fully white
-	if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO])
+	if (pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO))
 	{
 		pShadeTable = White16BPPPalette;
 	}
@@ -2841,7 +2841,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								usImageIndex = pSoldier->animationPlayback().frame();
 
 								// Flugente: frozen soldiers don't move
-								if (pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] && pSoldier->vitals().health() > 0)
+								if (pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) && pSoldier->vitals().health() > 0)
 								{
 									usImageIndex = pSoldier->CryoAniFrame();
 								}

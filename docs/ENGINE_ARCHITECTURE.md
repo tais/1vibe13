@@ -983,6 +983,14 @@ the engine must not contain SDL types in its public domain model.
   transitions replace scattered bit manipulation while all fourteen save
   fields retain their established positions and widths. World-position and
   mechanical-loop sound handles remain with spatial audio.
+  `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
+  repeated mechanical-check identity and attempts, the AI's selected skill,
+  persistent trait counters, heterogeneous cooldowns, and the focus target.
+  Named check, aging, cooldown, focus, and reset operations replace scattered
+  field manipulation. The established 20-entry counter and cooldown capacities,
+  every serialized position, and every visitor width remain unchanged; v101
+  conversion maps its three skill-check fields and clears state that did not
+  exist in that record.
   Current and turn-start action points now have one private
   `SoldierActionPointComponent` owner. Turn creation, turn snapshots, and
   forced zero-AP transitions update the pair through named operations, while

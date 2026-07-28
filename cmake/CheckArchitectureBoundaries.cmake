@@ -2067,7 +2067,7 @@ string(FIND "${save_load_game_contents}"
   "ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
   serialized_soldier_regeneration_counter_position)
 string(FIND "${save_load_game_contents}"
-  "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(s.sSkillCheckGridNo);"
+  "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());"
   serialized_soldier_regeneration_booster_position)
 string(FIND "${save_load_game_contents}"
   "ar.i32(vitals.lastBleedGruntAt()); ar.u16(combatResult.earlierAttacker().i);"
@@ -2353,7 +2353,7 @@ endforeach()
 
 foreach(dialogue_save_position IN ITEMS
   "ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
-  "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(s.bLastSkillCheck); ar.i8(s.ubSkillCheckAttempts);"
+  "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
   "ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());"
   "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);"
   "ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());"
@@ -2368,6 +2368,167 @@ foreach(dialogue_save_position IN ITEMS
   if(soldier_dialogue_save_position EQUAL -1)
     message(FATAL_ERROR
       "Soldier dialogue moved in the portable save schema at '${dialogue_save_position}'")
+  endif()
+endforeach()
+
+# Repeated mechanical checks, the AI's selected skill, persistent trait
+# counters, heterogeneous cooldowns, and the focus target form one skill-state
+# lifecycle. Keep their fixed-capacity save representation intact while the
+# current SOLDIERTYPE exposes only the component boundary.
+foreach(retired_skill_state_field IN ITEMS
+  bLastSkillCheck
+  ubSkillCheckAttempts
+  sSkillCheckGridNo
+  usAISkillUse
+  sFocusGridNo)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8|INT32)[ \t]+${retired_skill_state_field}[ \t]*;"
+    retired_current_skill_state_field
+    "${current_soldier_contents}")
+  if(retired_current_skill_state_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE skill-state field '${retired_skill_state_field}' returned; transient skill execution belongs to SoldierSkillStateComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*UINT16[ \t]+usSkillCounter[ \t]*\\[[^]]+\\][ \t]*;"
+  retired_current_skill_counter_array
+  "${current_soldier_contents}")
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*UINT32[ \t]+usSkillCooldown[ \t]*\\[[^]]+\\][ \t]*;"
+  retired_current_skill_cooldown_array
+  "${current_soldier_contents}")
+if(retired_current_skill_counter_array OR retired_current_skill_cooldown_array)
+  message(FATAL_ERROR
+    "Retired flat SOLDIERTYPE skill counter/cooldown arrays returned; fixed-capacity skill state belongs to SoldierSkillStateComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierSkillStateComponent[ \t\r\n]+skillState_[ \t]*;"
+  soldier_skill_state_owner
+  "${current_soldier_contents}")
+if(NOT soldier_skill_state_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierSkillStateComponent")
+endif()
+
+foreach(owned_skill_state_pattern IN ITEMS
+  "INT8[ \t]+lastCheckReason_[ \t]*=[ \t]*0"
+  "INT8[ \t]+checkAttempts_[ \t]*=[ \t]*0"
+  "INT32[ \t]+checkGrid_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+selectedAiSkill_[ \t]*=[ \t]*0"
+  "Counters[ \t]+counters_[ \t]*\\{\\}"
+  "Cooldowns[ \t]+cooldowns_[ \t]*\\{\\}"
+  "INT32[ \t]+focusGrid_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_skill_state_pattern}"
+    owned_soldier_skill_state_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_skill_state_field)
+    message(FATAL_ERROR
+      "SoldierSkillStateComponent lost initialized owned storage matching '${owned_skill_state_pattern}'")
+  endif()
+endforeach()
+
+foreach(skill_state_capacity IN ITEMS
+  "SOLDIER_COUNTER_MAX = 20"
+  "SOLDIER_COOLDOWN_MAX = 20"
+  "using Counters = UINT16[SOLDIER_COUNTER_MAX];"
+  "using Cooldowns = UINT32[SOLDIER_COOLDOWN_MAX];")
+  string(FIND "${soldier_components_header_contents}"
+    "${skill_state_capacity}"
+    soldier_skill_state_capacity)
+  if(soldier_skill_state_capacity EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierSkillStateComponent lost fixed save capacity '${skill_state_capacity}'")
+  endif()
+endforeach()
+
+foreach(skill_state_accessor IN ITEMS
+  lastCheckReason
+  checkAttempts
+  checkGrid
+  selectedAiSkill
+  counter
+  cooldown
+  focusGrid)
+  string(REGEX MATCH
+    "${skill_state_accessor}\\([^)]*\\)[ \t]+noexcept"
+    owned_soldier_skill_state_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_skill_state_accessor)
+    message(FATAL_ERROR
+      "SoldierSkillStateComponent lost the '${skill_state_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(skill_state_operation IN ITEMS
+  "bool isRepeatedCheck(INT8 reason, INT32 grid) const noexcept"
+  "bool hasCounter(UINT8 index) const noexcept"
+  "bool hasCooldown(UINT8 index) const noexcept"
+  "void beginCheck(INT8 reason, INT32 grid) noexcept"
+  "void recordCheckAttempt() noexcept"
+  "void clearCounter(UINT8 index) noexcept"
+  "void decrementCooldown(UINT8 index) noexcept"
+  "void clearCooldown(UINT8 index) noexcept"
+  "void ageTurnCounters() noexcept"
+  "void focusOn(INT32 grid) noexcept"
+  "void clearFocus() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${skill_state_operation}"
+    soldier_skill_state_operation)
+  if(soldier_skill_state_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierSkillStateComponent lost required lifecycle operation '${skill_state_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierSkillStateComponent& skillState() noexcept"
+  soldier_skill_state_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierSkillStateComponent{};"
+  soldier_skill_state_default_reset)
+string(REGEX MATCHALL
+  "skillState\\(\\)\\.reset\\(\\);"
+  soldier_skill_state_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_skill_state_reset_sites soldier_skill_state_reset_site_count)
+if(soldier_skill_state_accessor EQUAL -1 OR
+   soldier_skill_state_default_reset EQUAL -1 OR
+   soldier_skill_state_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierSkillStateComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(skill_state_conversion IN ITEMS
+  "this->skillState().lastCheckReason() = src.bLastSkillCheck;"
+  "this->skillState().checkAttempts() = src.ubSkillCheckAttempts;"
+  "this->skillState().checkGrid() = src.sSkillCheckGridNo;")
+  string(FIND "${soldier_control_source_contents}"
+    "${skill_state_conversion}"
+    soldier_skill_state_conversion_site)
+  if(soldier_skill_state_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost established skill-check mapping '${skill_state_conversion}'")
+  endif()
+endforeach()
+
+foreach(skill_state_save_position IN ITEMS
+  "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
+  "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());"
+  "ar.i16(s.bAIIndex); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
+  "for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));"
+  "for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));"
+  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);")
+  string(FIND "${save_load_game_contents}"
+    "${skill_state_save_position}"
+    soldier_skill_state_save_position)
+  if(soldier_skill_state_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier skill state moved in the portable save schema at '${skill_state_save_position}'")
   endif()
 endforeach()
 
@@ -3117,7 +3278,7 @@ string(REGEX MATCH
   serialized_soldier_assignment_facility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.bAIIndex\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(s\\.usAISkillUse\\);"
+  "ar\\.i16\\(s\\.bAIIndex\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(skillState\\.selectedAiSkill\\(\\)\\);"
   serialized_soldier_assignment_item_move_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4085,7 +4246,7 @@ string(REGEX MATCH
   serialized_soldier_hit_location_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(vitals\\.regenerationBoostersUsedToday\\(\\)\\);[ \t]*ar\\.i8\\(combatResult\\.pelletsHitBy\\(\\)\\);[ \t]*ar\\.i32\\(s\\.sSkillCheckGridNo\\);"
+  "ar\\.i8\\(vitals\\.regenerationBoostersUsedToday\\(\\)\\);[ \t]*ar\\.i8\\(combatResult\\.pelletsHitBy\\(\\)\\);[ \t]*ar\\.i32\\(skillState\\.checkGrid\\(\\)\\);"
   serialized_soldier_pellet_hits_order
   "${save_load_game_contents}")
 string(REGEX MATCH

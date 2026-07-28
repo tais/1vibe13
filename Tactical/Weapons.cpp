@@ -8132,7 +8132,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	// Flugente: if this is cryo ammo, freeze target.
 	if ( !ARMED_VEHICLE( pTarget ) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && AmmoTypes[ubAmmoType].ammoflag & AMMO_CRYO )
 	{
-		pTarget->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] += 2;
+		pTarget->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) += 2;
 
 		ShutupaYoFace( pTarget->iFaceIndex );
 	}

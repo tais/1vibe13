@@ -6289,7 +6289,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 	sXPos += 50;
 	sYPos += 25;
 
-	if ( pSoldier->usSkillCounter[SOLDIER_COUNTER_ROLE_OBSERVED] >= gGameExternalOptions.usTurnsToUncover )
+	if ( pSoldier->skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) >= gGameExternalOptions.usTurnsToUncover )
 	{
 		// are we a VIP? show that only when the player knows a VIP is in this sector. otherwise, don't even show our officer property
 		if ( pSoldier->usSoldierFlagMask & SOLDIER_VIP && !pSoldier->deployment().sectorZ() )
@@ -6322,7 +6322,7 @@ BOOLEAN ShowSoldierRoleSymbol(SOLDIERTYPE* pSoldier)
 			}
 
 			// if we look at this guy long enough, we might even learn that he is an advanced officer
-			if ( pSoldier->usSkillCounter[SOLDIER_COUNTER_ROLE_OBSERVED] > 1.5 * gGameExternalOptions.usTurnsToUncover && NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT ) > 1 )
+			if ( pSoldier->skillState().counter(SOLDIER_COUNTER_ROLE_OBSERVED) > 1.5 * gGameExternalOptions.usTurnsToUncover && NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT ) > 1 )
 				BltVideoObjectFromIndex( FRAME_BUFFER, guiENEMYROLES, 5, sXPos, sYPos, VO_BLT_TRANSSHADOW, NULL );
 			else
 				BltVideoObjectFromIndex( FRAME_BUFFER, guiENEMYROLES, 0, sXPos, sYPos, VO_BLT_TRANSSHADOW, NULL );

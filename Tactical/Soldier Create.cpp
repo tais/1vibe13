@@ -2139,7 +2139,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->InitializeExtraData();
 
 	pSoldier->sDragGridNo = NOWHERE;
-	pSoldier->sFocusGridNo = NOWHERE;
+	pSoldier->skillState().clearFocus();
 }
 
 

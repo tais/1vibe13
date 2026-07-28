@@ -3225,7 +3225,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					// if we are jamming, turn it off, otherwise, bad luck...
 					if (pSoldier->IsJamming())
 					{
-						pSoldier->usAISkillUse = SKILLS_RADIO_TURNOFF;
+						pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 						pSoldier->aiData.usActionData = skilltargetgridno;
 						return(AI_ACTION_USE_SKILL);
 					}
@@ -3240,7 +3240,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			// if we can't call in artillery, jam frequencies, so that the palyer can't use radio skills
 			else if (!pSoldier->IsJamming() && !pSoldier->CanAnyArtilleryStrikeBeOrdered(&tmp))
 			{
-				pSoldier->usAISkillUse = SKILLS_RADIO_JAM;
+				pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 				pSoldier->aiData.usActionData = skilltargetgridno;
 				return(AI_ACTION_USE_SKILL);
 			}
@@ -5416,7 +5416,7 @@ INT16 ubMinAPCost;
 				// if we are jamming, turn it off, otherwise, bad luck...
 				if ( pSoldier->IsJamming() )
 				{
-					pSoldier->usAISkillUse = SKILLS_RADIO_TURNOFF;
+					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiData.usActionData = skilltargetgridno;
 					return(AI_ACTION_USE_SKILL);
 				}
@@ -5424,7 +5424,7 @@ INT16 ubMinAPCost;
 			// frequencies are clear, order a strike
 			else if ( GetBestAoEGridNo(pSoldier, &skilltargetgridno, max(1, gSkillTraitValues.usVOMortarRadius - 2), 1, 2, SoldierCondTrue, SoldierCondFalse) )
 			{
-				pSoldier->usAISkillUse = SKILLS_RADIO_ARTILLERY;
+				pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_ARTILLERY;
 				pSoldier->aiData.usActionData = skilltargetgridno;
 				return(AI_ACTION_USE_SKILL);
 			}
@@ -5438,7 +5438,7 @@ INT16 ubMinAPCost;
 				// if we are jamming, turn it off, otherwise, bad luck...
 				if ( pSoldier->IsJamming() )
 				{
-					pSoldier->usAISkillUse = SKILLS_RADIO_TURNOFF;
+					pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_TURNOFF;
 					pSoldier->aiData.usActionData = skilltargetgridno;
 					return(AI_ACTION_USE_SKILL);
 				}
@@ -5453,7 +5453,7 @@ INT16 ubMinAPCost;
 		// if we can't call in artillery or reinforcements, then nobody else from our team can. So we better jam communications, so that the player cannot use these skills either
 		else if ( !pSoldier->IsJamming() )
 		{
-			pSoldier->usAISkillUse = SKILLS_RADIO_JAM;
+			pSoldier->skillState().selectedAiSkill() = SKILLS_RADIO_JAM;
 			pSoldier->aiData.usActionData = skilltargetgridno;
 			return(AI_ACTION_USE_SKILL);
 		}

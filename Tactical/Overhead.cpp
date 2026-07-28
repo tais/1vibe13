@@ -10961,7 +10961,7 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szTurncoatText[0], pSoldier->GetName() );
 
 		// increase intel penalty. We can only try to convert enemies if the penalty is low, and having a high penalty means we can't mine intel for a few hours but have to hide
-		selectedSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] += 1;
+		selectedSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) += 1;
 
 		StatChange( selectedSoldier, EXPERAMT, 2, FROM_SUCCESS );
 		StatChange( selectedSoldier, LDRAMT, 4, FROM_SUCCESS );
@@ -10971,14 +10971,14 @@ static void TurnCoatAttemptMessageBoxCallBack( UINT8 ubExitValue )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szTurncoatText[1], pSoldier->GetName() );
 
 		// increase intel penalty. We can only try to convert enemies if the penalty is low, and having a high penalty means we can't mine intel for a few hours but have to hide
-		selectedSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] += 4;
+		selectedSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) += 4;
 
 		StatChange( selectedSoldier, EXPERAMT, 1, FROM_FAILURE );
 		StatChange( selectedSoldier, LDRAMT, 1, FROM_FAILURE );
 	}
 
 	// explain that suspicion is so high that we have to stop
-	if ( selectedSoldier->usSkillCooldown[SOLDIER_COOLDOWN_INTEL_PENALTY] >= 20 )
+	if ( selectedSoldier->skillState().cooldown(SOLDIER_COOLDOWN_INTEL_PENALTY) >= 20 )
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szTurncoatText[2] );
 
 	// use up resources spent, regardless of whether or not we were successful

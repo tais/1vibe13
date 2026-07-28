@@ -1592,7 +1592,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 	// pSoldier->flags.fNoAPToFinishMove = FALSE;
 
 	// Flugente: pows don't do anything
-	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->usSkillCooldown[SOLDIER_COOLDOWN_CRYO] )
+	if ( pSoldier->usSoldierFlagMask & SOLDIER_POW || pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 	{
 		EndAIGuysTurn( pSoldier);
 		return;
@@ -2670,10 +2670,10 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 			{
 				SoldierID ubID = WhoIsThere2( pSoldier->aiData.usActionData, 0 );
 
-				BOOLEAN result = pSoldier->UseSkill(pSoldier->usAISkillUse, pSoldier->aiData.usActionData, ubID);
+				BOOLEAN result = pSoldier->UseSkill(pSoldier->skillState().selectedAiSkill(), pSoldier->aiData.usActionData, ubID);
 
 				// additional dialogue
-				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, pSoldier->usAISkillUse, result );
+				AdditionalTacticalCharacterDialogue_CallsLua( pSoldier, ADE_SKILL_RESULT, pSoldier->skillState().selectedAiSkill(), result );
 
 				ActionDone( pSoldier );
 			}
