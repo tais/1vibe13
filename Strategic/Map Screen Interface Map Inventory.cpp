@@ -1379,7 +1379,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			const auto z = pSelectedSoldier->deployment().sectorZ();
 			if(x == sSelMapX && y == sSelMapY && z == iCurrentMapSectorZ && !pSelectedSoldier->deployment().isBetweenSectors())
 			{
-				pSelectedSoldier->bInSector = TRUE;
+				pSelectedSoldier->roster().inSector() = TRUE;
 			}
 			else
 			{
@@ -1641,13 +1641,13 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 					}
 					else
 					{
-						swprintf( sString, pMapInventoryErrorString[ 2 ], pSelectedSoldier->name );
+						swprintf( sString, pMapInventoryErrorString[ 2 ], pSelectedSoldier->identity().name() );
 						DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 					}
 				}
 				else
 				{
-					swprintf( sString, pMapInventoryErrorString[ 5 ], pSelectedSoldier->name );
+					swprintf( sString, pMapInventoryErrorString[ 5 ], pSelectedSoldier->identity().name() );
 					DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 				}				
 				return;
@@ -1688,7 +1688,7 @@ void MapInvenPoolSlots(MOUSE_REGION * pRegion, INT32 iReason )
 			/*	if( sDistanceFromObject > MAX_DISTANCE_TO_PICKUP_ITEM )
 				{
 					// see for the loaded sector if the merc is cloase enough?
-					swprintf( sString, pMapInventoryErrorString[ 0 ], pSelectedSoldier->name );
+					swprintf( sString, pMapInventoryErrorString[ 0 ], pSelectedSoldier->identity().name() );
 					DoMapMessageBox( MSG_BOX_BASIC_STYLE, sString, MAP_SCREEN, MSG_BOX_FLAG_OK, NULL );
 					return;
 				}

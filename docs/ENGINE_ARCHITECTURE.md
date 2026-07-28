@@ -1032,6 +1032,15 @@ the engine must not contain SDL types in its public domain model.
   while independent turn and realtime clear operations preserve their existing
   lifecycles. All four save fields and v101 mappings retain their original
   positions, widths, and raw values.
+  `SoldierIdentityComponent` now owns the stable slot ID, fixed display name,
+  physical body type, legacy profile link, incarnation token, data-profile
+  link, and individual-militia identity. `SoldierRosterComponent` separately
+  owns allocation activity, team, tactical-sector presence, side, soldier
+  class, and civilian group. This makes permanent identity independent from
+  mutable roster membership while preserving zero-cost reference access for
+  the existing game. Current and v101 serializers keep every field at its
+  established position and width; map placement, multiplayer creation, profile,
+  XML, Lua, package, and installed-data formats remain unchanged.
   `SoldierAiPlanningComponent` owns the tactical-AI action plan: current,
   previous, and queued actions and payloads; action progress; target elevation;
   facing intent; the fixed patrol route and cursor; aim time; flank count,

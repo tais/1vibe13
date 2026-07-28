@@ -1314,7 +1314,7 @@ BOOLEAN	OKFireWeapon( SOLDIERTYPE *pSoldier )
 
 		if ( !EnoughAmmo( pSoldier, FALSE, pSoldier->attackSelection().hand() ) )
 		{
-			if ( pSoldier->bTeam == gbPlayerNum	 )
+			if ( pSoldier->roster().team() == gbPlayerNum	 )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[ STR_2ND_CLIP_DEPLETED ] );
 				return( FALSE );
@@ -1532,7 +1532,7 @@ void GetTargetWorldPositions( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, FLOAT 
 	if ( pTargetSoldier )
 	{
 		// SAVE OPP ID
-		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
+		pSoldier->targeting().engageOpponent( pTargetSoldier->identity().id() );
 		ConvertGridNoToCenterCellXY(pTargetSoldier->position().gridNo(), &sX, &sY);
 		dTargetX = (FLOAT) sX;
 		dTargetY = (FLOAT) sY;
@@ -2472,7 +2472,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				}
 
 				// curse!
-				if ( pSoldier->bTeam == OUR_TEAM )
+				if ( pSoldier->roster().team() == OUR_TEAM )
 				{
 					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 
@@ -2515,7 +2515,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// ATE: Check if we should say quote...
 		if ( (*pObjHand)[0]->data.gun.ubGunShotsLeft == 0 && 
 			!ItemIsRocketLauncher(usUBItem) &&
-			pSoldier->bTeam == gbPlayerNum &&
+			pSoldier->roster().team() == gbPlayerNum &&
 			(Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(pObjHand) > 4))
 		{
 			pSoldier->dialogue().queueAmmoQuote();
@@ -2551,18 +2551,18 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 				if ( Item[usUBItem].usBuddyItem != 0 && Item[Item[usUBItem].usBuddyItem].usItemClass & IC_EXPLOSV )
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), Item[usUBItem].usBuddyItem, pSoldier->position().level() );
+					IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), Item[usUBItem].usBuddyItem, pSoldier->position().level() );
 				}
 				else
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
+					IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 			}
 			else
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("StructureHit: RPG7 item: %d, Ammo: %d", usUBItem , (*pObjHand)[0]->data.gun.usGunAmmoItem ) );
 
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), (*pObjHand)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
+				IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), (*pObjHand)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
 				pSoldier->inv[pSoldier->attackSelection().hand() ][0]->data.gun.usGunAmmoItem = NONE;
 			}
 		  // Reduce again for attack end 'cause it has been incremented for a normal attack
@@ -2570,7 +2570,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
 			  DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 			  DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
-	//		  ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+	//		  ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 
 		return( FALSE );
 		}
@@ -2633,8 +2633,8 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				dExpGain = (dExpGain * 2) / 3;
 			}
 
-			if ( pAttackTarget->ubBodyType == COW ||
-				pAttackTarget->ubBodyType == CROW )
+			if ( pAttackTarget->identity().bodyType() == COW ||
+				pAttackTarget->identity().bodyType() == CROW )
 			{
 				dExpGain /= 2;
 			}
@@ -2675,8 +2675,8 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			dExpGain = 5.0f;
 
-			if ( pAttackTarget->ubBodyType == COW ||
-				pAttackTarget->ubBodyType == CROW )
+			if ( pAttackTarget->identity().bodyType() == COW ||
+				pAttackTarget->identity().bodyType() == CROW )
 			{
 				dExpGain /= 2;
 			}
@@ -2743,7 +2743,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	/////////////////////////////// Fire bullet at the target coordinates.
 	//hayden
-	if((is_server && pSoldier->ubID<120) || (!is_server && is_client && pSoldier->ubID<20) || (!is_server && !is_client) )
+	if((is_server && pSoldier->identity().id()<120) || (!is_server && is_client && pSoldier->identity().id()<20) || (!is_server && !is_client) )
 	{
 		FireBulletGivenTarget( pSoldier, dTargetX, dTargetY, dTargetZ, usUBItem, sApertureRatio, fBuckshot, FALSE );
 	}
@@ -2803,7 +2803,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				exhaustTarget->EVENT_SoldierGotHit(
 					MINI_GRENADE, 10, 200,
 					pSoldier->position().direction(), 0,
-					pSoldier->ubID, 0, ANIM_CROUCH, 0,
+					pSoldier->identity().id(), 0, ANIM_CROUCH, 0,
 					sNewGridNo);
 			}
 		}
@@ -2822,7 +2822,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
@@ -2848,7 +2848,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	if ( Weapon[Item[(pObjAttHand)->usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE )
 	{
-		if ( pSoldier->bTeam == OUR_TEAM || pSoldier->bTeam == MILITIA_TEAM )
+		if ( pSoldier->roster().team() == OUR_TEAM || pSoldier->roster().team() == MILITIA_TEAM )
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_PLAYERSIDE;
 		else
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_ENEMY;
@@ -3289,7 +3289,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				}
 
 				// curse!
-				if ( pSoldier->bTeam == OUR_TEAM )
+				if ( pSoldier->roster().team() == OUR_TEAM )
 				{
 					pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 
@@ -3362,7 +3362,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		// ATE: Check if we should say quote...		
 		if ( (*pObjUsed)[0]->data.gun.ubGunShotsLeft == 0 && 
 			!ItemIsRocketLauncher(usUBItem) &&
-			pSoldier->bTeam == gbPlayerNum &&
+			pSoldier->roster().team() == gbPlayerNum &&
 			(Chance(gGameExternalOptions.iChanceSayAnnoyingPhrase) || GetMagSize(pObjUsed) > 4))
 		{
 			pSoldier->dialogue().queueAmmoQuote();
@@ -3401,8 +3401,8 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				usExpGain = (usExpGain * 2) / 3;
 			}
 
-			if ( pAttackTarget->ubBodyType == COW ||
-				pAttackTarget->ubBodyType == CROW )
+			if ( pAttackTarget->identity().bodyType() == COW ||
+				pAttackTarget->identity().bodyType() == CROW )
 			{
 				usExpGain /= 2;
 			}
@@ -3475,8 +3475,8 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			usExpGain += 10;
 
-			if ( pAttackTarget->ubBodyType == COW ||
-				pAttackTarget->ubBodyType == CROW )
+			if ( pAttackTarget->identity().bodyType() == COW ||
+				pAttackTarget->identity().bodyType() == CROW )
 			{
 				usExpGain /= 2;
 			}
@@ -3517,18 +3517,18 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 				if ( Item[usUBItem].usBuddyItem != 0 && Item[Item[usUBItem].usBuddyItem].usItemClass & IC_EXPLOSV )
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
+					IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 				else
 				{
-					IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
+					IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), C1, pSoldier->position().level() );
 				}
 			}
 			else
 			{
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("StructureHit: RPG7 item: %d, Ammo: %d", usUBItem , (*pObjUsed)[0]->data.gun.usGunAmmoItem ) );
 
-				IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), (*pObjUsed)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
+				IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), (*pObjUsed)[0]->data.gun.usGunAmmoItem, pSoldier->position().level() );
 			
 				OBJECTTYPE * pLaunchable = FindLaunchableAttachment( pObjUsed, usUBItem );
 				if(pLaunchable)
@@ -3545,7 +3545,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// Not anymore.  Only the attack animation was increased, and it will decrease itself.
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 			DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
-			//ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+			//ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 
 		  return( FALSE );
 		}
@@ -3585,7 +3585,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	//hayden
-	if((is_server && pSoldier->ubID<120) || (!is_server && is_client && pSoldier->ubID<20) || (!is_server && !is_client) )
+	if((is_server && pSoldier->identity().id()<120) || (!is_server && is_client && pSoldier->identity().id()<20) || (!is_server && !is_client) )
 	{
 		FireBulletGivenTarget( pSoldier, dTargetX, dTargetY, dTargetZ, usUBItem, (UINT16) (uiHitChance - uiDiceRoll), fBuckshot, FALSE );
 	}
@@ -3645,7 +3645,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				exhaustTarget->EVENT_SoldierGotHit(
 					MINI_GRENADE, 10, 200,
 					pSoldier->position().direction(), 0,
-					pSoldier->ubID, 0, ANIM_CROUCH, 0,
+					pSoldier->identity().id(), 0, ANIM_CROUCH, 0,
 					sNewGridNo);
 			}
 		}
@@ -3664,7 +3664,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}				
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
@@ -3690,7 +3690,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	if ( Weapon[Item[(pObjUsed)->usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE )
 	{
-		if ( pSoldier->bTeam == OUR_TEAM || pSoldier->bTeam == MILITIA_TEAM )
+		if ( pSoldier->roster().team() == OUR_TEAM || pSoldier->roster().team() == MILITIA_TEAM )
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_PLAYERSIDE;
 		else
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_ENEMY;
@@ -3839,10 +3839,10 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		pTargetSoldier->targeting().intendedTarget() = TRUE;
 
 		// SAVE OPP ID
-		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
+		pSoldier->targeting().engageOpponent( pTargetSoldier->identity().id() );
 
 		// CHECK IF BUDDY KNOWS ABOUT US
-		if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
+		if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 		{
 			iHitChance = 100;
 			fSurpriseAttack = TRUE;
@@ -3858,17 +3858,17 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		//sprintf( gDebugStr, "Hit Chance: %d %d", (int)uiHitChance, uiDiceRoll );
 
 		// SANDRO - new mercs' records 
-		if ( pSoldier->bTeam == gbPlayerNum && pSoldier->ubProfile != NO_PROFILE )
+		if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->identity().profile() != NO_PROFILE )
 		{
-			gMercProfiles[ pSoldier->ubProfile ].records.usBladeAttacks++;
+			gMercProfiles[ pSoldier->identity().profile() ].records.usBladeAttacks++;
 			if ( iDiceRoll < iHitChance )
 			{
-				gMercProfiles[ pSoldier->ubProfile ].records.usShotsHit++;
+				gMercProfiles[ pSoldier->identity().profile() ].records.usShotsHit++;
 			}
 		}
 
 		// anv: taunt on attack
-		PossiblyStartEnemyTaunt( pSoldier, TAUNT_ATTACK_BLADE, pTargetSoldier->ubID ); 
+		PossiblyStartEnemyTaunt( pSoldier, TAUNT_ATTACK_BLADE, pTargetSoldier->identity().id() );
 
 		// WDS 07/19/2008 - Random number use fix
 		if ( iDiceRoll < iHitChance )
@@ -3876,8 +3876,8 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			fGonnaHit = TRUE;
 
 			// anv: taunts on hit
-			PossiblyStartEnemyTaunt( pSoldier, TAUNT_HIT_BLADE, pTargetSoldier->ubID ); 
-			PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_HIT_BLADE, pSoldier->ubID ); 
+			PossiblyStartEnemyTaunt( pSoldier, TAUNT_HIT_BLADE, pTargetSoldier->identity().id() );
+			PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_HIT_BLADE, pSoldier->identity().id() );
 
 			// CALCULATE DAMAGE!
 			// attack HITS, calculate damage (base damage is 1-maximum knife sImpact)
@@ -3924,13 +3924,13 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			}
 
 			// SANDRO - new merc records - times wounded (stabbed)
-			if ( pTargetSoldier->ubProfile != NO_PROFILE )
-				gMercProfiles[ pTargetSoldier->ubProfile ].records.usTimesWoundedStabbed++;
+			if ( pTargetSoldier->identity().profile() != NO_PROFILE )
+				gMercProfiles[ pTargetSoldier->identity().profile() ].records.usTimesWoundedStabbed++;
 
 			// Send event for getting hit
 			memset( &(SWeaponHit), 0, sizeof( SWeaponHit ) );
-			SWeaponHit.usSoldierID			= pTargetSoldier->ubID;
-			SWeaponHit.uiUniqueId       = pTargetSoldier->uiUniqueSoldierIdValue;
+			SWeaponHit.usSoldierID			= pTargetSoldier->identity().id();
+			SWeaponHit.uiUniqueId       = pTargetSoldier->identity().incarnation();
 			SWeaponHit.usWeaponIndex		= pSoldier->attackSelection().weapon();
 			SWeaponHit.sDamage					= (INT16) iImpact;
 			SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
@@ -3938,7 +3938,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			SWeaponHit.sYPos						= (INT16)pTargetSoldier->position().worldY();
 			SWeaponHit.sZPos						= 20;
 			SWeaponHit.sRange						= 1;
-			SWeaponHit.ubAttackerID			= pSoldier->ubID;
+			SWeaponHit.ubAttackerID			= pSoldier->identity().id();
 			SWeaponHit.fHit							= TRUE;
 			SWeaponHit.ubSpecial				= FIRE_WEAPON_NO_SPECIAL;
 			AddGameEvent( S_WEAPONHIT, (UINT16) 20, &SWeaponHit );
@@ -3946,14 +3946,14 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		else
 		{
 			// anv: taunts on miss
-			PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_BLADE, pTargetSoldier->ubID );
-			if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
-				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_BLADE, pSoldier->ubID ); 
+			PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_BLADE, pTargetSoldier->identity().id() );
+			if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY )
+				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_BLADE, pSoldier->identity().id() );
 
 			// if it was another team shooting at someone under our control
-			if ( pSoldier->bTeam != pTargetSoldier->bTeam )
+			if ( pSoldier->roster().team() != pTargetSoldier->roster().team() )
 			{
-				if (pTargetSoldier->bTeam == gbPlayerNum)
+				if (pTargetSoldier->roster().team() == gbPlayerNum)
 				{
 				 // AGILITY GAIN (10):  Target avoids a knife attack
 				 // Snap: stat gains should match stat requirements
@@ -3964,7 +3964,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			}
 			// 0verhaul:  Another case that is handled by the animation transition system.
 			// DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - missed in knife attack") );
-			// FreeUpAttacker( (UINT8) pSoldier->ubID );
+			// FreeUpAttacker( (UINT8) pSoldier->identity().id() );
 		}
 
 		if ( PTR_OURTEAM && pSoldier->targeting().targetId() != NOBODY)
@@ -3988,8 +3988,8 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			// add base pts for taking a shot, whether it hits or misses
 			usExpGain += 10;
 
-			if ( pTargetSoldier->ubBodyType == COW ||
-				pTargetSoldier->ubBodyType == CROW )
+			if ( pTargetSoldier->identity().bodyType() == COW ||
+				pTargetSoldier->identity().bodyType() == CROW )
 			{
 				usExpGain /= 2;
 			}
@@ -4012,14 +4012,14 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// else
 	// {
 	//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - missed in knife attack") );
-	//	FreeUpAttacker( (UINT8) pSoldier->ubID );
+	//	FreeUpAttacker( (UINT8) pSoldier->identity().id() );
 	// }
 
 	// anv: melee attack noise
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell
 	if ( pSoldier->perception().monsterSmell() > 0 && Random( 5 ) == 0 )
@@ -4082,22 +4082,22 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		pTargetSoldier->targeting().intendedTarget() = TRUE;
 
 		// SAVE OPP ID
-		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
+		pSoldier->targeting().engageOpponent( pTargetSoldier->identity().id() );
 
 		if (fStealing)
 		{
 			// Calculate the possible chance to steal!
 			// Flugente: if we are on the same team, allow guaranteed full access
-			if ( AllowedToStealFromTeamMate(pSoldier->ubID, pTargetSoldier->ubID) )
+			if ( AllowedToStealFromTeamMate(pSoldier->identity().id(), pTargetSoldier->identity().id()) )
 			{
 				iHitChance = 100;
 			}
-			else if ( AM_A_ROBOT( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || CREATURE_OR_BLOODCAT( pTargetSoldier ) || (SOLDIER_CLASS_MILITIA( pTargetSoldier->ubSoldierClass ) && (gGameExternalOptions.ubMilitiaDropEquipment != 2)) ) // added militia here - SANDRO
+			else if ( AM_A_ROBOT( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || CREATURE_OR_BLOODCAT( pTargetSoldier ) || (SOLDIER_CLASS_MILITIA( pTargetSoldier->roster().soldierClass() ) && (gGameExternalOptions.ubMilitiaDropEquipment != 2)) ) // added militia here - SANDRO
 			{
 				iHitChance = 0;
 			}
 			// sevenfm: use sneak attack code
-			//else if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN )
+			//else if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN )
 			else if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK)
 			{
 				// give bonus for surprise, but not so much as struggle would still occur
@@ -4116,7 +4116,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		else
 		{
 			// sevenfm: use sneak attack code
-			//if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
+			//if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical())
 			{
 				iHitChance = 100;
@@ -4158,7 +4158,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		if (fStealing )
 		{
 			// SANDRO - unable to steal from militia if they are not allowed to drop equipment
-			if (SOLDIER_CLASS_MILITIA(pTargetSoldier->ubSoldierClass) && (gGameExternalOptions.ubMilitiaDropEquipment != 2) )
+			if (SOLDIER_CLASS_MILITIA(pTargetSoldier->roster().soldierClass()) && (gGameExternalOptions.ubMilitiaDropEquipment != 2) )
 			{
 				DeductPoints( pSoldier, (APBPConstants[AP_STEAL_ITEM] / 5), 0, AFTERACTION_INTERRUPT );
 				pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
@@ -4173,13 +4173,13 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			if ( fSoldierCollapsed )
 				;
 			// if he sees us, he'l notice
-			else if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY )
+			else if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY )
 				fNoticed = TRUE;
 			else
 			{
 				UINT8 chance = 10;
 
-				if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_LAST_TURN )
+				if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_LAST_TURN )
 					chance += 40;
 
 				chance += pSoldier->aiBehavior().alertStatus() * 10;
@@ -4206,8 +4206,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			// Flugente: if we are on the same team, allow guaranteed full access
 			// otherwise, if we are the player, we can steal multiple items if the other guy is collapsed, or we are succesful, and
 			// if using fEnhancedCloseCombatSystem, only allow this if the other guy is not alerted
-			if ( AllowedToStealFromTeamMate(pSoldier->ubID, pTargetSoldier->ubID) || 
-				( pSoldier->bTeam == gbPlayerNum && 
+			if ( AllowedToStealFromTeamMate(pSoldier->identity().id(), pTargetSoldier->identity().id()) ||
+				( pSoldier->roster().team() == gbPlayerNum &&
 				( fSoldierCollapsed || 
 				( iDiceRoll < ( iHitChance * 2 / 3 ) && 
 				( !gGameExternalOptions.fEnhancedCloseCombatSystem ||
@@ -4279,7 +4279,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						// if we have something in main hand, place it into inventory or on the ground
 						if (pSoldier->inv[HANDPOS].exists() == true )
 						{
-							if( pSoldier->bTeam != gbPlayerNum )  // for enemies, ignore rules and place it anywhere
+							if( pSoldier->roster().team() != gbPlayerNum )  // for enemies, ignore rules and place it anywhere
 							{
 								bEmptySl = FindEmptySlotWithin( pSoldier, BIGPOCKSTART, NUM_INV_SLOTS );
 								SwapObjs( pSoldier, HANDPOS, bEmptySl, TRUE );
@@ -4293,7 +4293,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						// if twohanded item, place the secondhand item if any to temp space
 						if (pSoldier->inv[SECONDHANDPOS].exists() == true && ItemIsTwoHanded(pTargetSoldier->inv[HANDPOS].usItem))
 						{
-							if( pSoldier->bTeam != gbPlayerNum )  // for enemies, ignore rules and place it anywhere
+							if( pSoldier->roster().team() != gbPlayerNum )  // for enemies, ignore rules and place it anywhere
 							{
 								bEmptySl = FindEmptySlotWithin( pSoldier, BIGPOCKSTART, NUM_INV_SLOTS );
 								SwapObjs( pSoldier, SECONDHANDPOS, bEmptySl, TRUE );
@@ -4309,7 +4309,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							if (PlaceObject( pSoldier, HANDPOS, &gTempObject ))
 							{
 								pSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItem, gTempObject.usItem );
-								if( pSoldier->bTeam != gbPlayerNum )  // make sure item is droppable now, so we don't lose our gun if killed this enemy
+								if( pSoldier->roster().team() != gbPlayerNum )  // make sure item is droppable now, so we don't lose our gun if killed this enemy
 								{
 									pSoldier->inv[HANDPOS].fFlags &= ~OBJECT_UNDROPPABLE;
 								}
@@ -4331,14 +4331,14 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							}
 						}
 						// add to merc records
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsStolen++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsStolen++;
 
 					}
 					// Item dropped somewhere... roll based on the same chance to determine where!
 					else
 					{
-						if ( pSoldier->bTeam == gbPlayerNum )
+						if ( pSoldier->roster().team() == gbPlayerNum )
 						{
 							pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 						}
@@ -4357,8 +4357,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 							}
 						}
 						// add to merc records
-						if ( pSoldier->ubProfile != NO_PROFILE )
-							gMercProfiles[ pSoldier->ubProfile ].records.usItemsStolen++;
+						if ( pSoldier->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pSoldier->identity().profile() ].records.usItemsStolen++;
 					}
 					// Reload buddy's animation...
 					pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange( usOldItemTarget, NOTHING );
@@ -4425,7 +4425,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						Message[ STR_FAILED_TO_STEAL_SOMETHING ],
 						pSoldier->GetName(), ShortItemNames[ pTargetSoldier->inv[HANDPOS].usItem ] );
 
-					if ( pSoldier->bTeam == gbPlayerNum )
+					if ( pSoldier->roster().team() == gbPlayerNum )
 					{
 						pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 					}
@@ -4451,7 +4451,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			}
 
 			// Give some experience
-			if ( iHitChance > 0 && pSoldier->bTeam == gbPlayerNum && pTargetSoldier->bTeam != gbPlayerNum && !(pTargetSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pTargetSoldier ) && !ARMED_VEHICLE( pTargetSoldier ) && !ENEMYROBOT( pTargetSoldier ) )
+			if ( iHitChance > 0 && pSoldier->roster().team() == gbPlayerNum && pTargetSoldier->roster().team() != gbPlayerNum && !(pTargetSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pTargetSoldier ) && !ARMED_VEHICLE( pTargetSoldier ) && !ENEMYROBOT( pTargetSoldier ) )
 			{
 				if (fFailure == FALSE)
 				{
@@ -4482,7 +4482,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					if ( fNoticed )
 					{
 						// anv: enemy taunt on getting robbed
-						PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_ROBBED, pSoldier->ubID );
+						PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_ROBBED, pSoldier->identity().id() );
 					}
 				}
 				else
@@ -4517,10 +4517,10 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				// #ifdef JA2BETAVERSION
 				//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - steal") );
 				// #endif
-				// FreeUpAttacker( (UINT8) pSoldier->ubID );
+				// FreeUpAttacker( (UINT8) pSoldier->identity().id() );
 
 				// anv: enemy taunt on steal
-				PossiblyStartEnemyTaunt( pSoldier, TAUNT_STEAL, pTargetSoldier->ubID );
+				PossiblyStartEnemyTaunt( pSoldier, TAUNT_STEAL, pTargetSoldier->identity().id() );
 			}
 		}
 
@@ -4530,15 +4530,15 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 		else
 		{
 			// anv: enemy taunt on attack
-			PossiblyStartEnemyTaunt( pSoldier, TAUNT_ATTACK_HTH, pTargetSoldier->ubID );
+			PossiblyStartEnemyTaunt( pSoldier, TAUNT_ATTACK_HTH, pTargetSoldier->identity().id() );
 
 			// SANDRO - new mercs' records 
-			if ( pSoldier->bTeam == gbPlayerNum && pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->identity().profile() != NO_PROFILE )
 			{
-				gMercProfiles[ pSoldier->ubProfile ].records.usHtHAttacks++;
+				gMercProfiles[ pSoldier->identity().profile() ].records.usHtHAttacks++;
 				if ( iDiceRoll < iHitChance )
 				{
-					gMercProfiles[ pSoldier->ubProfile ].records.usShotsHit++;
+					gMercProfiles[ pSoldier->identity().profile() ].records.usShotsHit++;
 				}
 			}
 
@@ -4553,7 +4553,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				}
 			}
 
-			if ( pSoldier->bTeam == gbPlayerNum && pTargetSoldier->bTeam != gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum && pTargetSoldier->roster().team() != gbPlayerNum )
 			{
 				// WDS 07/19/2008 - Random number use fix
 				// made an HTH attack; give experience
@@ -4587,7 +4587,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					{
 						ubExpGain = 0;
 					}
-					else if ( pTargetSoldier->ubBodyType == COW || pTargetSoldier->ubBodyType == CROW )
+					else if ( pTargetSoldier->identity().bodyType() == COW || pTargetSoldier->identity().bodyType() == CROW )
 					{
 						ubExpGain /= 2;
 					}
@@ -4637,7 +4637,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					{
 						ubExpGain = 0;
 					}
-					else if ( pTargetSoldier->ubBodyType == COW || pTargetSoldier->ubBodyType == CROW )
+					else if ( pTargetSoldier->identity().bodyType() == COW || pTargetSoldier->identity().bodyType() == CROW )
 					{
 						ubExpGain /= 2;
 					}
@@ -4647,7 +4647,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 					StatChange( pSoldier, AGILAMT, (ubExpGain+1)/3, FALSE );
 				}
 			}
-			else if ( pSoldier->bTeam != gbPlayerNum && pTargetSoldier->bTeam == gbPlayerNum )
+			else if ( pSoldier->roster().team() != gbPlayerNum && pTargetSoldier->roster().team() == gbPlayerNum )
 			{
 				// being attacked... if successfully dodged, give experience
 				if ( iDiceRoll > iHitChance )
@@ -4680,12 +4680,12 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				iImpact = HTHImpact( pSoldier, pTargetSoldier, (iHitChance - iDiceRoll), FALSE );
 
 				// SANDRO - new merc records - times wounded (punched)
-				if ( pTargetSoldier->ubProfile != NO_PROFILE )
-					gMercProfiles[ pTargetSoldier->ubProfile ].records.usTimesWoundedPunched++;
+				if ( pTargetSoldier->identity().profile() != NO_PROFILE )
+					gMercProfiles[ pTargetSoldier->identity().profile() ].records.usTimesWoundedPunched++;
 
 				// Send event for getting hit
 				memset( &(SWeaponHit), 0, sizeof( SWeaponHit ) );
-				SWeaponHit.usSoldierID			= pTargetSoldier->ubID;
+				SWeaponHit.usSoldierID			= pTargetSoldier->identity().id();
 				SWeaponHit.usWeaponIndex		= pSoldier->attackSelection().weapon();
 				SWeaponHit.sDamage					= (INT16) iImpact;
 				SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
@@ -4693,21 +4693,21 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				SWeaponHit.sYPos						= (INT16)pTargetSoldier->position().worldY();
 				SWeaponHit.sZPos						= 20;
 				SWeaponHit.sRange						= 1;
-				SWeaponHit.ubAttackerID			= pSoldier->ubID;
+				SWeaponHit.ubAttackerID			= pSoldier->identity().id();
 				SWeaponHit.fHit							= TRUE;
 				SWeaponHit.ubSpecial				= FIRE_WEAPON_NO_SPECIAL;
 				AddGameEvent( S_WEAPONHIT, (UINT16) 20, &SWeaponHit );
 
 				// anv: enemy taunts on hit
-				PossiblyStartEnemyTaunt( pSoldier, TAUNT_HIT_HTH, pTargetSoldier->ubID );
-				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_HIT_HTH, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pSoldier, TAUNT_HIT_HTH, pTargetSoldier->identity().id() );
+				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_HIT_HTH, pSoldier->identity().id() );
 			}
 			else
 			{
 				// anv: enemy taunts on miss
-				PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_HTH, pTargetSoldier->ubID );
-				if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
-					PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_HTH, pSoldier->ubID );
+				PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_HTH, pTargetSoldier->identity().id() );
+				if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY )
+					PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_HTH, pSoldier->identity().id() );
 
 				//INT16 sMinAPCost = MinAPsToAttack(pTargetSoldier, pSoldier->sGridNo, TRUE, 0, 0);
 				UINT8 ubCounterattackChance = EffectiveDexterity(pTargetSoldier, FALSE) * (100 + pTargetSoldier->vitals().breath()) / 200;
@@ -4736,7 +4736,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						pTargetSoldier->ReLoadSoldierAnimationDueToHandItemChange(usOldHandItem, pTargetSoldier->inv[HANDPOS].usItem);
 						HandleSight(pTargetSoldier, SIGHT_LOOK);
 
-						if (pTargetSoldier->bTeam == gbPlayerNum)
+						if (pTargetSoldier->roster().team() == gbPlayerNum)
 						{
 							fCharacterInfoPanelDirty = TRUE;
 							fInterfacePanelDirty = DIRTYLEVEL2;
@@ -4768,7 +4768,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell (gunpowder smell)
 	if ( pSoldier->perception().monsterSmell() > 0 && Random( 5 ) == 0 )
@@ -4796,7 +4796,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	}
 	#endif
 
-	if ( pSoldier->bTeam == gbPlayerNum && IsJa2TacticalCombatActive() )
+	if ( pSoldier->roster().team() == gbPlayerNum && IsJa2TacticalCombatActive() )
 	{
 		// check target gridno
 		ubTargetID = WhoIsThere2( pSoldier->targeting().gridNo(), pSoldier->targeting().level() );
@@ -4810,7 +4810,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 				GetJa2SoldierRepository().resolve(ubTargetID.i);
 		}
 
-		if ( pTargetSoldier && pTargetSoldier->bTeam == pSoldier->bTeam )
+		if ( pTargetSoldier && pTargetSoldier->roster().team() == pSoldier->roster().team() )
 		{
 			// ignore!
 			pTargetSoldier = NULL;
@@ -4832,7 +4832,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 				pTargetSoldier =
 					GetJa2SoldierRepository().resolve(
 						ubTargetID.i);
-				if ( pTargetSoldier->bTeam != pSoldier->bTeam )
+				if ( pTargetSoldier->roster().team() != pSoldier->roster().team() )
 				{
 					usNumTargets++;
 				}
@@ -4880,7 +4880,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	// SANDRO - new mercs' records
 	if ( Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass == IC_GRENADE || Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass == IC_BOMB || Item[ pSoldier->inv[HANDPOS].usItem ].usItemClass == IC_THROWN)
 	{
-		gMercProfiles[ pSoldier->ubProfile ].records.usGrenadesThrown++;			
+		gMercProfiles[ pSoldier->identity().profile() ].records.usGrenadesThrown++;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
@@ -4902,7 +4902,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if (ubVolume > 0)
 	{
 		// sevenfm: better make it NOISE_GRENADE_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GRENADE_IMPACT);
+		MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GRENADE_IMPACT);
 	}
 
 	HandleSoldierThrowItem(pSoldier, pSoldier->targeting().gridNo());
@@ -5009,7 +5009,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 	if ( Weapon[Item[(pgunobj)->usItem].ubClassIndex].ubWeaponType == GUN_SN_RIFLE )
 	{
-		if ( pSoldier->bTeam == OUR_TEAM || pSoldier->bTeam == MILITIA_TEAM )
+		if ( pSoldier->roster().team() == OUR_TEAM || pSoldier->roster().team() == MILITIA_TEAM )
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_PLAYERSIDE;
 		else
 			gCurrentIncident.usIncidentFlags |= INCIDENT_SNIPERS_ENEMY;
@@ -5026,13 +5026,13 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		// Begin explosion due to failure...
 		INT16 sX, sY;
 		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
-		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), Launchable.usItem, pSoldier->position().level() );
+		IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), Launchable.usItem, pSoldier->position().level() );
 
 		// Reduce again for attack end 'cause it has been incremented for a normal attack
 		// Nope, not anymore.
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK, Now %d", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr, GetJa2PendingTacticalCombatActions() ) );
 		DebugAttackBusy( String("@@@@@@@ Freeing up attacker - ATTACK ANIMATION %s ENDED BY BAD EXPLOSIVE CHECK\n", gAnimControl[ pSoldier->animationPlayback().state() ].zAnimStr ) );
-		// ReduceAttackBusyCount( pSoldier->ubID, FALSE );
+		// ReduceAttackBusyCount( pSoldier->identity().id(), FALSE );
 
 		// So all's well, should be good from here....
 		return( FALSE );
@@ -5113,7 +5113,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if ( Item[ usItemNum ].usItemClass == IC_LAUNCHER || ItemIsGrenadeLauncher(usItemNum) ||
 		ItemIsRocketLauncher(usItemNum) || ItemIsSingleShotRocketLauncher(usItemNum) || ItemIsMortar(usItemNum) )
 	{
-		gMercProfiles[ pSoldier->ubProfile ].records.usMissilesLaunched++;			
+		gMercProfiles[ pSoldier->identity().profile() ].records.usMissilesLaunched++;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
@@ -5125,14 +5125,14 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 		( *pSoldier->pTempObject )[0]->data.sObjectFlag |= DELAYED_GRENADE_EXPLOSION;
 	}
 
-	iID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,  pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
+	iID = CreatePhysicalObject( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,  pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, FALSE );
 
 	// OJW - 20091002 - Explosives
 	if (is_networked && is_client)
 	{
-		if (pSoldier->bTeam == 0 || (pSoldier->bTeam == 1 && is_server))
+		if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 		{
-			send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, sTargetGridNo, pSoldier->ubID, pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iID, false);
+			send_grenade( pSoldier->pTempObject, pSoldier->pThrowParams->dLifeSpan,	pSoldier->pThrowParams->dX, pSoldier->pThrowParams->dY, pSoldier->pThrowParams->dZ, pSoldier->pThrowParams->dForceX, pSoldier->pThrowParams->dForceY, pSoldier->pThrowParams->dForceZ, sTargetGridNo, pSoldier->identity().id(), pSoldier->pThrowParams->ubActionCode, pSoldier->pThrowParams->uiActionData, iID, false);
 		}
 	}
 
@@ -5154,7 +5154,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_GUNFIRE instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE);
+	MakeNoise(pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE);
 
 	return( TRUE );
 }
@@ -5488,10 +5488,10 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				GetJa2SoldierRepository().resolve(
 					pAttacker->targeting().engagedOpponent().i);
 			// if it was another team shooting at someone under our control
-			if ( pAttacker->bTeam != opponent->bTeam )
+			if ( pAttacker->roster().team() != opponent->roster().team() )
 			{
 				// if OPPONENT is under our control
-				if ( opponent->bTeam == gbPlayerNum )
+				if ( opponent->roster().team() == gbPlayerNum )
 				{
 					// AGILITY GAIN: Opponent "dodged" a bullet shot at him (it missed)
 					StatChange(
@@ -5634,7 +5634,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 
 				// Guy has missed, play random sound
 				if ( ubAttackerID != NOBODY &&
-					pAttacker->bTeam == gbPlayerNum )
+					pAttacker->roster().team() == gbPlayerNum )
 				{
 					if ( !pAttacker->fireControl().burstCounter() )
 					{
@@ -5905,7 +5905,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				if ( gGameSettings.fOptions[ TOPTION_SHOW_MISSES ] )
 				{
 					if ( ubAttackerID != NOBODY &&
-						pAttacker->bTeam == gbPlayerNum )
+						pAttacker->roster().team() == gbPlayerNum )
 					{
 						LocateGridNo( sGridNo );
 					}
@@ -5920,8 +5920,8 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				SOLDIERTYPE* opponent =
 					GetJa2SoldierRepository().resolve(
 						OpponentID.i);
-				INT8 Team = opponent->bTeam;
-				SoldierID ShooterID = pBullet->pFirer->ubID;
+				INT8 Team = opponent->roster().team();
+				SoldierID ShooterID = pBullet->pFirer->identity().id();
 
 				if( Item[ pBullet->pFirer->attackSelection().weapon() ].usItemClass & IC_GUN )
 				{
@@ -6200,7 +6200,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	iSightRange = 0;
 
-	if (ubTargetID != NOBODY && (pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY))
+	if (ubTargetID != NOBODY && (pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->roster().team()][ubTargetID] == SEEN_CURRENTLY))
 	{
 		iSightRange = SoldierToSoldierLineOfSightTest(
 			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
@@ -6400,19 +6400,19 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		// apply bonus from traits
 		// Flugente: moved trait modifiers into a member function
 		UINT8 targetprofile = NO_PROFILE;
-		if ( pTarget && pTarget->ubProfile != NO_PROFILE )
-			targetprofile = pTarget->ubProfile;
+		if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
+			targetprofile = pTarget->identity().profile();
 
 		fAimModifier += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
 
 		// Flugente: backgrounds
-		if ( pTarget && pTarget->bTeam == CREATURE_TEAM )
+		if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
 			fAimModifier += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
 
 		// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 		if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
 		{
-			fAimModifier += GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->bTeam);
+			fAimModifier += GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->roster().team());
 		}
 
 		// get aimbonus from target
@@ -6571,7 +6571,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	iScopeVisionRangeBonus = GetTotalVisionRangeBonus(pSoldier, bLightLevel);	// not an actual range value, simply a modifier for range calculations
 
-	if (ubTargetID != NOBODY && ( pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY ) )
+	if (ubTargetID != NOBODY && ( pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->roster().team()][ubTargetID] == SEEN_CURRENTLY ) )
 		iSightRange = SoldierToSoldierLineOfSightTest(
 			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
 			pSoldier->attackSelection().shotLocation(), false );
@@ -6912,7 +6912,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 		// if target sees us, he may have a chance to dodge before the gun goes off
 		// but ability to dodge is reduced if crouched or prone!
-		if ( pTarget->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) && !(pSoldier->ubBodyType != QUEENMONSTER) )
+		if ( pTarget->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) && !(pSoldier->identity().bodyType() != QUEENMONSTER) )
 		{
 			iPenalty = ( EffectiveAgility( pTarget, FALSE ) / 5 + EffectiveExpLevel( pTarget ) * 2);
 			switch( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight )
@@ -6927,7 +6927,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 			// reduce dodge ability by the attacker's stats
 			iBonus = ( EffectiveDexterity( pSoldier, FALSE ) / 5 + EffectiveExpLevel( pSoldier ) * 2);
-			if ( ARMED_VEHICLE( pTarget ) || ENEMYROBOT( pTarget ) || (pSoldier->ubBodyType != QUEENMONSTER) )
+			if ( ARMED_VEHICLE( pTarget ) || ENEMYROBOT( pTarget ) || (pSoldier->identity().bodyType() != QUEENMONSTER) )
 			{
 				// reduce ability to track shots
 				iBonus = iBonus / 2;
@@ -6988,19 +6988,19 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	// Modify for traits
 	// Flugente: moved trait modifiers into a member function
 	UINT8 targetprofile = NO_PROFILE;
-	if ( pTarget && pTarget->ubProfile != NO_PROFILE )
-		targetprofile = pTarget->ubProfile;
+	if ( pTarget && pTarget->identity().profile() != NO_PROFILE )
+		targetprofile = pTarget->identity().profile();
 
 	iChance += pSoldier->GetTraitCTHModifier( usInHand, ubAimTime, targetprofile );
 		
 	// Flugente: backgrounds
-	if ( pTarget && pTarget->bTeam == CREATURE_TEAM )
+	if ( pTarget && pTarget->roster().team() == CREATURE_TEAM )
 		iChance += pSoldier->GetBackgroundValue(BG_PERC_CTH_CREATURE);
 
 	// Flugente: if we are a sniper and a spotter from our team spots the targetted location, we receive a powerful cth bonus
 	if ( gGameOptions.fNewTraitSystem && Weapon[usInHand].ubWeaponType == GUN_SN_RIFLE || Weapon[usInHand].ubWeaponType == GUN_RIFLE )
 	{
-		iChance += (INT32)(GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->bTeam));
+		iChance += (INT32)(GridNoSpotterCTHBonus( pSoldier, sGridNo, pSoldier->roster().team()));
 	}
 		
 	/////////////////////////////////////////////////////////////////////////////////////
@@ -7293,23 +7293,23 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		}
 	}
 	// SANDRO - Bonus CtH for Militia
-	if (pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
+	if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sGreenMilitiaCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sRegularMilitiaCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sVeteranMilitiaCtHBonusPercent) /100);
 	// bonus for enemy
-	else if ( (pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
+	else if ( (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyAdminCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyRegularCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyEliteCtHBonusPercent) /100);
 	// SANDRO - option to make special NPCs stronger - chance to hit
 	if (gGameExternalOptions.usSpecialNPCStronger > 0)
 	{
-		switch( pSoldier->ubProfile )
+		switch( pSoldier->identity().profile() )
 		{
 			case CARMEN:
 			case QUEEN:
@@ -7877,9 +7877,9 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 					{
 						pVestPack->RemoveAttachment(&(*iter));
 						DirtyMercPanelInterface( pTarget, DIRTYLEVEL2 );
-						if ( pTarget->bTeam == gbPlayerNum )
+						if ( pTarget->roster().team() == gbPlayerNum )
 						{
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[61], pTarget->name );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[61], pTarget->identity().name() );
 						}
 					}
 					break;
@@ -7912,10 +7912,10 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 							pArmour->RemoveAttachment(&(*iter));
 							DirtyMercPanelInterface( pTarget, DIRTYLEVEL2 );
 
-							if ( pTarget->bTeam == gbPlayerNum )
+							if ( pTarget->roster().team() == gbPlayerNum )
 							{
 								// report plates destroyed!
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[61], pTarget->name );
+								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, gzLateLocalizedString[61], pTarget->identity().name() );
 							}
 						}
 						break;//original code only used the first ceramic plate
@@ -8312,10 +8312,10 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	// don't do critical hits against people who are gonna die!
 	if( !IsAutoResolveActive() )
 	{
-		if ( AmmoTypes[ubAmmoType].knife && pFirer && pFirer->awareness().opponentKnowledge()[ pTarget->ubID ] == SEEN_CURRENTLY && !fFragment )
+		if ( AmmoTypes[ubAmmoType].knife && pFirer && pFirer->awareness().opponentKnowledge()[ pTarget->identity().id() ] == SEEN_CURRENTLY && !fFragment )
 		{
 			// is this a stealth attack?
-			if ( pTarget->awareness().opponentKnowledge()[ pFirer->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget )
+			if ( pTarget->awareness().opponentKnowledge()[ pFirer->identity().id() ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget )
 				&& (ubHitLocation == AIM_SHOT_HEAD || ubHitLocation == AIM_SHOT_TORSO ) && (pTarget->aiBehavior().alertStatus() < STATUS_RED || !gGameExternalOptions.fEnhancedCloseCombatSystem) ) // Added check if enemy is alerted - SANDRO
 			{
 				// HEADROCK HAM 4: With the original CTH system, the HitBy value represented a randomal margin by
@@ -8362,7 +8362,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			}
 		}
 
-		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->vitals().health() && !(pTarget->status().flags() & SOLDIER_MONSTER) && !(pTarget->status().flags() & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->bTeam != OUR_TEAM))
+		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->vitals().health() && !(pTarget->status().flags() & SOLDIER_MONSTER) && !(pTarget->status().flags() & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->roster().team() != OUR_TEAM))
 		{
 			UINT32 uiCritChance = 0;
 			if (fFragment)
@@ -8390,13 +8390,13 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 				bStatLoss = (INT8) PreRandom( iImpactForCrits / 2 ) + 1;
 				// SANDRO - malicious hit
 				if ( fMaliciousHit && Chance( max( 15, uiCritChance )) && ( ubHitLocation == AIM_SHOT_TORSO || ubHitLocation == AIM_SHOT_LEGS ) && 
-					( sHitBy >= 20 ) && ( pTarget->ubBodyType <= STOCKYMALE ) && ( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight != ANIM_PRONE ) )
+					( sHitBy >= 20 ) && ( pTarget->identity().bodyType() <= STOCKYMALE ) && ( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight != ANIM_PRONE ) )
 				{
 					// no stats to lose, but drain breath a lot
 					DeductPoints( pTarget, 0, (5 * APBPConstants[BP_GET_HIT]) );
 					SoldierCollapse( pTarget );
 
-					if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+					if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, New113Message[MSG113_SOLDIER_HIT_TO_GROIN], pTarget->GetName() );
 					}
@@ -8420,15 +8420,15 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								// SANDRO - added this for healing lost stats feature
 								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += bStatLoss;
 
-								if (pTarget->ubProfile != NO_PROFILE)
+								if (pTarget->identity().profile() != NO_PROFILE)
 								{
-									gMercProfiles[ pTarget->ubProfile ].bWisdom = pTarget->statistics().wisdom();
+									gMercProfiles[ pTarget->identity().profile() ].bWisdom = pTarget->statistics().wisdom();
 								}
 
 								// Flugente: disease
 								HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_WIS );
 
-								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+								if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
 									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
@@ -8478,12 +8478,12 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 									// SANDRO - added this for healing lost stats feature
 									pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] += bStatLoss;
 
-									if (pTarget->ubProfile != NO_PROFILE)
+									if (pTarget->identity().profile() != NO_PROFILE)
 									{
-										gMercProfiles[ pTarget->ubProfile ].bLifeMax = pTarget->vitals().maximumHealth();
+										gMercProfiles[ pTarget->identity().profile() ].bLifeMax = pTarget->vitals().maximumHealth();
 									}
 
-									if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+									if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 									{
 										// make stat RED for a while...
 										pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
@@ -8515,15 +8515,15 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										// SANDRO - added this for healing lost stats feature
 										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += bStatLoss;
 
-										if (pTarget->ubProfile != NO_PROFILE)
+										if (pTarget->identity().profile() != NO_PROFILE)
 										{
-											gMercProfiles[ pTarget->ubProfile ].bDexterity = pTarget->statistics().dexterity();
+											gMercProfiles[ pTarget->identity().profile() ].bDexterity = pTarget->statistics().dexterity();
 										}
 
 										// Flugente: disease
 										HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_DEX );
 
-										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+										if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
 											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
@@ -8552,15 +8552,15 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 										// SANDRO - added this for healing lost stats feature
 										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += bStatLoss;
 
-										if (pTarget->ubProfile != NO_PROFILE)
+										if (pTarget->identity().profile() != NO_PROFILE)
 										{
-											gMercProfiles[ pTarget->ubProfile ].bStrength = pTarget->statistics().strength();
+											gMercProfiles[ pTarget->identity().profile() ].bStrength = pTarget->statistics().strength();
 										}
 
 										// Flugente: disease
 										HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_STR );
 
-										if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+										if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 										{
 											// make stat RED for a while...
 											pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
@@ -8590,15 +8590,15 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								// SANDRO - added this for healing lost stats feature
 								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
-								if (pTarget->ubProfile != NO_PROFILE)
+								if (pTarget->identity().profile() != NO_PROFILE)
 								{
-									gMercProfiles[ pTarget->ubProfile ].bAgility = pTarget->statistics().agility();
+									gMercProfiles[ pTarget->identity().profile() ].bAgility = pTarget->statistics().agility();
 								}
 
 								// Flugente: disease
 								HandlePossibleInfection( pTarget, pFirer, INFECTION_TYPE_WOUND_AGI );
 
-								if (pTarget->name[0] && pTarget->awareness().visibility() == TRUE)
+								if (pTarget->identity().name()[0] && pTarget->awareness().visibility() == TRUE)
 								{
 									// make stat RED for a while...
 									pTarget->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
@@ -8624,8 +8624,8 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					}
 
 					// SANDRO - new merc records - times stat damaged
-					if ( bStatLoss > 0 && pTarget->ubProfile != NO_PROFILE )
-						gMercProfiles[ pTarget->ubProfile ].records.usTimesStatDamaged++;
+					if ( bStatLoss > 0 && pTarget->identity().profile() != NO_PROFILE )
+						gMercProfiles[ pTarget->identity().profile() ].records.usTimesStatDamaged++;
 				}
 			}
 			else if ( ubHitLocation == AIM_SHOT_HEAD && pTarget->combatResult().pelletsHitBy() == 0 )
@@ -8830,7 +8830,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 			}
 
 			// Surprising attack deals more damage
-			if (pTarget->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget ) )
+			if (pTarget->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget ) )
 			{
 				iBonus += 50; // 50% incresed damage on suprising attacks
 			}						
@@ -8942,10 +8942,10 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 			GetJa2SoldierRepository().resolve(
 				pAttacker->targeting().engagedOpponent().i);
 		// if it was another team shooting at someone under our control
-		if ( pAttacker->bTeam != opponent->bTeam )
+		if ( pAttacker->roster().team() != opponent->roster().team() )
 		{
 			// if OPPONENT is under our control
-			if ( opponent->bTeam == gbPlayerNum )
+			if ( opponent->roster().team() == gbPlayerNum )
 			{
 				// AGILITY GAIN: Opponent "dodged" a bullet shot at him (it missed)
 				StatChange(
@@ -8963,7 +8963,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 		case MGCLASS:
 
 			// Guy has missed, play random sound
-			if ( pAttacker->bTeam == gbPlayerNum )
+			if ( pAttacker->roster().team() == gbPlayerNum )
 			{
 				if ( Random(40) == 0 )
 				{
@@ -9023,7 +9023,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 		{
 			pBullet = GetBulletPtr( iBullet );
 
-			if ( pAttacker->bTeam == gbPlayerNum )
+			if ( pAttacker->roster().team() == gbPlayerNum )
 			{
 				LocateGridNo( pBullet->sGridNo );
 			}
@@ -9042,21 +9042,21 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 
 		if( Item[ pAttacker->attackSelection().weapon() ].usItemClass & IC_GUN )
 		{
-			if(opponent->awareness().opponentKnowledge()[ pAttacker->ubID ] ==
+			if(opponent->awareness().opponentKnowledge()[ pAttacker->identity().id() ] ==
 				SEEN_CURRENTLY )
 				PossiblyStartEnemyTaunt(
 					opponent, TAUNT_GOT_MISSED_GUNFIRE,
-					pAttacker->ubID);
+					pAttacker->identity().id());
 			PossiblyStartEnemyTaunt( pAttacker, TAUNT_MISS_GUNFIRE, OpponentID );
 		}
 		else if( Item[ pAttacker->attackSelection().weapon() ].usItemClass & IC_THROWING_KNIFE )
 		{
-			if( opponent->awareness().opponentKnowledge()[ pAttacker->ubID ] ==
+			if( opponent->awareness().opponentKnowledge()[ pAttacker->identity().id() ] ==
 				SEEN_CURRENTLY )
 				PossiblyStartEnemyTaunt(
 					opponent,
 					TAUNT_GOT_MISSED_THROWING_KNIFE,
-					pAttacker->ubID);
+					pAttacker->identity().id());
 			PossiblyStartEnemyTaunt( pAttacker, TAUNT_MISS_THROWING_KNIFE, OpponentID );
 		}
 	}
@@ -9284,12 +9284,12 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	}
 	
 	// Added character traits influence
-	if ( gGameOptions.fNewTraitSystem && pAttacker->ubProfile != NO_PROFILE )
+	if ( gGameOptions.fNewTraitSystem && pAttacker->identity().profile() != NO_PROFILE )
 	{
 		// Sociable - better performance in groups
 		if ( DoesMercHavePersonality( pAttacker, CHAR_TRAIT_SOCIABLE ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->ubProfile, CHAR_TRAIT_SOCIABLE );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->identity().profile(), CHAR_TRAIT_SOCIABLE );
 			if ( bNumMercs > 2 )
 				iAttRating += 5;
 			else if ( bNumMercs > 0 )
@@ -9298,7 +9298,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		// Loner - better performance when alone
 		else if ( DoesMercHavePersonality( pAttacker, CHAR_TRAIT_LONER ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->ubProfile, CHAR_TRAIT_LONER );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->identity().profile(), CHAR_TRAIT_LONER );
 			if ( bNumMercs == 0 )
 				iAttRating += 5;
 			else if ( bNumMercs <= 1 )
@@ -9307,7 +9307,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		// Show-off - better performance if some babes around to impress
 		else if ( DoesMercHavePersonality( pAttacker, CHAR_TRAIT_SHOWOFF ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->ubProfile, CHAR_TRAIT_SHOWOFF );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pAttacker->identity().profile(), CHAR_TRAIT_SHOWOFF );
 			if ( bNumMercs > 1 )
 				iAttRating += 5;
 			else if ( bNumMercs > 0 )
@@ -9389,7 +9389,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	if ((iDefRating > 0) && (pDefender->vitals().breath() < 100))
 		iDefRating -= (iDefRating * (100 - pDefender->vitals().breath())) / 200;
 
-	if ( usInHand == CREATURE_QUEEN_TENTACLES && (pDefender->ubBodyType == LARVAE_MONSTER || pDefender->ubBodyType == INFANT_MONSTER) )   // && binds tighter than || -> was protecting ALL infants regardless of weapon
+	if ( usInHand == CREATURE_QUEEN_TENTACLES && (pDefender->identity().bodyType() == LARVAE_MONSTER || pDefender->identity().bodyType() == INFANT_MONSTER) )   // && binds tighter than || -> was protecting ALL infants regardless of weapon
 	{
 		// try to prevent queen from killing the kids, ever!
 		iDefRating += 10000;
@@ -9545,12 +9545,12 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	}
 
 	// Added character traits influence
-	if ( gGameOptions.fNewTraitSystem && pDefender->ubProfile != NO_PROFILE )
+	if ( gGameOptions.fNewTraitSystem && pDefender->identity().profile() != NO_PROFILE )
 	{
 		// Sociable - better performance in groups
 		if ( DoesMercHavePersonality( pDefender, CHAR_TRAIT_SOCIABLE ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->ubProfile, CHAR_TRAIT_SOCIABLE );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->identity().profile(), CHAR_TRAIT_SOCIABLE );
 			if ( bNumMercs > 2 )
 				iDefRating += 5;
 			else if ( bNumMercs > 0 )
@@ -9559,7 +9559,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		// Loner - better performance when alone
 		else if ( DoesMercHavePersonality( pDefender, CHAR_TRAIT_LONER ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->ubProfile, CHAR_TRAIT_LONER );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->identity().profile(), CHAR_TRAIT_LONER );
 			if ( bNumMercs == 0 )
 				iDefRating += 5;
 			else if ( bNumMercs <= 1 )
@@ -9568,7 +9568,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		// Show-off - better performance if some babes around to impress
 		else if ( DoesMercHavePersonality( pDefender, CHAR_TRAIT_SHOWOFF ) )
 		{	
-			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->ubProfile, CHAR_TRAIT_SHOWOFF );
+			INT8 bNumMercs = CheckMercsNearForCharTraits( pDefender->identity().profile(), CHAR_TRAIT_SHOWOFF );
 			if ( bNumMercs > 1 )
 				iDefRating += 5;
 			else if ( bNumMercs > 0 )
@@ -9645,18 +9645,18 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - Bonus CtH for Militia
-	if (pAttacker->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
+	if (pAttacker->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sGreenMilitiaCtHBonusPercent) /100);
-	else if (pAttacker->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
+	else if (pAttacker->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sRegularMilitiaCtHBonusPercent) /100);
-	else if (pAttacker->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
+	else if (pAttacker->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sVeteranMilitiaCtHBonusPercent) /100);
 	// bonus for enemy
-	else if ( ( pAttacker->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR || pAttacker->ubSoldierClass == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
+	else if ( ( pAttacker->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || pAttacker->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyAdminCtHBonusPercent) /100);
-	else if (pAttacker->ubSoldierClass == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
+	else if (pAttacker->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyRegularCtHBonusPercent) /100);
-	else if (pAttacker->ubSoldierClass == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
+	else if (pAttacker->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyEliteCtHBonusPercent) /100);
 	//////////////////////////////////////////////////////////////////////////////////////
 
@@ -9886,7 +9886,7 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 	}
 
 	// if he is loaded tactically
-	if ( pSoldier->bInSector )
+	if ( pSoldier->roster().inSector() )
 	{
 		// If this is our main hand
 		if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )
@@ -9958,8 +9958,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 				if (pSoldier->statistics().skillTrait(a) == targetingSkill)
 					pSoldier->statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == targetingSkill)
-					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
+				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == targetingSkill)
+					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
 			}
 
 			if (chassisSkill > 0)
@@ -9967,8 +9967,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 				if (pSoldier->statistics().skillTrait(a) == chassisSkill)
 					pSoldier->statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == chassisSkill)
-					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
+				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == chassisSkill)
+					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
 			}
 
 			if (utilitySkill > 0)
@@ -9976,8 +9976,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 				if (pSoldier->statistics().skillTrait(a) == utilitySkill)
 					pSoldier->statistics().skillTrait(a) = 0;
 
-				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == utilitySkill)
-					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
+				if (gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] == utilitySkill)
+					gMercProfiles[pSoldier->identity().profile()].bSkillTraits[a] = 0;
 			}
 		}
 	}
@@ -10183,9 +10183,9 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 		////////////////////////////////////////////////////////////////////////////////////////////////
 		// sevenfm: apply penalty to enemy/militia only if traits can be assigned to compensate
 		// otherwise AI will not be able to shoot because of extremely low CTH
-		if (pSoldier->bTeam == OUR_TEAM ||
-			pSoldier->bTeam == ENEMY_TEAM && gGameExternalOptions.fAssignTraitsToEnemy ||
-			pSoldier->bTeam == MILITIA_TEAM && gGameExternalOptions.fAssignTraitsToMilitia)
+		if (pSoldier->roster().team() == OUR_TEAM ||
+			pSoldier->roster().team() == ENEMY_TEAM && gGameExternalOptions.fAssignTraitsToEnemy ||
+			pSoldier->roster().team() == MILITIA_TEAM && gGameExternalOptions.fAssignTraitsToMilitia)
 		{
 			// SANDRO - old/new traits
 			if (gGameOptions.fNewTraitSystem)
@@ -10389,18 +10389,18 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - Bonus CtH for Militia
-	if (pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
+	if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sGreenMilitiaCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sRegularMilitiaCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sVeteranMilitiaCtHBonusPercent) /100);
 	// bonus for enemy
-	else if ( ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
+	else if ( ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyAdminCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyRegularCtHBonusPercent) /100);
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
 		iChance += ((iChance * gGameExternalOptions.sEnemyEliteCtHBonusPercent) /100);
 	//////////////////////////////////////////////////////////////////////////////////////
 
@@ -10595,10 +10595,10 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 
 		if (pSoldier != NULL )
 		{
-			if ( pSoldier->ubID != pQueenSoldier->ubID )
+			if ( pSoldier->identity().id() != pQueenSoldier->identity().id() )
 			{
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
+				if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->roster().active() && pSoldier->roster().inSector() )
 				{
 					UINT16 usRange = GetModifiedGunRange(CREATURE_QUEEN_TENTACLES);
 
@@ -10623,10 +10623,10 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 									// Hit!
 									iImpact = HTHImpact( pQueenSoldier, pSoldier, iHitBy, TRUE );
 									// SANDRO - new merc records - well, crepitus queen's tentackles are brutal, count them as "stabbed"
-									if ( pSoldier->ubProfile != NO_PROFILE )
-										gMercProfiles[ pSoldier->ubProfile ].records.usTimesWoundedStabbed++;
+									if ( pSoldier->identity().profile() != NO_PROFILE )
+										gMercProfiles[ pSoldier->identity().profile() ].records.usTimesWoundedStabbed++;
 
-			 						pSoldier->EVENT_SoldierGotHit( CREATURE_QUEEN_TENTACLES, (INT16) iImpact, (INT16) iImpact, gOppositeDirection[ bDir ], 50, pQueenSoldier->ubID, 0, ANIM_CROUCH, 0, 0 );
+									pSoldier->EVENT_SoldierGotHit( CREATURE_QUEEN_TENTACLES, (INT16) iImpact, (INT16) iImpact, gOppositeDirection[ bDir ], 50, pQueenSoldier->identity().id(), 0, ANIM_CROUCH, 0, 0 );
 								}
 							}
 						}
@@ -10642,7 +10642,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 
 BOOLEAN WillExplosiveWeaponFail( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 {
-  if ( pSoldier->bTeam == gbPlayerNum || pSoldier->awareness().visibility() == 1 )
+  if ( pSoldier->roster().team() == gbPlayerNum || pSoldier->awareness().visibility() == 1 )
   {
 	// malus for overheating
 	INT16 iOverheatMalus = 0;	
@@ -11481,24 +11481,24 @@ FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier)
 	
 		/////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - Bonus CtH for Militia
-	if (pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
+	if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sGreenMilitiaCtHBonusPercent;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sRegularMilitiaCtHBonusPercent;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sVeteranMilitiaCtHBonusPercent;
 	// bonus for enemy
-	else if ( ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
+	else if ( ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR || pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) && gGameExternalOptions.sEnemyAdminCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sEnemyAdminCtHBonusPercent;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY && gGameExternalOptions.sEnemyRegularCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sEnemyRegularCtHBonusPercent;
-	else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
+	else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE && gGameExternalOptions.sEnemyEliteCtHBonusPercent != 0)
 		fBaseModifier += gGameExternalOptions.sEnemyEliteCtHBonusPercent;
 		
 	// SANDRO - option to make special NPCs stronger - chance to hit
 	if (gGameExternalOptions.usSpecialNPCStronger > 0)
 	{
-		switch( pSoldier->ubProfile )
+		switch( pSoldier->identity().profile() )
 		{
 			case CARMEN:
 			case QUEEN:
@@ -11523,11 +11523,11 @@ FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// GAME DIFFICULTY
-	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
+	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->roster().side() != gbPlayerNum) )
 	{
 		fBaseModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsBaseDifficultyEnemy;
 	}
-	else if ( pSoldier->bTeam == MILITIA_TEAM )
+	else if ( pSoldier->roster().team() == MILITIA_TEAM )
 	{
 		fBaseModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsBaseDifficultyMilitia;
 	}
@@ -11847,11 +11847,11 @@ FLOAT CalcNewChanceToHitAimSpecialBonus(SOLDIERTYPE *pSoldier)
 	FLOAT fAimModifier = 0;
 
 	// GAME DIFFICULTY
-	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
+	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->roster().side() != gbPlayerNum) )
 	{
 		fAimModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsAimDifficultyEnemy;
 	}
-	else if ( pSoldier->bTeam == MILITIA_TEAM )
+	else if ( pSoldier->roster().team() == MILITIA_TEAM )
 	{
 		fAimModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsAimDifficultyMilitia;
 	}
@@ -12086,9 +12086,9 @@ BOOLEAN ArtilleryStrike( UINT16 usItem, SoldierID ubOwnerID, UINT32 usStartingGr
 	// OJW - 20091002 - Explosives
 	/*if (is_networked && is_client)
 	{
-		if (pSoldier->bTeam == 0 || (pSoldier->bTeam == 1 && is_server))
+		if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 		{
-			send_grenade( &shellobj , dLifeSpan,dX, dY, dZ, dForceX, dForceY, dForceZ, sTargetGridNo, pSoldier->ubID, ubActionCode, uiActionData, iID , false);
+			send_grenade( &shellobj , dLifeSpan,dX, dY, dZ, dForceX, dForceY, dForceZ, sTargetGridNo, pSoldier->identity().id(), ubActionCode, uiActionData, iID , false);
 		}
 	}*/
 

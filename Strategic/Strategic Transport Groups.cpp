@@ -227,7 +227,7 @@ void FillMapColoursForTransportGroups(INT32(&colorMap)[MAXIMUM_VALID_Y_COORDINAT
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if( pSoldier->bActive &&
+		if( pSoldier->roster().active() &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			(pSoldier->assignment().current() < ON_DUTY || pSoldier->assignment().current() == GATHERINTEL) &&
 			!pSoldier->assignment().isAsleep())
@@ -485,7 +485,7 @@ void UpdateTransportGroupInventory()
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if (pSoldier->bActive && !(pSoldier->status().flags() & SOLDIER_VEHICLE))
+			if (pSoldier->roster().active() && !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 			{
 				for (int j = 0 ; j < pSoldier->inv.size(); ++j)
 				{
@@ -636,7 +636,7 @@ void UpdateTransportGroupInventory()
 				// this group has a jeep in it!
 				// only jeeps carry things
 				// but give a little extra, since the jeep exploding can outright destroy things
-				if (pSoldier->ubSoldierClass == SOLDIER_CLASS_JEEP)
+				if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_JEEP)
 				{
 					//if (outgoing)
 					{
@@ -754,9 +754,9 @@ void UpdateTransportGroupInventory()
 
 					transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][SOLDIER_CLASS_JEEP]--;
 				}
-				else if (pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR
-					|| pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY
-					|| pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE)
+				else if (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR
+					|| pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY
+					|| pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE)
 				{
 					// jeep is carrying most things, so soldiers just have ammo
 					if (itemMap[AMMO_BOXES].size() > 0)
@@ -782,14 +782,14 @@ void UpdateTransportGroupInventory()
 							item->fFlags &= ~OBJECT_UNDROPPABLE;
 						}
 					}
-					transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->ubSoldierClass]--;
+					transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->roster().soldierClass()]--;
 				}
 			}
 			else
 			{
 				TRANSPORT_GROUP_DEBUG(L"Found jeepless groupid[%d] with admin[%d] troop[%d] elite[%d] jeep[%d]", groupIter->first, groupIter->second[SOLDIER_CLASS_ADMINISTRATOR], groupIter->second[SOLDIER_CLASS_ARMY], groupIter->second[SOLDIER_CLASS_ELITE], groupIter->second[SOLDIER_CLASS_JEEP]);
 				// no jeep in group, add things normally
-				soldierClassIter = groupIter->second.find(pSoldier->ubSoldierClass);
+				soldierClassIter = groupIter->second.find(pSoldier->roster().soldierClass());
 				if (soldierClassIter != groupIter->second.end())
 				{
 					// found a matching soldierclass
@@ -870,7 +870,7 @@ void UpdateTransportGroupInventory()
 								item->fFlags &= ~OBJECT_UNDROPPABLE;
 							}
 						}
-						transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->ubSoldierClass]--;
+						transportGroupIdToSoldierMap[pSoldier->deployment().groupId()][pSoldier->roster().soldierClass()]--;
 					}
 				}
 			}

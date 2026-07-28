@@ -202,7 +202,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 // can this soldier autobandage others in sector
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
+	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector()) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
@@ -221,7 +221,7 @@ BOOLEAN CanCharacterAutoBandageTeammate( SOLDIERTYPE *pSoldier )
 BOOLEAN CanCharacterBeAutoBandagedByTeammate( SOLDIERTYPE *pSoldier )
 {
 	// if the soldier isn't active or in sector, we have problems..leave
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
+	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector()) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || (pSoldier->assignment().current() == VEHICLE ) )
 	{
 		return( FALSE );
 	}
@@ -258,8 +258,8 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 	{
 		pPatient =
 			GetJa2SoldierRepository().resolve(cnt.i);
-		if ( !pPatient || !(pPatient->bActive) ||
-			!(pPatient->bInSector) )
+		if ( !pPatient || !(pPatient->roster().active()) ||
+			!(pPatient->roster().inSector()) )
 		{
 			continue; // NEXT!!!
 		}
@@ -292,7 +292,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 						for ( cnt2 = 0; cnt2 < NUM_WORLD_DIRECTIONS; cnt2++ )
 						{
 							sPatientGridNo = pPatient->position().gridNo() + DirectionInc( cnt2 );
-							if ( WhoIsThere2( sPatientGridNo, pPatient->position().level() ) == pPatient->ubID )
+							if ( WhoIsThere2( sPatientGridNo, pPatient->position().level() ) == pPatient->identity().id() )
 							{
 								// patient is also here, try this location
 								sAdjacentGridNo = FindAdjacentGridEx( pSoldier, sPatientGridNo, &ubDirection, &sAdjustedGridNo, FALSE, FALSE );
@@ -319,7 +319,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 						{
 							// we can get there... can anyone else?
 
-							if ( pPatient->service().hasAutoBandagingMedic() && pPatient->service().autoBandagingMedic() != pSoldier->ubID )
+							if ( pPatient->service().hasAutoBandagingMedic() && pPatient->service().autoBandagingMedic() != pSoldier->identity().id() )
 							{
 								// only switch to this patient if our distance is closer than
 								// the other medic's
@@ -402,7 +402,7 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 			if ( previousMedic )
 				CancelAIAction( previousMedic, TRUE );
 		}
-		pBestPatient->service().assignAutoBandagingMedic( pSoldier->ubID );
+		pBestPatient->service().assignAutoBandagingMedic( pSoldier->identity().id() );
 		*pfDoClimb = FALSE;
 		if ( CardinalSpacesAway( pSoldier->position().gridNo(), sBestPatientGridNo ) == 1 )
 		{
@@ -502,8 +502,8 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++cnt )
 	{
 		pMedic = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( !pMedic || !(pMedic->bActive) ||
-			!(pMedic->bInSector) ||
+		if ( !pMedic || !(pMedic->roster().active()) ||
+			!(pMedic->roster().inSector()) ||
 			( pMedic->status().flags() & SOLDIER_VEHICLE ) ||
 			(pMedic->assignment().current() == VEHICLE ) )
 		{
@@ -511,7 +511,7 @@ BOOLEAN DoctorIsPresent( SOLDIERTYPE * pPatient, BOOLEAN fOnDoctorAssignmentChec
 			continue; // NEXT!!!
 		}
 
-		if ( pPatient->ubID == pMedic->ubID )
+		if ( pPatient->identity().id() == pMedic->identity().id() )
 		{
 			// cannot make surgery on self!
 			continue; // NEXT!!!		

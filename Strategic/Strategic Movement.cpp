@@ -252,8 +252,8 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	Assert( pPlayer );
 	AssertMsg( pGroup->usGroupTeam == OUR_TEAM, "Attempting AddPlayerToGroup() on an ENEMY group!" );
 	pPlayer->pSoldier = pSoldier;
-	pPlayer->ubProfileID = pSoldier->ubProfile;
-	pPlayer->ubID = pSoldier->ubID;
+	pPlayer->ubProfileID = pSoldier->identity().profile();
+	pPlayer->ubID = pSoldier->identity().id();
 	pPlayer->bFlags = 0;
 	pPlayer->next = NULL;
 
@@ -285,8 +285,8 @@ BOOLEAN AddPlayerToGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 		pSoldier->assignment().desiredSquad() = curr->pSoldier->assignment().desiredSquad();
 		while( curr->next )
 		{
-			if( curr->ubProfileID == pSoldier->ubProfile )
-				AssertMsg( 0, String( "Attempting to add an already existing merc to group (ubProfile=%d).", pSoldier->ubProfile ) );
+			if( curr->ubProfileID == pSoldier->identity().profile() )
+				AssertMsg( 0, String( "Attempting to add an already existing merc to group (ubProfile=%d).", pSoldier->identity().profile() ) );
 			curr = curr->next;
 		}
 		curr->next = pPlayer;
@@ -430,7 +430,7 @@ BOOLEAN RemovePlayerFromGroup( UINT8 ubGroupID, SOLDIERTYPE *pSoldier )
 	}
 	//end
 
-	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d, %d ) from non-existant group", ubGroupID, pSoldier->ubProfile ) );
+	AssertMsg( pGroup, String( "Attempting to RemovePlayerFromGroup( %d, %d ) from non-existant group", ubGroupID, pSoldier->identity().profile() ) );
 
 	return RemovePlayerFromPGroup( pGroup, pSoldier );
 }
@@ -1106,7 +1106,7 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !is_client )
 		{
-			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
+			ubMercsInGroup[ ubNumMercs ] = pSoldier->identity().id();
 			ubNumMercs++;
 		}
 
@@ -2000,7 +2000,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 					{
 						// a loner
 						// HEADROCK HAM 3.6: Messages are no longer yellow by default.
-						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->name, pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
+						ScreenMsg( FONT_MCOLOR_LTGREEN, MSG_INTERFACE, pMessageStrings[ MSG_ARRIVE ], pGroup->pPlayerList->pSoldier->identity().name(), pMapVertIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorY()	], pMapHortIndex[ pGroup->pPlayerList->pSoldier->deployment().sectorX()	] );
 					}
 				}
 			}
@@ -2363,7 +2363,7 @@ void HandleOtherGroupsArrivingSimultaneously( UINT8 ubSectorX, UINT8 ubSectorY, 
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
+			if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 			{
 				if ( ( pSoldier->deployment().sectorX() == ubSectorX ) && ( pSoldier->deployment().sectorY() == ubSectorY ) && ( pSoldier->deployment().sectorZ() - 10 == ubSectorZ ) )
 				{
@@ -5043,7 +5043,7 @@ void AddFuelToVehicle( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pVehicle )
 	{
 		#ifdef JA2BETAVERSION
 			CHAR16 str[ 100 ];
-			swprintf( str, L"%s is supposed to have gas can in hand. ATE:0", pSoldier->name );
+			swprintf( str, L"%s is supposed to have gas can in hand. ATE:0", pSoldier->identity().name() );
 			DoScreenIndependantMessageBox( str, MSG_BOX_FLAG_OK, NULL );
 		#endif
 		return;
@@ -5384,13 +5384,13 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if ( pSoldier->deployment().sectorX() == pGroup->ubSectorX && pSoldier->deployment().sectorY() == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
-						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->ubProfile != NO_PROFILE )
+						if( HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) && pSoldier->identity().profile() != NO_PROFILE )
 						{
-							gMercProfiles[ pSoldier->ubProfile ].records.usAmbushesExperienced++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
 						}
 					}
 				}
@@ -5873,7 +5873,7 @@ BOOLEAN ScoutIsPresentInSquad( INT16 ubSectorNumX, INT16 ubSectorNumY )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive &&
+		if( pSoldier->roster().active() &&
 			pSoldier->vitals().health() >= OKLIFE &&
 			pSoldier->deployment().sectorX() == ubSectorNumX &&
 			pSoldier->deployment().sectorY() == ubSectorNumY &&
@@ -5897,7 +5897,7 @@ BOOLEAN ConcealedMercInSector( INT16 ubSectorNumX, INT16 ubSectorNumY, BOOLEAN a
 	for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && SPY_LOCATION( pSoldier->assignment().current() ) )
 		{
 			if ( pSoldier->deployment().sectorX() == ubSectorNumX && pSoldier->deployment().sectorY() == ubSectorNumY && pSoldier->deployment().sectorZ() == 10 )
 			{

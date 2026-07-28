@@ -926,7 +926,7 @@ void ValidatePlayersAreInOneGroupOnly()
 
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if( !pSoldier || !pSoldier->bActive || !pSoldier->vitals().health() || !pSoldier->deployment().groupId() )
+		if( !pSoldier || !pSoldier->roster().active() || !pSoldier->vitals().health() || !pSoldier->deployment().groupId() )
 		{ //non-existant, dead, or in no group (don't care, skip to next merc)
 			continue;
 		}
@@ -1012,10 +1012,10 @@ void ValidatePlayersAreInOneGroupOnly()
 					swprintf( str, L"%s in %c%d thinks he/she is in group %d in %c%d but isn't. "
 												L"Group %d in %c%d thinks %s is in the group but isn't. %s will be assigned to a unique squad. "
 												L"Please send screenshot, PRIOR save (corrected by time you read this), and any theories.",
-												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
+												pSoldier->identity().name(), pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
 												pSoldier->deployment().groupId(), pGroup->ubSectorY + 'A' - 1, pGroup->ubSectorX,
-												pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX, pSoldier->name,
-												pSoldier->name );
+												pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX, pSoldier->identity().name(),
+												pSoldier->identity().name() );
 				}
 				else if( iGroups > 1 && iMismatches == iGroups - 1 )
 				{ //This is the error that is being targetted.	This means that the merc exists in multiple groups though the merc
@@ -1056,10 +1056,10 @@ void ValidatePlayersAreInOneGroupOnly()
 					swprintf( str, L"%s in %c%d has been found in multiple groups. The group he/she is supposed "
 												L"to be in is group %d in %c%d, but %s was also found to be in group %d in %c%d. %s was found in %d groups "
 												L"total. Please send screenshot, PRIOR save (corrected by time you read this), and any theories.",
-												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
+												pSoldier->identity().name(), pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(),
 												pGroup->ubGroupID, pGroup->ubSectorY + 'A' - 1, pGroup->ubSectorX,
-												pSoldier->name, pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX,
-												pSoldier->name, iGroups );
+												pSoldier->identity().name(), pOtherGroup->ubGroupID, pOtherGroup->ubSectorY + 'A' - 1, pOtherGroup->ubSectorX,
+												pSoldier->identity().name(), iGroups );
 				}
 				else if( !iGroups )
 				{ //The merc cannot be found in any group!	This should never happen!	We will assign the merc into his
@@ -1067,7 +1067,7 @@ void ValidatePlayersAreInOneGroupOnly()
 					swprintf( str, L"%s in %c%d cannot be found in any group. %s will be assigned to a unique group/squad. "
 												L"Please provide details on how you think this may have happened. Send screenshot and PRIOR save. Do not send a save "
 												L"you create after this point as the info will have been corrected by then.",
-												pSoldier->name, pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(), pSoldier->name );
+												pSoldier->identity().name(), pSoldier->deployment().sectorY() + 'A' - 1, pSoldier->deployment().sectorX(), pSoldier->identity().name() );
 				}
 			}
 
@@ -4159,7 +4159,7 @@ BOOLEAN LoadStrategicAI( HWFILE hFile )
 			{ //We are in the basement sector, relocate queen to proper position.
 				for( SoldierID i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
 				{
-					if( GetJa2SoldierRepository().resolve(i)->ubProfile == QUEEN )
+					if( GetJa2SoldierRepository().resolve(i)->identity().profile() == QUEEN )
 					{ //Found queen, relocate her to 16866
 						BumpAnyExistingMerc( 16866 );
 						TeleportSoldier( GetJa2SoldierRepository().resolve(i), 16866, TRUE );

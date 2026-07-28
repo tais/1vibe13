@@ -1341,17 +1341,17 @@ static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDest
 			// To prevent this, each soldier can have their own reserved rectangle, which we free first
 			static INT32 soldierbackgroundrectangle[TOTAL_SOLDIERS] = { 0 };
 
-			if ( soldierbackgroundrectangle[pSoldier->ubID] != 0 && soldierbackgroundrectangle[pSoldier->ubID] != -1 )
+			if ( soldierbackgroundrectangle[pSoldier->identity().id()] != 0 && soldierbackgroundrectangle[pSoldier->identity().id()] != -1 )
 			{
-				FreeBackgroundRect( soldierbackgroundrectangle[pSoldier->ubID] );
-				soldierbackgroundrectangle[pSoldier->ubID] = 0;
+				FreeBackgroundRect( soldierbackgroundrectangle[pSoldier->identity().id()] );
+				soldierbackgroundrectangle[pSoldier->identity().id()] = 0;
 			}
 
-			soldierbackgroundrectangle[pSoldier->ubID] = RegisterBackgroundRect( BGND_FLAG_ANIMATED, NULL, sScreenX - 50, sScreenY - 60, sScreenX + 50, sScreenY + 35 );
+			soldierbackgroundrectangle[pSoldier->identity().id()] = RegisterBackgroundRect( BGND_FLAG_ANIMATED, NULL, sScreenX - 50, sScreenY - 60, sScreenX + 50, sScreenY + 35 );
 
-			if ( soldierbackgroundrectangle[pSoldier->ubID] != -1 )
+			if ( soldierbackgroundrectangle[pSoldier->identity().id()] != -1 )
 			{
-				SetBackgroundRectFilled( soldierbackgroundrectangle[pSoldier->ubID] );
+				SetBackgroundRectFilled( soldierbackgroundrectangle[pSoldier->identity().id()] );
 			}
 		}
 		
@@ -1791,7 +1791,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	{
 		// Special effect - draw ghost if is seen by a guy in player's team but not current guy
 		// ATE: Todo: setup flag for 'bad-guy' - can releive some checks in renderer
-		if (!pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum))
+		if (!pSoldier->aiBehavior().neutral() && (pSoldier->roster().side() != gbPlayerNum))
 		{
 			SOLDIERTYPE * pSelSoldier;
 			if (gusSelectedSoldier != NOBODY)
@@ -1815,7 +1815,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				}
 				if (pSelSoldier != NULL)
 				{
-					if (pSelSoldier->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY)
+					if (pSelSoldier->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY)
 					{
 						if (pSoldier->animationPlayback().state() != CHARIOTS_OF_FIRE && pSoldier->animationPlayback().state() != BODYEXPLODING)
 						{
@@ -1838,9 +1838,9 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			SOLDIERTYPE* selectedGuy =
 				GetJa2SoldierRepository().resolve(gsSelectedGuy.i);
 			if (gfUIHandleSelectionAboveGuy == TRUE &&
-				selectedGuy && selectedGuy->bSide != gbPlayerNum)
+				selectedGuy && selectedGuy->roster().side() != gbPlayerNum)
 			{
-				if (gsSelectedGuy == pSoldier->ubID)
+				if (gsSelectedGuy == pSoldier->identity().id())
 				{
 					pShadeTable = (PIXEL *)pShadeStart[gsGlowFrames[gsCurrentGlowFrame] + bGlowShadeOffset];
 					*gsForceSoldierZLevel = TOPMOST_Z_LEVEL;
@@ -1883,7 +1883,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			//{
 			//  pSelSoldier = gusSelectedSoldier;
 			// Shade differently depending on visiblity
-			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == 0  ) )
+			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == 0  ) )
 			//  {
 			// Shade gray
 			//      pShadeTable = pSoldier->pGlowShades[ gpGlowFramePointer[ gsCurrentGlowFrame ] + 10 ];
@@ -1899,7 +1899,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 		}
 	}
 	// check if we are a merc duplicate, if so, only do minimal stuff!
-	if (pSoldier->ubID >= MAX_NUM_SOLDIERS)
+	if (pSoldier->identity().id() >= MAX_NUM_SOLDIERS)
 	{
 		// Shade gray
 		pShadeTable = pPaletteTable->pEffectShades[1];
@@ -1919,7 +1919,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 MONSTERS BE HERE!
 */
 
-// Per-frame memo for bodyTypeDB->Find(pSoldier), keyed by pSoldier->ubID.
+// Per-frame memo for bodyTypeDB->Find(pSoldier), keyed by pSoldier->identity().id().
 // RenderTiles calls Find() per merc-node per merc-layer every frame (an author-flagged
 // hotspot). Find() reads only per-soldier state (body type, team, class, stats, inventory,
 // profile, anim state) plus immutable global tables; none of that is mutated during
@@ -2750,7 +2750,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										{
 											fMultiTransShadowZBlitter = TRUE;
 											// ATE: Use one direction for queen!
-											if (pSoldier->ubBodyType == QUEENMONSTER)
+											if (pSoldier->identity().bodyType() == QUEENMONSTER)
 											{
 												sMultiTransShadowZBlitterIndex = 0;
 											}
@@ -2768,8 +2768,8 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								}
 
 								// IF we are not active, or are a placeholder for multi-tile animations do nothing
-								//if ( !pSoldier->bActive  )
-								if (!pSoldier->bActive || (uiLevelNodeFlags & LEVELNODE_MERCPLACEHOLDER))
+								//if ( !pSoldier->roster().active()  )
+								if (!pSoldier->roster().active() || (uiLevelNodeFlags & LEVELNODE_MERCPLACEHOLDER))
 								{
 									pNode = pNode->pNext;
 									continue;
@@ -2928,21 +2928,21 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								static BodyTypeDB * bodyTypeDB = &BodyTypeDB::Instance();
 								// This function gets called like a gazillion times every render cycle and Find() is expensive
 								// (lots of logical body types, animations and filters!). Memoize Find() per-frame keyed by
-								// pSoldier->ubID; the cache is cleared at the top of each merc-rendering pass (see
+								// pSoldier->identity().id(); the cache is cleared at the top of each merc-rendering pass (see
 								// ClearBodyTypeFindCache callers), so within one render a cache hit equals what Find() would return.
 								BodyType * bt = NULL;
 								if ((gGameSettings.fOptions[TOPTION_USE_LOGICAL_BODYTYPES] == TRUE)
 									&& (uiRowFlags == TILES_DYNAMIC_MERCS || uiRowFlags == TILES_DYNAMIC_HIGHMERCS || uiRowFlags == TILES_DYNAMIC_STRUCT_MERCS))
 								{
-									if (gfBodyTypeFindCached[pSoldier->ubID])
+									if (gfBodyTypeFindCached[pSoldier->identity().id()])
 									{
-										bt = gpBodyTypeFindCache[pSoldier->ubID];
+										bt = gpBodyTypeFindCache[pSoldier->identity().id()];
 									}
 									else
 									{
 										bt = bodyTypeDB->Find(pSoldier);
-										gpBodyTypeFindCache[pSoldier->ubID] = bt;
-										gfBodyTypeFindCached[pSoldier->ubID] = TRUE;
+										gpBodyTypeFindCache[pSoldier->identity().id()] = bt;
+										gfBodyTypeFindCached[pSoldier->identity().id()] = TRUE;
 									}
 								}
 								PIXEL * pDefaultShadeTable = pShadeTable;
@@ -3778,7 +3778,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								{
 									if (fMerc)
 									{
-										if (pSoldier != NULL && pSoldier->ubID >= MAX_NUM_SOLDIERS)
+										if (pSoldier != NULL && pSoldier->identity().id() >= MAX_NUM_SOLDIERS)
 										{
 											SetFont(TINYFONT1);
 											SetFontDestBuffer(guiSAVEBUFFER, 0, gsVIEWPORT_WINDOW_START_Y, SCREEN_WIDTH, gsVIEWPORT_WINDOW_END_Y, FALSE);

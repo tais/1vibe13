@@ -345,7 +345,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		// optimistically assume we'll be behind the best cover available at this spot
 
 		//bHisActualCTGT = ChanceToGetThrough(pHim,sMyGridNo,FAKE,ACTUAL,TESTWALLS,9999,M9PISTOL,NOT_FOR_LOS); // assume a gunshot
-		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft );
+		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->identity().id(), sMyGridNo, pMe->position().level(), iMyAPsLeft );
 	}
 
 	// normally, that will be the cover I'll use, unless worst case over-rides it
@@ -364,7 +364,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
-		bHisBestCTGT = CalcBestCTGT(pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft);
+		bHisBestCTGT = CalcBestCTGT(pHim, pMe->identity().id(), sMyGridNo, pMe->position().level(), iMyAPsLeft);
 
 		// if he can actually improve his CTGT by moving to a nearby gridno
 		if (bHisBestCTGT > bHisActualCTGT)
@@ -397,9 +397,9 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		gUnderFire.Enable();
 		// let's not assume anything about the stance the enemy might take, so take an average
 		// value... no cover give a higher value than partial cover
-		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->ubID, sHisGridNo, pHim->position().level(), iMyAPsLeft );
+		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->identity().id(), sHisGridNo, pHim->position().level(), iMyAPsLeft );
 		gUnderFire.Disable();
-		ubFriendlyFireChance = gUnderFire.Chance(pMe->bTeam, pMe->bSide, TRUE);
+		ubFriendlyFireChance = gUnderFire.Chance(pMe->roster().team(), pMe->roster().side(), TRUE);
 		
 		if (gGameExternalOptions.fAIBetterCover)
 		{
@@ -609,9 +609,9 @@ UINT8 NumberOfTeamMatesAdjacent( SOLDIERTYPE * pSoldier, INT32 sGridNo )
 			SOLDIERTYPE* adjacentSoldier =
 				GetJa2SoldierRepository().resolve(ubWhoIsThere.i);
 			if ( ubWhoIsThere != NOBODY &&
-				ubWhoIsThere != pSoldier->ubID &&
+				ubWhoIsThere != pSoldier->identity().id() &&
 				adjacentSoldier &&
-				adjacentSoldier->bTeam == pSoldier->bTeam )
+				adjacentSoldier->roster().team() == pSoldier->roster().team() )
 			{
 				ubCount++;
 			}
@@ -706,12 +706,12 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 
 	// BUILD A LIST OF THREATENING GRID #s FROM PERSONAL & PUBLIC opplists
 
-	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->ubID][0]);
+	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->identity().id()][0]);
 
 	// hang a pointer into personal opplist
 	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
 	// hang a pointer into public opplist
-	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
+	pbPublOL = &(gbPublicOpplist[pSoldier->roster().team()][0]);
 
 	// decide how far we're gonna be looking
 	iSearchRange = gbDiff[DIFF_MAX_COVER_RANGE][ SoldierDifficultyLevel( pSoldier ) ];
@@ -1185,7 +1185,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	if (gfDisplayCoverValues)
 	{
 		// do a locate?
-		LocateSoldier( pSoldier->ubID, SETLOCATORFAST );
+		LocateSoldier( pSoldier->identity().id(), SETLOCATORFAST );
 		gsBestCover = sBestCover;
 		SetRenderFlags( RENDER_FLAG_FULL );
 		RenderWorld();
@@ -1262,13 +1262,13 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 		}
 
 		// if this man is neutral / on the same side, he's not an opponent
-		if ( CONSIDERED_NEUTRAL( pSoldier, pOpponent ) || (pSoldier->bSide == pOpponent->bSide))
+		if ( CONSIDERED_NEUTRAL( pSoldier, pOpponent ) || (pSoldier->roster().side() == pOpponent->roster().side()))
 		{
 			continue;			// next merc
 		}
 
-		pbPersOL = &(pSoldier->awareness().opponentKnowledge()[pOpponent->ubID]);
-		pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][pOpponent->ubID]);
+		pbPersOL = &(pSoldier->awareness().opponentKnowledge()[pOpponent->identity().id()]);
+		pbPublOL = &(gbPublicOpplist[pSoldier->roster().team()][pOpponent->identity().id()]);
 
 		// if this opponent is unknown personally and publicly
 		if ((*pbPersOL == NOT_HEARD_OR_SEEN) && (*pbPublOL == NOT_HEARD_OR_SEEN))
@@ -1277,7 +1277,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 		}
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->ubProfile != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != SLAY)
 		{
 			continue;	// next opponent
 		}
@@ -1293,12 +1293,12 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 		(*pbPersOL == *pbPublOL))
 		{
 			// using personal knowledge, obtain opponent's "best guess" gridno
-			sThreatLoc = gsLastKnownOppLoc[pSoldier->ubID][pOpponent->ubID];
+			sThreatLoc = gsLastKnownOppLoc[pSoldier->identity().id()][pOpponent->identity().id()];
 		}
 		else
 		{
 			// using public knowledge, obtain opponent's "best guess" gridno
-			sThreatLoc = gsPublicLastKnownOppLoc[pSoldier->bTeam][pOpponent->ubID];
+			sThreatLoc = gsPublicLastKnownOppLoc[pSoldier->roster().team()][pOpponent->identity().id()];
 		}
 
 		// calculate how far away this threat is (in adjusted pixels)
@@ -1323,7 +1323,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	}
 
 	// get roaming range here; for civilians, running away is limited by roam range
-	if ( pSoldier->bTeam == CIV_TEAM )
+	if ( pSoldier->roster().team() == CIV_TEAM )
 	{
 		iRoamRange = RoamingRange( pSoldier, &sOrigin );
 		if ( iRoamRange == 0 )
@@ -1448,7 +1448,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 				continue;
 			}
 
-			if ( pSoldier->bTeam == CIV_TEAM )
+			if ( pSoldier->roster().team() == CIV_TEAM )
 			{
 				// iRoamRange/sOrigin are loop-invariant here (RoamingRange depends only on
 				// pSoldier state, which doesn't change in this loop); reuse the values
@@ -1482,7 +1482,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 			iSpotClosestThreatRange = 1500;
 
 			if (gGameExternalOptions.fAITacticalRetreat &&
-				pSoldier->bTeam == ENEMY_TEAM &&
+				pSoldier->roster().team() == ENEMY_TEAM &&
 				GridNoOnEdgeOfMap(sGridNo, &bEscapeDirection) &&
 				EscapeDirectionIsValid(&bEscapeDirection))
 			{
@@ -1850,7 +1850,7 @@ INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
 INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 {
 	DebugMsg(TOPIC_JA2AI,DBG_LEVEL_3,String("SearchForItems"));
-	DebugAI(AI_MSG_INFO, pSoldier, String("SearchForItems [%d] bReason %d usItem %d", pSoldier->ubID, bReason, usItem));
+	DebugAI(AI_MSG_INFO, pSoldier, String("SearchForItems [%d] bReason %d usItem %d", pSoldier->identity().id(), bReason, usItem));
 
 	INT32					iSearchRange;
 	INT16					sMaxLeft, sMaxRight, sMaxUp, sMaxDown, sXOffset, sYOffset;
@@ -2009,7 +2009,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 							if ( pItem->usItemClass == IC_GUN && (*pObj)[0]->data.objectStatus >= MINIMUM_REQUIRED_STATUS )
 							{
 								// maybe this gun has ammo (adjust for whether it is better than ours!)
-								if ( (*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->ubProfile) )
+								if ( (*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->identity().profile()) )
 								{
 									iTempValue = 0;
 								}
@@ -2050,7 +2050,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 							if (pItem->usItemClass & IC_WEAPON && (*pObj)[0]->data.objectStatus >= MINIMUM_REQUIRED_STATUS )
 							{
 								DebugAI(AI_MSG_INFO, pSoldier, String("weapon has good status"));
-								if ( (pItem->usItemClass & IC_GUN) && ((*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->ubProfile) ) )
+								if ( (pItem->usItemClass & IC_GUN) && ((*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->identity().profile()) ) )
 								{
 									// jammed or out of ammo, skip it!
 									DebugAI(AI_MSG_INFO, pSoldier, String("jammed or out of ammo, skip it!"));
@@ -2101,7 +2101,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 							if ( pItem->usItemClass & IC_WEAPON && (*pObj)[0]->data.objectStatus >= MINIMUM_REQUIRED_STATUS )
 							{
 								DebugAI(AI_MSG_INFO, pSoldier, String("gun has good status"));
-								if ( (pItem->usItemClass & IC_GUN) && ((*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->ubProfile) ) )
+								if ( (pItem->usItemClass & IC_GUN) && ((*pObj)[0]->data.gun.bGunAmmoStatus < 0 || (*pObj)[0]->data.gun.ubGunShotsLeft == 0 || (ItemHasFingerPrintID(pObj->usItem) && (*pObj)[0]->data.ubImprintID != NO_PROFILE && (*pObj)[0]->data.ubImprintID != pSoldier->identity().profile()) ) )
 								{
 									// jammed or out of ammo, skip it!
 									DebugAI(AI_MSG_INFO, pSoldier, String("jammed or out of ammo, skip it!"));
@@ -2221,7 +2221,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 	
 	if (!TileIsOutOfBounds(sBestSpot))
 	{
-		DebugAI(AI_MSG_INFO, pSoldier, String("%d decides to pick up %S", pSoldier->ubID, ItemNames[gWorldItems[iBestItemIndex].object.usItem]));
+		DebugAI(AI_MSG_INFO, pSoldier, String("%d decides to pick up %S", pSoldier->identity().id(), ItemNames[gWorldItems[iBestItemIndex].object.usItem]));
 		if (Item[gWorldItems[ iBestItemIndex ].object.usItem].usItemClass == IC_GUN)
 		{
 			//CHRISL: This is the line from ADB's code but I removed it, for now, to match what 0verhaul has been working on
@@ -2235,14 +2235,14 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 				if (pSoldier->inv[HANDPOS].fFlags & OBJECT_UNDROPPABLE)
 				{
 					// destroy this item!
-					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first so destroys it", pSoldier->ubID, ItemNames[pSoldier->inv[HANDPOS].usItem]));
+					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first so destroys it", pSoldier->identity().id(), ItemNames[pSoldier->inv[HANDPOS].usItem]));
 					DeleteObj( &(pSoldier->inv[HANDPOS]) );
 					DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0, AFTERACTION_INTERRUPT );
 				}
 				else
 				{
 					// we want to drop this item!
-					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first", pSoldier->ubID, ItemNames[pSoldier->inv[HANDPOS].usItem]));
+					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first", pSoldier->identity().id(), ItemNames[pSoldier->inv[HANDPOS].usItem]));
 
 					pSoldier->aiPlanning().nextAction() = AI_ACTION_PICKUP_ITEM;
 					pSoldier->aiPlanning().nextActionData() = sBestSpot;
@@ -2581,7 +2581,7 @@ INT32 FindClosestBoxingRingSpot( SOLDIERTYPE * pSoldier, BOOLEAN fInRing )
 					LegalNPCDestination(pSoldier, sGridNo, IGNORE_PATH, NOWATER, 0))
 				{
 					// sevenfm: for player merc, find spot closest to Darren
-					if (pDarren && pSoldier->bTeam == gbPlayerNum)
+					if (pDarren && pSoldier->roster().team() == gbPlayerNum)
 						iDistance = PythSpacesAway(pDarren->position().gridNo(), sGridNo) + PythSpacesAway(pSoldier->position().gridNo(), sGridNo);
 					else
 						iDistance = abs(sXOffset) + abs(sYOffset);
@@ -2946,7 +2946,7 @@ INT32 FindClosestClimbPoint (SOLDIERTYPE *pSoldier, BOOLEAN fClimbUp )
 
 				// check that there's noone at sGridNo at level 0 (this soldier is allowed)
 				if( WhoIsThere2( sGridNo, 0 ) != NOBODY &&
-					WhoIsThere2( sGridNo, 0 ) != pSoldier->ubID )
+					WhoIsThere2( sGridNo, 0 ) != pSoldier->identity().id() )
 				{
 					continue;
 				}

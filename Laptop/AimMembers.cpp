@@ -5516,13 +5516,13 @@ void DisplayPopUpBoxExplainingMercArrivalLocationAndTime( )
 if( g_lang == i18n::Lang::de ) {
 	//Germans version has a different argument order
 	swprintf( szLocAndTime, pMessageStrings[ MSG_JUST_HIRED_MERC_ARRIVAL_LOCATION_POPUP ],
-							gMercProfiles[ pSoldier->ubProfile ].zNickname,
+							gMercProfiles[ pSoldier->identity().profile() ].zNickname,
 							LaptopSaveInfo.sLastHiredMerc.uiArrivalTime / 1440,
 							zTimeString,
 							zSectorIDString );
 } else {
 	swprintf( szLocAndTime, pMessageStrings[ MSG_JUST_HIRED_MERC_ARRIVAL_LOCATION_POPUP ],
-							gMercProfiles[ pSoldier->ubProfile ].zNickname,
+							gMercProfiles[ pSoldier->identity().profile() ].zNickname,
 							zSectorIDString,
 							LaptopSaveInfo.sLastHiredMerc.uiArrivalTime / 1440,
 							zTimeString );

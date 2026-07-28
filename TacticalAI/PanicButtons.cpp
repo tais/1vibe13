@@ -61,7 +61,7 @@ void MakeClosestEnemyChosenOne()
 
 		if ( gWorldSectorX == TIXA_SECTOR_X && gWorldSectorY == TIXA_SECTOR_Y )
 		{
-			if ( pSoldier->ubProfile != WARDEN )
+			if ( pSoldier->identity().profile() != WARDEN )
 			{
 				continue;
 			}
@@ -69,7 +69,7 @@ void MakeClosestEnemyChosenOne()
 		else
 		{
 			// only consider for army guys
-			if (pSoldier->bTeam != ENEMY_TEAM )
+			if (pSoldier->roster().team() != ENEMY_TEAM )
 			{
 				continue;
 			}
@@ -147,7 +147,7 @@ void MakeClosestEnemyChosenOne()
 			if (sPathCost < sShortestPath)
 			{
 				sShortestPath = sPathCost;
-				ubClosestEnemy = pSoldier->ubID;
+				ubClosestEnemy = pSoldier->identity().id();
 			}
 		}
 		//else
@@ -237,7 +237,7 @@ void PossiblyMakeThisEnemyChosenOne( SOLDIERTYPE * pSoldier )
 	if ( iAPCost <= pSoldier->CalcActionPoints( ) * 2)
 	{
 		// go!!!
-		gTacticalStatus.ubTheChosenOne = pSoldier->ubID;
+		gTacticalStatus.ubTheChosenOne = pSoldier->identity().id();
 		return;
 	}
 	// else return keys to normal
@@ -276,7 +276,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 			if (pSoldier->actionPoints().current() >= APBPConstants[AP_USE_REMOTE])
 			{
 #ifdef TESTVERSION
-				sprintf(tempstr,"TEST MSG: %s - ACTIVATING his DETONATOR!",pSoldier->name);
+				sprintf(tempstr,"TEST MSG: %s - ACTIVATING his DETONATOR!",pSoldier->identity().name());
 				PopMessage(tempstr);
 #endif
 				// blow up all the PANIC bombs!
@@ -302,7 +302,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("movement mode %d", usMovementMode));
 
 		// Have WE been chosen to go after the trigger?
-		if (pSoldier->ubID == gTacticalStatus.ubTheChosenOne)
+		if (pSoldier->identity().id() == gTacticalStatus.ubTheChosenOne)
 		{
 			bPanicTrigger = ClosestPanicTrigger( pSoldier );
 
@@ -369,7 +369,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 
 #ifdef TESTVERSION
 						sprintf(tempstr,"TEST MSG: %s - PULLS PANIC TRIGGER at grid %d",
-						pSoldier->name,pSoldier->aiPlanning().actionData());
+						pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 						PopMessage(tempstr);
 #endif
 						DebugAI(AI_MSG_TOPIC, pSoldier, String("enough AP, activate trigger!"));
@@ -395,7 +395,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 							pSoldier->pathing().stored() = TRUE;
 
 #ifdef DEBUGDECISIONS
-							sprintf(tempstr,"%s - GETTING CLOSER to PANIC TRIGGER at grid %d (Trigger at %d)", pSoldier->name,pSoldier->aiPlanning().actionData(),sPanicTriggerGridNo);
+							sprintf(tempstr,"%s - GETTING CLOSER to PANIC TRIGGER at grid %d (Trigger at %d)", pSoldier->identity().name(),pSoldier->aiPlanning().actionData(),sPanicTriggerGridNo);
 							AIPopMessage(tempstr);
 #endif
 							DebugAI(AI_MSG_TOPIC, pSoldier, String("move closet to panic trigger %d", sPanicTriggerGridNo));
@@ -467,7 +467,7 @@ INT8 ClosestPanicTrigger( SOLDIERTYPE * pSoldier )
 			if ( gWorldSectorX == TIXA_SECTOR_X && gWorldSectorY == TIXA_SECTOR_Y )
 			{
 				// screen out everyone but the warden
-				if ( pSoldier->ubProfile != WARDEN )
+				if ( pSoldier->identity().profile() != WARDEN )
 				{
 					break;
 				}
@@ -511,7 +511,7 @@ BOOLEAN NeedToRadioAboutPanicTrigger( void )
 	{
 		SOLDIERTYPE * pSoldier;
 		pSoldier = FindSoldierByProfileID( WARDEN, FALSE );
-		if ( !pSoldier || pSoldier->ubID == gTacticalStatus.ubTheChosenOne )
+		if ( !pSoldier || pSoldier->identity().id() == gTacticalStatus.ubTheChosenOne )
 		{
 			return( FALSE );
 		}

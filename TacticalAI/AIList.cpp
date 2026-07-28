@@ -188,7 +188,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		return( FALSE );
 	}
 
-	if ( ! ( pSoldier->bActive && pSoldier->bInSector ) )
+	if ( ! ( pSoldier->roster().active() && pSoldier->roster().inSector() ) )
 	{
 		// the check for
 		return( FALSE );
@@ -215,14 +215,14 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 	// hasn't heard any gunfire, handle only 1 time in 10
 	if (PTR_CIVILIAN)
 	{
-		if ( pSoldier->ubBodyType == CROW || pSoldier->ubBodyType == COW )
+		if ( pSoldier->identity().bodyType() == CROW || pSoldier->identity().bodyType() == COW )
 		{
 			// don't handle cows and crows in TB!
 			return( FALSE );
 		}
 
 		// if someone in a civ group is neutral but the civ group is non-neutral, should be handled all the time
-		if ( pSoldier->aiBehavior().neutral() && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->ubCivilianGroup] == CIV_GROUP_NEUTRAL ) )
+		if ( pSoldier->aiBehavior().neutral() && (pSoldier->roster().civilianGroup() == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->roster().civilianGroup()] == CIV_GROUP_NEUTRAL ) )
 		{
 			if ( pSoldier->aiBehavior().alertStatus() < STATUS_RED )
 			{
@@ -240,7 +240,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 					if ( pSoldier->awareness().visibility() == TRUE )
 					{
 						// if have profile, don't handle, don't want them running around
-						if ( pSoldier->ubProfile != NO_PROFILE )
+						if ( pSoldier->identity().profile() != NO_PROFILE )
 						{
 							return( FALSE );
 						}
@@ -256,7 +256,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 						return( FALSE );
 					}
 				}
-				else if ( pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV )
+				else if ( pSoldier->identity().bodyType() == COW || pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					// don't handle much
 					if ( fDoRandomChecks && PreRandom( 3 ) )
@@ -336,7 +336,7 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 	{
 		// non-null merc slot ensures active
 		pSoldier = MercSlots[ uiLoop ];
-		if ( pSoldier && pSoldier->bTeam == bTeam )
+		if ( pSoldier && pSoldier->roster().team() == bTeam )
 		{
 			if ( !SatisfiesAIListConditions( pSoldier, &ubDoneCount, TRUE ) )
 			{
@@ -349,7 +349,7 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 				bPriority += 3;
 			}
 
-			fInsertRet = InsertIntoAIList( pSoldier->ubID, bPriority );
+			fInsertRet = InsertIntoAIList( pSoldier->identity().id(), bPriority );
 			if (fInsertRet == FALSE)
 			{
 				// wtf???

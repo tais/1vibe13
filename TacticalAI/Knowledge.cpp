@@ -41,7 +41,7 @@ void CallAvailableTeamEnemiesTo( INT32 sGridNo, INT8 bTeam )
 			{
 				pSoldier =
 					GetJa2SoldierRepository().resolve(iLoop2.i);
-				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE)
+				if (pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE)
 				{
 					SetNewSituation( pSoldier );
 					WearGasMaskIfAvailable( pSoldier );
@@ -73,7 +73,7 @@ void CallAvailableKingpinMenTo( INT32 sGridNo )
 		{
 			pSoldier =
 				GetJa2SoldierRepository().resolve(iLoop2.i);
-			if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP && pSoldier->ubProfile == NO_PROFILE)
+			if (pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP && pSoldier->identity().profile() == NO_PROFILE)
 			{
 				SetNewSituation( pSoldier );
 			}
@@ -92,7 +92,7 @@ void CallEldinTo( INT32 sGridNo )
 	{
 		// new situation for Eldin
 		pSoldier = FindSoldierByProfileID( ELDIN, FALSE );
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && (pSoldier->aiBehavior().alertStatus() == STATUS_GREEN || pSoldier->perception().noiseVolume() < (MAX_MISC_NOISE_DURATION / 2) ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && (pSoldier->aiBehavior().alertStatus() == STATUS_GREEN || pSoldier->perception().noiseVolume() < (MAX_MISC_NOISE_DURATION / 2) ) )
 		{
 			if ( SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, 0, 0, TRUE ) )
 			{
@@ -139,15 +139,15 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	BOOLEAN fClimbingNecessary = FALSE;
 	SOLDIERTYPE * pTemp;
 
-	pubNoiseVolume = &gubPublicNoiseVolume[pSoldier->bTeam];
-	psNoiseGridNo = &gsPublicNoiseGridNo[pSoldier->bTeam];
-	pbNoiseLevel = &gbPublicNoiseLevel[pSoldier->bTeam];
+	pubNoiseVolume = &gubPublicNoiseVolume[pSoldier->roster().team()];
+	psNoiseGridNo = &gsPublicNoiseGridNo[pSoldier->roster().team()];
+	pbNoiseLevel = &gbPublicNoiseLevel[pSoldier->roster().team()];
 
-	psLastLoc = gsLastKnownOppLoc[pSoldier->ubID];
+	psLastLoc = gsLastKnownOppLoc[pSoldier->identity().id()];
 
 	// hang pointers at start of this guy's personal and public opponent opplists
 	pbPersOL = pSoldier->awareness().opponentKnowledge();
-	pbPublOL = gbPublicOpplist[pSoldier->bTeam];
+	pbPublOL = gbPublicOpplist[pSoldier->roster().team()];
 
 	// sevenfm: sector information
 	UINT8 ubSectorId = SECTOR( gWorldSectorX, gWorldSectorY );
@@ -163,7 +163,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 			continue;			// next merc
 
 		// if this merc is neutral/on same side, he's not an opponent
-		if ( CONSIDERED_NEUTRAL( pSoldier, pTemp ) || (pSoldier->bSide == pTemp->bSide))
+		if ( CONSIDERED_NEUTRAL( pSoldier, pTemp ) || (pSoldier->roster().side() == pTemp->roster().side()))
 			continue;			// next merc
 
 		// Flugente: chance to ignore the noise if the ceator is covert
@@ -175,14 +175,14 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 				continue;
 
 			// sevenfm: ignore noise if some friends already see opponent
-			if ( CountTeamSeeSoldier( pSoldier->bTeam, pTemp ) > sectordata )
+			if ( CountTeamSeeSoldier( pSoldier->roster().team(), pTemp ) > sectordata )
 				continue;
 		}
 
-		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->ubID;
-		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pTemp->ubID;
-		psLastLoc = gsLastKnownOppLoc[pSoldier->ubID] + pTemp->ubID;
-		pbLastLevel = gbLastKnownOppLevel[pSoldier->ubID] + pTemp->ubID;
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->identity().id();
+		pbPublOL = gbPublicOpplist[pSoldier->roster().team()] + pTemp->identity().id();
+		psLastLoc = gsLastKnownOppLoc[pSoldier->identity().id()] + pTemp->identity().id();
+		pbLastLevel = gbLastKnownOppLevel[pSoldier->identity().id()] + pTemp->identity().id();
 
 		// if this guy's been personally heard within last 3 turns
 		if (*pbPersOL < NOT_HEARD_OR_SEEN)
@@ -203,14 +203,14 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 		if (*pbPublOL < NOT_HEARD_OR_SEEN)
 		{
 			// calculate how far this noise was, and its relative "importance"
-			iDistAway = SpacesAway(pSoldier->position().gridNo(), gsPublicLastKnownOppLoc[pSoldier->bTeam][pTemp->ubID]);
+			iDistAway = SpacesAway(pSoldier->position().gridNo(), gsPublicLastKnownOppLoc[pSoldier->roster().team()][pTemp->identity().id()]);
 			iNoiseValue = (*pbPublOL) * iDistAway;				// always a negative number!
 
 			if (iNoiseValue > iBestValue)
 			{
 				iBestValue = iNoiseValue;
-				sBestGridNo = gsPublicLastKnownOppLoc[pSoldier->bTeam][pTemp->ubID];
-				bBestLevel = gbPublicLastKnownOppLevel[pSoldier->bTeam][pTemp->ubID];
+				sBestGridNo = gsPublicLastKnownOppLoc[pSoldier->roster().team()][pTemp->identity().id()];
+				bBestLevel = gbPublicLastKnownOppLevel[pSoldier->roster().team()][pTemp->identity().id()];
 			}
 		}
 	}
@@ -240,7 +240,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	}
 	
 	// if any recent PUBLIC "misc. noise" is also known
-	if ( (pSoldier->bTeam != CIV_TEAM) || ( pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP ) )
+	if ( (pSoldier->roster().team() != CIV_TEAM) || ( pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP ) )
 	{		
 		if (!TileIsOutOfBounds(*psNoiseGridNo))
 		{
@@ -266,7 +266,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 		*pfReachable = TRUE;
 
 		// make civs not walk to noises outside their room if on close patrol/onguard
-		if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->bTeam == CIV_TEAM || pSoldier->ubProfile != NO_PROFILE ) )
+		if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->roster().team() == CIV_TEAM || pSoldier->identity().profile() != NO_PROFILE ) )
 		{
 			//DBrot: More Rooms
 			//UINT8	ubRoom, ubNewRoom;
@@ -334,15 +334,15 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 	SOLDIERTYPE * pTemp;
 
 	// if merc knows of a more important misc. noise than his team does
-	if (!(CREATURE_OR_BLOODCAT( pSoldier )) && (pSoldier->perception().noiseVolume() > gubPublicNoiseVolume[pSoldier->bTeam]))
+	if (!(CREATURE_OR_BLOODCAT( pSoldier )) && (pSoldier->perception().noiseVolume() > gubPublicNoiseVolume[pSoldier->roster().team()]))
 	{
 		// the difference in volume is added to the "new info" total
-		ubTotal += pSoldier->perception().noiseVolume() - gubPublicNoiseVolume[pSoldier->bTeam];
+		ubTotal += pSoldier->perception().noiseVolume() - gubPublicNoiseVolume[pSoldier->roster().team()];
 	}
 
 	// hang pointers at start of this guy's personal and public opponent opplists
 	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
-	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
+	pbPublOL = &(gbPublicOpplist[pSoldier->roster().team()][0]);
 
 	// for every opponent
 //	for (iLoop = 0; iLoop < MAXMERCS; iLoop++,pbPersOL++,pbPublOL++)
@@ -361,13 +361,13 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 		}
 
 		// if this merc is neutral/on same side, he's not an opponent
-		if ( CONSIDERED_NEUTRAL( pSoldier, pTemp ) || (pSoldier->bSide == pTemp->bSide))
+		if ( CONSIDERED_NEUTRAL( pSoldier, pTemp ) || (pSoldier->roster().side() == pTemp->roster().side()))
 		{
 			continue;			// next merc
 		}
 
-		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->ubID;
-		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pTemp->ubID;
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->identity().id();
+		pbPublOL = gbPublicOpplist[pSoldier->roster().team()] + pTemp->identity().id();
 
 
 		// if we're only interested in guys currently is sight, and he's not

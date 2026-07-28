@@ -3723,7 +3723,7 @@ UINT8 CheckPlayersInventoryForGunMatchingGivenAmmoID( INT16 sItemID )
 	{
 		SOLDIERTYPE *pSoldier =
 			GetJa2SoldierRepository().resolve(id.i);
-		if( pSoldier && pSoldier->bActive )
+		if( pSoldier && pSoldier->roster().active() )
 		{
 			//loop through all the pockets on the merc
 			UINT8 invsize = pSoldier->inv.size();

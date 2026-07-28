@@ -347,11 +347,11 @@ BOOLEAN EnterMercCompareAnalyze()
 	{
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(id.i);
-		if ( soldier && soldier->bActive &&
-			soldier->ubProfile != NO_PROFILE )
+		if ( soldier && soldier->roster().active() &&
+			soldier->identity().profile() != NO_PROFILE )
 			mercvector.push_back( std::make_pair(
-				soldier->ubProfile,
-				gMercProfiles[soldier->ubProfile].zNickname ) );
+				soldier->identity().profile(),
+				gMercProfiles[soldier->identity().profile()].zNickname ) );
 	}
 	
 	DropDownTemplate<DROPDOWNNR_MERCCOMPARE1>::getInstance( ).SetEntries( mercvector );
@@ -989,8 +989,8 @@ BOOLEAN EnterMercCompareMatrix( )
 	{
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(id.i);
-		if ( soldier && soldier->bActive &&
-			soldier->ubProfile != NO_PROFILE &&
+		if ( soldier && soldier->roster().active() &&
+			soldier->identity().profile() != NO_PROFILE &&
 			soldier->assignment().current() < ON_DUTY )
 		{
 			if ( squadmap.find( soldier->assignment().current() ) ==
@@ -1096,12 +1096,12 @@ void RenderMercCompareMatrix( )
 		{
 			SOLDIERTYPE* soldier =
 				GetJa2SoldierRepository().resolve(id.i);
-			if ( soldier && soldier->bActive &&
-				soldier->ubProfile != NO_PROFILE &&
+			if ( soldier && soldier->roster().active() &&
+				soldier->identity().profile() != NO_PROFILE &&
 				soldier->assignment().current() == gSquadToShow )
 			{
 				// remember squamember
-				squadvector.push_back( soldier->ubProfile );
+				squadvector.push_back( soldier->identity().profile() );
 			}
 		}
 
@@ -1147,7 +1147,7 @@ void RenderMercCompareMatrix( )
 			DisplaySmallColouredLineWithShadow( usPosX, usPosY - 5, usPosX + spacepermerc * (squadvector.size( ) + 1), usPosY - 5, FROMRGB( 0, 255, 0 ) );
 		
 			// write name on the left side
-			swprintf( sText, gMercProfiles[pSoldierA->ubProfile].zNickname );
+			swprintf( sText, gMercProfiles[pSoldierA->identity().profile()].zNickname );
 			DisplayWrappedString( usPosX, usPosY, LAPTOP_SCREEN_LR_X - LAPTOP_SCREEN_UL_X, 2, CAMPHIS_FONT_MED, MERCOMP_FONT_COLOR, sText, FONT_MCOLOR_BLACK, FALSE, 0 );
 
 			usPosX += spacepermerc;
@@ -1178,7 +1178,7 @@ void RenderMercCompareMatrix( )
 
 					// both profilenumbers are combined to a single value which can later be reinterpreted.
 					// Note: this will fail if the profile IDs are bigger than UINT16 (currently UINT8)
-					MSYS_SetRegionUserData( &gMercCompareMatrixLinkRegion[currentmouseregion], 0, ((pSoldierA->ubProfile << 8) | pSoldierB->ubProfile) );
+					MSYS_SetRegionUserData( &gMercCompareMatrixLinkRegion[currentmouseregion], 0, ((pSoldierA->identity().profile() << 8) | pSoldierB->identity().profile()) );
 					gMercCompareMatrixLinkDefined[currentmouseregion] = TRUE;
 					++currentmouseregion;
 				}

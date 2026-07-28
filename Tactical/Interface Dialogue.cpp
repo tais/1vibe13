@@ -343,7 +343,7 @@ enum
 
 BOOLEAN InitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pSrcSoldier, INT8 bApproach, uintptr_t uiApproachData )
 {
-	DebugQuestInfo(String("InitiateConversation: from [%d] to [%d] %d data %d", pSrcSoldier->ubID, pDestSoldier->ubID, bApproach, (UINT32)uiApproachData));
+	DebugQuestInfo(String("InitiateConversation: from [%d] to [%d] %d data %d", pSrcSoldier->identity().id(), pDestSoldier->identity().id(), bApproach, (UINT32)uiApproachData));
 
 	// ATE: OK, let's check the status of the Q
 	// If it has something in it....delay this until after....
@@ -428,7 +428,7 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 		DeleteTalkingMenu( );
 	}
 
-	if ( !InitTalkingMenu( pDestSoldier->ubProfile, pDestSoldier->position().gridNo() ) )
+	if ( !InitTalkingMenu( pDestSoldier->identity().profile(), pDestSoldier->position().gridNo() ) )
 	{
 		// If failed, and we were pending, unlock UI
 		if ( fFromPending )
@@ -437,7 +437,7 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 		}
 
 #ifdef JA2TESTVERSION
-		ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Cannot initiate conversation menu.. check for face file for ID: %d.", pDestSoldier->ubProfile );
+		ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"Cannot initiate conversation menu.. check for face file for ID: %d.", pDestSoldier->identity().profile() );
 #endif
 		return( FALSE );
 	}
@@ -447,14 +447,14 @@ BOOLEAN InternalInitiateConversation( SOLDIERTYPE *pDestSoldier, SOLDIERTYPE *pS
 
 	// Say first line...
 	// CHRIS LOOK HERE
-	gubSrcSoldierProfile = pSrcSoldier->ubProfile;
+	gubSrcSoldierProfile = pSrcSoldier->identity().profile();
 
 	// find which squad this guy is, then set selected squad to this guy
-	if ( pSrcSoldier->bTeam == gbPlayerNum && GetJa2TacticalCurrentTeam() == gbPlayerNum )
+	if ( pSrcSoldier->roster().team() == gbPlayerNum && GetJa2TacticalCurrentTeam() == gbPlayerNum )
 	{
 		SetCurrentSquad( pSrcSoldier->assignment().current(), FALSE );
 
-	SelectSoldier( pSrcSoldier->ubID, FALSE, FALSE );
+	SelectSoldier( pSrcSoldier->identity().id(), FALSE, FALSE );
 	}
 
 	Converse( gTalkPanel.ubCharNum, gubSrcSoldierProfile, bApproach, uiApproachData );
@@ -1138,7 +1138,7 @@ void TalkPanelClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// open inv panel...
 					gfSwitchPanel = TRUE;
 					gbNewPanel = SM_PANEL;
-					gubNewPanelParam = source->ubID;
+					gubNewPanelParam = source->identity().id();
 
 					// Wait!
 					destination->aiPlanning().nextAction() = AI_ACTION_WAIT;
@@ -1275,7 +1275,7 @@ BOOLEAN ProfileCurrentlyTalkingInDialoguePanel( UINT8 ubProfile )
 			GetDialogueDestinationSoldier();
 		if ( destination != NULL )
 		{
-			if ( destination->ubProfile == ubProfile )
+			if ( destination->identity().profile() == ubProfile )
 			{
 				return( TRUE );
 			}
@@ -1331,7 +1331,7 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 				// reset records which are on a can-say-once-per-convo basis
 				if ( destination )
 					ResetOncePerConvoRecordsForNPC(
-						destination->ubProfile);
+						destination->identity().profile());
 				return( TRUE );
 			}
 		}
@@ -1345,7 +1345,7 @@ BOOLEAN HandleTalkingMenuEscape( BOOLEAN fCanDelete , BOOLEAN fFromEscKey )
 			// reset records which are on a can-say-once-per-convo basis
 			if ( destination )
 				ResetOncePerConvoRecordsForNPC(
-					destination->ubProfile);
+					destination->identity().profile());
 			return( TRUE );
 		}
 	}
@@ -1555,7 +1555,7 @@ BOOLEAN SourceSoldierPointerIsValidAndReachableForGive( SOLDIERTYPE * pGiver )
 	{
 		return( FALSE );
 	}
-	if ( !source->bActive || !source->bInSector )
+	if ( !source->roster().active() || !source->roster().inSector() )
 	{
 		return( FALSE );
 	}
@@ -1650,7 +1650,7 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 	gfShowDialogueMenu	= fShowDialogueMenu;
 
 
-	if ( pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->roster().team() == gbPlayerNum )
 	{
 		// make sure they are in the right alert status to receive orders (it's a bug that
 		// this could be set for the player...)
@@ -1683,12 +1683,12 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 		guiWaitingForTriggerTime		= GetJA2Clock( );
 
 		// Setup locator!
-		ShowRadioLocator( pSoldier->ubID, SHOW_LOCATOR_FAST );
+		ShowRadioLocator( pSoldier->identity().id(), SHOW_LOCATOR_FAST );
 
 		// If he's visible, locate...
 		if ( pSoldier->awareness().visibility() != -1 )
 		{
-			LocateSoldier( pSoldier->ubID, FALSE );
+			LocateSoldier( pSoldier->identity().id(), FALSE );
 		}
 
 		guiPendingOverrideEvent = LU_BEGINUILOCK;
@@ -1838,7 +1838,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	}
 
 	// if player controlled, set under AI control flag
-	if (pSoldier->bTeam == gbPlayerNum)
+	if (pSoldier->roster().team() == gbPlayerNum)
 	{
 		pSoldier->status().flags() |= SOLDIER_PCUNDERAICONTROL;
 	}
@@ -1969,7 +1969,7 @@ bool TryHandleCampaignDialogueAction(
 	{
 	case DialogueAction::WaldoRepairRequestor:
 		if (!dialogueDestination ||
-			targetNpc != dialogueDestination->ubProfile)
+			targetNpc != dialogueDestination->identity().profile())
 		{
 #ifdef JA2BETAVERSION
 			ScreenMsg(
@@ -2101,7 +2101,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						continue;
 					}
 					// Are we in this sector, On the current squad?
-					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
+					if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() && pSoldier->assignment().current() == CurrentSquad( ) )
 					{
 						gfTacticalTraversal = TRUE;
 						SetGroupSectorValue( gModSettings.ubHideoutSectorX, gModSettings.ubHideoutSectorY, gModSettings.ubHideoutSectorZ, pSoldier->deployment().groupId() );
@@ -2354,7 +2354,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					return;
 				}
 
-				if (pSoldier->ubCivilianGroup)
+				if (pSoldier->roster().civilianGroup())
 				{
 					CivilianGroupMemberChangesSides( pSoldier );
 				}
@@ -2362,11 +2362,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					//MakeCivHostile(pSoldier);
 				}
-				if ( ( pSoldier->ubProfile != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->vitals().health() >= OKLIFE )
+				if ( ( pSoldier->identity().profile() != NO_PROFILE || pSoldier->IsAssassin() ) && pSoldier->vitals().health() >= OKLIFE )
 				{
 					// trigger quote!
-					//TriggerNPCWithIHateYouQuote( pSoldier->ubProfile );
-					AddToShouldBecomeHostileOrSayQuoteList( pSoldier->ubID );
+					//TriggerNPCWithIHateYouQuote( pSoldier->identity().profile() );
+					AddToShouldBecomeHostileOrSayQuoteList( pSoldier->identity().id() );
 				}
 				break;
 
@@ -2403,7 +2403,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						continue;
 					}
 					// Are we in this sector, On the current squad?
-					if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
+					if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() )
 					{
 						gfTacticalTraversal = TRUE;
 						//DBrot: Grids
@@ -2647,7 +2647,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				// Vince or Willis asks about payment? for medical attention
 				if (!dialogueDestination ||
 					ubTargetNPC !=
-						dialogueDestination->ubProfile)
+						dialogueDestination->identity().profile())
 				{
 					#ifdef JA2BETAVERSION
 						ScreenMsg( FONT_MCOLOR_RED, MSG_ERROR, L"Inconsistency between HandleNPCDoAction and target profile IDs" );
@@ -2899,7 +2899,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				if ( pSoldier != NULL )
 				{
-					TacticalRemoveSoldier( pSoldier->ubID );
+					TacticalRemoveSoldier( pSoldier->identity().id() );
 				}
 
 				// Find queen and joe and remove from sector...
@@ -2907,7 +2907,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				if ( pSoldier != NULL )
 				{
-					TacticalRemoveSoldier( pSoldier->ubID );
+					TacticalRemoveSoldier( pSoldier->identity().id() );
 				}
 				break;
 
@@ -2919,7 +2919,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				if ( pSoldier != NULL )
 				{
-					TacticalRemoveSoldier( pSoldier->ubID );
+					TacticalRemoveSoldier( pSoldier->identity().id() );
 				}
 
 				// End meanwhile....
@@ -2970,12 +2970,12 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				}
 
 				//set the fact that the merc is being married ( used in the personnel screen )
-				gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_MARRIED_TO_HICKS;
+				gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_MARRIED_TO_HICKS;
 
-				AddHistoryToPlayersLog( HISTORY_MERC_MARRIED_OFF, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
+				AddHistoryToPlayersLog( HISTORY_MERC_MARRIED_OFF, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 
 				// if Flo is going off with Daryl, then set that fact true
-				if( pSoldier->ubProfile == FLO )
+				if( pSoldier->identity().profile() == FLO )
 				{
 					SetFactTrue( FACT_PC_MARRYING_DARYL_IS_FLO );
 
@@ -3167,9 +3167,9 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 				if (pSoldier )
 				{
-					if ( pSoldier->ubCivilianGroup != NON_CIV_GROUP )
+					if ( pSoldier->roster().civilianGroup() != NON_CIV_GROUP )
 					{
-						if ( gTacticalStatus.fCivGroupHostile[ pSoldier->ubCivilianGroup ] == CIV_GROUP_NEUTRAL )
+						if ( gTacticalStatus.fCivGroupHostile[ pSoldier->roster().civilianGroup() ] == CIV_GROUP_NEUTRAL )
 						{
 							CivilianGroupMemberChangesSides( pSoldier );
 						}
@@ -3182,7 +3182,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					DeleteTalkingMenu();
 					if ( ! ( IsJa2TacticalCombatActive() ) )
 					{
-						EnterCombatMode( pSoldier->bTeam );
+						EnterCombatMode( pSoldier->roster().team() );
 					}
 				}
 				break;
@@ -3288,7 +3288,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 					CancelAIAction( pSoldier, FORCE );
 					// make stand up if not standing already
-					if ( ubTargetNPC == SLAY && pSoldier->ubBodyType == CRIPPLECIV )
+					if ( ubTargetNPC == SLAY && pSoldier->identity().bodyType() == CRIPPLECIV )
 					{
 						HandleNPCDoAction( SLAY, NPC_ACTION_GET_OUT_OF_WHEELCHAIR, ubQuoteNum );
 					}
@@ -3312,7 +3312,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					pSoldier = FindSoldierByProfileID( ubTargetNPC, FALSE );
 					if ( pSoldier )
 					{
-						wcsncpy( pSoldier->name, gMercProfiles[ ubTargetNPC ].zNickname, 10 );
+						wcsncpy( pSoldier->identity().name(), gMercProfiles[ ubTargetNPC ].zNickname, 10 );
 					}
 				}
 				break;
@@ -3550,7 +3550,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					// make sure the pickup starts dammit!
 					pSoldier->animationActivity().clearInterruptibility();
 
-					if ( pSoldier->ubProfile == ARMAND )
+					if ( pSoldier->identity().profile() == ARMAND )
 					{
 						sGridNo = 6968; //dnl!!!
 					}
@@ -3636,7 +3636,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_2;
 					}
 
-					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
+					if ( pTarget && pTarget->roster().active() && pTarget->roster().inSector() && pTarget->vitals().health() != 0 )
 					{
 						pSoldier->aiPlanning().nextAction() = AI_ACTION_KNIFE_MOVE;
 						pSoldier->aiPlanning().nextActionData() = pTarget->position().gridNo();
@@ -3655,7 +3655,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					}
 					else
 					{
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->identity().profile(), (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 				}
 				break;
@@ -3738,16 +3738,16 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_1;
 
 						// If we are elliot, we can't do unconocious guys....
-						if ( pSoldier->ubProfile == ELLIOT )
+						if ( pSoldier->identity().profile() == ELLIOT )
 						{
-							if ( pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() >= OKLIFE )
+							if ( pTarget->roster().active() && pTarget->roster().inSector() && pTarget->vitals().health() >= OKLIFE )
 							{
 								fGoodTarget = TRUE;
 							}
 						}
 						else
 						{
-							if ( pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
+							if ( pTarget->roster().active() && pTarget->roster().inSector() && pTarget->vitals().health() != 0 )
 							{
 								fGoodTarget = TRUE;
 							}
@@ -3775,7 +3775,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if ( cnt == 3 )
 					{
 						// If here, nobody was found...
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->identity().profile(), (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 				}
 				break;
@@ -3976,10 +3976,10 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							continue;
 						}
 						// Are we in this sector, On the current squad?
-						if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
+						if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < HOSPITAL_PATIENT_DISTANCE )
 						{
 							SetSoldierAssignment( pSoldier, ASSIGNMENT_HOSPITAL, 0, 0, 0 );
-							TriggerNPCRecord( pSoldier->ubProfile, 2 );
+							TriggerNPCRecord( pSoldier->identity().profile(), 2 );
 							pSoldier->employment().hospitalPriceModifier() = gbHospitalPriceModifier;
 							// make sure this person doesn't have an absolute dest any more
 							pSoldier->movement().absoluteDestination() = NOWHERE;
@@ -4075,7 +4075,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
 					gubNiceNPCProfile =
-						dialogueDestination->ubProfile;
+						dialogueDestination->identity().profile();
 				}
 				break;
 
@@ -4084,7 +4084,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					SetFactTrue( FACT_NEED_TO_SAY_SOMETHING );
 					gubNastyNPCProfile =
-						dialogueDestination->ubProfile;
+						dialogueDestination->identity().profile();
 				}
 				break;
 
@@ -4093,7 +4093,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( STEVE, FALSE ); // Steve Willis, 80
 				if (pSoldier)
 				{
-					if ( !pSoldier->bActive || !pSoldier->bInSector || !(pSoldier->bTeam == CIV_TEAM) || !(pSoldier->aiBehavior().neutral()) || (pSoldier->vitals().health() < OKLIFE) )
+					if ( !pSoldier->roster().active() || !pSoldier->roster().inSector() || !(pSoldier->roster().team() == CIV_TEAM) || !(pSoldier->aiBehavior().neutral()) || (pSoldier->vitals().health() < OKLIFE) )
 					{
 						pSoldier = NULL;
 					}
@@ -4102,7 +4102,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier2 = FindSoldierByProfileID( VINCE, FALSE ); // Vince, 69
 				if (pSoldier2)
 				{
-					if ( !pSoldier2->bActive || !pSoldier2->bInSector || !(pSoldier2->bTeam == CIV_TEAM) || !(pSoldier2->aiBehavior().neutral()) || (pSoldier2->vitals().health() < OKLIFE) )
+					if ( !pSoldier2->roster().active() || !pSoldier2->roster().inSector() || !(pSoldier2->roster().team() == CIV_TEAM) || !(pSoldier2->aiBehavior().neutral()) || (pSoldier2->vitals().health() < OKLIFE) )
 					{
 						pSoldier2 = NULL;
 					}
@@ -4273,7 +4273,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 			case NPC_ACTION_GET_OUT_OF_WHEELCHAIR:
 				pSoldier = FindSoldierByProfileID ( ubTargetNPC, FALSE );
-				if ( pSoldier && pSoldier->ubBodyType == CRIPPLECIV )
+				if ( pSoldier && pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					DeleteTalkingMenu();
 					pSoldier->EVENT_InitNewSoldierAnim( CRIPPLE_KICKOUT, 0, TRUE );
@@ -4282,7 +4282,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 			case NPC_ACTION_GET_OUT_OF_WHEELCHAIR_AND_BECOME_HOSTILE:
 				pSoldier = FindSoldierByProfileID ( ubTargetNPC, FALSE );
-				if ( pSoldier && pSoldier->ubBodyType == CRIPPLECIV )
+				if ( pSoldier && pSoldier->identity().bodyType() == CRIPPLECIV )
 				{
 					DeleteTalkingMenu();
 					pSoldier->EVENT_InitNewSoldierAnim( CRIPPLE_KICKOUT, 0, TRUE );
@@ -4461,11 +4461,11 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
                 Assert(pSoldier);
 				if ( pSoldier == NULL ) break;	// Assert is a no-op in release; FindSoldierByProfileID/ChangeSoldierTeam can return NULL
 				// remove profile from map
-				gMercProfiles[ pSoldier->ubProfile ].sSectorX = 0;
-				gMercProfiles[ pSoldier->ubProfile ].sSectorY = 0;
-				pSoldier->ubProfile = NO_PROFILE;
+				gMercProfiles[ pSoldier->identity().profile() ].sSectorX = 0;
+				gMercProfiles[ pSoldier->identity().profile() ].sSectorY = 0;
+				pSoldier->identity().profile() = NO_PROFILE;
 				// set to 0 civ group
-				pSoldier->ubCivilianGroup = 0;
+				pSoldier->roster().civilianGroup() = 0;
 				break;
 
 			case NPC_ACTION_TIMER_FOR_VEHICLE:
@@ -4491,7 +4491,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					EndAIGuysTurn( pSoldier );
 					RemoveManAsTarget( pSoldier );
-					TacticalRemoveSoldier( pSoldier->ubID );
+					TacticalRemoveSoldier( pSoldier->identity().id() );
 					gMercProfiles[ ubTargetNPC ].sSectorX = 0;
 					gMercProfiles[ ubTargetNPC ].sSectorY = 0;
 					CheckForEndOfBattle( TRUE );
@@ -4803,7 +4803,7 @@ UINT32 CalcMedicalCost( UINT8 ubId )
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL )
 		{
 			if ( pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0)
 			{
@@ -4932,7 +4932,7 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 
 	if (!destination)
 		return;
-	ubProfile = destination->ubProfile;
+	ubProfile = destination->identity().profile();
 
 	switch( gusDialogueMessageBoxType )
 	{
@@ -5090,7 +5090,7 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 					{
 						continue;
 					}
-					if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
+					if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
 					{
 						if (!pLier || (EffectiveWisdom( pSoldier ) + EffectiveLeadership( pSoldier ) > EffectiveWisdom( pLier ) + EffectiveLeadership( pSoldier ) ) )
 						{
@@ -5191,11 +5191,11 @@ void DialogueMessageBoxCallBack( UINT8 ubExitValue )
 		case NPC_ACTION_TRIGGER_MARRY_DARYL_PROMPT:
 			if (!source)
 				return;
-			gMercProfiles[ source->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_ASKED_BY_HICKS;
+			gMercProfiles[ source->identity().profile() ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_ASKED_BY_HICKS;
 			if ( ubExitValue == MSG_BOX_RETURN_YES )
 			{
 				gMercProfiles[ DARYL ].bNPCData =
-					(INT8) source->ubProfile;
+					(INT8) source->identity().profile();
 
 				// create key for Daryl to give to player
 				pSoldier = FindSoldierByProfileID( DARYL, FALSE );
@@ -5264,7 +5264,7 @@ void	DoneFadeInActionBasement( )
 			continue;
 		}
 		// Are we in this sector, On the current squad?
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector && pSoldier->assignment().current() == CurrentSquad( ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() && pSoldier->assignment().current() == CurrentSquad( ) )
 		{
 			break;
 		}
@@ -5281,7 +5281,7 @@ void	DoneFadeInActionBasement( )
 
 	// Converse!
 	//InitiateConversation( pNPCSoldier, pSoldier, 0, 1 );
-	TriggerNPCRecordImmediately( pNPCSoldier->ubProfile, 1 );
+	TriggerNPCRecordImmediately( pNPCSoldier->identity().profile(), 1 );
 
 
 }
@@ -5333,7 +5333,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 	else
 	{
 		// for Armand, hard code to tile 6968
-		if ( pSoldier->ubProfile == ARMAND )
+		if ( pSoldier->identity().profile() == ARMAND )
 		{
 			sStructGridNo = 6968; //dnl!!!
 		}
@@ -5358,7 +5358,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 	if ( pStructure->fFlags & STRUCTURE_OPEN )
 	{
 		// it's already open!
-		TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_OPEN_STRUCTURE, FALSE );
+		TriggerNPCWithGivenApproach( pSoldier->identity().profile(), APPROACH_DONE_OPEN_STRUCTURE, FALSE );
 		return( FALSE );
 	}
 
@@ -5506,7 +5506,7 @@ void PerformJerryMiloAction302()
 		TacticalCharacterDialogue( pSoldier, QUOTE_LAME_REFUSAL );
 
 		if( usNumMercsPresent == 1 )
-			ubProfileID = pSoldier->ubProfile;
+			ubProfileID = pSoldier->identity().profile();
 		else
 		{
 			BOOLEAN fDone=FALSE;
@@ -5528,7 +5528,7 @@ void PerformJerryMiloAction302()
 			{
 				return;
 			}
-			ubProfileID = respondingSoldier->ubProfile;
+			ubProfileID = respondingSoldier->identity().profile();
 		}
 
 		//Say the quote in 15 seconds
@@ -5674,7 +5674,7 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
 		{
-			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->ubID;
+			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->identity().id();
 			++ubNumValidSoldiers;
 		}
 	}
@@ -5761,7 +5761,7 @@ void HaveBiggensDetonatingExplosivesByTheMine()
 	pSoldier = FindSoldierByProfileID( BIGGENS_UB , FALSE ); //BIGGENS
 	if( pSoldier != NULL )
 	{
-		ubID = pSoldier->ubID;
+		ubID = pSoldier->identity().id();
 	}
 	//Have Biggens Triger the bombs by the cave wall
 	SetOffBombsByFrequency( ubID, FIRST_MAP_PLACED_FREQUENCY + 1 );
@@ -5893,7 +5893,7 @@ void HandleMercArrivesQuotesFromHeliCrashSequence()
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->bInSector )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().inSector() )
 		{
 			HandleMercArrivesQuotes( pSoldier );
 		}
@@ -5918,7 +5918,7 @@ void HandleRaulBlowingHimselfUp()
 		usItem = HAND_GRENADE;
 		INT16 sX, sY;
 		ConvertGridNoToCenterCellXY(pSoldier->position().gridNo(), &sX, &sY);
-		IgniteExplosion( pSoldier->ubID, sX, sY, 0, pSoldier->position().gridNo(), usItem, pSoldier->position().level() );
+		IgniteExplosion( pSoldier->identity().id(), sX, sY, 0, pSoldier->position().gridNo(), usItem, pSoldier->position().level() );
 
 		SetJa25GeneralFlag( JA_GF__RAUL_BLOW_HIMSELF_UP );
 	}
@@ -5963,7 +5963,7 @@ void HandleTexBecomingCamoed()
 	//Close down the talking menu...
 	DeleteTalkingMenu( );
 
-//		InitTalkingMenu( pSoldier->ubProfile, pSoldier->sGridNo );
+//		InitTalkingMenu( pSoldier->identity().profile(), pSoldier->sGridNo );
 
 	// Trigger Tex to say the quote, this will cause the radio locater to come up giving a pause to make it appear that he
 	// put on camoflauge
@@ -6006,18 +6006,18 @@ void DisplayJerryBreakingLaptopTransmitterPopup()
 		uiStartLoc = EDT_SIZE * 10;
 		LoadEncryptedDataFromFile(LANGMESSAGEFILE, sText, uiStartLoc, EDT_SIZE);	
 	
-		swprintf( zString, sText, namedSoldier->name );
+		swprintf( zString, sText, namedSoldier->identity().name() );
 	}
 	else
 	{
 		//Create the string
-		swprintf( zString, zNewTacticalMessages[ TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA ], namedSoldier->name );
+		swprintf( zString, zNewTacticalMessages[ TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA ], namedSoldier->identity().name() );
 	}
 */
 	#ifdef UBMODSHADYJOB   //See file builddefines.h
 		swprintf( zString, XMLTacticalMessages[0] ); //Shady Job
 	#else
-		swprintf( zString, zNewTacticalMessages[TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA], namedSoldier->name ); //UB
+		swprintf( zString, zNewTacticalMessages[TCTL_MSG__JERRY_BREAKIN_LAPTOP_ANTENA], namedSoldier->identity().name() ); //UB
 	#endif
 	
 

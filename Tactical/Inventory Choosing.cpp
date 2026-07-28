@@ -3044,7 +3044,7 @@ void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
 
 	// all creature items in this first section are only offensive/defensive placeholders, and
 	// never get dropped, because they're not real items!
-	switch( pSoldier->ubBodyType)
+	switch( pSoldier->identity().bodyType())
 	{
 		case ADULTFEMALEMONSTER:
 			CreateItem( CREATURE_OLD_FEMALE_CLAWS,	100, &(pSoldier->inv[HANDPOS]) );
@@ -3105,7 +3105,7 @@ void AssignCreatureInventory( SOLDIERTYPE *pSoldier )
 			break;
 
 		default:
-			AssertMsg( FALSE, String( "Invalid creature bodytype %d", pSoldier->ubBodyType ) );
+			AssertMsg( FALSE, String( "Invalid creature bodytype %d", pSoldier->identity().bodyType() ) );
 			return;
 	}
 

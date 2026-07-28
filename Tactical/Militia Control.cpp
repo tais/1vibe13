@@ -160,7 +160,7 @@ void RemoveMilitiaFromTactical()
 	SOLDIERINITNODE *curr;
 	for( SoldierID id = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; id <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++id )
 	{
-		if( GetJa2SoldierRepository().resolve(id.i)->bActive )
+		if( GetJa2SoldierRepository().resolve(id.i)->roster().active() )
 		{
 			TacticalRemoveSoldier( id );
 		}
@@ -306,7 +306,7 @@ void HandleMilitiaPromotions( void )
 	for ( ; cnt <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0 )
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->vitals().health() > 0 )
 		{
 			// Flugente: take care of promotions and individual militia update
 			HandlePossibleMilitiaPromotion( pTeamSoldier, FALSE );	
@@ -1095,7 +1095,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_ATTACK ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1106,7 +1106,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							pTMilitiaSoldier->aiBehavior().attitude() = AGGRESSIVE;
 							pTMilitiaSoldier->movement().mode() = RUNNING;
 
-							MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_SCREAM);
+							MakeNoise( pSoldier->identity().id(), pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_SCREAM);
 						}
 
 						DeductPoints( pSoldier, APBPConstants[AP_TALK], 0 );
@@ -1127,7 +1127,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_HOLD ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1157,7 +1157,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_RETREAT ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1213,7 +1213,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_COMETOME ):
 					if (fCanCommunicate)
 					{	
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1263,7 +1263,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_GETDOWN ):
 					if (fCanCommunicate)
 					{
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1293,7 +1293,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_CROUCH ):
 					if (fCanCommunicate)
 					{
-						if ((pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE))
+						if ((pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE))
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1323,7 +1323,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 				case( MILCON_MENU_TAKE_COVER ):
 					if (fCanCommunicate)
 					{	
-						if ( (pTMilitiaSoldier->bActive) && (pTMilitiaSoldier->bInSector) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
+						if ( (pTMilitiaSoldier->roster().active()) && (pTMilitiaSoldier->roster().inSector()) && (pTMilitiaSoldier->vitals().health() >= OKLIFE) )
 						{
 							// sevenfm: stop any AI
 							pTMilitiaSoldier->EVENT_StopMerc(pTMilitiaSoldier->position().gridNo(), pTMilitiaSoldier->position().direction());
@@ -1398,7 +1398,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1437,7 +1437,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1476,7 +1476,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1542,7 +1542,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1600,7 +1600,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1654,7 +1654,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1694,7 +1694,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
@@ -1736,7 +1736,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 						{
 							pTeamSoldier =
 								GetJa2SoldierRepository().resolve(cnt.i);
-							if ( (pTeamSoldier->bActive) && (pTeamSoldier->bInSector) && (pTeamSoldier->vitals().health() >= OKLIFE) )
+							if ( (pTeamSoldier->roster().active()) && (pTeamSoldier->roster().inSector()) && (pTeamSoldier->vitals().health() >= OKLIFE) )
 							{
 								// sevenfm: stop any AI
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());

@@ -604,7 +604,7 @@ INT8 GetSightAdjustmentCamouflageOnTerrain( SOLDIERTYPE* pSoldier, const UINT8& 
 
 	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + pSoldier->GetBackgroundValue(BG_PERC_CAMO);
 
-	if (ProfileHasSkillTrait(pSoldier->ubProfile, SURVIVAL_NT))
+	if (ProfileHasSkillTrait(pSoldier->identity().profile(), SURVIVAL_NT))
 	{
 		effectiveness += gSkillTraitValues.ubSVCamoEffectivenessBonus;
 	}
@@ -648,7 +648,7 @@ INT8 GetDetailedSightAdjustmentCamouflageOnTerrain( SOLDIERTYPE* pSoldier, const
 
 	INT16 effectiveness = gGameExternalOptions.ubCamouflageEffectiveness + pSoldier->GetBackgroundValue(BG_PERC_CAMO);
 
-	if (ProfileHasSkillTrait(pSoldier->ubProfile, SURVIVAL_NT))
+	if (ProfileHasSkillTrait(pSoldier->identity().profile(), SURVIVAL_NT))
 	{
 		effectiveness += gSkillTraitValues.ubSVCamoEffectivenessBonus;
 	}
@@ -2012,7 +2012,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 {
 	UINT8		ubHeight;
 
-	if ( pSoldier->ubBodyType == CROW )
+	if ( pSoldier->identity().bodyType() == CROW )
 	{
 		// Crow always as prone...
 		ubHeight = ANIM_PRONE;
@@ -2029,7 +2029,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 	}
 	else
 	{
-		if ( CREATURE_OR_BLOODCAT( pSoldier ) || pSoldier->ubBodyType == COW )
+		if ( CREATURE_OR_BLOODCAT( pSoldier ) || pSoldier->identity().bodyType() == COW )
 		{
 			// this if statement is to avoid the 'creature weak spot' target
 			// spot for creatures
@@ -2166,12 +2166,12 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 		}
 		break;
 	}
-	if ( pSoldier->ubBodyType == HATKIDCIV || pSoldier->ubBodyType == KIDCIV )
+	if ( pSoldier->identity().bodyType() == HATKIDCIV || pSoldier->identity().bodyType() == KIDCIV )
 	{
 		// reduce value for kids who are 2/3 the height of regular people
 		*pdZPos = (*pdZPos * 2) / 3;
 	}
-	else if ( pSoldier->ubBodyType == ROBOTNOWEAPON || pSoldier->ubBodyType == LARVAE_MONSTER || pSoldier->ubBodyType == INFANT_MONSTER || pSoldier->ubBodyType == BLOODCAT )
+	else if ( pSoldier->identity().bodyType() == ROBOTNOWEAPON || pSoldier->identity().bodyType() == LARVAE_MONSTER || pSoldier->identity().bodyType() == INFANT_MONSTER || pSoldier->identity().bodyType() == BLOODCAT )
 	{
 		// robot is 1/3 the height of regular people
 		*pdZPos = *pdZPos / 3;
@@ -2188,7 +2188,7 @@ BOOLEAN CalculateSoldierZPos( SOLDIERTYPE * pSoldier, UINT8 ubPosType, FLOAT * p
 
 	// IF this is a plane, strafe!
 	// ATE: Don;t panic - this is temp - to be changed to a status flag....
-	if ( pSoldier->ubID == MAX_NUM_SOLDIERS )
+	if ( pSoldier->identity().id() == MAX_NUM_SOLDIERS )
 	{
 		*pdZPos = ( WALL_HEIGHT_UNITS * 2 ) - 1;
 	}
@@ -2242,11 +2242,11 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 		//if (gBloodcatPlacements[ ubSectorID ][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation == QUEENS_CIV_GROUP)	
 		{
 			// skip sight between army & bloodcats
-			if ( pStartSoldier->bTeam == ENEMY_TEAM && pEndSoldier->bTeam == CREATURE_TEAM && pEndSoldier->ubBodyType == BLOODCAT )
+			if ( pStartSoldier->roster().team() == ENEMY_TEAM && pEndSoldier->roster().team() == CREATURE_TEAM && pEndSoldier->identity().bodyType() == BLOODCAT )
 			{
 				return( 0 );
 			}
-			if ( pStartSoldier->bTeam == CREATURE_TEAM && pStartSoldier->ubBodyType == BLOODCAT && pEndSoldier->bTeam == ENEMY_TEAM )
+			if ( pStartSoldier->roster().team() == CREATURE_TEAM && pStartSoldier->identity().bodyType() == BLOODCAT && pEndSoldier->roster().team() == ENEMY_TEAM )
 			{
 				return( 0 );
 			}
@@ -2255,17 +2255,17 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 		//else if (gBloodcatPlacements[ ubSectorID ][ gGameOptions.ubDifficultyLevel-1 ].ubFactionAffiliation > NON_CIV_GROUP)
 		{
 			// Bloodcats in this sector belong to a faction. They adhere to certain rules as a result.
-			if ( pEndSoldier->bTeam == CREATURE_TEAM && pEndSoldier->ubBodyType == BLOODCAT && pStartSoldier->bSide != gbPlayerNum)
+			if ( pEndSoldier->roster().team() == CREATURE_TEAM && pEndSoldier->identity().bodyType() == BLOODCAT && pStartSoldier->roster().side() != gbPlayerNum)
 			{
 				// Target is a bloodcat. He can't be spotted by civilians no matter what.
 				{
 					return ( 0 );
 				}
 			}
-			else if ( pStartSoldier->bTeam == CREATURE_TEAM && pStartSoldier->ubBodyType == BLOODCAT )
+			else if ( pStartSoldier->roster().team() == CREATURE_TEAM && pStartSoldier->identity().bodyType() == BLOODCAT )
 			{
 				// Source is a bloodcat. He can only spot player-side soldiers, and only if hostile.
-				if ( pEndSoldier->bSide != gbPlayerNum || pStartSoldier->aiBehavior().neutral() )
+				if ( pEndSoldier->roster().side() != gbPlayerNum || pStartSoldier->aiBehavior().neutral() )
 				{
 					return ( 0 );
 				}
@@ -2772,7 +2772,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// when the bullet got near him
 	//pTarget->suppression().points()--;
 
-	if ( pTarget->status().flags() & SOLDIER_VEHICLE || (pTarget->ubBodyType == COW || pTarget->ubBodyType == CROW || pTarget->ubBodyType == BLOODCAT) )
+	if ( pTarget->status().flags() & SOLDIER_VEHICLE || (pTarget->identity().bodyType() == COW || pTarget->identity().bodyType() == CROW || pTarget->identity().bodyType() == BLOODCAT) )
 	{
 		//ubHitLocation = pStructure->ubVehicleHitLocation;
 		ubHitLocation = AIM_SHOT_TORSO;
@@ -2786,7 +2786,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			ubHitLocation = AIM_SHOT_TORSO;
 
 			// adult monster types have a weak spot
-			if ( (pTarget->ubBodyType >= ADULTFEMALEMONSTER) && (pTarget->ubBodyType <=	YAM_MONSTER) )
+			if ( (pTarget->identity().bodyType() >= ADULTFEMALEMONSTER) && (pTarget->identity().bodyType() <=	YAM_MONSTER) )
 			{
 				// HEADROCK HAM 5.1: Bullet data now contains its original coordinates.
 				ubAttackDirection = (UINT8) GetDirectionToGridNoFromGridNo( pBullet->sOrigGridNo, pTarget->position().gridNo() );
@@ -2821,7 +2821,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			else
 			{
 				// Flugente: kids are smaller. We have to keep hat in mind... otherwise we will never make a sucessful headshot
-				BOOLEAN iskid = ( pTarget->ubBodyType == HATKIDCIV || pTarget->ubBodyType == KIDCIV );
+				BOOLEAN iskid = ( pTarget->identity().bodyType() == HATKIDCIV || pTarget->identity().bodyType() == KIDCIV );
 
 				switch (gAnimControl[ pTarget->animationPlayback().state() ].ubEndHeight)
 				{
@@ -3007,7 +3007,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// Determine damage, checking guy's armour, etc
 	sRange = GetRangeInCellCoordsFromGridNoDiff( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 
-	if ( gTacticalStatus.uiFlags & GODMODE && pTarget->bTeam == OUR_TEAM && pFirer != nullptr && !(pFirer->status().flags() & SOLDIER_PC))
+	if ( gTacticalStatus.uiFlags & GODMODE && pTarget->roster().team() == OUR_TEAM && pFirer != nullptr && !(pFirer->status().flags() & SOLDIER_PC))
 	{
 		// in god mode, and firer is computer controlled
 		iImpact = 0;
@@ -3015,7 +3015,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 	else if (fIntended)
 	{
-		if ( pFirer != nullptr && pFirer->awareness().opponentKnowledge()[pTarget->ubID] == SEEN_CURRENTLY)
+		if ( pFirer != nullptr && pFirer->awareness().opponentKnowledge()[pTarget->identity().id()] == SEEN_CURRENTLY)
 		{
 			sHitBy = pBullet->sHitBy;
 		}
@@ -3037,7 +3037,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		iDamage = BulletImpact( pFirer, pBullet, pTarget, ubHitLocation, iImpact, sHitBy, &ubSpecial );
 		// handle hit here...
 		// HEADROCK HAM 5: Fragments not counted as shots.
-		if( pFirer != nullptr && pFirer->bTeam == OUR_TEAM && !(pBullet->fFragment) )
+		if( pFirer != nullptr && pFirer->roster().team() == OUR_TEAM && !(pBullet->fFragment) )
 		{
 			// SANDRO - new mercs' records 
 			// if we shoot with buckshot or similar, do not count a hit for every pellet
@@ -3045,18 +3045,18 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			{
 				// if just one pellet hits the target, record it as successful hit, ignore the rest
 				if ( pTarget->combatResult().pelletsHitBy() == 0 )
-					gMercProfiles[ pFirer->ubProfile ].records.usShotsHit++;
+					gMercProfiles[ pFirer->identity().profile() ].records.usShotsHit++;
 			}
 			else
 			{
-				gMercProfiles[ pFirer->ubProfile ].records.usShotsHit++;
+				gMercProfiles[ pFirer->identity().profile() ].records.usShotsHit++;
 			}
 		}
 
 		// intentionally shot
 		pTarget->targeting().intendedTarget() = TRUE;
 
-		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->ubID == pFirer->targeting().targetId() ) )
+		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->identity().id() == pFirer->targeting().targetId() ) )
 		{
 			pTarget->combatResult().pelletsHitBy()++;
 		}
@@ -3071,7 +3071,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		// we aimed though, so now that the bullet hits the intended target, we can calculate extra experience
 		// based on the aiming value.
 		
-		if ( UsingNewCTHSystem() && pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pBullet->fAimed) // Only for single shot, first bullet in volley, or first bullet in spread.
+		if ( UsingNewCTHSystem() && pFirer != nullptr && pFirer->roster().team() == gbPlayerNum && pBullet->fAimed) // Only for single shot, first bullet in volley, or first bullet in spread.
 		{
 			UINT16 usExpGain = 10;
 
@@ -3081,7 +3081,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			{
 				usExpGain = (usExpGain * pBullet->sHitBy) / 100;
 
-				if ( pTarget->ubBodyType == COW || pTarget->ubBodyType == CROW )
+				if ( pTarget->identity().bodyType() == COW || pTarget->identity().bodyType() == CROW )
 				{
 					usExpGain /= 2;
 				}
@@ -3161,35 +3161,35 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 
 	// check to see if the guy is a friendly?..if so, up the number of times wounded
-	if( ( pTarget->bTeam == gbPlayerNum ) && iDamage > 1 ) // damage of 1 is just a scratch, not a real wound
+	if( ( pTarget->roster().team() == gbPlayerNum ) && iDamage > 1 ) // damage of 1 is just a scratch, not a real wound
 	{
 		if ( pBullet->usFlags & BULLET_FLAG_BUCKSHOT ) 
 		{
 			// SANDRO - if just one pellet hits the target, record it as being wounded, ignore the rest
 			if ( pTarget->combatResult().pelletsHitBy() == 0 )
-				gMercProfiles[ pTarget->ubProfile ].records.usTimesWoundedShot++;
+				gMercProfiles[ pTarget->identity().profile() ].records.usTimesWoundedShot++;
 		}
 		else
 		{
 			if ( pBullet->usFlags & BULLET_FLAG_KNIFE )
-				gMercProfiles[ pTarget->ubProfile ].records.usTimesWoundedStabbed++;
+				gMercProfiles[ pTarget->identity().profile() ].records.usTimesWoundedStabbed++;
 			else
-				gMercProfiles[ pTarget->ubProfile ].records.usTimesWoundedShot++;
+				gMercProfiles[ pTarget->identity().profile() ].records.usTimesWoundedShot++;
 		}
 	}
 
 	// check to see if someone was accidentally hit when no target was specified by the player
-	if ( pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pFirer->targeting().targetId() == NOBODY && pTarget->aiBehavior().neutral()	)
+	if ( pFirer != nullptr && pFirer->roster().team() == gbPlayerNum && pFirer->targeting().targetId() == NOBODY && pTarget->aiBehavior().neutral()	)
 	{
-		if ( pTarget->ubCivilianGroup == KINGPIN_CIV_GROUP || pTarget->ubCivilianGroup == HICKS_CIV_GROUP )
+		if ( pTarget->roster().civilianGroup() == KINGPIN_CIV_GROUP || pTarget->roster().civilianGroup() == HICKS_CIV_GROUP )
 		{
 			// hicks and kingpin are touchy!
-			pFirer->targeting().targetId() = pTarget->ubID;
+			pFirer->targeting().targetId() = pTarget->identity().id();
 		}
 		else if ( Random( 100 ) < 60 )
 		{
 			// get touchy
-			pFirer->targeting().targetId() = pTarget->ubID;
+			pFirer->targeting().targetId() = pTarget->identity().id();
 		}
 	}
 
@@ -3199,8 +3199,8 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 
 	// Send event for getting hit
 	memset( &(SWeaponHit), 0, sizeof( SWeaponHit ) );
-	SWeaponHit.usSoldierID			= pTarget->ubID;
-	SWeaponHit.uiUniqueId			= pTarget->uiUniqueSoldierIdValue;
+	SWeaponHit.usSoldierID			= pTarget->identity().id();
+	SWeaponHit.uiUniqueId			= pTarget->identity().incarnation();
 	// HEADROCK HAM 5: Already defined.
 	SWeaponHit.usWeaponIndex		= usAttackingWeapon;
 	SWeaponHit.sDamage				= (INT16) iDamage;
@@ -3262,7 +3262,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		}
 	}
 
-	if ( GetJa2TacticalCurrentTeam() != OUR_TEAM && pTarget->bTeam == gbPlayerNum )
+	if ( GetJa2TacticalCurrentTeam() != OUR_TEAM && pTarget->roster().team() == gbPlayerNum )
 	{
 		// someone has been hit so no close-call quotes
 		gTacticalStatus.fSomeoneHit = TRUE;
@@ -3289,7 +3289,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	
 	// Flugente: add blood spatter to wall next to target
 	if ( gGameExternalOptions.fAdditionalDecals
-		&&( pTarget->ubBodyType < ADULTFEMALEMONSTER || (pTarget->ubBodyType >= FATCIV && pTarget->ubBodyType <= BLOODCAT) )
+		&&( pTarget->identity().bodyType() < ADULTFEMALEMONSTER || (pTarget->identity().bodyType() >= FATCIV && pTarget->identity().bodyType() <= BLOODCAT) )
 		&& iDamage > 15 )
 	{
 		// the direction in SWeaponHit.usDirection is erversed for whatever reason
@@ -3486,7 +3486,7 @@ void BulletHitWindow( BULLET *pBullet, INT32 sGridNo, UINT16 usStructureID, BOOL
 		SWindowHit.fBlowWindowSouth = fBlowWindowSouth;
 		SWindowHit.fLargeForce = FALSE;
 		SWindowHit.iBullet = pBullet->iBullet;
-		SWindowHit.ubAttackerID=pBullet->pFirer->ubID;
+		SWindowHit.ubAttackerID=pBullet->pFirer->identity().id();
 		//hayden
 		if(is_client)
 			send_hitwindow(&SWindowHit);
@@ -3501,7 +3501,7 @@ void BulletMissed( BULLET *pBullet, SOLDIERTYPE * pFirer )
 	{
 		EV_S_MISS SMiss;
 		SMiss.iBullet=pBullet->iBullet;
-		SMiss.ubAttackerID=pFirer->ubID;
+		SMiss.ubAttackerID=pFirer->identity().id();
 		//hayden
 		if(is_client)
 			send_miss(&SMiss);
@@ -3670,8 +3670,8 @@ INT32 HandleBulletStructureInteraction( BULLET * pBullet, STRUCTURE * pStructure
 						}
 
 						// SANDRO - merc records - locks breached
-						if ( pBullet->pFirer && pBullet->pFirer->ubProfile != NO_PROFILE )
-							gMercProfiles[ pBullet->pFirer->ubProfile ].records.usLocksBreached++;
+						if ( pBullet->pFirer && pBullet->pFirer->identity().profile() != NO_PROFILE )
+							gMercProfiles[ pBullet->pFirer->identity().profile() ].records.usLocksBreached++;
 					}
 				}
 			}
@@ -4335,7 +4335,7 @@ UINT8 SoldierToSoldierChanceToGetThrough( SOLDIERTYPE * pStartSoldier, SOLDIERTY
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
-	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->ubID );
+	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->identity().id() );
 
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
@@ -4379,7 +4379,7 @@ UINT8 SoldierToSoldierBodyPartChanceToGetThrough( SOLDIERTYPE * pStartSoldier, S
 
 	// set startsoldier's target ID ... need an ID stored in case this
 	// is the AI calculating cover to a location where he might not be any more
-	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->ubID );
+	pStartSoldier->targeting().rememberLineOfFireTarget( pEndSoldier->identity().id() );
 	ConvertGridNoToCenterCellXY(pEndSoldier->position().gridNo(), &sX, &sY);
 	return( ChanceToGetThrough( pStartSoldier, (FLOAT) sX, (FLOAT) sY, dEndZPos ) );
 }
@@ -4691,17 +4691,17 @@ INT8 FireBullet( SoldierID ubFirer, BULLET * pBullet, BOOLEAN fFake )
 
 		// increment shots fired if shooter has a merc profile
 		// SANDRO - this was moved elsewhere
-		//if( ( pFirer->ubProfile != NO_PROFILE ) && ( pFirer->bTeam == gbPlayerNum ) )
+		//if( ( pFirer->identity().profile() != NO_PROFILE ) && ( pFirer->roster().team() == gbPlayerNum ) )
 		//{
 		//	// another shot fired
 		//	/////////////////////////////////////////////////////////////////////////////////////
 		//	// SANDRO - new mercs' records
 		//	if ( Item[ pFirer->attackSelection().weapon() ].usItemClass == IC_LAUNCHER || Item[pFirer->attackSelection().weapon()].grenadelauncher || Item[pFirer->attackSelection().weapon()].rocketlauncher || Item[pFirer->attackSelection().weapon()].singleshotrocketlauncher || Item[pFirer->attackSelection().weapon()].mortar)
-		//		gMercProfiles[ pFirer->ubProfile ].records.usMissilesLaunched++;
+		//		gMercProfiles[ pFirer->identity().profile() ].records.usMissilesLaunched++;
 		//	else if ( Item[ pFirer->attackSelection().weapon() ].usItemClass == IC_THROWING_KNIFE )
-		//		gMercProfiles[ pFirer->ubProfile ].records.usKnivesThrown++;
+		//		gMercProfiles[ pFirer->identity().profile() ].records.usKnivesThrown++;
 		//	else 
-		//		gMercProfiles[ pFirer->ubProfile ].records.usShotsFired++;
+		//		gMercProfiles[ pFirer->identity().profile() ].records.usShotsFired++;
 		//	
 		//	/////////////////////////////////////////////////////////////////////////////////////
 		//}
@@ -4924,7 +4924,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 	// GET BULLET
 	for (ubLoop = 0; ubLoop < ubShots; ubLoop++)
 	{
-		iBullet = CreateBullet( pFirer->ubID, fFake, usBulletFlags,usHandItem );
+		iBullet = CreateBullet( pFirer->identity().id(), fFake, usBulletFlags,usHandItem );
 		if (iBullet == -1)
 		{
 			//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Failed to create bullet") );
@@ -5125,7 +5125,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 						fprintf(OutFile, "{ % 9.8f , % 9.8f , % 9.8f , % 9.8f }, //DEBUG: merc %4d fired pellet %4d of %4d using method %4d %12s with SpreadPattern %4d %s\n",
 							ddRawHorizAngle, ddRawVerticAngle,
 							ddHorizAngle, ddVerticAngle,
-							pFirer->ubID.i, ubLoop, ubShots,
+							pFirer->identity().id().i, ubLoop, ubShots,
 							gpSpreadPattern[ubSpreadIndex].method, gSpreadPatternMethodNames[gpSpreadPattern[ubSpreadIndex].method],
 							ubSpreadIndex, gpSpreadPattern[ubSpreadIndex].Name,
 							NULL
@@ -5216,7 +5216,7 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 		}
 		if (fFake)
 		{
-			bCTGT = FireBullet( pFirer->ubID, pBullet, TRUE );
+			bCTGT = FireBullet( pFirer->identity().id(), pBullet, TRUE );
 			RemoveBullet( iBullet );
 			bTempCTGT = __max( bTempCTGT, bCTGT);
 			if ( ubLoop + 1 < ubShots && bTempCTGT < 100 )
@@ -5235,21 +5235,21 @@ INT8 FireBulletGivenTargetNCTH( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, 
 			//			}
 			//hayden
 			if(is_client)send_bullet( pBullet, usHandItem );
-			FireBullet( pFirer->ubID, pBullet, FALSE );
+			FireBullet( pFirer->identity().id(), pBullet, FALSE );
 		}
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - new mercs' records
-	if( !fFake && ( pFirer->ubProfile != NO_PROFILE ) && ( pFirer->bTeam == gbPlayerNum ) )
+	if( !fFake && ( pFirer->identity().profile() != NO_PROFILE ) && ( pFirer->roster().team() == gbPlayerNum ) )
 	{
 		// another shot fired
 		if ( Item[usHandItem].usItemClass == IC_LAUNCHER || ItemIsGrenadeLauncher(usHandItem) || ItemIsRocketLauncher(usHandItem) || ItemIsSingleShotRocketLauncher(usHandItem) || ItemIsMortar(usHandItem))
-			gMercProfiles[ pFirer->ubProfile ].records.usMissilesLaunched++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usMissilesLaunched++;
 		else if ( Item[usHandItem].usItemClass == IC_THROWING_KNIFE )
-			gMercProfiles[ pFirer->ubProfile ].records.usKnivesThrown++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usKnivesThrown++;
 		else 
-			gMercProfiles[ pFirer->ubProfile ].records.usShotsFired++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usShotsFired++;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
@@ -5460,7 +5460,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 	// GET BULLET
 	for (ubLoop = 0; ubLoop < ubShots; ++ubLoop)
 	{
-		iBullet = CreateBullet( pFirer->ubID, fFake, usBulletFlags,usHandItem );
+		iBullet = CreateBullet( pFirer->identity().id(), fFake, usBulletFlags,usHandItem );
 		if (iBullet == -1)
 		{
 			//DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Failed to create bullet") );
@@ -5654,7 +5654,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 						fprintf(OutFile, "{ % 9.8f , % 9.8f , % 9.8f , % 9.8f }, //DEBUG: merc %4d fired pellet %4d of %4d using method %4d %12s with SpreadPattern %4d %s\n",
 							ddRawHorizAngle, ddRawVerticAngle,
 							ddHorizAngle, ddVerticAngle,
-							pFirer->ubID.i, ubLoop, ubShots,
+							pFirer->identity().id().i, ubLoop, ubShots,
 							gpSpreadPattern[ubSpreadIndex].method, gSpreadPatternMethodNames[gpSpreadPattern[ubSpreadIndex].method],
 							ubSpreadIndex, gpSpreadPattern[ubSpreadIndex].Name
 						);
@@ -5744,7 +5744,7 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 		}
 		if (fFake)
 		{
-			bCTGT = FireBullet( pFirer->ubID, pBullet, TRUE );
+			bCTGT = FireBullet( pFirer->identity().id(), pBullet, TRUE );
 			RemoveBullet( iBullet );
 			return( bCTGT );
 		}
@@ -5759,21 +5759,21 @@ INT8 FireBulletGivenTarget( SOLDIERTYPE * pFirer, FLOAT dEndX, FLOAT dEndY, FLOA
 			if(is_client)
 				send_bullet( pBullet, usHandItem );
 
-			FireBullet( pFirer->ubID, pBullet, FALSE );
+			FireBullet( pFirer->identity().id(), pBullet, FALSE );
 		}
 	}
 
 	/////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - new mercs' records
-	if( !fFake && ( pFirer->ubProfile != NO_PROFILE ) && ( pFirer->bTeam == gbPlayerNum ) )
+	if( !fFake && ( pFirer->identity().profile() != NO_PROFILE ) && ( pFirer->roster().team() == gbPlayerNum ) )
 	{
 		// another shot fired
 		if ( Item[usHandItem].usItemClass == IC_LAUNCHER || ItemIsGrenadeLauncher(usHandItem) || ItemIsRocketLauncher(usHandItem) || ItemIsSingleShotRocketLauncher(usHandItem) || ItemIsMortar(usHandItem))
-			gMercProfiles[ pFirer->ubProfile ].records.usMissilesLaunched++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usMissilesLaunched++;
 		else if ( Item[usHandItem].usItemClass == IC_THROWING_KNIFE )
-			gMercProfiles[ pFirer->ubProfile ].records.usKnivesThrown++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usKnivesThrown++;
 		else 
-			gMercProfiles[ pFirer->ubProfile ].records.usShotsFired++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usShotsFired++;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 
@@ -5927,15 +5927,15 @@ INT8 FireFragmentGivenTarget( SoldierID ubOwner, FLOAT dStartX, FLOAT dStartY, F
 	/////////////////////////////////////////////////////////////////////////////////////
 	// SANDRO - new mercs' records
 	/* Make a new record for these if you want, but right now it's disabled for fragments.
-	if( !fFake && ( pFirer->ubProfile != NO_PROFILE ) && ( pFirer->bTeam == gbPlayerNum ) )
+	if( !fFake && ( pFirer->identity().profile() != NO_PROFILE ) && ( pFirer->roster().team() == gbPlayerNum ) )
 	{
 		// another shot fired
 		if ( Item[usHandItem].usItemClass == IC_LAUNCHER || Item[usHandItem].grenadelauncher || Item[usHandItem].rocketlauncher || Item[usHandItem].singleshotrocketlauncher || Item[usHandItem].mortar)
-			gMercProfiles[ pFirer->ubProfile ].records.usMissilesLaunched++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usMissilesLaunched++;
 		else if ( Item[usHandItem].usItemClass == IC_THROWING_KNIFE )
-			gMercProfiles[ pFirer->ubProfile ].records.usKnivesThrown++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usKnivesThrown++;
 		else 
-			gMercProfiles[ pFirer->ubProfile ].records.usShotsFired++;
+			gMercProfiles[ pFirer->identity().profile() ].records.usShotsFired++;
 	}
 	/////////////////////////////////////////////////////////////////////////////////////
 	*/
@@ -6394,7 +6394,7 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 		if(is_client)
 			send_bullet( pBullet, usItem );
 
-		FireBullet( pThrower ? pThrower->ubID : NOBODY, pBullet, FALSE );
+		FireBullet( pThrower ? pThrower->identity().id() : NOBODY, pBullet, FALSE );
 	}
 
 	///////////////////////// SOUND ////////////////////////////
@@ -7281,7 +7281,7 @@ void MoveBullet( INT32 iBullet )
 					}
 
 					// this might be a close call
-					if ( pBullet->pFirer != nullptr && pSoldier->bTeam == gbPlayerNum && pBullet->pFirer->bTeam != gbPlayerNum && sDesiredLevel == pSoldier->position().level() )
+					if ( pBullet->pFirer != nullptr && pSoldier->roster().team() == gbPlayerNum && pBullet->pFirer->roster().team() != gbPlayerNum && sDesiredLevel == pSoldier->position().level() )
 					{
 						pSoldier->suppression().markCloseCall();
 					}
@@ -7290,7 +7290,7 @@ void MoveBullet( INT32 iBullet )
 					{
 						// apply suppression, regardless of friendly or enemy
 						// except if friendly, not within a few tiles of shooter
-						if (pBullet->pFirer == nullptr || pSoldier->bSide != pBullet->pFirer->bSide || pBullet->iLoop > gGameExternalOptions.usMinDistanceFriendlySuppression)
+						if (pBullet->pFirer == nullptr || pSoldier->roster().side() != pBullet->pFirer->roster().side() || pBullet->iLoop > gGameExternalOptions.usMinDistanceFriendlySuppression)
 						{
 							// buckshot has only a 1 in 2 chance of applying a suppression point
 							// HEADROCK HAM 5: For NCTH, make pellets as effective as any other bullet.
@@ -7382,7 +7382,7 @@ void MoveBullet( INT32 iBullet )
 							pTarget =
 								GetJa2SoldierRepository().resolve(
 									ubTargetID );
-							if ( pTarget != nullptr && IS_MERC_BODY_TYPE( pTarget ) && (pBullet->pFirer == nullptr || pBullet->pFirer->bSide != pTarget->bSide) )
+							if ( pTarget != nullptr && IS_MERC_BODY_TYPE( pTarget ) && (pBullet->pFirer == nullptr || pBullet->pFirer->roster().side() != pTarget->roster().side()) )
 							{
 								// buckshot has only a 1 in 2 chance of applying a suppression point
 								// HEADROCK HAM 5: For NCTH, make pellets as effective as any other bullet.
@@ -9970,9 +9970,9 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 
 	if (ubTargetID != NOBODY)
 	{
-		if (pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] == SEEN_CURRENTLY)
+		if (pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->roster().team()][ubTargetID] == SEEN_CURRENTLY)
 			iSightRange *= 2;
-		else if(pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] != SEEN_CURRENTLY)
+		else if(pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->roster().team()][ubTargetID] != SEEN_CURRENTLY)
 			iSightRange *= 4;
 	}
 

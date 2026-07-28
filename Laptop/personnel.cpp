@@ -523,19 +523,19 @@ void EnterPersonnel( void )
 		GetJa2SoldierRepository().resolve(0);
 	if ( !pTeamSoldier )
 		return;
-	for (SoldierID idx = gTacticalStatus.Team[ pTeamSoldier->bTeam ].bFirstID;
-	     idx <= gTacticalStatus.Team[ pTeamSoldier->bTeam ].bLastID;
+	for (SoldierID idx = gTacticalStatus.Team[ pTeamSoldier->roster().team() ].bFirstID;
+	     idx <= gTacticalStatus.Team[ pTeamSoldier->roster().team() ].bLastID;
 		 ++idx)
 	{
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(idx.i);
 
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
-		//if ((pTeamSoldier->bActive) && 
+		//if ((pTeamSoldier->roster().active()) &&
 		//	!(pTeamSoldier->status().flags() & SOLDIER_VEHICLE)  &&
 		//	/*(pTeamSoldier->vitals().health() > 0 ) && */  !AM_A_ROBOT(pTeamSoldier)  )
 
-		if (pTeamSoldier && (pTeamSoldier->bActive) &&
+		if (pTeamSoldier && (pTeamSoldier->roster().active()) &&
 			!(pTeamSoldier->status().flags() & SOLDIER_VEHICLE))
 		{		
 			currentTeamList[++maxCurrentTeamIndex] = idx;
@@ -783,7 +783,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 	{
 		if ( !activeSoldier )
 			return;
-		profileId = activeSoldier->ubProfile;
+		profileId = activeSoldier->identity().profile();
 	}
 
 	if ( profileId < 0 )
@@ -1284,12 +1284,12 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	if( sTownName[0] != L'\0' )
 	{
 		//nick name - town name
-		swprintf( sString, L"%s - %s", gMercProfiles[pSoldier->ubProfile].zNickname, sTownName );
+		swprintf( sString, L"%s - %s", gMercProfiles[pSoldier->identity().profile()].zNickname, sTownName );
 	}
 	else
 	{
 		//nick name
-		swprintf( sString, L"%s", gMercProfiles[pSoldier->ubProfile].zNickname );
+		swprintf( sString, L"%s", gMercProfiles[pSoldier->identity().profile()].zNickname );
 	}
 
 
@@ -1327,17 +1327,17 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	//
 
 	//first get height of text to be displayed
-	iHeightOfText = DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->ubProfile].zName, 0, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT );
+	iHeightOfText = DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->identity().profile()].zName, 0, FALSE, CENTER_JUSTIFIED | DONT_DISPLAY_TEXT );
 
 	//if the string will rap
 	if( ( iHeightOfText - 2 ) > GetFontHeight( PERS_FONT ) )
 	{
 		//raise where we display it, and rap it
-		DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y - GetFontHeight( PERS_FONT )), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->ubProfile].zName, 0, FALSE, CENTER_JUSTIFIED);
+		DisplayWrappedString(IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y - GetFontHeight( PERS_FONT )), IMAGE_NAME_WIDTH, 1, PERS_FONT, PERS_FONT_COLOR, gMercProfiles[pSoldier->identity().profile()].zName, 0, FALSE, CENTER_JUSTIFIED);
 	}
 	else
 	{
-		DrawTextToScreen( gMercProfiles[pSoldier->ubProfile].zName, IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, PERS_FONT, PERS_FONT_COLOR, 0, FALSE, CENTER_JUSTIFIED );
+		DrawTextToScreen( gMercProfiles[pSoldier->identity().profile()].zName, IMAGE_BOX_X, (UINT16)(IMAGE_BOX_Y+IMAGE_FULL_NAME_OFFSET_Y), IMAGE_NAME_WIDTH, PERS_FONT, PERS_FONT_COLOR, 0, FALSE, CENTER_JUSTIFIED );
 	}
 
 /*
@@ -1399,7 +1399,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 	if ( !pSoldier )
 		return;
 	const BOOLEAN fAmIaRobot = AM_A_ROBOT( pSoldier );
-	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
+	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->identity().profile()];
 
 	// SANDRO - remove the regions
 	for ( INT8 i = 0; i < 13; i++ )
@@ -1800,12 +1800,12 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 						   // we also get the number of lines (skills) to be displayed 
 						   for ( UINT8 ubCnt = 1; ubCnt < NUM_SKILLTRAITS_NT; ubCnt++ )
 						   {
-							   if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 2 )
+							   if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 2 )
 							   {
 								   ubTempSkillArray[bNumSkillTraits] = (ubCnt + NEWTRAIT_MERCSKILL_EXPERTOFFSET);
 								   bNumSkillTraits++;
 							   }
-							   else if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 1 )
+							   else if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 1 )
 							   {
 								   ubTempSkillArray[bNumSkillTraits] = ubCnt;
 								   bNumSkillTraits++;
@@ -2102,7 +2102,7 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
-	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
+	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->identity().profile()];
 
 	// SANDRO - remove the regions
 	for( INT8 i = 0; i < 13; ++i )
@@ -2114,7 +2114,7 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		}
 	}
 
-	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier ) || pSoldier->ubProfile == NO_PROFILE )
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier ) || pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return;
 	}
@@ -2130,7 +2130,7 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		swprintf( sStr, L"" );
 		CHAR16 sString[200];
 		swprintf( sString, L"" );
-		INT32 val = GetEffectiveApproachValue( pSoldier->ubProfile, i, sString );
+		INT32 val = GetEffectiveApproachValue( pSoldier->identity().profile(), i, sString );
 	
 		swprintf( sStr, L"%d", val );
 
@@ -2489,11 +2489,11 @@ INT32 GetNumberOfMercsOnPlayersTeam( void )
 
 	// no soldiers
 
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID;
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID;
 		cnt++ )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) )
 			iCounter++;
@@ -2568,15 +2568,15 @@ void DisplayPicturesOfCurrentTeam( void )
 		if ( !pSoldier )
 			continue;
 		
-		if ( pSoldier->ubProfile >= 0 )
+		if ( pSoldier->identity().profile() >= 0 )
 		{
-			if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+			if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 			{
-				sprintf( sTemp, "%s%02d.sti", IMP_SMALL_FACES_DIR, gMercProfiles[pSoldier->ubProfile].ubFaceIndex );
+				sprintf( sTemp, "%s%02d.sti", IMP_SMALL_FACES_DIR, gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
 			}
 			else
 			{
-				sprintf( sTemp, "%s%02d.sti", SMALL_FACES_DIR, gMercProfiles[pSoldier->ubProfile].ubFaceIndex );
+				sprintf( sTemp, "%s%02d.sti", SMALL_FACES_DIR, gMercProfiles[pSoldier->identity().profile()].ubFaceIndex );
 			}
 		}
 		
@@ -2801,7 +2801,7 @@ void RenderInventoryForCharacter( SoldierID iId, INT32 iSlot )
 		PosY = iScreenHeightOffset + 200 + 8 +( ubItemCount * ( 29 ) );
 
 		//if the character is a robot, only display the inv for the hand pos
-		if( pSoldier->ubProfile == ROBOT && ubCounter != HANDPOS )
+		if( pSoldier->identity().profile() == ROBOT && ubCounter != HANDPOS )
 		{
 			continue;
 		}
@@ -3170,7 +3170,7 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( pSoldier && ( pSoldier->bActive) &&
+		if( pSoldier && ( pSoldier->roster().active()) &&
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
@@ -3180,23 +3180,23 @@ INT32 GetTotalDailyCostOfCurrentTeam( void )
 				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
-				iCostOfTeam += gMercProfiles[pSoldier->ubProfile].uiBiWeeklySalary / 14;
+				iCostOfTeam += gMercProfiles[pSoldier->identity().profile()].uiBiWeeklySalary / 14;
 				}
 				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
-				iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
+				iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
 				}
 				else
 				{
 
-					iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].sSalary;
+					iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 				}
 			}
 			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
-				iCostOfTeam += gMercProfiles[ pSoldier->ubProfile ].sSalary;
+				iCostOfTeam += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 			}
 			else
 			{
@@ -3223,7 +3223,7 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( pSoldier && ( pSoldier->bActive ) &&
+		if( pSoldier && ( pSoldier->roster().active() ) &&
 			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pSoldier->vitals().health() > 0 ) )
 		{
@@ -3234,23 +3234,23 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
-				iCost = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14;
 				}
 				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
 					// 1 week contract
-				iCost = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
 				}
 				else
 				{
 
-					iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+					iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 				}
 			}
 			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
-				iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 			}
 			else
 			{
@@ -3290,7 +3290,7 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
-		if( pSoldier && ( pSoldier->bActive) &&
+		if( pSoldier && ( pSoldier->roster().active()) &&
 			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pSoldier->vitals().health() > 0 ) )
 		{
@@ -3301,23 +3301,23 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
 					// 2 week contract
-				iCost = gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14;
 				}
 				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK	)
 				{
 					// 1 week contract
-				iCost = gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 ;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 ;
 				}
 				else
 				{
 
-					iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+					iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 				}
 			}
 			else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 			{
 				// MERC Merc
-				iCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+				iCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 			}
 			else
 			{
@@ -3721,7 +3721,7 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) &&
 			!AM_A_ROBOT( pTeamSoldier ) )
@@ -3843,7 +3843,7 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	for ( ; cnt <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; cnt++ )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
+		if( pTeamSoldier && ( pTeamSoldier->roster().active()) &&
 			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) &&
 			!AM_A_ROBOT( pTeamSoldier ) )
@@ -3976,7 +3976,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
-		if(( pTeamSoldier->bActive)&&( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if(( pTeamSoldier->roster().active())&&( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			switch( iStat )
 			{
@@ -5618,14 +5618,14 @@ void AddCharacterToDeadList( SOLDIERTYPE *pSoldier )
 		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == -1 )
 		{
 			// valid slot, merc not found yet, insert here
-			LaptopSaveInfo.ubDeadCharactersList[ iCounter ] = pSoldier->ubProfile;
+			LaptopSaveInfo.ubDeadCharactersList[ iCounter ] = pSoldier->identity().profile();
 
 			// leave
 			return;
 		}
 
 		// are they already in the list?
-		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == pSoldier->ubProfile )
+		if( LaptopSaveInfo.ubDeadCharactersList[ iCounter ] == pSoldier->identity().profile() )
 		{
 			return;
 		}
@@ -5640,14 +5640,14 @@ void AddCharacterToFiredList( SOLDIERTYPE *pSoldier )
 		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == -1 )
 		{
 			// valid slot, merc not found yet, inset here
-			LaptopSaveInfo.ubLeftCharactersList[ iCounter ] = pSoldier->ubProfile;
+			LaptopSaveInfo.ubLeftCharactersList[ iCounter ] = pSoldier->identity().profile();
 
 			// leave
 			return;
 		}
 
 		// are they already in the list?
-		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == pSoldier->ubProfile )
+		if( LaptopSaveInfo.ubLeftCharactersList[ iCounter ] == pSoldier->identity().profile() )
 		{
 			return;
 		}
@@ -5661,14 +5661,14 @@ void AddCharacterToOtherList( SOLDIERTYPE *pSoldier )
 		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == -1 )
 		{
 			// valid slot, merc not found yet, inset here
-			LaptopSaveInfo.ubOtherCharactersList[ iCounter ] = pSoldier->ubProfile;
+			LaptopSaveInfo.ubOtherCharactersList[ iCounter ] = pSoldier->identity().profile();
 
 			// leave
 			return;
 		}
 
 		// are they already in the list?
-		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == pSoldier->ubProfile )
+		if( LaptopSaveInfo.ubOtherCharactersList[ iCounter ] == pSoldier->identity().profile() )
 		{
 			return;
 		}
@@ -6231,7 +6231,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 		GetJa2SoldierRepository().resolve(iId.i);
 	if ( !pSoldier )
 		return;
-	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
+	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->identity().profile()];
 	const STRUCT_Records *pRecords = &pMercProfile->records;
 
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
@@ -6257,7 +6257,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 #else
 			static const UINT32 uiMinutesInDay = 24 * 60;
 
-			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
+			if ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->identity().profile() == SLAY )
 			{
 				INT32 iTimeLeftOnContract = CalcTimeLeftOnMercContract( pSoldier );
 
@@ -6461,7 +6461,7 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[7] );
 			fAddedTraitRegion[7] = TRUE;
 			// Assign the text
-			AssignPersonnelKillsHelpText( pSoldier->ubProfile );
+			AssignPersonnelKillsHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 15:
@@ -6485,7 +6485,7 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[8] );
 			fAddedTraitRegion[8] = TRUE;
 			// Assign the text
-			AssignPersonnelAssistsHelpText( pSoldier->ubProfile );
+			AssignPersonnelAssistsHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 16:
@@ -6529,13 +6529,13 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[9] );
 			fAddedTraitRegion[9] = TRUE;
 			// Assign the text
-			AssignPersonnelHitPercentageHelpText( pSoldier->ubProfile );
+			AssignPersonnelHitPercentageHelpText( pSoldier->identity().profile() );
 		}
 		break;
 		case 17:
 			// Achievements
 			mprintf((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),(pPersonnelScreenPoints[23].y - 6),pPersonnelScreenStrings[PRSNL_TXT_ACHIEVEMNTS]);
-			swprintf(sString, L"%d %%%%", CalculateMercsAchievementPercentage( pSoldier->ubProfile ));
+			swprintf(sString, L"%d %%%%", CalculateMercsAchievementPercentage( pSoldier->identity().profile() ));
 			FindFontRightCoordinates((INT16)(pPersonnelScreenPoints[23].x+(iSlot*TEXT_BOX_WIDTH)),0,TEXT_BOX_WIDTH-20,0,sString, PERS_FONT,	&sX, &sY);
 			sX += StringPixLength( sSpecialCharacters[0],	PERS_FONT );
 			mprintf(sX,(pPersonnelScreenPoints[23].y - 6),sString);
@@ -6554,7 +6554,7 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[10] );
 			fAddedTraitRegion[10] = TRUE;
 			// Assign the text
-			AssignPersonnelAchievementsHelpText( pSoldier->ubProfile );
+			AssignPersonnelAchievementsHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 18:
@@ -6578,7 +6578,7 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[11] );
 			fAddedTraitRegion[11] = TRUE;
 			// Assign the text
-			AssignPersonnelBattlesHelpText( pSoldier->ubProfile );
+			AssignPersonnelBattlesHelpText( pSoldier->identity().profile() );
 
 		break;
 		case 19:
@@ -6602,7 +6602,7 @@ DEF:3/19/99:
 			MSYS_AddRegion( &gSkillTraitHelpTextRegion[12] );
 			fAddedTraitRegion[12] = TRUE;
 			// Assign the text
-			AssignPersonnelWoundsHelpText( pSoldier->ubProfile );
+			AssignPersonnelWoundsHelpText( pSoldier->identity().profile() );
 
 		break;
 
@@ -6628,7 +6628,7 @@ INT32 CalcTimeLeftOnMercContract( SOLDIERTYPE *pSoldier )
 	}
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC)
 	{
-		iTimeLeftOnContract = gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength;
+		iTimeLeftOnContract = gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength;
 	}
 
 	else if( pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
@@ -8425,9 +8425,9 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 		// Only count stats of merc (not vehicles)
 		if ( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
-			if( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->ubProfile != 0 )
+			if( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->identity().profile() != 0 )
 			{
-				const STRUCT_Records &records = gMercProfiles[pTeamSoldier->ubProfile].records;
+				const STRUCT_Records &records = gMercProfiles[pTeamSoldier->identity().profile()].records;
 
 				// get total value of all mercs, adjust by importance
 				ulTotalMercPoints += 
@@ -8516,22 +8516,22 @@ void AssignPersonalityHelpText( const SOLDIERTYPE* pSoldier, MOUSE_REGION* pMous
 	
 	if ( pSoldier )
 	{
-		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[0], szAppearanceText[gMercProfiles[ pSoldier->ubProfile ].bAppearance], szPersonalityDisplayText[1], szCareLevelText[gMercProfiles[ pSoldier->ubProfile ].bAppearanceCareLevel], szPersonalityDisplayText[2] );
+		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[0], szAppearanceText[gMercProfiles[ pSoldier->identity().profile() ].bAppearance], szPersonalityDisplayText[1], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bAppearanceCareLevel], szPersonalityDisplayText[2] );
 		wcscat( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[3], szRefinementText[gMercProfiles[ pSoldier->ubProfile ].bRefinement], szPersonalityDisplayText[4], szCareLevelText[gMercProfiles[ pSoldier->ubProfile ].bRefinementCareLevel], szPersonalityDisplayText[5] );
+		swprintf(atStr, L"- %s %s %s %s %s\n", szPersonalityDisplayText[3], szRefinementText[gMercProfiles[ pSoldier->identity().profile() ].bRefinement], szPersonalityDisplayText[4], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bRefinementCareLevel], szPersonalityDisplayText[5] );
 		wcscat( apStr, atStr );
 
-		if ( gMercProfiles[ pSoldier->ubProfile ].bHatedNationality < 0 )
-			swprintf(atStr, L"- %s %s %s\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->ubProfile ].bNationality], szNationalityText_Special[0] );
+		if ( gMercProfiles[ pSoldier->identity().profile() ].bHatedNationality < 0 )
+			swprintf(atStr, L"- %s %s %s\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bNationality], szNationalityText_Special[0] );
 		else
-			swprintf(atStr, L"- %s %s %s %s %s.\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->ubProfile ].bNationality], szPersonalityDisplayText[7], szNationalityText[gMercProfiles[ pSoldier->ubProfile ].bHatedNationality], szCareLevelText[gMercProfiles[ pSoldier->ubProfile ].bHatedNationalityCareLevel] );
+			swprintf(atStr, L"- %s %s %s %s %s.\n", szPersonalityDisplayText[6], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bNationality], szPersonalityDisplayText[7], szNationalityText[gMercProfiles[ pSoldier->identity().profile() ].bHatedNationality], szCareLevelText[gMercProfiles[ pSoldier->identity().profile() ].bHatedNationalityCareLevel] );
 		wcscat( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s %s-%s %s\n", szPersonalityDisplayText[6], szRacistText[gMercProfiles[ pSoldier->ubProfile ].bRacist], szPersonalityDisplayText[9], szRaceText[gMercProfiles[ pSoldier->ubProfile ].bRace], szPersonalityDisplayText[10] );
+		swprintf(atStr, L"- %s %s %s-%s %s\n", szPersonalityDisplayText[6], szRacistText[gMercProfiles[ pSoldier->identity().profile() ].bRacist], szPersonalityDisplayText[9], szRaceText[gMercProfiles[ pSoldier->identity().profile() ].bRace], szPersonalityDisplayText[10] );
 		wcscat( apStr, atStr );
 
-		swprintf(atStr, L"- %s %s.\n", szPersonalityDisplayText[6], szSexistText[gMercProfiles[ pSoldier->ubProfile ].bSexist] );
+		swprintf(atStr, L"- %s %s.\n", szPersonalityDisplayText[6], szSexistText[gMercProfiles[ pSoldier->identity().profile() ].bSexist] );
 		wcscat( apStr, atStr );
 	}
 

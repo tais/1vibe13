@@ -3,6 +3,16 @@
 #include <algorithm>
 #include <limits>
 
+void SoldierIdentityComponent::reset() noexcept
+{
+	*this = SoldierIdentityComponent{};
+}
+
+void SoldierRosterComponent::reset() noexcept
+{
+	*this = SoldierRosterComponent{};
+}
+
 bool SoldierVitalsComponent::alive() const noexcept { return health() > 0; }
 
 void SoldierVitalsComponent::clearCriticalStatDamage() noexcept

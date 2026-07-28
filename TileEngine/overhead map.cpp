@@ -398,7 +398,7 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 	SetFontForeground(FONT_MCOLOR_WHITE);
 
 	// Center here....
-	FindFontCenterCoordinates(sWorldScreenX, sWorldScreenY, (INT16)(1), 1, pSoldier->name, TINYFONT1, &sX, &sY);
+	FindFontCenterCoordinates(sWorldScreenX, sWorldScreenY, (INT16)(1), 1, pSoldier->identity().name(), TINYFONT1, &sX, &sY);
 
 	// Full size maps
 	if(gsStartRestrictedX == 0)
@@ -409,8 +409,8 @@ void DisplayMercNameInOverhead(SOLDIERTYPE* pSoldier)
 		sY += iOffsetVertical;
 
 	// OK, selected guy is here...
-	gprintfdirty(sX, sY, pSoldier->name);
-	mprintf(sX, sY, pSoldier->name);
+	gprintfdirty(sX, sY, pSoldier->identity().name());
+	mprintf(sX, sY, pSoldier->identity().name());
 }
 
 void HandleOverheadMap( )
@@ -550,10 +550,10 @@ void HandleOverheadMap( )
 	{
 		if ( GetClosestMercInOverheadMap( usMapPos, &pSoldier, 1 ) )
 		{
-			if ( pSoldier->bTeam == gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				gfUIHandleSelectionAboveGuy = TRUE;
-				gsSelectedGuy = pSoldier->ubID;
+				gsSelectedGuy = pSoldier->identity().id();
 			}
 			DisplayMercNameInOverhead( pSoldier );
 		}
@@ -1420,7 +1420,7 @@ void RenderOverheadOverlays()
 	{
 		//First, check to see if the soldier exists and is in the sector.
 		pSoldier = GetJa2SoldierRepository().resolve(id.i);
-		if( !pSoldier || !pSoldier->bActive || !pSoldier->bInSector )
+		if( !pSoldier || !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 			continue;
 		//Soldier is here.	Calculate his screen position based on his current gridno.
 
@@ -1431,7 +1431,7 @@ void RenderOverheadOverlays()
 		// Flugente: also do that if the we scanned a jamming person
 		if(!gfEditMode && (showjammers || marklastenemy ) )
 		{
-			if ( ( marklastenemy && pSoldier->bTeam == ENEMY_TEAM ) || ( showjammers && pSoldier->IsJamming() ) )
+			if ( ( marklastenemy && pSoldier->roster().team() == ENEMY_TEAM ) || ( showjammers && pSoldier->IsJamming() ) )
 			{
 				UINT8 ubGridSquareX, ubGridSquareY;
 				
@@ -1469,7 +1469,7 @@ void RenderOverheadOverlays()
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
 			continue;// ie dont render
 #else
-			if(is_networked && pSoldier->bSide==0)
+			if(is_networked && pSoldier->roster().side()==0)
 			{
 			}
 			else
@@ -1501,7 +1501,7 @@ void RenderOverheadOverlays()
 			SetObjectShade( hVObject, 1 );
 		}
 
-		if ( pSoldier->ubID == gusSelectedSoldier )
+		if ( pSoldier->identity().id() == gusSelectedSoldier )
 		{
 			if( gfRadarCurrentGuyFlash && !gfTacticalPlacementGUIActive )
 			{
@@ -1543,12 +1543,12 @@ void RenderOverheadOverlays()
 			//normal
 			if(is_networked)
 			{
-				if(pSoldier->bTeam != OUR_TEAM)
+				if(pSoldier->roster().team() != OUR_TEAM)
 				{
-					if ( pSoldier->bSide == 1 || pSoldier->bSide == 3 )
+					if ( pSoldier->roster().side() == 1 || pSoldier->roster().side() == 3 )
 					{
 						// Civ (white)
-						if (pSoldier->bTeam == CIV_TEAM)
+						if (pSoldier->roster().team() == CIV_TEAM)
 						{
 							// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
 							if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
@@ -1562,33 +1562,33 @@ void RenderOverheadOverlays()
 					}
 
 					// Other clients
-					if(pSoldier->bSide==0)
+					if(pSoldier->roster().side()==0)
 					{
-						int personIndex = pSoldier->bTeam + 4;
+						int personIndex = pSoldier->roster().team() + 4;
 						Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
 					}
 				}
 				else 
 					// Color depends on the bTeam
-					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->roster().team() );
 			}
 			else
 			{
 				// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
 				if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
 					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
-				else if ( pSoldier->bTeam == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiBehavior().neutral() && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )
+				else if ( pSoldier->roster().team() == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiBehavior().neutral() && pSoldier->identity().profile() != NO_PROFILE && !zHiddenNames[pSoldier->identity().profile()].Hidden )
 					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, PLAYER_PLAN );
 				// Flugente 18-04-15: observed an odd bug: if we play with a release build and see a creature for the first time, their overhead/radar map pins do not have the correct colour.
 				// Bizarrely enough, the issue seems dependent on the colour value (pink, RGB: 255/0/255) itself.
 				// Saving and reloading solves the issue, but I am not sure why. As a fix we now use a slightly dampened pink.
-				else if ( pSoldier->bTeam == CREATURE_TEAM )
+				else if ( pSoldier->roster().team() == CREATURE_TEAM )
 				{
 					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, 12 );
 				}
 				else
 				{
-					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->roster().team() );
 				}
 
 				RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, sX, sY, (INT16)(sX + 3), (INT16)(sY + 9));
@@ -1619,28 +1619,28 @@ void RenderOverheadOverlays()
 			//normal
 			if(is_networked)
 			{
-				if(pSoldier->bTeam!=0)
+				if(pSoldier->roster().team()!=0)
 				{
-					if ( pSoldier->bSide == 1 || pSoldier->bSide == 3 )
+					if ( pSoldier->roster().side() == 1 || pSoldier->roster().side() == 3 )
 						continue;//dont render enemy
 
 					// Green
 					// Other clients
-					if(pSoldier->bSide==0)
+					if(pSoldier->roster().side()==0)
 					{
-						int personIndex = pSoldier->bTeam + 4;
+						int personIndex = pSoldier->roster().team() + 4;
 						Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, personIndex );
 					}
 				}
 				else
 				{
 					// Color depends on the bTeam
-					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->roster().team() );
 				}
 			}
 			else
 			{
-				Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+				Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->roster().team() );
 			}
 
 			RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, sX, sY, (INT16)(sX + 3), (INT16)(sY + 9));
@@ -1948,7 +1948,7 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 								SetObjectShade( hVObject, 1 );
 							}
 
-							if ( pSoldier->ubID == gusSelectedSoldier )
+							if ( pSoldier->identity().id() == gusSelectedSoldier )
 							{
 								if( gfRadarCurrentGuyFlash && !gfTacticalPlacementGUIActive )
 								{
@@ -1974,7 +1974,7 @@ void RenderOverheadOverlays( INT16 sStartPointX_M, INT16 sStartPointY_M, INT16 s
 							}
 							else
 							{ //normal
-								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->bTeam );
+								Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, pSoldier->roster().team() );
 							}
 							RegisterBackgroundRect(BGND_FLAG_SINGLE, NULL, (INT16)(sX-2), (INT16)(sY-2), (INT16)(sX + 5), (INT16)(sY + 11));
 						}

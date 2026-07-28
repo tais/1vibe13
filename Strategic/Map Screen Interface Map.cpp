@@ -1527,7 +1527,7 @@ INT32 ShowVehicles(INT16 sMapX, INT16 sMapY, INT32 iCount)
 					// this skips the chopper, which has no soldier
 					if ( pVehicleSoldier )
 					{
-						if ( pVehicleSoldier->bTeam == gbPlayerNum )
+						if ( pVehicleSoldier->roster().team() == gbPlayerNum )
 						{
 							++sNumberOfVehiclesInSector;
 						}
@@ -2033,7 +2033,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 		if( pCharacter->assignment().current() >= ON_DUTY )
 		{
 			// not on the surface, character won't move until they reach surface..info player of this fact
-			MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pCharacter->name, gsUndergroundString[0] );
+			MapScreenMessage( FONT_MCOLOR_DKRED, MSG_INTERFACE, L"%s %s", pCharacter->identity().name(), gsUndergroundString[0] );
 		}
 		else	// squad
 		{
@@ -5153,9 +5153,9 @@ UINT8 NumFriendlyInSector( INT16 sX, INT16 sY, INT8 bZ )
 	for ( cnt = 0; cnt < TOTAL_SOLDIERS; cnt++ )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve( cnt );
-		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 )
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() > 0 )
 		{
-			if ( (pTeamSoldier->bSide == gbPlayerNum ) && pTeamSoldier->deployment().isInSector( sX, sY, bZ ) )
+			if ( (pTeamSoldier->roster().side() == gbPlayerNum ) && pTeamSoldier->deployment().isInSector( sX, sY, bZ ) )
 			{
 				ubNumFriendlies++;
 			}
@@ -7063,7 +7063,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// is the soldier active
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -7228,7 +7228,7 @@ UINT8 NumActiveCharactersInSector( INT16 sSectorX, INT16 sSectorY, INT16 bSector
 		{
 			pSoldier = gCharactersList[ iCounter ].usSolID;
 
-			if( pSoldier->bActive && ( pSoldier->vitals().health() > 0 ) &&
+			if( pSoldier->roster().active() && ( pSoldier->vitals().health() > 0 ) &&
 					( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 			{
 				if( pSoldier->deployment().isInSector( sSectorX, sSectorY, bSectorZ ) )

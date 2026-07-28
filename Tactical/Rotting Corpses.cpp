@@ -913,15 +913,15 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 
 	// Setup some values!
 	memset( &Corpse, 0, sizeof( Corpse ) );
-	Corpse.ubBodyType							= pSoldier->ubBodyType;
+	Corpse.ubBodyType							= pSoldier->identity().bodyType();
 	Corpse.sGridNo								= pSoldier->position().gridNo();
 	Corpse.dXPos									= pSoldier->position().worldX();
 	Corpse.dYPos									= pSoldier->position().worldY();
 	Corpse.bLevel									= pSoldier->position().level();
-	Corpse.ubProfile							= pSoldier->ubProfile;
+	Corpse.ubProfile							= pSoldier->identity().profile();
 
 ///ddd{ for the enemy to be able to detect corpses
-	if ( pSoldier->bTeam != gbPlayerNum )
+	if ( pSoldier->roster().team() != gbPlayerNum )
 		Corpse.ubAIWarningValue = 1;
 		//def.ubAIWarningValue = 1; //not used value!
 ///ddd}
@@ -991,7 +991,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		Corpse.usFlags |= ROTTING_CORPSE_NEVER_RISE_AGAIN;
 
 	// Flugente: copy name of soldier...
-	memcpy( &(Corpse.name), &(pSoldier->name), sizeof(CHAR16) * 10 );
+	memcpy( &(Corpse.name), &(pSoldier->identity().name()), sizeof(CHAR16) * 10 );
 	Corpse.name[9] = '\0';
 		
 	// if this soldier's uniform was damaged (gunfire, blade attacks, explosions) then don't allow to take the uniform. We can't stay hidden if we're covered in blood :-)
@@ -1002,7 +1002,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		Corpse.usFlags |= ROTTING_CORPSE_NO_PANTS;
 
 	// Determine corpse type!
-	ubType = (UINT8)gubAnimSurfaceCorpseID[ pSoldier->ubBodyType][ pSoldier->animationPlayback().state() ];
+	ubType = (UINT8)gubAnimSurfaceCorpseID[ pSoldier->identity().bodyType()][ pSoldier->animationPlayback().state() ];
 
 	Corpse.ubDirection	= pSoldier->position().direction();
 
@@ -1011,7 +1011,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	{
 		Corpse.usFlags |= ROTTING_CORPSE_VEHICLE;
 
-		if ( pSoldier->ubBodyType != ICECREAMTRUCK && pSoldier->ubBodyType != HUMVEE )
+		if ( pSoldier->identity().bodyType() != ICECREAMTRUCK && pSoldier->identity().bodyType() != HUMVEE )
 		{
 			Corpse.ubDirection = NORTHWEST;
 		}
@@ -1036,14 +1036,14 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	Corpse.uiTimeOfDeath = GetWorldTotalMin( );
 
 	// If corpse is not valid. make items visible
-	if ( ubType == NO_CORPSE && pSoldier->bTeam != gbPlayerNum )
+	if ( ubType == NO_CORPSE && pSoldier->roster().team() != gbPlayerNum )
 	{
 		usItemFlags &= (~WORLD_ITEM_DONTRENDER );
 	}
 	
 	// ATE: If the queen is killed, she should
 	// make items visible because it ruins end sequence....
-	if ( pSoldier->ubProfile == QUEEN || pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier->identity().profile() == QUEEN || pSoldier->roster().team() == gbPlayerNum )
 	{
 		bVisible = 1;
 	}
@@ -1086,7 +1086,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 		const SOLDIERTYPE* attacker =
 			GetJa2SoldierRepository().resolve( pSoldier->combatResult().currentAttacker() );
 		const bool killedByOurTeam =
-			attacker != nullptr && attacker->bTeam == OUR_TEAM;
+			attacker != nullptr && attacker->roster().team() == OUR_TEAM;
 
 		// OK, Place what objects this guy was carrying on the ground!
 		UINT32 invsize = pSoldier->inv.size();
@@ -1099,9 +1099,9 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 				// Check if it's supposed to be dropped
 				// silversurfer: new option to drop items from CIV_TEAM regardless of "OBJECT_UNDROPPABLE" flag
 				// the same applies for enemy soldiers if mild drop all has been enabled
-				if ( !( (*pObj).fFlags & OBJECT_UNDROPPABLE ) || pSoldier->bTeam == gbPlayerNum 
-					|| ( gGameExternalOptions.fCiviliansDropAll && pSoldier->bTeam == CIV_TEAM && !IsVehicle(pSoldier) )
-					|| ( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->bTeam == ENEMY_TEAM ) )
+				if ( !( (*pObj).fFlags & OBJECT_UNDROPPABLE ) || pSoldier->roster().team() == gbPlayerNum
+					|| ( gGameExternalOptions.fCiviliansDropAll && pSoldier->roster().team() == CIV_TEAM && !IsVehicle(pSoldier) )
+					|| ( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->roster().team() == ENEMY_TEAM ) )
 				{
 					// and make sure that it really is a droppable item type
 					// if ( !(Item[ pObj->usItem ].fFlags & ITEM_DEFAULT_UNDROPPABLE) )
@@ -1111,9 +1111,9 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 						//if this soldier was an enemy
 						// Kaiden: Added from UB's reveal all items after combat feature!
 						// HEADROCK HAM B2.8: Now also reveals equipment dropped by militia, if requirement is met.
-						if( pSoldier->bTeam == ENEMY_TEAM ||
-							( gGameExternalOptions.ubMilitiaDropEquipment == 2 && pSoldier->bTeam == MILITIA_TEAM ) ||
-							( gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && !killedByOurTeam ))
+						if( pSoldier->roster().team() == ENEMY_TEAM ||
+							( gGameExternalOptions.ubMilitiaDropEquipment == 2 && pSoldier->roster().team() == MILITIA_TEAM ) ||
+							( gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->roster().team() == MILITIA_TEAM && !killedByOurTeam ))
 						{
 							//add a flag to the item so when all enemies are killed, we can run through and reveal all the enemies items
 							usItemFlags |= WORLD_ITEM_DROPPED_FROM_ENEMY;
@@ -1123,7 +1123,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 								// silversurfer: externalized this
 								//(*pObj)[0]->data.objectStatus -= (gGameOptions.ubDifficultyLevel - 1) * Random(20);
 								// if mild drop all is enabled and the item was usually not allowed to drop we will reduce its status considerably
-								if ( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->bTeam == ENEMY_TEAM && (*pObj).fFlags & OBJECT_UNDROPPABLE )
+								if ( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->roster().team() == ENEMY_TEAM && (*pObj).fFlags & OBJECT_UNDROPPABLE )
 								{
 									(*pObj)[0]->data.objectStatus -= 60 + Random( zDiffSetting[gGameOptions.ubDifficultyLevel].usLootStatusModifier );
 									(*pObj)[0]->data.objectStatus = min(max((*pObj)[0]->data.objectStatus,1),100); // never below 1% or above 100%
@@ -1144,8 +1144,8 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 						}
 
 						// HEADROCK HAM B2.8: Militia will drop items only if allowed.
-						if (!(gGameExternalOptions.ubMilitiaDropEquipment == 0 && pSoldier->bTeam == MILITIA_TEAM ) &&
-							!(gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->bTeam == MILITIA_TEAM && killedByOurTeam ))
+						if (!(gGameExternalOptions.ubMilitiaDropEquipment == 0 && pSoldier->roster().team() == MILITIA_TEAM ) &&
+							!(gGameExternalOptions.ubMilitiaDropEquipment == 1 && pSoldier->roster().team() == MILITIA_TEAM && killedByOurTeam ))
 						{
 							AddItemToPool( pSoldier->position().gridNo(), pObj, bVisible , pSoldier->position().level(), usItemFlags, -1 );
 						}
@@ -1164,7 +1164,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	AllSoldiersLookforItems( TRUE );
 
 	//Madd: set warning value to signal other enemies
-	if( pSoldier->bTeam == ENEMY_TEAM )
+	if( pSoldier->roster().team() == ENEMY_TEAM )
 		Corpse.ubAIWarningValue = 20;
 
 	// This should free up ABC for death codes
@@ -1179,11 +1179,11 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	{
 		// If not a player, you can completely remove soldiertype
 		// otherwise, just remove their graphic
-		if ( pSoldier->bTeam != gbPlayerNum )
+		if ( pSoldier->roster().team() != gbPlayerNum )
 		{
 			// Remove merc!
 			// ATE: Remove merc slot first - will disappear if no corpse data found!
-			TacticalRemoveSoldier( pSoldier->ubID );
+			TacticalRemoveSoldier( pSoldier->identity().id() );
 		}
 		else
 		{
@@ -1203,7 +1203,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	iCorpseID = AddRottingCorpse( &Corpse );
 
 	// If this is our guy......make visible...
-	if ( iCorpseID != -1 && pSoldier->bTeam == OUR_TEAM || gbPublicOpplist[OUR_TEAM][pSoldier->ubID] == SEEN_CURRENTLY )
+	if ( iCorpseID != -1 && pSoldier->roster().team() == OUR_TEAM || gbPublicOpplist[OUR_TEAM][pSoldier->identity().id()] == SEEN_CURRENTLY )
 	{
 		MakeCorpseVisible( pSoldier, &( gRottingCorpse[ iCorpseID ] ) );
 	}
@@ -1376,9 +1376,9 @@ void HandleRottingCorpses( )
 				continue;
 			}
 
-			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->status().flags() & SOLDIER_GASSED ) )
+			if (pSoldier->roster().active() && pSoldier->roster().inSector() && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->status().flags() & SOLDIER_GASSED ) )
 			{
-				if ( pSoldier->ubBodyType == CROW )
+				if ( pSoldier->identity().bodyType() == CROW )
 				{
 					++bNumCrows;
 				}
@@ -1472,7 +1472,7 @@ void AllMercsOnTeamLookForCorpse( ROTTING_CORPSE *pCorpse, INT8 bTeam )
 		}
 
 		// ATE: Ok, lets check for some basic things here!		
-		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pSoldier->position().gridNo()) && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			// and we can trace a line of sight to his x,y coordinates?
 			// (taking into account we are definitely aware of this guy now)
@@ -1493,7 +1493,7 @@ void MercLooksForCorpses( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return;
 	}
@@ -1503,7 +1503,7 @@ void MercLooksForCorpses( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpHeadShotOnly == 1 )
+	if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpHeadShotOnly == 1 )
 	{
 		return;
 	}
@@ -1770,7 +1770,7 @@ INT32 FindNearestAvailableGridNoForCorpse( ROTTING_CORPSE_DEFINITION *pDef, INT8
 
 	//create dummy soldier, and use the pathing to determine which nearby slots are
 	//reachable.
-	soldier.bTeam = 1;
+	soldier.roster().team() = 1;
 	soldier.position().gridNo() = sSweetGridNo;
 
 	sTop		= ubRadius;
@@ -2568,7 +2568,7 @@ void ReduceAmmoDroppedByNonPlayerSoldiers( SOLDIERTYPE *pSoldier, INT32 iInvSlot
 	Assert( ( iInvSlot >= 0 ) && ( iInvSlot < (INT32)pSoldier->inv.size() ) );
 
 	// if not a player soldier
-	if ( pSoldier->bTeam != gbPlayerNum )
+	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
 		OBJECTTYPE *pObj = &( pSoldier->inv[ iInvSlot ] );
 
@@ -2592,7 +2592,7 @@ void ReduceAttachmentsOnGunForNonPlayerChars(SOLDIERTYPE *pSoldier, OBJECTTYPE *
 	Assert(UsingNewAttachmentSystem()==true);
 		
 	//If this item has any attachments, is not from a player, and is overwriteable. It's also only for guns.
-	if((*pObj)[0]->AttachmentListSize() > 0 && pSoldier->bTeam != gbPlayerNum && !((*pObj).fFlags & OBJECT_NO_OVERWRITE) && Item[pObj->usItem].usItemClass == IC_GUN && !(gGameExternalOptions.fEnemiesDropAllItems == 1) )
+	if((*pObj)[0]->AttachmentListSize() > 0 && pSoldier->roster().team() != gbPlayerNum && !((*pObj).fFlags & OBJECT_NO_OVERWRITE) && Item[pObj->usItem].usItemClass == IC_GUN && !(gGameExternalOptions.fEnemiesDropAllItems == 1) )
 	{
 		UINT8 slotCount = 0;
 		for(std::list<OBJECTTYPE>::iterator iter = (*pObj)[0]->attachments.begin(); iter != (*pObj)[0]->attachments.end(); ++iter, ++slotCount)
@@ -2606,7 +2606,7 @@ void ReduceAttachmentsOnGunForNonPlayerChars(SOLDIERTYPE *pSoldier, OBJECTTYPE *
 			for(i = 0; i < MAX_DEFAULT_ATTACHMENTS && Item[pObj->usItem].defaultattachments[i] != iter->usItem; i++){}
 
 			// with mild drop all attachments of undropable items need to be damaged as well as the base item
-			if( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->bTeam == ENEMY_TEAM && (*pObj).fFlags & OBJECT_UNDROPPABLE )
+			if( gGameExternalOptions.fEnemiesDropAllItems == 2 && pSoldier->roster().team() == ENEMY_TEAM && (*pObj).fFlags & OBJECT_UNDROPPABLE )
 			{
 				(*iter)[0]->data.objectStatus -= 60 + Random( zDiffSetting[gGameOptions.ubDifficultyLevel].usLootStatusModifier );
 				(*iter)[0]->data.objectStatus = min(max((*iter)[0]->data.objectStatus,1),100); // never below 1% or above 100%
@@ -2632,7 +2632,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 	INT8			bToleranceThreshold = 0;
 	SOLDIERTYPE		*pTeamSoldier;
 
-	if ( QuoteExp[ pSoldier->ubProfile ].QuoteExpHeadShotOnly == 1 )
+	if ( QuoteExp[ pSoldier->identity().profile() ].QuoteExpHeadShotOnly == 1 )
 	{
 		return;
 	}
@@ -2685,7 +2685,7 @@ void LookForAndMayCommentOnSeeingCorpse( SOLDIERTYPE *pSoldier, INT32 sGridNo, U
 				}
 
 				// ATE: Ok, lets check for some basic things here!				
-				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->bActive && pTeamSoldier->bInSector )
+				if ( pTeamSoldier->vitals().health() >= OKLIFE && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 				{
 					pTeamSoldier->dialogue().corpseQuoteTolerance()++;
 				}
@@ -3053,7 +3053,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 
 		pNewSoldier->animationIntent().desiredHeight()		= 3;		// this forces pNewSoldier to rise up to crouching position
 
-		pNewSoldier->ubSoldierClass			= SOLDIER_CLASS_ZOMBIE;
+		pNewSoldier->roster().soldierClass()			= SOLDIER_CLASS_ZOMBIE;
 		pNewSoldier->aiBehavior().orders()			= SEEKENEMY;
 		pNewSoldier->aiBehavior().attitude()		= AGGRESSIVE;
 
@@ -3066,12 +3066,12 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 			|| !memcmp( pCorpse->name, TacticalStr[ ZOMBIE_TEAM_MERC_NAME ], sizeof(pCorpse->name) ) 
 			|| !memcmp( pCorpse->name, TacticalStr[ ENEMY_TEAM_MERC_NAME ], sizeof(pCorpse->name) ) )
 		{
-			swprintf( pNewSoldier->name, TacticalStr[ ZOMBIE_TEAM_MERC_NAME ] );
+			swprintf( pNewSoldier->identity().name(), TacticalStr[ ZOMBIE_TEAM_MERC_NAME ] );
 		}
 		else
 		{
-			memcpy( &(pNewSoldier->name), &(pCorpse->name), sizeof(CHAR16) * 10 );
-			pNewSoldier->name[9] = '\0';
+			memcpy( &(pNewSoldier->identity().name()), &(pCorpse->name), sizeof(CHAR16) * 10 );
+			pNewSoldier->identity().name()[9] = '\0';
 		}
 			
 		// add skills according to difficulty level
@@ -3166,7 +3166,7 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 		}
 
 		// Reload palettes....
-		if ( pNewSoldier->bInSector )
+		if ( pNewSoldier->roster().inSector() )
 		{
 			pNewSoldier->CreateSoldierPalettes( );
 		}

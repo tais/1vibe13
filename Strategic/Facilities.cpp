@@ -1217,13 +1217,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(STRENGTH_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
+							gMercProfiles[ pSoldier->identity().profile() ].bStrength	= pSoldier->statistics().strength();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1269,13 +1269,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->statistics().agility();
+							gMercProfiles[ pSoldier->identity().profile() ].bAgility	= pSoldier->statistics().agility();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1321,18 +1321,18 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(DEX_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity	= pSoldier->statistics().dexterity();
+							gMercProfiles[ pSoldier->identity().profile() ].bDexterity	= pSoldier->statistics().dexterity();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
 							// Log message
-							BuildStatChangeString( sString, pSoldier->name, FALSE, Result, DEXTAMT );
+							BuildStatChangeString( sString, pSoldier->identity().name(), FALSE, Result, DEXTAMT );
 							ScreenMsg( usColor, MSG_INTERFACE, sString );
 
 							// Do Screen Message and stop time.
@@ -1373,13 +1373,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(WIS_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->statistics().wisdom();
+							gMercProfiles[ pSoldier->identity().profile() ].bWisdom	= pSoldier->statistics().wisdom();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1426,13 +1426,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(HEALTH_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
+							gMercProfiles[ pSoldier->identity().profile() ].bLifeMax	= pSoldier->vitals().maximumHealth();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							if (pSoldier->vitals().health() < OKLIFE)
 							{
@@ -1498,13 +1498,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MRK_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMarksmanship	= pSoldier->statistics().marksmanship();
+							gMercProfiles[ pSoldier->identity().profile() ].bMarksmanship	= pSoldier->statistics().marksmanship();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1550,13 +1550,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(LDR_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bLeadership	= pSoldier->statistics().leadership();
+							gMercProfiles[ pSoldier->identity().profile() ].bLeadership	= pSoldier->statistics().leadership();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1602,13 +1602,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MECH_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMechanical	= pSoldier->statistics().mechanical();
+							gMercProfiles[ pSoldier->identity().profile() ].bMechanical	= pSoldier->statistics().mechanical();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1654,13 +1654,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MED_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMedical	= pSoldier->statistics().medical();
+							gMercProfiles[ pSoldier->identity().profile() ].bMedical	= pSoldier->statistics().medical();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1706,13 +1706,13 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(EXP_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bExplosive	= pSoldier->statistics().explosives();
+							gMercProfiles[ pSoldier->identity().profile() ].bExplosive	= pSoldier->statistics().explosives();
 
 							// merc records - stat damaged
 							if( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							///////////////////////////////////////////////////////////////////////////////////////////
 							fBadResult = TRUE;
 
@@ -1739,7 +1739,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							fBadResult = TRUE;
 
 							// SANDRO - add to merc records - facility accidents counter
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 
 							if (pSoldier->vitals().health() > 0)
 							{
@@ -1786,14 +1786,14 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 						RefreshSoldierMorale( pSoldier );
 						// SANDRO - add to merc records - facility accidents counter
 						if ( Result < 0 )
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 						break;
 					case RISK_FATIGUE:
 						pSoldier->vitals().maximumBreath() = __min(100,__max(0, pSoldier->vitals().maximumBreath() + Result));
 						pSoldier->vitals().breath() = pSoldier->vitals().maximumBreath();
 						// SANDRO - add to merc records - facility accidents counter
 						if ( Result < 0 )
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 						break;
 					case RISK_DRUNK:
 
@@ -1832,11 +1832,11 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 						/*// ATE: Make guy collapse from heart attack if too much stuff taken....
 						if ( pSoldier->drugs.bDrugSideEffectRate[ DRUG_TYPE_ALCOHOL ] > (  Drug[DRUG_TYPE_ALCOHOL].ubDrugSideEffect * 3 ) )
 						{
-							if ( pSoldier->ubProfile == LARRY_NORMAL )
+							if ( pSoldier->identity().profile() == LARRY_NORMAL )
 							{
 								pSoldier = SwapLarrysProfiles( pSoldier );
 							}
-							else if ( pSoldier->ubProfile == LARRY_DRUNK )
+							else if ( pSoldier->identity().profile() == LARRY_DRUNK )
 							{
 								gMercProfiles[ LARRY_DRUNK ].bNPCData = 0;
 							}
@@ -1914,16 +1914,16 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							}
 
 							// export stat changes to profile
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->statistics().wisdom();
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->statistics().dexterity();
-							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
-							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->statistics().agility();
+							gMercProfiles[ pSoldier->identity().profile() ].bWisdom	= pSoldier->statistics().wisdom();
+							gMercProfiles[ pSoldier->identity().profile() ].bDexterity = pSoldier->statistics().dexterity();
+							gMercProfiles[ pSoldier->identity().profile() ].bStrength	= pSoldier->statistics().strength();
+							gMercProfiles[ pSoldier->identity().profile() ].bAgility	= pSoldier->statistics().agility();
 
 							fBadResult = TRUE; // stop the time, call a doctor, we had a heart attack!
 
 							// merc records - stat damaged
-							gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
-							gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
+							gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 							////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 						}*/
 						break;
@@ -1945,7 +1945,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 							// SANDRO - add to merc records - facility accidents counter
 							if ( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 						}
 						break;
 					case RISK_LOYALTY_GLOBAL:
@@ -1967,7 +1967,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 
 							// SANDRO - add to merc records - facility accidents counter
 							if ( Result < 0 )
-								gMercProfiles[ pSoldier->ubProfile ].records.usFacilityAccidents++;
+								gMercProfiles[ pSoldier->identity().profile() ].records.usFacilityAccidents++;
 						}
 						break;
 					default:

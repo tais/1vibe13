@@ -20,8 +20,8 @@ extern STR8 gStr8Class[];
 
 extern INT8 STRAIGHT; //lal
 
-#define CAN_CALL( s ) (s->ubBodyType != BLOODCAT && s->ubBodyType != LARVAE_MONSTER && s->ubBodyType != INFANT_MONSTER)
-#define CAN_LISTEN_TO_CALL( s ) (s->ubBodyType != BLOODCAT && s->ubBodyType != LARVAE_MONSTER)
+#define CAN_CALL( s ) (s->identity().bodyType() != BLOODCAT && s->identity().bodyType() != LARVAE_MONSTER && s->identity().bodyType() != INFANT_MONSTER)
+#define CAN_LISTEN_TO_CALL( s ) (s->identity().bodyType() != BLOODCAT && s->identity().bodyType() != LARVAE_MONSTER)
 
 enum
 {
@@ -77,10 +77,10 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 	UINT16		usDistToCaller;
 	// communicate call to all creatures on map through ultrasonics
 
-	gTacticalStatus.Team[pCaller->bTeam].bAwareOfOpposition = TRUE;
+	gTacticalStatus.Team[pCaller->roster().team()].bAwareOfOpposition = TRUE;
 	// bAction should be AI_ACTION_CREATURE_CALL (new)
 	// usActionData is call enum #
-	switch (pCaller->ubBodyType)
+	switch (pCaller->identity().bodyType())
 	{
 		case ADULTFEMALEMONSTER:
 		case YAF_MONSTER:
@@ -108,7 +108,7 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 	}
 
 	// OK, do animation based on body type...
-	switch (pCaller->ubBodyType)
+	switch (pCaller->identity().bodyType())
 	{
 		case ADULTFEMALEMONSTER:
 		case YAF_MONSTER:
@@ -125,13 +125,13 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 	}
 
 
-	for (ubReceiver = gTacticalStatus.Team[ pCaller->bTeam ].bFirstID; ubReceiver <= gTacticalStatus.Team[ pCaller->bTeam ].bLastID; ++ubReceiver )
+	for (ubReceiver = gTacticalStatus.Team[ pCaller->roster().team() ].bFirstID; ubReceiver <= gTacticalStatus.Team[ pCaller->roster().team() ].bLastID; ++ubReceiver )
 	{
 		pReceiver =
 			GetJa2SoldierRepository().resolve(ubReceiver.i);
-		if (pReceiver && pReceiver->bActive && pReceiver->bInSector && (pReceiver->vitals().health() >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiBehavior().alertStatus() < STATUS_BLACK))
+		if (pReceiver && pReceiver->roster().active() && pReceiver->roster().inSector() && (pReceiver->vitals().health() >= OKLIFE) && (pReceiver != pCaller) && (pReceiver->aiBehavior().alertStatus() < STATUS_BLACK))
 		{
-			if (pReceiver->ubBodyType != LARVAE_MONSTER && pReceiver->ubBodyType != INFANT_MONSTER && pReceiver->ubBodyType != QUEENMONSTER)
+			if (pReceiver->identity().bodyType() != LARVAE_MONSTER && pReceiver->identity().bodyType() != INFANT_MONSTER && pReceiver->identity().bodyType() != QUEENMONSTER)
 			{
 				usDistToCaller = PythSpacesAway( pReceiver->position().gridNo(), pCaller->position().gridNo() );
 				bPriority = bFullPriority - (INT8) (usDistToCaller / PRIORITY_DECR_DISTANCE);
@@ -139,11 +139,11 @@ void CreatureCall( SOLDIERTYPE * pCaller )
 				{
 					pReceiver->aiCommunication().callPriority() = bPriority;
 					pReceiver->aiBehavior().alertStatus() = STATUS_RED; // our status can't be more than red to begin with
-					pReceiver->aiCommunication().caller() = pCaller->ubID;
+					pReceiver->aiCommunication().caller() = pCaller->identity().id();
 					pReceiver->aiCommunication().callerGrid() = pCaller->position().gridNo();
 					pReceiver->aiCommunication().callActedUpon() = FALSE;
 					CancelAIAction(pReceiver, FORCE);
-					if ((bPriority > FRENZY_THRESHOLD) && (pReceiver->ubBodyType == ADULTFEMALEMONSTER || pReceiver->ubBodyType == YAF_MONSTER))
+					if ((bPriority > FRENZY_THRESHOLD) && (pReceiver->identity().bodyType() == ADULTFEMALEMONSTER || pReceiver->identity().bodyType() == YAF_MONSTER))
 					{
 						// go berzerk!
 						pReceiver->morale().frenzied() = TRUE;
@@ -227,7 +227,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 			{
 	#ifdef DEBUGDECISIONS
 				STR16 tempstr;
-				sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+				sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 				AIPopMessage(tempstr);
 	#endif
 
@@ -296,7 +296,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 			{
 	#ifdef DEBUGDECISIONS
 			STR16 tempstr;
-			sprintf(tempstr,"%s - RANDOM PATROL to grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+			sprintf(tempstr,"%s - RANDOM PATROL to grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 			 AIPopMessage(tempstr);
 	#endif
 
@@ -358,7 +358,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 				if (RandomFriendWithin(pSoldier))
 				{
 		#ifdef DEBUGDECISIONS
-				sprintf(tempstr,"%s - SEEK FRIEND at grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+				sprintf(tempstr,"%s - SEEK FRIEND at grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 				 AIPopMessage(tempstr);
 		#endif
 
@@ -414,7 +414,7 @@ INT8 CreatureDecideActionGreen( SOLDIERTYPE * pSoldier )
 
 	#ifdef DEBUGDECISIONS
 				STR16 tempstr;
-				sprintf(tempstr,"%s - TURNS to face direction %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+				sprintf(tempstr,"%s - TURNS to face direction %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 				AIPopMessage(tempstr);
 	#endif
 
@@ -469,11 +469,11 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	{
 		// then we have no business being under YELLOW status any more!
 #ifdef RECORDNET
-		fprintf(NetDebugFile,"\nDecideActionYellow: ERROR - No important noise known by guynum %d\n\n",pSoldier->ubID);
+		fprintf(NetDebugFile,"\nDecideActionYellow: ERROR - No important noise known by guynum %d\n\n",pSoldier->identity().id());
 #endif
 
 #ifdef BETAVERSION
-		NumMessage("DecideActionYellow: ERROR - No important noise known by guynum ",pSoldier->ubID);
+		NumMessage("DecideActionYellow: ERROR - No important noise known by guynum ",pSoldier->identity().id());
 #endif
 
 		return(AI_ACTION_NONE);
@@ -506,7 +506,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 				pSoldier->aiPlanning().actionData() = ubNoiseDir;
 	#ifdef DEBUGDECISIONS
 				STR16 tempstr;
-				sprintf(tempstr,"%s - TURNS TOWARDS NOISE to face direction %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+				sprintf(tempstr,"%s - TURNS TOWARDS NOISE to face direction %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 				AIPopMessage(tempstr);
 	#endif
 				//if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->usActionData, ANIM_STAND ) )
@@ -576,7 +576,7 @@ INT8 CreatureDecideActionYellow( SOLDIERTYPE * pSoldier )
 	#ifdef DEBUGDECISIONS
 				STR16 tempstr;
 				sprintf(tempstr,"%s - INVESTIGATING NOISE at grid %d, moving to %d",
-					pSoldier->name,sNoiseGridNo,pSoldier->aiPlanning().actionData());
+					pSoldier->identity().name(),sNoiseGridNo,pSoldier->aiPlanning().actionData());
 				AIPopMessage(tempstr);
 	#endif
 
@@ -654,7 +654,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	{
 #ifdef DEBUGDECISIONS
 	STR16 tempstr;
-		sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+		sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
      AIPopMessage(tempstr);
 #endif
 
@@ -667,7 +667,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	////////////////////////////////////////////////////////////////////////////
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{
@@ -700,7 +700,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 	{
 #ifdef DEBUGDECISIONS
 	STR16 tempstr;
-	  sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->name,pSoldier->vitals().breath());
+	  sprintf(tempstr,"%s RESTS (STATUS RED), breath = %d",pSoldier->identity().name(),pSoldier->vitals().breath());
    AIPopMessage(tempstr);
 #endif
 
@@ -714,9 +714,9 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 
 	// if we're a computer merc, and we have the action points remaining to RADIO
 	// (we never want NPCs to choose to radio if they would have to wait a turn)
-	if ( CAN_CALL( pSoldier ) && (!gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition) )
+	if ( CAN_CALL( pSoldier ) && (!gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
 		{
 			// if there hasn't been a general sighting call sent yet
 
@@ -777,7 +777,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 					#ifdef DEBUGDECISIONS
 					STR16 tempstr;
 					sprintf(tempstr,"%s - SEEKING FRIEND at %d, MOVING to %d",
-						pSoldier->name,sClosestFriend,pSoldier->aiPlanning().actionData());
+						pSoldier->identity().name(),sClosestFriend,pSoldier->aiPlanning().actionData());
 						AIPopMessage(tempstr);
 					#endif
 					return(AI_ACTION_SEEK_FRIEND);
@@ -804,7 +804,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 					// do it!
 					STR16 tempstr;
 					sprintf(tempstr,"%s - SEEKING OPPONENT at grid %d, MOVING to %d",
-					pSoldier->name,sClosestDisturbance,pSoldier->aiPlanning().actionData());
+					pSoldier->identity().name(),sClosestDisturbance,pSoldier->aiPlanning().actionData());
 					AIPopMessage(tempstr);
 				#endif
 
@@ -879,7 +879,7 @@ INT8 CreatureDecideActionRed(SOLDIERTYPE *pSoldier, UINT8 ubUnconsciousOK)
 
 		#ifdef DEBUGDECISIONS
 					STR16 tempstr;
-					 sprintf(tempstr,"%s - TURNS TOWARDS CLOSEST ENEMY to face direction %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+					 sprintf(tempstr,"%s - TURNS TOWARDS CLOSEST ENEMY to face direction %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 					 AIPopMessage(tempstr);
 		#endif
 
@@ -944,7 +944,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 	if ( CAN_CALL( pSoldier ) )
 	{
-		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->bTeam].bMenInSector > 1))
+		if ((pSoldier->actionPoints().current() >= APBPConstants[AP_RADIO]) && (gTacticalStatus.Team[pSoldier->roster().team()].bMenInSector > 1))
 		{
 			if (pSoldier->vitals().health() < pSoldier->vitals().previousHealth())
 			{
@@ -970,9 +970,9 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 			}
 			else
 			{
-				if (!(gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition))
+				if (!(gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition))
 				{
-					if (pSoldier->ubBodyType == QUEENMONSTER)
+					if (pSoldier->identity().bodyType() == QUEENMONSTER)
 					{
 						uiChance = 100;
 					}
@@ -1025,7 +1025,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		{
 #ifdef DEBUGDECISIONS
 		STR16 tempstr;
-		  sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->name,pSoldier->vitals().breath(),pSoldier->aiPlanning().actionData());
+		  sprintf(tempstr,"%s - GASSED or LOW ON BREATH (%d), RUNNING AWAY to grid %d",pSoldier->identity().name(),pSoldier->vitals().breath(),pSoldier->aiPlanning().actionData());
        AIPopMessage(tempstr);
 #endif
 
@@ -1049,7 +1049,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	{
 #ifdef DEBUGDECISIONS
 		STR16 tempstr;
-		sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+		sprintf(tempstr,"%s - SEEKING NEAREST UNGASSED LAND at grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
      AIPopMessage(tempstr);
 #endif
 
@@ -1076,7 +1076,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 				pSoldier->inv[HANDPOS].fFlags |= OBJECT_AI_UNUSABLE;
 
 				// try to find a bladed weapon
-				if (pSoldier->ubBodyType == QUEENMONSTER)
+				if (pSoldier->identity().bodyType() == QUEENMONSTER)
 				{
 					bWeaponIn = FindObjClass( pSoldier, IC_TENTACLES );
 				}
@@ -1214,11 +1214,11 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 	//////////////////////////////////////////////////////////////////////////
 
 	// if soldier has a knife in his hand
-	if (pSoldier->ubBodyType == QUEENMONSTER)
+	if (pSoldier->identity().bodyType() == QUEENMONSTER)
 	{
 		bWeaponIn = FindObjClass( pSoldier, IC_TENTACLES );
 	}
-	else if ( pSoldier->ubBodyType == BLOODCAT )
+	else if ( pSoldier->identity().bodyType() == BLOODCAT )
 	{
 		// 1 in 3 attack with teeth, otherwise with claws
 		if ( PreRandom( 3 ) )
@@ -1262,7 +1262,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		// get the minimum cost to attack with this knife
 		ubMinAPCost = MinAPsToAttack(pSoldier,pSoldier->targeting().lastGridNo(),DONTADDTURNCOST,0);
 
-		//sprintf(tempstr,"%s - ubMinAPCost = %d",pSoldier->name,ubMinAPCost);
+		//sprintf(tempstr,"%s - ubMinAPCost = %d",pSoldier->identity().name(),ubMinAPCost);
 		//PopMessage(tempstr);
 
 		// if we can afford the minimum AP cost to stab with this knife weapon
@@ -1270,7 +1270,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 		{
 			// then look around for a worthy target (which sets BestStab.ubPossible)
 
-			if (pSoldier->ubBodyType == QUEENMONSTER)
+			if (pSoldier->identity().bodyType() == QUEENMONSTER)
 			{
 				CalcTentacleAttack( pSoldier, &CurrStab );
 			}
@@ -1365,7 +1365,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 #ifdef DEBUGDECISIONS
 		STR tempstr;
 		sprintf( tempstr, "%d(%s) %s %d(%s) at gridno %d (%d APs aim)\n",
-			pSoldier->ubID,pSoldier->name,
+			pSoldier->identity().id(),pSoldier->identity().name(),
 			(ubBestAttackAction == AI_ACTION_FIRE_GUN)?"SHOOTS":((ubBestAttackAction == AI_ACTION_TOSS_PROJECTILE)?"TOSSES AT":"STABS"),
 			BestAttack.ubOpponent,ExtMen[BestAttack.ubOpponent].name,
 			BestAttack.sTarget,BestAttack.ubAimTime) ;
@@ -1428,7 +1428,7 @@ INT8 CreatureDecideActionBlack( SOLDIERTYPE * pSoldier )
 
 					#ifdef DEBUGDECISIONS
 					STR16 tempstr;
-					 sprintf(tempstr,"%s - TURNS to face CLOSEST OPPONENT in direction %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+					 sprintf(tempstr,"%s - TURNS to face CLOSEST OPPONENT in direction %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 					 AIPopMessage(tempstr);
 					#endif
 
@@ -1528,7 +1528,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 	// BLACK - Currently has one or more OPPONENTS in sight
 
 	// set mobility
-	switch (pSoldier->ubBodyType)
+	switch (pSoldier->identity().bodyType())
 	{
 		case ADULTFEMALEMONSTER:
 		case YAF_MONSTER:
@@ -1546,7 +1546,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 	}
 
 
-	if (pSoldier->ubBodyType == LARVAE_MONSTER)
+	if (pSoldier->identity().bodyType() == LARVAE_MONSTER)
 	{
 		// larvae never do anything much!
 		pSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
@@ -1588,7 +1588,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 			case STATUS_YELLOW:
 				// if all enemies have been RED alerted, or we're under fire
-				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
+				if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition || pSoldier->suppression().underFire())
 				{
 					pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 				}
@@ -1607,7 +1607,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 			case STATUS_GREEN:
 				// if all enemies have been RED alerted, or we're under fire
-				if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
+				if (gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition || pSoldier->suppression().underFire())
 				{
 					pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 				}
@@ -1649,7 +1649,7 @@ void CreatureDecideAlertStatus( SOLDIERTYPE *pSoldier )
 //		{
 			STR16 tempstr;
 			sprintf(tempstr,"%s's Alert Status changed from %d to %d",
-				pSoldier->name ,bOldStatus,pSoldier->aiBehavior().alertStatus());
+				pSoldier->identity().name() ,bOldStatus,pSoldier->aiBehavior().alertStatus());
 			AIPopMessage(tempstr);
 //		}
 #endif

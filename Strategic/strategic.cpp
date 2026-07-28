@@ -35,7 +35,7 @@ BOOLEAN HandleStrategicDeath( SOLDIERTYPE *pSoldier )
 	}
 
 	// if not in mapscreen
-	if ( !(guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) && pSoldier->bInSector)
+	if ( !(guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN ) && pSoldier->roster().inSector())
 	{
 		// ATE; At least make them dead!
 		if( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) )
@@ -98,15 +98,15 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 	INT8 bBuddyIndex;
 
 	// IF IT'S THE SELECTED GUY, MAKE ANOTHER SELECTED!
-	SoldierID cnt = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID;
+	SoldierID cnt = gTacticalStatus.Team[ pSoldier->roster().team() ].bFirstID;
 	
 	// see if this was the friend of a living merc
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt )
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->bActive )
+		if ( pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->roster().active() )
 		{
-			bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );
+			bBuddyIndex = WhichBuddy( pTeamSoldier->identity().profile(), pSoldier->identity().profile() );
 			switch( bBuddyIndex )
 			{
 				case 0:
@@ -150,7 +150,7 @@ void HandleSoldierDeadComments( SOLDIERTYPE *pSoldier )
 #ifdef JA2UB
 #else
 			// anv: handle Speck witnessing his employee death
-			if( pTeamSoldier->ubProfile == SPECK_PLAYABLE && pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
+			if( pTeamSoldier->identity().profile() == SPECK_PLAYABLE && pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
 				HandleSpeckWitnessingEmployeeDeath( pSoldier );
 #endif
 

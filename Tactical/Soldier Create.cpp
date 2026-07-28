@@ -271,21 +271,21 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->bOrders								= Soldier.aiBehavior().orders();
 	this->bMorale								= Soldier.morale().morale();
 	this->bAIMorale							= Soldier.morale().aiMorale();
-	this->ubBodyType							= Soldier.ubBodyType;
-	this->ubCivilianGroup				= Soldier.ubCivilianGroup;
+	this->ubBodyType							= Soldier.identity().bodyType();
+	this->ubCivilianGroup				= Soldier.roster().civilianGroup();
 	this->ubScheduleID					= Soldier.schedule().id();
 	this->fHasKeys							= Soldier.inventoryState().keyAccess();
 	this->sSectorX							= Soldier.deployment().sectorX();
 	this->sSectorY							= Soldier.deployment().sectorY();
 	this->bSectorZ							= Soldier.deployment().sectorZ();
-	this->ubSoldierClass				= Soldier.ubSoldierClass;
-	this->bTeam									= Soldier.bTeam;
+	this->ubSoldierClass				= Soldier.roster().soldierClass();
+	this->bTeam									= Soldier.roster().team();
 	this->ubDirection						= Soldier.position().direction();
 
 	this->fOnRoof								= Soldier.position().level();
 	this->sInsertionGridNo			= Soldier.position().gridNo();
 
-	swprintf( this->name, Soldier.name );
+	swprintf( this->name, Soldier.identity().name() );
 
 	//Copy patrol points
 	this->bPatrolCnt						= Soldier.aiPlanning().patrolCount();
@@ -629,13 +629,13 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 	// Some values initialized here but could be changed before going to the common one
 	InitSoldierStruct( &Soldier );
 
-	Soldier.uiUniqueSoldierIdValue = IssueJa2TacticalEntityIncarnation();
+	Soldier.identity().incarnation() = IssueJa2TacticalEntityIncarnation();
 
 	// Flugente: if this is a miltia, set individual ID
 	// do not do so during loading of a savegame
 	if ( tbTeam == MILITIA_TEAM && !pCreateStruct->fUseExistingSoldier )
 	{
-		Soldier.usIndividualMilitiaID = GetIdOfUnusedIndividualMilitia( pCreateStruct->ubSoldierClass, SECTOR( pCreateStruct->sSectorX, pCreateStruct->sSectorY ) );
+		Soldier.identity().individualMilitiaId() = GetIdOfUnusedIndividualMilitia( pCreateStruct->ubSoldierClass, SECTOR( pCreateStruct->sSectorX, pCreateStruct->sSectorY ) );
 	}
 
 	// OK, CHECK IF WE HAVE A VALID PROFILE ID!
@@ -658,7 +658,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		if ( pCreateStruct->fPlayerMerc )
 		{
 			Soldier.status().flags() |= SOLDIER_PC;
-			Soldier.bTeam = gbPlayerNum;
+			Soldier.roster().team() = gbPlayerNum;
 			Soldier.awareness().markVisible();
 		}
 		else if ( pCreateStruct->fPlayerPlan )
@@ -679,12 +679,12 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// OK, if this is our guy, set team as ours!
 			if ( pCreateStruct->fPlayerMerc )
 			{
-				Soldier.bTeam = OUR_TEAM;
+				Soldier.roster().team() = OUR_TEAM;
 				Soldier.perception().normalSmell() = NORMAL_HUMAN_SMELL_STRENGTH;
 			}
 			else if ( pCreateStruct->fPlayerPlan )
 			{
-				Soldier.bTeam = PLAYER_PLAN;
+				Soldier.roster().team() = PLAYER_PLAN;
 			}
 			else
 			{
@@ -696,7 +696,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					case STOCKYMALE:
 					case REGFEMALE:
 
-						Soldier.bTeam = ENEMY_TEAM;
+						Soldier.roster().team() = ENEMY_TEAM;
 						break;
 
 					case ADULTFEMALEMONSTER:
@@ -707,7 +707,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					case INFANT_MONSTER:
 					case QUEENMONSTER:
 
-						Soldier.bTeam = CREATURE_TEAM;
+						Soldier.roster().team() = CREATURE_TEAM;
 						break;
 
 					case FATCIV:
@@ -720,7 +720,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					case CROW:
 					case ROBOTNOWEAPON:
 
-						Soldier.bTeam = CIV_TEAM;
+						Soldier.roster().team() = CIV_TEAM;
 						break;
 
 				}
@@ -728,16 +728,16 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				// enemy robot special case
 				if (pCreateStruct->ubBodyType == ROBOTNOWEAPON && pCreateStruct->ubSoldierClass == SOLDIER_CLASS_ROBOT)
 				{
-					Soldier.bTeam = ENEMY_TEAM;
+					Soldier.roster().team() = ENEMY_TEAM;
 				}
 
 			}
 		}
 		else
 		{
-			Soldier.bTeam = pCreateStruct->bTeam;
+			Soldier.roster().team() = pCreateStruct->bTeam;
 			// if WE_SEE_WHAT_MILITIA_SEES
-			if ( Soldier.bTeam == MILITIA_TEAM )
+			if ( Soldier.roster().team() == MILITIA_TEAM )
 			{
 				Soldier.awareness().markVisible();
 			}
@@ -758,28 +758,28 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 		if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
-			SoldierID cnt = gTacticalStatus.Team[ Soldier.bTeam ].bFirstID;
+			SoldierID cnt = gTacticalStatus.Team[ Soldier.roster().team() ].bFirstID;
 
 			// ATE: If we are a vehicle, and a player, start at a different slot ( 2 - max )
-			if( Soldier.ubBodyType == HUMVEE ||
-					Soldier.ubBodyType == ELDORADO ||
-					Soldier.ubBodyType == ICECREAMTRUCK ||
-					Soldier.ubBodyType == JEEP )
+			if( Soldier.identity().bodyType() == HUMVEE ||
+					Soldier.identity().bodyType() == ELDORADO ||
+					Soldier.identity().bodyType() == ICECREAMTRUCK ||
+					Soldier.identity().bodyType() == JEEP )
 			{
-				if( Soldier.bTeam == gbPlayerNum )
+				if( Soldier.roster().team() == gbPlayerNum )
 				{
-					cnt = gTacticalStatus.Team[ Soldier.bTeam ].bLastID - gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles+1;
+					cnt = gTacticalStatus.Team[ Soldier.roster().team() ].bLastID - gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles+1;
 				}
 			}
 
-			bLastTeamID = gTacticalStatus.Team[ Soldier.bTeam ].bLastID;
+			bLastTeamID = gTacticalStatus.Team[ Soldier.roster().team() ].bLastID;
 
 			// look for all mercs on the same team,
 			for ( ; cnt <= bLastTeamID; ++cnt )
 			{
 				pTeamSoldier =
 					soldiers.resolve(static_cast<UINT16>(cnt));
-				if ( pTeamSoldier && !pTeamSoldier->bActive )
+				if ( pTeamSoldier && !pTeamSoldier->roster().active() )
 				{
 					fGuyAvail = TRUE;
 					break;
@@ -793,19 +793,19 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			}
 
 			// OK, set ID
-			Soldier.ubID = cnt;
-			*pubID = Soldier.ubID;
+			Soldier.identity().id() = cnt;
+			*pubID = Soldier.identity().id();
 		}
 
 		// LOAD MERC's FACE!
-		if ( pCreateStruct->ubProfile != NO_PROFILE && Soldier.bTeam == OUR_TEAM )
+		if ( pCreateStruct->ubProfile != NO_PROFILE && Soldier.roster().team() == OUR_TEAM )
 		{
 			Soldier.iFaceIndex = InitSoldierFace( &Soldier );
 		}
 
 		Soldier.actionPoints().beginTurn( Soldier.CalcActionPoints() );
-		Soldier.bSide							= gTacticalStatus.Team[ Soldier.bTeam ].bSide;
-		Soldier.bActive							= TRUE;
+		Soldier.roster().side()							= gTacticalStatus.Team[ Soldier.roster().team() ].bSide;
+		Soldier.roster().active()							= TRUE;
 		Soldier.deployment().sectorX()						= pCreateStruct->sSectorX;
 		Soldier.deployment().sectorY()						= pCreateStruct->sSectorY;
 		Soldier.deployment().sectorZ()						= pCreateStruct->bSectorZ;
@@ -818,18 +818,18 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.vitals().previousHealth()						= Soldier.vitals().maximumHealth();
 
 		// set custom side for civilian group
-		if (Soldier.bTeam == CIV_TEAM &&
-			Soldier.ubCivilianGroup != NON_CIV_GROUP &&
-			zCivGroupName[Soldier.ubCivilianGroup].fCustomSide &&
-			zCivGroupName[Soldier.ubCivilianGroup].bSide >= 0)
+		if (Soldier.roster().team() == CIV_TEAM &&
+			Soldier.roster().civilianGroup() != NON_CIV_GROUP &&
+			zCivGroupName[Soldier.roster().civilianGroup()].fCustomSide &&
+			zCivGroupName[Soldier.roster().civilianGroup()].bSide >= 0)
 		{
-			Soldier.bSide = zCivGroupName[Soldier.ubCivilianGroup].bSide;
+			Soldier.roster().side() = zCivGroupName[Soldier.roster().civilianGroup()].bSide;
 		}
 
 		// Flugente: disease can affect a soldier's health
 		// not for us, and not for individual militia (their health is affected by their hourly healing instead)
-		if ( gGameExternalOptions.fDisease && gGameExternalOptions.fDiseaseStrategic && Soldier.bTeam != OUR_TEAM && Soldier.bTeam != CREATURE_TEAM && !ARMED_VEHICLE((&Soldier)) && !ENEMYROBOT((&Soldier)) &&
-			!( Soldier.bTeam == MILITIA_TEAM && gGameExternalOptions.fIndividualMilitia && gGameExternalOptions.fIndividualMilitia_ManageHealth )  )
+		if ( gGameExternalOptions.fDisease && gGameExternalOptions.fDiseaseStrategic && Soldier.roster().team() != OUR_TEAM && Soldier.roster().team() != CREATURE_TEAM && !ARMED_VEHICLE((&Soldier)) && !ENEMYROBOT((&Soldier)) &&
+			!( Soldier.roster().team() == MILITIA_TEAM && gGameExternalOptions.fIndividualMilitia && gGameExternalOptions.fIndividualMilitia_ManageHealth )  )
 		{
 			UINT8 sector = SECTOR( Soldier.deployment().sectorX(), Soldier.deployment().sectorY() );
 			
@@ -866,20 +866,20 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		}
 
 		// If a civvy, set neutral
-		if ( Soldier.bTeam == CIV_TEAM )
+		if ( Soldier.roster().team() == CIV_TEAM )
 		{
-			if (Soldier.ubProfile == WARDEN )
+			if (Soldier.identity().profile() == WARDEN )
 			{
 				Soldier.aiBehavior().neutral() = FALSE;
 			}
-			else if (Soldier.ubCivilianGroup != NON_CIV_GROUP)
+			else if (Soldier.roster().civilianGroup() != NON_CIV_GROUP)
 			{
-				if ( gTacticalStatus.fCivGroupHostile[ Soldier.ubCivilianGroup ] == CIV_GROUP_HOSTILE )
+				if ( gTacticalStatus.fCivGroupHostile[ Soldier.roster().civilianGroup() ] == CIV_GROUP_HOSTILE )
 				{
 					// HEADROCK HAM 3.6: Flag to prevent non-combat civilians from becoming hostile and forcing
 					// you to kill them...
 					if (!gGameExternalOptions.fCanTrueCiviliansBecomeHostile && 
-						(Soldier.ubBodyType >= FATCIV && Soldier.ubBodyType <= CRIPPLECIV ))
+						(Soldier.identity().bodyType() >= FATCIV && Soldier.identity().bodyType() <= CRIPPLECIV ))
 					{
 						Soldier.aiBehavior().neutral() = TRUE;
 					}
@@ -899,9 +899,9 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			}
 
 			//Weaken stats based on the bodytype of the civilian.
-			if( Soldier.ubProfile == NO_PROFILE )
+			if( Soldier.identity().profile() == NO_PROFILE )
 			{
-				switch( Soldier.ubBodyType )
+				switch( Soldier.identity().bodyType() )
 				{
 					case REGMALE:
 					case BIGMALE:
@@ -931,10 +931,10 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				}
 			}
 		}
-		else if ( Soldier.bTeam == CREATURE_TEAM )
+		else if ( Soldier.roster().team() == CREATURE_TEAM )
 		{
 			// bloodcats are neutral to start out
-			if ( Soldier.ubBodyType == BLOODCAT )
+			if ( Soldier.identity().bodyType() == BLOODCAT )
 			{
 				Soldier.aiBehavior().neutral() = TRUE;
 			} // otherwise (creatures) false
@@ -944,29 +944,29 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// ATE: TEMP : No enemy women mercs (unless elite)!
 		if (gGameExternalOptions.fRestrictFemaleEnemiesExceptElite == TRUE)
 		{
-			if( Soldier.ubProfile == NO_PROFILE && Soldier.bTeam == ENEMY_TEAM &&
-					Soldier.ubBodyType == REGFEMALE && Soldier.ubSoldierClass != SOLDIER_CLASS_ELITE )
+			if( Soldier.identity().profile() == NO_PROFILE && Soldier.roster().team() == ENEMY_TEAM &&
+					Soldier.identity().bodyType() == REGFEMALE && Soldier.roster().soldierClass() != SOLDIER_CLASS_ELITE )
 			{
-				Soldier.ubBodyType = (UINT8)( REGMALE + Random( 3 ) );
+				Soldier.identity().bodyType() = (UINT8)( REGMALE + Random( 3 ) );
 			}
 		}
 
 		// ATE
 		// Set some values for variation in anims...
-		if ( Soldier.ubBodyType == BIGMALE )
+		if ( Soldier.identity().bodyType() == BIGMALE )
 		{
 			Soldier.animationPlayback().subFlags() |= SUB_ANIM_BIGGUYTHREATENSTANCE;
 		}
 
 		// sevenfm: max morale for AI soldiers
-		if (Soldier.ubProfile == NO_PROFILE)
+		if (Soldier.identity().profile() == NO_PROFILE)
 		{
 			Soldier.morale().morale() = 60 + 2 * Soldier.statistics().experienceLevel() + Random(20);
 		}
 
 		//For inventory, look for any face class items that may be located in the big pockets and if found, move
 		//that item to a face slot and clear the pocket!
-		if( Soldier.bTeam != OUR_TEAM )
+		if( Soldier.roster().team() != OUR_TEAM )
 		{
 			INT32 i;
 			BOOLEAN fSecondFaceItem = FALSE;
@@ -994,7 +994,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			if( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 			{
 				// also, if an army guy has camouflage, roll to determine whether they start camouflaged
-				if ( ( Soldier.bTeam == ENEMY_TEAM ) || ( Soldier.bTeam == MILITIA_TEAM ) )
+				if ( ( Soldier.roster().team() == ENEMY_TEAM ) || ( Soldier.roster().team() == MILITIA_TEAM ) )
 				{
 					i = FindCamoKit ( &Soldier );
 
@@ -1025,7 +1025,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 		// OK, If not given a profile num, set a randomized default battle sound set
 		// and then adjust it according to body type!
-		if ( Soldier.ubProfile == NO_PROFILE )
+		if ( Soldier.identity().profile() == NO_PROFILE )
 		{
 			// default (men) badguy battlesound sets 0-5
 			Soldier.dialogue().battleSoundSet() = (UINT8)Random( 6 );
@@ -1035,7 +1035,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		//NOTE:	BE VERY CAREFUL WHAT YOU DO IN THIS SECTION!
 		//	It is very possible to override editor settings, especially orders and attitude.
 		//	In those cases, you can check for !gfEditMode (not in editor).
-		switch ( Soldier.ubBodyType )
+		switch ( Soldier.identity().bodyType() )
 		{
 			case HATKIDCIV:
 			case KIDCIV:
@@ -1101,16 +1101,16 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 				Soldier.status().flags() |= SOLDIER_VEHICLE;
 
-				switch( Soldier.ubBodyType )
+				switch( Soldier.identity().bodyType() )
 				{
 					case HUMVEE:
 					case ELDORADO:
 					case ICECREAMTRUCK:
 					case JEEP:
-						if ( Soldier.ubProfile != HELICOPTER && Soldier.ubProfile != 0 && Soldier.ubProfile != NO_PROFILE && Soldier.ubProfile != TANK_CAR ) 
+						if ( Soldier.identity().profile() != HELICOPTER && Soldier.identity().profile() != 0 && Soldier.identity().profile() != NO_PROFILE && Soldier.identity().profile() != TANK_CAR )
 						{
-							ubVehicleID = Soldier.ubProfile;
-							Soldier.aiBehavior().neutral() = gNewVehicle[Soldier.ubProfile].bNewNeutral;
+							ubVehicleID = Soldier.identity().profile();
+							Soldier.aiBehavior().neutral() = gNewVehicle[Soldier.identity().profile()].bNewNeutral;
 						}
 					break;
 				
@@ -1167,7 +1167,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		}
 
 		// Flugente: under certain conditions, we can recruit civilians
-		if ( Soldier.bTeam == CIV_TEAM && Soldier.ubProfile == NO_PROFILE && Soldier.ubCivilianGroup == NON_CIV_GROUP && Soldier.ubBodyType <= DRESSCIV )
+		if ( Soldier.roster().team() == CIV_TEAM && Soldier.identity().profile() == NO_PROFILE && Soldier.roster().civilianGroup() == NON_CIV_GROUP && Soldier.identity().bodyType() <= DRESSCIV )
 		{
 			// there has to officially be an outbreak in this sector - if we don't know of a disease, we cannot treat it!
 			UINT8 sector = SECTOR( Soldier.deployment().sectorX(), Soldier.deployment().sectorY() );
@@ -1186,11 +1186,11 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		{
 			// Commit the new record through the compatibility repository.
 			pLiveSoldier = soldiers.replace(
-				static_cast<UINT16>(Soldier.ubID), Soldier);
+				static_cast<UINT16>(Soldier.identity().id()), Soldier);
 			CHECKF( pLiveSoldier != NULL );
 			// Alrighty then, we are set to create the merc, stuff after here can fail!
 			CHECKF( pLiveSoldier->CreateSoldierCommon(
-				Soldier.ubBodyType, Soldier.ubID, STANDING ) != FALSE );
+				Soldier.identity().bodyType(), Soldier.identity().id(), STANDING ) != FALSE );
 		}
 	}
 	else
@@ -1206,22 +1206,22 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// ATE: Reset soldier's light value to -1....
 		Soldier.renderState().lightSprite() = -1;
 
-			if ( Soldier.ubBodyType == HUMVEE || Soldier.ubBodyType == ICECREAMTRUCK )
+			if ( Soldier.identity().bodyType() == HUMVEE || Soldier.identity().bodyType() == ICECREAMTRUCK )
 		{
 			Soldier.aiBehavior().neutral() = TRUE;
 		}
 
 		// Commit the restored record through the compatibility repository.
 		pLiveSoldier = soldiers.replace(
-			static_cast<UINT16>(Soldier.ubID), Soldier);
+			static_cast<UINT16>(Soldier.identity().id()), Soldier);
 		CHECKF( pLiveSoldier != NULL );
 
 		// Alrighty then, we are set to create the merc, stuff after here can fail!
 		CHECKF( pLiveSoldier->CreateSoldierCommon(
-			Soldier.ubBodyType, Soldier.ubID,
+			Soldier.identity().bodyType(), Soldier.identity().id(),
 			pLiveSoldier->animationPlayback().state() ) != FALSE );
 
-		*pubID = Soldier.ubID;
+		*pubID = Soldier.identity().id();
 
 	}
 
@@ -1242,7 +1242,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		if( !( gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 		{
 			// Increment men in sector number!
-			AddManToTeam( Soldier.bTeam );
+			AddManToTeam( Soldier.roster().team() );
 
 		}
 
@@ -1257,7 +1257,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			return NULL;
 
 		UINT8 ubSectorID = GetAutoResolveSectorID( );
-		pSoldier->ubID = NUM_PROFILES;
+		pSoldier->identity().id() = NUM_PROFILES;
 		pSoldier->deployment().sectorX() = (INT16)SECTORX( ubSectorID );
 		pSoldier->deployment().sectorY() = (INT16)SECTORY( ubSectorID );
 		pSoldier->deployment().sectorZ() = 0;
@@ -1282,11 +1282,11 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	SET_PALETTEREP_ID ( pSoldier->renderState().pantsPalette(),	pProfile->PANTS );
 
 	// Set profile index!
-	pSoldier->ubProfile									= ubProfileIndex;
+	pSoldier->identity().profile()									= ubProfileIndex;
 	pSoldier->schedule().id()						= pCreateStruct->ubScheduleID;
 	pSoldier->inventoryState().keyAccess()									= pCreateStruct->fHasKeys;
 
-	wcscpy( pSoldier->name, pProfile->zNickname );
+	wcscpy( pSoldier->identity().name(), pProfile->zNickname );
 
 	pSoldier->vitals().health() 										= pProfile->bLife;
 	pSoldier->vitals().maximumHealth()									= pProfile->bLifeMax;
@@ -1307,8 +1307,8 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 
 	pSoldier->dialogue().vocalVolume()						= MIDVOLUME;
 	pSoldier->animationPlayback().subFlags()						= pProfile->uiBodyTypeSubFlags;
-	pSoldier->ubBodyType								= pProfile->ubBodyType;
-	pSoldier->ubCivilianGroup						= pProfile->ubCivilianGroup;
+	pSoldier->identity().bodyType()								= pProfile->ubBodyType;
+	pSoldier->roster().civilianGroup()						= pProfile->ubCivilianGroup;
 	//OK set initial duty
 //	pSoldier->assignment().current()=ON_DUTY;
 
@@ -1359,7 +1359,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	}
 
 	// Flugente: VIPs: The general is, well, a general
-	if ( pSoldier->ubProfile == GENERAL )
+	if ( pSoldier->identity().profile() == GENERAL )
 	{
 		pSoldier->usSoldierFlagMask |= (SOLDIER_ENEMY_OFFICER | SOLDIER_VIP);
 	}
@@ -1550,23 +1550,23 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	skin = (INT8)Random( NUMSKINS );
 
 	//Choose hair color which uses the skin color to limit choices
-	hair = ChooseHairColor( pSoldier->ubBodyType, skin );
+	hair = ChooseHairColor( pSoldier->identity().bodyType(), skin );
 
 	MILITIA militia;
-	if ( GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+	if ( GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 	{
 		skin = militia.skin;
 		hair = militia.hair;
 	}
-	else if ( pSoldier->usSoldierProfile )
+	else if ( pSoldier->identity().dataProfile() )
 	{
 		INT8 type = pSoldier->GetSoldierProfileType(ubTeam);
 
-		if ( type > -1 && zSoldierProfile[type][pSoldier->usSoldierProfile].uiSkin )
-			skin = zSoldierProfile[type][pSoldier->usSoldierProfile].uiSkin - 1;
+		if ( type > -1 && zSoldierProfile[type][pSoldier->identity().dataProfile()].uiSkin )
+			skin = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiSkin - 1;
 
-		if ( type > -1 && zSoldierProfile[type][pSoldier->usSoldierProfile].uiHair )
-			hair = zSoldierProfile[type][pSoldier->usSoldierProfile].uiHair - 1;
+		if ( type > -1 && zSoldierProfile[type][pSoldier->identity().dataProfile()].uiHair )
+			hair = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiHair - 1;
 	}
 
 	switch( skin )
@@ -1607,47 +1607,47 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_ADMIN ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_ADMIN ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ELITE:
 			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLACKSHIRT"	);
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BLACKPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_ELITE ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_ELITE ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ARMY:
 			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "REDVEST"	);
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "GREENPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_ENEMY_TROOP ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_ENEMY_TROOP ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_GREEN_MILITIA:
 			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "GREENVEST"	);
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_ROOKIE ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_ROOKIE ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_REG_MILITIA:
 			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "JEANVEST"	);
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_REGULAR ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_REGULAR ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_ELITE_MILITIA:
 			//SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "BLUEVEST"	);
 			//SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), gUniformColors[ UNIFORM_MILITIA_ELITE ].vest );
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), gUniformColors[ UNIFORM_MILITIA_ELITE ].pants );
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 		case SOLDIER_CLASS_MINER:
 			SET_PALETTEREP_ID( pSoldier->renderState().vestPalette(), "greyVEST"	);
 			SET_PALETTEREP_ID( pSoldier->renderState().pantsPalette(), "BEIGEPANTS"	);
-			pSoldier->ubSoldierClass = ubSoldierClass;
+			pSoldier->roster().soldierClass() = ubSoldierClass;
 			return;
 	}
 
@@ -1658,7 +1658,7 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 	if( !pSoldier->renderState().pantsPalette()[0] || !pSoldier->renderState().vestPalette()[0] )
 	{
 		fMercClothingScheme = TRUE;
-		if( pSoldier->bTeam == CIV_TEAM && Random( 100 ) < 40 )
+		if( pSoldier->roster().team() == CIV_TEAM && Random( 100 ) < 40 )
 		{ //40% chance of using cheezy civilian colors
 			fMercClothingScheme = FALSE;
 		}
@@ -1733,7 +1733,7 @@ void GeneratePaletteForSoldier( SOLDIERTYPE *pSoldier, UINT8 ubSoldierClass, UIN
 
 BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruct )
 {
-	pSoldier->ubProfile							= NO_PROFILE;
+	pSoldier->identity().profile()							= NO_PROFILE;
 
 	// Randomize attributes
 	pSoldier->vitals().health()								= pCreateStruct->bLife;
@@ -1757,12 +1757,12 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->morale().morale()								= pCreateStruct->bMorale;
 	pSoldier->morale().aiMorale()							= pCreateStruct->bAIMorale;
 	pSoldier->dialogue().vocalVolume()			= MIDVOLUME;
-	pSoldier->ubBodyType					= pCreateStruct->ubBodyType;
-	pSoldier->ubCivilianGroup				= pCreateStruct->ubCivilianGroup;
+	pSoldier->identity().bodyType()					= pCreateStruct->ubBodyType;
+	pSoldier->roster().civilianGroup()				= pCreateStruct->ubCivilianGroup;
 
 	pSoldier->schedule().id()				= pCreateStruct->ubScheduleID;
 	pSoldier->inventoryState().keyAccess()							= pCreateStruct->fHasKeys;
-	pSoldier->ubSoldierClass				= pCreateStruct->ubSoldierClass;
+	pSoldier->roster().soldierClass()				= pCreateStruct->ubSoldierClass;
 
 	pSoldier->deployment().sectorX() = pCreateStruct->sSectorX;
 	pSoldier->deployment().sectorY() = pCreateStruct->sSectorY;
@@ -1773,9 +1773,9 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	if ( !ARMED_VEHICLE( pCreateStruct ) && !ENEMYROBOT( pCreateStruct ) )
 	{
 		MILITIA militia;
-		if ( GetMilitia( pSoldier->usIndividualMilitiaID, &militia ) )
+		if ( GetMilitia( pSoldier->identity().individualMilitiaId(), &militia ) )
 		{
-			pSoldier->ubBodyType = militia.bodytype;
+			pSoldier->identity().bodyType() = militia.bodytype;
 
 			if ( gGameExternalOptions.fIndividualMilitia_ManageHealth )
 			{
@@ -1802,10 +1802,10 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 				if ( cnt > 0 )
 				{
-					pSoldier->usSoldierProfile = availablenames[Random(cnt)];
+					pSoldier->identity().dataProfile() = availablenames[Random(cnt)];
 								
-					if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiBodyType > 0 && zSoldierProfile[type][pSoldier->usSoldierProfile].uiBodyType < 5 )
-						pSoldier->ubBodyType = zSoldierProfile[type][pSoldier->usSoldierProfile].uiBodyType - 1;
+					if ( zSoldierProfile[type][pSoldier->identity().dataProfile()].uiBodyType > 0 && zSoldierProfile[type][pSoldier->identity().dataProfile()].uiBodyType < 5 )
+						pSoldier->identity().bodyType() = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiBodyType - 1;
 				}
 			}
 		}
@@ -1821,21 +1821,21 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 	//////////////////////////////////////////////////////////////////////////////////////////////////
 	// Added by SANDRO - the enemy/militia has a decent chance to have some traits
-	if ( gGameExternalOptions.fAssignTraitsToEnemy && (SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass ) || pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT) )
+	if ( gGameExternalOptions.fAssignTraitsToEnemy && (SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() ) || pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT) )
 		AssignTraitsToSoldier( pSoldier, pCreateStruct );
-	if ( gGameExternalOptions.fAssignTraitsToMilitia && SOLDIER_CLASS_MILITIA( pSoldier->ubSoldierClass ) )
+	if ( gGameExternalOptions.fAssignTraitsToMilitia && SOLDIER_CLASS_MILITIA( pSoldier->roster().soldierClass() ) )
 		AssignTraitsToSoldier( pSoldier, pCreateStruct );
 
 	// if rebel command is enabled, apply bonuses and penalties
-	if (SOLDIER_CLASS_MILITIA(pSoldier->ubSoldierClass))
+	if (SOLDIER_CLASS_MILITIA(pSoldier->roster().soldierClass()))
 		RebelCommand::ApplyMilitiaBonuses(pSoldier);
-	if ((SOLDIER_CLASS_ENEMY(pSoldier->ubSoldierClass) || pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT))
+	if ((SOLDIER_CLASS_ENEMY(pSoldier->roster().soldierClass()) || pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT))
 		RebelCommand::ApplyEnemyPenalties(pSoldier);
 	if (pCreateStruct->bTeam == ENEMY_TEAM && (ENEMYROBOT(pCreateStruct) || ARMED_VEHICLE(pCreateStruct)))
 		RebelCommand::ApplyEnemyMechanicalUnitPenalties(pSoldier);
 
 	// Flugente: enemy roles
-	if ( gGameExternalOptions.fEnemyRoles && gGameExternalOptions.fEnemyOfficers && SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass ) )
+	if ( gGameExternalOptions.fEnemyRoles && gGameExternalOptions.fEnemyOfficers && SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() ) )
 	{
 		if ( HAS_SKILL_TRAIT( pSoldier, SQUADLEADER_NT) )
 		{
@@ -1852,7 +1852,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	// Flugente: VIPs
 	if ( gGameExternalOptions.fEnemyRoles && gGameExternalOptions.fEnemyGenerals && !gbWorldSectorZ && SectorHasVIP( gWorldSectorX, gWorldSectorY ) )
 	{
-		if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE )
+		if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE )
 		{
 			// has the VIP already been placed?
 			// if we are in the Alam barracks,don't spawn a VIP here - the General is the VIP
@@ -1868,7 +1868,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 				pSoldier->aiBehavior().orders() = SEEKENEMY;		// required, otherwise stationary orders forbid them from moving to the VIP
 			}
 		}
-		else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY )
+		else if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY )
 		{
 			// check wether there are any elites at all
 			SECTORINFO *pSectorInfo = &(SectorInfo[SECTOR( gWorldSectorX, gWorldSectorY )]);
@@ -1891,9 +1891,9 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	}
 
 	// Flugente: turncoats
-	if ( gSkillTraitValues.fCOTurncoats && pCreateStruct->bTeam == ENEMY_TEAM && SOLDIER_CLASS_ENEMY( pSoldier->ubSoldierClass ) )
+	if ( gSkillTraitValues.fCOTurncoats && pCreateStruct->bTeam == ENEMY_TEAM && SOLDIER_CLASS_ENEMY( pSoldier->roster().soldierClass() ) )
 	{
-		if ( NumSoldiersofClassWithFlag2InSector( pCreateStruct->bTeam, pSoldier->ubSoldierClass, SOLDIER_TURNCOAT ) < NumTurncoatsOfClassInSector( gWorldSectorX, gWorldSectorY, pSoldier->ubSoldierClass ) )
+		if ( NumSoldiersofClassWithFlag2InSector( pCreateStruct->bTeam, pSoldier->roster().soldierClass(), SOLDIER_TURNCOAT ) < NumTurncoatsOfClassInSector( gWorldSectorX, gWorldSectorY, pSoldier->roster().soldierClass() ) )
 		{
 			pSoldier->usSoldierFlagMask2 |= SOLDIER_TURNCOAT;
 		}
@@ -1905,7 +1905,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	{
 		//KM:	March 25, 1999
 		//Assign nightops traits to enemies/militia
-		if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE || pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA )
+		if( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE || pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA )
 		{
 			INT32 iChance;
 			UINT8	ubProgress;
@@ -1939,7 +1939,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 				}
 			}
 		}
-		else if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY || pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA )
+		else if( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY || pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
 		{
 			INT32 iChance;
 			UINT8	ubProgress;
@@ -1977,7 +1977,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 
 
 		// Lesh: give to enemies AMBIDEXTEROUS skill and a second pistol
-		if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE || pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA )
+		if( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE || pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA )
 		{
 			if ( Chance( 20 ) )
 			{
@@ -2000,7 +2000,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 				}
 			}
 		}
-		else if( pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY || pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA )
+		else if( pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY || pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA )
 		{
 			if ( Chance( 10 ) )
 			{
@@ -2036,34 +2036,34 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	//Expanded the default names based on team.
 	switch( pCreateStruct->bTeam )
 	{
-		case ENEMY_TEAM:		swprintf( pSoldier->name, TacticalStr[ ENEMY_TEAM_MERC_NAME ] );		break;
-		case MILITIA_TEAM:	swprintf( pSoldier->name, TacticalStr[ MILITIA_TEAM_MERC_NAME ] );	break;
+		case ENEMY_TEAM:		swprintf( pSoldier->identity().name(), TacticalStr[ ENEMY_TEAM_MERC_NAME ] );		break;
+		case MILITIA_TEAM:	swprintf( pSoldier->identity().name(), TacticalStr[ MILITIA_TEAM_MERC_NAME ] );	break;
 		case CIV_TEAM:
-			if( pSoldier->ubSoldierClass == SOLDIER_CLASS_MINER )
+			if( pSoldier->roster().soldierClass() == SOLDIER_CLASS_MINER )
 			{
-				swprintf( pSoldier->name, TacticalStr[ CIV_TEAM_MINER_NAME ] );
+				swprintf( pSoldier->identity().name(), TacticalStr[ CIV_TEAM_MINER_NAME ] );
 			}
 			else
 			{
-				swprintf( pSoldier->name, TacticalStr[ CIV_TEAM_MERC_NAME ] );
+				swprintf( pSoldier->identity().name(), TacticalStr[ CIV_TEAM_MERC_NAME ] );
 			}
 			break;
 		case CREATURE_TEAM:
-			if ( pSoldier->ubBodyType == BLOODCAT )
+			if ( pSoldier->identity().bodyType() == BLOODCAT )
 			{
-				swprintf( pSoldier->name, gzLateLocalizedString[ 36 ] );
+				swprintf( pSoldier->identity().name(), gzLateLocalizedString[ 36 ] );
 			}
 			else if ( pSoldier->IsZombie() )
 			{
-				swprintf( pSoldier->name, TacticalStr[ ZOMBIE_TEAM_MERC_NAME ] );
+				swprintf( pSoldier->identity().name(), TacticalStr[ ZOMBIE_TEAM_MERC_NAME ] );
 			}
-			else if ( pSoldier->ubBodyType >= ADULTFEMALEMONSTER && pSoldier->ubBodyType <= QUEENMONSTER )
+			else if ( pSoldier->identity().bodyType() >= ADULTFEMALEMONSTER && pSoldier->identity().bodyType() <= QUEENMONSTER )
 			{
-				swprintf( pSoldier->name, TacticalStr[CREATURE_TEAM_MERC_NAME] );	break;
+				swprintf( pSoldier->identity().name(), TacticalStr[CREATURE_TEAM_MERC_NAME] );	break;
 			}
 			else
 			{
-				swprintf( pSoldier->name, gpStrategicString[STR_PB_BANDIT] );	break;
+				swprintf( pSoldier->identity().name(), gpStrategicString[STR_PB_BANDIT] );	break;
 			}
 			break;
 	}
@@ -2102,7 +2102,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	// Set update time to new speed
 	pSoldier->animationIntent().clearDesiredHeight();
 	pSoldier->perception().viewRange()					= NORMAL_VIEW_RANGE;
-	pSoldier->bInSector					= FALSE;
+	pSoldier->roster().inSector()					= FALSE;
 	pSoldier->position().gridNo()					= NOWHERE;
 	pSoldier->renderState().muzzleFlashSprite()					= -1;
 	pSoldier->animationIntent().clearPendingAnimations();
@@ -2112,7 +2112,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->awareness().syncRenderedVisibility();
 	pSoldier->vitals().breath()					= 99;
 	pSoldier->vitals().maximumBreath()					= 100;
-	pSoldier->bActive					= TRUE;
+	pSoldier->roster().active()					= TRUE;
 	pSoldier->uiPresentation().hideLocator();
 	pSoldier->targeting().lastGridNo()				= NOWHERE;
 	pSoldier->movement().absoluteDestination() = NOWHERE;
@@ -2168,7 +2168,7 @@ BOOLEAN InternalTacticalRemoveSoldier( SoldierID usSoldierIndex, BOOLEAN fRemove
 
 BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehicle )
 {
-	if( !pSoldier->bActive )
+	if( !pSoldier->roster().active() )
 		return FALSE;
 
 	if( pSoldier->schedule().assigned() )
@@ -2183,7 +2183,7 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 	}
 
 	// Handle crow leave....
-	if ( pSoldier->ubBodyType == CROW )
+	if ( pSoldier->identity().bodyType() == CROW )
 	{
 		HandleCrowLeave( pSoldier );
 	}
@@ -2194,11 +2194,11 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 		RemoveCharacterFromSquads( pSoldier );
 
 		//remove the soldier from the interface panel
-		RemovePlayerFromTeamSlotGivenMercID( pSoldier->ubID );
+		RemovePlayerFromTeamSlotGivenMercID( pSoldier->identity().id() );
 
 		// Check if a guy exists here
 		// Does another soldier exist here?
-		if ( pSoldier->bActive	)
+		if ( pSoldier->roster().active()	)
 		{
 			pSoldier->RemoveSoldierFromGridNo( );
 
@@ -2212,10 +2212,10 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 			if ( ! (pSoldier->status().flags() & SOLDIER_OFF_MAP) )
 			{
 				// Decrement men in sector number!
-				RemoveManFromTeam( pSoldier->bTeam );
+				RemoveManFromTeam( pSoldier->roster().team() );
 			} // people specified off-map have already been removed from their team count
 
-			pSoldier->bActive = FALSE;
+			pSoldier->roster().active() = FALSE;
 
 			// Delete!
 			pSoldier->DeleteSoldier( );
@@ -3047,11 +3047,11 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 	{
 		SOLDIERTYPE* source =
 			soldiers.resolve(static_cast<UINT16>(i));
-		if( source && source->bActive && source->bInSector &&
+		if( source && source->roster().active() && source->roster().inSector() &&
 			source->vitals().health() &&
 			!TileIsOutOfBounds(source->position().gridNo()))
 		{
-			if( source->ubSoldierClass == ubSoldierClass )
+			if( source->roster().soldierClass() == ubSoldierClass )
 			{
 				//reserve this soldier
 				source->position().gridNo() = NOWHERE;
@@ -3062,7 +3062,7 @@ SOLDIERTYPE* ReserveTacticalSoldierForAutoresolve( UINT8 ubSoldierClass )
 					return NULL;
 
 				//Assign a bogus ID, then return it
-				pSoldier->ubID = NUM_PROFILES;
+				pSoldier->identity().id() = NUM_PROFILES;
 				return pSoldier;
 			}
 		}
@@ -3360,11 +3360,11 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 	{
 		SOLDIERTYPE* source =
 			soldiers.resolve(static_cast<UINT16>(i));
-		if( source && source->bActive && source->bInSector &&
+		if( source && source->roster().active() && source->roster().inSector() &&
 			source->vitals().health() &&
 			!TileIsOutOfBounds(source->position().gridNo()))
 		{
-			if( source->ubSoldierClass == ubSoldierClass )
+			if( source->roster().soldierClass() == ubSoldierClass )
 			{
 				//reserve this soldier
 				source->position().gridNo() = NOWHERE;
@@ -3379,7 +3379,7 @@ SOLDIERTYPE* ReserveTacticalMilitiaSoldierForAutoresolve( UINT8 ubSoldierClass )
 				source->usSoldierFlagMask |= SOLDIER_EQUIPMENT_DROPPED;
 
 				//Assign a bogus ID, then return it
-				pSoldier->ubID = NUM_PROFILES;
+				pSoldier->identity().id() = NUM_PROFILES;
 				return pSoldier;
 			}
 		}
@@ -3559,10 +3559,10 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 
 	if ( pSoldier )
 	{
-		AddSoldierToSector( pSoldier->ubID );
+		AddSoldierToSector( pSoldier->identity().id() );
 
 		// set correct civ group
-		pSoldier->ubCivilianGroup = usCivilianGroup;
+		pSoldier->roster().civilianGroup() = usCivilianGroup;
 
 		pSoldier->interaction().nonNpcTraderId() = -1;
 
@@ -3656,10 +3656,10 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 		pSoldier->statistics().skillTrait(1) = COVERT_NT;
 
 		// set correct civ group
-		pSoldier->ubCivilianGroup = ASSASSIN_CIV_GROUP;
+		pSoldier->roster().civilianGroup() = ASSASSIN_CIV_GROUP;
 
 		// set militia name to further irritate the player
-		swprintf( pSoldier->name, TacticalStr[ MILITIA_TEAM_MERC_NAME ] );
+		swprintf( pSoldier->identity().name(), TacticalStr[ MILITIA_TEAM_MERC_NAME ] );
 
 		// send soldier to centre of map, roughly
 		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
@@ -3752,7 +3752,7 @@ void CreateAssassin(UINT8 disguisetype)
 			pSoldier->deployment().insertionGrid() = sGridNo;
 		}
 
-		AddSoldierToSector( pSoldier->ubID );
+		AddSoldierToSector( pSoldier->identity().id() );
 
 		// assassins are elite soldiers disguised as militia. Create militia clothes and apply them
 		BOOLEAN vestfound  = FALSE;
@@ -3888,15 +3888,15 @@ void CreatePrisonerOfWar()
 
 	if ( pSoldier )
 	{
-		AddSoldierToSector( pSoldier->ubID );
+		AddSoldierToSector( pSoldier->identity().id() );
 
 		// mark this guy
 		pSoldier->usSoldierFlagMask |= SOLDIER_POW_PRISON;
 
 		// set correct civ group
-		pSoldier->ubCivilianGroup = POW_PRISON_CIV_GROUP;
+		pSoldier->roster().civilianGroup() = POW_PRISON_CIV_GROUP;
 
-		swprintf( pSoldier->name, TacticalStr[ POW_TEAM_MERC_NAME ] );
+		swprintf( pSoldier->identity().name(), TacticalStr[ POW_TEAM_MERC_NAME ] );
 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
@@ -3968,10 +3968,10 @@ void CreateDownedPilot( )
 		pSoldier->vitals().health() = min( pSoldier->vitals().maximumHealth(), max( OKLIFE + 20, pSoldier->vitals().health() - 20 ) );
 		pSoldier->vitals().bleeding() = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health();
 
-		AddSoldierToSector( pSoldier->ubID );
+		AddSoldierToSector( pSoldier->identity().id() );
 		
 		// set correct civ group
-		pSoldier->ubCivilianGroup = DOWNEDPILOT_CIV_GROUP;
+		pSoldier->roster().civilianGroup() = DOWNEDPILOT_CIV_GROUP;
 		
 		// make him wear administrator uniform
 		UINT16 usPaletteAnimSurface = LoadSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
@@ -4154,7 +4154,7 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 	pProfile = &(gMercProfiles[pCreateStruct->ubProfile]);
 
 	// Copy over inv if we want to
-	if ( pCreateStruct->fCopyProfileItemsOver || pSoldier->bTeam != OUR_TEAM )
+	if ( pCreateStruct->fCopyProfileItemsOver || pSoldier->roster().team() != OUR_TEAM )
 	{
 		if (pCreateStruct->fPlayerMerc)
 		{
@@ -4299,7 +4299,7 @@ void CopyProfileItems( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCreateStruc
 						if (ItemHasFingerPrintID(gTempObject.usItem))
 						{
 							for (int x = 0; x < pProfile->bInvNumber[ cnt ]; ++x) {
-								gTempObject[x]->data.ubImprintID = pSoldier->ubProfile;
+								gTempObject[x]->data.ubImprintID = pSoldier->identity().profile();
 							}
 						}
 						if (gubItemDroppableFlag[cnt])
@@ -4360,7 +4360,7 @@ void TrashAllSoldiers( )
 	{
 		SOLDIERTYPE* pSoldier = soldiers.resolve(cnt);
 		if (!pSoldier) continue;
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			// Delete from world
 			TacticalRemoveSoldier( (UINT16)cnt );
@@ -4729,35 +4729,35 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 	BOOLEAN CTraitAssigned = FALSE;
 
 	ubProgress = HighestPlayerProgressPercentage( );
-	ubSolClass = pSoldier->ubSoldierClass;
+	ubSolClass = pSoldier->roster().soldierClass();
 
 	// Flugente: soldier profiles - if any traits are in the xml, use them, but fill up empty slots afterwards
-	if ( gGameOptions.fNewTraitSystem && pSoldier->usSoldierProfile )
+	if ( gGameOptions.fNewTraitSystem && pSoldier->identity().dataProfile() )
 	{
 		INT8 type = pSoldier->GetSoldierProfileType( pCreateStruct->bTeam );
 
 		if ( type > -1 )
 		{
-			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[0] > 0 )
+			if ( zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[0] > 0 )
 			{
-				pSoldier->statistics().skillTrait(0) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[0];
+				pSoldier->statistics().skillTrait(0) = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[0];
 				ATraitAssigned = TRUE;
 			}
 
-			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[1] > 0 )
+			if ( zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[1] > 0 )
 			{
-				pSoldier->statistics().skillTrait(1) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[1];
+				pSoldier->statistics().skillTrait(1) = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[1];
 				BTraitAssigned = TRUE;
 			}
 
-			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2] > 0 )
+			if ( zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[2] > 0 )
 			{
 				// we have to make sure that not all 3 traits are major traits - if that happens, we ignore the third one
-				if ( MajorTrait( pSoldier->statistics().skillTrait(0) ) && MajorTrait( pSoldier->statistics().skillTrait(1) ) && MajorTrait( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2] ) )
+				if ( MajorTrait( pSoldier->statistics().skillTrait(0) ) && MajorTrait( pSoldier->statistics().skillTrait(1) ) && MajorTrait( zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[2] ) )
 					;
 				else
 				{
-					pSoldier->statistics().skillTrait(2) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2];
+					pSoldier->statistics().skillTrait(2) = zSoldierProfile[type][pSoldier->identity().dataProfile()].uiTrait[2];
 					CTraitAssigned = TRUE;
 				}
 			}
@@ -5735,9 +5735,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			if ( Chance( iChance ) )
 			{
 				UINT32 uiBodyBuildChance; // chance to geet bodybuilding rather than athletics
-				if ( pSoldier->ubBodyType == BIGMALE ) // big guys more likely take bb
+				if ( pSoldier->identity().bodyType() == BIGMALE ) // big guys more likely take bb
 					uiBodyBuildChance = 90;
-				else if ( pSoldier->ubBodyType == REGFEMALE )  // while women athletics
+				else if ( pSoldier->identity().bodyType() == REGFEMALE )  // while women athletics
 					uiBodyBuildChance = 10;
 				else
 					uiBodyBuildChance = 60; // normally prefer bb a bit

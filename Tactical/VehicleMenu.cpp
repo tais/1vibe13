@@ -178,7 +178,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 			gusSelectedSoldier = sTempSelectedSoldier;
 		}
 	}
-	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->ubProfile ) )
+	else if ( OK_ENTERABLE_VEHICLE( pCurrentVehicle ) && pCurrentVehicle->awareness().visibility() != -1 && OKUseVehicle( pCurrentVehicle->identity().profile() ) )
 	{
 		// Find a gridno closest to sweetspot...
 		sActionGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pCurrentSoldier, pCurrentSoldier->movement().mode(), 5, &ubDirection, 0, pCurrentVehicle, TRUE );
@@ -216,7 +216,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 				pCurrentSoldier->DoMercBattleSound( BATTLE_SOUND_OK1 );
 
 				// OK, set UI
-				SetUIBusy( pCurrentSoldier->ubID );
+				SetUIBusy( pCurrentSoldier->identity().id() );
 				//guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 			}
 		}

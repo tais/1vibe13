@@ -152,7 +152,7 @@ BOOLEAN BloodcatsPresent( void )
 			continue;
 		}
 
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && pSoldier->ubBodyType == BLOODCAT )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() > 0 && pSoldier->identity().bodyType() == BLOODCAT )
 		{
 			return( TRUE );
 		}
@@ -200,7 +200,7 @@ void StartPlayerTeamTurn( BOOLEAN fDoBattleSnd, BOOLEAN fEnteringCombatMode )
 		//SoldierID cnt = gTacticalStatus.Team[ gbPlayerNum ].bFirstID;
 		//for each repository-owned soldier slot on the player team
 		//{
-		//	if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
+		//	if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )
 		//	{
 		//		SBeginTurn.usSoldierID		= (UINT16)cnt;
 		//		AddGameEvent( S_BEGINTURN, 0, &SBeginTurn );
@@ -363,7 +363,7 @@ void EndTurn( UINT8 ubNextTeam )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive )
+			if ( pSoldier->roster().active() )
 			{
 				pSoldier->turnState().moved() = TRUE;
 			}
@@ -419,7 +419,7 @@ void EndAITurn( void )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive )
+			if ( pSoldier->roster().active() )
 			{
 				pSoldier->turnState().moved() = TRUE;
 				// record old life value... for creature AI; the human AI might
@@ -457,7 +457,7 @@ void EndAllAITurns( void )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive )
+			if ( pSoldier->roster().active() )
 			{
 				pSoldier->turnState().moved() = TRUE;
 				pSoldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
@@ -498,7 +498,7 @@ void EndTurnEvents( void )
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )//&& !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )//&& !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
 		{
 			// Flugente: update multi-turn actions
 			pSoldier->UpdateMultiTurnAction();
@@ -545,7 +545,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 		{
 			SOLDIERTYPE* pStop =
 				GetJa2SoldierRepository().resolve(id.i);
-			if ( pStop && pStop->bActive && pStop->bInSector && pStop->bTeam >= LAN_TEAM_ONE
+			if ( pStop && pStop->roster().active() && pStop->roster().inSector() && pStop->roster().team() >= LAN_TEAM_ONE
 				&& pStop->position().gridNo() >= 0 && pStop->position().gridNo() < WORLD_MAX
 				&& ( gAnimControl[ pStop->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 			{
@@ -634,7 +634,7 @@ void BeginTeamTurn( UINT8 ubTeam )
 				{
 					continue;
 				}
-				if ( pSoldier->bActive && pSoldier->vitals().health() > 0)
+				if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0)
 				{
 					// decay personal opplist, and refresh APs and BPs
 					pSoldier->EVENT_BeginMercTurn( FALSE, 0 );
@@ -756,7 +756,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 
 	if (pSoldier->awareness().visibility() != -1 )
 	{
-		SlideTo( pSoldier->ubID, SETLOCATOR);
+		SlideTo( pSoldier->identity().id(), SETLOCATOR);
 	}
 
 		if(is_client)
@@ -793,7 +793,7 @@ void DisplayHiddenInterrupt( SOLDIERTYPE * pSoldier )
 
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"about to call AddTopMessage");
 	// get rid of any old overlay message
-	if ( pSoldier->bTeam == MILITIA_TEAM )
+	if ( pSoldier->roster().team() == MILITIA_TEAM )
 	{
 		AddTopMessage( MILITIA_INTERRUPT_MESSAGE, Message[ STR_INTERRUPT ] );
 	}
@@ -828,14 +828,14 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	}
 
 	// Enter combat mode starting with this side's turn
-	SetJa2TacticalCurrentTeam( pActingSoldier->bTeam );
+	SetJa2TacticalCurrentTeam( pActingSoldier->roster().team() );
 
 	CommonEnterCombatModeCode( );
 
 	//JA2Gold: use function to make sure flags turned off everywhere else
 	//pActingSoldier->status().flags() |= SOLDIER_UNDERAICONTROL;
 	pActingSoldier->SetSoldierAsUnderAiControl(	);
-	DebugAI( String( "Giving AI control to %d", pActingSoldier->ubID ) );
+	DebugAI( String( "Giving AI control to %d", pActingSoldier->identity().id() ) );
 	pActingSoldier->movement().beginTurn();
 	gTacticalStatus.uiTimeSinceMercAIStart = GetJA2Clock();	
 	gtTimeSinceMercAIStart = time(0);	// sevenfm: also remember system time
@@ -875,11 +875,11 @@ BOOLEAN EveryoneInInterruptListOnSameTeam( void )
 			continue;
 		if ( ubTeam == 255 )
 		{
-			ubTeam = soldier->bTeam;
+			ubTeam = soldier->roster().team();
 		}
 		else
 		{
-			if ( soldier->bTeam != ubTeam )
+			if ( soldier->roster().team() != ubTeam )
 			{
 				return( FALSE );
 			}
@@ -910,7 +910,7 @@ void StartInterrupt( void )
 		ClearIntList();
 		return;
 	}
-	bTeam = pSoldier->bTeam;
+	bTeam = pSoldier->roster().team();
 	ubInterrupter = ubFirstInterrupter;
 
 #ifdef _DEBUG
@@ -933,14 +933,14 @@ void StartInterrupt( void )
 		{
 			continue;
 		}
-		if ( pTempSoldier->bActive )
+		if ( pTempSoldier->roster().active() )
 		{
 			pTempSoldier->turnState().captureMoved(pTempSoldier->turnState().moved());
 			pTempSoldier->turnState().moved() = TRUE;
 		}
 	}
 
-	if (pSoldier->bTeam == OUR_TEAM)
+	if (pSoldier->roster().team() == OUR_TEAM)
 	{
 		// start interrupts for everyone on our side at once
 		CHAR16		sTemp[ 255 ];
@@ -976,7 +976,7 @@ void StartInterrupt( void )
 			else if (!(pInterrupter =
 				GetJa2SoldierRepository().resolve(
 					ubInterrupter.i)) ||
-				pInterrupter->bTeam != bTeam)
+				pInterrupter->roster().team() != bTeam)
 			{
 				break;
 			}
@@ -1008,7 +1008,7 @@ void StartInterrupt( void )
 					for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 					{
 						pTempSoldier = Squad[ iSquad ][ iCounter ];
-						if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() )
+						if ( pTempSoldier && pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && !pTempSoldier->turnState().moved() )
 						{
 							INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->position().gridNo(),ADDTURNCOST, 0);
 							// if we don't have enough APs left to shoot even a snap-shot at this guy
@@ -1037,7 +1037,7 @@ void StartInterrupt( void )
 				for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 				{
 					pTempSoldier = Squad[ iSquad ][ iCounter ];
-					if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() )
+					if ( pTempSoldier && pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && !pTempSoldier->turnState().moved() )
 					{
 						// then this guy got an interrupt...
 						ubInterrupters++;
@@ -1055,7 +1055,7 @@ void StartInterrupt( void )
 						{
 							wcscat( sTemp, L", " );
 						}
-						wcscat( sTemp, pTempSoldier->name );
+						wcscat( sTemp, pTempSoldier->identity().name() );
 					}
 				}
 			}
@@ -1077,7 +1077,7 @@ void StartInterrupt( void )
 
 			// Dirty panel interface!
 			fInterfacePanelDirty						= DIRTYLEVEL2;
-			SetJa2TacticalCurrentTeam( pSoldier->bTeam );
+			SetJa2TacticalCurrentTeam( pSoldier->roster().team() );
 
 			// Signal UI done enemy's turn
 			guiPendingOverrideEvent = LU_ENDUILOCK;
@@ -1124,10 +1124,10 @@ void StartInterrupt( void )
 
 		// what we do is set everyone to moved except for people with interrupts at the moment
 		/*
-		cnt = gTacticalStatus.Team[ pSoldier->bTeam ].bFirstID;
+		cnt = gTacticalStatus.Team[ pSoldier->roster().team() ].bFirstID;
 		for each repository-owned soldier on pSoldier's team
 		{
-			if ( pTempSoldier->bActive )
+			if ( pTempSoldier->roster().active() )
 			{
 				pTempSoldier->turnState().captureMoved(pTempSoldier->turnState().moved());
 				pTempSoldier->turnState().moved() = TRUE;
@@ -1160,7 +1160,7 @@ void StartInterrupt( void )
 			else if (!(pInterrupter =
 				GetJa2SoldierRepository().resolve(
 					ubInterrupter.i)) ||
-				pInterrupter->bTeam != bTeam)
+				pInterrupter->roster().team() != bTeam)
 			{
 				break;
 			}
@@ -1187,7 +1187,7 @@ void StartInterrupt( void )
 			{
 				// SANDRO - we don't use the "hidden interrupt" feature with IIS
 				// sevenfm: all interrupts in original interrupt system start as hidden and revealed later if soldier decides something
-				if ( !is_networked && pTempSoldier->bTeam != OUR_TEAM && !UsingImprovedInterruptSystem() )
+				if ( !is_networked && pTempSoldier->roster().team() != OUR_TEAM && !UsingImprovedInterruptSystem() )
 				{
 					// we're being interrupted by the computer!
 					// we delay displaying any interrupt message until the computer does something...
@@ -1196,7 +1196,7 @@ void StartInterrupt( void )
 				}
 				// otherwise it's the AI interrupting another AI team
 
-				SetJa2TacticalCurrentTeam( pTempSoldier->bTeam );
+				SetJa2TacticalCurrentTeam( pTempSoldier->roster().team() );
 
 #ifdef JA2BETAVERSION
 				if (is_networked)
@@ -1209,7 +1209,7 @@ void StartInterrupt( void )
 				if( !gfHiddenInterrupt )
 				{
 					// SANDRO - show correct top message
-					if (pTempSoldier->bTeam == MILITIA_TEAM )
+					if (pTempSoldier->roster().team() == MILITIA_TEAM )
 						AddTopMessage( MILITIA_INTERRUPT_MESSAGE, Message[STR_INTERRUPT] );
 					else
 						AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, Message[STR_INTERRUPT] );
@@ -1219,7 +1219,7 @@ void StartInterrupt( void )
 				// instead the game used the last merc entry... which overflowed, and thus started at merc 0, which is always a player merc
 				// I am not sure if this is the best solution... however it seems to work for me.
 				// If anybody knows a better solution, feel free to do so
-				if ( pTempSoldier->bTeam != OUR_TEAM )
+				if ( pTempSoldier->roster().team() != OUR_TEAM )
 					StartNPCAI( pTempSoldier );
 				else
 					EndInterrupt(TRUE);
@@ -1283,7 +1283,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		{
 			continue;
 		}
-		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() && (pTempSoldier->actionPoints().current() == pTempSoldier->turnState().interruptStartActionPoints()))
+		if ( pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && !pTempSoldier->turnState().moved() && (pTempSoldier->actionPoints().current() == pTempSoldier->turnState().interruptStartActionPoints()))
 		{
 			ubMinAPsToAttack = MinAPsToAttack( pTempSoldier, pTempSoldier->targeting().lastGridNo(), FALSE, 0 );
 			if ( (ubMinAPsToAttack <= pTempSoldier->actionPoints().current()) && (ubMinAPsToAttack > 0) )
@@ -1318,7 +1318,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				ClearIntList();
 				return;
 			}
-			nbTeam = npSoldier->bTeam;
+			nbTeam = npSoldier->roster().team();
 
 			//pSoldier is interrupted //but its not available //needs calculating
 			//npSoldier,nbTeam is interruptor
@@ -1332,7 +1332,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			{
 				send_interrupt( npSoldier );
 				StartInterrupt();
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s and AI", TeamNameStrings[npSoldier->bTeam] );//tried to use pSoldier, but its not available. find another way to get correct team
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s and AI", TeamNameStrings[npSoldier->roster().team()] );//tried to use pSoldier, but its not available. find another way to get correct team
 
 			}
 			else if ( is_server && GetJa2TacticalCurrentTeam() == 1 )// resume AI interrupted and im server
@@ -1345,7 +1345,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				else
 					StartInterrupt();
 
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt of AI by %s", TeamNameStrings[npSoldier->bTeam] );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt of AI by %s", TeamNameStrings[npSoldier->roster().team()] );
 
 			}
 
@@ -1357,7 +1357,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			else
 #endif
 			{
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s", TeamNameStrings[npSoldier->bTeam] );//this can be simplified if above comment is implemented
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Continuing interrupt with %s", TeamNameStrings[npSoldier->roster().team()] );//this can be simplified if above comment is implemented
 				//ClearIntList();
 				//hayden//may need more work.
 				StartInterrupt();
@@ -1388,14 +1388,14 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			{
 				continue;
 			}
-			if ( pTempSoldier->bActive )
+			if ( pTempSoldier->roster().active() )
 			{
 				// AI guys only here...
 				if ( pTempSoldier->actionPoints().current() == 0 )
 				{
 					pTempSoldier->turnState().moved() = TRUE;
 				}
-				else if ( pTempSoldier->bTeam != gbPlayerNum && pTempSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION )
+				else if ( pTempSoldier->roster().team() != gbPlayerNum && pTempSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION )
 				{
 					pTempSoldier->turnState().moved() = FALSE;
 				}
@@ -1408,7 +1408,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 
 
 		// change team
-		SetJa2TacticalCurrentTeam( pSoldier->bTeam );
+		SetJa2TacticalCurrentTeam( pSoldier->roster().team() );
 
 		// MP: tell the interrupted player's machine the interrupt is over. The
 		// complete handshake for this (end_interrupt -> "endINTERRUPT" relay ->
@@ -1417,13 +1417,13 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		// frozen forever re-detecting interrupts (the historical "press ALT+E on
 		// the server" hang). Only the holder sends: the interrupted soldier is on
 		// another player's team here.
-		if ( is_networked && is_client && pSoldier->bTeam != gbPlayerNum )
+		if ( is_networked && is_client && pSoldier->roster().team() != gbPlayerNum )
 		{
 			end_interrupt( fMarkInterruptOccurred );
 		}
 
 		// switch appropriate messages & flags
-		if ( pSoldier->bTeam == OUR_TEAM)
+		if ( pSoldier->roster().team() == OUR_TEAM)
 		{
 			// set everyone on the team to however they were set moved before the interrupt
 			// must do this before selecting soldier...
@@ -1431,7 +1431,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			cnt = gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bFirstID;
 			for each repository-owned soldier on the current team
 			{
-				if ( pTempSoldier->bActive )
+				if ( pTempSoldier->roster().active() )
 				{
 					pTempSoldier->turnState().moved() = pTempSoldier->turnState().movedBeforeInterrupt();
 				}
@@ -1473,18 +1473,18 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 					}
 					else
 					{
-						UnSetUIBusy( pSoldier->ubID );
+						UnSetUIBusy( pSoldier->identity().id() );
 					}
 				}
 				else
 				{
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 				}
 
 				if ( gTacticalStatus.fUnLockUIAfterHiddenInterrupt )
 				{
 					gTacticalStatus.fUnLockUIAfterHiddenInterrupt = FALSE;
-					UnSetUIBusy( pSoldier->ubID );
+					UnSetUIBusy( pSoldier->identity().id() );
 				}
 			}
 			else
@@ -1527,11 +1527,11 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				InitPlayerUIBar( 2 );
 				
 				// SANDRO - shouldn't we unset ui here too?
-				UnSetUIBusy( pSoldier->ubID );
+				UnSetUIBusy( pSoldier->identity().id() );
 			}
 
 		}
-		else if (!is_networked || (pSoldier->bTeam < 6))//hayden : is Ai or LAN ?
+		else if (!is_networked || (pSoldier->roster().team() < 6))//hayden : is Ai or LAN ?
 		{
 			// this could be set to true for AI-vs-AI interrupts
 			gfHiddenInterrupt = FALSE;
@@ -1558,7 +1558,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				{
 					continue;
 				}
-				if ( pTempSoldier->bActive && pTempSoldier->bInSector && pTempSoldier->vitals().health() >= OKLIFE )
+				if ( pTempSoldier->roster().active() && pTempSoldier->roster().inSector() && pTempSoldier->vitals().health() >= OKLIFE )
 				{
 					fFound = TRUE;
 					break;
@@ -1649,7 +1649,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		else if (is_networked) //its going to another Lan client..//hayden
 		{
 	
-			SetJa2TacticalCurrentTeam( pSoldier->bTeam );
+			SetJa2TacticalCurrentTeam( pSoldier->roster().team() );
 			AddTopMessage( COMPUTER_TURN_MESSAGE, TeamTurnString[ GetJa2TacticalCurrentTeam() ] );
 			if(is_client)
 			{
@@ -1764,7 +1764,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	if ( (IsJa2TacticalCombatActive()) && ( gubBestToMakeSightingSize != BEST_SIGHTING_ARRAY_SIZE_ALL_TEAMS_LOOK_FOR_ALL ) )
 	{
 		// if his team's already in control
-		if (pSoldier->bTeam == GetJa2TacticalCurrentTeam() )
+		if (pSoldier->roster().team() == GetJa2TacticalCurrentTeam() )
 		{
 			// if this is a player's a merc or civilian
 			if ((pSoldier->status().flags() & SOLDIER_PC) || PTR_CIVILIAN)
@@ -1793,7 +1793,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 	}
 
-	if ( !(pSoldier->bActive) || !(pSoldier->bInSector ) )
+	if ( !(pSoldier->roster().active()) || !(pSoldier->roster().inSector() ) )
 	{
 		return( FALSE );
 	}
@@ -1848,7 +1848,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 
 	// don't let mercs on assignment get interrupts
-	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->assignment().current() >= ON_DUTY)
+	if ( pSoldier->roster().team() == gbPlayerNum && pSoldier->assignment().current() >= ON_DUTY)
 	{
 		return( FALSE );
 	}
@@ -1861,7 +1861,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	if (ubOpponentID < TOTAL_SOLDIERS)
 	{
 		// if the soldiers are on the same side
-		if (pSoldier->bSide == pOpponent->bSide)
+		if (pSoldier->roster().side() == pOpponent->roster().side())
 		{
 			// human/civilians on same side can't interrupt each other
 			if ((pSoldier->status().flags() & SOLDIER_PC) || PTR_CIVILIAN)
@@ -1872,7 +1872,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			{
 				// enemies can interrupt EACH OTHER, but enemies and civilians on the
 				// same side (but different teams) can't interrupt each other.
-				if (pSoldier->bTeam != pOpponent->bTeam)
+				if (pSoldier->roster().team() != pOpponent->roster().team())
 				{
 					return(FALSE);
 				}
@@ -1882,14 +1882,14 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		// if the interrupted opponent is not the selected character, then the only
 		// people eligible to win an interrupt are those on the SAME SIDE AS
 		// the selected character, ie. his friends...
-		if ( pOpponent->bTeam == gbPlayerNum )
+		if ( pOpponent->roster().team() == gbPlayerNum )
 		{
 			SOLDIERTYPE* selectedSoldier =
 				GetJa2SoldierRepository().resolve(
 					gusSelectedSoldier.i);
 			if ((ubOpponentID != gusSelectedSoldier) &&
 				(!selectedSoldier ||
-				 pSoldier->bSide != selectedSoldier->bSide))
+				 pSoldier->roster().side() != selectedSoldier->roster().side()))
 			{
 				return( FALSE );
 			}
@@ -1897,12 +1897,12 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		else
 		{
 			if (!is_networked) {
-				if ( !(pOpponent->status().flags() & SOLDIER_UNDERAICONTROL) && (pSoldier->bSide != pOpponent->bSide))
+				if ( !(pOpponent->status().flags() & SOLDIER_UNDERAICONTROL) && (pSoldier->roster().side() != pOpponent->roster().side()))
 				{
 					return( FALSE );
 				}
 			} else {
-				if ( !(is_client || (pOpponent->status().flags() & SOLDIER_UNDERAICONTROL)) && (pSoldier->bSide != pOpponent->bSide))
+				if ( !(is_client || (pOpponent->status().flags() & SOLDIER_UNDERAICONTROL)) && (pSoldier->roster().side() != pOpponent->roster().side()))
 				{
 					return( FALSE );
 				}
@@ -1911,14 +1911,14 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		}
 		/* old DG code for same:
 
-		if ((ubOpponentID != gusSelectedSoldier) && (pSoldier->bSide != gusSelectedSoldier->bSide))
+		if ((ubOpponentID != gusSelectedSoldier) && (pSoldier->roster().side() != gusSelectedSoldier->roster().side()))
 		{
 			return(FALSE);
 		}
 		*/
 
 		// an non-active soldier can't interrupt a soldier who is also non-active!
-		if ((pOpponent->bTeam != GetJa2TacticalCurrentTeam()) && (pSoldier->bTeam != GetJa2TacticalCurrentTeam()))
+		if ((pOpponent->roster().team() != GetJa2TacticalCurrentTeam()) && (pSoldier->roster().team() != GetJa2TacticalCurrentTeam()))
 		{
 			return(FALSE);
 		}
@@ -1959,7 +1959,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			// if the opponent can't see the "interrupter" either, OR
 			// if the "interrupter" already has any opponents already in sight, OR
 			// if the "interrupter" already heard the active soldier this turn
-			if ((pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY) || (pSoldier->awareness().opponentCount() > 0) || (bOldOppList == HEARD_THIS_TURN))
+			if ((pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY) || (pSoldier->awareness().opponentCount() > 0) || (bOldOppList == HEARD_THIS_TURN))
 			{
 				return(FALSE);	 // no interrupt is possible
 			}
@@ -2044,7 +2044,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 		iPoints = ( 20*EffectiveExpLevel( pSoldier ) + EffectiveAgility( pSoldier, FALSE ) + 15 ) / 30;
 
 		/*
-		if ( pSoldier->bTeam == ENEMY_TEAM )
+		if ( pSoldier->roster().team() == ENEMY_TEAM )
 		{
 			// modify by the difficulty level setting
 			iPoints += gbDiff[ DIFF_ENEMY_INTERRUPT_MOD ][ SoldierDifficultyLevel( pSoldier ) ];
@@ -2062,7 +2062,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	if (fUseWatchSpots && !(pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS))
 	{
 		// if this is a previously noted spot of enemies, give bonus points!
-		iPoints += GetWatchedLocPoints( pSoldier->ubID, opponent->position().gridNo(), opponent->position().level() );
+		iPoints += GetWatchedLocPoints( pSoldier->identity().id(), opponent->position().gridNo(), opponent->position().level() );
 	}
 
 	// LOSE one point for each 2 additional opponents he currently sees, above 2
@@ -2095,7 +2095,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 	// if we are in combat mode - thus doing an interrupt rather than determine who gets first turn -
 	// then give bonus
-	if ( (IsJa2TacticalCombatActive()) && (pSoldier->bTeam != GetJa2TacticalCurrentTeam()) )
+	if ( (IsJa2TacticalCombatActive()) && (pSoldier->roster().team() != GetJa2TacticalCurrentTeam()) )
 	{
 		// passive player gets penalty due to range
 		iPoints -= (ubDistance / 10);
@@ -2107,7 +2107,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 		// the opplist has been updated to seen.	But we can use gbSeenOpponents ...
 
 		// this soldier is moving, so give them a bonus for crawling or swatting at long distances
-		if ( !gbSeenOpponents[ ubOpponentID ][ pSoldier->ubID ] )
+		if ( !gbSeenOpponents[ ubOpponentID ][ pSoldier->identity().id() ] )
 		{
 			if (pSoldier->animationPlayback().state() == SWATTING && ubDistance > (MaxNormalDistanceVisible() / 2) ) // more than 1/2 sight distance
 			{
@@ -2121,7 +2121,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// whether active or not, penalize people who are running
-	if ( pSoldier->animationPlayback().state() == RUNNING && !gbSeenOpponents[ pSoldier->ubID ][ ubOpponentID ] )
+	if ( pSoldier->animationPlayback().state() == RUNNING && !gbSeenOpponents[ pSoldier->identity().id() ][ ubOpponentID ] )
 	{
 		iPoints -= 2;
 	}
@@ -2204,20 +2204,20 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 		// GAIN one point if he's previously seen the opponent
 		// check for TRUE because -1 means we JUST saw him (always so here)
-		if (gbSeenOpponents[pSoldier->ubID][ubOpponentID] == TRUE)
+		if (gbSeenOpponents[pSoldier->identity().id()][ubOpponentID] == TRUE)
 		{
 			iPoints++;	// seen him before, easier to react to him
 		}
 	}
-	else if ( pSoldier->bTeam == ENEMY_TEAM )
+	else if ( pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		// GAIN one point if he's previously seen the opponent
 		// check for TRUE because -1 means we JUST saw him (always so here)
-		if (gbSeenOpponents[pSoldier->ubID][ubOpponentID] == TRUE)
+		if (gbSeenOpponents[pSoldier->identity().id()][ubOpponentID] == TRUE)
 		{
 			iPoints++;	// seen him before, easier to react to him
 		}
-		else if (gbPublicOpplist[pSoldier->bTeam][ubOpponentID] != NOT_HEARD_OR_SEEN)
+		else if (gbPublicOpplist[pSoldier->roster().team()][ubOpponentID] != NOT_HEARD_OR_SEEN)
 		{
 			// GAIN one point if opponent has been recently radioed in by his team
 			iPoints++;
@@ -2239,13 +2239,13 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	#ifdef DEBUG_INTERRUPTS
-		DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Calculating int pts for %d vs %d, number is %d", pSoldier->ubID, ubOpponentID, iPoints ) );
+		DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Calculating int pts for %d vs %d, number is %d", pSoldier->identity().id(), ubOpponentID, iPoints ) );
 	#endif
 	if(is_networked)
 	{
 		SOLDIERTYPE	*pOpp = opponent;
 		#ifdef JA2BETAVERSION
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_MPSYSTEM, L"Interrupt: '%s' vs '%s' = %d points.",pSoldier->name,pOpp->name, iPoints );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_MPSYSTEM, L"Interrupt: '%s' vs '%s' = %d points.",pSoldier->identity().name(),pOpp->identity().name(), iPoints );
 		#endif
 	}
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"CalcInterruptDuelPts done");
@@ -2258,11 +2258,11 @@ BOOLEAN InterruptDuel( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent)
 	BOOLEAN fResult = FALSE;
 
 	// sevenfm: if Ctrl+D pressed - skip all player interrupts for this turn
-	if( !is_networked && !UsingImprovedInterruptSystem() && pSoldier->bTeam == OUR_TEAM && gTacticalStatus.ubDisablePlayerInterrupts )
+	if( !is_networked && !UsingImprovedInterruptSystem() && pSoldier->roster().team() == OUR_TEAM && gTacticalStatus.ubDisablePlayerInterrupts )
 		return FALSE;
 
 	// if opponent can't currently see us and we can see them
-	if ( pSoldier->awareness().opponentKnowledge()[ pOpponent->ubID ] == SEEN_CURRENTLY && pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
+	if ( pSoldier->awareness().opponentKnowledge()[ pOpponent->identity().id() ] == SEEN_CURRENTLY && pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
 	{
 		fResult = TRUE;		// we automatically interrupt
 		// fix up our interrupt duel pts if necessary
@@ -2279,7 +2279,7 @@ BOOLEAN InterruptDuel( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent)
 			fResult = TRUE;
 		}
 	}
-//	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt duel %d (%d pts) vs %d (%d pts)", pSoldier->ubID, pSoldier->turnState().interruptDuelPoints(), pOpponent->ubID, pOpponent->turnState().interruptDuelPoints() );
+//	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt duel %d (%d pts) vs %d (%d pts)", pSoldier->identity().id(), pSoldier->turnState().interruptDuelPoints(), pOpponent->identity().id(), pOpponent->turnState().interruptDuelPoints() );
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"InterruptDuel done");
 	return( fResult );
 }
@@ -2413,7 +2413,7 @@ void VerifyOutOfTurnOrderArray()
 				gubOutOfTurnOrder[ubLoop]);
 		if ( !queuedSoldier )   // skip sentinel/garbage entries from save or wire data
 			continue;
-		ubTeam = queuedSoldier->bTeam;
+		ubTeam = queuedSoldier->roster().team();
 		if ( ubTeam >= MAXTEAMS )   // corrupt bTeam would overrun the MAXTEAMS-sized ubTeamHighest[]
 			continue;
 		if (ubTeamHighest[ ubTeam ] > 0)
@@ -2505,7 +2505,7 @@ void VerifyOutOfTurnOrderArray()
 				ClearIntList();
 				return;
 			}
-			if ( queuedSoldier->bTeam != firstSoldier->bTeam )
+			if ( queuedSoldier->roster().team() != firstSoldier->roster().team() )
 			{
 				// remove!
 
@@ -2560,7 +2560,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					ClearIntList();
 					return;
 				}
-				nbTeam = npSoldier->bTeam;
+				nbTeam = npSoldier->roster().team();
 
 				//pSoldier is interrupted
 				//npSoldier is interruptor
@@ -2569,10 +2569,10 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 				// INTERRUPT is calculated on the server
 				if ((nbTeam > 0) && (nbTeam <6 ) && is_server) //is for AI and are server
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s is interrupt by AI", TeamNameStrings[pSoldier->bTeam]);
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s is interrupt by AI", TeamNameStrings[pSoldier->roster().team()]);
 					
 					// Only display the top message if we (the server) got interrupted
-					if (pSoldier->bTeam == 0)
+					if (pSoldier->roster().team() == 0)
 						AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ nbTeam ] );
 
 					send_interrupt( npSoldier );
@@ -2589,7 +2589,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					else 
 						StartInterrupt();//
 					
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"AI is interrupted by %s", TeamNameStrings[npSoldier->bTeam]);
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"AI is interrupted by %s", TeamNameStrings[npSoldier->roster().team()]);
 				}
 				// INTERRUPT is calculated on the pure client
 				else if(GetJa2TacticalCurrentTeam() == 0)//its our turn (we are moving)
@@ -2619,7 +2619,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 					AddTopMessage( COMPUTER_INTERRUPT_MESSAGE, TeamTurnString[ nbTeam ] );
 					gTacticalStatus.fInterruptOccurred = TRUE;
 
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"You have interrupted %s", TeamNameStrings[npSoldier->bTeam]);
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"You have interrupted %s", TeamNameStrings[npSoldier->roster().team()]);
 				}
 				// Coordinator MP: OUR merc (nbTeam==0) gets the interrupt during the
 				// opponent's turn. There is no is_server host to award it, so REQUEST it
@@ -2643,7 +2643,7 @@ void DoneAddingToIntList( SOLDIERTYPE * pSoldier, BOOLEAN fChange, UINT8 ubInter
 
 void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 {
-	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("ResolveInterruptsVs: Soldier ID = %d, APs = %d (interrupt type = %d)",pSoldier->ubID,pSoldier->actionPoints().current(), ubInterruptType));
+	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,String("ResolveInterruptsVs: Soldier ID = %d, APs = %d (interrupt type = %d)",pSoldier->identity().id(),pSoldier->actionPoints().current(), ubInterruptType));
 	UINT8 ubTeam;
 	SoldierID ubOpp;
 	UINT16 ubIntCnt;
@@ -2665,7 +2665,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 		for (ubTeam = 0; ubTeam < MAXTEAMS; ubTeam++)
 		{
 			// WDS fix broken interrupts (I hope...)
-			if (/*gTacticalStatus.Team[ubTeam].bTeamActive &&*/ (gTacticalStatus.Team[ubTeam].bSide != pSoldier->bSide) && ubTeam != CIV_TEAM)
+			if (/*gTacticalStatus.Team[ubTeam].bTeamActive &&*/ (gTacticalStatus.Team[ubTeam].bSide != pSoldier->roster().side()) && ubTeam != CIV_TEAM)
 			{
 				for ( ubOpp = gTacticalStatus.Team[ ubTeam ].bFirstID; ubOpp <= gTacticalStatus.Team[ ubTeam ].bLastID; ++ubOpp)
 				{
@@ -2676,7 +2676,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 					{
 						continue;
 					}
-					if ( pOpponent->bActive && pOpponent->bInSector && (pOpponent->vitals().health() >= OKLIFE) && (pOpponent->vitals().breath() >= OKBREATH) && !(pOpponent->collapseState().tactical()) )
+					if ( pOpponent->roster().active() && pOpponent->roster().inSector() && (pOpponent->vitals().health() >= OKLIFE) && (pOpponent->vitals().breath() >= OKBREATH) && !(pOpponent->collapseState().tactical()) )
 					{
 						if ( ubInterruptType == NOISEINTERRUPT )
 						{
@@ -2685,16 +2685,16 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 							{
 								pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
-								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - NOISE BEYOND SIGHT DISTANCE!?", pOpponent->ubID ) );
+								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - NOISE BEYOND SIGHT DISTANCE!?", pOpponent->identity().id() ) );
 
 								continue;
 							}
 						}
-						else if ( pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
+						else if ( pOpponent->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
 						{
 							pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
-							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - DOESN'T SEE ON SIGHT INTERRUPT!?", pOpponent->ubID ) );
+							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - DOESN'T SEE ON SIGHT INTERRUPT!?", pOpponent->identity().id() ) );
 
 
 							continue;
@@ -2703,7 +2703,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 						switch (pOpponent->turnState().interruptDuelPoints())
 						{
 							case NO_INTERRUPT:		// no interrupt possible, no duel necessary
-								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("ResolveInterruptsVs: No interrupt for opponent %d", pOpponent->ubID ) );
+								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("ResolveInterruptsVs: No interrupt for opponent %d", pOpponent->identity().id() ) );
 								fIntOccurs = FALSE;
 								break;
 
@@ -2711,18 +2711,18 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 								pSoldier->turnState().interruptDuelPoints() = 0;	// just to have a valid intDiff later
 								fIntOccurs = TRUE;
 
-								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: automatic interrupt on %d by %d", pSoldier->ubID, pOpponent->ubID ) );
+								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: automatic interrupt on %d by %d", pSoldier->identity().id(), pOpponent->identity().id() ) );
 
 								break;
 
 							default:		// interrupt is possible, run a duel
 								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, "Calculating int duel pts for onlooker in ResolveInterruptsVs" );
-								pSoldier->turnState().interruptDuelPoints() = CalcInterruptDuelPts(pSoldier, pOpponent->ubID, TRUE);
+								pSoldier->turnState().interruptDuelPoints() = CalcInterruptDuelPts(pSoldier, pOpponent->identity().id(), TRUE);
 								fIntOccurs = InterruptDuel(pOpponent,pSoldier);
 								#ifdef DEBUG_INTERRUPTS
 								if (fIntOccurs)
 								{
-									DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: standard interrupt on %d (%d pts) by %d (%d pts)", pSoldier->ubID, pSoldier->turnState().interruptDuelPoints(), pOpponent->ubID, pOpponent->turnState().interruptDuelPoints()) );
+									DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: standard interrupt on %d (%d pts) by %d (%d pts)", pSoldier->identity().id(), pSoldier->turnState().interruptDuelPoints(), pOpponent->identity().id(), pOpponent->turnState().interruptDuelPoints()) );
 								}
 								#endif
 
@@ -2732,7 +2732,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 						if (fIntOccurs)
 						{
 							// remember that this opponent's scheduled to interrupt us
-							ubIntList[ubIntCnt] = pOpponent->ubID;
+							ubIntList[ubIntCnt] = pOpponent->identity().id();
 
 							// and by how much he beat us in the duel
 							ubIntDiff[ubIntCnt] = pOpponent->turnState().interruptDuelPoints() - pSoldier->turnState().interruptDuelPoints();
@@ -2745,7 +2745,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 						/*
 							if (pOpponent->turnState().interruptDuelPoints() != NO_INTERRUPT)
 							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d fails to interrupt %d (%d vs %d pts)", pOpponent->ubID, pSoldier->ubID, pOpponent->turnState().interruptDuelPoints(), pSoldier->turnState().interruptDuelPoints());
+								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d fails to interrupt %d (%d vs %d pts)", pOpponent->identity().id(), pSoldier->identity().id(), pOpponent->turnState().interruptDuelPoints(), pSoldier->turnState().interruptDuelPoints());
 							}
 							*/
 						}
@@ -2754,7 +2754,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 
 						if (pSoldier->turnState().interruptDuelPoints() != NO_INTERRUPT)
 						{
-							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pSoldier->ubID ) );
+							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pSoldier->identity().id() ) );
 						}
 
 
@@ -2763,7 +2763,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 
 						if (pOpponent->turnState().interruptDuelPoints() != NO_INTERRUPT)
 						{
-							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pOpponent->ubID ) );
+							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pOpponent->identity().id() ) );
 						}
 
 						pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
@@ -2783,7 +2783,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 			// victim's screaming...	the guy screaming is pSoldier here, it's not his turn!
 			//AddToIntList( (UINT8) gusSelectedSoldier, FALSE, TRUE);
 
-			if ( (GetJa2TacticalCurrentTeam() != pSoldier->bTeam) && !(gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bHuman) )
+			if ( (GetJa2TacticalCurrentTeam() != pSoldier->roster().team()) && !(gTacticalStatus.Team[ GetJa2TacticalCurrentTeam() ].bHuman) )
 			{
 				// if anyone on this team is under AI control, remove
 				// their AI control flag and put them on the queue instead of this guy
@@ -2804,7 +2804,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 			else
 			{
 				// this guy lost control
-				AddToIntList( pSoldier->ubID, FALSE, TRUE);
+				AddToIntList( pSoldier->identity().id(), FALSE, TRUE);
 			}
 
 			// loop once for each opponent who interrupted
@@ -2836,7 +2836,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 								ubIntList[ubSmallestSlot]);
 						if (interrupter)
 						{
-							interrupter->turnState().interruptCounters()[pSoldier->ubID] = 0;
+							interrupter->turnState().interruptCounters()[pSoldier->identity().id()] = 0;
 						}
 					}
 					if (INTERRUPTS_OVER)
@@ -2936,7 +2936,7 @@ BOOLEAN NPCFirstDraw( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier )
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"NPCFirstDraw");
 	// if attacking an NPC check to see who draws first!
 
-	if ( pTargetSoldier->ubProfile != NO_PROFILE && pTargetSoldier->ubProfile != SLAY && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
+	if ( pTargetSoldier->identity().profile() != NO_PROFILE && pTargetSoldier->identity().profile() != SLAY && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
 	{
 		UINT8	ubLargerHalf, ubSmallerHalf, ubTargetLargerHalf, ubTargetSmallerHalf;
 
@@ -2948,7 +2948,7 @@ BOOLEAN NPCFirstDraw( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier )
 
 		ubTargetSmallerHalf = EffectiveExpLevel( pTargetSoldier ) / 2;
 		ubTargetLargerHalf = EffectiveExpLevel( pTargetSoldier ) - ubTargetSmallerHalf;
-		if ( gMercProfiles[ pTargetSoldier->ubProfile ].bApproached & gbFirstApproachFlags[ APPROACH_THREATEN - 1 ] )
+		if ( gMercProfiles[ pTargetSoldier->identity().profile() ].bApproached & gbFirstApproachFlags[ APPROACH_THREATEN - 1 ] )
 		{
 			// gains 1 to 2 points
 			ubTargetSmallerHalf += 1;

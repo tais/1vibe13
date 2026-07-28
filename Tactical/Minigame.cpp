@@ -2032,7 +2032,7 @@ UINT32 MiniGame_Handle_Pong()
 				{
 					pSoldier = GetJa2SoldierRepository().resolve(bMercID);
 					// everybody other merc in the same sector gets annoyed
-					if ( bMercID != gusSelectedSoldier && pSoldier->bActive && pSoldier->bInSector )
+					if ( bMercID != gusSelectedSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() )
 					{						
 						if ( PythSpacesAway( player1gridno, pSoldier->position().gridNo() ) < 6 )
 						{

@@ -55,7 +55,7 @@ void Ja2SoldierRepository::initializeSlots() noexcept
 	for (std::size_t slot = 0; slot < capacity_; ++slot)
 	{
 		slots_[slot] = &records_[slot];
-		slots_[slot]->bActive = FALSE;
+		slots_[slot]->roster().active() = FALSE;
 	}
 }
 
@@ -92,8 +92,8 @@ bool Ja2SoldierRepository::swapRecords(
 		records_[firstSlot].animationCache());
 	secondSlotCache.swapStorage(
 		records_[secondSlot].animationCache());
-	records_[firstSlot].ubID = SoldierID{firstSlot};
-	records_[secondSlot].ubID = SoldierID{secondSlot};
+	records_[firstSlot].identity().id() = SoldierID{firstSlot};
+	records_[secondSlot].identity().id() = SoldierID{secondSlot};
 	return true;
 }
 

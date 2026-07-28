@@ -71,7 +71,7 @@ void HandleDisease()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = soldiers.resolve(uiCnt);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			for ( int i = 0; i < NUM_DISEASES; ++i )
 			{
@@ -102,7 +102,7 @@ void HandleDisease()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = soldiers.resolve(uiCnt);
-		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )
 		{
 			// loop over all other soldiers and determine the chance that they will infect us
 			SOLDIERTYPE *pTeamSoldier = NULL;
@@ -112,7 +112,7 @@ void HandleDisease()
 			for ( uiCnt2 = 0; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2 )
 			{
 				pTeamSoldier = soldiers.resolve(uiCnt2);
-				if ( pTeamSoldier->bActive && pTeamSoldier != pSoldier
+				if ( pTeamSoldier->roster().active() && pTeamSoldier != pSoldier
 					 && pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ()
 					 && pTeamSoldier->vitals().health() > 0 )
 				{
@@ -169,7 +169,7 @@ void HandleDisease()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = soldiers.resolve(uiCnt);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			UINT8 ubSector = (UINT8)SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 			UINT8 ubTraverseType = SectorInfo[ubSector].ubTraversability[THROUGH_STRATEGIC_MOVE];
@@ -203,7 +203,7 @@ void HandlePossibleInfection( SOLDIERTYPE *pSoldier, SOLDIERTYPE* pOtherSoldier,
 		return;
 	
 	// only for living mercs with a profile with a valid infection method
-	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || pSoldier->ubProfile == NO_PROFILE || aInfectionType >= INFECTION_TYPE_MAX )
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || pSoldier->identity().profile() == NO_PROFILE || aInfectionType >= INFECTION_TYPE_MAX )
 		return;
 
 	int max = fStrategicOnly ? 1 : NUM_DISEASES;

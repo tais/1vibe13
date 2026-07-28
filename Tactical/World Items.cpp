@@ -690,11 +690,11 @@ INT32 AddItemToWorld( INT32 sGridNo, OBJECTTYPE *pObject, UINT8 ubLevel, UINT16 
 				if (pSoldier != NULL)
 				{
 					// if soldier is on our team, or is AI and we are the server
-					if (pSoldier->bTeam == 0 || (pSoldier->bTeam == 1 && is_server))
+					if (pSoldier->roster().team() == 0 || (pSoldier->roster().team() == 1 && is_server))
 					{
 						// this is a local bomb, so init it that way
 						gWorldBombs[iReturn].iMPWorldItemIndex = 0;
-						gWorldBombs[iReturn].ubMPTeamIndex = pSoldier->bTeam;
+						gWorldBombs[iReturn].ubMPTeamIndex = pSoldier->roster().team();
 						gWorldBombs[iReturn].bIsFromRemotePlayer = false;
 						// <TODO> the 99 is a hack..though probably doesnt matter
 						send_plant_explosive(soldierID , pObject->usItem , 99 , usFlags , sGridNo , ubLevel , iItemIndex );

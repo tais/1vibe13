@@ -1675,9 +1675,9 @@ void DetermineCreatureTownCompositionBasedOnTacticalInformation( UINT16 *pubNumC
 	for( SoldierID i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
-			switch( pSoldier->ubBodyType )
+			switch( pSoldier->identity().bodyType() )
 			{
 				case ADULTFEMALEMONSTER:
 					(*pubNumCreatures)++;
@@ -1711,14 +1711,14 @@ void DetermineOtherCreatureTownCompositionBasedOnTacticalInformation( UINT16* pu
 	for ( SoldierID i = gTacticalStatus.Team[CREATURE_TEAM].bFirstID; i <= gTacticalStatus.Team[CREATURE_TEAM].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if ( pSoldier->IsZombie() )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumZombies )++;
 			}
-			else if ( pSoldier->ubBodyType == BLOODCAT )
+			else if ( pSoldier->identity().bodyType() == BLOODCAT )
 			{
 				( *pubNumCreatures )++;
 				( *pubNumBloodcats )++;
@@ -2263,7 +2263,7 @@ BOOLEAN PlayerGroupIsInACreatureInfestedMine()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bActive && pSoldier->vitals().health() &&
+			if( pSoldier->roster().active() && pSoldier->vitals().health() &&
 					pSoldier->deployment().sectorX() == sSectorX &&
 					pSoldier->deployment().sectorY() == sSectorY &&
 					pSoldier->deployment().sectorZ() == bSectorZ &&

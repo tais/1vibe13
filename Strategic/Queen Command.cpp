@@ -105,7 +105,7 @@ void ValidateEnemiesHaveWeapons()
 		for( SoldierID i = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; i <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++i )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( !pSoldier->bActive || !pSoldier->bInSector )
+			if( !pSoldier->roster().active() || !pSoldier->roster().inSector() )
 			{
 				continue;
 			}
@@ -290,7 +290,7 @@ UINT16 NumPlayerTeamMembersInSector( INT16 sSectorX, INT16 sSectorY, INT8 sSecto
 		pTeamSoldier = GetJa2SoldierRepository().resolve(bMercID);
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
-		if ( pTeamSoldier->bActive && !pTeamSoldier->deployment().isBetweenSectors()  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->status().flags() & SOLDIER_VEHICLE) &&
+		if ( pTeamSoldier->roster().active() && !pTeamSoldier->deployment().isBetweenSectors()  && pTeamSoldier->vitals().health() > 0 && !(pTeamSoldier->status().flags() & SOLDIER_VEHICLE) &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND) &&
 			 (pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == sSectorZ) )
 		{
@@ -556,13 +556,13 @@ void EndTacticalBattleForEnemy()
 	for( SoldierID i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE )
 		{ //found one live militia, so look for any enemies/creatures.
 			// NOTE: this is relying on ENEMY_TEAM being immediately followed by CREATURE_TEAM
 			for( SoldierID j = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; j <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++j )
 			{
 				SOLDIERTYPE *pEnemy = GetJa2SoldierRepository().resolve(j);
-				if( pEnemy->bActive && pEnemy->bInSector && pEnemy->vitals().health() >= OKLIFE )
+				if( pEnemy->roster().active() && pEnemy->roster().inSector() && pEnemy->vitals().health() >= OKLIFE )
 				{ //confirmed at least one enemy here, so do the loyalty penalty.
 					HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ABANDON_MILITIA, gWorldSectorX, gWorldSectorY, 0 );
 					break;
@@ -580,7 +580,7 @@ UINT16 NumFreeSlots( UINT8 ubTeam )
 	//Count the number of free enemy slots.  It is possible to have multiple groups exceed the maximum.
 	for ( SoldierID i = gTacticalStatus.Team[ubTeam].bFirstID; i <= gTacticalStatus.Team[ubTeam].bLastID; ++i )
 	{
-		if ( !GetJa2SoldierRepository().resolve(i)->bActive )
+		if ( !GetJa2SoldierRepository().resolve(i)->roster().active() )
 			++ubNumFreeSlots;
 	}
 
@@ -1030,7 +1030,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 				pSoldier = &GetJa2SoldierRepository().record(slot);
 
 				// Skip inactive and already grouped soldiers
-				if (!pSoldier->bActive || pSoldier->deployment().groupId())
+				if (!pSoldier->roster().active() || pSoldier->deployment().groupId())
 				{
 					// if this guy already has an ID, reduce the number of people who still need one
 					--num;
@@ -1043,7 +1043,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 				// At this point we should not have added more soldiers than are in slots
 				AssertGT( sNumSlots, 0 );
 
-				switch( pSoldier->ubSoldierClass )
+				switch( pSoldier->roster().soldierClass() )
 				{
 					case SOLDIER_CLASS_ADMINISTRATOR:
 						if( ubNumAdmins )
@@ -1081,7 +1081,7 @@ BOOLEAN PrepareEnemyForSectorBattle()
 					case SOLDIER_CLASS_NONE:
 						if( ubNumElites )
 						{
-							if ( pSoldier->ubProfile == MIKE || pSoldier->ubProfile == IGGY )
+							if ( pSoldier->identity().profile() == MIKE || pSoldier->identity().profile() == IGGY )
 							{
 								num--;
 								sNumSlots--;
@@ -1201,7 +1201,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 	// Arulco queen, so this rule must follow the selected campaign rather than
 	// becoming a shared switch label.
 	if( GetGameContext().capabilities().isUnfinishedBusiness() &&
-		pSoldier->ubProfile == MORRIS_UB )
+		pSoldier->identity().profile() == MORRIS_UB )
 	{
 		if( !pSoldier->deployment().sectorZ() )
 		{
@@ -1237,11 +1237,11 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	switch( pSoldier->ubProfile )
+	switch( pSoldier->identity().profile() )
 	{
 		case MIKE:
 		case IGGY:
-			if( pSoldier->ubProfile == IGGY && !gubFact[ FACT_IGGY_AVAILABLE_TO_ARMY ] )
+			if( pSoldier->identity().profile() == IGGY && !gubFact[ FACT_IGGY_AVAILABLE_TO_ARMY ] )
 			{ //Iggy is on our team!
 				break;
 			}
@@ -1343,7 +1343,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			break;
 	}
 
-	if( pSoldier->aiBehavior().neutral() || pSoldier->bTeam != ENEMY_TEAM && pSoldier->bTeam != CREATURE_TEAM )
+	if( pSoldier->aiBehavior().neutral() || pSoldier->roster().team() != ENEMY_TEAM && pSoldier->roster().team() != CREATURE_TEAM )
 		return;
 
 	//we are recording an enemy death
@@ -1381,7 +1381,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			return;
 		}
 
-		switch( pSoldier->ubSoldierClass )
+		switch( pSoldier->roster().soldierClass() )
 		{
 			case SOLDIER_CLASS_ROBOT:
 				if( pGroup->pEnemyGroup->ubNumRobots )
@@ -1507,7 +1507,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				ubTotalEnemies = pSector->ubNumAdmins + pSector->ubNumTroops + pSector->ubNumElites + pSector->ubNumTanks + pSector->ubNumJeeps;
 			#endif
 
-			switch( pSoldier->ubSoldierClass )
+			switch( pSoldier->roster().soldierClass() )
 			{
 				case SOLDIER_CLASS_ADMINISTRATOR:
 					#ifdef JA2BETAVERSION
@@ -1586,7 +1586,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 				case SOLDIER_CLASS_CREATURE:
 				case SOLDIER_CLASS_BANDIT:
 				case SOLDIER_CLASS_ZOMBIE:
-					if( pSoldier->ubBodyType != BLOODCAT )
+					if( pSoldier->identity().bodyType() != BLOODCAT )
 					{
 						#ifdef JA2BETAVERSION
 							if( GetCurrentScreen() == GAME_SCREEN )
@@ -1632,7 +1632,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			#endif
 			if( pSector )
 			{
-				switch( pSoldier->ubSoldierClass )
+				switch( pSoldier->roster().soldierClass() )
 				{
 					case SOLDIER_CLASS_ADMINISTRATOR:
 						#ifdef JA2BETAVERSION
@@ -1701,7 +1701,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 					case SOLDIER_CLASS_CREATURE:
 					case SOLDIER_CLASS_BANDIT:
 					case SOLDIER_CLASS_ZOMBIE:
-						if (pSoldier->ubBodyType == BLOODCAT)
+						if (pSoldier->identity().bodyType() == BLOODCAT)
 						{
 							if( pSector->ubNumBloodcats > 0 )
 								pSector->ubNumBloodcats--;
@@ -1727,7 +1727,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 								pSector->ubCreaturesInBattle--;
 							}
 
-							if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_CREATURE )
+							if ( pSoldier->roster().soldierClass() == SOLDIER_CLASS_CREATURE )
 							{
 								if ( !pSector->ubNumCreatures && gWorldSectorX != 9 && gWorldSectorY != 10 )
 								{
@@ -1739,7 +1739,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 								// a monster has died.  Post an event to immediately check whether a mine has been cleared.
 								AddStrategicEventUsingSeconds( EVENT_CHECK_IF_MINE_CLEARED, GetWorldTotalSeconds() + 15, 0 );
 
-								if ( pSoldier->ubBodyType == QUEENMONSTER )
+								if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 								{
 									//Need to call this, as the queen is really big, and killing her leaves a bunch
 									//of bad tiles in behind her.  Calling this function cleans it up.
@@ -2135,7 +2135,7 @@ void NotifyPlayersOfNewEnemies()
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{ //find a merc that is aware.
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
+		if( pSoldier->roster().inSector() && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() >= OKBREATH )
 		{
 			iSoldiers++;
 		}
@@ -2147,7 +2147,7 @@ void NotifyPlayersOfNewEnemies()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{ //find a merc that is aware.
 			pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
+			if( pSoldier->roster().inSector() && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 			{
 				iSoldiers++;
 			}
@@ -2159,7 +2159,7 @@ void NotifyPlayersOfNewEnemies()
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{ //find a merc that is aware.
 			pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bInSector && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE &&
+			if( pSoldier->roster().inSector() && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE &&
 				( ( pSoldier->vitals().breath() >= OKBREATH ) || fIgnoreBreath ) )
 			{
 				if( !iChosenSoldier )
@@ -3029,7 +3029,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 
 
 		RemoveSoldierFromTacticalSector(pSoldier, TRUE);
-		RemovePlayerFromTeamSlotGivenMercID(pSoldier->ubID);
+		RemovePlayerFromTeamSlotGivenMercID(pSoldier->identity().id());
 		SelectNextAvailSoldier(pSoldier);
 	}
 }
@@ -3063,7 +3063,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiBehavior().neutral() )
 			{
@@ -3080,7 +3080,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; i <= gTacticalStatus.Team[ ENEMY_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiBehavior().neutral() )
 			{
@@ -3091,7 +3091,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ CREATURE_TEAM ].bFirstID; i <= gTacticalStatus.Team[ CREATURE_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiBehavior().neutral() )
 			{
@@ -3102,7 +3102,7 @@ BOOLEAN OnlyHostileCivsInSector()
 	for( i = gTacticalStatus.Team[ MILITIA_TEAM ].bFirstID; i <= gTacticalStatus.Team[ MILITIA_TEAM ].bLastID; ++i )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() )
 		{
 			if( !pSoldier->aiBehavior().neutral() )
 			{
@@ -3184,11 +3184,11 @@ void HandleBloodCatDeaths( SECTORINFO *pSector )
 			if( bNum != 0 )
 			{
 				//must make sure TEX doesnt say the quote
-				if( bId1 != NOBODY && GetJa2SoldierRepository().resolve(bId1)->ubProfile != TEX_UB )
+				if( bId1 != NOBODY && GetJa2SoldierRepository().resolve(bId1)->identity().profile() != TEX_UB )
 				{
 					TacticalCharacterDialogue( GetJa2SoldierRepository().resolve(bId1), QUOTE_UB_HANDLE_BLOODCATDEATHS );
 				}
-				else if( bId2 != NOBODY && GetJa2SoldierRepository().resolve(bId2)->ubProfile != TEX_UB )
+				else if( bId2 != NOBODY && GetJa2SoldierRepository().resolve(bId2)->identity().profile() != TEX_UB )
 				{
 					TacticalCharacterDialogue( GetJa2SoldierRepository().resolve(bId2), QUOTE_UB_HANDLE_BLOODCATDEATHS );
 				}

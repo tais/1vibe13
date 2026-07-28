@@ -20,7 +20,7 @@
 
 UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier )
 {
-	if ( PTR_CIV_OR_MILITIA && !(pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP ) )
+	if ( PTR_CIV_OR_MILITIA && !(pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP ) )
 	{
 		return( (UINT16) REALTIME_CIV_AI_DELAY );
 	}
@@ -31,7 +31,7 @@ UINT16 RealtimeDelay( SOLDIERTYPE * pSoldier )
 	else
 	{
 
-		if ( pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP )
+		if ( pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP )
 		{
 			//DBrot: More Rooms
 			//UINT8		ubRoom;
@@ -61,7 +61,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 		if (ActionInProgress(pSoldier))
 		{
 			#ifdef DEBUGBUSY
-				AINumMessage("Busy with action, skipping guy#",pSoldier->ubID);
+				AINumMessage("Busy with action, skipping guy#",pSoldier->identity().id());
 			#endif
 			// let it continue
 			return;
@@ -194,7 +194,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
                         AI::tactical::AIInputData ai_input;
                         AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
                         const INT16 planIndex =
-                            pSoldier->aiPlanning().ensurePlanIndex(pSoldier->bTeam + 1);
+                            pSoldier->aiPlanning().ensurePlanIndex(pSoldier->roster().team() + 1);
                         pSoldier->ai_masterplan_ =
                             plan_lib->create_plan(planIndex, pSoldier, ai_input);
                     }
@@ -207,13 +207,13 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 		if (pSoldier->aiPlanning().action() == AI_ACTION_NONE)
 		{
 			#ifdef RECORDNET
-				fprintf(NetDebugFile,"\tMOVED BECOMING TRUE: Chose to do nothing, guynum %d\n",pSoldier->ubID);
+				fprintf(NetDebugFile,"\tMOVED BECOMING TRUE: Chose to do nothing, guynum %d\n",pSoldier->identity().id());
 			#endif
 
 			// do a standard wait before doing anything else!
 			pSoldier->aiPlanning().action() = AI_ACTION_WAIT;
 			//if (PTR_CIVILIAN && pSoldier->aiBehavior().alertStatus() != STATUS_BLACK)
-			if ( PTR_CIV_OR_MILITIA && !(pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP ) )
+			if ( PTR_CIV_OR_MILITIA && !(pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP ) )
 			{
 				pSoldier->aiPlanning().actionData() = (UINT16) REALTIME_CIV_AI_DELAY;
 			}
@@ -224,7 +224,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 			else
 			{
 				pSoldier->aiPlanning().actionData() = (UINT16) REALTIME_AI_DELAY;
-				if ( pSoldier->ubCivilianGroup == KINGPIN_CIV_GROUP )
+				if ( pSoldier->roster().civilianGroup() == KINGPIN_CIV_GROUP )
 				{
 					//DBrot: More Rooms
 					//UINT8		ubRoom;

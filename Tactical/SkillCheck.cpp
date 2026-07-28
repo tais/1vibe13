@@ -212,10 +212,10 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 
 	iEffExpLevel = iEffExpLevel + iExpModifier[ bDrunkLevel ];
 
-	if (pSoldier->ubProfile != NO_PROFILE)
+	if (pSoldier->identity().profile() != NO_PROFILE)
 	{
 		// Flugente: drugs can temporarily cause a merc to be claustrophobic
-		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->bActive && pSoldier->bInSector )
+		if ( DoesMercHaveDisability( pSoldier, CLAUSTROPHOBIC ) && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			INT8 sectorz = pSoldier->deployment().sectorZ();
 			if ( SPY_LOCATION( pSoldier->assignment().current() ) )
@@ -769,7 +769,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Sociable - better performance in groups
 	if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_SOCIABLE ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_SOCIABLE );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_SOCIABLE );
 		if ( bNumMercs > 2 )
 			iChance += 5;
 		else if ( bNumMercs > 0 )
@@ -778,7 +778,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Loner - better performance when alone
 	else if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_LONER ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_LONER );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_LONER );
 		if ( bNumMercs == 0 )
 			iChance += 5;
 		else if ( bNumMercs <= 1 )
@@ -825,7 +825,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 	// Show-off - better performance if some babes around to impress
 	else if ( DoesMercHavePersonality( pSoldier, CHAR_TRAIT_SHOWOFF ) )
 	{	
-		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->ubProfile, CHAR_TRAIT_SHOWOFF );
+		INT8 bNumMercs = CheckMercsNearForCharTraits( pSoldier->identity().profile(), CHAR_TRAIT_SHOWOFF );
 		if ( bNumMercs > 1 )
 			iChance += 5;
 		else if ( bNumMercs > 0 )
@@ -952,7 +952,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 				{
 					if ( SpacesAway( pSoldier->position().gridNo(), pTeamSoldier->position().gridNo() ) < 15 )
 					{
-						bBuddyIndex = WhichBuddy( pTeamSoldier->ubProfile, pSoldier->ubProfile );
+						bBuddyIndex = WhichBuddy( pTeamSoldier->identity().profile(), pSoldier->identity().profile() );
 						if ( bBuddyIndex >= 0 )
 						{
 							switch ( bBuddyIndex )
@@ -996,7 +996,7 @@ INT32 SkillCheck( SOLDIERTYPE * pSoldier, INT8 bReason, INT8 bChanceMod )
 						}
 
 						// Flugente: additional dialogue
-						AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pSoldier->ubProfile, 1 );
+						AdditionalTacticalCharacterDialogue_CallsLua( pTeamSoldier, ADE_WITNESS_GOOD, pSoldier->identity().profile(), 1 );
 					}
 				}
 			}

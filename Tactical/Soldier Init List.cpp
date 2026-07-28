@@ -170,9 +170,9 @@ void RemoveSoldierNodeFromInitList( SOLDIERINITNODE *pNode )
 	}
 	if( pNode->pSoldier )
 	{
-		if( pNode->pSoldier->ubID >= 20 )
+		if( pNode->pSoldier->identity().id() >= 20 )
 		{
-			TacticalRemoveSoldier( pNode->pSoldier->ubID );
+			TacticalRemoveSoldier( pNode->pSoldier->identity().id() );
 		}
 		else
 		{
@@ -817,7 +817,7 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 
 		AddSoldierToSectorNoCalculateDirection( ubID );
 
-		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->bTeam == ENEMY_TEAM && !pSoldier->inv[ HANDPOS ].usItem )
+		if( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->roster().team() == ENEMY_TEAM && !pSoldier->inv[ HANDPOS ].usItem )
 		{
 			pSoldier = pSoldier;
 		}
@@ -1890,7 +1890,7 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 		{
 			SOLDIERTYPE* militia =
 				GetJa2SoldierRepository().resolve(i.i);
-			if ( militia->bInSector && militia->bActive )
+			if ( militia->roster().inSector() && militia->roster().active() )
 				++tacticalmilitia;
 		}
 
@@ -2246,7 +2246,7 @@ SOLDIERINITNODE* FindSoldierInitNodeWithID( UINT16 usID )
 	curr = gSoldierInitHead;
 	while( curr )
 	{
-		if( curr->pSoldier->ubID == usID )
+		if( curr->pSoldier->identity().id() == usID )
 			return curr;
 		curr = curr->next;
 	}
@@ -2291,7 +2291,7 @@ void EvaluateDeathEffectsToSoldierInitList( SOLDIERTYPE *pSoldier )
 	UINT16 ubNodeID = 0;
 	SOLDIERINITNODE* curr = gSoldierInitHead;
 
-	if( pSoldier->bTeam == MILITIA_TEAM )
+	if( pSoldier->roster().team() == MILITIA_TEAM )
 		return;
 	while( curr )
 	{
@@ -2359,7 +2359,7 @@ BOOLEAN SaveSoldierInitListLinks( HWFILE hfile )
 	curr = gSoldierInitHead;
 	while( curr )
 	{
-		if( curr->pSoldier && !curr->pSoldier->bActive )
+		if( curr->pSoldier && !curr->pSoldier->roster().active() )
 		{
 			curr->ubSoldierID = 0;
 		}
@@ -2676,7 +2676,7 @@ void AddProfilesUsingProfileInsertionData()
 			UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
 			// CJC: Note well that unless an error occurs, UpdateMercInSector calls
 			// AddSoldierToSector
-			// AddSoldierToSector( pSoldier->ubID );
+			// AddSoldierToSector( pSoldier->identity().id() );
 
 			// check action ID values
 			if ( gMercProfiles[ i ].ubQuoteRecord )
@@ -2691,18 +2691,18 @@ void AddProfilesUsingProfileInsertionData()
 			}
 
 			// make sure this person's pointer is set properly in the init list
-			curr = FindSoldierInitListNodeByProfile( pSoldier->ubProfile );
+			curr = FindSoldierInitListNodeByProfile( pSoldier->identity().profile() );
 			if ( curr )
 			{
 				curr->pSoldier = pSoldier;
-				curr->ubSoldierID = pSoldier->ubID;
+				curr->ubSoldierID = pSoldier->identity().id();
 				// also connect schedules here
 				if ( curr->pDetailedPlacement->ubScheduleID != 0 )
 				{
 					SCHEDULENODE * pSchedule = GetSchedule( curr->pDetailedPlacement->ubScheduleID );
 					if ( pSchedule )
 					{
-						pSchedule->ubSoldierID = pSoldier->ubID;
+						pSchedule->ubSoldierID = pSoldier->identity().id();
 						pSoldier->schedule().id() = curr->pDetailedPlacement->ubScheduleID;
 					}
 				}
@@ -2747,9 +2747,9 @@ BOOLEAN ValidateSoldierInitLinks( UINT8 ubCode )
 	{
 		if( curr->pSoldier )
 		{
-			if( curr->pSoldier->ubID < 20 &&
+			if( curr->pSoldier->identity().id() < 20 &&
 				!GetJa2SoldierRepository()
-					.resolve(curr->pSoldier->ubID)->bActive )
+					.resolve(curr->pSoldier->identity().id())->roster().active() )
 			{
 				uiNumInvalids++;
 			}
@@ -3215,7 +3215,7 @@ void SectorAddAssassins( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
-		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
+		if ( pTeamSoldier && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
 			++numberofcivs;
 	}
 
@@ -3288,7 +3288,7 @@ void SectorAddPrisonersofWar( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// check if teamsoldier exists in this sector
-		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
+		if ( pTeamSoldier && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->deployment().sectorX() == sMapX && pTeamSoldier->deployment().sectorY() == sMapY && pTeamSoldier->deployment().sectorZ() == sMapZ )
 			++numberofcivs;
 
 		// count how many pows are already placed

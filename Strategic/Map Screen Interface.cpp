@@ -551,7 +551,7 @@ void ResetAssignmentsForMercsTrainingUnpaidSectorsInSelectedList( UINT8 ubMiliti
 
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -585,7 +585,7 @@ void ResetAssignmentOfMercsThatWereTrainingMilitiaInThisSector( INT16 sSectorX, 
 
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -1449,7 +1449,7 @@ void HandleDisplayOfItemPopUpForSector( INT16 sMapX, INT16 sMapY, INT16 sMapZ )
 			if( ( pSoldier->deployment().sectorX() == sMapX ) &&
 				( pSoldier->deployment().sectorY() == sMapY ) &&
 				( pSoldier->deployment().sectorZ() == sMapZ ) &&
-				( pSoldier->bActive ) &&
+				( pSoldier->roster().active() ) &&
 				( pSoldier->vitals().health() >= OKLIFE ) )
 			{
 				// valid character
@@ -1918,7 +1918,7 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 			AddItemToLeaveIndex( &( pSoldier->inv[ iCounter ] ), iSlotIndex );
 
 			// store owner's profile id for the items added to this leave slot index
-			SetUpMercAboutToLeaveEquipment( pSoldier->ubProfile, iSlotIndex );
+			SetUpMercAboutToLeaveEquipment( pSoldier->identity().profile(), iSlotIndex );
 		}
 	}
 
@@ -1928,7 +1928,7 @@ INT32 SetUpDropItemListForMerc( SoldierID uiMercId )
 		pSoldier, NOWHERE, 0, 0, TRUE, iSlotIndex, FALSE );
 
 	// zero out profiles
-	gMercProfiles[ pSoldier->ubProfile ].clearInventory();
+	gMercProfiles[ pSoldier->identity().profile() ].clearInventory();
 
 	return( iSlotIndex );
 }
@@ -2049,12 +2049,12 @@ void UpdateCharRegionHelpText( void )
 				// we also get the number of lines (skills) to be displayed 
 				for ( UINT8 ubCnt = 1; ubCnt < NUM_SKILLTRAITS_NT; ++ubCnt )
 				{
-					if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 2 )
+					if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 2 )
 					{
 						ubTempSkillArray[bNumSkillTraits] = (ubCnt + NEWTRAIT_MERCSKILL_EXPERTOFFSET);
 						++bNumSkillTraits;
 					}
-					else if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 1 )
+					else if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 1 )
 					{
 						ubTempSkillArray[bNumSkillTraits] = ubCnt;
 						++bNumSkillTraits;
@@ -2077,8 +2077,8 @@ void UpdateCharRegionHelpText( void )
 			else
 			{
 				INT8 bSkill1 = 0, bSkill2 = 0; 	
-				bSkill1 = gMercProfiles[ pSoldier->ubProfile ].bSkillTraits[0];
-				bSkill2 = gMercProfiles[ pSoldier->ubProfile ].bSkillTraits[1];
+				bSkill1 = gMercProfiles[ pSoldier->identity().profile() ].bSkillTraits[0];
+				bSkill2 = gMercProfiles[ pSoldier->identity().profile() ].bSkillTraits[1];
 
 				if ( bSkill1 == 0 && bSkill2 == 0 )
 				{
@@ -2165,7 +2165,7 @@ void FindAndSetThisContractSoldier( SOLDIERTYPE *pSoldier )
 	{
 		if( gCharactersList[ iCounter].fValid == TRUE )
 		{
-			if( gCharactersList[ iCounter].usSolID == pSoldier->ubID )
+			if( gCharactersList[ iCounter].usSolID == pSoldier->identity().id() )
 			{
 				ChangeSelectedInfoChar( ( INT16 )iCounter, TRUE );
 				bSelectedContractChar = ( INT16 )iCounter;
@@ -2444,7 +2444,7 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 		{
-			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
+			ubMercsInGroup[ ubNumMercs ] = pSoldier->identity().id();
 			ubNumMercs++;
 		}
 
@@ -2540,7 +2540,7 @@ BOOLEAN MapscreenCanPassItemToCharNum( INT32 iNewCharSlot )
 	pNewSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iNewCharSlot ].usSolID);
 
 	// if in a hostile sector, disallow
-	if (gTacticalStatus.fEnemyInSector && pNewSoldier->bInSector)
+	if (gTacticalStatus.fEnemyInSector && pNewSoldier->roster().inSector())
 	{
 		return(FALSE);
 	}
@@ -3245,7 +3245,7 @@ void SelectSquadForMovement( INT32 iSquadNumber, BOOLEAN fCheckCanMove = TRUE )
 			{
 				pSoldier = Squad[ iSquadNumber ][ iCount ];
 
-				if ( pSoldier && pSoldier->bActive )
+				if ( pSoldier && pSoldier->roster().active() )
 				{
 					// is he able & allowed to move?	(Report only the first reason for failure encountered)
 					if (!fCheckCanMove || CanMoveBoxSoldierMoveStrategically( pSoldier, fFirstFailure ) )
@@ -3290,7 +3290,7 @@ void DeselectSquadForMovement( INT32 iSquadNumber )
 			{
 				pSoldier = Squad[ iSquadNumber ][ iCount ];
 
-				if ( pSoldier && pSoldier->bActive )
+				if ( pSoldier && pSoldier->roster().active() )
 				{
 					DeselectSoldierForMovement( pSoldier );
 				}
@@ -3348,7 +3348,7 @@ void SelectVehicleForMovement( INT32 iVehicleId, BOOLEAN fAndAllOnBoard )
 				{
 					// try to select everyone in vehicle
 
-					if ( pPassenger && pPassenger->bActive )
+					if ( pPassenger && pPassenger->roster().active() )
 					{
 						// is he able & allowed to move?
 						if ( CanMoveBoxSoldierMoveStrategically( pPassenger, fFirstFailure ) )
@@ -3398,7 +3398,7 @@ void DeselectVehicleForMovement( INT32 iVehicleId )
 			{
 				pPassenger = pVehicleList[ iVehicleId ].pPassengers[ iCount ];
 
-				if ( pPassenger && pPassenger->bActive )
+				if ( pPassenger && pPassenger->roster().active() )
 				{
 					DeselectSoldierForMovement( pPassenger );
 				}
@@ -3681,7 +3681,7 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-			if( ( pSoldier->bActive ) &&
+			if( ( pSoldier->roster().active() ) &&
 					( pSoldier->assignment().current() != IN_TRANSIT ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->assignment().current() ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 					( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == sSectorZ ) )
 			{
@@ -3910,11 +3910,11 @@ void AddStringsToMoveBox( void )
 				// add mercs in squads
 				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
 				{
-					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->name );
+					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->identity().name() );
 				}
 				else
 				{
-					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->name );
+					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->identity().name() );
 				}
 
 				if ( !isFirstColumnFull )
@@ -3998,11 +3998,11 @@ void AddStringsToMoveBox( void )
 				// add mercs in vehicles
 				if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCountB ] ) == TRUE )
 				{
-					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->name );
+					swprintf( sString, L"  *%s*", pSoldierMovingList[ iCountB ]->identity().name() );
 				}
 				else
 				{
-					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->name );
+					swprintf( sString, L"  %s", pSoldierMovingList[ iCountB ]->identity().name() );
 				}
 
 				if ( !isFirstColumnFull )
@@ -4072,11 +4072,11 @@ void AddStringsToMoveBox( void )
 			// add OTHER soldiers (not on duty nor in a vehicle)
 			if( IsSoldierSelectedForMovement( pSoldierMovingList[ iCount ] ) == TRUE )
 			{
-				swprintf( sString, L" *%s ( %s )*", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
+				swprintf( sString, L" *%s ( %s )*", pSoldierMovingList[ iCount ]->identity().name(), pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
 			}
 			else
 			{
-				swprintf( sString, L" %s ( %s )", pSoldierMovingList[ iCount ]->name, pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
+				swprintf( sString, L" %s ( %s )", pSoldierMovingList[ iCount ]->identity().name(), pAssignmentStrings[	pSoldierMovingList[ iCount ]->assignment().current() ] );
 			}
 			AddMonoString(&hStringHandle, sString );
 		}
@@ -4795,7 +4795,7 @@ BOOLEAN CanMoveBoxSoldierMoveStrategically( SOLDIERTYPE *pSoldier, BOOLEAN fShow
 
 	// valid soldier?
 	Assert( pSoldier );
-	Assert( pSoldier->bActive );
+	Assert( pSoldier->roster().active() );
 
 
 	if( CanCharacterMoveInStrategic( pSoldier, &bErrorNumber ) )
@@ -5310,7 +5310,7 @@ void AddSoldierToWaitingListQueue( SOLDIERTYPE *pSoldier )
 
 
 	// get soldier profile
-	iSoldierId = pSoldier->ubID;
+	iSoldierId = pSoldier->identity().id();
 
 	SpecialCharacterDialogueEvent( DIALOGUE_ADD_EVENT_FOR_SOLDIER_UPDATE_BOX, UPDATE_BOX_REASON_ADDSOLDIER, iSoldierId, 0, 0, 0 );
 	return;
@@ -5354,7 +5354,7 @@ void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	if( pSoldier->bActive == FALSE )
+	if( pSoldier->roster().active() == FALSE )
 	{
 		return;
 	}
@@ -5380,34 +5380,34 @@ void AddSoldierToUpdateBox( SOLDIERTYPE *pSoldier )
 			
 			
 			
-		if ( ( gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex < 100 ) && gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+		if ( ( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 ) && gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 		{
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 		} 
-		else if ( ( gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex > 99 ) && gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+		else if ( ( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex > 99 ) && gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 		{			
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 		}
-		else if( gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex < 100 )
+		else if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 )
 		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 		}
-		else if( gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex > 99 )
+		else if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex > 99 )
 		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 		}
 			
 			
 /*
-			if( gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex < 100 )
+			if( gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex < 100 )
 			{
 				// grab filename of face
-				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 			}
 			else
 			{
 				// grab filename of face
-				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->ubProfile ].ubFaceIndex );
+				sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%03d.sti", gMercProfiles[ pSoldier->identity().profile() ].ubFaceIndex );
 			}
 */
 			// load the face
@@ -5584,7 +5584,7 @@ void DisplaySoldierUpdateBox( )
 			RenderSoldierSmallFaceForUpdatePanel( iCounter, iFaceX, iFaceY );
 
 			// display the mercs name
-			swprintf( sString, L"%s", pUpdateSoldierBox[ iCounter ]->name );
+			swprintf( sString, L"%s", pUpdateSoldierBox[ iCounter ]->identity().name() );
 			DrawTextToScreen( sString, (UINT16)(iFaceX-5), (UINT16)(iFaceY + 31), 57, TINYFONT1, FONT_LTRED, FONT_BLACK, 0, CENTER_JUSTIFIED );
 		}
 	}
@@ -6414,7 +6414,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 
 	// valid soldier?
 	Assert( pSoldier );
-	Assert( pSoldier->bActive);
+	Assert( pSoldier->roster().active());
 	
 	// NOTE: Check for the most permanent conditions first, and the most easily remedied ones last!
 	// In case several cases apply, only the reason found first will be given, so make it a good one!
@@ -6495,7 +6495,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		// dead?
 		if ( pSoldier->vitals().health() <= 0 )
 		{
-			swprintf( gsCustomErrorString, pMapErrorString[ 35 ], pSoldier->name );
+			swprintf( gsCustomErrorString, pMapErrorString[ 35 ], pSoldier->identity().name() );
 			*pbErrorNumber = -99;	// customized error message!
 			return( FALSE );
 		}
@@ -6503,7 +6503,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 		// too injured?
 		if ( pSoldier->vitals().health() < OKLIFE )
 		{
-			swprintf( gsCustomErrorString, pMapErrorString[ 33 ], pSoldier->name );
+			swprintf( gsCustomErrorString, pMapErrorString[ 33 ], pSoldier->identity().name() );
 			*pbErrorNumber = -99;	// customized error message!
 			return( FALSE );
 		}
@@ -6566,7 +6566,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 			for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 			{
 				pSoldier2 = GetJa2SoldierRepository().resolve(cnt);
-				if ( pSoldier2->bActive )
+				if ( pSoldier2->roster().active() )
 				{
 					if ( FindObj( pSoldier2, CHALICE ) != ITEM_NOT_FOUND )
 					{
@@ -6590,7 +6590,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	if ( PlayerSoldierTooTiredToTravel( pSoldier ) )
 	{
 		// too tired
-		swprintf( gsCustomErrorString, pMapErrorString[ 43 ], pSoldier->name );
+		swprintf( gsCustomErrorString, pMapErrorString[ 43 ], pSoldier->identity().name() );
 		*pbErrorNumber = -99;	// customized error message!
 		return( FALSE );
 	}
@@ -6614,13 +6614,13 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 				( ( pSoldier->assignment().current()	< ON_DUTY ) && ( NumberOfNonEPCsInSquad( pSoldier->assignment().current() ) == 0 ) ) )
 		{
 			// are they male or female
-			if( gMercProfiles[ pSoldier->ubProfile ].bSex == MALE )
+			if( gMercProfiles[ pSoldier->identity().profile() ].bSex == MALE )
 			{
-				swprintf( gsCustomErrorString, L"%s %s", pSoldier->name ,pMapErrorString[ 6 ] );
+				swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 6 ] );
 			}
 			else
 			{
-				swprintf( gsCustomErrorString, L"%s %s", pSoldier->name ,pMapErrorString[ 7 ] );
+				swprintf( gsCustomErrorString, L"%s %s", pSoldier->identity().name() ,pMapErrorString[ 7 ] );
 			}
 
 			*pbErrorNumber = -99;	// customized error message!
@@ -6632,7 +6632,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	fProblemExists = FALSE;
 
 	// find out if this particular character can't move for some reason
-	switch( pSoldier->ubProfile )
+	switch( pSoldier->identity().profile() )
 	{
 		case( MARIA ):
 			// Maria can't move if she's in sector C5
@@ -6648,7 +6648,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	if ( fProblemExists )
 	{
 		// inform user this specific merc cannot be moved out of the sector
-		swprintf( gsCustomErrorString, pMapErrorString[ 29 ], pSoldier->name );
+		swprintf( gsCustomErrorString, pMapErrorString[ 29 ], pSoldier->identity().name() );
 		*pbErrorNumber = -99;	// customized error message!
 		return( FALSE );
 	}
@@ -6701,7 +6701,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 			pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// skip inactive grunts
-			if( pCurrentSoldier->bActive == FALSE )
+			if( pCurrentSoldier->roster().active() == FALSE )
 			{
 				continue;
 			}

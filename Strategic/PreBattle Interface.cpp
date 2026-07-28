@@ -662,7 +662,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+		if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 			{
@@ -958,14 +958,14 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
-				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
+				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
 				{
 					if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_CODE || GetEnemyEncounterCode() == BLOODCAT_AMBUSH_CODE || GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
-						gMercProfiles[ pSoldier->ubProfile ].records.usAmbushesExperienced++;
+						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
 					else if ( fAmbushPrevented && HAS_SKILL_TRAIT( pSoldier, SCOUTING_NT ) ) // Scouts actually get this as number of prevented ambushes
-						gMercProfiles[ pSoldier->ubProfile ].records.usAmbushesExperienced++;
+						gMercProfiles[ pSoldier->identity().profile() ].records.usAmbushesExperienced++;
 				}
 			}
 		}
@@ -1652,12 +1652,12 @@ void RenderPreBattleInterface()
 		for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+			if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				if( PlayerMercInvolvedInThisCombat( pSoldier ) )
 				{
 					//NAME
-					wcscpy( str, pSoldier->name );
+					wcscpy( str, pSoldier->identity().name() );
 					x = 17 + (52 - StringPixLength(str, BLOCKFONT2)) / 2;
 					mprintf( x + xOffset, y + yOffset, str );
 					//ASSIGN
@@ -1698,12 +1698,12 @@ void RenderPreBattleInterface()
 			for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
+				if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if( !PlayerMercInvolvedInThisCombat(pSoldier) )
 					{
 						//NAME
-						wcscpy( str, pSoldier->name );
+						wcscpy( str, pSoldier->identity().name() );
 						x = 17 + (52 - StringPixLength(str, BLOCKFONT2)) / 2;
 						mprintf( x + xOffset, y + yOffset, str );
 						//ASSIGN
@@ -1893,10 +1893,10 @@ void RetreatMercsCallback( GUI_BUTTON *btn, INT32 reason )
 			for( SoldierID i = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; i <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
+				if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 				{
-					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
-						gMercProfiles[ pSoldier->ubProfile ].records.usBattlesRetreated++;
+					if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->identity().profile() != NO_PROFILE )
+						gMercProfiles[ pSoldier->identity().profile() ].records.usBattlesRetreated++;
 				}
 			}
 			/////////////////////////////////////////////////////////////////////////////////
@@ -2292,7 +2292,7 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 		// store ptr to next soldier in group, once removed from group, his info will get memfree'd!
 		pNextPlayer = pPlayer->next;
 
-		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but off-duty (includes mercs inside vehicles!)
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().current() >= ON_DUTY ) )
@@ -2359,7 +2359,7 @@ void WakeUpAllMercsInSectorUnderAttack( void )
 	{
 		pSoldier = &( GetJa2SoldierRepository().record(iCounter) );
 
-		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but asleep
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().isAsleep() == TRUE ) )
@@ -2541,7 +2541,7 @@ void RetreatAllInvolvedMilitiaGroups()
 BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 {
 	Assert( pSoldier );
-	Assert( pSoldier->bActive );
+	Assert( pSoldier->roster().active() );
 
 	if( !pSoldier->deployment().isBetweenSectors() &&
 			pSoldier->assignment().current() != IN_TRANSIT &&
@@ -2636,7 +2636,7 @@ void CheckForRobotAndIfItsControlled( void )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
+		if( pSoldier->roster().active() && pSoldier->vitals().health() && AM_A_ROBOT( pSoldier ))
 		{
 			// check whether it has a valid controller with it. This sets its ubRobotRemoteHolderID field.
 			pSoldier->UpdateRobotControllerGivenRobot( );

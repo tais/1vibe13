@@ -236,11 +236,11 @@ void InitAllVehicles( )
 
 void SetVehicleValuesIntoSoldierType( SOLDIERTYPE *pVehicle )
 {
-	//wcscpy( pVehicle->name, zVehicleName[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ] );
-	//wcscpy( pVehicle->name, gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].NewVehicleName );
-	wcsncpy( pVehicle->name, gNewVehicle[pVehicleList[pVehicle->bVehicleID].ubVehicleType].NewVehicleName, (sizeof(pVehicle->name) / sizeof(pVehicle->name[0]) - 1) );
+	//wcscpy( pVehicle->identity().name(), zVehicleName[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ] );
+	//wcscpy( pVehicle->identity().name(), gNewVehicle[ pVehicleList[ pVehicle->bVehicleID ].ubVehicleType ].NewVehicleName );
+	wcsncpy( pVehicle->identity().name(), gNewVehicle[pVehicleList[pVehicle->bVehicleID].ubVehicleType].NewVehicleName, (sizeof(pVehicle->identity().name()) / sizeof(pVehicle->identity().name()[0]) - 1) );
 
-	pVehicle->ubProfile = pVehicleList[ pVehicle->bVehicleID ].ubProfileID;
+	pVehicle->identity().profile() = pVehicleList[ pVehicle->bVehicleID ].ubProfileID;
 
 	// Init fuel!
 	pVehicle->vitals().breathReduction() = 10000;
@@ -526,30 +526,30 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	{
 		SOLDIERTYPE* teamSoldier =
 			GetJa2SoldierRepository().resolve(x);
-		if(teamSoldier->bTeam == OUR_TEAM && (teamSoldier->status().flags() & SOLDIER_VEHICLE) && teamSoldier->bActive == TRUE)
+		if(teamSoldier->roster().team() == OUR_TEAM && (teamSoldier->status().flags() & SOLDIER_VEHICLE) && teamSoldier->roster().active() == TRUE)
 			vCount ++;
 	}
 
 	if( pVehicleSoldier )
 	{
-		if ( pVehicleSoldier->bTeam != pSoldier->bTeam )
+		if ( pVehicleSoldier->roster().team() != pSoldier->roster().team() )
 		{
 			// Can we add a new vehicle
-			if( vCount >= gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles && pSoldier->bTeam == gbPlayerNum )
+			if( vCount >= gGameExternalOptions.ubGameMaximumNumberOfPlayerVehicles && pSoldier->roster().team() == gbPlayerNum )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[VEHICLE_CAN_NOT_BE_ADDED] );
 				return( FALSE );
 			}
 
 			// Change sides...
-			pVehicleSoldier = ChangeSoldierTeam( pVehicleSoldier, pSoldier->bTeam );
+			pVehicleSoldier = ChangeSoldierTeam( pVehicleSoldier, pSoldier->roster().team() );
 			// add it to mapscreen list
 			fReBuildCharacterList = TRUE;
 		}
 	}
 
 	// If vehicle is empty, add to unique squad now that it has somebody in it!
-	if ( GetNumberInVehicle( iId ) == 0 && pVehicleSoldier && pSoldier->bTeam == gbPlayerNum )
+	if ( GetNumberInVehicle( iId ) == 0 && pVehicleSoldier && pSoldier->roster().team() == gbPlayerNum )
 	{
 		// 2 ) Add to unique squad...
 		AddCharacterToUniqueSquad( pVehicleSoldier );
@@ -584,12 +584,12 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 	if ( pVehicleSoldier )
 	{
 		// anv: when we enter vehicle in battle, we need to unbusy soldier BEFORE we change selected soldier or else we'll get lock
-		UnSetUIBusy( pSoldier->ubID );
+		UnSetUIBusy( pSoldier->identity().id() );
 
 		// can't call SelectSoldier in mapscreen, that will initialize interface panels!!!
-		if ( GetCurrentScreen() == GAME_SCREEN && pSoldier->bTeam == gbPlayerNum )
+		if ( GetCurrentScreen() == GAME_SCREEN && pSoldier->roster().team() == gbPlayerNum )
 		{
-			SelectSoldier( pVehicleSoldier->ubID, FALSE, TRUE );
+			SelectSoldier( pVehicleSoldier->identity().id(), FALSE, TRUE );
 		}
 
 		PlayJA2Sample( pVehicleList[ pVehicleSoldier->bVehicleID ].iOutOfSound, RATE_11025, SoundVolume( HIGHVOLUME, pVehicleSoldier->position().gridNo() ), 1, SoundDir( pVehicleSoldier->position().gridNo() ) );
@@ -633,11 +633,11 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			}
 
 			// if in a squad, remove from squad, if not, check if in vehicle, if so remove, if not, then check if in mvt group..if so, move and destroy group
-			if( pSoldier->bTeam == gbPlayerNum && pSoldier->assignment().current() < ON_DUTY )
+			if( pSoldier->roster().team() == gbPlayerNum && pSoldier->assignment().current() < ON_DUTY )
 			{
 				RemoveCharacterFromSquads( pSoldier );
 			}
-			else if( pSoldier->bTeam == gbPlayerNum && pSoldier->deployment().groupId() != 0 )
+			else if( pSoldier->roster().team() == gbPlayerNum && pSoldier->deployment().groupId() != 0 )
 			{
 				// Flugente 2012-08-15: had very weird behaviour here. The outcommented code below failed, because the group size wasn't 0, which then threw an Assert()-error.
 				// This happened in r5468 when assinging a merc on repair duty to the truck, switching back and forth between the two
@@ -653,7 +653,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			// set vehicle id
 			pSoldier->deployment().vehicleId() = iId;
 
-			if( pSoldier->bTeam == gbPlayerNum )
+			if( pSoldier->roster().team() == gbPlayerNum )
 			{
 
 				if( ( pSoldier->assignment().current() != VEHICLE ) || ( pSoldier->deployment().vehicleId() != iId ) )
@@ -679,7 +679,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			//	// Set as driver...
 			//	pSoldier->status().flags() |= SOLDIER_DRIVER;
 
-			//	SetDriver( iId , pSoldier->ubID );
+			//	SetDriver( iId , pSoldier->identity().id() );
 
 			//}
 			//else
@@ -691,7 +691,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 			// anv: are we taking driver's seat
 			if( gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].VehicleSeats[ubFinalSeatIndex].fDriver )
 			{
-				SetDriver( iId, pSoldier->ubID );
+				SetDriver( iId, pSoldier->identity().id() );
 			}
 			else
 			{
@@ -721,7 +721,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
 				// can't call SetCurrentSquad OR SelectSoldier in mapscreen, that will initialize interface panels!!!
-				if ( pSoldier->bTeam == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
+				if ( pSoldier->roster().team() == gbPlayerNum && GetCurrentScreen() == GAME_SCREEN )
 				{
 					SetCurrentSquad( pVehicleSoldier->assignment().current(), TRUE );
 				}
@@ -740,7 +740,7 @@ void SetSoldierExitVehicleInsertionData( SOLDIERTYPE *pSoldier, INT32 iId, UINT8
 {
 	GROUP *pGroup;
 
-	if ( iId == iHelicopterVehicleId && !pSoldier->bInSector )
+	if ( iId == iHelicopterVehicleId && !pSoldier->roster().inSector() )
 	{
 	if( pSoldier->deployment().sectorX()	!= AIRPORT_X || pSoldier->deployment().sectorY() != AIRPORT_Y || pSoldier->deployment().sectorZ() != 0 )
 	{
@@ -842,7 +842,7 @@ BOOLEAN RemoveSoldierFromVehicle( SOLDIERTYPE *pSoldier, INT32 iId )
 					//	SOLDIERTYPE* pNewDriver = pVehicleList[ iId ].pPassengers[ iCounter ];
 					//	pNewDriver->status().flags() |= SOLDIER_DRIVER;
 					//	pNewDriver->status().flags() &= ~(SOLDIER_PASSENGER);
-					//	SetDriver( iId, pNewDriver->ubID );
+					//	SetDriver( iId, pNewDriver->identity().id() );
 					//	fNewDriverNeeded = FALSE;
 					//}
 				}
@@ -1184,7 +1184,7 @@ BOOLEAN CopyVehiclePathToSoldier( SOLDIERTYPE *pSoldier )
 
 BOOLEAN IsVehicle(SOLDIERTYPE *pSoldier)
 {
-	return ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_VEHICLE );
+	return ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_VEHICLE );
 }
 
 BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
@@ -1688,7 +1688,7 @@ BOOLEAN TakeSoldierOutOfVehicle( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 	}
 
-	if( ( pSoldier->deployment().sectorX() != gWorldSectorX ) || ( pSoldier->deployment().sectorY() != gWorldSectorY ) || ( pSoldier->deployment().sectorZ() != 0 ) || !pSoldier->bInSector )
+	if( ( pSoldier->deployment().sectorX() != gWorldSectorX ) || ( pSoldier->deployment().sectorY() != gWorldSectorY ) || ( pSoldier->deployment().sectorZ() != 0 ) || !pSoldier->roster().inSector() )
 	{
 		// add the soldier
 		return( RemoveSoldierFromVehicle( pSoldier, pSoldier->deployment().vehicleId() ) );
@@ -1776,7 +1776,7 @@ SOLDIERTYPE *GetVehicleSoldierPointerFromPassenger( SOLDIERTYPE *pSrcSoldier )
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier->bActive && pSoldier->status().flags() & SOLDIER_VEHICLE )
+		if ( pSoldier->roster().active() && pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			// Check ubID....
 			if ( pSoldier->bVehicleID == pSrcSoldier->deployment().vehicleId() )
@@ -1835,7 +1835,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 		pSoldier->deployment().vehicleId() = -1;
 
 		//AllTeamsLookForAll( FALSE );
-		pSoldier->awareness().opponentKnowledge()[ pVehicle->ubID ] = 1;
+		pSoldier->awareness().opponentKnowledge()[ pVehicle->identity().id() ] = 1;
 
 		// Add to sector....
 		INT16 sX, sY;
@@ -1868,7 +1868,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 			{
 				SetCurrentSquad( pSoldier->assignment().current(), TRUE );
 
-				SelectSoldier( pSoldier->ubID, FALSE, TRUE );
+				SelectSoldier( pSoldier->identity().id(), FALSE, TRUE );
 			}
 			else
 			{
@@ -1937,7 +1937,7 @@ BOOLEAN ChangeVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 u
 
 			if( gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[ubSeatIndex].fDriver )
 			{
-				SetDriver( pVehicle->bVehicleID, pSoldier->ubID );
+				SetDriver( pVehicle->bVehicleID, pSoldier->identity().id() );
 			}
 
 			// set proper initial rotation
@@ -2002,12 +2002,12 @@ BOOLEAN SwapVehicleSeat( SOLDIERTYPE *pVehicle, SOLDIERTYPE *pSoldier, UINT8 ubS
 
 			if( gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[bCurrentSeatIndex].fDriver )
 			{
-				SetDriver( pVehicle->bVehicleID, pSoldier2->ubID );
+				SetDriver( pVehicle->bVehicleID, pSoldier2->identity().id() );
 			}
 
 			if( gNewVehicle[pVehicleList[ pVehicle->bVehicleID ].ubVehicleType].VehicleSeats[ubSeatIndex].fDriver )
 			{
-				SetDriver( pVehicle->bVehicleID, pSoldier->ubID );
+				SetDriver( pVehicle->bVehicleID, pSoldier->identity().id() );
 			}
 
 			// set proper initial rotations
@@ -2041,7 +2041,7 @@ void AddPassangersToTeamPanel( INT32 iId )
 		if( pVehicleList[ iId ].pPassengers[ cnt ] != NULL )
 		{
 			// add character
-			AddPlayerToInterfaceTeamSlot( pVehicleList[ iId ].pPassengers[ cnt ]->ubID );
+			AddPlayerToInterfaceTeamSlot( pVehicleList[ iId ].pPassengers[ cnt ]->identity().id() );
 		}
 	}
 }
@@ -2105,7 +2105,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 	//Show damage
 	pSoldier->combatResult().accumulatedDamage() += sDmg;
 
-	if ( pSoldier->bInSector && pSoldier->awareness().visibility() != -1 )
+	if ( pSoldier->roster().inSector() && pSoldier->awareness().visibility() != -1 )
 	{
 		// If we are already dead, don't show damage!
 		if ( sDmg != 0 )
@@ -2137,7 +2137,7 @@ void HandleCriticalHitForVehicleInLocation( UINT8 ubID, INT16 sDmg, INT32 sGridN
 		{
 			// Tacticlly remove soldier....
 			// pSoldier->EVENT_InitNewSoldierAnim( VEHICLE_DIE, 0, FALSE );
-			//TacticalRemoveSoldier( pSoldier->ubID );
+			//TacticalRemoveSoldier( pSoldier->identity().id() );
 
 			CheckForAndHandleSoldierDeath( pSoldier, &fMadeCorpse );
 		}
@@ -2257,7 +2257,7 @@ SOLDIERTYPE * GetSoldierStructureForVehicle( INT32 iId )
 
 		if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
-			if ( pSoldier->bActive )
+			if ( pSoldier->roster().active() )
 			{
 				if( pSoldier->bVehicleID == iId )
 				{
@@ -2303,7 +2303,7 @@ void AdjustVehicleAPs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
 	// and why a hardcoded bonus of 35?
 	// I've changed this - now a car always gets max AP, which can then be reduced by damage it received.
 	//(*pubPoints) += 35;
-	(*pubPoints) = gubMaxActionPoints[pSoldier->ubBodyType];
+	(*pubPoints) = gubMaxActionPoints[pSoldier->identity().bodyType()];
 
 	// check for state of critcals
 
@@ -2373,7 +2373,7 @@ BOOLEAN SaveVehicleInformationToSaveGameFile( HWFILE hFile )
 			for( ubPassengerCnt = 0; ubPassengerCnt < MAXPASSENGERS; ++ubPassengerCnt )
 			{
 				UINT32 uiPassengerID = v.pPassengers[ ubPassengerCnt ]
-					? (UINT32)v.pPassengers[ ubPassengerCnt ]->ubProfile
+					? (UINT32)v.pPassengers[ ubPassengerCnt ]->identity().profile()
 					: (UINT32)(uintptr_t)NO_PROFILE;
 				w.u32(uiPassengerID);
 			}
@@ -2630,7 +2630,7 @@ void UpdateAllVehiclePassengersGridNo( SOLDIERTYPE *pSoldier )
 			INT8 bDiagonalX = 0;
 			INT8 bDiagonalY = 0;
 
-			switch( pSoldier->ubBodyType )
+			switch( pSoldier->identity().bodyType() )
 			{
 				case ELDORADO:
 				case HUMVEE:
@@ -2999,7 +2999,7 @@ BOOLEAN OnlythisCanDriveVehicle( SOLDIERTYPE *pthis, INT32 iVehicleId )
 			continue;
 		}
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			// don't count mercs who are asleep here
 			if ( CanSoldierDriveVehicle( pSoldier, iVehicleId, FALSE ) )

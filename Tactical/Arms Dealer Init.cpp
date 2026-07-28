@@ -1730,7 +1730,7 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 #ifdef JA2UB	//RAUL
 	//Ja25 UB
 	//if Raul blew him,self up, dont drop any items
-	if( pSoldier->ubProfile == RAUL_UB /* RAUL */ && IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
+	if( pSoldier->identity().profile() == RAUL_UB /* RAUL */ && IsJa25GeneralFlagSet( JA_GF__RAUL_BLOW_HIMSELF_UP ) )
 	{
 		return( TRUE );
 	}

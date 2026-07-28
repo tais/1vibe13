@@ -3565,10 +3565,10 @@ int main( int, char** )
 		const TacticalEntityId previousCommandEntity =
 			GetJa2TacticalEntityId( 0 );
 		SOLDIERTYPE commandHostActorFixture;
-		commandHostActorFixture.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		commandHostActorFixture.uiUniqueSoldierIdValue = 0x12345678u;
-		commandHostActorFixture.bActive = TRUE;
-		commandHostActorFixture.bInSector = TRUE;
+		commandHostActorFixture.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
+		commandHostActorFixture.identity().incarnation() = 0x12345678u;
+		commandHostActorFixture.roster().active() = TRUE;
+		commandHostActorFixture.roster().inSector() = TRUE;
 		NotifyJa2TacticalWorldUnloaded();
 		const Ja2TacticalCommandHostDiagnostics commandHostInitially =
 			GetJa2TacticalCommandHostDiagnostics();
@@ -3742,11 +3742,11 @@ int main( int, char** )
 		       "safe-frame command host validates movement domains and journals stale move identities as discarded" );
 
 		SOLDIERTYPE detachedCommandActor;
-		detachedCommandActor.ubID = commandHostActor.ubID;
-		detachedCommandActor.uiUniqueSoldierIdValue =
-			commandHostActor.uiUniqueSoldierIdValue;
-		detachedCommandActor.bActive = TRUE;
-		detachedCommandActor.bInSector = TRUE;
+		detachedCommandActor.identity().id() = commandHostActor.identity().id();
+		detachedCommandActor.identity().incarnation() =
+			commandHostActor.identity().incarnation();
+		detachedCommandActor.roster().active() = TRUE;
+		detachedCommandActor.roster().inSector() = TRUE;
 		const std::size_t journalBeforeDetachedActor =
 			compiledContext.commandJournal().size();
 		beginCommandTestFrame();
@@ -3876,7 +3876,7 @@ int main( int, char** )
 			commandHostActor.animationCache().contains(
 				movingStanceSurface ) &&
 			commandHostActor.animationCache().acquire(
-				commandHostActor.ubID, movingStanceSurface,
+				commandHostActor.identity().id(), movingStanceSurface,
 				commandHostActor.animationPlayback().state() ) &&
 			commandHostActor.animationCache().hitCount(
 				movingStanceSurface ) == 1;
@@ -3895,7 +3895,7 @@ int main( int, char** )
 			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
 			commandHostActor.animationPlayback().state() == START_SWAT;
 		commandHostActor.animationCache().reset();
-		ClearAnimationSurfacesUsageHistory( commandHostActor.ubID );
+		ClearAnimationSurfacesUsageHistory( commandHostActor.identity().id() );
 		commandHostActor.animationPlayback().surface() = previousAnimationSurface;
 		movingStanceSurfaceState = previousMovingStanceSurfaceState;
 		RestoreJa2TacticalTurnState(stanceFlags, stanceTeam);
@@ -3918,17 +3918,17 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult weaponModeWithoutWeapon =
 			TryDispatchCycleWeaponModeCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult scopeModeWithoutWeapon =
 			TryDispatchCycleScopeModeCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				TacticalNoTargetGrid, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult reloadWithoutWeapon =
 			TryDispatchReloadWeaponCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult readyWithoutWeapon =
@@ -3955,38 +3955,38 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationTarget =
 			TryDispatchStartConversationCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleConversationApproachTarget =
 			TryDispatchApproachConversationCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				101, WALKING, false, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleTarget =
 			TryDispatchEnterVehicleCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				3, 0, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleVehicleApproachTarget =
 			TryDispatchApproachVehicleCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				3, 0, 101, WALKING, false,
 				SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleStealTarget =
 			TryDispatchStealFromActorCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				100, FIRST_LEVEL, SimulationCommandSource::System );
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleExchangeTarget =
 			TryDispatchExchangePositionsCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				staleActor.slot, staleActor.incarnation,
 				99, 100, FIRST_LEVEL,
 				SimulationCommandSource::System );
@@ -4135,7 +4135,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult staleWorldItemPickup =
 			TryDispatchPickupWorldItemCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue,
+				0, commandHostActor.identity().incarnation(),
 				firstWorldItem, 123, 0,
 				TacticalWorldItemPickupKind::SpecificItem,
 				SimulationCommandSource::System );
@@ -4222,17 +4222,17 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult firstBudgetedImmediate =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( oneCommandFrame, 1 );
 		const SimulationCommandDispatchResult sameFrameBudgetExhausted =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult nextFrameBudgetReset =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		CHECK( firstBudgetedImmediate.processed() &&
 		       sameFrameBudgetExhausted.status ==
@@ -4244,7 +4244,7 @@ int main( int, char** )
 		BeginSimulationCommandFrameBudget( ++commandTestFrameSequence, 1 );
 		const SimulationCommandDispatchResult inboxBudgetConsumer =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, WALKING,
+				0, commandHostActor.identity().incarnation(), -1, WALKING,
 				false, false, SimulationCommandSource::System );
 		const TacticalCommandSubmissionResult heldByExhaustedFrame =
 			tacticalCommands.service->submit( packageId, staleStance );
@@ -4277,7 +4277,7 @@ int main( int, char** )
 			GetJa2TacticalCommandHostDiagnostics();
 		const SimulationCommandDispatchResult backpressuredImmediateMove =
 			TryDispatchMoveToGridCommandNow(
-			0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+			0, commandHostActor.identity().incarnation(), -1, RUNNING,
 			false, false, SimulationCommandSource::System );
 		const SimulationCommandDispatchResult retainedNetworkPacket =
 			TryDispatchNetworkSimulationCommand(
@@ -4399,7 +4399,7 @@ int main( int, char** )
 		beginCommandTestFrame();
 		const SimulationCommandDispatchResult currentAheadOfFuture =
 			TryDispatchMoveToGridCommandNow(
-				0, commandHostActor.uiUniqueSoldierIdValue, -1, RUNNING,
+				0, commandHostActor.identity().incarnation(), -1, RUNNING,
 				false, false, SimulationCommandSource::System );
 		const bool futureRetainedAfterCurrent =
 			compiledContext.commands().containsSequence( futureCommandSequence );
@@ -4752,12 +4752,12 @@ int main( int, char** )
 		const UINT32 previousTacticalProjectionFlags =
 			CaptureJa2TacticalStatusFlags();
 		const UINT8 previousTacticalProjectionTeam = GetJa2TacticalCurrentTeam();
-		worldActor.ubID = SoldierID{ static_cast<UINT16>( 0 ) };
-		worldActor.uiUniqueSoldierIdValue = 701;
-		worldActor.bActive = TRUE;
-		worldActor.bInSector = TRUE;
-		worldActor.bTeam = 1;
-		worldActor.ubProfile = 12;
+		worldActor.identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
+		worldActor.identity().incarnation() = 701;
+		worldActor.roster().active() = TRUE;
+		worldActor.roster().inSector() = TRUE;
+		worldActor.roster().team() = 1;
+		worldActor.identity().profile() = 12;
 		worldActor.position().gridNo() = 345;
 		worldActor.position().level() = 1;
 		worldActor.position().direction() = 3;
@@ -4831,7 +4831,7 @@ int main( int, char** )
 			!GetItemPopupSoldier() &&
 			!GetItemPickupActor() &&
 			!GetItemPickupOpponent();
-		worldActor.uiUniqueSoldierIdValue = 703;
+		worldActor.identity().incarnation() = 703;
 		const bool replacementInventoryActorAdopted =
 			AdoptJa2TacticalEntity( worldActor );
 		const bool replacementInventoryActorRejected =
@@ -4845,7 +4845,7 @@ int main( int, char** )
 		const bool replacementInventoryActorReleased =
 			ReleaseJa2TacticalEntity( worldActor );
 		ResetTacticalInventoryUiActorContexts();
-		worldActor.uiUniqueSoldierIdValue = 701;
+		worldActor.identity().incarnation() = 701;
 		ResetMercContractActorContexts();
 		ResetTacticalTraversalContext();
 		const bool callbackActorReadopted =
@@ -4872,8 +4872,8 @@ int main( int, char** )
 		const SOLDIERTYPE previousSwapTarget = swapTarget;
 		const bool swapTargetInstalled =
 			soldierRepository.replace( 1, worldActor ) == &swapTarget;
-		swapTarget.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
-		swapTarget.uiUniqueSoldierIdValue = 702;
+		swapTarget.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
+		swapTarget.identity().incarnation() = 702;
 		swapTarget.position().gridNo() = 678;
 		const bool swapTargetAdopted =
 			swapTargetInstalled && AdoptJa2TacticalEntity( swapTarget );
@@ -5238,7 +5238,7 @@ int main( int, char** )
 		           deliveredLiveDelta.events[2] ).currentLife == 75,
 		       "queued tactical delta reaches package sinks and decodes on the next frame" );
 
-		worldActor.uiUniqueSoldierIdValue = 0;
+		worldActor.identity().incarnation() = 0;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5259,7 +5259,7 @@ int main( int, char** )
 		       liveRuntimeMessages.queued() == 0,
 		       "live adapter failure preserves the last complete observer publication" );
 
-		worldActor.uiUniqueSoldierIdValue = 701;
+		worldActor.identity().incarnation() = 701;
 		UpdateJa2TacticalWorldObserverAtSafeFrame( liveRuntimeMessages );
 		observerDiagnostics = GetJa2TacticalWorldObserverDiagnostics();
 		observedPublication = tacticalWorldObserver.service->latest();
@@ -5478,8 +5478,8 @@ int main( int, char** )
 		       compiledContext.commandJournal().droppedCount() ==
 		           replayDroppedBeforeObservation &&
 		       soldierRepository.resolve( 0 ) == &worldActor &&
-		       worldActor.ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       worldActor.uiUniqueSoldierIdValue == 701 && worldActor.position().gridNo() == 348 &&
+		       worldActor.identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       worldActor.identity().incarnation() == 701 && worldActor.position().gridNo() == 348 &&
 		       worldActor.vitals().health() == 75,
 		       "world unload invalidates publication and stale retry without mutating legacy state" );
 		(void)ReleaseJa2TacticalEntity( worldActor );
@@ -7210,7 +7210,7 @@ int main( int, char** )
 		repository.initializeSlots();
 		CHECK( repository.resolve(0) == &records[0] &&
 		       repository.resolve(1) == &records[1] &&
-		       !records[0].bActive && !records[1].bActive &&
+		       !records[0].roster().active() && !records[1].roster().active() &&
 		       repository.contains(0, records[0]) &&
 		       !repository.contains(0, records[1]),
 		       "soldier repository establishes canonical fixed-slot bindings" );
@@ -7226,8 +7226,8 @@ int main( int, char** )
 		       "soldier repository binding is independent and restores the composed application owner" );
 
 		SOLDIERTYPE source;
-		source.ubID = SoldierID{ static_cast<UINT16>( 1 ) };
-		source.bActive = TRUE;
+		source.identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
+		source.roster().active() = TRUE;
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
 		source.runtime.pendingAction.pathSearchSourceGrid = 99;
@@ -7243,14 +7243,14 @@ int main( int, char** )
 		CHECK( repository.replace(1, source) == nullptr,
 		       "soldier repository rejects a noncanonical compatibility slot" );
 		repository.initializeSlots();
-		records[0].ubID = SoldierID{ static_cast<UINT16>( 0 ) };
+		records[0].identity().id() = SoldierID{ static_cast<UINT16>( 0 ) };
 		records[0].position().gridNo() = 100;
-		records[1].ubID = SoldierID{ static_cast<UINT16>( 1 ) };
+		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
 		const bool swapped = repository.swapRecords(0, 1);
 		CHECK( swapped &&
-		       records[0].ubID == SoldierID{ static_cast<UINT16>( 0 ) } &&
-		       records[1].ubID == SoldierID{ static_cast<UINT16>( 1 ) } &&
+		       records[0].identity().id() == SoldierID{ static_cast<UINT16>( 0 ) } &&
+		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
 		       !repository.swapRecords(0, 0) &&
@@ -7259,7 +7259,36 @@ int main( int, char** )
 	}
 
 	{
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().identity()),
+			SoldierIdentityComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().identity()),
+			const SoldierIdentityComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().roster()),
+			SoldierRosterComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().roster()),
+			const SoldierRosterComponent&>);
+
 		SOLDIERTYPE soldier;
+		SoldierIdentityComponent& identity = soldier.identity();
+		identity.id() = SoldierID{ 37 };
+		identity.name()[0] = L'J';
+		identity.name()[SOLDIER_NAME_LENGTH - 1] = L'X';
+		identity.bodyType() = REGMALE;
+		identity.profile() = 41;
+		identity.incarnation() = 0x12345678u;
+		identity.dataProfile() = 401;
+		identity.individualMilitiaId() = 0x87654321u;
+		SoldierRosterComponent& roster = soldier.roster();
+		roster.active() = TRUE;
+		roster.team() = MILITIA_TEAM;
+		roster.inSector() = TRUE;
+		roster.side() = 2;
+		roster.soldierClass() = SOLDIER_CLASS_ELITE;
+		roster.civilianGroup() = 17;
 		SoldierVitalsComponent& vitals = soldier.vitals();
 		vitals.maximumHealth() = 90;
 		vitals.health() = 75;
@@ -7746,6 +7775,24 @@ int main( int, char** )
 		       soldier.vitals().breath() == 60,
 		       "soldier vitals component owns health, breath, and recovery state" );
 		const SOLDIERTYPE& constSoldier = soldier;
+		CHECK( constSoldier.identity().id() == SoldierID{ 37 } &&
+		       constSoldier.identity().name()[0] == L'J' &&
+		       constSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
+		       constSoldier.identity().bodyType() == REGMALE &&
+		       constSoldier.identity().profile() == 41 &&
+		       constSoldier.identity().incarnation() == 0x12345678u &&
+		       constSoldier.identity().dataProfile() == 401 &&
+		       constSoldier.identity().individualMilitiaId() == 0x87654321u &&
+		       constSoldier.identity().hasIncarnation() &&
+		       constSoldier.roster().active() == TRUE &&
+		       constSoldier.roster().team() == MILITIA_TEAM &&
+		       constSoldier.roster().inSector() == TRUE &&
+		       constSoldier.roster().side() == 2 &&
+		       constSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
+		       constSoldier.roster().civilianGroup() == 17 &&
+		       constSoldier.roster().isActive() &&
+		       constSoldier.roster().isInSector(),
+		       "soldier identity and roster components own canonical incarnation, profile, allegiance, and tactical membership" );
 		CHECK( constSoldier.vitals().health() == 75 &&
 		       constSoldier.vitals().maximumHealth() == 90 &&
 		       constSoldier.vitals().breath() == 60 &&
@@ -9008,6 +9055,21 @@ int main( int, char** )
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
+		CHECK( copiedSoldier.identity().id() == SoldierID{ 37 } &&
+		       copiedSoldier.identity().name()[0] == L'J' &&
+		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
+		       copiedSoldier.identity().bodyType() == REGMALE &&
+		       copiedSoldier.identity().profile() == 41 &&
+		       copiedSoldier.identity().incarnation() == 0x12345678u &&
+		       copiedSoldier.identity().dataProfile() == 401 &&
+		       copiedSoldier.identity().individualMilitiaId() == 0x87654321u &&
+		       copiedSoldier.roster().active() == TRUE &&
+		       copiedSoldier.roster().team() == MILITIA_TEAM &&
+		       copiedSoldier.roster().inSector() == TRUE &&
+		       copiedSoldier.roster().side() == 2 &&
+		       copiedSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
+		       copiedSoldier.roster().civilianGroup() == 17,
+		       "soldier copies retain every canonical identity and roster value" );
 		CHECK( copiedSoldier.vitals().health() == 42 &&
 		       copiedSoldier.vitals().maximumHealth() == 84 &&
 		       copiedSoldier.vitals().breath() == 63 &&
@@ -10221,6 +10283,21 @@ int main( int, char** )
 		       scheduleLifecycle.doorGrid() == 0,
 		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
+		CHECK( copiedSoldier.identity().id() == NOBODY &&
+		       copiedSoldier.identity().name()[0] == 0 &&
+		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == 0 &&
+		       copiedSoldier.identity().bodyType() == 0 &&
+		       copiedSoldier.identity().profile() == 0 &&
+		       !copiedSoldier.identity().hasIncarnation() &&
+		       copiedSoldier.identity().dataProfile() == 0 &&
+		       copiedSoldier.identity().individualMilitiaId() == 0 &&
+		       !copiedSoldier.roster().isActive() &&
+		       copiedSoldier.roster().team() == 0 &&
+		       !copiedSoldier.roster().isInSector() &&
+		       copiedSoldier.roster().side() == 0 &&
+		       copiedSoldier.roster().soldierClass() == 0 &&
+		       copiedSoldier.roster().civilianGroup() == 0,
+		       "soldier initialization resets the complete identity and roster domains" );
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
 		       copiedSoldier.vitals().breath() == 0 &&
@@ -10896,6 +10973,18 @@ int main( int, char** )
 
 	{
 		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		legacySoldier->ubID = 37;
+		legacySoldier->name[0] = L'V';
+		legacySoldier->name[9] = L'1';
+		legacySoldier->ubBodyType = REGFEMALE;
+		legacySoldier->bActive = TRUE;
+		legacySoldier->bTeam = CIV_TEAM;
+		legacySoldier->bInSector = TRUE;
+		legacySoldier->bSide = 3;
+		legacySoldier->ubProfile = 42;
+		legacySoldier->ubSoldierClass = SOLDIER_CLASS_ADMINISTRATOR;
+		legacySoldier->ubCivilianGroup = 18;
+		legacySoldier->uiUniqueSoldierIdValue = 0x10203040u;
 		legacySoldier->bOppList[0] = 2;
 		legacySoldier->bOppList[MAX_NUM_SOLDIERS - 1] = -3;
 		legacySoldier->bLastAction = -4;
@@ -11423,6 +11512,22 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
 		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
+		       convertedSoldier.identity().name()[0] == L'V' &&
+		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
+		       convertedSoldier.identity().bodyType() == REGFEMALE &&
+		       convertedSoldier.identity().profile() == 42 &&
+		       convertedSoldier.identity().incarnation() == 0x10203040u &&
+		       convertedSoldier.identity().dataProfile() == 0 &&
+		       convertedSoldier.identity().individualMilitiaId() == 0 &&
+		       convertedSoldier.roster().active() == TRUE &&
+		       convertedSoldier.roster().team() == CIV_TEAM &&
+		       convertedSoldier.roster().inSector() == TRUE &&
+		       convertedSoldier.roster().side() == 3 &&
+		       convertedSoldier.roster().soldierClass() ==
+		           SOLDIER_CLASS_ADMINISTRATOR &&
+		       convertedSoldier.roster().civilianGroup() == 18,
+		       "v101 soldier conversion maps every historical identity and roster value while clearing later profile links" );
 		CHECK( convertedSoldier.aiPlanning().lastAction() == -4 &&
 		       convertedSoldier.aiPlanning().action() == 5 &&
 		       convertedSoldier.aiPlanning().actionData() == 17001 &&
@@ -12026,6 +12131,20 @@ int main( int, char** )
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
 		SOLDIERTYPE savedSoldier;
+		savedSoldier.identity().id() = SoldierID{ 47 };
+		savedSoldier.identity().name()[0] = L'S';
+		savedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] = L'R';
+		savedSoldier.identity().bodyType() = BIGMALE;
+		savedSoldier.identity().profile() = 52;
+		savedSoldier.identity().incarnation() = 0x50607080u;
+		savedSoldier.identity().dataProfile() = 402;
+		savedSoldier.identity().individualMilitiaId() = 0x90A0B0C0u;
+		savedSoldier.roster().active() = TRUE;
+		savedSoldier.roster().team() = ENEMY_TEAM;
+		savedSoldier.roster().inSector() = TRUE;
+		savedSoldier.roster().side() = 4;
+		savedSoldier.roster().soldierClass() = SOLDIER_CLASS_ARMY;
+		savedSoldier.roster().civilianGroup() = 19;
 		savedSoldier.aiPlanning().lastAction() = -21;
 		savedSoldier.aiPlanning().action() = 22;
 		savedSoldier.aiPlanning().actionData() = 23001;
@@ -12537,6 +12656,22 @@ int main( int, char** )
 		FileDelete( const_cast<char*>( path.c_str() ) );
 		guiCurrentSaveGameVersion = previousSaveVersion;
 
+		CHECK( saved && loaded &&
+		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
+		       loadedSoldier.identity().name()[0] == L'S' &&
+		       loadedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'R' &&
+		       loadedSoldier.identity().bodyType() == BIGMALE &&
+		       loadedSoldier.identity().profile() == 52 &&
+		       loadedSoldier.identity().incarnation() == 0x50607080u &&
+		       loadedSoldier.identity().dataProfile() == 402 &&
+		       loadedSoldier.identity().individualMilitiaId() == 0x90A0B0C0u &&
+		       loadedSoldier.roster().active() == TRUE &&
+		       loadedSoldier.roster().team() == ENEMY_TEAM &&
+		       loadedSoldier.roster().inSector() == TRUE &&
+		       loadedSoldier.roster().side() == 4 &&
+		       loadedSoldier.roster().soldierClass() == SOLDIER_CLASS_ARMY &&
+		       loadedSoldier.roster().civilianGroup() == 19,
+		       "soldier save/load round-trips every identity and roster value at established schema positions" );
 		bool loadedStatisticsTraitsMatch = saved && loaded;
 		for (UINT8 trait = 0;
 		     trait < SoldierStatisticsComponent::SkillTraitCapacity;

@@ -588,7 +588,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 		SOLDIERTYPE* selected =
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
-		if (selected && selected->bActive && selected->bTeam == gbPlayerNum)
+		if (selected && selected->roster().active() && selected->roster().team() == gbPlayerNum)
 			candidate = selected;
 	}
 
@@ -598,7 +598,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 		{
 			SOLDIERTYPE* soldier =
 				GetJa2SoldierRepository().resolve(index);
-			if (soldier && soldier->bActive && soldier->bTeam == gbPlayerNum)
+			if (soldier && soldier->roster().active() && soldier->roster().team() == gbPlayerNum)
 			{
 				candidate = soldier;
 				break;
@@ -612,7 +612,7 @@ static SOLDIERTYPE* EnsureSMCurrentMerc()
 		return NULL;
 	}
 
-	gusSMCurrentMerc = candidate->ubID;
+	gusSMCurrentMerc = candidate->identity().id();
 	return candidate;
 }
 
@@ -664,7 +664,7 @@ void CheckForDisabledForGiveItem( )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
+			if ( pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->roster().inSector() && IsMercOnCurrentSquad( pSoldier ) )
 			{
 				sDist = PythSpacesAway( currentMerc->position().gridNo(), pSoldier->position().gridNo() );
 
@@ -686,7 +686,7 @@ void CheckForDisabledForGiveItem( )
 
 		if ( gpItemPointer != NULL )
 		{
-			ubSrcSoldier = GetItemPointerSoldier()->ubID;
+			ubSrcSoldier = GetItemPointerSoldier()->identity().id();
 		}
 
 		// OK buddy, check our currently selected merc and disable/enable if not close enough...
@@ -699,7 +699,7 @@ void CheckForDisabledForGiveItem( )
 			{
 				return;
 			}
-			if ( currentMerc->ubID != ubSrcSoldier )
+			if ( currentMerc->identity().id() != ubSrcSoldier )
 			{
 				sDestGridNo = currentMerc->position().gridNo();
 				bDestLevel	= currentMerc->position().level();
@@ -754,7 +754,7 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 			TacticalInventoryActorRole::SelectedMerc);
 		return;
 	}
-	gusSMCurrentMerc = newMerc->ubID;
+	gusSMCurrentMerc = newMerc->identity().id();
 
 	// Set to current guy's interface level
 	//if ( gsInterfaceLevel != GetSMCurrentMerc()->uiPresentation().interfaceLevel() )
@@ -844,7 +844,7 @@ void UpdateForContOverPortrait( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 	{
 		for ( cnt = 0; cnt < NUMBER_OF_SOLDIERS_PER_SQUAD; cnt++ )
 		{
-			if ( gTeamPanel[ cnt ].ubID == pSoldier->ubID )
+			if ( gTeamPanel[ cnt ].ubID == pSoldier->identity().id() )
 			{
 				if ( IsMouseInRegion( &gTEAM_FaceRegions[ cnt ] ) )
 				{
@@ -1012,7 +1012,7 @@ void UpdateSMPanel( )
 
 	DisableButton( iSMPanelButtons[ CLIMB_BUTTON ] );
 	
-	GetMercClimbDirection( GetSMCurrentMerc()->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+	GetMercClimbDirection( GetSMCurrentMerc()->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 	if (fNearLowerLevel || fNearHeigherLevel)
 	{
@@ -1112,7 +1112,7 @@ void UpdateSMPanel( )
 	}
 
 	// If not selected ( or dead ), disable/gray some buttons
-	if ( gusSelectedSoldier != GetSMCurrentMerc()->ubID || ( GetSMCurrentMerc()->vitals().health() < OKLIFE ) || (GetJa2TacticalCurrentTeam() != gbPlayerNum) || gfSMDisableForItems )
+	if ( gusSelectedSoldier != GetSMCurrentMerc()->identity().id() || ( GetSMCurrentMerc()->vitals().health() < OKLIFE ) || (GetJa2TacticalCurrentTeam() != gbPlayerNum) || gfSMDisableForItems )
 	{
 		DisableButton( iSMPanelButtons[ CLIMB_BUTTON ] );
 		DisableButton( iSMPanelButtons[ BURSTMODE_BUTTON ] );
@@ -1249,7 +1249,7 @@ void RenderBackpackButtons(int bpAction)
 			{
 				for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 				{
-					if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->ubID && gWorldItems[wi].object.exists() == true)
+					if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->identity().id() && gWorldItems[wi].object.exists() == true)
 					{
 						GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
 						break;
@@ -2615,7 +2615,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			}
 			else
 			{
-				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
+				if ( gusSelectedSoldier == GetSMCurrentMerc()->identity().id() && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiSMObjects, 0, SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, VO_BLT_SRCTRANSPARENCY, NULL );
 					RestoreExternBackgroundRect( SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, SM_SELMERC_PLATE_WIDTH , SM_SELMERC_PLATE_HEIGHT );
@@ -2651,7 +2651,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			}
 			else
 			{
-				if ( gusSelectedSoldier == GetSMCurrentMerc()->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
+				if ( gusSelectedSoldier == GetSMCurrentMerc()->identity().id() && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC(	GetSMCurrentMerc() ) )
 				{
 					BltVideoObjectFromIndex( guiSAVEBUFFER, guiSMObjects, 0, SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, VO_BLT_SRCTRANSPARENCY, NULL );
 					RestoreExternBackgroundRect( SM_SELMERC_PLATE_X, SM_SELMERC_PLATE_Y, SM_SELMERC_PLATE_WIDTH , SM_SELMERC_PLATE_HEIGHT );
@@ -2672,9 +2672,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				pDestBuf = LockVideoSurface( guiSAVEBUFFER, &uiDestPitchBYTES );
 
 				// AGI
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sAgilityGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sAgilityGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sAgilityGain+1)) / SubpointsPerPoint(AGILAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sAgilityGain+1)) / SubpointsPerPoint(AGILAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_AGI_Y-1);
 					ClipRect.iBottom = (SM_AGI_Y-1) + SM_STATS_HEIGHT;
@@ -2684,9 +2684,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// DEX
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sDexterityGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sDexterityGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sDexterityGain+1)) / SubpointsPerPoint(DEXTAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sDexterityGain+1)) / SubpointsPerPoint(DEXTAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_DEX_Y-1);
 					ClipRect.iBottom = (SM_DEX_Y-1) + SM_STATS_HEIGHT;
@@ -2696,9 +2696,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// STR
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sStrengthGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sStrengthGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sStrengthGain+1)) / SubpointsPerPoint(STRAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sStrengthGain+1)) / SubpointsPerPoint(STRAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_STR_Y-1);
 					ClipRect.iBottom = (SM_STR_Y-1) + SM_STATS_HEIGHT;
@@ -2708,9 +2708,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// WIS
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sWisdomGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sWisdomGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sWisdomGain+1)) / SubpointsPerPoint(WISDOMAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sWisdomGain+1)) / SubpointsPerPoint(WISDOMAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_WIS_Y-1);
 					ClipRect.iBottom = (SM_WIS_Y-1) + SM_STATS_HEIGHT;
@@ -2720,9 +2720,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// MRK
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMarksmanshipGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMarksmanshipGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMarksmanshipGain+1)) / SubpointsPerPoint(MARKAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMarksmanshipGain+1)) / SubpointsPerPoint(MARKAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_MRKM_Y-1);
 					ClipRect.iBottom = (SM_MRKM_Y-1) + SM_STATS_HEIGHT;
@@ -2732,9 +2732,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// LDR
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sLeadershipGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sLeadershipGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sLeadershipGain+1)) / SubpointsPerPoint(LDRAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sLeadershipGain+1)) / SubpointsPerPoint(LDRAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_CHAR_Y-1);
 					ClipRect.iBottom = (SM_CHAR_Y-1) + SM_STATS_HEIGHT;
@@ -2744,9 +2744,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// MECH
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMechanicGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMechanicGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMechanicGain+1)) / SubpointsPerPoint(MECHANAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMechanicGain+1)) / SubpointsPerPoint(MECHANAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_MECH_Y-1);
 					ClipRect.iBottom = (SM_MECH_Y-1) + SM_STATS_HEIGHT;
@@ -2756,9 +2756,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// EXPLO
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sExplosivesGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sExplosivesGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sExplosivesGain+1)) / SubpointsPerPoint(EXPLODEAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sExplosivesGain+1)) / SubpointsPerPoint(EXPLODEAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_EXPL_Y-1);
 					ClipRect.iBottom = (SM_EXPL_Y-1) + SM_STATS_HEIGHT;
@@ -2768,9 +2768,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// MED
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMedicalGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMedicalGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sMedicalGain+1)) / SubpointsPerPoint(MEDICALAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sMedicalGain+1)) / SubpointsPerPoint(MEDICALAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_MED_Y-1);
 					ClipRect.iBottom = (SM_MED_Y-1) + SM_STATS_HEIGHT;
@@ -2780,9 +2780,9 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				}
 
 				// EXPLEVEL
-				if (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sExpLevelGain)
+				if (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sExpLevelGain)
 				{
-					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->ubProfile ].sExpLevelGain+1)) / SubpointsPerPoint(EXPERAMT, &gMercProfiles[GetSMCurrentMerc()->ubProfile]);
+					ubBarWidth = (SM_STATS_WIDTH * (gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].sExpLevelGain+1)) / SubpointsPerPoint(EXPERAMT, &gMercProfiles[GetSMCurrentMerc()->identity().profile()]);
 					ubBarWidth = __max(0, __min(ubBarWidth, SM_STATS_WIDTH));
 					ClipRect.iTop = (SM_EXPLVL_Y-1);
 					ClipRect.iBottom = (SM_EXPLVL_Y-1) + SM_STATS_HEIGHT;
@@ -2956,8 +2956,8 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		}
 
 		RestoreExternBackgroundRect( SM_SELMERCNAME_X, SM_SELMERCNAME_Y, SM_SELMERCNAME_WIDTH, SM_SELMERCNAME_HEIGHT );
-		VarFindFontCenterCoordinates( SM_SELMERCNAME_X, SM_SELMERCNAME_Y, SM_SELMERCNAME_WIDTH, SM_SELMERCNAME_HEIGHT, SMALLFONT1, &sFontX, &sFontY, L"%s", GetSMCurrentMerc()->name );
-		mprintf( sFontX + 5, sFontY, L"%s", GetSMCurrentMerc()->name );
+		VarFindFontCenterCoordinates( SM_SELMERCNAME_X, SM_SELMERCNAME_Y, SM_SELMERCNAME_WIDTH, SM_SELMERCNAME_HEIGHT, SMALLFONT1, &sFontX, &sFontY, L"%s", GetSMCurrentMerc()->identity().name() );
+		mprintf( sFontX + 5, sFontY, L"%s", GetSMCurrentMerc()->identity().name() );
 
 	}
 
@@ -2997,7 +2997,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		// anv: display stealth together with camo
 		INT16 wornstealth = GetWornStealth(GetSMCurrentMerc()) - GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
 		INT16 bonusstealth = GetSMCurrentMerc()->GetBackgroundValue(BG_PERC_STEALTH);
-		if ( GetSMCurrentMerc()->ubBodyType == BLOODCAT )
+		if ( GetSMCurrentMerc()->identity().bodyType() == BLOODCAT )
 		{
 			bonusstealth += 50;
 		}
@@ -3056,7 +3056,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		{
 			GetMoraleString( GetSMCurrentMerc(), pMoraleStr );
 			// Flugente: food info if food system is active
-			if ( UsingFoodSystem() && GetSMCurrentMerc()->ubProfile != ROBOT && !IsVehicle(GetSMCurrentMerc()) )
+			if ( UsingFoodSystem() && GetSMCurrentMerc()->identity().profile() != ROBOT && !IsVehicle(GetSMCurrentMerc()) )
 			{
 				swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(GetSMCurrentMerc()->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(GetSMCurrentMerc()->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 			}
@@ -3089,12 +3089,12 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 				// we also get the number of lines (skills) to be displayed 
 				for ( UINT8 ubCnt = 1; ubCnt < NUM_SKILLTRAITS_NT; ++ubCnt )
 				{
-					if ( ProfileHasSkillTrait( GetSMCurrentMerc()->ubProfile, ubCnt ) == 2 )
+					if ( ProfileHasSkillTrait( GetSMCurrentMerc()->identity().profile(), ubCnt ) == 2 )
 					{
 						ubTempSkillArray[bNumSkillTraits] = (ubCnt + NEWTRAIT_MERCSKILL_EXPERTOFFSET);
 						bNumSkillTraits++;
 					}
-					else if ( ProfileHasSkillTrait( GetSMCurrentMerc()->ubProfile, ubCnt ) == 1 )
+					else if ( ProfileHasSkillTrait( GetSMCurrentMerc()->identity().profile(), ubCnt ) == 1 )
 					{
 						ubTempSkillArray[bNumSkillTraits] = ubCnt;
 						bNumSkillTraits++;
@@ -3117,8 +3117,8 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			else
 			{
 				INT8 bSkill1 = 0, bSkill2 = 0; 	
-				bSkill1 = gMercProfiles[ GetSMCurrentMerc()->ubProfile ].bSkillTraits[0];
-				bSkill2 = gMercProfiles[ GetSMCurrentMerc()->ubProfile ].bSkillTraits[1];
+				bSkill1 = gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].bSkillTraits[0];
+				bSkill2 = gMercProfiles[ GetSMCurrentMerc()->identity().profile() ].bSkillTraits[1];
 
 				if ( bSkill1 == 0 && bSkill2 == 0 )
 				{
@@ -3436,7 +3436,7 @@ BOOLEAN HandleNailsVestFetish( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 u
 	BOOLEAN fRefuse = FALSE;
 
 	// OK are we nails?
-	if ( pSoldier->ubProfile == 34 )
+	if ( pSoldier->identity().profile() == 34 )
 	{
 		// if this the VEST POS?
 		if ( uiHandPos == VESTPOS )
@@ -3505,7 +3505,7 @@ BOOLEAN UIHandleItemPlacement( UINT8 ubHandPos, UINT16 usOldItemIndex, UINT16 us
 
 		if ( GetItemPointerSoldier() != GetSMCurrentMerc() )
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_ITEM_PASSED_TO_MERC ], ShortItemNames[ usNewItemIndex ], GetSMCurrentMerc()->name );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_ITEM_PASSED_TO_MERC ], ShortItemNames[ usNewItemIndex ], GetSMCurrentMerc()->identity().name() );
 		}
 
 		// UPDATE ITEM POINTER.....
@@ -3705,7 +3705,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	if( guiTacticalInterfaceFlags & INTERFACE_SHOPKEEP_INTERFACE )
 	{
 		// and this inventory slot is hatched out
-		if( ShouldSoldierDisplayHatchOnItem( GetSMCurrentMerc()->ubProfile, (INT16)uiHandPos ) )
+		if( ShouldSoldierDisplayHatchOnItem( GetSMCurrentMerc()->identity().profile(), (INT16)uiHandPos ) )
 		{
 			// it means that item is a copy of one in the player's offer area, so we treat it as if the slot was empty (ignore)
 			// if the cursor has an item in it, we still ignore the click, because handling swaps in this situation would be
@@ -3736,9 +3736,9 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			if ( GetSMCurrentMerc()->inv[ uiHandPos ].exists() == false )
 				return;
 
-			if ( GetSMCurrentMerc()->ubID != gusSelectedSoldier )
+			if ( GetSMCurrentMerc()->identity().id() != gusSelectedSoldier )
 			{
-				SelectSoldier( GetSMCurrentMerc()->ubID, FALSE, FALSE );
+				SelectSoldier( GetSMCurrentMerc()->identity().id(), FALSE, FALSE );
 			}
 
 			// OK, check if this is Nails, and we're in the vest position , don't allow it to come off....
@@ -3766,7 +3766,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					// Do we still have a linked backpack?  If so, reset droppackflag
 					for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 					{
-						if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->ubID && gWorldItems[wi].object.exists() == true)
+						if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->identity().id() && gWorldItems[wi].object.exists() == true)
 						{
 							GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
 							break;
@@ -3806,8 +3806,8 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			BOOLEAN		fDeductPoints = FALSE;
 
 			// ATE: OK, get source, dest guy if different... check for and then charge appropriate APs
-			ubSrcID	= GetSMCurrentMerc()->ubID;
-			ubDestID = GetItemPointerSoldier()->ubID;
+			ubSrcID	= GetSMCurrentMerc()->identity().id();
+			ubDestID = GetItemPointerSoldier()->identity().id();
 
 			if ( ubSrcID == ubDestID )
 			{
@@ -4195,7 +4195,7 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 		if(bNewStance == ANIM_STAND)
 		{
 			bNewStance = ANIM_CROUCH;
-			UIHandleSoldierStanceChange( pSoldier->ubID, bNewStance );
+			UIHandleSoldierStanceChange( pSoldier->identity().id(), bNewStance );
 		}
 		pSoldier->inventoryState().zipperFlag() = newStatus;
 		gfUIStanceDifferent = TRUE;
@@ -4234,7 +4234,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 		if(!newStatus) {
 			for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 			{
-				if(gWorldItems[wi].soldierID == pSoldier->ubID && gWorldItems[wi].object.exists() == true)
+				if(gWorldItems[wi].soldierID == pSoldier->identity().id() && gWorldItems[wi].object.exists() == true)
 				{
 					for (unsigned int x = 0; x < gWorldItems[wi].object.ubNumberOfObjects; ++x) {
 						// Failsafe in case our LBEArray data ever goes missing.
@@ -4283,13 +4283,13 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 		// We need to clear any existing WorldItems that are linked with this soldier
 		for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 		{
-			if(gWorldItems[wi].soldierID == pSoldier->ubID)
+			if(gWorldItems[wi].soldierID == pSoldier->identity().id())
 			{
 				gWorldItems[wi].soldierID = NOBODY;
 			}
 		}
 		MoveItemToLBEItem( pSoldier, BPACKPOCKPOS );
-		AddItemToPoolAndGetIndex(pSoldier->position().gridNo(), &pSoldier->inv[BPACKPOCKPOS], 1, pSoldier->position().level(), 0, -1, pSoldier->ubID, &worldKey );
+		AddItemToPoolAndGetIndex(pSoldier->position().gridNo(), &pSoldier->inv[BPACKPOCKPOS], 1, pSoldier->position().level(), 0, -1, pSoldier->identity().id(), &worldKey );
 		// Item successfully added to world
 		if(worldKey != ITEM_NOT_FOUND)
 		{
@@ -4308,7 +4308,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 			//	have a CTD, so lets resolve that here.
 			if(Item[gWorldItems[wi].object.usItem].usItemClass != IC_LBEGEAR)
 				gWorldItems[wi].soldierID = NOBODY;
-			if(gWorldItems[wi].soldierID == pSoldier->ubID && gWorldItems[wi].fExists == TRUE && Item[gWorldItems[wi].object.usItem].usItemClass == IC_LBEGEAR && LoadBearingEquipment[Item[gWorldItems[wi].object.usItem].ubClassIndex].lbeClass == BACKPACK)
+			if(gWorldItems[wi].soldierID == pSoldier->identity().id() && gWorldItems[wi].fExists == TRUE && Item[gWorldItems[wi].object.usItem].usItemClass == IC_LBEGEAR && LoadBearingEquipment[Item[gWorldItems[wi].object.usItem].ubClassIndex].lbeClass == BACKPACK)
 			{
 				for (int x = 0; x < gWorldItems[wi].object.ubNumberOfObjects; ++x) {
 					// Is the item we dropped in this sector and does it have an active LBENODE flag?
@@ -4465,7 +4465,7 @@ void SelectedMercButtonCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			}
 			else
 			{
-				HandleLocateSelectMerc( GetSMCurrentMerc()->ubID, 0 );
+				HandleLocateSelectMerc( GetSMCurrentMerc()->identity().id(), 0 );
 			}
 		}
 	}
@@ -4558,7 +4558,7 @@ void BtnStanceUpCallback(GUI_BUTTON *btn,INT32 reason)
 			bNewStance = ANIM_CROUCH;
 		}
 
-		UIHandleSoldierStanceChange( GetSMCurrentMerc()->ubID, bNewStance );
+		UIHandleSoldierStanceChange( GetSMCurrentMerc()->identity().id(), bNewStance );
 
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
@@ -4710,7 +4710,7 @@ void BtnClimbCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		GetMercClimbDirection( GetSMCurrentMerc()->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+		GetMercClimbDirection( GetSMCurrentMerc()->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 		if ( fNearLowerLevel )
 		{
@@ -4804,7 +4804,7 @@ void BtnStanceDownCallback(GUI_BUTTON *btn,INT32 reason)
 			bNewStance = ANIM_PRONE;
 		}
 
-		UIHandleSoldierStanceChange( GetSMCurrentMerc()->ubID, bNewStance );
+		UIHandleSoldierStanceChange( GetSMCurrentMerc()->identity().id(), bNewStance );
 
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
@@ -4877,12 +4877,12 @@ void BtnMuteCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		if ( GetSMCurrentMerc()->status().flags() & SOLDIER_MUTE )
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_OFF_STR ], GetSMCurrentMerc()->name );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_OFF_STR ], GetSMCurrentMerc()->identity().name() );
 			GetSMCurrentMerc()->status().flags() &= ( ~SOLDIER_MUTE );
 		}
 		else
 		{
-			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_ON_STR ], GetSMCurrentMerc()->name );
+			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_ON_STR ], GetSMCurrentMerc()->identity().name() );
 			GetSMCurrentMerc()->status().flags() |= ( SOLDIER_MUTE );
 		}
 	}
@@ -5568,7 +5568,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				}
 
 				// Render Selected guy if selected
-				if ( gusSelectedSoldier == pSoldier->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
+				if ( gusSelectedSoldier == pSoldier->identity().id() && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
 				{
 					//if(gbPixelDepth==16)
 					//{
@@ -5617,9 +5617,9 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 
 				// RENDER ON SAVE BUFFER!
 				SetFontDestBuffer( guiSAVEBUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
-				VarFindFontCenterCoordinates( (INT16)(sTEAMNamesXY[ posIndex ] + 2 ), (INT16)(sTEAMNamesXY[ posIndex + 1 ] ), TM_NAME_WIDTH, TM_NAME_HEIGHT, BLOCKFONT2, &sFontX, &sFontY, L"%s", pSoldier->name );
-				mprintf( sFontX, sFontY, L"%s", pSoldier->name );
-				gprintfRestore( sFontX, sFontY, L"%s", pSoldier->name );
+				VarFindFontCenterCoordinates( (INT16)(sTEAMNamesXY[ posIndex ] + 2 ), (INT16)(sTEAMNamesXY[ posIndex + 1 ] ), TM_NAME_WIDTH, TM_NAME_HEIGHT, BLOCKFONT2, &sFontX, &sFontY, L"%s", pSoldier->identity().name() );
+				mprintf( sFontX, sFontY, L"%s", pSoldier->identity().name() );
+				gprintfRestore( sFontX, sFontY, L"%s", pSoldier->identity().name() );
 				// reset to frame buffer!
 				SetFontDestBuffer( FRAME_BUFFER, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
@@ -5672,7 +5672,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 						{
 							GetMoraleString( pSoldier, pMoraleStr );
 			
-							if ( UsingFoodSystem() && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) )
+							if ( UsingFoodSystem() && pSoldier->identity().profile() != ROBOT && !IsVehicle(pSoldier) )
 							{
 								swprintf( pStr, TacticalStr[ MERC_VITAL_STATS_WITH_FOOD_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pMoraleStr, (INT32)(100*(pSoldier->condition().drinkLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%", (INT32)(100*(pSoldier->condition().foodLevel() - FOOD_MIN) / FOOD_HALF_RANGE), L"%" );
 							}
@@ -5712,12 +5712,12 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 								// we also get the number of lines (skills) to be displayed 
 								for ( UINT8 ubCnt = 1; ubCnt < NUM_SKILLTRAITS_NT; ++ubCnt )
 								{
-									if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 2 )
+									if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 2 )
 									{
 										ubTempSkillArray[bNumSkillTraits] = (ubCnt + NEWTRAIT_MERCSKILL_EXPERTOFFSET);
 										++bNumSkillTraits;
 									}
-									else if ( ProfileHasSkillTrait( pSoldier->ubProfile, ubCnt ) == 1 )
+									else if ( ProfileHasSkillTrait( pSoldier->identity().profile(), ubCnt ) == 1 )
 									{
 										ubTempSkillArray[bNumSkillTraits] = ubCnt;
 										++bNumSkillTraits;
@@ -5741,8 +5741,8 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 							else
 							{
 								INT8 bSkill1 = 0, bSkill2 = 0; 	
-								bSkill1 = gMercProfiles[ pSoldier->ubProfile ].bSkillTraits[0];
-								bSkill2 = gMercProfiles[ pSoldier->ubProfile ].bSkillTraits[1];
+								bSkill1 = gMercProfiles[ pSoldier->identity().profile() ].bSkillTraits[0];
+								bSkill2 = gMercProfiles[ pSoldier->identity().profile() ].bSkillTraits[1];
 			
 								if ( bSkill1 == 0 && bSkill2 == 0 )
 								{
@@ -6165,7 +6165,7 @@ void MercFacePanelMoveCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	pSoldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
-	if ( !pSoldier || !pSoldier->bActive )
+	if ( !pSoldier || !pSoldier->roster().active() )
 	{
 		return;
 	}
@@ -6211,7 +6211,7 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		return;
 	}
 
-	if ( !soldier || !soldier->bActive )
+	if ( !soldier || !soldier->roster().active() )
 	{
 		return;
 	}
@@ -6280,7 +6280,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		return;
 	}
 
-	if ( !soldier || !soldier->bActive )
+	if ( !soldier || !soldier->roster().active() )
 	{
 		return;
 	}
@@ -6299,7 +6299,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			//{
 			//	pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 
-			//	HandleLocateSelectMerc( pVehicle->ubID, 0 );
+			//	HandleLocateSelectMerc( pVehicle->identity().id(), 0 );
 			//}
 			//else
 			{
@@ -6391,7 +6391,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 	BOOLEAN fSelect = FALSE;
 	SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(ubID.i);
 
-	if( !soldier || !soldier->bActive )
+	if( !soldier || !soldier->roster().active() )
 	{
 		return;
 	}
@@ -6547,7 +6547,7 @@ void EndRadioLocator( SoldierID ubID )
 void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sPanelY )
 {
 
-	if ( !pSoldier->bActive )
+	if ( !pSoldier->roster().active() )
 	{
 		return;
 	}
@@ -6576,7 +6576,7 @@ void FinishAnySkullPanelAnimations( )
 		{
 			continue;
 		}
-		if ( pTeamSoldier->bActive && pTeamSoldier->vitals().health() == 0 )
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->vitals().health() == 0 )
 		{
 			if ( pTeamSoldier->uiPresentation().deadMercUiPending() || pTeamSoldier->uiPresentation().panelClosingForDeath() )
 			{
@@ -6590,13 +6590,13 @@ void FinishAnySkullPanelAnimations( )
 
 void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 {
-	if ( pSoldier->bTeam != gbPlayerNum )
+	if ( pSoldier->roster().team() != gbPlayerNum )
 	{
 		return;
 	}
 
 
-	if ( !pSoldier->bActive )
+	if ( !pSoldier->roster().active() )
 	{
 		return;
 	}
@@ -6675,7 +6675,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 				if ( pSoldier->uiPresentation().deadPanelFrame() == 4 )
 				{
-					ScreenMsg( FONT_RED, MSG_SKULL_UI_FEEDBACK, pMercDeadString[ 0 ], pSoldier->name );
+					ScreenMsg( FONT_RED, MSG_SKULL_UI_FEEDBACK, pMercDeadString[ 0 ], pSoldier->identity().name() );
 
 					PlayJA2Sample( (UINT8)DOORCR_1, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 					PlayJA2Sample( (UINT8)HEADCR_1, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
@@ -6766,7 +6766,7 @@ void HandleSoldierFaceFlash( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY )
 
 void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty )
 {
-	if ( pSoldier->bActive && !(pSoldier->status().flags() & SOLDIER_DEAD ) )
+	if ( pSoldier->roster().active() && !(pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		if ( pSoldier->status().flags() & SOLDIER_DRIVER )
 		{			
@@ -6820,7 +6820,7 @@ void TMFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	SOLDIERTYPE* soldier =
 		GetJa2SoldierRepository().resolve(ubSoldierID.i);
 
-	if ( !soldier || !soldier->bActive )
+	if ( !soldier || !soldier->roster().active() )
 	{
 		return;
 	}
@@ -6873,7 +6873,7 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		//if ( ubSoldierID->status().flags() & SOLDIER_DRIVER )
 		//{
 		//	SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
-		//	HandleLocateSelectMerc( pVehicle->ubID, 0 );
+		//	HandleLocateSelectMerc( pVehicle->identity().id(), 0 );
 		//}
 		//else
 		{
@@ -7058,7 +7058,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 				for( UINT8 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ soldier->deployment().vehicleId() ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 				{
 					SOLDIERTYPE *pPassenger = pVehicleList[ soldier->deployment().vehicleId() ].pPassengers[ iCounter ];
-					if( pPassenger != NULL && pPassenger->ubID == ubID )
+					if( pPassenger != NULL && pPassenger->identity().id() == ubID )
 					{
 						gTeamPanel[ iCounter ].fOccupied = TRUE;
 						gTeamPanel[ iCounter ].ubID = ubID;
@@ -7191,13 +7191,13 @@ void RenderTownIDString( INT16 sX, INT16 sY )
 void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 {
 
-	if ( pSoldier->bActive	)
+	if ( pSoldier->roster().active()	)
 	{
 		// Add to interface if the are ours
-		if ( pSoldier->bTeam == gbPlayerNum )
+		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
 			// Are we in the loaded sector?
-			if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->bInSector )
+			if ( pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->deployment().sectorZ() == gbWorldSectorZ && !pSoldier->deployment().isBetweenSectors() && pSoldier->roster().inSector() )
 			{
 				// IF on duty....
 				if( ( pSoldier->assignment().current() ==	CurrentSquad( ) )|| ( SoldierIsDeadAndWasOnSquad( pSoldier, ( INT8 )( CurrentSquad( ) ) ) ) )
@@ -7211,7 +7211,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 					/// ( will add in heli code )
 					if ( pSoldier->deployment().strategicInsertionCode() != INSERTION_CODE_CHOPPER )
 					{
-						AddPlayerToInterfaceTeamSlot( pSoldier->ubID );
+						AddPlayerToInterfaceTeamSlot( pSoldier->identity().id() );
 					}
 
 					// ARE WE A VEHICLE.....
@@ -7285,11 +7285,11 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 	SOLDIERTYPE *pTeamSoldier;
 
 
-	bFirstID = GetTeamSlotFromPlayerID( pSoldier->ubID );
+	bFirstID = GetTeamSlotFromPlayerID( pSoldier->identity().id() );
 
 	if ( bFirstID == -1 )
 	{
-		return( pSoldier->ubID );
+		return( pSoldier->identity().id() );
 	}
 
 	for ( cnt = ( bFirstID + 1 ); cnt < gGameOptions.ubSquadSize; cnt++ )
@@ -7306,7 +7306,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fOnlyRegularMercs )
 			{
-				if ( pTeamSoldier->bActive && ( AM_AN_EPC( pTeamSoldier ) || AM_A_ROBOT( pTeamSoldier ) ) )
+				if ( pTeamSoldier->roster().active() && ( AM_AN_EPC( pTeamSoldier ) || AM_A_ROBOT( pTeamSoldier ) ) )
 				{
 					continue;
 				}
@@ -7314,7 +7314,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->roster().team() == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
@@ -7345,7 +7345,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 			if (!selectedSoldier)
 			{
-				return pSoldier->ubID;
+				return pSoldier->identity().id();
 			}
 			pNewSoldier = FindNextActiveSquad( selectedSoldier );
 
@@ -7357,7 +7357,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 					//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( CurrentSquad( ) + 1 ) );
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_SQUAD_ACTIVE ], ( pNewSoldier->assignment().current() + 1 ) );
 
-				return( pNewSoldier->ubID );
+				return( pNewSoldier->identity().id() );
 			}
 		}
 	}
@@ -7377,7 +7377,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fOnlyRegularMercs )
 			{
-				if ( pTeamSoldier->bActive && ( AM_AN_EPC( pTeamSoldier ) || AM_A_ROBOT( pTeamSoldier ) ) )
+				if ( pTeamSoldier->roster().active() && ( AM_AN_EPC( pTeamSoldier ) || AM_A_ROBOT( pTeamSoldier ) ) )
 				{
 					continue;
 				}
@@ -7385,7 +7385,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 
 			if ( fGoodForLessOKLife )
 			{
-				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->bTeam == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
+				if ( pTeamSoldier->vitals().health() > 0 && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() && pTeamSoldier->roster().team() == gbPlayerNum && pTeamSoldier->assignment().current() < ON_DUTY	&& OK_INTERRUPT_MERC( pTeamSoldier ) && pSoldier->assignment().current() == pTeamSoldier->assignment().current() )
 				{
 					return( gTeamPanel[ cnt ].ubID );
 				}
@@ -7401,7 +7401,7 @@ SoldierID FindNextMercInTeamPanel( SOLDIERTYPE *pSoldier, BOOLEAN fGoodForLessOK
 	}
 
 	// IF we are here, keep as we always were!
-	return( pSoldier->ubID );
+	return( pSoldier->identity().id() );
 }
 
 
@@ -7612,9 +7612,9 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			}
 			else
 			{
-				if ( GetItemPopupSoldier()->ubID != gusSelectedSoldier )
+				if ( GetItemPopupSoldier()->identity().id() != gusSelectedSoldier )
 				{
-					SelectSoldier( GetItemPopupSoldier()->ubID, FALSE, FALSE );
+					SelectSoldier( GetItemPopupSoldier()->identity().id(), FALSE, FALSE );
 				}
 			}
 
@@ -7640,7 +7640,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			ubSrcID	= gCharactersList[ bSelectedInfoChar ].usSolID;
 			if ( GetItemPointerSoldier() )
 			{
-				ubDestID = GetItemPointerSoldier()->ubID;
+				ubDestID = GetItemPointerSoldier()->identity().id();
 			}
 			else
 			{
@@ -7992,7 +7992,7 @@ void ConfirmationToDepositMoneyToPlayersAccount( UINT8 ubExitValue )
 	if ( ubExitValue == MSG_BOX_RETURN_YES )
 	{
 		//add the money to the players account
-		AddTransactionToPlayersBook( MERC_DEPOSITED_MONEY_TO_PLAYER_ACCOUNT, GetSMCurrentMerc()->ubProfile, GetWorldTotalMin(), (*gpItemPointer)[0]->data.money.uiMoneyAmount);
+		AddTransactionToPlayersBook( MERC_DEPOSITED_MONEY_TO_PLAYER_ACCOUNT, GetSMCurrentMerc()->identity().profile(), GetWorldTotalMin(), (*gpItemPointer)[0]->data.money.uiMoneyAmount);
 
 		// dirty shopkeeper
 		gubSkiDirtyLevel = SKI_DIRTY_LEVEL2;
@@ -8055,7 +8055,7 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 {
 	BOOLEAN fRefuse = FALSE;
 
-	if ( pSoldier->ubProfile == 57 )
+	if ( pSoldier->identity().profile() == 57 )
 	{
 		if ( uiHandPos == HANDPOS || uiHandPos == SECONDHANDPOS )
 		{
@@ -8115,7 +8115,7 @@ BOOLEAN HandleKlerykPistolet( SOLDIERTYPE *pSoldier, UINT32 uiHandPos, UINT16 us
 	}
 
 	// if he is loaded tactically
-	if ( pSoldier->bInSector )
+	if ( pSoldier->roster().inSector() )
 	{
 		// If this is our main hand
 		if ( uiInvPos == HANDPOS || uiInvPos == SECONDHANDPOS )

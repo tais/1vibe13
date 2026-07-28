@@ -535,7 +535,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(iCounter);
 
-		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive )
+		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().active() )
 		{
 			// if soldier is in this sector
 			if( SectorIsPartOfTown( bTownId, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) == TRUE )
@@ -548,13 +548,13 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 				}
 
 				// local influence: if the town is the character's home town
-				if( bTownId == gMercProfiles[ pSoldier->ubProfile ].bTown )
+				if( bTownId == gMercProfiles[ pSoldier->identity().profile() ].bTown )
 				{
 					// he needn't be soldiering to have an impact...	presence is enough
 					if( pSoldier->assignment().current() < ASSIGNMENT_DEAD )
 					{
 						iLocalNPCBonus = HOURLY_GAIN_FOR_LOCAL_NPC_IN_TOWN;
-						iLocalNPCBonus *= gMercProfiles[ pSoldier->ubProfile ].bTownAttachment;
+						iLocalNPCBonus *= gMercProfiles[ pSoldier->identity().profile() ].bTownAttachment;
 						iLocalNPCBonus /= 100;
 
 						// adjust for % town control
@@ -565,7 +565,7 @@ void UpdateTownLoyaltyBasedOnFriendliesInTown( INT8 bTownId )
 						if( iLocalNPCBonus > 0 )
 						{
 							// debug message
-							ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"%s influences loyalty in home town of %s, worth %d", pSoldier->name, pTownNames[ bTownId ], iLocalNPCBonus);
+							ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"%s influences loyalty in home town of %s, worth %d", pSoldier->identity().name(), pTownNames[ bTownId ], iLocalNPCBonus);
 
 							// increment town loyalty
 							IncrementTownLoyalty( bTownId, iLocalNPCBonus );
@@ -695,16 +695,16 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	}
 
 	// ignore murder of non-civilians!
-	if ( ( pSoldier->bTeam != CIV_TEAM ) || ( pSoldier->ubBodyType == CROW ) )
+	if ( ( pSoldier->roster().team() != CIV_TEAM ) || ( pSoldier->identity().bodyType() == CROW ) )
 	{
 		return;
 	}
 
 	// if this is a profiled civilian NPC
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
 		// ignore murder of NPCs if they're not loyal to the rebel cause - they're really just enemies in civilian clothing
-		if ( gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags3 & PROFILE_MISC_FLAG3_TOWN_DOESNT_CARE_ABOUT_DEATH )
+		if ( gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_TOWN_DOESNT_CARE_ABOUT_DEATH )
 		{
 			return;
 		}
@@ -712,18 +712,18 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 
 	// Flugente: if a civilian's group has Loyalty set to 0, there will be no morale penalty/loyalty change if he is killed. Pretty odd, but at least not as bugged as it was before. 
 	// if civilian belongs to a civilian group
-	if ( pSoldier->ubCivilianGroup != NON_CIV_GROUP && pSoldier->ubCivilianGroup < NUM_CIV_GROUPS )
+	if ( pSoldier->roster().civilianGroup() != NON_CIV_GROUP && pSoldier->roster().civilianGroup() < NUM_CIV_GROUPS )
 	{
-		if ( !zCivGroupName[pSoldier->ubCivilianGroup].Loyalty )
+		if ( !zCivGroupName[pSoldier->roster().civilianGroup()].Loyalty )
 			return;
 	}
 	
 	/*
 	// if civilian belongs to a civilian group
-	if ( pSoldier->ubCivilianGroup != NON_CIV_GROUP )
+	if ( pSoldier->roster().civilianGroup() != NON_CIV_GROUP )
 	{
 		// and it's one that is hostile to the player's cause
-		switch ( pSoldier->ubCivilianGroup )
+		switch ( pSoldier->roster().civilianGroup() )
 		{
 			case KINGPIN_CIV_GROUP:
 			case ALMA_MILITARY_CIV_GROUP:
@@ -735,7 +735,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 		//New Group by Jazz
 		for( iCounter2 = UNNAMED_CIV_GROUP_15; iCounter2 < NUM_CIV_GROUPS; iCounter2++ )	
 			{	
-			if (pSoldier->ubCivilianGroup == iCounter2)
+			if (pSoldier->roster().civilianGroup() == iCounter2)
 					return;		
 			}
 		
@@ -743,7 +743,7 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	}
 	*/
 	// set killer team
-	bKillerTeam = pKiller->bTeam;
+	bKillerTeam = pKiller->roster().team();
 
 
 	// if the player did the killing
@@ -770,10 +770,10 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	}
 
 
-	if( ( pSoldier->ubBodyType >= FATCIV) && ( pSoldier->ubBodyType <= COW ) )
+	if( ( pSoldier->identity().bodyType() >= FATCIV) && ( pSoldier->identity().bodyType() <= COW ) )
 	{
 		// adjust value for killer and type
-		iLoyaltyChange = uiPercentLoyaltyDecreaseForCivMurder[ pSoldier->ubBodyType - FATCIV ];
+		iLoyaltyChange = uiPercentLoyaltyDecreaseForCivMurder[ pSoldier->identity().bodyType() - FATCIV ];
 	}
 	else
 	{
@@ -910,8 +910,8 @@ void HandleMurderOfCivilian( SOLDIERTYPE *pSoldier, BOOLEAN fIntentional )
 	case CREATURE_TEAM:
 		{
 			// killed by a monster - make sure it was one
-			if( ( pKiller->ubBodyType >= ADULTFEMALEMONSTER ) &&
-				( pKiller->ubBodyType <= QUEENMONSTER ) )
+			if( ( pKiller->identity().bodyType() >= ADULTFEMALEMONSTER ) &&
+				( pKiller->identity().bodyType() <= QUEENMONSTER ) )
 			{
 				// increase for the extreme horror of being killed by a monster
 				iLoyaltyChange *= MULTIPLIER_FOR_MURDER_BY_MONSTER;
@@ -1003,10 +1003,10 @@ void HandleTownLoyaltyForNPCRecruitment( SOLDIERTYPE *pSoldier )
 	bTownId = GetTownIdForSector( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 
 	// is the merc currently in their home town?
-	if( bTownId == gMercProfiles[ pSoldier->ubProfile ].bTown )
+	if( bTownId == gMercProfiles[ pSoldier->identity().profile() ].bTown )
 	{
 		// yep, value of loyalty bonus depends on his importance to this to town
-		uiLoyaltyValue = MULTIPLIER_LOCAL_RPC_HIRED * gMercProfiles[ pSoldier->ubProfile ].bTownAttachment;
+		uiLoyaltyValue = MULTIPLIER_LOCAL_RPC_HIRED * gMercProfiles[ pSoldier->identity().profile() ].bTownAttachment;
 
 		// increment town loyalty gain
 		IncrementTownLoyalty( bTownId, uiLoyaltyValue );
@@ -1068,16 +1068,16 @@ void HandleLoyaltyForDemolitionOfBuilding( SOLDIERTYPE *pSoldier, INT16 sPointsD
 		return;
 
 	// penalize the side that did it
-	if( pSoldier->bTeam == OUR_TEAM )
+	if( pSoldier->roster().team() == OUR_TEAM )
 	{
 		DecrementTownLoyalty( bTownId, sLoyaltyValue );
 	}
-	else if( pSoldier->bTeam == ENEMY_TEAM )
+	else if( pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		// enemy damaged sector, it's their fault
 		IncrementTownLoyalty( bTownId, sLoyaltyValue );
 	}
-	else if ( pSoldier->ubCivilianGroup == REBEL_CIV_GROUP )
+	else if ( pSoldier->roster().civilianGroup() == REBEL_CIV_GROUP )
 	{
 		// the rebels did it...are they on our side
 		if( CheckFact( FACT_REBELS_HATE_PLAYER, 0 ) == FALSE )
@@ -2129,9 +2129,9 @@ UINT32 PlayerStrength( void )
 	for ( SoldierID ubLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++ubLoop )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
-			if ( pSoldier->bInSector || (pSoldier->deployment().isBetweenSectors() && SECTORX( pSoldier->deployment().previousSectorId() ) == gWorldSectorX && SECTORY( pSoldier->deployment().previousSectorId() ) == gWorldSectorY && (pSoldier->deployment().sectorZ() == gbWorldSectorZ)) )
+			if ( pSoldier->roster().inSector() || (pSoldier->deployment().isBetweenSectors() && SECTORX( pSoldier->deployment().previousSectorId() ) == gWorldSectorX && SECTORY( pSoldier->deployment().previousSectorId() ) == gWorldSectorY && (pSoldier->deployment().sectorZ() == gbWorldSectorZ)) )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
 				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;
@@ -2150,7 +2150,7 @@ UINT32 EnemyStrength( void )
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
-			if ( pSoldier->bActive && pSoldier->bInSector && !pSoldier->aiBehavior().neutral() )
+			if ( pSoldier->roster().active() && pSoldier->roster().inSector() && !pSoldier->aiBehavior().neutral() )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
 				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;

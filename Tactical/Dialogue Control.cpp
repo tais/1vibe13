@@ -453,7 +453,7 @@ void HandleDialogueUIAdjustments( )
 
 
 						// Setup UI again!
-						CreateTalkingUI( gbUIHandlerID, pSoldier->iFaceIndex, pSoldier->ubProfile, pSoldier, gzQuoteStr );
+						CreateTalkingUI( gbUIHandlerID, pSoldier->iFaceIndex, pSoldier->identity().profile(), pSoldier, gzQuoteStr );
 					}
 				}
 			}
@@ -703,7 +703,7 @@ void HandleDialogue( )
 								if (player)
 								{
 									InitiateConversation( pMorris, player, NPC_INITIAL_QUOTE, 0 );
-									gMercProfiles[ pMorris->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
+									gMercProfiles[ pMorris->identity().profile() ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
 								}
 							}
 						}
@@ -767,7 +767,7 @@ void HandleDialogue( )
 						if (player)
 						{
 							InitiateConversation( pMike, player, NPC_INITIAL_QUOTE, 0 );
-							gMercProfiles[ pMike->ubProfile ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
+							gMercProfiles[ pMike->identity().profile() ].ubMiscFlags2 |= PROFILE_MISC_FLAG2_SAID_FIRSTSEEN_QUOTE;
 							// JA2Gold: special hack value of 2 to prevent dialogue from coming up more than once
 							gfMikeShouldSayHi = 2;
 						}
@@ -978,7 +978,7 @@ void HandleDialogue( )
 			// Setup face pointer
 			// ATE: THis is working with MARK'S STUFF :(
 			// Need this stuff so that bSelectedInfoChar is set...
-			SetInfoChar( pSoldier->ubID );
+			SetInfoChar( pSoldier->identity().id() );
 
 			fShowContractMenu = TRUE;
 			RebuildContractBoxForMerc( pSoldier );
@@ -1050,7 +1050,7 @@ void HandleDialogue( )
 					pUpdateSoldier =
 						GetJa2SoldierRepository().resolve(
 							QItem.uiSpecialEventData2);
-					if( pUpdateSoldier && pUpdateSoldier->bActive == TRUE )
+					if( pUpdateSoldier && pUpdateSoldier->roster().active() == TRUE )
 					{
 						AddSoldierToUpdateBox( pUpdateSoldier );
 					}
@@ -1179,7 +1179,7 @@ void HandleDialogue( )
 				CHAR16 wTempString[ 128 ];
 
 				// tell player about stat increase
-				BuildStatChangeString( wTempString, pSoldier->name, ( BOOLEAN ) QItem.uiSpecialEventData, ( INT16 ) QItem.uiSpecialEventData2, ( UINT8 ) QItem.uiSpecialEventData3 );
+				BuildStatChangeString( wTempString, pSoldier->identity().name(), ( BOOLEAN ) QItem.uiSpecialEventData, ( INT16 ) QItem.uiSpecialEventData2, ( UINT8 ) QItem.uiSpecialEventData3 );
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, wTempString );
 			}
 		}
@@ -1448,7 +1448,7 @@ void HandleDialogue( )
 	// grab soldier ptr from profile ID
 	pSoldier = FindSoldierByProfileID( QItem.ubCharacterNum, FALSE );
 
-	if ( pSoldier && pSoldier->bTeam == gbPlayerNum )
+	if ( pSoldier && pSoldier->roster().team() == gbPlayerNum )
 	{
 		CheckForStopTimeQuotes( QItem.usQuoteNum );
 	}
@@ -1465,7 +1465,7 @@ BOOLEAN GetSnitchDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, UINT32 iData
 
 BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 {
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 		return( FALSE );
 
 	if (pSoldier->vitals().health() < CONSCIOUSNESS )
@@ -1492,13 +1492,13 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		return( FALSE );
 
-	return( CharacterDialogue( pSoldier->ubProfile, usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, TRUE ) );
+	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, TRUE ) );
 }
 
 
 BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2 )
 {
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return( FALSE );
 	}
@@ -1515,12 +1515,12 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 			return( FALSE );
 	}
 
-	return( CharacterDialogueWithSpecialEvent( pSoldier->ubProfile, usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2 ) );
+	return( CharacterDialogueWithSpecialEvent( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2 ) );
 }
 
 BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT32 uiFlag, UINT32 uiData1, UINT32 uiData2, UINT32 uiData3 )
 {
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return( FALSE );
 	}
@@ -1556,7 +1556,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 			return( FALSE );
 	}
 
-	return( CharacterDialogueWithSpecialEventEx( pSoldier->ubProfile, usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2, uiData3 ) );
+	return( CharacterDialogueWithSpecialEventEx( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE, uiFlag, uiData1, uiData2, uiData3 ) );
 }
 
 
@@ -1567,7 +1567,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	{
 		return(FALSE); //somewhere amongst all this it causes a puase of merc movement while making the quote which throws out the movement sync between  clients... : hayden.
 	}
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return( FALSE );
 	}
@@ -1610,7 +1610,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 		return( FALSE );
 
 	// OK, let's check if this is the exact one we just played, if so, skip.
-	if ( pSoldier->ubProfile == gTacticalStatus.ubLastQuoteProfileNUm &&
+	if ( pSoldier->identity().profile() == gTacticalStatus.ubLastQuoteProfileNUm &&
 			usQuoteNum == gTacticalStatus.ubLastQuoteSaid )
 	{
 		return( FALSE );
@@ -1635,7 +1635,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 		}
 	}
 
-	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )
+	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )
 		return( FALSE );
 
 	// Check for logging of me too bleeds...
@@ -1658,7 +1658,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	if ( pSoldier->iFaceIndex <= -1 )
 		return( FALSE );
 
-	return( CharacterDialogue( pSoldier->ubProfile, usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
+	return( CharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex, DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
 }
 
 BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum, UINT8 ubEventType, UINT8 ubTargetProfile, UINT8 ubSecondaryTargetProfile )
@@ -1668,7 +1668,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	{
 		return(FALSE); //somewhere amongst all this it causes a puase of merc movement while making the quote which throws out the movement sync between  clients... : hayden.
 	}
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return( FALSE );
 	}
@@ -1711,16 +1711,16 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 		return( FALSE );
 
 	// OK, let's check if this is the exact one we just played, if so, skip.
-	//if ( pSoldier->ubProfile == gTacticalStatus.ubLastQuoteProfileNUm &&
+	//if ( pSoldier->identity().profile() == gTacticalStatus.ubLastQuoteProfileNUm &&
 	//	usQuoteNum == gTacticalStatus.ubLastQuoteSaid )
 	//{
 	//	return( FALSE );
 	//}
 
-	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )
+	if ( AM_AN_EPC( pSoldier ) && !(gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE) )
 		return( FALSE );
 
-	return( SnitchCharacterDialogue( pSoldier->ubProfile, usQuoteNum, pSoldier->iFaceIndex, 
+	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usQuoteNum, pSoldier->iFaceIndex,
 		DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_SNITCH_DIALOGUE,
 		ubTargetProfile, ubTargetProfile, ubSecondaryTargetProfile,
 		DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
@@ -1739,7 +1739,7 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 	if ( is_client )
 		return( FALSE ); //somewhere amongst all this it causes a puase of merc movement while making the quote which throws out the movement sync between  clients... : hayden.
 
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 		return( FALSE );
 
 	if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
@@ -1767,11 +1767,11 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 	if( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND)
 		return( FALSE );
 
-	if ( AM_AN_EPC( pSoldier ) && !( gMercProfiles[pSoldier->ubProfile].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE ) )
+	if ( AM_AN_EPC( pSoldier ) && !( gMercProfiles[pSoldier->identity().profile()].ubMiscFlags & PROFILE_MISC_FLAG_FORCENPCQUOTE ) )
 		return( FALSE );
 
 	// we actually use the snitch function here, and simply deviate later on due to marking this with MULTIPURPOSE_SPECIAL_EVENT_ADDITIONAL_DIALOGUE
-	return( SnitchCharacterDialogue( pSoldier->ubProfile, usEventNr, pSoldier->iFaceIndex,
+	return( SnitchCharacterDialogue( pSoldier->identity().profile(), usEventNr, pSoldier->iFaceIndex,
 		DIALOGUE_SPECIAL_EVENT_MULTIPURPOSE, MULTIPURPOSE_SPECIAL_EVENT_ADDITIONAL_DIALOGUE,
 		aData1, aData2, aData3,
 		DIALOGUE_TACTICAL_UI, TRUE, FALSE ) );
@@ -1797,8 +1797,8 @@ void AdditionalTacticalCharacterDialogue_AllInSector(INT16 aSectorX, INT16 aSect
 		{
 			continue;
 		}
-		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive &&
-			pSoldier->ubProfile != ausIgnoreProfile &&
+		if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->roster().active() &&
+			pSoldier->identity().profile() != ausIgnoreProfile &&
 			pSoldier->deployment().sectorX() == aSectorX && pSoldier->deployment().sectorY() == aSectorY && pSoldier->deployment().sectorZ() == aSectorZ &&
 			pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			(aAroundGridno == NOWHERE || PythSpacesAway( pSoldier->position().gridNo(), aAroundGridno ) <= aRadius ) &&
@@ -2118,10 +2118,10 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 				pTeamSoldier = GetJa2SoldierRepository().resolve(iLoop);
 				if (!pTeamSoldier)
 					continue;
-				if ( (pTeamSoldier->ubProfile != ubCharacterNum) && (OK_INSECTOR_MERC( pTeamSoldier )) && (SpacesAway( pSoldier->sGridNo, pTeamSoldier->sGridNo ) < 5) )
+				if ( (pTeamSoldier->identity().profile() != ubCharacterNum) && (OK_INSECTOR_MERC( pTeamSoldier )) && (SpacesAway( pSoldier->sGridNo, pTeamSoldier->sGridNo ) < 5) )
 				{
 					// if this merc disliked the whining character sufficiently and hasn't already retorted
-					if ( gMercProfiles[ pTeamSoldier->ubProfile ].bMercOpinion[ ubCharacterNum ] < -2 && !pTeamSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC) )
+					if ( gMercProfiles[ pTeamSoldier->identity().profile() ].bMercOpinion[ ubCharacterNum ] < -2 && !pTeamSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC) )
 					{
 						// make a comment!
 						TacticalCharacterDialogue( pTeamSoldier, QUOTE_ANNOYING_PC );
@@ -2156,7 +2156,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 
 		if ( pShopkeeper )
 		{
-			LuaHandleNPCMerchantQuote( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gbSelectedArmsDealerID, pShopkeeper->ubBodyType, usQuoteNum );
+			LuaHandleNPCMerchantQuote( gWorldSectorX, gWorldSectorY, gbWorldSectorZ, gbSelectedArmsDealerID, pShopkeeper->identity().bodyType(), usQuoteNum );
 
 			return TRUE;
 		}
@@ -2266,14 +2266,14 @@ BOOLEAN LuaCallsToDoDialogueStuff( UINT8 ubProfile, INT32 iFaceIndex, const char
 void SpecialDialogue( SOLDIERTYPE* pSoldier, STR8 azSoundString, STR16 azTextString )
 {
 	// if possible, set up a proper dialogue. Otherwise just play the file
-	if ( !DialogueActive() && pSoldier->ubProfile != NO_PROFILE && pSoldier->iFaceIndex >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
+	if ( !DialogueActive() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->iFaceIndex >= 0 )	// iFaceIndex >= 0: else gFacesData[-1] OOB; falls through to just playing the sound file
 	{
 		gpCurrentTalkingFace = &gFacesData[pSoldier->iFaceIndex];
-		gubCurrentTalkingID = pSoldier->ubID;
+		gubCurrentTalkingID = pSoldier->identity().id();
 
 		SetQuoteStr( azTextString );
 
-		LuaCallsToDoDialogueStuff( pSoldier->ubProfile, pSoldier->iFaceIndex, azSoundString );
+		LuaCallsToDoDialogueStuff( pSoldier->identity().profile(), pSoldier->iFaceIndex, azSoundString );
 	}
 	else
 	{
@@ -3035,7 +3035,7 @@ void HandleTacticalSpeechUI( UINT8 ubCharacterNum, INT32 iFaceIndex	)
 		// If so, set current guy active to talk.....
 		if ( pSoldier != NULL )
 		{
-			ContinueDialogue( pSoldier->ubID, FALSE );
+			ContinueDialogue( pSoldier->identity().id(), FALSE );
 		}
 	}
 }
@@ -3153,7 +3153,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 									GetJa2SoldierRepository().resolve(
 										pSoldier->combatResult().previousAttacker().i);
 								if( previousAttacker && !( previousAttacker->perception().isDeafened() ) )
-									PossiblyStartEnemyTaunt( previousAttacker, TAUNT_RIPOSTE, pSoldier->ubID );
+									PossiblyStartEnemyTaunt( previousAttacker, TAUNT_RIPOSTE, pSoldier->identity().id() );
 								break;
 							}
 							default:
@@ -3163,7 +3163,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 									SOLDIERTYPE* enemy =
 										GetJa2SoldierRepository().resolve(cnt.i);
 									if( enemy &&
-										enemy->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY
+										enemy->awareness().opponentKnowledge()[pSoldier->identity().id()] == SEEN_CURRENTLY
 										&& pSoldier->awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY && !( enemy->perception().isDeafened() ) )
 									{
 										ubSeenEnemies[ubSeenEnemiesCnt] = cnt; 
@@ -3177,7 +3177,7 @@ void HandleDialogueEnd( FACETYPE *pFace )
 											ubSeenEnemies[Random(ubSeenEnemiesCnt)]);
 									if (enemy)
 									{
-										PossiblyStartEnemyTaunt( enemy, TAUNT_RIPOSTE, pSoldier->ubID );
+										PossiblyStartEnemyTaunt( enemy, TAUNT_RIPOSTE, pSoldier->identity().id() );
 									}
 								}
 								}
@@ -3275,8 +3275,8 @@ void RenderFaceOverlay( VIDEO_OVERLAY *pBlitter )
 		//reset the font dest buffer
 		SetFontDestBuffer( pBlitter->uiDestBuff, 0,0,SCREEN_WIDTH,SCREEN_HEIGHT, FALSE);
 
-			VarFindFontCenterCoordinates( (INT16)( pBlitter->sX + 12 ), (INT16)( pBlitter->sY + 55 ), 73, 9, BLOCKFONT2, &sFontX, &sFontY, L"%s", pSoldier->name );
-			mprintf( sFontX, sFontY, L"%s", pSoldier->name );
+			VarFindFontCenterCoordinates( (INT16)( pBlitter->sX + 12 ), (INT16)( pBlitter->sY + 55 ), 73, 9, BLOCKFONT2, &sFontX, &sFontY, L"%s", pSoldier->identity().name() );
+			mprintf( sFontX, sFontY, L"%s", pSoldier->identity().name() );
 
 			// What sector are we in, ( and is it the same as ours? )
 			if ( pSoldier->deployment().sectorX() != gWorldSectorX || pSoldier->deployment().sectorY() != gWorldSectorY || pSoldier->deployment().sectorZ() != gbWorldSectorZ || pSoldier->deployment().isBetweenSectors() )
@@ -3367,27 +3367,27 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 					GetGameContext().capabilities().campaign;
 				const bool isIra = CampaignProfileCode::matches(
 					campaign, CampaignProfileCode::Role::Ira,
-					pTeamSoldier->ubProfile);
+					pTeamSoldier->identity().profile());
 				const bool isMiguel = CampaignProfileCode::matches(
 					campaign, CampaignProfileCode::Role::Miguel,
-					pTeamSoldier->ubProfile);
+					pTeamSoldier->identity().profile());
 				const bool isDimitri = CampaignProfileCode::matches(
 					campaign, CampaignProfileCode::Role::Dimitri,
-					pTeamSoldier->ubProfile);
+					pTeamSoldier->identity().profile());
 
 				// These quotes refer to Deidranna's army and therefore only
 				// apply to the Arulco campaign profiles.
 				if ( campaign == GameCampaign::Arulco &&
 					(usQuoteNum == QUOTE_SECTOR_SAFE) &&
-					(isIra || isMiguel || pTeamSoldier->ubProfile == SHANK) )
+					(isIra || isMiguel || pTeamSoldier->identity().profile() == SHANK) )
 				{
 					continue;
 				}
 				if ( campaign == GameCampaign::Arulco &&
 					(usQuoteNum == QUOTE_ENEMY_PRESENCE) &&
 					(isIra || isDimitri ||
-					 pTeamSoldier->ubProfile == DYNAMO ||
-					 pTeamSoldier->ubProfile == SHANK) )
+					 pTeamSoldier->identity().profile() == DYNAMO ||
+					 pTeamSoldier->identity().profile() == SHANK) )
 				{
 					continue;
 				}
@@ -3450,7 +3450,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		{
 			continue;
 		}
-		if ( pTeamSoldier->bActive )
+		if ( pTeamSoldier->roster().active() )
 		{
 			// Add guy if he's a candidate...
 			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
@@ -3571,12 +3571,12 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
 		{
 			// ATE: This is to check gedner for this quote...
-			if ( QuoteExp[ pTeamSoldier->ubProfile ].QuoteExpGenderCode == 0 && bSex == FEMALE )
+			if ( QuoteExp[ pTeamSoldier->identity().profile() ].QuoteExpGenderCode == 0 && bSex == FEMALE )
 			{
 				continue;
 			}
 
-			if ( QuoteExp[ pTeamSoldier->ubProfile ].QuoteExpGenderCode == 1 && bSex == MALE )
+			if ( QuoteExp[ pTeamSoldier->identity().profile() ].QuoteExpGenderCode == 1 && bSex == MALE )
 			{
 				continue;
 			}
@@ -3701,12 +3701,12 @@ void SetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier )
 {
 	// OK, If a good give, set engaged in conv...
 	gTacticalStatus.uiFlags |= ENGAGED_IN_CONV;
-	gTacticalStatus.ubEngagedInConvFromActionMercID = pSoldier->ubID;
+	gTacticalStatus.ubEngagedInConvFromActionMercID = pSoldier->identity().id();
 }
 
 void UnSetEngagedInConvFromPCAction( SOLDIERTYPE *pSoldier )
 {
-	if ( gTacticalStatus.ubEngagedInConvFromActionMercID == pSoldier->ubID )
+	if ( gTacticalStatus.ubEngagedInConvFromActionMercID == pSoldier->identity().id() )
 	{
 		// OK, If a good give, set engaged in conv...
 		gTacticalStatus.uiFlags &= ( ~ENGAGED_IN_CONV );

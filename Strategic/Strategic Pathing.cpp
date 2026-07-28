@@ -789,12 +789,12 @@ void SetThisMercsSectorXYToTheseValues( SOLDIERTYPE *pSoldier ,INT16 sX, INT16 s
 		UpdateMercInSector( pSoldier, sX, sY, 0 );
 	}
 	// Were we in sector?
-	else if ( pSoldier->bInSector )
+	else if ( pSoldier->roster().inSector() )
 	{
 		RemoveSoldierFromTacticalSector( pSoldier, TRUE );
 
 		// Remove from tactical team UI
-		RemovePlayerFromTeamSlotGivenMercID( pSoldier->ubID );
+		RemovePlayerFromTeamSlotGivenMercID( pSoldier->identity().id() );
 
 	}
 
@@ -1563,10 +1563,10 @@ void MoveTeamOnFoot( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, move characters
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pTeamSoldier->bActive )
+		if ( pTeamSoldier->roster().active() )
 		{
 			MoveCharacterOnPath( pTeamSoldier );
 		}

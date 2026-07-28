@@ -1751,13 +1751,13 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	SoldierRenderStateComponent& renderState = s.renderState();
 	SoldierUiPresentationComponent& uiPresentation = s.uiPresentation();
-	ar.u16(s.ubID.i);
-	ar.wstr(s.name, 10);
-	ar.u8(s.ubBodyType);
+	ar.u16(s.identity().id().i);
+	ar.wstr(s.identity().name(), 10);
+	ar.u8(s.identity().bodyType());
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
-	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);
+	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());
 	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
-	ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
+	ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(movement.stealthMode()); ar.i16(vitals.breathReduction());
 	ar.u8(movement.waitAction()); ar.i8(deployment.insertionDirection()); ar.i8(fireControl.gunType()); ar.u16(targeting.engagedOpponent().i);
 	ar.i8(awareness.lastRenderedVisibility()); ar.u8(attackSelection.hand()); ar.i16(movementMetrics.carriedWeightAtTurnStart());
@@ -1775,8 +1775,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	// The animation surface working set is runtime-only. The retired pointer
 	// transfers emitted no bytes, so resetting the inline owner preserves the
 	// established schema exactly.
-	if (Ar::isLoading) s.animationCache().release(s.ubID);
-	ar.u8(s.bSide); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());
+	if (Ar::isLoading) s.animationCache().release(s.identity().id());
+	ar.u8(s.roster().side()); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());
 	ar.u16(s.animationPlayback().code()); ar.u16(s.animationPlayback().frame()); ar.i16(s.animationPlayback().delay());
 	ar.u8(retiredDelayedMovementCauseMerc); ar.i32(s.movement().delayedCauseGrid()); ar.i32(s.movement().reservedGrid());
 	ar.i32(targeting.gridNo()); ar.i8(targeting.level()); ar.i8(targeting.cubeLevel()); ar.i32(targeting.lastGridNo());
@@ -1813,7 +1813,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(damageDisplay.counter()); ar.u8(meleeApproach.endDirection());
 	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
 	ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());
-	ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
+	ar.u8(s.identity().profile()); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
 	ar.u8(uiPresentation.closePanelFrame()); ar.u8(uiPresentation.deadPanelFrame()); ar.i8(uiPresentation.openPanelFrame());
 	ar.i16(uiPresentation.panelFaceX()); ar.i16(uiPresentation.panelFaceY());
 	ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());
@@ -1834,10 +1834,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(replication.movementStartedAt()); ar.u32(replication.optimumMovementTime()); ar.u32(replication.lastUpdateAt());
 	ar.u32(replication.updateSequence()); ar.u8(replication.updateType()); ar.i32(replication.scheduledStopGrid());
 	ar.i32(employment.insuranceStartDay()); ar.u32(assignment.lastChangeMinute()); ar.i32(employment.insuranceLengthDays());
-	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
+	ar.u8(s.roster().soldierClass()); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(assignment.desiredSquad()); ar.u8(assignment.mergeTraversalAllowance());
-	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
-	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(schedule.doorOpenPhase());
+	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.roster().civilianGroup());
+	ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());
 	ar.u8(schedule.id()); ar.i32(schedule.doorGrid()); ar.i8(s.movement().blockedDirection());
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
@@ -1882,7 +1882,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(condition.foodLevel()); ar.i32(condition.drinkLevel());
 	ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());
 	ar.i16(longAction.remainingActionPoints()); ar.i32(longAction.contextGrid()); ar.u8(longAction.action());
-	ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
+	ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());
 	for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));
 	for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));
 	for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));
@@ -1890,7 +1890,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < 10; ++i) ar.u8(s.ubFiller[i]);
 	ar.u16(assignment.miniEventHoursRemaining());
 	ar.u8(fireControl.grenadeLauncherDelayMode()); ar.u8(fireControl.barrelMode()); ar.u8(fireControl.barrelCounter());
-	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
+	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
 	ar.boolean(deployment.ignoreCollapseGetupCheck());
 	ar.i32(deployment.arrivalGetupCounter());
@@ -2963,7 +2963,7 @@ BOOLEAN SaveGame( int ubSaveGameID, CHAR16 *pGameDesc )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(sSoldierCnt);
 			if (!pSoldier) continue;
-			if( pSoldier->bActive )
+			if( pSoldier->roster().active() )
 			{
 				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
@@ -5702,7 +5702,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 	for( UINT16 cnt=0; cnt< CODE_MAXIMUM_NUMBER_OF_PLAYER_MERCS; cnt++)
 	{
 		SOLDIERTYPE* soldier = GetJa2SoldierRepository().resolve(cnt);
-		if(soldier && soldier->ubID == cnt)
+		if(soldier && soldier->identity().id() == cnt)
 		{
 			// WANNE: We should only delete the face, if there was a camo we applied.
 			// This should fix the bug and crashes with missing faces
@@ -5907,7 +5907,7 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 
 			if ( pSoldier != NULL )
 			{
-				TacticalRemoveSoldier( pSoldier->ubID );
+				TacticalRemoveSoldier( pSoldier->identity().id() );
 			}
 
 			// add the pilot at a random location!
@@ -6229,7 +6229,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 	{
 		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier isnt active, dont add them to the saved game file.
-		if( !soldier.bActive )
+		if( !soldier.roster().active() )
 		{
 			// Save the byte specifing to NOT load the soldiers 
 			FileWrite( hFile, &ubZero, 1, &uiNumBytesWritten );
@@ -6356,8 +6356,8 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			
 			//Create the new merc
 			SOLDIERCREATE_STRUCT CreateStruct;
-			CreateStruct.bTeam								= SavedSoldierInfo.bTeam;
-			CreateStruct.ubProfile						= SavedSoldierInfo.ubProfile;
+			CreateStruct.bTeam								= SavedSoldierInfo.roster().team();
+			CreateStruct.ubProfile						= SavedSoldierInfo.identity().profile();
 			CreateStruct.fUseExistingSoldier	= TRUE;
 			CreateStruct.pExistingSoldier			= &SavedSoldierInfo;
 
@@ -6418,15 +6418,15 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				if( guiCurrentSaveGameVersion < 83 )
 				{
 					//if the soldier is someone
-					if( soldier.ubProfile != NO_PROFILE )
+					if( soldier.identity().profile() != NO_PROFILE )
 					{
 						if( soldier.employment().mercenaryType() == MERC_TYPE__MERC )
 						{
-							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * gMercProfiles[ soldier.ubProfile ].iMercMercContractLength;
+							gMercProfiles[ soldier.identity().profile() ].uiTotalCostToDate = gMercProfiles[ soldier.identity().profile() ].sSalary * gMercProfiles[ soldier.identity().profile() ].iMercMercContractLength;
 						}
 						else
 						{
-							gMercProfiles[ soldier.ubProfile ].uiTotalCostToDate = gMercProfiles[ soldier.ubProfile ].sSalary * soldier.employment().totalLength();
+							gMercProfiles[ soldier.identity().profile() ].uiTotalCostToDate = gMercProfiles[ soldier.identity().profile() ].sSalary * soldier.employment().totalLength();
 						}
 					}
 				}
@@ -6435,7 +6435,7 @@ if( g_lang == i18n::Lang::de ) {
 				// Fix neutral flags
 				if ( guiCurrentSaveGameVersion < 94 )
 				{
-					if ( soldier.bTeam == OUR_TEAM && soldier.aiBehavior().neutral() && soldier.assignment().current() != ASSIGNMENT_POW )
+					if ( soldier.roster().team() == OUR_TEAM && soldier.aiBehavior().neutral() && soldier.assignment().current() != ASSIGNMENT_POW )
 					{
 						// turn off neutral flag
 						soldier.aiBehavior().neutral() = FALSE;
@@ -7312,7 +7312,7 @@ BOOLEAN SetMercsInsertionGridNo( )
 	{
 		SOLDIERTYPE& soldier = soldiers.record(cnt);
 		//if the soldier is active
-		if( soldier.bActive )
+		if( soldier.roster().active() )
 		{
 			if( !TileIsOutOfBounds(soldier.position().gridNo()))
 			{
@@ -7913,7 +7913,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 		GetContractRehireSoldier();
 	if( contractRehireSoldier != NULL )
 		sGeneralInfo.sContractRehireSoldierID =
-			contractRehireSoldier->ubID;
+			contractRehireSoldier->identity().id();
 	else
 		sGeneralInfo.sContractRehireSoldierID = NOBODY;
 
@@ -7933,7 +7933,7 @@ BOOLEAN SaveGeneralInfo( HWFILE hFile )
 
 	// Save the selected merc
 	if( GetSMCurrentMerc() )
-		sGeneralInfo.ubSMCurrentMercID = GetSMCurrentMerc()->ubID;
+		sGeneralInfo.ubSMCurrentMercID = GetSMCurrentMerc()->identity().id();
 	else
 		sGeneralInfo.ubSMCurrentMercID = NOBODY;
 
@@ -8709,7 +8709,7 @@ BOOLEAN LoadGeneralInfo( HWFILE hFile )
 				GetJa2SoldierRepository().resolve(Soldier.i);
 			if ( soldier )
 			{
-				UINT8 profile = soldier->ubProfile;
+				UINT8 profile = soldier->identity().profile();
 				gCamoFace[profile].gCamoface = ( soldier->camouflage().jungleApplied() > 0 );
 				gCamoFace[profile].gUrbanCamoface = ( soldier->camouflage().urbanApplied() > 0 );
 				gCamoFace[profile].gDesertCamoface = ( soldier->camouflage().desertApplied() > 0 );
@@ -8952,7 +8952,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			pSoldier = GetJa2SoldierRepository().resolve(
 				static_cast<UINT16>(sSoldierCnt));
 			// Test for null if tactical slot initialization failed.
-			if( pSoldier && pSoldier->bActive )
+			if( pSoldier && pSoldier->roster().active() )
 			{
 				if ( pSoldier->assignment().current() != IN_TRANSIT && !pSoldier->deployment().isBetweenSectors())
 				{
@@ -8978,7 +8978,7 @@ void GetBestPossibleSectorXYZValues( INT16 *psSectorX, INT16 *psSectorY, INT8 *p
 			{
 				pSoldier =
 					GetJa2SoldierRepository().resolve(sSoldierCnt.i);
-				if( pSoldier && pSoldier->bActive )
+				if( pSoldier && pSoldier->roster().active() )
 				{
 					//we found an alive, merc that is not moving
 					*psSectorX = pSoldier->deployment().sectorX();

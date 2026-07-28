@@ -248,11 +248,11 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s|Alert |Status: %s\n", pStrInfo, gStrAlertStatus[pSoldier->aiBehavior().alertStatus()]);
 			swprintf(pStrInfo, L"%s|Orders: %s\n", pStrInfo, gStrOrders[pSoldier->aiBehavior().orders()]);
 			swprintf(pStrInfo, L"%s|Attitude: %s\n", pStrInfo, gStrAttitude[pSoldier->aiBehavior().attitude()]);
-			swprintf(pStrInfo, L"%s|Class: %s\n", pStrInfo, gStrClass[pSoldier->ubSoldierClass]);
-			swprintf(pStrInfo, L"%s|Team: %s |Side: %d\n", pStrInfo, gStrTeam[pSoldier->bTeam], pSoldier->bSide);
-			if (pSoldier->bTeam == CIV_TEAM && pSoldier->ubCivilianGroup > 0)
+			swprintf(pStrInfo, L"%s|Class: %s\n", pStrInfo, gStrClass[pSoldier->roster().soldierClass()]);
+			swprintf(pStrInfo, L"%s|Team: %s |Side: %d\n", pStrInfo, gStrTeam[pSoldier->roster().team()], pSoldier->roster().side());
+			if (pSoldier->roster().team() == CIV_TEAM && pSoldier->roster().civilianGroup() > 0)
 			{
-				swprintf(pStrInfo, L"%s|Civ |Group: %s\n", pStrInfo, zCivGroupName[pSoldier->ubCivilianGroup].szCurGroup);
+				swprintf(pStrInfo, L"%s|Civ |Group: %s\n", pStrInfo, zCivGroupName[pSoldier->roster().civilianGroup()].szCurGroup);
 			}
 			if (pSoldier->aiBehavior().neutral())
 			{
@@ -266,7 +266,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			swprintf(pStrInfo, L"%s|Soldier Level: %d |Diff: %d\n", pStrInfo, pSoldier->statistics().experienceLevel(), SoldierDifficultyLevel(pSoldier));
 			INT32 usOrigin;
 			swprintf(pStrInfo, L"%s|Roaming |Range: %d\n", pStrInfo, RoamingRange(pSoldier, &usOrigin));
-			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition);
+			swprintf(pStrInfo, L"%s|Team |Aware: %d\n", pStrInfo, gTacticalStatus.Team[pSoldier->roster().team()].bAwareOfOpposition);
 			swprintf(pStrInfo, L"%s|Collapsed %d |BreathCollapsed %d\n", pStrInfo, pSoldier->collapseState().tactical(), pSoldier->collapseState().breathTriggered());
 			if (pSoldier->combatResult().previousAttacker() < NOBODY)
 			{
@@ -282,16 +282,16 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 
 			swprintf(pStrInfo, L"%s|Visible %d |Moved %d\n", pStrInfo, pSoldier->awareness().visibility(), pSoldier->turnState().moved());
 			swprintf(pStrInfo, L"%s|Noise %d %d %d\n", pStrInfo, pSoldier->perception().noiseGrid(), pSoldier->perception().heardNoiseLevel(), pSoldier->perception().noiseVolume());
-			swprintf(pStrInfo, L"%s|Public |Noise %d %d %d\n", pStrInfo, gsPublicNoiseGridNo[pSoldier->bTeam], gbPublicNoiseLevel[pSoldier->bTeam], gubPublicNoiseVolume[pSoldier->bTeam]);
+			swprintf(pStrInfo, L"%s|Public |Noise %d %d %d\n", pStrInfo, gsPublicNoiseGridNo[pSoldier->roster().team()], gbPublicNoiseLevel[pSoldier->roster().team()], gubPublicNoiseVolume[pSoldier->roster().team()]);
 
 			// show watched locations:
 			INT8	bLoop;
 			swprintf(pStrInfo, L"%s---Watched Locations---\n", pStrInfo);
 			for (bLoop = 0; bLoop < NUM_WATCHED_LOCS; bLoop++)
 			{
-				if (!TileIsOutOfBounds(gsWatchedLoc[pSoldier->ubID][bLoop]))
+				if (!TileIsOutOfBounds(gsWatchedLoc[pSoldier->identity().id()][bLoop]))
 				{
-					swprintf(pStrInfo, L"%sGridNo %d Points %d\n", pStrInfo, gsWatchedLoc[pSoldier->ubID][bLoop], gubWatchedLocPoints[pSoldier->ubID][bLoop]);
+					swprintf(pStrInfo, L"%sGridNo %d Points %d\n", pStrInfo, gsWatchedLoc[pSoldier->identity().id()][bLoop], gubWatchedLocPoints[pSoldier->identity().id()][bLoop]);
 				}
 			}
 
@@ -309,10 +309,10 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			{
 				SOLDIERTYPE* opponent =
 					GetJa2SoldierRepository().resolve(oppID);
-				if (gbPublicOpplist[pSoldier->bTeam][oppID] != NOT_HEARD_OR_SEEN &&
+				if (gbPublicOpplist[pSoldier->roster().team()][oppID] != NOT_HEARD_OR_SEEN &&
 					!opponent->aiBehavior().neutral())
 				{
-					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(gbPublicOpplist[pSoldier->bTeam][oppID]));
+					swprintf(pStrInfo, L"%s[%d] %s %s\n", pStrInfo, oppID, opponent->GetName(), SeenStr(gbPublicOpplist[pSoldier->roster().team()][oppID]));
 				}
 			}
 			swprintf(pStrInfo, L"%s---Soldier list (not neutral)---\n", pStrInfo);
@@ -338,7 +338,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			SOLDIERTYPE* pMerc =
 				GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 
-			if ( pMerc->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
+			if ( pMerc->awareness().opponentKnowledge()[pSoldier->identity().id()] != SEEN_CURRENTLY )
 			{
 				// We do not see the enemy. Return and do not display the tooltip.
 				return;
@@ -355,7 +355,7 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			if ( gGameExternalOptions.fEnableSoldierTooltipRangeToTarget )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_RANGE_TO_TARGET], pStrInfo, iRangeToTarget );
 			if ( gGameExternalOptions.fEnableSoldierTooltipID )
-				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ID], pStrInfo, pSoldier->ubID );
+				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ID], pStrInfo, pSoldier->identity().id() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipOrders )
 				swprintf( pStrInfo, gzTooltipStrings[STR_TT_CAT_ORDERS], pStrInfo, pSoldier->aiBehavior().orders() );
 			if ( gGameExternalOptions.fEnableSoldierTooltipAttitude )

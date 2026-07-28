@@ -2606,12 +2606,12 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	DeleteStructureFromWorld( pSoldier->pLevelNode->pStructureData );
 	pSoldier->pLevelNode->pStructureData = NULL;
 
-	pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, usAnimState );
+	pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, usAnimState );
 
 	// Now check if we are multi-tiled!
 	if ( pStructureFileRef != NULL )
 	{
-		if ( pSoldier->ubBodyType == QUEENMONSTER )
+		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 		{
 			// Queen uses onely one direction....
 			fReturn = AddStructureToWorld( sGridNo, pSoldier->position().level(), &( pStructureFileRef->pDBStructureRef[ 0 ] ), pSoldier->pLevelNode );
@@ -2624,9 +2624,9 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		if ( fReturn == FALSE )
 		{
 			// try to add default
-			ScreenMsg( MSG_FONT_YELLOW, MSG_DEBUG, L"FAILED: add struct info for merc: %d, at %d direction %d, trying default instead", pSoldier->ubID, sGridNo, pSoldier->ubDirection );
+			ScreenMsg( MSG_FONT_YELLOW, MSG_DEBUG, L"FAILED: add struct info for merc: %d, at %d direction %d, trying default instead", pSoldier->identity().id(), sGridNo, pSoldier->ubDirection );
 
-			pStructureFileRef = GetDefaultStructureRef( pSoldier->ubID );
+			pStructureFileRef = GetDefaultStructureRef( pSoldier->identity().id() );
 			if ( pStructureFileRef )
 			{
 				fReturn = AddStructureToWorld( sGridNo, pSoldier->bLevel, &( pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->ubDirection ] ] ), pSoldier->pLevelNode );
@@ -2638,7 +2638,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 		{
 
 			// Debug msg
-			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->ubID, pSoldier->name, sGridNo, pSoldier->position().direction() );
+			ScreenMsg( MSG_FONT_RED, MSG_DEBUG, L"FAILED: add struct info for merc %d (%s), at %d direction %d", pSoldier->identity().id(), pSoldier->identity().name(), sGridNo, pSoldier->position().direction() );
 
 			// pDBStructure can be NULL here (and ubDirection may index a direction the
 			// structure file has no variant for) -- this failure path crashed when a
@@ -2691,7 +2691,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 			return( FALSE );
 		}
 
-		pStructFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, pSoldier->animationPlayback().state() );
+		pStructFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, pSoldier->animationPlayback().state() );
 
 		// Now check if we have multi-tile info!
 		if ( pStructFileRef != NULL )

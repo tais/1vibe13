@@ -88,11 +88,11 @@ UINT16 TotalVisitableSurfaceSectors( void );
 // give pSoldier usNumChances to improve ubStat.  If it's from training, it doesn't count towards experience level gain
 void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 ubReason)
 {
-	if (pSoldier == NULL || pSoldier->bActive == FALSE)
+	if (pSoldier == NULL || pSoldier->roster().active() == FALSE)
 		return;	// THIS SHOULD NEVER HAPPEN
 
 	Assert(pSoldier != NULL);
-	Assert(pSoldier->bActive);
+	Assert(pSoldier->roster().active());
 
 	// ignore non-player soldiers
 	if (!PTR_OURTEAM)
@@ -106,7 +106,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 		return;
 
 	// ignore anything without a profile
-	if (pSoldier->ubProfile == NO_PROFILE)
+	if (pSoldier->identity().profile() == NO_PROFILE)
 		return;
 
 	// ignore vehicles and robots
@@ -131,7 +131,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 	}
 #endif
 
-	ProcessStatChange( &( gMercProfiles[ pSoldier->ubProfile ] ), ubStat, usNumChances, ubReason );
+	ProcessStatChange( &( gMercProfiles[ pSoldier->identity().profile() ] ), ubStat, usNumChances, ubReason );
 
 	// Update stats....right away... ATE
 	UpdateStats( pSoldier, ubReason );
@@ -441,7 +441,7 @@ void ProcessStatChange(MERCPROFILESTRUCT *pProfile, UINT8 ubStat, UINT16 usNumCh
 // convert hired mercs' stats subpoint changes into actual point changes where warranted
 void UpdateStats( SOLDIERTYPE *pSoldier, UINT8 ubReason )
 {
-	ProcessUpdateStats( &( gMercProfiles[ pSoldier->ubProfile ] ), pSoldier, ubReason );
+	ProcessUpdateStats( &( gMercProfiles[ pSoldier->identity().profile() ] ), pSoldier, ubReason );
 }
 
 
@@ -771,7 +771,7 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 
 					case MERC_TYPE__MERC:
 						// M.E.R.C.
-						ubMercMercIdValue = pSoldier->ubProfile;
+						ubMercMercIdValue = pSoldier->identity().profile();
 
 						/*
 						// Biff's profile id ( 40 ) is the base
@@ -853,7 +853,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 	if ( pSoldier != NULL )
 	{
 		// ATE: if in the midst of an attack, if in the field, delay all stat changes until the check made after the 'attack'...
-		if ( ( GetJa2PendingTacticalCombatActions() > 0 ) && pSoldier->bInSector && ( IsJa2TacticalCombatActive() ) )
+		if ( ( GetJa2PendingTacticalCombatActions() > 0 ) && pSoldier->roster().inSector() && ( IsJa2TacticalCombatActive() ) )
 			return;
 
 		// ignore non-player soldiers
@@ -861,7 +861,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 			return;
 
 		// ignore anything without a profile
-		if (pSoldier->ubProfile == NO_PROFILE)
+		if (pSoldier->identity().profile() == NO_PROFILE)
 			return;
 
 		// ignore vehicles and robots
@@ -1064,12 +1064,12 @@ void HandleAnyStatChangesAfterAttack( void )
 	SOLDIERTYPE* firstSoldier = soldiers.resolve(0);
 
 	// must check everyone on player's team, not just the shooter
-	for ( cnt = 0; cnt <= gTacticalStatus.Team[ firstSoldier->bTeam ].bLastID; ++cnt )
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ firstSoldier->roster().team() ].bLastID; ++cnt )
 	{
 		pSoldier = soldiers.resolve(cnt);
-		if (pSoldier->bActive)
+		if (pSoldier->roster().active())
 		{
-			ProcessUpdateStats( &( gMercProfiles[ pSoldier->ubProfile ] ), pSoldier );
+			ProcessUpdateStats( &( gMercProfiles[ pSoldier->identity().profile() ] ), pSoldier );
 		}
 	}
 }
@@ -1858,7 +1858,7 @@ void AwardExperienceBonusToActiveSquad( UINT8 ubExpBonusType )
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
-		if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
 				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			StatChange( pSoldier, EXPERAMT, usXPs, FALSE );

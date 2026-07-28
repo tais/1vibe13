@@ -1194,12 +1194,12 @@ static INT32 DetermineCellID( SOLDIERCELL *pCell )
 {
 	INT32 iIndex;
 
-	if( pCell->pSoldier->bTeam == ENEMY_TEAM )
+	if( pCell->pSoldier->roster().team() == ENEMY_TEAM )
 	{
 		for( iIndex = 0 ; iIndex < gpAR->ubEnemies ; iIndex++ )
 			if(	&gpEnemies[ iIndex ] == pCell )
 				return iIndex;
-	}else if( pCell->pSoldier->bTeam == MILITIA_TEAM )
+	}else if( pCell->pSoldier->roster().team() == MILITIA_TEAM )
 	{
 		for( iIndex = 0 ; iIndex < gpAR->ubCivs ; iIndex++ )
 			if(	&gpCivs[ iIndex ] == pCell )
@@ -1213,7 +1213,7 @@ static BOOLEAN IsItAllowedToRender( SOLDIERCELL *pCell )
 {
 	INT32 iID = DetermineCellID( pCell );
 
-	switch( pCell->pSoldier->bTeam )
+	switch( pCell->pSoldier->roster().team() )
 	{
 	case ENEMY_TEAM:
 		if( iID >= giMaxEnemiesToRender ) return FALSE;
@@ -1856,7 +1856,7 @@ void RenderAutoResolve()
 					{
 						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
-						if ( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+						if ( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 						{ //Merc is active and alive, and not a vehicle or robot
 							if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 							{
@@ -2002,7 +2002,7 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 	if( mclass == SOLDIER_CLASS_ELITE_MILITIA )
 	{
 		gpCivs[i].pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_ELITE_MILITIA, sX, sY );
-		if( gpCivs[i].pSoldier->ubBodyType == REGFEMALE )
+		if( gpCivs[i].pSoldier->identity().bodyType() == REGFEMALE )
 		{
 			gpCivs[i].usIndex = MILITIA3F_FACE;
 		}
@@ -2014,7 +2014,7 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 	else if( mclass == SOLDIER_CLASS_REG_MILITIA )
 	{
 		gpCivs[i].pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_REG_MILITIA, sX, sY );
-		if( gpCivs[i].pSoldier->ubBodyType == REGFEMALE )
+		if( gpCivs[i].pSoldier->identity().bodyType() == REGFEMALE )
 		{
 			gpCivs[i].usIndex = MILITIA2F_FACE;
 		}
@@ -2026,7 +2026,7 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 	else if( mclass == SOLDIER_CLASS_GREEN_MILITIA )
 	{
 		gpCivs[i].pSoldier = TacticalCreateMilitia( SOLDIER_CLASS_GREEN_MILITIA, sX, sY );
-		if( gpCivs[i].pSoldier->ubBodyType == REGFEMALE )
+		if( gpCivs[i].pSoldier->identity().bodyType() == REGFEMALE )
 		{
 			gpCivs[i].usIndex = MILITIA1F_FACE;
 		}
@@ -2046,7 +2046,7 @@ static void ARCreateMilitia( UINT8 mclass, INT32 i, INT16 sX, INT16 sY)
 	gpCivs[i].uiVObjectID = gpAR->iFaces;
 	gpCivs[i].pSoldier->deployment().sectorX() = sX;
 	gpCivs[i].pSoldier->deployment().sectorY() = sY;
-	swprintf( gpCivs[i].pSoldier->name, gpStrategicString[ STR_AR_MILITIA_NAME ] );
+	swprintf( gpCivs[i].pSoldier->identity().name(), gpStrategicString[ STR_AR_MILITIA_NAME ] );
 }
 
 static void ARCreateMilitiaSquad( UINT16 *cnt, UINT16 ubEliteMilitia, UINT16 ubRegMilitia, UINT16 ubGreenMilitia, INT16 sX, INT16 sY)
@@ -2157,21 +2157,21 @@ void CreateAutoResolveInterface()
 		//Load the face
 		VObjectDesc.fCreateFlags = VOBJECT_CREATE_FROMFILE;
 				
-		if ( ( gpMercs[ i ].pSoldier->ubProfile >= 0 ) && ( gpMercs[ i ].pSoldier->ubProfile < 100 ) && gMercProfiles[gpMercs[i].pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+		if ( ( gpMercs[ i ].pSoldier->identity().profile() >= 0 ) && ( gpMercs[ i ].pSoldier->identity().profile() < 100 ) && gMercProfiles[gpMercs[i].pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 		{
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].ubFaceIndex );
+			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].ubFaceIndex );
 		} 
-		else if ( ( gpMercs[ i ].pSoldier->ubProfile > 99 ) && gMercProfiles[gpMercs[i].pSoldier->ubProfile].Type == PROFILETYPE_IMP )
+		else if ( ( gpMercs[ i ].pSoldier->identity().profile() > 99 ) && gMercProfiles[gpMercs[i].pSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 		{			
-			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].ubFaceIndex );			
+			sprintf( VObjectDesc.ImageFile, "IMPFaces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].ubFaceIndex );
 		}
-		else if ( ( gpMercs[ i ].pSoldier->ubProfile >= 0 ) && ( gpMercs[ i ].pSoldier->ubProfile < 100 ) )
+		else if ( ( gpMercs[ i ].pSoldier->identity().profile() >= 0 ) && ( gpMercs[ i ].pSoldier->identity().profile() < 100 ) )
 		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].ubFaceIndex );			
+			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].ubFaceIndex );
 		}
 		else 
 		{			
-			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].ubFaceIndex );		
+			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\%02d.sti", gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].ubFaceIndex );
 		}
 		
 		if( !AddVideoObject( &VObjectDesc, &gpMercs[ i ].uiVObjectID ) )
@@ -2179,7 +2179,7 @@ void CreateAutoResolveInterface()
 			sprintf( VObjectDesc.ImageFile, "Faces\\65Face\\speck.sti" );
 			if( !AddVideoObject( &VObjectDesc, &gpMercs[ i ].uiVObjectID ) )
 			{
-				AssertMsg( 0, String("Failed to load %Faces\\65Face\\%02d.sti or it's placeholder, speck.sti", gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].ubFaceIndex) );
+				AssertMsg( 0, String("Failed to load %Faces\\65Face\\%02d.sti or it's placeholder, speck.sti", gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].ubFaceIndex) );
 			}
 		}
 		
@@ -2237,7 +2237,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = AF_CREATURE_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubAMCreatures; ++i, ++index )
 		{
@@ -2246,7 +2246,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = AM_CREATURE_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubYFCreatures; ++i, ++index )
 		{
@@ -2255,7 +2255,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = YF_CREATURE_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 		for( i = 0; i < gpAR->ubYMCreatures; ++i, ++index )
 		{
@@ -2264,7 +2264,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = YM_CREATURE_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[ STR_AR_CREATURE_NAME ] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[ STR_AR_CREATURE_NAME ] );
 		}
 	}
 	else if ( GetEnemyEncounterCode() == BLOODCAT_ATTACK_CODE ||
@@ -2278,7 +2278,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = BLOODCAT_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, pDisplayBodyTypeInfoText[27] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), pDisplayBodyTypeInfoText[27] );
 		}
 
 		for ( i = 0; i < gpAR->ubZombies; ++i, ++index )
@@ -2288,7 +2288,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = ZOMBIE_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_PB_ZOMBIE] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_PB_ZOMBIE] );
 		}
 
 		for ( i = 0; i < gpAR->ubBandits; ++i, ++index )
@@ -2296,7 +2296,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateBandit();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
 
-			if ( gpEnemies[index].pSoldier->ubBodyType == REGFEMALE )
+			if ( gpEnemies[index].pSoldier->identity().bodyType() == REGFEMALE )
 			{
 				gpEnemies[index].usIndex = BANDIT1_F_FACE + Random( BLOODCAT_FACE - BANDIT1_F_FACE );
 			}
@@ -2307,7 +2307,7 @@ void CreateAutoResolveInterface()
 
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_PB_BANDIT] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_PB_BANDIT] );
 		}
 	}
 	else
@@ -2317,7 +2317,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].pSoldier = TacticalCreateEnemyRobot();
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ROBOT_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_ROBOT_NAME] );
 
 			// reuse madlab's robot's face
 			VOBJECT_DESC VObjectDesc;
@@ -2329,7 +2329,7 @@ void CreateAutoResolveInterface()
 		{
 			gpEnemies[index].pSoldier = TacticalCreateEliteEnemy();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
-			if ( gpEnemies[index].pSoldier->ubBodyType == REGFEMALE )
+			if ( gpEnemies[index].pSoldier->identity().bodyType() == REGFEMALE )
 			{
 				gpEnemies[index].usIndex = ELITEF_FACE;
 			}
@@ -2339,13 +2339,13 @@ void CreateAutoResolveInterface()
 			}
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ELITE_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_ELITE_NAME] );
 		}
 		for ( i = 0; i < gpAR->ubTroops; ++i, ++index )
 		{
 			gpEnemies[index].pSoldier = TacticalCreateArmyTroop();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
-			if ( gpEnemies[index].pSoldier->ubBodyType == REGFEMALE )
+			if ( gpEnemies[index].pSoldier->identity().bodyType() == REGFEMALE )
 			{
 				gpEnemies[index].usIndex = TROOPF_FACE;
 			}
@@ -2355,13 +2355,13 @@ void CreateAutoResolveInterface()
 			}
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_TROOP_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_TROOP_NAME] );
 		}
 		for ( i = 0; i < gpAR->ubAdmins; ++i, ++index )
 		{
 			gpEnemies[index].pSoldier = TacticalCreateAdministrator();
 			gpEnemies[index].uiVObjectID = gpAR->iFaces;
-			if ( gpEnemies[index].pSoldier->ubBodyType == REGFEMALE )
+			if ( gpEnemies[index].pSoldier->identity().bodyType() == REGFEMALE )
 			{
 				gpEnemies[index].usIndex = ADMINF_FACE;
 			}
@@ -2371,7 +2371,7 @@ void CreateAutoResolveInterface()
 			}
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_ADMINISTRATOR_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_ADMINISTRATOR_NAME] );
 		}
 
 		for ( i = 0; i < gpAR->ubTanks; ++i, ++index )
@@ -2381,7 +2381,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = TANK_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_TANK_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_TANK_NAME] );
 		}
 
 		for ( i = 0; i < gpAR->ubJeeps; ++i, ++index )
@@ -2391,7 +2391,7 @@ void CreateAutoResolveInterface()
 			gpEnemies[index].usIndex = JEEP_FACE;
 			gpEnemies[index].pSoldier->deployment().sectorX() = gpAR->ubSectorX;
 			gpEnemies[index].pSoldier->deployment().sectorY() = gpAR->ubSectorY;
-			swprintf( gpEnemies[index].pSoldier->name, gpStrategicString[STR_AR_JEEP_NAME] );
+			swprintf( gpEnemies[index].pSoldier->identity().name(), gpStrategicString[STR_AR_JEEP_NAME] );
 		}
 
 		AssociateEnemiesWithStrategicGroups();
@@ -2534,19 +2534,19 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 					gpMercs[ i ].pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_CENTER;
 					/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 					// SANDRO - records - autoresolve battles
-					if( gpMercs[ i ].pSoldier->ubProfile != NO_PROFILE )
+					if( gpMercs[ i ].pSoldier->identity().profile() != NO_PROFILE )
 					{
 						// if we ran before the battle was over but the others won in the end, we still get retreated counter, no victory
 						if ( gpMercs[ i ].uiFlags & CELL_RETREATED || gpMercs[ i ].uiFlags & CELL_RETREATING )
 						{
-							gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].records.usBattlesRetreated++;
+							gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].records.usBattlesRetreated++;
 						}
 						else
 						{
-							gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].records.usBattlesAutoresolve++; 
-							if ( gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].records.usLargestBattleFought < gpAR->ubEnemies )
+							gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].records.usBattlesAutoresolve++;
+							if ( gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].records.usLargestBattleFought < gpAR->ubEnemies )
 							{
-								gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].records.usLargestBattleFought = gpAR->ubEnemies;
+								gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].records.usLargestBattleFought = gpAR->ubEnemies;
 							}
 						}
 					}
@@ -2558,9 +2558,9 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				{
 					if( gpMercs[ i ].uiFlags & CELL_RETREATED || gpMercs[ i ].uiFlags & CELL_RETREATING )
 					{
-						if( gpMercs[ i ].pSoldier->ubProfile != NO_PROFILE && !AM_A_ROBOT( gpMercs[ i ].pSoldier ) )
+						if( gpMercs[ i ].pSoldier->identity().profile() != NO_PROFILE && !AM_A_ROBOT( gpMercs[ i ].pSoldier ) )
 						{
-							gMercProfiles[ gpMercs[ i ].pSoldier->ubProfile ].records.usBattlesRetreated++;
+							gMercProfiles[ gpMercs[ i ].pSoldier->identity().profile() ].records.usBattlesRetreated++;
 						}
 					}
 				}
@@ -2615,14 +2615,14 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		if( gpCivs[ i ].pSoldier )
 		{
 			ubCurrentRank = GREEN_MILITIA;
-			switch( gpCivs[ i ].pSoldier->ubSoldierClass )
+			switch( gpCivs[ i ].pSoldier->roster().soldierClass() )
 			{
 				case SOLDIER_CLASS_GREEN_MILITIA:		ubCurrentRank = GREEN_MILITIA;		break;
 				case SOLDIER_CLASS_REG_MILITIA:			ubCurrentRank = REGULAR_MILITIA;	break;
 				case SOLDIER_CLASS_ELITE_MILITIA:		ubCurrentRank = ELITE_MILITIA;		break;
 				default:
 					#ifdef JA2BETAVERSION
-						ScreenMsg( FONT_RED, MSG_ERROR, L"Removing autoresolve militia with invalid ubSoldierClass %d.",gpCivs[ i ].pSoldier->ubSoldierClass );
+						ScreenMsg( FONT_RED, MSG_ERROR, L"Removing autoresolve militia with invalid ubSoldierClass %d.",gpCivs[ i ].pSoldier->roster().soldierClass() );
 					#endif
 					break;
 			}
@@ -2635,7 +2635,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 				// Flugente: individual militia
 				// we not only handle promotions here, but basically update this guy (if not already counted as dead)
 				MILITIA militia;
-				if ( GetMilitia( gpCivs[i].pSoldier->usIndividualMilitiaID, &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
+				if ( GetMilitia( gpCivs[i].pSoldier->identity().individualMilitiaId(), &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
 				{
 					MILITIA_BATTLEREPORT report;
 					report.id = GetIdOfCurrentlyOngoingIncident( );
@@ -2682,7 +2682,7 @@ DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"Autoresolve2");
 		{
 			if( fDeleteForGood && gpEnemies[ i ].pSoldier->vitals().health() < OKLIFE ) //if we are finished with battle and soldier is either dead or dying
 			{
-				TrackEnemiesKilled( ENEMY_KILLED_IN_AUTO_RESOLVE, gpEnemies[ i ].pSoldier->ubSoldierClass );	//add casualty to some statistic
+				TrackEnemiesKilled( ENEMY_KILLED_IN_AUTO_RESOLVE, gpEnemies[ i ].pSoldier->roster().soldierClass() );	//add casualty to some statistic
 				if( ProcessLoyalty() )HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_ENEMY_KILLED, gpAR->ubSectorX, gpAR->ubSectorY, 0 );
 				ProcessQueenCmdImplicationsOfDeath( gpEnemies[ i ].pSoldier );
 				AddDeadSoldierToUnLoadedSector( gpAR->ubSectorX, gpAR->ubSectorY, 0, gpEnemies[ i ].pSoldier, RandomGridNo(), ADD_DEAD_SOLDIER_TO_SWEETSPOT );
@@ -2852,7 +2852,7 @@ void RetreatButtonCallback( GUI_BUTTON *btn, INT32 reason )
 
 			for( i = 0; i < gpAR->ubMercs; ++i )
 			{
-				if( ubRobotControllerID == gpMercs[ i ].pSoldier->ubID )
+				if( ubRobotControllerID == gpMercs[ i ].pSoldier->identity().id() )
 				{
 					//Found the controller, make the robot's retreat time match the contollers.
 					gpAR->pRobotCell->usNextAttack = gpMercs[ i ].usNextAttack;
@@ -3020,7 +3020,7 @@ void MercCellMouseClickCallback( MOUSE_REGION *reg, INT32 reason )
 				gpAR->pRobotCell->uiFlags |= CELL_DIRTY;
 				gpAR->pRobotCell->usNextAttack = 0xffff;
 			}
-			else if( ubRobotControllerID == pCell->pSoldier->ubID )
+			else if( ubRobotControllerID == pCell->pSoldier->identity().id() )
 			{ //Found the controller, make the robot's retreat time match the contollers.
 				gpAR->pRobotCell->uiFlags |= CELL_RETREATING | CELL_DIRTY;
 				gpAR->pRobotCell->usNextAttack = pCell->usNextAttack;
@@ -3685,7 +3685,7 @@ void RenderSoldierCellHealth( SOLDIERCELL *pCell )
 	}
 	else
 	{
-		wcscpy( str, pCell->pSoldier->name );
+		wcscpy( str, pCell->pSoldier->identity().name() );
 		pStr = _wcsupr( str );
 		usColor = FONT_BLACK;
 	}
@@ -3738,7 +3738,7 @@ static UINT8 GetUnusedMercProfileID()
 		for( i = 0; i < 19; i++ )
 		{
 			fUnique = TRUE;
-			if( GetJa2SoldierRepository().record(i).ubProfile == ubRandom )
+			if( GetJa2SoldierRepository().record(i).identity().profile() == ubRandom )
 			{
 				fUnique = FALSE;
 				break;
@@ -3834,7 +3834,7 @@ static void ResetNextAttackCounter( SOLDIERCELL *pCell )
 
 static FLOAT CalcClassBonusOrPenalty( SOLDIERTYPE *pSoldier )
 {
-	switch( pSoldier->ubSoldierClass )
+	switch( pSoldier->roster().soldierClass() )
 	{
 	case SOLDIER_CLASS_ELITE:
 	case SOLDIER_CLASS_ELITE_MILITIA:
@@ -4222,7 +4222,7 @@ static BOOLEAN FireAShot( SOLDIERCELL *pAttacker )
 				PlayAutoResolveSample( Weapon[ pItem->usItem ].sSound, RATE_11025, 50, 1, MIDDLEPAN );
 				if( pAttacker->uiFlags & CELL_MERC )
 				{
-					gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usShotsFired++;
+					gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usShotsFired++;
 					// MARKSMANSHIP GAIN: Attacker fires a shot
 
 					StatChange( pAttacker->pSoldier, MARKAMT, 3, FALSE );
@@ -4244,7 +4244,7 @@ static BOOLEAN FireTankCannon( SOLDIERCELL *pAttacker )
 	pSoldier = pAttacker->pSoldier;
 
 	// we need to be a tank to do this...
-	if ( !pSoldier || (pAttacker->uiFlags & CELL_TANK) == 0 || pSoldier->ubSoldierClass != SOLDIER_CLASS_TANK || COMBAT_JEEP( pSoldier ) )
+	if ( !pSoldier || (pAttacker->uiFlags & CELL_TANK) == 0 || pSoldier->roster().soldierClass() != SOLDIER_CLASS_TANK || COMBAT_JEEP( pSoldier ) )
 		return FALSE;
 
 	// a tank has several guns, don't fire the main gun all the time
@@ -4262,7 +4262,7 @@ static BOOLEAN FireTankCannon( SOLDIERCELL *pAttacker )
 
 			if ( pAttacker->uiFlags & CELL_MERC )
 			{
-				gMercProfiles[pAttacker->pSoldier->ubProfile].records.usShotsFired++;
+				gMercProfiles[pAttacker->pSoldier->identity().profile()].records.usShotsFired++;
 				// MARKSMANSHIP GAIN: Attacker fires a shot
 
 				StatChange( pAttacker->pSoldier, MARKAMT, 3, FALSE );
@@ -4319,7 +4319,7 @@ static BOOLEAN FireAntiTankWeapon( SOLDIERCELL *pAttacker )
 			PlayAutoResolveSample( Weapon[pItem->usItem].sSound, RATE_11025, 50, 1, MIDDLEPAN );
 			if ( pAttacker->uiFlags & CELL_MERC )
 			{
-				gMercProfiles[pAttacker->pSoldier->ubProfile].records.usShotsFired++;
+				gMercProfiles[pAttacker->pSoldier->identity().profile()].records.usShotsFired++;
 				// MARKSMANSHIP GAIN: Attacker fires a shot
 
 				StatChange( pAttacker->pSoldier, MARKAMT, 3, FALSE );
@@ -4411,17 +4411,17 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	// decrease the defense of target - so +100% bonus means +50% attack of attacker and -50% defense of target
 
 	//if militia is attacking increase attack by half and decrease the defense of enemy
-	if (pAttacker->pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaAutoresolveStrength != 0)
+	if (pAttacker->pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaAutoresolveStrength != 0)
 	{
 		sAttack += (sAttack * gGameExternalOptions.sGreenMilitiaAutoresolveStrength /200);
 		sDefence -= (sDefence * gGameExternalOptions.sGreenMilitiaAutoresolveStrength /200);
 	}
-	else if (pAttacker->pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaAutoresolveStrength != 0)
+	else if (pAttacker->pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaAutoresolveStrength != 0)
 	{
 		sAttack += (sAttack * gGameExternalOptions.sRegularMilitiaAutoresolveStrength /200);
 		sDefence -= (sDefence * gGameExternalOptions.sRegularMilitiaAutoresolveStrength /200);
 	}
-	else if (pAttacker->pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaAutoresolveStrength != 0)
+	else if (pAttacker->pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaAutoresolveStrength != 0)
 	{
 		sAttack += (sAttack * gGameExternalOptions.sVeteranMilitiaAutoresolveStrength /200);
 		sDefence -= (sDefence * gGameExternalOptions.sVeteranMilitiaAutoresolveStrength /200);
@@ -4433,17 +4433,17 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	}
 
 	//if enemy is attacking decrease his attack by half and increase the defense of militia by half
-	if (pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaAutoresolveStrength != 0)
+	if (pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA && gGameExternalOptions.sGreenMilitiaAutoresolveStrength != 0)
 	{
 		sDefence += (sDefence * gGameExternalOptions.sGreenMilitiaAutoresolveStrength /200);
 		sAttack -= (sAttack * gGameExternalOptions.sGreenMilitiaAutoresolveStrength /200);
 	}
-	else if (pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaAutoresolveStrength != 0)
+	else if (pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA && gGameExternalOptions.sRegularMilitiaAutoresolveStrength != 0)
 	{
 		sDefence += (sDefence * gGameExternalOptions.sRegularMilitiaAutoresolveStrength /200);
 		sAttack -= (sAttack * gGameExternalOptions.sRegularMilitiaAutoresolveStrength /200);
 	}
-	else if (pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaAutoresolveStrength != 0)
+	else if (pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA && gGameExternalOptions.sVeteranMilitiaAutoresolveStrength != 0)
 	{
 		sDefence += (sDefence * gGameExternalOptions.sVeteranMilitiaAutoresolveStrength /200);
 		sAttack -= (sAttack * gGameExternalOptions.sVeteranMilitiaAutoresolveStrength /200);
@@ -4455,9 +4455,9 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 	}
 
 	// check fortifications bonus
-	if (pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_GREEN_MILITIA
-		|| pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_REG_MILITIA
-		|| pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA
+	if (pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_GREEN_MILITIA
+		|| pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_REG_MILITIA
+		|| pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE_MILITIA
 		|| (pTarget->uiFlags & CELL_MERC))
 	{
 		sDefence += (sDefence * RebelCommand::GetFortificationsBonus(GetAutoResolveSectorID()) / 200);
@@ -4793,7 +4793,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 
 		// WANNE: Why is impact here always set to 0? The impact was calculated a few lines before!
 		//iImpact = 0;
-		if (gTacticalStatus.uiFlags & GODMODE && pTarget->pSoldier->bTeam == OUR_TEAM)
+		if (gTacticalStatus.uiFlags & GODMODE && pTarget->pSoldier->roster().team() == OUR_TEAM)
 		{
 			iImpact = 0;
 		}
@@ -4807,7 +4807,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		if( pAttacker->uiFlags & CELL_MERC )
 		{ 
 			//Attacker is a player, so increment the number of shots that hit.
-			gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usShotsHit++;
+			gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usShotsHit++;
 			// MARKSMANSHIP GAIN: Attacker's shot hits
 			StatChange( pAttacker->pSoldier, MARKAMT, 6, FALSE );		// in addition to 3 for taking a shot
 		}
@@ -4815,7 +4815,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 		{ 
 			//Target is a player, so increment the times he has been wounded.
 			if( iImpact > 1 )
-				gMercProfiles[ pTarget->pSoldier->ubProfile ].records.usTimesWoundedStabbed++;
+				gMercProfiles[ pTarget->pSoldier->identity().profile() ].records.usTimesWoundedStabbed++;
 			// EXPERIENCE GAIN: Took some damage
 			StatChange( pTarget->pSoldier, EXPERAMT, ( UINT16 )( 5 * ( iImpact / 10 ) ), FALSE );
 		}
@@ -4839,7 +4839,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 
 			// Flugente: individual militia
 			MILITIA militia;
-			if ( GetMilitia( pTarget->pSoldier->usIndividualMilitiaID, &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
+			if ( GetMilitia( pTarget->pSoldier->identity().individualMilitiaId(), &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
 			{
 				militia.healthratio = 0.0f;
 				militia.flagmask |= MILITIAFLAG_DEAD;
@@ -4862,7 +4862,7 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 				GetEnemyEncounterCode() == ZOMBIE_ATTACK_CODE ||
 				GetEnemyEncounterCode() == BANDIT_ATTACK_CODE )
 			{
-				AddRaidPersonnel( -( pTarget->pSoldier->ubBodyType == BLOODCAT ), -( pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_ZOMBIE ), -( pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT ) );
+				AddRaidPersonnel( -( pTarget->pSoldier->identity().bodyType() == BLOODCAT ), -( pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_ZOMBIE ), -( pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) );
 			}
 			
 			if( pAttacker->uiFlags & CELL_MERC )
@@ -4870,45 +4870,45 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 				//Player killed the enemy soldier -- update his stats as well as any assisters.
 				/////////////////////////////////////////////////////////////////////////////////////
 				// SANDRO - experimental - more specific statistics of mercs
-				switch(pTarget->pSoldier->ubSoldierClass)
+				switch(pTarget->pSoldier->roster().soldierClass())
 				{
 					case SOLDIER_CLASS_ROBOT :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsOthers++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsOthers++;
 						break;
 					case SOLDIER_CLASS_ELITE :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsElites++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsElites++;
 						break;
 					case SOLDIER_CLASS_ARMY :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsRegulars++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsRegulars++;
 						break;
 					case SOLDIER_CLASS_ADMINISTRATOR :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsAdmins++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsAdmins++;
 						break;
 					case SOLDIER_CLASS_CREATURE :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsCreatures++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsCreatures++;
 						break;
 					case SOLDIER_CLASS_ZOMBIE :
-						gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsZombies++;
+						gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsZombies++;
 						break;
 					case SOLDIER_CLASS_BANDIT:
-						gMercProfiles[pAttacker->pSoldier->ubProfile].records.usKillsOthers++;
+						gMercProfiles[pAttacker->pSoldier->identity().profile()].records.usKillsOthers++;
 						break;
 					default :
 						if ( CREATURE_OR_BLOODCAT( pTarget->pSoldier ) )
-							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsCreatures++;
+							gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsCreatures++;
 						else if ( ARMED_VEHICLE( pTarget->pSoldier ) ) // we hardly can kill a tank in autoresolve, but well.. who knows..
-							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsTanks++;
-						else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->bSide != gbPlayerNum )
-							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsHostiles++;
+							gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsTanks++;
+						else if ( pTarget->pSoldier->roster().team() == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->roster().side() != gbPlayerNum )
+							gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsHostiles++;
 						else
 						{
-							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsOthers++;
+							gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usKillsOthers++;
 
 							// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-							if ((gGameExternalOptions.fDynamicOpinions) && (pTarget->pSoldier->bTeam != OUR_TEAM) && (pTarget->pSoldier->aiBehavior().neutral() || pTarget->pSoldier->bSide == pAttacker->pSoldier->bSide) )
+							if ((gGameExternalOptions.fDynamicOpinions) && (pTarget->pSoldier->roster().team() != OUR_TEAM) && (pTarget->pSoldier->aiBehavior().neutral() || pTarget->pSoldier->roster().side() == pAttacker->pSoldier->roster().side()) )
 							{
 								// not for killing animals though...
-								if ( pTarget->pSoldier->ubBodyType != CROW && pTarget->pSoldier->ubBodyType != COW )
+								if ( pTarget->pSoldier->identity().bodyType() != CROW && pTarget->pSoldier->identity().bodyType() != COW )
 									HandleDynamicOpinionChange( pAttacker->pSoldier, OPINIONEVENT_CIVKILLER, TRUE, TRUE );
 							}
 						}
@@ -5001,7 +5001,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 	pAttacker = pTarget->pAttacker[ index ];
 
 	//creatures get damage reduction bonuses
-	switch( pTarget->pSoldier->ubBodyType )
+	switch( pTarget->pSoldier->identity().bodyType() )
 	{
 		case LARVAE_MONSTER:
 		case INFANT_MONSTER:
@@ -5019,7 +5019,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 			break;
 	}
 
-	if (gTacticalStatus.uiFlags & GODMODE && pTarget->pSoldier->bTeam == OUR_TEAM)
+	if (gTacticalStatus.uiFlags & GODMODE && pTarget->pSoldier->roster().team() == OUR_TEAM)
 	{
 		iNewLife = pTarget->pSoldier->vitals().health();
 	}
@@ -5038,14 +5038,14 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 
 	if( pAttacker->uiFlags & CELL_MERC )
 	{ //Attacker is a player, so increment the number of shots that hit.
-		gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usShotsHit++;
+		gMercProfiles[ pAttacker->pSoldier->identity().profile() ].records.usShotsHit++;
 		// MARKSMANSHIP GAIN: Attacker's shot hits
 		StatChange( pAttacker->pSoldier, MARKAMT, 6, FALSE );		// in addition to 3 for taking a shot
 	}
 	if( pTarget->uiFlags & CELL_MERC && pTarget->usHitDamage[ index ] )
 	{ //Target is a player, so increment the times he has been wounded.
 		if( pTarget->usHitDamage[index] > 1 )
-			gMercProfiles[ pTarget->pSoldier->ubProfile ].records.usTimesWoundedShot++;
+			gMercProfiles[ pTarget->pSoldier->identity().profile() ].records.usTimesWoundedShot++;
 		// EXPERIENCE GAIN: Took some damage
 		StatChange( pTarget->pSoldier, EXPERAMT, ( UINT16 )( 5 * ( pTarget->usHitDamage[ index ] / 10 ) ), FALSE );
 	}
@@ -5076,7 +5076,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 
 		// Flugente: individual militia
 		MILITIA militia;
-		if ( GetMilitia( pTarget->pSoldier->usIndividualMilitiaID, &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
+		if ( GetMilitia( pTarget->pSoldier->identity().individualMilitiaId(), &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
 		{
 			militia.healthratio = 0.0f;
 			militia.flagmask |= MILITIAFLAG_DEAD;
@@ -5099,7 +5099,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 			GetEnemyEncounterCode() == ZOMBIE_ATTACK_CODE ||
 			GetEnemyEncounterCode() == BANDIT_ATTACK_CODE )
 		{
-			AddRaidPersonnel( -( pTarget->pSoldier->ubBodyType == BLOODCAT ), -( pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_ZOMBIE ), -( pTarget->pSoldier->ubSoldierClass == SOLDIER_CLASS_BANDIT ) );
+			AddRaidPersonnel( -( pTarget->pSoldier->identity().bodyType() == BLOODCAT ), -( pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_ZOMBIE ), -( pTarget->pSoldier->roster().soldierClass() == SOLDIER_CLASS_BANDIT ) );
 		}
 		
 		//soldier has been killed
@@ -5122,38 +5122,38 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 				{
 					/////////////////////////////////////////////////////////////////////////////////////
 					// SANDRO - new mercs' records
-					switch(pTarget->pSoldier->ubSoldierClass)
+					switch(pTarget->pSoldier->roster().soldierClass())
 					{
 						case SOLDIER_CLASS_ROBOT :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsOthers++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsOthers++;
 							break;
 						case SOLDIER_CLASS_ELITE :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsElites++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsElites++;
 							break;
 						case SOLDIER_CLASS_ARMY :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsRegulars++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsRegulars++;
 							break;
 						case SOLDIER_CLASS_ADMINISTRATOR :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsAdmins++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsAdmins++;
 							break;
 						case SOLDIER_CLASS_CREATURE :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsCreatures++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsCreatures++;
 							break;
 						case SOLDIER_CLASS_ZOMBIE :
-							gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsZombies++;
+							gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsZombies++;
 							break;
 						case SOLDIER_CLASS_BANDIT:
-							gMercProfiles[pKiller->pSoldier->ubProfile].records.usKillsOthers++;
+							gMercProfiles[pKiller->pSoldier->identity().profile()].records.usKillsOthers++;
 							break;
 						default :
 							if ( CREATURE_OR_BLOODCAT( pTarget->pSoldier ) )
-								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsCreatures++;
+								gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsCreatures++;
 							else if ( ARMED_VEHICLE( pTarget->pSoldier ) ) // we hardly can kill a tank in autoresolve, but well.. who knows..
-								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsTanks++;
-							else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->bSide != gbPlayerNum )
-								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsHostiles++;
+								gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsTanks++;
+							else if ( pTarget->pSoldier->roster().team() == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->roster().side() != gbPlayerNum )
+								gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsHostiles++;
 							else
-								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsOthers++;
+								gMercProfiles[ pKiller->pSoldier->identity().profile() ].records.usKillsOthers++;
 							break;
 					}
 					/////////////////////////////////////////////////////////////////////////////////////
@@ -5173,16 +5173,16 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					// SANDRO - new mercs' records
 					if( pKiller )
 					{
-						if( pKiller->uiFlags & CELL_MERC && pKiller->pSoldier->bTeam == gbPlayerNum )
-							gMercProfiles[ pAssister1->pSoldier->ubProfile ].records.usAssistsMercs++;
-						else if ( pKiller->pSoldier->bTeam == MILITIA_TEAM )
-							gMercProfiles[ pAssister1->pSoldier->ubProfile ].records.usAssistsMilitia++;
+						if( pKiller->uiFlags & CELL_MERC && pKiller->pSoldier->roster().team() == gbPlayerNum )
+							gMercProfiles[ pAssister1->pSoldier->identity().profile() ].records.usAssistsMercs++;
+						else if ( pKiller->pSoldier->roster().team() == MILITIA_TEAM )
+							gMercProfiles[ pAssister1->pSoldier->identity().profile() ].records.usAssistsMilitia++;
 						else
-							gMercProfiles[ pAssister1->pSoldier->ubProfile ].records.usAssistsOthers++;
+							gMercProfiles[ pAssister1->pSoldier->identity().profile() ].records.usAssistsOthers++;
 					}
 					else
 					{
-						gMercProfiles[ pAssister1->pSoldier->ubProfile ].records.usAssistsOthers++;
+						gMercProfiles[ pAssister1->pSoldier->identity().profile() ].records.usAssistsOthers++;
 					}
 					/////////////////////////////////////////////////////////////////////////////////////
 					// EXPERIENCE CLASS GAIN:	Earned an assist
@@ -5199,16 +5199,16 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 					// SANDRO - new mercs' records
 					if( pKiller )
 					{
-						if( pKiller->uiFlags & CELL_MERC && pKiller->pSoldier->bTeam == gbPlayerNum )
-							gMercProfiles[ pAssister2->pSoldier->ubProfile ].records.usAssistsMercs++;
-						else if ( pKiller->pSoldier->bTeam == MILITIA_TEAM )
-							gMercProfiles[ pAssister2->pSoldier->ubProfile ].records.usAssistsMilitia++;
+						if( pKiller->uiFlags & CELL_MERC && pKiller->pSoldier->roster().team() == gbPlayerNum )
+							gMercProfiles[ pAssister2->pSoldier->identity().profile() ].records.usAssistsMercs++;
+						else if ( pKiller->pSoldier->roster().team() == MILITIA_TEAM )
+							gMercProfiles[ pAssister2->pSoldier->identity().profile() ].records.usAssistsMilitia++;
 						else
-							gMercProfiles[ pAssister2->pSoldier->ubProfile ].records.usAssistsOthers++;
+							gMercProfiles[ pAssister2->pSoldier->identity().profile() ].records.usAssistsOthers++;
 					}
 					else
 					{
-						gMercProfiles[ pAssister2->pSoldier->ubProfile ].records.usAssistsOthers++;
+						gMercProfiles[ pAssister2->pSoldier->identity().profile() ].records.usAssistsOthers++;
 					}
 					/////////////////////////////////////////////////////////////////////////////////////
 					// EXPERIENCE CLASS GAIN:	Earned an assist
@@ -5965,7 +5965,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 				{
 					SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
-					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+					if( pSoldier->roster().active() && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{
 						//Merc is active and alive, and not a vehicle or robot
 						if ( (pSoldier->deployment().sectorX() == sX) && (pSoldier->deployment().sectorY() == sY) && (pSoldier->deployment().sectorZ() == 0) )
@@ -5997,14 +5997,14 @@ void AutoResolveMilitiaDropAndPromote()
 		if ( gpCivs[i].pSoldier )
 		{
 			UINT8 ubCurrentRank = GREEN_MILITIA;
-			switch ( gpCivs[i].pSoldier->ubSoldierClass )
+			switch ( gpCivs[i].pSoldier->roster().soldierClass() )
 			{
 			case SOLDIER_CLASS_GREEN_MILITIA:		ubCurrentRank = GREEN_MILITIA;		break;
 			case SOLDIER_CLASS_REG_MILITIA:			ubCurrentRank = REGULAR_MILITIA;	break;
 			case SOLDIER_CLASS_ELITE_MILITIA:		ubCurrentRank = ELITE_MILITIA;		break;
 			default:
 #ifdef JA2BETAVERSION
-				ScreenMsg( FONT_RED, MSG_ERROR, L"Removing autoresolve militia with invalid ubSoldierClass %d.", gpCivs[i].pSoldier->ubSoldierClass );
+				ScreenMsg( FONT_RED, MSG_ERROR, L"Removing autoresolve militia with invalid ubSoldierClass %d.", gpCivs[i].pSoldier->roster().soldierClass() );
 #endif
 				break;
 			}
@@ -6017,7 +6017,7 @@ void AutoResolveMilitiaDropAndPromote()
 				// Flugente: individual militia
 				// we not only handle promotions here, but basically update this guy
 				MILITIA militia;
-				if ( GetMilitia( gpCivs[i].pSoldier->usIndividualMilitiaID, &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
+				if ( GetMilitia( gpCivs[i].pSoldier->identity().individualMilitiaId(), &militia ) && !(militia.flagmask & MILITIAFLAG_DEAD) )
 				{
 					MILITIA_BATTLEREPORT report;
 					report.id = GetIdOfCurrentlyOngoingIncident( );
@@ -6056,7 +6056,7 @@ BOOLEAN IndividualMilitiaInUse_AutoResolve( UINT32 aMilitiaId )
 	{
 		for ( INT32 i = 0; i < gpAR->ubCivs; ++i )
 		{
-			if ( gpCivs[i].pSoldier && aMilitiaId == gpCivs[i].pSoldier->usIndividualMilitiaID && IsLegalMilitiaId( gpCivs[i].pSoldier->usIndividualMilitiaID ) )
+			if ( gpCivs[i].pSoldier && aMilitiaId == gpCivs[i].pSoldier->identity().individualMilitiaId() && IsLegalMilitiaId( gpCivs[i].pSoldier->identity().individualMilitiaId() ) )
 			{
 				return TRUE;
 			}

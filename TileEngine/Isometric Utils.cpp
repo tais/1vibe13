@@ -1352,7 +1352,7 @@ BOOLEAN GridNoNearPlayerMercs( INT32 sGridNo, INT16 sRadius )
 	for ( ; cnt < lastid; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pTeamSoldier && pTeamSoldier->bActive && pTeamSoldier->bInSector )
+		if ( pTeamSoldier && pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 		{
 			if ( PythSpacesAway(sGridNo, pTeamSoldier->position().gridNo()) < sRadius )
 				return( TRUE );

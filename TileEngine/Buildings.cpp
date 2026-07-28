@@ -150,7 +150,7 @@ BUILDING * GenerateBuilding( INT32 sDesiredSpot )
 
 		FakeSoldier.position().gridNo() = sDesiredSpot;
 		FakeSoldier.position().level() = 1;
-		FakeSoldier.bTeam = 1;
+		FakeSoldier.roster().team() = 1;
 
 		// Set reachable
 		RoofReachableTest(sDesiredSpot, ubBuildingID);
@@ -543,9 +543,9 @@ INT32 FindClosestClimbPoint( SOLDIERTYPE *pSoldier, INT32 sStartGridNo, INT32 sD
 		for (UINT8 ubLoop = 0; ubLoop < ubNumClimbSpots; ubLoop++)
 		{
 			if ((WhoIsThere2(pBuilding->sUpClimbSpots[ubLoop], 0) == NOBODY ||
-				WhoIsThere2(pBuilding->sUpClimbSpots[ubLoop], 0) == pSoldier->ubID) &&
+				WhoIsThere2(pBuilding->sUpClimbSpots[ubLoop], 0) == pSoldier->identity().id()) &&
 				(WhoIsThere2(pBuilding->sDownClimbSpots[ubLoop], 1) == NOBODY ||
-					WhoIsThere2(pBuilding->sDownClimbSpots[ubLoop], 1) == pSoldier->ubID) &&
+					WhoIsThere2(pBuilding->sDownClimbSpots[ubLoop], 1) == pSoldier->identity().id()) &&
 				!InGas(pSoldier, psClimbSpots[ubLoop]) &&
 				!Water(psClimbSpots[ubLoop], pSoldier->position().level()))
 			{

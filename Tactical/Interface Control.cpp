@@ -838,7 +838,7 @@ void RenderTopmostTacticalInterface( )
 			SOLDIERTYPE* plannedSoldier =
 				GetJa2SoldierRepository().resolve(
 					static_cast<UINT32>(cnt));
-			if ( plannedSoldier && plannedSoldier->bActive )
+			if ( plannedSoldier && plannedSoldier->roster().active() )
 			{
 				if ( plannedSoldier->uiPresentation().hasPlannedTarget() )
 				{
@@ -912,13 +912,13 @@ void RenderTopmostTacticalInterface( )
 
 		if (pSoldier != NULL )
 		{
-			if ( pSoldier->ubID == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
+			if ( pSoldier->identity().id() == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
 			{
 
 			}
 			else
 			{
-				DrawSelectedUIAboveGuy(pSoldier->ubID);
+				DrawSelectedUIAboveGuy(pSoldier->identity().id());
 			}
 
 			DrawCounters( pSoldier );
@@ -1356,7 +1356,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 		GetSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );
 		// coordinates for suppression counter
 
-		if ( pSoldier->ubBodyType == QUEENMONSTER )
+		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 		{
 			sSuppressionX = sMercScreenX - pSoldier->renderState().boundingBoxOffsetX();
 			sSuppressionY = sMercScreenY - pSoldier->renderState().boundingBoxOffsetY();
@@ -1372,7 +1372,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 				sSuppressionY = ( sMercScreenY - sOffsetY );
 		}		
 		// coordinates for damage counter
-		if ( pSoldier->ubBodyType == QUEENMONSTER )
+		if ( pSoldier->identity().bodyType() == QUEENMONSTER )
 		{
 			sDamageX = sMercScreenX + pSoldier->damageDisplay().offsetX() - pSoldier->renderState().boundingBoxOffsetX();
 			sDamageY = sMercScreenY + pSoldier->damageDisplay().offsetY() - pSoldier->renderState().boundingBoxOffsetY();
@@ -1410,7 +1410,7 @@ void DrawCounters( SOLDIERTYPE *pSoldier )
 			SetFontBackground( FONT_MCOLOR_BLACK );
 			SetFontForeground( FONT_MCOLOR_WHITE );
 
-			if( pSoldier->bTeam == OUR_TEAM )
+			if( pSoldier->roster().team() == OUR_TEAM )
 				hitCount = gGameExternalOptions.ubPlayerHitCount;
 			else
 				hitCount = gGameExternalOptions.ubEnemyHitCount;

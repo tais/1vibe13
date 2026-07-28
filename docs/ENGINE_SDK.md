@@ -278,6 +278,15 @@ behavior. Pending-action scratch and deferred work, combat-feedback counters,
 and quick-item retention are owned by a resettable runtime component rather
 than independent flat `SOLDIERTYPE` fields. This component is not exposed
 through the SDK and is deliberately absent from soldier persistence.
+`SoldierIdentityComponent` privately owns the application actor's slot,
+fixed-width display name, body type, legacy and data profile links, exact
+incarnation, and individual-militia identity. `SoldierRosterComponent`
+separately owns activity, team and side, tactical-sector presence, soldier
+class, and civilian group. Application code uses `identity()` and `roster()`;
+packages continue to use pointer-free `TacticalEntityId` and snapshots rather
+than importing either application component. The established current/v101
+save stream, multiplayer creation records, maps, profiles, XML, Lua, packages,
+and installed data do not change.
 `SoldierVitalsComponent` privately owns the application soldier's complete
 persistent health, breath, wound, and recovery lifecycle: current/max values,
 previous-turn and fractional health, breath reduction, treatable injury and

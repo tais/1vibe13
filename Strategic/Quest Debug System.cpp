@@ -3294,14 +3294,14 @@ void AddNPCsInSectorToArray()
 	for ( cnt = 0; cnt < TOTAL_SOLDIERS; ++cnt )
 	{
 		pSoldier = soldiers.resolve( cnt );
-		if ( ( pSoldier != NULL ) && pSoldier->bActive )
+		if ( ( pSoldier != NULL ) && pSoldier->roster().active() )
 		{
 			//if soldier is a NPC, add him to the local NPC array
-			if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_RPC ||
-				gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_NPC ||
-				gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_VEHICLE )
+			if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_RPC ||
+				gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_NPC ||
+				gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_VEHICLE )
 			{
-				gubCurrentNpcInSector[ i ] = pSoldier->ubProfile;
+				gubCurrentNpcInSector[ i ] = pSoldier->identity().profile();
 				i++;
 			}
 		}
@@ -3672,10 +3672,10 @@ SoldierID IsMercInTheSector( UINT8 ubMercProfileID )
 		SOLDIERTYPE& soldier = soldiers.record( cnt );
 
 		//if the merc is active
-		if( soldier.ubProfile == ubMercProfileID )
+		if( soldier.identity().profile() == ubMercProfileID )
 		{
-			if( soldier.bActive )
-				return( soldier.ubID );
+			if( soldier.roster().active() )
+				return( soldier.identity().id() );
 		}
 	}
 
@@ -3695,7 +3695,7 @@ void RefreshAllNPCInventory()
 		SOLDIERTYPE& soldier = soldiers.record( usCnt );
 
 		//if the is active
-		if( soldier.bActive == 1 )
+		if( soldier.roster().active() == 1 )
 		{
 			//is the merc a rpc or npc
 			if ( gMercProfiles[usCnt].Type == PROFILETYPE_RPC ||
@@ -3706,10 +3706,10 @@ void RefreshAllNPCInventory()
 				UINT16 invsize = soldier.inv.size();
 				for ( usItemCnt = 0; usItemCnt< invsize; ++usItemCnt )
 				{
-					if ( gMercProfiles[ soldier.ubProfile ].inv[ usItemCnt ] != NOTHING )
+					if ( gMercProfiles[ soldier.identity().profile() ].inv[ usItemCnt ] != NOTHING )
 					{
 						//get the item
-						usItem = gMercProfiles[ soldier.ubProfile ].inv[ usItemCnt ];
+						usItem = gMercProfiles[ soldier.identity().profile() ].inv[ usItemCnt ];
 
 						//Create the object
 						CreateItem( usItem, 100, &soldier.inv[ usItemCnt ] );
@@ -3823,13 +3823,13 @@ void HandleQDSTalkingMerc()
 				//Start the merc talking
 				if( ubPanelMercShouldUse == QDS_REGULAR_PANEL )
 					TacticalCharacterDialogue( gTalkingMercSoldier, (UINT16)giSelectedMercCurrentQuote );
-				else if( gfRpcToSaySectorDesc && gTalkingMercSoldier->ubProfile >=57 && gTalkingMercSoldier->ubProfile <= 60 )
+				else if( gfRpcToSaySectorDesc && gTalkingMercSoldier->identity().profile() >=57 && gTalkingMercSoldier->identity().profile() <= 60 )
 				{
 					//ATE: Trigger the sector desc here
-					CharacterDialogueWithSpecialEvent( gTalkingMercSoldier->ubProfile, (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, TRUE, FALSE, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, FALSE, FALSE );
+					CharacterDialogueWithSpecialEvent( gTalkingMercSoldier->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, TRUE, FALSE, DIALOGUE_SPECIAL_EVENT_USE_ALTERNATE_FILES, FALSE, FALSE );
 				}
 				else
-					CharacterDialogue( gTalkingMercSoldier->ubProfile, (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, FALSE, FALSE );
+					CharacterDialogue( gTalkingMercSoldier->identity().profile(), (UINT16)giSelectedMercCurrentQuote, gTalkPanel.iFaceIndex, DIALOGUE_NPC_UI, FALSE, FALSE );
 
 				//Incremenet the current quote number
 				giSelectedMercCurrentQuote++;
@@ -3888,12 +3888,12 @@ void SetQDSMercProfile()
 		ForceSoldierProfileID( gTalkingMercSoldier, (UINT8)gNpcListBox.sCurSelectedItem );
 
 		//if it is an rpc
-		if( gTalkingMercSoldier->ubProfile >= 57 && gTalkingMercSoldier->ubProfile <= 72 )
+		if( gTalkingMercSoldier->identity().profile() >= 57 && gTalkingMercSoldier->identity().profile() <= 72 )
 		{
 			if( gfAddNpcToTeam )
-				gMercProfiles[ gTalkingMercSoldier->ubProfile ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
+				gMercProfiles[ gTalkingMercSoldier->identity().profile() ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
 			else
-				gMercProfiles[ gTalkingMercSoldier->ubProfile ].ubMiscFlags &= ~PROFILE_MISC_FLAG_RECRUITED;
+				gMercProfiles[ gTalkingMercSoldier->identity().profile() ].ubMiscFlags &= ~PROFILE_MISC_FLAG_RECRUITED;
 		}
 		else
 		{
@@ -3907,7 +3907,7 @@ void SetQDSMercProfile()
 
 			gfNpcPanelIsUsedForTalkingMerc = TRUE;
 
-			InternalInitTalkingMenu( gTalkingMercSoldier->ubProfile, 10, 10 );
+			InternalInitTalkingMenu( gTalkingMercSoldier->identity().profile(), 10, 10 );
 			(void)SetDialogueDestinationSoldier(
 				gTalkingMercSoldier);
 		}
@@ -3924,7 +3924,7 @@ void DisplayQDSCurrentlyQuoteNum( )
 	//Display the box frame
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, QDS_CURRENT_QUOTE_NUM_BOX_X, QDS_CURRENT_QUOTE_NUM_BOX_Y, QDS_CURRENT_QUOTE_NUM_BOX_X+QDS_CURRENT_QUOTE_NUM_BOX_WIDTH,	QDS_CURRENT_QUOTE_NUM_BOX_Y+QDS_CURRENT_QUOTE_NUM_BOX_HEIGHT, Get16BPPColor( FROMRGB(	32,	41,	53 ) ) );
 
-	swprintf( zTemp, L"'%s' is currently saying quote #%d", gMercProfiles[ gTalkingMercSoldier->ubProfile ].zNickname, giSelectedMercCurrentQuote-1 );
+	swprintf( zTemp, L"'%s' is currently saying quote #%d", gMercProfiles[ gTalkingMercSoldier->identity().profile() ].zNickname, giSelectedMercCurrentQuote-1 );
 
 	//Display the text box caption
 	usPosY = QDS_CURRENT_QUOTE_NUM_BOX_Y+4;
@@ -3986,9 +3986,9 @@ UINT8	WhichPanelShouldTalkingMercUse( )
 		return( QDS_NO_PANEL );
 	}
 
-	if ( gMercProfiles[gTalkingMercSoldier->ubProfile].Type == PROFILETYPE_AIM ||
-		gMercProfiles[gTalkingMercSoldier->ubProfile].Type == PROFILETYPE_MERC ||
-		gMercProfiles[gTalkingMercSoldier->ubProfile].Type == PROFILETYPE_IMP )
+	if ( gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_AIM ||
+		gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_MERC ||
+		gMercProfiles[gTalkingMercSoldier->identity().profile()].Type == PROFILETYPE_IMP )
 	{
 		return( QDS_REGULAR_PANEL );
 	}
@@ -4067,7 +4067,7 @@ void GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText )
 	pSoldier = FindSoldierByProfileID( (UINT8)usProfileID, FALSE );
 
 	//if their is a soldier, the soldier is alive and the soldier is off the map
-	if( pSoldier != NULL && pSoldier->bActive && pSoldier->status().flags() & SOLDIER_OFF_MAP )
+	if( pSoldier != NULL && pSoldier->roster().active() && pSoldier->status().flags() & SOLDIER_OFF_MAP )
 	{
 		//the soldier is on schedule
 		sgp_swprintf( pzText, 64,L"On Schdl.");

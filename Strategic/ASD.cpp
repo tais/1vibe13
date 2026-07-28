@@ -1167,7 +1167,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !pSoldier->deployment().sectorZ() &&
+			if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && !pSoldier->deployment().sectorZ() &&
 				 (pSoldier->deployment().sectorX() == heli_x && pSoldier->deployment().sectorY() == heli_y) ||
 				 (pSoldier->deployment().sectorX() == heli_x + 1 && pSoldier->deployment().sectorY() == heli_y) ||
 				 (pSoldier->deployment().sectorX() == heli_x - 1 && pSoldier->deployment().sectorY() == heli_y) ||

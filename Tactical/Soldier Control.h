@@ -25,7 +25,7 @@
 static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
 	"Soldier patrol storage must retain the established save-schema capacity");
 
-#define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
+#define PTR_CIVILIAN	(pSoldier->roster().team() == CIV_TEAM)
 #define PTR_CROUCHED	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH)
 #define PTR_STANDING	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND)
 #define PTR_PRONE	 (gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_PRONE)
@@ -645,7 +645,7 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
 										(them->aiBehavior().neutral() || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
-										&& (me->bTeam != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->ubBodyType == CROW)) \
+										&& (me->roster().team() != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->identity().bodyType() == CROW)) \
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
 
@@ -768,6 +768,10 @@ public:
 	//	Note that the constructor does this automatically.
 	void initialize();
 	bool	exists();
+	SoldierIdentityComponent& identity() noexcept { return identity_; }
+	const SoldierIdentityComponent& identity() const noexcept { return identity_; }
+	SoldierRosterComponent& roster() noexcept { return roster_; }
+	const SoldierRosterComponent& roster() const noexcept { return roster_; }
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierStatisticsComponent& statistics() noexcept { return statistics_; }
@@ -872,30 +876,10 @@ public:
 	// files (maps, save files, etc.).	If you change it then that code will not work 
 	// properly until it is all fixed and the files updated.
 public:
-	// ID
-	SoldierID		ubID;
-	CHAR16			name[ 10 ];
-
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
-
-	// DESCRIPTION / STATS, ETC
-	UINT8			ubBodyType;
-	INT8				bActive;
-	INT8				bTeam;				// Team identifier
-
 
 	OBJECTTYPE		*pTempObject;
 	KEY_ON_RING		*pKeyRing;
-
-	UINT8			bInSector;
-	
-
-	/////////////////////////////////////////////////////////////////////////////////
-	// SANDRO - added following
-	// values for surgery feature
-	/////////////////////////////////////////////////////////////////////////////////
-
-	UINT8			bSide;
 
 	INT32			iFaceIndex;
 
@@ -922,20 +906,11 @@ public:
 
 	PIXEL			*pForcedShade;
 
-	UINT8			ubProfile;
-
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
 	//END
-
-	UINT8			ubSoldierClass;									//admin, elite, troop (creature types?) Nav: 2 seems to mean elite, 3 troop so admin is 1
-
-	UINT8			ubCivilianGroup;
-
-
-	UINT32			uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
 
 	struct TAG_anitile	*pAniTile;	
 	INT8					bVehicleID;
@@ -951,16 +926,12 @@ public:
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
 
-	UINT16	usSoldierProfile;		// Flugente: allow linking to a xml-based profile specifiying name, visuals, traits etc.
-
 	// Flugente: Decrease this filler by 1 for each new UINT8 / BOOLEAN variable, so we can maintain savegame compatibility!!
 	// Note that we also have to account for padding, so you might need to substract more than just the size of the new variables
 	UINT8	ubFiller[10];
 	
 	// Flugente: modifiers to fire modes
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
-
-	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
@@ -973,6 +944,8 @@ public:
     AI::tactical::Plan*		ai_masterplan_; // Interface object for ModularizedTacticalAI
 
 private:
+	SoldierIdentityComponent	identity_;
+	SoldierRosterComponent	roster_;
 	SoldierVitalsComponent	vitals_;
 	SoldierStatisticsComponent	statistics_;
 	SoldierStatusComponent	status_;

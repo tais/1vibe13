@@ -125,9 +125,9 @@ BOOLEAN DoesSoldierRefuseToEat( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj )
 		if ( foodcondition < FOOD_BAD_THRESHOLD )
 		{
 			// if we can choose to reject a food and haven't yet done so with this type of bad food, do so. Works only once
-			if ( (lasteater != pSoldier->ubID || lastitem != pObj->usItem) )
+			if ( (lasteater != pSoldier->identity().id() || lastitem != pObj->usItem) )
 			{
-				lasteater = pSoldier->ubID;
+				lasteater = pSoldier->identity().id();
 				lastitem = pObj->usItem;
 
 				// notification
@@ -163,7 +163,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 		return( FALSE);
 
 	// dont feed our machines
-	if ( pSoldier->ubProfile == ROBOT || IsVehicle(pSoldier) )
+	if ( pSoldier->identity().profile() == ROBOT || IsVehicle(pSoldier) )
 		return( FALSE);
 
 	UINT32 foodtype = Item[pObject->usItem].foodtype;
@@ -209,8 +209,8 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	/////////////////// MORALE //////////////////////
 	// morale can now be defined for each profile and food individually - default value is always 0
 	INT8 moralemod = 0;
-	if ( pSoldier->ubProfile != NO_PROFILE )
-		moralemod = FoodOpinions[pSoldier->ubProfile].sFoodOpinion[foodtype];
+	if ( pSoldier->identity().profile() != NO_PROFILE )
+		moralemod = FoodOpinions[pSoldier->identity().profile()].sFoodOpinion[foodtype];
 
 	// if food is rotting, we get a morale penalty
 	if ( foodcondition < FOOD_BAD_THRESHOLD )
@@ -269,7 +269,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 	DeductPoints( pSoldier, 0, sBPAdjustment );
 
 	// let it be known that we are eating
-	if ( pSoldier->bTeam == gbPlayerNum && gGameExternalOptions.fFoodEatingSounds )
+	if ( pSoldier->roster().team() == gbPlayerNum && gGameExternalOptions.fFoodEatingSounds )
 	{
 		if ( type == AP_EAT )
 		{
@@ -278,7 +278,7 @@ BOOLEAN ApplyFood( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObject, UINT16 usPointsTo
 		}
 		else
 		{
-			if ( gMercProfiles[ pSoldier->ubProfile ].bSex == MALE )
+			if ( gMercProfiles[ pSoldier->identity().profile() ].bSex == MALE )
 			{
 				  PlayJA2Sample( DRINK_CANTEEN_MALE, RATE_11025, MIDVOLUME, 1, MIDDLEPAN );
 			}
@@ -372,7 +372,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 	FLOAT activitymodifier = gGameExternalOptions.sFoodDigestionOnDuty;
 	if ( pSoldier->assignment().isAsleep() == TRUE )
 		activitymodifier = gGameExternalOptions.sFoodDigestionSleep;
-	else if ( !pSoldier->bInSector )
+	else if ( !pSoldier->roster().inSector() )
 	{
 		if( pSoldier->assignment().current() == VEHICLE )
 			activitymodifier = gGameExternalOptions.sFoodDigestionTravelVehicle;
@@ -439,8 +439,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->statistics().strength();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
-			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+			gMercProfiles[ pSoldier->identity().profile() ].bStrength	= pSoldier->statistics().strength();
+			gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...
 			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
@@ -469,8 +469,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
-			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+			gMercProfiles[ pSoldier->identity().profile() ].bLifeMax	= pSoldier->vitals().maximumHealth();
+			gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
 			if ( foodsituation < FOOD_NORMAL )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szFoodTextStr[STR_FOOD_HEALTH_DAMAGE_FOOD_TOO_MUCH], pSoldier->GetName() );
@@ -485,7 +485,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 				pSoldier->vitals().health() = 1;
 
 				// Update Profile
-				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
+				gMercProfiles[ pSoldier->identity().profile() ].bLifeMax	= pSoldier->vitals().maximumHealth();
 				pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
@@ -518,8 +518,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->statistics().strength();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
-			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+			gMercProfiles[ pSoldier->identity().profile() ].bStrength	= pSoldier->statistics().strength();
+			gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...
 			pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
@@ -550,8 +550,8 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
-			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+			gMercProfiles[ pSoldier->identity().profile() ].bLifeMax	= pSoldier->vitals().maximumHealth();
+			gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 			
 			if ( watersituation < FOOD_NORMAL )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szFoodTextStr[STR_FOOD_HEALTH_DAMAGE_DRINK_TOO_MUCH], pSoldier->GetName() );
@@ -566,7 +566,7 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 				pSoldier->vitals().health() = 1;
 
 				// Update Profile
-				gMercProfiles[ pSoldier->ubProfile ].bLifeMax	= pSoldier->vitals().maximumHealth();
+				gMercProfiles[ pSoldier->identity().profile() ].bLifeMax	= pSoldier->vitals().maximumHealth();
 				pSoldier->condition().starvationHealthDamage() += oldlife - pSoldier->vitals().maximumHealth();
 
 				return;
@@ -773,7 +773,7 @@ void HourlyFoodUpdate( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 		//if the merc is active, and in Arulco
-		if ( pSoldier && pSoldier->bActive && !AM_AN_EPC(pSoldier) && pSoldier->ubProfile != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
+		if ( pSoldier && pSoldier->roster().active() && !AM_AN_EPC(pSoldier) && pSoldier->identity().profile() != ROBOT && !IsVehicle(pSoldier) && !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{			
 			// digestion
 			HourlyFoodSituationUpdate( pSoldier );
@@ -840,7 +840,7 @@ void SectorFillCanteens( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
-			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+			if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().inSector() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();									// remember inventorysize, so we don't call size() repeatedly
 
@@ -915,7 +915,7 @@ void SectorFillCanteens( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(bMercID.i);
 			//if the merc is in this sector
-			if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->bInSector && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+			if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->roster().inSector() && ( pSoldier->deployment().sectorX() == gWorldSectorX ) && ( pSoldier->deployment().sectorY() == gWorldSectorY ) && ( pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
 
@@ -1061,7 +1061,7 @@ OBJECTTYPE* GetUsableWaterDrumInSector( void )
 void SoldierAutoFillCanteens(SOLDIERTYPE *pSoldier)
 {
 	// no functionality if in combat, invalid/travelling/asleep/non-profile soldier
-	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->bActive || pSoldier->assignment().isAsleep() || pSoldier->ubProfile == NO_PROFILE )
+	if ( (IsJa2TacticalCombatActive()) || !pSoldier || !pSoldier->roster().active() || pSoldier->assignment().isAsleep() || pSoldier->identity().profile() == NO_PROFILE )
 		return;
 
 	// determine if there are any patches of water in this sector.
@@ -1141,7 +1141,7 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 		return;
 
 	// dont feed our machines
-	if ( pSoldier->ubProfile == ROBOT || IsVehicle( pSoldier ) )
+	if ( pSoldier->identity().profile() == ROBOT || IsVehicle( pSoldier ) )
 		return;
 
 	if ( UsingFoodSystem() )
@@ -1193,7 +1193,7 @@ void DrinkFromWaterTap( SOLDIERTYPE* pSoldier )
 	}
 
 	// play water sound
-	if ( pSoldier->bTeam == gbPlayerNum && gGameExternalOptions.fFoodEatingSounds )
+	if ( pSoldier->roster().team() == gbPlayerNum && gGameExternalOptions.fFoodEatingSounds )
 	{
 		PlayJA2SampleFromFile( "Sounds\\watertap.wav", RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 	}

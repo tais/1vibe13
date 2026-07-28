@@ -103,7 +103,7 @@ void BeginAutoBandage( )
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		// if the soldier isn't active or in sector, we have problems..leave
-		if ( !(soldier->bActive) || !(soldier->bInSector) || ( soldier->status().flags() & SOLDIER_VEHICLE ) || (soldier->assignment().current() == VEHICLE ) )
+		if ( !(soldier->roster().active()) || !(soldier->roster().inSector()) || ( soldier->status().flags() & SOLDIER_VEHICLE ) || (soldier->assignment().current() == VEHICLE ) )
 		{
 			continue;
 		}
@@ -176,7 +176,7 @@ void HandleAutoBandagePending( )
 			SOLDIERTYPE* soldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			// Are we in sector?
-			if ( soldier->bActive	)
+			if ( soldier->roster().active()	)
 			{
 				if ( soldier->deployment().sectorX() == gWorldSectorX && soldier->deployment().sectorY() == gWorldSectorY && soldier->deployment().sectorZ() == gbWorldSectorZ && !soldier->deployment().isBetweenSectors() )
 				{
@@ -248,7 +248,7 @@ BOOLEAN HandleAutoBandage( )
 			{
 				SOLDIERTYPE* soldier =
 					GetJa2SoldierRepository().resolve(soldierId.i);
-				if(soldier->bActive && soldier->bInSector && soldier->aiPlanning().action() != 0)
+				if(soldier->roster().active() && soldier->roster().inSector() && soldier->aiPlanning().action() != 0)
 				{
 					//shadooow: this fixes autobandaging sometimes hang indefinitely
 					soldier->aiPlanning().action() = 0;
@@ -318,13 +318,13 @@ static BOOLEAN CreateAutoBandageString( void )
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
+		if ( pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
-			ubDoctor[ubDoctors] = pSoldier->ubID;
+			ubDoctor[ubDoctors] = pSoldier->identity().id();
 			++ubDoctors;
 			// increase the length of the string by the size of the name
 			// plus 2, one for the comma and one for the space after that
-			uiDoctorNameStringLength += wcslen( pSoldier->name ) + 2;
+			uiDoctorNameStringLength += wcslen( pSoldier->identity().name() ) + 2;
 		}
 	}
 
@@ -353,7 +353,7 @@ static BOOLEAN CreateAutoBandageString( void )
 		sgp_swprintf(
 			sAutoBandageString, uiDoctorNameStringLength,
 			Message[STR_IS_APPLYING_FIRST_AID],
-			GetJa2SoldierRepository().resolve(ubDoctor[0])->name);
+			GetJa2SoldierRepository().resolve(ubDoctor[0])->identity().name());
 	}
 	else
 	{
@@ -369,7 +369,7 @@ static BOOLEAN CreateAutoBandageString( void )
 		{
 			wcscat(
 				sTemp,
-				GetJa2SoldierRepository().resolve(ubDoctor[cnt])->name);
+				GetJa2SoldierRepository().resolve(ubDoctor[cnt])->identity().name());
 			if (ubDoctors > 2)
 			{
 				if (cnt == ubDoctors - 2)
@@ -386,7 +386,7 @@ static BOOLEAN CreateAutoBandageString( void )
 			sAutoBandageString, uiDoctorNameStringLength,
 			Message[STR_ARE_APPLYING_FIRST_AID], sTemp,
 			GetJa2SoldierRepository()
-				.resolve(ubDoctor[ubDoctors - 1])->name);
+				.resolve(ubDoctor[ubDoctors - 1])->identity().name());
 		MemFree( sTemp );
 	}
 
@@ -426,7 +426,7 @@ void AutoBandage( BOOLEAN fStart )
 		{
 			SOLDIERTYPE* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
-			if ( pSoldier->bActive	)
+			if ( pSoldier->roster().active()	)
 			{
 				pSoldier->service().clearBorrowedInventorySlot();
 				pSoldier->service().clearAutoBandagingMedic();
@@ -468,7 +468,7 @@ void AutoBandage( BOOLEAN fStart )
 			SOLDIERTYPE* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
 			// 0verhaul:  Make sure the merc is also in the sector before making him stand up!
-			if (pSoldier->bActive && pSoldier->bInSector)
+			if (pSoldier->roster().active() && pSoldier->roster().inSector())
 			{
 				ActionDone( pSoldier );
 				if ( pSoldier->service().borrowedInventorySlot() != NO_SLOT )
@@ -493,7 +493,7 @@ void AutoBandage( BOOLEAN fStart )
 		{
 			SOLDIERTYPE* pSoldier =
 				GetJa2SoldierRepository().resolve(soldierId.i);
-			if ( pSoldier->bActive && pSoldier->bInSector)
+			if ( pSoldier->roster().active() && pSoldier->roster().inSector())
 			{
 				ActionDone(pSoldier);
 
@@ -782,7 +782,7 @@ void DisplayAutoBandageUpdatePanel( void )
 					GetJa2SoldierRepository()
 						.resolve(iDoctorList[
 							iCounterA * iNumberDoctorsWide +
-							iCounterB])->name);
+							iCounterB])->identity().name());
 				FindFontCenterCoordinates( ( INT16 )( sCurrentXPosition ), ( INT16 )( sCurrentYPosition ),	( TACT_UPDATE_MERC_FACE_X_WIDTH - 25 ), 0, sString, TINYFONT1, &sX, &sY );
 				SetFont( TINYFONT1 );
 				SetFontForeground( FONT_LTRED );
@@ -853,7 +853,7 @@ void DisplayAutoBandageUpdatePanel( void )
 				swprintf(
 					sString, L"%s",
 					GetJa2SoldierRepository()
-						.resolve(iPatientList[iIndex])->name);
+						.resolve(iPatientList[iIndex])->identity().name());
 				FindFontCenterCoordinates( ( INT16 )( sCurrentXPosition ), ( INT16 )( sCurrentYPosition ),	( TACT_UPDATE_MERC_FACE_X_WIDTH - 25 ), 0, sString, TINYFONT1, &sX, &sY );
 				SetFont( TINYFONT1 );
 				SetFontForeground( FONT_LTRED );
@@ -1060,7 +1060,7 @@ BOOLEAN AddFacesToAutoBandageBox( void )
 		{
 			profile = &gMercProfiles[
 				GetJa2SoldierRepository()
-					.resolve(iDoctorList[iCounter])->ubProfile];
+					.resolve(iDoctorList[iCounter])->identity().profile()];
 			const UINT8 face = profile->ubFaceIndex;
 
 			if( face < 100 )
@@ -1098,7 +1098,7 @@ BOOLEAN AddFacesToAutoBandageBox( void )
 		{
 			profile = &gMercProfiles[
 				GetJa2SoldierRepository()
-					.resolve(iPatientList[iCounter])->ubProfile];
+					.resolve(iPatientList[iCounter])->identity().profile()];
 			const UINT8 face = profile->ubFaceIndex;
 
 			if( face < 100 )
@@ -1262,7 +1262,7 @@ BOOLEAN RetreatBandagingPending()
 SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 {
 	// if this is a travelling, bleeding merc, can somebody who travels with him bandage him/her?
-	if ( pPatient && pPatient->bActive && pPatient->deployment().isBetweenSectors() && pPatient->vitals().bleeding() )
+	if ( pPatient && pPatient->roster().active() && pPatient->deployment().isBetweenSectors() && pPatient->vitals().bleeding() )
 	{
 		SoldierID ID = gTacticalStatus.Team[OUR_TEAM].bFirstID;
 		for ( ; ID <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++ID )
@@ -1271,7 +1271,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 				GetJa2SoldierRepository().resolve(ID.i);
 			// this requires mercs to travel and thus NOT be in a sector
 			// also we need to be in a specific sector
-			if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
+			if ( pSoldier->roster().active() && pSoldier->deployment().isBetweenSectors() && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
 			{
 				// find the best conscious doctor that has a medkit
 				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
@@ -1314,7 +1314,7 @@ void HandleRetreatBandaging()
 			GetJa2SoldierRepository().resolve(ID.i);
 		// this requires mercs to travel and thus NOT be in a sector
 		// are we bleeding?
-		if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() &&  pSoldier->vitals().bleeding() )
+		if ( pSoldier->roster().active() && pSoldier->deployment().isBetweenSectors() &&  pSoldier->vitals().bleeding() )
 		{
 			// if we are still conscious, try bandaging ourself
 			if ( pSoldier->vitals().health() >= OKLIFE )
@@ -1381,7 +1381,7 @@ void HandleRetreatBandaging()
 				// this requires mercs to travel and thus NOT be in a sector
 				// also we need to be in a specific sector
 				// treat bleeding people only
-				if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() && sX == pSoldier->deployment().sectorX()  && sY == pSoldier->deployment().sectorY() && pSoldier->vitals().bleeding() )
+				if ( pSoldier->roster().active() && pSoldier->deployment().isBetweenSectors() && sX == pSoldier->deployment().sectorX()  && sY == pSoldier->deployment().sectorY() && pSoldier->vitals().bleeding() )
 				{
 					UINT32 counter = 0;
 					INT8 bSlot = -1;

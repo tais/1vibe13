@@ -1081,7 +1081,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SChangeState.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SChangeState.uiUniqueId )
 				{
 					break;
 				}
@@ -1104,7 +1104,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SChangeDest.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SChangeDest.uiUniqueId )
 				{
 					break;
 				}
@@ -1127,7 +1127,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SSetPosition.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SSetPosition.uiUniqueId )
 				{
 					break;
 				}
@@ -1150,7 +1150,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SGetNewPath.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SGetNewPath.uiUniqueId )
 				{
 					break;
 				}
@@ -1172,7 +1172,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SBeginTurn.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SBeginTurn.uiUniqueId )
 				{
 					break;
 				}
@@ -1195,7 +1195,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SChangeStance.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SChangeStance.uiUniqueId )
 				{
 					break;
 				}
@@ -1217,7 +1217,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SSetDirection.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SSetDirection.uiUniqueId )
 				{
 					break;
 				}
@@ -1240,7 +1240,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SSetDesiredDirection.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SSetDesiredDirection.uiUniqueId )
 				{
 					break;
 				}
@@ -1265,7 +1265,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 				// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SBeginFireWeapon.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SBeginFireWeapon.uiUniqueId )
 				{
 					break;
 				}
@@ -1291,7 +1291,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 				}
 
 					// check for error
-				if( pSoldier->uiUniqueSoldierIdValue != SFireWeapon.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SFireWeapon.uiUniqueId )
 				{
 					break;
 				}
@@ -1352,7 +1352,7 @@ BOOLEAN ExecuteGameEvent( EVENT *pEvent )
 					break;
 				}
 
-				if( pSoldier->uiUniqueSoldierIdValue != SStopMerc.uiUniqueId )
+				if( pSoldier->identity().incarnation() != SStopMerc.uiUniqueId )
 				{
 					break;
 				}

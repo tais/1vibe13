@@ -554,7 +554,7 @@ void CalculateCoverFromEnemies()
 {
 	SOLDIERTYPE* pSoldier =
 		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
-	if ( pSoldier == nullptr || pSoldier->bActive == false )
+	if ( pSoldier == nullptr || pSoldier->roster().active() == false )
 		return;
 
 	const INT8 OurSoldierStealth = GetStealth(pSoldier);
@@ -587,13 +587,13 @@ void CalculateCoverFromEnemies()
 		}
 
 		// if this man is neutral / on the same side, he's not an opponent
-		if ( CONSIDERED_NEUTRAL(pSoldier, pOpponent) || (pSoldier->bSide == pOpponent->bSide) )
+		if ( CONSIDERED_NEUTRAL(pSoldier, pOpponent) || (pSoldier->roster().side() == pOpponent->roster().side()) )
 		{
 			continue;			// next merc
 		}
 
-		INT8* pbPersOL = pSoldier->awareness().opponentKnowledge() + pOpponent->ubID;
-		INT8* pbPublOL = gbPublicOpplist[OUR_TEAM] + pOpponent->ubID;
+		INT8* pbPersOL = pSoldier->awareness().opponentKnowledge() + pOpponent->identity().id();
+		INT8* pbPublOL = gbPublicOpplist[OUR_TEAM] + pOpponent->identity().id();
 
 		// if this opponent is unknown personally and publicly
 		if ( *pbPersOL != SEEN_CURRENTLY && *pbPublOL != SEEN_CURRENTLY )
@@ -653,7 +653,7 @@ void CalculateCover()
 	SOLDIERTYPE* selectedSoldier =
 		GetJa2SoldierRepository().resolve( gusSelectedSoldier );
 	if ( selectedSoldier == nullptr ||
-		 selectedSoldier->bActive == false )
+		 selectedSoldier->roster().active() == false )
 		return;
 
 	for ( auto& cell : gCoverViewArea )
@@ -681,7 +681,7 @@ void CalculateCover()
 					GetJa2SoldierRepository().resolve( cnt );
 				if ( pSoldier == nullptr )
 					continue;
-				if ( pSoldier->bActive && pSoldier->bInSector )
+				if ( pSoldier->roster().active() && pSoldier->roster().inSector() )
 				{
 					if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 					{
@@ -1146,7 +1146,7 @@ void CalculateMines()
 {
 	SOLDIERTYPE* pSoldier;
 
-	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->bInSector )
+	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
 
 	// if we want to detect hostile mines and we have an metal detector in our hands, allow seeking
@@ -1369,7 +1369,7 @@ void CalculateTraitRange()
 {
 	SOLDIERTYPE* pSoldier;
 
-	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->bInSector )
+	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
 
 	UINT16 range1 = 0;
@@ -1494,7 +1494,7 @@ void CalculateTrackerRange()
 {
 	SOLDIERTYPE* pSoldier;
 
-	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->bInSector )
+	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
 
 	const FLOAT trackerskill = (FLOAT)(NUM_SKILL_TRAITS(pSoldier, SURVIVAL_NT) * gSkillTraitValues.usSVTrackerAbility + pSoldier->GetBackgroundValue(BG_TRACKER_ABILITY)) / 100.0f;
@@ -1657,7 +1657,7 @@ void CalculateWeapondata()
 {
 	SOLDIERTYPE* pSoldier;
 
-	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->bInSector )
+	if ( gusSelectedSoldier == NOBODY || !GetSoldier(&pSoldier, gusSelectedSoldier) || !pSoldier->roster().inSector() )
 		return;
 
 	const BOOLEAN guninhand = WeaponInHand(pSoldier);

@@ -1015,9 +1015,9 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 				continue;
 
 			//if the merc is dead, dont advance the contract length
-			if( !IsMercDead( pSoldier->ubProfile ) )
+			if( !IsMercDead( pSoldier->identity().profile() ) )
 			{
-				gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength += 1;
+				gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength += 1;
 //				pSoldier->employment().totalLength()++;
 			}
 
@@ -1026,8 +1026,8 @@ void DailyUpdateOfMercSite( UINT16 usDate)
 #else
 
 			//Get the longest time
-			if( gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength > iNumDays )
-				iNumDays = gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength;
+			if( gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength > iNumDays )
+				iNumDays = gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength;
 #endif
 		}
 	}
@@ -2647,7 +2647,7 @@ void HandleSpeckWitnessingEmployeeDeath( SOLDIERTYPE* pSoldier )  // anv: handle
 			LaptopSaveInfo.ubSpeckCanSayPlayersLostQuote = 0;
 		}
 		// merc specific requiem
-		switch( pSoldier->ubProfile )
+		switch( pSoldier->identity().profile() )
 		{
 			case BIFF:
 				TacticalCharacterDialogue( FindSoldierByProfileID( SPECK_PLAYABLE , TRUE ), JA2_SPECK_PLAYABLE_QUOTE_BIFF_IS_DEAD );

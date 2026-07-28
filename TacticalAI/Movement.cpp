@@ -131,7 +131,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 	{
 #ifdef DEBUGDECISIONS
 		STR tempstr;
-		sprintf(tempstr, "%d CONTINUES MOVEMENT to gridno %d...\n", pSoldier->ubID,sGridno );
+		sprintf(tempstr, "%d CONTINUES MOVEMENT to gridno %d...\n", pSoldier->identity().id(),sGridno );
 		DebugAI( tempstr );
 #endif
 
@@ -152,7 +152,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		else
 		{
 #ifdef BETAVERSION
-			sprintf(tempstr,"TryToResumeMovement: ERROR - NewDest failed for %s, action CANCELED",pSoldier->name);
+			sprintf(tempstr,"TryToResumeMovement: ERROR - NewDest failed for %s, action CANCELED",pSoldier->identity().name());
 
 #ifdef RECORDNET
 			fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -174,7 +174,7 @@ int TryToResumeMovement(SOLDIERTYPE *pSoldier, INT32 sGridNo)
 		// legally if another soldier gets in the way between turns
 
 #ifdef BETAVERSION
-		sprintf(tempstr,"TryToResumeMovement: %d can't continue to gridno %d, no longer legal!",pSoldier->ubID,gridno);
+		sprintf(tempstr,"TryToResumeMovement: %d can't continue to gridno %d, no longer legal!",pSoldier->identity().id(),gridno);
 
 #ifdef RECORDNET
 		fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -247,7 +247,7 @@ INT32 NextPatrolPoint(SOLDIERTYPE *pSoldier)
  if ((pSoldier->aiPlanning().patrolCount() < 1) || (pSoldier->aiPlanning().patrolCount() >= MAXPATROLGRIDS))
 	{
 #ifdef BETAVERSION
-	sprintf(tempstr,"NextPatrolPoint: ERROR: Invalid patrol count = %d for %s",pSoldier->aiPlanning().patrolCount(),pSoldier->name);
+	sprintf(tempstr,"NextPatrolPoint: ERROR: Invalid patrol count = %d for %s",pSoldier->aiPlanning().patrolCount(),pSoldier->identity().name());
 	PopMessage(tempstr);
 #endif
 
@@ -291,7 +291,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
 	if (pSoldier->position().gridNo() == sPatrolPoint)
 	{
 #ifdef BETAVERSION
-	 NumMessage("PROBLEM WITH SCENARIO: All other patrol points are invalid for guynum ",pSoldier->ubID);
+	 NumMessage("PROBLEM WITH SCENARIO: All other patrol points are invalid for guynum ",pSoldier->identity().id());
 #endif
 	 // force change of orders & an abort
 	 sPatrolPoint = NOWHERE;
@@ -302,7 +302,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
  if (TileIsOutOfBounds(sPatrolPoint))
 	{
 #ifdef BETAVERSION
-	NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->ubID);
+	NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->identity().id());
 #endif
 
 	// over-ride orders to something safer
@@ -337,7 +337,7 @@ INT8 PointPatrolAI(SOLDIERTYPE *pSoldier)
 
  // passed all tests - start moving towards next patrol point
 #ifdef DEBUGDECISIONS
- sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+ sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
  AIPopMessage(tempstr);
 #endif
 
@@ -393,7 +393,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 	if (TileIsOutOfBounds(sPatrolPoint))
 	{
 #ifdef BETAVERSION
-		NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->ubID);
+		NumMessage("PointPatrolAI: ERROR - no legal patrol point for %d",pSoldier->identity().id());
 #endif
 
 		// over-ride orders to something safer
@@ -427,7 +427,7 @@ INT8 RandomPointPatrolAI(SOLDIERTYPE *pSoldier)
 
 	// passed all tests - start moving towards next patrol point
 #ifdef DEBUGDECISIONS
-	sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->name,pSoldier->aiPlanning().actionData());
+	sprintf(tempstr,"%s - POINT PATROL to grid %d",pSoldier->identity().name(),pSoldier->aiPlanning().actionData());
 	AIPopMessage(tempstr);
 #endif
 
@@ -475,7 +475,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	// obtain maximum roaming distance from soldier's sOrigin
 	usMaxDist = RoamingRange(pSoldier,&sOrigin);
 
-	if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->bTeam == CIV_TEAM || pSoldier->ubProfile != NO_PROFILE ) )
+	if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->roster().team() == CIV_TEAM || pSoldier->identity().profile() != NO_PROFILE ) )
 	{
 		if ( InARoom( pSoldier->aiPlanning().patrolGrid()[0], &usRoomRequired ) )
 		{
@@ -494,7 +494,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 
 #ifdef DEBUGDECISIONS
-	sprintf(tempstr,"%s wants to go towards %d (has range %d)",pSoldier->name,sDesGrid,usMaxDist);
+	sprintf(tempstr,"%s wants to go towards %d (has range %d)",pSoldier->identity().name(),sDesGrid,usMaxDist);
 	AIPopMessage(tempstr);
 #endif
 
@@ -630,7 +630,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	if (sTempDest == sGoToGrid)
 	{
 #ifdef BETAVERSION
-	 sprintf(tempstr,"GoAsFarAsPossibleTowards: ERROR - gridno along valid route is invalid!	guynum %d, sTempDest = %d",pSoldier->ubID,sTempDest);
+	 sprintf(tempstr,"GoAsFarAsPossibleTowards: ERROR - gridno along valid route is invalid!	guynum %d, sTempDest = %d",pSoldier->identity().id(),sTempDest);
 
 #ifdef RECORDNET
 	 fprintf(NetDebugFile,"\n\t%s\n",tempstr);
@@ -717,7 +717,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
  if (sGoToGrid == pSoldier->position().gridNo())
 	{
 #ifdef DEBUGDECISIONS
-   sprintf(tempstr,"%s will go NOWHERE, path doesn't meet criteria",pSoldier->name);
+   sprintf(tempstr,"%s will go NOWHERE, path doesn't meet criteria",pSoldier->identity().name());
    AIPopMessage(tempstr);
 #endif
 
@@ -741,7 +741,7 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 	}
 
 #ifdef DEBUGDECISIONS
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->ubID, sGoToGrid, pSoldier->actionPoints().current() );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_BETAVERSION, L"%d to %d with %d APs left", pSoldier->identity().id(), sGoToGrid, pSoldier->actionPoints().current() );
  #endif
 
 
@@ -819,7 +819,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		CancelAIAction(pSoldier,DONTFORCE);
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->ubID) );
+						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->identity().id()) );
 #endif
 	}
 
@@ -845,7 +845,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		}
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) continues along path",pSoldier->ubID) );
+						String("Soldier (%d) continues along path",pSoldier->identity().id()) );
 #endif
 	}
 	else
@@ -854,7 +854,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 		CancelAIAction(pSoldier,DONTFORCE);
 #ifdef TESTAI
 		DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
-						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->ubID) );
+						String("Soldier (%d) HAS NOT ENOUGH AP to continue along path",pSoldier->identity().id()) );
 #endif
 	}
 }
@@ -873,13 +873,13 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 
 		SStopMerc.sGridNo					= pSoldier->position().gridNo();
 		SStopMerc.ubDirection			= pSoldier->position().direction();
-		SStopMerc.usSoldierID			= pSoldier->ubID;
+		SStopMerc.usSoldierID			= pSoldier->identity().id();
 		SStopMerc.fset=TRUE;
 		SStopMerc.sXPos=pSoldier->position().worldXInt();
 		SStopMerc.sYPos=pSoldier->position().worldYInt();
 
 		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
-		if(pSoldier->ubID>=120 || (!is_server && pSoldier->ubID>=20)) 
+		if(pSoldier->identity().id()>=120 || (!is_server && pSoldier->identity().id()>=20))
 			return;//hayden
 
 		if(is_client)
@@ -889,13 +889,13 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 	pSoldier->AdjustNoAPToFinishMove( TRUE );
 
 	// We'll keep his action intact though...
-	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->ubID, pSoldier->actionPoints().current()) );
+	DebugAI( String("NO AP TO FINISH MOVE for %d (%d APs left)",pSoldier->identity().id(), pSoldier->actionPoints().current()) );
 
 	// if this dude is under AI right now, then pass the baton to someone else
 	if (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL)
 	{
 		#ifdef TESTAICONTROL
-			DebugAI( String("Ending turn for %d because out of APs for movement", pSoldier->ubID ) );
+			DebugAI( String("Ending turn for %d because out of APs for movement", pSoldier->identity().id() ) );
 		#endif
 
 		EndAIGuysTurn(pSoldier);
@@ -946,7 +946,7 @@ void SetCivilianDestination(SoldierID ubWho, INT32 sGridNo)
  else
 	{
 	NetSend.msgType = NET_CIV_DEST;
-	NetSend.ubID	= pSoldier->ubID;
+	NetSend.ubID	= pSoldier->identity().id();
 	NetSend.gridno	= gridno;
 
 	// only the civilian's controller needs to know this
@@ -1104,14 +1104,14 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 	{
 		pOpponent = GetJa2SoldierRepository().resolve(ubLoop);
 		// if this merc is inactive, at base, on assignment, or dead
-		if (!pOpponent || !pOpponent->bActive ||
-			!pOpponent->bInSector || !pOpponent->vitals().health())
+		if (!pOpponent || !pOpponent->roster().active() ||
+			!pOpponent->roster().inSector() || !pOpponent->vitals().health())
 		{
 			continue;			// next merc
 		}
 
 		// if this man is neutral / on the same side, he's not an opponent
-		if (pOpponent->aiBehavior().neutral() || (pSoldier->bSide == pOpponent->bSide))
+		if (pOpponent->aiBehavior().neutral() || (pSoldier->roster().side() == pOpponent->roster().side()))
 		{
 			continue;			// next merc
 		}

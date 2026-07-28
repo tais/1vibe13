@@ -575,6 +575,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   Palette/shade/surface pointers remain non-persisted legacy adapters, and the
   `SOLDIERCREATE_STRUCT` palette bytes used by multiplayer remain unchanged.
   Save layout, maps, XML, Lua, and installed data are unchanged.
+- The central identity and roster values now have two independent live owners.
+  `SoldierIdentityComponent` stores slot ID, the ten-character display name,
+  body type, profile links, incarnation, and individual-militia ID;
+  `SoldierRosterComponent` stores activity, team, in-sector presence, side,
+  soldier class, and civilian group. `XferSoldierTypePOD` emits every value at
+  the original position and width, including the later data-profile and
+  individual-militia fields, and v101 conversion maps its historical values
+  while clearing fields absent from that record. Multiplayer packets,
+  `SOLDIERCREATE_STRUCT`, maps, profiles, XML, Lua, packages, and installed
+  game data are unchanged.
 - Portrait flash frame/phase, locator frame/offset/cycles/visibility, interface
   level, panel animation/position/lifecycle, merc-panel requests, first-time
   AP/unconscious notifications, planned-action overlay, and enemy-cycle cursor

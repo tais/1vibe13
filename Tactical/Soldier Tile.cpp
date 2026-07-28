@@ -104,8 +104,8 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bVa
 			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// if they are our own team members ( both )
 		if ( blockingPerson != nullptr &&
-			blockingPerson->bTeam == gbPlayerNum &&
-			pSoldier->bTeam == gbPlayerNum )
+			blockingPerson->roster().team() == gbPlayerNum &&
+			pSoldier->roster().team() == gbPlayerNum )
 		{
 			// Here we have another guy.... save his stats so we can use them for
 			// speed determinations....
@@ -134,9 +134,9 @@ void SetFinalTile( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fGivenUp )
 		}
 	#endif
 
-	if ( pSoldier->bTeam == gbPlayerNum	&& fGivenUp )
+	if ( pSoldier->roster().team() == gbPlayerNum	&& fGivenUp )
 	{
-		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->name );
+		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ NO_PATH_FOR_MERC ], pSoldier->identity().name() );
 	}
 
 	pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
@@ -156,7 +156,7 @@ void MarkMovementReserved( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	gpWorldLevelData[ sGridNo ].uiFlags |= MAPELEMENT_MOVEMENT_RESERVED;
 
 	// Save soldier's reserved ID #
-	gpWorldLevelData[ sGridNo ].ubReservedSoldierID = pSoldier->ubID;
+	gpWorldLevelData[ sGridNo ].ubReservedSoldierID = pSoldier->identity().id();
 
 	pSoldier->movement().reservedGrid() = sGridNo;
 }
@@ -217,10 +217,10 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 		SOLDIERTYPE* blockingPerson =
 			GetJa2SoldierRepository().resolve(ubPerson.i);
 		// If this us?
-		if ( blockingPerson != nullptr && ubPerson != pSoldier->ubID )
+		if ( blockingPerson != nullptr && ubPerson != pSoldier->identity().id() )
 		{
 			// OK, set flag indicating we are blocked by a merc....
-			if ( pSoldier->bTeam != gbPlayerNum ) // CJC: shouldn't this be in all cases???
+			if ( pSoldier->roster().team() != gbPlayerNum ) // CJC: shouldn't this be in all cases???
 		//if ( 0 )
 			{
 				pSoldier->movement().blockInDirection(bDirection);
@@ -269,7 +269,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 								if ( !( pSoldier->status().flags() & SOLDIER_MULTITILE ) )
 								{
 									// Is the next movement cost for a door?
-									if ( DoorTravelCost( pSoldier, sGridNo, gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ], (BOOLEAN)( pSoldier->bTeam == gbPlayerNum ), NULL ) == TRAVELCOST_DOOR )
+									if ( DoorTravelCost( pSoldier, sGridNo, gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ], (BOOLEAN)( pSoldier->roster().team() == gbPlayerNum ), NULL ) == TRAVELCOST_DOOR )
 									{
 										fSwapInDoor = TRUE;
 									}
@@ -324,7 +324,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 	if ( ( gpWorldLevelData[ sGridNo ].uiFlags & MAPELEMENT_MOVEMENT_RESERVED ) )
 	{
-		if ( gpWorldLevelData[ sGridNo ].ubReservedSoldierID != pSoldier->ubID )
+		if ( gpWorldLevelData[ sGridNo ].ubReservedSoldierID != pSoldier->identity().id() )
 		{
 			return( MOVE_TILE_TEMP_BLOCKED );
 		}
@@ -388,7 +388,7 @@ BOOLEAN HandleNextTile( SOLDIERTYPE *pSoldier, INT8 bDirection, INT32 sGridNo, I
 		{
 			// Is the next gridno our destination?
 			// OK: Let's check if we are NOT walking off screen			
-			if ( sGridNo == sFinalDestTile && pSoldier->movement().waitAction() == 0 && (pSoldier->bTeam == gbPlayerNum || TileIsOutOfBounds(pSoldier->movement().absoluteDestination())) )
+			if ( sGridNo == sFinalDestTile && pSoldier->movement().waitAction() == 0 && (pSoldier->roster().team() == gbPlayerNum || TileIsOutOfBounds(pSoldier->movement().absoluteDestination())) )
 			{
 				// Yah, well too bad, stop here.
 				SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
@@ -659,13 +659,13 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					if ( ubPerson != NOBODY &&
 						blockingPerson != nullptr &&
 						( pSoldier->dialogue().hasQuoteRecord() ||
-							( pSoldier->bTeam != gbPlayerNum &&
+							( pSoldier->roster().team() != gbPlayerNum &&
 								pSoldier->aiBehavior().orders() != STATIONARY &&
-								blockingPerson->bTeam != gbPlayerNum &&
+								blockingPerson->roster().team() != gbPlayerNum &&
 								blockingPerson->aiBehavior().orders() != STATIONARY ) ||
-							( pSoldier->bTeam == gbPlayerNum &&
+							( pSoldier->roster().team() == gbPlayerNum &&
 								gTacticalStatus.fAutoBandageMode &&
-								!( blockingPerson->bTeam == CIV_TEAM &&
+								!( blockingPerson->roster().team() == CIV_TEAM &&
 									blockingPerson->aiBehavior().orders() ==
 										STATIONARY ) ) ) )
 					{
@@ -709,7 +709,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				// Are we close enough to give up? ( and are a pc )
 				if ( pSoldier->movement().delayCounter() > 20 && pSoldier->movement().delayCounter() != 150)
 				{
-					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing().finalDestinationGrid() ) < 5 && pSoldier->bTeam == gbPlayerNum )
+					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing().finalDestinationGrid() ) < 5 && pSoldier->roster().team() == gbPlayerNum )
 					{
 						// Quit...
 						SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
@@ -720,7 +720,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 				// Are we close enough to give up? ( and are a pc )
 				if ( pSoldier->movement().delayCounter() > 170 )
 				{
-					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing().finalDestinationGrid() ) < 5 && pSoldier->bTeam == gbPlayerNum )
+					if ( PythSpacesAway( pSoldier->position().gridNo(), pSoldier->pathing().finalDestinationGrid() ) < 5 && pSoldier->roster().team() == gbPlayerNum )
 					{
 						// Quit...
 						SetFinalTile( pSoldier, pSoldier->position().gridNo(), FALSE );
@@ -823,7 +823,7 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 		if ( ( gAnimControl[ pSoldier1->animationPlayback().state() ].uiFlags & ANIM_MOVING ) && !(IsJa2TacticalCombatActive()) )
 			return( FALSE );
 
-		if ( pSoldier2->bSide == 0 )
+		if ( pSoldier2->roster().side() == 0 )
 		return( TRUE );
 
 		// hehe - don't allow animals to exchange places
@@ -832,17 +832,17 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 
 		// must NOT be hostile, must NOT have stationary orders OR militia team, must be >= OKLIFE		
 		if( pSoldier2->aiBehavior().neutral() && pSoldier2->vitals().health() >= OKLIFE &&
-			pSoldier2->ubCivilianGroup != HICKS_CIV_GROUP &&
-			( ( pSoldier2->aiBehavior().orders() != STATIONARY || pSoldier2->bTeam == MILITIA_TEAM ) ||
+			pSoldier2->roster().civilianGroup() != HICKS_CIV_GROUP &&
+			( ( pSoldier2->aiBehavior().orders() != STATIONARY || pSoldier2->roster().team() == MILITIA_TEAM ) ||
 			( !TileIsOutOfBounds(pSoldier2->movement().absoluteDestination()) && pSoldier2->movement().absoluteDestination() != pSoldier2->position().gridNo() ) )
 		)
 			return( TRUE );
 
 		if ( fShow ){
-			if ( pSoldier2->ubProfile == NO_PROFILE )
+			if ( pSoldier2->identity().profile() == NO_PROFILE )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ REFUSE_EXCHANGE_PLACES ] );
 			else
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[3], pSoldier2->name );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[3], pSoldier2->identity().name() );
 		}
 
 		// ATE: OK, reduce this guy's next ai counter....

@@ -97,7 +97,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 	{
 		case OPEN_DOOR:
 
-		if ( pSoldier->ubBodyType == CRIPPLECIV )
+		if ( pSoldier->identity().bodyType() == CRIPPLECIV )
 		{
 		return( CRIPPLE_OPEN_DOOR );
 		}
@@ -130,7 +130,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 
 		case CLOSE_DOOR:
 
-		if ( pSoldier->ubBodyType == CRIPPLECIV )
+		if ( pSoldier->identity().bodyType() == CRIPPLECIV )
 		{
 		return( CRIPPLE_CLOSE_DOOR );
 		}
@@ -163,7 +163,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 
 		case END_OPEN_DOOR:
 
-		if ( pSoldier->ubBodyType == CRIPPLECIV )
+		if ( pSoldier->identity().bodyType() == CRIPPLECIV )
 		{
 		return( CRIPPLE_END_OPEN_DOOR );
 		}
@@ -197,7 +197,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 
 		case END_OPEN_LOCKED_DOOR:
 
-		if ( pSoldier->ubBodyType == CRIPPLECIV )
+		if ( pSoldier->identity().bodyType() == CRIPPLECIV )
 		{
 		return( CRIPPLE_END_OPEN_LOCKED_DOOR );
 		}
@@ -323,13 +323,13 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 			// Send this guy into stationary stance....
 			pSoldier->EVENT_StopMerc( pSoldier->position().gridNo(), pSoldier->position().direction() );
 
-			if ( pSoldier->bTeam == gbPlayerNum )
+			if ( pSoldier->roster().team() == gbPlayerNum )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ DOOR_IS_BUSY ] );
 			}
 		else
 		{
-			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Trying to open door and door is busy: %d", pSoldier->ubID ) );
+			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Trying to open door and door is busy: %d", pSoldier->identity().id() ) );
 		}
 			return;
 		}
@@ -340,7 +340,7 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 	// Is the door opened?
 	if ( pStructure->fFlags & STRUCTURE_OPEN )
 	{
-		if ( pSoldier->ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID && !( pStructure->fFlags & STRUCTURE_SWITCH ) )
+		if ( pSoldier->identity().id() <= gTacticalStatus.Team[ gbPlayerNum ].bLastID && !( pStructure->fFlags & STRUCTURE_SWITCH ) )
 		{
 			// Bring up menu to decide what to do....
 			pSoldier->SoldierGotoStationaryStance( );
@@ -372,7 +372,7 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 	else
 	{
 		// Bring up the menu, only if it has a lock!
-		if ( pSoldier->ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
+		if ( pSoldier->identity().id() <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 		{
 			pDoor = FindDoorInfoAtGridNo( pBaseStructure->sGridNo );
 
@@ -414,7 +414,7 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 		}
 		else
 		{
-			UnSetUIBusy( pSoldier->ubID );
+			UnSetUIBusy( pSoldier->identity().id() );
 		}
 		}
 		else
@@ -440,12 +440,12 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
 			pGoon = GetJa2SoldierRepository().resolve(ubLoop.i);
-			if ( pGoon->ubCivilianGroup == KINGPIN_CIV_GROUP && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
+			if ( pGoon->roster().civilianGroup() == KINGPIN_CIV_GROUP && pGoon->roster().active() && pGoon->roster().inSector() && pGoon->vitals().health() >= OKLIFE && pGoon->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY )
 			{
 				MakeCivHostile(pGoon);
 				if ( ! (IsJa2TacticalCombatActive()) )
 				{
-					EnterCombatMode( pGoon->bTeam );
+					EnterCombatMode( pGoon->roster().team() );
 				}
 			}
 		}
@@ -497,7 +497,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 	}
 	else
 	{
-		if ( pSoldier->bTeam == OUR_TEAM )
+		if ( pSoldier->roster().team() == OUR_TEAM )
 		{
 			// Find locked door here....
 			pDoor = FindDoorInfoAtGridNo( sGridNo );
@@ -1042,7 +1042,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 				// The reason for this is, because the method "receive_door" (client.cpp) handles the "HandleDoorChangeFromGridNo()"
 				else
 				{
-					if (pSoldier->ubID <= 19)
+					if (pSoldier->identity().id() <= 19)
 						HandleDoorChangeFromGridNo( pSoldier, sGridNo, FALSE );
 				}
 				
@@ -1154,7 +1154,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 	if (pSoldier && pSoldier->audio().hasDoorOpeningNoise())
 	{
 		//shadooow: noise handling moved here so we can work with the modified door-opening noise
-		OurNoise(pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING);
+		OurNoise(pSoldier->identity().id(), pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING);
 	}
 
 	if ( !(pStructure->fFlags & STRUCTURE_OPEN) )
@@ -1173,7 +1173,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 		if (pSoldier )
 		{
 			// OK, Are we a player merc or AI?
-			if ( pSoldier->bTeam != gbPlayerNum )
+			if ( pSoldier->roster().team() != gbPlayerNum )
 			{
 				// If an AI guy... do LOS check first....
 				// If guy is visible... OR fading...
@@ -1299,7 +1299,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 		if (pSoldier )
 		{
 			// OK, Are we a player merc or AI?
-			if ( pSoldier->bTeam != gbPlayerNum )
+			if ( pSoldier->roster().team() != gbPlayerNum )
 			{
 				// If an AI guy... do LOS check first....
 				// If guy is visible... OR fading...

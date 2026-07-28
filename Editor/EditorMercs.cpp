@@ -341,7 +341,7 @@ wchar_t *GetGrupaString( SOLDIERTYPE *pSoldier ) //Legion 2
 	cntStart = 0;
 	for ( cnt = cntStart; cnt < NUM_CIV_GROUPS; cnt ++ )
 	{
-			if (pSoldier->ubCivilianGroup == cnt)	
+			if (pSoldier->roster().civilianGroup() == cnt)
 			{
 			par = cnt;
 			}
@@ -678,7 +678,7 @@ void ResetAllMercPositions()
 	{
 		if( curr->pSoldier )
 		{
-			TacticalRemoveSoldier( curr->pSoldier->ubID );
+			TacticalRemoveSoldier( curr->pSoldier->identity().id() );
 			curr->pSoldier = NULL;
 		}
 		//usMapIndex = gpSelected->pBasicPlacement->usStartingGridNo;
@@ -853,8 +853,8 @@ void DisplayEditMercWindow( void )
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 16, iXPos + 128 + 104, iYPos + 16 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 17, iXPos + 128 + 104, iYPos + 17 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 17, iXPos + 128 + 103, iYPos + 17 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( pSoldier->name, FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 20, L"%s", pSoldier->name );
+	iXOff = (105 - StringPixLength( pSoldier->identity().name(), FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 20, L"%s", pSoldier->identity().name() );
 
 	// Orders window
 	gprintf( iXPos + 128, iYPos + 38, pDisplayEditMercWindowText[1] );
@@ -1342,7 +1342,7 @@ void DisplayWayPoints(void)
 		return;
 
 	GetSoldier( &pSoldier, (UINT16)gsSelectedMercID );
-	if ( pSoldier == NULL || !pSoldier->bActive)
+	if ( pSoldier == NULL || !pSoldier->roster().active())
 		return;
 
 	// point 0 is not used!
@@ -1691,7 +1691,7 @@ void IndicateSelectedMerc( INT16 sID )
 					gpSelected = gSoldierInitHead;
 				continue;
 			}
-			if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 && gpSelected->pSoldier->bTeam == bTeam )
+			if( gpSelected->pSoldier && gpSelected->pSoldier->awareness().visibility() == 1 && gpSelected->pSoldier->roster().team() == bTeam )
 			{ //we have found a visible soldier on the desired team, so select him.
 				break;
 			}
@@ -1704,7 +1704,7 @@ void IndicateSelectedMerc( INT16 sID )
 			return;
 		if( gpSelected == prev	)
 		{ //we have cycled through the list already, so choose the same guy (if he is on the desired team)...
-			if( !gpSelected->pSoldier || gpSelected->pSoldier->awareness().visibility() != 1 || gpSelected->pSoldier->bTeam != bTeam )
+			if( !gpSelected->pSoldier || gpSelected->pSoldier->awareness().visibility() != 1 || gpSelected->pSoldier->roster().team() != bTeam )
 			{
 				SetMercEditability( TRUE );
 				SetMercEditingMode( MERC_TEAMMODE );
@@ -1721,7 +1721,7 @@ void IndicateSelectedMerc( INT16 sID )
 		SetMercEditingMode( MERC_TEAMMODE );
 		return;
 	}
-	gsSelectedMercID = gpSelected->pSoldier->ubID;
+	gsSelectedMercID = gpSelected->pSoldier->identity().id();
 	AddObjectToHead( gsSelectedMercGridNo, CONFIRMMOVE1 );
 
 	//If the merc has a valid profile, then turn off editability
@@ -1747,7 +1747,7 @@ void IndicateSelectedMerc( INT16 sID )
 	UnclickEditorButton( MERCS_CREATURE );
 	UnclickEditorButton( MERCS_REBEL );
 	UnclickEditorButton( MERCS_CIVILIAN );
-	switch( gpSelected->pSoldier->bTeam )
+	switch( gpSelected->pSoldier->roster().team() )
 	{
 		case ENEMY_TEAM:		ClickEditorButton( MERCS_ENEMY );			iDrawMode = DRAW_MODE_ENEMY;		break;
 		case CREATURE_TEAM:	ClickEditorButton( MERCS_CREATURE );	iDrawMode = DRAW_MODE_CREATURE;	break;
@@ -1774,7 +1774,7 @@ void IndicateSelectedMerc( INT16 sID )
 		ClickEditorButton( MERCS_HASKEYS_CHECKBOX );
 	else
 		UnclickEditorButton( MERCS_HASKEYS_CHECKBOX );
-	if( gpSelected->pSoldier->ubProfile == NO_PROFILE )
+	if( gpSelected->pSoldier->identity().profile() == NO_PROFILE )
 	{
 		SetMercRelativeEquipment( gpSelected->pBasicPlacement->bRelativeEquipmentLevel );
 		SetMercRelativeAttributes( gpSelected->pBasicPlacement->bRelativeAttributeLevel );
@@ -1782,7 +1782,7 @@ void IndicateSelectedMerc( INT16 sID )
 	}
 	if( iDrawMode == DRAW_MODE_CIVILIAN )
 	{
-		ChangeCivGroup( gpSelected->pSoldier->ubCivilianGroup );
+		ChangeCivGroup( gpSelected->pSoldier->roster().civilianGroup() );
 	}
 }
 
@@ -1947,9 +1947,9 @@ void ExtractAndUpdateMercProfile()
 		return;
 
 	UpdateSoldierWithStaticDetailedInformation( gpSelected->pSoldier, gpSelected->pDetailedPlacement );
-	if( gpSelected->pSoldier->bTeam == CIV_TEAM )
+	if( gpSelected->pSoldier->roster().team() == CIV_TEAM )
 	{
-		ChangeCivGroup( gpSelected->pSoldier->ubCivilianGroup );
+		ChangeCivGroup( gpSelected->pSoldier->roster().civilianGroup() );
 	}
 }
 
@@ -2133,10 +2133,10 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 	//Set the new bodytype into the and update the soldier info
 	if( iIndex != -1 )
 	{
-		gpSelected->pSoldier->ubBodyType = (UINT8)iIndex;
+		gpSelected->pSoldier->identity().bodyType() = (UINT8)iIndex;
 		//Set the flags based on the bodytype
 		gpSelected->pSoldier->status().flags() &= ~(SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_ANIMAL | SOLDIER_MONSTER);
-		switch( gpSelected->pSoldier->ubBodyType )
+		switch( gpSelected->pSoldier->identity().bodyType() )
 		{
 			case ADULTFEMALEMONSTER:
 			case AM_MONSTER:
@@ -2174,7 +2174,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 	{
 		gpSelected->pDetailedPlacement->ubBodyType = (INT8)iIndex;
 	}
-	if( gpSelected->pSoldier->bTeam == CREATURE_TEAM )
+	if( gpSelected->pSoldier->roster().team() == CREATURE_TEAM )
 	{
 		gbCurrCreature = (INT8)iIndex;
 		AssignCreatureInventory( gpSelected->pSoldier );
@@ -2308,10 +2308,10 @@ void SetMercEditingMode( UINT8 ubNewMode )
 	{
 		//attempt to weed out conditions where we select a team that matches the currently
 		//selected merc.	We don't want to deselect him in this case.
-		if( gpSelected->pSoldier->bTeam == ENEMY_TEAM && iDrawMode == DRAW_MODE_ENEMY ||
-				gpSelected->pSoldier->bTeam == CREATURE_TEAM && iDrawMode == DRAW_MODE_CREATURE ||
-				gpSelected->pSoldier->bTeam == MILITIA_TEAM && iDrawMode == DRAW_MODE_REBEL ||
-				gpSelected->pSoldier->bTeam == CIV_TEAM && iDrawMode == DRAW_MODE_CIVILIAN )
+		if( gpSelected->pSoldier->roster().team() == ENEMY_TEAM && iDrawMode == DRAW_MODE_ENEMY ||
+				gpSelected->pSoldier->roster().team() == CREATURE_TEAM && iDrawMode == DRAW_MODE_CREATURE ||
+				gpSelected->pSoldier->roster().team() == MILITIA_TEAM && iDrawMode == DRAW_MODE_REBEL ||
+				gpSelected->pSoldier->roster().team() == CIV_TEAM && iDrawMode == DRAW_MODE_CIVILIAN )
 		{	//Same team, so don't deselect merc.	Instead, keep the previous editing mode
 			//because we are still editing this merc.
 			gubCurrMercMode = gubPrevMercMode;
@@ -2454,7 +2454,7 @@ void SetMercEditingMode( UINT8 ubNewMode )
 			if( gpSelected->pDetailedPlacement )
 			{
 				ShowEditorButton( MERCS_SCHEDULE );
-				if( gpSelected->pSoldier->bTeam == CIV_TEAM )
+				if( gpSelected->pSoldier->roster().team() == CIV_TEAM )
 					EnableEditorButton( MERCS_SCHEDULE );
 				else
 					DisableEditorButton( MERCS_SCHEDULE );
@@ -3198,7 +3198,7 @@ void ChangeCivGroup( UINT8 ubNewCivGroup )
 		gpSelected->pBasicPlacement->ubCivilianGroup = gubCivGroup;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->ubCivilianGroup = gubCivGroup;
-		gpSelected->pSoldier->ubCivilianGroup = gubCivGroup;
+		gpSelected->pSoldier->roster().civilianGroup() = gubCivGroup;
 	}
 	//Adjust the text on the button
 	SpecifyButtonText( iEditorButton[ MERCS_CIVILIAN_GROUP ], gszCivGroupNames[ gubCivGroup ] );
@@ -3224,13 +3224,13 @@ void RenderMercStrings()
 			SetFont( TINYFONT1 );
 			SetFontBackground( FONT_BLACK );
 			SetFontForeground( FONT_WHITE );
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
-				FindFontCenterCoordinates( sXPos, sYPos, (INT16)(80 ), 1, pSoldier->name, TINYFONT1, &sX, &sY );
+				FindFontCenterCoordinates( sXPos, sYPos, (INT16)(80 ), 1, pSoldier->identity().name(), TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352 ))
 				{
-					gprintfdirty( sX, sY, pSoldier->name );
-					mprintf( sX, sY, pSoldier->name );
+					gprintfdirty( sX, sY, pSoldier->identity().name() );
+					mprintf( sX, sY, pSoldier->identity().name() );
 				}
 				sYPos += 10;
 
@@ -3249,7 +3249,7 @@ void RenderMercStrings()
 				sYPos += 10;
 
 				SetFontForeground( FONT_GRAY2 );
-				swprintf( str, pRenderMercStringsText[0], pSoldier->ubID );
+				swprintf( str, pRenderMercStringsText[0], pSoldier->identity().id() );
 				FindFontCenterCoordinates( sXPos, sYPos, 80, 1, str, TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352 ))
 				{
@@ -3259,7 +3259,7 @@ void RenderMercStrings()
 				sYPos += 10;
 				
 				
-				if (pSoldier->bTeam == CIV_TEAM )
+				if (pSoldier->roster().team() == CIV_TEAM )
 				{
 				//legion2
 				pStr2 = GetGrupaString( pSoldier );
@@ -3293,7 +3293,7 @@ void RenderMercStrings()
 				sYPos += 10;
 
 				SetFontForeground( FONT_GRAY2 );
-				swprintf( str, pRenderMercStringsText[0], pSoldier->ubID );
+				swprintf( str, pRenderMercStringsText[0], pSoldier->identity().id() );
 				FindFontCenterCoordinates( sXPos, sYPos, 80, 1, str, TINYFONT1, &sX, &sY );
 				if( sY < (2 * iScreenHeightOffset + 352) )
 				{
@@ -3303,7 +3303,7 @@ void RenderMercStrings()
 				sYPos += 10;
 				
 				//legion
-				if (pSoldier->bTeam == CIV_TEAM ) //(pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == CREATURE_TEAM || pSoldier->bTeam == MILITIA_TEAM) 
+				if (pSoldier->roster().team() == CIV_TEAM ) //(pSoldier->roster().team() == ENEMY_TEAM || pSoldier->roster().team() == CREATURE_TEAM || pSoldier->roster().team() == MILITIA_TEAM)
 				{		
 				//legion 2
 				pStr2 = GetGrupaString( pSoldier );
@@ -3380,7 +3380,7 @@ void SetMercTeamVisibility( INT8 bTeam, BOOLEAN fVisible )
 		}
 		curr = curr->next;
 	}
-	if( gpSelected && gpSelected->pSoldier && gpSelected->pSoldier->bTeam == bTeam && !fVisible )
+	if( gpSelected && gpSelected->pSoldier && gpSelected->pSoldier->roster().team() == bTeam && !fVisible )
 	{
 		IndicateSelectedMerc( SELECT_NO_MERC );
 	}

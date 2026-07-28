@@ -2250,7 +2250,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 								// Start combat etc
 								DebugAI(AI_MSG_INFO, pNPC, String("CancelAIAction: NPC coverse"));
 								CancelAIAction( pNPC, TRUE );
-								AddToShouldBecomeHostileOrSayQuoteList( pNPC->ubID );
+								AddToShouldBecomeHostileOrSayQuoteList( pNPC->identity().id() );
 							default:
 								break;
 						}
@@ -2307,7 +2307,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 						pSoldier = FindSoldierByProfileID( ubMerc, FALSE );
 
 						// Is this one of us?
-						if ( pSoldier->bTeam == gbPlayerNum )
+						if ( pSoldier->roster().team() == gbPlayerNum )
 						{
 							for (int x = INV_START_POS; x < NUM_INV_SLOTS; ++x) {
 								if (&(pSoldier->inv[x]) == pObj) {
@@ -2581,7 +2581,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 	CHECKF( pubDesiredMerc );
 	sMyGridNo = pNPC->position().gridNo();
 
-	ubNPC = pNPC->ubProfile;
+	ubNPC = pNPC->identity().profile();
 	if (EnsureQuoteFileLoaded( ubNPC ) == FALSE)
 	{
 		// error!!!
@@ -2596,7 +2596,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 		if (pMerc != NULL)
 		{
 			// only look for mercs on the side of the player
-			if (pMerc->bSide != gbPlayerNum)
+			if (pMerc->roster().side() != gbPlayerNum)
 			{
 				continue;
 			}
@@ -2615,7 +2615,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 
 			// what's the opinion required for the highest-opinion quote that we would
 			// say to this merc
-			ubTalkDesire = NPCConsiderTalking( pNPC->ubProfile, pMerc->ubProfile, NPC_INITIATING_CONV, 0, pNPCQuoteInfoArray, NULL, NULL );
+			ubTalkDesire = NPCConsiderTalking( pNPC->identity().profile(), pMerc->identity().profile(), NPC_INITIATING_CONV, 0, pNPCQuoteInfoArray, NULL, NULL );
 			if (ubTalkDesire > 0)
 			{
 				if (ubTalkDesire > ubHighestTalkDesire)
@@ -2665,7 +2665,7 @@ UINT8 NPCTryToInitiateConv( SOLDIERTYPE * pNPC )
 			desiredMerc->position().gridNo() ) < CONVO_DIST)
 	{
 		// initiate conversation!
-		Converse( pNPC->ubProfile, desiredMerc->ubProfile,
+		Converse( pNPC->identity().profile(), desiredMerc->identity().profile(),
 			NPC_INITIATING_CONV, 0 );
 		// after talking, wait a while before moving anywhere else
 		return( AI_ACTION_WAIT );
@@ -2728,7 +2728,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 
 	// Clear values!
 	pNPC->dialogue().quoteRecord() = 0;
-	if (pNPC->bTeam == gbPlayerNum)
+	if (pNPC->roster().team() == gbPlayerNum)
 	{
 		// the "under ai control" flag was set temporarily; better turn it off now
 		pNPC->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
@@ -2736,7 +2736,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 		pNPC->aiBehavior().flags() &= (AI_HANDLE_EVERY_FRAME);
 	}
 
-	ubNPC = pNPC->ubProfile;
+	ubNPC = pNPC->identity().profile();
 	if (EnsureQuoteFileLoaded( ubNPC ) == FALSE)
 	{
 		// error!!!
@@ -2950,7 +2950,7 @@ void TriggerClosestMercWhoCanSeeNPC( UINT8 ubNPC, NPCQuoteInfo *pQuotePtr )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && pTeamSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && pTeamSoldier->awareness().opponentKnowledge()[ pSoldier->identity().id() ] == SEEN_CURRENTLY )
 		{
 			ubMercsInSector[ ubNumMercs ] = cnt;
 			ubNumMercs++;
@@ -3687,7 +3687,7 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 	{
 		return;
 	}
-	bTeam = pSoldier->bTeam;
+	bTeam = pSoldier->roster().team();
 
 	// Loop through all our guys and find one to yell
 
@@ -3700,23 +3700,23 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
-		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->awareness().opponentCount() > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
+		if ( pTeamSoldier->roster().active() && pSoldier->roster().inSector() && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->awareness().opponentCount() > 0 && pTeamSoldier->identity().profile() != NO_PROFILE )
 		{
-			if ( bTeam == CIV_TEAM && pSoldier->ubCivilianGroup != NON_CIV_GROUP && pTeamSoldier->ubCivilianGroup != pSoldier->ubCivilianGroup )
+			if ( bTeam == CIV_TEAM && pSoldier->roster().civilianGroup() != NON_CIV_GROUP && pTeamSoldier->roster().civilianGroup() != pSoldier->roster().civilianGroup() )
 			{
 				continue;
 			}
 
-			if ( ! ( gMercProfiles[ pTeamSoldier->ubProfile ].ubMiscFlags & PROFILE_MISC_FLAG_SAID_HOSTILE_QUOTE ) )
+			if ( ! ( gMercProfiles[ pTeamSoldier->identity().profile() ].ubMiscFlags & PROFILE_MISC_FLAG_SAID_HOSTILE_QUOTE ) )
 			{
-				ubMercsAvailable[ ubNumMercsAvailable ] = pTeamSoldier->ubProfile;
+				ubMercsAvailable[ ubNumMercsAvailable ] = pTeamSoldier->identity().profile();
 				ubNumMercsAvailable++;
 			}
 
 		}
 	}
 
-	if ( bTeam == CIV_TEAM && pSoldier->ubCivilianGroup != NON_CIV_GROUP && gTacticalStatus.fCivGroupHostile[ pSoldier->ubCivilianGroup ] == CIV_GROUP_NEUTRAL )
+	if ( bTeam == CIV_TEAM && pSoldier->roster().civilianGroup() != NON_CIV_GROUP && gTacticalStatus.fCivGroupHostile[ pSoldier->roster().civilianGroup() ] == CIV_GROUP_NEUTRAL )
 	{
 		CivilianGroupMemberChangesSides( pSoldier );
 	}
@@ -3774,7 +3774,7 @@ UINT8 ActionIDForMovementRecord( UINT8 ubNPC, UINT8 ubRecord )
 
 void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier )
 {
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || (pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE) )
+	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || (pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE) )
 	{
 		return;
 	}
@@ -3782,40 +3782,40 @@ void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier )
 	switch( pSoldier->dialogue().quoteActionId() )
 	{
 		case QUOTE_ACTION_ID_TRAVERSE_EAST:
-			gMercProfiles[pSoldier->ubProfile].sSectorX++;
+			gMercProfiles[pSoldier->identity().profile()].sSectorX++;
 
 			// Call to change the NPC's Sector Location
-			ChangeNpcToDifferentSector( pSoldier->ubProfile,
-							gMercProfiles[pSoldier->ubProfile].sSectorX,
-							gMercProfiles[pSoldier->ubProfile].sSectorY,
-							gMercProfiles[pSoldier->ubProfile].bSectorZ );
+			ChangeNpcToDifferentSector( pSoldier->identity().profile(),
+							gMercProfiles[pSoldier->identity().profile()].sSectorX,
+							gMercProfiles[pSoldier->identity().profile()].sSectorY,
+							gMercProfiles[pSoldier->identity().profile()].bSectorZ );
 			break;
 		case QUOTE_ACTION_ID_TRAVERSE_SOUTH:
-			gMercProfiles[pSoldier->ubProfile].sSectorY++;
+			gMercProfiles[pSoldier->identity().profile()].sSectorY++;
 
 			// Call to change the NPC's Sector Location
-			ChangeNpcToDifferentSector( pSoldier->ubProfile,
-							gMercProfiles[pSoldier->ubProfile].sSectorX,
-							gMercProfiles[pSoldier->ubProfile].sSectorY,
-							gMercProfiles[pSoldier->ubProfile].bSectorZ );
+			ChangeNpcToDifferentSector( pSoldier->identity().profile(),
+							gMercProfiles[pSoldier->identity().profile()].sSectorX,
+							gMercProfiles[pSoldier->identity().profile()].sSectorY,
+							gMercProfiles[pSoldier->identity().profile()].bSectorZ );
 			break;
 		case QUOTE_ACTION_ID_TRAVERSE_WEST:
-			gMercProfiles[pSoldier->ubProfile].sSectorX--;
+			gMercProfiles[pSoldier->identity().profile()].sSectorX--;
 
 			// Call to change the NPC's Sector Location
-			ChangeNpcToDifferentSector( pSoldier->ubProfile,
-							gMercProfiles[pSoldier->ubProfile].sSectorX,
-							gMercProfiles[pSoldier->ubProfile].sSectorY,
-							gMercProfiles[pSoldier->ubProfile].bSectorZ );
+			ChangeNpcToDifferentSector( pSoldier->identity().profile(),
+							gMercProfiles[pSoldier->identity().profile()].sSectorX,
+							gMercProfiles[pSoldier->identity().profile()].sSectorY,
+							gMercProfiles[pSoldier->identity().profile()].bSectorZ );
 			break;
 		case QUOTE_ACTION_ID_TRAVERSE_NORTH:
-			gMercProfiles[pSoldier->ubProfile].sSectorY--;
+			gMercProfiles[pSoldier->identity().profile()].sSectorY--;
 
 			// Call to change the NPC's Sector Location
-			ChangeNpcToDifferentSector( pSoldier->ubProfile,
-							gMercProfiles[pSoldier->ubProfile].sSectorX,
-							gMercProfiles[pSoldier->ubProfile].sSectorY,
-							gMercProfiles[pSoldier->ubProfile].bSectorZ );
+			ChangeNpcToDifferentSector( pSoldier->identity().profile(),
+							gMercProfiles[pSoldier->identity().profile()].sSectorX,
+							gMercProfiles[pSoldier->identity().profile()].sSectorY,
+							gMercProfiles[pSoldier->identity().profile()].bSectorZ );
 			break;
 		default:
 			break;
@@ -3936,7 +3936,7 @@ void UpdateDarrelScriptToGoTo( SOLDIERTYPE * pSoldier )
 	EnsureQuoteFileLoaded( DARREL );
 	gpNPCQuoteInfoArray[ DARREL ][ 10 ].usGoToGridNo = sAdjustedGridNo;
 	gpNPCQuoteInfoArray[ DARREL ][ 11 ].sRequiredGridNo = sAdjustedGridNo;//dnl ch46 031009
-	gpNPCQuoteInfoArray[ DARREL ][ 11 ].ubTriggerNPC = pSoldier->ubProfile;
+	gpNPCQuoteInfoArray[ DARREL ][ 11 ].ubTriggerNPC = pSoldier->identity().profile();
 }
 
 BOOLEAN RecordHasDialogue( UINT8 ubNPC, UINT8 ubRecord )

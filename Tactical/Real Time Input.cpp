@@ -192,7 +192,7 @@ void	QueryRTLeftButton( UINT32 *puiNewEvent )
 			{
 				pVehicle = GetSoldierStructureForVehicle(
 					subjectSoldier->deployment().vehicleId());
-				usSubjectSoldier = pVehicle->ubID;
+				usSubjectSoldier = pVehicle->identity().id();
 				subjectSoldier = pVehicle;
 			}
 		}
@@ -1499,7 +1499,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 							!_KeyDown( SHIFT ) &&
 							!AM_AN_EPC( pSoldier ) &&
 							GetJa2SoldierRepository()
-								.resolve(gusUIFullTargetID.i)->bTeam !=
+								.resolve(gusUIFullTargetID.i)->roster().team() !=
 								ENEMY_TEAM &&
 							!ValidQuickExchangePosition( ) )
 						{
@@ -1549,7 +1549,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 					guiUITargetSoldierId = gusUIFullTargetID;
 
 					if ( GetJa2SoldierRepository()
-							.resolve(gusUIFullTargetID.i)->bTeam !=
+							.resolve(gusUIFullTargetID.i)->roster().team() !=
 						gbPlayerNum )
 					{
 						fOnValidGuy = TRUE;
@@ -2151,11 +2151,11 @@ void HandleMouseRTX1Button( UINT32 *puiNewEvent )
 					if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 					{
 						if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
-							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->name );
+							ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );
 						return;
 					}
 
-					GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+					GetMercClimbDirection( pjSoldier->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 					if ( fNearLowerLevel )
 						TryDispatchTraverseObstacleCommandNow(
@@ -2214,11 +2214,11 @@ void HandleRTJump( void )
 		if (!IsValidStance(pjSoldier, ANIM_CROUCH) )
 		{
 			if ( pjSoldier->collapseState().tactical() && pjSoldier->vitals().breath() < OKBREATH )
-				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->name );
+				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pjSoldier->identity().name() );
 			return;
 		}
 
-		GetMercClimbDirection( pjSoldier->ubID, &fNearLowerLevel, &fNearHeigherLevel );
+		GetMercClimbDirection( pjSoldier->identity().id(), &fNearLowerLevel, &fNearHeigherLevel );
 
 		if ( fNearLowerLevel )
 			TryDispatchTraverseObstacleCommandNow(

@@ -67,12 +67,12 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	INT16 sSectorX, sSectorY;
 
 	//if the soldier HAS a profile
-	if( pSoldier->ubProfile != NO_PROFILE )
+	if( pSoldier->identity().profile() != NO_PROFILE )
 	{
 		//shadooow: moved here so the "merc is dead" message appears before "history log changed" which is what happens in tactical
-		if (GetCurrentScreen() != GAME_SCREEN || !pSoldier->bInSector)
+		if (GetCurrentScreen() != GAME_SCREEN || !pSoldier->roster().inSector())
 		{
-			ScreenMsg(FONT_RED, MSG_INTERFACE, pMercDeadString[0], pSoldier->name);
+			ScreenMsg(FONT_RED, MSG_INTERFACE, pMercDeadString[0], pSoldier->identity().name());
 		}
 
 		//add to the history log the fact that the merc died and the circumstances
@@ -94,13 +94,13 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 			sSectorY = gWorldSectorY;
 		}
 
-		if( pKiller && pKiller->bTeam == OUR_TEAM )
+		if( pKiller && pKiller->roster().team() == OUR_TEAM )
 		{
-			AddHistoryToPlayersLog( HISTORY_MERC_KILLED_CHARACTER, pSoldier->ubProfile, GetWorldTotalMin(), sSectorX, sSectorY );
+			AddHistoryToPlayersLog( HISTORY_MERC_KILLED_CHARACTER, pSoldier->identity().profile(), GetWorldTotalMin(), sSectorX, sSectorY );
 		}
 		else
 		{
-			AddHistoryToPlayersLog( HISTORY_MERC_KILLED, pSoldier->ubProfile, GetWorldTotalMin(), sSectorX, sSectorY );
+			AddHistoryToPlayersLog( HISTORY_MERC_KILLED, pSoldier->identity().profile(), GetWorldTotalMin(), sSectorX, sSectorY );
 		}
 	}
 
@@ -131,14 +131,14 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 			// if killed within an hour of being insured
 			if ( pSoldier->employment().insuranceStartTime() <= GetWorldTotalMin() && GetWorldTotalMin() - pSoldier->employment().insuranceStartTime() < 60 )
 			{
-				gMercProfiles[ pSoldier->ubProfile ].ubSuspiciousDeath = VERY_SUSPICIOUS_DEATH;
+				gMercProfiles[ pSoldier->identity().profile() ].ubSuspiciousDeath = VERY_SUSPICIOUS_DEATH;
 			}
 			// if killed by someone on our team, or while there weren't any opponents around
-			else if ((pKiller && pKiller->bTeam == OUR_TEAM) ||
+			else if ((pKiller && pKiller->roster().team() == OUR_TEAM) ||
 				!gTacticalStatus.fEnemyInSector )
 			{
 				// cause insurance company to suspect fraud and investigate this claim
-				gMercProfiles[ pSoldier->ubProfile ].ubSuspiciousDeath = SUSPICIOUS_DEATH;
+				gMercProfiles[ pSoldier->identity().profile() ].ubSuspiciousDeath = SUSPICIOUS_DEATH;
 			}
 		}
 
@@ -163,7 +163,7 @@ void StrategicHandlePlayerTeamMercDeath( SOLDIERTYPE *pSoldier )
 	}
 
 	//Set the fact that the merc is DEAD!!
-	gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_IS_DEAD;
+	gMercProfiles[ pSoldier->identity().profile() ].bMercStatus = MERC_IS_DEAD;
 
 	if( pSoldier->assignment().current() != ASSIGNMENT_DEAD )
 	{
@@ -219,7 +219,7 @@ void MercDailyUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
-		if ( ( pSoldier->bActive )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
+		if ( ( pSoldier->roster().active() )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			//CJC: Reset dialogue flags for quotes that can be said once/day
 			pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_ANNOYING_MERC);
@@ -239,9 +239,9 @@ void MercDailyUpdate()
 			}
 
 			// CJC: For some personalities, reset personality quote said flag
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
-				switch( gMercProfiles[ pSoldier->ubProfile ].bDisability )
+				switch( gMercProfiles[ pSoldier->identity().profile() ].bDisability )
 				{
 					case HEAT_INTOLERANT:
 					case CLAUSTROPHOBIC:
@@ -260,33 +260,33 @@ void MercDailyUpdate()
 			if ( SoldierHasWorseEquipmentThanUsedTo( pSoldier ) )
 			{
 				// Randomly anytime between 6:00, and 10:00
-				AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, 360 + Random( 1080 ) , pSoldier->ubProfile );
+				AddSameDayStrategicEvent( EVENT_MERC_COMPLAIN_EQUIPMENT, 360 + Random( 1080 ) , pSoldier->identity().profile() );
 			}
 
 			// increment days served by this grunt
-			gMercProfiles[pSoldier->ubProfile].usTotalDaysServed++;
+			gMercProfiles[pSoldier->identity().profile()].usTotalDaysServed++;
 
 			// player has hired him, so he'll eligible to get killed off on another job
-			gMercProfiles[pSoldier->ubProfile].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PLAYER_HAD_CHANCE_TO_HIRE;
+			gMercProfiles[pSoldier->identity().profile()].ubMiscFlags3 |= PROFILE_MISC_FLAG3_PLAYER_HAD_CHANCE_TO_HIRE;
 			
 			//handle Slay differently if SlayForever is enabled
-			if( pSoldier->ubProfile == SLAY && gGameExternalOptions.fEnableSlayForever == TRUE)
+			if( pSoldier->identity().profile() == SLAY && gGameExternalOptions.fEnableSlayForever == TRUE)
 			{
 			}
 			//if the character is an RPC
-			else if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_RPC )
+			else if ( gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_RPC )
 			{
-				INT16	sSalary = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+				INT16	sSalary = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 				INT32	iMoneyOwedToMerc = 0;
 
 				//increment the number of days the mercs has been on the team
 				pSoldier->employment().totalLength()++;
 
 				//if the player owes the npc money, the balance field will be negative
-				if( gMercProfiles[ pSoldier->ubProfile ].iBalance < 0 )
+				if( gMercProfiles[ pSoldier->identity().profile() ].iBalance < 0 )
 				{
 					//the player owes the npc the salary and whatever money the player owes the npc
-					iMoneyOwedToMerc = sSalary + ( - gMercProfiles[ pSoldier->ubProfile ].iBalance );
+					iMoneyOwedToMerc = sSalary + ( - gMercProfiles[ pSoldier->identity().profile() ].iBalance );
 				}
 				else
 				{
@@ -301,42 +301,42 @@ void MercDailyUpdate()
 					if( LaptopSaveInfo.iCurrentBalance >= iMoneyOwedToMerc )
 					{
 						//add the transaction to the player
-						AddTransactionToPlayersBook( PAYMENT_TO_NPC, pSoldier->ubProfile, GetWorldTotalMin(), -iMoneyOwedToMerc);
+						AddTransactionToPlayersBook( PAYMENT_TO_NPC, pSoldier->identity().profile(), GetWorldTotalMin(), -iMoneyOwedToMerc);
 
 						//if the player owed money to the npc
-						if( gMercProfiles[ pSoldier->ubProfile ].iBalance < 0 )
+						if( gMercProfiles[ pSoldier->identity().profile() ].iBalance < 0 )
 						{
 							// reset the amount
-							gMercProfiles[ pSoldier->ubProfile ].iBalance = 0;
+							gMercProfiles[ pSoldier->identity().profile() ].iBalance = 0;
 						}
 					}
 					else
 					{
 						//Display a screen msg indicating that the npc was NOT paid
-						ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_CANT_AFFORD_TO_PAY_NPC_DAILY_SALARY_MSG ], gMercProfiles[ pSoldier->ubProfile ].zNickname, FormatMoney(sSalary).data() );
+						ScreenMsg( FONT_MCOLOR_WHITE, MSG_INTERFACE, pMessageStrings[ MSG_CANT_AFFORD_TO_PAY_NPC_DAILY_SALARY_MSG ], gMercProfiles[ pSoldier->identity().profile() ].zNickname, FormatMoney(sSalary).data() );
 
 						//if the merc hasnt been paid for NUM_DAYS_TILL_UNPAID_RPC_QUITS days, the merc will quit
-						if( ( gMercProfiles[ pSoldier->ubProfile ].iBalance - sSalary ) <= -( sSalary * NUM_DAYS_TILL_UNPAID_RPC_QUITS ) )
+						if( ( gMercProfiles[ pSoldier->identity().profile() ].iBalance - sSalary ) <= -( sSalary * NUM_DAYS_TILL_UNPAID_RPC_QUITS ) )
 						{
 							//
 							//Set it up so the merc quits
 							//
-							MercsContractIsFinished( pSoldier->ubID );
+							MercsContractIsFinished( pSoldier->identity().id() );
 						}
 						else
 						{
 							//set how much money the player owes the merc
-							gMercProfiles[ pSoldier->ubProfile ].iBalance -= sSalary;
+							gMercProfiles[ pSoldier->identity().profile() ].iBalance -= sSalary;
 
 							// Add even for displaying a dialogue telling the player this....
-							AddSameDayStrategicEvent( EVENT_RPC_WHINE_ABOUT_PAY, MERC_ARRIVE_TIME_SLOT_1, pSoldier->ubID );
+							AddSameDayStrategicEvent( EVENT_RPC_WHINE_ABOUT_PAY, MERC_ARRIVE_TIME_SLOT_1, pSoldier->identity().id() );
 
 						}
 					}
 				}
 			}
 
-			if( !MercThinksHisMoraleIsTooLow( pSoldier ) && ProfileHasSkillTrait( pSoldier->ubProfile, SNITCH_NT ) )
+			if( !MercThinksHisMoraleIsTooLow( pSoldier ) && ProfileHasSkillTrait( pSoldier->identity().profile(), SNITCH_NT ) )
 			{
 				ModifyPlayerReputation( gSkillTraitValues.ubSNTPassiveReputationGain );
 			}
@@ -347,14 +347,14 @@ void MercDailyUpdate()
 		}
 		else
 		{
-			if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
+			if( ( pSoldier->roster().active() ) && ( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 			{
 				pSoldier->employment().endTime() += 1440;
 			}
 		}
 
 		// if active, here, & alive (POW is ok, don't care)
-		if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) &&
+		if( ( pSoldier->roster().active() ) && ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) &&
 																( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			// increment the "man days" played counter for each such merc in the player's employment
@@ -367,7 +367,7 @@ void MercDailyUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 		//if the merc is active
-		if ( ( pSoldier->bActive )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
+		if ( ( pSoldier->roster().active() )&&( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != IN_TRANSIT ) )
 		{
 			//if its a MERC merc, determine if the merc should leave ( because player refused to pay for merc )
 			if( pSoldier->employment().mercenaryType() == MERC_TYPE__MERC )
@@ -379,7 +379,7 @@ void MercDailyUpdate()
 					if( IsTheSoldierAliveAndConcious( pSoldier ) )
 					{
 						//if the merc should leave today
-						MercsContractIsFinished( pSoldier->ubID );
+						MercsContractIsFinished( pSoldier->identity().id() );
 					}
 				}
 			}
@@ -624,7 +624,7 @@ void HandleMercsAboutToLeave( SOLDIERTYPE *pMercList )
 					if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
 					{
 						//add an event so the merc will say the departing warning ( 2 hours prior to leaving
-						AddSameDayStrategicEvent( EVENT_MERC_ABOUT_TO_LEAVE_COMMENT, MERC_DEPARTURE_TIME_OF_DAY - 2 * 60,	(UINT32) pSoldier->ubID );
+						AddSameDayStrategicEvent( EVENT_MERC_ABOUT_TO_LEAVE_COMMENT, MERC_DEPARTURE_TIME_OF_DAY - 2 * 60,	(UINT32) pSoldier->identity().id() );
 					}
 					else
 					{
@@ -647,7 +647,7 @@ void MercsContractIsFinished( SoldierID ubID )
 	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
-	if( !pSoldier->bActive )
+	if( !pSoldier->roster().active() )
 		return;
 
 	if( fShowContractMenu )
@@ -699,7 +699,7 @@ void RPCWhineAboutNoPay( SoldierID ubID )
 	SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(ubID);
 
 	//if the soldier was removed before getting into this function, return
-	if( !pSoldier->bActive )
+	if( !pSoldier->roster().active() )
 		return;
 
 	if( pSoldier->employment().mercenaryType() == MERC_TYPE__NPC )
@@ -761,8 +761,8 @@ BOOLEAN SoldierHasWorseEquipmentThanUsedTo( SOLDIERTYPE *pSoldier )
 	}
 
 	// OK, check values!
-	if ( 	(bBestGun != -1 && bBestGun < ( gMercProfiles[ pSoldier->ubProfile ].bMainGunAttractiveness / 2 )) ||
-				(bBestArmour != -1 && bBestArmour < ( gMercProfiles[ pSoldier->ubProfile ].bArmourAttractiveness / 2 )) )
+	if ( 	(bBestGun != -1 && bBestGun < ( gMercProfiles[ pSoldier->identity().profile() ].bMainGunAttractiveness / 2 )) ||
+				(bBestArmour != -1 && bBestArmour < ( gMercProfiles[ pSoldier->identity().profile() ].bArmourAttractiveness / 2 )) )
 	{
 		// Pipe up!
 		return( TRUE );
@@ -840,9 +840,9 @@ void UpdateBuddyAndHatedCounters( void )
 		fSameGroupOnly = FALSE;
 
 		//if the merc is active and on a combat assignment
-		if ( pSoldier->bActive && pSoldier->assignment().current() < ON_DUTY )
+		if ( pSoldier->roster().active() && pSoldier->assignment().current() < ON_DUTY )
 		{
-			pProfile = &(gMercProfiles[ pSoldier->ubProfile ]);
+			pProfile = &(gMercProfiles[ pSoldier->identity().profile() ]);
 
 			// if we're moving, we only check vs other people in our squad
 			if (pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ))
@@ -858,7 +858,7 @@ void UpdateBuddyAndHatedCounters( void )
 				pOtherSoldier = GetJa2SoldierRepository().resolve(bOtherID);
 				// is this guy in the same sector and on active duty (or in the same moving group)
 
-				if (bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->assignment().current() < ON_DUTY )
+				if (bOtherID != bMercID && pOtherSoldier->roster().active() && pOtherSoldier->assignment().current() < ON_DUTY )
 				{
 					if (fSameGroupOnly)
 					{
@@ -885,7 +885,7 @@ void UpdateBuddyAndHatedCounters( void )
 						}
 					}
 
-					ubOtherProfileID = pOtherSoldier->ubProfile;
+					ubOtherProfileID = pOtherSoldier->identity().profile();
 
 					for ( iLoop = 0; iLoop < 7; iLoop++ )
 					{
@@ -902,7 +902,7 @@ void UpdateBuddyAndHatedCounters( void )
 									if ( pProfile->bHatedCount[iLoop] > 0 )
 									{
 										pProfile->bHatedCount[iLoop]--;
-										if ( pProfile->bHatedCount[iLoop] == 0 && pSoldier->bInSector && gTacticalStatus.fEnemyInSector )
+										if ( pProfile->bHatedCount[iLoop] == 0 && pSoldier->roster().inSector() && gTacticalStatus.fEnemyInSector )
 										{
 											// just reduced count to 0 but we have enemy in sector...
 											pProfile->bHatedCount[iLoop] = 1;
@@ -1068,7 +1068,7 @@ void UpdateBuddyAndHatedCounters( void )
 									if ( pProfile->bLearnToHateCount > 0 )
 									{
 										pProfile->bLearnToHateCount--;
-										if ( pProfile->bLearnToHateCount == 0 && pSoldier->bInSector && gTacticalStatus.fEnemyInSector )
+										if ( pProfile->bLearnToHateCount == 0 && pSoldier->roster().inSector() && gTacticalStatus.fEnemyInSector )
 										{
 											// just reduced count to 0 but we have enemy in sector...
 											pProfile->bLearnToHateCount = 1;
@@ -1088,9 +1088,9 @@ void UpdateBuddyAndHatedCounters( void )
 											pProfile->bMercOpinion[ubOtherProfileID] = HATED_OPINION;
 											}
 #ifdef JA2UB
-											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC &&  ( /* pSoldier->ubProfile == DEVIN || */ pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC &&  ( /* pSoldier->identity().profile() == DEVIN || */ pSoldier->identity().profile() == SLAY || pSoldier->identity().profile() == IGGY || pSoldier->identity().profile() == CONRAD ) ) )
 #else
-											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC && (pSoldier->ubProfile == DEVIN || pSoldier->ubProfile == SLAY || pSoldier->ubProfile == IGGY || pSoldier->ubProfile == CONRAD ) ) )
+											if (pSoldier->employment().mercenaryType() == MERC_TYPE__MERC || (pSoldier->employment().mercenaryType() == MERC_TYPE__NPC && (pSoldier->identity().profile() == DEVIN || pSoldier->identity().profile() == SLAY || pSoldier->identity().profile() == IGGY || pSoldier->identity().profile() == CONRAD ) ) )
 #endif
 											{
 												// Leave now! ( handle equipment too )....
@@ -1180,7 +1180,7 @@ void HourlyCamouflageUpdate( void )
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bMercID);
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			// SANDRO - new Ranger trait reduces camo degrading, which replaces camouflage trait
 			// may be a little awkward solution with chances, but can work
@@ -1202,12 +1202,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().jungleApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1229,12 +1229,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().urbanApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gUrbanCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1256,12 +1256,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().desertApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gDesertCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1283,12 +1283,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().snowApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gSnowCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1306,13 +1306,13 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().jungleApplied() = 0;
 						camoWoreOff = TRUE;
-						// ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->name );
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->name );
+						// ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->identity().name() );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_JUNGLE_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1325,12 +1325,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().urbanApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_URBAN_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gUrbanCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1343,12 +1343,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().desertApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_DESERT_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gDesertCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1361,12 +1361,12 @@ void HourlyCamouflageUpdate( void )
 					{
 						pSoldier->camouflage().snowApplied() = 0;
 						camoWoreOff = TRUE;
-						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->name );
+						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_SNOW_WORN_OFF], pSoldier->identity().name() );
 
 						if (gGameExternalOptions.fShowCamouflageFaces == TRUE )
 						{
 							//legion camo, remove camo face and create face
-							gCamoFace[pSoldier->ubProfile].gSnowCamoface = FALSE;
+							gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 							DeleteSoldierFace( pSoldier );
 							pSoldier->iFaceIndex = InitSoldierFace( pSoldier );
 						}
@@ -1377,7 +1377,7 @@ void HourlyCamouflageUpdate( void )
 			if ( camoWoreOff )
 			{
 				// Reload palettes....
-				if ( pSoldier->bInSector )
+				if ( pSoldier->roster().inSector() )
 				{
 					pSoldier->CreateSoldierPalettes( );
 				}
@@ -1396,12 +1396,12 @@ void HourlyCamouflageUpdate( void )
 				{
 					// Reload palettes....
 
-					if ( pSoldier->bInSector )
+					if ( pSoldier->roster().inSector() )
 					{
 						pSoldier->CreateSoldierPalettes( );
 					}
 
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->name );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, Message[STR_CAMMO_WORN_OFF], pSoldier->identity().name() );
 					DirtyMercPanelInterface( pSoldier, DIRTYLEVEL2 );
 				}
 				*/

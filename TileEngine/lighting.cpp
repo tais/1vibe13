@@ -1963,7 +1963,7 @@ BOOLEAN LightSetBaseLevel(UINT8 iIntensity)
 
 			if ( pSoldier != NULL )
 			{
-				if ( pSoldier->bTeam == gbPlayerNum )
+				if ( pSoldier->roster().team() == gbPlayerNum )
 				{
 					// Re-create soldier lights
 					pSoldier->ReCreateSoldierLight( );

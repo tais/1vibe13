@@ -132,7 +132,7 @@ void ExitBoxing( void )
 // out of the ring!
 void EndBoxingMatch( SOLDIERTYPE * pLoser )
 {
-	if (pLoser->bTeam == gbPlayerNum )
+	if (pLoser->roster().team() == gbPlayerNum )
 	{
 		SetBoxingState( LOST_ROUND );
 	}
@@ -167,16 +167,16 @@ void TriggerEndOfBoxingRecord( SOLDIERTYPE * pSoldier )
 		switch( gTacticalStatus.bBoxingState )
 		{
 			case WON_ROUND:
-				AddHistoryToPlayersLog( HISTORY_WON_BOXING, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
+				AddHistoryToPlayersLog( HISTORY_WON_BOXING, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 				TriggerNPCRecord( DARREN, 23 );
 				break;
 			case LOST_ROUND:
 				// log as lost
-				AddHistoryToPlayersLog( HISTORY_LOST_BOXING, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
+				AddHistoryToPlayersLog( HISTORY_LOST_BOXING, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 				TriggerNPCRecord( DARREN, 24 );
 				break;
 			case DISQUALIFIED:
-				AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
+				AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 				break;
 		}
 	}
@@ -306,7 +306,7 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Boxer APs %d %d", pInRing[0]->actionPoints().current(), pInRing[1]->actionPoints().current() );
 #endif
 				// give the first turn to a randomly chosen boxer
-				EnterCombatMode(pInRing[Random(2)]->bTeam);
+				EnterCombatMode(pInRing[Random(2)]->roster().team());
 			}
 		}
 		/*
@@ -403,7 +403,7 @@ BOOLEAN PickABoxer( void )
 			else
 			{
 				// pick this boxer!
-				if ( pBoxer->bActive && pBoxer->bInSector && pBoxer->vitals().health() >= OKLIFE )
+				if ( pBoxer->roster().active() && pBoxer->roster().inSector() && pBoxer->vitals().health() >= OKLIFE )
 				{
 					pBoxer->status().flags() |= SOLDIER_BOXER;
 					SetSoldierNonNeutral( pBoxer );
@@ -427,7 +427,7 @@ BOOLEAN PickABoxer( void )
 							pBoxer->statistics().skillTrait(0) = HANDTOHAND_OT;
 					}
 					// give the 3rd boxer martial arts
-					if ( (uiLoop == NUM_BOXERS - 1) && pBoxer->ubBodyType == REGMALE )
+					if ( (uiLoop == NUM_BOXERS - 1) && pBoxer->identity().bodyType() == REGMALE )
 					{
 						if (gGameOptions.fNewTraitSystem) // SANDRO - traits
 						{
@@ -460,7 +460,7 @@ BOOLEAN BoxerAvailable( void )
 		{
 			SOLDIERTYPE* boxer =
 				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
-			if( boxer && boxer->bActive && boxer->bInSector && boxer->vitals().health() >= OKLIFE )
+			if( boxer && boxer->roster().active() && boxer->roster().inSector() && boxer->vitals().health() >= OKLIFE )
 				return( TRUE );
 		}
 	}
@@ -483,7 +483,7 @@ UINT8 BoxersAvailable( void )
 		{
 			SOLDIERTYPE* boxer =
 				GetJa2SoldierRepository().resolve( gubBoxerID[ ubLoop ] );
-			if( boxer && boxer->bActive && boxer->bInSector && boxer->vitals().health() >= OKLIFE )
+			if( boxer && boxer->roster().active() && boxer->roster().inSector() && boxer->vitals().health() >= OKLIFE )
 				++ubCount;
 		}
 	}
@@ -513,7 +513,7 @@ BOOLEAN AnotherFightPossible( void )
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve( soldierId );
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector &&
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() &&
 			 pSoldier->vitals().health() > (OKLIFE + 5) &&
 			 !pSoldier->collapseState().tactical() )
 		{
@@ -541,7 +541,7 @@ void BoxingMovementCheck( SOLDIERTYPE * pSoldier )
 		// boxer stepped out of the ring!
 		BoxingPlayerDisqualified( pSoldier, BOXER_OUT_OF_RING );
 		// add the history record here.
-		AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
+		AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->identity().profile(), GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 		// make not a boxer any more
 		pSoldier->DeleteBoxingFlag( );
 		pSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
@@ -595,7 +595,7 @@ void ClearAllBoxerFlags( void )
 
 			ManLooksForOtherTeams(MercSlots[uiSlot]);
 
-			if ( MercSlots[uiSlot]->bTeam == gbPlayerNum )
+			if ( MercSlots[uiSlot]->roster().team() == gbPlayerNum )
 				MercSlots[uiSlot]->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 		}
 	}

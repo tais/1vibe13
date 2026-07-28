@@ -66,18 +66,18 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 {
 	INT8 bOpinion = 0;
 
-	if ( !OKToCheckOpinion( pSoldierA->ubProfile ) || !OKToCheckOpinion( pSoldierB->ubProfile ) )
+	if ( !OKToCheckOpinion( pSoldierA->identity().profile() ) || !OKToCheckOpinion( pSoldierB->identity().profile() ) )
 		return 0;
 
-	MERCPROFILESTRUCT*	pProfile = &(gMercProfiles[pSoldierA->ubProfile]);
+	MERCPROFILESTRUCT*	pProfile = &(gMercProfiles[pSoldierA->identity().profile()]);
 
-	bOpinion = pProfile->bMercOpinion[pSoldierB->ubProfile];
+	bOpinion = pProfile->bMercOpinion[pSoldierB->identity().profile()];
 
 	// Flugente: evaluate appearance/refinement/hated nationalities
 
 	// some people loathe ugly people and like beautiful people. It's a mean world.
 	// we also handle sexism here
-	switch ( gMercProfiles[pSoldierB->ubProfile].bAppearance )
+	switch ( gMercProfiles[pSoldierB->identity().profile()].bAppearance )
 	{
 		case APPEARANCE_UGLY:
 		{
@@ -87,7 +87,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 				bOpinion -= gGameExternalOptions.sMoraleModAppearance * 4;
 
 			// some people are sexists
-			if ( pProfile->bSexist && gMercProfiles[pSoldierB->ubProfile].bSex != pProfile->bSex )
+			if ( pProfile->bSexist && gMercProfiles[pSoldierB->identity().profile()].bSex != pProfile->bSex )
 			{
 				if ( pProfile->bSexist == SOMEWHAT_SEXIST )
 					bOpinion -= gGameExternalOptions.sMoraleModSexism * 2;
@@ -105,7 +105,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 				bOpinion -= gGameExternalOptions.sMoraleModAppearance * 2;
 
 			// some people are sexists
-			if ( pProfile->bSexist && gMercProfiles[pSoldierB->ubProfile].bSex != pProfile->bSex )
+			if ( pProfile->bSexist && gMercProfiles[pSoldierB->identity().profile()].bSex != pProfile->bSex )
 			{
 				if ( pProfile->bSexist == SOMEWHAT_SEXIST )
 					bOpinion -= gGameExternalOptions.sMoraleModSexism;
@@ -123,7 +123,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 				bOpinion += gGameExternalOptions.sMoraleModAppearance * 2;
 
 			// some people are sexists
-			if ( pProfile->bSexist && gMercProfiles[pSoldierB->ubProfile].bSex != pProfile->bSex )
+			if ( pProfile->bSexist && gMercProfiles[pSoldierB->identity().profile()].bSex != pProfile->bSex )
 			{
 				if ( pProfile->bSexist == SOMEWHAT_SEXIST )
 					bOpinion += gGameExternalOptions.sMoraleModSexism;
@@ -141,7 +141,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 				bOpinion += gGameExternalOptions.sMoraleModAppearance * 4;
 
 			// some people are sexists
-			if ( pProfile->bSexist && gMercProfiles[pSoldierB->ubProfile].bSex != pProfile->bSex )
+			if ( pProfile->bSexist && gMercProfiles[pSoldierB->identity().profile()].bSex != pProfile->bSex )
 			{
 				if ( pProfile->bSexist == SOMEWHAT_SEXIST )
 					bOpinion += gGameExternalOptions.sMoraleModSexism * 2;
@@ -162,22 +162,22 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 	// if we care somewhat, malus on slob/snob
 	else if ( pProfile->bRefinementCareLevel == CARELEVEL_SOME )
 	{
-		if ( pProfile->bRefinement * gMercProfiles[pSoldierB->ubProfile].bRefinement == 2 )
+		if ( pProfile->bRefinement * gMercProfiles[pSoldierB->identity().profile()].bRefinement == 2 )
 			bOpinion -= gGameExternalOptions.sMoraleModRefinement;
 	}
 	// if we care extremely, reward for similarity, malus otherwise
 	else //if( pProfile->bRefinementCareLevel == CARELEVEL_EXTREME )
 	{
-		if ( pProfile->bRefinement * gMercProfiles[pSoldierB->ubProfile].bRefinement == 2 )
+		if ( pProfile->bRefinement * gMercProfiles[pSoldierB->identity().profile()].bRefinement == 2 )
 			bOpinion -= 2 * gGameExternalOptions.sMoraleModRefinement;
-		else if ( (pProfile->bRefinement * gMercProfiles[pSoldierB->ubProfile].bRefinement == 0) && (pProfile->bRefinement != gMercProfiles[pSoldierB->ubProfile].bRefinement) )
+		else if ( (pProfile->bRefinement * gMercProfiles[pSoldierB->identity().profile()].bRefinement == 0) && (pProfile->bRefinement != gMercProfiles[pSoldierB->identity().profile()].bRefinement) )
 			bOpinion -= gGameExternalOptions.sMoraleModRefinement;
 		else
 			bOpinion += gGameExternalOptions.sMoraleModRefinement;
 	}
 
 	// some people hate other nationalities (do not mix up with racism, which uses bRace)
-	if ( pProfile->bHatedNationality > -1 && gMercProfiles[pSoldierB->ubProfile].bNationality == pProfile->bHatedNationality )
+	if ( pProfile->bHatedNationality > -1 && gMercProfiles[pSoldierB->identity().profile()].bNationality == pProfile->bHatedNationality )
 	{
 		if ( pProfile->bHatedNationalityCareLevel == CARELEVEL_SOME )
 			bOpinion -= gGameExternalOptions.sMoraleModHatedNationality;
@@ -186,7 +186,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 	}
 
 	// some people are racists
-	if ( pProfile->bRacist && gMercProfiles[pSoldierB->ubProfile].bRace != pProfile->bRace )
+	if ( pProfile->bRacist && gMercProfiles[pSoldierB->identity().profile()].bRace != pProfile->bRace )
 	{
 		if ( pProfile->bRacist == RACIST_SOME )
 			bOpinion -= gGameExternalOptions.sMoraleModRacism;
@@ -211,7 +211,7 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 			bOpinion += 1;
 	}
 
-	if ( pSoldierA->HasBackgroundFlag( BACKGROUND_XENOPHOBIC ) && pSoldierB->ubProfile != NO_PROFILE && gMercProfiles[pSoldierA->ubProfile].usBackground != gMercProfiles[pSoldierB->ubProfile].usBackground )
+	if ( pSoldierA->HasBackgroundFlag( BACKGROUND_XENOPHOBIC ) && pSoldierB->identity().profile() != NO_PROFILE && gMercProfiles[pSoldierA->identity().profile()].usBackground != gMercProfiles[pSoldierB->identity().profile()].usBackground )
 		bOpinion -= gGameExternalOptions.sMoraleModXenophobicBackGround;
 
 	// Flugente: dynamic opinions
@@ -219,12 +219,12 @@ INT8	SoldierRelation( SOLDIERTYPE* pSoldierA, SOLDIERTYPE* pSoldierB )
 	{
 		for ( UINT8 opinionevent = OPINIONEVENT_FRIENDLYFIRE; opinionevent < OPINIONEVENT_MAX; ++opinionevent )
 		{
-			bOpinion += GetDynamicOpinion( pSoldierA->ubProfile, pSoldierB->ubProfile, opinionevent );
+			bOpinion += GetDynamicOpinion( pSoldierA->identity().profile(), pSoldierB->identity().profile(), opinionevent );
 		}
 	}
 
 	// long-term memory
-	bOpinion += gMercProfiles[pSoldierA->ubProfile].sDynamicOpinionLongTerm[pSoldierB->ubProfile];
+	bOpinion += gMercProfiles[pSoldierA->identity().profile()].sDynamicOpinionLongTerm[pSoldierB->identity().profile()];
 
 	// reasonable values
 	bOpinion = min( BUDDY_OPINION, bOpinion );
@@ -941,10 +941,10 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 
 	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( aEvent.usSpeaker, TRUE );
 
-	if ( !pSoldier || !pSoldier->bActive )
+	if ( !pSoldier || !pSoldier->roster().active() )
 		return FALSE;
 
-	if ( pSoldier->ubProfile == NO_PROFILE )
+	if ( pSoldier->identity().profile() == NO_PROFILE )
 		return(FALSE);
 
 #if (defined JA2UB) 
@@ -1658,7 +1658,7 @@ void HandleDynamicOpinionsDailyRefresh( )
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
+		if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE &&
 			 !(pSoldier->assignment().current() == IN_TRANSIT || AM_A_ROBOT(pSoldier) ||
 			 pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
@@ -1700,10 +1700,10 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 	SOLDIERTYPE *pThirdSoldier;
 
 	// make sure we ourselves aren't in transit
-	if ( !pSoldier->bActive || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD )
+	if ( !pSoldier->roster().active() || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD )
 		return;
 
-	bMercID = pSoldier->ubID;
+	bMercID = pSoldier->identity().id();
 	bLastTeamID = gTacticalStatus.Team[gbPlayerNum].bLastID;
 
 	// loop through all other mercs
@@ -1717,7 +1717,7 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 			continue;
 		}
 		// skip past ourselves and all inactive mercs
-		if ( bOtherID != bMercID && pOtherSoldier->bActive && pOtherSoldier->ubProfile != NO_PROFILE &&
+		if ( bOtherID != bMercID && pOtherSoldier->roster().active() && pOtherSoldier->identity().profile() != NO_PROFILE &&
 			 !(pOtherSoldier->assignment().current() == IN_TRANSIT ||
 			 pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
@@ -1738,7 +1738,7 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 						continue;
 					}
 					// skip past ourselves and all inactive mercs
-					if ( bThirdID != bMercID && bThirdID != bOtherID && pThirdSoldier->bActive && pThirdSoldier->ubProfile != NO_PROFILE &&
+					if ( bThirdID != bMercID && bThirdID != bOtherID && pThirdSoldier->roster().active() && pThirdSoldier->identity().profile() != NO_PROFILE &&
 						 !(pThirdSoldier->assignment().current() == IN_TRANSIT ||
 						 pThirdSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 					{
@@ -1747,7 +1747,7 @@ void CheckForFriendsofHated( SOLDIERTYPE* pSoldier )
 						if ( bSecondOpinion > 20 )
 						{
 							// this guy is friends with someone we hate! We dislike him a bit for that
-							AddOpinionEvent( pSoldier->ubProfile, pThirdSoldier->ubProfile, OPINIONEVENT_FRIENDSWITHHATED );
+							AddOpinionEvent( pSoldier->identity().profile(), pThirdSoldier->identity().profile(), OPINIONEVENT_FRIENDSWITHHATED );
 						}
 					}
 				}
@@ -1798,18 +1798,18 @@ void HandleDynamicOpinionOnContractExtension( UINT8 ubCode, UINT8 usProfile )
 				{
 					continue;
 				}
-				if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE && pSoldier->ubProfile != usProfile &&
+				if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE && pSoldier->identity().profile() != usProfile &&
 					 !(pSoldier->assignment().current() == IN_TRANSIT ||
 					 pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 				{
 					// only for AIM mercs
-					if ( pSoldier->ubProfile == NO_PROFILE || pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
+					if ( pSoldier->identity().profile() == NO_PROFILE || pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC )
 						continue;
 
 					if ( pSoldier->employment().endTime() < oldcontract )
 					{
 						// this guy got paid at a point where we had less time than he did! Favouritism!
-						AddOpinionEvent( pSoldier->ubProfile, usProfile, OPINIONEVENT_CONTRACTEXTENSION );
+						AddOpinionEvent( pSoldier->identity().profile(), usProfile, OPINIONEVENT_CONTRACTEXTENSION );
 					}
 				}
 			}
@@ -1896,7 +1896,7 @@ void HandleDynamicOpinionRetreat( )
 void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 {
 	// need to be drunk for this
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) ||
+	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier) ||
 	     !pSoldier->drugState().hasAlcohol() )
 		return;
 
@@ -1911,7 +1911,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 			continue;
 		}
 		// everybody other merc in the same sector can get updated if they are drugged too
-		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->identity().profile() != NO_PROFILE && pTeamSoldier->identity().profile() != pSoldier->identity().profile() &&
 			 pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() &&
 			 pTeamSoldier->drugState().hasAlcohol() &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
@@ -1922,17 +1922,17 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 			if ( Chance( 50 ) )
 			{
 				if ( Chance( 67 ) )
-					AddOpinionEvent( pTeamSoldier->ubProfile, pSoldier->ubProfile, OPINIONEVENT_DRINKBUDDIES_GOOD, Chance( 25 ) );
+					AddOpinionEvent( pTeamSoldier->identity().profile(), pSoldier->identity().profile(), OPINIONEVENT_DRINKBUDDIES_GOOD, Chance( 25 ) );
 				else
-					AddOpinionEvent( pTeamSoldier->ubProfile, pSoldier->ubProfile, OPINIONEVENT_DRINKBUDDIES_BAD, Chance( 25 ) );
+					AddOpinionEvent( pTeamSoldier->identity().profile(), pSoldier->identity().profile(), OPINIONEVENT_DRINKBUDDIES_BAD, Chance( 25 ) );
 			}
 
 			if ( Chance( 50 ) )
 			{
 				if ( Chance( 67 ) )
-					AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, OPINIONEVENT_DRINKBUDDIES_GOOD, Chance( 25 ) );
+					AddOpinionEvent( pSoldier->identity().profile(), pTeamSoldier->identity().profile(), OPINIONEVENT_DRINKBUDDIES_GOOD, Chance( 25 ) );
 				else
-					AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, OPINIONEVENT_DRINKBUDDIES_BAD, Chance( 25 ) );
+					AddOpinionEvent( pSoldier->identity().profile(), pTeamSoldier->identity().profile(), OPINIONEVENT_DRINKBUDDIES_BAD, Chance( 25 ) );
 			}
 		}
 	}
@@ -1940,7 +1940,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 
 void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 {
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier))
+	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier))
 		return;
 
 	// because this code is as annoying as it is, ubStat has a different numbering than bTrainStat. The only reasonable explanation for that is that the designers decided to be jerks on purpose
@@ -1975,14 +1975,14 @@ void HandleDynamicOpinionTeaching( SOLDIERTYPE* pSoldier, UINT8 ubStat )
 			continue;
 		}
 		// award event for every trainer in this sector
-		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->identity().profile() != NO_PROFILE && pTeamSoldier->identity().profile() != pSoldier->identity().profile() &&
 			 pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() &&
 			  !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if he's training teammates in this stat
 			if ( (pTeamSoldier->assignment().current() == TRAIN_TEAMMATE) && (pTeamSoldier->assignment().trainingStat() == trainstat) && (EnoughTimeOnAssignment( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 			{
-				AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, OPINIONEVENT_TEACHER );
+				AddOpinionEvent( pSoldier->identity().profile(), pTeamSoldier->identity().profile(), OPINIONEVENT_TEACHER );
 			}
 		}
 	}
@@ -2022,7 +2022,7 @@ SoldierID GetBestMercLeaderInSector( INT16 sX, INT16 sY, INT8 sZ )
 			continue;
 		}
 		// everybody other merc in the same sector gets annoyed
-		if ( pSoldier->bActive && pSoldier->ubProfile != NO_PROFILE &&
+		if ( pSoldier->roster().active() && pSoldier->identity().profile() != NO_PROFILE &&
 			 pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && pSoldier->deployment().sectorZ() == sZ &&
 			 !(pSoldier->assignment().current() == IN_TRANSIT || pSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
@@ -2054,14 +2054,14 @@ UINT8 GetRandomMercInSectorNotInList( INT16 sX, INT16 sY, INT8 sZ, std::vector<U
 			continue;
 		}
 		// everybody other merc in the same sector gets annoyed
-		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE &&
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->identity().profile() != NO_PROFILE &&
 			 pTeamSoldier->deployment().sectorX() == sX && pTeamSoldier->deployment().sectorY() == sY && pTeamSoldier->deployment().sectorZ() == sZ &&
 			 (!fImpOnly || pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER) &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
 			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// only add if not already in list
-			if ( std::find( aTaboo.begin( ), aTaboo.end( ), pTeamSoldier->ubProfile ) == aTaboo.end( ) )
+			if ( std::find( aTaboo.begin( ), aTaboo.end( ), pTeamSoldier->identity().profile() ) == aTaboo.end( ) )
 				resultvector.push_back( bMercID );
 		}
 	}
@@ -2097,8 +2097,8 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 	std::vector<UINT8>  profilevector;
 
 	SOLDIERTYPE*		pTeamSoldier = NULL;
-	SoldierID				bMercID = gTacticalStatus.Team[pSoldierVictim->bTeam].bFirstID;
-	SoldierID				bLastTeamID = gTacticalStatus.Team[pSoldierVictim->bTeam].bLastID;
+	SoldierID				bMercID = gTacticalStatus.Team[pSoldierVictim->roster().team()].bFirstID;
+	SoldierID				bLastTeamID = gTacticalStatus.Team[pSoldierVictim->roster().team()].bLastID;
 	for ( ; bMercID <= bLastTeamID; ++bMercID )
 	{
 		pTeamSoldier =
@@ -2108,7 +2108,7 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 		}
 		// only people that are here
-		if ( !pTeamSoldier->bActive || pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND )
+		if ( !pTeamSoldier->roster().active() || pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD || pTeamSoldier->assignment().current() == ASSIGNMENT_POW || pTeamSoldier->assignment().current() == ASSIGNMENT_MINIEVENT || pTeamSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND )
 			continue;
 
 		// if fSameSector is TRUE then the teammate must be in the same sector
@@ -2128,13 +2128,13 @@ UINT8 GetFittingInterjectorProfile( UINT8 usEvent, UINT8 usProfileVictim, UINT8 
 			continue;
 
 		// exclude victim and cause
-		if ( pTeamSoldier->ubProfile == usProfileVictim || pTeamSoldier->ubProfile == usProfileCause )
+		if ( pTeamSoldier->identity().profile() == usProfileVictim || pTeamSoldier->identity().profile() == usProfileCause )
 			continue;
 				
-		profilevector.push_back( pTeamSoldier->ubProfile );
+		profilevector.push_back( pTeamSoldier->identity().profile() );
 
 		if ( pTeamSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER )
-			impprofilevector.push_back( pTeamSoldier->ubProfile );
+			impprofilevector.push_back( pTeamSoldier->identity().profile() );
 	}
 
 	// return a random IMP, if there is one, otherwise just pick a random team member
@@ -2170,7 +2170,7 @@ UINT8 HighestInventoryCoolness( SOLDIERTYPE* pSoldier )
 
 void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN fOffender, BOOLEAN fStartDialogue )
 {
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier))
+	if ( !pSoldier || pSoldier->identity().profile() == NO_PROFILE || AM_A_ROBOT(pSoldier))
 		return;
 
 	// we might have to compare the soldier to other teammates, determine relevant values
@@ -2222,7 +2222,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 			return;
 
 		// determine our mean daily wage
-		meanwage = gMercProfiles[pSoldier->ubProfile].uiTotalCostToDate / pSoldier->employment().totalLength();
+		meanwage = gMercProfiles[pSoldier->identity().profile()].uiTotalCostToDate / pSoldier->employment().totalLength();
 
 		// hu?
 		if ( !explevel )
@@ -2254,7 +2254,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 		}
 		// we test several conditions before we allow adding an opinion
 		// other merc must be active, have a profile, be someone else and not be in transit or dead
-		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
+		if ( pTeamSoldier->roster().active() && pTeamSoldier->identity().profile() != NO_PROFILE && pTeamSoldier->identity().profile() != pSoldier->identity().profile() &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT || pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{
 			// if fSameSector is TRUE then the teammate must be in the same sector
@@ -2290,7 +2290,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 			case OPINIONEVENT_CIVKILLER:
 			case OPINIONEVENT_CIV_ATTACKER:
 				// only continue if this is a good guy, not malicious and not a psacho
-				if ( !(gMercProfiles[pTeamSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY)
+				if ( !(gMercProfiles[pTeamSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY)
 					|| DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_MALICIOUS ) ||
 					DoesMercHaveDisability( pTeamSoldier, PSYCHO ) )
 					continue;
@@ -2313,7 +2313,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_ANNOYINGDISABILITY:
 				// do not add if we have the same disability
-				if ( gMercProfiles[pTeamSoldier->ubProfile].bDisability == gMercProfiles[pSoldier->ubProfile].bDisability )
+				if ( gMercProfiles[pTeamSoldier->identity().profile()].bDisability == gMercProfiles[pSoldier->identity().profile()].bDisability )
 					continue;
 				break;
 
@@ -2343,7 +2343,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				// mean wage(B) / level(B) >= WAGE_ACCEPTANCE_FACTOR * mean wage(A) / level(A)
 
 				// their wage
-				UINT32 theirmeanwage = gMercProfiles[pTeamSoldier->ubProfile].uiTotalCostToDate / pTeamSoldier->employment().totalLength();
+				UINT32 theirmeanwage = gMercProfiles[pTeamSoldier->identity().profile()].uiTotalCostToDate / pTeamSoldier->employment().totalLength();
 
 				// adjust this for experience levels
 				FLOAT explevelfactor = gGameExternalOptions.fDynamicWageFactor * pTeamSoldier->statistics().experienceLevel() / explevel;
@@ -2378,7 +2378,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 			case OPINIONEVENT_BRUTAL_GOOD:
 			case OPINIONEVENT_BRUTAL_BAD:
 				// if we are a good guy or a pacifist, then we dislike excessive violence
-				if ( gMercProfiles[pTeamSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY ||
+				if ( gMercProfiles[pTeamSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY ||
 					 DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_PACIFIST ) )
 					usEventUsed = OPINIONEVENT_BRUTAL_BAD;
 				// if we are malicious, agressive or a psycho, then we like it
@@ -2417,7 +2417,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 
 			case OPINIONEVENT_BATTLE_TOOK_PRISONER:
 				// we only care if we prefer the enemy to be taken alive
-				if ( !(gMercProfiles[pTeamSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY ||
+				if ( !(gMercProfiles[pTeamSoldier->identity().profile()].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY ||
 					DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_INTELLECTUAL ) ||
 					DoesMercHavePersonality( pTeamSoldier, CHAR_TRAIT_PACIFIST ) ) )
 					continue;
@@ -2430,9 +2430,9 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 			}
 
 			if ( fOffender )
-				AddOpinionEvent( pTeamSoldier->ubProfile, pSoldier->ubProfile, usEventUsed, fStartDialogue );
+				AddOpinionEvent( pTeamSoldier->identity().profile(), pSoldier->identity().profile(), usEventUsed, fStartDialogue );
 			else
-				AddOpinionEvent( pSoldier->ubProfile, pTeamSoldier->ubProfile, usEventUsed, fStartDialogue );
+				AddOpinionEvent( pSoldier->identity().profile(), pTeamSoldier->identity().profile(), usEventUsed, fStartDialogue );
 		}
 	}
 }

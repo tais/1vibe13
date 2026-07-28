@@ -230,7 +230,7 @@ void DrawBreathUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	// DO MAX BREATH
 	if( GetCurrentScreen() != MAP_SCREEN )
 	{
-		if( gusSelectedSoldier == pSoldier->ubID && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
+		if( gusSelectedSoldier == pSoldier->identity().id() && GetJa2TacticalCurrentTeam() == OUR_TEAM && OK_INTERRUPT_MERC( pSoldier ) )
 		{
 			// gold, the second entry in the .sti
 			BltVideoObject( uiBuffer , hHandle, 1, sXPos, ( INT16 )( sYPos - sHeight ), VO_BLT_SRCTRANSPARENCY, NULL );
@@ -468,7 +468,7 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 	BOOLEAN fDoFace = FALSE;
 //	UINT8 ubVehicleType = 0;
 
-	if ( pSoldier->bActive )
+	if ( pSoldier->roster().active() )
 	{
 		if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
@@ -477,7 +477,7 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 
 			// just draw the vehicle
 //			BltVideoObjectFromIndex( guiSAVEBUFFER, giCarPortraits[ ubVehicleType ], 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
-			BltVideoObjectFromIndex( guiSAVEBUFFER, giCarPortraits[ pSoldier->ubProfile ], 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+			BltVideoObjectFromIndex( guiSAVEBUFFER, giCarPortraits[ pSoldier->identity().profile() ], 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
 			RestoreExternBackgroundRect( sFaceX, sFaceY, FACE_WIDTH, FACE_HEIGHT );
 
 			return;
@@ -493,8 +493,8 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 			}
 			else
 			{
-				SetAutoFaceActiveFromSoldier( FRAME_BUFFER, guiSAVEBUFFER, pSoldier->ubID, sFaceX, sFaceY );
-			//	SetAutoFaceActiveFromSoldier( FRAME_BUFFER, FACE_AUTO_RESTORE_BUFFER, pSoldier->ubID , sFaceX, sFaceY );
+				SetAutoFaceActiveFromSoldier( FRAME_BUFFER, guiSAVEBUFFER, pSoldier->identity().id(), sFaceX, sFaceY );
+			//	SetAutoFaceActiveFromSoldier( FRAME_BUFFER, FACE_AUTO_RESTORE_BUFFER, pSoldier->identity().id() , sFaceX, sFaceY );
 			}
 		}
 
@@ -504,11 +504,11 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 		{
 			if ( fAutoFace )
 			{
-				RenderAutoFaceFromSoldier( pSoldier->ubID );
+				RenderAutoFaceFromSoldier( pSoldier->identity().id() );
 			}
 			else
 			{
-				ExternRenderFaceFromSoldier( guiSAVEBUFFER, pSoldier->ubID, sFaceX, sFaceY );
+				ExternRenderFaceFromSoldier( guiSAVEBUFFER, pSoldier->identity().id(), sFaceX, sFaceY );
 			}
 		}
 	}

@@ -69,6 +69,12 @@ enum
 	SOLDIER_PATROL_GRID_COUNT = 10,
 };
 
+// Fixed tactical display-name capacity from the established soldier schema.
+enum
+{
+	SOLDIER_NAME_LENGTH = 10,
+};
+
 // Stable indices and capacity for persistent drug effects. The unused slots
 // are part of the established save schema and remain serialized.
 enum
@@ -84,6 +90,74 @@ enum
 	DRUG_EFFECT_WIS,
 
 	DRUG_EFFECT_MAX = 20,
+};
+
+// Canonical identity of one soldier incarnation. Slot identity, display name,
+// physical archetype, profile links, and persistent militia identity belong
+// together but remain independent from roster membership and mutable status.
+class SoldierIdentityComponent
+{
+public:
+	using Name = CHAR16[SOLDIER_NAME_LENGTH];
+
+	SoldierID& id() noexcept { return id_; }
+	const SoldierID& id() const noexcept { return id_; }
+	Name& name() noexcept { return name_; }
+	const Name& name() const noexcept { return name_; }
+	UINT8& bodyType() noexcept { return bodyType_; }
+	const UINT8& bodyType() const noexcept { return bodyType_; }
+	UINT8& profile() noexcept { return profile_; }
+	const UINT8& profile() const noexcept { return profile_; }
+	UINT32& incarnation() noexcept { return incarnation_; }
+	const UINT32& incarnation() const noexcept { return incarnation_; }
+	UINT16& dataProfile() noexcept { return dataProfile_; }
+	const UINT16& dataProfile() const noexcept { return dataProfile_; }
+	UINT32& individualMilitiaId() noexcept { return individualMilitiaId_; }
+	const UINT32& individualMilitiaId() const noexcept { return individualMilitiaId_; }
+
+	bool hasIncarnation() const noexcept { return incarnation_ != 0; }
+	void reset() noexcept;
+
+private:
+	SoldierID id_{ static_cast<UINT16>(0) };
+	Name name_{};
+	UINT8 bodyType_ = 0;
+	UINT8 profile_ = 0;
+	UINT32 incarnation_ = 0;
+	UINT16 dataProfile_ = 0;
+	UINT32 individualMilitiaId_ = 0;
+};
+
+// Canonical tactical-roster membership and allegiance. Allocation/activity,
+// team and side, sector presence, tactical class, and civilian group move
+// together without becoming permanent identity or strategic deployment data.
+class SoldierRosterComponent
+{
+public:
+	INT8& active() noexcept { return active_; }
+	const INT8& active() const noexcept { return active_; }
+	INT8& team() noexcept { return team_; }
+	const INT8& team() const noexcept { return team_; }
+	UINT8& inSector() noexcept { return inSector_; }
+	const UINT8& inSector() const noexcept { return inSector_; }
+	UINT8& side() noexcept { return side_; }
+	const UINT8& side() const noexcept { return side_; }
+	UINT8& soldierClass() noexcept { return soldierClass_; }
+	const UINT8& soldierClass() const noexcept { return soldierClass_; }
+	UINT8& civilianGroup() noexcept { return civilianGroup_; }
+	const UINT8& civilianGroup() const noexcept { return civilianGroup_; }
+
+	bool isActive() const noexcept { return active_ != 0; }
+	bool isInSector() const noexcept { return inSector_ != 0; }
+	void reset() noexcept;
+
+private:
+	INT8 active_ = 0;
+	INT8 team_ = 0;
+	UINT8 inSector_ = 0;
+	UINT8 side_ = 0;
+	UINT8 soldierClass_ = 0;
+	UINT8 civilianGroup_ = 0;
 };
 
 // Canonical soldier vitals and recovery storage. Reference accessors keep

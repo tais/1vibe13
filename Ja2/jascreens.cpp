@@ -505,7 +505,7 @@ void PalEditRenderHook(	)
 	SOLDIERTYPE* selectedSoldier =
 		GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	if ( gusSelectedSoldier < NOBODY && selectedSoldier &&
-		selectedSoldier->bActive)
+		selectedSoldier->roster().active())
 	{
 		DisplayPaletteRep( selectedSoldier->renderState().headPalette(), 50, 10, FRAME_BUFFER );
 		DisplayPaletteRep( selectedSoldier->renderState().pantsPalette(), 50, 50, FRAME_BUFFER );
@@ -525,7 +525,7 @@ BOOLEAN PalEditKeyboardHook( InputAtom *pInputEvent )
 
 	pSoldier = GetJa2SoldierRepository().resolve(gusSelectedSoldier.i);
 	if ( gusSelectedSoldier >= NOBODY || !pSoldier ||
-		pSoldier->bActive == FALSE )
+		pSoldier->roster().active() == FALSE )
 	{
 		return( FALSE );
 	}

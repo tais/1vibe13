@@ -191,7 +191,7 @@ BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy )
 	{
 		return( FALSE );
 	}
-	if (pNPC->awareness().opponentKnowledge()[ pGuy->ubID ] == SEEN_CURRENTLY )
+	if (pNPC->awareness().opponentKnowledge()[ pGuy->identity().id() ] == SEEN_CURRENTLY )
 	{
 		return( TRUE );
 	}
@@ -222,12 +222,12 @@ BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	if (pNPC->bSide == gbPlayerNum || pNPC->aiBehavior().neutral())
+	if (pNPC->roster().side() == gbPlayerNum || pNPC->aiBehavior().neutral())
 	{
-		if (pNPC->ubCivilianGroup != NON_CIV_GROUP)
+		if (pNPC->roster().civilianGroup() != NON_CIV_GROUP)
 		{
 			// although the soldier is NOW the same side, this civ group could be set to "will become hostile"
-			return( gTacticalStatus.fCivGroupHostile[ pNPC->ubCivilianGroup ] >= CIV_GROUP_WILL_BECOME_HOSTILE );
+			return( gTacticalStatus.fCivGroupHostile[ pNPC->roster().civilianGroup() ] >= CIV_GROUP_WILL_BECOME_HOSTILE );
 		}
 		else
 		{
@@ -285,7 +285,7 @@ UINT32 NumWoundedMercsNearby( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
+		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() > 0 && (pSoldier->vitals().health() < pSoldier->vitals().maximumHealth() || NumberOfDamagedStats(pSoldier) > 0) && pSoldier->assignment().current() != ASSIGNMENT_HOSPITAL
 			 && pSoldier->deployment().sectorX() == pNPC->deployment().sectorX() && pSoldier->deployment().sectorY() == pNPC->deployment().sectorY() && pSoldier->deployment().sectorZ() == pNPC->deployment().sectorZ() )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= HOSPITAL_PATIENT_DISTANCE)
@@ -317,7 +317,7 @@ UINT16 NumMercsNear( UINT8 ubProfileID, UINT8 ubMaxDist )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
+		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= ubMaxDist)
 			{
@@ -406,7 +406,7 @@ BOOLEAN PCInSameRoom( UINT8 ubProfileID )
 	for ( bLoop = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; bLoop <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++bLoop )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bLoop);
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() )
 		{
 			if ( gusWorldRoomInfo[ pSoldier->position().gridNo() ] == usRoom )
 			{
@@ -424,12 +424,12 @@ BOOLEAN CheckTalkerStrong( void )
 	SOLDIERTYPE* source = GetDialogueSourceSoldier();
 	SOLDIERTYPE* destination =
 		GetDialogueDestinationSoldier();
-	if (source && source->bTeam == gbPlayerNum)
+	if (source && source->roster().team() == gbPlayerNum)
 	{
 		return( source->statistics().strength() >= 84 );
 	}
 	else if (destination &&
-		destination->bTeam == gbPlayerNum)
+		destination->roster().team() == gbPlayerNum)
 	{
 		return( destination->statistics().strength() >= 84 );
 	}
@@ -441,16 +441,16 @@ BOOLEAN CheckTalkerFemale( void )
 	SOLDIERTYPE* source = GetDialogueSourceSoldier();
 	SOLDIERTYPE* destination =
 		GetDialogueDestinationSoldier();
-	if (source && source->bTeam == gbPlayerNum &&
-		source->ubProfile != NO_PROFILE)
+	if (source && source->roster().team() == gbPlayerNum &&
+		source->identity().profile() != NO_PROFILE)
 	{
-		return( gMercProfiles[ source->ubProfile ].bSex == FEMALE );
+		return( gMercProfiles[ source->identity().profile() ].bSex == FEMALE );
 	}
 	else if (destination &&
-		destination->bTeam == gbPlayerNum &&
-		destination->ubProfile != NO_PROFILE)
+		destination->roster().team() == gbPlayerNum &&
+		destination->identity().profile() != NO_PROFILE)
 	{
-		return( gMercProfiles[ destination->ubProfile ].bSex == FEMALE );
+		return( gMercProfiles[ destination->identity().profile() ].bSex == FEMALE );
 	}
 	return( FALSE );
 }
@@ -460,21 +460,21 @@ BOOLEAN CheckTalkerUnpropositionedFemale( void )
 	SOLDIERTYPE* source = GetDialogueSourceSoldier();
 	SOLDIERTYPE* destination =
 		GetDialogueDestinationSoldier();
-	if (source && source->bTeam == gbPlayerNum &&
-		source->ubProfile != NO_PROFILE)
+	if (source && source->roster().team() == gbPlayerNum &&
+		source->identity().profile() != NO_PROFILE)
 	{
-		if ( !(gMercProfiles[ source->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
+		if ( !(gMercProfiles[ source->identity().profile() ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
 		{
-			return( gMercProfiles[ source->ubProfile ].bSex == FEMALE );
+			return( gMercProfiles[ source->identity().profile() ].bSex == FEMALE );
 		}
 	}
 	else if (destination &&
-		destination->bTeam == gbPlayerNum &&
-		destination->ubProfile != NO_PROFILE)
+		destination->roster().team() == gbPlayerNum &&
+		destination->identity().profile() != NO_PROFILE)
 	{
-		if ( !(gMercProfiles[ destination->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
+		if ( !(gMercProfiles[ destination->identity().profile() ].ubMiscFlags2 & PROFILE_MISC_FLAG2_ASKED_BY_HICKS) )
 		{
-			return( gMercProfiles[ destination->ubProfile ].bSex == FEMALE );
+			return( gMercProfiles[ destination->identity().profile() ].bSex == FEMALE );
 		}
 	}
 	return( FALSE );
@@ -499,9 +499,9 @@ INT8 NumMalesPresent( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
+		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
-			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == MALE )
+			if ( pSoldier->identity().profile() != NO_PROFILE && gMercProfiles[ pSoldier->identity().profile()].bSex == MALE )
 			{
 				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= 8)
 				{
@@ -533,9 +533,9 @@ BOOLEAN FemalePresent( UINT8 ubProfileID )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
+		if ( pSoldier && pSoldier->roster().team() == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE)
 		{
-			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile].bSex == FEMALE )
+			if ( pSoldier->identity().profile() != NO_PROFILE && gMercProfiles[ pSoldier->identity().profile()].bSex == FEMALE )
 			{
 				if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= 10)
 				{
@@ -557,7 +557,7 @@ BOOLEAN CheckPlayerHasHead( void )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(bLoop);
 
-		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )
+		if ( pSoldier->roster().active() && pSoldier->vitals().health() > 0 )
 		{
 			if ( FindObjInObjRange( pSoldier, HEAD_2, HEAD_7 ) != NO_SLOT )
 			{
@@ -605,7 +605,7 @@ BOOLEAN AIMMercWithin( INT32 sGridNo, INT16 sDistance )
 	{
 		pSoldier = MercSlots[ uiLoop ];
 
-		if ( pSoldier && (pSoldier->bTeam == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
+		if ( pSoldier && (pSoldier->roster().team() == gbPlayerNum) && (pSoldier->vitals().health() >= OKLIFE) && ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) )
 		{
 			if (PythSpacesAway( sGridNo, pSoldier->position().gridNo() ) <= sDistance)
 			{
@@ -955,7 +955,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		{
 			SOLDIERTYPE* dialogueSource =
 				GetDialogueSourceSoldier();
-			gubFact[usFact] = ( ( FindSoldierByProfileID( SHANK, TRUE ) != NULL) && ( gMercProfiles[ SHANK ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( dialogueSource == NULL || dialogueSource->ubProfile != SHANK ) );
+			gubFact[usFact] = ( ( FindSoldierByProfileID( SHANK, TRUE ) != NULL) && ( gMercProfiles[ SHANK ].ubMiscFlags & PROFILE_MISC_FLAG_RECRUITED ) && ( dialogueSource == NULL || dialogueSource->identity().profile() != SHANK ) );
 			break;
 		}
 		case FACT_SHANK_NOT_IN_SECTOR:
@@ -997,7 +997,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		{
 			SOLDIERTYPE* dialogueSource =
 				GetDialogueSourceSoldier();
-			gubFact[usFact] = ( dialogueSource != NULL && (dialogueSource->ubProfile == DYNAMO || ( CheckNPCWithin( dialogueSource->ubProfile, DYNAMO, 10 ) && CheckGuyVisible( dialogueSource->ubProfile, DYNAMO ) ) ) );
+			gubFact[usFact] = ( dialogueSource != NULL && (dialogueSource->identity().profile() == DYNAMO || ( CheckNPCWithin( dialogueSource->identity().profile(), DYNAMO, 10 ) && CheckGuyVisible( dialogueSource->identity().profile(), DYNAMO ) ) ) );
 			break;
 		}
 		case FACT_JOHN_EPC:
@@ -1248,7 +1248,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		{
 			SOLDIERTYPE* dialogueDestination =
 				GetDialogueDestinationSoldier();
-			gubFact[usFact] = ( dialogueDestination && (CalcDesireToTalk( dialogueDestination->ubProfile, gubSrcSoldierProfile, APPROACH_RECRUIT ) >= 50) );
+			gubFact[usFact] = ( dialogueDestination && (CalcDesireToTalk( dialogueDestination->identity().profile(), gubSrcSoldierProfile, APPROACH_RECRUIT ) >= 50) );
 			break;
 		}
 
@@ -1265,7 +1265,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		{
 			SOLDIERTYPE* dialogueSource =
 				GetDialogueSourceSoldier();
-			gubFact[usFact] = ( dialogueSource && dialogueSource->ubProfile == SHANK );
+			gubFact[usFact] = ( dialogueSource && dialogueSource->identity().profile() == SHANK );
 			break;
 		}
 
@@ -1393,7 +1393,7 @@ BOOLEAN CheckFact( UINT16 usFact, UINT8 ubProfileID )
 		{
 			SOLDIERTYPE* dialogueSource =
 				GetDialogueSourceSoldier();
-			gubFact[usFact] = !( dialogueSource != NULL && (dialogueSource->ubProfile == DYNAMO ) );
+			gubFact[usFact] = !( dialogueSource != NULL && (dialogueSource->identity().profile() == DYNAMO ) );
 			break;
 		}
 
@@ -1817,13 +1817,13 @@ void GiveQuestRewardPoint( INT16 sQuestSectorX, INT16 sQuestsSectorY, INT8 bExpR
 	for ( SoldierID id = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; id <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
-			pSoldier->deployment().sectorX() == sQuestSectorX && pSoldier->deployment().sectorY() == sQuestsSectorY && !pSoldier->deployment().isBetweenSectors() && pSoldier->bTeam == gbPlayerNum &&
-			pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->ubProfile ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
+		if( pSoldier->roster().active() && pSoldier->vitals().health() >= CONSCIOUSNESS && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->identity().profile() != NO_PROFILE &&
+			pSoldier->deployment().sectorX() == sQuestSectorX && pSoldier->deployment().sectorY() == sQuestsSectorY && !pSoldier->deployment().isBetweenSectors() && pSoldier->roster().team() == gbPlayerNum &&
+			pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && gMercProfiles[ pSoldier->identity().profile() ].ubBodyType != 21 ) // != ROBOTNOWEAPON )
 		{
-			if ( pSoldier->ubProfile != bException )
+			if ( pSoldier->identity().profile() != bException )
 			{
-				gMercProfiles[ pSoldier->ubProfile ].records.ubQuestsHandled++;
+				gMercProfiles[ pSoldier->identity().profile() ].records.ubQuestsHandled++;
 
 				if ( bExpReward > 0 && gGameExternalOptions.usAwardSpecialExpForQuests > 0 )
 					StatChange( pSoldier, EXPERAMT, (bExpReward * gGameExternalOptions.usAwardSpecialExpForQuests), FALSE );

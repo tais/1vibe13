@@ -443,14 +443,14 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health()	)
+		if( pSoldier->roster().active() /*&& pSoldier->roster().inSector()*/ && pSoldier->vitals().health()	)
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
 			{
 				curr = curr->next;
 			}
-			if( curr && curr->pSoldier == pSoldier && pSoldier->ubProfile == NO_PROFILE )
+			if( curr && curr->pSoldier == pSoldier && pSoldier->identity().profile() == NO_PROFILE )
 			{ //found a match.
 
 				if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
@@ -627,14 +627,14 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 	for( i = gTacticalStatus.Team[ ubFirstIdTeam ].bFirstID; i <= gTacticalStatus.Team[ ubLastIdTeam ].bLastID; i++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() /*&& pSoldier->roster().inSector()*/ && pSoldier->vitals().health() )
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
 			{
 				curr = curr->next;
 			}
-			if( curr && curr->pSoldier == pSoldier && pSoldier->ubProfile == NO_PROFILE )
+			if( curr && curr->pSoldier == pSoldier && pSoldier->identity().profile() == NO_PROFILE )
 			{ //found a match.
 				if ( !curr->pDetailedPlacement->Save(hfile, FALSE) )
 				{
@@ -1418,14 +1418,14 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 		pSoldier = GetJa2SoldierRepository().resolve(i.i);
 
 		//make sure the person is active, alive, in the sector, and is not a profiled person
-		if( pSoldier && pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() && pSoldier->ubProfile == NO_PROFILE )
+		if( pSoldier && pSoldier->roster().active() /*&& pSoldier->roster().inSector()*/ && pSoldier->vitals().health() && pSoldier->identity().profile() == NO_PROFILE )
 		{ //soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
 			while( curr && curr->pSoldier != pSoldier )
 			{
 				curr = curr->next;
 			}
-			if( curr && curr->pSoldier == pSoldier && pSoldier->ubProfile == NO_PROFILE )
+			if( curr && curr->pSoldier == pSoldier && pSoldier->identity().profile() == NO_PROFILE )
 			{ //found a match.
 
 				if( !fValidateOnly )
@@ -1573,7 +1573,7 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(i.i);
 		// CJC: note that bInSector is not required; the civ could be offmap!
-		if( pSoldier->bActive /*&& pSoldier->bInSector*/ && pSoldier->vitals().health() )
+		if( pSoldier->roster().active() /*&& pSoldier->roster().inSector()*/ && pSoldier->vitals().health() )
 		{
 			//soldier is valid, so find the matching soldier init list entry for modification.
 			curr = gSoldierInitHead;
@@ -1581,7 +1581,7 @@ BOOLEAN NewWayOfSavingEnemyAndCivliansToTempFile( INT16 sSectorX, INT16 sSectorY
 			{
 				curr = curr->next;
 			}
-			if( curr && curr->pSoldier == pSoldier && pSoldier->ubProfile == NO_PROFILE )
+			if( curr && curr->pSoldier == pSoldier && pSoldier->identity().profile() == NO_PROFILE )
 			{
 				//found a match.
 				if ( !curr->pDetailedPlacement->Save(hfile, FALSE) )

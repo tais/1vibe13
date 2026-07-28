@@ -743,10 +743,10 @@ void BuildSectorsWithSoldiersList( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// fills array with pressence of player controlled characters
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if(pTeamSoldier->bActive && pTeamSoldier->deployment().sectorZ() < 4)
+		if(pTeamSoldier->roster().active() && pTeamSoldier->deployment().sectorZ() < 4)
 		{
 			fSectorsWithSoldiers[ CALCULATE_STRATEGIC_INDEX(pTeamSoldier->deployment().sectorX(), pTeamSoldier->deployment().sectorY() ) ][ pTeamSoldier->deployment().sectorZ() ] = TRUE;
 		}
@@ -808,7 +808,7 @@ static BOOLEAN BasicCanCharacterAssignment( SOLDIERTYPE * pSoldier, BOOLEAN fNot
 		return( FALSE );
 	}
 
-	if ( fNotInCombat && pSoldier->bActive && pSoldier->bInSector && gTacticalStatus.fEnemyInSector )
+	if ( fNotInCombat && pSoldier->roster().active() && pSoldier->roster().inSector() && gTacticalStatus.fEnemyInSector )
 	{
 		return( FALSE );
 	}
@@ -2080,7 +2080,7 @@ INT8 CountMilitiaTrainersInSoldiersSector( SOLDIERTYPE * pSoldier, UINT8 ubMilit
 	{
 		SOLDIERTYPE* other =
 			GetJa2SoldierRepository().resolve(OtherSoldier);
-		if ( other && pSoldier != other && other->bActive &&
+		if ( other && pSoldier != other && other->roster().active() &&
 			other->vitals().health() >= OKLIFE &&
 			other->deployment().sectorX() == pSoldier->deployment().sectorX() &&
 			other->deployment().sectorY() == pSoldier->deployment().sectorY() &&
@@ -2565,7 +2565,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 		if ( !SoldierAboardAirborneHeli( pSoldier ) )
 		{
 			// if he's in the loaded sector, and it's hostile or in combat
-			if( pSoldier->bInSector && ( ( IsJa2TacticalCombatActive() ) || gTacticalStatus.fEnemyInSector ) )
+			if( pSoldier->roster().inSector() && ( ( IsJa2TacticalCombatActive() ) || gTacticalStatus.fEnemyInSector ) )
 			{
 				if( fExplainWhyNot )
 				{
@@ -2852,7 +2852,7 @@ BOOLEAN CanCharacterSnitch( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 
 	// has character a snitch trait
-	if( ProfileHasSkillTrait( pSoldier->ubProfile, SNITCH_NT ) )
+	if( ProfileHasSkillTrait( pSoldier->identity().profile(), SNITCH_NT ) )
 	{
 		return( TRUE );
 	}
@@ -3132,7 +3132,7 @@ void VerifyTownTrainingIsPaidFor( void )
 
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-		if( pSoldier->bActive && ( pSoldier->assignment().current() == TRAIN_TOWN ) )
+		if( pSoldier->roster().active() && ( pSoldier->assignment().current() == TRAIN_TOWN ) )
 		{
 			// make sure that sector is paid up!
 			if( SectorInfo[ SECTOR( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) ].fMilitiaTrainingPaid == FALSE )
@@ -3160,15 +3160,15 @@ UINT8 FindNumberInSectorWithAssignment( INT16 sX, INT16 sY, INT8 bAssignment )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) &&( pTeamSoldier->assignment().current() == bAssignment ) )
 			{
 				// increment number of people who are on this assignment
-				if(pTeamSoldier->bActive)
+				if(pTeamSoldier->roster().active())
 					++bNumberOfPeople;
 			}
 		}
@@ -3186,10 +3186,10 @@ UINT8 GetNumberThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN fThisHour, BOOLE
 	AssertNotNIL(pDoctor);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, fThisHour, fSkipKitCheck, fSkipSkillCheck, fCheckForSurgery ) )
 			{
@@ -3210,10 +3210,10 @@ static SOLDIERTYPE* GetPatientThatCanBeDoctored( SOLDIERTYPE *pDoctor, BOOLEAN f
 	AssertNotNIL( pDoctor );
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0; cnt <= gTacticalStatus.Team[pSoldier->bTeam].bLastID; ++cnt )
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[pSoldier->roster().team()].bLastID; ++cnt )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pTeamSoldier->bActive )
+		if ( pTeamSoldier->roster().active() )
 		{
 			if ( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, fThisHour, fSkipKitCheck, fSkipSkillCheck, fCheckForSurgery ) )
 			{
@@ -3234,11 +3234,11 @@ SOLDIERTYPE *AnyDoctorWhoCanHealThisPatient( SOLDIERTYPE *pPatient, BOOLEAN fThi
 	AssertNotNIL(pSoldier);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// doctor?
-		if( pTeamSoldier->bActive && IS_DOCTOR(pTeamSoldier->assignment().current()) )
+		if( pTeamSoldier->roster().active() && IS_DOCTOR(pTeamSoldier->assignment().current()) )
 		{
 			if( CanSoldierBeHealedByDoctor( pPatient, pTeamSoldier, FALSE, fThisHour, FALSE, FALSE, FALSE ) == TRUE )
 			{
@@ -3546,7 +3546,7 @@ UINT32 CalculateInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts )
 	usInterrogationPoints = 20 + 3 * EffectiveExpLevel( pSoldier, FALSE ) + EffectiveLeadership( pSoldier ) / 2;
 
 	// adjust for threatening value
-	INT32 threatenvalue = CalcThreateningEffectiveness( pSoldier->ubProfile ) * gMercProfiles[pSoldier->ubProfile].usApproachFactor[2] ;
+	INT32 threatenvalue = CalcThreateningEffectiveness( pSoldier->identity().profile() ) * gMercProfiles[pSoldier->identity().profile()].usApproachFactor[2] ;
 	
 	threatenvalue = (threatenvalue * (100 + pSoldier->GetBackgroundValue(BG_PERC_APPROACH_THREATEN))) / 100;
 		
@@ -3671,7 +3671,7 @@ static UINT32 CalculateAllGuardsValueInPrison( INT16 sMapX, INT16 sMapY, INT8 bZ
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+		if( guard && guard->roster().active() && ( guard->deployment().sectorX() == sMapX ) &&
 			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) )
 		{
 			prisonguardvalue += CalculatePrisonGuardValue( guard );
@@ -3694,7 +3694,7 @@ static UINT32 CalculateAllSnitchesGuardValueInPrison( INT16 sMapX, INT16 sMapY, 
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+		if( guard && guard->roster().active() && ( guard->deployment().sectorX() == sMapX ) &&
 			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
 			guard->assignment().isAsleep() == FALSE )
 		{
@@ -3718,7 +3718,7 @@ static UINT32 CalculateAllGuardsNumberInPrison( INT16 sMapX, INT16 sMapY, INT8 b
 	for ( ; Soldier <= lastid; ++Soldier)
 	{
 		SOLDIERTYPE* guard = GetJa2SoldierRepository().resolve(Soldier);
-		if( guard && guard->bActive && ( guard->deployment().sectorX() == sMapX ) &&
+		if( guard && guard->roster().active() && ( guard->deployment().sectorX() == sMapX ) &&
 			( guard->deployment().sectorY() == sMapY ) && ( guard->deployment().sectorZ() == bZ) &&
 			guard->assignment().isAsleep() == FALSE )
 		{
@@ -3767,7 +3767,7 @@ UINT32 CalculateSnitchInterrogationValue(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPt
 	}
 
 	// adjust for friendly value
-	INT32 friendlyvalue =  ( ( EffectiveLeadership( pSoldier ) + EffectiveWisdom( pSoldier ) ) /2 ) * gMercProfiles[pSoldier->ubProfile].usApproachFactor[0];
+	INT32 friendlyvalue =  ( ( EffectiveLeadership( pSoldier ) + EffectiveWisdom( pSoldier ) ) /2 ) * gMercProfiles[pSoldier->identity().profile()].usApproachFactor[0];
 
 	if ( gGameOptions.fNewTraitSystem )
 	{
@@ -3823,7 +3823,7 @@ FLOAT GetBestSAMOperatorCTH_Player( INT16 sSectorX, INT16 sSectorY, INT16 sSecto
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && (pSoldier->deployment().sectorX() == sSectorX) && (pSoldier->deployment().sectorY() == sSectorY) && (pSoldier->deployment().sectorZ() == sSectorZ) )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE && (pSoldier->deployment().sectorX() == sSectorX) && (pSoldier->deployment().sectorY() == sSectorY) && (pSoldier->deployment().sectorZ() == sSectorZ) )
 		{
 			INT16 personal_bestsamcth = 70.0f +
 				15 * NUM_SKILL_TRAITS( pSoldier, HEAVY_WEAPONS_NT ) +
@@ -4072,12 +4072,12 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 
 void MakeSoldierKnownAsMercInPrison(SOLDIERTYPE *pSoldier, INT16 sMapX, INT16 sMapY)
 {
-	gMercProfiles[pSoldier->ubProfile].ubSnitchExposedCooldown += 24;
+	gMercProfiles[pSoldier->identity().profile()].ubSnitchExposedCooldown += 24;
 }
 
 BOOLEAN IsSoldierKnownAsMercInSector(SOLDIERTYPE *pSoldier, INT16 sMapX, INT16 sMapY)
 {
-	if( gMercProfiles[pSoldier->ubProfile].ubSnitchExposedCooldown > 0 )
+	if( gMercProfiles[pSoldier->identity().profile()].ubSnitchExposedCooldown > 0 )
 		return( TRUE );
 
 	return( FALSE );
@@ -4146,10 +4146,10 @@ void HandleDoctorsInSector( INT16 sX, INT16 sY, INT8 bZ )
 	// will handle doctor/patient relationship in sector
 
 	// go through list of characters, find all doctors in sector
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if(pTeamSoldier->bActive)
+		if(pTeamSoldier->roster().active())
 		{
 			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ ) )
 			{
@@ -4183,7 +4183,7 @@ void HandleDoctorMilitia()
 	for ( ; cnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++cnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->assignment().isAsleep() ) )
+		if ( pSoldier && pSoldier->roster().active() && !pSoldier->deployment().sectorZ() && pSoldier->assignment().current() == DOCTOR_MILITIA && !( pSoldier->assignment().isAsleep() ) )
 		{
 			// character is in sector, check if can doctor, if so...heal people
 			if ( EnoughTimeOnAssignment( pSoldier ) && CanCharacterDoctorMilitia( pSoldier ) )
@@ -4239,7 +4239,7 @@ void UpdatePatientsWhoAreDoneHealing( void )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// active soldier?
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			// patient who doesn't need healing or curing
 			if ( IS_PATIENT(pTeamSoldier->assignment().current()) && !IS_DOCTOR(pTeamSoldier->assignment().current()) && (pTeamSoldier->vitals().health() == pTeamSoldier->vitals().maximumHealth()) && pTeamSoldier->HasDisease(TRUE, TRUE) )
@@ -4292,10 +4292,10 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 		usEvenHealingAmount = usRemainingHealingPts / ubTotalNumberOfPatients;
 
 		// heal each of the healable mercs by this equal amount
-		for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+		for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 		{
 			pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-			if( pTeamSoldier->bActive )
+			if( pTeamSoldier->roster().active() )
 			{
 				if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_THIS_HOUR, FALSE, FALSE, FALSE ) == TRUE )
 				{
@@ -4316,10 +4316,10 @@ void HealCharacters( SOLDIERTYPE *pDoctor, INT16 sX, INT16 sY, INT8 bZ )
 				// find the worst hurt patient
 				pWorstHurtSoldier = NULL;
 
-				for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+				for ( cnt = 0; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 				{
 					pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-					if( pTeamSoldier->bActive )
+					if( pTeamSoldier->roster().active() )
 					{
 						if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_THIS_HOUR, FALSE, FALSE, FALSE ) == TRUE )
 						{
@@ -4411,7 +4411,7 @@ BOOLEAN IsSoldierCloseEnoughToADoctor( SOLDIERTYPE *pPatient )
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 
 			// are they two of these guys in the same sector?
@@ -4454,7 +4454,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	BOOLEAN fHealDamagedStat = FALSE;
 
 	// must be an active guy
-	if (pSoldier->bActive == FALSE)
+	if (pSoldier->roster().active() == FALSE)
 	{
 		return(FALSE);
 	}
@@ -4676,7 +4676,7 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 
 			// patient expresses his gratitude
 			if (pDoctor)
-				AddOpinionEvent(pPatient->ubProfile, pDoctor->ubProfile, OPINIONEVENT_DISEASE_TREATMENT, TRUE);
+				AddOpinionEvent(pPatient->identity().profile(), pDoctor->identity().profile(), OPINIONEVENT_DISEASE_TREATMENT, TRUE);
 		}
 	}
 	/////////////////////////// LIFE HEAL ////////////////////////////////////
@@ -4761,8 +4761,8 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 	}
 
 	// add to our records
-	if ( pDoctor && pDoctor->ubProfile != NO_PROFILE )
-		gMercProfiles[pDoctor->ubProfile].records.usPointsHealed += (sHundredsToHeal_Used + sHundredsToRepair_Used + sHundredsToDiseaseCure_Used);
+	if ( pDoctor && pDoctor->identity().profile() != NO_PROFILE )
+		gMercProfiles[pDoctor->identity().profile()].records.usPointsHealed += (sHundredsToHeal_Used + sHundredsToRepair_Used + sHundredsToDiseaseCure_Used);
 
 	return (sHundredsToHeal_Used + sHundredsToRepair_Used + sHundredsToDiseaseCure_Used);
 }
@@ -4783,10 +4783,10 @@ void CheckForAndHandleHospitalPatients( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			if ( pTeamSoldier->assignment().current() == ASSIGNMENT_HOSPITAL )
 			{
@@ -4811,10 +4811,10 @@ void HandleRepairmenInSector( INT16 sX, INT16 sY, INT8 bZ )
 	// will handle repairman/client relationship in sector
 
 	// go through list of characters, find all repairmen in sector
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			if( ( pTeamSoldier->deployment().sectorX() == sX ) && ( pTeamSoldier->deployment().sectorY() == sY ) && ( pTeamSoldier->deployment().sectorZ() == bZ) )
 			{
@@ -5248,12 +5248,12 @@ BOOLEAN RepairObject( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOwner, OBJECTTYPE *
 			// if the item was repaired to full status and the repair wa at least 5%, add a point
 			if ( (*pObj)[ubLoop]->data.objectStatus == threshold && (((*pObj)[ubLoop]->data.objectStatus - ubBeforeRepair) > 4 ))
 			{
-				gMercProfiles[ pSoldier->ubProfile ].records.usItemsRepaired++;
+				gMercProfiles[ pSoldier->identity().profile() ].records.usItemsRepaired++;
 			}
 			// if the item was now repaired to a status of 96-99 and the repair was at least 2%, add a point, consider the item repaired (no points will be awarded for it anyway)
 			else if ( (*pObj)[ubLoop]->data.objectStatus > threshold - 5 && (*pObj)[ubLoop]->data.objectStatus < threshold && ((*pObj)[ubLoop]->data.objectStatus - ubBeforeRepair) > 1) 
 			{
-				gMercProfiles[ pSoldier->ubProfile ].records.usItemsRepaired++;
+				gMercProfiles[ pSoldier->identity().profile() ].records.usItemsRepaired++;
 			}
 
 			// note: this system is bad if we can repair only 1% per hour (which is rather we are total losers)
@@ -6086,10 +6086,10 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		sBestTrainingPts = -1;
 
 		// search team for active instructors in this sector
-		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ) )
+			if( pTrainer->roster().active() && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ) )
 			{
 				// if he's training teammates in this stat
 				if( ( pTrainer->assignment().current() == TRAIN_TEAMMATE ) && ( pTrainer->assignment().trainingStat() == ubStat) && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
@@ -6109,11 +6109,11 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	}
 
 	// now search team for active self-trainers in this sector
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pStudent = GetJa2SoldierRepository().resolve(uiCnt);
 		// see if this merc is active and in the same sector
-		if( ( pStudent->bActive) && ( pStudent->deployment().sectorX() == sMapX ) && ( pStudent->deployment().sectorY() == sMapY ) && ( pStudent->deployment().sectorZ() == bZ ) )
+		if( ( pStudent->roster().active()) && ( pStudent->deployment().sectorX() == sMapX ) && ( pStudent->deployment().sectorY() == sMapY ) && ( pStudent->deployment().sectorZ() == bZ ) )
 		{
 			// if he's training himself (alone, or by others), then he's a student
 			if ( ( pStudent->assignment().current() == TRAIN_SELF ) || ( pStudent->assignment().current() == TRAIN_BY_OTHER ) )
@@ -6181,10 +6181,10 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		ubTownTrainers = 0;
 
 		// build list of all the town trainers in this sector and their training pts
-		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
+			if( pTrainer->roster().active() && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
 				if( ( pTrainer->assignment().current() == TRAIN_TOWN ) && ( EnoughTimeOnAssignment( pTrainer ) )	&& ( pTrainer->assignment().isAsleep() == FALSE ) )
 				{
@@ -6237,7 +6237,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 		{
 			pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-			if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
+			if ( pTrainer->roster().active() && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 			{
 				if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 				{
@@ -6275,7 +6275,7 @@ void HandleTrainingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 				for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 				{
 					pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-					if ( pTrainer->bActive && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
+					if ( pTrainer->roster().active() && ( pTrainer->deployment().sectorX() == sMapX ) && ( pTrainer->deployment().sectorY() == sMapY ) && ( pTrainer->deployment().sectorZ() == bZ ) )
 					{
 						if ( pTrainer->assignment().current() == DRILL_MILITIA && ( EnoughTimeOnAssignment( pTrainer ) ) && ( pTrainer->assignment().isAsleep() == FALSE ) )
 						{
@@ -6311,10 +6311,10 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 
 	// we will count the number of radio operators in this sector that have scanned successfully this hour. The higher this number, the higher the chance to detect enemy patrols!
 	// search team for radio operators in this sector that performed this assignemnt successfully
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
+		if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if( ( pSoldier->assignment().current() == RADIO_SCAN ) && ( EnoughTimeOnAssignment( pSoldier ) ) && ( pSoldier->assignment().isAsleep() == FALSE ) )
 			{
@@ -6385,10 +6385,10 @@ void HandleRadioScanInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	}
 
 	// award experience to all radio operators
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
+		if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->assignment().isAsleep() && (pSoldier->assignment().current() == RADIO_SCAN) && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -6422,10 +6422,10 @@ void HandleDiseaseDiagnosis()
 	// depending on his skills how far an infection has gotten, the infection will be made public, giving us more time to cure it
 	SOLDIERTYPE *pSoldier = NULL;
 	UINT32 uiCnt = 0;
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[GetJa2SoldierRepository().resolve(0)->bTeam].bLastID; ++uiCnt )
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[GetJa2SoldierRepository().resolve(0)->roster().team()].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier->roster().active() && pSoldier->assignment().current() == DISEASE_DIAGNOSE && CanCharacterDiagnoseDisease( pSoldier ) && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			// determine our skill at detecting disease
 			UINT16 skill = pSoldier->GetDiseaseDiagnosePoints();
@@ -6436,7 +6436,7 @@ void HandleDiseaseDiagnosis()
 			for ( uiCnt2 = 0; uiCnt2 <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt2 )
 			{
 				pTeamSoldier = GetJa2SoldierRepository().resolve(uiCnt2);
-				if ( pTeamSoldier->bActive 
+				if ( pTeamSoldier->roster().active()
 						&& pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() )
 				{
 					for ( int i = 0; i < NUM_DISEASES; ++i )
@@ -6540,7 +6540,7 @@ void HandleStrategicDiseaseAndBurial()
 					for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 					{
 						pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-						if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
+						if ( pSoldier->roster().active() && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
 							pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 						{
 							corpseremovalpoints += pSoldier->GetBurialPoints( NULL );
@@ -6673,7 +6673,7 @@ void HandleStrategicDiseaseAndBurial()
 						for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 						{
 							pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-							if ( pSoldier->bActive && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
+							if ( pSoldier->roster().active() && pSoldier->assignment().current() == BURIAL && !pSoldier->assignment().isAsleep() &&
 								pSoldier->deployment().sectorX() == sX && pSoldier->deployment().sectorY() == sY && !pSoldier->deployment().sectorZ() && EnoughTimeOnAssignment( pSoldier ) )
 							{
 								StatChange( pSoldier, STRAMT, 8, FALSE );
@@ -6701,7 +6701,7 @@ void HandleStrategicDiseaseAndBurial()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && pSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR && !pSoldier->deployment().sectorZ() &&
+		if ( pSoldier->roster().active() && pSoldier->assignment().current() == DISEASE_DOCTOR_SECTOR && !pSoldier->deployment().sectorZ() &&
 			!pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) && CanCharacterTreatSectorDisease( pSoldier ) )
 		{
 			// if we are doctoring in a sector, then we know for sure that there is disease here
@@ -7179,17 +7179,17 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 
 	// we will count the number of snitches in this sector that have spread propaganda successfully this hour. The higher this number, the higher loyalty increase!
 	// search team for snitches in this sector that performed this assignemnt successfully
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; uiCnt++)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; uiCnt++)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( ( pSnitch->bActive && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
+		if( ( pSnitch->roster().active() && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( ( pSnitch->deployment().sectorX() == sMapX && pSnitch->deployment().sectorY() == sMapY && pSnitch->deployment().sectorZ() == bZ ) || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
 			uiPropagandaEffect += GAIN_PTS_PER_LOYALTY_PT * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
 				(  ( 75 + EffectiveWisdom(pSnitch) / 4 ) / 100.0 ) *
-				(  ( 75 + ( gMercProfiles[ pSnitch->ubProfile ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 ) ;
+				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 ) ;
 			if( pSnitch->assignment().facilityType() && // Soldier is operating facility
 				GetSoldierFacilityAssignmentIndex( pSnitch ) != -1) 
 			{
@@ -7209,10 +7209,10 @@ void HandleSpreadingPropagandaInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	IncrementTownLoyalty( ubTownId, uiPropagandaEffect );
 
 	// award experience to all snitches
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSnitch->bActive && ( pSnitch->deployment().sectorX() == sMapX ) && ( pSnitch->deployment().sectorY() == sMapY ) && ( pSnitch->deployment().sectorZ() == bZ) )
+		if( pSnitch->roster().active() && ( pSnitch->deployment().sectorX() == sMapX ) && ( pSnitch->deployment().sectorY() == sMapY ) && ( pSnitch->deployment().sectorZ() == bZ) )
 		{
 			if( ( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA ) && ( EnoughTimeOnAssignment( pSnitch ) ) && ( pSnitch->assignment().isAsleep() == FALSE ) )
 			{
@@ -7232,17 +7232,17 @@ UINT32 HandlePropagandaBlockingBadNewsInTown( INT8 bTownId, UINT32 uiLoyaltyDecr
 	UINT32 uiNewLoyaltyDecrease = uiLoyaltyDecrease;
 
 	// search team for snitches in this sector that performed this assignment successfully
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pSnitch = GetJa2SoldierRepository().resolve(uiCnt);
-		if( ( pSnitch->bActive && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
+		if( ( pSnitch->roster().active() && pSnitch->assignment().isAsleep() == FALSE && EnoughTimeOnAssignment( pSnitch ) ) &&
 			( pSnitch->assignment().current() == SNITCH_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) &&
 			( GetTownIdForSector( pSnitch->deployment().sectorX(), pSnitch->deployment().sectorY() ) == bTownId || pSnitch->assignment().current() == FACILITY_SPREAD_PROPAGANDA_GLOBAL ) )
 		{
 			fPropagandaEffect = 0.5 * 
 				(  ( 50 + EffectiveLeadership(pSnitch) / 2 ) / 100.0 ) *
 				(  ( 75 + EffectiveWisdom(pSnitch) / 4 ) / 100.0 ) *
-				(  ( 75 + ( gMercProfiles[ pSnitch->ubProfile ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 );
+				(  ( 75 + ( gMercProfiles[ pSnitch->identity().profile() ].usApproachFactor[3] + pSnitch->GetBackgroundValue(BG_PERC_APPROACH_RECRUIT) ) / 4 ) / 100.0 );
 
 			if( pSnitch->assignment().facilityType() && // Soldier is operating facility
 				GetSoldierFacilityAssignmentIndex( pSnitch ) != -1) 
@@ -7267,7 +7267,7 @@ void HandleGatheringInformationBySoldier( SOLDIERTYPE* pSoldier )
 	if (!SectorOursAndPeaceful( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ))
 		return;
 
-	if( !(pSoldier->bActive) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->assignment().isAsleep() == TRUE || pSoldier->deployment().isBetweenSectors() == TRUE )
+	if( !(pSoldier->roster().active()) || !EnoughTimeOnAssignment( pSoldier ) || pSoldier->assignment().isAsleep() == TRUE || pSoldier->deployment().isBetweenSectors() == TRUE )
 	{
 		if( pSoldier->assignment().current() != SNITCH_GATHER_RUMOURS && pSoldier->assignment().current() != FACILITY_GATHER_RUMOURS )
 		{
@@ -7498,10 +7498,10 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 		}
 
 		// factor in their mutual relationship
-		if (OKToCheckOpinion(pInstructor->ubProfile))
-		bOpinionFactor	= gMercProfiles[	pStudent->ubProfile ].bMercOpinion[ pInstructor->ubProfile ];
-		if (OKToCheckOpinion(pStudent->ubProfile))
-		bOpinionFactor += gMercProfiles[ pInstructor->ubProfile ].bMercOpinion[	pStudent->ubProfile ] / 2;
+		if (OKToCheckOpinion(pInstructor->identity().profile()))
+		bOpinionFactor	= gMercProfiles[	pStudent->identity().profile() ].bMercOpinion[ pInstructor->identity().profile() ];
+		if (OKToCheckOpinion(pStudent->identity().profile()))
+		bOpinionFactor += gMercProfiles[ pInstructor->identity().profile() ].bMercOpinion[	pStudent->identity().profile() ] / 2;
 	}
 
 	// check to see if student better than/equal to instructor's effective skill, if so, return 0
@@ -7844,10 +7844,10 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 	sBestTrainingPts = -1;
 
 	// search team for active instructors in this sector
-	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->bTeam ].bLastID; ++uiCnt)
+	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ GetJa2SoldierRepository().resolve(0)->roster().team() ].bLastID; ++uiCnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pTrainer->bActive && ( pTrainer->deployment().sectorX() == pSoldier->deployment().sectorX() ) && ( pTrainer->deployment().sectorY() == pSoldier->deployment().sectorY() ) && ( pTrainer->deployment().sectorZ() == pSoldier->deployment().sectorZ()) )
+		if( pTrainer->roster().active() && ( pTrainer->deployment().sectorX() == pSoldier->deployment().sectorX() ) && ( pTrainer->deployment().sectorY() == pSoldier->deployment().sectorY() ) && ( pTrainer->deployment().sectorZ() == pSoldier->deployment().sectorZ()) )
 		{
 			// if he's training teammates in this stat
 			// NB skip the EnoughTime requirement to display what the value should be even if haven't been training long yet...
@@ -8262,7 +8262,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
+		if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -8393,7 +8393,7 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++uiCnt)
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
+		if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) )
 		{
 			if ( !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 			{
@@ -8417,8 +8417,8 @@ void HandlePrisonerProcessingInSector( INT16 sMapX, INT16 sMapY, INT8 bZ )
 				}
 
 				// add to our records. Screw exact values, just add them all and call it a day
-				if ( pSoldier->ubProfile != NO_PROFILE )
-					gMercProfiles[pSoldier->ubProfile].records.usInterrogations += prisonersinterrogated;
+				if ( pSoldier->identity().profile() != NO_PROFILE )
+					gMercProfiles[pSoldier->identity().profile()].records.usInterrogations += prisonersinterrogated;
 			}
 		}
 	}
@@ -8851,7 +8851,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 	for ( ; id <= lastid; ++id )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
+		if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
 		{
 			if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
@@ -9097,7 +9097,7 @@ void HandleEquipmentMove( INT16 sMapX, INT16 sMapY, INT8 bZ )
 		for ( ; id <= lastid; ++id)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if( pSoldier->bActive && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
+			if( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == sMapX ) && ( pSoldier->deployment().sectorY() == sMapY ) && ( pSoldier->deployment().sectorZ() == bZ) && pSoldier->assignment().isAsleep() == FALSE )
 			{
 				if( ( pSoldier->assignment().current() == MOVE_EQUIPMENT ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 				{
@@ -9126,7 +9126,7 @@ void HandleTrainWorkers()
 	for ( ; id <= lastid; ++id)
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if( pSoldier->bActive && !pSoldier->deployment().sectorZ() && !pSoldier->assignment().isAsleep() )
+		if( pSoldier->roster().active() && !pSoldier->deployment().sectorZ() && !pSoldier->assignment().isAsleep() )
 		{
 			if( ( pSoldier->assignment().current() == TRAIN_WORKERS ) && ( EnoughTimeOnAssignment( pSoldier ) ) )
 			{
@@ -9180,7 +9180,7 @@ void HandleFortification()
 	for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-		if ( pSoldier->bActive && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
+		if ( pSoldier->roster().active() && !pSoldier->assignment().isAsleep() && EnoughTimeOnAssignment( pSoldier ) )
 		{
 			if ( (pSoldier->assignment().current() == FORTIFICATION) && CanCharacterFortify( pSoldier ) )
 			{
@@ -9268,8 +9268,8 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 	}
 
 	// RPCs get a small training bonus for being more familiar with the locals and their customs/needs than outsiders
-	if ( gMercProfiles[pTrainer->ubProfile].Type == PROFILETYPE_RPC ||
-		gMercProfiles[pTrainer->ubProfile].Type == PROFILETYPE_NPC )
+	if ( gMercProfiles[pTrainer->identity().profile()].Type == PROFILETYPE_RPC ||
+		gMercProfiles[pTrainer->identity().profile()].Type == PROFILETYPE_NPC )
 	{
 		sTrainingBonus += gGameExternalOptions.ubRpcBonusToTrainMilitia;
 	}
@@ -9325,7 +9325,7 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 void MakeSoldiersTacticalAnimationReflectAssignment( SOLDIERTYPE *pSoldier )
 {
 	// soldier is in tactical, world loaded, he's OKLIFE
-	if( ( pSoldier->bInSector ) && IsJa2TacticalWorldLoaded() && ( pSoldier->vitals().health() >= OKLIFE ) )
+	if( ( pSoldier->roster().inSector() ) && IsJa2TacticalWorldLoaded() && ( pSoldier->vitals().health() >= OKLIFE ) )
 	{
 		// Set animation based on his assignment
 		if ( IS_DOCTOR(pSoldier->assignment().current()) )
@@ -9367,7 +9367,7 @@ void AssignmentAborted( SOLDIERTYPE *pSoldier, UINT8 ubReason )
 
 void AssignmentDone( SOLDIERTYPE *pSoldier, BOOLEAN fSayQuote, BOOLEAN fMeToo )
 {
-	if ( ( pSoldier->bInSector ) && ( IsJa2TacticalWorldLoaded() ) )
+	if ( ( pSoldier->roster().inSector() ) && ( IsJa2TacticalWorldLoaded() ) )
 	{
 		if ( IS_DOCTOR(pSoldier->assignment().current()) )
 		{
@@ -9466,10 +9466,10 @@ void HandleNaturalHealing( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; ++cnt)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			// mechanical members don't regenerate!
 			if( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pTeamSoldier ) ) )
@@ -9562,12 +9562,12 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 		for ( ; id <= lastid; ++id )
 		{
 			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
-			if ( !(pMedic->bActive) || !(pMedic->bInSector) || ( pMedic->status().flags() & SOLDIER_VEHICLE ) || (pMedic->assignment().current() == VEHICLE ) )
+			if ( !(pMedic->roster().active()) || !(pMedic->roster().inSector()) || ( pMedic->status().flags() & SOLDIER_VEHICLE ) || (pMedic->assignment().current() == VEHICLE ) )
 			{
 				continue; // NEXT!!!
 			}
 			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->statistics().medical() > 0
-				&& pMedic->ubID != pSoldier->ubID && HAS_SKILL_TRAIT( pMedic, DOCTOR_NT ))
+				&& pMedic->identity().id() != pSoldier->identity().id() && HAS_SKILL_TRAIT( pMedic, DOCTOR_NT ))
 			{
 				bRegenerationBonus += NUM_SKILL_TRAITS( pMedic, DOCTOR_NT );
 				if (bRegenerationBonus >= gSkillTraitValues.ubDOMaxRegenBonuses) // how many doctor traits can help
@@ -9658,7 +9658,7 @@ void CheckIfSoldierUnassigned( SOLDIERTYPE *pSoldier )
 		// unassigned
 		AddCharacterToAnySquad( pSoldier );
 
-		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
+		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->roster().inSector() ) )
 		{
 			pSoldier->ChangeSoldierState( STANDING, 1, TRUE );
 		}
@@ -10352,7 +10352,7 @@ void RepairMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
+	if ( pSoldier && pSoldier->roster().active() && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
 	{
 		if( ( iRepairWhat >= REPAIR_MENU_VEHICLE1 ) && ( iRepairWhat <= REPAIR_MENU_VEHICLE3 ) )
 		{
@@ -10674,7 +10674,7 @@ void HandleShadingOfLinesForAssignmentMenus( void )
 
 	pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive )
+	if ( pSoldier && pSoldier->roster().active() )
 	{
 		if( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC )
 		{
@@ -12779,7 +12779,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 		if (pSoldier->status().flags() & SOLDIER_VEHICLE)
 		{
 			StrategicRemoveMerc(pSoldier);
-			HandleLeavingOfEquipmentInCurrentSector(pSoldier->ubID);
+			HandleLeavingOfEquipmentInCurrentSector(pSoldier->identity().id());
 			return;
 		}
 
@@ -12841,7 +12841,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 			{
 				// this will cause him give us lame excuses for a while until he gets over it
 				// 3-6 days (but the first 1-2 days of that are spent "returning" home)
-				gMercProfiles[ pSoldier->ubProfile ].ubDaysOfMoraleHangover = (UINT8) (3 + Random(4));
+				gMercProfiles[ pSoldier->identity().profile() ].ubDaysOfMoraleHangover = (UINT8) (3 + Random(4));
 
 				// if it's an AIM merc, word of this gets back to AIM...	Bad rep.
 				if( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC )
@@ -12895,7 +12895,7 @@ void ContractMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	}
 
 	AssertNotNIL( pSoldier );
-	AssertT( pSoldier->bActive );
+	AssertT( pSoldier->roster().active() );
 
 
 	iValue = MSYS_GetRegionUserData( pRegion, 0 );
@@ -13851,10 +13851,10 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 		for ( ; id <= lastid; ++id )
 		{
 			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
-			if ( !(pMedic->bActive) || !(pMedic->bInSector) || (pMedic->status().flags() & SOLDIER_VEHICLE) || (pMedic->assignment().current() == VEHICLE) )
+			if ( !(pMedic->roster().active()) || !(pMedic->roster().inSector()) || (pMedic->status().flags() & SOLDIER_VEHICLE) || (pMedic->assignment().current() == VEHICLE) )
 				continue; // is nowhere around!
 
-			if ( (pSoldier->ubID == pMedic->ubID) || !IS_DOCTOR( pMedic->assignment().current() ) )
+			if ( (pSoldier->identity().id() == pMedic->identity().id()) || !IS_DOCTOR( pMedic->assignment().current() ) )
 				continue; // cannot make surgery on self or not on the right assignment!	
 
 			bSlot = FindMedKit( pMedic );
@@ -15263,7 +15263,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 				}
 				else
 				{
-					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->ubProfile ].sSalary).data() );
+					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->identity().profile() ].sSalary).data() );
 				}
 				swprintf( sString, L"%s ( %s )",	pContractStrings[uiCounter], sDollarString);
 				AddMonoString(&hStringHandle, sString);
@@ -15276,7 +15276,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 				}
 				else
 				{
-					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->ubProfile ].uiWeeklySalary).data() );
+					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->identity().profile() ].uiWeeklySalary).data() );
 				}
 
 				swprintf( sString, L"%s ( %s )",	pContractStrings[uiCounter], sDollarString );
@@ -15290,7 +15290,7 @@ void CreateContractBox( SOLDIERTYPE *pCharacter )
 				}
 				else
 				{
-					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->ubProfile ].uiBiWeeklySalary).data() );
+					swprintf( sDollarString, L"%s", FormatMoney(gMercProfiles[ pCharacter->identity().profile() ].uiBiWeeklySalary).data() );
 				}
 
 
@@ -16468,7 +16468,7 @@ void HandleRestFatigueAndSleepStatus( void )
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 			{
@@ -16617,7 +16617,7 @@ void HandleRestFatigueAndSleepStatus( void )
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 			{
@@ -16763,10 +16763,10 @@ SOLDIERTYPE * GetRobotSoldier( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// go through list of characters, find all who are on this assignment
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if( pTeamSoldier->bActive )
+		if( pTeamSoldier->roster().active() )
 		{
 			if( AM_A_ROBOT( pTeamSoldier ) )
 			{
@@ -18140,7 +18140,7 @@ BOOLEAN PutMercInAsleepState( SOLDIERTYPE *pSoldier )
 {
 	if( pSoldier->assignment().isAsleep() == FALSE )
 	{
-		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
+		if( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->roster().inSector() ) )
 		{
 			if( GetCurrentScreen() == GAME_SCREEN )
 			{
@@ -18183,7 +18183,7 @@ BOOLEAN PutMercInAwakeState( SOLDIERTYPE *pSoldier )
 {
 	if ( pSoldier->assignment().isAsleep() )
 	{
-		if ( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->bInSector ) )
+		if ( ( IsJa2TacticalWorldLoaded() ) && ( pSoldier->roster().inSector() ) )
 		{
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
@@ -18416,7 +18416,7 @@ BOOLEAN HandleSelectedMercsBeingPutAsleep( BOOLEAN fWakeUp, BOOLEAN fDisplayWarn
 			// get the soldier pointer
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-			if( pSoldier->bActive == FALSE )
+			if( pSoldier->roster().active() == FALSE )
 			{
 				continue;
 			}
@@ -18478,7 +18478,7 @@ BOOLEAN IsAnyOneOnPlayersTeamOnThisAssignment( INT8 bAssignment )
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// active?
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -18520,7 +18520,7 @@ void BandageBleedingDyingPatientsBeingTreated( )
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// check if the soldier is currently active?
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -18609,7 +18609,7 @@ void ReEvaluateEveryonesNothingToDo( BOOLEAN aDoExtensiveCheck )
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			switch( pSoldier->assignment().current() )
 			{
@@ -18801,7 +18801,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 		}
 	}
 
-	Assert( pSelectedSoldier && pSelectedSoldier->bActive );
+	Assert( pSelectedSoldier && pSelectedSoldier->roster().active() );
 	
 	// sets assignment for the list
 	for( iCounter = 0; iCounter < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; ++iCounter )
@@ -19266,7 +19266,7 @@ BOOLEAN ValidTrainingPartnerInSameSectorOnAssignmentFound( SOLDIERTYPE *pTargetS
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if ( pSoldier->bActive )
+		if ( pSoldier->roster().active() )
 		{
 			// if the guy is not the target, has the assignment we want, is training the same stat, and is in our sector, alive
 			// and is training the stat we want
@@ -19317,21 +19317,21 @@ void UnEscortEPC( SOLDIERTYPE *pSoldier )
 
 	SetupProfileInsertionDataForSoldier( pSoldier );
 
-	fGotInfo = GetInfoForAbandoningEPC( pSoldier->ubProfile, &usQuoteNum, &usFactToSetToTrue );
+	fGotInfo = GetInfoForAbandoningEPC( pSoldier->identity().profile(), &usQuoteNum, &usFactToSetToTrue );
 	if ( fGotInfo )
 	{
 		// say quote usQuoteNum
-		gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags |= PROFILE_MISC_FLAG_FORCENPCQUOTE;
+		gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags |= PROFILE_MISC_FLAG_FORCENPCQUOTE;
 		TacticalCharacterDialogue( pSoldier, usQuoteNum );
 			// the flag will be turned off in the remove-epc event
-		//gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags &= ~PROFILE_MISC_FLAG_FORCENPCQUOTE;
+		//gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags &= ~PROFILE_MISC_FLAG_FORCENPCQUOTE;
 		SetFactTrue( usFactToSetToTrue );
 	}
-	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_REMOVE_EPC, pSoldier->ubProfile, 0, 0, 0, 0 );
+	SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_REMOVE_EPC, pSoldier->identity().profile(), 0, 0, 0, 0 );
 
-	HandleFactForNPCUnescorted( pSoldier->ubProfile );
+	HandleFactForNPCUnescorted( pSoldier->identity().profile() );
 
-	if ( pSoldier->ubProfile == JOHN )
+	if ( pSoldier->identity().profile() == JOHN )
 	{
 		SOLDIERTYPE * pSoldier2;
 
@@ -19354,7 +19354,7 @@ void UnEscortEPC( SOLDIERTYPE *pSoldier )
 			SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_REMOVE_EPC, MARY, 0, 0, 0, 0 );
 		}
 	}
-	else if ( pSoldier->ubProfile == MARY )
+	else if ( pSoldier->identity().profile() == MARY )
 	{
 		SOLDIERTYPE * pSoldier2;
 
@@ -19387,7 +19387,7 @@ void UnEscortEPC( SOLDIERTYPE *pSoldier )
 	else
 	{
 	// how do we handle this if it's the right sector?
-	TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_EPC_IN_WRONG_SECTOR, TRUE );
+	TriggerNPCWithGivenApproach( pSoldier->identity().profile(), APPROACH_EPC_IN_WRONG_SECTOR, TRUE );
 	}
 }
 
@@ -19460,7 +19460,7 @@ UINT8 CalcSoldierNeedForSleep( SOLDIERTYPE *pSoldier )
 	UINT8 ubPercentHealth;
 	
 	// base comes from profile
-	UINT8 ubNeedForSleep = gMercProfiles[ pSoldier->ubProfile ].ubNeedForSleep;
+	UINT8 ubNeedForSleep = gMercProfiles[ pSoldier->identity().profile() ].ubNeedForSleep;
 
 	// Enforce a maximum of 12 hours before injury penalties.
 	if ( ubNeedForSleep > 12 )
@@ -19560,7 +19560,7 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 	{
 		return( FALSE );
 	}
-	if ( !pOtherSoldier->bActive )
+	if ( !pOtherSoldier->roster().active() )
 	{
 		return( FALSE );
 	}
@@ -19623,7 +19623,7 @@ SOLDIERTYPE *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDr
 	if ( pSoldier != NULL )
 	{
 		// better be an active person, not a vehicle
-		Assert( pSoldier->bActive );
+		Assert( pSoldier->roster().active() );
 		// anv: don't assert, handle...
 		//Assert( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) );
 		if(fReturnVehicleDriver && pSoldier->status().flags() & SOLDIER_VEHICLE )
@@ -19814,7 +19814,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
-			pOtherTrainee->bActive && !pOtherTrainee->assignment().isAsleep() )
+			pOtherTrainee->roster().active() && !pOtherTrainee->assignment().isAsleep() )
 		{
 			// Trainee is present and awake. Flag is reset to false.
 			fAllTraineesAsleep = FALSE;
@@ -19830,7 +19830,7 @@ BOOLEAN SetTrainerSleepWhenTraineesSleep( SOLDIERTYPE *pThisTrainee)
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-				pTrainer->bActive && !pTrainer->assignment().isAsleep() )
+				pTrainer->roster().active() && !pTrainer->assignment().isAsleep() )
 			{
 				// Trainer will go to sleep
 				if( SetMercAsleep( pTrainer, FALSE ) )
@@ -19888,7 +19888,7 @@ BOOLEAN SetTraineesSleepWhenTrainerSleeps( SOLDIERTYPE *pTrainer)
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && !pTrainee->assignment().isAsleep() )
+			pTrainee->roster().active() && !pTrainee->assignment().isAsleep() )
 		{
 			// Trainee will go to sleep
 			if( SetMercAsleep( pTrainee, FALSE ) )
@@ -19937,7 +19937,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 		pOtherTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pOtherTrainee->assignment().current() == TRAIN_BY_OTHER && pOtherTrainee->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 			pOtherTrainee->deployment().sectorX() == sMapX && pOtherTrainee->deployment().sectorY() == sMapY && pOtherTrainee->deployment().sectorZ() == sMapZ &&
-			pOtherTrainee->bActive && pOtherTrainee->assignment().isAsleep() )
+			pOtherTrainee->roster().active() && pOtherTrainee->assignment().isAsleep() )
 		{
 			// Trainee is present and asleep. Flag is reset to FALSE.
 			fAllTraineesAwake = FALSE;
@@ -19953,7 +19953,7 @@ BOOLEAN SetTrainerWakeWhenTraineesWake( SOLDIERTYPE *pThisTrainee)
 			pTrainer = &GetJa2SoldierRepository().record(iCounter);
 			if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pThisTrainee->assignment().trainingStat() &&
 				pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-				pTrainer->bActive && pTrainer->assignment().isAsleep() )
+				pTrainer->roster().active() && pTrainer->assignment().isAsleep() )
 			{
 				// Trainer will wake up
 				if( SetMercAwake( pTrainer, FALSE, FALSE ) )
@@ -20002,7 +20002,7 @@ BOOLEAN SetTraineesWakeWhenTrainerWakes( SOLDIERTYPE *pTrainer)
 		pTrainee = &GetJa2SoldierRepository().record(iCounter);
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && pTrainee->assignment().isAsleep() )
+			pTrainee->roster().active() && pTrainee->assignment().isAsleep() )
 		{
 			// Trainee will wake up
 			if( SetMercAwake( pTrainee, FALSE, FALSE ) )
@@ -20078,7 +20078,7 @@ BOOLEAN FindAnyAwakeTrainers( SOLDIERTYPE *pTrainee )
 		// Is trainer awake?
 		if (pTrainer->assignment().current() == TRAIN_TEAMMATE && pTrainer->assignment().trainingStat() == pTrainee->assignment().trainingStat() &&
 			pTrainer->deployment().sectorX() == sMapX && pTrainer->deployment().sectorY() == sMapY && pTrainer->deployment().sectorZ() == sMapZ &&
-			pTrainer->bActive && !pTrainer->assignment().isAsleep() )
+			pTrainer->roster().active() && !pTrainer->assignment().isAsleep() )
 		{
 			// Reset flag
 			fAllTrainersAsleep = FALSE;
@@ -20114,7 +20114,7 @@ BOOLEAN FindAnyAwakeTrainees( SOLDIERTYPE *pTrainer )
 		// Is trainee awake?
 		if (pTrainee->assignment().current() == TRAIN_BY_OTHER && pTrainee->assignment().trainingStat() == pTrainer->assignment().trainingStat() &&
 			pTrainee->deployment().sectorX() == sMapX && pTrainee->deployment().sectorY() == sMapY && pTrainee->deployment().sectorZ() == sMapZ &&
-			pTrainee->bActive && !pTrainee->assignment().isAsleep() )
+			pTrainee->roster().active() && !pTrainee->assignment().isAsleep() )
 		{
 			// Reset flag.
 			fAllTraineesAsleep = FALSE;
@@ -21380,7 +21380,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		if( IsSoldierKnownAsMercInSector( pSoldier, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() ) )
 		{
 			//swprintf( sString, gzFacilityErrorMessage[32], pSoldier->GetName() );
-			swprintf( sString, gzFacilityErrorMessage[33], pSoldier->GetName(), gMercProfiles[pSoldier->ubProfile].ubSnitchExposedCooldown );
+			swprintf( sString, gzFacilityErrorMessage[33], pSoldier->GetName(), gMercProfiles[pSoldier->identity().profile()].ubSnitchExposedCooldown );
 			DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 			return( FALSE );
 		} 
@@ -22342,7 +22342,7 @@ INT16 MakeAutomaticSurgeryOnAllPatients( SOLDIERTYPE * pDoctor )
 	AssertNotNIL(pDoctor);
 
 	// go through list of characters, find all who are patients/doctors healable by this doctor
-	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pDoctor->bTeam ].bLastID; ++cnt)
+	for ( cnt = 0; cnt <= gTacticalStatus.Team[ pDoctor->roster().team() ].bLastID; ++cnt)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( CanSoldierBeHealedByDoctor( pTeamSoldier, pDoctor, FALSE, HEALABLE_EVER, FALSE, FALSE, TRUE ) == TRUE )
@@ -22417,7 +22417,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ &&	pTrainer->assignment().current() == TRAIN_TOWN )
+		if (pTrainer->roster().active() && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ &&	pTrainer->assignment().current() == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 
@@ -22461,7 +22461,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt)
 	{
 		pTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if (pTrainer->bActive && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ && pTrainer->assignment().current() == TRAIN_TOWN )
+		if (pTrainer->roster().active() && pTrainer->vitals().health() >= OKLIFE && pTrainer->deployment().sectorX() == sX && pTrainer->deployment().sectorY() == sY && pTrainer->deployment().sectorZ() == bZ && pTrainer->assignment().current() == TRAIN_TOWN )
 		{
 			usTrainerEffectiveLeadership = EffectiveLeadership( pTrainer );
 
@@ -22497,7 +22497,7 @@ void RecordNumMilitiaTrainedForMercs( INT16 sX, INT16 sY, INT8 bZ, UINT8 ubMilit
 
 			if( usTrainerEffectiveLeadership > 0 )
 			{
-				gMercProfiles[ pTrainer->ubProfile ].records.usMilitiaTrained += (UINT16)((double)((double)(ubMilitiaTrained * usTrainerEffectiveLeadership) / usTotalLeadershipValue) + 0.5);
+				gMercProfiles[ pTrainer->identity().profile() ].records.usMilitiaTrained += (UINT16)((double)((double)(ubMilitiaTrained * usTrainerEffectiveLeadership) / usTotalLeadershipValue) + 0.5);
 			}
 		}
 	}
@@ -22806,7 +22806,7 @@ void MoveItemMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	
 	SOLDIERTYPE* pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
+	if ( pSoldier && pSoldier->roster().active() && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
 	{
 		if ( iValue < MOVEITEM_MENU_CANCEL )
 		{
@@ -23079,7 +23079,7 @@ void DiseaseMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	SOLDIERTYPE* pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP) )
+	if ( pSoldier && pSoldier->roster().active() && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP) )
 	{
 		if ( iWhat < DISEASE_MENU_CANCEL )
 		{
@@ -23316,7 +23316,7 @@ void SpyMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	SOLDIERTYPE* pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
+	if ( pSoldier && pSoldier->roster().active() && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
 	{
 		if ( iWhat < INTEL_MENU_CANCEL )
 		{
@@ -23604,7 +23604,7 @@ void MilitiaMenuBtnCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	SOLDIERTYPE* pSoldier = GetSelectedAssignSoldier( FALSE );
 
-	if ( pSoldier && pSoldier->bActive && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
+	if ( pSoldier && pSoldier->roster().active() && ( iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ) )
 	{
 		switch ( iWhat )
 		{

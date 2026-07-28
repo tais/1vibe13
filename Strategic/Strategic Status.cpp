@@ -146,7 +146,7 @@ BOOLEAN MercThinksHisMoraleIsTooLow( SOLDIERTYPE *pSoldier )
 	INT8	bRepTolerance;
 	INT8	bMoraleTolerance;
 
-	bRepTolerance = gMercProfiles[ pSoldier->ubProfile ].bReputationTolerance;
+	bRepTolerance = gMercProfiles[ pSoldier->identity().profile() ].bReputationTolerance;
 
 	// if he couldn't care less what it is
 	if (bRepTolerance == 101)

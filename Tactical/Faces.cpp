@@ -127,7 +127,7 @@ INT32	InitSoldierFace( SOLDIERTYPE *pSoldier )
 		return( iFaceIndex );
 	}
 
-	return( InitFace( pSoldier->ubProfile, pSoldier->ubID, 0) );
+	return( InitFace( pSoldier->identity().profile(), pSoldier->identity().id(), 0) );
 }
 
 
@@ -881,10 +881,10 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 	INT16	appliedCamo[4];
 
 	//reset gCamoFace
-	gCamoFace[pSoldier->ubProfile].gCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gUrbanCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gDesertCamoface = FALSE;
-	gCamoFace[pSoldier->ubProfile].gSnowCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gDesertCamoface = FALSE;
+	gCamoFace[pSoldier->identity().profile()].gSnowCamoface = FALSE;
 
 	appliedCamo[0] = pSoldier->camouflage().jungleApplied();
 	appliedCamo[1] = pSoldier->camouflage().urbanApplied();
@@ -913,13 +913,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 //		if(appliedCamo[applied] >= wornCamo[worn])
 		{
 			if(applied == 0)
-				gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 			if(applied == 1)
-				gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 			if(applied == 2)
-				gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 			if(applied == 3)
-				gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;
 		
 			return TRUE;
 		}
@@ -928,13 +928,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 			isCamoFace = TRUE;
 
 			if(worn == 0)
-				gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 			if(worn == 1)
-				gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 			if(worn == 2)
-				gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 			if(worn == 3)
-				gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;
+				gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;
 		}
 	}
 	else if(applied != -1 || worn != -1)
@@ -942,13 +942,13 @@ BOOLEAN SetCamoFace(SOLDIERTYPE * pSoldier)
 		isCamoFace = TRUE;
 
 		if(applied == 0 || worn == 0)
-			gCamoFace[pSoldier->ubProfile].gCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gCamoface = TRUE;
 		if(applied == 1 || worn == 1)
-			gCamoFace[pSoldier->ubProfile].gUrbanCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gUrbanCamoface = TRUE;
 		if(applied == 2 || worn == 2)
-			gCamoFace[pSoldier->ubProfile].gDesertCamoface = TRUE;
+			gCamoFace[pSoldier->identity().profile()].gDesertCamoface = TRUE;
 		if(applied == 3 || worn == 3)
-			gCamoFace[pSoldier->ubProfile].gSnowCamoface = TRUE;*/
+			gCamoFace[pSoldier->identity().profile()].gSnowCamoface = TRUE;*/
 	}
 
 	return isCamoFace;
@@ -1681,8 +1681,8 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		pSoldier = GetJa2SoldierRepository().resolve(
 			pFace->ubSoldierID.i);
 
-		UINT8 faceProfileId = gMercProfiles[pSoldier->ubProfile].ubFaceIndex;
-		BOOLEAN isIMP = gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP;
+		UINT8 faceProfileId = gMercProfiles[pSoldier->identity().profile()].ubFaceIndex;
+		BOOLEAN isIMP = gMercProfiles[pSoldier->identity().profile()].Type == PROFILETYPE_IMP;
 
 		if (gGameSettings.fOptions[TOPTION_SHOW_TACTICAL_FACE_GEAR] && pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
@@ -1849,7 +1849,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			if (pSoldier->inv[HELMETPOS].usItem > 0)
 				// dirty hack for IMPs because they don't have pictures for face gear
-				// && ( pSoldier->ubProfile < 51 || pSoldier->ubProfile > 56 )
+				// && ( pSoldier->identity().profile() < 51 || pSoldier->identity().profile() > 56 )
 			{
 				uiFaceItemOne = pSoldier->inv[HELMETPOS].usItem;
 
@@ -1958,12 +1958,12 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 			}
 
-			if ( pSoldier->bInSector &&
+			if ( pSoldier->roster().inSector() &&
 				( ( ( GetJa2TacticalCurrentTeam() != OUR_TEAM ) ||
 					!OK_INTERRUPT_MERC( pSoldier ) ) &&
 					!gfHiddenInterrupt ) ||
 				( ( gfSMDisableForItems && !gfInItemPickupMenu ) &&
-					gusSMCurrentMerc == pSoldier->ubID &&
+					gusSMCurrentMerc == pSoldier->identity().id() &&
 					gsCurInterfacePanel == SM_PANEL ) )
 			{
 				// Blit hatch!
@@ -2536,7 +2536,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			else
 			{
 				//shadooow: display action points when in map screen during battle in turn based mode
-				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
+				if ((guiTacticalInterfaceFlags & 1) && !(gTacticalStatus.uiFlags & REALTIME) && (IsJa2TacticalCombatActive()) && pSoldier->roster().inSector())
 				{
 					SetFont(TINYFONT1);
 					if (!EnoughPoints(pSoldier, MinAPsToAttack(pSoldier, pSoldier->targeting().lastGridNo(), FALSE, 0), 0, FALSE) || pSoldier->actionPoints().current() < 0)
@@ -2919,10 +2919,10 @@ void HandleAutoFaces( )
 				pSoldier = GetJa2SoldierRepository().resolve(
 					pFace->ubSoldierID.i);
 				bLife		= pSoldier->vitals().health();
-				bInSector = pSoldier->bInSector;
+				bInSector = pSoldier->roster().inSector();
 				bAPs		= pSoldier->actionPoints().current();
 
-				if ( pSoldier->ubID == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
+				if ( pSoldier->identity().id() == gsSelectedGuy && gfUIHandleSelectionAboveGuy )
 				{
 					pFace->uiFlags |= FACE_SHOW_WHITE_HILIGHT;
 				}

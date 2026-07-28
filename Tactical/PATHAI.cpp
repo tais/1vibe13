@@ -660,7 +660,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	fGoingThroughDoor = FALSE;
 
 	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
-	fPathingForPlayer = ( (pSoldier->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(pSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL) );
+	fPathingForPlayer = ( (pSoldier->roster().team() == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(pSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL) );
 	fNonSwimmer = !( IS_MERC_BODY_TYPE( pSoldier ) );
 	fPathAroundPeople = ( (fFlags & PATH_THROUGH_PEOPLE) == 0 );
 	fCloseGoodEnough = ( (fFlags & PATH_CLOSE_GOOD_ENOUGH) != 0);
@@ -739,7 +739,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 		// Chris_C... change this to use parameter.....
 		UINT16 usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, movementMode );
 		// Get structure ref...
-		pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, movementMode );
+		pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, movementMode );
 
 		if ( pStructureFileRef )
 		{
@@ -751,7 +751,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 			{
 				fReverse = TRUE;
 			}
-			if (fVehicle || pSoldier->ubBodyType == COW || pSoldier->ubBodyType == BLOODCAT) // or a vehicle
+			if (fVehicle || pSoldier->identity().bodyType() == COW || pSoldier->identity().bodyType() == BLOODCAT) // or a vehicle
 			{
 				fTurnSlow = TRUE;
 			}
@@ -1549,12 +1549,12 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 	int APLeft = this->mercsMaxAPs - APCost;
 
 	// BUILD A LIST OF THREATENING GRID #s FROM PERSONAL & PUBLIC opplists
-	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->ubID][0]);
+	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->identity().id()][0]);
 
 	// hang a pointer into personal opplist
 	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
 	// hang a pointer into public opplist
-	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
+	pbPublOL = &(gbPublicOpplist[pSoldier->roster().team()][0]);
 
 	// calculate OUR OWN general threat value (not from any specific location)
 	iMyThreatValue = CalcManThreatValue(pSoldier, NOWHERE, FALSE, pSoldier);
@@ -1569,13 +1569,13 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		}
 
 		// if this man is neutral / on the same side, he's not an opponent
- 		if ( CONSIDERED_NEUTRAL( pSoldier, pOpponent ) || (pSoldier->bSide == pOpponent->bSide)) {
+		if ( CONSIDERED_NEUTRAL( pSoldier, pOpponent ) || (pSoldier->roster().side() == pOpponent->roster().side())) {
 			continue;			// next merc
 		}
 
-		pbPersOL = pSoldier->awareness().opponentKnowledge() + pOpponent->ubID;
-		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pOpponent->ubID;
-		pusLastLoc = gsLastKnownOppLoc[pSoldier->ubID] + pOpponent->ubID;
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pOpponent->identity().id();
+		pbPublOL = gbPublicOpplist[pSoldier->roster().team()] + pOpponent->identity().id();
+		pusLastLoc = gsLastKnownOppLoc[pSoldier->identity().id()] + pOpponent->identity().id();
 
 		// if this opponent is unknown personally and publicly
 		if ((*pbPersOL == NOT_HEARD_OR_SEEN) && (*pbPublOL == NOT_HEARD_OR_SEEN)) {
@@ -1583,7 +1583,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		}
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->ubProfile != 64) {
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->identity().profile() != 64) {
 			continue;	// next opponent
 		}
 
@@ -1597,7 +1597,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		}
 		else {
 			// using public knowledge, obtain opponent's "best guess" gridno
-			sThreatLoc = gsPublicLastKnownOppLoc[pSoldier->bTeam][pOpponent->ubID];
+			sThreatLoc = gsPublicLastKnownOppLoc[pSoldier->roster().team()][pOpponent->identity().id()];
 			iThreatCertainty = ThreatPercent[*pbPublOL - OLDEST_HEARD_VALUE];
 		}
 
@@ -1605,7 +1605,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		iThreatRange = GetRangeInCellCoordsFromGridNoDiff( NodeIndex, sThreatLoc );
 
 #ifdef DEBUGCOVER
-//		DebugAI( String( "FBNC: Opponent %d believed to be at gridno %d (mine %d, public %d)\n",iLoop,sThreatLoc,*pusLastLoc,PublicLastKnownOppLoc[pSoldier->bTeam][iLoop] ) );
+//		DebugAI( String( "FBNC: Opponent %d believed to be at gridno %d (mine %d, public %d)\n",iLoop,sThreatLoc,*pusLastLoc,PublicLastKnownOppLoc[pSoldier->roster().team()][iLoop] ) );
 #endif
 
 		// if this opponent is believed to be too far away to really be a threat
@@ -1718,7 +1718,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 	else
 	{
 		// optimistically assume we'll be behind the best cover available at this spot
-		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft );
+		bHisActualCTGT = CalcWorstCTGTForPosition( pHim, pMe->identity().id(), sMyGridNo, pMe->position().level(), iMyAPsLeft );
 	}
 
 	// normally, that will be the cover I'll use, unless worst case over-rides it
@@ -1737,7 +1737,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
-		bHisBestCTGT = CalcBestCTGT(pHim, pMe->ubID, sMyGridNo, pMe->position().level(), iMyAPsLeft);
+		bHisBestCTGT = CalcBestCTGT(pHim, pMe->identity().id(), sMyGridNo, pMe->position().level(), iMyAPsLeft);
 
 		// if he can actually improve his CTGT by moving to a nearby gridno
 		if (bHisBestCTGT > bHisActualCTGT)
@@ -1766,7 +1766,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 		// let's not assume anything about the stance the enemy might take, so take an average
 		// value... no cover give a higher value than partial cover
-		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->ubID, sHisGridNo, pHim->position().level(), iMyAPsLeft );
+		bMyCTGT = CalcAverageCTGTForPosition( pMe, pHim->identity().id(), sHisGridNo, pHim->position().level(), iMyAPsLeft );
 
 		// since NPCs are too dumb to shoot "blind", ie. at opponents that they
 		// themselves can't see (mercs can, using another as a spotter!), if the
@@ -1839,7 +1839,7 @@ void AStarPathfinder::InitVehicle()
 		// Chris_C... change this to use parameter.....
 		UINT16 usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, movementMode );
 		// Get structure ref...
-		pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface, movementMode );
+		pStructureFileRef = GetAnimationStructureRef( pSoldier->identity().id(), usAnimSurface, movementMode );
 
 		if ( pStructureFileRef )
 		{
@@ -1851,7 +1851,7 @@ void AStarPathfinder::InitVehicle()
 			{
 				fReverse = TRUE;
 			}
-			if (fVehicle || pSoldier->ubBodyType == COW || pSoldier->ubBodyType == BLOODCAT) // or a vehicle
+			if (fVehicle || pSoldier->identity().bodyType() == COW || pSoldier->identity().bodyType() == BLOODCAT) // or a vehicle
 			{
 				fTurnSlow = TRUE;
 			}
@@ -2013,7 +2013,7 @@ bool AStarPathfinder::WantToTraverse()
 	}
 
 	// AI check for mines
-	if ( gpWorldLevelData[CurrentNode].uiFlags & MAPELEMENT_ENEMY_MINE_PRESENT && pSoldier->bSide != 0) 
+	if ( gpWorldLevelData[CurrentNode].uiFlags & MAPELEMENT_ENEMY_MINE_PRESENT && pSoldier->roster().side() != 0)
 	{
 		return false;
 	}
@@ -2021,11 +2021,11 @@ bool AStarPathfinder::WantToTraverse()
 	// WANNE: Know mines (for enemy or player) do not explode - BEGIN
 	if ( gpWorldLevelData[CurrentNode].uiFlags & (MAPELEMENT_ENEMY_MINE_PRESENT | MAPELEMENT_PLAYER_MINE_PRESENT) ) 
 	{
-		if (pSoldier->bSide == 0)
+		if (pSoldier->roster().side() == 0)
 		{
 			// For our team, skip a location with a known mines unless it is the end of our
 			// path; for others on our side, skip such locations completely;
-			if (pSoldier->bTeam != gbPlayerNum || CurrentNode != DestNode)
+			if (pSoldier->roster().team() != gbPlayerNum || CurrentNode != DestNode)
 			{
 				if (gpWorldLevelData[CurrentNode].uiFlags & MAPELEMENT_PLAYER_MINE_PRESENT) 
 				{
@@ -2056,7 +2056,7 @@ bool AStarPathfinder::WantToTraverse()
 	{
 		// don't walk over corpses. TODO: only avoid in 80% ?
 		if ( ( IsJa2TacticalTurnBasedCombat() )
-				&& pSoldier->bTeam == ENEMY_TEAM 
+				&& pSoldier->roster().team() == ENEMY_TEAM
 				//&& IsCorpseAtGridNo( CurrentNode, pSoldier->position().level() )
 				&& gubIsCorpseThere[CurrentNode]
 				)
@@ -2064,11 +2064,11 @@ bool AStarPathfinder::WantToTraverse()
 
 		//from NightOps // elite AI will not walk on illuminated tiles, which are seen by the enemy
 		if( ( IsJa2TacticalTurnBasedCombat() )
-			&& pSoldier->bTeam == ENEMY_TEAM && pSoldier->ubProfile == NO_PROFILE 
+			&& pSoldier->roster().team() == ENEMY_TEAM && pSoldier->identity().profile() == NO_PROFILE
 			&& pSoldier->aiPlanning().action() != AI_ACTION_LEAVE_WATER_GAS
-			//&& (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE 
-			//|| ( (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY 
-			//		|| pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR) 
+			//&& (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ELITE
+			//|| ( (pSoldier->roster().soldierClass() == SOLDIER_CLASS_ARMY
+			//		|| pSoldier->roster().soldierClass() == SOLDIER_CLASS_ADMINISTRATOR)
 			//		&& (BOOLEAN)(Random( 100 ) < 50)  ))
 			//&& InLightAtNight((INT16)CurrentNode, gpWorldLevelData[ CurrentNode ].sHeight)
 			&& gubWorldTileInLight[CurrentNode]
@@ -2092,7 +2092,7 @@ bool AStarPathfinder::IsSomeoneInTheWay()
 	{
 		// ATE: ONLY cancel if they are moving.....
 		UINT16 ubMerc = WhoIsThere2( CurrentNode, pSoldier->position().level());
-		if ( ubMerc < NOBODY && ubMerc != pSoldier->ubID )
+		if ( ubMerc < NOBODY && ubMerc != pSoldier->identity().id() )
 		{
 			return true;
 		}
@@ -2339,7 +2339,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
 
-	fPathingForPlayer = ( (s->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(s->status().flags() & SOLDIER_PCUNDERAICONTROL) );
+	fPathingForPlayer = ( (s->roster().team() == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(s->status().flags() & SOLDIER_PCUNDERAICONTROL) );
 
 	// Flugente: nonswimmers are those who are not mercs and not boats
 	fNonSwimmer = !(IS_MERC_BODY_TYPE( s ) );
@@ -2468,7 +2468,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 		// Chris_C... change this to use parameter.....
 		usAnimSurface = DetermineSoldierAnimationSurface( s, usMovementMode );
 		// Get structure ref...
-		pStructureFileRef = GetAnimationStructureRef( s->ubID, usAnimSurface, usMovementMode );
+		pStructureFileRef = GetAnimationStructureRef( s->identity().id(), usAnimSurface, usMovementMode );
 
 		if ( pStructureFileRef )
 		{
@@ -2787,7 +2787,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				{
 					if ( iCnt != iLastDir )
 					{
-						if ( !OkayToAddStructureToWorld( curLoc, bLevel, &(pStructureFileRef->pDBStructureRef[ iStructIndex ]), usOKToAddStructID, FALSE, s->ubID ) )
+						if ( !OkayToAddStructureToWorld( curLoc, bLevel, &(pStructureFileRef->pDBStructureRef[ iStructIndex ]), usOKToAddStructID, FALSE, s->identity().id() ) )
 						{
 							// we have to abort this loop and possibly reset the loop conditions to
 							// search in the other direction (if we haven't already done the other dir)
@@ -2875,14 +2875,14 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			}
 
 			// AI check for mines
-			if ( gpWorldLevelData[newLoc].uiFlags & MAPELEMENT_ENEMY_MINE_PRESENT && s->bSide != 0)
+			if ( gpWorldLevelData[newLoc].uiFlags & MAPELEMENT_ENEMY_MINE_PRESENT && s->roster().side() != 0)
 			{
 				goto NEXTDIR;
 			}
 
 			// sevenfm: skip deep water if not in deep water already
 			if (!(s->status().flags() & SOLDIER_PC) &&
-				s->ubProfile == NO_PROFILE &&
+				s->identity().profile() == NO_PROFILE &&
 				s->aiBehavior().orders() != SEEKENEMY &&
 				DeepWater(newLoc, bLevel) &&
 				!DeepWater(s->position().gridNo(), bLevel) &&
@@ -2902,11 +2902,11 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			// WANNE: Known mines (for enemy or player) do not explode - BEGIN
 			if ( gpWorldLevelData[newLoc].uiFlags & (MAPELEMENT_ENEMY_MINE_PRESENT | MAPELEMENT_PLAYER_MINE_PRESENT) )
 			{
-				if (s->bSide == 0)
+				if (s->roster().side() == 0)
 				{
 					// For our team, skip a location with a known mines unless it is the end of our
 					// path; for others on our side, skip such locations completely;
-					if (s->bTeam != gbPlayerNum || newLoc != iDestination)
+					if (s->roster().team() != gbPlayerNum || newLoc != iDestination)
 					{
 						if (gpWorldLevelData[newLoc].uiFlags & MAPELEMENT_PLAYER_MINE_PRESENT)
 						{
@@ -3175,9 +3175,9 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					soldiers.resolve(ubMerc.i);
 
 				// sevenfm: for player mercs, ignore invisible opponents
-				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID &&
+				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->identity().id() &&
 					(!(s->status().flags() & SOLDIER_PC) ||
-						blockingSoldier->bSide == s->bSide ||
+						blockingSoldier->roster().side() == s->roster().side() ||
 						blockingSoldier->aiBehavior().neutral() ||
 						blockingSoldier->awareness().visibility() >= 0 ||
 						SoldierToSoldierLineOfSightTest(
@@ -3199,7 +3199,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				// then 0 1 2 3 4 5 6), we must subtract 1 from the direction
 				// ATE: Send in our existing structure ID so it's ignored!
 
-				if (!OkayToAddStructureToWorld( newLoc, bLevel, &(pStructureFileRef->pDBStructureRef[ iStructIndex ]), usOKToAddStructID, FALSE, s->ubID ) )
+				if (!OkayToAddStructureToWorld( newLoc, bLevel, &(pStructureFileRef->pDBStructureRef[ iStructIndex ]), usOKToAddStructID, FALSE, s->identity().id() ) )
 				{
 					goto NEXTDIR;
 				}
@@ -3553,7 +3553,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				nextCost += 50;
 			}			
 
-			if (gGameExternalOptions.fAIPathTweaks && s->bTeam != gbPlayerNum)
+			if (gGameExternalOptions.fAIPathTweaks && s->roster().team() != gbPlayerNum)
 			{
 				// tanks prefer moving in straight directions to avoid sliding effect
 				if (TANK(s) && (iCnt & 1))
@@ -3585,7 +3585,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 					{
 						nextCost += 20;
 					}
-					else if (s->bTeam == ENEMY_TEAM &&
+					else if (s->roster().team() == ENEMY_TEAM &&
 						s->aiBehavior().alertStatus() >= STATUS_RED &&
 						(InLightAtNight(newLoc, bLevel) || GetNearestRottingCorpseAIWarning(newLoc) > 0))
 					{
@@ -3997,7 +3997,7 @@ void GlobalReachableTest( INT32 sStartGridNo )
 	s.initialize();
 	s.position().gridNo() = sStartGridNo;
 	s.position().level() = 0;
-	s.bTeam = 1;
+	s.roster().team() = 1;
 
 	//reset the flag for gridno's
 	for( iCurrentGridNo =0; iCurrentGridNo < WORLD_MAX; iCurrentGridNo++ )
@@ -4032,7 +4032,7 @@ void LocalReachableTest( INT32 sStartGridNo, INT8 bRadius )
 		s.position().level() = 0;
 	}
 
-	s.bTeam = OUR_TEAM;
+	s.roster().team() = OUR_TEAM;
 
 	//reset the flag for gridno's
 	for ( iY = -bRadius; iY <= bRadius; iY++ )
@@ -4065,7 +4065,7 @@ void GlobalItemsReachableTest( INT32 sStartGridNo1, INT32 sStartGridNo2 )
 	s.initialize();
 	s.position().gridNo() = sStartGridNo1;
 	s.position().level() = 0;
-	s.bTeam = 1;
+	s.roster().team() = 1;
 
 	//reset the flag for gridno's
 	for( iCurrentGridNo =0; iCurrentGridNo < WORLD_MAX; iCurrentGridNo++ )
@@ -4094,7 +4094,7 @@ void RoofReachableTest( INT32 sStartGridNo, UINT8 ubBuildingID )
 	s.initialize();
 	s.position().gridNo() = sStartGridNo;
 	s.position().level() = 1;
-	s.bTeam = 1;
+	s.roster().team() = 1;
 
 	// clearing flags
 
@@ -4494,7 +4494,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 						sMovementAPsCost = sMovementAPsCost * (100 + pSold->GetBackgroundValue(BG_SWIMMING)) / 100.0f;
 
 					// Check if doors if not player's merc (they have to open them manually)
-					if ( sSwitchValue == TRAVELCOST_DOOR && pSold->bTeam != gbPlayerNum )
+					if ( sSwitchValue == TRAVELCOST_DOOR && pSold->roster().team() != gbPlayerNum )
 					{
 						sMovementAPsCost += GetAPsToOpenDoor( pSold ) + GetAPsToOpenDoor( pSold ); // Include open and close costs!
 					}

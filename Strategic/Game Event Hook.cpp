@@ -246,7 +246,7 @@ BOOLEAN ExecuteStrategicEvent( STRATEGICEVENT *pEvent )
 		{
 			// if the grunt is currently active, add to update box
 			SoldierID usID = pEvent->uiParam;
-			if ( usID != NOBODY && GetJa2SoldierRepository().resolve(usID)->bActive )
+			if ( usID != NOBODY && GetJa2SoldierRepository().resolve(usID)->roster().active() )
 			{
 				AddSoldierToWaitingListQueue( GetJa2SoldierRepository().resolve(usID) );
 			}

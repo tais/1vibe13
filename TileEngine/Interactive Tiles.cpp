@@ -229,7 +229,7 @@ void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 	// ATE: Don't handle switches!
 	if ( !( pStructure->fFlags & STRUCTURE_SWITCH ) )
 	{
-		if ( pSoldier->bTeam == gbPlayerNum )
+		if ( pSoldier->roster().team() == gbPlayerNum )
 		{
 			if ( sGridNo == BOBBYR_SHIPPING_DEST_GRIDNO && gWorldSectorX == BOBBYR_SHIPPING_DEST_SECTOR_X && gWorldSectorY == BOBBYR_SHIPPING_DEST_SECTOR_Y && gbWorldSectorZ == BOBBYR_SHIPPING_DEST_SECTOR_Z && CheckFact( FACT_PABLOS_STOLE_FROM_LATEST_SHIPMENT, 0 ) && !(CheckFact( FACT_PLAYER_FOUND_ITEMS_MISSING, 0) ) )
 			{
@@ -239,11 +239,11 @@ void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		 fDidMissingQuote = TRUE;
 			}
 		}
-		else if ( pSoldier->bTeam == CIV_TEAM )
+		else if ( pSoldier->roster().team() == CIV_TEAM )
 		{
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
-				TriggerNPCWithGivenApproach( pSoldier->ubProfile, APPROACH_DONE_OPEN_STRUCTURE, FALSE );
+				TriggerNPCWithGivenApproach( pSoldier->identity().profile(), APPROACH_DONE_OPEN_STRUCTURE, FALSE );
 			}
 		}
 
@@ -257,7 +257,7 @@ void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				BOOLEAN fDoHumm			= TRUE;
 				BOOLEAN	fDoLocators = TRUE;
 
-				if ( pSoldier->bTeam != gbPlayerNum )
+				if ( pSoldier->roster().team() != gbPlayerNum )
 				{
 					fDoHumm			= FALSE;
 					fDoLocators = FALSE;
@@ -324,7 +324,7 @@ void HandleStructChangeFromGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 		if ( pNewStructure->fFlags & STRUCTURE_SWITCH )
 		{
 			// just turned a switch on!
-			ActivateSwitchInGridNo( pSoldier->ubID, sGridNo );
+			ActivateSwitchInGridNo( pSoldier->identity().id(), sGridNo );
 		}
 	}
 
@@ -806,7 +806,7 @@ BOOLEAN RefineLogicOnStruct( INT32 sGridNo, LEVELNODE *pNode )
 			return( FALSE );
 		}
 
-		if ( selectedSoldier && selectedSoldier->ubBodyType == ROBOTNOWEAPON )
+		if ( selectedSoldier && selectedSoldier->identity().bodyType() == ROBOTNOWEAPON )
 		{
 			return( FALSE );
 		}

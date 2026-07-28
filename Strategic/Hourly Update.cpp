@@ -370,7 +370,7 @@ void HourlyLarryUpdate()
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->bActive && !pSoldier->assignment().isAsleep() && ( pSoldier->ubProfile == LARRY_NORMAL || pSoldier->ubProfile == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
+		if ( pSoldier && pSoldier->roster().active() && !pSoldier->assignment().isAsleep() && ( pSoldier->identity().profile() == LARRY_NORMAL || pSoldier->identity().profile() == LARRY_DRUNK || pSoldier->HasBackgroundFlag( BACKGROUND_DRUGUSE ) ) )
 		{
 			fTookDrugs = FALSE;
 
@@ -484,9 +484,9 @@ void HourlyLarryUpdate()
 					{					
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->assignment().isAsleep() && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->roster().active() && !pOtherSoldier->assignment().isAsleep() && pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 						{
-							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
 								if( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
@@ -508,7 +508,7 @@ void HourlyLarryUpdate()
 										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 										// also here would be a place for dynamic relationship decrease between them
 										// Flugente: then lets do that, shall we?
-										AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
+										AddOpinionEvent( pSoldier->identity().profile(), pOtherSoldier->identity().profile(), OPINIONEVENT_SNITCHINTERFERENCE );
 
 										fSnitchStoppedBehaviour = TRUE;
 										continue;
@@ -539,7 +539,7 @@ void HourlyLarryUpdate()
 								// take $ from player's account
 								// silversurfer: changed the price to reflect the changed amount of 25% below
 								usCashAmount = (UINT16)(drugItem.usPrice / 4.0f);
-								AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, pSoldier->ubProfile, GetWorldTotalMin(), -( usCashAmount ) );
+								AddTransactionToPlayersBook ( TRANSFER_FUNDS_TO_MERC, pSoldier->identity().profile(), GetWorldTotalMin(), -( usCashAmount ) );
 
 								// give Larry booze here
 								// silversurfer: only give the merc a 25% bottle. This fixes the problem that the bottle of alcohol can go to any inventory slot even one that isn't available.
@@ -566,11 +566,11 @@ void HourlyLarryUpdate()
 			}
 
 			// special treatment for Larry, he switches personality if takes drugs
-			if ( pSoldier->ubProfile == LARRY_NORMAL || pSoldier->ubProfile == LARRY_DRUNK )
+			if ( pSoldier->identity().profile() == LARRY_NORMAL || pSoldier->identity().profile() == LARRY_DRUNK )
 			{
 				if ( fTookDrugs )
 				{
-					if ( pSoldier->ubProfile == LARRY_NORMAL )
+					if ( pSoldier->identity().profile() == LARRY_NORMAL )
 					{
 						SwapToProfile( pSoldier, LARRY_DRUNK );
 
@@ -589,7 +589,7 @@ void HourlyLarryUpdate()
 				}
 				else
 				{
-					if ( pSoldier->ubProfile == LARRY_DRUNK )
+					if ( pSoldier->identity().profile() == LARRY_DRUNK )
 					{
 						gMercProfiles[LARRY_NORMAL].bNPCData -= (INT8)Random( 2 );
 
@@ -615,7 +615,7 @@ void HourlySmokerUpdate( )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->bActive && !pSoldier->assignment().isAsleep() )
+		if ( pSoldier && pSoldier->roster().active() && !pSoldier->assignment().isAsleep() )
 		{
 			// if we are a smoker, there is a chance that we will look fo cigarettes in our inventory, and consume them if we find any
 			if ( Chance(33) && pSoldier->GetBackgroundValue( BG_SMOKERTYPE ) == 1 )
@@ -647,7 +647,7 @@ void HourlyDisabilityUpdate( )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
-		if ( pSoldier && pSoldier->bActive )
+		if ( pSoldier && pSoldier->roster().active() )
 		{
 			// possible self-harm
 			if ( !pSoldier->assignment().isAsleep() && Chance(20) && DoesMercHaveDisability( pSoldier, SELF_HARM ) )
@@ -665,9 +665,9 @@ void HourlyDisabilityUpdate( )
 						pOtherSoldier = GetJa2SoldierRepository().resolve(id2);
 
 						// note - snitches stop others, but can get wasted themselves (if they have drug use specifically set in background...)
-						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->bActive && !pOtherSoldier->assignment().isAsleep() && pSoldier->ubProfile != pOtherSoldier->ubProfile )
+						if ( pOtherSoldier && !pOtherSoldier->deployment().isBetweenSectors() && pOtherSoldier->roster().active() && !pOtherSoldier->assignment().isAsleep() && pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 						{
-							if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+							if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 							{
 								if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && pSoldier->deployment().sectorZ() == pOtherSoldier->deployment().sectorZ() )
 								{
@@ -690,7 +690,7 @@ void HourlyDisabilityUpdate( )
 										HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 										// also here would be a place for dynamic relationship decrease between them
 										// Flugente: then lets do that, shall we?
-										AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
+										AddOpinionEvent( pSoldier->identity().profile(), pOtherSoldier->identity().profile(), OPINIONEVENT_SNITCHINTERFERENCE );
 
 										fSnitchStoppedBehaviour = TRUE;
 										continue;
@@ -705,7 +705,7 @@ void HourlyDisabilityUpdate( )
 						// take damage, but not bleeding damage (otherwise we'd constantly have to check in on this merc and manually bandage them, which is tedious)
 						INT8 oldbleeding = pSoldier->vitals().bleeding();
 
-						pSoldier->SoldierTakeDamage( 0, 1, 0, TAKE_DAMAGE_BLADE, pSoldier->ubID, NOWHERE, 0, FALSE );
+						pSoldier->SoldierTakeDamage( 0, 1, 0, TAKE_DAMAGE_BLADE, pSoldier->identity().id(), NOWHERE, 0, FALSE );
 
 						pSoldier->vitals().bleeding() = oldbleeding;
 
@@ -722,7 +722,7 @@ void HourlyDisabilityUpdate( )
 			}
 
 			// If Buns is in her alternate personality, she will eventually change back.
-			if ( pSoldier->ubProfile == BUNS_CHAOTIC )
+			if ( pSoldier->identity().profile() == BUNS_CHAOTIC )
 			{
 				gMercProfiles[BUNS].bNPCData = max(0, gMercProfiles[BUNS].bNPCData - 1 );
 
@@ -765,7 +765,7 @@ void HourlyStealUpdate()
 			&& Chance( 50 )			// we try to steal something in the first place only half the time
 			&& pSoldier->HasBackgroundFlag( BACKGROUND_SCROUNGING )
 			&& !pSoldier->deployment().isBetweenSectors()
-			&& pSoldier->bActive
+			&& pSoldier->roster().active()
 			&& !pSoldier->assignment().isAsleep()
 			&& pSoldier->assignment().current() != IN_TRANSIT
 			&& pSoldier->assignment().current() != ASSIGNMENT_POW
@@ -802,11 +802,11 @@ void HourlyStealUpdate()
 					&& pOtherSoldier->assignment().current() != ASSIGNMENT_MINIEVENT
 					&& pOtherSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
 					&& !SPY_LOCATION( pOtherSoldier->assignment().current() )
-					&& pOtherSoldier->bActive
+					&& pOtherSoldier->roster().active()
 					&& !pOtherSoldier->assignment().isAsleep()
-					&& pSoldier->ubProfile != pOtherSoldier->ubProfile )
+					&& pSoldier->identity().profile() != pOtherSoldier->identity().profile() )
 				{
-					if (ProfileHasSkillTrait(pOtherSoldier->ubProfile, SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
+					if (ProfileHasSkillTrait(pOtherSoldier->identity().profile(), SNITCH_NT) && !(pOtherSoldier->usSoldierFlagMask2 & SOLDIER_PREVENT_MISBEHAVIOUR_OFF))
 					{
 						if ( pSoldier->deployment().sectorX() == pOtherSoldier->deployment().sectorX() && pSoldier->deployment().sectorY() == pOtherSoldier->deployment().sectorY() && sectorz == pOtherSoldier->deployment().sectorZ() )
 						{
@@ -829,7 +829,7 @@ void HourlyStealUpdate()
 								HandleMoraleEvent( pSoldier, MORALE_PREVENTED_MISBEHAVIOUR, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorZ() );
 								// also here would be a place for dynamic relationship decrease between them
 								// Flugente: then lets do that, shall we?
-								AddOpinionEvent( pSoldier->ubProfile, pOtherSoldier->ubProfile, OPINIONEVENT_SNITCHINTERFERENCE );
+								AddOpinionEvent( pSoldier->identity().profile(), pOtherSoldier->identity().profile(), OPINIONEVENT_SNITCHINTERFERENCE );
 
 								fSnitchStoppedBehaviour = TRUE;
 
@@ -1096,7 +1096,7 @@ void HourlyFactoryUpdate()
 							for ( uiCnt = 0; uiCnt <= gTacticalStatus.Team[gbPlayerNum].bLastID; ++uiCnt )
 							{
 								pSoldier = GetJa2SoldierRepository().resolve(uiCnt);
-								if ( pSoldier->bActive && ( pSoldier->deployment().sectorX() == SECTORX( sector ) ) && ( pSoldier->deployment().sectorY() == SECTORY( sector ) ) && ( pSoldier->deployment().sectorZ() == 0 ) )
+								if ( pSoldier->roster().active() && ( pSoldier->deployment().sectorX() == SECTORX( sector ) ) && ( pSoldier->deployment().sectorY() == SECTORY( sector ) ) && ( pSoldier->deployment().sectorZ() == 0 ) )
 								{
 									if ( pSoldier->assignment().facilityType() == cnt )
 									{
@@ -1233,7 +1233,7 @@ void HourlyCheckIfSlayAloneSoHeCanLeave()
 	{
 		return;
 	}
-	if( !pSoldier->bActive || !pSoldier->vitals().health() )
+	if( !pSoldier->roster().active() || !pSoldier->vitals().health() )
 	{
 		return;
 	}
@@ -1284,13 +1284,13 @@ void HourlyGatheringInformation()
 	SOLDIERTYPE *pSoldier;
 	INT32 cnt=0;
 	const INT8 bLastTeamID =
-		gTacticalStatus.Team[ soldiers.resolve( cnt )->bTeam ].bLastID;
+		gTacticalStatus.Team[ soldiers.resolve( cnt )->roster().team() ].bLastID;
 
 	// go through list of characters, find all snicthes gathering info
 	for ( ; cnt <= bLastTeamID; ++cnt )
 	{
 		pSoldier = soldiers.resolve( cnt );
-		if( ( pSoldier->bActive ) && ( pSoldier->assignment().current() == SNITCH_GATHER_RUMOURS || pSoldier->assignment().current() == FACILITY_GATHER_RUMOURS ) )
+		if( ( pSoldier->roster().active() ) && ( pSoldier->assignment().current() == SNITCH_GATHER_RUMOURS || pSoldier->assignment().current() == FACILITY_GATHER_RUMOURS ) )
 		{
 			HandleGatheringInformationBySoldier( pSoldier );
 		}

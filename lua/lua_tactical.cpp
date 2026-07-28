@@ -21,7 +21,7 @@ static int LuaGetSoldierName( lua_State *L )
 	}
 	else
 	{
-		luaWS_newstr( L, pSoldier->name);
+		luaWS_newstr( L, pSoldier->identity().name());
 	}
 	return 1;
 }
@@ -36,9 +36,9 @@ static int LuaGetSoldierFullName( lua_State *L )
 	}
 	else
 	{
-		if (pSoldier->ubProfile < NUM_PROFILES)
+		if (pSoldier->identity().profile() < NUM_PROFILES)
 		{
-			luaWS_newstr( L, gMercProfiles[pSoldier->ubProfile].zName );
+			luaWS_newstr( L, gMercProfiles[pSoldier->identity().profile()].zName );
 		}
 		else
 		{

@@ -280,7 +280,7 @@ void InternalIgniteExplosion( SoldierID ubOwner, INT16 sX, INT16 sY, INT16 sZ, I
 		}
 
 		// Flugente: campaign stats
-		if ( owner->bTeam == OUR_TEAM )
+		if ( owner->roster().team() == OUR_TEAM )
 		{
 			if ( Item[ usItem ].usItemClass & IC_EXPLOSV )
 				gCampaignStats.AddConsumption(CAMPAIGN_CONSUMED_EXPLOSIVES, (FLOAT)(Item[usItem].ubWeight) );
@@ -1528,7 +1528,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 			// (bTeam==1 && is_server) branch (&& binds tighter than ||). So a remote-originated
 			// blast on our own soldier (IsOurSoldier && fFromRemoteClient) fell into this branch
 			// and re-applied + re-broadcast the damage instead of just replaying the wire numbers.
-			if (!fFromRemoteClient && (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server)))
+			if (!fFromRemoteClient && (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server)))
 			{
 				// let this function proceed, we will send damage towards the end
 			}
@@ -1555,7 +1555,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	UINT16 usHalfExplosionRadius;
 
 	if (!pSoldier ||
-		!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() )
+		!pSoldier->roster().active() || !pSoldier->roster().inSector() || !pSoldier->vitals().health() )
 		return( FALSE );
 
 	if ( pSoldier->ubMiscSoldierFlags & SOLDIER_MISC_HURT_BY_EXPLOSION )
@@ -1608,7 +1608,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	// Increment attack counter...
 	//	GetJa2PendingTacticalCombatActions()++;
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("Incrementing Attack: Explosion dishing out damage, Count now %d", GetJa2PendingTacticalCombatActions() ) );
-	DebugAttackBusy( String("Explosion dishing out damage to %d\n", pSoldier->ubID) );
+	DebugAttackBusy( String("Explosion dishing out damage to %d\n", pSoldier->identity().id()) );
 
 	sNewWoundAmt = sWoundAmt - __min( sWoundAmt, 35 ) * ArmourVersusExplosivesPercent( pSoldier ) / 100;
 	if ( sNewWoundAmt < 0 )
@@ -1682,12 +1682,12 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						pSoldier->statistics().wisdom() -= ubStatLoss;
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += ubStatLoss;
 
-						if (pSoldier->ubProfile != NO_PROFILE)
+						if (pSoldier->identity().profile() != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom = pSoldier->statistics().wisdom();
+							gMercProfiles[ pSoldier->identity().profile() ].bWisdom = pSoldier->statistics().wisdom();
 						}
 
-						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
+						if (pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
@@ -1715,12 +1715,12 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						pSoldier->statistics().dexterity() -= ubStatLoss;
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += ubStatLoss;
 
-						if (pSoldier->ubProfile != NO_PROFILE)
+						if (pSoldier->identity().profile() != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->statistics().dexterity();
+							gMercProfiles[ pSoldier->identity().profile() ].bDexterity = pSoldier->statistics().dexterity();
 						}
 
-						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
+						if (pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
@@ -1749,12 +1749,12 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						// added this for healing lost stats feature
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += ubStatLoss;
 
-						if (pSoldier->ubProfile != NO_PROFILE)
+						if (pSoldier->identity().profile() != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bStrength = pSoldier->statistics().strength();
+							gMercProfiles[ pSoldier->identity().profile() ].bStrength = pSoldier->statistics().strength();
 						}
 
-						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
+						if (pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
@@ -1783,12 +1783,12 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						// added this for healing lost stats feature
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += ubStatLoss;
 
-						if (pSoldier->ubProfile != NO_PROFILE)
+						if (pSoldier->identity().profile() != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bAgility = pSoldier->statistics().agility();
+							gMercProfiles[ pSoldier->identity().profile() ].bAgility = pSoldier->statistics().agility();
 						}
 
-						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
+						if (pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
@@ -1821,12 +1821,12 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 						pSoldier->vitals().bleeding() -= ubStatLoss;
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_HEALTH] += ubStatLoss;
 
-						if (pSoldier->ubProfile != NO_PROFILE)
+						if (pSoldier->identity().profile() != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bLifeMax = pSoldier->vitals().maximumHealth();
+							gMercProfiles[ pSoldier->identity().profile() ].bLifeMax = pSoldier->vitals().maximumHealth();
 						}
 
-						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
+						if (pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE)
 						{
 							// make stat RED for a while...
 							pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, GetJA2Clock());
@@ -1851,8 +1851,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 					}
 				}
 				// SANDRO - new merc records - times stat damaged
-				if ( ubStatLoss > 0 && pSoldier->ubProfile != NO_PROFILE )
-					gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
+				if ( ubStatLoss > 0 && pSoldier->identity().profile() != NO_PROFILE )
+					gMercProfiles[ pSoldier->identity().profile() ].records.usTimesStatDamaged++;
 			}
 		}
 
@@ -1861,8 +1861,8 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	//////////////////////////////////////////////////////////////////////////////////////
 	
 	// SANDRO - new merc records - times wounded (blasted by explosion)
-	if ( ( sNewWoundAmt > 1 || sBreathAmt > 1000 ) && pSoldier->ubProfile != NO_PROFILE )
-		gMercProfiles[ pSoldier->ubProfile ].records.usTimesWoundedBlasted++;
+	if ( ( sNewWoundAmt > 1 || sBreathAmt > 1000 ) && pSoldier->identity().profile() != NO_PROFILE )
+		gMercProfiles[ pSoldier->identity().profile() ].records.usTimesWoundedBlasted++;
 	////////////////////////////////////////////////////////////////////////////////////
 	
 	// Lesh: flashbang does affect on soldier or not - check it
@@ -1887,7 +1887,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 
 	if (is_networked && is_client)
 	{
-		if (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server) && !fFromRemoteClient)
+		if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
 		{
 			// if it gets here then we can let the other clients know our merc took damage
 			send_explosivedamage( ubPerson, ubOwner, sBombGridNo, sNewWoundAmt, sBreathAmt, uiDist, usItem, sSubsequent );
@@ -1899,7 +1899,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 	
 	pSoldier->ubMiscSoldierFlags |= SOLDIER_MISC_HURT_BY_EXPLOSION;
 
-	if ( owner && owner->bTeam == gbPlayerNum && pSoldier->bTeam != gbPlayerNum )
+	if ( owner && owner->roster().team() == gbPlayerNum && pSoldier->roster().team() != gbPlayerNum )
 	{
 		ProcessImplicationsOfPCAttack(
 			owner, &pSoldier, REASON_EXPLOSION );
@@ -1916,7 +1916,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 	if (is_networked && is_client)
 	{
 		// only the owner of a merc may send damage (as this takes into account equipped gas mask)
-		if (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server) && !fFromRemoteClient)
+		if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
 		{
 			// allow this function to proceed, we will send it later, when we are sure we take damage this turn and from this function call
 		}
@@ -1928,7 +1928,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 		}
 #ifdef JA2BETAVERSION
 	CHAR tmpMPDbgString[512];
-	sprintf(tmpMPDbgString,"DishOutGasDamage ( ubSoldierID : %i , ubExplosiveType : %i , sSubsequent : %i , recompileMoveCosts : %i , sWoundAmt : %i , sBreathAmt : %i , ubOwner : %i , fRemote : %i)\n", pSoldier->ubID.i , pExplosive->ubType , sSubsequent , fRecompileMovementCosts , sWoundAmt , sBreathAmt , ubOwner.i , fFromRemoteClient );
+	sprintf(tmpMPDbgString,"DishOutGasDamage ( ubSoldierID : %i , ubExplosiveType : %i , sSubsequent : %i , recompileMoveCosts : %i , sWoundAmt : %i , sBreathAmt : %i , ubOwner : %i , fRemote : %i)\n", pSoldier->identity().id().i , pExplosive->ubType , sSubsequent , fRecompileMovementCosts , sWoundAmt , sBreathAmt , ubOwner.i , fFromRemoteClient );
 	MPDebugMsg(tmpMPDbgString);
 #endif
 	}
@@ -1937,7 +1937,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 	FLOAT fGasBreathDamageModifier = 1.0;
 	INT8	bPosOfMask = NO_SLOT;
 
-	if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
+	if (!pSoldier->roster().active() || !pSoldier->roster().inSector() || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) || ENEMYROBOT( pSoldier ) )
 	{
 		return( fRecompileMovementCosts );
 	}
@@ -2156,7 +2156,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 			// if it gets here we are supposed to send it.
 			// let all the other clients know that our merc got gassed
 			// and align them with our random number generator
-			if (IsOurSoldier(pSoldier) || (pSoldier->bTeam == 1 && is_server) && !fFromRemoteClient)
+			if (IsOurSoldier(pSoldier) || (pSoldier->roster().team() == 1 && is_server) && !fFromRemoteClient)
 			{
 				send_gasdamage( pSoldier, pExplosive->uiIndex, sSubsequent, fRecompileMovementCosts, sWoundAmt, sBreathAmt, ubOwner );
 			}
@@ -2167,7 +2167,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 			pSoldier->DoMercBattleSound( BATTLE_SOUND_HIT1 );
 		}
 
-		if ( owner && owner->bTeam == gbPlayerNum && pSoldier->bTeam != gbPlayerNum )
+		if ( owner && owner->roster().team() == gbPlayerNum && pSoldier->roster().team() != gbPlayerNum )
 		{
 			ProcessImplicationsOfPCAttack(
 				owner, &pSoldier, REASON_EXPLOSION );
@@ -2559,7 +2559,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			if ( sSubsequent > 0 && (gpWorldLevelData[sGridNo].ubExtFlags[bLevel] & ANY_SMOKE_EFFECT) )
 				fRecompileMovementCosts = DishOutGasDamage( pSoldier, pExplosive, sSubsequent, fRecompileMovementCosts, sWoundAmt, sBreathAmt, ubOwner );
 			/*
-			if (!pSoldier->bActive || !pSoldier->bInSector || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) )
+			if (!pSoldier->roster().active() || !pSoldier->roster().inSector() || !pSoldier->vitals().health() || AM_A_ROBOT( pSoldier ) )
 			{
 			return( fRecompileMovementCosts );
 			}
@@ -2944,7 +2944,7 @@ void SpreadEffect( INT32 sGridNo, UINT8 ubRadius, UINT16 usItem, SoldierID ubOwn
 			GetJa2SoldierRepository().resolve(ubOwner.i);
 		if (pAttacker != NULL)
 		{
-			if (IsOurSoldier(pAttacker) || (pAttacker->bTeam == 1 && is_server))
+			if (IsOurSoldier(pAttacker) || (pAttacker->roster().team() == 1 && is_server))
 			{
 				// dont send SpreadEffect if it was just called from NewSmokeEffect - as now we sync that seperately
 				if (!fNewSmokeEffect)
@@ -3311,7 +3311,7 @@ BOOLEAN HookerInRoom( UINT16 usRoom )
 			GetJa2SoldierRepository().resolve(ubLoop.i);
 
 		if ( pSoldier &&
-			pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiBehavior().neutral() && pSoldier->ubBodyType == MINICIV )
+			pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiBehavior().neutral() && pSoldier->identity().bodyType() == MINICIV )
 		{
 			if ( InARoom( pSoldier->position().gridNo(), &usTempRoom ) && usTempRoom == usRoom )
 			{
@@ -3506,9 +3506,9 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			{
 				SOLDIERTYPE* civilian =
 					GetJa2SoldierRepository().resolve(ubID);
-				if ( civilian && civilian->bActive &&
-					civilian->bInSector &&
-					civilian->ubCivilianGroup == KINGPIN_CIV_GROUP )
+				if ( civilian && civilian->roster().active() &&
+					civilian->roster().inSector() &&
+					civilian->roster().civilianGroup() == KINGPIN_CIV_GROUP )
 				{
 					for ( ubID2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubID2 <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ubID2++ )
 					{
@@ -3547,7 +3547,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 			ubID = WhoIsThere2( sGridNo, 0 );
 			SOLDIERTYPE* participant =
 				GetJa2SoldierRepository().resolve(ubID);
-			if ( participant && participant->bTeam == gbPlayerNum )
+			if ( participant && participant->roster().team() == gbPlayerNum )
 			{
 				if ( InARoom( sGridNo, &usRoom ) &&
 					InARoom( participant->movementHistory().previousGrid(), &usOldRoom ) &&
@@ -3890,14 +3890,14 @@ BOOLEAN ActivateSurroundingTripwire( SoldierID ubID, INT32 sGridNo, INT8 bLevel,
 							// SANDRO - merc records
 							// only if we blew up somebody not in our team(no achievement for blowing our guys :)), only if owner exists and have profile
 							if ( triggeringSoldier &&
-								triggeringSoldier->bTeam != gbPlayerNum &&
+								triggeringSoldier->roster().team() != gbPlayerNum &&
 								(*pObj)[0]->data.misc.ubBombOwner > 1 &&
 								bombOwner )
 							{
-								if ( bombOwner->ubProfile != NO_PROFILE &&
-									bombOwner->bTeam == gbPlayerNum )
+								if ( bombOwner->identity().profile() != NO_PROFILE &&
+									bombOwner->roster().team() == gbPlayerNum )
 								{
-									gMercProfiles[bombOwner->ubProfile]
+									gMercProfiles[bombOwner->identity().profile()]
 										.records.usExpDetonated++;
 								}
 							}
@@ -4058,12 +4058,12 @@ void HandleExplosionQueue( void )
 							// SANDRO - added this for healing lost stats feature
 							pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
-							if ( pSoldier->ubProfile != NO_PROFILE )
+							if ( pSoldier->identity().profile() != NO_PROFILE )
 							{
-								gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->statistics().agility();
+								gMercProfiles[pSoldier->identity().profile()].bAgility = pSoldier->statistics().agility();
 							}
 
-							if ( pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE )
+							if ( pSoldier->identity().name()[0] && pSoldier->awareness().visibility() == TRUE )
 							{
 								// make stat RED for a while...
 								pSoldier->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
@@ -4280,7 +4280,7 @@ void HandleExplosionQueue( void )
 				pTeamSoldier =
 					GetJa2SoldierRepository().resolve(ubLoop.i);
 				if ( pTeamSoldier &&
-					pTeamSoldier->bActive && pTeamSoldier->bInSector )
+					pTeamSoldier->roster().active() && pTeamSoldier->roster().inSector() )
 				{
 					RevealRoofsAndItems( pTeamSoldier, TRUE, FALSE, pTeamSoldier->position().level(), FALSE );
 				}
@@ -4333,7 +4333,7 @@ void HandleExplosionWarningAnimations( )
 
 			if ( pSoldier != NULL )
 			{
-				if ( pSoldier->bInSector && pSoldier->bActive && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
+				if ( pSoldier->roster().inSector() && pSoldier->roster().active() && (pSoldier->deployment().sectorX() == gWorldSectorX) && (pSoldier->deployment().sectorY() == gWorldSectorY) && (pSoldier->deployment().sectorZ() == gbWorldSectorZ) )
 				{
 					INT8 invsize = (INT8)pSoldier->inv.size( );								// remember inventorysize, so we don't call size() repeatedly
 
@@ -4368,7 +4368,7 @@ void HandleExplosionWarningAnimations( )
 			GetJa2SoldierRepository().resolve(
 				gusSelectedSoldier.i);
 
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector)
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector())
 		{
 			if (pSoldier->usSoldierFlagMask2 & SOLDIER_TRAIT_FOCUS)
 			{
@@ -4433,8 +4433,8 @@ void HandleExplosionWarningAnimations( )
 									candidate->position().level() == bLevel &&
 									gAnimControl[candidate->animationPlayback().state()].ubEndHeight == ANIM_PRONE &&
 									!Water(candidate->position().gridNo(), candidate->position().level()) &&
-									pSoldier->ubBodyType <= REGFEMALE &&
-									(candidate->bTeam == pSoldier->bTeam ||
+									pSoldier->identity().bodyType() <= REGFEMALE &&
+									(candidate->roster().team() == pSoldier->roster().team() ||
 										candidate->IsUnconscious() ||
 										candidate->vitals().health() < OKLIFE))
 								{
@@ -4508,7 +4508,7 @@ void HandleExplosionWarningAnimations( )
 						continue;			// next merc
 					}
 
-					bKnowledge = Knowledge(pSoldier, pOpponent->ubID);
+					bKnowledge = Knowledge(pSoldier, pOpponent->identity().id());
 
 					// if this opponent is unknown personally and publicly
 					if (bKnowledge == NOT_HEARD_OR_SEEN || bKnowledge > SEEN_LAST_TURN || bKnowledge < HEARD_LAST_TURN)
@@ -4517,8 +4517,8 @@ void HandleExplosionWarningAnimations( )
 					}
 
 					// obtain opponent's location and level
-					sSpot = KnownLocation(pSoldier, pOpponent->ubID);
-					bLevel = KnownLevel(pSoldier, pOpponent->ubID);
+					sSpot = KnownLocation(pSoldier, pOpponent->identity().id());
+					bLevel = KnownLevel(pSoldier, pOpponent->identity().id());
 
 					if (TileIsOutOfBounds(sSpot))
 					{
@@ -4578,10 +4578,10 @@ void DecayBombTimers( void )
 								gubPersonToSetOffExplosions.i);
 						// SANDRO - merc records - detonating explosives
 						if ( detonator &&
-							detonator->ubProfile != NO_PROFILE &&
-							detonator->bTeam == gbPlayerNum )
+							detonator->identity().profile() != NO_PROFILE &&
+							detonator->roster().team() == gbPlayerNum )
 						{
-							gMercProfiles[detonator->ubProfile]
+							gMercProfiles[detonator->identity().profile()]
 								.records.usExpDetonated++;
 						}
 					}
@@ -4612,7 +4612,7 @@ void DecayBombTimers( void )
 
 		if ( pSoldier != NULL )
 		{
-			if ( pSoldier->bInSector && pSoldier->bActive )
+			if ( pSoldier->roster().inSector() && pSoldier->roster().active() )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
 							  
@@ -4638,10 +4638,10 @@ void DecayBombTimers( void )
 											gubPersonToSetOffExplosions.i);
 									// SANDRO - merc records - detonating explosives
 									if ( detonator &&
-										detonator->ubProfile != NO_PROFILE &&
-										detonator->bTeam == gbPlayerNum )
+										detonator->identity().profile() != NO_PROFILE &&
+										detonator->roster().team() == gbPlayerNum )
 									{
-										gMercProfiles[detonator->ubProfile]
+										gMercProfiles[detonator->identity().profile()]
 											.records.usExpDetonated++;
 									}
 								}
@@ -4704,10 +4704,10 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 								GetJa2SoldierRepository().resolve(
 									(*pObj)[0]->data.misc.ubBombOwner - 2);
 							if ( bombOwner &&
-								bombOwner->ubProfile != NO_PROFILE &&
-								bombOwner->bTeam == gbPlayerNum )
+								bombOwner->identity().profile() != NO_PROFILE &&
+								bombOwner->roster().team() == gbPlayerNum )
 							{
-								gMercProfiles[bombOwner->ubProfile]
+								gMercProfiles[bombOwner->identity().profile()]
 									.records.usExpDetonated++;
 
 								StatChange( bombOwner, EXPLODEAMT, ( 5 ), FALSE );
@@ -4783,7 +4783,7 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 
 		if ( pSoldier != NULL )
 		{
-			if ( pSoldier->bInSector && pSoldier->bActive )
+			if ( pSoldier->roster().inSector() && pSoldier->roster().active() )
 			{
 				INT8 invsize = (INT8)pSoldier->inv.size();								// remember inventorysize, so we don't call size() repeatedly
 							  
@@ -4809,10 +4809,10 @@ void SetOffBombsByFrequency( SoldierID ubID, INT8 bFrequency )
 											GetJa2SoldierRepository().resolve(
 												(*pObj)[0]->data.misc.ubBombOwner - 2);
 										if ( bombOwner &&
-											bombOwner->ubProfile != NO_PROFILE &&
-											bombOwner->bTeam == gbPlayerNum )
+											bombOwner->identity().profile() != NO_PROFILE &&
+											bombOwner->roster().team() == gbPlayerNum )
 										{
-											gMercProfiles[bombOwner->ubProfile]
+											gMercProfiles[bombOwner->identity().profile()]
 												.records.usExpDetonated++;
 
 											StatChange( bombOwner, EXPLODEAMT, ( 5 ), FALSE );
@@ -4974,14 +4974,14 @@ BOOLEAN SetOffBombsInGridNo( SoldierID ubID, INT32 sGridNo, BOOLEAN fAllBombs, I
 						// SANDRO - merc records
 						// only if we blew up somebody not in our team(no achievement for blowing our guys :)), only if owner exists and have profile
 						if ( triggeringSoldier &&
-							triggeringSoldier->bTeam != gbPlayerNum &&
+							triggeringSoldier->roster().team() != gbPlayerNum &&
 							(*pObj)[0]->data.misc.ubBombOwner > 1 &&
 							bombOwner )
 						{
-							if ( bombOwner->ubProfile != NO_PROFILE &&
-								bombOwner->bTeam == gbPlayerNum )
+							if ( bombOwner->identity().profile() != NO_PROFILE &&
+								bombOwner->roster().team() == gbPlayerNum )
 							{
-								gMercProfiles[bombOwner->ubProfile]
+								gMercProfiles[bombOwner->identity().profile()]
 									.records.usExpDetonated++;
 							}
 						}
@@ -5328,7 +5328,7 @@ void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 		return;
 	}
 
-	if ( owner->bTeam != gbPlayerNum )
+	if ( owner->roster().team() != gbPlayerNum )
 	{
 		return;
 	}
@@ -5342,12 +5342,12 @@ void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 	{
 		pSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral() )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->roster().inSector() && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral() )
 		{
-			if ( pSoldier->ubProfile != NO_PROFILE )
+			if ( pSoldier->identity().profile() != NO_PROFILE )
 			{
 				// ignore if the player is fighting the enemy here and this is a good guy
-				if ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 && (gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) )
+				if ( gTacticalStatus.Team[ ENEMY_TEAM ].bMenInSector > 0 && (gMercProfiles[ pSoldier->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) )
 				{
 					continue;
 				}
@@ -5643,7 +5643,7 @@ void HavePersonAtGridnoStop( UINT32 sGridNo )
 		GetJa2SoldierRepository().resolve(ubID.i);
 
 	//is it a valid person
-	if ( soldier && soldier->bTeam == gbPlayerNum )
+	if ( soldier && soldier->roster().team() == gbPlayerNum )
 	{
 		//Stop the merc
 		soldier->EVENT_StopMerc(
@@ -5766,7 +5766,7 @@ void HandleDestructionOfPowerGenFan()
 	if( soldier )
 	{
 		DelayedMercQuote(
-			soldier->ubProfile,
+			soldier->identity().profile(),
 			QUOTE_ACCEPT_CONTRACT_RENEWAL,
 			GetWorldTotalSeconds() + 2 );
 	}
@@ -5916,8 +5916,8 @@ void HandleSeeingPowerGenFan( UINT32 sGridNo )
 				pOtherSoldier =
 					GetJa2SoldierRepository().resolve(cnt);
 				//if the soldier is in the sector
-				if( pOtherSoldier && pOtherSoldier->bActive &&
-					pOtherSoldier->bInSector &&
+				if( pOtherSoldier && pOtherSoldier->roster().active() &&
+					pOtherSoldier->roster().inSector() &&
 					( pOtherSoldier->vitals().health() >= CONSCIOUSNESS ) )
 				{
 					INT16 sDistanceAway;

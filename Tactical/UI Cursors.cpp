@@ -1580,7 +1580,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 
 		if ( fOnGuy )
 		{
-			if ( IsValidTargetMerc( pTargetSoldier->ubID ) )
+			if ( IsValidTargetMerc( pTargetSoldier->identity().id() ) )
 			{
 				if ( usFlags & TILE_FLAG_FEET )
 				{
@@ -1609,7 +1609,7 @@ void DetermineCursorBodyLocation( SoldierID ubSoldierID, BOOLEAN fDisplay, BOOLE
 				GetJa2SoldierRepository().resolve(
 					gusUIFullTargetID.i);
 
-			if ( pTargetSoldier->ubBodyType == CROW )
+			if ( pTargetSoldier->identity().bodyType() == CROW )
 			{
 				pSoldier->attackSelection().shotLocation() = AIM_SHOT_LEGS;
 
@@ -1703,7 +1703,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 	if ( fActivated )
 	{
-		DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+		DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 		//shadooow: this fixes bug where the original aim location is lost if the attack is stopped due to interrupt
 		pSoldier->attackSelection().meleeLocation() = pSoldier->attackSelection().shotLocation();
 
@@ -1809,7 +1809,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// CHECK IF WE ARE ON A GUY ( THAT'S NOT SELECTED )!
 		if ( gfUIFullTargetFound && !( guiUIFullTargetFlags & SELECTED_MERC ) )
 		{
-			DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+			DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 			return( KNIFE_HIT_UICURSOR );
 		}
 		else
@@ -1836,7 +1836,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 	if ( fActivated )
 	{
-		DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+		DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 		//shadooow: this fixes bug where the original aim location is lost if the attack is stopped due to interrupt
 		pSoldier->attackSelection().meleeLocation() = pSoldier->attackSelection().shotLocation();
 
@@ -1941,7 +1941,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 		// CHECK IF WE ARE ON A GUY ( THAT'S NOT SELECTED )!
 		if ( gfUIFullTargetFound && !( guiUIFullTargetFlags & SELECTED_MERC ) )
 		{
-			DetermineCursorBodyLocation( pSoldier->ubID, TRUE, TRUE );
+			DetermineCursorBodyLocation( pSoldier->identity().id(), TRUE, TRUE );
 			return( ACTION_PUNCH_RED );
 		}
 		else
@@ -2279,7 +2279,7 @@ UINT8 HandleBloodbagCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActiv
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID &&
+			if ( usSoldierIndex != pSoldier->identity().id() &&
 				GetJa2SoldierRepository()
 					.resolve(usSoldierIndex.i)->IsValidBloodDonor() )
 				return BLOODBAG_GREY_UICURSOR;
@@ -2316,7 +2316,7 @@ UINT8 HandleSplintCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivat
 		SoldierID usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 		if ( usSoldierIndex != NOBODY )
 		{
-			if ( usSoldierIndex != pSoldier->ubID &&
+			if ( usSoldierIndex != pSoldier->identity().id() &&
 				GetJa2SoldierRepository()
 					.resolve(usSoldierIndex.i)->CanReceiveSplint() )
 				return SPLINT_GREY_UICURSOR;
@@ -3319,7 +3319,7 @@ UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance )
 	UINT16 uiNewChance;
 	UINT16 i;
 
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
 		if ( gGameOptions.fNewTraitSystem ) // old/new traits - SANDRO
 			iSniper = NUM_SKILL_TRAITS( pSoldier, SNIPER_NT );

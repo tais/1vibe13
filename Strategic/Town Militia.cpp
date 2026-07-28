@@ -1498,7 +1498,7 @@ void HandleCompletionOfTownTrainingByGroupWithTrainer( SOLDIERTYPE *pTrainer, UI
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		// valid soldier?
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -1559,7 +1559,7 @@ void AddSectorForSoldierToListOfSectorsThatCompletedMilitiaTraining( SOLDIERTYPE
 	}
 
 	// add merc to the list
-	giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ] = pSoldier->ubID;
+	giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ] = pSoldier->identity().id();
 
 	return;
 }
@@ -1590,13 +1590,13 @@ void HandleContinueOfTownTraining( void )
 		// get the soldier
 		pSoldier = GetJa2SoldierRepository().resolve(giListOfMercsInSectorsCompletedMilitiaTraining[ iCounter ]);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			fContinueEventPosted = TRUE;
 #ifdef JA2UB
 //no UB
 #else
-			SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA, pSoldier->ubProfile, 0, 0, 0, 0 );
+			SpecialCharacterDialogueEvent( DIALOGUE_SPECIAL_EVENT_CONTINUE_TRAINING_MILITIA, pSoldier->identity().profile(), 0, 0, 0, 0 );
 #endif
 
 			// now set all of these peoples assignment done too
@@ -1793,7 +1793,7 @@ void ResetDoneFlagForAllMilitiaTrainersInSector( UINT8 ubSector, UINT8 ubMilitia
 	{
 		pSoldier = &GetJa2SoldierRepository().record(iCounter);
 
-		if( pSoldier->bActive )
+		if( pSoldier->roster().active() )
 		{
 			if (ubMilitiaType == TOWN_MILITIA)
 			{
@@ -1925,7 +1925,7 @@ UINT8 FindBestMilitiaTrainingLeadershipInSector ( INT16 sMapX, INT16 sMapY, INT8
 	for ( ; cnt <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ++cnt )
 	{
 		pCheckedTrainer = GetJa2SoldierRepository().resolve(cnt);
-		if  (pCheckedTrainer->bActive && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->assignment().current() == TRAIN_TOWN) )
+		if  (pCheckedTrainer->roster().active() && pCheckedTrainer->vitals().health() >= OKLIFE && (ubMilitiaType == TOWN_MILITIA && pCheckedTrainer->assignment().current() == TRAIN_TOWN) )
 		{
 			if (pCheckedTrainer->deployment().sectorX() == sMapX && pCheckedTrainer->deployment().sectorY() == sMapY && pCheckedTrainer->deployment().sectorZ() == bMapZ )
 			{

@@ -2331,7 +2331,7 @@ void DrawPay(INT16 sCharNumber)
 
 
 	// get merc id
-	usMercProfileID = GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->ubProfile;
+	usMercProfileID = GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->identity().profile();
 
 	// grab salary
 	uiSalary=( ( UINT32 ) gMercProfiles[ usMercProfileID ].sSalary );
@@ -2923,7 +2923,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 	pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID);
 
-	if( pSoldier->ubProfile == NO_PROFILE )
+	if( pSoldier->identity().profile() == NO_PROFILE )
 	{
 		return;
 	}
@@ -2933,7 +2933,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 
 	// get profile information
-	usMercProfileID = pSoldier->ubProfile;
+	usMercProfileID = pSoldier->identity().profile();
 
 
 	// set font stuff
@@ -3111,7 +3111,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
 	}
 	// what kind of merc
-	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->ubProfile == SLAY )
+	else if(pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC || pSoldier->identity().profile() == SLAY )
 	{
 		FLOAT dTimeLeft = 0.0;
 
@@ -3175,7 +3175,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	{
 		INT32 iBeenHiredFor = ( GetWorldTotalMin( ) / NUM_MIN_IN_DAY ) - pSoldier->employment().startTime();
 
-		sgp_swprintf(sString, 32,L"%d%s/%d%s",gMercProfiles[ pSoldier->ubProfile ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
+		sgp_swprintf(sString, 32,L"%d%s/%d%s",gMercProfiles[ pSoldier->identity().profile() ].iMercMercContractLength, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ], iBeenHiredFor, gpStrategicString[ STR_PB_DAYS_ABBREVIATION ] );
 	}
 	else
 	{
@@ -3203,20 +3203,20 @@ void DrawCharacterInfo(INT16 sCharNumber)
 		// daily rate
 		if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 		{
-			iDailyCost = ( gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14 );
+			iDailyCost = ( gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14 );
 		}
 		if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 		{
-			iDailyCost = ( gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 );
+			iDailyCost = ( gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 );
 		}
 		else
 		{
-			iDailyCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+			iDailyCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 		}
 	}
 	else
 	{
-		iDailyCost = gMercProfiles[ pSoldier->ubProfile ].sSalary;
+		iDailyCost = gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 	}
 
 
@@ -3231,9 +3231,9 @@ void DrawCharacterInfo(INT16 sCharNumber)
 	}
 
 	// medical deposit
-	if( gMercProfiles[ GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->ubProfile ].sMedicalDepositAmount > 0 )
+	if( gMercProfiles[ GetJa2SoldierRepository().resolve(gCharactersList[ sCharNumber ].usSolID)->identity().profile() ].sMedicalDepositAmount > 0 )
 	{
-		auto tmpMoney{ FormatMoney(gMercProfiles[GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID)->ubProfile].sMedicalDepositAmount) };
+		auto tmpMoney{ FormatMoney(gMercProfiles[GetJa2SoldierRepository().resolve(gCharactersList[sCharNumber].usSolID)->identity().profile()].sMedicalDepositAmount) };
 
 		{
 			const auto x = UI_CHARPANEL.Text.Medical.x;
@@ -3349,12 +3349,12 @@ void DisplayCharacterInfo( void )
 		const auto STAT_WIDTH = UI_CHARPANEL.Attr.width;
 		const auto STAT_HEIGHT = UI_CHARPANEL.Attr.height;
 		// AGI
-		if (gMercProfiles[ pSoldier->ubProfile ].sAgilityGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sAgilityGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.AGL.iX;
 			const auto y = UI_CHARPANEL.Attr.AGL.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sAgilityGain+1)) / SubpointsPerPoint(AGILAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sAgilityGain+1)) / SubpointsPerPoint(AGILAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3364,12 +3364,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// DEX
-		if (gMercProfiles[ pSoldier->ubProfile ].sDexterityGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sDexterityGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.DEX.iX;
 			const auto y = UI_CHARPANEL.Attr.DEX.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sDexterityGain+1)) / SubpointsPerPoint(DEXTAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sDexterityGain+1)) / SubpointsPerPoint(DEXTAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3379,12 +3379,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// STR
-		if (gMercProfiles[ pSoldier->ubProfile ].sStrengthGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sStrengthGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.STR.iX;
 			const auto y = UI_CHARPANEL.Attr.STR.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sStrengthGain+1)) / SubpointsPerPoint(STRAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sStrengthGain+1)) / SubpointsPerPoint(STRAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3394,12 +3394,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// WIS
-		if (gMercProfiles[ pSoldier->ubProfile ].sWisdomGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sWisdomGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.WIS.iX;
 			const auto y = UI_CHARPANEL.Attr.WIS.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sWisdomGain+1)) / SubpointsPerPoint(WISDOMAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sWisdomGain+1)) / SubpointsPerPoint(WISDOMAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3409,12 +3409,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// MRK
-		if (gMercProfiles[ pSoldier->ubProfile ].sMarksmanshipGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sMarksmanshipGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.MRK.iX;
 			const auto y = UI_CHARPANEL.Attr.MRK.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sMarksmanshipGain+1)) / SubpointsPerPoint(MARKAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sMarksmanshipGain+1)) / SubpointsPerPoint(MARKAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3424,12 +3424,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// LDR
-		if (gMercProfiles[ pSoldier->ubProfile ].sLeadershipGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sLeadershipGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.LDR.iX;
 			const auto y = UI_CHARPANEL.Attr.LDR.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sLeadershipGain+1)) / SubpointsPerPoint(LDRAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sLeadershipGain+1)) / SubpointsPerPoint(LDRAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3439,12 +3439,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// MECH
-		if (gMercProfiles[ pSoldier->ubProfile ].sMechanicGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sMechanicGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.MEC.iX;
 			const auto y = UI_CHARPANEL.Attr.MEC.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sMechanicGain+1)) / SubpointsPerPoint(MECHANAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sMechanicGain+1)) / SubpointsPerPoint(MECHANAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3454,12 +3454,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// EXPLO
-		if (gMercProfiles[ pSoldier->ubProfile ].sExplosivesGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sExplosivesGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.EXP.iX;
 			const auto y = UI_CHARPANEL.Attr.EXP.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sExplosivesGain+1)) / SubpointsPerPoint(EXPLODEAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sExplosivesGain+1)) / SubpointsPerPoint(EXPLODEAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3469,12 +3469,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// MED
-		if (gMercProfiles[ pSoldier->ubProfile ].sMedicalGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sMedicalGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.MED.iX;
 			const auto y = UI_CHARPANEL.Attr.MED.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sMedicalGain+1)) / SubpointsPerPoint(MEDICALAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sMedicalGain+1)) / SubpointsPerPoint(MEDICALAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3484,12 +3484,12 @@ void DisplayCharacterInfo( void )
 		}
 
 		// EXPLEVEL
-		if (gMercProfiles[ pSoldier->ubProfile ].sExpLevelGain)
+		if (gMercProfiles[ pSoldier->identity().profile() ].sExpLevelGain)
 		{
 			const auto x = UI_CHARPANEL.Attr.LVL.iX;
 			const auto y = UI_CHARPANEL.Attr.LVL.iY;
 
-			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->ubProfile ].sExpLevelGain+1)) / SubpointsPerPoint(EXPERAMT, &gMercProfiles[pSoldier->ubProfile]);
+			ubBarWidth = (STAT_WIDTH * (gMercProfiles[ pSoldier->identity().profile() ].sExpLevelGain+1)) / SubpointsPerPoint(EXPERAMT, &gMercProfiles[pSoldier->identity().profile()]);
 			ubBarWidth = __max(0, __min(ubBarWidth, STAT_WIDTH));
 			ClipRect.iTop = (y-1);
 			ClipRect.iBottom = (y-1) + STAT_HEIGHT;
@@ -3947,7 +3947,7 @@ void AddCharacter( SOLDIERTYPE *pCharacter )
 	}
 
 	// valid character?
-	if( pCharacter->bActive == FALSE )
+	if( pCharacter->roster().active() == FALSE )
 	{
 		return;
 	}
@@ -3965,7 +3965,7 @@ void AddCharacter( SOLDIERTYPE *pCharacter )
 	}
 
 	// copy over soldier id value
-	gCharactersList[usCount].usSolID = pCharacter->ubID;
+	gCharactersList[usCount].usSolID = pCharacter->identity().id();
 
 	// valid character
 	gCharactersList[usCount].fValid = TRUE;
@@ -4009,10 +4009,10 @@ void LoadCharacters( void )
 	pSoldier = GetJa2SoldierRepository().resolve(0);
 
 	// fills array with pressence of player controlled characters
-	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->bTeam ].bLastID; cnt++)
+	for ( ; cnt <= gTacticalStatus.Team[ pSoldier->roster().team() ].bLastID; cnt++)
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
-		if(pTeamSoldier->bActive)
+		if(pTeamSoldier->roster().active())
 		{
 			AddCharacter( pTeamSoldier );
 			uiCount++;
@@ -4103,7 +4103,7 @@ void DisplayCharacterList()
 
 			SetFontForeground( ubForegroundColor );
 
-			DrawName( pSoldier->name, sCount, MAP_SCREEN_FONT);
+			DrawName( pSoldier->identity().name(), sCount, MAP_SCREEN_FONT);
 			DrawLocation(     sCount + FIRSTmercTOdisplay , sCount, MAP_SCREEN_FONT);
 			DrawDestination(  sCount + FIRSTmercTOdisplay, sCount, MAP_SCREEN_FONT);
 			DrawAssignment(   sCount + FIRSTmercTOdisplay, sCount, MAP_SCREEN_FONT);
@@ -6320,39 +6320,39 @@ void DrawAssignment(INT16 sCharNumber, INT16 sRowIndex, INT32 iFont)
 			switch (pSoldier->assignment().trainingStat())
 			{
 				case STRENGTH:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sStrengthGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sStrengthGain+1;
 					usMaxProgress = gGameExternalOptions.usStrengthSubpointsToImprove;
 					break;
 				case AGILITY:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sAgilityGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sAgilityGain+1;
 					usMaxProgress = gGameExternalOptions.usAgilitySubpointsToImprove;
 					break;
 				case DEXTERITY:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sDexterityGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sDexterityGain+1;
 					usMaxProgress = gGameExternalOptions.usDexteritySubpointsToImprove;
 					break;
 				case HEALTH:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sLifeGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sLifeGain+1;
 					usMaxProgress = gGameExternalOptions.usHealthSubpointsToImprove;
 					break;
 				case MARKSMANSHIP:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sMarksmanshipGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sMarksmanshipGain+1;
 					usMaxProgress = gGameExternalOptions.usMarksmanshipSubpointsToImprove;
 					break;
 				case LEADERSHIP:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sLeadershipGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sLeadershipGain+1;
 					usMaxProgress = gGameExternalOptions.usLeadershipSubpointsToImprove;
 					break;
 				case MECHANICAL:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sMechanicGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sMechanicGain+1;
 					usMaxProgress = gGameExternalOptions.usMechanicalSubpointsToImprove;
 					break;
 				case MEDICAL:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sMedicalGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sMedicalGain+1;
 					usMaxProgress = gGameExternalOptions.usMedicalSubpointsToImprove;
 					break;
 				case EXPLOSIVE_ASSIGN:
-					ubProgress = gMercProfiles[ pSoldier->ubProfile ].sExplosivesGain+1;
+					ubProgress = gMercProfiles[ pSoldier->identity().profile() ].sExplosivesGain+1;
 					usMaxProgress = gGameExternalOptions.usExplosivesSubpointsToImprove;
 					break;
 			}
@@ -7819,13 +7819,13 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					if(bSelectedInfoChar != -1)
 					{
 						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
-						pSoldier->bInSector = FALSE;
+						pSoldier->roster().inSector() = FALSE;
 
 						//CHRISL: Try to update InSector value so we don't have to "activate" a sector
 						if(pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->deployment().isBetweenSectors())
-							pSoldier->bInSector = TRUE;
+							pSoldier->roster().inSector() = TRUE;
 
-						if(OK_CONTROL_MERC( pSoldier ) && pSoldier->bInSector == TRUE)
+						if(OK_CONTROL_MERC( pSoldier ) && pSoldier->roster().inSector() == TRUE)
 						{
 							if(!fShowMapInventoryPool)
 							{
@@ -8207,7 +8207,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 
 							EnemyCapturesPlayerSoldier( pSoldier );
 
-							if ( pSoldier->bInSector )
+							if ( pSoldier->roster().inSector() )
 							{
 								RemoveSoldierFromTacticalSector( pSoldier, TRUE );
 							}
@@ -8506,7 +8506,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 
 							//CHRISL: Try to update InSector value so we don't have to "activate" a sector
 							if (pSoldier->deployment().sectorX() == sSelMapX && pSoldier->deployment().sectorY() == sSelMapY && pSoldier->deployment().sectorZ() == iCurrentMapSectorZ && !pSoldier->deployment().isBetweenSectors())
-								pSoldier->bInSector=TRUE;
+								pSoldier->roster().inSector()=TRUE;
 
 							if (OK_CONTROL_MERC( pSoldier ))
 							{
@@ -9779,7 +9779,7 @@ void BltCharInvPanel()
 			// anv: display stealth together with camo
 			INT16 wornstealth = GetWornStealth(pSoldier) - pSoldier->GetBackgroundValue(BG_PERC_STEALTH);
 			INT16 bonusstealth = pSoldier->GetBackgroundValue(BG_PERC_STEALTH);
-			if ( pSoldier->ubBodyType == BLOODCAT )
+			if ( pSoldier->identity().bodyType() == BLOODCAT )
 			{
 				bonusstealth += 50;
 			}
@@ -10199,7 +10199,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					// Do we still have a linked backpack?  If so, reset droppackflag
 					for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 					{
-						if(gWorldItems[wi].soldierID == pSoldier->ubID && gWorldItems[wi].object.exists() == true)
+						if(gWorldItems[wi].soldierID == pSoldier->identity().id() && gWorldItems[wi].object.exists() == true)
 						{
 							pSoldier->inventoryState().dropPackFlag() = TRUE;
 						}
@@ -10230,7 +10230,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				return;
 			}
 
-			if (UsingInventoryCostsAPSystem() && (IsJa2TacticalCombatActive()) && pSoldier->bInSector)
+			if (UsingInventoryCostsAPSystem() && (IsJa2TacticalCombatActive()) && pSoldier->roster().inSector())
 			{
 				if (!CanItemFitInPosition(pSoldier, gpItemPointer, (INT8)uiHandPos, FALSE))//dnl ch66 070913
 					return;
@@ -10271,7 +10271,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 						
 						for (UINT8 i = 0; i<cnt;i++)
 						{
-							if ((IsJa2TacticalCombatActive()) && pSoldier->bInSector)
+							if ((IsJa2TacticalCombatActive()) && pSoldier->roster().inSector())
 							{
 								// silversurfer: This didn't cost any AP. Why? CTRL + LeftClick should deduct the same AP as manual attachment in the EDB.
 								usCostToMoveItem = AttachmentAPCost(gpItemPointer->usItem, pSoldier->inv[uiHandPos].usItem, pSoldier);
@@ -10430,7 +10430,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				// if item came from another merc
 				if ( GetItemPointerSoldier() != pSoldier )
 				{
-					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_ITEM_PASSED_TO_MERC ], ShortItemNames[ usNewItemIndex ], pSoldier->name );
+					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_ITEM_PASSED_TO_MERC ], ShortItemNames[ usNewItemIndex ], pSoldier->identity().name() );
 				}
 
 			}
@@ -12072,7 +12072,7 @@ static void HandleSelectedMercsContract()
 			// get the soldier pointer
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[iCounter].usSolID);
 
-			if (pSoldier->bActive == FALSE)
+			if (pSoldier->roster().active() == FALSE)
 			{
 				continue;
 			}
@@ -12088,9 +12088,9 @@ static void HandleSelectedMercsContract()
 				gSelectedSoldiers.push_back(pSoldier);
 				ubNumberOfSelectedSoldiers++;
 
-				DailySalaries += gMercProfiles[pSoldier->ubProfile].sSalary;
-				WeeklySalaries += gMercProfiles[pSoldier->ubProfile].uiWeeklySalary;
-				BiweeklySalaries += gMercProfiles[pSoldier->ubProfile].uiBiWeeklySalary;
+				DailySalaries += gMercProfiles[pSoldier->identity().profile()].sSalary;
+				WeeklySalaries += gMercProfiles[pSoldier->identity().profile()].uiWeeklySalary;
+				BiweeklySalaries += gMercProfiles[pSoldier->identity().profile()].uiBiWeeklySalary;
 
 				bSelectedContractChar = bSelectedInfoChar;
 				giContractHighLine = bSelectedContractChar;
@@ -12228,7 +12228,7 @@ INT32 GetIndexForthis( SOLDIERTYPE *pSoldier )
 	{
 		if( gCharactersList[ iCounter ].fValid == TRUE )
 		{
-			if( gCharactersList[ iCounter ].usSolID == pSoldier->ubID )
+			if( gCharactersList[ iCounter ].usSolID == pSoldier->identity().id() )
 			{
 				iIndex = iCounter;
 				iCounter = iLastGuy;
@@ -12803,7 +12803,7 @@ void HandleShadingOfLinesForContractMenu( void )
 	// is guy in AIM? and well enough to talk and make such decisions?
 	if( (atLeastOneAIMmerc) && ( pSoldier->vitals().health() >= OKLIFE ) )
 	{
-		MERCPROFILESTRUCT* pProfile = &( gMercProfiles[ pSoldier->ubProfile ] );
+		MERCPROFILESTRUCT* pProfile = &( gMercProfiles[ pSoldier->identity().profile() ] );
 
 		if (is_networked)
 		{
@@ -12822,7 +12822,7 @@ void HandleShadingOfLinesForContractMenu( void )
 			{
 				for (const auto& soldier : gSelectedSoldiers)
 				{
-					const auto& profile = gMercProfiles[soldier->ubProfile];
+					const auto& profile = gMercProfiles[soldier->identity().profile()];
 					sumOneDay += profile.sSalary;
 					sumOneWeek += profile.uiWeeklySalary;
 					sumBiWeekly += profile.uiBiWeeklySalary;
@@ -12877,7 +12877,7 @@ void HandleShadingOfLinesForContractMenu( void )
 
 	// if THIS soldier is involved in a fight (dismissing in a hostile sector IS ok...)
 	// Also if we have multiple mercs selected, disable terminating contracts
-	if (multipleMercsSelected || (( IsJa2TacticalCombatActive() ) && pSoldier->bInSector ))
+	if (multipleMercsSelected || (( IsJa2TacticalCombatActive() ) && pSoldier->roster().inSector() ))
 	{
 		ShadeStringInBox( ghContractBox, CONTRACT_MENU_TERMINATE );
 	}
@@ -12912,7 +12912,7 @@ void ReBuildCharactersList( void )
 	// fills array with presence of player controlled characters
 	for ( SoldierID soldier = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; soldier <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++soldier )
 	{
-		if( GetJa2SoldierRepository().resolve(soldier)->bActive )
+		if( GetJa2SoldierRepository().resolve(soldier)->roster().active() )
 		{
 			AddCharacter( GetJa2SoldierRepository().resolve(soldier) );
 		}
@@ -14748,7 +14748,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 			pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 			// check if soldier is active
-			if( pCurrentSoldier->bActive == FALSE )
+			if( pCurrentSoldier->roster().active() == FALSE )
 			{
 				continue;
 			}
@@ -14796,9 +14796,9 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 							continue;
 
 						if((fReverse &&
-								( wcscmp( first->name, second->name ) < 0 )) ||
+								( wcscmp( first->identity().name(), second->identity().name() ) < 0 )) ||
 							(!fReverse &&
-								( wcscmp( first->name, second->name ) > 0 )))
+								( wcscmp( first->identity().name(), second->identity().name() ) > 0 )))
 						SwapCharactersInList( iCounter, iCounterA );
 					}
 				}
@@ -14974,7 +14974,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 				break;
 
 			case( 6 ):
-				uiID = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->ubID;
+				uiID = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->identity().id();
 				//by ubID
 				for( iCounterA = 0; iCounterA < giMAXIMUM_NUMBER_OF_PLAYER_SLOTS; iCounterA++ )
 				{
@@ -14982,7 +14982,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					{
 						break;
 					}
-					uiIDA = GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID)->ubID;
+					uiIDA = GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID)->identity().id();
 					if( !fReverse && ( uiIDA > uiID ) && ( iCounterA < iCounter ) )
 					{
 						SwapCharactersInList( iCounter, iCounterA );
@@ -15024,7 +15024,7 @@ void SortListOfMercsInTeamPanel( BOOLEAN fRetainSelectedMercs, BOOLEAN fReverse 
 					pCurrentSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounterA ].usSolID);
 
 					// check if soldier is active
-					if( pCurrentSoldier->bActive == FALSE )
+					if( pCurrentSoldier->roster().active() == FALSE )
 					{
 						continue;
 					}
@@ -15196,7 +15196,7 @@ void DisplayIconsForMercsAsleep( void )
 		if( gCharactersList[ iCounter + FIRSTmercTOdisplay ].fValid == TRUE )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter + FIRSTmercTOdisplay ].usSolID);
-			if( pSoldier->bActive && pSoldier->assignment().isAsleep() && CanChangeSleepStatusForSoldier( pSoldier ) )
+			if( pSoldier->roster().active() && pSoldier->assignment().isAsleep() && CanChangeSleepStatusForSoldier( pSoldier ) )
 			{
 				BltVideoObject( guiSAVEBUFFER , hHandle, 0, UI_CHARLIST.xSleep + 2, ( INT16 )(UI_CHARLIST.y + (iCounter * ( Y_SIZE + 2 ) ) ) , VO_BLT_SRCTRANSPARENCY,NULL );
 			}
@@ -15427,7 +15427,7 @@ BOOLEAN CanChangeDestinationForCharSlot( INT16 bCharNumber, BOOLEAN fShowErrorMe
 
 	// valid soldier?
 	Assert( pSoldier );
-	Assert( pSoldier->bActive );
+	Assert( pSoldier->roster().active() );
 
 	if ( CanEntireMovementGroupMercIsInMove( pSoldier, &bErrorNumber ) )
 	{
@@ -15460,7 +15460,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 
 	// valid soldier?
 	Assert( pSoldier );
-	Assert( pSoldier->bActive );
+	Assert( pSoldier->roster().active() );
 
 	// if a vehicle, in transit, or a POW
 	if( /*( pSoldier->status().flags() & SOLDIER_VEHICLE ) ||*/
@@ -15502,7 +15502,7 @@ BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier )
 {
 	// valid soldier?
 	Assert( pSoldier );
-	Assert( pSoldier->bActive );
+	Assert( pSoldier->roster().active() );
 
 	// if a vehicle, robot, in transit, or a POW
 	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) ||
@@ -15795,7 +15795,7 @@ INT32 GetContractExpiryTime( SOLDIERTYPE *pSoldier )
 #ifdef JA2UB
 /* JA25 UB  */
 #else
-	if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) || ( pSoldier->ubProfile == SLAY ) )
+	if( ( pSoldier->employment().mercenaryType() == MERC_TYPE__AIM_MERC ) || ( pSoldier->identity().profile() == SLAY ) )
 	{
 		return ( pSoldier->employment().endTime() );
 	}
@@ -16145,7 +16145,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 		pSoldier = GetJa2SoldierRepository().resolve(id);
 
 		// is the soldier active
-		if( pSoldier->bActive == FALSE )
+		if( pSoldier->roster().active() == FALSE )
 		{
 			continue;
 		}
@@ -16399,7 +16399,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 			{
-				ubSelectedMercID[ ubNumMercs ] = pSoldier->ubID;
+				ubSelectedMercID[ ubNumMercs ] = pSoldier->identity().id();
 				ubSelectedMercIndex[ ubNumMercs ] = (UINT16)iCounter;
 
 				ubNumMercs++;
@@ -16863,9 +16863,9 @@ void GetMapscreenMercDepartureString( SOLDIERTYPE *pSoldier, CHAR16 sString[], U
 
 #ifdef JA2UB
 //Ja25:		Removed the aim merc check because aim mercs are hired for a 1 time fee
-	if( ( pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
+	if( ( pSoldier->identity().profile() != SLAY ) || pSoldier->vitals().health() == 0 )
 #else
-	if( ( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pSoldier->ubProfile != SLAY ) || pSoldier->vitals().health() == 0 )
+	if( ( pSoldier->employment().mercenaryType() != MERC_TYPE__AIM_MERC && pSoldier->identity().profile() != SLAY ) || pSoldier->vitals().health() == 0 )
 #endif
 	{
 		sgp_swprintf( sString, 32,L"%s", gpStrategicString[ STR_PB_NOTAPPLICABLE_ABBREVIATION ] );
@@ -17410,21 +17410,21 @@ INT32 GetTotalContractExpenses ( void )
 				// daily rate
 				if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_2_WEEK )
 				{
-					iTotalCost += ( gMercProfiles[ pSoldier->ubProfile ].uiBiWeeklySalary / 14 );
+					iTotalCost += ( gMercProfiles[ pSoldier->identity().profile() ].uiBiWeeklySalary / 14 );
 				}
 				else if( pSoldier->employment().lastContractType() == CONTRACT_EXTEND_1_WEEK )
 				{
-					iTotalCost += ( gMercProfiles[ pSoldier->ubProfile ].uiWeeklySalary / 7 );
+					iTotalCost += ( gMercProfiles[ pSoldier->identity().profile() ].uiWeeklySalary / 7 );
 				}
 				else
 				{
-					iTotalCost += gMercProfiles[ pSoldier->ubProfile ].sSalary;
+					iTotalCost += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 				}
 			}
 		}
 		else if(pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_POW)
 		{
-			iTotalCost += gMercProfiles[ pSoldier->ubProfile ].sSalary;
+			iTotalCost += gMercProfiles[ pSoldier->identity().profile() ].sSalary;
 		}
 		ubCounter++;
 	}
@@ -17738,7 +17738,7 @@ BOOLEAN CanGiveStrategicMilitiaMoveOrder( INT16 sMapX, INT16 sMapY )
 	for ( ; id <= lastid; ++id)
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-		if ( pSoldier && pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE )
+		if ( pSoldier && pSoldier->roster().active() && pSoldier->vitals().health() >= OKLIFE )
 		{
 			BOOLEAN fRadioOperator = pSoldier->CanUseRadio( FALSE );
 
@@ -17834,7 +17834,7 @@ void fillCurrentSectorLBEItems(SOLDIERTYPE *pSoldier) {
 
 		if ( LBEItem->IsActiveLBE(0) == FALSE ) {
 			// init LBE data
-			CreateLBE(LBEItem, pSoldier->ubID, LBEType.lbePocketIndex.size());
+			CreateLBE(LBEItem, pSoldier->identity().id(), LBEType.lbePocketIndex.size());
 			// stuff it full of sector items
 			fillLBEWithSectorItems(LBEItem);
 		}

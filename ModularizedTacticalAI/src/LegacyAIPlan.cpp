@@ -33,17 +33,17 @@ namespace AI
         {
             if(!environment.turn_based())
             {
-                if ( (get_npc()->ubProfile != NO_PROFILE) && (gMercProfiles[ get_npc()->ubProfile ].ubMiscFlags3 & PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL ) )
+                if ( (get_npc()->identity().profile() != NO_PROFILE) && (gMercProfiles[ get_npc()->identity().profile() ].ubMiscFlags3 & PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL ) )
                 {
-                    TriggerNPCWithGivenApproach( get_npc()->ubProfile, APPROACH_DONE_TRAVERSAL, FALSE );
-                    gMercProfiles[ get_npc()->ubProfile ].ubMiscFlags3 &= (~PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL);
+                    TriggerNPCWithGivenApproach( get_npc()->identity().profile(), APPROACH_DONE_TRAVERSAL, FALSE );
+                    gMercProfiles[ get_npc()->identity().profile() ].ubMiscFlags3 &= (~PROFILE_MISC_FLAG3_HANDLE_DONE_TRAVERSAL);
                     get_npc()->dialogue().quoteActionId() = 0;
                     // wait a tiny bit
                     get_npc()->aiPlanning().actionData() = 100;
                     get_npc()->aiPlanning().action() =  AI_ACTION_WAIT;
                     return;
                 }
-                if (get_npc()->bTeam == gbPlayerNum)
+                if (get_npc()->roster().team() == gbPlayerNum)
                 {
                     if (environment.get_tactical_status().fAutoBandageMode)
                     {
@@ -53,7 +53,7 @@ namespace AI
                 }
             }
 
-            if ( get_npc()->bTeam != MILITIA_TEAM )
+            if ( get_npc()->roster().team() != MILITIA_TEAM )
             {
                 if ( !sniperwarning && get_npc()->aiBehavior().orders() == SNIPER )
                 {

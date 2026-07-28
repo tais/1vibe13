@@ -403,7 +403,7 @@ endforeach()
 file(READ "${SOURCE_ROOT}/Strategic/Queen Command.cpp"
   runtime_campaign_queen_rules_contents)
 foreach(required_runtime_queen_rule_fragment IN ITEMS
-    "pSoldier->ubProfile == MORRIS_UB"
+    "pSoldier->identity().profile() == MORRIS_UB"
     "HandleBloodCatDeaths"
     "CalculateMaximumPrisonerAmount"
     "useUnfinishedBusinessGridNo"
@@ -2148,6 +2148,191 @@ foreach(required_ai_documentation IN ITEMS
   endif()
 endforeach()
 
+# Soldier identity and tactical-roster membership are independent live
+# domains. Their historical fields remain at the same explicit serializer
+# positions, but current SOLDIERTYPE must not recreate public compatibility
+# aliases that would split ownership again.
+foreach(retired_identity_roster_field IN ITEMS
+  ubID
+  name
+  ubBodyType
+  ubProfile
+  uiUniqueSoldierIdValue
+  usSoldierProfile
+  usIndividualMilitiaID
+  bActive
+  bTeam
+  bInSector
+  bSide
+  ubSoldierClass
+  ubCivilianGroup)
+  string(REGEX MATCH
+    "(SoldierID|CHAR16|UINT8|INT8|UINT16|UINT32)[ \t\r\n]+${retired_identity_roster_field}([ \t\r\n]*\\[[^]]+\\])?[ \t\r\n]*;"
+    retired_current_identity_roster_field
+    "${current_soldier_contents}")
+  if(retired_current_identity_roster_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE identity/roster field '${retired_identity_roster_field}' returned")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_owner IN ITEMS
+  "SoldierIdentityComponent[ \t\r\n]+identity_[ \t]*;"
+  "SoldierRosterComponent[ \t\r\n]+roster_[ \t]*;")
+  string(REGEX MATCH
+    "${required_identity_roster_owner}"
+    identity_roster_owner
+    "${current_soldier_contents}")
+  if(NOT identity_roster_owner)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost canonical identity/roster owner '${required_identity_roster_owner}'")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_accessor IN ITEMS
+  "SoldierIdentityComponent& identity() noexcept"
+  "const SoldierIdentityComponent& identity() const noexcept"
+  "SoldierRosterComponent& roster() noexcept"
+  "const SoldierRosterComponent& roster() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_identity_roster_accessor}"
+    identity_roster_accessor)
+  if(identity_roster_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost identity/roster accessor '${required_identity_roster_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_storage IN ITEMS
+  "class SoldierIdentityComponent"
+  "SoldierID id_{ static_cast<UINT16>(0) };"
+  "Name name_{};"
+  "UINT8 bodyType_ = 0;"
+  "UINT8 profile_ = 0;"
+  "UINT32 incarnation_ = 0;"
+  "UINT16 dataProfile_ = 0;"
+  "UINT32 individualMilitiaId_ = 0;"
+  "class SoldierRosterComponent"
+  "INT8 active_ = 0;"
+  "INT8 team_ = 0;"
+  "UINT8 inSector_ = 0;"
+  "UINT8 side_ = 0;"
+  "UINT8 soldierClass_ = 0;"
+  "UINT8 civilianGroup_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_identity_roster_storage}"
+    identity_roster_storage)
+  if(identity_roster_storage EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier identity/roster storage lost typed initialization '${required_identity_roster_storage}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "identity\\(\\)\\.reset\\(\\)"
+  identity_reset_occurrences
+  "${soldier_control_source_contents}")
+list(LENGTH identity_reset_occurrences identity_reset_count)
+if(NOT identity_reset_count EQUAL 2)
+  message(FATAL_ERROR
+    "Soldier conversion and initialization must each reset identity")
+endif()
+string(REGEX MATCHALL
+  "roster\\(\\)\\.reset\\(\\)"
+  roster_reset_occurrences
+  "${soldier_control_source_contents}")
+list(LENGTH roster_reset_occurrences roster_reset_count)
+if(NOT roster_reset_count EQUAL 2)
+  message(FATAL_ERROR
+    "Soldier conversion and initialization must each reset roster membership")
+endif()
+
+foreach(required_identity_roster_save_fragment IN ITEMS
+  "ar.u16(s.identity().id().i);"
+  "ar.wstr(s.identity().name(), 10);"
+  "ar.u8(s.identity().bodyType());"
+  "ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());"
+  "ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
+  "ar.u8(s.roster().side()); ar.u8(perception.viewRange()); ar.i8(awareness.newOpponentCount()); ar.i8(service.activity());"
+  "ar.u8(s.identity().profile()); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
+  "ar.u8(s.roster().soldierClass()); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);"
+  "ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.roster().civilianGroup());"
+  "ar.u32(s.identity().incarnation()); ar.i8(schedule.doorOpenPhase());"
+  "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
+  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
+  string(FIND "${save_load_game_contents}"
+    "${required_identity_roster_save_fragment}"
+    identity_roster_save_fragment)
+  if(identity_roster_save_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier identity/roster value moved or changed width in the current save schema: '${required_identity_roster_save_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_v101_fragment IN ITEMS
+  "memcpy( &(this->identity().name()), &(src.name), sizeof(CHAR16)* 10 );"
+  "this->identity().id() = static_cast<UINT16>( src.ubID );"
+  "this->identity().bodyType() = src.ubBodyType;"
+  "this->roster().inSector() = src.bInSector;"
+  "this->roster().active() = src.bActive;"
+  "this->roster().team() = src.bTeam;"
+  "this->roster().side() = src.bSide;"
+  "this->identity().profile() = src.ubProfile;"
+  "this->roster().soldierClass() = src.ubSoldierClass;"
+  "this->roster().civilianGroup() = src.ubCivilianGroup;"
+  "this->identity().incarnation() = src.uiUniqueSoldierIdValue;"
+  "this->identity().dataProfile() = 0;"
+  "this->identity().individualMilitiaId() = 0;")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_identity_roster_v101_fragment}"
+    identity_roster_v101_fragment)
+  if(identity_roster_v101_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost identity/roster mapping '${required_identity_roster_v101_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_test IN ITEMS
+  "soldier identity and roster components own canonical incarnation, profile, allegiance, and tactical membership"
+  "soldier copies retain every canonical identity and roster value"
+  "soldier initialization resets the complete identity and roster domains"
+  "v101 soldier conversion maps every historical identity and roster value while clearing later profile links"
+  "soldier save/load round-trips every identity and roster value at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${required_identity_roster_test}"
+    identity_roster_test)
+  if(identity_roster_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost soldier identity/roster regression '${required_identity_roster_test}'")
+  endif()
+endforeach()
+
+foreach(required_identity_roster_documentation IN ITEMS
+  "ENGINE_ARCHITECTURE;SoldierIdentityComponent"
+  "ENGINE_SDK;SoldierRosterComponent"
+  "SAVE_FORMAT;identity and roster values")
+  string(REPLACE ";" ";" identity_roster_documentation_parts
+    "${required_identity_roster_documentation}")
+  list(GET identity_roster_documentation_parts 0
+    identity_roster_documentation_name)
+  list(GET identity_roster_documentation_parts 1
+    identity_roster_documentation_fragment)
+  if(identity_roster_documentation_name STREQUAL "ENGINE_ARCHITECTURE")
+    set(identity_roster_documentation_contents "${engine_architecture_documentation}")
+  elseif(identity_roster_documentation_name STREQUAL "ENGINE_SDK")
+    set(identity_roster_documentation_contents "${engine_sdk_documentation}")
+  else()
+    set(identity_roster_documentation_contents "${save_format_documentation}")
+  endif()
+  string(FIND "${identity_roster_documentation_contents}"
+    "${identity_roster_documentation_fragment}"
+    identity_roster_documentation_position)
+  if(identity_roster_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "${identity_roster_documentation_name} lost soldier identity/roster compatibility documentation")
+  endif()
+endforeach()
+
 foreach(retired_vital_field IN ITEMS
   bBleeding
   bBreath
@@ -2292,10 +2477,10 @@ string(REGEX MATCH
   serialized_soldier_health_order
   "${save_load_game_contents}")
 string(FIND "${save_load_game_contents}"
-  "ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);"
+  "ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());"
   serialized_soldier_previous_health_position)
 string(FIND "${save_load_game_contents}"
-  "ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
+  "ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
   serialized_soldier_fractional_health_position)
 string(FIND "${save_load_game_contents}"
   "ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());"
@@ -2412,7 +2597,7 @@ if(soldier_service_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
+  "ar\\.u8\\(s\\.roster\\(\\)\\.side\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
   serialized_soldier_service_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -2662,7 +2847,7 @@ foreach(dialogue_conversion IN ITEMS
 endforeach()
 
 foreach(dialogue_save_position IN ITEMS
-  "ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
+  "ar.u8(s.identity().profile()); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());"
   "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
   "ar.i8(dialogue.vocalVolume()); ar.i8(s.animationActivity().fallDirection());"
   "ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());"
@@ -3540,7 +3725,7 @@ endforeach()
 foreach(ai_planning_save_position IN ITEMS
   "ar.u8(fireControl.autofireShots()); ar.i8(aiPlanning.flankCount()); ar.i32(aiPlanning.flankAnchorGrid());"
   "ar.i8(aiPlanning.sniperPosture()); ar.i16(aiPlanning.flankOriginDirection());"
-  "ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());")
+  "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());")
   string(FIND "${save_load_game_contents}"
     "${ai_planning_save_position}"
     soldier_ai_planning_save_position)
@@ -3776,10 +3961,10 @@ endforeach()
 foreach(skill_state_save_position IN ITEMS
   "ar.i8(combatResult.hitsThisTurn()); ar.u16(dialogue.saidFlags()); ar.i8(skillState.lastCheckReason()); ar.i8(skillState.checkAttempts());"
   "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());"
-  "ar.i16(aiPlanning.planIndex()); ar.u16(s.usSoldierProfile); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
+  "ar.i16(aiPlanning.planIndex()); ar.u16(s.identity().dataProfile()); ar.u8(assignment.itemMoveSectorId()); ar.u8(skillState.selectedAiSkill());"
   "for (i = 0; i < SOLDIER_COUNTER_MAX; ++i) ar.u16(skillState.counter(i));"
   "for (i = 0; i < SOLDIER_COOLDOWN_MAX; ++i) ar.u32(skillState.cooldown(i));"
-  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);")
+  "ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.identity().individualMilitiaId());")
   string(FIND "${save_load_game_contents}"
     "${skill_state_save_position}"
     soldier_skill_state_save_position)
@@ -5329,7 +5514,7 @@ string(FIND "${soldier_control_source_contents}"
   "InteractiveActionPossibleAtGridNo( longActionState.contextGrid(), this->position().level(), structindex ) != INTERACTIVE_STRUCTURE_HACKABLE"
   soldier_long_action_hack_validation)
 string(FIND "${soldier_control_source_contents}"
-  "DoInteractiveActionDefaultResult( longActionState.contextGrid(), this->ubID, success );"
+  "DoInteractiveActionDefaultResult( longActionState.contextGrid(), this->identity().id(), success );"
   soldier_long_action_hack_result_context)
 if(soldier_long_action_type_validation EQUAL -1 OR
    soldier_long_action_requested_type_switch EQUAL -1 OR
@@ -5721,7 +5906,7 @@ if(soldier_action_point_begin_turn EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubBodyType\\);[ \t\r\n]*ar\\.i16\\(actionPoints\\.current\\(\\)\\);[ \t]*ar\\.i16\\(actionPoints\\.initial\\(\\)\\);[ \t\r\n]*ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);"
+  "ar\\.u8\\(s\\.identity\\(\\)\\.bodyType\\(\\)\\);[ \t\r\n]*ar\\.i16\\(actionPoints\\.current\\(\\)\\);[ \t]*ar\\.i16\\(actionPoints\\.initial\\(\\)\\);[ \t\r\n]*ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);"
   serialized_soldier_action_point_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_action_point_order)
@@ -5925,7 +6110,7 @@ string(REGEX MATCH
   serialized_soldier_movement_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);"
+  "ar\\.u8\\(s\\.roster\\(\\)\\.side\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);"
   serialized_soldier_view_range_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6038,7 +6223,7 @@ if(soldier_awareness_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.visibility\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bActive\\);[ \t]*ar\\.i8\\(s\\.bTeam\\);"
+  "ar\\.i8\\(vitals\\.previousHealth\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.visibility\\(\\)\\);[ \t]*ar\\.i8\\(s\\.roster\\(\\)\\.active\\(\\)\\);[ \t]*ar\\.i8\\(s\\.roster\\(\\)\\.team\\(\\)\\);"
   serialized_soldier_awareness_visibility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6046,7 +6231,7 @@ string(REGEX MATCH
   serialized_soldier_awareness_render_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
+  "ar\\.u8\\(s\\.roster\\(\\)\\.side\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);"
   serialized_soldier_awareness_discovery_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6634,7 +6819,7 @@ string(REGEX MATCH
   serialized_soldier_assignment_facility_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(aiPlanning\\.planIndex\\(\\)\\);[ \t]*ar\\.u16\\(s\\.usSoldierProfile\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(skillState\\.selectedAiSkill\\(\\)\\);"
+  "ar\\.i16\\(aiPlanning\\.planIndex\\(\\)\\);[ \t]*ar\\.u16\\(s\\.identity\\(\\)\\.dataProfile\\(\\)\\);[ \t]*ar\\.u8\\(assignment\\.itemMoveSectorId\\(\\)\\);[ \t]*ar\\.u8\\(skillState\\.selectedAiSkill\\(\\)\\);"
   serialized_soldier_assignment_item_move_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7259,7 +7444,7 @@ string(FIND "${save_load_game_contents}"
   "SoldierScheduleComponent& schedule = s.schedule();"
   serialized_soldier_schedule_adapter)
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiUniqueSoldierIdValue\\);[ \t]*ar\\.i8\\(schedule\\.doorOpenPhase\\(\\)\\);[ \t\r\n]*ar\\.u8\\(schedule\\.id\\(\\)\\);[ \t]*ar\\.i32\\(schedule\\.doorGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
+  "ar\\.u32\\(s\\.identity\\(\\)\\.incarnation\\(\\)\\);[ \t]*ar\\.i8\\(schedule\\.doorOpenPhase\\(\\)\\);[ \t\r\n]*ar\\.u8\\(schedule\\.id\\(\\)\\);[ \t]*ar\\.i32\\(schedule\\.doorGrid\\(\\)\\);[ \t]*ar\\.i8\\(s\\.movement\\(\\)\\.blockedDirection\\(\\)\\);"
   serialized_soldier_schedule_door_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -9689,7 +9874,7 @@ string(FIND "${save_load_game_contents}"
   "SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();"
   soldier_ui_presentation_flags_save_alias)
 foreach(ui_presentation_save_position IN ITEMS
-  "ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
+  "ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
   "ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);"
   "ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);"
   "ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());"
@@ -10093,7 +10278,7 @@ string(REGEX MATCH
   serialized_soldier_suppression_points_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubSoldierClass\\);[ \t]*ar\\.u8\\(suppression\\.actionPointsLost\\(\\)\\);[ \t]*ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);"
+  "ar\\.u8\\(s\\.roster\\(\\)\\.soldierClass\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.actionPointsLost\\(\\)\\);[ \t]*ar\\.u16\\(suppression\\.suppressor\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);"
   serialized_soldier_suppression_ap_source_order
   "${save_load_game_contents}")
 string(REGEX MATCHALL
@@ -10233,7 +10418,7 @@ string(REGEX MATCH
   serialized_soldier_animation_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);[ \t]*ar\\.u8\\(assignment\\.mergeTraversalAllowance\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.ubCivilianGroup\\);"
+  "ar\\.u8\\(assignment\\.desiredSquad\\(\\)\\);[ \t]*ar\\.u8\\(assignment\\.mergeTraversalAllowance\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationIntent\\(\\)\\.secondaryPendingAnimation\\(\\)\\);[ \t]*ar\\.u8\\(s\\.roster\\(\\)\\.civilianGroup\\(\\)\\);"
   serialized_soldier_animation_secondary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10314,7 +10499,7 @@ endforeach()
 # schema. The state/subflag positions are also pinned above where they neighbor
 # queued intent; these expressions cover the remaining playback values.
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.bSide\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
+  "ar\\.u8\\(s\\.roster\\(\\)\\.side\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.viewRange\\(\\)\\);[ \t]*ar\\.i8\\(awareness\\.newOpponentCount\\(\\)\\);[ \t]*ar\\.i8\\(service\\.activity\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.code\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.frame\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.delay\\(\\)\\);"
   serialized_soldier_animation_cursor_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10676,7 +10861,7 @@ if(animation_cache_reset_call_count LESS 3)
 endif()
 
 string(REGEX MATCH
-  "if[ \t]*\\(Ar::isLoading\\)[ \t]*s\\.animationCache\\(\\)\\.release\\(s\\.ubID\\)[ \t]*;"
+  "if[ \t]*\\(Ar::isLoading\\)[ \t]*s\\.animationCache\\(\\)\\.release\\(s\\.identity\\(\\)\\.id\\(\\)\\)[ \t]*;"
   runtime_animation_cache_load_reset
   "${save_load_game_contents}")
 string(REGEX MATCH

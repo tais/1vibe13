@@ -23,7 +23,7 @@ namespace AI
 
         void CrowFlyAwayPlan::execute(PlanInputData& environment)
         {
-            CrowsFlyAway( get_npc()->bTeam );
+            CrowsFlyAway( get_npc()->roster().team() );
         }
 
         CrowSeekCorpsePlan::CrowSeekCorpsePlan(SOLDIERTYPE* npc)

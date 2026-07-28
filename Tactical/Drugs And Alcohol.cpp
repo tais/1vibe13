@@ -122,13 +122,13 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	if ( complainworthyeffects )
 	{
 		// do switch for Larry!!
-		if ( pSoldier->ubProfile == LARRY_NORMAL )
+		if ( pSoldier->identity().profile() == LARRY_NORMAL )
 		{
 			SwapToProfile( pSoldier, LARRY_DRUNK );
 
 			gMercProfiles[LARRY_NORMAL].bNPCData = LARRY_FALLS_OFF_WAGON;
 		}
-		else if ( pSoldier->ubProfile == LARRY_DRUNK )
+		else if ( pSoldier->identity().profile() == LARRY_DRUNK )
 		{
 			// NB store all drunkenness info in LARRY_NORMAL profile (to use same values)
 			// so long as he keeps consuming, keep number above level at which he cracked						
@@ -170,9 +170,9 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 		// set flag: we are on non-alcoholic drugs
 		pSoldier->usSoldierFlagMask |= SOLDIER_DRUGGED;
 
-		if ( complainworthyeffects && gMercProfiles[pSoldier->ubProfile].ubNumTimesDrugUseInLifetime != 255 )
+		if ( complainworthyeffects && gMercProfiles[pSoldier->identity().profile()].ubNumTimesDrugUseInLifetime != 255 )
 		{
-			gMercProfiles[pSoldier->ubProfile].ubNumTimesDrugUseInLifetime++;
+			gMercProfiles[pSoldier->identity().profile()].ubNumTimesDrugUseInLifetime++;
 		}
 
 		if (ItemIsCigarette(usItem))
@@ -264,9 +264,9 @@ INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
 // does a merc have a disability/personality, or is he under drugs that simulate this?
 BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
 {
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
-		if ( gMercProfiles[pSoldier->ubProfile].bDisability == aVal )
+		if ( gMercProfiles[pSoldier->identity().profile()].bDisability == aVal )
 			return TRUE;
 		
 		if ( pSoldier->drugState().hasTemporaryDisability(aVal) )
@@ -288,9 +288,9 @@ BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
 	if ( !gGameOptions.fNewTraitSystem )
 		return FALSE;
 
-	if ( pSoldier->ubProfile != NO_PROFILE )
+	if ( pSoldier->identity().profile() != NO_PROFILE )
 	{
-		if ( gMercProfiles[pSoldier->ubProfile].bCharacterTrait == aVal )
+		if ( gMercProfiles[pSoldier->identity().profile()].bCharacterTrait == aVal )
 			return TRUE;
 
 		if ( pSoldier->drugState().hasTemporaryPersonality(aVal) )

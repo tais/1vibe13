@@ -71,7 +71,7 @@ namespace
 	{
 		if (!IsJa2TacticalWorldLoaded()) return nullptr;
 		SOLDIERTYPE* soldier = ResolveJa2TacticalEntity(actor);
-		if (!soldier || !soldier->bInSector) return nullptr;
+		if (!soldier || !soldier->roster().inSector()) return nullptr;
 		return soldier;
 	}
 
@@ -79,7 +79,7 @@ namespace
 		const SOLDIERTYPE& soldier, TacticalEntityId& actor) noexcept
 	{
 		actor = GetJa2TacticalEntityId(
-			static_cast<std::uint16_t>(soldier.ubID));
+			static_cast<std::uint16_t>(soldier.identity().id()));
 		return actor.valid() && ResolveJa2TacticalEntity(actor) == &soldier;
 	}
 
@@ -158,7 +158,7 @@ namespace
 	bool IsValidConversationPair(
 		const SOLDIERTYPE& soldier, const SOLDIERTYPE& target) noexcept
 	{
-		return soldier.ubID != target.ubID && target.bActive && target.bInSector;
+		return soldier.identity().id() != target.identity().id() && target.roster().active() && target.roster().inSector();
 	}
 
 	bool IsAtIssuedTacticalPosition(
@@ -181,7 +181,7 @@ namespace
 			soldier.vitals().health() < OKLIFE ||
 			target.vitals().health() < OKLIFE ||
 			PythSpacesAway(soldier.position().gridNo(), target.position().gridNo()) != 1 ||
-			(!target.aiBehavior().neutral() && target.bSide != gbPlayerNum))
+			(!target.aiBehavior().neutral() && target.roster().side() != gbPlayerNum))
 			return false;
 		return CanExchangePlaces(&soldier, &target, FALSE) == TRUE;
 	}
@@ -198,12 +198,12 @@ namespace
 		SOLDIERTYPE& soldier, SOLDIERTYPE& vehicle,
 		std::uint8_t seatIndex) noexcept
 	{
-		if (soldier.ubID == vehicle.ubID ||
+		if (soldier.identity().id() == vehicle.identity().id() ||
 			(soldier.status().flags() &
 				(SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE)) != 0 ||
 			!OK_ENTERABLE_VEHICLE((&vehicle)) ||
 			vehicle.awareness().visibility() == -1 ||
-			!OKUseVehicle(vehicle.ubProfile) ||
+			!OKUseVehicle(vehicle.identity().profile()) ||
 			!IsThisVehicleAccessibleToSoldier(
 				&soldier, vehicle.bVehicleID) ||
 			!HasValidVehicleSeat(vehicle, seatIndex))
@@ -219,7 +219,7 @@ namespace
 		soldier.pendingAction().tertiaryData() = 0;
 		soldier.pendingAction().quaternaryData() = 0;
 		soldier.runtime.pendingAction.targetIncarnation = 0;
-		UnSetUIBusy(soldier.ubID);
+		UnSetUIBusy(soldier.identity().id());
 	}
 
 	void ClearPendingSteal(SOLDIERTYPE& soldier) noexcept
@@ -230,7 +230,7 @@ namespace
 		soldier.pendingAction().tertiaryData() = 0;
 		soldier.pendingAction().quaternaryData() = 0;
 		soldier.runtime.pendingAction.targetIncarnation = 0;
-		UnSetUIBusy(soldier.ubID);
+		UnSetUIBusy(soldier.identity().id());
 	}
 
 	SOLDIERTYPE* ResolveStablePendingStealTarget(
@@ -362,7 +362,7 @@ namespace
 				SendBeginFireWeaponEvent(soldier, value.targetGrid);
 				if (value.source == SimulationCommandSource::System &&
 					(is_server ||
-						(is_client && soldier->ubID < 20)))
+						(is_client && soldier->identity().id() < 20)))
 					send_fire(soldier, value.targetGrid);
 				return CommandDisposition::Applied;
 			}
@@ -473,7 +473,7 @@ namespace
 				soldier->EVENT_InternalSetSoldierPosition(
 					value.positionX, value.positionY, FALSE, FALSE, FALSE);
 				soldier->EVENT_SetSoldierDirection(value.direction);
-				if (value.stop && soldier->bTeam >= LAN_TEAM_ONE &&
+				if (value.stop && soldier->roster().team() >= LAN_TEAM_ONE &&
 					soldier->position().gridNo() >= 0 &&
 					soldier->position().gridNo() < WORLD_MAX &&
 					(gAnimControl[soldier->animationPlayback().state()].uiFlags &
@@ -606,7 +606,7 @@ namespace
 				if (!soldier || !target ||
 					!IsValidConversationPair(*soldier, *target))
 					return CommandDisposition::Discard;
-				(void)soldier->PlayerSoldierStartTalking(target->ubID, FALSE);
+				(void)soldier->PlayerSoldierStartTalking(target->identity().id(), FALSE);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (
@@ -673,7 +673,7 @@ namespace
 					return CommandDisposition::Discard;
 				const BOOLEAN entered =
 					EnterVehicle(vehicle, soldier, value.seatIndex);
-				UnSetUIBusy(soldier->ubID);
+				UnSetUIBusy(soldier->identity().id());
 				return entered
 					? CommandDisposition::Applied
 					: CommandDisposition::Discard;
@@ -2217,7 +2217,7 @@ bool TryCompletePendingConversationCommand(SOLDIERTYPE& soldier) noexcept
 
 	SOLDIERTYPE* target = ResolveLiveCommandActor(targetId);
 	if (!target || !IsValidConversationPair(soldier, *target)) return false;
-	(void)soldier.PlayerSoldierStartTalking(target->ubID, TRUE);
+	(void)soldier.PlayerSoldierStartTalking(target->identity().id(), TRUE);
 	return true;
 }
 
@@ -2247,13 +2247,13 @@ bool TryCompletePendingVehicleCommand(SOLDIERTYPE& soldier) noexcept
 		!CanEnterCommandVehicle(
 			soldier, *vehicle, static_cast<std::uint8_t>(rawSeatIndex)))
 	{
-		UnSetUIBusy(soldier.ubID);
+		UnSetUIBusy(soldier.identity().id());
 		return false;
 	}
 
 	const BOOLEAN entered = EnterVehicle(
 		vehicle, &soldier, static_cast<std::uint8_t>(rawSeatIndex));
-	UnSetUIBusy(soldier.ubID);
+	UnSetUIBusy(soldier.identity().id());
 	return entered == TRUE;
 }
 
@@ -2334,7 +2334,7 @@ SOLDIERTYPE* ResolveAndConsumePendingStealTarget(
 		soldier.position().level() != target->position().level() ||
 		PythSpacesAway(soldier.position().gridNo(), target->position().gridNo()) != 1)
 	{
-		UnSetUIBusy(soldier.ubID);
+		UnSetUIBusy(soldier.identity().id());
 		return nullptr;
 	}
 	return target;
