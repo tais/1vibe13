@@ -1985,7 +1985,7 @@ void ExtractAndUpdateMercSchedule()
 			fValidSchedule = TRUE;
 	}
 
-	if( !gpSelected->pSoldier->ubScheduleID )
+	if( !gpSelected->pSoldier->schedule().assigned() )
 	{ //The soldier doesn't actually have a schedule yet, so create one if necessary (not blank)
 		if( fValidSchedule )
 		{ //create a new schedule
@@ -1999,10 +1999,10 @@ void ExtractAndUpdateMercSchedule()
 	else
 	{
 		SCHEDULENODE *pSchedule;
-		pSchedule = GetSchedule( gpSelected->pSoldier->ubScheduleID );
+		pSchedule = GetSchedule( gpSelected->pSoldier->schedule().id() );
 		if( !pSchedule )
 		{
-			gpSelected->pSoldier->ubScheduleID = 0;
+			gpSelected->pSoldier->schedule().id() = 0;
 			gpSelected->pDetailedPlacement->ubScheduleID = 0;
 			HideEditorButton( MERCS_GLOWSCHEDULE );
 			ShowEditorButton( MERCS_SCHEDULE );
@@ -2010,7 +2010,7 @@ void ExtractAndUpdateMercSchedule()
 		}
 		if( fValidSchedule )
 		{ //overwrite the existing schedule with the new one.
-			gCurrSchedule.ubScheduleID = gpSelected->pSoldier->ubScheduleID;
+			gCurrSchedule.ubScheduleID = gpSelected->pSoldier->schedule().id();
 			if( SortSchedule( &gCurrSchedule ) )
 				fScheduleNeedsUpdate = TRUE;
 			pNext = pSchedule->next;
@@ -2020,7 +2020,7 @@ void ExtractAndUpdateMercSchedule()
 		else
 		{ //remove the existing schedule, as the new one is blank.
 			DeleteSchedule( pSchedule->ubScheduleID );
-			gpSelected->pSoldier->ubScheduleID = 0;
+			gpSelected->pSoldier->schedule().id() = 0;
 			gpSelected->pDetailedPlacement->ubScheduleID = 0;
 			HideEditorButton( MERCS_GLOWSCHEDULE );
 			ShowEditorButton( MERCS_SCHEDULE );
@@ -3678,9 +3678,9 @@ void UpdateScheduleInfo()
 	INT32 i;
 	SCHEDULENODE *pSchedule;
 	CHAR16 str[6];
-	if( gpSelected->pSoldier->ubScheduleID )
+	if( gpSelected->pSoldier->schedule().assigned() )
 	{
-		pSchedule = GetSchedule( gpSelected->pSoldier->ubScheduleID );
+		pSchedule = GetSchedule( gpSelected->pSoldier->schedule().id() );
 		if( !pSchedule )
 		{
 			return;

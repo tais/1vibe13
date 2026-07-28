@@ -1681,6 +1681,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierEmploymentComponent& employment = s.employment();
 	SoldierAssignmentComponent& assignment = s.assignment();
 	SoldierDeploymentComponent& deployment = s.deployment();
+	SoldierScheduleComponent& schedule = s.schedule();
 	SoldierPositionComponent& position = s.position();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
 	SoldierTargetingComponent& targeting = s.targeting();
@@ -1776,9 +1777,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(assignment.desiredSquad()); ar.u8(assignment.mergeTraversalAllowance());
 	ar.u16(s.animationIntent().secondaryPendingAnimation()); ar.u8(s.ubCivilianGroup);
-	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(s.bEndDoorOpenCode);
-	ar.u8(s.ubScheduleID); ar.i32(s.sEndDoorOpenCodeData); ar.i8(s.movement().blockedDirection());
-	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(s.bAIScheduleProgress);
+	ar.u32(s.uiUniqueSoldierIdValue); ar.i8(schedule.doorOpenPhase());
+	ar.u8(schedule.id()); ar.i32(schedule.doorGrid()); ar.i8(s.movement().blockedDirection());
+	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(s.ubHiResDirection); ar.u8(s.ubHiResDesiredDirection); ar.u8(s.ubLastFootPrintSound);
 	ar.i8(s.bVehicleID); ar.i8(s.bMovementDirection); ar.i32(movementHistory.previousGrid());

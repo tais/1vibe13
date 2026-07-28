@@ -68,7 +68,7 @@ void CopyScheduleToList( SCHEDULENODE *pSchedule, SOLDIERINITNODE *pNode )
 	gpScheduleList->ubScheduleID = gubScheduleID;
 	gpScheduleList->ubSoldierID = pNode->pSoldier->ubID;
 	pNode->pDetailedPlacement->ubScheduleID = gubScheduleID;
-	pNode->pSoldier->ubScheduleID = gubScheduleID;
+	pNode->pSoldier->schedule().id() = gubScheduleID;
 	if( gubScheduleID > 40 )
 	{ //Too much fragmentation, clean it up...
 		OptimizeSchedules();
@@ -260,7 +260,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 			case 3:			pSchedule->usFlags |= SCHEDULE_FLAGS_ACTIVE4;			break;
 		}
 		pSoldier->aiData.fAIFlags |= AI_CHECK_SCHEDULE;
-		pSoldier->bAIScheduleProgress = 0;
+		pSoldier->schedule().resetProgress();
 	}
 
 }
@@ -291,7 +291,7 @@ void OptimizeSchedules()
 					pNode->pDetailedPlacement->ubScheduleID = gubScheduleID + 100;
 					if( pNode->pSoldier )
 					{
-						pNode->pSoldier->ubScheduleID = gubScheduleID;
+						pNode->pSoldier->schedule().id() = gubScheduleID;
 					}
 					break;
 				}
@@ -331,7 +331,7 @@ void PrepareSchedulesForEditorEntry()
 				prev->next = curr->next;
 			else
 				gpScheduleList = gpScheduleList->next;
-			GetJa2SoldierRepository().resolve(curr->ubSoldierID)->ubScheduleID = 0;
+			GetJa2SoldierRepository().resolve(curr->ubSoldierID)->schedule().id() = 0;
 			temp = curr;
 			curr = curr->next;
 			MemFree( temp );
@@ -485,7 +485,7 @@ void ClearAllSchedules()
 			pNode->pDetailedPlacement->ubScheduleID = 0;
 			if( pNode->pSoldier )
 			{
-				pNode->pSoldier->ubScheduleID = 0;
+				pNode->pSoldier->schedule().id() = 0;
 			}
 		}
 		pNode = pNode->next;
@@ -910,7 +910,7 @@ void PostSchedule( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	pSchedule = GetSchedule( pSoldier->ubScheduleID );
+	pSchedule = GetSchedule( pSoldier->schedule().id() );
 	if( !pSchedule )
 		return;
 
@@ -1092,7 +1092,7 @@ void PostDefaultSchedule( SOLDIERTYPE *pSoldier )
 	//Assign all of the links
 	gpScheduleList->ubScheduleID = gubScheduleID;
 	gpScheduleList->ubSoldierID = pSoldier->ubID;
-	pSoldier->ubScheduleID = gubScheduleID;
+	pSoldier->schedule().id() = gubScheduleID;
 
 	//Clear the data inside the schedule
 	for( i = 0; i < MAX_SCHEDULE_ACTIONS; i++ )
@@ -1209,7 +1209,7 @@ void PostNextSchedule( SOLDIERTYPE *pSoldier )
 	SCHEDULENODE *pSchedule;
 	INT32 i, iBestIndex;
 	UINT16 usTime, usBestTime;
-	pSchedule = GetSchedule( pSoldier->ubScheduleID );
+	pSchedule = GetSchedule( pSoldier->schedule().id() );
 	if( !pSchedule )
 	{ //post default?
 		return;
@@ -1258,7 +1258,7 @@ BOOLEAN ExtractScheduleEntryAndExitInfo( SOLDIERTYPE * pSoldier, UINT32 * puiEnt
 	*puiEntryTime = 0;
 	*puiExitTime = 0;
 
-	pSchedule = GetSchedule( pSoldier->ubScheduleID );
+	pSchedule = GetSchedule( pSoldier->schedule().id() );
 	if ( !pSchedule )
 	{
 		// If person had default schedule then would have been assigned and this would
@@ -1303,7 +1303,7 @@ BOOLEAN ExtractScheduleDoorLockAndUnlockInfo( SOLDIERTYPE * pSoldier, UINT32 * p
 	*puiOpeningTime = 0;
 	*puiClosingTime = 0;
 
-	pSchedule = GetSchedule( pSoldier->ubScheduleID );
+	pSchedule = GetSchedule( pSoldier->schedule().id() );
 	if ( !pSchedule )
 	{
 		// If person had default schedule then would have been assigned and this would
@@ -1404,9 +1404,9 @@ void ReconnectSchedules( void )
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->ubScheduleID != 0 )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->schedule().assigned() )
 		{
-			pSchedule = GetSchedule( pSoldier->ubScheduleID );
+			pSchedule = GetSchedule( pSoldier->schedule().id() );
 			if ( pSchedule )
 			{
 				// set soldier ptr to point to this guy!
@@ -1464,9 +1464,9 @@ void SecureSleepSpot( SOLDIERTYPE * pSoldier, UINT32 usSleepSpot )
 	for ( uiLoop = pSoldier->ubID + 1; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier2 = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier2->bActive && pSoldier2->bInSector && pSoldier2->ubScheduleID != 0 )
+		if ( pSoldier2->bActive && pSoldier2->bInSector && pSoldier2->schedule().assigned() )
 		{
-			pSchedule = GetSchedule( pSoldier2->ubScheduleID );
+			pSchedule = GetSchedule( pSoldier2->schedule().id() );
 			if ( pSchedule )
 			{
 				usSleepSpot2 = FindSleepSpot( pSchedule );
@@ -1499,9 +1499,9 @@ void SecureSleepSpots( void )
 	for ( uiLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; uiLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; uiLoop++ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(uiLoop);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->ubScheduleID != 0 )
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->schedule().assigned() )
 		{
-			pSchedule = GetSchedule( pSoldier->ubScheduleID );
+			pSchedule = GetSchedule( pSoldier->schedule().id() );
 			if ( pSchedule )
 			{
 				usSleepSpot = FindSleepSpot( pSchedule );

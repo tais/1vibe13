@@ -2559,11 +2559,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						pSoldier->animationPlayback().state() == CRIPPLE_END_OPEN_DOOR ) )
 					{
 						// Are we told to continue movement...?
-						if ( pSoldier->bEndDoorOpenCode == 1 )
+						if ( pSoldier->schedule().doorAnimationStarted() )
 						{
 							// OK, set this value to 2 such that once we are into a new gridno,
 							// we close the door!
-							pSoldier->bEndDoorOpenCode = 2;
+							pSoldier->schedule().completeDoorAnimation();
 
 							// yes..
 							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
@@ -2577,7 +2577,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								}
 							}
 
-							// OK, this code, pSoldier->bEndDoorOpenCode will be set to 0 if anythiing
+							// The schedule door continuation will be cancelled if anything
 							// cuases guy to stop - StopMerc() will set it...
 
 							return( TRUE );

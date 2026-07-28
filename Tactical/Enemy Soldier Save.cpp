@@ -465,12 +465,12 @@ BOOLEAN SaveEnemySoldiersToTempFile( INT16 sSectorX, INT16 sSectorY, INT8 bSecto
 					//If the soldier has a real schedule (not a default schedule), then store it.
 					//All other cases should be 0.
 					curr->pDetailedPlacement->ubScheduleID					= 0;
-					if( pSoldier->ubScheduleID )
+					if( pSoldier->schedule().assigned() )
 					{
-						pSchedule = GetSchedule( pSoldier->ubScheduleID );
+						pSchedule = GetSchedule( pSoldier->schedule().id() );
 						if( pSchedule && !(pSchedule->usFlags & SCHEDULE_FLAGS_TEMPORARY) )
 						{
-							curr->pDetailedPlacement->ubScheduleID					= pSoldier->ubScheduleID;
+							curr->pDetailedPlacement->ubScheduleID					= pSoldier->schedule().id();
 						}
 					}
 

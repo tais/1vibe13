@@ -366,6 +366,39 @@ void SoldierDeploymentComponent::reset() noexcept
 	*this = SoldierDeploymentComponent{};
 }
 
+void SoldierScheduleComponent::advanceProgress() noexcept
+{
+	if (progress_ < std::numeric_limits<INT8>::max())
+	{
+		++progress_;
+	}
+}
+
+void SoldierScheduleComponent::beginDoorContinuation(INT32 gridNo) noexcept
+{
+	doorOpenPhase_ = 1;
+	doorGrid_ = gridNo;
+}
+
+void SoldierScheduleComponent::completeDoorAnimation() noexcept
+{
+	if (doorOpenPhase_ == 1)
+	{
+		doorOpenPhase_ = 2;
+	}
+}
+
+INT32 SoldierScheduleComponent::consumeDoorGrid() noexcept
+{
+	doorOpenPhase_ = 0;
+	return doorGrid_;
+}
+
+void SoldierScheduleComponent::reset() noexcept
+{
+	*this = SoldierScheduleComponent{};
+}
+
 void SoldierPositionComponent::setWorldCoordinates(FLOAT x, FLOAT y) noexcept
 {
 	worldX_ = x;

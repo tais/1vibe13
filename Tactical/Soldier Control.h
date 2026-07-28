@@ -1022,6 +1022,8 @@ public:
 	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
 	SoldierDeploymentComponent& deployment() noexcept { return deployment_; }
 	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
+	SoldierScheduleComponent& schedule() noexcept { return schedule_; }
+	const SoldierScheduleComponent& schedule() const noexcept { return schedule_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
 	SoldierMovementHistoryComponent& movementHistory() noexcept { return movementHistory_; }
@@ -1194,11 +1196,6 @@ public:
 
 	UINT32			uiUniqueSoldierIdValue; // the unique value every instance of a soldier gets - 1 is the first valid value
 
-	INT8				bEndDoorOpenCode;
-
-	UINT8				ubScheduleID;
-	INT32				sEndDoorOpenCodeData;//dnl ch53 121009
-	INT8					bAIScheduleProgress;
 	struct TAG_anitile	*pAniTile;	
 	UINT8				ubHiResDirection;
 	UINT8				ubHiResDesiredDirection;
@@ -1299,6 +1296,7 @@ private:
 	SoldierEmploymentComponent	employment_;
 	SoldierAssignmentComponent	assignment_;
 	SoldierDeploymentComponent	deployment_;
+	SoldierScheduleComponent	schedule_;
 	SoldierPositionComponent	position_;
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;

@@ -398,6 +398,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   maps every historical field into that owner. Strategic path and group
   pointers remain serialization adapters. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- NPC schedule identity and progress plus the open-door continuation phase and
+  grid are now stored by `SoldierScheduleComponent`. The visitor still emits
+  the four values at their three original POD sites and widths. v101
+  conversion maps identity, progress, and the widened door grid while
+  retaining its historical behavior of clearing the transient door phase.
+  Schedule nodes, editor placement records, multiplayer creation packets,
+  maps, XML, Lua, and installed-data bytes are unchanged.
 - Precise and integer-projected world coordinates, turn-start coordinates,
   initial/current grid, elevation and facing, current/desired height, the
   advanced-animation staging grid, room, and terrain history are now stored by

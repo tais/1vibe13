@@ -26,6 +26,7 @@
 #include <filesystem>
 #include <fstream>
 #include <list>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -7420,6 +7421,11 @@ int main( int, char** )
 		deployment.setTraversalOrigin(31, 2203);
 		deployment.useExitGridForReentryDirection() = 1;
 		deployment.scheduleArrival(14000, 6);
+		SoldierScheduleComponent& schedule = soldier.schedule();
+		schedule.id() = 37;
+		schedule.progress() = 2;
+		schedule.beginDoorContinuation(2204);
+		schedule.completeDoorAnimation();
 		SoldierPositionComponent& position = soldier.position();
 		position.setWorldCoordinates(123.75f, 456.25f);
 		position.recordTurnStart(120, 450);
@@ -7741,6 +7747,12 @@ int main( int, char** )
 		       constSoldier.deployment().leaveHistoryCode() == 6 &&
 		       constSoldier.deployment().arrivalTime() == 14000,
 		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival state" );
+		CHECK( constSoldier.schedule().assigned() &&
+		       constSoldier.schedule().id() == 37 &&
+		       constSoldier.schedule().progress() == 2 &&
+		       constSoldier.schedule().doorAnimationComplete() &&
+		       constSoldier.schedule().doorGrid() == 2204,
+		       "soldier schedule component owns NPC schedule execution and door continuation state" );
 		CHECK( constSoldier.position().worldX() == 123.75f &&
 		       constSoldier.position().worldY() == 456.25f &&
 		       constSoldier.position().worldXInt() == 123 &&
@@ -8431,6 +8443,11 @@ int main( int, char** )
 		       copiedSoldier.deployment().leaveHistoryCode() == 6 &&
 		       copiedSoldier.deployment().arrivalTime() == 14000,
 		       "soldier copies retain their owned persistent deployment state" );
+		CHECK( copiedSoldier.schedule().id() == 37 &&
+		       copiedSoldier.schedule().progress() == 2 &&
+		       copiedSoldier.schedule().doorAnimationComplete() &&
+		       copiedSoldier.schedule().doorGrid() == 2204,
+		       "soldier copies retain their owned persistent schedule state" );
 		CHECK( copiedSoldier.position().worldX() == 123.75f &&
 		       copiedSoldier.position().worldY() == 456.25f &&
 		       copiedSoldier.position().worldXInt() == 123 &&
@@ -8943,6 +8960,37 @@ int main( int, char** )
 		       deploymentLifecycle.leaveHistoryCode() == 0 &&
 		       deploymentLifecycle.arrivalTime() == 0,
 		       "deployment reset clears the complete strategic placement lifecycle" );
+
+		SoldierScheduleComponent scheduleLifecycle;
+		scheduleLifecycle.id() = 41;
+		scheduleLifecycle.progress() = 1;
+		scheduleLifecycle.advanceProgress();
+		scheduleLifecycle.beginDoorContinuation(3400);
+		CHECK( scheduleLifecycle.assigned() &&
+		       scheduleLifecycle.progress() == 2 &&
+		       scheduleLifecycle.doorAnimationStarted() &&
+		       scheduleLifecycle.doorGrid() == 3400,
+		       "schedule begins door continuation with one atomic phase-and-grid transition" );
+		scheduleLifecycle.completeDoorAnimation();
+		CHECK( scheduleLifecycle.doorAnimationComplete() &&
+		       scheduleLifecycle.consumeDoorGrid() == 3400 &&
+		       !scheduleLifecycle.doorContinuationPending(),
+		       "schedule completes and consumes door continuation through named transitions" );
+		scheduleLifecycle.progress() = std::numeric_limits<INT8>::max();
+		scheduleLifecycle.advanceProgress();
+		CHECK( scheduleLifecycle.progress() == std::numeric_limits<INT8>::max(),
+		       "schedule progress saturates instead of overflowing a corrupted or extended schedule" );
+		scheduleLifecycle.beginDoorContinuation(3401);
+		scheduleLifecycle.cancelDoorContinuation();
+		CHECK( !scheduleLifecycle.doorContinuationPending() &&
+		       scheduleLifecycle.doorGrid() == 3401,
+		       "cancelling a door continuation preserves the historical retained-grid behavior" );
+		scheduleLifecycle.reset();
+		CHECK( !scheduleLifecycle.assigned() &&
+		       scheduleLifecycle.progress() == 0 &&
+		       !scheduleLifecycle.doorContinuationPending() &&
+		       scheduleLifecycle.doorGrid() == 0,
+		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
 		CHECK( copiedSoldier.vitals().health() == 0 &&
 		       copiedSoldier.vitals().maximumHealth() == 0 &&
@@ -9108,6 +9156,11 @@ int main( int, char** )
 		       copiedSoldier.deployment().leaveHistoryCode() == 0 &&
 		       copiedSoldier.deployment().arrivalTime() == 0,
 		       "soldier initialization resets the complete deployment domain" );
+		CHECK( !copiedSoldier.schedule().assigned() &&
+		       copiedSoldier.schedule().progress() == 0 &&
+		       !copiedSoldier.schedule().doorContinuationPending() &&
+		       copiedSoldier.schedule().doorGrid() == 0,
+		       "soldier initialization resets the complete NPC schedule domain" );
 		CHECK( copiedSoldier.position().worldX() == 0 &&
 		       copiedSoldier.position().worldY() == 0 &&
 		       copiedSoldier.position().worldXInt() == 0 &&
@@ -9362,6 +9415,10 @@ int main( int, char** )
 		legacySoldier->sPreTraversalGridNo = 2303;
 		legacySoldier->ubLeaveHistoryCode = 8;
 		legacySoldier->uiTimeSoldierWillArrive = 15000;
+		legacySoldier->bEndDoorOpenCode = 2;
+		legacySoldier->ubScheduleID = 42;
+		legacySoldier->sEndDoorOpenCodeData = 2310;
+		legacySoldier->bAIScheduleProgress = 3;
 		legacySoldier->dXPos = 321.5f;
 		legacySoldier->dYPos = 654.25f;
 		legacySoldier->sX = 319;
@@ -9414,6 +9471,10 @@ int main( int, char** )
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
+		convertedSoldier.schedule().id() = 99;
+		convertedSoldier.schedule().progress() = 98;
+		convertedSoldier.schedule().beginDoorContinuation(9999);
+		convertedSoldier.schedule().completeDoorAnimation();
 		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
@@ -9604,6 +9665,11 @@ int main( int, char** )
 		       convertedSoldier.deployment().leaveHistoryCode() == 8 &&
 		       convertedSoldier.deployment().arrivalTime() == 15000,
 		       "v101 soldier conversion retains the complete deployment and arrival lifecycle" );
+		CHECK( convertedSoldier.schedule().id() == 42 &&
+		       convertedSoldier.schedule().progress() == 3 &&
+		       !convertedSoldier.schedule().doorContinuationPending() &&
+		       convertedSoldier.schedule().doorGrid() == 2310,
+		       "v101 soldier conversion maps schedule data while clearing the historically ignored door phase" );
 		CHECK( convertedSoldier.position().worldX() == 321.5f &&
 		       convertedSoldier.position().worldY() == 654.25f &&
 		       convertedSoldier.position().worldXInt() == 319 &&
@@ -9917,6 +9983,10 @@ int main( int, char** )
 		savedSoldier.deployment().setTraversalOrigin(33, 2403);
 		savedSoldier.deployment().useExitGridForReentryDirection() = 1;
 		savedSoldier.deployment().scheduleArrival(16000, 9);
+		savedSoldier.schedule().id() = 43;
+		savedSoldier.schedule().progress() = 4;
+		savedSoldier.schedule().beginDoorContinuation(2404);
+		savedSoldier.schedule().completeDoorAnimation();
 		savedSoldier.position().setWorldCoordinates(242.5f, 668.75f);
 		savedSoldier.position().worldXInt() = 241;
 		savedSoldier.position().worldYInt() = 667;
@@ -10235,6 +10305,12 @@ int main( int, char** )
 		       loadedSoldier.deployment().leaveHistoryCode() == 9 &&
 		       loadedSoldier.deployment().arrivalTime() == 16000,
 		       "soldier save/load round-trips deployment state at every established POD position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.schedule().id() == 43 &&
+		       loadedSoldier.schedule().progress() == 4 &&
+		       loadedSoldier.schedule().doorAnimationComplete() &&
+		       loadedSoldier.schedule().doorGrid() == 2404,
+		       "soldier save/load round-trips schedule execution at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.position().worldX() == 242.5f &&
 		       loadedSoldier.position().worldY() == 668.75f &&

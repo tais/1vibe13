@@ -273,7 +273,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->bAIMorale							= Soldier.aiData.bAIMorale;
 	this->ubBodyType							= Soldier.ubBodyType;
 	this->ubCivilianGroup				= Soldier.ubCivilianGroup;
-	this->ubScheduleID					= Soldier.ubScheduleID;
+	this->ubScheduleID					= Soldier.schedule().id();
 	this->fHasKeys							= Soldier.flags.bHasKeys;
 	this->sSectorX							= Soldier.deployment().sectorX();
 	this->sSectorY							= Soldier.deployment().sectorY();
@@ -1283,7 +1283,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 
 	// Set profile index!
 	pSoldier->ubProfile									= ubProfileIndex;
-	pSoldier->ubScheduleID							= pCreateStruct->ubScheduleID;
+	pSoldier->schedule().id()						= pCreateStruct->ubScheduleID;
 	pSoldier->flags.bHasKeys									= pCreateStruct->fHasKeys;
 
 	wcscpy( pSoldier->name, pProfile->zNickname );
@@ -1760,7 +1760,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->ubBodyType					= pCreateStruct->ubBodyType;
 	pSoldier->ubCivilianGroup				= pCreateStruct->ubCivilianGroup;
 
-	pSoldier->ubScheduleID					= pCreateStruct->ubScheduleID;
+	pSoldier->schedule().id()				= pCreateStruct->ubScheduleID;
 	pSoldier->flags.bHasKeys							= pCreateStruct->fHasKeys;
 	pSoldier->ubSoldierClass				= pCreateStruct->ubSoldierClass;
 
@@ -2171,9 +2171,9 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 	if( !pSoldier->bActive )
 		return FALSE;
 
-	if( pSoldier->ubScheduleID )
+	if( pSoldier->schedule().assigned() )
 	{
-		DeleteSchedule( pSoldier->ubScheduleID );
+		DeleteSchedule( pSoldier->schedule().id() );
 	}
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && fRemoveVehicle )
@@ -2916,7 +2916,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	s->vitals().healableInjury() = 0;
 
-	s->ubScheduleID		=	spp->ubScheduleID;
+	s->schedule().id()	=	spp->ubScheduleID;
 
 	//Copy over the current inventory list.
 	s->inv = spp->Inv;
