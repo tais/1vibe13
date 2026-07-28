@@ -415,30 +415,6 @@ void Inventory::clear( ) {
 
 // ----------------------------------------
 
-void STRUCT_Drugs::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	int x = 0;
-	for ( ; x < 2; ++x )
-	{
-		this->bFutureDrugEffect[x] = src.bFutureDrugEffect[x];						// value to represent effect of a needle
-		this->bDrugEffectRate[x] = src.bDrugEffectRate[x];							// represents rate of increase and decrease of effect
-		this->bDrugEffect[x] = src.bDrugEffect[x];									// value that affects AP & morale calc ( -ve is poorly )
-		this->bDrugSideEffectRate[x] = src.bDrugSideEffectRate[x];					// duration of negative AP and morale effect
-		this->bDrugSideEffect[x] = src.bDrugSideEffect[x];							// duration of negative AP and morale effect
-		this->bTimesDrugUsedSinceSleep[x] = src.bTimesDrugUsedSinceSleep[x];
-	}
-
-	for ( ; x < DRUG_TYPE_MAX; ++x )
-	{
-		this->bFutureDrugEffect[x] = 0;							// value to represent effect of a needle
-		this->bDrugEffectRate[x] = 0;							// represents rate of increase and decrease of effect
-		this->bDrugEffect[x] = 0;								// value that affects AP & morale calc ( -ve is poorly )
-		this->bDrugSideEffectRate[x] = 0;						// duration of negative AP and morale effect
-		this->bDrugSideEffect[x] = 0;							// duration of negative AP and morale effect
-		this->bTimesDrugUsedSinceSleep[x] = 0;
-	}
-}
-
 void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 {
 	this->ZipperFlag = FALSE;
@@ -547,6 +523,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		aiPlanning().reset();
 		skillState().reset();
 		condition().reset();
+		drugState().reset();
 		statProgress().reset();
 		timing().reset();
 		longAction().reset();
@@ -1125,8 +1102,6 @@ void SOLDIERTYPE::initialize( )
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	memset( &flags, 0, sizeof(STRUCT_Flags) );
-	//memset( &drugs, 0, sizeof(STRUCT_Drugs) );
-	memset( &newdrugs, 0, sizeof(DRUGS) );
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
 	service().reset();
@@ -1137,6 +1112,7 @@ void SOLDIERTYPE::initialize( )
 	aiPlanning().reset();
 	skillState().reset();
 	condition().reset();
+	drugState().reset();
 	statProgress().reset();
 	timing().reset();
 	longAction().reset();
@@ -2233,7 +2209,8 @@ void SOLDIERTYPE::CalcNewActionPoints( void )
 		this->actionPoints().current() = APBPConstants[AP_MIN_LIMIT];
 
 	// Don't max out if we are drugged....
-	if ( !this->newdrugs.size[DRUG_EFFECT_AP] && !this->newdrugs.size[DRUG_EFFECT_AGI] )
+	if ( !this->drugState().magnitude(DRUG_EFFECT_AP) &&
+	     !this->drugState().magnitude(DRUG_EFFECT_AGI) )
 	{
 		///////////////////////////////////////////////////////////////////////////////////////////
 		// SANDRO - following code messed a bit
@@ -9036,7 +9013,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	// If a moving animation and we're on drugs, increase speed....
 	if ( gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_MOVING )
 	{
-		if ( pSoldier->newdrugs.size[DRUG_EFFECT_AP] )
+		if ( pSoldier->drugState().magnitude(DRUG_EFFECT_AP) )
 		{
 			pSoldier->animationPlayback().delay() = pSoldier->animationPlayback().delay() / 2;
 		}
@@ -12575,7 +12552,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 			this->pendingAction().quaternaryData() = ubTargetID;
 
 			// add regen bonus
-			this->newdrugs.size[DRUG_EFFECT_HP] += 10;
+			this->drugState().magnitude(DRUG_EFFECT_HP) += 10;
 
 			this->EVENT_InitNewSoldierAnim( MONSTER_BEGIN_EATTING_FLESH, 0, FALSE );
 		}
@@ -15112,7 +15089,7 @@ INT32 SOLDIERTYPE::GetDamageResistance( BOOLEAN fAutoResolve, BOOLEAN fCalcBreat
 	////////////////////////////////////////////////////////////////////////////////////
 
 	// Flugente: drugs can now have an effect on damage resistance
-	resistance += this->newdrugs.size[DRUG_EFFECT_PHYS_RES];
+	resistance += this->drugState().magnitude(DRUG_EFFECT_PHYS_RES);
 
 	resistance += this->GetBackgroundValue( BG_RESI_PHYSICAL );
 

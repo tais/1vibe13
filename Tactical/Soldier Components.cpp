@@ -197,6 +197,122 @@ void SoldierConditionComponent::reset() noexcept
 	*this = SoldierConditionComponent{};
 }
 
+void SoldierDrugStateComponent::mergeEffect(
+	UINT8 effect, UINT16 duration, INT16 magnitude, FLOAT scale) noexcept
+{
+	if (effect >= EffectCapacity)
+	{
+		return;
+	}
+
+	if (durations_[effect] != 0)
+	{
+		const INT32 existingTotal =
+			durations_[effect] * magnitudes_[effect];
+		const INT32 incomingTotal = duration * magnitude;
+		const INT32 combinedTotal =
+			existingTotal + static_cast<INT32>(incomingTotal * scale);
+		const UINT16 combinedDuration =
+			(durations_[effect] + duration) / 2;
+		if (combinedDuration != 0)
+		{
+			durations_[effect] = combinedDuration;
+			magnitudes_[effect] =
+				static_cast<INT16>(combinedTotal / combinedDuration);
+		}
+		return;
+	}
+
+	durations_[effect] = duration;
+	magnitudes_[effect] = static_cast<INT16>(magnitude * scale);
+}
+
+void SoldierDrugStateComponent::applyTemporaryPersonality(
+	UINT8 personality, UINT16 duration) noexcept
+{
+	if (temporaryPersonality_ == personality)
+	{
+		temporaryPersonalityDuration_ += duration;
+		return;
+	}
+
+	temporaryPersonality_ = personality;
+	temporaryPersonalityDuration_ = duration;
+}
+
+void SoldierDrugStateComponent::applyTemporaryDisability(
+	UINT8 disability, UINT16 duration) noexcept
+{
+	if (temporaryDisability_ == disability)
+	{
+		temporaryDisabilityDuration_ += duration;
+		return;
+	}
+
+	temporaryDisability_ = disability;
+	temporaryDisabilityDuration_ = duration;
+}
+
+bool SoldierDrugStateComponent::ageTurn() noexcept
+{
+	bool active = false;
+	for (UINT8 effect = 0; effect < EffectCapacity; ++effect)
+	{
+		if (durations_[effect] != 0)
+		{
+			--durations_[effect];
+		}
+
+		if (durations_[effect] == 0)
+		{
+			magnitudes_[effect] = 0;
+		}
+		else
+		{
+			active = true;
+		}
+	}
+
+	if (temporaryPersonalityDuration_ != 0)
+	{
+		--temporaryPersonalityDuration_;
+	}
+	if (temporaryPersonalityDuration_ == 0)
+	{
+		temporaryPersonality_ = 0;
+	}
+	else
+	{
+		active = true;
+	}
+
+	if (temporaryDisabilityDuration_ != 0)
+	{
+		--temporaryDisabilityDuration_;
+	}
+	if (temporaryDisabilityDuration_ == 0)
+	{
+		temporaryDisability_ = 0;
+	}
+	else
+	{
+		active = true;
+	}
+
+	return active;
+}
+
+bool SoldierDrugStateComponent::metabolizeAlcohol(FLOAT amount) noexcept
+{
+	alcoholLevel_ = std::max<FLOAT>(0.0f, alcoholLevel_ - amount);
+	return hasAlcohol();
+}
+
+void SoldierDrugStateComponent::reset() noexcept
+{
+	*this = SoldierDrugStateComponent{};
+}
+
 void SoldierStatProgressComponent::reset() noexcept
 {
 	*this = SoldierStatProgressComponent{};

@@ -344,6 +344,16 @@ using an unsigned shift. Disease rules and installed content stay outside this
 owner, and the dependency-neutral disease-capacity header removes the former
 `Disease.h`/`SOLDIERTYPE` include cycle. The serializer retains every original
 position and width; v101 conversion clears this later domain.
+`SoldierDrugStateComponent` separately owns the 20 persistent effect durations
+and magnitudes, temporary personality and disability lifetimes, and accumulated
+alcohol. Gameplay merges and ages effects, applies temporary traits, and
+metabolizes alcohol through named operations; invalid effect identities are
+rejected before indexing the fixed save capacity. The serializer retains all
+20 unsigned 16-bit durations, all 20 signed 16-bit magnitudes, both unsigned
+8-bit trait identities, both unsigned 16-bit lifetimes, and the 32-bit float
+alcohol value in their exact existing order. v101 conversion clears this later
+domain. This changes no drug XML, item definition, package, Lua, multiplayer,
+installed-data, or save bytes.
 `SoldierStatProgressComponent` separately owns all eleven persistent
 stat-change timestamps and the value-gone-up direction mask. Gameplay records
 a change by stat identity and marks or clears increase feedback through named

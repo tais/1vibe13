@@ -356,6 +356,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   clears this whole later domain. The independent `NUM_DISEASES == 20`
   declaration is a C++ dependency cleanup, not a data-format change; no save,
   packet, map, XML, Lua, or installed-data bytes change.
+- Twenty unsigned 16-bit drug-effect durations, 20 signed 16-bit effect
+  magnitudes, temporary personality and disability identities with their
+  unsigned 16-bit lifetimes, and the 32-bit float alcohol level are now stored
+  by `SoldierDrugStateComponent`. The visitor emits the complete duration array,
+  complete magnitude array, personality identity and lifetime, disability
+  identity and lifetime, then alcohol in that exact historical order. v101
+  conversion clears this later domain. No save, packet, map, drug XML, item,
+  Lua, multiplayer, package, or installed-data bytes change.
 - All eleven unsigned 32-bit stat-change timestamps and the unsigned 16-bit
   value-gone-up direction mask are now stored by
   `SoldierStatProgressComponent`. The visitor still emits level, health,

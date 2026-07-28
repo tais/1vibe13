@@ -1038,6 +1038,17 @@ the engine must not contain SDL types in its public domain model.
   avoiding undefined behavior on invalid input. Every scalar, disease slot,
   field width, and serialized position remains unchanged; v101 conversion
   clears the whole domain because that record predates it.
+  `SoldierDrugStateComponent` owns the persistent drug and alcohol domain:
+  the fixed 20-slot effect-duration and magnitude arrays, temporary personality
+  and disability identities with their lifetimes, and accumulated alcohol.
+  Named merge, temporary-trait, turn-aging, metabolism, and reset operations
+  replace direct array arithmetic and keep expiry cleanup coordinated. Effect
+  admission validates the established capacity before indexing soldier state.
+  The portable visitor still writes all 20 unsigned 16-bit durations, all 20
+  signed 16-bit magnitudes, the two unsigned 8-bit identities and unsigned
+  16-bit lifetimes, and the 32-bit float alcohol level in their exact existing
+  order. v101 conversion clears this later domain. Drug XML, item definitions,
+  installed content, Lua, multiplayer data, and the save stream are unchanged.
   `SoldierStatProgressComponent` owns all eleven persistent stat-change
   timestamps and the complementary value-gone-up direction mask. Gameplay
   records changes through stat and mask operations, while tactical and

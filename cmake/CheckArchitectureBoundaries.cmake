@@ -1855,7 +1855,7 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Flags//last edited at version 102"
   current_soldier_flags_begin)
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_Drugs//last edited at version 102"
+  "class STRUCT_Statistics//last edited at version 102"
   current_soldier_flags_end)
 string(FIND "${soldier_control_header_contents}"
   "enum class BackgroundVectorTypes;"
@@ -1874,7 +1874,7 @@ if(current_soldier_ai_begin EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/AI/flags/statistics declarations for the soldier-component ownership check")
+    "Could not locate current soldier/AI/flags/statistics declaration boundaries for the soldier-component ownership check")
 endif()
 math(EXPR current_soldier_ai_length
   "${current_soldier_flags_begin} - ${current_soldier_ai_begin}")
@@ -3742,6 +3742,280 @@ foreach(condition_save_position IN ITEMS
       "Soldier condition state moved in the portable save schema at '${condition_save_position}'")
   endif()
 endforeach()
+
+# Persistent drug effects, temporary personality/disability changes, and
+# alcohol form one bounded soldier domain. Keep the established arrays and
+# portable field order exact while preventing the retired public aggregate
+# from becoming a second mutable owner.
+string(REGEX MATCH
+  "(^|[^A-Za-z0-9_])newdrugs([^A-Za-z0-9_]|$)"
+  retired_public_drug_state
+  "${current_soldier_contents}")
+if(retired_public_drug_state)
+  message(FATAL_ERROR
+    "Retired public SOLDIERTYPE drug aggregate returned; persistent drug and alcohol state belongs to SoldierDrugStateComponent")
+endif()
+
+foreach(retired_drug_declaration IN ITEMS
+  "class STRUCT_Drugs"
+  "struct DRUGS")
+  string(FIND "${soldier_control_header_contents}"
+    "${retired_drug_declaration}"
+    retired_drug_declaration_site)
+  if(NOT retired_drug_declaration_site EQUAL -1)
+    message(FATAL_ERROR
+      "Retired soldier drug declaration '${retired_drug_declaration}' returned; use SoldierDrugStateComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierDrugStateComponent[ \t\r\n]+drugState_[ \t]*;"
+  soldier_drug_state_owner
+  "${current_soldier_contents}")
+if(NOT soldier_drug_state_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierDrugStateComponent")
+endif()
+
+string(FIND "${soldier_components_header_contents}"
+  "DRUG_EFFECT_HP = 0,
+	DRUG_EFFECT_BP,
+	DRUG_EFFECT_AP,
+	DRUG_EFFECT_MORALE,
+	DRUG_EFFECT_PHYS_RES,
+	DRUG_EFFECT_STR,
+	DRUG_EFFECT_AGI,
+	DRUG_EFFECT_DEX,
+	DRUG_EFFECT_WIS,
+
+	DRUG_EFFECT_MAX = 20,"
+  soldier_drug_effect_identity_order)
+if(soldier_drug_effect_identity_order EQUAL -1)
+  message(FATAL_ERROR
+    "Persistent soldier drug-effect identity order or capacity changed")
+endif()
+
+foreach(drug_state_storage IN ITEMS
+  "static constexpr UINT8 EffectCapacity = DRUG_EFFECT_MAX;"
+  "using EffectDurations = UINT16[EffectCapacity];"
+  "using EffectMagnitudes = INT16[EffectCapacity];"
+  "EffectDurations durations_{};"
+  "EffectMagnitudes magnitudes_{};"
+  "UINT8 temporaryPersonality_ = 0;"
+  "UINT16 temporaryPersonalityDuration_ = 0;"
+  "UINT8 temporaryDisability_ = 0;"
+  "UINT16 temporaryDisabilityDuration_ = 0;"
+  "FLOAT alcoholLevel_ = 0.0f;")
+  string(FIND "${soldier_components_header_contents}"
+    "${drug_state_storage}"
+    soldier_drug_state_storage_site)
+  if(soldier_drug_state_storage_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierDrugStateComponent lost fixed-capacity storage '${drug_state_storage}'")
+  endif()
+endforeach()
+
+foreach(drug_state_accessor IN ITEMS
+  "UINT16& duration(UINT8 effect) noexcept"
+  "const UINT16& duration(UINT8 effect) const noexcept"
+  "INT16& magnitude(UINT8 effect) noexcept"
+  "const INT16& magnitude(UINT8 effect) const noexcept"
+  "UINT8& temporaryPersonality() noexcept"
+  "UINT16& temporaryPersonalityDuration() noexcept"
+  "UINT8& temporaryDisability() noexcept"
+  "UINT16& temporaryDisabilityDuration() noexcept"
+  "FLOAT& alcoholLevel() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${drug_state_accessor}"
+    soldier_drug_state_accessor_site)
+  if(soldier_drug_state_accessor_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierDrugStateComponent lost ownership accessor '${drug_state_accessor}'")
+  endif()
+endforeach()
+
+foreach(drug_state_operation IN ITEMS
+  "bool hasEffect(UINT8 effect) const noexcept"
+  "bool hasTemporaryPersonality(UINT8 personality) const noexcept"
+  "bool hasTemporaryDisability(UINT8 disability) const noexcept"
+  "bool hasAlcohol() const noexcept"
+  "void mergeEffect("
+  "void applyTemporaryPersonality("
+  "void applyTemporaryDisability("
+  "bool ageTurn() noexcept"
+  "void addAlcohol(FLOAT amount) noexcept"
+  "bool metabolizeAlcohol(FLOAT amount) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${drug_state_operation}"
+    soldier_drug_state_operation_site)
+  if(soldier_drug_state_operation_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierDrugStateComponent lost required operation '${drug_state_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierDrugStateComponent& drugState() noexcept"
+  soldier_drug_state_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "if (effect >= EffectCapacity)"
+  soldier_drug_state_effect_guard)
+string(FIND "${soldier_components_source_contents}"
+  "std::max<FLOAT>(0.0f, alcoholLevel_ - amount)"
+  soldier_drug_state_alcohol_clamp)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierDrugStateComponent{};"
+  soldier_drug_state_default_reset)
+string(REGEX MATCHALL
+  "drugState\\(\\)\\.reset\\(\\);"
+  soldier_drug_state_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_drug_state_reset_sites
+  soldier_drug_state_reset_site_count)
+if(soldier_drug_state_accessor EQUAL -1 OR
+   soldier_drug_state_effect_guard EQUAL -1 OR
+   soldier_drug_state_alcohol_clamp EQUAL -1 OR
+   soldier_drug_state_default_reset EQUAL -1 OR
+   soldier_drug_state_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierDrugStateComponent must validate effect indices, clamp metabolism, and reset during both v101 conversion and current initialization")
+endif()
+
+foreach(drug_state_save_fragment IN ITEMS
+  "ar.u16(drugState.duration(effect));"
+  "ar.i16(drugState.magnitude(effect));"
+  "ar.u8(drugState.temporaryPersonality());"
+  "ar.u16(drugState.temporaryPersonalityDuration());"
+  "ar.u8(drugState.temporaryDisability());"
+  "ar.u16(drugState.temporaryDisabilityDuration());"
+  "ar.f32(drugState.alcoholLevel());")
+  string(FIND "${save_load_game_contents}"
+    "${drug_state_save_fragment}"
+    soldier_drug_state_save_fragment_site)
+  if(soldier_drug_state_save_fragment_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier drug state moved or changed width in the portable save schema at '${drug_state_save_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${save_load_game_contents}"
+  "ar.u16(drugState.duration(effect));"
+  soldier_drug_duration_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.i16(drugState.magnitude(effect));"
+  soldier_drug_magnitude_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u8(drugState.temporaryPersonality());"
+  soldier_drug_personality_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u16(drugState.temporaryPersonalityDuration());"
+  soldier_drug_personality_duration_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u8(drugState.temporaryDisability());"
+  soldier_drug_disability_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.u16(drugState.temporaryDisabilityDuration());"
+  soldier_drug_disability_duration_save_position)
+string(FIND "${save_load_game_contents}"
+  "ar.f32(drugState.alcoholLevel());"
+  soldier_drug_alcohol_save_position)
+if(NOT soldier_drug_duration_save_position LESS soldier_drug_magnitude_save_position OR
+   NOT soldier_drug_magnitude_save_position LESS soldier_drug_personality_save_position OR
+   NOT soldier_drug_personality_save_position LESS soldier_drug_personality_duration_save_position OR
+   NOT soldier_drug_personality_duration_save_position LESS soldier_drug_disability_save_position OR
+   NOT soldier_drug_disability_save_position LESS soldier_drug_disability_duration_save_position OR
+   NOT soldier_drug_disability_duration_save_position LESS soldier_drug_alcohol_save_position)
+  message(FATAL_ERROR
+    "Soldier drug-state portable field order changed")
+endif()
+
+string(REGEX MATCHALL
+  "XferDrugState\\(ar,[ \t]+this->drugState\\(\\)\\)"
+  soldier_drug_state_xfer_sites
+  "${save_load_game_contents}")
+list(LENGTH soldier_drug_state_xfer_sites
+  soldier_drug_state_xfer_site_count)
+string(FIND "${save_load_game_contents}"
+  "	XferTiming(ar, this->timing());
+	XferDrugState(ar, this->drugState());
+	XferStats(ar, *this);"
+  soldier_drug_state_save_order_site)
+string(FIND "${save_load_game_contents}"
+  "		XferTiming(ar, this->timing());
+		XferDrugState(ar, this->drugState());
+		XferStats(ar, *this);"
+  soldier_drug_state_load_order_site)
+if(NOT soldier_drug_state_xfer_site_count EQUAL 2 OR
+   soldier_drug_state_save_order_site EQUAL -1 OR
+   soldier_drug_state_load_order_site EQUAL -1)
+  message(FATAL_ERROR
+    "Current soldier save/load must visit SoldierDrugStateComponent exactly twice between timing and statistics")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Drugs And Alcohol.cpp"
+  soldier_drug_runtime_contents)
+file(READ "${SOURCE_ROOT}/Tactical/DynamicDialogue.cpp"
+  soldier_drug_dialogue_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Morale.cpp"
+  soldier_drug_morale_contents)
+foreach(drug_state_runtime_operation IN ITEMS
+  "drugState().mergeEffect("
+  "drugState().applyTemporaryPersonality("
+  "drugState().applyTemporaryDisability("
+  "drugState().addAlcohol("
+  "drugState().ageTurn()"
+  "drugState().metabolizeAlcohol(")
+  string(FIND "${soldier_drug_runtime_contents}"
+    "${drug_state_runtime_operation}"
+    soldier_drug_state_runtime_operation_site)
+  if(soldier_drug_state_runtime_operation_site EQUAL -1)
+    message(FATAL_ERROR
+      "Drug and alcohol gameplay bypassed SoldierDrugStateComponent operation '${drug_state_runtime_operation}'")
+  endif()
+endforeach()
+string(FIND "${soldier_drug_dialogue_contents}"
+  "drugState().hasAlcohol()"
+  soldier_drug_dialogue_query)
+string(FIND "${soldier_drug_morale_contents}"
+  "drugState().magnitude(DRUG_EFFECT_MORALE)"
+  soldier_drug_morale_query)
+if(soldier_drug_dialogue_query EQUAL -1 OR
+   soldier_drug_morale_query EQUAL -1)
+  message(FATAL_ERROR
+    "Dialogue or morale gameplay bypassed SoldierDrugStateComponent")
+endif()
+
+foreach(drug_state_test_fragment IN ITEMS
+  "soldier drug-state component safely merges effects and coordinates temporary traits and alcohol"
+  "soldier drug-state aging clears effect magnitudes and temporary identities at expiry"
+  "soldier initialization resets the complete persistent drug-state domain"
+  "v101 soldier conversion clears drug state absent from that historical schema"
+  "soldier save/load round-trips the complete drug-state capacity at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${drug_state_test_fragment}"
+    soldier_drug_state_test_site)
+  if(soldier_drug_state_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierDrugStateComponent fixture '${drug_state_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierDrugStateComponent"
+  soldier_drug_state_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierDrugStateComponent"
+  soldier_drug_state_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "Twenty unsigned 16-bit drug-effect durations"
+  soldier_drug_state_save_documented)
+if(soldier_drug_state_architecture_documented EQUAL -1 OR
+   soldier_drug_state_sdk_documented EQUAL -1 OR
+   soldier_drug_state_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierDrugStateComponent ownership and compatibility guarantees must remain documented")
+endif()
 
 # Persistent stat-change presentation has one timestamp and direction-feedback
 # owner. Keep the historical eleven-value save block, scattered mask position,

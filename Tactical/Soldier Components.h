@@ -63,6 +63,23 @@ enum
 	NUM_ASSIST_SLOTS = 156,
 };
 
+// Stable indices and capacity for persistent drug effects. The unused slots
+// are part of the established save schema and remain serialized.
+enum
+{
+	DRUG_EFFECT_HP = 0,
+	DRUG_EFFECT_BP,
+	DRUG_EFFECT_AP,
+	DRUG_EFFECT_MORALE,
+	DRUG_EFFECT_PHYS_RES,
+	DRUG_EFFECT_STR,
+	DRUG_EFFECT_AGI,
+	DRUG_EFFECT_DEX,
+	DRUG_EFFECT_WIS,
+
+	DRUG_EFFECT_MAX = 20,
+};
+
 // Canonical soldier vitals and recovery storage. Reference accessors keep
 // legacy mutation sites zero-cost while health, breath, treatable trauma,
 // surgery, critical-stat damage, and bleed timing share one reset boundary.
@@ -603,6 +620,78 @@ private:
 	DiseasePoints diseasePoints_{};
 	DiseaseFlags diseaseFlags_{};
 	UINT32 disabilityFlags_ = 0;
+};
+
+// Canonical persistent drug and alcohol state. Fixed effect arrays retain the
+// established save capacity while named operations coordinate effect merging,
+// temporary personality/disability lifetimes, and alcohol metabolism.
+class SoldierDrugStateComponent
+{
+public:
+	static constexpr UINT8 EffectCapacity = DRUG_EFFECT_MAX;
+	using EffectDurations = UINT16[EffectCapacity];
+	using EffectMagnitudes = INT16[EffectCapacity];
+
+	UINT16& duration(UINT8 effect) noexcept { return durations_[effect]; }
+	const UINT16& duration(UINT8 effect) const noexcept { return durations_[effect]; }
+	INT16& magnitude(UINT8 effect) noexcept { return magnitudes_[effect]; }
+	const INT16& magnitude(UINT8 effect) const noexcept { return magnitudes_[effect]; }
+	UINT8& temporaryPersonality() noexcept { return temporaryPersonality_; }
+	const UINT8& temporaryPersonality() const noexcept { return temporaryPersonality_; }
+	UINT16& temporaryPersonalityDuration() noexcept
+	{
+		return temporaryPersonalityDuration_;
+	}
+	const UINT16& temporaryPersonalityDuration() const noexcept
+	{
+		return temporaryPersonalityDuration_;
+	}
+	UINT8& temporaryDisability() noexcept { return temporaryDisability_; }
+	const UINT8& temporaryDisability() const noexcept { return temporaryDisability_; }
+	UINT16& temporaryDisabilityDuration() noexcept
+	{
+		return temporaryDisabilityDuration_;
+	}
+	const UINT16& temporaryDisabilityDuration() const noexcept
+	{
+		return temporaryDisabilityDuration_;
+	}
+	FLOAT& alcoholLevel() noexcept { return alcoholLevel_; }
+	const FLOAT& alcoholLevel() const noexcept { return alcoholLevel_; }
+
+	bool hasEffect(UINT8 effect) const noexcept
+	{
+		return effect < EffectCapacity && durations_[effect] != 0;
+	}
+	bool hasTemporaryPersonality(UINT8 personality) const noexcept
+	{
+		return temporaryPersonality_ == personality;
+	}
+	bool hasTemporaryDisability(UINT8 disability) const noexcept
+	{
+		return temporaryDisability_ == disability;
+	}
+	bool hasAlcohol() const noexcept { return alcoholLevel_ > 0.0f; }
+
+	void mergeEffect(
+		UINT8 effect, UINT16 duration, INT16 magnitude, FLOAT scale) noexcept;
+	void applyTemporaryPersonality(
+		UINT8 personality, UINT16 duration) noexcept;
+	void applyTemporaryDisability(
+		UINT8 disability, UINT16 duration) noexcept;
+	bool ageTurn() noexcept;
+	void addAlcohol(FLOAT amount) noexcept { alcoholLevel_ += amount; }
+	bool metabolizeAlcohol(FLOAT amount) noexcept;
+	void reset() noexcept;
+
+private:
+	EffectDurations durations_{};
+	EffectMagnitudes magnitudes_{};
+	UINT8 temporaryPersonality_ = 0;
+	UINT16 temporaryPersonalityDuration_ = 0;
+	UINT8 temporaryDisability_ = 0;
+	UINT16 temporaryDisabilityDuration_ = 0;
+	FLOAT alcoholLevel_ = 0.0f;
 };
 
 // Canonical timestamps for persistent-stat changes. Gameplay records changes

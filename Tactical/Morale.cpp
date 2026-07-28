@@ -393,7 +393,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	iActualMorale = gMoraleSettings.ubDefaultMorale + (INT32) pSoldier->aiData.bTeamMoraleMod + (INT32) pSoldier->aiData.bTacticalMoraleMod + (INT32) pSoldier->aiData.bStrategicMoraleMod + (INT32) (CurrentPlayerProgressPercentage() / 5);
 
 	// Flugente: drug system has been redone
-	iActualMorale += pSoldier->newdrugs.size[DRUG_EFFECT_MORALE];
+	iActualMorale += pSoldier->drugState().magnitude(DRUG_EFFECT_MORALE);
 
 	// sevenfm: bonus 20% to morale when using walkman
 	if (FindWalkman(pSoldier) != NO_SLOT && pSoldier->perception().deafnessTurns() == 0)

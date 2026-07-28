@@ -1638,14 +1638,26 @@ template<class Ar> static void XferTiming( Ar& ar, SoldierTimingComponent& timin
 	ar.i32(timing.counter(Timer::PortraitFlash)); ar.i32(timing.counter(Timer::NextTile));
 }
 
-template<class Ar> static void XferDrugs( Ar& ar, DRUGS& d )
+template<class Ar> static void XferDrugState(
+	Ar& ar, SoldierDrugStateComponent& drugState)
 {
-	int i;
-	for (i = 0; i < DRUG_EFFECT_MAX; ++i) ar.u16(d.duration[i]);
-	for (i = 0; i < DRUG_EFFECT_MAX; ++i) ar.i16(d.size[i]);
-	ar.u8(d.drugpersonality); ar.u16(d.drugpersonality_duration);
-	ar.u8(d.drugdisability); ar.u16(d.drugdisability_duration);
-	ar.f32(d.drinkstaken);
+	for (UINT8 effect = 0;
+	     effect < SoldierDrugStateComponent::EffectCapacity;
+	     ++effect)
+	{
+		ar.u16(drugState.duration(effect));
+	}
+	for (UINT8 effect = 0;
+	     effect < SoldierDrugStateComponent::EffectCapacity;
+	     ++effect)
+	{
+		ar.i16(drugState.magnitude(effect));
+	}
+	ar.u8(drugState.temporaryPersonality());
+	ar.u16(drugState.temporaryPersonalityDuration());
+	ar.u8(drugState.temporaryDisability());
+	ar.u16(drugState.temporaryDisabilityDuration());
+	ar.f32(drugState.alcoholLevel());
 }
 
 template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
@@ -1879,7 +1891,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	XferFlags(ar, *this);
 	XferStatProgress(ar, this->statProgress());
 	XferTiming(ar, this->timing());
-	XferDrugs(ar, this->newdrugs);
+	XferDrugState(ar, this->drugState());
 	XferStats(ar, *this);
 	XferPathing(ar, *this);
 	return wr.good() ? TRUE : FALSE;
@@ -1934,7 +1946,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		XferFlags(ar, *this);
 		XferStatProgress(ar, this->statProgress());
 		XferTiming(ar, this->timing());
-		XferDrugs(ar, this->newdrugs);
+		XferDrugState(ar, this->drugState());
 		XferStats(ar, *this);
 		XferPathing(ar, *this);
 		if (!rd.good()) return(FALSE);

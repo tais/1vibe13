@@ -7364,6 +7364,16 @@ int main( int, char** )
 		condition.diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		condition.addDisability(2);
 		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
+		SoldierDrugStateComponent& drugState = soldier.drugState();
+		drugState.duration(DRUG_EFFECT_HP) = 31;
+		drugState.magnitude(DRUG_EFFECT_HP) = 6;
+		drugState.duration(DRUG_EFFECT_MAX - 1) = 32;
+		drugState.magnitude(DRUG_EFFECT_MAX - 1) = -7;
+		drugState.temporaryPersonality() = 3;
+		drugState.temporaryPersonalityDuration() = 33;
+		drugState.temporaryDisability() = 4;
+		drugState.temporaryDisabilityDuration() = 34;
+		drugState.alcoholLevel() = 1.25f;
 		SoldierStatProgressComponent& statProgress = soldier.statProgress();
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Level, 1001);
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Health, 1002);
@@ -7820,6 +7830,16 @@ int main( int, char** )
 		       constSoldier.condition().hasDisability(2) &&
 		       constSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier condition component owns temporary stats, nutrition, starvation, disease, and acquired disabilities" );
+		CHECK( constSoldier.drugState().duration(DRUG_EFFECT_HP) == 31 &&
+		       constSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 6 &&
+		       constSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 32 &&
+		       constSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == -7 &&
+		       constSoldier.drugState().hasTemporaryPersonality(3) &&
+		       constSoldier.drugState().temporaryPersonalityDuration() == 33 &&
+		       constSoldier.drugState().hasTemporaryDisability(4) &&
+		       constSoldier.drugState().temporaryDisabilityDuration() == 34 &&
+		       constSoldier.drugState().alcoholLevel() == 1.25f,
+		       "soldier drug-state component owns persistent effects, temporary traits, and alcohol" );
 		CHECK( constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
@@ -8566,6 +8586,60 @@ int main( int, char** )
 		       conditionLifecycle.diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       conditionLifecycle.disabilityFlags() == 0,
 		       "soldier condition reset clears scalar state and the complete fixed disease capacity" );
+		SoldierDrugStateComponent drugStateLifecycle;
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_AP, 8, 10, 0.5f);
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_AP, 4, 20, 1.0f);
+		drugStateLifecycle.mergeEffect(DRUG_EFFECT_MAX, 99, 99, 1.0f);
+		drugStateLifecycle.applyTemporaryPersonality(3, 2);
+		drugStateLifecycle.applyTemporaryPersonality(3, 3);
+		drugStateLifecycle.applyTemporaryDisability(4, 2);
+		drugStateLifecycle.applyTemporaryDisability(5, 3);
+		drugStateLifecycle.addAlcohol(0.2f);
+		CHECK( drugStateLifecycle.duration(DRUG_EFFECT_AP) == 6 &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_AP) == 20 &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       drugStateLifecycle.hasTemporaryPersonality(3) &&
+		       drugStateLifecycle.temporaryPersonalityDuration() == 5 &&
+		       drugStateLifecycle.hasTemporaryDisability(5) &&
+		       drugStateLifecycle.temporaryDisabilityDuration() == 3 &&
+		       drugStateLifecycle.hasAlcohol(),
+		       "soldier drug-state component safely merges effects and coordinates temporary traits and alcohol" );
+		CHECK( drugStateLifecycle.ageTurn() &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_AP) == 5 &&
+		       drugStateLifecycle.temporaryPersonalityDuration() == 4 &&
+		       drugStateLifecycle.temporaryDisabilityDuration() == 2,
+		       "soldier drug-state aging advances every non-alcohol lifetime as one turn boundary" );
+		SoldierDrugStateComponent zeroDurationTraitState;
+		zeroDurationTraitState.applyTemporaryPersonality(6, 0);
+		zeroDurationTraitState.applyTemporaryDisability(7, 0);
+		CHECK( zeroDurationTraitState.hasTemporaryPersonality(6) &&
+		       zeroDurationTraitState.hasTemporaryDisability(7) &&
+		       !zeroDurationTraitState.ageTurn() &&
+		       !zeroDurationTraitState.hasTemporaryPersonality(6) &&
+		       !zeroDurationTraitState.hasTemporaryDisability(7),
+		       "soldier drug-state keeps legacy zero-duration trait identity semantics until the aging boundary" );
+		drugStateLifecycle.duration(DRUG_EFFECT_AP) = 1;
+		drugStateLifecycle.temporaryPersonalityDuration() = 1;
+		drugStateLifecycle.temporaryDisabilityDuration() = 1;
+		CHECK( !drugStateLifecycle.ageTurn() &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_AP) == 0 &&
+		       drugStateLifecycle.temporaryPersonality() == 0 &&
+		       drugStateLifecycle.temporaryDisability() == 0,
+		       "soldier drug-state aging clears effect magnitudes and temporary identities at expiry" );
+		CHECK( drugStateLifecycle.metabolizeAlcohol(0.15f) &&
+		       !drugStateLifecycle.metabolizeAlcohol(0.15f) &&
+		       drugStateLifecycle.alcoholLevel() == 0.0f,
+		       "soldier drug-state alcohol metabolism clamps cleanly at sobriety" );
+		drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) = 19;
+		drugStateLifecycle.magnitude(DRUG_EFFECT_MAX - 1) = -7;
+		drugStateLifecycle.alcoholLevel() = 1.5f;
+		drugStateLifecycle.reset();
+		CHECK( drugStateLifecycle.duration(0) == 0 &&
+		       drugStateLifecycle.magnitude(0) == 0 &&
+		       drugStateLifecycle.duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       drugStateLifecycle.magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       !drugStateLifecycle.hasAlcohol(),
+		       "soldier drug-state reset clears scalar state and the complete persistent effect capacity" );
 		SoldierStatProgressComponent statProgressLifecycle;
 		statProgressLifecycle.recordChange(
 			SoldierStatProgressComponent::Stat::Strength,
@@ -8902,6 +8976,16 @@ int main( int, char** )
 		       copiedSoldier.condition().hasDisability(2) &&
 		       copiedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier copies retain their owned persistent condition state" );
+		CHECK( copiedSoldier.drugState().duration(DRUG_EFFECT_HP) == 31 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 6 &&
+		       copiedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 32 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == -7 &&
+		       copiedSoldier.drugState().temporaryPersonality() == 3 &&
+		       copiedSoldier.drugState().temporaryPersonalityDuration() == 33 &&
+		       copiedSoldier.drugState().temporaryDisability() == 4 &&
+		       copiedSoldier.drugState().temporaryDisabilityDuration() == 34 &&
+		       copiedSoldier.drugState().alcoholLevel() == 1.25f,
+		       "soldier copies retain their owned persistent drug and alcohol state" );
 		CHECK( copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 1001 &&
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 1002 &&
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 1003 &&
@@ -10068,6 +10152,16 @@ int main( int, char** )
 		       copiedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       copiedSoldier.condition().disabilityFlags() == 0,
 		       "soldier initialization resets the complete condition domain" );
+		CHECK( copiedSoldier.drugState().duration(DRUG_EFFECT_HP) == 0 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 0 &&
+		       copiedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       copiedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       copiedSoldier.drugState().temporaryPersonality() == 0 &&
+		       copiedSoldier.drugState().temporaryPersonalityDuration() == 0 &&
+		       copiedSoldier.drugState().temporaryDisability() == 0 &&
+		       copiedSoldier.drugState().temporaryDisabilityDuration() == 0 &&
+		       !copiedSoldier.drugState().hasAlcohol(),
+		       "soldier initialization resets the complete persistent drug-state domain" );
 		bool initializedStatProgressCleared = true;
 		for (UINT8 statIndex = 0;
 		     statIndex < SoldierStatProgressComponent::StatCount;
@@ -10830,6 +10924,13 @@ int main( int, char** )
 		convertedSoldier.condition().diseasePoints(NUM_DISEASES - 1) = 222;
 		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		convertedSoldier.condition().addDisability(2);
+		convertedSoldier.drugState().duration(DRUG_EFFECT_HP) = 91;
+		convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) = 92;
+		convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) = 93;
+		convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) = -94;
+		convertedSoldier.drugState().applyTemporaryPersonality(5, 95);
+		convertedSoldier.drugState().applyTemporaryDisability(6, 96);
+		convertedSoldier.drugState().addAlcohol(1.75f);
 		convertedSoldier.statProgress().recordChange(
 			SoldierStatProgressComponent::Stat::Level, 9999);
 		convertedSoldier.statProgress().markIncreased(AGIL_INCREASE);
@@ -10971,6 +11072,16 @@ int main( int, char** )
 		       convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) == 0 &&
 		       convertedSoldier.condition().disabilityFlags() == 0,
 		       "v101 soldier conversion clears condition state absent from that schema" );
+		CHECK( convertedSoldier.drugState().duration(DRUG_EFFECT_HP) == 0 &&
+		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_HP) == 0 &&
+		       convertedSoldier.drugState().duration(DRUG_EFFECT_MAX - 1) == 0 &&
+		       convertedSoldier.drugState().magnitude(DRUG_EFFECT_MAX - 1) == 0 &&
+		       convertedSoldier.drugState().temporaryPersonality() == 0 &&
+		       convertedSoldier.drugState().temporaryPersonalityDuration() == 0 &&
+		       convertedSoldier.drugState().temporaryDisability() == 0 &&
+		       convertedSoldier.drugState().temporaryDisabilityDuration() == 0 &&
+		       !convertedSoldier.drugState().hasAlcohol(),
+		       "v101 soldier conversion clears drug state absent from that historical schema" );
 		CHECK( convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 2101 &&
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 2102 &&
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Strength) == 2103 &&
@@ -11479,6 +11590,18 @@ int main( int, char** )
 		savedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		savedSoldier.condition().addDisability(5);
 		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
+		for (UINT8 effect = 0;
+		     effect < SoldierDrugStateComponent::EffectCapacity;
+		     ++effect)
+		{
+			savedSoldier.drugState().duration(effect) = 3301 + effect;
+			savedSoldier.drugState().magnitude(effect) = -301 + effect;
+		}
+		savedSoldier.drugState().temporaryPersonality() = 7;
+		savedSoldier.drugState().temporaryPersonalityDuration() = 3321;
+		savedSoldier.drugState().temporaryDisability() = 8;
+		savedSoldier.drugState().temporaryDisabilityDuration() = 3322;
+		savedSoldier.drugState().alcoholLevel() = 1.875f;
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Level, 3101);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Health, 3102);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, 3103);
@@ -11904,6 +12027,22 @@ int main( int, char** )
 		       loadedSoldier.condition().hasDisability(5) &&
 		       loadedSoldier.condition().hasDisability(SoldierConditionComponent::DisabilityBitCount),
 		       "soldier save/load round-trips condition state at every established schema position and fixed-capacity edge" );
+		bool loadedDrugStateMatches = saved && loaded;
+		for (UINT8 effect = 0;
+		     effect < SoldierDrugStateComponent::EffectCapacity;
+		     ++effect)
+		{
+			loadedDrugStateMatches &=
+				loadedSoldier.drugState().duration(effect) == 3301 + effect &&
+				loadedSoldier.drugState().magnitude(effect) == -301 + effect;
+		}
+		CHECK( loadedDrugStateMatches &&
+		       loadedSoldier.drugState().temporaryPersonality() == 7 &&
+		       loadedSoldier.drugState().temporaryPersonalityDuration() == 3321 &&
+		       loadedSoldier.drugState().temporaryDisability() == 8 &&
+		       loadedSoldier.drugState().temporaryDisabilityDuration() == 3322 &&
+		       loadedSoldier.drugState().alcoholLevel() == 1.875f,
+		       "soldier save/load round-trips the complete drug-state capacity at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Level) == 3101 &&
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Health) == 3102 &&

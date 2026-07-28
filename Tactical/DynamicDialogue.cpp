@@ -1896,7 +1896,8 @@ void HandleDynamicOpinionRetreat( )
 void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 {
 	// need to be drunk for this
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) || pSoldier->newdrugs.drinkstaken <= 0.0 )
+	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || AM_A_ROBOT(pSoldier) ||
+	     !pSoldier->drugState().hasAlcohol() )
 		return;
 
 	SoldierID	bMercID = gTacticalStatus.Team[gbPlayerNum].bFirstID;
@@ -1912,7 +1913,7 @@ void HandleDynamicOpinionTeamDrinking( SOLDIERTYPE* pSoldier )
 		// everybody other merc in the same sector can get updated if they are drugged too
 		if ( pTeamSoldier->bActive && pTeamSoldier->ubProfile != NO_PROFILE && pTeamSoldier->ubProfile != pSoldier->ubProfile &&
 			 pTeamSoldier->deployment().sectorX() == pSoldier->deployment().sectorX() && pTeamSoldier->deployment().sectorY() == pSoldier->deployment().sectorY() && pTeamSoldier->deployment().sectorZ() == pSoldier->deployment().sectorZ() &&
-			 pTeamSoldier->newdrugs.drinkstaken > 0.0 &&
+			 pTeamSoldier->drugState().hasAlcohol() &&
 			 !(pTeamSoldier->assignment().current() == IN_TRANSIT ||
 			 pTeamSoldier->assignment().current() == ASSIGNMENT_DEAD) )
 		{

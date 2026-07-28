@@ -820,48 +820,6 @@ public:
 
 };
 
-class STRUCT_Drugs//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	INT8			bFutureDrugEffect[DRUG_TYPE_MAX];						// value to represent effect of a needle
-	INT8			bDrugEffectRate[DRUG_TYPE_MAX];							// represents rate of increase and decrease of effect	
-	INT8			bDrugEffect[DRUG_TYPE_MAX];								// value that affects AP & morale calc ( -ve is poorly )
-	INT8			bDrugSideEffectRate[DRUG_TYPE_MAX];					// duration of negative AP and morale effect
-	INT8			bDrugSideEffect[DRUG_TYPE_MAX];							// duration of negative AP and morale effect
-	INT8			bTimesDrugUsedSinceSleep[DRUG_TYPE_MAX];			
-};
-
-// Flugente: everything drug-related has been redone
-enum {
-	DRUG_EFFECT_HP = 0,
-	DRUG_EFFECT_BP,
-	DRUG_EFFECT_AP,
-	DRUG_EFFECT_MORALE,
-	DRUG_EFFECT_PHYS_RES,
-	DRUG_EFFECT_STR,
-	DRUG_EFFECT_AGI,
-	DRUG_EFFECT_DEX,
-	DRUG_EFFECT_WIS,
-
-	DRUG_EFFECT_MAX = 20,
-};
-
-
-struct DRUGS
-{
-	UINT16			duration[DRUG_EFFECT_MAX];
-	INT16			size[DRUG_EFFECT_MAX];
-
-	UINT8			drugpersonality;
-	UINT16			drugpersonality_duration;
-
-	UINT8			drugdisability;
-	UINT16			drugdisability_duration;
-
-	FLOAT			drinkstaken;			// number of alcoholic drinks we habe in our system, lowered by 1 every hour
-};
-
 // forward declaration for modularized tactical ai
 namespace AI
 {
@@ -931,6 +889,8 @@ public:
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
+	SoldierDrugStateComponent& drugState() noexcept { return drugState_; }
+	const SoldierDrugStateComponent& drugState() const noexcept { return drugState_; }
 	SoldierStatProgressComponent& statProgress() noexcept { return statProgress_; }
 	const SoldierStatProgressComponent& statProgress() const noexcept { return statProgress_; }
 	SoldierTimingComponent& timing() noexcept { return timing_; }
@@ -1106,8 +1066,6 @@ public:
 	//data from version 101 wrapped into structs
 	STRUCT_AIData			aiData;
 	STRUCT_Flags				flags;
-	//STRUCT_Drugs			drugs;			// Flugente: drug values are now in newdrugs
-	DRUGS					newdrugs;
 	STRUCT_Statistics		stats;
 
 private:
@@ -1120,6 +1078,7 @@ private:
 	SoldierAiPlanningComponent	aiPlanning_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
+	SoldierDrugStateComponent	drugState_;
 	SoldierStatProgressComponent	statProgress_;
 	SoldierTimingComponent	timing_;
 	SoldierLongActionComponent	longAction_;

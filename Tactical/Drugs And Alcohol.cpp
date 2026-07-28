@@ -67,29 +67,11 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	{
 		if ( !(*drug_effects_it).chance || Chance( (*drug_effects_it).chance ) )
 		{
-			// if we are already under influence of this effect, merge them, otherwise just add effect
-			if ( pSoldier->newdrugs.duration[(*drug_effects_it).effect] )
-			{
-				INT32 effectsum_existing	= pSoldier->newdrugs.duration[(*drug_effects_it).effect] * pSoldier->newdrugs.size[(*drug_effects_it).effect];
-				INT32 effectsum_new			= (*drug_effects_it).duration * (*drug_effects_it).size;
-
-				INT32 effectsum_total = effectsum_existing + effectsum_new * effectivepercentage;
-
-				UINT16 newduration = (pSoldier->newdrugs.duration[(*drug_effects_it).effect] + (*drug_effects_it).duration) / 2;
-
-				if ( newduration )
-				{
-					INT32 newsize = effectsum_total / newduration;
-
-					pSoldier->newdrugs.duration[(*drug_effects_it).effect]	= newduration;
-					pSoldier->newdrugs.size[(*drug_effects_it).effect]		= newsize;
-				}
-			}
-			else
-			{
-				pSoldier->newdrugs.duration[(*drug_effects_it).effect]	= (*drug_effects_it).duration;
-				pSoldier->newdrugs.size[(*drug_effects_it).effect] = (*drug_effects_it).size * effectivepercentage;
-			}
+			pSoldier->drugState().mergeEffect(
+				(*drug_effects_it).effect,
+				(*drug_effects_it).duration,
+				(*drug_effects_it).size,
+				effectivepercentage);
 
 			complainworthyeffects = TRUE;
 		}
@@ -115,15 +97,10 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	{
 		if ( !(*disability_effects_it).chance || Chance( (*disability_effects_it).chance ) )
 		{
-			if ( pSoldier->newdrugs.drugdisability == (*disability_effects_it).disability )
-			{
-				pSoldier->newdrugs.drugdisability_duration += (*disability_effects_it).duration * effectivepercentage;
-			}
-			else
-			{
-				pSoldier->newdrugs.drugdisability = (*disability_effects_it).disability;
-				pSoldier->newdrugs.drugdisability_duration = (*disability_effects_it).duration * effectivepercentage;
-			}
+			pSoldier->drugState().applyTemporaryDisability(
+				(*disability_effects_it).disability,
+				static_cast<UINT16>(
+					(*disability_effects_it).duration * effectivepercentage));
 		}
 	}
 
@@ -135,15 +112,10 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 	{
 		if ( !(*personality_effects_it).chance || Chance( (*personality_effects_it).chance ) )
 		{
-			if ( pSoldier->newdrugs.drugpersonality == (*personality_effects_it).personality )
-			{
-				pSoldier->newdrugs.drugpersonality_duration += (*personality_effects_it).duration * effectivepercentage;
-			}
-			else
-			{
-				pSoldier->newdrugs.drugpersonality = (*personality_effects_it).personality;
-				pSoldier->newdrugs.drugpersonality_duration = (*personality_effects_it).duration * effectivepercentage;
-			}
+			pSoldier->drugState().applyTemporaryPersonality(
+				(*personality_effects_it).personality,
+				static_cast<UINT16>(
+					(*personality_effects_it).duration * effectivepercentage));
 		}
 	}
 	
@@ -183,7 +155,7 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 			// added promille = alcohol added (g) / (weight of person (kg) * 0.7)
 			FLOAT addedpromille = (Item[usItem].alcohol * effectivepercentage) / (weight * 0.7);
 
-			pSoldier->newdrugs.drinkstaken += addedpromille;
+			pSoldier->drugState().addAlcohol( addedpromille );
 		}
 
 		ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[MSG_DRANK_SOME], pSoldier->GetName( ), ShortItemNames[usItem] );
@@ -223,18 +195,18 @@ BOOLEAN ApplyDrugs_New( SOLDIERTYPE *pSoldier, UINT16 usItem, UINT16 uStatusUsed
 void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 {
 	// some effects are handled here
-	if ( pSoldier->newdrugs.size[DRUG_EFFECT_HP] )
+	if ( pSoldier->drugState().magnitude(DRUG_EFFECT_HP) )
 	{
 		// note the current hp
 		INT8 oldlife = pSoldier->vitals().health();
 
 		// increase life
-		pSoldier->vitals().health() = __min( pSoldier->vitals().health() + pSoldier->newdrugs.size[DRUG_EFFECT_HP], pSoldier->vitals().maximumHealth() );
+		pSoldier->vitals().health() = __min( pSoldier->vitals().health() + pSoldier->drugState().magnitude(DRUG_EFFECT_HP), pSoldier->vitals().maximumHealth() );
 
 		//SANDRO - Insta-healable injury reduction
-		if ( pSoldier->newdrugs.size[DRUG_EFFECT_HP] > 0 )
+		if ( pSoldier->drugState().magnitude(DRUG_EFFECT_HP) > 0 )
 		{
-			pSoldier->vitals().healableInjury() = max( 0, (pSoldier->vitals().healableInjury() - (100 * pSoldier->newdrugs.size[DRUG_EFFECT_HP])) );
+			pSoldier->vitals().healableInjury() = max( 0, (pSoldier->vitals().healableInjury() - (100 * pSoldier->drugState().magnitude(DRUG_EFFECT_HP))) );
 		}
 
 		if ( pSoldier->vitals().health() == pSoldier->vitals().maximumHealth() )
@@ -253,39 +225,12 @@ void HandleEndTurnDrugAdjustments_New( SOLDIERTYPE *pSoldier )
 		pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 	}
 
-	pSoldier->condition().extraStrength() += pSoldier->newdrugs.size[DRUG_EFFECT_STR];
-	pSoldier->condition().extraDexterity() += pSoldier->newdrugs.size[DRUG_EFFECT_DEX];
-	pSoldier->condition().extraAgility() += pSoldier->newdrugs.size[DRUG_EFFECT_AGI];
-	pSoldier->condition().extraWisdom() += pSoldier->newdrugs.size[DRUG_EFFECT_WIS];
+	pSoldier->condition().extraStrength() += pSoldier->drugState().magnitude(DRUG_EFFECT_STR);
+	pSoldier->condition().extraDexterity() += pSoldier->drugState().magnitude(DRUG_EFFECT_DEX);
+	pSoldier->condition().extraAgility() += pSoldier->drugState().magnitude(DRUG_EFFECT_AGI);
+	pSoldier->condition().extraWisdom() += pSoldier->drugState().magnitude(DRUG_EFFECT_WIS);
 
-	BOOLEAN fStillDrugged = FALSE;
-
-	// as time progresses, effects wear off
-	for ( UINT8 i = 0; i < DRUG_EFFECT_MAX; ++i )
-	{
-		pSoldier->newdrugs.duration[i] = max( 0, pSoldier->newdrugs.duration[i] - 1 );
-
-		if ( !pSoldier->newdrugs.duration[i] )
-			pSoldier->newdrugs.size[i] = 0;
-		else
-			fStillDrugged = TRUE;
-	}
-
-	pSoldier->newdrugs.drugpersonality_duration = max( 0, pSoldier->newdrugs.drugpersonality_duration - 1 );
-
-	if ( !pSoldier->newdrugs.drugpersonality_duration )
-		pSoldier->newdrugs.drugpersonality = 0;
-	else
-		fStillDrugged = TRUE;
-
-	pSoldier->newdrugs.drugdisability_duration = max( 0, pSoldier->newdrugs.drugdisability_duration - 1 );
-
-	if ( !pSoldier->newdrugs.drugdisability_duration )
-		pSoldier->newdrugs.drugdisability = 0;
-	else
-		fStillDrugged = TRUE;
-
-	if ( !fStillDrugged )
+	if ( !pSoldier->drugState().ageTurn() )
 	{
 		pSoldier->usSoldierFlagMask &= ~SOLDIER_DRUGGED;
 
@@ -300,15 +245,15 @@ INT8 GetDrunkLevel( SOLDIERTYPE *pSoldier )
 		return HUNGOVER;
 	}
 	
-	if ( pSoldier->newdrugs.drinkstaken <= 0.01 )
+	if ( pSoldier->drugState().alcoholLevel() <= 0.01 )
 	{
 		return SOBER;
 	}
-	else if ( pSoldier->newdrugs.drinkstaken <= 0.7 )
+	else if ( pSoldier->drugState().alcoholLevel() <= 0.7 )
 	{
 		return FEELING_GOOD;
 	}
-	else if ( pSoldier->newdrugs.drinkstaken <= 2.0 )
+	else if ( pSoldier->drugState().alcoholLevel() <= 2.0 )
 	{
 		return BORDERLINE;
 	}
@@ -324,7 +269,7 @@ BOOLEAN DoesMercHaveDisability( const SOLDIERTYPE *pSoldier, UINT8 aVal )
 		if ( gMercProfiles[pSoldier->ubProfile].bDisability == aVal )
 			return TRUE;
 		
-		if ( pSoldier->newdrugs.drugdisability == aVal )
+		if ( pSoldier->drugState().hasTemporaryDisability(aVal) )
 			return TRUE;
 
 		// Flugente: if disease with severe limitations is active, we can have multiple disabilities
@@ -348,7 +293,7 @@ BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
 		if ( gMercProfiles[pSoldier->ubProfile].bCharacterTrait == aVal )
 			return TRUE;
 
-		if ( pSoldier->newdrugs.drugpersonality == aVal )
+		if ( pSoldier->drugState().hasTemporaryPersonality(aVal) )
 			return TRUE;
 	}
 
@@ -357,7 +302,7 @@ BOOLEAN DoesMercHavePersonality( SOLDIERTYPE *pSoldier, UINT8 aVal )
 
 void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
 {
-	*pubPoints += pSoldier->newdrugs.size[DRUG_EFFECT_AP];
+	*pubPoints += pSoldier->drugState().magnitude(DRUG_EFFECT_AP);
 	
 	if ( GetDrunkLevel( pSoldier ) == HUNGOVER )
 	{
@@ -373,7 +318,7 @@ void HandleAPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *pubPoints )
 
 void HandleBPEffectDueToDrugs( SOLDIERTYPE *pSoldier, INT16 *psPointReduction )
 {
-	*psPointReduction -= pSoldier->newdrugs.size[DRUG_EFFECT_BP];
+	*psPointReduction -= pSoldier->drugState().magnitude(DRUG_EFFECT_BP);
 	
 	if ( GetDrunkLevel( pSoldier ) == HUNGOVER )
 	{
@@ -389,7 +334,7 @@ INT32 EffectStatForBeingDrunk( SOLDIERTYPE *pSoldier, INT32 iStat )
 
 BOOLEAN MercDruggedOrDrunk( SOLDIERTYPE *pSoldier )
 {
-	if ( pSoldier->newdrugs.drinkstaken )
+	if ( pSoldier->drugState().hasAlcohol() )
 		return TRUE;
 
 	if ( pSoldier->usSoldierFlagMask & SOLDIER_DRUGGED )
@@ -410,12 +355,9 @@ void HourlyDrugUpdate( )
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(ubID.i);
 		// every hour, we lower our alcohol counter
-		if ( soldier->newdrugs.drinkstaken > 0.0f )
+		if ( soldier->drugState().hasAlcohol() )
 		{
-			soldier->newdrugs.drinkstaken =
-				max( 0.0, soldier->newdrugs.drinkstaken - 0.15f );
-
-			if ( soldier->newdrugs.drinkstaken <= 0.0f )
+			if ( !soldier->drugState().metabolizeAlcohol(0.15f) )
 			{
 				soldier->usSoldierFlagMask2 &= ~SOLDIER_HUNGOVER;
 			}
