@@ -56,6 +56,13 @@ enum
 	SOLDIER_COOLDOWN_MAX = 20,
 };
 
+// Fixed assist-attribution capacity from the established soldier save schema.
+// Soldier IDs outside this historical player-team range have no persisted slot.
+enum
+{
+	NUM_ASSIST_SLOTS = 156,
+};
+
 // Canonical soldier vitals and recovery storage. Reference accessors keep
 // legacy mutation sites zero-cost while health, breath, treatable trauma,
 // surgery, critical-stat damage, and bleed timing share one reset boundary.
@@ -1192,6 +1199,41 @@ private:
 	INT8 hitsThisTurn_ = 0;
 	INT8 pelletsHitBy_ = 0;
 	INT16 accumulatedDamage_ = 0;
+};
+
+// Canonical outgoing combat-credit record. Tactical combat and autoresolve
+// accrue militia promotion credit here, while the fixed per-team damage table
+// retains the established assist-attribution save payload.
+class SoldierCombatContributionComponent
+{
+public:
+	using DamageByTeam = UINT8[NUM_ASSIST_SLOTS];
+
+	UINT8& militiaKills() noexcept { return militiaKills_; }
+	const UINT8& militiaKills() const noexcept { return militiaKills_; }
+	UINT8& militiaAssists() noexcept { return militiaAssists_; }
+	const UINT8& militiaAssists() const noexcept { return militiaAssists_; }
+	DamageByTeam& damageByTeam() noexcept { return damageByTeam_; }
+	const DamageByTeam& damageByTeam() const noexcept { return damageByTeam_; }
+
+	bool hasMilitiaKills() const noexcept { return militiaKills_ != 0; }
+	bool hasMilitiaCredit() const noexcept
+	{
+		return militiaKills_ != 0 || militiaAssists_ != 0;
+	}
+	UINT16 militiaPromotionPoints() const noexcept
+	{
+		return static_cast<UINT16>(2 * militiaKills_ + militiaAssists_);
+	}
+	void recordMilitiaKill() noexcept;
+	void recordMilitiaAssist() noexcept;
+	void clearMilitiaCredit() noexcept;
+	void reset() noexcept;
+
+private:
+	UINT8 militiaKills_ = 0;
+	UINT8 militiaAssists_ = 0;
+	DamageByTeam damageByTeam_{};
 };
 
 // Canonical reaction to hostile fire. This state is consumed by both combat

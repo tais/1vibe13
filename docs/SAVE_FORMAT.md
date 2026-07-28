@@ -412,6 +412,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   flags/POD position, and the v101 converter maps the original fields into
   their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
   and installed data are unchanged.
+- Militia kills, militia assists, and the fixed 156-entry player-team damage
+  attribution table are now stored by `SoldierCombatContributionComponent`.
+  The visitor emits the two unsigned 8-bit counters and every unsigned 8-bit
+  attribution entry at their original three scattered positions. The v101
+  converter retains its kill counter and now copies the complete historical
+  attribution table instead of dropping it; assists remain zero because that
+  record predates them. Current save bytes, multiplayer packets, maps, Lua,
+  XML, and installed data are unchanged.
 - Under-fire aging, shock, suppression points, AP loss, suppressor identity,
   and close-call feedback are now stored by `SoldierSuppressionComponent`.
   The visitor still emits them at their original AI-data, flags, and POD

@@ -4160,7 +4160,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
 
     if (pAttacker && pAttacker->bTeam == MILITIA_TEAM )
     {
-		pAttacker->ubMilitiaAssists++;
+		pAttacker->combatContribution().recordMilitiaAssist();
     }
 
     //if the NPC is a dealer, add the dealers items to the ground

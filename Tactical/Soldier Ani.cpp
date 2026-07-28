@@ -4172,7 +4172,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 					else if ( attacker->bTeam == MILITIA_TEAM )
 					{
 						// get a kill! 2 points!
-						attacker->ubMilitiaKills += 1;
+						attacker->combatContribution().recordMilitiaKill();
 					}
 				}
 
@@ -4200,7 +4200,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 					else if ( assister->bTeam == MILITIA_TEAM )
 					{
 						// get an assist - 1 points
-						assister->ubMilitiaAssists += 1;
+						assister->combatContribution().recordMilitiaAssist();
 					}
 				}
 			}
@@ -4232,7 +4232,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 			report.id = GetIdOfCurrentlyOngoingIncident( );
 			report.flagmask = MILITIA_BATTLEREPORT_FLAG_DIED;
 
-			if ( pSoldier->ubMilitiaKills )
+			if ( pSoldier->combatContribution().hasMilitiaKills() )
 				report.flagmask |= MILITIA_BATTLEREPORT_FLAG_KILLEDENEMY;
 
 			militia.history.push_back( report );

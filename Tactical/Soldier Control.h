@@ -34,9 +34,6 @@
 #define MAXCIVLASTNAMES		30
 extern UINT16 CivLastNames[MAXCIVLASTNAMES][10];
 
-//ja25ub
-#define	NUM_ASSIST_SLOTS				156				//used for when the player asssists in killing the enemty
-
 // ANDREW: these are defines for OKDestanation usage - please move to approprite file
 #define IGNOREPEOPLE	0
 #define PEOPLETOO		1
@@ -1044,6 +1041,8 @@ public:
 	const SoldierFireControlComponent& fireControl() const noexcept { return fireControl_; }
 	SoldierCombatResultComponent& combatResult() noexcept { return combatResult_; }
 	const SoldierCombatResultComponent& combatResult() const noexcept { return combatResult_; }
+	SoldierCombatContributionComponent& combatContribution() noexcept { return combatContribution_; }
+	const SoldierCombatContributionComponent& combatContribution() const noexcept { return combatContribution_; }
 	SoldierSuppressionComponent& suppression() noexcept { return suppression_; }
 	const SoldierSuppressionComponent& suppression() const noexcept { return suppression_; }
 	SoldierDamageDisplayComponent& damageDisplay() noexcept { return damageDisplay_; }
@@ -1239,8 +1238,6 @@ public:
 	INT32				iBurstSoundID;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
-	UINT8				ubMilitiaKills;
-
 	UINT8				ubPendingActionInterrupted;
 	SoldierID			ubLastEnemyCycledID;
 
@@ -1272,7 +1269,6 @@ public:
 	// Flugente: Is this the correct position?
 	///////////////////////////////////////////////////////
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
-	UINT8		ubMilitiaAssists;		// Flugente: stores militia assists
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
 
 	INT16	bAIIndex;			    // feynman: PlanFactory from the modularized tactical AI that shall be used
@@ -1296,8 +1292,6 @@ public:
 	TIMECOUNTER		GetupFromJA25StartCounter;
 	BOOLEAN			fWaitingToGetupFromJA25Start;
 
-	UINT8			ubPercentDamageInflictedByTeam[NUM_ASSIST_SLOTS];			//The percent of damage inflicted by the player team.  Each element corresponds to the Soldier ID.  Each element contains the percent damage inflicted by that merc
-	
 	char endOfPOD;	// marker for end of POD (plain old data)
 
 	// Note: Place all non-POD items at the end (after endOfPOD)
@@ -1340,6 +1334,7 @@ private:
 	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierFireControlComponent	fireControl_;
 	SoldierCombatResultComponent	combatResult_;
+	SoldierCombatContributionComponent	combatContribution_;
 	SoldierSuppressionComponent	suppression_;
 	SoldierDamageDisplayComponent	damageDisplay_;
 	SoldierAnimationIntentComponent	animationIntent_;

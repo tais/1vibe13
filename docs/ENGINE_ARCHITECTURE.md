@@ -1109,6 +1109,14 @@ the engine must not contain SDL types in its public domain model.
   coordinates cannot become combat state. Accumulated damage deliberately
   remains simulation-owned because torso-hit and death rules inspect it before
   the number is rendered.
+  `SoldierCombatContributionComponent` separately owns outgoing militia kills
+  and assists plus the fixed 156-slot player-team damage attribution record.
+  Named kill, assist, promotion-credit, transfer, and reset operations give
+  tactical combat, autoresolve, and militia promotion one authority. Kill and
+  assist accrual saturates instead of wrapping during exceptionally long
+  battles. All three scattered save sites retain their established positions
+  and widths, and v101 conversion now preserves every attribution slot rather
+  than silently dropping that historical array.
   `SoldierSuppressionComponent` owns the complementary hostile-fire reaction:
   under-fire aging, shock, per-attack suppression points, accumulated AP loss,
   suppressor identity, and close-call feedback. Combat, AI, turn handling, and

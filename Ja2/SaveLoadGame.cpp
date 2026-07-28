@@ -1683,6 +1683,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
 	SoldierFireControlComponent& fireControl = s.fireControl();
 	SoldierCombatResultComponent& combatResult = s.combatResult();
+	SoldierCombatContributionComponent& combatContribution = s.combatContribution();
 	SoldierSuppressionComponent& suppression = s.suppression();
 	SoldierDamageDisplayComponent& damageDisplay = s.damageDisplay();
 	ar.u16(s.ubID.i);
@@ -1782,7 +1783,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(s.iBurstSoundID); ar.i8(s.bSlotItemTakenFrom);
 	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
-	ar.i8(collapseState.sleepDrugCounter()); ar.u8(s.ubMilitiaKills); ar.i8(perception.blindnessTurns());
+	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());
 	ar.u16(dialogue.saidExtendedFlags()); ar.i32(s.movement().continuedPathGrid()); ar.i8(s.movement().continuedPathValid());
 	ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());
@@ -1808,7 +1809,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(camouflage.jungleWorn()); ar.i8(camouflage.urbanApplied()); ar.i8(camouflage.urbanWorn()); ar.i8(camouflage.desertApplied());
 	ar.i8(camouflage.desertWorn()); ar.i8(camouflage.snowApplied()); ar.i8(camouflage.snowWorn());
 	ar.i16(assignment.facilityType()); ar.i8(attackSelection.scopeMode());
-	ar.u8(s.ubMilitiaAssists); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);
+	ar.u8(combatContribution.militiaAssists()); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);
 	ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);
 	ar.i16(condition.extraStrength()); ar.i16(condition.extraDexterity()); ar.i16(condition.extraAgility()); ar.i16(condition.extraWisdom());
 	ar.i8(condition.extraExperienceLevel()); ar.u32(s.usSoldierFlagMask);
@@ -1828,7 +1829,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.boolean(s.fIgnoreGetupFromCollapseCheck);
 	ar.i32(s.GetupFromJA25StartCounter);
 	ar.boolean(s.fWaitingToGetupFromJA25Start);
-	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(s.ubPercentDamageInflictedByTeam[i]);
+	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(combatContribution.damageByTeam()[i]);
 }
 
 BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
