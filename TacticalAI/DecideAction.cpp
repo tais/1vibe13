@@ -1389,7 +1389,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	// SNIPERS LIKE TO CROUCH (on roofs)
 	////////////////////////////////////////////////////////////////////////////
 
-	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to crouch, sniper = %d",pSoldier->sniper));
+	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to crouch, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
 	// if not in water and not already crouched, try to crouch down first
 	if (pSoldier->aiData.bOrders == SNIPER && !PTR_CROUCHED && IsValidStance( pSoldier, ANIM_CROUCH ) && pSoldier->position().level() == 1 )
 	{
@@ -1397,7 +1397,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper is crouching"));
 			pSoldier->aiData.usActionData = ANIM_CROUCH;
-			pSoldier->sniper = 0;
+			pSoldier->aiPlanning().lowerSniperPosture();
 			return(AI_ACTION_CHANGE_STANCE);
 		}
 	}
@@ -1406,26 +1406,26 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	// SNIPER - RAISE WEAPON TO SCAN AREA
 	////////////////////////////////////////////////////////////////////////////
 
-	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to raise weapons, sniper = %d",pSoldier->sniper));
-	if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->sniper == 0 && ( pSoldier->position().level() == 1 || Random(100) < 40 ) && (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
+	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Snipers like to raise weapons, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
+	if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->aiPlanning().sniperPosture() == 0 && ( pSoldier->position().level() == 1 || Random(100) < 40 ) && (pSoldier->vitals().breath() > 30 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 20) )
 	{
 		if (!WeaponReady(pSoldier) && 
 			PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 		{
 			if (!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current())
 			{
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper is raising weapon, soldier = %d, sniper = %d",pSoldier->ubID,pSoldier->sniper));
-				pSoldier->sniper = 1;
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper = %d",pSoldier->sniper));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper is raising weapon, soldier = %d, sniper = %d",pSoldier->ubID,pSoldier->aiPlanning().sniperPosture()));
+				pSoldier->aiPlanning().raiseSniperPosture();
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper = %d",pSoldier->aiPlanning().sniperPosture()));
 				return(AI_ACTION_RAISE_GUN);
 			}
 		}
 	}
-	//else if ( pSoldier->sniper == 1 )
+	//else if ( pSoldier->aiPlanning().sniperPosture() == 1 )
 	//{
-	//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper is lowering weapon, sniper = %d",pSoldier->sniper));
-	//	pSoldier->sniper = 0;
-	//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper = %d",pSoldier->sniper));
+	//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper is lowering weapon, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
+	//	pSoldier->aiPlanning().lowerSniperPosture();
+	//	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Sniper = %d",pSoldier->aiPlanning().sniperPosture()));
 	//	return(AI_ACTION_LOWER_GUN);
 	//}
 
@@ -1533,7 +1533,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 				AIPopMessage(tempstr);
 #endif
 
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity, sniper = %d",pSoldier->sniper));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity, sniper = %d",pSoldier->aiPlanning().sniperPosture()));
 				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 
@@ -1977,15 +1977,15 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 	INT32 sFlankGridNo;
 	
 	if (TileIsOutOfBounds(sNoiseGridNo))
-		sFlankGridNo = pSoldier->lastFlankSpot;
+		sFlankGridNo = pSoldier->aiPlanning().flankAnchorGrid();
 	else
 		sFlankGridNo = sNoiseGridNo;
 
-	if ( pSoldier->numFlanks > 0 && pSoldier->numFlanks < MAX_FLANKS_YELLOW )
+	if ( pSoldier->aiPlanning().flankCount() > 0 && pSoldier->aiPlanning().flankCount() < MAX_FLANKS_YELLOW )
 	{
 		INT16 currDir = GetDirectionFromGridNo ( sFlankGridNo, pSoldier );
-		INT16 origDir = pSoldier->origDir;
-		pSoldier->numFlanks += 1;
+		INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
+		pSoldier->aiPlanning().advanceFlank();
 		if ( pSoldier->flags.lastFlankLeft )
 		{
 			if ( origDir > currDir )
@@ -1994,7 +1994,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			// stop flanking if reached desired direction
 			if ( (currDir - origDir) >= MinFlankDirections(pSoldier) )
 			{
-				pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+				pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 			else
 			{
@@ -2002,7 +2002,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData) ) //&& (currDir - origDir) < 2 )
 					return AI_ACTION_FLANK_LEFT ;
 				else
-					pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 		}
 		else
@@ -2013,7 +2013,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 			// stop flanking if reached desired direction
 			if ( (origDir - currDir) >= MinFlankDirections(pSoldier) )
 			{
-				pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+				pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 			else
 			{
@@ -2021,14 +2021,14 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))//&& (origDir - currDir) < 2 )
 					return AI_ACTION_FLANK_RIGHT ;
 				else
-					pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 		}
 	}
 
-	if ( pSoldier->numFlanks == MAX_FLANKS_YELLOW )
+	if ( pSoldier->aiPlanning().flankCount() == MAX_FLANKS_YELLOW )
 	{
-		pSoldier->numFlanks += 1;
+		pSoldier->aiPlanning().advanceFlank();
 		pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sFlankGridNo,AI_ACTION_SEEK_NOISE);
 		return AI_ACTION_SEEK_NOISE ;
 	}
@@ -2189,10 +2189,10 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 
 						pSoldier->aiData.usActionData = FindFlankingSpot (pSoldier, sNoiseGridNo, action );
 						
-						if (TileIsOutOfBounds(pSoldier->aiData.usActionData) || pSoldier->numFlanks >= MAX_FLANKS_YELLOW  )
+						if (TileIsOutOfBounds(pSoldier->aiData.usActionData) || pSoldier->aiPlanning().flankCount() >= MAX_FLANKS_YELLOW  )
 						{
 							pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sNoiseGridNo,AI_ACTION_SEEK_NOISE);
-							//pSoldier->numFlanks = 0;
+							//pSoldier->aiPlanning().clearFlank();
 							return(AI_ACTION_SEEK_NOISE);
 						}
 						else
@@ -2202,12 +2202,9 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 							else
 								pSoldier->flags.lastFlankLeft = FALSE;
 
-							if ( pSoldier->lastFlankSpot != sNoiseGridNo)
-								pSoldier->numFlanks = 0;
-
-							pSoldier->origDir = GetDirectionFromGridNo ( sNoiseGridNo, pSoldier);
-							pSoldier->lastFlankSpot = sNoiseGridNo;
-							pSoldier->numFlanks++;
+							pSoldier->aiPlanning().recordFlankStep(
+								sNoiseGridNo,
+								GetDirectionFromGridNo( sNoiseGridNo, pSoldier ) );
 
 							// sevenfm: change orders CLOSEPATROL -> FARPATROL
 							if( pSoldier->aiData.bOrders == CLOSEPATROL )
@@ -3741,21 +3738,21 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		INT32 sFlankGridNo;
 		
 		if (TileIsOutOfBounds(sClosestDisturbance))
-			sFlankGridNo = pSoldier->lastFlankSpot;
+			sFlankGridNo = pSoldier->aiPlanning().flankAnchorGrid();
 		else
 			sFlankGridNo = sClosestDisturbance;
 
 		// continue flanking
 		// sevenfm: dont' flank when under fire
-		if ( pSoldier->numFlanks > 0 && 
-			pSoldier->numFlanks < MAX_FLANKS_RED  && 
+		if ( pSoldier->aiPlanning().flankCount() > 0 &&
+			pSoldier->aiPlanning().flankCount() < MAX_FLANKS_RED  &&
 			gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight != ANIM_PRONE &&
 			!pSoldier->suppression().underFire() )
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: continue flanking");
 			INT16 currDir = GetDirectionFromGridNo ( sFlankGridNo, pSoldier );
-			INT16 origDir = pSoldier->origDir;
-			pSoldier->numFlanks += 1;
+			INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
+			pSoldier->aiPlanning().advanceFlank();
 			if ( pSoldier->flags.lastFlankLeft )
 			{
 				if ( origDir > currDir )
@@ -3764,7 +3761,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				// stop flanking condition
 				if ( (currDir - origDir) >= MinFlankDirections(pSoldier) )
 				{
-					pSoldier->numFlanks = MAX_FLANKS_RED;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 				else
 				{
@@ -3773,7 +3770,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData) ) //&& (currDir - origDir) < 2 )
 						return AI_ACTION_FLANK_LEFT ;
 					else
-						pSoldier->numFlanks = MAX_FLANKS_RED;
+						pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 			}
 			else
@@ -3784,7 +3781,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				// stop flanking condition
 				if ( (origDir - currDir) >= MinFlankDirections(pSoldier) )
 				{
-					pSoldier->numFlanks = MAX_FLANKS_RED;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 				else
 				{
@@ -3793,16 +3790,16 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 					if (!TileIsOutOfBounds(pSoldier->aiData.usActionData) )//&& (origDir - currDir) < 2 )
 						return AI_ACTION_FLANK_RIGHT ;
 					else
-						pSoldier->numFlanks = MAX_FLANKS_RED;
+						pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 			}
 		}
 
-		// sevenfm: when we finished flanking, try to reach lastFlankSpot position
-		// seek until we are close (DistanceVisible/2) and have line of sight to lastFlankSpot position
+		// sevenfm: when we finished flanking, try to reach the flank anchor position
+		// seek until we are close (DistanceVisible/2) and have line of sight to the flank anchor position
 		// don't seek if we have seen enemy recently or under fire or have shock
 		// don't seek if we have low AP (tired, wounded)
-		if ( pSoldier->numFlanks == MAX_FLANKS_RED )
+		if ( pSoldier->aiPlanning().flankCount() == MAX_FLANKS_RED )
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: stop flanking");
 
@@ -3852,13 +3849,13 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				else
 				{
 					// if we cannot advance to spot, stop trying
-					pSoldier->numFlanks++;
+					pSoldier->aiPlanning().advanceFlank();
 				}
 			}
 			else
 			{	
 				// stop
-				pSoldier->numFlanks++;
+				pSoldier->aiPlanning().advanceFlank();
 			}
 		}
 
@@ -4160,10 +4157,10 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 								pSoldier->aiData.usActionData = FindFlankingSpot (pSoldier, sClosestDisturbance, action );
 								
-								if (TileIsOutOfBounds(pSoldier->aiData.usActionData) || pSoldier->numFlanks >= MAX_FLANKS_RED )
+								if (TileIsOutOfBounds(pSoldier->aiData.usActionData) || pSoldier->aiPlanning().flankCount() >= MAX_FLANKS_RED )
 								{
 									pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier,sClosestDisturbance,GetAPsCrouch( pSoldier, TRUE), AI_ACTION_SEEK_OPPONENT,0);
-									//pSoldier->numFlanks = 0;
+									//pSoldier->aiPlanning().clearFlank();
 									if ( PythSpacesAway( pSoldier->aiData.usActionData, sClosestDisturbance ) < 5 || LocationToLocationLineOfSightTest( pSoldier->aiData.usActionData, pSoldier->position().level(), sClosestDisturbance, pSoldier->position().level(), TRUE, CALC_FROM_ALL_DIRS ) )
 									{
 										// reserve APs for a possible crouch plus a shot
@@ -4189,13 +4186,9 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 									else
 										pSoldier->flags.lastFlankLeft = FALSE;
 
-									if ( pSoldier->lastFlankSpot != sClosestDisturbance)
-										pSoldier->numFlanks=0;
-
-
-									pSoldier->origDir = GetDirectionFromGridNo ( sClosestDisturbance, pSoldier);
-									pSoldier->lastFlankSpot = sClosestDisturbance;
-									pSoldier->numFlanks++;
+									pSoldier->aiPlanning().recordFlankStep(
+										sClosestDisturbance,
+										GetDirectionFromGridNo( sClosestDisturbance, pSoldier ) );
 
 									// sevenfm: change orders when starting to flank
 									if( pSoldier->aiData.bOrders == CLOSEPATROL )
@@ -4868,7 +4861,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 	if ( pSoldier->aiData.bOrders == SNIPER )
 	{
-		if ( pSoldier->sniper == 0 )
+		if ( pSoldier->aiPlanning().sniperPosture() == 0 )
 		{
 			DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionRed: sniper raising gun..."));
 			if ((!gfTurnBasedAI || GetAPsToReadyWeapon( pSoldier, READY_RIFLE_CROUCH ) <= pSoldier->actionPoints().current()) && (pSoldier->vitals().breath() > 15 || GetBPCostPer10APsForGunHolding( pSoldier, TRUE ) < 50))
@@ -4876,14 +4869,14 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 				if (!WeaponReady(pSoldier) &&
 					PickSoldierReadyAnimation(pSoldier, FALSE, FALSE) != INVALID_ANIMATION)
 				{
-					pSoldier->sniper = 1;
+					pSoldier->aiPlanning().raiseSniperPosture();
 					return AI_ACTION_RAISE_GUN;
 				}
 			}
 		}
 		else
 		{
-			pSoldier->sniper = 0;
+			pSoldier->aiPlanning().lowerSniperPosture();
 			return(DecideActionYellow(pSoldier));
 		}
 	}
@@ -4969,7 +4962,7 @@ INT16 ubMinAPCost;
 	// sevenfm: stop flanking when we see enemy
 	if( AICheckIsFlanking(pSoldier) )
 	{
-		pSoldier->numFlanks = 0;
+		pSoldier->aiPlanning().clearFlank();
 	}
 	
 	// if we have absolutely no action points, we can't do a thing under BLACK!
@@ -7885,7 +7878,7 @@ INT8 ArmedVehicleDecideActionGreen( SOLDIERTYPE *pSoldier )
 				AIPopMessage( tempstr );
 #endif
 
-				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "DecideActionGreen: Trying to turn - checking stance validity, sniper = %d", pSoldier->sniper ) );
+				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "DecideActionGreen: Trying to turn - checking stance validity, sniper = %d", pSoldier->aiPlanning().sniperPosture() ) );
 				if ( pSoldier->InternalIsValidStance( (INT8)pSoldier->aiData.usActionData, gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight ) )
 				{
 
@@ -8081,15 +8074,15 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 	INT32 sFlankGridNo;
 
 	if ( TileIsOutOfBounds( sNoiseGridNo ) )
-		sFlankGridNo = pSoldier->lastFlankSpot;
+		sFlankGridNo = pSoldier->aiPlanning().flankAnchorGrid();
 	else
 		sFlankGridNo = sNoiseGridNo;
 
-	if ( pSoldier->numFlanks > 0 && pSoldier->numFlanks < MAX_FLANKS_YELLOW )
+	if ( pSoldier->aiPlanning().flankCount() > 0 && pSoldier->aiPlanning().flankCount() < MAX_FLANKS_YELLOW )
 	{
 		INT16 currDir = GetDirectionFromGridNo( sFlankGridNo, pSoldier );
-		INT16 origDir = pSoldier->origDir;
-		pSoldier->numFlanks += 1;
+		INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
+		pSoldier->aiPlanning().advanceFlank();
 		if ( pSoldier->flags.lastFlankLeft )
 		{
 			if ( origDir > currDir )
@@ -8098,7 +8091,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 			// stop flanking if reached desired direction
 			if ( (currDir - origDir) >= MinFlankDirections( pSoldier ) )
 			{
-				pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+				pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 			else
 			{
@@ -8106,7 +8099,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 				if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) ) //&& (currDir - origDir) < 2 )
 					return AI_ACTION_FLANK_LEFT;
 				else
-					pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 		}
 		else
@@ -8117,7 +8110,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 			// stop flanking if reached desired direction
 			if ( (origDir - currDir) >= MinFlankDirections( pSoldier ) )
 			{
-				pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+				pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 			else
 			{
@@ -8125,14 +8118,14 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 				if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )//&& (origDir - currDir) < 2 )
 					return AI_ACTION_FLANK_RIGHT;
 				else
-					pSoldier->numFlanks = MAX_FLANKS_YELLOW;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_YELLOW);
 			}
 		}
 	}
 
-	if ( pSoldier->numFlanks == MAX_FLANKS_YELLOW )
+	if ( pSoldier->aiPlanning().flankCount() == MAX_FLANKS_YELLOW )
 	{
-		pSoldier->numFlanks += 1;
+		pSoldier->aiPlanning().advanceFlank();
 		pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards( pSoldier, sFlankGridNo, AI_ACTION_SEEK_NOISE );
 		return AI_ACTION_SEEK_NOISE;
 	}
@@ -8228,10 +8221,10 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 
 					pSoldier->aiData.usActionData = FindFlankingSpot( pSoldier, sNoiseGridNo, action );
 
-					if ( TileIsOutOfBounds( pSoldier->aiData.usActionData ) || pSoldier->numFlanks >= MAX_FLANKS_YELLOW )
+					if ( TileIsOutOfBounds( pSoldier->aiData.usActionData ) || pSoldier->aiPlanning().flankCount() >= MAX_FLANKS_YELLOW )
 					{
 						pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards( pSoldier, sNoiseGridNo, AI_ACTION_SEEK_NOISE );
-						//pSoldier->numFlanks = 0;
+						//pSoldier->aiPlanning().clearFlank();
 						return(AI_ACTION_SEEK_NOISE);
 					}
 					else
@@ -8241,12 +8234,9 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 						else
 							pSoldier->flags.lastFlankLeft = FALSE;
 
-						if ( pSoldier->lastFlankSpot != sNoiseGridNo )
-							pSoldier->numFlanks = 0;
-
-						pSoldier->origDir = GetDirectionFromGridNo( sNoiseGridNo, pSoldier );
-						pSoldier->lastFlankSpot = sNoiseGridNo;
-						pSoldier->numFlanks++;
+						pSoldier->aiPlanning().recordFlankStep(
+							sNoiseGridNo,
+							GetDirectionFromGridNo( sNoiseGridNo, pSoldier ) );
 
 						// sevenfm: change orders CLOSEPATROL -> FARPATROL
 						if ( pSoldier->aiData.bOrders == CLOSEPATROL )
@@ -8833,19 +8823,19 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 		if ( !TileIsOutOfBounds( sClosestDisturbance ) )
 			sFlankGridNo = sClosestDisturbance;
 		else
-			sFlankGridNo = pSoldier->lastFlankSpot;
+			sFlankGridNo = pSoldier->aiPlanning().flankAnchorGrid();
 			
 		// continue flanking
 		// sevenfm: dont' flank when under fire
-		if ( pSoldier->numFlanks > 0 &&
-			 pSoldier->numFlanks < MAX_FLANKS_RED  &&
+		if ( pSoldier->aiPlanning().flankCount() > 0 &&
+			 pSoldier->aiPlanning().flankCount() < MAX_FLANKS_RED  &&
 			 gAnimControl[pSoldier->animationPlayback().state()].ubHeight != ANIM_PRONE &&
 			 !pSoldier->suppression().underFire() )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "ArmedVehicleDecideActionRed: continue flanking" );
 			INT16 currDir = GetDirectionFromGridNo( sFlankGridNo, pSoldier );
-			INT16 origDir = pSoldier->origDir;
-			pSoldier->numFlanks += 1;
+			INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
+			pSoldier->aiPlanning().advanceFlank();
 			if ( pSoldier->flags.lastFlankLeft )
 			{
 				if ( origDir > currDir )
@@ -8854,7 +8844,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 				// stop flanking condition
 				if ( (currDir - origDir) >= MinFlankDirections( pSoldier ) )
 				{
-					pSoldier->numFlanks = MAX_FLANKS_RED;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 				else
 				{
@@ -8863,7 +8853,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) ) //&& (currDir - origDir) < 2 )
 						return AI_ACTION_FLANK_LEFT;
 					else
-						pSoldier->numFlanks = MAX_FLANKS_RED;
+						pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 			}
 			else
@@ -8874,7 +8864,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 				// stop flanking condition
 				if ( (origDir - currDir) >= MinFlankDirections( pSoldier ) )
 				{
-					pSoldier->numFlanks = MAX_FLANKS_RED;
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 				else
 				{
@@ -8883,16 +8873,16 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 					if ( !TileIsOutOfBounds( pSoldier->aiData.usActionData ) )//&& (origDir - currDir) < 2 )
 						return AI_ACTION_FLANK_RIGHT;
 					else
-						pSoldier->numFlanks = MAX_FLANKS_RED;
+						pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED);
 				}
 			}
 		}
 
-		// sevenfm: when we finished flanking, try to reach lastFlankSpot position
-		// seek until we are close (DistanceVisible/2) and have line of sight to lastFlankSpot position
+		// sevenfm: when we finished flanking, try to reach the flank anchor position
+		// seek until we are close (DistanceVisible/2) and have line of sight to the flank anchor position
 		// don't seek if we have seen enemy recently or under fire or have shock
 		// don't seek if we have low AP (tired, wounded)
-		if ( pSoldier->numFlanks == MAX_FLANKS_RED )
+		if ( pSoldier->aiPlanning().flankCount() == MAX_FLANKS_RED )
 		{
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, "decideactionred: stop flanking" );
 
@@ -8942,13 +8932,13 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 				else
 				{
 					// if we cannot advance to spot, stop trying
-					pSoldier->numFlanks++;
+					pSoldier->aiPlanning().advanceFlank();
 				}
 			}
 			else
 			{
 				// stop
-				pSoldier->numFlanks++;
+				pSoldier->aiPlanning().advanceFlank();
 			}
 		}
 		
@@ -9136,10 +9126,10 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 
 								pSoldier->aiData.usActionData = FindFlankingSpot( pSoldier, sClosestDisturbance, action );
 
-								if ( TileIsOutOfBounds( pSoldier->aiData.usActionData ) || pSoldier->numFlanks >= MAX_FLANKS_RED )
+								if ( TileIsOutOfBounds( pSoldier->aiData.usActionData ) || pSoldier->aiPlanning().flankCount() >= MAX_FLANKS_RED )
 								{
 									pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards( pSoldier, sClosestDisturbance, GetAPsCrouch( pSoldier, TRUE ), AI_ACTION_SEEK_OPPONENT, 0 );
-									//pSoldier->numFlanks = 0;
+									//pSoldier->aiPlanning().clearFlank();
 									if ( PythSpacesAway( pSoldier->aiData.usActionData, sClosestDisturbance ) < 5 || LocationToLocationLineOfSightTest( pSoldier->aiData.usActionData, pSoldier->position().level(), sClosestDisturbance, pSoldier->position().level(), TRUE, CALC_FROM_ALL_DIRS ) )
 									{
 										// reserve APs for a possible crouch plus a shot
@@ -9165,13 +9155,9 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 									else
 										pSoldier->flags.lastFlankLeft = FALSE;
 
-									if ( pSoldier->lastFlankSpot != sClosestDisturbance )
-										pSoldier->numFlanks = 0;
-
-
-									pSoldier->origDir = GetDirectionFromGridNo( sClosestDisturbance, pSoldier );
-									pSoldier->lastFlankSpot = sClosestDisturbance;
-									pSoldier->numFlanks++;
+									pSoldier->aiPlanning().recordFlankStep(
+										sClosestDisturbance,
+										GetDirectionFromGridNo( sClosestDisturbance, pSoldier ) );
 
 									// sevenfm: change orders when starting to flank
 									if ( pSoldier->aiData.bOrders == CLOSEPATROL )
@@ -9524,9 +9510,9 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 	if ( pSoldier->aiData.bOrders == SNIPER )
 	{
-		if ( pSoldier->sniper != 0 )
+		if ( pSoldier->aiPlanning().sniperPosture() != 0 )
 		{
-			pSoldier->sniper = 0;
+			pSoldier->aiPlanning().lowerSniperPosture();
 			return(ArmedVehicleDecideActionYellow( pSoldier ));
 		}
 	}
@@ -9582,7 +9568,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	// sevenfm: stop flanking when we see enemy
 	if ( AICheckIsFlanking( pSoldier ) )
 	{
-		pSoldier->numFlanks = 0;
+		pSoldier->aiPlanning().clearFlank();
 	}
 
 	// if we have absolutely no action points, we can't do a thing under BLACK!

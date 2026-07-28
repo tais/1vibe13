@@ -616,6 +616,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		audio().reset();
 		replication().reset();
 		movementMetrics().reset();
+		aiPlanning().reset();
 		skillState().reset();
 		condition().reset();
 		longAction().reset();
@@ -1045,10 +1046,10 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->vitals().lastBleedGruntAt() = src.uiTimeSinceLastBleedGrunt;
 		this->combatResult().earlierAttacker() = static_cast<UINT16>( src.ubNextToPreviousAttackerID );
 		this->fireControl().autofireShots() = src.bDoAutofire;
-		this->numFlanks = src.numFlanks;
-		this->lastFlankSpot = src.lastFlankSpot;
-		this->sniper = src.sniper;
-		this->origDir = src.origDir;
+		this->aiPlanning().flankCount() = src.numFlanks;
+		this->aiPlanning().flankAnchorGrid() = src.lastFlankSpot;
+		this->aiPlanning().sniperPosture() = src.sniper;
+		this->aiPlanning().flankOriginDirection() = src.origDir;
 
 		this->camouflage().jungleApplied() = __min( gGameExternalOptions.bCamoKitArea, src.bCamo );
 		this->camouflage().jungleWorn() = __min( (100 - gGameExternalOptions.bCamoKitArea), src.wornCamo );
@@ -1064,7 +1065,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 		this->attackSelection().scopeMode() = USE_BEST_SCOPE;
 
-		this->bAIIndex = 0;
+		this->aiPlanning().planIndex() = 0;
 		this->usSoldierProfile = 0;
 		this->usIndividualMilitiaID = 0;
 
@@ -1142,6 +1143,7 @@ void SOLDIERTYPE::initialize( )
 	audio().reset();
 	replication().reset();
 	movementMetrics().reset();
+	aiPlanning().reset();
 	skillState().reset();
 	condition().reset();
 	longAction().reset();
@@ -26391,8 +26393,7 @@ BOOLEAN SOLDIERTYPE::CheckInitialAP(void)
 BOOLEAN SOLDIERTYPE::IsFlanking(void)
 {
 	if (this->aiData.bAlertStatus < STATUS_YELLOW ||
-		this->numFlanks == 0 ||
-		this->numFlanks >= MAX_FLANKS_RED)
+		!this->aiPlanning().flanking(MAX_FLANKS_RED))
 	{
 		return FALSE;
 	}

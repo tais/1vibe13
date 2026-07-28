@@ -2956,7 +2956,7 @@ if(SEE_MENT)
     AI::tactical::AIInputData ai_input(AI::tactical::AIInputData::Visual(), pOpponent, sOppGridNo, bOppLevel, ubCaller, ubCaller2);
     AI::tactical::PlanInputData plan_input((IsJa2TacticalTurnBased())!=0, gTacticalStatus);
     AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
-    plan_lib->update_plan(pSoldier->bAIIndex, pSoldier, ai_input);
+    plan_lib->update_plan(pSoldier->aiPlanning().planIndex(), pSoldier, ai_input);
 }
 
 
@@ -6906,7 +6906,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
     AI::tactical::AIInputData ai_input(AI::tactical::AIInputData::Auditive(), ubNoiseMaker, sGridNo, bLevel, ubVolume, ubNoiseType);
     AI::tactical::PlanInputData plan_input((IsJa2TacticalTurnBased())!=0, gTacticalStatus);
     AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
-    plan_lib->update_plan(pSoldier->bAIIndex, pSoldier, ai_input);
+    plan_lib->update_plan(pSoldier->aiPlanning().planIndex(), pSoldier, ai_input);
 }
 
 void TellPlayerAboutNoise( SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubVolume, UINT8 ubNoiseType, UINT8 ubNoiseDir, STR16 zNoiseMessage )

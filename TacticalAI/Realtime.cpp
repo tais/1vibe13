@@ -191,11 +191,12 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 				{
                     if(!pSoldier->ai_masterplan_) // if the Soldier has no plan, create one
                     {
-                        if(pSoldier->bAIIndex == 0) // not yet initialized, use bTeam+1 as default
-                            pSoldier->bAIIndex = pSoldier->bTeam + 1;
                         AI::tactical::AIInputData ai_input;
                         AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
-                        pSoldier->ai_masterplan_ = plan_lib->create_plan(pSoldier->bAIIndex, pSoldier, ai_input);
+                        const INT16 planIndex =
+                            pSoldier->aiPlanning().ensurePlanIndex(pSoldier->bTeam + 1);
+                        pSoldier->ai_masterplan_ =
+                            plan_lib->create_plan(planIndex, pSoldier, ai_input);
                     }
                     AI::tactical::PlanInputData plan_input(false, gTacticalStatus);
                     pSoldier->ai_masterplan_->execute(plan_input);

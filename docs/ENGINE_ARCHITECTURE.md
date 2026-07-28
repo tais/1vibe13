@@ -1008,6 +1008,14 @@ the engine must not contain SDL types in its public domain model.
   while independent turn and realtime clear operations preserve their existing
   lifecycles. All four save fields and v101 mappings retain their original
   positions, widths, and raw values.
+  `SoldierAiPlanningComponent` owns the tactical-AI execution scratch that was
+  left in the soldier POD: flank count, anchor, and origin direction; sniper
+  posture; and the modular plan index. Named flank-step, completion, posture,
+  plan-selection, and reset transitions give turn-based and realtime AI one
+  authority. Flank progress now saturates its signed byte rather than wrapping;
+  the current serializer retains all five original positions and widths, while
+  v101 conversion maps its four established values and clears the later plan
+  index.
   `SoldierSkillStateComponent` owns the transient skill-execution lifecycle:
   repeated mechanical-check identity and attempts, the AI's selected skill,
   persistent trait counters, heterogeneous cooldowns, and the focus target.

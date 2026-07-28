@@ -89,6 +89,40 @@ void SoldierMovementMetricsComponent::reset() noexcept
 	*this = SoldierMovementMetricsComponent{};
 }
 
+void SoldierAiPlanningComponent::recordFlankStep(
+	INT32 anchorGrid, INT16 originDirection) noexcept
+{
+	if (flankAnchorGrid_ != anchorGrid)
+	{
+		clearFlank();
+	}
+	flankAnchorGrid_ = anchorGrid;
+	flankOriginDirection_ = originDirection;
+	advanceFlank();
+}
+
+void SoldierAiPlanningComponent::advanceFlank() noexcept
+{
+	if (flankCount_ < MaximumFlankCount)
+	{
+		++flankCount_;
+	}
+}
+
+INT16 SoldierAiPlanningComponent::ensurePlanIndex(INT16 fallback) noexcept
+{
+	if (!hasPlanIndex())
+	{
+		planIndex_ = fallback;
+	}
+	return planIndex_;
+}
+
+void SoldierAiPlanningComponent::reset() noexcept
+{
+	*this = SoldierAiPlanningComponent{};
+}
+
 void SoldierSkillStateComponent::ageTurnCounters() noexcept
 {
 	for (UINT8 index = 0; index < SOLDIER_COUNTER_MAX; ++index)

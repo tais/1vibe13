@@ -3943,7 +3943,7 @@ void CheckTossFriendSmoke(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 					pFriend->bActive &&
 					pFriend->vitals().health() >= OKLIFE &&
 					RangeChangeDesire(pFriend) <= 3 &&
-					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->lastFlankSpot) && PythSpacesAway(pFriend->position().gridNo(), pFriend->lastFlankSpot) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->lastFlankSpot, pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
+					(pFriend->IsFlanking() && !TileIsOutOfBounds(pFriend->aiPlanning().flankAnchorGrid()) && PythSpacesAway(pFriend->position().gridNo(), pFriend->aiPlanning().flankAnchorGrid()) < (INT16)(MAX_VISION_RANGE) && LocationToLocationLineOfSightTest(pFriend->position().gridNo(), pFriend->position().level(), pFriend->aiPlanning().flankAnchorGrid(), pFriend->position().level(), TRUE, NO_DISTANCE_LIMIT) ||
 					pFriend->suppression().underFire() && (pFriend->IsCowering() || pFriend->TakenLargeHit() || pFriend->suppression().underFire() && pFriend->ShockLevelPercent() > 50 && pFriend->vitals().health() < pFriend->vitals().maximumHealth() * 3 / 4))
 					)
 				{

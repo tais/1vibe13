@@ -992,8 +992,8 @@ void EndAIDeadlock(void)
 				// sevenfm: abort flanking
 				if (pSoldier->IsFlanking())
 				{
-					pSoldier->numFlanks = MAX_FLANKS_RED + 1;
-					DebugAI(AI_MSG_INFO, pSoldier, String("abort flanking, numFlanks = %d", pSoldier->numFlanks));
+					pSoldier->aiPlanning().finishFlank(MAX_FLANKS_RED + 1);
+					DebugAI(AI_MSG_INFO, pSoldier, String("abort flanking, flank count = %d", pSoldier->aiPlanning().flankCount()));
 				}
 
 				DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Number of bullets in the air is %ld", guiNumBullets ) );
@@ -1729,11 +1729,12 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			{
 				if(!pSoldier->ai_masterplan_) // if the Soldier has no plan, create one
 				{
-					if(pSoldier->bAIIndex == 0) // not yet initialized, use bTeam+1 as default
-						pSoldier->bAIIndex = pSoldier->bTeam + 1;
 					AI::tactical::AIInputData ai_input;
 					AI::tactical::PlanFactoryLibrary* plan_lib(AI::tactical::PlanFactoryLibrary::instance());
-					pSoldier->ai_masterplan_ = plan_lib->create_plan(pSoldier->bAIIndex, pSoldier, ai_input);
+					const INT16 planIndex =
+						pSoldier->aiPlanning().ensurePlanIndex(pSoldier->bTeam + 1);
+					pSoldier->ai_masterplan_ =
+						plan_lib->create_plan(planIndex, pSoldier, ai_input);
 				}
 				AI::tactical::PlanInputData plan_input(true, gTacticalStatus);
 				pSoldier->ai_masterplan_->execute(plan_input);

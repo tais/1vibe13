@@ -299,8 +299,8 @@ void SoldierTooltip( SOLDIERTYPE* pSoldier )
 			if (pSoldier->IsFlanking())
 			{
 				swprintf(pStrInfo, L"%s|Flank %s\n", pStrInfo, pSoldier->flags.lastFlankLeft ? L"left" : L"right");
-				swprintf(pStrInfo, L"%s|Flank Num %d\n", pStrInfo, pSoldier->numFlanks);
-				swprintf(pStrInfo, L"%s|Last Flank spot %d\n", pStrInfo, pSoldier->lastFlankSpot);
+				swprintf(pStrInfo, L"%s|Flank Num %d\n", pStrInfo, pSoldier->aiPlanning().flankCount());
+				swprintf(pStrInfo, L"%s|Last Flank spot %d\n", pStrInfo, pSoldier->aiPlanning().flankAnchorGrid());
 			}
 
 			//sevenfm: show opponents info

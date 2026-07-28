@@ -7317,6 +7317,12 @@ int main( int, char** )
 		movementMetrics.tilesMoved() = 7;
 		movementMetrics.realtimeBreathTiles() = 4;
 		movementMetrics.lastRealtimeMovementAnimation() = RUNNING;
+		SoldierAiPlanningComponent& aiPlanning = soldier.aiPlanning();
+		aiPlanning.flankCount() = 3;
+		aiPlanning.flankAnchorGrid() = 1236;
+		aiPlanning.raiseSniperPosture();
+		aiPlanning.flankOriginDirection() = 5;
+		aiPlanning.planIndex() = 4;
 		SoldierSkillStateComponent& skillState = soldier.skillState();
 		skillState.beginCheck(-7, 1234);
 		skillState.recordCheckAttempt();
@@ -7651,6 +7657,13 @@ int main( int, char** )
 		       constSoldier.movementMetrics().realtimeBreathTiles() == 4 &&
 		       constSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
 		       "soldier movement metrics own turn distance, carried-weight snapshot, and realtime breath cadence" );
+		CHECK( constSoldier.aiPlanning().flanking(6) &&
+		       constSoldier.aiPlanning().flankCount() == 3 &&
+		       constSoldier.aiPlanning().flankAnchorGrid() == 1236 &&
+		       constSoldier.aiPlanning().sniperPostureActive() &&
+		       constSoldier.aiPlanning().flankOriginDirection() == 5 &&
+		       constSoldier.aiPlanning().planIndex() == 4,
+		       "soldier AI planning owns flanking, sniper posture, and modular plan selection" );
 		CHECK( constSoldier.skillState().isRepeatedCheck(-7, 1234) &&
 		       constSoldier.skillState().checkAttempts() == 2 &&
 		       constSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
@@ -8141,6 +8154,42 @@ int main( int, char** )
 		       movementMetricsLifecycle.realtimeBreathTiles() == 0 &&
 		       movementMetricsLifecycle.lastRealtimeMovementAnimation() == 0,
 		       "soldier movement metrics reset clears the complete telemetry domain" );
+		SoldierAiPlanningComponent aiPlanningLifecycle;
+		aiPlanningLifecycle.recordFlankStep(500, 2);
+		aiPlanningLifecycle.recordFlankStep(500, 3);
+		CHECK( aiPlanningLifecycle.flanking(6) &&
+		       aiPlanningLifecycle.flankCount() == 2 &&
+		       aiPlanningLifecycle.flankAnchorGrid() == 500 &&
+		       aiPlanningLifecycle.flankOriginDirection() == 3,
+		       "soldier AI planning advances repeated steps toward one flank anchor" );
+		aiPlanningLifecycle.recordFlankStep(501, 4);
+		CHECK( aiPlanningLifecycle.flankCount() == 1 &&
+		       aiPlanningLifecycle.flankAnchorGrid() == 501 &&
+		       aiPlanningLifecycle.flankOriginDirection() == 4,
+		       "soldier AI planning starts a new flank when its tactical anchor changes" );
+		aiPlanningLifecycle.flankCount() =
+			SoldierAiPlanningComponent::MaximumFlankCount - 1;
+		aiPlanningLifecycle.advanceFlank();
+		aiPlanningLifecycle.advanceFlank();
+		CHECK( aiPlanningLifecycle.flankCount() ==
+			       SoldierAiPlanningComponent::MaximumFlankCount,
+		       "soldier AI planning saturates its narrow persisted flank counter" );
+		aiPlanningLifecycle.finishFlank(6);
+		aiPlanningLifecycle.raiseSniperPosture();
+		CHECK( !aiPlanningLifecycle.flanking(6) &&
+		       aiPlanningLifecycle.sniperPostureActive() &&
+		       aiPlanningLifecycle.ensurePlanIndex(7) == 7 &&
+		       aiPlanningLifecycle.ensurePlanIndex(8) == 7,
+		       "soldier AI planning closes flank progress and selects a stable modular plan" );
+		aiPlanningLifecycle.clearFlank();
+		aiPlanningLifecycle.lowerSniperPosture();
+		aiPlanningLifecycle.reset();
+		CHECK( aiPlanningLifecycle.flankCount() == 0 &&
+		       aiPlanningLifecycle.flankAnchorGrid() == 0 &&
+		       !aiPlanningLifecycle.sniperPostureActive() &&
+		       aiPlanningLifecycle.flankOriginDirection() == 0 &&
+		       !aiPlanningLifecycle.hasPlanIndex(),
+		       "soldier AI planning reset clears the complete execution domain" );
 		SoldierSkillStateComponent skillStateLifecycle;
 		skillStateLifecycle.beginCheck(-5, 700);
 		skillStateLifecycle.recordCheckAttempt();
@@ -8481,6 +8530,12 @@ int main( int, char** )
 		       copiedSoldier.movementMetrics().realtimeBreathTiles() == 4 &&
 		       copiedSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
 		       "soldier copies retain their owned movement metrics" );
+		CHECK( copiedSoldier.aiPlanning().flankCount() == 3 &&
+		       copiedSoldier.aiPlanning().flankAnchorGrid() == 1236 &&
+		       copiedSoldier.aiPlanning().sniperPostureActive() &&
+		       copiedSoldier.aiPlanning().flankOriginDirection() == 5 &&
+		       copiedSoldier.aiPlanning().planIndex() == 4,
+		       "soldier copies retain their owned AI planning state" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == -7 &&
 		       copiedSoldier.skillState().checkAttempts() == 2 &&
 		       copiedSoldier.skillState().checkGrid() == 1234 &&
@@ -9207,6 +9262,12 @@ int main( int, char** )
 		       !copiedSoldier.movementMetrics().hasRealtimeBreathMovement() &&
 		       copiedSoldier.movementMetrics().lastRealtimeMovementAnimation() == 0,
 		       "soldier initialization resets the complete movement-metrics domain" );
+		CHECK( copiedSoldier.aiPlanning().flankCount() == 0 &&
+		       copiedSoldier.aiPlanning().flankAnchorGrid() == 0 &&
+		       !copiedSoldier.aiPlanning().sniperPostureActive() &&
+		       copiedSoldier.aiPlanning().flankOriginDirection() == 0 &&
+		       !copiedSoldier.aiPlanning().hasPlanIndex(),
+		       "soldier initialization resets the complete AI-planning domain" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == 0 &&
 		       copiedSoldier.skillState().checkAttempts() == 0 &&
 		       copiedSoldier.skillState().checkGrid() == 0 &&
@@ -9611,6 +9672,10 @@ int main( int, char** )
 		legacySoldier->bTilesMoved = 8;
 		legacySoldier->ubTilesMovedPerRTBreathUpdate = 5;
 		legacySoldier->usLastMovementAnimPerRTBreathUpdate = WALKING;
+		legacySoldier->numFlanks = 4;
+		legacySoldier->lastFlankSpot = 16004;
+		legacySoldier->sniper = 1;
+		legacySoldier->origDir = 6;
 		legacySoldier->dXPos = 321.5f;
 		legacySoldier->dYPos = 654.25f;
 		legacySoldier->sX = 319;
@@ -9683,6 +9748,11 @@ int main( int, char** )
 		convertedSoldier.movementMetrics().tilesMoved() = 90;
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
 		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
+		convertedSoldier.aiPlanning().flankCount() = 90;
+		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
+		convertedSoldier.aiPlanning().raiseSniperPosture();
+		convertedSoldier.aiPlanning().flankOriginDirection() = 7;
+		convertedSoldier.aiPlanning().planIndex() = 99;
 		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
@@ -9769,6 +9839,12 @@ int main( int, char** )
 		       convertedSoldier.movementMetrics().realtimeBreathTiles() == 5 &&
 		       convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() == WALKING,
 		       "v101 soldier conversion retains the complete movement telemetry domain" );
+		CHECK( convertedSoldier.aiPlanning().flankCount() == 4 &&
+		       convertedSoldier.aiPlanning().flankAnchorGrid() == 16004 &&
+		       convertedSoldier.aiPlanning().sniperPostureActive() &&
+		       convertedSoldier.aiPlanning().flankOriginDirection() == 6 &&
+		       !convertedSoldier.aiPlanning().hasPlanIndex(),
+		       "v101 soldier conversion maps established AI planning and clears the later modular plan index" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -10113,6 +10189,11 @@ int main( int, char** )
 		savedSoldier.movementMetrics().tilesMoved() = 9;
 		savedSoldier.movementMetrics().realtimeBreathTiles() = 6;
 		savedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
+		savedSoldier.aiPlanning().flankCount() = 5;
+		savedSoldier.aiPlanning().flankAnchorGrid() = 26005;
+		savedSoldier.aiPlanning().raiseSniperPosture();
+		savedSoldier.aiPlanning().flankOriginDirection() = 7;
+		savedSoldier.aiPlanning().planIndex() = 8;
 		savedSoldier.skillState().beginCheck(-8, 1500);
 		savedSoldier.skillState().recordCheckAttempt();
 		savedSoldier.skillState().recordCheckAttempt();
@@ -10426,6 +10507,13 @@ int main( int, char** )
 		       loadedSoldier.movementMetrics().realtimeBreathTiles() == 6 &&
 		       loadedSoldier.movementMetrics().lastRealtimeMovementAnimation() == RUNNING,
 		       "soldier save/load round-trips movement telemetry at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiPlanning().flankCount() == 5 &&
+		       loadedSoldier.aiPlanning().flankAnchorGrid() == 26005 &&
+		       loadedSoldier.aiPlanning().sniperPostureActive() &&
+		       loadedSoldier.aiPlanning().flankOriginDirection() == 7 &&
+		       loadedSoldier.aiPlanning().planIndex() == 8,
+		       "soldier save/load round-trips AI planning at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.skillState().lastCheckReason() == -8 &&
 		       loadedSoldier.skillState().checkAttempts() == 3 &&

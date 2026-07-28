@@ -4058,8 +4058,8 @@ UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 			pFriend->aiData.bOrders != SNIPER)
 		{
 			// check if this friend flanks around the same spot
-			if (pFriend->numFlanks > 0 && pFriend->numFlanks < MAX_FLANKS_RED &&
-				PythSpacesAway(pFriend->lastFlankSpot, sSpot) < VISION_RANGE / 2)
+			if (pFriend->aiPlanning().flankCount() > 0 && pFriend->aiPlanning().flankCount() < MAX_FLANKS_RED &&
+				PythSpacesAway(pFriend->aiPlanning().flankAnchorGrid(), sSpot) < VISION_RANGE / 2)
 			{
 				if (pFriend->flags.lastFlankLeft)
 				{
@@ -4082,8 +4082,8 @@ BOOLEAN AICheckIsFlanking( SOLDIERTYPE *pSoldier )
 	CHECKF(pSoldier);
 
 	if( pSoldier->aiData.bAlertStatus < STATUS_YELLOW ||
-		pSoldier->numFlanks == 0 ||
-		pSoldier->numFlanks >= MAX_FLANKS_RED )
+		pSoldier->aiPlanning().flankCount() == 0 ||
+		pSoldier->aiPlanning().flankCount() >= MAX_FLANKS_RED )
 	{
 		return FALSE;
 	}
