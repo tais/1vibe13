@@ -111,7 +111,7 @@ void CallEldinTo( INT32 sGridNo )
 					CancelAIAction( pSoldier, TRUE );
 					pSoldier->aiData.bNextAction = AI_ACTION_GET_CLOSER;
 					pSoldier->aiData.usNextActionData = sGridNo;
-					RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, 100 );
+					pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 				}
 				// otherwise let AI handle this normally
 //				SetNewSituation( pSoldier );

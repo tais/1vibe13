@@ -3938,6 +3938,253 @@ if(soldier_stat_progress_architecture_documented EQUAL -1 OR
     "SoldierStatProgressComponent ownership and compatibility guarantees must remain documented")
 endif()
 
+# Soldier-local countdowns and their delay configuration form one timing
+# domain. Preserve all twelve established values while preventing the retired
+# wrapper, loose delay fields, and gameplay-facing timer macros from returning.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_TimeCounters"
+  retired_soldier_timing_wrapper)
+string(REGEX MATCH
+  "STRUCT_TimeCounters[ \t\r\n]+timeCounters[ \t]*;"
+  retired_soldier_timing_member
+  "${current_soldier_contents}")
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*(UINT32[ \t]+uiAIDelay|INT16[ \t]+sReloadDelay)[ \t]*;"
+  retired_soldier_timing_delay
+  "${current_soldier_contents}")
+if(NOT retired_soldier_timing_wrapper EQUAL -1 OR
+   retired_soldier_timing_member OR
+   retired_soldier_timing_delay)
+  message(FATAL_ERROR
+    "Retired soldier timing storage returned; countdowns and delays belong to SoldierTimingComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierTimingComponent[ \t\r\n]+timing_[ \t]*;"
+  soldier_timing_owner
+  "${current_soldier_contents}")
+if(NOT soldier_timing_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierTimingComponent")
+endif()
+
+string(REGEX MATCH
+  "enum class Timer : UINT8[ \t\r\n]*\\{[ \t\r\n]*AnimationUpdate,[ \t\r\n]*DamageDisplay,[ \t\r\n]*Reload,[ \t\r\n]*LocatorFlash,[ \t\r\n]*Ai,[ \t\r\n]*Fade,[ \t\r\n]*PanelAnimation,[ \t\r\n]*LocatorBlink,[ \t\r\n]*PortraitFlash,[ \t\r\n]*NextTile,[ \t\r\n]*Count,"
+  soldier_timing_timer_order
+  "${soldier_components_header_contents}")
+foreach(soldier_timing_storage IN ITEMS
+  "static constexpr UINT8 TimerCount = static_cast<UINT8>(Timer::Count);"
+  "INT32 counters_[TimerCount] = {};"
+  "UINT32 aiDelay_ = 0;"
+  "INT16 reloadDelay_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${soldier_timing_storage}"
+    soldier_timing_storage_site)
+  if(soldier_timing_storage_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierTimingComponent lost initialized fixed-capacity storage '${soldier_timing_storage}'")
+  endif()
+endforeach()
+if(NOT soldier_timing_timer_order)
+  message(FATAL_ERROR
+    "SoldierTimingComponent timer identity order changed; it is coupled to the established save block")
+endif()
+
+foreach(soldier_timing_operation IN ITEMS
+  "INT32& counter(Timer timer) noexcept"
+  "const INT32& counter(Timer timer) const noexcept"
+  "UINT32& aiDelay() noexcept"
+  "INT16& reloadDelay() noexcept"
+  "bool active(Timer timer) const noexcept"
+  "bool elapsed(Timer timer) const noexcept"
+  "void start(Timer timer, INT32 duration) noexcept"
+  "void clear(Timer timer) noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${soldier_timing_operation}"
+    soldier_timing_operation_site)
+  if(soldier_timing_operation_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierTimingComponent lost required operation '${soldier_timing_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierTimingComponent& timing() noexcept"
+  soldier_timing_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierTimingComponent{};"
+  soldier_timing_default_reset)
+string(REGEX MATCHALL
+  "timing\\(\\)\\.reset\\(\\)"
+  soldier_timing_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_timing_reset_sites
+  soldier_timing_reset_site_count)
+if(soldier_timing_accessor EQUAL -1 OR
+   soldier_timing_default_reset EQUAL -1 OR
+   soldier_timing_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierTimingComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(soldier_timing_conversion IN ITEMS
+  "timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) = src.UpdateCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::DamageDisplay) = src.DamageCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::Reload) = src.ReloadCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::LocatorFlash) = src.FlashSelCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::Ai) = src.AICounter;"
+  "timing().counter(SoldierTimingComponent::Timer::Fade) = src.FadeCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::PanelAnimation) = src.PanelAnimateCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::LocatorBlink) = src.BlinkSelCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::PortraitFlash) = src.PortraitFlashCounter;"
+  "timing().counter(SoldierTimingComponent::Timer::NextTile) = src.NextTileCounter;"
+  "timing().aiDelay() = src.uiAIDelay;"
+  "timing().reloadDelay() = src.sReloadDelay;")
+  string(FIND "${soldier_control_source_contents}"
+    "${soldier_timing_conversion}"
+    soldier_timing_conversion_site)
+  if(soldier_timing_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost established soldier timing mapping '${soldier_timing_conversion}'")
+  endif()
+endforeach()
+
+foreach(soldier_timing_save_order IN ITEMS
+  "ar.i32(timing.counter(Timer::AnimationUpdate)); ar.i32(timing.counter(Timer::DamageDisplay));"
+  "ar.i32(timing.counter(Timer::Reload)); ar.i32(timing.counter(Timer::LocatorFlash));"
+  "ar.i32(timing.counter(Timer::Ai)); ar.i32(timing.counter(Timer::Fade));"
+  "ar.i32(timing.counter(Timer::PanelAnimation)); ar.i32(timing.counter(Timer::LocatorBlink));"
+  "ar.i32(timing.counter(Timer::PortraitFlash)); ar.i32(timing.counter(Timer::NextTile));"
+  "SoldierTimingComponent& timing = s.timing();"
+  "ar.u32(timing.aiDelay()); ar.i16(timing.reloadDelay()); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);")
+  string(FIND "${save_load_game_contents}"
+    "${soldier_timing_save_order}"
+    soldier_timing_save_order_site)
+  if(soldier_timing_save_order_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier timing state moved in the portable save schema at '${soldier_timing_save_order}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "XferTiming\\(ar, this->timing\\(\\)\\)"
+  soldier_timing_xfer_sites
+  "${save_load_game_contents}")
+list(LENGTH soldier_timing_xfer_sites soldier_timing_xfer_site_count)
+string(FIND "${save_load_game_contents}"
+  "XferTimeCounters"
+  retired_soldier_timing_xfer)
+if(NOT soldier_timing_xfer_site_count EQUAL 2 OR
+   NOT retired_soldier_timing_xfer EQUAL -1)
+  message(FATAL_ERROR
+    "Current soldier save/load must visit SoldierTimingComponent exactly twice and must not restore XferTimeCounters")
+endif()
+
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  soldier_timing_ai_contents)
+file(READ "${SOURCE_ROOT}/TacticalAI/NPC.cpp"
+  soldier_timing_npc_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  soldier_timing_panels_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface.cpp"
+  soldier_timing_interface_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Faces.cpp"
+  soldier_timing_faces_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Overhead.cpp"
+  soldier_timing_overhead_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Tile.cpp"
+  soldier_timing_tile_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Create.cpp"
+  soldier_timing_creation_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Weapons.cpp"
+  soldier_timing_weapons_contents)
+file(READ "${SOURCE_ROOT}/Utils/Timer Control.cpp"
+  soldier_timing_clock_contents)
+foreach(soldier_timing_runtime_fragment IN ITEMS
+  "timing().start(SoldierTimingComponent::Timer::Ai"
+  "timing().elapsed(SoldierTimingComponent::Timer::Ai)"
+  "timing().clear(SoldierTimingComponent::Timer::Ai)"
+  "timing().start(SoldierTimingComponent::Timer::PanelAnimation"
+  "timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation)"
+  "timing().start(SoldierTimingComponent::Timer::LocatorBlink"
+  "timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink)"
+  "timing().start(SoldierTimingComponent::Timer::PortraitFlash"
+  "timing().elapsed(SoldierTimingComponent::Timer::PortraitFlash)"
+  "timing().start(SoldierTimingComponent::Timer::DamageDisplay"
+  "timing().elapsed(SoldierTimingComponent::Timer::Reload)"
+  "timing().start(SoldierTimingComponent::Timer::Fade"
+  "timing().start(SoldierTimingComponent::Timer::AnimationUpdate"
+  "timing().start(SoldierTimingComponent::Timer::NextTile"
+  "timing().elapsed(SoldierTimingComponent::Timer::NextTile)"
+  "timing().aiDelay() = 100;"
+  "timing().reloadDelay()")
+  string(FIND
+    "${soldier_timing_ai_contents}${soldier_timing_npc_contents}${soldier_timing_panels_contents}${soldier_timing_interface_contents}${soldier_timing_faces_contents}${soldier_timing_overhead_contents}${soldier_timing_tile_contents}${soldier_timing_creation_contents}${soldier_timing_weapons_contents}"
+    "${soldier_timing_runtime_fragment}"
+    soldier_timing_runtime_site)
+  if(soldier_timing_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier timing runtime lost named component operation '${soldier_timing_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(soldier_timing_clock_timer IN ITEMS
+  AnimationUpdate
+  DamageDisplay
+  Reload
+  LocatorFlash
+  Ai
+  Fade
+  PanelAnimation
+  LocatorBlink
+  PortraitFlash
+  NextTile)
+  string(FIND "${soldier_timing_clock_contents}"
+    "timing().counter(SoldierTimingComponent::Timer::${soldier_timing_clock_timer})"
+    soldier_timing_clock_site)
+  if(soldier_timing_clock_site EQUAL -1)
+    message(FATAL_ERROR
+      "Platform clock update lost SoldierTimingComponent counter '${soldier_timing_clock_timer}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(RESETTIMECOUNTER|TIMECOUNTERDONE|ZEROTIMECOUNTER)[^\r\n]*timing\\(\\)"
+  retired_soldier_timing_macro
+  "${soldier_timing_ai_contents}${soldier_timing_npc_contents}${soldier_timing_panels_contents}${soldier_timing_interface_contents}${soldier_timing_faces_contents}${soldier_timing_overhead_contents}${soldier_timing_tile_contents}${soldier_timing_creation_contents}${soldier_timing_weapons_contents}")
+if(retired_soldier_timing_macro)
+  message(FATAL_ERROR
+    "Gameplay returned to a legacy timer macro for SoldierTimingComponent; use start, elapsed, or clear")
+endif()
+
+foreach(soldier_timing_test_fragment IN ITEMS
+  "soldier timing reset clears all ten counters and both delay values"
+  "v101 soldier conversion retains all ten counters and both timing delay values"
+  "soldier save/load round-trips all ten counters and both timing delays at their established positions")
+  string(FIND "${headless_test_contents}"
+    "${soldier_timing_test_fragment}"
+    soldier_timing_test_site)
+  if(soldier_timing_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierTimingComponent fixture '${soldier_timing_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierTimingComponent"
+  soldier_timing_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierTimingComponent"
+  soldier_timing_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "Ten signed 32-bit soldier-local countdown timers"
+  soldier_timing_save_documented)
+if(soldier_timing_architecture_documented EQUAL -1 OR
+   soldier_timing_sdk_documented EQUAL -1 OR
+   soldier_timing_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierTimingComponent ownership and compatibility guarantees must remain documented")
+endif()
+
 # Multi-turn tactical work and the retained grid used while intel assignments
 # temporarily remove a soldier share one established persistent context. Keep
 # the three values under one lifecycle owner, preserve their visitor widths and
@@ -7556,7 +7803,7 @@ string(REGEX MATCH
   serialized_soldier_damage_display_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(s\\.uiAIDelay\\);[ \t]*ar\\.i16\\(s\\.sReloadDelay\\);[ \t]*ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(deployment\\.insertionGrid\\(\\)\\);"
+  "ar\\.u32\\(timing\\.aiDelay\\(\\)\\);[ \t]*ar\\.i16\\(timing\\.reloadDelay\\(\\)\\);[ \t]*ar\\.u16\\(combatResult\\.currentAttacker\\(\\)\\.i\\);[ \t]*ar\\.u16\\(combatResult\\.previousAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.i32\\(deployment\\.insertionGrid\\(\\)\\);"
   serialized_soldier_attacker_order
   "${save_load_game_contents}")
 string(REGEX MATCH

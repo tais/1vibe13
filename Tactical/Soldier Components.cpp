@@ -202,6 +202,11 @@ void SoldierStatProgressComponent::reset() noexcept
 	*this = SoldierStatProgressComponent{};
 }
 
+void SoldierTimingComponent::reset() noexcept
+{
+	*this = SoldierTimingComponent{};
+}
+
 void SoldierLongActionComponent::begin(
 	UINT8 action, INT32 contextGrid, INT16 actionPoints) noexcept
 {

@@ -862,22 +862,6 @@ struct DRUGS
 	FLOAT			drinkstaken;			// number of alcoholic drinks we habe in our system, lowered by 1 every hour
 };
 
-class STRUCT_TimeCounters//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	TIMECOUNTER									UpdateCounter;
-	TIMECOUNTER									DamageCounter;
-	TIMECOUNTER									ReloadCounter;
-	TIMECOUNTER									FlashSelCounter;
-	TIMECOUNTER									AICounter;
-	TIMECOUNTER									FadeCounter;
-	TIMECOUNTER									PanelAnimateCounter;
-	TIMECOUNTER									BlinkSelCounter;
-	TIMECOUNTER									PortraitFlashCounter;
-	TIMECOUNTER									NextTileCounter;
-};
-
 // forward declaration for modularized tactical ai
 namespace AI
 {
@@ -949,6 +933,8 @@ public:
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
 	SoldierStatProgressComponent& statProgress() noexcept { return statProgress_; }
 	const SoldierStatProgressComponent& statProgress() const noexcept { return statProgress_; }
+	SoldierTimingComponent& timing() noexcept { return timing_; }
+	const SoldierTimingComponent& timing() const noexcept { return timing_; }
 	SoldierLongActionComponent& longAction() noexcept { return longAction_; }
 	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
 	SoldierInteractionComponent& interaction() noexcept { return interaction_; }
@@ -1043,9 +1029,6 @@ public:
 	// values for surgery feature
 	/////////////////////////////////////////////////////////////////////////////////
 
-	UINT32			uiAIDelay;
-	INT16			sReloadDelay;
-
 	UINT8			bSide;
 
 	INT32			iFaceIndex;
@@ -1134,7 +1117,6 @@ public:
 	//data from version 101 wrapped into structs
 	STRUCT_AIData			aiData;
 	STRUCT_Flags				flags;
-	STRUCT_TimeCounters		timeCounters;
 	//STRUCT_Drugs			drugs;			// Flugente: drug values are now in newdrugs
 	DRUGS					newdrugs;
 	STRUCT_Statistics		stats;
@@ -1150,6 +1132,7 @@ private:
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierStatProgressComponent	statProgress_;
+	SoldierTimingComponent	timing_;
 	SoldierLongActionComponent	longAction_;
 	SoldierInteractionComponent	interaction_;
 	SoldierPendingActionComponent	pendingAction_;

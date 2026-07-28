@@ -485,7 +485,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	{
 		//#ifndef AI_PROFILING
 		//Time to handle guys in realtime (either combat or not )
-		if ( !TIMECOUNTERDONE( pSoldier->timeCounters.AICounter, pSoldier->uiAIDelay ) )
+		if ( !pSoldier->timing().elapsed(SoldierTimingComponent::Timer::Ai) )
 		{
 			// CAMFIELD, LOOK HERE!
 			return;
@@ -493,7 +493,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		else
 		{
 			//Reset counter!
-			RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, pSoldier->uiAIDelay );
+			pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, pSoldier->timing().aiDelay());
 		}
 		//#endif
 	}
@@ -1958,10 +1958,10 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             }
             else
             {
-                RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, pSoldier->aiData.usActionData );
+                pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, pSoldier->aiData.usActionData);
                 if (pSoldier->ubProfile != NO_PROFILE)
                 {
-                    //DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "%s waiting %d from %d", pSoldier->name, pSoldier->timeCounters.AICounter, GetJA2Clock() ) );
+                    //DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "%s waiting %d from %d", pSoldier->name, pSoldier->timing().counter(SoldierTimingComponent::Timer::Ai), GetJA2Clock() ) );
                 }
             }
             ActionDone( pSoldier );
@@ -2920,7 +2920,7 @@ void SetNewSituation( SOLDIERTYPE * pSoldier )
 			if ( !(IsJa2TacticalCombatActive()) || (gTacticalStatus.uiFlags & REALTIME) )
 			{
 				// reset delay if necessary!
-				RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, Random( 1000 ) );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, Random( 1000 ));
 			}
 		}
 	}

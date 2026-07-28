@@ -1011,11 +1011,11 @@ BOOLEAN ExecuteOverhead( )
             // Handle damage counters
             if ( pSoldier->damageDisplay().displaying() )
             {
-                if ( TIMECOUNTERDONE( pSoldier->timeCounters.DamageCounter, DAMAGE_DISPLAY_DELAY ) )
+                if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::DamageDisplay) )
                 {
                     pSoldier->damageDisplay().advance();
 
-                    RESETTIMECOUNTER( pSoldier->timeCounters.DamageCounter, DAMAGE_DISPLAY_DELAY );
+                    pSoldier->timing().start(SoldierTimingComponent::Timer::DamageDisplay, DAMAGE_DISPLAY_DELAY);
                 }
 
                 if ( pSoldier->damageDisplay().expired() )
@@ -1032,7 +1032,7 @@ BOOLEAN ExecuteOverhead( )
             // Handle reload counters
             if ( pSoldier->flags.fReloading )
             {
-                if ( TIMECOUNTERDONE( pSoldier->timeCounters.ReloadCounter, pSoldier->sReloadDelay ) )
+                if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::Reload) )
                 {
                     pSoldier->flags.fReloading = FALSE;
                     pSoldier->flags.fPauseAim   = FALSE;
@@ -1079,9 +1079,9 @@ BOOLEAN ExecuteOverhead( )
             // Checkout fading
             if ( pSoldier->renderState().fadeMode() )
             {
-                if ( TIMECOUNTERDONE( pSoldier->timeCounters.FadeCounter, NEW_FADE_DELAY ) )
+                if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::Fade) )
                 {
-                    RESETTIMECOUNTER( pSoldier->timeCounters.FadeCounter, NEW_FADE_DELAY );
+                    pSoldier->timing().start(SoldierTimingComponent::Timer::Fade, NEW_FADE_DELAY);
 
                     // Fade out....
                     if ( pSoldier->renderState().fadeMode() == 1 )
@@ -1184,7 +1184,7 @@ BOOLEAN ExecuteOverhead( )
             // Handle animation update counters
             // ATE: Added additional check here for special value of anispeed that pauses all updates
 #ifndef BOUNDS_CHECKER
-            if ( TIMECOUNTERDONE( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() ) && pSoldier->animationPlayback().delay() != 10000 )
+            if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::AnimationUpdate) && pSoldier->animationPlayback().delay() != 10000 )
 #endif
             {
 #ifdef NETWORKED
@@ -1203,7 +1203,7 @@ BOOLEAN ExecuteOverhead( )
                 }
 
 
-                RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() );
+                pSoldier->timing().start(SoldierTimingComponent::Timer::AnimationUpdate, pSoldier->animationPlayback().delay());
 
                 fNoAPsForPendingAction = FALSE;
 
@@ -9745,7 +9745,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
                             {
                                 if ( pTeamSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
                                 {
-                                    //ZEROTIMECOUNTER( pTeamSoldier->timeCounters.AICounter );
+                                    //pTeamSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 
                                     //MakeCivHostile(pTeamSoldier);
 

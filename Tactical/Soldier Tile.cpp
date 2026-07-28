@@ -86,7 +86,7 @@ void SetDelayedTileWaiting( SOLDIERTYPE *pSoldier, INT32 sCauseGridNo, UINT8 bVa
 
 	pSoldier->movement().waitForGrid(sCauseGridNo, bValue);
 
-	RESETTIMECOUNTER( pSoldier->timeCounters.NextTileCounter, NEXT_TILE_CHECK_DELAY );
+	pSoldier->timing().start(SoldierTimingComponent::Timer::NextTile, NEXT_TILE_CHECK_DELAY);
 
 	// ATE: Now update realtime movement speed....
 	// check if guy exists here...
@@ -500,9 +500,9 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->movement().delayed() )
 	{
-		if ( TIMECOUNTERDONE( pSoldier->timeCounters.NextTileCounter, NEXT_TILE_CHECK_DELAY ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::NextTile) )
 		{
-			RESETTIMECOUNTER( pSoldier->timeCounters.NextTileCounter, NEXT_TILE_CHECK_DELAY );
+			pSoldier->timing().start(SoldierTimingComponent::Timer::NextTile, NEXT_TILE_CHECK_DELAY);
 
 			// ATE: Allow path to exit grid!
 			if ( pSoldier->ubWaitActionToDo == 1 && gubWaitingForAllMercsToExitCode == WAIT_FOR_MERCS_TO_WALK_TO_GRIDNO )
@@ -846,7 +846,7 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 		}
 
 		// ATE: OK, reduce this guy's next ai counter....
-		pSoldier2->uiAIDelay = 100;
+		pSoldier2->timing().aiDelay() = 100;
 		return( FALSE );
 	}else{
 		return( FALSE );

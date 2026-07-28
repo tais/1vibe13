@@ -5859,7 +5859,7 @@ static int l_RESETTIMECOUNTER(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			RESETTIMECOUNTER(pSoldier->timeCounters.AICounter, Counter);
+			pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, Counter);
 		}
 	}
 

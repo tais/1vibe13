@@ -3057,16 +3057,16 @@ void HandleAutoFaces( )
 				{
 					pSoldier->uiPresentation().startPortraitFlash();
 					pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
-					RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
+					pSoldier->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 					fRerender = TRUE;
 				}
 
 				if ( pSoldier->uiPresentation().portraitFlashPhase() == FLASH_PORTRAIT_START )
 				{
 					// Loop through flash values
-					if ( TIMECOUNTERDONE( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY ) )
+					if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::PortraitFlash) )
 					{
-						RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
+						pSoldier->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 						pSoldier->uiPresentation().portraitFlashFrame()++;
 
 						if ( pSoldier->uiPresentation().portraitFlashFrame() > FLASH_PORTRAIT_ENDSHADE )

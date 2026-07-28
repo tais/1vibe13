@@ -1830,7 +1830,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	}
 
 	// zap any delay in this soldier
-	ZEROTIMECOUNTER( pSoldier->timeCounters.AICounter );
+	pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 	if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
 	{
 		pSoldier->aiData.bNextAction = AI_ACTION_NONE;

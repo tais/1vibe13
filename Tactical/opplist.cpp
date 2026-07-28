@@ -1971,7 +1971,7 @@ void HandleManNoLongerSeen( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent, INT
 			// unauthorized!
 			// make guard run to block guard room
 			DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: make guard run to block guard room"));			CancelAIAction( pSoldier, TRUE );
-			RESETTIMECOUNTER( pSoldier->timeCounters.AICounter, 0 );
+			pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 0);
 			pSoldier->aiData.bNextAction = AI_ACTION_RUN;
 			pSoldier->aiData.usNextActionData = 13250;
 		}
@@ -4722,7 +4722,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Reload Delay:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->sReloadDelay );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->timing().reloadDelay() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);

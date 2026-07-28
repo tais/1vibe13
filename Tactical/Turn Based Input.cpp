@@ -5887,7 +5887,7 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 
 				BeginMultiPurposeLocator(sMoveSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}
-			RESETTIMECOUNTER(pTMilitiaSoldier->timeCounters.AICounter, 100);
+			pTMilitiaSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 
 			//pTMilitiaSoldier->usSoldierFlagMask |= SOLDIER_MILITIA_ORDER;
 		}

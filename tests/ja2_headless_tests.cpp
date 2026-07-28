@@ -7375,6 +7375,16 @@ int main( int, char** )
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Explosives, 1009);
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Medical, 1010);
 		statProgress.recordChange(SoldierStatProgressComponent::Stat::Mechanical, 1011);
+		SoldierTimingComponent& timing = soldier.timing();
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			timing.counter(static_cast<SoldierTimingComponent::Timer>(timerIndex)) =
+				1101 + timerIndex;
+		}
+		timing.aiDelay() = 1111;
+		timing.reloadDelay() = -1112;
 		SoldierLongActionComponent& longAction = soldier.longAction();
 		longAction.begin(MTA_FORTIFY, 1300, 37);
 		SoldierInteractionComponent& interaction = soldier.interaction();
@@ -7814,6 +7824,21 @@ int main( int, char** )
 		       constSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011 &&
 		       constSoldier.statProgress().changedRecently(SoldierStatProgressComponent::Stat::Strength, 1050, 100),
 		       "soldier stat-progress component owns every persistent change timestamp and recent-change query" );
+		bool canonicalTimingMatches = constSoldier.timing().aiDelay() == 1111 &&
+			constSoldier.timing().reloadDelay() == -1112;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			canonicalTimingMatches &=
+				constSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				1101 + timerIndex;
+		}
+		CHECK( canonicalTimingMatches &&
+		       constSoldier.timing().active(SoldierTimingComponent::Timer::Ai) &&
+		       !constSoldier.timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation),
+		       "soldier timing component owns every countdown and its AI and reload delay configuration" );
 		CHECK( constSoldier.longAction().active() &&
 		       constSoldier.longAction().action() == MTA_FORTIFY &&
 		       constSoldier.longAction().contextGrid() == 1300 &&
@@ -8533,6 +8558,32 @@ int main( int, char** )
 		CHECK( !statProgressLifecycle.hasChange(SoldierStatProgressComponent::Stat::Strength) &&
 		       statProgressLifecycle.changedAt(SoldierStatProgressComponent::Stat::Strength) == 0,
 		       "soldier stat-progress reset clears the complete change-timestamp lifecycle" );
+		SoldierTimingComponent timingLifecycle;
+		timingLifecycle.aiDelay() = 100;
+		timingLifecycle.reloadDelay() = 250;
+		timingLifecycle.start(SoldierTimingComponent::Timer::PanelAnimation, 160);
+		CHECK( timingLifecycle.active(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       !timingLifecycle.elapsed(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       timingLifecycle.counter(SoldierTimingComponent::Timer::PanelAnimation) == 160,
+		       "soldier timing start exposes one coherent active countdown" );
+		timingLifecycle.clear(SoldierTimingComponent::Timer::PanelAnimation);
+		CHECK( !timingLifecycle.active(SoldierTimingComponent::Timer::PanelAnimation) &&
+		       timingLifecycle.elapsed(SoldierTimingComponent::Timer::PanelAnimation),
+		       "soldier timing clear completes one countdown without a legacy timer macro" );
+		timingLifecycle.start(SoldierTimingComponent::Timer::Ai, 75);
+		timingLifecycle.reset();
+		bool timingLifecycleCleared =
+			timingLifecycle.aiDelay() == 0 && timingLifecycle.reloadDelay() == 0;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			timingLifecycleCleared &=
+				timingLifecycle.elapsed(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex));
+		}
+		CHECK( timingLifecycleCleared,
+		       "soldier timing reset clears all ten counters and both delay values" );
 		SoldierLongActionComponent longActionLifecycle;
 		longActionLifecycle.begin(MTA_HACK, 1700, -5);
 		CHECK( longActionLifecycle.active() &&
@@ -8832,6 +8883,19 @@ int main( int, char** )
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 1010 &&
 		       copiedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 1011,
 		       "soldier copies retain every owned persistent stat-change timestamp" );
+		bool copiedTimingMatches = copiedSoldier.timing().aiDelay() == 1111 &&
+			copiedSoldier.timing().reloadDelay() == -1112;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			copiedTimingMatches &=
+				copiedSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				1101 + timerIndex;
+		}
+		CHECK( copiedTimingMatches,
+		       "soldier copies retain every owned countdown and timing delay" );
 		CHECK( copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_FORTIFY &&
 		       copiedSoldier.longAction().contextGrid() == 1300 &&
@@ -9949,6 +10013,19 @@ int main( int, char** )
 		}
 		CHECK( initializedStatProgressCleared,
 		       "soldier initialization resets every stat-progress timestamp" );
+		bool initializedTimingCleared =
+			copiedSoldier.timing().aiDelay() == 0 &&
+			copiedSoldier.timing().reloadDelay() == 0;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			initializedTimingCleared &=
+				copiedSoldier.timing().elapsed(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex));
+		}
+		CHECK( initializedTimingCleared,
+		       "soldier initialization resets all ten countdowns and both delay values" );
 		CHECK( !copiedSoldier.longAction().active() &&
 		       copiedSoldier.longAction().action() == MTA_NONE &&
 		       copiedSoldier.longAction().contextGrid() == -1 &&
@@ -10415,6 +10492,18 @@ int main( int, char** )
 		legacySoldier->uiChangeExplosivesTime = 2109;
 		legacySoldier->uiChangeMedicalTime = 2110;
 		legacySoldier->uiChangeMechanicalTime = 2111;
+		legacySoldier->UpdateCounter = 2201;
+		legacySoldier->DamageCounter = 2202;
+		legacySoldier->ReloadCounter = 2203;
+		legacySoldier->FlashSelCounter = 2204;
+		legacySoldier->AICounter = 2205;
+		legacySoldier->FadeCounter = 2206;
+		legacySoldier->PanelAnimateCounter = 2207;
+		legacySoldier->BlinkSelCounter = 2208;
+		legacySoldier->PortraitFlashCounter = 2209;
+		legacySoldier->NextTileCounter = 2210;
+		legacySoldier->uiAIDelay = 2211;
+		legacySoldier->sReloadDelay = -2212;
 		legacySoldier->ubPendingAction = MERC_GIVEITEM;
 		legacySoldier->ubPendingActionAnimCount = 11;
 		legacySoldier->uiPendingActionData1 = 1411;
@@ -10657,6 +10746,9 @@ int main( int, char** )
 		convertedSoldier.condition().addDisability(2);
 		convertedSoldier.statProgress().recordChange(
 			SoldierStatProgressComponent::Stat::Level, 9999);
+		convertedSoldier.timing().start(SoldierTimingComponent::Timer::AnimationUpdate, 9998);
+		convertedSoldier.timing().aiDelay() = 9997;
+		convertedSoldier.timing().reloadDelay() = 9996;
 		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
 		convertedSoldier.interaction().nonNpcTraderId() = 10;
 		convertedSoldier.interaction().draggedPerson() = SoldierID{ 26 };
@@ -10802,6 +10894,19 @@ int main( int, char** )
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 2110 &&
 		       convertedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 2111,
 		       "v101 soldier conversion retains every historical stat-change timestamp" );
+		CHECK( convertedSoldier.timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) == 2201 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::DamageDisplay) == 2202 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Reload) == 2203 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorFlash) == 2204 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Ai) == 2205 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::Fade) == 2206 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PanelAnimation) == 2207 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::LocatorBlink) == 2208 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::PortraitFlash) == 2209 &&
+		       convertedSoldier.timing().counter(SoldierTimingComponent::Timer::NextTile) == 2210 &&
+		       convertedSoldier.timing().aiDelay() == 2211 &&
+		       convertedSoldier.timing().reloadDelay() == -2212,
+		       "v101 soldier conversion retains all ten counters and both timing delay values" );
 		CHECK( !convertedSoldier.longAction().active() &&
 		       convertedSoldier.longAction().action() == MTA_NONE &&
 		       convertedSoldier.longAction().contextGrid() == -1 &&
@@ -11286,6 +11391,16 @@ int main( int, char** )
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, 3109);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, 3110);
 		savedSoldier.statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, 3111);
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			savedSoldier.timing().counter(
+				static_cast<SoldierTimingComponent::Timer>(timerIndex)) =
+				3201 + timerIndex;
+		}
+		savedSoldier.timing().aiDelay() = 3211;
+		savedSoldier.timing().reloadDelay() = -3212;
 		savedSoldier.longAction().begin(MTA_REMOVE_FORTIFY, 1520, 34);
 		savedSoldier.interaction().nonNpcTraderId() = 11;
 		savedSoldier.interaction().draggedPerson() = SoldierID{ 29 };
@@ -11695,6 +11810,20 @@ int main( int, char** )
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) == 3110 &&
 		       loadedSoldier.statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) == 3111,
 		       "soldier save/load round-trips all stat-progress timestamps at their established positions" );
+		bool loadedTimingMatches = saved && loaded &&
+			loadedSoldier.timing().aiDelay() == 3211 &&
+			loadedSoldier.timing().reloadDelay() == -3212;
+		for (UINT8 timerIndex = 0;
+		     timerIndex < SoldierTimingComponent::TimerCount;
+		     ++timerIndex)
+		{
+			loadedTimingMatches &=
+				loadedSoldier.timing().counter(
+					static_cast<SoldierTimingComponent::Timer>(timerIndex)) ==
+				3201 + timerIndex;
+		}
+		CHECK( loadedTimingMatches,
+		       "soldier save/load round-trips all ten counters and both timing delays at their established positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.longAction().active() &&
 		       loadedSoldier.longAction().action() == MTA_REMOVE_FORTIFY &&

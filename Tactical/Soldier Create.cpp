@@ -2094,7 +2094,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->combatResult().clearAttackers();
 
 	//Set AI Delay!
-	pSoldier->uiAIDelay = 100;
+	pSoldier->timing().aiDelay() = 100;
 
 	pSoldier->renderState().lightSprite() = -1;
 	pSoldier->iFaceIndex = -1;

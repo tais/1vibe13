@@ -2270,7 +2270,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				if ( pQuotePtr->sActionData <= -NPC_ACTION_TURN_TO_FACE_NEAREST_MERC )
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
-					ZEROTIMECOUNTER( pSoldier->timeCounters.AICounter );
+					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
@@ -2437,7 +2437,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				if ( pQuotePtr->sActionData < 0 && pQuotePtr->sActionData > -NPC_ACTION_TURN_TO_FACE_NEAREST_MERC )
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
-					ZEROTIMECOUNTER( pSoldier->timeCounters.AICounter );
+					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
@@ -2448,7 +2448,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				else if ( pQuotePtr->usGoToGridNo == NO_MOVE && pQuotePtr->sActionData > 0 )
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
-					ZEROTIMECOUNTER( pSoldier->timeCounters.AICounter );
+					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
 					{
 						pSoldier->aiData.bNextAction = AI_ACTION_NONE;

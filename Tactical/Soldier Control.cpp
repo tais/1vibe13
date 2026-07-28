@@ -415,20 +415,6 @@ void Inventory::clear( ) {
 
 // ----------------------------------------
 
-void STRUCT_TimeCounters::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	this->UpdateCounter = src.UpdateCounter;
-	this->DamageCounter = src.DamageCounter;
-	this->ReloadCounter = src.ReloadCounter;
-	this->FlashSelCounter = src.FlashSelCounter;
-	this->AICounter = src.AICounter;
-	this->FadeCounter = src.FadeCounter;
-	this->BlinkSelCounter = src.BlinkSelCounter;
-	this->PortraitFlashCounter = src.PortraitFlashCounter;
-	this->NextTileCounter = src.NextTileCounter;
-	this->PanelAnimateCounter = src.PanelAnimateCounter;
-}
-
 void STRUCT_Drugs::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 {
 	int x = 0;
@@ -562,6 +548,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		skillState().reset();
 		condition().reset();
 		statProgress().reset();
+		timing().reset();
 		longAction().reset();
 		interaction().reset();
 		pendingAction().reset();
@@ -667,7 +654,16 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		statProgress().changedAt(SoldierStatProgressComponent::Stat::Explosives) = src.uiChangeExplosivesTime;
 		statProgress().changedAt(SoldierStatProgressComponent::Stat::Medical) = src.uiChangeMedicalTime;
 		statProgress().changedAt(SoldierStatProgressComponent::Stat::Mechanical) = src.uiChangeMechanicalTime;
-		timeCounters.ConvertFrom_101_To_102( src );
+		timing().counter(SoldierTimingComponent::Timer::AnimationUpdate) = src.UpdateCounter;
+		timing().counter(SoldierTimingComponent::Timer::DamageDisplay) = src.DamageCounter;
+		timing().counter(SoldierTimingComponent::Timer::Reload) = src.ReloadCounter;
+		timing().counter(SoldierTimingComponent::Timer::LocatorFlash) = src.FlashSelCounter;
+		timing().counter(SoldierTimingComponent::Timer::Ai) = src.AICounter;
+		timing().counter(SoldierTimingComponent::Timer::Fade) = src.FadeCounter;
+		timing().counter(SoldierTimingComponent::Timer::PanelAnimation) = src.PanelAnimateCounter;
+		timing().counter(SoldierTimingComponent::Timer::LocatorBlink) = src.BlinkSelCounter;
+		timing().counter(SoldierTimingComponent::Timer::PortraitFlash) = src.PortraitFlashCounter;
+		timing().counter(SoldierTimingComponent::Timer::NextTile) = src.NextTileCounter;
 		//drugs.ConvertFrom_101_To_102( src );
 		stats.ConvertFrom_101_To_102( src );
 		memcpy( pathing().path(), src.usPathingData, sizeof(src.usPathingData) );
@@ -769,8 +765,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->animationIntent().pendingStance() = src.ubPendingStanceChange;
 		this->animationPlayback().state() = src.usAnimState;
 
-		this->uiAIDelay = src.uiAIDelay;
-		this->sReloadDelay = src.sReloadDelay;
+		timing().aiDelay() = src.uiAIDelay;
+		timing().reloadDelay() = src.sReloadDelay;
 		this->combatResult().currentAttacker() = static_cast<UINT16>( src.ubAttackerID );
 		this->combatResult().previousAttacker() = static_cast<UINT16>( src.ubPreviousAttackerID );
 
@@ -1129,7 +1125,6 @@ void SOLDIERTYPE::initialize( )
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	memset( &flags, 0, sizeof(STRUCT_Flags) );
-	memset( &timeCounters, 0, sizeof(STRUCT_TimeCounters) );
 	//memset( &drugs, 0, sizeof(STRUCT_Drugs) );
 	memset( &newdrugs, 0, sizeof(DRUGS) );
 	memset( &stats, 0, sizeof(STRUCT_Statistics) );
@@ -1143,6 +1138,7 @@ void SOLDIERTYPE::initialize( )
 	skillState().reset();
 	condition().reset();
 	statProgress().reset();
+	timing().reset();
 	longAction().reset();
 	interaction().reset();
 	pendingAction().reset();
@@ -4387,7 +4383,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	SetSoldierAniSpeed( this );
 
 	// Reset counters
-	RESETTIMECOUNTER( this->timeCounters.UpdateCounter, this->animationPlayback().delay() );
+	this->timing().start(SoldierTimingComponent::Timer::AnimationUpdate, this->animationPlayback().delay());
 
 	// Adjust to new animation frame ( the first one )
 	AdjustToNextAnimationFrame( this );
@@ -8817,7 +8813,7 @@ void AdjustAniSpeed( SOLDIERTYPE *pSoldier )
 	}
 
 	//pSoldier->animationPlayback().delay() =1;//for max speed uncomment //ddd
-	RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() );
+	pSoldier->timing().start(SoldierTimingComponent::Timer::AnimationUpdate, pSoldier->animationPlayback().delay());
 }
 
 
@@ -9136,7 +9132,7 @@ void SetSoldierAniSpeed( SOLDIERTYPE *pSoldier )
 				{
 					pSoldier->animationPlayback().delay() = 0;
 				}
-				RESETTIMECOUNTER( pSoldier->timeCounters.UpdateCounter, pSoldier->animationPlayback().delay() );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::AnimationUpdate, pSoldier->animationPlayback().delay());
 				return;
 			}
 		}
@@ -21983,7 +21979,7 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 	{
 		pSoldier->uiPresentation().startPortraitFlash();
 		pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
-		RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
+		pSoldier->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 
 		// If we are in mapscreen, set this person as selected
 		if ( GetCurrentScreen() == MAP_SCREEN )
@@ -23915,7 +23911,7 @@ void SOLDIERTYPE::HandleSoldierTakeDamageFeedback( void )
 		// Flash portrait....
 		this->uiPresentation().startPortraitFlash();
 		this->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
-		RESETTIMECOUNTER(this->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY);
+		this->timing().start(SoldierTimingComponent::Timer::PortraitFlash, FLASH_PORTRAIT_DELAY);
 	}
 }
 

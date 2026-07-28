@@ -6522,7 +6522,7 @@ void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 		return;
 	}
 
-	RESETTIMECOUNTER( soldier->timeCounters.FlashSelCounter, FLASH_SELECTOR_DELAY );
+	soldier->timing().start(SoldierTimingComponent::Timer::LocatorFlash, FLASH_SELECTOR_DELAY);
 
 	//LocateSoldier( ubID, FALSE );	// IC - this is already being done outside of this function :)
 	//gbPanelSelectedGuy = ubID;	IC - had to move this outside to make this function versatile
@@ -6625,12 +6625,12 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 			gFacesData[ pSoldier->iFaceIndex ].usFaceY);
 
 		pSoldier->uiPresentation().beginDeathPanelTransition();
-		RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
+		pSoldier->timing().start(SoldierTimingComponent::Timer::PanelAnimation, 160);
 	}
 
 	if ( pSoldier->uiPresentation().panelClosing() )
 	{
-		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation) )
 		{
 				pSoldier->uiPresentation().closePanelFrame()++;
 
@@ -6648,7 +6648,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 						}
 					}
 				}
-				RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::PanelAnimation, 160);
 		}
 	}
 
@@ -6669,7 +6669,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->uiPresentation().deadPanelShowing() )
 	{
-		if ( TIMECOUNTERDONE(	pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation) )
 		{
 				pSoldier->uiPresentation().deadPanelFrame()++;
 
@@ -6698,7 +6698,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 					HandlePlayerTeamMemberDeathAfterSkullAnimation( pSoldier );
 
 				}
-				RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::PanelAnimation, 160);
 		}
 	}
 
@@ -6722,7 +6722,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->uiPresentation().panelOpening() )
 	{
-		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::PanelAnimation) )
 		{
 				pSoldier->uiPresentation().openPanelFrame()--;
 
@@ -6735,7 +6735,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 						RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 					}
 				}
-				RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::PanelAnimation, 160);
 		}
 	}
 

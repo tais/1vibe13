@@ -363,6 +363,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   order and width. v101 conversion maps every raw timestamp exactly. Profile
   stats and the value-gone-up mask remain separate; no save, packet, map, XML,
   Lua, or installed-data bytes change.
+- Ten signed 32-bit soldier-local countdown timers, the unsigned 32-bit AI
+  delay, and the signed 16-bit reload delay are now stored by
+  `SoldierTimingComponent`. The visitor emits animation update, damage display,
+  reload, locator flash, AI, fade, panel animation, locator blink, portrait
+  flash, and next-tile counters consecutively in their exact historical order;
+  both delay values retain their original earlier POD positions. v101
+  conversion maps all twelve raw values exactly. No save, packet, map, XML,
+  Lua, or installed-data bytes change.
 - Multi-turn action kind, retained context grid, and remaining AP cost are now
   stored by `SoldierLongActionComponent`. The context grid continues to double
   as the return location for off-world intel assignments. The visitor still

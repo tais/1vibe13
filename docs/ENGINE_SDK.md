@@ -352,6 +352,13 @@ unsigned 32-bit positions in their historical order, and v101 conversion maps
 every raw timestamp exactly. Food, water, and explosion health damage now
 record the health timestamp rather than an unrelated strength or dexterity
 timestamp.
+`SoldierTimingComponent` separately owns all ten soldier-local countdown
+timers and the AI/reload delay configuration. Gameplay starts, observes, and
+clears timers by purpose; only the platform clock updater asks the owner for
+mutable counters. This removes `STRUCT_TimeCounters` and soldier-local uses of
+the legacy timer macros. The serializer retains the ten consecutive signed
+32-bit counter positions and the established unsigned 32-bit AI-delay and
+signed 16-bit reload-delay positions; v101 conversion maps all twelve values.
 `SoldierLongActionComponent` owns the complementary extended-work lifecycle:
 the tactical action kind, its retained context grid, and the AP cost remaining
 across turns. The established grid slot also carries the return location while

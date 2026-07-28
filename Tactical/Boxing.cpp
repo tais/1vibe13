@@ -410,7 +410,7 @@ BOOLEAN PickABoxer( void )
 					RecalculateOppCntsDueToNoLongerNeutral( pBoxer );
 					DebugAI(AI_MSG_INFO, pBoxer, String("CancelAIAction: pick a boxer"));
 					CancelAIAction( pBoxer, TRUE );
-					RESETTIMECOUNTER( pBoxer->timeCounters.AICounter, 0 );
+					pBoxer->timing().start(SoldierTimingComponent::Timer::Ai, 0);
 					gfBoxerFought[ uiLoop ] = TRUE;
 					DebugQuestInfo(String("PickABoxer: set gfBoxerFought[%d] %d", uiLoop, gfBoxerFought[uiLoop]));
 					// improve stats based on the # of rests these guys have had

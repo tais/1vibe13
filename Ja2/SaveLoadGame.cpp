@@ -1628,11 +1628,14 @@ template<class Ar> static void XferStatProgress( Ar& ar, SoldierStatProgressComp
 	ar.u32(progress.changedAt(Stat::Medical)); ar.u32(progress.changedAt(Stat::Mechanical));
 }
 
-template<class Ar> static void XferTimeCounters( Ar& ar, STRUCT_TimeCounters& t )
+template<class Ar> static void XferTiming( Ar& ar, SoldierTimingComponent& timing )
 {
-	ar.i32(t.UpdateCounter); ar.i32(t.DamageCounter); ar.i32(t.ReloadCounter); ar.i32(t.FlashSelCounter);
-	ar.i32(t.AICounter); ar.i32(t.FadeCounter); ar.i32(t.PanelAnimateCounter); ar.i32(t.BlinkSelCounter);
-	ar.i32(t.PortraitFlashCounter); ar.i32(t.NextTileCounter);
+	using Timer = SoldierTimingComponent::Timer;
+	ar.i32(timing.counter(Timer::AnimationUpdate)); ar.i32(timing.counter(Timer::DamageDisplay));
+	ar.i32(timing.counter(Timer::Reload)); ar.i32(timing.counter(Timer::LocatorFlash));
+	ar.i32(timing.counter(Timer::Ai)); ar.i32(timing.counter(Timer::Fade));
+	ar.i32(timing.counter(Timer::PanelAnimation)); ar.i32(timing.counter(Timer::LocatorBlink));
+	ar.i32(timing.counter(Timer::PortraitFlash)); ar.i32(timing.counter(Timer::NextTile));
 }
 
 template<class Ar> static void XferDrugs( Ar& ar, DRUGS& d )
@@ -1681,6 +1684,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierAiPlanningComponent& aiPlanning = s.aiPlanning();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
+	SoldierTimingComponent& timing = s.timing();
 	SoldierLongActionComponent& longAction = s.longAction();
 	SoldierInteractionComponent& interaction = s.interaction();
 	SoldierPendingActionComponent& pendingAction = s.pendingAction();
@@ -1726,7 +1730,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(position.terrainType()); ar.i8(position.previousTerrainType()); ar.i8(collapseState.tactical()); ar.i8(collapseState.breathTriggered());
 	ar.u8(s.animationIntent().desiredHeight()); ar.u16(s.animationIntent().pendingAnimation());
 	ar.u8(s.animationIntent().pendingStance()); ar.u16(s.animationPlayback().state());
-	ar.u32(s.uiAIDelay); ar.i16(s.sReloadDelay); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
+	ar.u32(timing.aiDelay()); ar.i16(timing.reloadDelay()); ar.u16(combatResult.currentAttacker().i); ar.u16(combatResult.previousAttacker().i);
 	ar.i32(deployment.insertionGrid());
 	// The animation surface working set is runtime-only. The retired pointer
 	// transfers emitted no bytes, so resetting the inline owner preserves the
@@ -1873,7 +1877,7 @@ BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 	XferAIData(ar, *this);
 	XferFlags(ar, *this);
 	XferStatProgress(ar, this->statProgress());
-	XferTimeCounters(ar, this->timeCounters);
+	XferTiming(ar, this->timing());
 	XferDrugs(ar, this->newdrugs);
 	XferStats(ar, *this);
 	XferPathing(ar, *this);
@@ -1928,7 +1932,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		XferAIData(ar, *this);
 		XferFlags(ar, *this);
 		XferStatProgress(ar, this->statProgress());
-		XferTimeCounters(ar, this->timeCounters);
+		XferTiming(ar, this->timing());
 		XferDrugs(ar, this->newdrugs);
 		XferStats(ar, *this);
 		XferPathing(ar, *this);

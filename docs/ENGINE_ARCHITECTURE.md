@@ -1047,6 +1047,14 @@ the engine must not contain SDL types in its public domain model.
   v101 conversion maps every raw timestamp exactly. Typed stat identities also
   correct three legacy presentation-bookkeeping mistakes where food, water,
   and explosion health damage recorded a strength or dexterity timestamp.
+  `SoldierTimingComponent` owns the ten soldier-local countdowns plus AI and
+  reload delay configuration. Timer purposes are explicit, gameplay uses
+  named start, elapsed, and clear operations, and the platform clock updater
+  receives mutable counters through the same owner; `STRUCT_TimeCounters` and
+  its gameplay macro calls are retired. The ten signed 32-bit counters retain
+  their historical consecutive order, while the unsigned 32-bit AI delay and
+  signed 16-bit reload delay retain their established scattered positions.
+  v101 conversion maps all twelve raw values exactly.
   `SoldierLongActionComponent` owns the action kind, retained context grid,
   and remaining AP cost for work spanning tactical turns. The same established
   grid slot deliberately retains a soldier's return location while intel work

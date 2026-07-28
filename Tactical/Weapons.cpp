@@ -2490,23 +2490,23 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		{
 
 			// Set delay based on stats, weapon type, etc
-			pSoldier->sReloadDelay	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
+			pSoldier->timing().reloadDelay()	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
 
 			// If a bad guy, double the delay!
 			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY ) )
 			{
-				pSoldier->sReloadDelay	= ( pSoldier->sReloadDelay * 2 );
+				pSoldier->timing().reloadDelay()	= ( pSoldier->timing().reloadDelay() * 2 );
 			}
 
 
 			// slow down demo mode!
 			if ( gTacticalStatus.uiFlags & DEMOMODE )
 			{
-				pSoldier->sReloadDelay *= 2;
+				pSoldier->timing().reloadDelay() *= 2;
 			}
 
 			//pSoldier->flags.fReloading		= TRUE;
-			//RESETTIMECOUNTER( pSoldier->timeCounters.ReloadCounter, pSoldier->sReloadDelay );
+			//pSoldier->timing().start(SoldierTimingComponent::Timer::Reload, pSoldier->timing().reloadDelay());
 		}
 
 		// Deduct AMMO!
@@ -3337,23 +3337,23 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		{
 
 			// Set delay based on stats, weapon type, etc
-			pSoldier->sReloadDelay	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
+			pSoldier->timing().reloadDelay()	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
 
 			// If a bad guy, double the delay!
 			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY ) )
 			{
-				pSoldier->sReloadDelay	= ( pSoldier->sReloadDelay * 2 );
+				pSoldier->timing().reloadDelay()	= ( pSoldier->timing().reloadDelay() * 2 );
 			}
 
 
 			// slow down demo mode!
 			if ( gTacticalStatus.uiFlags & DEMOMODE )
 			{
-				pSoldier->sReloadDelay *= 2;
+				pSoldier->timing().reloadDelay() *= 2;
 			}
 
 			//pSoldier->flags.fReloading		= TRUE;
-			//RESETTIMECOUNTER( pSoldier->timeCounters.ReloadCounter, pSoldier->sReloadDelay );
+			//pSoldier->timing().start(SoldierTimingComponent::Timer::Reload, pSoldier->timing().reloadDelay());
 		}
 
 		// Deduct AMMO!

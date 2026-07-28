@@ -646,6 +646,53 @@ private:
 	UINT32 changeTimes_[StatCount] = {};
 };
 
+// Canonical soldier-local countdown timers and their AI/reload delay
+// configuration. Gameplay starts, observes, and clears timers by purpose while
+// the platform timer loop retains mutable access for elapsed-time updates.
+class SoldierTimingComponent
+{
+public:
+	enum class Timer : UINT8
+	{
+		AnimationUpdate,
+		DamageDisplay,
+		Reload,
+		LocatorFlash,
+		Ai,
+		Fade,
+		PanelAnimation,
+		LocatorBlink,
+		PortraitFlash,
+		NextTile,
+		Count,
+	};
+
+	static constexpr UINT8 TimerCount = static_cast<UINT8>(Timer::Count);
+
+	INT32& counter(Timer timer) noexcept { return counters_[index(timer)]; }
+	const INT32& counter(Timer timer) const noexcept { return counters_[index(timer)]; }
+	UINT32& aiDelay() noexcept { return aiDelay_; }
+	const UINT32& aiDelay() const noexcept { return aiDelay_; }
+	INT16& reloadDelay() noexcept { return reloadDelay_; }
+	const INT16& reloadDelay() const noexcept { return reloadDelay_; }
+
+	bool active(Timer timer) const noexcept { return counter(timer) != 0; }
+	bool elapsed(Timer timer) const noexcept { return counter(timer) == 0; }
+	void start(Timer timer, INT32 duration) noexcept { counter(timer) = duration; }
+	void clear(Timer timer) noexcept { counter(timer) = 0; }
+	void reset() noexcept;
+
+private:
+	static constexpr UINT8 index(Timer timer) noexcept
+	{
+		return static_cast<UINT8>(timer);
+	}
+
+	INT32 counters_[TimerCount] = {};
+	UINT32 aiDelay_ = 0;
+	INT16 reloadDelay_ = 0;
+};
+
 // Canonical state for work that spans tactical turns. The retained context
 // grid also carries the established return location while an intel assignment
 // temporarily removes a soldier from the tactical world; it deliberately

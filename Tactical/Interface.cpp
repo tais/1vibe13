@@ -1684,9 +1684,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 		else
 		{
-			if ( TIMECOUNTERDONE( pSoldier->timeCounters.BlinkSelCounter, 80 ) )
+			if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink) )
 			{
-				RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 80 );
+				pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorBlink, 80);
 
 			//	Toggle the component-owned locator visibility.
 
@@ -1703,9 +1703,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 				}
 			}
 
-			//if ( TIMECOUNTERDONE( pSoldier->timeCounters.FlashSelCounter, 5000 ) )
+			//if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorFlash) )
 			//{
-			//	RESETTIMECOUNTER( pSoldier->timeCounters.FlashSelCounter, 5000 );
+			//	pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorFlash, 5000);
 
 			//	pSoldier->uiPresentation().stopLocator();
 
@@ -1762,9 +1762,9 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	// Flugente: show a small animation hat signifies that a merc is underwater (hopefully temporary until someone comes up with a proper animation)
 	else if ( pSoldier->UsesScubaGear() )
 	{
-		if ( TIMECOUNTERDONE( pSoldier->timeCounters.BlinkSelCounter, 320 ) )
+		if ( pSoldier->timing().elapsed(SoldierTimingComponent::Timer::LocatorBlink) )
 		{
-			RESETTIMECOUNTER( pSoldier->timeCounters.BlinkSelCounter, 320 );
+			pSoldier->timing().start(SoldierTimingComponent::Timer::LocatorBlink, 320);
 			
 			// Update frame
 			pSoldier->uiPresentation().locatorFrame()++;

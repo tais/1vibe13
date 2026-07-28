@@ -229,10 +229,10 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 				if ( pSoldier )
 				{
 					UpdateTimeCounter(
-						pSoldier->timeCounters.PortraitFlashCounter,
+						pSoldier->timing().counter(SoldierTimingComponent::Timer::PortraitFlash),
 						iTimeLeft );
 					UpdateTimeCounter(
-						pSoldier->timeCounters.PanelAnimateCounter,
+						pSoldier->timing().counter(SoldierTimingComponent::Timer::PanelAnimation),
 						iTimeLeft );
 				}
 			}
@@ -245,16 +245,16 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 
 				if ( pSoldier != NULL )
 				{
-					UpdateTimeCounter( pSoldier->timeCounters.UpdateCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.DamageCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.ReloadCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.FlashSelCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.BlinkSelCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.PortraitFlashCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.AICounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.FadeCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.NextTileCounter, iTimeLeft );
-					UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::AnimationUpdate), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::DamageDisplay), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::Reload), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::LocatorFlash), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::LocatorBlink), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::PortraitFlash), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::Ai), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::Fade), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::NextTile), iTimeLeft );
+					UpdateTimeCounter( pSoldier->timing().counter(SoldierTimingComponent::Timer::PanelAnimation), iTimeLeft );
 #ifdef JA2UB
 					UpdateTimeCounter( pSoldier->deployment().arrivalGetupCounter(), iTimeLeft );
 #endif
