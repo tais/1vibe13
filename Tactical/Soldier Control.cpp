@@ -693,7 +693,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->perception().deafnessTurns() = src.bDeafenedCounter;
 
 
-		this->pKeyRing = src.pKeyRing;
+		// Process-local v101 key-ring pointers were never meaningful after
+		// loading. The ring payload is restored separately by the save loader.
+		this->keyRing().reset();
 		this->vitals().previousHealth() = src.bOldLife;			// life at end of last turn, recorded for monster AI
 		this->roster().inSector() = src.bInSector;
 		this->uiPresentation().portraitFlashFrame() = src.bFlashPortraitFrame;
@@ -1106,6 +1108,7 @@ void SOLDIERTYPE::initialize( )
 	status().reset();
 	featureFlags().reset();
 	inventoryState().reset();
+	keyRing().reset();
 	service().reset();
 	dialogue().reset();
 	audio().reset();
@@ -2441,7 +2444,6 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierID, UINT16 usState )
 {
 	BOOLEAN fSuccess = FALSE;
-	INT32 iCounter = 0;
 
 	//if we are loading a saved game, we DO NOT want to reset the opplist, look for enemies, or say a dying commnet
 	if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
@@ -2482,17 +2484,11 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 
 		if ( usSoldierID <= gTacticalStatus.Team[OUR_TEAM].bLastID )
 		{
-			this->pKeyRing = (KEY_ON_RING *)MemAlloc( NUM_KEYS * sizeof(KEY_ON_RING) );
-			memset( this->pKeyRing, 0, NUM_KEYS * sizeof(KEY_ON_RING) );
-
-			for ( iCounter = 0; iCounter < NUM_KEYS; iCounter++ )
-			{
-				this->pKeyRing[iCounter].ubKeyID = INVALID_KEY_NUMBER;
-			}
+			this->keyRing().activate();
 		}
 		else
 		{
-			this->pKeyRing = NULL;
+			this->keyRing().deactivate();
 		}
 		// Initialize the allocation-free animation surface working set.
 		this->animationCache().initialize( usSoldierID );
@@ -2608,12 +2604,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 			}
 		}
 
-		// Delete key ring
-		if ( this->pKeyRing )
-		{
-			MemFree( this->pKeyRing );
-			this->pKeyRing = NULL;
-		}
+		// Clear inline key-ring storage and its historical presence marker.
+		this->keyRing().deactivate();
 
 		// Delete faces
 		DeleteSoldierFace( this );

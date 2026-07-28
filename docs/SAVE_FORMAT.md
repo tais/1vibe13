@@ -316,6 +316,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   twelve represented fields and resets zipper/drop-pack state, which that
   record did not contain. No save, profile, packet, map, XML, Lua, multiplayer,
   package, or installed-data bytes change.
+- The optional soldier key ring is now inline storage owned by
+  `SoldierKeyRingComponent`, so copying a soldier cannot alias a separately
+  allocated ring. The pointer position in the portable soldier visitor remains
+  a zero-byte retired landmark. `SaveSoldierStructure` and
+  `LoadSoldierStructure` still emit and consume the same one-byte presence flag
+  followed by 255 two-byte `KEY_ON_RING` entries (or 64 entries for historical
+  saves). Key tables, items, maps, XML, Lua, multiplayer, packages, installed
+  data, and current save bytes are unchanged.
 - The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
   32-bit 1.13 feature-mask banks are now stored by
   `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their

@@ -989,6 +989,15 @@ the engine must not contain SDL types in its public domain model.
   clears zipper/drop-pack state absent from that record. Save data, profiles,
   packets, maps, XML, Lua, multiplayer protocols, packages, and installed game
   data are unchanged.
+  `SoldierKeyRingComponent` owns the complementary optional key-ring payload.
+  Its 255 established two-byte slots are inline and copied by value, removing
+  per-soldier allocation/free traffic and preventing whole-record copies or
+  repository swaps from aliasing one heap buffer. An explicit presence marker
+  retains the historical player/non-player distinction. The portable soldier
+  visitor keeps the retired pointer landmark byte-neutral, while the existing
+  outer soldier save path still writes the same presence byte followed by the
+  same fixed key payload. No key table, item, save, map, XML, Lua, package, or
+  installed-data format changes.
   The three later, independent compatibility banks are now privately owned by
   `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
   event markers and the two unsigned 32-bit feature masks introduced by 1.13

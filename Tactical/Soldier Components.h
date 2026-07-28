@@ -2,6 +2,7 @@
 #define TACTICAL_SOLDIER_COMPONENTS_H
 
 #include "Disease Types.h"
+#include "Keys.h"
 #include "Overhead Types.h"
 #include "types.h"
 
@@ -354,6 +355,34 @@ private:
 	BOOLEAN checkForNewItems_ = FALSE;
 	BOOLEAN zipperFlag_ = FALSE;
 	BOOLEAN dropPackFlag_ = FALSE;
+};
+
+// Canonical key-ring storage. Only eligible soldiers activate a ring, retaining
+// the historical null/non-null distinction, while the fixed-capacity slots are
+// inline so whole-soldier copies cannot alias one heap allocation.
+class SoldierKeyRingComponent
+{
+public:
+	static constexpr UINT16 SlotCount = NUM_KEYS;
+	using Slots = KEY_ON_RING[SlotCount];
+
+	bool active() const noexcept { return active_; }
+	KEY_ON_RING* data() noexcept { return active_ ? slots_ : nullptr; }
+	const KEY_ON_RING* data() const noexcept { return active_ ? slots_ : nullptr; }
+	Slots& slots() noexcept { return slots_; }
+	const Slots& slots() const noexcept { return slots_; }
+	KEY_ON_RING& operator[](UINT16 slot) noexcept { return slots_[slot]; }
+	const KEY_ON_RING& operator[](UINT16 slot) const noexcept { return slots_[slot]; }
+
+	void activate() noexcept;
+	void ensureActive() noexcept;
+	void deactivate() noexcept;
+	void clear() noexcept;
+	void reset() noexcept;
+
+private:
+	Slots slots_{};
+	bool active_ = false;
 };
 
 // Canonical tactical service relationship. A provider points at one patient,

@@ -162,18 +162,18 @@ BOOLEAN KeyExistsInKeyRing( SOLDIERTYPE *pSoldier, UINT8 ubKeyID, UINT8 * pubPos
 	// returns the index into the key ring where the key can be found
 	UINT8 ubLoop;
 
-	if (!(pSoldier->pKeyRing))
+	if (!pSoldier->keyRing().active())
 	{
 		// no key ring!
 		return( FALSE );
 	}
 	for (ubLoop = 0; ubLoop < NUM_KEYS; ubLoop++)
 	{
-		if (pSoldier->pKeyRing[ubLoop].ubNumber == 0)
+		if (pSoldier->keyRing()[ubLoop].ubNumber == 0)
 		{
 			continue;
 		}
-		if (pSoldier->pKeyRing[ubLoop].ubKeyID == ubKeyID || (ubKeyID == ANYKEY) )
+		if (pSoldier->keyRing()[ubLoop].ubKeyID == ubKeyID || (ubKeyID == ANYKEY) )
 		{
 			// found it!
 			if (pubPos)
@@ -2222,7 +2222,7 @@ void HandleDoorsChangeWhenEnteringSectorCurrentlyLoaded( )
 
 void DropKeysInKeyRing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 bVisible, BOOLEAN fAddToDropList, INT32 iDropListSlot, BOOLEAN fUseUnLoaded )
 {
-	if (!(pSoldier->pKeyRing))
+	if (!pSoldier->keyRing().active())
 	{
 		// no key ring!
 		return;
@@ -2231,15 +2231,15 @@ void DropKeysInKeyRing( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, INT8 
 	UINT8		ubItem;
 	for (ubLoop = 0; ubLoop < NUM_KEYS; ubLoop++)
 	{
-			ubItem = pSoldier->pKeyRing[ ubLoop ].ubKeyID;
+			ubItem = pSoldier->keyRing()[ ubLoop ].ubKeyID;
 
-		if ( pSoldier->pKeyRing[ubLoop].ubNumber > 0 )
+		if ( pSoldier->keyRing()[ubLoop].ubNumber > 0 )
 		{
-				CreateKeyObject( &gTempObject, pSoldier->pKeyRing[ubLoop].ubNumber, ubItem );
+				CreateKeyObject( &gTempObject, pSoldier->keyRing()[ubLoop].ubNumber, ubItem );
 
 			// Zero out entry
-			pSoldier->pKeyRing[ ubLoop ].ubNumber = 0;
-			pSoldier->pKeyRing[ ubLoop ].ubKeyID = INVALID_KEY_NUMBER;
+			pSoldier->keyRing()[ ubLoop ].ubNumber = 0;
+			pSoldier->keyRing()[ ubLoop ].ubKeyID = INVALID_KEY_NUMBER;
 
 			if ( fAddToDropList )
 			{

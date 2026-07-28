@@ -7658,24 +7658,24 @@ BOOLEAN RemoveKeyFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECT
 
 	CHECKF( pObj );
 
-	if( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
+	if( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
 	{
 		return( FALSE );
 	}
 	else
 	{
 		// create an object
-		ubItem = pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID;
+		ubItem = pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID;
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber > 1 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber > 1 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber--;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber--;
 		}
 		else
 		{
 
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = 0;
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = 0;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
 		}
 
 		return( CreateKeyObject( pObj, 1, ubItem ) );
@@ -7692,7 +7692,7 @@ BOOLEAN RemoveKeysFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, UINT8
 	CHECKF( pObj );
 
 
-	if( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
+	if( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 ) || ( pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID == INVALID_KEY_NUMBER ) )
 	{
 		return( FALSE );
 	}
@@ -7700,21 +7700,21 @@ BOOLEAN RemoveKeysFromSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, UINT8
 	{
 		//*pObj = pSoldier->inv[bPos];
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber < ubNumberOfKeys )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber < ubNumberOfKeys )
 		{
-			ubNumberOfKeys = pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber;
+			ubNumberOfKeys = pSoldier->keyRing()[ bKeyRingPosition ].ubNumber;
 		}
 
 
-		ubItems = pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID;
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber - ubNumberOfKeys > 0 )
+		ubItems = pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID;
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber - ubNumberOfKeys > 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber--;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber--;
 		}
 		else
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = 0;
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = 0;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = INVALID_KEY_NUMBER;
 		}
 
 		// create an object
@@ -7737,17 +7737,17 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 	}
 
 	// check if we are going to far
-	if ( ( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber + pObj->ubNumberOfObjects ) > ItemSlotLimit(pObj, STACK_SIZE_LIMIT) )
+	if ( ( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber + pObj->ubNumberOfObjects ) > ItemSlotLimit(pObj, STACK_SIZE_LIMIT) )
 	{
 		// only take what we can
-		ubNumberNotAdded = pObj->ubNumberOfObjects - ( ItemSlotLimit(pObj, STACK_SIZE_LIMIT) - pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber );
+		ubNumberNotAdded = pObj->ubNumberOfObjects - ( ItemSlotLimit(pObj, STACK_SIZE_LIMIT) - pSoldier->keyRing()[ bKeyRingPosition ].ubNumber );
 
 		// set to max
-		pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = ItemSlotLimit(pObj, STACK_SIZE_LIMIT);
+		pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = ItemSlotLimit(pObj, STACK_SIZE_LIMIT);
 
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 		}
 
 		// return number used
@@ -7756,12 +7756,12 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 	else
 	{
 		// check
-		if( pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber == 0 )
+		if( pSoldier->keyRing()[ bKeyRingPosition ].ubNumber == 0 )
 		{
-			pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+			pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 		}
 
-		pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber += pObj->ubNumberOfObjects;
+		pSoldier->keyRing()[ bKeyRingPosition ].ubNumber += pObj->ubNumberOfObjects;
 	}
 
 	return( pObj->ubNumberOfObjects );
@@ -7771,10 +7771,10 @@ UINT8 SwapKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE 
 {
 	// swap keys in keyring slot and keys in pocket
 	// create temp object to hold keys currently in key ring slot
-	CreateKeyObject( &gTempObject, pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber, pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID );
+	CreateKeyObject( &gTempObject, pSoldier->keyRing()[ bKeyRingPosition ].ubNumber, pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID );
 
-	pSoldier->pKeyRing[ bKeyRingPosition ].ubNumber = pObj->ubNumberOfObjects;
-	pSoldier->pKeyRing[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
+	pSoldier->keyRing()[ bKeyRingPosition ].ubNumber = pObj->ubNumberOfObjects;
+	pSoldier->keyRing()[ bKeyRingPosition ].ubKeyID = (*pObj)[0]->data.key.ubKeyID;
 
 	// swap params?
 	*pObj = gTempObject;

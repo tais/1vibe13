@@ -7284,6 +7284,12 @@ int main( int, char** )
 			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
 			const SoldierFeatureFlagsComponent&>);
 		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().keyRing()),
+			SoldierKeyRingComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().keyRing()),
+			const SoldierKeyRingComponent&>);
+		static_assert(std::is_same_v<
 			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
 			SoldierFrontArcComponent&>);
 		static_assert(std::is_same_v<
@@ -7369,6 +7375,9 @@ int main( int, char** )
 		inventoryState.checkForNewItems() = TRUE;
 		inventoryState.zipperFlag() = TRUE;
 		inventoryState.dropPackFlag() = TRUE;
+		soldier.keyRing().activate();
+		soldier.keyRing()[17].ubKeyID = 42;
+		soldier.keyRing()[17].ubNumber = 3;
 		soldier.replication().updatedFromNetwork() = TRUE;
 		soldier.aiPlanning().lastFlankLeft() = TRUE;
 		soldier.condition().gasHitFlags() = 0xA5;
@@ -8518,6 +8527,35 @@ int main( int, char** )
 		       !inventoryStateLifecycle.zipperFlag() &&
 		       !inventoryStateLifecycle.dropPackFlag(),
 		       "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state" );
+		SoldierKeyRingComponent keyRingLifecycle;
+		CHECK( !keyRingLifecycle.active() &&
+		       keyRingLifecycle.data() == nullptr,
+		       "soldier key ring defaults to the historical absent state" );
+		keyRingLifecycle.activate();
+		const bool keyRingStartsEmpty =
+			keyRingLifecycle.active() &&
+			keyRingLifecycle[0].ubKeyID == INVALID_KEY_NUMBER &&
+			keyRingLifecycle[0].ubNumber == 0 &&
+			keyRingLifecycle[SoldierKeyRingComponent::SlotCount - 1].ubKeyID ==
+				INVALID_KEY_NUMBER &&
+			keyRingLifecycle[SoldierKeyRingComponent::SlotCount - 1].ubNumber == 0;
+		keyRingLifecycle[9].ubKeyID = 51;
+		keyRingLifecycle[9].ubNumber = 2;
+		SoldierKeyRingComponent copiedKeyRing = keyRingLifecycle;
+		copiedKeyRing[9].ubNumber = 1;
+		CHECK( keyRingStartsEmpty &&
+		       copiedKeyRing.active() &&
+		       copiedKeyRing.data() != keyRingLifecycle.data() &&
+		       copiedKeyRing[9].ubKeyID == 51 &&
+		       copiedKeyRing[9].ubNumber == 1 &&
+		       keyRingLifecycle[9].ubNumber == 2,
+		       "soldier key-ring copies own independent fixed-capacity storage" );
+		keyRingLifecycle.reset();
+		CHECK( !keyRingLifecycle.active() &&
+		       keyRingLifecycle.data() == nullptr &&
+		       keyRingLifecycle[9].ubKeyID == INVALID_KEY_NUMBER &&
+		       keyRingLifecycle[9].ubNumber == 0,
+		       "soldier key-ring reset clears every slot and its presence marker" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -9129,6 +9167,15 @@ int main( int, char** )
 		vitals.regenerationBoostersUsedToday() = 3;
 		vitals.lastBleedGruntAt() = 12341;
 		SOLDIERTYPE copiedSoldier = soldier;
+		const bool copiedSoldierKeyRingIsIndependent =
+			copiedSoldier.keyRing().active() &&
+			copiedSoldier.keyRing().data() != soldier.keyRing().data() &&
+			copiedSoldier.keyRing()[17].ubKeyID == 42 &&
+			copiedSoldier.keyRing()[17].ubNumber == 3;
+		copiedSoldier.keyRing()[17].ubNumber = 2;
+		CHECK( copiedSoldierKeyRingIsIndependent &&
+		       soldier.keyRing()[17].ubNumber == 3,
+		       "soldier copies retain key contents without aliasing key-ring storage" );
 		CHECK( copiedSoldier.identity().id() == SoldierID{ 37 } &&
 		       copiedSoldier.identity().name()[0] == L'J' &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'X' &&
@@ -10391,6 +10438,11 @@ int main( int, char** )
 		       scheduleLifecycle.doorGrid() == 0,
 		       "schedule reset clears identity, progress, and door continuation state" );
 		copiedSoldier.initialize();
+		CHECK( !copiedSoldier.keyRing().active() &&
+		       copiedSoldier.keyRing().data() == nullptr &&
+		       copiedSoldier.keyRing()[17].ubKeyID == INVALID_KEY_NUMBER &&
+		       copiedSoldier.keyRing()[17].ubNumber == 0,
+		       "soldier initialization clears key-ring contents and presence" );
 		CHECK( copiedSoldier.identity().id() == NOBODY &&
 		       copiedSoldier.identity().name()[0] == 0 &&
 		       copiedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == 0 &&
@@ -11515,6 +11567,9 @@ int main( int, char** )
 		convertedSoldier.inventoryState().checkForNewItems() = FALSE;
 		convertedSoldier.inventoryState().zipperFlag() = TRUE;
 		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
+		convertedSoldier.keyRing().activate();
+		convertedSoldier.keyRing()[4].ubKeyID = 44;
+		convertedSoldier.keyRing()[4].ubNumber = 4;
 		convertedSoldier.replication().updatedFromNetwork() = FALSE;
 		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
 		convertedSoldier.aiPlanning().actionData() = 99901;
@@ -11793,6 +11848,11 @@ int main( int, char** )
 		       convertedSoldier.animationActivity().reactingFromShot() &&
 		       convertedSoldier.animationActivity().externalDeath(),
 		       "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema" );
+		CHECK( !convertedSoldier.keyRing().active() &&
+		       convertedSoldier.keyRing().data() == nullptr &&
+		       convertedSoldier.keyRing()[4].ubKeyID == INVALID_KEY_NUMBER &&
+		       convertedSoldier.keyRing()[4].ubNumber == 0,
+		       "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -12813,6 +12873,9 @@ int main( int, char** )
 		savedSoldier.animationActivity().setRenderZOverride(888);
 		savedSoldier.animationActivity().randomActionCheckCounter() = 81;
 		savedSoldier.animationActivity().lastRandomAnimation() = 124;
+		savedSoldier.keyRing().activate();
+		savedSoldier.keyRing()[23].ubKeyID = 62;
+		savedSoldier.keyRing()[23].ubNumber = 5;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -12827,6 +12890,10 @@ int main( int, char** )
 		FileDelete( const_cast<char*>( path.c_str() ) );
 		guiCurrentSaveGameVersion = previousSaveVersion;
 
+		CHECK( saved && loaded &&
+		       !loadedSoldier.keyRing().active() &&
+		       loadedSoldier.keyRing().data() == nullptr,
+		       "soldier POD save/load keeps key-ring storage runtime-only for separate payload restoration" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
 		       loadedSoldier.identity().name()[0] == L'S' &&

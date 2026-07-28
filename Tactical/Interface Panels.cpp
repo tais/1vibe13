@@ -7603,7 +7603,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		if ( gpItemPointer == NULL )
 		{
 			// Return if empty
-			if( ( GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER ) || ( GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubNumber == 0 ) )
+			if( ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER ) || ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubNumber == 0 ) )
 				return;
 
 			// If our flags are set to do this, gofoit!
@@ -7692,7 +7692,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				//usOldItemIndex = GetSMCurrentMerc()->inv[ uiHandPos ].usItem;
 				//usNewItemIndex = gpItemPointer->usItem;
 
-				if ( GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER || GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubKeyID == (*gpItemPointer)[0]->data.key.ubKeyID)
+				if ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER || GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == (*gpItemPointer)[0]->data.key.ubKeyID)
 				{
 					// Try to place here
 					if ( ( iNumberOfKeysTaken = AddKeysToSlot( GetItemPopupSoldier(), ( INT8 )uiKeyRing, gpItemPointer ) ) )
@@ -7772,7 +7772,7 @@ void KeyRingSlotInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		fRightDown = FALSE;
 
 		// Return if empty
-		if( ( GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER ) || ( GetItemPopupSoldier()->pKeyRing[ uiKeyRing ].ubNumber == 0 ) )
+		if( ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubKeyID == INVALID_KEY_NUMBER ) || ( GetItemPopupSoldier()->keyRing()[ uiKeyRing ].ubNumber == 0 ) )
 		{
 			DeleteKeyRingPopup( );
 			fTeamPanelDirty = TRUE;

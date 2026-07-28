@@ -314,6 +314,14 @@ retains all fourteen original positions and widths. v101 conversion maps its
 twelve historical fields and clears the later zipper/drop-pack flags. No save,
 profile, packet, map, XML, Lua, multiplayer, package, or installed-data format
 changes.
+The separately persisted optional key ring now has one inline
+`SoldierKeyRingComponent` owner. Its fixed 255-slot `KEY_ON_RING` representation
+and presence semantics are unchanged, but soldier copies and repository swaps
+receive independent storage instead of sharing a raw heap pointer. Creation,
+deletion, initialization, v101 conversion, and current loading use explicit
+activate/reset transitions. The outer soldier save adapter still emits the
+same presence byte and fixed payload; content-facing key tables, items, maps,
+XML, Lua, multiplayer, packages, and installed data do not change.
 The post-v101 extension banks remain deliberately separate from those former
 general flags. `SoldierFeatureFlagsComponent` privately owns the unsigned
 8-bit gunshot/explosion/X-ray event markers and both unsigned 32-bit 1.13

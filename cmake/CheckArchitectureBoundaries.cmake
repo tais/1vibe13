@@ -4893,6 +4893,149 @@ if(soldier_flags_save_documented EQUAL -1)
     "Former general-flag byte compatibility must remain documented")
 endif()
 
+# The optional key-ring payload is soldier-owned inline storage. Preserve the
+# historical absent/present distinction and outer save payload while preventing
+# raw heap ownership or whole-record pointer aliasing from returning.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*KEY_ON_RING[ \t]*\\*[ \t]*pKeyRing[ \t]*;"
+  retired_current_key_ring_pointer
+  "${current_soldier_contents}")
+if(retired_current_key_ring_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE pKeyRing pointer returned; use SoldierKeyRingComponent")
+endif()
+string(REGEX MATCH
+  "SoldierKeyRingComponent[ \t\r\n]+keyRing_[ \t]*;"
+  soldier_key_ring_owner
+  "${current_soldier_contents}")
+if(NOT soldier_key_ring_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierKeyRingComponent")
+endif()
+foreach(required_key_ring_accessor IN ITEMS
+  "SoldierKeyRingComponent& keyRing() noexcept"
+  "const SoldierKeyRingComponent& keyRing() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_key_ring_accessor}"
+    soldier_key_ring_accessor)
+  if(soldier_key_ring_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost key-ring accessor '${required_key_ring_accessor}'")
+  endif()
+endforeach()
+foreach(required_key_ring_contract IN ITEMS
+  "static constexpr UINT16 SlotCount = NUM_KEYS;"
+  "using Slots = KEY_ON_RING[SlotCount];"
+  "bool active() const noexcept"
+  "KEY_ON_RING* data() noexcept"
+  "const KEY_ON_RING* data() const noexcept"
+  "KEY_ON_RING& operator[](UINT16 slot) noexcept"
+  "const KEY_ON_RING& operator[](UINT16 slot) const noexcept"
+  "void activate() noexcept;"
+  "void ensureActive() noexcept;"
+  "void deactivate() noexcept;"
+  "void clear() noexcept;"
+  "void reset() noexcept;"
+  "Slots slots_{};"
+  "bool active_ = false;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_key_ring_contract}"
+    soldier_key_ring_contract)
+  if(soldier_key_ring_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierKeyRingComponent lost contract '${required_key_ring_contract}'")
+  endif()
+endforeach()
+foreach(required_key_ring_transition IN ITEMS
+  "void SoldierKeyRingComponent::activate() noexcept"
+  "void SoldierKeyRingComponent::ensureActive() noexcept"
+  "void SoldierKeyRingComponent::deactivate() noexcept"
+  "void SoldierKeyRingComponent::clear() noexcept"
+  "key.ubKeyID = INVALID_KEY_NUMBER;"
+  "key.ubNumber = 0;"
+  "void SoldierKeyRingComponent::reset() noexcept")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_key_ring_transition}"
+    soldier_key_ring_transition)
+  if(soldier_key_ring_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierKeyRingComponent lost lifecycle transition '${required_key_ring_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "keyRing\\(\\)\\.reset\\(\\)"
+  soldier_key_ring_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_key_ring_reset_sites
+  soldier_key_ring_reset_site_count)
+if(NOT soldier_key_ring_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Key-ring state must reset during v101 conversion and current initialization")
+endif()
+foreach(required_key_ring_runtime IN ITEMS
+  "this->keyRing().activate();"
+  "this->keyRing().deactivate();")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_key_ring_runtime}"
+    soldier_key_ring_runtime)
+  if(soldier_key_ring_runtime EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier lifecycle bypassed key-ring transition '${required_key_ring_runtime}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "ar\\.ptr\\(s\\.pTempObject\\);[ \t\r\n]*if \\(Ar::isLoading\\) s\\.keyRing\\(\\)\\.reset\\(\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u8\\(s\\.roster\\(\\)\\.inSector\\(\\)\\);"
+  serialized_soldier_key_ring_landmark
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_key_ring_landmark)
+  message(FATAL_ERROR
+    "Retired key-ring pointer landmark moved in the portable soldier schema")
+endif()
+foreach(required_key_ring_save_adapter IN ITEMS
+  "if( soldier.keyRing().active() )"
+  "FileWrite( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING )"
+  "SavedSoldierInfo.keyRing().reset();"
+  "soldier.keyRing().ensureActive();"
+  "soldier.keyRing().clear();"
+  "FileRead( hFile, soldier.keyRing().data(), NUM_KEYS_OLD * sizeof( KEY_ON_RING )"
+  "FileRead( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING )")
+  string(FIND "${save_load_game_contents}"
+    "${required_key_ring_save_adapter}"
+    soldier_key_ring_save_adapter)
+  if(soldier_key_ring_save_adapter EQUAL -1)
+    message(FATAL_ERROR
+      "Outer soldier save path lost key-ring compatibility adapter '${required_key_ring_save_adapter}'")
+  endif()
+endforeach()
+foreach(required_key_ring_test IN ITEMS
+  "soldier key ring defaults to the historical absent state"
+  "soldier key-ring copies own independent fixed-capacity storage"
+  "soldier key-ring reset clears every slot and its presence marker"
+  "soldier copies retain key contents without aliasing key-ring storage"
+  "soldier initialization clears key-ring contents and presence"
+  "v101 soldier conversion retires the process-local key-ring pointer before separate payload restoration"
+  "soldier POD save/load keeps key-ring storage runtime-only for separate payload restoration")
+  string(FIND "${headless_test_contents}"
+    "${required_key_ring_test}"
+    soldier_key_ring_test)
+  if(soldier_key_ring_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost key-ring fixture '${required_key_ring_test}'")
+  endif()
+endforeach()
+foreach(key_ring_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${key_ring_documentation}"
+    "SoldierKeyRingComponent"
+    soldier_key_ring_documented)
+  if(soldier_key_ring_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier key-ring inline ownership and save compatibility must remain documented")
+  endif()
+endforeach()
+
 # The three later feature banks and delayed strategic morale were independent
 # flat tail fields. Give the flag banks one explicit compatibility owner and
 # fold delayed morale into the existing morale lifecycle without moving any
@@ -11801,6 +11944,14 @@ foreach(source_file IN LISTS soldier_storage_sources)
   if(retired_soldier_ai_data_access)
     message(FATAL_ERROR
       "Application code accesses retired SOLDIERTYPE aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
+  endif()
+  string(REGEX MATCH
+    "(->|\\.)[ \t\r\n]*pKeyRing([^A-Za-z0-9_]|$)"
+    direct_retired_key_ring_access
+    "${contents}")
+  if(direct_retired_key_ring_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE pKeyRing in ${source_file}; use keyRing()")
   endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"

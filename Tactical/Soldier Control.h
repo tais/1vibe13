@@ -654,12 +654,6 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 
 typedef struct
 {
-	UINT8			ubKeyID;
-	UINT8			ubNumber;
-} KEY_ON_RING;
-
-typedef struct
-{
 	float				dX;
 	float				dY;
 	float				dZ;
@@ -785,6 +779,8 @@ public:
 	const SoldierFeatureFlagsComponent& featureFlags() const noexcept { return featureFlags_; }
 	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
 	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
+	SoldierKeyRingComponent& keyRing() noexcept { return keyRing_; }
+	const SoldierKeyRingComponent& keyRing() const noexcept { return keyRing_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -888,7 +884,6 @@ public:
 	INT16	GetMaxDistanceVisible(INT32 sGridNo = -1, INT8 bLevel = -1, int calcAsType = -1, SOLDIERTYPE *pKnownSubject = NULL);
 
 	OBJECTTYPE		*pTempObject;
-	KEY_ON_RING		*pKeyRing;
 
 	INT32			iFaceIndex;
 
@@ -941,6 +936,7 @@ private:
 	SoldierStatusComponent	status_;
 	SoldierFeatureFlagsComponent	featureFlags_;
 	SoldierInventoryStateComponent	inventoryState_;
+	SoldierKeyRingComponent	keyRing_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;

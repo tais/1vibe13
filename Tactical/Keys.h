@@ -8,6 +8,17 @@
 class OBJECTTYPE;
 class SOLDIERTYPE;
 
+// One persisted slot on a mercenary's key ring. Keep this in the key domain
+// rather than in SOLDIERTYPE so both the key subsystem and the soldier-owned
+// storage component share the same stable representation.
+struct KEY_ON_RING
+{
+	UINT8 ubKeyID;
+	UINT8 ubNumber;
+};
+static_assert(sizeof(KEY_ON_RING) == 2,
+	"Key-ring save payload requires two one-byte fields per slot");
+
 
 typedef struct
 {

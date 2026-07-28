@@ -1757,7 +1757,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.identity().bodyType());
 	ar.i16(actionPoints.current()); ar.i16(actionPoints.initial());
 	ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.roster().active()); ar.i8(s.roster().team());
-	ar.ptr(s.pTempObject); ar.ptr(s.pKeyRing);
+	ar.ptr(s.pTempObject);
+	if (Ar::isLoading) s.keyRing().reset();
+	ar.retiredPtr();
 	ar.u8(s.roster().inSector()); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());
 	ar.i8(vitals.bleeding()); ar.i8(vitals.breath()); ar.i8(vitals.maximumBreath()); ar.i8(movement.stealthMode()); ar.i16(vitals.breathReduction());
 	ar.u8(movement.waitAction()); ar.i8(deployment.insertionDirection()); ar.i8(fireControl.gunType()); ar.u16(targeting.engagedOpponent().i);
@@ -6264,10 +6266,10 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 				return( FALSE );
 
 			//
-			//do we have a 	KEY_ON_RING									*pKeyRing;
+			// Preserve the historical key-ring presence byte and payload.
 			//
 
-			if( soldier.pKeyRing != NULL )
+			if( soldier.keyRing().active() )
 			{
 				// write to the file saying we have the ....
 				FileWrite( hFile, &ubOne, 1, &uiNumBytesWritten );
@@ -6277,7 +6279,7 @@ BOOLEAN SaveSoldierStructure( HWFILE hFile )
 				}
 
 				// Now save the ....
-				FileWrite( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
+				FileWrite( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesWritten );
 				if( uiNumBytesWritten != NUM_KEYS * sizeof( KEY_ON_RING ) )
 				{
 					return(FALSE);
@@ -6341,7 +6343,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			//Make sure all the pointer references are NULL'ed out.	
 			SavedSoldierInfo.pTempObject	= NULL;
-			SavedSoldierInfo.pKeyRing	= NULL;
+			SavedSoldierInfo.keyRing().reset();
 			SavedSoldierInfo.p8BPPPalette	= NULL;
 			SavedSoldierInfo.p16BPPPalette	= NULL;
 			memset( SavedSoldierInfo.pShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_SHADES );
@@ -6373,7 +6375,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				return( FALSE );
 			
 			//
-			//do we have a 	KEY_ON_RING									*pKeyRing;
+			// Restore the historical optional key-ring payload into its inline owner.
 			//
 
 			// Read the file to see if we have to load the keys
@@ -6385,17 +6387,16 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 
 			if( ubOne )
 			{
-				// The save flag says this soldier had a keyring, but a recreated non-player
-				// soldier's pKeyRing is NULL -> FileRead into NULL would crash. Allocate it.
-				if ( soldier.pKeyRing == NULL )
-					soldier.pKeyRing = (KEY_ON_RING *) MemAlloc( NUM_KEYS * sizeof( KEY_ON_RING ) );
-				if ( soldier.pKeyRing == NULL )
-					return( FALSE );
+				// Old saves may carry a ring for a soldier that current team
+				// eligibility would leave inactive. Inline storage makes that
+				// restoration deterministic and allocation-free.
+				soldier.keyRing().ensureActive();
+				soldier.keyRing().clear();
 				// WANNE - BMP: Check -> We get an assert here!
 				// Now Load the ....
 				if( guiCurrentSaveGameVersion < MORE_LOCKS_AND_KEYS )
 				{
-					FileRead( hFile, soldier.pKeyRing, NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.keyRing().data(), NUM_KEYS_OLD * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS_OLD * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6403,7 +6404,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 				}
 				else
 				{
-					FileRead( hFile, soldier.pKeyRing, NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
+					FileRead( hFile, soldier.keyRing().data(), NUM_KEYS * sizeof( KEY_ON_RING ), &uiNumBytesRead );
 					if( uiNumBytesRead != NUM_KEYS * sizeof( KEY_ON_RING ) )
 					{
 						return(FALSE);
@@ -6412,7 +6413,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			}
 			else
 			{
-				Assert( soldier.pKeyRing == NULL );
+				Assert( !soldier.keyRing().active() );
 			}
 
 			if ( guiCurrentSaveGameVersion < 99 )

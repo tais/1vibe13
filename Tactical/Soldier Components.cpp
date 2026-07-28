@@ -60,6 +60,40 @@ void SoldierInventoryStateComponent::reset() noexcept
 	*this = SoldierInventoryStateComponent{};
 }
 
+void SoldierKeyRingComponent::activate() noexcept
+{
+	active_ = true;
+	clear();
+}
+
+void SoldierKeyRingComponent::ensureActive() noexcept
+{
+	if (!active_)
+	{
+		activate();
+	}
+}
+
+void SoldierKeyRingComponent::deactivate() noexcept
+{
+	active_ = false;
+	clear();
+}
+
+void SoldierKeyRingComponent::clear() noexcept
+{
+	for (KEY_ON_RING& key : slots_)
+	{
+		key.ubKeyID = INVALID_KEY_NUMBER;
+		key.ubNumber = 0;
+	}
+}
+
+void SoldierKeyRingComponent::reset() noexcept
+{
+	deactivate();
+}
+
 void SoldierServiceComponent::addProvider() noexcept
 {
 	if (providerCount_ < std::numeric_limits<UINT8>::max())
