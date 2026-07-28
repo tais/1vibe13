@@ -2721,7 +2721,7 @@ foreach(condition_save_position IN ITEMS
   "ar.u8(condition.starvationHealthDamage()); ar.u8(condition.starvationStrengthDamage());"
   "for (i = 0; i < NUM_DISEASES; ++i) ar.i16(condition.diseasePoints(i));"
   "for (i = 0; i < NUM_DISEASES; ++i) ar.u8(condition.diseaseFlags(i));"
-  "ar.u32(condition.disabilityFlags()); ar.i32(s.sDragGridNo);")
+  "ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());")
   string(FIND "${save_load_game_contents}"
     "${condition_save_position}"
     soldier_condition_save_position)
@@ -2851,6 +2851,157 @@ if(soldier_long_action_type_validation EQUAL -1 OR
    soldier_long_action_hack_result_context EQUAL -1)
   message(FATAL_ERROR
     "Multi-turn actions must bound IDs and retain the validated target through completion")
+endif()
+
+# Direct peer and world interactions are one lifecycle domain. Preserve the
+# established five scattered save fields, keep drag targets mutually exclusive,
+# and retain explicit invalid sentinels so a fresh soldier cannot accidentally
+# refer to corpse zero or confuse structure grid zero with no structure.
+foreach(retired_interaction_field IN ITEMS
+  sNonNPCTraderID
+  usDragPersonID
+  sDragCorpseID
+  usChatPartnerID
+  sDragGridNo)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_interaction_field}([^A-Za-z0-9_]|$)"
+    retired_current_interaction_field
+    "${current_soldier_contents}")
+  if(retired_current_interaction_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE interaction field '${retired_interaction_field}' returned; direct interactions belong to SoldierInteractionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierInteractionComponent[ \t\r\n]+interaction_[ \t]*;"
+  soldier_interaction_owner
+  "${current_soldier_contents}")
+if(NOT soldier_interaction_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierInteractionComponent")
+endif()
+
+foreach(owned_interaction_pattern IN ITEMS
+  "INT8[ \t]+nonNpcTraderId_[ \t]*=[ \t]*0"
+  "SoldierID[ \t]+draggedPerson_[ \t]*=[ \t]*NOBODY"
+  "INT16[ \t]+draggedCorpse_[ \t]*=[ \t]*-1"
+  "SoldierID[ \t]+chatPartner_[ \t]*=[ \t]*NOBODY"
+  "INT32[ \t]+draggedStructureGrid_[ \t]*=[ \t]*NoGrid")
+  string(REGEX MATCH
+    "${owned_interaction_pattern}"
+    owned_soldier_interaction_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_interaction_field)
+    message(FATAL_ERROR
+      "SoldierInteractionComponent lost initialized owned storage matching '${owned_interaction_pattern}'")
+  endif()
+endforeach()
+
+foreach(interaction_accessor IN ITEMS
+  nonNpcTraderId
+  draggedPerson
+  draggedCorpse
+  chatPartner
+  draggedStructureGrid)
+  string(REGEX MATCH
+    "${interaction_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_interaction_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_interaction_accessor)
+    message(FATAL_ERROR
+      "SoldierInteractionComponent lost the '${interaction_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(interaction_operation IN ITEMS
+  "bool isNonNpcTrader() const noexcept"
+  "bool draggingPerson() const noexcept"
+  "bool draggingCorpse() const noexcept"
+  "bool draggingStructure() const noexcept"
+  "bool dragging() const noexcept"
+  "bool chatting() const noexcept"
+  "void dragPerson(SoldierID soldier) noexcept"
+  "void dragCorpse(INT16 corpse) noexcept"
+  "void dragStructure(INT32 grid) noexcept"
+  "void copyDragFrom(const SoldierInteractionComponent& source) noexcept"
+  "void clearDrag() noexcept"
+  "void beginChatWith(SoldierID soldier) noexcept"
+  "void endChat() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${interaction_operation}"
+    soldier_interaction_operation)
+  if(soldier_interaction_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierInteractionComponent lost required interaction operation '${interaction_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierInteractionComponent& interaction() noexcept"
+  soldier_interaction_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierInteractionComponent{};"
+  soldier_interaction_default_reset)
+string(REGEX MATCHALL
+  "interaction\\(\\)\\.reset\\(\\);"
+  soldier_interaction_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_interaction_reset_sites soldier_interaction_reset_site_count)
+if(soldier_interaction_accessor EQUAL -1 OR
+   soldier_interaction_default_reset EQUAL -1 OR
+   soldier_interaction_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierInteractionComponent must remain accessible and reset during both v101 conversion and current soldier initialization")
+endif()
+
+foreach(interaction_save_position IN ITEMS
+  "ar.u8(s.ubMilitiaAssists); ar.i8(interaction.nonNpcTraderId()); ar.u16(interaction.draggedPerson().i);"
+  "ar.i16(interaction.draggedCorpse()); ar.u16(interaction.chatPartner().i);"
+  "ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());")
+  string(FIND "${save_load_game_contents}"
+    "${interaction_save_position}"
+    soldier_interaction_save_position)
+  if(soldier_interaction_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier interaction state moved or changed width in the portable save schema at '${interaction_save_position}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_header_contents}"
+  "bool draggingStructure() const noexcept { return draggedStructureGrid_ >= 0; }"
+  soldier_interaction_structure_sentinel)
+string(FIND "${soldier_components_source_contents}"
+  "draggedCorpse_ = -1;"
+  soldier_interaction_corpse_sentinel)
+string(REGEX MATCHALL
+  "void SoldierInteractionComponent::drag(Person|Corpse|Structure)\\([^\\)]*\\) noexcept[ \t\r\n]*\\{[ \t\r\n]*clearDrag\\(\\);"
+  soldier_interaction_exclusive_drag_operations
+  "${soldier_components_source_contents}")
+list(LENGTH soldier_interaction_exclusive_drag_operations
+  soldier_interaction_exclusive_drag_operation_count)
+if(soldier_interaction_structure_sentinel EQUAL -1 OR
+   soldier_interaction_corpse_sentinel EQUAL -1 OR
+   soldier_interaction_exclusive_drag_operation_count LESS 3)
+  message(FATAL_ERROR
+    "Soldier drag targets must remain mutually exclusive with explicit corpse and structure sentinels")
+endif()
+
+file(READ "${SOURCE_ROOT}/TileEngine/structure.cpp"
+  tile_structure_source_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Add.cpp"
+  soldier_add_source_contents)
+string(FIND "${tile_structure_source_contents}"
+  "dragBuildSoldier->interaction().draggingStructure()"
+  soldier_interaction_explicit_structure_query)
+string(FIND "${soldier_add_source_contents}"
+  "soldier.interaction().copyDragFrom( pSoldier->interaction() )"
+  soldier_interaction_path_clone)
+if(soldier_interaction_explicit_structure_query EQUAL -1 OR
+   soldier_interaction_path_clone EQUAL -1)
+  message(FATAL_ERROR
+    "Structure placement and pathing clones must consume the owned drag lifecycle instead of raw sentinel truthiness")
 endif()
 
 # The tactical AP budget is a lifecycle pair, not two unrelated public

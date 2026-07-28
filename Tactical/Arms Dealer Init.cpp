@@ -1705,8 +1705,8 @@ BOOLEAN AddDeadArmsDealerItemsToWorld( UINT8 usProfileID, SoldierID aMercID )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(aMercID.i);
 
-		if ( pSoldier && pSoldier->sNonNPCTraderID > 0 )
-			bArmsDealer = pSoldier->sNonNPCTraderID;
+		if ( pSoldier && pSoldier->interaction().isNonNpcTrader() )
+			bArmsDealer = pSoldier->interaction().nonNpcTraderId();
 		else
 			bArmsDealer = -1;
 	}

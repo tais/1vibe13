@@ -161,6 +161,50 @@ void SoldierLongActionComponent::reset() noexcept
 	*this = SoldierLongActionComponent{};
 }
 
+void SoldierInteractionComponent::dragPerson(SoldierID soldier) noexcept
+{
+	clearDrag();
+	draggedPerson_ = soldier;
+}
+
+void SoldierInteractionComponent::dragCorpse(INT16 corpse) noexcept
+{
+	clearDrag();
+	if (corpse >= 0)
+	{
+		draggedCorpse_ = corpse;
+	}
+}
+
+void SoldierInteractionComponent::dragStructure(INT32 grid) noexcept
+{
+	clearDrag();
+	if (grid >= 0)
+	{
+		draggedStructureGrid_ = grid;
+	}
+}
+
+void SoldierInteractionComponent::copyDragFrom(
+	const SoldierInteractionComponent& source) noexcept
+{
+	draggedPerson_ = source.draggedPerson_;
+	draggedCorpse_ = source.draggedCorpse_;
+	draggedStructureGrid_ = source.draggedStructureGrid_;
+}
+
+void SoldierInteractionComponent::clearDrag() noexcept
+{
+	draggedPerson_ = NOBODY;
+	draggedCorpse_ = -1;
+	draggedStructureGrid_ = NoGrid;
+}
+
+void SoldierInteractionComponent::reset() noexcept
+{
+	*this = SoldierInteractionComponent{};
+}
+
 void SoldierActionPointComponent::beginTurn(INT16 points) noexcept
 {
 	current_ = points;

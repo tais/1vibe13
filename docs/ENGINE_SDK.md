@@ -324,6 +324,14 @@ action IDs and validates the requested action instead of stale prior state;
 hack validation and result dispatch use the retained target grid consistently,
 including the established skill-equals-difficulty success boundary.
 The serializer retains all three original positions and widths.
+`SoldierInteractionComponent` owns non-profile merchant identity, mutually
+exclusive person, corpse, or structure dragging, and the reciprocal chat
+partner. Named drag, copy, chat, clear, and reset transitions give tactical,
+AI, placement, and persistence code one authority without owning the referenced
+entities. Fresh soldiers use explicit no-corpse and no-structure sentinels, and
+grid zero is handled as a valid structure location. The serializer retains all
+five original scattered positions and widths; v101 conversion clears this
+later domain.
 `SoldierActionPointComponent` separately owns the current and turn-start
 tactical AP budgets. Named turn setup, snapshot, and clear transitions keep that
 pair coherent, while network reconciliation still uses the established

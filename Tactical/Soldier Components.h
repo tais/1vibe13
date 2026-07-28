@@ -429,6 +429,52 @@ private:
 	UINT8 action_ = 0;
 };
 
+// Canonical state for direct world interactions. Non-profile merchant identity,
+// mutually exclusive person/corpse/structure dragging, and the reciprocal chat
+// partner share one reset boundary without owning the referenced entities.
+class SoldierInteractionComponent
+{
+public:
+	INT8& nonNpcTraderId() noexcept { return nonNpcTraderId_; }
+	const INT8& nonNpcTraderId() const noexcept { return nonNpcTraderId_; }
+	SoldierID& draggedPerson() noexcept { return draggedPerson_; }
+	const SoldierID& draggedPerson() const noexcept { return draggedPerson_; }
+	INT16& draggedCorpse() noexcept { return draggedCorpse_; }
+	const INT16& draggedCorpse() const noexcept { return draggedCorpse_; }
+	SoldierID& chatPartner() noexcept { return chatPartner_; }
+	const SoldierID& chatPartner() const noexcept { return chatPartner_; }
+	INT32& draggedStructureGrid() noexcept { return draggedStructureGrid_; }
+	const INT32& draggedStructureGrid() const noexcept { return draggedStructureGrid_; }
+
+	bool isNonNpcTrader() const noexcept { return nonNpcTraderId_ > 0; }
+	bool draggingPerson() const noexcept { return draggedPerson_ != NOBODY; }
+	bool draggingCorpse() const noexcept { return draggedCorpse_ >= 0; }
+	bool draggingStructure() const noexcept { return draggedStructureGrid_ >= 0; }
+	bool dragging() const noexcept
+	{
+		return draggingPerson() || draggingCorpse() || draggingStructure();
+	}
+	bool chatting() const noexcept { return chatPartner_ != NOBODY; }
+
+	void dragPerson(SoldierID soldier) noexcept;
+	void dragCorpse(INT16 corpse) noexcept;
+	void dragStructure(INT32 grid) noexcept;
+	void copyDragFrom(const SoldierInteractionComponent& source) noexcept;
+	void clearDrag() noexcept;
+	void beginChatWith(SoldierID soldier) noexcept { chatPartner_ = soldier; }
+	void endChat() noexcept { chatPartner_ = NOBODY; }
+	void reset() noexcept;
+
+private:
+	static constexpr INT32 NoGrid = -1;
+
+	INT8 nonNpcTraderId_ = 0;
+	SoldierID draggedPerson_ = NOBODY;
+	INT16 draggedCorpse_ = -1;
+	SoldierID chatPartner_ = NOBODY;
+	INT32 draggedStructureGrid_ = NoGrid;
+};
+
 // Canonical tactical action-point budget. The current amount and the turn-start
 // snapshot form one lifecycle: turn setup records them together, while network
 // reconciliation may still update only the authoritative current amount.

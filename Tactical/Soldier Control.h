@@ -1012,6 +1012,8 @@ public:
 	const SoldierConditionComponent& condition() const noexcept { return condition_; }
 	SoldierLongActionComponent& longAction() noexcept { return longAction_; }
 	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
+	SoldierInteractionComponent& interaction() noexcept { return interaction_; }
+	const SoldierInteractionComponent& interaction() const noexcept { return interaction_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1271,11 +1273,6 @@ public:
 	///////////////////////////////////////////////////////
 	// Flugente: this was the location of required variables required for the now removed poison feature. They can be used again
 	UINT8		ubMilitiaAssists;		// Flugente: stores militia assists
-	INT8			sNonNPCTraderID;		// Flugente: we can set up non-NPC soldiers to be merchants, we store their dealer id here (value > 0 means arms dealer entry x)
-	SoldierID	usDragPersonID;			// Flugente: id of person we are dragging
-	INT16		sDragCorpseID;			// Flugente: id of corpse we are dragging
-	SoldierID	usChatPartnerID;		// Flugente: the id of another merc we are 'chatting' with
-	
 	UINT32	usSoldierFlagMask;		// for various soldier-related flags (Illusion, Kill streak, etc.). Easier than adding 32 bool variables
 
 	INT16	bAIIndex;			    // feynman: PlanFactory from the modularized tactical AI that shall be used
@@ -1294,9 +1291,6 @@ public:
 
 	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data
 
-	// Flugente: drag structures
-	INT32	sDragGridNo;
-	
 	//ja25
 	BOOLEAN			fIgnoreGetupFromCollapseCheck;
 	TIMECOUNTER		GetupFromJA25StartCounter;
@@ -1330,6 +1324,7 @@ private:
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;
+	SoldierInteractionComponent	interaction_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

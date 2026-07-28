@@ -7334,6 +7334,10 @@ int main( int, char** )
 		condition.addDisability(SoldierConditionComponent::DisabilityBitCount);
 		SoldierLongActionComponent& longAction = soldier.longAction();
 		longAction.begin(MTA_FORTIFY, 1300, 37);
+		SoldierInteractionComponent& interaction = soldier.interaction();
+		interaction.nonNpcTraderId() = 7;
+		interaction.dragPerson(SoldierID{ 17 });
+		interaction.beginChatWith(SoldierID{ 18 });
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7607,6 +7611,15 @@ int main( int, char** )
 		       constSoldier.longAction().contextGrid() == 1300 &&
 		       constSoldier.longAction().remainingActionPoints() == 37,
 		       "soldier long-action component owns the action, retained grid, and remaining AP cost" );
+		CHECK( constSoldier.interaction().isNonNpcTrader() &&
+		       constSoldier.interaction().nonNpcTraderId() == 7 &&
+		       constSoldier.interaction().draggingPerson() &&
+		       constSoldier.interaction().draggedPerson() == SoldierID{ 17 } &&
+		       !constSoldier.interaction().draggingCorpse() &&
+		       !constSoldier.interaction().draggingStructure() &&
+		       constSoldier.interaction().chatting() &&
+		       constSoldier.interaction().chatPartner() == SoldierID{ 18 },
+		       "soldier interaction component owns merchant, drag, and reciprocal chat state" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -8022,6 +8035,56 @@ int main( int, char** )
 		       longActionLifecycle.contextGrid() == -1 &&
 		       longActionLifecycle.remainingActionPoints() == 0,
 		       "soldier long-action clear releases action, grid, and AP state atomically" );
+		SoldierInteractionComponent interactionLifecycle;
+		CHECK( !interactionLifecycle.isNonNpcTrader() &&
+		       !interactionLifecycle.dragging() &&
+		       interactionLifecycle.draggedPerson() == NOBODY &&
+		       interactionLifecycle.draggedCorpse() == -1 &&
+		       interactionLifecycle.draggedStructureGrid() == -1 &&
+		       !interactionLifecycle.chatting(),
+		       "soldier interaction defaults cannot mistake corpse zero for an active drag" );
+		interactionLifecycle.dragPerson(SoldierID{ 20 });
+		CHECK( interactionLifecycle.draggingPerson() &&
+		       interactionLifecycle.draggedPerson() == SoldierID{ 20 } &&
+		       !interactionLifecycle.draggingCorpse() &&
+		       !interactionLifecycle.draggingStructure(),
+		       "soldier interaction begins an exclusive person drag" );
+		interactionLifecycle.dragCorpse(21);
+		CHECK( !interactionLifecycle.draggingPerson() &&
+		       interactionLifecycle.draggingCorpse() &&
+		       interactionLifecycle.draggedCorpse() == 21 &&
+		       !interactionLifecycle.draggingStructure(),
+		       "soldier interaction replaces person dragging with an exclusive corpse drag" );
+		interactionLifecycle.dragStructure(0);
+		CHECK( !interactionLifecycle.draggingPerson() &&
+		       !interactionLifecycle.draggingCorpse() &&
+		       interactionLifecycle.draggingStructure() &&
+		       interactionLifecycle.draggedStructureGrid() == 0,
+		       "soldier interaction treats grid zero as an active exclusive structure drag" );
+		interactionLifecycle.dragStructure(1720);
+		SoldierInteractionComponent copiedDragLifecycle;
+		copiedDragLifecycle.nonNpcTraderId() = 6;
+		copiedDragLifecycle.beginChatWith(SoldierID{ 22 });
+		copiedDragLifecycle.copyDragFrom(interactionLifecycle);
+		CHECK( copiedDragLifecycle.nonNpcTraderId() == 6 &&
+		       copiedDragLifecycle.chatPartner() == SoldierID{ 22 } &&
+		       copiedDragLifecycle.draggingStructure() &&
+		       copiedDragLifecycle.draggedStructureGrid() == 1720,
+		       "copying drag context leaves independent merchant and chat relationships intact" );
+		interactionLifecycle.beginChatWith(SoldierID{ 23 });
+		interactionLifecycle.endChat();
+		interactionLifecycle.clearDrag();
+		CHECK( !interactionLifecycle.chatting() && !interactionLifecycle.dragging(),
+		       "soldier interaction clears chat and drag lifecycles independently" );
+		interactionLifecycle.nonNpcTraderId() = 9;
+		interactionLifecycle.dragCorpse(24);
+		interactionLifecycle.beginChatWith(SoldierID{ 25 });
+		interactionLifecycle.reset();
+		CHECK( interactionLifecycle.nonNpcTraderId() == 0 &&
+		       !interactionLifecycle.dragging() &&
+		       interactionLifecycle.draggedCorpse() == -1 &&
+		       !interactionLifecycle.chatting(),
+		       "soldier interaction reset clears every relationship and restores invalid drag sentinels" );
 		vitals.health() = 42;
 		vitals.maximumHealth() = 84;
 		vitals.breath() = 63;
@@ -8109,6 +8172,11 @@ int main( int, char** )
 		       copiedSoldier.longAction().contextGrid() == 1300 &&
 		       copiedSoldier.longAction().remainingActionPoints() == 37,
 		       "soldier copies retain their owned persistent long-action state" );
+		CHECK( copiedSoldier.interaction().nonNpcTraderId() == 7 &&
+		       copiedSoldier.interaction().draggingPerson() &&
+		       copiedSoldier.interaction().draggedPerson() == SoldierID{ 17 } &&
+		       copiedSoldier.interaction().chatPartner() == SoldierID{ 18 },
+		       "soldier copies retain their owned persistent interaction state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8741,6 +8809,13 @@ int main( int, char** )
 		       copiedSoldier.longAction().contextGrid() == -1 &&
 		       copiedSoldier.longAction().remainingActionPoints() == 0,
 		       "soldier initialization resets the complete long-action domain" );
+		CHECK( copiedSoldier.interaction().nonNpcTraderId() == 0 &&
+		       !copiedSoldier.interaction().dragging() &&
+		       copiedSoldier.interaction().draggedPerson() == NOBODY &&
+		       copiedSoldier.interaction().draggedCorpse() == -1 &&
+		       copiedSoldier.interaction().draggedStructureGrid() == -1 &&
+		       copiedSoldier.interaction().chatPartner() == NOBODY,
+		       "soldier initialization resets the complete interaction domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -9088,6 +9163,11 @@ int main( int, char** )
 		convertedSoldier.condition().diseaseFlags(NUM_DISEASES - 1) = 0x80;
 		convertedSoldier.condition().addDisability(2);
 		convertedSoldier.longAction().begin(MTA_HACK, 1412, 31);
+		convertedSoldier.interaction().nonNpcTraderId() = 10;
+		convertedSoldier.interaction().draggedPerson() = SoldierID{ 26 };
+		convertedSoldier.interaction().draggedCorpse() = 27;
+		convertedSoldier.interaction().chatPartner() = SoldierID{ 28 };
+		convertedSoldier.interaction().draggedStructureGrid() = 1413;
 		convertedSoldier = *legacySoldier;
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
@@ -9156,6 +9236,14 @@ int main( int, char** )
 		       convertedSoldier.longAction().contextGrid() == -1 &&
 		       convertedSoldier.longAction().remainingActionPoints() == 0,
 		       "v101 soldier conversion clears long-action state absent from that schema" );
+		CHECK( convertedSoldier.interaction().nonNpcTraderId() == 0 &&
+		       convertedSoldier.interaction().draggedPerson() == NOBODY &&
+		       convertedSoldier.interaction().draggedCorpse() == -1 &&
+		       convertedSoldier.interaction().chatPartner() == NOBODY &&
+		       convertedSoldier.interaction().draggedStructureGrid() == -1 &&
+		       !convertedSoldier.interaction().dragging() &&
+		       !convertedSoldier.interaction().chatting(),
+		       "v101 soldier conversion clears interaction state absent from that schema" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -9439,6 +9527,11 @@ int main( int, char** )
 		savedSoldier.condition().addDisability(5);
 		savedSoldier.condition().addDisability(SoldierConditionComponent::DisabilityBitCount);
 		savedSoldier.longAction().begin(MTA_REMOVE_FORTIFY, 1520, 34);
+		savedSoldier.interaction().nonNpcTraderId() = 11;
+		savedSoldier.interaction().draggedPerson() = SoldierID{ 29 };
+		savedSoldier.interaction().draggedCorpse() = 30;
+		savedSoldier.interaction().chatPartner() = SoldierID{ 31 };
+		savedSoldier.interaction().draggedStructureGrid() = 1521;
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9701,6 +9794,13 @@ int main( int, char** )
 		       loadedSoldier.longAction().contextGrid() == 1520 &&
 		       loadedSoldier.longAction().remainingActionPoints() == 34,
 		       "soldier save/load round-trips long-action state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.interaction().nonNpcTraderId() == 11 &&
+		       loadedSoldier.interaction().draggedPerson() == SoldierID{ 29 } &&
+		       loadedSoldier.interaction().draggedCorpse() == 30 &&
+		       loadedSoldier.interaction().chatPartner() == SoldierID{ 31 } &&
+		       loadedSoldier.interaction().draggedStructureGrid() == 1521,
+		       "soldier save/load round-trips every interaction field at its established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,
