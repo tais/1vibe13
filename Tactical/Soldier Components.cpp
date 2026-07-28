@@ -56,6 +56,11 @@ void SoldierDialogueComponent::reset() noexcept
 	*this = SoldierDialogueComponent{};
 }
 
+void SoldierAudioComponent::reset() noexcept
+{
+	*this = SoldierAudioComponent{};
+}
+
 void SoldierSkillStateComponent::ageTurnCounters() noexcept
 {
 	for (UINT8 index = 0; index < SOLDIER_COUNTER_MAX; ++index)

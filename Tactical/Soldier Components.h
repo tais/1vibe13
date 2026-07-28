@@ -266,6 +266,49 @@ private:
 	INT8 corpseQuoteTolerance_ = 0;
 };
 
+// Canonical non-dialogue audio state. Footstep variation and door noise are
+// gameplay-facing sound values; burst, positional, and turret-turning IDs are
+// opaque handles owned by the legacy sound adapter. Keeping their lifetime
+// together prevents stopped handles from remaining live soldier state.
+class SoldierAudioComponent
+{
+public:
+	static constexpr INT32 NoSample = -1;
+
+	UINT8& lastFootstepVariant() noexcept { return lastFootstepVariant_; }
+	const UINT8& lastFootstepVariant() const noexcept { return lastFootstepVariant_; }
+	UINT8& doorOpeningNoise() noexcept { return doorOpeningNoise_; }
+	const UINT8& doorOpeningNoise() const noexcept { return doorOpeningNoise_; }
+	INT32& burstSoundId() noexcept { return burstSoundId_; }
+	const INT32& burstSoundId() const noexcept { return burstSoundId_; }
+	INT32& positionSoundId() noexcept { return positionSoundId_; }
+	const INT32& positionSoundId() const noexcept { return positionSoundId_; }
+	INT32& turningSoundId() noexcept { return turningSoundId_; }
+	const INT32& turningSoundId() const noexcept { return turningSoundId_; }
+
+	bool hasDoorOpeningNoise() const noexcept { return doorOpeningNoise_ != 0; }
+	bool hasBurstSound() const noexcept { return burstSoundId_ != NoSample; }
+	bool hasPositionSound() const noexcept { return positionSoundId_ != NoSample; }
+	bool hasTurningSound() const noexcept { return turningSoundId_ != NoSample; }
+	void recordFootstepVariant(UINT8 variant) noexcept { lastFootstepVariant_ = variant; }
+	void recordDoorOpeningNoise(UINT8 volume) noexcept { doorOpeningNoise_ = volume; }
+	void clearDoorOpeningNoise() noexcept { doorOpeningNoise_ = 0; }
+	void startBurstSound(INT32 soundId) noexcept { burstSoundId_ = soundId; }
+	void clearBurstSound() noexcept { burstSoundId_ = NoSample; }
+	void startPositionSound(INT32 soundId) noexcept { positionSoundId_ = soundId; }
+	void clearPositionSound() noexcept { positionSoundId_ = NoSample; }
+	void startTurningSound(INT32 soundId) noexcept { turningSoundId_ = soundId; }
+	void clearTurningSound() noexcept { turningSoundId_ = NoSample; }
+	void reset() noexcept;
+
+private:
+	UINT8 lastFootstepVariant_ = 0;
+	UINT8 doorOpeningNoise_ = 0;
+	INT32 burstSoundId_ = NoSample;
+	INT32 positionSoundId_ = NoSample;
+	INT32 turningSoundId_ = NoSample;
+};
+
 // Canonical skill execution and persistence state. Repeated mechanical checks,
 // the AI's selected skill, trait counters, heterogeneous cooldowns, and focus
 // targeting share one reset boundary without absorbing permanent statistics or

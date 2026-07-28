@@ -1151,10 +1151,10 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 		cnt++;
 	};
 
-	if (pSoldier && pSoldier->ubDoorOpeningNoise > 0)
-	{		
-		//shadooow: noise handling moved here so we can work with modified value of pSoldier->ubDoorOpeningNoise
-		OurNoise(pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING);
+	if (pSoldier && pSoldier->audio().hasDoorOpeningNoise())
+	{
+		//shadooow: noise handling moved here so we can work with the modified door-opening noise
+		OurNoise(pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING);
 	}
 
 	if ( !(pStructure->fFlags & STRUCTURE_OPEN) )
@@ -1177,7 +1177,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 			{
 				// If an AI guy... do LOS check first....
 				// If guy is visible... OR fading...
-				if ( !pSoldier->ubDoorOpeningNoise && pSoldier->awareness().visibility() == -1 && !AllMercsLookForDoor( sGridNo, FALSE ) && !( gTacticalStatus.uiFlags&SHOW_ALL_MERCS ) )
+				if ( !pSoldier->audio().hasDoorOpeningNoise() && pSoldier->awareness().visibility() == -1 && !AllMercsLookForDoor( sGridNo, FALSE ) && !( gTacticalStatus.uiFlags&SHOW_ALL_MERCS ) )
 				{
 					fDoAnimation = FALSE;
 				}
@@ -1243,7 +1243,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 		//	pShadowNode->sDelay		= INTTILE_DOOR_OPENSPEED;
 		//}
 
-		if ( fDoAnimation && pSoldier && pSoldier->ubDoorOpeningNoise)
+		if ( fDoAnimation && pSoldier && pSoldier->audio().hasDoorOpeningNoise())
 		{
 			// ATE; Default to normal door...
 			uiSoundID = ( DROPEN_1 + Random( 3 ) );
@@ -1303,7 +1303,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 			{
 				// If an AI guy... do LOS check first....
 				// If guy is visible... OR fading...
-				if ( !pSoldier->ubDoorOpeningNoise && pSoldier->awareness().visibility() == -1 && !AllMercsLookForDoor( sGridNo, FALSE ) && !( gTacticalStatus.uiFlags&SHOW_ALL_MERCS ) )
+				if ( !pSoldier->audio().hasDoorOpeningNoise() && pSoldier->awareness().visibility() == -1 && !AllMercsLookForDoor( sGridNo, FALSE ) && !( gTacticalStatus.uiFlags&SHOW_ALL_MERCS ) )
 				{
 					fDoAnimation = FALSE;
 				}
@@ -1370,7 +1370,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 		//	pShadowNode->sDelay		= INTTILE_DOOR_OPENSPEED;
 		//}
 
-		if ( fDoAnimation && pSoldier && pSoldier->ubDoorOpeningNoise )
+		if ( fDoAnimation && pSoldier && pSoldier->audio().hasDoorOpeningNoise() )
 		{
 			// ATE; Default to normal door...
 			uiSoundID = ( DRCLOSE_1 + Random( 2 ) );

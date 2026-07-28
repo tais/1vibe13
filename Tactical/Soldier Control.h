@@ -996,6 +996,8 @@ public:
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
 	const SoldierDialogueComponent& dialogue() const noexcept { return dialogue_; }
+	SoldierAudioComponent& audio() noexcept { return audio_; }
+	const SoldierAudioComponent& audio() const noexcept { return audio_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
@@ -1199,7 +1201,6 @@ public:
 	struct TAG_anitile	*pAniTile;	
 	UINT8				ubHiResDirection;
 	UINT8				ubHiResDesiredDirection;
-	UINT8				ubLastFootPrintSound;
 	INT8					bVehicleID;
 	INT8					bMovementDirection;
 	UINT16				usDontUpdateNewGridNoOnMoveAnimChange;
@@ -1207,7 +1208,6 @@ public:
 	INT16				sBoundingBoxHeight;
 	INT16				sBoundingBoxOffsetX;
 	INT16				sBoundingBoxOffsetY;
-	INT32				iBurstSoundID;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
 	SoldierID			ubLastEnemyCycledID;
@@ -1223,12 +1223,8 @@ public:
 	INT32				sLocationOfFadeStart;
 
 	INT8					bDelayedStrategicMoraleMod;
-	UINT8				ubDoorOpeningNoise;
-
 	struct GROUP			*pGroup;
 
-	INT32				iPositionSndID;	
-	INT32				iTuringSoundID;
 	INT8					numFlanks;
 	INT32				lastFlankSpot;
 	INT8					sniper;
@@ -1283,6 +1279,7 @@ private:
 	SoldierVitalsComponent	vitals_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
+	SoldierAudioComponent	audio_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;

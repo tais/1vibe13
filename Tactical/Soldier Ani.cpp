@@ -452,7 +452,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					UINT16 usedGun = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 					//DIGICRAB: Burst Sound
 					//This code is stolen from Tactical\Weapons.c - UseGun(...)
-					if (pSoldier->fireControl().burstCounter() && pSoldier->iBurstSoundID == NO_SAMPLE && Weapon[ usedGun ].sSound != 0 && Item[ usedGun ].usItemClass != IC_THROWING_KNIFE )
+					if (pSoldier->fireControl().burstCounter() &&
+						!pSoldier->audio().hasBurstSound() &&
+						Weapon[ usedGun ].sSound != 0 &&
+						Item[ usedGun ].usItemClass != IC_THROWING_KNIFE )
 					{
 						// Switch on silencer...
 						INT16 noisefactor = GetPercentNoiseVolume( pObjUsed );
@@ -874,9 +877,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 							//							pSoldier->fireControl().bulletsLeft() = 0;
 
 							// OK, Stop burst sound...
-							if ( pSoldier->iBurstSoundID != NO_SAMPLE )
+							if ( pSoldier->audio().hasBurstSound() )
 							{
-								SoundStop( pSoldier->iBurstSoundID );
+								SoundStop( pSoldier->audio().burstSoundId() );
+								pSoldier->audio().clearBurstSound();
 							}
 
 							if ( pSoldier->bTeam == gbPlayerNum	)
@@ -2175,7 +2179,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					pSoldier->aiData.fAIFlags &= ~(AI_LOCK_DOOR_INCLUDES_CLOSE);
 
-					pSoldier->ubDoorOpeningNoise = DoorOpeningNoise( pSoldier );
+					pSoldier->audio().recordDoorOpeningNoise(
+						DoorOpeningNoise( pSoldier ) );
 
 					if ( SoldierHandleInteractiveObject( pSoldier ) )
 					{
@@ -2184,7 +2189,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						InitOpplistForDoorOpening();
 						//shadooow: this has been moved inside HandleDoorsOpenClose
-						//MakeNoise( pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING );
+						//MakeNoise( pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->audio().doorOpeningNoise(), NOISE_CREAKING );
 						//	gfDelayResolvingBestSighting = FALSE;
 
 						gubInterruptProvoker = pSoldier->ubID;

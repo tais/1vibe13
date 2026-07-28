@@ -6333,7 +6333,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			//shadooow: this will indicate doors not to make animation/sound of doors opening or closing
 			if ( noiseMaker != nullptr )
 			{
-				noiseMaker->ubDoorOpeningNoise = 0;
+				noiseMaker->audio().clearDoorOpeningNoise();
 			}
 		}
 		// if the listening team is human-controlled AND

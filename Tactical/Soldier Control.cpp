@@ -613,6 +613,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		vitals().reset();
 		service().reset();
 		dialogue().reset();
+		audio().reset();
 		skillState().reset();
 		condition().reset();
 		longAction().reset();
@@ -953,7 +954,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
 		this->ubHiResDirection = src.ubHiResDirection;
 		this->ubHiResDesiredDirection = src.ubHiResDesiredDirection;
-		this->ubLastFootPrintSound = src.ubLastFootPrintSound;
+		this->audio().lastFootstepVariant() = src.ubLastFootPrintSound;
 		this->bVehicleID = src.bVehicleID;
 		this->bMovementDirection = src.bMovementDirection;
 		this->movementHistory().previousGrid() = src.sOldGridNo;
@@ -964,7 +965,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sBoundingBoxOffsetY = src.sBoundingBoxOffsetY;
 		this->dialogue().repeatedBattleSoundAt() = src.uiTimeSameBattleSndDone;
 		this->dialogue().previousBattleSound() = src.bOldBattleSnd;
-		this->iBurstSoundID = src.iBurstSoundID;
+		this->audio().burstSoundId() = src.iBurstSoundID;
 		this->bSlotItemTakenFrom = src.bSlotItemTakenFrom;
 		this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );
 		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
@@ -1025,7 +1026,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->pendingAction().inventorySlot() = src.bPendingActionData5;
 
 		this->bDelayedStrategicMoraleMod = src.bDelayedStrategicMoraleMod;
-		this->ubDoorOpeningNoise = src.ubDoorOpeningNoise;
+		this->audio().doorOpeningNoise() = src.ubDoorOpeningNoise;
 
 		this->pGroup = src.pGroup;
 		this->deployment().leaveHistoryCode() = src.ubLeaveHistoryCode;
@@ -1037,8 +1038,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().hospitalPriceModifier() = src.bHospitalPriceModifier;
 		this->employment().insuranceStartTime() = src.uiStartTimeOfInsuranceContract;
 		this->dialogue().corpseQuoteTolerance() = src.bCorpseQuoteTolerance;
-		this->iPositionSndID = src.iPositionSndID;
-		this->iTuringSoundID = src.iTuringSoundID;
+		this->audio().positionSoundId() = src.iPositionSndID;
+		this->audio().turningSoundId() = src.iTuringSoundID;
 		this->combatResult().lastDamageReason() = src.ubLastDamageReason;
 		this->vitals().lastBleedGruntAt() = src.uiTimeSinceLastBleedGrunt;
 		this->combatResult().earlierAttacker() = static_cast<UINT16>( src.ubNextToPreviousAttackerID );
@@ -1137,6 +1138,7 @@ void SOLDIERTYPE::initialize( )
 	vitals().reset();
 	service().reset();
 	dialogue().reset();
+	audio().reset();
 	skillState().reset();
 	condition().reset();
 	longAction().reset();
@@ -2477,12 +2479,14 @@ BOOLEAN SOLDIERTYPE::CreateSoldierCommon( UINT8 ubBodyType, SoldierID usSoldierI
 	this->dialogue().repeatedBattleSoundAt() = 0;
 	// ATE: Reset every time.....
 	this->flags.fSoldierWasMoving = TRUE;
-	this->iTuringSoundID = NO_SAMPLE;
+	this->audio().clearTurningSound();
 	this->vitals().lastBleedGruntAt() = 0;
 
 	if ( this->ubBodyType == QUEENMONSTER )
 	{
-		this->iPositionSndID = NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER, (UINT32)this->ubID, QUEEN_AMBIENT_NOISE, 15 );
+		this->audio().startPositionSound(
+			NewPositionSnd( NOWHERE, POSITION_SOUND_FROM_SOLDIER,
+				(UINT32)this->ubID, QUEEN_AMBIENT_NOISE, 15 ) );
 	}
 
 
@@ -2678,7 +2682,8 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 
 		if ( this->ubBodyType == QUEENMONSTER )
 		{
-			DeletePositionSnd( this->iPositionSndID );
+			DeletePositionSnd( this->audio().positionSoundId() );
+			this->audio().clearPositionSound();
 		}
 
 		// Release any globally shared surfaces locked by this soldier slot and
@@ -4658,7 +4663,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 		if ( this->ubBodyType == QUEENMONSTER )
 		{
-			SetPositionSndGridNo( this->iPositionSndID, sNewGridNo );
+			SetPositionSndGridNo( this->audio().positionSoundId(), sNewGridNo );
 		}
 
 		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
@@ -8307,10 +8312,10 @@ void SOLDIERTYPE::TurnSoldier( void )
 	{
 		if ( ARMED_VEHICLE( this ) )
 		{
-			if ( this->iTuringSoundID != NO_SAMPLE )
+			if ( this->audio().hasTurningSound() )
 			{
-				SoundStop( this->iTuringSoundID );
-				this->iTuringSoundID = NO_SAMPLE;
+				SoundStop( this->audio().turningSoundId() );
+				this->audio().clearTurningSound();
 
 				PlaySoldierJA2Sample( this->ubID, TURRET_STOP, RATE_11025, SoundVolume( HIGHVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ), TRUE );
 			}
@@ -8456,9 +8461,13 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 		if ( ARMED_VEHICLE( this ) )
 		{
-			if ( this->iTuringSoundID == NO_SAMPLE )
+			if ( !this->audio().hasTurningSound() )
 			{
-				this->iTuringSoundID = PlaySoldierJA2Sample( this->ubID, TURRET_MOVE, RATE_11025, SoundVolume( HIGHVOLUME, this->position().gridNo() ), 100, SoundDir( this->position().gridNo() ), TRUE );
+				this->audio().startTurningSound(
+					PlaySoldierJA2Sample( this->ubID, TURRET_MOVE,
+						RATE_11025,
+						SoundVolume( HIGHVOLUME, this->position().gridNo() ),
+						100, SoundDir( this->position().gridNo() ), TRUE ) );
 			}
 		}
 	}
@@ -24037,9 +24046,9 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 			{
 				ubRandomSnd = (UINT8)Random( ubRandomMax );
 
-			} while ( ubRandomSnd == pSoldier->ubLastFootPrintSound );
+			} while ( ubRandomSnd == pSoldier->audio().lastFootstepVariant() );
 
-			pSoldier->ubLastFootPrintSound = ubRandomSnd;
+			pSoldier->audio().recordFootstepVariant(ubRandomSnd);
 
 			// OK, if in realtime, don't play at full volume, because too many people walking around
 			// sounds don't sound good - ( unless we are the selected guy, then always play at reg volume )
@@ -24048,7 +24057,10 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 				bVolume = LOWVOLUME;
 			}
 
-			PlaySoldierJA2Sample( pSoldier->ubID, ubSoundBase + pSoldier->ubLastFootPrintSound, RATE_11025, SoundVolume( bVolume, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+			PlaySoldierJA2Sample( pSoldier->ubID,
+				ubSoundBase + pSoldier->audio().lastFootstepVariant(),
+				RATE_11025, SoundVolume( bVolume, pSoldier->position().gridNo() ),
+				1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 		}
 	}
 	else
