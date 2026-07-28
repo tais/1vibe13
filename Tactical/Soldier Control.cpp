@@ -413,61 +413,6 @@ void Inventory::clear( ) {
 	bNewItemCycleCount.resize( size );
 };
 
-// ----------------------------------------
-
-void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	memcpy( &(this->bOppList), &(src.bOppList), sizeof(INT8)* MAX_NUM_SOLDIERS ); // AI knowledge database
-	TranslateArrayFields( this->sPatrolGrid, src.usPatrolGrid, OLD_MAXPATROLGRIDS, INT16_INT32 );//dnl ch27 200909 AI list for ptr->orders==PATROL
-	this->bLastAction = src.bLastAction;
-	this->bAction = src.bAction;
-	this->usActionData = src.usActionData;
-	this->bNextAction = src.bNextAction;
-	this->usNextActionData = src.usNextActionData;
-	this->bActionInProgress = src.bActionInProgress;
-	this->bAlertStatus = src.bAlertStatus;
-	this->bOppCnt = src.bOppCnt;
-	this->bNeutral = src.bNeutral;
-	this->bNewSituation = src.bNewSituation;
-	this->bNextTargetLevel = src.bNextTargetLevel;
-	this->bOrders = src.bOrders;
-	this->bAttitude = src.bAttitude;
-	this->bUnderEscort = src.bUnderEscort;
-	this->bBypassToGreen = src.bBypassToGreen;
-	this->ubLastMercToRadio = src.ubLastMercToRadio;
-	this->bDominantDir = src.bDominantDir;				// AI main direction to face...
-	this->bPatrolCnt = src.bPatrolCnt;					// number of patrol gridnos
-	this->bNextPatrolPnt = src.bNextPatrolPnt;			// index to next patrol gridno
-	this->sNoiseGridno = src.sNoiseGridNo;
-	this->ubNoiseVolume = src.ubNoiseVolume;
-	this->bLastAttackHit = src.bLastAttackHit;
-	this->ubXRayedBy = src.ubXRayedBy;
-	this->dHeightAdjustment = src.dHeightAdjustment;
-	this->bMorale = src.bMorale;
-	this->bTeamMoraleMod = src.bTeamMoraleMod;
-	this->bTacticalMoraleMod = src.bTacticalMoraleMod;
-	this->bStrategicMoraleMod = src.bStrategicMoraleMod;
-	this->bAIMorale = src.bAIMorale;
-	this->bInterruptDuelPts = src.bInterruptDuelPts;
-	this->bPassedLastInterrupt = src.bPassedLastInterrupt;
-	this->bIntStartAPs = src.bIntStartAPs;
-	this->bMoved = src.bMoved;
-	this->bHunting = src.bHunting;
-	this->ubLastCall = src.ubLastCall;
-	this->ubCaller = static_cast<UINT16>( src.ubCaller );
-	this->sCallerGridNo = src.sCallerGridNo;
-	this->bCallPriority = src.bCallPriority;
-	this->bCallActedUpon = src.bCallActedUpon;
-	this->bFrenzied = src.bFrenzied;
-	this->bNormalSmell = src.bNormalSmell;
-	this->bMonsterSmell = src.bMonsterSmell;
-	this->bMobility = src.bMobility;
-	this->bRTPCombat = src.bRTPCombat;
-	this->fAIFlags = src.fAIFlags;
-	this->bAimTime = src.bAimTime;
-	this->bShownAimTime = src.bShownAimTime;
-}
-
 // Conversion operator
 SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 {
@@ -487,6 +432,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		replication().reset();
 		movementMetrics().reset();
 		aiPlanning().reset();
+		aiBehavior().reset();
+		aiCommunication().reset();
+		morale().reset();
 		skillState().reset();
 		condition().reset();
 		drugState().reset();
@@ -498,7 +446,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		assignment().reset();
 		deployment().reset();
 		schedule().reset();
-		interruptSnapshot().reset();
+		turnState().reset();
 		meleeApproach().reset();
 		fireControl().reset();
 		combatResult().reset();
@@ -507,7 +455,57 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		damageDisplay().reset();
 		renderState().reset();
 		uiPresentation().reset();
-		aiData.ConvertFrom_101_To_102( src );
+		memcpy( awareness().opponentKnowledge(), src.bOppList,
+		        sizeof(INT8) * MAX_NUM_SOLDIERS );
+		TranslateArrayFields( aiPlanning().patrolGrid(), src.usPatrolGrid,
+		                      OLD_MAXPATROLGRIDS, INT16_INT32 );
+		aiPlanning().lastAction() = src.bLastAction;
+		aiPlanning().action() = src.bAction;
+		aiPlanning().actionData() = src.usActionData;
+		aiPlanning().nextAction() = src.bNextAction;
+		aiPlanning().nextActionData() = src.usNextActionData;
+		aiPlanning().actionInProgress() = src.bActionInProgress;
+		aiBehavior().alertStatus() = src.bAlertStatus;
+		awareness().opponentCount() = src.bOppCnt;
+		aiBehavior().neutral() = src.bNeutral;
+		aiBehavior().newSituation() = src.bNewSituation;
+		aiPlanning().nextTargetLevel() = src.bNextTargetLevel;
+		aiBehavior().orders() = src.bOrders;
+		aiBehavior().attitude() = src.bAttitude;
+		aiBehavior().underEscort() = src.bUnderEscort;
+		aiBehavior().bypassToGreen() = src.bBypassToGreen;
+		aiCommunication().lastMercToRadio() = src.ubLastMercToRadio;
+		aiPlanning().dominantDirection() = src.bDominantDir;
+		aiPlanning().patrolCount() = src.bPatrolCnt;
+		aiPlanning().nextPatrolPoint() = src.bNextPatrolPnt;
+		perception().noiseGrid() = src.sNoiseGridNo;
+		perception().noiseVolume() = src.ubNoiseVolume;
+		combatResult().lastAttackHit() = src.bLastAttackHit;
+		perception().xraySource() = static_cast<UINT16>( src.ubXRayedBy );
+		position().animationHeightAdjustment() = src.dHeightAdjustment;
+		morale().morale() = src.bMorale;
+		morale().teamModifier() = src.bTeamMoraleMod;
+		morale().tacticalModifier() = src.bTacticalMoraleMod;
+		morale().strategicModifier() = src.bStrategicMoraleMod;
+		morale().aiMorale() = src.bAIMorale;
+		turnState().interruptDuelPoints() = src.bInterruptDuelPts;
+		turnState().passedLastInterrupt() = src.bPassedLastInterrupt;
+		turnState().interruptStartActionPoints() = src.bIntStartAPs;
+		turnState().moved() = src.bMoved;
+		aiBehavior().hunting() = src.bHunting;
+		aiCommunication().lastCall() = src.ubLastCall;
+		aiCommunication().caller() = static_cast<UINT16>( src.ubCaller );
+		aiCommunication().callerGrid() = src.sCallerGridNo;
+		aiCommunication().callPriority() = src.bCallPriority;
+		aiCommunication().callActedUpon() = src.bCallActedUpon;
+		morale().frenzied() = src.bFrenzied;
+		perception().normalSmell() = src.bNormalSmell;
+		perception().monsterSmell() = src.bMonsterSmell;
+		aiBehavior().mobility() = src.bMobility;
+		aiBehavior().realtimeCombat() = src.bRTPCombat;
+		aiBehavior().flags() = src.fAIFlags;
+		aiPlanning().aimTime() = src.bAimTime;
+		aiPlanning().shownAimTime() = src.bShownAimTime;
 		pendingAction().action() = src.ubPendingAction;
 		pendingAction().animationCount() = src.ubPendingActionAnimCount;
 		pendingAction().primaryData() = src.uiPendingActionData1;
@@ -865,7 +863,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->fireControl().spreadDragEndGrid() = src.sEndGridNo;
 		this->animationActivity().traversalForecastGrid() = src.sForcastGridNo;
 		this->animationActivity().renderZOverride() = src.sZLevelOverride;
-		this->interruptSnapshot().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;
+		this->turnState().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;
 		this->employment().endTime() = src.iEndofContractTime;				// time, in global time(resolution, minutes) that merc will leave, or if its a M.E.R.C. merc it will be set to -1.  -2 for NPC and player generated
 		this->employment().startTime() = src.iStartContractTime;
 		this->employment().totalLength() = src.iTotalContractLength;			// total time of AIM mercs contract	or the time since last paid for a M.E.R.C. merc
@@ -1090,7 +1088,6 @@ void SOLDIERTYPE::initialize( )
 	inv.clear( );
 	ai_masterplan_ = 0;
 
-	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	vitals().reset();
 	statistics().reset();
 	status().reset();
@@ -1101,6 +1098,9 @@ void SOLDIERTYPE::initialize( )
 	replication().reset();
 	movementMetrics().reset();
 	aiPlanning().reset();
+	aiBehavior().reset();
+	aiCommunication().reset();
+	morale().reset();
 	skillState().reset();
 	condition().reset();
 	drugState().reset();
@@ -1122,7 +1122,7 @@ void SOLDIERTYPE::initialize( )
 	movementHistory().reset();
 	pathing().reset();
 	movement().reset();
-	interruptSnapshot().reset();
+	turnState().reset();
 	targeting().reset();
 	attackSelection().reset();
 	meleeApproach().reset();
@@ -2052,7 +2052,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 		}
 
 		// if frenzied, female monsters get more APs! (for young females, cumulative!)
-		if ( this->aiData.bFrenzied )
+		if ( this->morale().frenzied() )
 		{
 
 			ubPoints = (ubPoints * APBPConstants[AP_MONST_FRENZY_FACTOR]) / 10;
@@ -2312,7 +2312,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 
 		// Get his life...if < certain value, do finish!
 		// SANDRO - Enhanced Close Combat System - Spinning kick is performed on focused attack
-		if ( gGameExternalOptions.fEnhancedCloseCombatSystem && ((this->aiData.bAimTime > 0) && ubTargetStance != ANIM_PRONE) )
+		if ( gGameExternalOptions.fEnhancedCloseCombatSystem && ((this->aiPlanning().aimTime() > 0) && ubTargetStance != ANIM_PRONE) )
 		{
 			this->ChangeSoldierState( NINJA_SPINKICK, 0, FALSE );
 
@@ -2336,7 +2336,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 				}
 
 				// CHECK IF HE CAN SEE US, IF SO CHANGE DIRECTION
-				if ( pTSoldier->aiData.bOppList[this->ubID] == 0 && pTSoldier->bTeam != this->bTeam )
+				if ( pTSoldier->awareness().opponentKnowledge()[this->ubID] == 0 && pTSoldier->bTeam != this->bTeam )
 				{
 					if ( !(pTSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
 					{
@@ -2856,7 +2856,7 @@ BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 			{
 				if ( gAnimControl[usAnimState].uiFlags & (ANIM_BREATH) )
 				{
-					if ( pSoldier->aiData.bOppCnt > 0 )
+					if ( pSoldier->awareness().opponentCount() > 0 )
 					{
 						pSoldier->EVENT_InitNewSoldierAnim( QUEEN_INTO_READY, 0, TRUE );
 						return(TRUE);
@@ -2872,12 +2872,12 @@ BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 
 			if ( gAnimControl[usAnimState].uiFlags & (ANIM_MERCIDLE | ANIM_BREATH) )
 			{
-				if ( pSoldier->aiData.bOppCnt > 0 )
+				if ( pSoldier->awareness().opponentCount() > 0 )
 				{
 					// Pick a guy this buddy sees and turn towards them!
 					for ( SoldierID cnt = gTacticalStatus.Team[OUR_TEAM].bFirstID; cnt <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++cnt )
 					{
-						if ( pSoldier->aiData.bOppList[cnt] == SEEN_CURRENTLY )
+						if ( pSoldier->awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY )
 						{
 							SOLDIERTYPE* candidate =
 								GetJa2SoldierRepository().resolve( cnt );
@@ -4537,8 +4537,8 @@ void SOLDIERTYPE::InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLev
 
 	INT8	bOldLevel = this->position().level();
 
-	this->aiData.dHeightAdjustment = dNewHeight;
-	this->position().heightAdjustment() = (INT16)this->aiData.dHeightAdjustment;
+	this->position().animationHeightAdjustment() = dNewHeight;
+	this->position().heightAdjustment() = (INT16)this->position().animationHeightAdjustment();
 
 	if ( !fUpdateLevel )
 	{
@@ -4687,7 +4687,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		if ( this->position().initialGrid() == 0 )
 		{
 			this->position().initialGrid() = sNewGridNo;
-			this->aiData.sPatrolGrid[0] = sNewGridNo;
+			this->aiPlanning().patrolGrid()[0] = sNewGridNo;
 		}
 
 		// Add records of this guy being adjacent
@@ -4895,7 +4895,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 				// Merc got to a new tile by "sneaking". Did we theoretically sneak
 				// past an enemy?
 
-				if ( this->aiData.bOppCnt > 0 )		// opponents in sight
+				if ( this->awareness().opponentCount() > 0 )		// opponents in sight
 				{
 					// check each possible enemy
 					for ( cnt = 0; cnt < MAX_NUM_SOLDIERS; ++cnt )
@@ -4906,11 +4906,11 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 						if ( pEnemy && pEnemy->bActive && pEnemy->bInSector && (pEnemy->vitals().health() >= OKLIFE) )
 						{
 							// no points for sneaking by the neutrals & friendlies!!!
-							if ( !pEnemy->aiData.bNeutral && (this->bSide != pEnemy->bSide) && (pEnemy->ubBodyType != COW && pEnemy->ubBodyType != CROW) )
+							if ( !pEnemy->aiBehavior().neutral() && (this->bSide != pEnemy->bSide) && (pEnemy->ubBodyType != COW && pEnemy->ubBodyType != CROW) )
 							{
 								// if we SEE this particular oppponent, and he DOESN'T see us... and he COULD see us...
-								if ( (this->aiData.bOppList[cnt] == SEEN_CURRENTLY) &&
-									 pEnemy->aiData.bOppList[this->ubID] != SEEN_CURRENTLY &&
+								if ( (this->awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY) &&
+									 pEnemy->awareness().opponentKnowledge()[this->ubID] != SEEN_CURRENTLY &&
 									 PythSpacesAway( this->position().gridNo(), pEnemy->position().gridNo() ) < pEnemy->GetMaxDistanceVisible( this->position().gridNo(), this->position().level() ) )
 								{
 									// AGILITY (5):  Soldier snuck 1 square past unaware enemy
@@ -4999,7 +4999,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 	// Ready weapon
 	//if (this->bTeam == gbPlayerNum)
 	//{
-	this->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, IsValidAlternativeFireMode( this->aiData.bAimTime, sTargetGridNo ) );
+	this->SoldierReadyWeapon( sTargetXPos, sTargetYPos, FALSE, IsValidAlternativeFireMode( this->aiPlanning().aimTime(), sTargetGridNo ) );
 	//}
 	//else
 	//{
@@ -5214,7 +5214,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_BURST_ALTERNATIVE_STAND);
 					}
@@ -5225,7 +5225,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(BURST_ALTERNATIVE_STAND);
 					}
@@ -5239,7 +5239,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 			{
 				if ( fDoLowShot )
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(LOW_SHOT_ALTERNATIVE_STAND);
 					}
@@ -5250,7 +5250,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bAimTime, pSoldier->targeting().gridNo() ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().aimTime(), pSoldier->targeting().gridNo() ) )
 					{
 						return(SHOOT_ALTERNATIVE_STAND);
 					}
@@ -5747,7 +5747,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// DO STUFF COMMON FOR ALL TYPES
 	if ( attacker != nullptr )
 	{
-		attacker->aiData.bLastAttackHit = TRUE;
+		attacker->combatResult().lastAttackHit() = TRUE;
 	}
 
 	// Keep the attacker and hit location as one combat-result transition.
@@ -7245,7 +7245,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 	// The queen, if she sees anybody, goes to ready, not normal breath....
 	if ( this->ubBodyType == QUEENMONSTER )
 	{
-		if ( this->aiData.bOppCnt > 0 || this->bTeam == gbPlayerNum )
+		if ( this->awareness().opponentCount() > 0 || this->bTeam == gbPlayerNum )
 		{
 			this->EVENT_InitNewSoldierAnim( QUEEN_READY, 0, TRUE );
 			return;
@@ -7782,30 +7782,25 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 			!ARMED_VEHICLE(this) &&
 			this->suppression().shock() == 0 &&
 			!this->suppression().underFire() &&
-			this->aiData.bMorale < 80 + 2 * this->statistics().experienceLevel())
+			this->morale().morale() < 80 + 2 * this->statistics().experienceLevel())
 		{
-			this->aiData.bMorale = __min(80 + 2 * this->statistics().experienceLevel(), this->aiData.bMorale + 2 + this->statistics().experienceLevel() / 5);
+			this->morale().morale() = __min(80 + 2 * this->statistics().experienceLevel(), this->morale().morale() + 2 + this->statistics().experienceLevel() / 5);
 		}
 
 		// if this person has heard a noise that hasn't been investigated
-		if ( this->aiData.sNoiseGridno != NOWHERE )
+		if ( this->perception().noiseGrid() != NOWHERE )
 		{
-			if ( this->aiData.ubNoiseVolume )	// and the noise volume is still positive
+			if ( this->perception().noiseVolume() )	// and the noise volume is still positive
 			{
-				this->aiData.ubNoiseVolume--;	// the volume of the noise "decays" by 1 point
+				this->perception().noiseVolume()--;	// the volume of the noise "decays" by 1 point
 
-				if ( !this->aiData.ubNoiseVolume )	// if the volume has reached zero
+				if ( !this->perception().noiseVolume() )	// if the volume has reached zero
 				{
-					this->aiData.sNoiseGridno = NOWHERE;		// forget about the noise!
+					this->perception().noiseGrid() = NOWHERE;		// forget about the noise!
 				}
 			}
 		}
 
-		// save unused action points up to a maximum
-		/*
-		if ((savedPts = this->aiData.bActionPts) > APBPConstants[MAX_AP_CARRIED])
-		savedPts = APBPConstants[MAX_AP_CARRIED];
-		*/
 		if ( this->status().flags() & SOLDIER_GASSED )
 		{
 			// then must get a gas mask or leave the gassed area to get over it
@@ -7864,7 +7859,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		this->CalcNewActionPoints( );
 
 		// SANDRO - Improved Interrupt System - reset interrupt counter
-		memset( this->aiData.ubInterruptCounter, 0, sizeof(this->aiData.ubInterruptCounter) );
+		memset( this->turnState().interruptCounters(), 0, sizeof(this->turnState().interruptCounters()) );
 
 		// HEADROCK HAM 3.6: If this soldier is in a "moving" animation, but has not moved any tiles
 		// in the previous turn, then the player has apparently forgotten that he was moving.
@@ -7970,7 +7965,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					if ( DistanceToClosestFriend( this ) > NERVOUS_RADIUS )
 					{
 						// augh!!
-						if ( this->aiData.bMorale < 50 )
+						if ( this->morale().morale() < 50 )
 						{
 							HandleMoraleEvent( this, MORALE_NERVOUS_ALONE, this->deployment().sectorX(), this->deployment().sectorY(), this->deployment().sectorZ() );
 							if ( !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_PERSONALITY) )
@@ -7988,7 +7983,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 					}
 					else
 					{
-						if ( this->aiData.bMorale > 45 )
+						if ( this->morale().morale() > 45 )
 						{
 							// turn flag off, so that we say it every two turns
 							this->dialogue().clearSaid(SOLDIER_QUOTE_SAID_PERSONALITY);
@@ -8022,8 +8017,8 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		if ( this->actionPoints().current() > 0 )
 		{
 			this->uiPresentation().clearNoActionPoints();
-			this->aiData.bMoved = FALSE;
-			this->aiData.bPassedLastInterrupt = FALSE;
+			this->turnState().moved() = FALSE;
+			this->turnState().passedLastInterrupt() = FALSE;
 		}
 	}
 
@@ -8925,7 +8920,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	case READY_RIFLE_STAND:
 
 		// Raise rifle based on aim vs non-aim.
-		if ( pSoldier->aiData.bAimTime == 0 )
+		if ( pSoldier->aiPlanning().aimTime() == 0 )
 		{
 			// Quick shot
 			pSoldier->animationPlayback().delay() = 100;
@@ -9478,7 +9473,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 			if (ubWhoIsThere != NOBODY && ubWhoIsThere != this->ubID)
 			{
 				DebugAttackBusy(String("Soldier %d tried to climb up on someone.\n", this->ubID));
-				this->aiData.bAction = AI_ACTION_NONE;
+				this->aiPlanning().action() = AI_ACTION_NONE;
 				return;
 			}
 			else
@@ -9534,13 +9529,13 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 		else
 		{
 			DebugAttackBusy(String("Soldier %d tried to climb without AP.\n", this->ubID));
-			this->aiData.bAction = AI_ACTION_NONE;
+			this->aiPlanning().action() = AI_ACTION_NONE;
 		}
 	}
 	else
 	{
 		DebugAttackBusy(String("Soldier %d tried to climb where no roof is.\n", this->ubID));
-		this->aiData.bAction = AI_ACTION_NONE;
+		this->aiPlanning().action() = AI_ACTION_NONE;
 	}
 }
 
@@ -10020,7 +10015,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 
 			// if this is a civilian, other mercs can complain about mercs shooting innocents
 			// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-			if ((this->bTeam != OUR_TEAM) && (this->aiData.bNeutral || this->bSide == attacker->bSide))
+			if ((this->bTeam != OUR_TEAM) && (this->aiBehavior().neutral() || this->bSide == attacker->bSide))
 			{
 				// not for killing animals though...
 				if (this->ubBodyType != CROW && this->ubBodyType != COW)
@@ -10261,7 +10256,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 
 	// ATE: Put some logic in here to allow enemies to die quicker.....
 	// Are we an enemy?
-	if ( this->bSide != gbPlayerNum && !this->aiData.bNeutral && this->ubProfile == NO_PROFILE )
+	if ( this->bSide != gbPlayerNum && !this->aiBehavior().neutral() && this->ubProfile == NO_PROFILE )
 	{
 		// ATE: Give them a chance to fall down...
 		if ( this->vitals().health() > 0 && this->vitals().health() < (OKLIFE - 1) )
@@ -10985,7 +10980,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	}
 
 	// Adjust based on morale...
-	if ( pSoldier->aiData.bMorale < LOW_MORALE_BATTLE_SND_THREASHOLD )
+	if ( pSoldier->morale().morale() < LOW_MORALE_BATTLE_SND_THREASHOLD )
 	{
 		if ( ubBattleSoundID == BATTLE_SOUND_OK1 )
 			ubBattleSoundID = BATTLE_SOUND_LOWMARALE_OK1;
@@ -11328,7 +11323,7 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 			if (ubWhoIsThere != NOBODY && ubWhoIsThere != this->ubID)
 			{
 				DebugAttackBusy(String("Soldier %d tried to climb down on someone.\n", this->ubID));
-				this->aiData.bAction = AI_ACTION_NONE;
+				this->aiPlanning().action() = AI_ACTION_NONE;
 				return;
 			}
 			else
@@ -11360,13 +11355,13 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 		else
 		{
 			DebugAttackBusy(String("Soldier %d tried to climb down without AP.\n", this->ubID));
-			this->aiData.bAction = AI_ACTION_NONE;
+			this->aiPlanning().action() = AI_ACTION_NONE;
 		}
 	}
 	else
 	{
 		DebugAttackBusy(String("Soldier %d tried to climb down where no roof is.\n", this->ubID));
-		this->aiData.bAction = AI_ACTION_NONE;
+		this->aiPlanning().action() = AI_ACTION_NONE;
 	}
 }
 
@@ -12592,9 +12587,9 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 					pTSoldier->usSoldierFlagMask2 |= SOLDIER_BACK_ATTACK;
 				}
 
-				if (pTSoldier->aiData.bOppList[this->ubID] != SEEN_CURRENTLY &&
-					pTSoldier->aiData.bOppList[this->ubID] != SEEN_THIS_TURN &&
-					pTSoldier->aiData.bOppList[this->ubID] != HEARD_THIS_TURN)
+				if (pTSoldier->awareness().opponentKnowledge()[this->ubID] != SEEN_CURRENTLY &&
+					pTSoldier->awareness().opponentKnowledge()[this->ubID] != SEEN_THIS_TURN &&
+					pTSoldier->awareness().opponentKnowledge()[this->ubID] != HEARD_THIS_TURN)
 				{
 					pTSoldier->usSoldierFlagMask2 |= SOLDIER_SNEAK_ATTACK;
 				}
@@ -12620,7 +12615,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 					this->EVENT_InitNewSoldierAnim(BAYONET_STAB_STANDING_VS_STANDING, 0, FALSE);
 				}
 				// SANDRO - use focused stab animation on aimed blade attacks
-				else if (gGameExternalOptions.fEnhancedCloseCombatSystem && (this->aiData.bAimTime > 0))
+				else if (gGameExternalOptions.fEnhancedCloseCombatSystem && (this->aiPlanning().aimTime() > 0))
 				{
 					this->EVENT_InitNewSoldierAnim(FOCUSED_STAB, 0, FALSE);
 				}
@@ -12633,7 +12628,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 					this->EVENT_InitNewSoldierAnim( SLICE, 0, FALSE );
 				}
 
-				if (pTSoldier->aiData.bOppList[this->ubID] != 0 || pTSoldier->bTeam == this->bTeam)
+				if (pTSoldier->awareness().opponentKnowledge()[this->ubID] != 0 || pTSoldier->bTeam == this->bTeam)
 				{
 					// IF WE ARE SEEN, MAKE SURE GUY TURNS!
 					// Get direction to target
@@ -12763,9 +12758,9 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 			pTSoldier->usSoldierFlagMask2 |= SOLDIER_BACK_ATTACK;
 		}
 
-		if (pTSoldier->aiData.bOppList[this->ubID] != SEEN_CURRENTLY &&
-			pTSoldier->aiData.bOppList[this->ubID] != SEEN_THIS_TURN &&
-			pTSoldier->aiData.bOppList[this->ubID] != HEARD_THIS_TURN)
+		if (pTSoldier->awareness().opponentKnowledge()[this->ubID] != SEEN_CURRENTLY &&
+			pTSoldier->awareness().opponentKnowledge()[this->ubID] != SEEN_THIS_TURN &&
+			pTSoldier->awareness().opponentKnowledge()[this->ubID] != HEARD_THIS_TURN)
 		{
 			pTSoldier->usSoldierFlagMask2 |= SOLDIER_SNEAK_ATTACK;
 		}
@@ -12906,7 +12901,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 				{
 					BOOLEAN fCannotKick = (ubDirection & 1);
 					// SANDRO - we will determine here what type of punch we are gonna use
-					if ( gGameExternalOptions.fEnhancedCloseCombatSystem && (this->aiData.bAimTime > 0) )
+					if ( gGameExternalOptions.fEnhancedCloseCombatSystem && (this->aiPlanning().aimTime() > 0) )
 					{
 						if ( gAnimControl[pTSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 						{
@@ -12993,7 +12988,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 				}
 
 				// CHECK IF HE CAN SEE US, IF SO CHANGE DIR
-				if ( pTSoldier->aiData.bOppList[this->ubID] == 0 && pTSoldier->bTeam != this->bTeam )
+				if ( pTSoldier->awareness().opponentKnowledge()[this->ubID] == 0 && pTSoldier->bTeam != this->bTeam )
 				{
 					// Get direction to target
 					// IF WE ARE AN ANIMAL, CAR, MONSTER, DONT'T TURN
@@ -13212,10 +13207,10 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 				fRefused = TRUE;
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[ STR_REFUSE_FIRSTAID_FOR_CREATURE ] );
 				}
-				else if ( !pTSoldier->aiData.bNeutral && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide )
+				else if ( !pTSoldier->aiBehavior().neutral() && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide )
 				*/
 				// Flugente: people we captured don't refuse to be bandaged
-				if ( !pTSoldier->aiData.bNeutral && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide && !(pTSoldier->usSoldierFlagMask & SOLDIER_POW) )
+				if ( !pTSoldier->aiBehavior().neutral() && pTSoldier->vitals().health() >= OKLIFE && pTSoldier->bSide != this->bSide && !(pTSoldier->usSoldierFlagMask & SOLDIER_POW) )
 				{
 					fRefused = TRUE;
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, Message[STR_REFUSE_FIRSTAID] );
@@ -16202,7 +16197,7 @@ BOOLEAN		SOLDIERTYPE::SeemsLegit( SoldierID ubObserverID )
 
 	// uncover if merc is using flashlight and alert is raised
 	if ( pSoldier->bTeam == ENEMY_TEAM &&
-		 pSoldier->aiData.bAlertStatus >= STATUS_RED &&
+		 pSoldier->aiBehavior().alertStatus() >= STATUS_RED &&
 		 (NightTime( ) || this->deployment().sectorZ() > 0) &&
 		 this->GetBestEquippedFlashLightRange( ) > 0 )
 	{
@@ -16238,7 +16233,7 @@ BOOLEAN		SOLDIERTYPE::RecognizeAsCombatant( SoldierID ubTargetID )
 		return TRUE;
 
 	// neutral characters just dont care
-	if ( this->aiData.bNeutral )
+	if ( this->aiBehavior().neutral() )
 		return TRUE;
 
 	// check for for vehicles and creatures... weird things happen
@@ -16253,7 +16248,7 @@ BOOLEAN		SOLDIERTYPE::RecognizeAsCombatant( SoldierID ubTargetID )
 	// this resolves the problem that we attack someone from behind and kill him instantly, but the game mechanic forces him to turn before
 	// only allow this if we are not yet alerted (we are suprised, so we don't recognize him in the moment of the attack)
 	// also: only allow if he's next to us
-	if ( this->aiData.bAlertStatus < STATUS_RED && pSoldier->targeting().targetId() == this->ubID )
+	if ( this->aiBehavior().alertStatus() < STATUS_RED && pSoldier->targeting().targetId() == this->ubID )
 	{
 		INT32 nextGridNoinSight = NewGridNo( pSoldier->position().gridNo(), DirectionInc( pSoldier->position().direction() ) );
 		if ( nextGridNoinSight == this->position().gridNo() && this->position().level() == pSoldier->position().level() )
@@ -16285,11 +16280,11 @@ BOOLEAN		SOLDIERTYPE::RecognizeAsCombatant( SoldierID ubTargetID )
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], this->GetName(), pSoldier->GetName()  );
 
 			// we have uncovered a spy! Get alerted, if we aren't already
-			if ( this->aiData.bAlertStatus < STATUS_BLACK )
-				this->aiData.bAlertStatus = STATUS_BLACK;
+			if ( this->aiBehavior().alertStatus() < STATUS_BLACK )
+				this->aiBehavior().alertStatus() = STATUS_BLACK;
 
 			// reset our sight of this guy
-			this->aiData.bOppList[pSoldier->ubID] = NOT_HEARD_OR_SEEN;
+			this->awareness().opponentKnowledge()[pSoldier->ubID] = NOT_HEARD_OR_SEEN;
 
 			ManSeesMan( this, pSoldier, pSoldier->position().gridNo(), pSoldier->position().level(), 0, 0 );
 
@@ -16477,7 +16472,7 @@ void	SOLDIERTYPE::Strip()
 		// if the player is an annoying little perv, tell them so, girls!
 		// Flugente: additional dialogue
 		AdditionalTacticalCharacterDialogue_CallsLua(this, ADE_SEXUALHARASSMENT );
-		this->aiData.bMorale = max( 0, this->aiData.bMorale - 1 );
+		this->morale().morale() = max( 0, this->morale().morale() - 1 );
 	}
 }
 
@@ -16539,7 +16534,7 @@ UINT32		SOLDIERTYPE::GetSurrenderStrength( )
 
 	value = (value * this->vitals().health() / this->vitals().maximumHealth());
 
-	value = value * (5 + sqrt( (double)max( 1, this->aiData.bMorale ) )) / 15;
+	value = value * (5 + sqrt( (double)max( 1, this->morale().morale() ) )) / 15;
 
 	// adjust for type of soldier
 	if ( this->ubSoldierClass == SOLDIER_CLASS_ELITE || this->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA || this->ubSoldierClass == SOLDIER_CLASS_ROBOT )
@@ -16581,8 +16576,8 @@ BOOLEAN		SOLDIERTYPE::FreePrisoner( )
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szPrisonerTextStr[STR_PRISONER_X_FREES_Y], this->GetName( ), pSoldier->GetName( ) );
 
 			// alert both soldiers
-			this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
-			pSoldier->aiData.bAlertStatus = max( pSoldier->aiData.bAlertStatus, STATUS_RED );
+			this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
+			pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
 
 			return TRUE;
 		}
@@ -16612,7 +16607,7 @@ BOOLEAN		SOLDIERTYPE::CanBeCaptured( )
 		// civilians can be captured if their faction can, and if they are hostile
 		if ( this->bTeam == CIV_TEAM && zCivGroupName[this->ubCivilianGroup].fCanBeCaptured )
 		{
-			if ( !this->aiData.bNeutral && this->bSide == 1 )
+			if ( !this->aiBehavior().neutral() && this->bSide == 1 )
 				return TRUE;
 		}
 	}
@@ -17977,7 +17972,7 @@ void SOLDIERTYPE::SoldierPropertyUpkeep( )
 					continue;
 				if (pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0)
 				{
-					if (!pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0))
+					if (!pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0))
 					{
 						this->skillState().cooldown(SOLDIER_COOLDOWN_ROBOT_XRAY) += 2;
 						ActivateXRayDevice(this);
@@ -19488,8 +19483,8 @@ BOOLEAN		SOLDIERTYPE::AIDoctorFriend( )
 			pSoldier->combatResult().accumulatedDamage() -= pSoldier->vitals().health() - oldlife;
 
 			// alert both soldiers
-			this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
-			pSoldier->aiData.bAlertStatus = max( pSoldier->aiData.bAlertStatus, STATUS_RED );
+			this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
+			pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
 
 			return TRUE;
 		}
@@ -19536,7 +19531,7 @@ BOOLEAN		SOLDIERTYPE::AIDoctorSelf( )
 		this->combatResult().accumulatedDamage() -= this->vitals().health() - oldlife;
 
 		// alert ourself
-		this->aiData.bAlertStatus = max( this->aiData.bAlertStatus, STATUS_RED );
+		this->aiBehavior().alertStatus() = max( this->aiBehavior().alertStatus(), STATUS_RED );
 
 		return TRUE;
 	}
@@ -20377,7 +20372,7 @@ BOOLEAN		SOLDIERTYPE::SelfDetonate( )
 
 	for ( size_t bLoop = 0, invsize = inv.size(); bLoop < invsize; ++bLoop )
 	{
-		if ( inv[bLoop].exists( ) == true && inv[bLoop].usItem == this->aiData.usActionData )
+		if ( inv[bLoop].exists( ) == true && inv[bLoop].usItem == this->aiPlanning().actionData() )
 		{
 			IgniteExplosion( this->ubID, this->position().worldXInt(), this->position().worldYInt(), (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), inv[bLoop].usItem, this->position().level(), this->position().direction() );
 		
@@ -22295,7 +22290,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 		if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 		{
 			// set "pending action" value for AI so it will wait
-			pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
+			pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 		}
 
 	}
@@ -22372,7 +22367,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 				if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 				{
 					// set "pending action" value for AI so it will wait
-					pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
+					pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 				}
 				break;
 
@@ -22401,7 +22396,7 @@ void SOLDIERTYPE::PickDropItemAnimation( void )
 	{
 	case ANIM_STAND:
 
-		this->aiData.bAction = AI_ACTION_PENDING_ACTION;
+		this->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 		this->EVENT_InitNewSoldierAnim( DROP_ITEM, 0, FALSE );
 		break;
 
@@ -22794,7 +22789,7 @@ void SOLDIERTYPE::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection 
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, szCovertTextStr[STR_COVERT_UNCOVERED], pSoldier->GetName(), this->GetName()  );
 
 				// alert the soldier
-				pSoldier->aiData.bAlertStatus = max( pSoldier->aiData.bAlertStatus, STATUS_RED );
+				pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
 
 				ProcessImplicationsOfPCAttack( this, &pSoldier, REASON_NORMAL_ATTACK );
 			}
@@ -22832,7 +22827,7 @@ void SOLDIERTYPE::EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirecti
 				{
 					// wether we are sucessful depends on dexterity, and his alert status (he gets a malus on green state)
 					UINT32 attackervalue = 30 + 4 * EffectiveExpLevel( this ) + EffectiveDexterity( this, FALSE ) + 20 * HAS_SKILL_TRAIT( this, STEALTHY_NT );
-					UINT32 defendervalue = 100 + 3 * EffectiveExpLevel( pSoldier ) + 100 * (pSoldier->aiData.bAlertStatus - 1);
+					UINT32 defendervalue = 100 + 3 * EffectiveExpLevel( pSoldier ) + 100 * (pSoldier->aiBehavior().alertStatus() - 1);
 
 					// we are penalized for the weight of the item
 					UINT16 weight = pObj->GetWeightOfObjectInStack( 0 );
@@ -22857,7 +22852,7 @@ void SOLDIERTYPE::EVENT_SoldierApplyItemToPerson( INT32 sGridNo, UINT8 ubDirecti
 						}
 
 						// alert the soldier
-						pSoldier->aiData.bAlertStatus = max( pSoldier->aiData.bAlertStatus, STATUS_RED );
+						pSoldier->aiBehavior().alertStatus() = max( pSoldier->aiBehavior().alertStatus(), STATUS_RED );
 
 						ProcessImplicationsOfPCAttack( this, &pSoldier, REASON_NORMAL_ATTACK );
 					}
@@ -23417,7 +23412,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 
 				// not possible if this guy is hostile towards us
 				// however, if we are covert as a soldier, this check does not apply - merchants know better than do defy the army
-				if ( !pTSoldier->aiData.bNeutral && !(this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER) )
+				if ( !pTSoldier->aiBehavior().neutral() && !(this->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER) )
 				{
 					ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, szNonProfileMerchantText[0] );
 				}
@@ -23467,7 +23462,7 @@ BOOLEAN SOLDIERTYPE::PlayerSoldierStartTalking( SoldierID ubTargetID, BOOLEAN fV
 		return(InitiateConversation( pTSoldier, this, APPROACH_EPC_WHO_IS_RECRUITED, 0 ));
 		//Converse( pTSoldier->ubProfile, this->ubProfile, APPROACH_EPC_WHO_IS_RECRUITED, 0 );
 	}
-	else if ( pTSoldier->aiData.bNeutral )
+	else if ( pTSoldier->aiBehavior().neutral() )
 	{
 		if ( pTSoldier->IsAssassin( ) )
 		{
@@ -23896,7 +23891,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 	// at least in this case.
 	//if ( GetJa2TacticalCurrentTeam() != gbPlayerNum && pSoldier->bTeam != gbPlayerNum )
 	{
-		if ( pSoldier->aiData.bNewSituation == IS_NEW_SITUATION )
+		if ( pSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION )
 		{
 			// Cancel what they were doing....
 			// silversurfer: bugfix for endless dying mercs on roof edges
@@ -24331,8 +24326,8 @@ void SOLDIERTYPE::BreakWindow(void)
 		Item[this->inv[HANDPOS].usItem].usItemClass & IC_GUN && ItemIsTwoHanded(this->inv[HANDPOS].usItem) && ItemIsMetal(this->inv[HANDPOS].usItem) ))
 	{
 		this->attackSelection().weapon() = this->inv[HANDPOS].usItem;
-		this->aiData.bAction = AI_ACTION_KNIFE_STAB;
-		this->aiData.usActionData = this->position().gridNo();
+		this->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
+		this->aiPlanning().actionData() = this->position().gridNo();
 		this->pendingAction().clearAction();
 		this->targeting().gridNo() = this->position().gridNo();
 		this->targeting().level() = this->position().level();
@@ -25028,7 +25023,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 
 			// set base value ( interrupt per every X APs an enemy uses )
 			// if not seen but just heard... we interrupt only if they attack us (or if they are very close) in that case
-			if ( (pInterrupter->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY) || (pInterrupter->aiData.bOppList[pSoldier->ubID] == HEARD_THIS_TURN && (ubInterruptType == AFTERSHOT_INTERRUPT || ubInterruptType == AFTERACTION_INTERRUPT || PythSpacesAway( pInterrupter->position().gridNo(), pSoldier->position().gridNo() ) < 3)) )
+			if ( (pInterrupter->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY) || (pInterrupter->awareness().opponentKnowledge()[pSoldier->ubID] == HEARD_THIS_TURN && (ubInterruptType == AFTERSHOT_INTERRUPT || ubInterruptType == AFTERACTION_INTERRUPT || PythSpacesAway( pInterrupter->position().gridNo(), pSoldier->position().gridNo() ) < 3)) )
 			{
 				uiReactionTime = gGameExternalOptions.ubBasicReactionTimeLengthIIS;
 			}
@@ -25095,7 +25090,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			/////////////////////////////////////////////
 
 			// if we have hit the needed amount, the actual interrupt occurs for the observer
-			if ( pInterrupter->aiData.ubInterruptCounter[pSoldier->ubID] >= uiReactionTime )
+			if ( pInterrupter->turnState().interruptCounters()[pSoldier->ubID] >= uiReactionTime )
 			{
 				///////////////////////////
 				// Success! Add to list! //
@@ -25112,7 +25107,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 				// add the observer who got the interrupt
 				AddToIntList( pInterrupter->ubID, TRUE, TRUE );
 				// reset the counter
-				pInterrupter->aiData.ubInterruptCounter[pSoldier->ubID] = 0;
+				pInterrupter->turnState().interruptCounters()[pSoldier->ubID] = 0;
 			}
 		}
 		if ( ubInterruptersFound > 0 )
@@ -25183,7 +25178,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 								// if he can react on collective interrupt, give it to him
 								AddToIntList( pTeammate->ubID, TRUE, TRUE );
 								// reset the counter for him
-								pTeammate->aiData.ubInterruptCounter[pSoldier->ubID] = 0;
+								pTeammate->turnState().interruptCounters()[pSoldier->ubID] = 0;
 							}
 						}
 					}
@@ -25235,7 +25230,7 @@ BOOLEAN AIDecideHipOrShoulderStance( SOLDIERTYPE * pSoldier, INT32 iGridNo )
 		return TRUE;
 	}
 	// we want to make an aimed shot
-	if ( pSoldier->aiData.bAimTime > GetNumberAltFireAimLevels( pSoldier, iGridNo ) )
+	if ( pSoldier->aiPlanning().aimTime() > GetNumberAltFireAimLevels( pSoldier, iGridNo ) )
 	{
 		return FALSE;
 	}
@@ -25287,7 +25282,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 		if ( IsJa2TacticalCombatActive() )
 		{
 			// then only use it if morale is very high (we are definately winning)
-			if ( pSoldier->aiData.bMorale > 95 )
+			if ( pSoldier->morale().morale() > 95 )
 			{
 				return TRUE;
 			}
@@ -25295,7 +25290,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 		else
 		{
 			// if not we use this with slightly above avarage morale
-			if ( pSoldier->aiData.bMorale > 65 )
+			if ( pSoldier->morale().morale() > 65 )
 			{
 				return TRUE;
 			}
@@ -25306,7 +25301,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 	{
 		//never use this for regular enemies, only elites with high morale and level can sometimes show this animation
 		if ( (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE || pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA) &&
-			 (pSoldier->aiData.bAIMorale >= MORALE_FEARLESS) && (pSoldier->statistics().experienceLevel() > 8) )
+			 (pSoldier->morale().aiMorale() >= MORALE_FEARLESS) && (pSoldier->statistics().experienceLevel() > 8) )
 		{
 			return TRUE;
 		}
@@ -26082,7 +26077,7 @@ void HandleVolunteerRecruitment( SOLDIERTYPE* pRecruiter, SOLDIERTYPE* pTarget )
 		return;
 
 	// target must be friendly
-	if ( !pTarget->aiData.bNeutral )
+	if ( !pTarget->aiBehavior().neutral() )
 		return;
 
 	// Set a flag in this sector. This flag is removed every x hours. As long as it exists, newly created civilians won't be potential volunteers
@@ -26235,7 +26230,7 @@ BOOLEAN ApplyConsumable(SOLDIERTYPE* pSoldier, OBJECTTYPE *pObj, BOOLEAN fForce,
 		{
 			// merc gets slightly pissed by the player even suggesting this
 			TacticalCharacterDialogue( pSoldier, QUOTE_REFUSE_TO_SMOKE );
-			pSoldier->aiData.bMorale = max( 0, pSoldier->aiData.bMorale - 1 );
+			pSoldier->morale().morale() = max( 0, pSoldier->morale().morale() - 1 );
 
 			return FALSE;
 		}
@@ -26337,7 +26332,7 @@ BOOLEAN SOLDIERTYPE::CheckInitialAP(void)
 
 BOOLEAN SOLDIERTYPE::IsFlanking(void)
 {
-	if (this->aiData.bAlertStatus < STATUS_YELLOW ||
+	if (this->aiBehavior().alertStatus() < STATUS_YELLOW ||
 		!this->aiPlanning().flanking(MAX_FLANKS_RED))
 	{
 		return FALSE;

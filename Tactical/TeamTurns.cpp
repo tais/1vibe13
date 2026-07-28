@@ -365,7 +365,7 @@ void EndTurn( UINT8 ubNextTeam )
 			}
 			if ( pSoldier->bActive )
 			{
-				pSoldier->aiData.bMoved = TRUE;
+				pSoldier->turnState().moved() = TRUE;
 			}
 		}
 
@@ -421,7 +421,7 @@ void EndAITurn( void )
 			}
 			if ( pSoldier->bActive )
 			{
-				pSoldier->aiData.bMoved = TRUE;
+				pSoldier->turnState().moved() = TRUE;
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
 				pSoldier->vitals().snapshotHealth();
@@ -459,7 +459,7 @@ void EndAllAITurns( void )
 			}
 			if ( pSoldier->bActive )
 			{
-				pSoldier->aiData.bMoved = TRUE;
+				pSoldier->turnState().moved() = TRUE;
 				pSoldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
@@ -935,8 +935,8 @@ void StartInterrupt( void )
 		}
 		if ( pTempSoldier->bActive )
 		{
-			pTempSoldier->interruptSnapshot().captureMoved(pTempSoldier->aiData.bMoved);
-			pTempSoldier->aiData.bMoved = TRUE;
+			pTempSoldier->turnState().captureMoved(pTempSoldier->turnState().moved());
+			pTempSoldier->turnState().moved() = TRUE;
 		}
 	}
 
@@ -962,7 +962,7 @@ void StartInterrupt( void )
 			{
 				break;
 			}
-			pInterrupter->aiData.bMoved = FALSE;
+			pInterrupter->turnState().moved() = FALSE;
 			DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: popping %d off of the interrupt queue", ubInterrupter ) );
 
 			REMOVE_LATEST_INTERRUPT_GUY();
@@ -1008,7 +1008,7 @@ void StartInterrupt( void )
 					for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 					{
 						pTempSoldier = Squad[ iSquad ][ iCounter ];
-						if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved )
+						if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() )
 						{
 							INT16 ubMinAPcost = MinAPsToAttack(pSoldier,pInterruptedSoldier->position().gridNo(),ADDTURNCOST, 0);
 							// if we don't have enough APs left to shoot even a snap-shot at this guy
@@ -1037,7 +1037,7 @@ void StartInterrupt( void )
 				for ( iCounter = 0; iCounter < NUMBER_OF_SOLDIERS_PER_SQUAD; iCounter++ )
 				{
 					pTempSoldier = Squad[ iSquad ][ iCounter ];
-					if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved )
+					if ( pTempSoldier && pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() )
 					{
 						// then this guy got an interrupt...
 						ubInterrupters++;
@@ -1129,8 +1129,8 @@ void StartInterrupt( void )
 		{
 			if ( pTempSoldier->bActive )
 			{
-				pTempSoldier->interruptSnapshot().captureMoved(pTempSoldier->aiData.bMoved);
-				pTempSoldier->aiData.bMoved = TRUE;
+				pTempSoldier->turnState().captureMoved(pTempSoldier->turnState().moved());
+				pTempSoldier->turnState().moved() = TRUE;
 			}
 		}
 		*/
@@ -1146,7 +1146,7 @@ void StartInterrupt( void )
 			{
 				break;
 			}
-			pInterrupter->aiData.bMoved = FALSE;
+			pInterrupter->turnState().moved() = FALSE;
 
 			DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: popping %d off of the interrupt queue", ubInterrupter ) );
 
@@ -1283,12 +1283,12 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 		{
 			continue;
 		}
-		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->aiData.bMoved && (pTempSoldier->actionPoints().current() == pTempSoldier->aiData.bIntStartAPs))
+		if ( pTempSoldier->bActive && pTempSoldier->bInSector && !pTempSoldier->turnState().moved() && (pTempSoldier->actionPoints().current() == pTempSoldier->turnState().interruptStartActionPoints()))
 		{
 			ubMinAPsToAttack = MinAPsToAttack( pTempSoldier, pTempSoldier->targeting().lastGridNo(), FALSE, 0 );
 			if ( (ubMinAPsToAttack <= pTempSoldier->actionPoints().current()) && (ubMinAPsToAttack > 0) )
 			{
-				pTempSoldier->aiData.bPassedLastInterrupt = TRUE;
+				pTempSoldier->turnState().passedLastInterrupt() = TRUE;
 			}
 		}
 	}
@@ -1393,15 +1393,15 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 				// AI guys only here...
 				if ( pTempSoldier->actionPoints().current() == 0 )
 				{
-					pTempSoldier->aiData.bMoved = TRUE;
+					pTempSoldier->turnState().moved() = TRUE;
 				}
-				else if ( pTempSoldier->bTeam != gbPlayerNum && pTempSoldier->aiData.bNewSituation == IS_NEW_SITUATION )
+				else if ( pTempSoldier->bTeam != gbPlayerNum && pTempSoldier->aiBehavior().newSituation() == IS_NEW_SITUATION )
 				{
-					pTempSoldier->aiData.bMoved = FALSE;
+					pTempSoldier->turnState().moved() = FALSE;
 				}
 				else
 				{
-					pTempSoldier->aiData.bMoved = pTempSoldier->interruptSnapshot().movedBeforeInterrupt();
+					pTempSoldier->turnState().moved() = pTempSoldier->turnState().movedBeforeInterrupt();
 				}
 			}
 		}
@@ -1433,7 +1433,7 @@ void EndInterrupt( BOOLEAN fMarkInterruptOccurred )
 			{
 				if ( pTempSoldier->bActive )
 				{
-					pTempSoldier->aiData.bMoved = pTempSoldier->interruptSnapshot().movedBeforeInterrupt();
+					pTempSoldier->turnState().moved() = pTempSoldier->turnState().movedBeforeInterrupt();
 				}
 			}
 			*/
@@ -1835,7 +1835,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// don't allow neutral folks to get interrupts
-	if (pSoldier->aiData.bNeutral)
+	if (pSoldier->aiBehavior().neutral())
 	{
 		return( FALSE );
 	}
@@ -1925,7 +1925,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 
 
 		// if this is a "SEEING" interrupt
-		if (pSoldier->aiData.bOppList[ubOpponentID] == SEEN_CURRENTLY)
+		if (pSoldier->awareness().opponentKnowledge()[ubOpponentID] == SEEN_CURRENTLY)
 		{
 			// if pSoldier already saw the opponent last "look" or at least this turn
 			if ((bOldOppList == SEEN_CURRENTLY) || (bOldOppList == SEEN_THIS_TURN))
@@ -1959,7 +1959,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			// if the opponent can't see the "interrupter" either, OR
 			// if the "interrupter" already has any opponents already in sight, OR
 			// if the "interrupter" already heard the active soldier this turn
-			if ((pOpponent->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY) || (pSoldier->aiData.bOppCnt > 0) || (bOldOppList == HEARD_THIS_TURN))
+			if ((pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY) || (pSoldier->awareness().opponentCount() > 0) || (bOldOppList == HEARD_THIS_TURN))
 			{
 				return(FALSE);	 // no interrupt is possible
 			}
@@ -1974,7 +1974,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// soldier passed on the chance to react during previous interrupt this turn
-	if (pSoldier->aiData.bPassedLastInterrupt)
+	if (pSoldier->turnState().passedLastInterrupt())
 	{
 #ifdef RECORDNET
 		fprintf(NetDebugFile,"\tStandardInterruptConditionsMet: FAILING because PassedLastInterrupt %d(%s)\n",
@@ -2011,7 +2011,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// extra check to make sure neutral folks never get interrupts
-	if (pSoldier->aiData.bNeutral)
+	if (pSoldier->aiBehavior().neutral())
 	{
 		return( NO_INTERRUPT );
 	}
@@ -2066,14 +2066,14 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	}
 
 	// LOSE one point for each 2 additional opponents he currently sees, above 2
-	if (pSoldier->aiData.bOppCnt > 2)
+	if (pSoldier->awareness().opponentCount() > 2)
 	{
 		// subtract 1 here so there is a penalty of 1 for seeing 3 enemies
-		iPoints -= (pSoldier->aiData.bOppCnt - 1) / 2;
+		iPoints -= (pSoldier->awareness().opponentCount() - 1) / 2;
 	}
 
 	// LOSE one point if he's trying to interrupt only by hearing
-	if (pSoldier->aiData.bOppList[ubOpponentID] == HEARD_THIS_TURN)
+	if (pSoldier->awareness().opponentKnowledge()[ubOpponentID] == HEARD_THIS_TURN)
 	{
 		iPoints--;
 	}
@@ -2262,24 +2262,24 @@ BOOLEAN InterruptDuel( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pOpponent)
 		return FALSE;
 
 	// if opponent can't currently see us and we can see them
-	if ( pSoldier->aiData.bOppList[ pOpponent->ubID ] == SEEN_CURRENTLY && pOpponent->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
+	if ( pSoldier->awareness().opponentKnowledge()[ pOpponent->ubID ] == SEEN_CURRENTLY && pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
 	{
 		fResult = TRUE;		// we automatically interrupt
 		// fix up our interrupt duel pts if necessary
-		if (pSoldier->aiData.bInterruptDuelPts < pOpponent->aiData.bInterruptDuelPts)
+		if (pSoldier->turnState().interruptDuelPoints() < pOpponent->turnState().interruptDuelPoints())
 		{
-			pSoldier->aiData.bInterruptDuelPts = pOpponent->aiData.bInterruptDuelPts;
+			pSoldier->turnState().interruptDuelPoints() = pOpponent->turnState().interruptDuelPoints();
 		}
 	}
 	else
 	{
 		// If our total points is HIGHER, then we interrupt him anyway
-		if (pSoldier->aiData.bInterruptDuelPts > pOpponent->aiData.bInterruptDuelPts)
+		if (pSoldier->turnState().interruptDuelPoints() > pOpponent->turnState().interruptDuelPoints())
 		{
 			fResult = TRUE;
 		}
 	}
-//	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt duel %d (%d pts) vs %d (%d pts)", pSoldier->ubID, pSoldier->aiData.bInterruptDuelPts, pOpponent->ubID, pOpponent->aiData.bInterruptDuelPts );
+//	ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Interrupt duel %d (%d pts) vs %d (%d pts)", pSoldier->ubID, pSoldier->turnState().interruptDuelPoints(), pOpponent->ubID, pOpponent->turnState().interruptDuelPoints() );
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"InterruptDuel done");
 	return( fResult );
 }
@@ -2382,7 +2382,7 @@ void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate )
 	{
 		// record his initial APs at the start of his interrupt at this time
 		// this is not the ideal place for this, but it's the best I could do...
-		soldier->aiData.bIntStartAPs = soldier->actionPoints().current();
+		soldier->turnState().interruptStartActionPoints() = soldier->actionPoints().current();
 	}
 	else
 	{
@@ -2683,16 +2683,16 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 							// don't grant noise interrupts at greater than max. visible distance
 							if ( PythSpacesAway( pSoldier->position().gridNo(), pOpponent->position().gridNo() ) > MaxNormalDistanceVisible() )
 							{
-								pOpponent->aiData.bInterruptDuelPts = NO_INTERRUPT;
+								pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
 								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - NOISE BEYOND SIGHT DISTANCE!?", pOpponent->ubID ) );
 
 								continue;
 							}
 						}
-						else if ( pOpponent->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
+						else if ( pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
 						{
-							pOpponent->aiData.bInterruptDuelPts = NO_INTERRUPT;
+							pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
 							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d - DOESN'T SEE ON SIGHT INTERRUPT!?", pOpponent->ubID ) );
 
@@ -2700,7 +2700,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 							continue;
 						}
 
-						switch (pOpponent->aiData.bInterruptDuelPts)
+						switch (pOpponent->turnState().interruptDuelPoints())
 						{
 							case NO_INTERRUPT:		// no interrupt possible, no duel necessary
 								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("ResolveInterruptsVs: No interrupt for opponent %d", pOpponent->ubID ) );
@@ -2708,7 +2708,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 								break;
 
 							case AUTOMATIC_INTERRUPT:	// interrupts occurs automatically
-								pSoldier->aiData.bInterruptDuelPts = 0;	// just to have a valid intDiff later
+								pSoldier->turnState().interruptDuelPoints() = 0;	// just to have a valid intDiff later
 								fIntOccurs = TRUE;
 
 								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: automatic interrupt on %d by %d", pSoldier->ubID, pOpponent->ubID ) );
@@ -2717,12 +2717,12 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 
 							default:		// interrupt is possible, run a duel
 								DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, "Calculating int duel pts for onlooker in ResolveInterruptsVs" );
-								pSoldier->aiData.bInterruptDuelPts = CalcInterruptDuelPts(pSoldier, pOpponent->ubID, TRUE);
+								pSoldier->turnState().interruptDuelPoints() = CalcInterruptDuelPts(pSoldier, pOpponent->ubID, TRUE);
 								fIntOccurs = InterruptDuel(pOpponent,pSoldier);
 								#ifdef DEBUG_INTERRUPTS
 								if (fIntOccurs)
 								{
-									DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: standard interrupt on %d (%d pts) by %d (%d pts)", pSoldier->ubID, pSoldier->aiData.bInterruptDuelPts, pOpponent->ubID, pOpponent->aiData.bInterruptDuelPts) );
+									DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("INTERRUPT: standard interrupt on %d (%d pts) by %d (%d pts)", pSoldier->ubID, pSoldier->turnState().interruptDuelPoints(), pOpponent->ubID, pOpponent->turnState().interruptDuelPoints()) );
 								}
 								#endif
 
@@ -2735,7 +2735,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 							ubIntList[ubIntCnt] = pOpponent->ubID;
 
 							// and by how much he beat us in the duel
-							ubIntDiff[ubIntCnt] = pOpponent->aiData.bInterruptDuelPts - pSoldier->aiData.bInterruptDuelPts;
+							ubIntDiff[ubIntCnt] = pOpponent->turnState().interruptDuelPoints() - pSoldier->turnState().interruptDuelPoints();
 
 							// increment counter of interrupts lost
 							ubIntCnt++;
@@ -2743,30 +2743,30 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 						else
 						{
 						/*
-							if (pOpponent->aiData.bInterruptDuelPts != NO_INTERRUPT)
+							if (pOpponent->turnState().interruptDuelPoints() != NO_INTERRUPT)
 							{
-								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d fails to interrupt %d (%d vs %d pts)", pOpponent->ubID, pSoldier->ubID, pOpponent->aiData.bInterruptDuelPts, pSoldier->aiData.bInterruptDuelPts);
+								ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%d fails to interrupt %d (%d vs %d pts)", pOpponent->ubID, pSoldier->ubID, pOpponent->turnState().interruptDuelPoints(), pSoldier->turnState().interruptDuelPoints());
 							}
 							*/
 						}
 
 						// either way, clear out both sides' bInterruptDuelPts field to prepare next one
 
-						if (pSoldier->aiData.bInterruptDuelPts != NO_INTERRUPT)
+						if (pSoldier->turnState().interruptDuelPoints() != NO_INTERRUPT)
 						{
 							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pSoldier->ubID ) );
 						}
 
 
-						pSoldier->aiData.bInterruptDuelPts = NO_INTERRUPT;
+						pSoldier->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
 
-						if (pOpponent->aiData.bInterruptDuelPts != NO_INTERRUPT)
+						if (pOpponent->turnState().interruptDuelPoints() != NO_INTERRUPT)
 						{
 							DebugMsg( TOPIC_JA2INTERRUPT, DBG_LEVEL_3, String("Resetting int pts for %d", pOpponent->ubID ) );
 						}
 
-						pOpponent->aiData.bInterruptDuelPts = NO_INTERRUPT;
+						pOpponent->turnState().interruptDuelPoints() = NO_INTERRUPT;
 
 					}
 
@@ -2836,7 +2836,7 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 								ubIntList[ubSmallestSlot]);
 						if (interrupter)
 						{
-							interrupter->aiData.ubInterruptCounter[pSoldier->ubID] = 0;
+							interrupter->turnState().interruptCounters()[pSoldier->ubID] = 0;
 						}
 					}
 					if (INTERRUPTS_OVER)
@@ -2936,7 +2936,7 @@ BOOLEAN NPCFirstDraw( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTargetSoldier )
 	DebugMsg (TOPIC_JA2INTERRUPT,DBG_LEVEL_3,"NPCFirstDraw");
 	// if attacking an NPC check to see who draws first!
 
-	if ( pTargetSoldier->ubProfile != NO_PROFILE && pTargetSoldier->ubProfile != SLAY && pTargetSoldier->aiData.bNeutral && pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
+	if ( pTargetSoldier->ubProfile != NO_PROFILE && pTargetSoldier->ubProfile != SLAY && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY && (	FindAIUsableObjClass( pTargetSoldier, IC_WEAPON ) != NO_SLOT ) )
 	{
 		UINT8	ubLargerHalf, ubSmallerHalf, ubTargetLargerHalf, ubTargetSmallerHalf;
 

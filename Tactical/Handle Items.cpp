@@ -646,7 +646,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		!HasItemFlag(usHandItem, EMPTY_BLOOD_BAG) &&
 		!HasItemFlag( usHandItem, MEDICAL_SPLINT ) )
 	{
-		if (pTargetSoldier->bTeam == gbPlayerNum || pTargetSoldier->aiData.bNeutral)
+		if (pTargetSoldier->bTeam == gbPlayerNum || pTargetSoldier->aiBehavior().neutral())
 		{
 			// anv: don't try to attack yourself, it will only cause deadlock
 			if (pSoldier == pTargetSoldier)
@@ -657,7 +657,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			// nice mercs won't shoot other nice guys or neutral civilians
 			if ((gMercProfiles[pSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY) &&
-				((pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->aiData.bNeutral && pTargetSoldier->ubBodyType != CROW) ||
+				((pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->ubBodyType != CROW) ||
 				pTargetSoldier->ubProfile != NO_PROFILE && gMercProfiles[pTargetSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_GOODGUY))
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
@@ -680,7 +680,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// any recruited rebel will refuse to fire on another rebel or neutral nameless civ
 			if (pSoldier->ubCivilianGroup == REBEL_CIV_GROUP &&
 				(pTargetSoldier->ubCivilianGroup == REBEL_CIV_GROUP ||
-				(pTargetSoldier->aiData.bNeutral && pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->ubCivilianGroup == NON_CIV_GROUP && pTargetSoldier->ubBodyType != CROW)))
+				(pTargetSoldier->aiBehavior().neutral() && pTargetSoldier->ubProfile == NO_PROFILE && pTargetSoldier->ubCivilianGroup == NON_CIV_GROUP && pTargetSoldier->ubBodyType != CROW)))
 			{
 				TacticalCharacterDialogue(pSoldier, QUOTE_REFUSING_ORDER);
 				return(ITEM_HANDLE_REFUSAL);
@@ -910,12 +910,12 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		// Our guys NEED TRUE. We shoulkd at some time make sure the AI and
 		// our guys are deducting/checking in the same manner to avoid
 		// these differences.
-		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 
 
-		GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiData.bAimTime );
+		GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiPlanning().aimTime() );
 		usTurningCost = CalculateTurningCost(pSoldier, usHandItem, fAddingTurningCost);
-		usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiData.bAimTime);
+		usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiPlanning().aimTime());
 
 		// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 		//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
@@ -952,7 +952,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				//if ( !pSoldier->fireControl().burstCounter() && IsGunBurstCapable( pSoldier, HANDPOS, FALSE ) )
 				// SANDRO - messed this a little.. decrease morale a bit when we would like to go psycho,
 				// but have not a gun capable for it
-				if ( PreRandom( 3 + pSoldier->aiData.bAimTime ) == 0 && !pSoldier->fireControl().burstCounter() )
+				if ( PreRandom( 3 + pSoldier->aiPlanning().aimTime() ) == 0 && !pSoldier->fireControl().burstCounter() )
 				{
 					if ( IsGunBurstCapable( &pSoldier->inv[HANDPOS], FALSE, pSoldier ) )
 					{
@@ -960,7 +960,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 						// temporarily set burst to true to calculate action points
 						pSoldier->fireControl().burstCounter() = TRUE;
-						sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+						sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 						// reset burst mode to false (which is what it was at originally)
 						pSoldier->fireControl().burstCounter() = FALSE;
 
@@ -1050,7 +1050,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					misfirePenalty = misfirePenaltyConst + (Chance(misfirePenaltyRand)?1:0); //apply the base integral cost and the fractional cost (in the form of probablilite)
 
 					pSoldier->fireControl().autofireShots() += misfirePenalty;
-					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+					sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 				}
 				while(EnoughPoints( pSoldier, sAPCost, 0, FALSE ) && roll < ((pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft >= pSoldier->fireControl().autofireShots())?chanceToMisfire:chanceToMisfireDry));
 				//note that we could misfire more bullets than we have rounds
@@ -1058,7 +1058,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				//the max that can be lost this way is 1AP
 
 				pSoldier->fireControl().autofireShots() -= misfirePenalty;
-				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime );
+				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime() );
 
 				if((__min(pSoldier->fireControl().autofireShots(),pSoldier->inv[ pSoldier->attackSelection().hand() ][0]->data.gun.ubGunShotsLeft) - startAuto) > 0 && pSoldier->bTeam == OUR_TEAM)
 				{
@@ -1159,10 +1159,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				// Descrease aim by two if in real time
 				if ( (gTacticalStatus.uiFlags & REALTIME ) || !(IsJa2TacticalCombatActive()) )
 				{
-					//pSoldier->aiData.bShownAimTime -= 2;
-					//if ( pSoldier->aiData.bShownAimTime < REFINE_AIM_1 )
+					//pSoldier->aiPlanning().shownAimTime() -= 2;
+					//if ( pSoldier->aiPlanning().shownAimTime() < REFINE_AIM_1 )
 					//{
-					//		pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+					//		pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 					//}
 					//pSoldier->fireControl().aimPaused() = TRUE;
 				}
@@ -1170,7 +1170,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				// If in turn based - refresh aim to first level
 				if ( IsJa2TacticalTurnBasedCombat() )
 				{
-					pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+					pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 
 					// Locate to soldier if he's about to shoot!
 					if ( pSoldier->bTeam != gbPlayerNum	)
@@ -1205,7 +1205,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		{
 			pSoldier->targeting().gridNo() = sGridNo;
 
-			pSoldier->aiData.usActionData	= sGridNo;
+			pSoldier->aiPlanning().actionData()	= sGridNo;
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
@@ -1220,7 +1220,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			}
 			else
 			{
-				pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 				pSoldier->EVENT_SoldierBeginPunchAttack( sAdjustedGridNo, ubDirection );
 			}
 
@@ -2128,7 +2128,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 		if ( sActionGridNo != NOWHERE )
 		{
-			pSoldier->aiData.usActionData = sActionGridNo;
+			pSoldier->aiPlanning().actionData() = sActionGridNo;
 
 			// CHECK IF WE ARE AT THIS GRIDNO NOW
 			if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -2145,7 +2145,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else
 			{
 				// for the benefit of the AI
-				pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+				pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 				pSoldier->EVENT_SoldierBeginBladeAttack( sAdjustedGridNo, ubDirection );
 			}
 
@@ -2178,14 +2178,14 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		DebugAttackBusy( "Swipe attack\n");
 
 
-		sAPCost = CalcTotalAPsToAttack( pSoldier, sGridNo, FALSE, pSoldier->aiData.bAimTime );
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sGridNo, FALSE, pSoldier->aiPlanning().aimTime() );
 
 		DeductPoints( pSoldier, sAPCost, 0 );
 
 		pSoldier->EVENT_InitNewSoldierAnim( QUEEN_SWIPE, 0 , FALSE );
 
 		//FireWeapon( pSoldier, sTargetGridNo );
-		pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+		pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
 		return( ITEM_HANDLE_OK );
 	}
@@ -2206,7 +2206,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			sTargetGridNo	= sGridNo;
 		}
 
-		sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiData.bAimTime, 0 );
+		sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE, pSoldier->aiPlanning().aimTime(), 0 );
 
 		// Check if these is room to place mortar!
 		if (ItemIsMortar(usHandItem))
@@ -2225,9 +2225,9 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 		}
 		else if (ItemIsGrenadeLauncher(usHandItem))//usHandItem == GLAUNCHER || usHandItem == UNDER_GLAUNCHER )
 		{
-			GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiData.bAimTime );
+			GetAPChargeForShootOrStabWRTGunRaises( pSoldier, sTargetGridNo, TRUE, &fAddingTurningCost, &fAddingRaiseGunCost, pSoldier->aiPlanning().aimTime() );
 			usTurningCost = CalculateTurningCost(pSoldier, usHandItem, fAddingTurningCost);
-			usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiData.bAimTime );
+			usRaiseGunCost = CalculateRaiseGunCost(pSoldier, fAddingRaiseGunCost, sTargetGridNo, pSoldier->aiPlanning().aimTime() );
 
 			// If we are standing and are asked to turn AND raise gun, ignore raise gun...
 			//CHRISL: Actually, the display value is based on the higher of turn and raise gun so we should do the same
@@ -6176,7 +6176,7 @@ void CorpseMessageBoxCallBack( UINT8 ubExitValue )
 		const INT32 nextGridNoinSight = callbackContext.grid;
 		const INT8 level = callbackContext.level;
 
-		INT16 sAPCost = CalcTotalAPsToAttack( gpTempSoldier, nextGridNoinSight, FALSE, gpTempSoldier->aiData.bAimTime );
+		INT16 sAPCost = CalcTotalAPsToAttack( gpTempSoldier, nextGridNoinSight, FALSE, gpTempSoldier->aiPlanning().aimTime() );
 
 		BOOLEAN fDamageKnife = FALSE;
 
@@ -6873,8 +6873,8 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 	}
 
 	// sevenfm
-	// pSoldier->aiData.bNeutral is needed to prevent neutral civs stepping on player's mines
-	if (pSoldier->bSide == 0 || (pSoldier->aiData.bNeutral && gGameExternalOptions.bNeutralCiviliansAvoidPlayerMines))	
+	// pSoldier->aiBehavior().neutral() is needed to prevent neutral civs stepping on player's mines
+	if (pSoldier->bSide == 0 || (pSoldier->aiBehavior().neutral() && gGameExternalOptions.bNeutralCiviliansAvoidPlayerMines))
 	{
 		fCheckFlag = MAPELEMENT_PLAYER_MINE_PRESENT;
 	}
@@ -7251,8 +7251,8 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 
 	if ( pOffendingSoldier )
 	{
-		pSoldier->aiData.bNextAction = AI_ACTION_CHANGE_FACING;
-		pSoldier->aiData.usNextActionData = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOffendingSoldier->position().worldXInt(), pOffendingSoldier->position().worldYInt() );
+		pSoldier->aiPlanning().nextAction() = AI_ACTION_CHANGE_FACING;
+		pSoldier->aiPlanning().nextActionData() = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOffendingSoldier->position().worldXInt(), pOffendingSoldier->position().worldYInt() );
 	}
 }
 

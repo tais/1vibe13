@@ -2150,7 +2150,7 @@ UINT32 EnemyStrength( void )
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(ubLoop);
-			if ( pSoldier->bActive && pSoldier->bInSector && !pSoldier->aiData.bNeutral )
+			if ( pSoldier->bActive && pSoldier->bInSector && !pSoldier->aiBehavior().neutral() )
 			{
 				// count this person's strength (condition), calculated as life reduced up to half according to maxbreath
 				uiStrength = pSoldier->vitals().health() * ( pSoldier->vitals().maximumBreath() + 100 ) / 200;

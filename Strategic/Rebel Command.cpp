@@ -4566,7 +4566,7 @@ void ApplyVisionModifier(const SOLDIERTYPE* pSoldier, INT32& sight)
 		default: modifier = gRebelCommandSettings.fReduceUnlaertedEnemyVisionModifier; break;
 		}
 
-		if (pSoldier->bTeam == ENEMY_TEAM && pSoldier->aiData.bAlertStatus == STATUS_GREEN)
+		if (pSoldier->bTeam == ENEMY_TEAM && pSoldier->aiBehavior().alertStatus() == STATUS_GREEN)
 		{
 			sight = static_cast<INT32>(sight * (1.f - modifier));
 		}

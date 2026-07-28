@@ -1032,13 +1032,13 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 
 			// if we see or hear him
 			// dunno if this is the best solution yet, probably yes
-			if ( pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY ||
-				 pOpponent->aiData.bOppList[pSoldier->ubID] == HEARD_THIS_TURN)
+			if ( pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY ||
+				 pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] == HEARD_THIS_TURN)
 			//if (SoldierToSoldierLineOfSightTest( pOpponent, pSoldier, TRUE, CALC_FROM_WANTED_DIR ) != 0)
 			{
 				// calculate how much points do we "register" (let's try to avoid chance-based calc to not inspire save-load mania)
 				// Experience says how well is the observer able to notice and percieve the environment around him, i.e. gives us the actual chance per AP
-				if ( pOpponent->aiData.bOppList[pSoldier->ubID] == HEARD_THIS_TURN )
+				if ( pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] == HEARD_THIS_TURN )
 				{
 					// if we only heard him, keep it lower
 					ubPointsRegistered = (gGameExternalOptions.ubBasicPercentRegisterValueIIS - 20) 
@@ -1059,7 +1059,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				if ( gGameOptions.fNewTraitSystem )
 				{
 					// without Night Ops, we get small penalty for interrupting a target in dark
-					if ( !(HAS_SKILL_TRAIT( pOpponent, NIGHT_OPS_NT )) && pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY)
+					if ( !(HAS_SKILL_TRAIT( pOpponent, NIGHT_OPS_NT )) && pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY)
 					{
 						INT8 bLightLevel = LightTrueLevel(pSoldier->position().gridNo(), pSoldier->position().level());
 						if ( bLightLevel > 6) // 7+ lightlevel is darkness
@@ -1096,7 +1096,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				}
 
 				// ALRIGHT! Get final value
-				if (pOpponent->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY )
+				if (pOpponent->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY )
 					ubPointsRegistered = max( 20, min( 100, ubPointsRegistered ) ); // 20% is minimum on seeing
 				else
 					ubPointsRegistered = max( 10, min( 100, ubPointsRegistered ) ); // 10% is minimum on hearing
@@ -1106,7 +1106,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 				// increase the counter
 				if ( ubPointsRegistered )
 				{
-					pOpponent->aiData.ubInterruptCounter[pSoldier->ubID] += ubPointsRegistered;
+					pOpponent->turnState().interruptCounters()[pSoldier->ubID] += ubPointsRegistered;
 					fFoundInterrupter = TRUE;
 				}
 			}	
@@ -2087,7 +2087,7 @@ void GetAPChargeForShootOrStabWRTGunRaises( SOLDIERTYPE *pSoldier, INT32 sGridNo
 			ubDirection = (UINT8)GetDirectionFromGridNo( sGridNo, pSoldier );
 
 			// Is it the same as he's facing?
-			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing().desiredDirection() && pSoldier->aiData.bLastAction == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
+			if ( ubDirection != pSoldier->position().direction() && !(ubDirection == pSoldier->pathing().desiredDirection() && pSoldier->aiPlanning().lastAction() == AI_ACTION_CHANGE_FACING) )//dnl ch64 310813 sometimes turning is in progress and APs already deducted
 			{
 					fAddingTurningCost = TRUE;
 			}

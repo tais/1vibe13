@@ -1274,28 +1274,28 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_NORTH_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SOUTH )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_SOUTH_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_EAST )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_EAST_ENEMY;
 			}
 			else if ( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_WEST )
 			{
 				if ( pSoldier->bSide == gbPlayerNum )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST;
-				else if ( !pSoldier->aiData.bNeutral )
+				else if ( !pSoldier->aiBehavior().neutral() )
 					gCurrentIncident.usIncidentFlags |= INCIDENT_ATTACKDIR_WEST_ENEMY;
 			}
 
@@ -1657,7 +1657,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		}
 
 		// If he's an enemy... set presence
-		if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+		if ( !pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum ) )
 		{
 			// ATE: Added if not bloodcats
 			// only do this once they are seen.....

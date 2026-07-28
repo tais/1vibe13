@@ -1515,7 +1515,7 @@ void InventoryScreenMaskBtnCallback(MOUSE_REGION * pRegion, INT32 iReason )
 
 void GetMoraleString( SOLDIERTYPE *pSoldier, CHAR16 *sString )
 {
-	INT8 bMorale = pSoldier->aiData.bMorale;
+	INT8 bMorale = pSoldier->morale().morale();
 
 	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
@@ -5950,7 +5950,7 @@ void RenderSoldierSmallFaceForUpdatePanel( INT32 iIndex, INT32 iX, INT32 iY )
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+40, iStartY, iX+41, iY+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
 	//MORALE BAR
-	iStartY = iY + 29 - 27*pSoldier->aiData.bMorale/100;
+	iStartY = iY + 29 - 27*pSoldier->morale().morale()/100;
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+42, iStartY, iX+43, iY+29, Get16BPPColor( FROMRGB( 8, 156, 8 ) ) );
 	ColorFillVideoSurfaceArea( guiSAVEBUFFER, iX+43, iStartY, iX+44, iY+29, Get16BPPColor( FROMRGB( 8, 107, 8 ) ) );
 }

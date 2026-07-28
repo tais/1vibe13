@@ -2419,14 +2419,14 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 		if( pSoldier->vitals().health() >= OKLIFE && pSoldier->bActive && pSoldier->bInSector )
 		{
 			// send soldier to centre of map, roughly
-			pSoldier->aiData.sNoiseGridno = sGridNoToGoto;
+			pSoldier->perception().noiseGrid() = sGridNoToGoto;
 			pSoldier->perception().heardNoiseLevel() = 0;
-			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION / 2;
+			pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION / 2;
 
-			pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
+			pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
 			pSoldier->inventoryState().keyAccess() = TRUE;
 
-			pSoldier->aiData.bOrders = SEEKENEMY;
+			pSoldier->aiBehavior().orders() = SEEKENEMY;
 		}
 	}
 }

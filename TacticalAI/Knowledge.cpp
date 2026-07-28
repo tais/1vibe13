@@ -92,7 +92,7 @@ void CallEldinTo( INT32 sGridNo )
 	{
 		// new situation for Eldin
 		pSoldier = FindSoldierByProfileID( ELDIN, FALSE );
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && (pSoldier->aiData.bAlertStatus == STATUS_GREEN || pSoldier->aiData.ubNoiseVolume < (MAX_MISC_NOISE_DURATION / 2) ) )
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && (pSoldier->aiBehavior().alertStatus() == STATUS_GREEN || pSoldier->perception().noiseVolume() < (MAX_MISC_NOISE_DURATION / 2) ) )
 		{
 			if ( SoldierTo3DLocationLineOfSightTest( pSoldier, sGridNo, 0, 0, TRUE ) )
 			{
@@ -102,15 +102,15 @@ void CallEldinTo( INT32 sGridNo )
 			}
 			else
 			{
-				pSoldier->aiData.sNoiseGridno = sGridNo;
-				pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
-				if ( (pSoldier->aiData.bAction != AI_ACTION_GET_CLOSER) || CheckFact( FACT_MUSEUM_ALARM_WENT_OFF, 0 ) == FALSE )
+				pSoldier->perception().noiseGrid() = sGridNo;
+				pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
+				if ( (pSoldier->aiPlanning().action() != AI_ACTION_GET_CLOSER) || CheckFact( FACT_MUSEUM_ALARM_WENT_OFF, 0 ) == FALSE )
 				{
 					DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: CallEldinTo"));
 					CancelAIAction( pSoldier, TRUE );
-					pSoldier->aiData.bNextAction = AI_ACTION_GET_CLOSER;
-					pSoldier->aiData.usNextActionData = sGridNo;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_GET_CLOSER;
+					pSoldier->aiPlanning().nextActionData() = sGridNo;
 					pSoldier->timing().start(SoldierTimingComponent::Timer::Ai, 100);
 				}
 				// otherwise let AI handle this normally
@@ -146,7 +146,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	psLastLoc = gsLastKnownOppLoc[pSoldier->ubID];
 
 	// hang pointers at start of this guy's personal and public opponent opplists
-	pbPersOL = pSoldier->aiData.bOppList;
+	pbPersOL = pSoldier->awareness().opponentKnowledge();
 	pbPublOL = gbPublicOpplist[pSoldier->bTeam];
 
 	// sevenfm: sector information
@@ -171,7 +171,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 		{
 			// green  AI state: always ignore
 			// yellow AI state: 50% chance to ignore
-			if ( pSoldier->aiData.bAlertStatus == STATUS_GREEN || (pSoldier->aiData.bAlertStatus == STATUS_YELLOW && Random(2) ) )
+			if ( pSoldier->aiBehavior().alertStatus() == STATUS_GREEN || (pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW && Random(2) ) )
 				continue;
 
 			// sevenfm: ignore noise if some friends already see opponent
@@ -179,7 +179,7 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 				continue;
 		}
 
-		pbPersOL = pSoldier->aiData.bOppList + pTemp->ubID;
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->ubID;
 		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pTemp->ubID;
 		psLastLoc = gsLastKnownOppLoc[pSoldier->ubID] + pTemp->ubID;
 		pbLastLevel = gbLastKnownOppLevel[pSoldier->ubID] + pTemp->ubID;
@@ -216,26 +216,26 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 	}
 
 	// if any "misc. noise" was also heard recently	
-	if (!TileIsOutOfBounds(pSoldier->aiData.sNoiseGridno))
+	if (!TileIsOutOfBounds(pSoldier->perception().noiseGrid()))
 	{
-		if ( pSoldier->perception().heardNoiseLevel() != pSoldier->position().level() || PythSpacesAway( pSoldier->position().gridNo(), pSoldier->aiData.sNoiseGridno ) >= 6 || SoldierTo3DLocationLineOfSightTest( pSoldier, pSoldier->aiData.sNoiseGridno, pSoldier->perception().heardNoiseLevel(), 0, FALSE, NO_DISTANCE_LIMIT ) == 0 )
+		if ( pSoldier->perception().heardNoiseLevel() != pSoldier->position().level() || PythSpacesAway( pSoldier->position().gridNo(), pSoldier->perception().noiseGrid() ) >= 6 || SoldierTo3DLocationLineOfSightTest( pSoldier, pSoldier->perception().noiseGrid(), pSoldier->perception().heardNoiseLevel(), 0, FALSE, NO_DISTANCE_LIMIT ) == 0 )
 		{
 			// calculate how far this noise was, and its relative "importance"
-			iDistAway = SpacesAway(pSoldier->position().gridNo(),pSoldier->aiData.sNoiseGridno);
-			iNoiseValue = ((pSoldier->aiData.ubNoiseVolume / 2) - 6) * iDistAway;
+			iDistAway = SpacesAway(pSoldier->position().gridNo(),pSoldier->perception().noiseGrid());
+			iNoiseValue = ((pSoldier->perception().noiseVolume() / 2) - 6) * iDistAway;
 
 			if (iNoiseValue > iBestValue)
 			{
 				iBestValue = iNoiseValue;
-				sBestGridNo = pSoldier->aiData.sNoiseGridno;
+				sBestGridNo = pSoldier->perception().noiseGrid();
 				bBestLevel = pSoldier->perception().heardNoiseLevel();
 			}
 		}
 		else
 		{
 			// we are there or near
-			pSoldier->aiData.sNoiseGridno = NOWHERE;		// wipe it out, not useful anymore
-			pSoldier->aiData.ubNoiseVolume = 0;
+			pSoldier->perception().noiseGrid() = NOWHERE;		// wipe it out, not useful anymore
+			pSoldier->perception().noiseVolume() = 0;
 		}
 	}
 	
@@ -266,16 +266,16 @@ INT32 MostImportantNoiseHeard( SOLDIERTYPE *pSoldier, INT32 *piRetValue, BOOLEAN
 		*pfReachable = TRUE;
 
 		// make civs not walk to noises outside their room if on close patrol/onguard
-		if ( pSoldier->aiData.bOrders <= CLOSEPATROL && (pSoldier->bTeam == CIV_TEAM || pSoldier->ubProfile != NO_PROFILE ) )
+		if ( pSoldier->aiBehavior().orders() <= CLOSEPATROL && (pSoldier->bTeam == CIV_TEAM || pSoldier->ubProfile != NO_PROFILE ) )
 		{
 			//DBrot: More Rooms
 			//UINT8	ubRoom, ubNewRoom;
 			UINT16 usRoom, usNewRoom;
 
 			// any other combo uses the default of ubRoom == 0, set above
-			if ( InARoom( pSoldier->aiData.sPatrolGrid[0], &usRoom ) )
+			if ( InARoom( pSoldier->aiPlanning().patrolGrid()[0], &usRoom ) )
 			{
-				if ( !InARoom( pSoldier->aiData.sPatrolGrid[0], &usNewRoom ) || usRoom != usNewRoom )
+				if ( !InARoom( pSoldier->aiPlanning().patrolGrid()[0], &usNewRoom ) || usRoom != usNewRoom )
 				{
 					*pfReachable = FALSE;
 				}
@@ -334,14 +334,14 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 	SOLDIERTYPE * pTemp;
 
 	// if merc knows of a more important misc. noise than his team does
-	if (!(CREATURE_OR_BLOODCAT( pSoldier )) && (pSoldier->aiData.ubNoiseVolume > gubPublicNoiseVolume[pSoldier->bTeam]))
+	if (!(CREATURE_OR_BLOODCAT( pSoldier )) && (pSoldier->perception().noiseVolume() > gubPublicNoiseVolume[pSoldier->bTeam]))
 	{
 		// the difference in volume is added to the "new info" total
-		ubTotal += pSoldier->aiData.ubNoiseVolume - gubPublicNoiseVolume[pSoldier->bTeam];
+		ubTotal += pSoldier->perception().noiseVolume() - gubPublicNoiseVolume[pSoldier->bTeam];
 	}
 
 	// hang pointers at start of this guy's personal and public opponent opplists
-	pbPersOL = &(pSoldier->aiData.bOppList[0]);
+	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
 	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
 
 	// for every opponent
@@ -366,7 +366,7 @@ INT16 WhatIKnowThatPublicDont(SOLDIERTYPE *pSoldier, UINT8 ubInSightOnly)
 			continue;			// next merc
 		}
 
-		pbPersOL = pSoldier->aiData.bOppList + pTemp->ubID;
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pTemp->ubID;
 		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pTemp->ubID;
 
 

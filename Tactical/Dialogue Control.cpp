@@ -3163,8 +3163,8 @@ void HandleDialogueEnd( FACETYPE *pFace )
 									SOLDIERTYPE* enemy =
 										GetJa2SoldierRepository().resolve(cnt.i);
 									if( enemy &&
-										enemy->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY
-										&& pSoldier->aiData.bOppList[cnt] == SEEN_CURRENTLY && !( enemy->perception().isDeafened() ) )
+										enemy->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY
+										&& pSoldier->awareness().opponentKnowledge()[cnt] == SEEN_CURRENTLY && !( enemy->perception().isDeafened() ) )
 									{
 										ubSeenEnemies[ubSeenEnemiesCnt] = cnt; 
 										ubSeenEnemiesCnt++;

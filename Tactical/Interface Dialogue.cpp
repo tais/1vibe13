@@ -1141,12 +1141,12 @@ void TalkPanelClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					gubNewPanelParam = source->ubID;
 
 					// Wait!
-					destination->aiData.bNextAction = AI_ACTION_WAIT;
-					destination->aiData.usNextActionData = 10000;
+					destination->aiPlanning().nextAction() = AI_ACTION_WAIT;
+					destination->aiPlanning().nextActionData() = 10000;
 
 					// UNless he's has a pending action, delete what he was doing!
 					// Cancel anything he was doing
-					if ( destination->aiData.bAction != AI_ACTION_PENDING_ACTION )
+					if ( destination->aiPlanning().action() != AI_ACTION_PENDING_ACTION )
 					{
 						CancelAIAction( destination, TRUE );
 					}
@@ -1654,7 +1654,7 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 	{
 		// make sure they are in the right alert status to receive orders (it's a bug that
 		// this could be set for the player...)
-		pSoldier->aiData.bAlertStatus = STATUS_GREEN;
+		pSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 		pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 	}
 
@@ -1831,10 +1831,10 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 
 	// zap any delay in this soldier
 	pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
-	if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
+	if (pSoldier->aiPlanning().nextAction() == AI_ACTION_WAIT)
 	{
-		pSoldier->aiData.bNextAction = AI_ACTION_NONE;
-		pSoldier->aiData.usNextActionData = 0;
+		pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
+		pSoldier->aiPlanning().nextActionData() = 0;
 	}
 
 	// if player controlled, set under AI control flag
@@ -1844,14 +1844,14 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	}
 
 	// OK, set in motion!
-	pSoldier->aiData.bNextAction = AI_ACTION_WALK;
+	pSoldier->aiPlanning().nextAction() = AI_ACTION_WALK;
 
 	// Set dest!
-	pSoldier->aiData.usNextActionData = usGridNo;
+	pSoldier->aiPlanning().nextActionData() = usGridNo;
 
 	// UNless he's has a pending action, delete what he was doing!
 	// Cancel anything he was doing
-	if ( pSoldier->aiData.bAction != AI_ACTION_PENDING_ACTION )
+	if ( pSoldier->aiPlanning().action() != AI_ACTION_PENDING_ACTION )
 	{
 		CancelAIAction( pSoldier, TRUE );
 	}
@@ -1865,7 +1865,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	pSoldier->movement().absoluteDestination() = usGridNo;
 
 	// handle this guy's AI right away so that we can get him moving
-	pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+	pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 }
 
 void HandleNPCClosePanel(	)
@@ -2187,7 +2187,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier->dialogue().quoteActionId() = QUOTE_ACTION_ID_TURNTOWARDSPLAYER;
 
 				// handle AI for this person every frame until a player merc is near
-				pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+				pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 				break;
 
 			case NPC_ACTION_OPEN_CLOSEST_DOOR:
@@ -2510,7 +2510,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				{
 					return;
 				}
-				if ( !pSoldier->aiData.bNeutral )
+				if ( !pSoldier->aiBehavior().neutral() )
 				{
 					DeleteTalkingMenu();
 					SetSoldierNeutral( pSoldier );
@@ -2697,7 +2697,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						// is clear... and set pending action so the guy won't move
 						// until the pickup is completed
 						CancelAIAction(pSoldier,FORCE);
-						pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
+						pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 						pSoldier->dialogue().quoteRecord() = NPC_ACTION_KYLE_GETS_MONEY;
 
 						SoldierPickupItem( pSoldier, iWorldItem, sGridNo, ITEM_IGNORE_Z_LEVEL );
@@ -3294,8 +3294,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					}
 					else if (!PTR_STANDING)
 					{
-						pSoldier->aiData.bNextAction = AI_ACTION_CHANGE_STANCE;
-						pSoldier->aiData.usNextActionData = ANIM_STAND;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_CHANGE_STANCE;
+						pSoldier->aiPlanning().nextActionData() = ANIM_STAND;
 					}
 				}
 				break;
@@ -3545,7 +3545,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					// is clear... and set pending action so the guy won't move
 					// until the pickup is completed
 					CancelAIAction(pSoldier,FORCE);
-					pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
+					pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 
 					// make sure the pickup starts dammit!
 					pSoldier->animationActivity().clearInterruptibility();
@@ -3638,13 +3638,13 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
 					{
-						pSoldier->aiData.bNextAction = AI_ACTION_KNIFE_MOVE;
-						pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
-						pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_KNIFE_MOVE;
+						pSoldier->aiPlanning().nextActionData() = pTarget->position().gridNo();
+						pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 
 						// UNless he's has a pending action, delete what he was doing!
 						// Cancel anything he was doing
-						if ( pSoldier->aiData.bAction != AI_ACTION_PENDING_ACTION )
+						if ( pSoldier->aiPlanning().action() != AI_ACTION_PENDING_ACTION )
 						{
 							CancelAIAction( pSoldier, TRUE );
 						}
@@ -3684,13 +3684,13 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 						CreateItem( (UINT16) (DESERTEAGLE), 100, &( pSoldier->inv[ HANDPOS ] ) );
 
 						// Make shoot
-						pSoldier->aiData.bNextAction = AI_ACTION_FIRE_GUN;
-						pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
-						pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_FIRE_GUN;
+						pSoldier->aiPlanning().nextActionData() = pTarget->position().gridNo();
+						pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 
 						// UNless he's has a pending action, delete what he was doing!
 						// Cancel anything he was doing
-						if ( pSoldier->aiData.bAction != AI_ACTION_PENDING_ACTION )
+						if ( pSoldier->aiPlanning().action() != AI_ACTION_PENDING_ACTION )
 						{
 							CancelAIAction( pSoldier, TRUE );
 						}
@@ -3756,13 +3756,13 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 						if ( fGoodTarget )
 						{
-							pSoldier->aiData.bNextAction = AI_ACTION_KNIFE_MOVE;
-							pSoldier->aiData.usNextActionData = pTarget->position().gridNo();
-							pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+							pSoldier->aiPlanning().nextAction() = AI_ACTION_KNIFE_MOVE;
+							pSoldier->aiPlanning().nextActionData() = pTarget->position().gridNo();
+							pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 
 							// UNless he's has a pending action, delete what he was doing!
 							// Cancel anything he was doing
-							if ( pSoldier->aiData.bAction != AI_ACTION_PENDING_ACTION )
+							if ( pSoldier->aiPlanning().action() != AI_ACTION_PENDING_ACTION )
 							{
 								CancelAIAction( pSoldier, TRUE );
 							}
@@ -4093,7 +4093,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( STEVE, FALSE ); // Steve Willis, 80
 				if (pSoldier)
 				{
-					if ( !pSoldier->bActive || !pSoldier->bInSector || !(pSoldier->bTeam == CIV_TEAM) || !(pSoldier->aiData.bNeutral) || (pSoldier->vitals().health() < OKLIFE) )
+					if ( !pSoldier->bActive || !pSoldier->bInSector || !(pSoldier->bTeam == CIV_TEAM) || !(pSoldier->aiBehavior().neutral()) || (pSoldier->vitals().health() < OKLIFE) )
 					{
 						pSoldier = NULL;
 					}
@@ -4102,7 +4102,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier2 = FindSoldierByProfileID( VINCE, FALSE ); // Vince, 69
 				if (pSoldier2)
 				{
-					if ( !pSoldier2->bActive || !pSoldier2->bInSector || !(pSoldier2->bTeam == CIV_TEAM) || !(pSoldier2->aiData.bNeutral) || (pSoldier2->vitals().health() < OKLIFE) )
+					if ( !pSoldier2->bActive || !pSoldier2->bInSector || !(pSoldier2->bTeam == CIV_TEAM) || !(pSoldier2->aiBehavior().neutral()) || (pSoldier2->vitals().health() < OKLIFE) )
 					{
 						pSoldier2 = NULL;
 					}
@@ -4309,7 +4309,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID ( ubTargetNPC, FALSE );
 				if ( pSoldier )
 				{
-					pSoldier->aiData.bOrders = ONGUARD;
+					pSoldier->aiBehavior().orders() = ONGUARD;
 				}
 				break;
 
@@ -4349,7 +4349,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 				pSoldier = FindSoldierByProfileID( MANNY, FALSE );
 				if ( pSoldier )
 				{
-					pSoldier->aiData.bOrders = STATIONARY;
+					pSoldier->aiBehavior().orders() = STATIONARY;
 				}
 				// close his panel too
 				DeleteTalkingMenu();
@@ -4363,7 +4363,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					gMercProfiles[ BRENDA ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 					gMercProfiles[ BRENDA ].usStrategicInsertionData = pSoldier->position().gridNo();
 					gMercProfiles[ BRENDA ].fUseProfileInsertionInfo = TRUE;
-					pSoldier->aiData.bOrders = STATIONARY;
+					pSoldier->aiBehavior().orders() = STATIONARY;
 				}
 				break;
 
@@ -4375,7 +4375,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					gMercProfiles[ MIGUEL ].ubStrategicInsertionCode = INSERTION_CODE_GRIDNO;
 					gMercProfiles[ MIGUEL ].usStrategicInsertionData = pSoldier->position().gridNo();
 					gMercProfiles[ MIGUEL ].fUseProfileInsertionInfo = TRUE;
-					pSoldier->aiData.bOrders = STATIONARY;
+					pSoldier->aiBehavior().orders() = STATIONARY;
 				}
 				break;
 
@@ -5391,7 +5391,7 @@ BOOLEAN NPCOpenThing( SOLDIERTYPE *pSoldier, BOOLEAN fDoor )
 		SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->movement().mode() );
 	}
 
-	pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
+	pSoldier->aiPlanning().action() = AI_ACTION_PENDING_ACTION;
 
 	return( TRUE );
 

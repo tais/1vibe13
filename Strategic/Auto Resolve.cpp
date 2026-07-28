@@ -1347,7 +1347,7 @@ void RenderSoldierCellBars( SOLDIERCELL *pCell )
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+42, iStartY, pCell->xp+43, pCell->yp+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
 	//MORALE BAR
-	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->aiData.bMorale/100;
+	iStartY = pCell->yp + 29 - 25*pCell->pSoldier->morale().morale()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+45, iStartY, pCell->xp+46, pCell->yp+29, Get16BPPColor( FROMRGB( 8, 156, 8 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, pCell->xp+46, iStartY, pCell->xp+47, pCell->yp+29, Get16BPPColor( FROMRGB( 8, 107, 8 ) ) );
 }
@@ -3884,7 +3884,7 @@ void CalculateAttackValues()
 												pSoldier->statistics().dexterity() +
 												pSoldier->statistics().wisdom() +
 												pSoldier->statistics().marksmanship() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		//Give player controlled mercs a significant bonus to compensate for lack of control
 		//as the player would typically do much better in tactical.
 		if( pCell->usAttack < 1000 )
@@ -3898,7 +3898,7 @@ void CalculateAttackValues()
 												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
 												pSoldier->statistics().medical() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		//100 team leadership adds a bonus of 10%,
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 
@@ -3942,13 +3942,13 @@ void CalculateAttackValues()
 												pSoldier->statistics().dexterity() +
 												pSoldier->statistics().wisdom() +
 												pSoldier->statistics().marksmanship() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
 		pCell->usDefence =	pSoldier->statistics().agility() +
 												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
 												pSoldier->statistics().medical() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		//100 team leadership adds a bonus of 10%
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 		//bExpLevel adds a bonus of 7% per level after 2, level 1 soldiers get a 7% decrease
@@ -4008,13 +4008,13 @@ void CalculateAttackValues()
 												pSoldier->statistics().dexterity() +
 												pSoldier->statistics().wisdom() +
 												pSoldier->statistics().marksmanship() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
 		pCell->usDefence =	pSoldier->statistics().agility() +
 												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
 												pSoldier->statistics().medical() +
-												pSoldier->aiData.bMorale;
+												pSoldier->morale().morale();
 		//100 team leadership adds a bonus of 10%
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 		//bExpLevel adds a bonus of 7% per level after 2, level 1 soldiers get a 7% decrease
@@ -4898,14 +4898,14 @@ static void AttackTarget( SOLDIERCELL *pAttacker, SOLDIERCELL *pTarget )
 							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsCreatures++;
 						else if ( ARMED_VEHICLE( pTarget->pSoldier ) ) // we hardly can kill a tank in autoresolve, but well.. who knows..
 							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsTanks++;
-						else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiData.bNeutral && pTarget->pSoldier->bSide != gbPlayerNum )
+						else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->bSide != gbPlayerNum )
 							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsHostiles++;
 						else
 						{
 							gMercProfiles[ pAttacker->pSoldier->ubProfile ].records.usKillsOthers++;
 
 							// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-							if ((gGameExternalOptions.fDynamicOpinions) && (pTarget->pSoldier->bTeam != OUR_TEAM) && (pTarget->pSoldier->aiData.bNeutral || pTarget->pSoldier->bSide == pAttacker->pSoldier->bSide) )
+							if ((gGameExternalOptions.fDynamicOpinions) && (pTarget->pSoldier->bTeam != OUR_TEAM) && (pTarget->pSoldier->aiBehavior().neutral() || pTarget->pSoldier->bSide == pAttacker->pSoldier->bSide) )
 							{
 								// not for killing animals though...
 								if ( pTarget->pSoldier->ubBodyType != CROW && pTarget->pSoldier->ubBodyType != COW )
@@ -5150,7 +5150,7 @@ static void TargetHitCallback( SOLDIERCELL *pTarget, INT32 index )
 								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsCreatures++;
 							else if ( ARMED_VEHICLE( pTarget->pSoldier ) ) // we hardly can kill a tank in autoresolve, but well.. who knows..
 								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsTanks++;
-							else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiData.bNeutral && pTarget->pSoldier->bSide != gbPlayerNum )
+							else if ( pTarget->pSoldier->bTeam == CIV_TEAM && !pTarget->pSoldier->aiBehavior().neutral() && pTarget->pSoldier->bSide != gbPlayerNum )
 								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsHostiles++;
 							else
 								gMercProfiles[ pKiller->pSoldier->ubProfile ].records.usKillsOthers++;

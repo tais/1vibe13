@@ -22,6 +22,9 @@
 #include "Disease.h"		// added by Flugente
 #include "Soldier Components.h"
 
+static_assert(MAXPATROLGRIDS == SOLDIER_PATROL_GRID_COUNT,
+	"Soldier patrol storage must retain the established save-schema capacity");
+
 #define PTR_CIVILIAN	(pSoldier->bTeam == CIV_TEAM)
 #define PTR_CROUCHED	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_CROUCH)
 #define PTR_STANDING	(gAnimControl[ pSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND)
@@ -641,7 +644,7 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // but they can't attack empty vehicles!!
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
-										(them->aiData.bNeutral || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
+										(them->aiBehavior().neutral() || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
 										&& (me->bTeam != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->ubBodyType == CROW)) \
 										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
@@ -734,65 +737,6 @@ public:
 private:
 	std::vector<OBJECTTYPE>	inv;
 };
-	// Added for new inventory system to work
-class STRUCT_AIData//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-public:
-	// AI STUFF from before the changes to the memory structure
-	INT8				bOppList[MAX_NUM_SOLDIERS]; // AI knowledge database
-	INT8				bLastAction;
-	INT8				bAction;	
-	INT32			usActionData;
-	INT8				bNextAction;
-	INT32			usNextActionData;
-	INT8				bActionInProgress;
-	INT8				bAlertStatus;
-	INT8				bOppCnt;
-	INT8				bNeutral;
-	INT8				bNewSituation;
-	INT8				bNextTargetLevel;
-	INT8				bOrders;
-	INT8				bAttitude;
-	INT8				bUnderEscort;
-	INT8				bBypassToGreen;
-	UINT8			ubLastMercToRadio;
-	INT8				bDominantDir;				// AI main direction to face...
-	INT8				bPatrolCnt;					// number of patrol gridnos
-	INT8				bNextPatrolPnt;			// index to next patrol gridno
-	INT32			sPatrolGrid[MAXPATROLGRIDS];// AI list for ptr->orders==PATROL
-	INT32			sNoiseGridno;
-	UINT8			ubNoiseVolume;
-	INT8				bLastAttackHit;
-	UINT16			ubXRayedBy;
-	FLOAT			dHeightAdjustment;
-	INT8				bMorale;
-	INT8				bTeamMoraleMod;
-	INT8				bTacticalMoraleMod;
-	INT8				bStrategicMoraleMod;
-	INT8				bAIMorale;
-	INT8				bInterruptDuelPts;
-	INT8				bPassedLastInterrupt;
-	INT16			bIntStartAPs;	//100AP
-	INT8				bMoved;
-	INT8				bHunting;
-	UINT8			ubLastCall;
-	SoldierID		ubCaller;
-	INT32			sCallerGridNo;
-	UINT8			bCallPriority;
-	INT8				bCallActedUpon;
-	INT8				bFrenzied;
-	INT8				bNormalSmell;
-	INT8				bMonsterSmell;
-	INT8				bMobility;
-	INT8				bRTPCombat;
-	INT8				fAIFlags;
-	INT16			bAimTime;	//100AP
-	INT8				bShownAimTime;
-	UINT8			ubInterruptCounter[MAX_NUM_SOLDIERS]; // SANDRO - interrupt counter added
-};
-
 // forward declaration for modularized tactical ai
 namespace AI
 {
@@ -844,6 +788,12 @@ public:
 	const SoldierMovementMetricsComponent& movementMetrics() const noexcept { return movementMetrics_; }
 	SoldierAiPlanningComponent& aiPlanning() noexcept { return aiPlanning_; }
 	const SoldierAiPlanningComponent& aiPlanning() const noexcept { return aiPlanning_; }
+	SoldierAiBehaviorComponent& aiBehavior() noexcept { return aiBehavior_; }
+	const SoldierAiBehaviorComponent& aiBehavior() const noexcept { return aiBehavior_; }
+	SoldierAiCommunicationComponent& aiCommunication() noexcept { return aiCommunication_; }
+	const SoldierAiCommunicationComponent& aiCommunication() const noexcept { return aiCommunication_; }
+	SoldierMoraleComponent& morale() noexcept { return morale_; }
+	const SoldierMoraleComponent& morale() const noexcept { return morale_; }
 	SoldierSkillStateComponent& skillState() noexcept { return skillState_; }
 	const SoldierSkillStateComponent& skillState() const noexcept { return skillState_; }
 	SoldierConditionComponent& condition() noexcept { return condition_; }
@@ -886,8 +836,8 @@ public:
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
-	SoldierInterruptSnapshotComponent& interruptSnapshot() noexcept { return interruptSnapshot_; }
-	const SoldierInterruptSnapshotComponent& interruptSnapshot() const noexcept { return interruptSnapshot_; }
+	SoldierTurnStateComponent& turnState() noexcept { return turnState_; }
+	const SoldierTurnStateComponent& turnState() const noexcept { return turnState_; }
 	SoldierTargetingComponent& targeting() noexcept { return targeting_; }
 	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
 	SoldierAttackSelectionComponent& attackSelection() noexcept { return attackSelection_; }
@@ -1022,9 +972,6 @@ public:
 	Inventory inv;
     AI::tactical::Plan*		ai_masterplan_; // Interface object for ModularizedTacticalAI
 
-	//data from version 101 wrapped into structs
-	STRUCT_AIData			aiData;
-
 private:
 	SoldierVitalsComponent	vitals_;
 	SoldierStatisticsComponent	statistics_;
@@ -1036,6 +983,9 @@ private:
 	SoldierReplicationComponent	replication_;
 	SoldierMovementMetricsComponent	movementMetrics_;
 	SoldierAiPlanningComponent	aiPlanning_;
+	SoldierAiBehaviorComponent	aiBehavior_;
+	SoldierAiCommunicationComponent	aiCommunication_;
+	SoldierMoraleComponent	morale_;
 	SoldierSkillStateComponent	skillState_;
 	SoldierConditionComponent	condition_;
 	SoldierDrugStateComponent	drugState_;
@@ -1057,7 +1007,7 @@ private:
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
-	SoldierInterruptSnapshotComponent	interruptSnapshot_;
+	SoldierTurnStateComponent	turnState_;
 	SoldierTargetingComponent	targeting_;
 	SoldierAttackSelectionComponent	attackSelection_;
 	SoldierMeleeApproachComponent	meleeApproach_;

@@ -2509,7 +2509,7 @@ void CheckForObjectHittingMerc( REAL_OBJECT *pObject, UINT16 usStructureID )
 				}
 
 				// silversurfer: Don't hurt civilians. Throwing objects at civilians to kill them is a lame exploit.
-				if ( pSoldier->aiData.bNeutral )
+				if ( pSoldier->aiBehavior().neutral() )
 					sDamage = 0;
 				else
 					sDamage = 1;

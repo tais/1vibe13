@@ -248,10 +248,10 @@ BOOLEAN HandleAutoBandage( )
 			{
 				SOLDIERTYPE* soldier =
 					GetJa2SoldierRepository().resolve(soldierId.i);
-				if(soldier->bActive && soldier->bInSector && soldier->aiData.bAction != 0)
+				if(soldier->bActive && soldier->bInSector && soldier->aiPlanning().action() != 0)
 				{
 					//shadooow: this fixes autobandaging sometimes hang indefinitely
-					soldier->aiData.bAction = 0;
+					soldier->aiPlanning().action() = 0;
 				}
 			}
 		}
@@ -1238,7 +1238,7 @@ BOOLEAN RenderSoldierSmallFaceForAutoBandagePanel( INT32 iIndex, INT16 sCurrentX
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+40, iStartY, sCurrentXPosition+41, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
 	//MORALE BAR
-	iStartY = sCurrentYPosition + 29 - 27*pSoldier->aiData.bMorale/100;
+	iStartY = sCurrentYPosition + 29 - 27*pSoldier->morale().morale()/100;
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+42, iStartY, sCurrentXPosition+43, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 8, 156, 8 ) ) );
 	ColorFillVideoSurfaceArea( FRAME_BUFFER, sCurrentXPosition+43, iStartY, sCurrentXPosition+44, sCurrentYPosition+29, Get16BPPColor( FROMRGB( 8, 107, 8 ) ) );
 

@@ -1649,7 +1649,7 @@ void GetRTMousePositionInput( UINT32 *puiNewEvent )
 		//	if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 		//	{
 		// Change refine value back to 1
-		///		pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
+		///		pSoldier->aiPlanning().shownAimTime() = REFINE_AIM_1;
 		//	}
 		//}
 

@@ -322,7 +322,7 @@ void DrawMoraleUIBarEx( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos, INT16 s
 	SetClippingRegionAndImageWidth( uiDestPitchBYTES, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT );
 
 	// FIRST DO BREATH
-	dPercentage = (FLOAT)pSoldier->aiData.bMorale / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->morale().morale() / (FLOAT)100;
 	dEnd				=	dPercentage * sHeight;
 	dStart			= sYPos;
 

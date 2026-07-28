@@ -228,7 +228,7 @@ void ShutDownQuoteBox( BOOLEAN fForce )
 // no UB
 #else
 		// do we need to do anything at the end of the civ quote?
-		if ( gCivQuoteData.pCiv && gCivQuoteData.pCiv->aiData.bAction == AI_ACTION_OFFER_SURRENDER )
+		if ( gCivQuoteData.pCiv && gCivQuoteData.pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER )
 		{
 // Haydent
 			if(!is_networked)
@@ -564,7 +564,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		if ( pCiv->ubCivilianGroup > QUEENS_CIV_GROUP )
 #endif
 		{
-			if ( pCiv->aiData.bNeutral )
+			if ( pCiv->aiBehavior().neutral() )
 			{
 				return(FileEDTQUoteID = pCiv->ubCivilianGroup * 2 + 10);
 			}
@@ -579,7 +579,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	if( ubCivType != CIV_TYPE_ENEMY )
 	{
 		//if the civ is not an enemy
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE__CIV_NOT_ENEMY ); //43
 		}
@@ -611,8 +611,8 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		// Determine what type of quote to say...
 		// Are are we going to attack?
 
-		if ( pCiv->aiData.bAction == AI_ACTION_TOSS_PROJECTILE || pCiv->aiData.bAction == AI_ACTION_FIRE_GUN ||
-							pCiv->aiData.bAction == AI_ACTION_FIRE_GUN || pCiv->aiData.bAction == AI_ACTION_KNIFE_MOVE )
+		if ( pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE || pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN ||
+							pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN || pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
 		{
 			return( CIV_QUOTE_ENEMY_THREAT );
 		}
@@ -641,14 +641,14 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 		// Determine what type of quote to say...
 		// Are are we going to attack?
 
-		if (	pCiv->aiData.bAction == AI_ACTION_TOSS_PROJECTILE 
-			||	pCiv->aiData.bAction == AI_ACTION_FIRE_GUN 
-			||	pCiv->aiData.bAction == AI_ACTION_THROW_KNIFE 
-			||	pCiv->aiData.bAction == AI_ACTION_KNIFE_MOVE )
+		if (	pCiv->aiPlanning().action() == AI_ACTION_TOSS_PROJECTILE
+			||	pCiv->aiPlanning().action() == AI_ACTION_FIRE_GUN
+			||	pCiv->aiPlanning().action() == AI_ACTION_THROW_KNIFE
+			||	pCiv->aiPlanning().action() == AI_ACTION_KNIFE_MOVE )
 		{
 			return( CIV_QUOTE_ENEMY_THREAT );
 		}
-		else if ( pCiv->aiData.bAction == AI_ACTION_OFFER_SURRENDER )
+		else if ( pCiv->aiPlanning().action() == AI_ACTION_OFFER_SURRENDER )
 		{
 			return( CIV_QUOTE_ENEMY_OFFER_SURRENDER );
 		}
@@ -684,7 +684,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	{
 		// Are they friendly?
 		//if ( gTacticalStatus.fCivGroupHostile[ HICKS_CIV_GROUP ] < CIV_GROUP_WILL_BECOME_HOSTILE )
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE_HICKS_FRIENDLY );
 		}
@@ -699,7 +699,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	{
 		// Are they friendly?
 		//if ( gTacticalStatus.fCivGroupHostile[ KINGPIN_CIV_GROUP ] < CIV_GROUP_WILL_BECOME_HOSTILE )
-		if ( pCiv->aiData.bNeutral )
+		if ( pCiv->aiBehavior().neutral() )
 		{
 			return( CIV_QUOTE_GOONS_FRIENDLY );
 		}
@@ -1127,7 +1127,7 @@ void PossiblyStartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SoldierID
 	// sevenfm: allow voice taunts for hostile civilians with group
 	if (pCiv->bTeam != ENEMY_TEAM &&
 		pCiv->bTeam != MILITIA_TEAM &&
-		!(pCiv->bTeam == CIV_TEAM && pCiv->ubCivilianGroup != NON_CIV_GROUP && !pCiv->aiData.bNeutral && gTauntsSettings.fTauntVoice))
+		!(pCiv->bTeam == CIV_TEAM && pCiv->ubCivilianGroup != NON_CIV_GROUP && !pCiv->aiBehavior().neutral() && gTauntsSettings.fTauntVoice))
 	{
 		return;
 	}
@@ -1332,7 +1332,7 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 	for(UINT16 i=0; i<num_found_taunt; ++i)
 	{
 		// check if attitudes are ok
-		switch( pCiv->aiData.bAttitude )
+		switch( pCiv->aiBehavior().attitude() )
 		{
 			case CUNNINGAID:
 				if( !(zTaunt[ i ].uiFlags & TAUNT_A_CUNNING_AID) )
@@ -1715,12 +1715,12 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		// morale
 		if( zTaunt[ i ].value[TAUNT_MORALE_GT] != -1 )
 		{
-			if( pCiv->aiData.bMorale <= zTaunt[ i ].value[TAUNT_MORALE_GT] )
+			if( pCiv->morale().morale() <= zTaunt[ i ].value[TAUNT_MORALE_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_MORALE_LT] != -1 )
 		{
-			if( pCiv->aiData.bMorale >= zTaunt[ i ].value[TAUNT_MORALE_LT] )
+			if( pCiv->morale().morale() >= zTaunt[ i ].value[TAUNT_MORALE_LT] )
 				continue;
 		}
 		// experience
@@ -1896,12 +1896,12 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			// morale
 			if( zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] != -1 )
 			{
-				if( pTarget->aiData.bMorale <= zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] )
+				if( pTarget->morale().morale() <= zTaunt[ i ].value[TAUNT_TARGET_MORALE_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] != -1 )
 			{
-				if( pTarget->aiData.bMorale >= zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] )
+				if( pTarget->morale().morale() >= zTaunt[ i ].value[TAUNT_TARGET_MORALE_LT] )
 					continue;
 			}
 			// experience

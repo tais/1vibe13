@@ -628,7 +628,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					{
 						//pSoldier->movement().delayCounter() = FALSE;
 						// ATE: THis will get set in EENT_GetNewSoldierPath....
-						pSoldier->aiData.usActionData = sCheckGridNo;
+						pSoldier->aiPlanning().actionData() = sCheckGridNo;
 
 						pSoldier->pathing().stored() = FALSE;
 
@@ -660,13 +660,13 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 						blockingPerson != nullptr &&
 						( pSoldier->dialogue().hasQuoteRecord() ||
 							( pSoldier->bTeam != gbPlayerNum &&
-								pSoldier->aiData.bOrders != STATIONARY &&
+								pSoldier->aiBehavior().orders() != STATIONARY &&
 								blockingPerson->bTeam != gbPlayerNum &&
-								blockingPerson->aiData.bOrders != STATIONARY ) ||
+								blockingPerson->aiBehavior().orders() != STATIONARY ) ||
 							( pSoldier->bTeam == gbPlayerNum &&
 								gTacticalStatus.fAutoBandageMode &&
 								!( blockingPerson->bTeam == CIV_TEAM &&
-									blockingPerson->aiData.bOrders ==
+									blockingPerson->aiBehavior().orders() ==
 										STATIONARY ) ) ) )
 					{
 						// Swap now!
@@ -692,8 +692,8 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 							if ( pSoldier->position().gridNo() == pSoldier->movement().absoluteDestination() )
 							{
 								NPCReachedDestination( pSoldier, FALSE );
-								pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-								pSoldier->aiData.usNextActionData = 500;
+								pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+								pSoldier->aiPlanning().nextActionData() = 500;
 								gfPlotPathToExitGrid = FALSE;
 								return( TRUE );
 							}
@@ -831,9 +831,9 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 			return( FALSE );
 
 		// must NOT be hostile, must NOT have stationary orders OR militia team, must be >= OKLIFE		
-		if( pSoldier2->aiData.bNeutral && pSoldier2->vitals().health() >= OKLIFE &&
+		if( pSoldier2->aiBehavior().neutral() && pSoldier2->vitals().health() >= OKLIFE &&
 			pSoldier2->ubCivilianGroup != HICKS_CIV_GROUP &&
-			( ( pSoldier2->aiData.bOrders != STATIONARY || pSoldier2->bTeam == MILITIA_TEAM ) ||
+			( ( pSoldier2->aiBehavior().orders() != STATIONARY || pSoldier2->bTeam == MILITIA_TEAM ) ||
 			( !TileIsOutOfBounds(pSoldier2->movement().absoluteDestination()) && pSoldier2->movement().absoluteDestination() != pSoldier2->position().gridNo() ) )
 		)
 			return( TRUE );

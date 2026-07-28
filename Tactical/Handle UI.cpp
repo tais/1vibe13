@@ -2891,10 +2891,10 @@ void UIHandleMercAttack( SOLDIERTYPE *pSoldier , SOLDIERTYPE *pTargetSoldier, IN
 
 	// In realtime mode we cannot aim. Assume that max allowed aiming levels will be used.
 	if ( gTacticalStatus.uiFlags & REALTIME || !( IsJa2TacticalCombatActive() ) )
-		pSoldier->aiData.bAimTime = AllowedAimingLevels(pSoldier, sGridNo);
+		pSoldier->aiPlanning().aimTime() = AllowedAimingLevels(pSoldier, sGridNo);
 	else
 		// Set aim time to one in UI
-		pSoldier->aiData.bAimTime = (pSoldier->aiData.bShownAimTime );
+		pSoldier->aiPlanning().aimTime() = (pSoldier->aiPlanning().shownAimTime() );
 
 	// here, change gridno if we're targeting ourselves....
 	if ( pIntNode != NULL	)
@@ -3491,7 +3491,7 @@ BOOLEAN SelectedMercCanAffordAttack( )
 					sTargetGridNo	= usMapPos;
 				}
 
-				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, (INT16)(pSoldier->aiData.bShownAimTime ) );
+				sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, TRUE, (INT16)(pSoldier->aiPlanning().shownAimTime() ) );
 
 				if ( EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
 				{
@@ -3836,7 +3836,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 				if ( fMovementMode )
 				{
 					// Check if this guy is on the enemy team....
-					if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+					if ( !pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum ) )
 					{
 						// anv: don't switch if passengers are blocked from attacking
 						if( gusSelectedSoldier != NOBODY )
@@ -7415,8 +7415,8 @@ BOOLEAN ValidQuickExchangePosition( )
 		}
 
 		//KM: Replaced this older if statement for the new one which allows exchanging with militia
-		//if ( ( pOverSoldier->bSide != gbPlayerNum ) && pOverSoldier->aiData.bNeutral	)
-		if ( ( pOverSoldier->bTeam != gbPlayerNum && pOverSoldier->aiData.bNeutral ) || (pOverSoldier->bTeam == MILITIA_TEAM && pOverSoldier->bSide == 0 ) )
+		//if ( ( pOverSoldier->bSide != gbPlayerNum ) && pOverSoldier->aiBehavior().neutral()	)
+		if ( ( pOverSoldier->bTeam != gbPlayerNum && pOverSoldier->aiBehavior().neutral() ) || (pOverSoldier->bTeam == MILITIA_TEAM && pOverSoldier->bSide == 0 ) )
 		{
 			// hehe - don't allow animals to exchange places
 			if ( !( pOverSoldier->status().flags() & ( SOLDIER_ANIMAL ) ) )

@@ -308,7 +308,7 @@ static void DoneFadeOutKilledQueen( void )
 			// For sure for flag thet they are dead is not set
 			// Check for any more badguys
 			// ON THE STRAGETY LAYER KILL BAD GUYS!
-			if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
+			if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != gbPlayerNum ) )
 			{
 				ProcessQueenCmdImplicationsOfDeath( pTeamSoldier );
 			}
@@ -694,7 +694,7 @@ void BeginHandleQueenBitchDeath( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo, INT
 			// ON THE STRAGETY LAYER KILL BAD GUYS!
 
 			// HELLO!	THESE ARE CREATURES!	THEY CAN'T BE NEUTRAL!
-			//if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
+			//if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != gbPlayerNum ) )
 			{
 //	 		GetJa2PendingTacticalCombatActions()++;
 				DebugAttackBusy( "Killing off a queen ally.\n");

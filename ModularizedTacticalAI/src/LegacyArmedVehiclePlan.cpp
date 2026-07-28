@@ -18,7 +18,7 @@ namespace AI
 
 		void LegacyArmedVehiclePlan::execute( PlanInputData& environment )
 		{
-			get_npc( )->aiData.bAction = ArmedVehicleDecideAction( get_npc( ) );
+			get_npc( )->aiPlanning().action() = ArmedVehicleDecideAction( get_npc( ) );
 		}
 	}
 }

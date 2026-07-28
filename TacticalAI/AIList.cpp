@@ -199,7 +199,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		return( FALSE );
 	}
 
-	if ( pSoldier->aiData.bMoved )
+	if ( pSoldier->turnState().moved() )
 	{
 		if ( pSoldier->actionPoints().current() <= 1 && pubDoneCount )
 		{
@@ -222,9 +222,9 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		}
 
 		// if someone in a civ group is neutral but the civ group is non-neutral, should be handled all the time
-		if ( pSoldier->aiData.bNeutral && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->ubCivilianGroup] == CIV_GROUP_NEUTRAL ) )
+		if ( pSoldier->aiBehavior().neutral() && (pSoldier->ubCivilianGroup == NON_CIV_GROUP || gTacticalStatus.fCivGroupHostile[pSoldier->ubCivilianGroup] == CIV_GROUP_NEUTRAL ) )
 		{
-			if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
+			if ( pSoldier->aiBehavior().alertStatus() < STATUS_RED )
 			{
 				// unalerted, barely handle
 				if ( fDoRandomChecks && PreRandom( 10 ) && !pSoldier->dialogue().hasQuoteRecord() )
@@ -271,7 +271,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 
 		if ( pSoldier->status().flags() & SOLDIER_COWERING )
 		{
-			pSoldier->aiData.bLastAction = AI_ACTION_NONE;
+			pSoldier->aiPlanning().lastAction() = AI_ACTION_NONE;
 		}
 
 	}
@@ -343,7 +343,7 @@ BOOLEAN BuildAIListForTeam( INT8 bTeam )
 				continue;
 			}
 
-			bPriority = pSoldier->aiData.bAlertStatus;
+			bPriority = pSoldier->aiBehavior().alertStatus();
 			if ( pSoldier->awareness().visibility() == TRUE )
 			{
 				bPriority += 3;

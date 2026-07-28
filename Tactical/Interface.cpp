@@ -1746,7 +1746,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 					SetBackgroundRectFilled( iBack );
 				}
 
-				if ( !pSoldier->aiData.bNeutral && ( pSoldier->bSide != gbPlayerNum ) )
+				if ( !pSoldier->aiBehavior().neutral() && ( pSoldier->bSide != gbPlayerNum ) )
 				{
 					BltVideoObjectFromIndex(	FRAME_BUFFER, guiRADIO2, pSoldier->uiPresentation().locatorFrame(), sXPos, sYPos, VO_BLT_SRCTRANSPARENCY, NULL );
 				}
@@ -2492,13 +2492,13 @@ BOOLEAN DrawCTHIndicator()
 	// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 	// close range. This experimental formula implements a curve that lowers iBasicAperture the farther the target is away.
 	// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * ( 1 / sqrt( d2DDistance / FLOAT(CELL_X_SIZE) ) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 						+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER );
 
 	// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+	if (gCTHDisplay.ScopeMagFactor <= 1.0 && !pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 
 		iBasicAperture = iBasicAperture * (FLOAT)( (100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 
@@ -2513,7 +2513,7 @@ BOOLEAN DrawCTHIndicator()
 		if ( iMaxLaserRange > d2DDistance )
 		{
 			// which bonus do we want to apply?
-			if (pSoldier->IsValidAlternativeFireMode(pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo))
+			if (pSoldier->IsValidAlternativeFireMode(pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo))
 				// shooting from hip
 				fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 			else if ( gCTHDisplay.ScopeMagFactor <= 1.0 )
@@ -2549,7 +2549,7 @@ BOOLEAN DrawCTHIndicator()
 	// is a divisor to the sway of the muzzle. It's about the same as multiplying CTH by a certain amount.
 	// Note that both optical magnification devices (like scopes) and dot-projection devices (like lasers and 
 	// reflex sights) provide this sort of bonus.
-	FLOAT iMagFactor = CalcMagFactor(pSoldier, pWeapon, d2DDistance, gCTHDisplay.iTargetGridNo, (UINT8)pSoldier->aiData.bShownAimTime);
+	FLOAT iMagFactor = CalcMagFactor(pSoldier, pWeapon, d2DDistance, gCTHDisplay.iTargetGridNo, (UINT8)pSoldier->aiPlanning().shownAimTime());
 
 	// Get effective mag factor for this shooter. This represents his ability to use scopes.
 	FLOAT fEffectiveMagFactor = CalcEffectiveMagFactor( pSoldier, iMagFactor );
@@ -2885,7 +2885,7 @@ BOOLEAN DrawCTHIndicator()
 				pSoldier->fireControl().autofireShots() = uiCurBullet;
 
 				//Get AP cost to fire this many bullets
-				INT16 sAPCosts = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, TRUE, pSoldier->aiData.bShownAimTime);
+				INT16 sAPCosts = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, TRUE, pSoldier->aiPlanning().shownAimTime());
 
 				// Switch back.
 				pSoldier->fireControl().autofireShots() = TempDoAutofire;
@@ -3125,7 +3125,7 @@ BOOLEAN DrawCTHIndicator()
 				INT16 sOffset = x * ubAimFinalOffset;
 				if (gfDisplayFullCountRing)
 				{
-					if (ubAllowedLevels - abs((ubAllowedLevels-(x+1))) >= pSoldier->aiData.bShownAimTime)
+					if (ubAllowedLevels - abs((ubAllowedLevels-(x+1))) >= pSoldier->aiPlanning().shownAimTime())
 					{
 						// Red empty tick - unusable aim level with current AP!
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 6, sLeft + sOffset, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
@@ -3138,7 +3138,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if (pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) && 
+					if (pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) &&
 						ubAllowedLevels - abs((ubAllowedLevels-(x+1))) <= GetNumberAltFireAimLevels( pSoldier, gCTHDisplay.iTargetGridNo ) )
 					{
 						// yellow empty tick
@@ -3153,13 +3153,13 @@ BOOLEAN DrawCTHIndicator()
 			}
 
 			// Draw Filled Ticks
-			if (pSoldier->aiData.bShownAimTime)
+			if (pSoldier->aiPlanning().shownAimTime())
 			{
 				// Tick on the left
-				INT16 sNewLeft = sLeft + (ubAimFinalOffset * (pSoldier->aiData.bShownAimTime-1));
+				INT16 sNewLeft = sLeft + (ubAimFinalOffset * (pSoldier->aiPlanning().shownAimTime()-1));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3170,7 +3170,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3181,10 +3181,10 @@ BOOLEAN DrawCTHIndicator()
 				}
 
 				// Tick on the right
-				sNewLeft = sLeft + (ubAimFinalOffset * (ubNumSpaces-(pSoldier->aiData.bShownAimTime-1)));
+				sNewLeft = sLeft + (ubAimFinalOffset * (ubNumSpaces-(pSoldier->aiPlanning().shownAimTime()-1)));
 				if (gfDisplayFullCountRing)
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3195,7 +3195,7 @@ BOOLEAN DrawCTHIndicator()
 				}
 				else
 				{
-					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiData.bShownAimTime, gCTHDisplay.iTargetGridNo ) )
+					if ( pSoldier->IsValidAlternativeFireMode( pSoldier->aiPlanning().shownAimTime(), gCTHDisplay.iTargetGridNo ) )
 					{
 						BltVideoObjectFromIndex( FRAME_BUFFER, guiCTHImage, 3, sNewLeft, sTop, VO_BLT_SRCTRANSPARENCY, NULL );
 					}
@@ -3575,7 +3575,7 @@ void DrawBarsInUIBox( SOLDIERTYPE *pSoldier , INT16 sXPos, INT16 sYPos, INT16 sW
 
 	/*
 	// morale
-	dPercentage = (FLOAT)pSoldier->aiData.bMorale / (FLOAT)100;
+	dPercentage = (FLOAT)pSoldier->morale().morale() / (FLOAT)100;
 	dWidth			=	dPercentage * sWidth;
 	if(gbPixelDepth==16)
 	{
@@ -6177,7 +6177,7 @@ void ShowEnemyHealthBar( INT16 sX, INT16 sY, SOLDIERTYPE* pSoldier )
 	else
 		return;
 	
-	if ( pSelectedSoldier->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY )
+	if ( pSelectedSoldier->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY )
 		return;
 
 	// show enemy health bar
@@ -6251,8 +6251,8 @@ void DrawEnemyHealthBar( SOLDIERTYPE* pSoldier, INT32 sX, INT32 sY, UINT8 ubLine
 	// draw morale
 	if( ubLines > 3 )
 	{
-		dPercentage = (FLOAT)( pSoldier->aiData.bAIMorale ) / (FLOAT)( MORALE_FEARLESS );
-		//dPercentage = (FLOAT)( pSoldier->aiData.bMorale ) / (FLOAT)( 100 );
+		dPercentage = (FLOAT)( pSoldier->morale().aiMorale() ) / (FLOAT)( MORALE_FEARLESS );
+		//dPercentage = (FLOAT)( pSoldier->morale().morale() ) / (FLOAT)( 100 );
 		dWidth = dPercentage * iBarWidth;
 		dWidth = __min (dWidth, iBarWidth);
 		DrawBar( sX+1, sY + 1 + 3*(sHeight+1), (INT32)dWidth, sHeight, COLOR_GREEN, Get16BPPColor( FROMRGB( 0, 140, 0 ) ), pDestBuf );
@@ -6457,7 +6457,7 @@ void NCTHImprovedAPColor( SOLDIERTYPE* pSoldier, OBJECTTYPE* pWeapon )
 					sModifiedReloadAP = (INT16)(sModifiedReloadAP * (100 - gSkillTraitValues.ubRAPumpShotgunsAPsReduction * NUM_SKILL_TRAITS( pSoldier, RANGER_NT )) / 100.0f + 0.5f);
 			}
 		}
-		INT16 sPointsToShoot = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, 0, pSoldier->aiData.bShownAimTime ) + sModifiedReloadAP;
+		INT16 sPointsToShoot = CalcTotalAPsToAttack( pSoldier, gCTHDisplay.iTargetGridNo, 0, pSoldier->aiPlanning().shownAimTime() ) + sModifiedReloadAP;
 
 		// we can shoot twice
 		if( sRemainingAP >= sPointsToShoot )
@@ -6580,13 +6580,13 @@ void NCTHShowAimLevels( SOLDIERTYPE* pSoldier, INT16 curX, INT16 curY )
 		SetFontBackground( FONT_MCOLOR_BLACK );
 		if( ubAllowedLevels == 0 )
 			SetFontForeground( FONT_MCOLOR_LTGRAY );
-		else if ( pSoldier->aiData.bShownAimTime == ubAllowedLevels )		
+		else if ( pSoldier->aiPlanning().shownAimTime() == ubAllowedLevels )
 			SetFontForeground( FONT_MCOLOR_LTYELLOW );
 		else
 			SetFontForeground( FONT_MCOLOR_LTGRAY );
 
 		if( ubAllowedLevels > 0 )
-			swprintf( pStr, L"%d/%d", pSoldier->aiData.bShownAimTime, ubAllowedLevels );
+			swprintf( pStr, L"%d/%d", pSoldier->aiPlanning().shownAimTime(), ubAllowedLevels );
 		else
 			swprintf( pStr, L"-/-" );
 		FindFontCenterCoordinates( (INT16)AimRect.left, (INT16)AimRect.top, (INT16)AimRect.right-(INT16)AimRect.left, 10, pStr, TINYFONT1, &curX, &curY);

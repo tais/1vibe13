@@ -87,9 +87,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Set ones we don't know about but do now back to old ( ie no new guys )
 				for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 				{
-					if ( gpUIPlannedSoldier->aiData.bOppList[ iLoop ] < 0 )
+					if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 					{
-							pPlanSoldier->aiData.bOppList[ iLoop ] = gpUIPlannedSoldier->aiData.bOppList[ iLoop ];
+							pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 					}
 				}
 
@@ -137,7 +137,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	}
 	else if ( ubPlanID == UIPLAN_ACTION_FIRE )
 	{
- 	sAPCost = CalcTotalAPsToAttack( gpUIPlannedSoldier, sGridNo, TRUE, (INT16)(gpUIPlannedSoldier->aiData.bShownAimTime ) );
+	sAPCost = CalcTotalAPsToAttack( gpUIPlannedSoldier, sGridNo, TRUE, (INT16)(gpUIPlannedSoldier->aiPlanning().shownAimTime() ) );
 
 		// Get XY from Gridno
 		ConvertGridNoToCenterCellXY( sGridNo, &sXPos, &sYPos );
@@ -168,9 +168,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					// Set ones we don't know about but do now back to old ( ie no new guys )
 					for (iLoop = 0; iLoop < MAX_NUM_SOLDIERS; iLoop++ )
 					{
-						if ( gpUIPlannedSoldier->aiData.bOppList[ iLoop ] < 0 )
+						if ( gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ] < 0 )
 						{
-								pPlanSoldier->aiData.bOppList[ iLoop ] = gpUIPlannedSoldier->aiData.bOppList[ iLoop ];
+								pPlanSoldier->awareness().opponentKnowledge()[ iLoop ] = gpUIPlannedSoldier->awareness().opponentKnowledge()[ iLoop ];
 						}
 					}
 

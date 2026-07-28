@@ -1487,7 +1487,7 @@ BOOLEAN ExecuteOverhead( )
                                     else if ( pSoldier->pendingAction().action() == MERC_PUNCH    )
                                     {
                                         // for the benefit of the AI
-                                        pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+                                        pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
                                         pSoldier->EVENT_SoldierBeginPunchAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
@@ -1508,7 +1508,7 @@ BOOLEAN ExecuteOverhead( )
                                     else if ( pSoldier->pendingAction().action() == MERC_KNIFEATTACK)
                                     {
                                         // for the benefit of the AI
-                                        pSoldier->aiData.bAction = AI_ACTION_KNIFE_STAB;
+                                        pSoldier->aiPlanning().action() = AI_ACTION_KNIFE_STAB;
 
                                         pSoldier->EVENT_SoldierBeginBladeAttack( pSoldier->pendingAction().secondaryData(), pSoldier->pendingAction().tertiaryData() );
                                         pSoldier->pendingAction().clearAction();
@@ -1657,7 +1657,7 @@ BOOLEAN ExecuteOverhead( )
                                 // move, have them handled the very next frame
                                 if (pSoldier->dialogue().quoteActionId() == QUOTE_ACTION_ID_CHECKFORDEST)
                                 {
-                                    pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+                                    pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
                                 }
 
                                 fKeepMoving = FALSE;
@@ -1691,7 +1691,7 @@ BOOLEAN ExecuteOverhead( )
                                     {
                                         // We have not made it to our dest... but it's better to let the AI handle this itself,
                                         // on the very next fram
-                                        pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+                                        pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
                                     }
                                     else
                                     {
@@ -1823,7 +1823,7 @@ BOOLEAN ExecuteOverhead( )
 
             if ( !gfPauseAllAI &&
                     ( (IsJa2TacticalTurnBasedCombat()) ||
-                       (fHandleAI && guiAISlotToHandle == cnt) || (pSoldier->aiData.fAIFlags & AI_HANDLE_EVERY_FRAME) || gTacticalStatus.fAutoBandageMode ) )
+                       (fHandleAI && guiAISlotToHandle == cnt) || (pSoldier->aiBehavior().flags() & AI_HANDLE_EVERY_FRAME) || gTacticalStatus.fAutoBandageMode ) )
             {
                 HandleSoldierAI( pSoldier );
                 if ( !(IsJa2TacticalTurnBasedCombat()) )
@@ -1854,7 +1854,7 @@ BOOLEAN ExecuteOverhead( )
         {
             // the ONLY thing to do with away soldiers is process their schedule if they have one
             // and there is an action for them to do (like go on-sector)
-            if (pSoldier->aiData.fAIFlags & AI_CHECK_SCHEDULE)
+            if (pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE)
             {
                 HandleSoldierAI( pSoldier );
             }
@@ -2967,7 +2967,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 	if (IS_MERC_BODY_TYPE(pSoldier) &&
 		(pSoldier->status().flags() & SOLDIER_BOXER) &&
 		gTacticalStatus.bBoxingState == BOXING &&
-		pSoldier->aiData.bAlertStatus >= STATUS_RED)
+		pSoldier->aiBehavior().alertStatus() >= STATUS_RED)
 	{
 		UINT32 uiLoop;
 		UINT8 ubChance;
@@ -3034,9 +3034,9 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
 			ActionDone(pSoldier);
 
 			// prepare attack
-			pOpponent->aiData.bAimTime = 0;
+			pOpponent->aiPlanning().aimTime() = 0;
 			if (pOpponent->actionPoints().current() >= MinAPsToAttack(pOpponent, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(pOpponent->vitals().health()))
-				pOpponent->aiData.bAimTime = 1;
+				pOpponent->aiPlanning().aimTime() = 1;
 
 			pOpponent->attackSelection().shotLocation() = AIM_SHOT_RANDOM;
 			if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
@@ -3130,7 +3130,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         }
 
     }
-    else if ( pSoldier->bTeam == CIV_TEAM && pSoldier->IsAssassin() && pSoldier->aiData.bNeutral )
+    else if ( pSoldier->bTeam == CIV_TEAM && pSoldier->IsAssassin() && pSoldier->aiBehavior().neutral() )
     {
         INT32 sDesiredMercDist;
 
@@ -3648,7 +3648,7 @@ void HandlePlayerTeamMemberDeath( SOLDIERTYPE *pSoldier )
                  pSoldier->ubProfile ) )
         {
             pTeamSoldier = FindSoldierByProfileID( CARMEN, FALSE );
-            if (pTeamSoldier && pTeamSoldier->aiData.bAttitude == ATTACKSLAYONLY && !TileIsOutOfBounds(ClosestPC( pTeamSoldier, NULL )) )
+            if (pTeamSoldier && pTeamSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && !TileIsOutOfBounds(ClosestPC( pTeamSoldier, NULL )) )
             {
                 // Carmen now becomes friendly again
                 TriggerNPCRecord( CARMEN, 29 );
@@ -3745,7 +3745,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 SetFactTrue( FACT_BRENDA_DEAD );
                 {
                     pOther = FindSoldierByProfileID( HANS, FALSE );
-                    if (pOther && pOther->vitals().health() >= OKLIFE && pOther->aiData.bNeutral && (SpacesAway( pSoldierOld->position().gridNo(), pOther->position().gridNo() ) <= 12) )
+                    if (pOther && pOther->vitals().health() >= OKLIFE && pOther->aiBehavior().neutral() && (SpacesAway( pSoldierOld->position().gridNo(), pOther->position().gridNo() ) <= 12) )
                     {
 
                         TriggerNPCRecord( HANS, 10 );
@@ -3780,8 +3780,8 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                     if (pOther && pOther->bActive && pOther->bInSector && pOther->vitals().health() >= OKLIFE )
                     {
                         // try to make sure he isn't cowering etc
-                        pOther->aiData.sNoiseGridno = NOWHERE;
-                        pOther->aiData.bAlertStatus = STATUS_GREEN;
+                        pOther->perception().noiseGrid() = NOWHERE;
+                        pOther->aiBehavior().alertStatus() = STATUS_GREEN;
                         TriggerNPCRecord( MANNY, 10 );
                     }
                 }
@@ -3844,7 +3844,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
                 // SANDRO - if we kill Carmen with Slay in our team, end the terrorists quest
             case CARMEN :
                 // Carmen must have seen Slay, to finish the quest properly, he must know we betrayd him
-                if ( pSoldierOld->aiData.bAttitude == ATTACKSLAYONLY )
+                if ( pSoldierOld->aiBehavior().attitude() == ATTACKSLAYONLY )
                 {
                     pOther = FindSoldierByProfileID(
                         CampaignProfileCode::profile(
@@ -4214,7 +4214,7 @@ void CheckForPotentialAddToBattleIncrement( SOLDIERTYPE *pSoldier )
 {
     //UINT16 iCounter2;
     // Check if we are a threat!
-    if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+    if ( !pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum ) )
     {
         //if ( FindObjClass( pSoldier, IC_WEAPON ) != NO_SLOT )
         // We need to exclude cases where a kid is not neutral anymore, but is defenceless!
@@ -4270,7 +4270,7 @@ void CheckForPotentialAddToBattleIncrement( SOLDIERTYPE *pSoldier )
 // internal function for turning neutral to FALSE
 void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier )
 {
-    pSoldier->aiData.bNeutral = FALSE;
+    pSoldier->aiBehavior().neutral() = FALSE;
 
     if ( gTacticalStatus.bBoxingState == NOT_BOXING )
     {
@@ -4282,7 +4282,7 @@ void SetSoldierNonNeutral( SOLDIERTYPE * pSoldier )
 // internal function for turning neutral to TRUE
 void SetSoldierNeutral( SOLDIERTYPE * pSoldier )
 {
-    pSoldier->aiData.bNeutral = TRUE;
+    pSoldier->aiBehavior().neutral() = TRUE;
 
     if ( gTacticalStatus.bBoxingState == NOT_BOXING )
     {
@@ -4363,7 +4363,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 		bNewSide = 0;
 	}
 
-    if ( !pSoldier->aiData.bNeutral && bNewSide == pSoldier->bSide )
+    if ( !pSoldier->aiBehavior().neutral() && bNewSide == pSoldier->bSide )
     {
         // already hostile!
         return;
@@ -4394,7 +4394,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
         if (pSoldier->ubProfile == BILLY)
         {
             // change orders
-            pSoldier->aiData.bOrders = FARPATROL;
+            pSoldier->aiBehavior().orders() = FARPATROL;
         }
 
 		// Flugente: turncoats
@@ -4449,7 +4449,7 @@ void MakeCivHostile(SOLDIERTYPE *pSoldier)
 
 		pSoldier->bSide = bNewSide;
 
-        if ( pSoldier->aiData.bNeutral )
+        if ( pSoldier->aiBehavior().neutral() )
         {
             // HEADROCK HAM 3.6: INI Setting decides whether non-combat civs can become hostile
             if (gGameExternalOptions.fCanTrueCiviliansBecomeHostile || !IS_CIV_BODY_TYPE(pSoldier))
@@ -4492,22 +4492,22 @@ UINT8 CivilianGroupMembersChangeSidesWithinProximity( SOLDIERTYPE * pAttacked )
     for ( ; cnt <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++cnt )
     {
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiData.bNeutral )
+        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral() )
         {
             if ( pSoldier->ubCivilianGroup == pAttacked->ubCivilianGroup && pSoldier->ubBodyType != COW )
             {
                 // if in LOS of this guy's attacker
-                if ( (pAttacker && pSoldier->aiData.bOppList[pAttacked->combatResult().currentAttacker().i] == SEEN_CURRENTLY)
+                if ( (pAttacker && pSoldier->awareness().opponentKnowledge()[pAttacked->combatResult().currentAttacker().i] == SEEN_CURRENTLY)
                         || ( PythSpacesAway( pSoldier->position().gridNo(), pAttacked->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pSoldier->position().gridNo(), pSoldier->position().level()) )
                         || ( pAttacker && PythSpacesAway( pSoldier->position().gridNo(), pAttacker->position().gridNo() ) < pAttacked->GetMaxDistanceVisible(pAttacker->position().gridNo(), pAttacker->position().level()) ) )
                 {
                     MakeCivHostile(pSoldier);
-                    if ( pSoldier->aiData.bOppCnt > 0 )
+                    if ( pSoldier->awareness().opponentCount() > 0 )
                     {
                         AddToShouldBecomeHostileOrSayQuoteList( pSoldier->ubID );
                     }
 
-                    if ( pSoldier->ubProfile != NO_PROFILE && pSoldier->aiData.bOppCnt > 0 && ( ubFirstProfile == NO_PROFILE || Random( 2 ) ) )
+                    if ( pSoldier->ubProfile != NO_PROFILE && pSoldier->awareness().opponentCount() > 0 && ( ubFirstProfile == NO_PROFILE || Random( 2 ) ) )
                     {
                         ubFirstProfile = pSoldier->ubProfile;
                     }
@@ -4627,17 +4627,17 @@ void CivilianGroupChangesSides( UINT8 ubCivilianGroup )
     for ( ; cnt <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++cnt )
     {
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-        if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiData.bNeutral)
+        if (pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral())
         {
             if ( pSoldier->ubCivilianGroup == ubCivilianGroup && pSoldier->ubBodyType != COW )
             {
                 MakeCivHostile(pSoldier);
-                if ( pSoldier->aiData.bOppCnt > 0 )
+                if ( pSoldier->awareness().opponentCount() > 0 )
                 {
                     AddToShouldBecomeHostileOrSayQuoteList( pSoldier->ubID );
                 }
                 /*
-                   if ( (pSoldier->ubProfile != NO_PROFILE) && (pSoldier->aiData.bOppCnt > 0) && ( ubFirstProfile == NO_PROFILE || Random( 2 ) ) )
+                   if ( (pSoldier->ubProfile != NO_PROFILE) && (pSoldier->awareness().opponentCount() > 0) && ( ubFirstProfile == NO_PROFILE || Random( 2 ) ) )
                    {
                    ubFirstProfile = pSoldier->ubProfile;
                    }
@@ -4663,7 +4663,7 @@ static void HickCowAttacked( SOLDIERTYPE * pNastyGuy, SOLDIERTYPE * pTarget )
     for ( ; cnt <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++cnt )
     {
         pSoldier = GetJa2SoldierRepository().resolve(cnt.i);
-        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiData.bNeutral && pSoldier->ubCivilianGroup == HICKS_CIV_GROUP )
+        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral() && pSoldier->ubCivilianGroup == HICKS_CIV_GROUP )
         {
             if ( SoldierToSoldierLineOfSightTest( pSoldier, pNastyGuy, TRUE ) )
             {
@@ -6390,11 +6390,11 @@ void CommonEnterCombatModeCode( )
                 pSoldier->CalcNewActionPoints( );
 
                 // SANDRO - Improved Interrupt System - reset interrupt counter
-                memset(pSoldier->aiData.ubInterruptCounter,0,sizeof(pSoldier->aiData.ubInterruptCounter));
+                memset(pSoldier->turnState().interruptCounters(),0,sizeof(pSoldier->turnState().interruptCounters()));
 
                 if ( pSoldier->ubProfile != NO_PROFILE )
                 {
-                    if ( pSoldier->bTeam == CIV_TEAM && pSoldier->aiData.bNeutral )
+                    if ( pSoldier->bTeam == CIV_TEAM && pSoldier->aiBehavior().neutral() )
                     {
                         // only set precombat gridno if unset                       
                         if ( gMercProfiles[ pSoldier->ubProfile ].sPreCombatGridNo == 0 || TileIsOutOfBounds(gMercProfiles[ pSoldier->ubProfile ].sPreCombatGridNo))
@@ -6517,8 +6517,8 @@ void EnterCombatMode( UINT8 ubStartingTeam )
         DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("EnterCombatMode continuing... start player turn, selected soldier = %d",gusSelectedSoldier));
         // OK, make sure we have a selected guy
         // Madd: this was causing a weird crash becuase gusSelectedSoldier was 156 (out of the array bounds) for some reason
-        //if ( gusSelectedSoldier->aiData.bOppCnt == 0 )
-        if ( selectedSoldier && selectedSoldier->aiData.bOppCnt == 0 )
+        //if ( gusSelectedSoldier->awareness().opponentCount() == 0 )
+        if ( selectedSoldier && selectedSoldier->awareness().opponentCount() == 0 )
         {
             DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"EnterCombatMode continuing... nobody selected");
             // OK, look through and find one....
@@ -6526,7 +6526,7 @@ void EnterCombatMode( UINT8 ubStartingTeam )
             {
                 pTeamSoldier =
                     GetJa2SoldierRepository().resolve(cnt.i);
-                if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->aiData.bOppCnt > 0 )
+                if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->awareness().opponentCount() > 0 )
                 {
                     DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"EnterCombatMode continuing... select soldier");
                     SelectSoldier( pTeamSoldier->ubID, FALSE, TRUE );
@@ -6613,7 +6613,7 @@ void ExitCombatMode( )
             pSoldier->pendingAction().clearAction();
 
             // Reset moved flag
-            pSoldier->aiData.bMoved = FALSE;
+            pSoldier->turnState().moved() = FALSE;
 
             // Set final destination
             pSoldier->pathing().finalDestinationGrid() = pSoldier->position().gridNo();
@@ -6750,8 +6750,8 @@ static BOOLEAN SoldierHasSeenEnemiesLastFewTurns( SOLDIERTYPE *pTeamSoldier )
                     if ( !CONSIDERED_NEUTRAL( pTeamSoldier, pSoldier ) && ( pTeamSoldier->bSide != pSoldier->bSide ) )
                     {
                         // Have we not seen this guy.....
-                        if ( ( pTeamSoldier->aiData.bOppList[ cnt2 ] >= SEEN_CURRENTLY ) &&
-                                ( pTeamSoldier->aiData.bOppList[ cnt2 ] <= SEEN_THIS_TURN ) )
+                        if ( ( pTeamSoldier->awareness().opponentKnowledge()[ cnt2 ] >= SEEN_CURRENTLY ) &&
+                                ( pTeamSoldier->awareness().opponentKnowledge()[ cnt2 ] <= SEEN_THIS_TURN ) )
                         {
                             gTacticalStatus.bConsNumTurnsNotSeen = 0;
                             return( TRUE );
@@ -6777,7 +6777,7 @@ BOOLEAN WeSeeNoOne( )
         {
             if ( pSoldier->bTeam == gbPlayerNum )
             {
-                if ( pSoldier->aiData.bOppCnt > 0 )
+                if ( pSoldier->awareness().opponentCount() > 0 )
                 {
                     return( FALSE );
                 }
@@ -6798,7 +6798,7 @@ BOOLEAN NobodyAlerted( )
         pSoldier = MercSlots[ uiLoop ];
         if ( pSoldier != NULL )
         {
-            if ( ( pSoldier->bTeam != gbPlayerNum ) && ( ! pSoldier->aiData.bNeutral ) && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiData.bAlertStatus >= STATUS_RED) )
+            if ( ( pSoldier->bTeam != gbPlayerNum ) && ( ! pSoldier->aiBehavior().neutral() ) && (pSoldier->vitals().health() >= OKLIFE) && (pSoldier->aiBehavior().alertStatus() >= STATUS_RED) )
             {
                 return( FALSE );
             }
@@ -6823,7 +6823,7 @@ static BOOLEAN WeSawSomeoneThisTurn( )
             {
                 for ( uiLoop2 = gTacticalStatus.Team[ ENEMY_TEAM ].bFirstID; uiLoop2 < TOTAL_SOLDIERS; uiLoop2++ )
                 {
-                    if ( pSoldier->aiData.bOppList[ uiLoop2 ] == SEEN_THIS_TURN )
+                    if ( pSoldier->awareness().opponentKnowledge()[ uiLoop2 ] == SEEN_THIS_TURN )
                     {
                         return( TRUE );
                     }
@@ -6927,7 +6927,7 @@ BOOLEAN CheckForEndOfCombatMode( BOOLEAN fIncrementTurnsNotSeen )
         for ( cnt = 0; cnt < guiNumMercSlots; cnt++ )
         {
             pTeamSoldier = MercSlots[ cnt ];
-            if ( pTeamSoldier && pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->aiData.bNeutral )
+            if ( pTeamSoldier && pTeamSoldier->vitals().health() >= OKLIFE && !pTeamSoldier->aiBehavior().neutral() )
             {
                 if ( SoldierHasSeenEnemiesLastFewTurns( pTeamSoldier ) )
                 {
@@ -7835,12 +7835,12 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                     GetJa2SoldierRepository().resolve(cnt.i);
                 if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
                 {
-                    pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
+                    pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
                     CheckForChangingOrders( pTeamSoldier );
-                    pTeamSoldier->aiData.sNoiseGridno = NOWHERE;
-                    pTeamSoldier->aiData.ubNoiseVolume = 0;
-                    pTeamSoldier->aiData.bNewSituation = FALSE;
-                    pTeamSoldier->aiData.bOrders = STATIONARY;
+                    pTeamSoldier->perception().noiseGrid() = NOWHERE;
+                    pTeamSoldier->perception().noiseVolume() = 0;
+                    pTeamSoldier->aiBehavior().newSituation() = FALSE;
+                    pTeamSoldier->aiBehavior().orders() = STATIONARY;
                     if ( pTeamSoldier->vitals().health() < OKLIFE )
                     {
                         // SANDRO - the insta-healable value for doctor trait check
@@ -7868,10 +7868,10 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
                     GetJa2SoldierRepository().resolve(cnt.i);
                 if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
                 {
-                    pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
-                    pTeamSoldier->aiData.sNoiseGridno = NOWHERE;
-                    pTeamSoldier->aiData.ubNoiseVolume = 0;
-                    pTeamSoldier->aiData.bNewSituation = FALSE;
+                    pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
+                    pTeamSoldier->perception().noiseGrid() = NOWHERE;
+                    pTeamSoldier->perception().noiseVolume() = 0;
+                    pTeamSoldier->aiBehavior().newSituation() = FALSE;
                     CheckForChangingOrders( pTeamSoldier );
                 }
             }
@@ -7967,7 +7967,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
                 SOLDIERTYPE* enemySoldier =
                     GetJa2SoldierRepository().resolve(enemy.i);
 				// try to find first active, OK enemy
-				if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+				if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
 				{
 					if ( enemySoldier->awareness().visibility() != -1 )
 				{
@@ -8000,7 +8000,7 @@ void CycleThroughKnownEnemies( BOOLEAN backward )
             SOLDIERTYPE* enemySoldier =
                 GetJa2SoldierRepository().resolve(enemy.i);
             // try to find first active, OK enemy
-            if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+            if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
             {
                 if (enemySoldier->awareness().visibility() != -1)
                 {
@@ -8060,9 +8060,9 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
         SOLDIERTYPE* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
-        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
         {
-            if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
+            if ( pSrcSoldier->awareness().opponentKnowledge()[ enemy ] == SEEN_CURRENTLY   )
             {
                 // If we are > ok start, this is the one!
                 if ( enemy > pSrcSoldier->uiPresentation().lastEnemyCycled() )
@@ -8089,9 +8089,9 @@ void CycleVisibleEnemies( SOLDIERTYPE *pSrcSoldier )
         SOLDIERTYPE* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
-        if (enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+        if (enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
         {
-            if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
+            if ( pSrcSoldier->awareness().opponentKnowledge()[ enemy ] == SEEN_CURRENTLY   )
             {
 
                 // If we are > ok start, this is the one!
@@ -8120,9 +8120,9 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
         SOLDIERTYPE* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
-        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
         {
-            if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
+            if ( pSrcSoldier->awareness().opponentKnowledge()[ enemy ] == SEEN_CURRENTLY   )
             {
                 // If we are > ok start, this is the one!
                 if ( enemy < pSrcSoldier->uiPresentation().lastEnemyCycled() )
@@ -8149,9 +8149,9 @@ void CycleVisibleEnemiesBackward( SOLDIERTYPE *pSrcSoldier )
         SOLDIERTYPE* enemySoldier =
             GetJa2SoldierRepository().resolve(enemy.i);
         // try to find first active, OK enemy
-        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiData.bNeutral && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
+        if ( enemySoldier->bActive && enemySoldier->bInSector && !enemySoldier->aiBehavior().neutral() && (enemySoldier->bSide != gbPlayerNum) && (enemySoldier->vitals().health() > 0) )
         {
-            if ( pSrcSoldier->aiData.bOppList[ enemy ] == SEEN_CURRENTLY   )
+            if ( pSrcSoldier->awareness().opponentKnowledge()[ enemy ] == SEEN_CURRENTLY   )
             {
 
                 // If we are > ok start, this is the one!
@@ -8239,7 +8239,7 @@ UINT16 NumEnemyInSector( )
         if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0 )
         {
             // Checkf for any more bacguys
-            if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0 ) )
+            if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0 ) )
             {
                 ubNumEnemies++;
             }
@@ -8287,7 +8287,7 @@ UINT16 NumEnemyInSectorExceptCreatures()
         if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->bTeam != CREATURE_TEAM )
         {
             // Checkf for any more bacguys
-            if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0 ) )
+            if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0 ) )
             {
                 ubNumEnemies++;
             }
@@ -8323,7 +8323,7 @@ UINT16 NumEnemyInSectorNotDeadOrDying( )
                 if ( pTeamSoldier->vitals().health() >= OKLIFE )
                 {
                     // Check for any more badguys
-                    if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0 ) )
+                    if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0 ) )
                     {
                         ubNumEnemies++;
                     }
@@ -8362,7 +8362,7 @@ UINT16 NumBloodcatsInSectorNotDeadOrDying( )
                     if ( pTeamSoldier->vitals().health() >= OKLIFE )
                     {
                         // Check for any more badguys
-                        if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0 ) )
+                        if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0 ) )
                         {
                             ubNumEnemies++;
                         }
@@ -8409,7 +8409,7 @@ UINT16 NumCapableEnemyInSector( )
                         continue;
 
                     // Check for any more badguys
-                    if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != 0 ) )
+                    if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != 0 ) )
                     {
                         ubNumEnemies++;
                     }
@@ -8612,7 +8612,7 @@ BOOLEAN KillIncompacitatedEnemyInSector( )
         if ( pTeamSoldier->bActive && pTeamSoldier->bInSector && pTeamSoldier->vitals().health() < OKLIFE && !( pTeamSoldier->status().flags() & SOLDIER_DEAD ) )
         {
             // Checkf for any more bacguys
-            if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bSide != gbPlayerNum ) )
+            if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bSide != gbPlayerNum ) )
             {
                 // KIll......
                 // SANDRO - if the soldier is bleeding out, consider this damage as done by the last attacker
@@ -8646,7 +8646,7 @@ static BOOLEAN AttackOnGroupWitnessed( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTa
         pGroupMember = MercSlots[ uiSlot ];
         if (pGroupMember && (pGroupMember->ubCivilianGroup == pTarget->ubCivilianGroup) && pGroupMember != pTarget)
         {
-            if (pGroupMember->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY || pGroupMember->aiData.bOppList[pTarget->ubID] == SEEN_CURRENTLY)
+            if (pGroupMember->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY || pGroupMember->awareness().opponentKnowledge()[pTarget->ubID] == SEEN_CURRENTLY)
             {
                 return( TRUE );
             }
@@ -8669,7 +8669,7 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
 	{
 		// limit base tolerance to 75% when having max morale and experience level
 		// calculate tolerance as percent of max tolerance from INI
-		bTolerance = gGameExternalOptions.ubSuppressionToleranceMax * (100 + pSoldier->aiData.bMorale + 10 * EffectiveExpLevel(pSoldier, TRUE)) / 400;
+		bTolerance = gGameExternalOptions.ubSuppressionToleranceMax * (100 + pSoldier->morale().morale() + 10 * EffectiveExpLevel(pSoldier, TRUE)) / 400;
 	}
 	else
 	{
@@ -8677,12 +8677,12 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
 		if (pSoldier->status().flags() & SOLDIER_PC)
 		{
 			// give +1 for every 10% morale from 50, for a maximum bonus/penalty of 5.
-			bTolerance += (pSoldier->aiData.bMorale - 50) / 10;
+			bTolerance += (pSoldier->morale().morale() - 50) / 10;
 		}
 		else
 		{
 			// give +2 for every morale category from normal, for a max change of 4
-			bTolerance += (pSoldier->aiData.bAIMorale - MORALE_NORMAL) * 2;
+			bTolerance += (pSoldier->morale().aiMorale() - MORALE_NORMAL) * 2;
 		}
 	}    
 
@@ -8715,7 +8715,7 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
     else
     {
         // generic NPC/civvie; change tolerance based on attitude
-        switch ( pSoldier->aiData.bAttitude )
+        switch ( pSoldier->aiBehavior().attitude() )
         {
             case BRAVESOLO:
             case BRAVEAID:
@@ -8910,7 +8910,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 			// sevenfm: alert enemy team
 			if (pSoldier->bTeam == ENEMY_TEAM)
 			{
-				pSoldier->aiData.bAlertStatus = max(pSoldier->aiData.bAlertStatus, STATUS_RED);
+				pSoldier->aiBehavior().alertStatus() = max(pSoldier->aiBehavior().alertStatus(), STATUS_RED);
 				//CheckForChangingOrders(pSoldier);
 			}
 
@@ -9028,7 +9028,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 					{
 						if (IS_MERC_BODY_TYPE(pSoldier))
 						{
-							pSoldier->aiData.bMorale = max(20 + 2 * pSoldier->statistics().experienceLevel(), pSoldier->aiData.bMorale - 4);
+							pSoldier->morale().morale() = max(20 + 2 * pSoldier->statistics().experienceLevel(), pSoldier->morale().morale() - 4);
 						}
 					}
 					else
@@ -9303,10 +9303,10 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     BOOLEAN fEnterCombat = TRUE;
     SOLDIERTYPE * pTarget = *ppTarget;
 
-    if ( pTarget->aiData.fAIFlags & AI_ASLEEP )
+    if ( pTarget->aiBehavior().flags() & AI_ASLEEP )
     {
         // waaaaaaaaaaaaake up!
-        pTarget->aiData.fAIFlags &= (~AI_ASLEEP);
+        pTarget->aiBehavior().flags() &= (~AI_ASLEEP);
     }
 
     if (pTarget->ubProfile == PABLO && CheckFact( FACT_PLAYER_FOUND_ITEMS_MISSING, 0 ) )
@@ -9357,7 +9357,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     }
     // JA2 Gold: fix Slay
     else if ( !GetGameContext().capabilities().isUnfinishedBusiness() &&
-              (pTarget->bTeam == CIV_TEAM && pTarget->aiData.bNeutral) &&
+              (pTarget->bTeam == CIV_TEAM && pTarget->aiBehavior().neutral()) &&
               CampaignProfileCode::matches(
                   GameCampaign::Arulco,
                   CampaignProfileCode::Role::Slay,
@@ -9367,7 +9367,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     {
         TriggerNPCRecord( pTarget->ubProfile, 1 );
     }
-    else if ( (pTarget->bTeam == CIV_TEAM) && (pTarget->ubCivilianGroup == 0) && (pTarget->aiData.bNeutral) && !( pTarget->status().flags() & SOLDIER_VEHICLE ) )
+    else if ( (pTarget->bTeam == CIV_TEAM) && (pTarget->ubCivilianGroup == 0) && (pTarget->aiBehavior().neutral()) && !( pTarget->status().flags() & SOLDIER_VEHICLE ) )
     {
         if ( pTarget->ubBodyType == COW && gWorldSectorX == 10 && gWorldSectorY == MAP_ROW_F )
         {
@@ -9401,7 +9401,7 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
     {
         HandleGlobalLoyaltyEvent( GLOBAL_LOYALTY_PRISONERS_TORTURED, gWorldSectorX, gWorldSectorY, gbWorldSectorZ );
     }
-    else if (pTarget->bTeam == CREATURE_TEAM && pTarget->ubBodyType == BLOODCAT && pTarget->aiData.bNeutral)
+    else if (pTarget->bTeam == CREATURE_TEAM && pTarget->ubBodyType == BLOODCAT && pTarget->aiBehavior().neutral())
     {
         // Attacked a bloodcat.
         MakeBloodcatsHostile();
@@ -9461,10 +9461,10 @@ BOOLEAN ProcessImplicationsOfPCAttack( SOLDIERTYPE * pSoldier, SOLDIERTYPE ** pp
                      pSoldier->ubProfile ) )
             {
                 // change attitude
-                pTarget->aiData.bAttitude = AGGRESSIVE;
+                pTarget->aiBehavior().attitude() = AGGRESSIVE;
             }
         }
-        if ( pTarget->ubCivilianGroup && ( (pTarget->bTeam == gbPlayerNum) || pTarget->aiData.bNeutral ) )
+        if ( pTarget->ubCivilianGroup && ( (pTarget->bTeam == gbPlayerNum) || pTarget->aiBehavior().neutral() ) )
         {
 #ifdef JA2TESTVERSION
             if (pTarget->status().flags() & SOLDIER_PC)
@@ -9743,7 +9743,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
                         {
                             if ( pTeamSoldier->ubBodyType == CROW )
                             {
-                                if ( pTeamSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
+                                if ( pTeamSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
                                 {
                                     //pTeamSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
 
@@ -9774,7 +9774,7 @@ static SOLDIERTYPE *InternalReduceAttackBusyCount( )
             // if soldier and target were not both players and target was not under fire before...
             if ( ( pSoldier->bTeam != gbPlayerNum || pTarget->bTeam != gbPlayerNum ) )
             {
-                if (pTarget->aiData.bOppList[ pSoldier->ubID ] != SEEN_CURRENTLY )
+                if (pTarget->awareness().opponentKnowledge()[ pSoldier->ubID ] != SEEN_CURRENTLY )
                 {
                     NoticeUnseenAttacker( pSoldier, pTarget, 0 );
                 }
@@ -10388,7 +10388,7 @@ void DoPOWPathChecks( )
             }
             // free! free!
             // put them on any available squad
-            pSoldier->aiData.bNeutral = FALSE;
+            pSoldier->aiBehavior().neutral() = FALSE;
             AddCharacterToAnySquad( pSoldier );
             pSoldier->DoMercBattleSound( BATTLE_SOUND_COOL1 );
 
@@ -10414,7 +10414,7 @@ BOOLEAN HostileCiviliansPresent( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(iLoop.i);
 
-        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && !pSoldier->aiData.bNeutral )
+        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && !pSoldier->aiBehavior().neutral() )
         {
             return( TRUE );
         }
@@ -10436,7 +10436,7 @@ BOOLEAN HostileCiviliansWithGunsPresent( )
     {
         pSoldier = GetJa2SoldierRepository().resolve(iLoop.i);
 
-        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && !pSoldier->aiData.bNeutral )
+        if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() > 0 && !pSoldier->aiBehavior().neutral() )
         {
             if ( FindAIUsableObjClass( pSoldier, IC_WEAPON ) == -1 )
             {
@@ -11250,7 +11250,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 				if (pSoldierToSurrender->bTeam == CIV_TEAM)
 				{
 					// hostile civs with a profile cannot be captured, as stated above, the entire team cannot surrender
-					if (!pSoldier->aiData.bNeutral && pSoldier->bSide == 1 && zCivGroupName[pSoldier->ubCivilianGroup].fCanBeCaptured && pSoldier->ubProfile != NO_PROFILE)
+					if (!pSoldier->aiBehavior().neutral() && pSoldier->bSide == 1 && zCivGroupName[pSoldier->ubCivilianGroup].fCanBeCaptured && pSoldier->ubProfile != NO_PROFILE)
 						fNoSurrender = TRUE;
 
 					// a civilian can only be captured if his faction is allowed to. This should prevent the player from exploiting a huge numerical superiority against small enemy groups, like lone assassins.
@@ -11352,7 +11352,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldier->bTeam == gbPlayerNum &&
 			pSoldierToSurrender->bTeam == ENEMY_TEAM &&
 			pSoldierToSurrender->ubProfile == NO_PROFILE &&
-			pSoldierToSurrender->aiData.bAlertStatus < STATUS_RED &&
+			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
 			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
 		{
 			// both soldiers face each other
@@ -11376,7 +11376,7 @@ static void PrisonerSurrenderMessageBoxCallBack( UINT8 ubExitValue )
 			pSoldier->bTeam == gbPlayerNum &&
 			pSoldierToSurrender->bTeam == ENEMY_TEAM &&
 			pSoldierToSurrender->ubProfile == NO_PROFILE &&
-			pSoldierToSurrender->aiData.bAlertStatus < STATUS_RED &&
+			pSoldierToSurrender->aiBehavior().alertStatus() < STATUS_RED &&
 			!pSoldierToSurrender->RecognizeAsCombatant( gusSelectedSoldier ) )
 		{
 			MSYS_RemoveRegion(&(gMsgBox.BackRegion));
@@ -11470,7 +11470,7 @@ void HandleSurrenderOffer( SOLDIERTYPE* pSoldier )
 
 	if ( pSoldier->bTeam == ENEMY_TEAM &&
 		pSoldier->ubProfile == NO_PROFILE &&
-		pSoldier->aiData.bAlertStatus < STATUS_RED &&
+		pSoldier->aiBehavior().alertStatus() < STATUS_RED &&
 		!pSoldier->RecognizeAsCombatant( gusSelectedSoldier ) )
 	{
 		wcscpy( gzUserDefinedButton[2], TacticalStr[PRISONER_DISTRACT_STR] );

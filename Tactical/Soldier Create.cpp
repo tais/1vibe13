@@ -267,10 +267,10 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->bLeadership						= Soldier.statistics().leadership();
 	this->bStrength							= Soldier.statistics().strength();
 	this->bWisdom								= Soldier.statistics().wisdom();
-	this->bAttitude							= Soldier.aiData.bAttitude;
-	this->bOrders								= Soldier.aiData.bOrders;
-	this->bMorale								= Soldier.aiData.bMorale;
-	this->bAIMorale							= Soldier.aiData.bAIMorale;
+	this->bAttitude							= Soldier.aiBehavior().attitude();
+	this->bOrders								= Soldier.aiBehavior().orders();
+	this->bMorale								= Soldier.morale().morale();
+	this->bAIMorale							= Soldier.morale().aiMorale();
 	this->ubBodyType							= Soldier.ubBodyType;
 	this->ubCivilianGroup				= Soldier.ubCivilianGroup;
 	this->ubScheduleID					= Soldier.schedule().id();
@@ -288,8 +288,8 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	swprintf( this->name, Soldier.name );
 
 	//Copy patrol points
-	this->bPatrolCnt						= Soldier.aiData.bPatrolCnt;
-	memcpy( this->sPatrolGrid, Soldier.aiData.sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
+	this->bPatrolCnt						= Soldier.aiPlanning().patrolCount();
+	memcpy( this->sPatrolGrid, Soldier.aiPlanning().patrolGrid(), sizeof( INT32 ) * MAXPATROLGRIDS );
 
 	//copy colors for soldier based on the body type.
 	strcpy(this->HeadPal, Soldier.renderState().headPalette());
@@ -680,7 +680,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			if ( pCreateStruct->fPlayerMerc )
 			{
 				Soldier.bTeam = OUR_TEAM;
-				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
+				Soldier.perception().normalSmell() = NORMAL_HUMAN_SMELL_STRENGTH;
 			}
 			else if ( pCreateStruct->fPlayerPlan )
 			{
@@ -811,7 +811,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		Soldier.deployment().sectorZ()						= pCreateStruct->bSectorZ;
 		Soldier.deployment().insertionDirection()			= pCreateStruct->ubDirection;
 		Soldier.pathing().desiredDirection()		= pCreateStruct->ubDirection;
-		Soldier.aiData.bDominantDir				= pCreateStruct->ubDirection;
+		Soldier.aiPlanning().dominantDirection()				= pCreateStruct->ubDirection;
 		Soldier.position().direction()						= pCreateStruct->ubDirection;
 
 		Soldier.deployment().insertionGrid()				= pCreateStruct->sInsertionGridNo;
@@ -870,7 +870,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		{
 			if (Soldier.ubProfile == WARDEN )
 			{
-				Soldier.aiData.bNeutral = FALSE;
+				Soldier.aiBehavior().neutral() = FALSE;
 			}
 			else if (Soldier.ubCivilianGroup != NON_CIV_GROUP)
 			{
@@ -881,21 +881,21 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					if (!gGameExternalOptions.fCanTrueCiviliansBecomeHostile && 
 						(Soldier.ubBodyType >= FATCIV && Soldier.ubBodyType <= CRIPPLECIV ))
 					{
-						Soldier.aiData.bNeutral = TRUE;
+						Soldier.aiBehavior().neutral() = TRUE;
 					}
 					else
 					{
-						Soldier.aiData.bNeutral = FALSE;
+						Soldier.aiBehavior().neutral() = FALSE;
 					}
 				}
 				else
 				{
-					Soldier.aiData.bNeutral = TRUE;
+					Soldier.aiBehavior().neutral() = TRUE;
 				}
 			}
 			else
 			{
-				Soldier.aiData.bNeutral = TRUE;
+				Soldier.aiBehavior().neutral() = TRUE;
 			}
 
 			//Weaken stats based on the bodytype of the civilian.
@@ -936,7 +936,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			// bloodcats are neutral to start out
 			if ( Soldier.ubBodyType == BLOODCAT )
 			{
-				Soldier.aiData.bNeutral = TRUE;
+				Soldier.aiBehavior().neutral() = TRUE;
 			} // otherwise (creatures) false
 		}
 
@@ -961,7 +961,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// sevenfm: max morale for AI soldiers
 		if (Soldier.ubProfile == NO_PROFILE)
 		{
-			Soldier.aiData.bMorale = 60 + 2 * Soldier.statistics().experienceLevel() + Random(20);
+			Soldier.morale().morale() = 60 + 2 * Soldier.statistics().experienceLevel() + Random(20);
 		}
 
 		//For inventory, look for any face class items that may be located in the big pockets and if found, move
@@ -1049,12 +1049,12 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 				// women get badguy battlesound sets 6-11
 				Soldier.dialogue().battleSoundSet() = 6 + (UINT8) Random( 6 );
-				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
+				Soldier.perception().normalSmell() = NORMAL_HUMAN_SMELL_STRENGTH;
 				break;
 
 			case BLOODCAT:
 				AssignCreatureInventory( &Soldier );
-				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
+				Soldier.perception().normalSmell() = NORMAL_HUMAN_SMELL_STRENGTH;
 				Soldier.status().flags() |= SOLDIER_ANIMAL;
 				break;
 
@@ -1067,19 +1067,19 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			case QUEENMONSTER:
 
 				AssignCreatureInventory( &Soldier );
-				Soldier.aiData.ubCaller = NOBODY;
+				Soldier.aiCommunication().caller() = NOBODY;
 				if( !gfEditMode )
 				{
-					Soldier.aiData.bOrders = FARPATROL;
-					Soldier.aiData.bAttitude = AGGRESSIVE;
+					Soldier.aiBehavior().orders() = FARPATROL;
+					Soldier.aiBehavior().attitude() = AGGRESSIVE;
 				}
 				Soldier.status().flags() |= SOLDIER_MONSTER;
-				Soldier.aiData.bMonsterSmell = NORMAL_CREATURE_SMELL_STRENGTH;
+				Soldier.perception().monsterSmell() = NORMAL_CREATURE_SMELL_STRENGTH;
 				break;
 
 			case COW:
 				Soldier.status().flags() |= SOLDIER_ANIMAL;
-				Soldier.aiData.bNormalSmell = COW_SMELL_STRENGTH;
+				Soldier.perception().normalSmell() = COW_SMELL_STRENGTH;
 				break;
 			case CROW:
 
@@ -1110,26 +1110,26 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 						if ( Soldier.ubProfile != HELICOPTER && Soldier.ubProfile != 0 && Soldier.ubProfile != NO_PROFILE && Soldier.ubProfile != TANK_CAR ) 
 						{
 							ubVehicleID = Soldier.ubProfile;
-							Soldier.aiData.bNeutral = gNewVehicle[Soldier.ubProfile].bNewNeutral;
+							Soldier.aiBehavior().neutral() = gNewVehicle[Soldier.ubProfile].bNewNeutral;
 						}
 					break;
 				
 				/*	case HUMVEE:
 
 						ubVehicleID = HUMMER;
-						Soldier.aiData.bNeutral = TRUE;
+						Soldier.aiBehavior().neutral() = TRUE;
 						break;
 
 					case ELDORADO:
 
 						ubVehicleID = ELDORADO_CAR;
-						Soldier.aiData.bNeutral = TRUE;
+						Soldier.aiBehavior().neutral() = TRUE;
 						break;
 
 					case ICECREAMTRUCK:
 
 						ubVehicleID = ICE_CREAM_TRUCK;
-						Soldier.aiData.bNeutral = TRUE;
+						Soldier.aiBehavior().neutral() = TRUE;
 						break;
 					
 					case JEEP:
@@ -1162,7 +1162,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 				break;
 
 			default:
-				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
+				Soldier.perception().normalSmell() = NORMAL_HUMAN_SMELL_STRENGTH;
 				break;
 		}
 
@@ -1208,7 +1208,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 			if ( Soldier.ubBodyType == HUMVEE || Soldier.ubBodyType == ICECREAMTRUCK )
 		{
-			Soldier.aiData.bNeutral = TRUE;
+			Soldier.aiBehavior().neutral() = TRUE;
 		}
 
 		// Commit the restored record through the compatibility repository.
@@ -1321,11 +1321,11 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	//if ( gGameOptions.fNewTraitSystem )
 	//	pSoldier->stats.ubSkillTrait3 = pProfile->bSkillTrait3; // added by SANDRO - 3rd skill trait
 
-	pSoldier->aiData.bOrders								= pCreateStruct->bOrders;
-	pSoldier->aiData.bAttitude							= pCreateStruct->bAttitude;
+	pSoldier->aiBehavior().orders()								= pCreateStruct->bOrders;
+	pSoldier->aiBehavior().attitude()							= pCreateStruct->bAttitude;
 	pSoldier->position().direction()						= pCreateStruct->ubDirection;
-	pSoldier->aiData.bPatrolCnt						= pCreateStruct->bPatrolCnt;
-	memcpy( pSoldier->aiData.sPatrolGrid, pCreateStruct->sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
+	pSoldier->aiPlanning().patrolCount()						= pCreateStruct->bPatrolCnt;
+	memcpy( pSoldier->aiPlanning().patrolGrid(), pCreateStruct->sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
 
 	// SANDRO - Well, it is nonsense to have 4 traits for this, one is enough, as we can now repaint the camo type by another one
 	if ( !gGameOptions.fNewTraitSystem )
@@ -1752,10 +1752,10 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->statistics().strength()							= pCreateStruct->bStrength;
 	pSoldier->statistics().wisdom()								= pCreateStruct->bWisdom;
 
-	pSoldier->aiData.bAttitude							= pCreateStruct->bAttitude;
-	pSoldier->aiData.bOrders								= pCreateStruct->bOrders;
-	pSoldier->aiData.bMorale								= pCreateStruct->bMorale;
-	pSoldier->aiData.bAIMorale							= pCreateStruct->bAIMorale;
+	pSoldier->aiBehavior().attitude()							= pCreateStruct->bAttitude;
+	pSoldier->aiBehavior().orders()								= pCreateStruct->bOrders;
+	pSoldier->morale().morale()								= pCreateStruct->bMorale;
+	pSoldier->morale().aiMorale()							= pCreateStruct->bAIMorale;
 	pSoldier->dialogue().vocalVolume()			= MIDVOLUME;
 	pSoldier->ubBodyType					= pCreateStruct->ubBodyType;
 	pSoldier->ubCivilianGroup				= pCreateStruct->ubCivilianGroup;
@@ -1865,7 +1865,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 			else if ( NumSoldiersWithFlagInSector( ENEMY_TEAM, SOLDIER_BODYGUARD ) < gGameExternalOptions.usEnemyGeneralsBodyGuardsNumber )
 			{
 				pSoldier->usSoldierFlagMask |= SOLDIER_BODYGUARD;
-				pSoldier->aiData.bOrders = SEEKENEMY;		// required, otherwise stationary orders forbid them from moving to the VIP
+				pSoldier->aiBehavior().orders() = SEEKENEMY;		// required, otherwise stationary orders forbid them from moving to the VIP
 			}
 		}
 		else if ( pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY )
@@ -2029,8 +2029,8 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	//KM:	November 10, 1997
 	//Adding patrol points
 	//CAUTION:	CONVERTING SIGNED TO UNSIGNED though the values should never be negative.
-	pSoldier->aiData.bPatrolCnt						= pCreateStruct->bPatrolCnt;
-	memcpy( pSoldier->aiData.sPatrolGrid, pCreateStruct->sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
+	pSoldier->aiPlanning().patrolCount()						= pCreateStruct->bPatrolCnt;
+	memcpy( pSoldier->aiPlanning().patrolGrid(), pCreateStruct->sPatrolGrid, sizeof( INT32 ) * MAXPATROLGRIDS );
 
 	//Kris:	November 10, 1997
 	//Expanded the default names based on team.
@@ -2088,8 +2088,8 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->iFaceIndex	 = -1;
 
 	// Set morale default
-	//pSoldier->aiData.bMorale = DEFAULT_MORALE;
-	pSoldier->aiData.bMorale = gMoraleSettings.ubDefaultMorale;
+	//pSoldier->morale().morale() = DEFAULT_MORALE;
+	pSoldier->morale().morale() = gMoraleSettings.ubDefaultMorale;
 
 	pSoldier->combatResult().clearAttackers();
 
@@ -2120,15 +2120,15 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->service().finishProviding();
 	pSoldier->attackSelection().hand()			= HANDPOS;
 	pSoldier->animationPlayback().state()				= STANDING;
-	pSoldier->aiData.bInterruptDuelPts	= NO_INTERRUPT;
-	pSoldier->aiData.bMoved				= FALSE;
+	pSoldier->turnState().interruptDuelPoints()	= NO_INTERRUPT;
+	pSoldier->turnState().moved()				= FALSE;
 	pSoldier->ubRobotRemoteHolderID		= NOBODY;
-	pSoldier->aiData.sNoiseGridno		= NOWHERE;
+	pSoldier->perception().noiseGrid()		= NOWHERE;
 	pSoldier->deployment().previousSectorId()				= 255;
-	pSoldier->aiData.bNextPatrolPnt		= 1;
+	pSoldier->aiPlanning().nextPatrolPoint()		= 1;
 	pSoldier->dialogue().clearCivilianQuote();
 	pSoldier->dialogue().activeBattleSound()	= NO_SAMPLE;
-	pSoldier->aiData.ubXRayedBy			= NOBODY;
+	pSoldier->perception().xraySource()			= NOBODY;
 	pSoldier->perception().deactivateXray();
 	pSoldier->fireControl().bulletsLeft()				= 0;
 	pSoldier->assignment().clearRepairVehicle();
@@ -2893,7 +2893,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 		s->statistics().leadership()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->statistics().strength()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->statistics().wisdom()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->aiData.bMorale				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->morale().morale()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	}
 	//Replace any soldier attributes with any static values in the detailed placement.
 	if( spp->bLife				!= -1 )			s->vitals().health()					= spp->bLife;
@@ -2907,7 +2907,7 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	if( spp->bExplosive		!= -1 )			s->statistics().explosives()			= spp->bExplosive;
 	if( spp->bMedical			!= -1 )			s->statistics().medical()				= spp->bMedical;
 	if( spp->bMechanical	!= -1 )			s->statistics().mechanical()		= spp->bMechanical;
-	if( spp->bMorale			!= -1 )			s->aiData.bMorale				= spp->bMorale;
+	if( spp->bMorale			!= -1 )			s->morale().morale()				= spp->bMorale;
 
 	//life can't exceed the life max.
 	if( s->vitals().health() > s->vitals().maximumHealth() )
@@ -2995,7 +2995,7 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 	s->statistics().leadership()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->statistics().strength()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->statistics().wisdom()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->aiData.bMorale				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->morale().morale()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 }
 
 
@@ -3097,8 +3097,8 @@ SOLDIERTYPE* TacticalCreateAdministrator()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 	}
 	return( pSoldier );
 }
@@ -3130,8 +3130,8 @@ SOLDIERTYPE* TacticalCreateArmyTroop()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 	}
 
 	return( pSoldier );
@@ -3172,8 +3172,8 @@ SOLDIERTYPE* TacticalCreateEliteEnemy()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 	}
 
 	return( pSoldier );
@@ -3209,8 +3209,8 @@ SOLDIERTYPE* TacticalCreateEnemyTank()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 
 		// Flugente: why would a vehicle's armour depend on game progress? Always give them 100 HP
 		pSoldier->vitals().maximumHealth() = 100;
@@ -3251,8 +3251,8 @@ SOLDIERTYPE* TacticalCreateEnemyJeep( )
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 
 		// Flugente: why would a vehicle's armour depend on game progress? Always give them 100 HP
 		pSoldier->vitals().maximumHealth() = 100;
@@ -3294,8 +3294,8 @@ SOLDIERTYPE* TacticalCreateEnemyRobot()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 
 		pSoldier->vitals().maximumHealth() = 80;
 		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth();
@@ -3338,8 +3338,8 @@ SOLDIERTYPE* TacticalCreateZombie()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 	}
 
 	return( pSoldier );
@@ -3486,8 +3486,8 @@ SOLDIERTYPE* TacticalCreateArmedCivilian( UINT8 usSoldierClass )
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
@@ -3572,7 +3572,7 @@ SOLDIERTYPE* TacticalCreateCivilian( INT32 sGridNo, UINT8 usCivilianGroup, INT8 
 
 			// if we're a dealer, don't walk around that much
 			if ( pSoldier->interaction().isNonNpcTrader() )
-				pSoldier->aiData.bOrders = ONGUARD;
+				pSoldier->aiBehavior().orders() = ONGUARD;
 		}
 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
@@ -3662,8 +3662,8 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 		swprintf( pSoldier->name, TacticalStr[ MILITIA_TEAM_MERC_NAME ] );
 
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 	}
 
 	return( pSoldier );
@@ -3700,8 +3700,8 @@ SOLDIERTYPE* TacticalCreateBandit()
 	if ( pSoldier )
 	{
 		// send soldier to centre of map, roughly
-		pSoldier->aiData.sNoiseGridno = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
-		pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+		pSoldier->perception().noiseGrid() = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
+		pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 
 		if ( GetCurrentScreen() != AUTORESOLVE_SCREEN )
 		{
@@ -4001,7 +4001,7 @@ void CreateDownedPilot( )
 		// downed pilots are hostile, even though they stand no chance against us
 		gTacticalStatus.fCivGroupHostile[POW_PRISON_CIV_GROUP] = CIV_GROUP_HOSTILE;
 
-		pSoldier->aiData.bNeutral = FALSE;
+		pSoldier->aiBehavior().neutral() = FALSE;
 	}
 }
 

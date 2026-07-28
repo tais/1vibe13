@@ -1922,9 +1922,9 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			HandleFaceHilights( pFace, uiRenderBuffer, sFaceX, sFaceY );
 
 #ifdef JA2BETAVERSION
-			if ( pSoldier->aiData.bOppCnt != 0 )
+			if ( pSoldier->awareness().opponentCount() != 0 )
 #else
-			if ( pSoldier->aiData.bOppCnt > 0 )
+			if ( pSoldier->awareness().opponentCount() > 0 )
 #endif
 			{
 				drawOpponentCount = TRUE;
@@ -1932,7 +1932,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 
 				//SetFontDestBuffer( uiRenderBuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
-				//swprintf( sString, L"%d", pSoldier->aiData.bOppCnt );
+				//swprintf( sString, L"%d", pSoldier->awareness().opponentCount() );
 
 				//SetFont( TINYFONT1 );
 				//SetFontForeground( FONT_DKRED );
@@ -2634,7 +2634,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 	{
 		SetFontDestBuffer( uiRenderBuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, FALSE );
 
-		swprintf( sString, L"%d", pSoldier->aiData.bOppCnt );
+		swprintf( sString, L"%d", pSoldier->awareness().opponentCount() );
 
 		SetFont( TINYFONT1 );
 		SetFontForeground( FONT_DKRED );
@@ -2967,7 +2967,7 @@ void HandleAutoFaces( )
 					fRerender = TRUE;
 				}
 
-				if ( pSoldier->aiData.bOppCnt != pFace->bOldOppCnt )
+				if ( pSoldier->awareness().opponentCount() != pFace->bOldOppCnt )
 				{
 					fRerender = TRUE;
 				}
@@ -3033,7 +3033,7 @@ void HandleAutoFaces( )
 				pFace->bOldSoldierLife		= bLife;
 				pFace->bOldActionPoints	= bAPs;
 				pFace->bOldStealthMode		= pSoldier->movement().stealthMode();
-				pFace->bOldOppCnt				= pSoldier->aiData.bOppCnt;
+				pFace->bOldOppCnt				= pSoldier->awareness().opponentCount();
 
 				if ( pFace->uiFlags & FACE_SHOW_WHITE_HILIGHT )
 				{

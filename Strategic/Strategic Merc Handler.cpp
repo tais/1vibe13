@@ -753,11 +753,11 @@ BOOLEAN SoldierHasWorseEquipmentThanUsedTo( SOLDIERTYPE *pSoldier )
 	// this of course assumes default morale is 50
 	if ( bBestGun != -1 )
 	{
-		bBestGun		= (bBestGun		* (50 + pSoldier->aiData.bMorale)) / 100;
+		bBestGun		= (bBestGun		* (50 + pSoldier->morale().morale())) / 100;
 	}
 	if ( bBestArmour != -1 )
 	{
-		bBestArmour = (bBestArmour * (50 + pSoldier->aiData.bMorale)) / 100;
+		bBestArmour = (bBestArmour * (50 + pSoldier->morale().morale())) / 100;
 	}
 
 	// OK, check values!
@@ -1387,12 +1387,12 @@ void HourlyCamouflageUpdate( void )
 			}
 
 			// if the merc has non-zero monster smell, degrade it by 1
-			if ( pSoldier->aiData.bMonsterSmell > 0 )
+			if ( pSoldier->perception().monsterSmell() > 0 )
 			{
-				pSoldier->aiData.bMonsterSmell--;
+				pSoldier->perception().monsterSmell()--;
 
 				/*
-				if (pSoldier->aiData.bMonsterSmell == 0)
+				if (pSoldier->perception().monsterSmell() == 0)
 				{
 					// Reload palettes....
 

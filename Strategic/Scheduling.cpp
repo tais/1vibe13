@@ -259,7 +259,7 @@ void ProcessTacticalSchedule( UINT8 ubScheduleID )
 			case 2:			pSchedule->usFlags |= SCHEDULE_FLAGS_ACTIVE3;			break;
 			case 3:			pSchedule->usFlags |= SCHEDULE_FLAGS_ACTIVE4;			break;
 		}
-		pSoldier->aiData.fAIFlags |= AI_CHECK_SCHEDULE;
+		pSoldier->aiBehavior().flags() |= AI_CHECK_SCHEDULE;
 		pSoldier->schedule().resetProgress();
 	}
 
@@ -814,7 +814,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 	#endif
 
 	// always assume the merc is going to wake, unless the event is a sleep
-	pSoldier->aiData.fAIFlags &= ~(AI_ASLEEP);
+	pSoldier->aiBehavior().flags() &= ~(AI_ASLEEP);
 
 	switch( pSchedule->ubAction[ index ] )
 	{
@@ -837,7 +837,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			else
 			{
 				// let this person patrol from here from now on
-				pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData2[ index ];
+				pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData2[ index ];
 			}
 			break;
 		case SCHEDULE_ACTION_GRIDNO:
@@ -845,7 +845,7 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_ENTERSECTOR:
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags2 & PROFILE_MISC_FLAG2_DONT_ADD_TO_SECTOR )
@@ -859,22 +859,22 @@ void AutoProcessSchedule( SCHEDULENODE *pSchedule, INT32 index )
 			MoveSoldierFromAwayToMercSlot( pSoldier );
 			pSoldier->bInSector = TRUE;
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_WAKE:
 			BumpAnyExistingMerc( pSoldier->position().initialGrid() );
 			ConvertGridNoToCellXY( pSoldier->position().initialGrid(), &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
 			// let this person patrol from here from now on
-			pSoldier->aiData.sPatrolGrid[0] = pSoldier->position().initialGrid();
+			pSoldier->aiPlanning().patrolGrid()[0] = pSoldier->position().initialGrid();
 			break;
 		case SCHEDULE_ACTION_SLEEP:
-			pSoldier->aiData.fAIFlags |= AI_ASLEEP;
+			pSoldier->aiBehavior().flags() |= AI_ASLEEP;
 			// check for someone else in the location
 			BumpAnyExistingMerc( pSchedule->usData1[ index ] );
 			ConvertGridNoToCellXY( pSchedule->usData1[ index ], &sCellX, &sCellY );
 			pSoldier->EVENT_SetSoldierPositionForceDelete( (FLOAT)sCellX, (FLOAT)sCellY );
-			pSoldier->aiData.sPatrolGrid[0] = pSchedule->usData1[ index ];
+			pSoldier->aiPlanning().patrolGrid()[0] = pSchedule->usData1[ index ];
 			break;
 		case SCHEDULE_ACTION_LEAVESECTOR:
 			sGridNo = FindNearestEdgePoint( pSoldier->position().gridNo() );

@@ -1963,7 +1963,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 		}
 
 		// make sure civ is awake now
-		pNPC->aiData.fAIFlags &= (~AI_ASLEEP);
+		pNPC->aiBehavior().flags() &= (~AI_ASLEEP);
 	}
 
 	if (EnsureQuoteFileLoaded( ubNPC ) == FALSE)
@@ -2271,10 +2271,10 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
 					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
-					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
+					if (pSoldier->aiPlanning().nextAction() == AI_ACTION_WAIT)
 					{
-						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
-						pSoldier->aiData.usNextActionData = 0;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
+						pSoldier->aiPlanning().nextActionData() = 0;
 					}
 					NPCDoAction( ubNPC, (UINT16) -(pQuotePtr->sActionData), ubRecordNum );
 				}
@@ -2438,10 +2438,10 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
 					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
-					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
+					if (pSoldier->aiPlanning().nextAction() == AI_ACTION_WAIT)
 					{
-						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
-						pSoldier->aiData.usNextActionData = 0;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
+						pSoldier->aiPlanning().nextActionData() = 0;
 					}
 					NPCDoAction( ubNPC, (UINT16) -(pQuotePtr->sActionData), ubRecordNum );
 				}
@@ -2449,10 +2449,10 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 				{
 					pSoldier = FindSoldierByProfileID( ubNPC, FALSE );
 					pSoldier->timing().clear(SoldierTimingComponent::Timer::Ai);
-					if (pSoldier->aiData.bNextAction == AI_ACTION_WAIT)
+					if (pSoldier->aiPlanning().nextAction() == AI_ACTION_WAIT)
 					{
-						pSoldier->aiData.bNextAction = AI_ACTION_NONE;
-						pSoldier->aiData.usNextActionData = 0;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
+						pSoldier->aiPlanning().nextActionData() = 0;
 					}
 					NPCDoAction( ubNPC, (UINT16) (pQuotePtr->sActionData), ubRecordNum );
 				}
@@ -2608,7 +2608,7 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 			}
 
 			// if they're not visible, don't think about it
-			if (pNPC->aiData.bOppList[ubMerc] != SEEN_CURRENTLY)
+			if (pNPC->awareness().opponentKnowledge()[ubMerc] != SEEN_CURRENTLY)
 			{
 				continue;
 			}
@@ -2653,13 +2653,13 @@ INT32 NPCConsiderInitiatingConv( SOLDIERTYPE * pNPC, SoldierID * pubDesiredMerc 
 
 UINT8 NPCTryToInitiateConv( SOLDIERTYPE * pNPC )
 { // assumes current action is ACTION_APPROACH_MERC
-	if (pNPC->aiData.bAction != AI_ACTION_APPROACH_MERC)
+	if (pNPC->aiPlanning().action() != AI_ACTION_APPROACH_MERC)
 	{
 		return( AI_ACTION_NONE );
 	}
 	SOLDIERTYPE* desiredMerc =
 		GetJa2SoldierRepository().resolve(
-			pNPC->aiData.usActionData);
+			pNPC->aiPlanning().actionData());
 	if (desiredMerc &&
 		PythSpacesAway( pNPC->position().gridNo(),
 			desiredMerc->position().gridNo() ) < CONVO_DIST)
@@ -2733,7 +2733,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 		// the "under ai control" flag was set temporarily; better turn it off now
 		pNPC->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 		// make damn sure the AI_HANDLE_EVERY_FRAME flag is turned off
-		pNPC->aiData.fAIFlags &= (AI_HANDLE_EVERY_FRAME);
+		pNPC->aiBehavior().flags() &= (AI_HANDLE_EVERY_FRAME);
 	}
 
 	ubNPC = pNPC->ubProfile;
@@ -2950,7 +2950,7 @@ void TriggerClosestMercWhoCanSeeNPC( UINT8 ubNPC, NPCQuoteInfo *pQuotePtr )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && pTeamSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && pTeamSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
 		{
 			ubMercsInSector[ ubNumMercs ] = cnt;
 			ubNumMercs++;
@@ -3700,7 +3700,7 @@ void TriggerFriendWithHostileQuote( UINT8 ubNPC )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
 		// Add guy if he's a candidate...
-		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->aiData.bOppCnt > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
+		if ( pTeamSoldier->bActive && pSoldier->bInSector && pTeamSoldier->vitals().health() >= OKLIFE && pTeamSoldier->vitals().breath() >= OKBREATH && pTeamSoldier->awareness().opponentCount() > 0 && pTeamSoldier->ubProfile != NO_PROFILE )
 		{
 			if ( bTeam == CIV_TEAM && pSoldier->ubCivilianGroup != NON_CIV_GROUP && pTeamSoldier->ubCivilianGroup != pSoldier->ubCivilianGroup )
 			{
@@ -3774,7 +3774,7 @@ UINT8 ActionIDForMovementRecord( UINT8 ubNPC, UINT8 ubRecord )
 
 void HandleNPCChangesForTacticalTraversal( SOLDIERTYPE * pSoldier )
 {
-	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || (pSoldier->aiData.fAIFlags & AI_CHECK_SCHEDULE) )
+	if ( !pSoldier || pSoldier->ubProfile == NO_PROFILE || (pSoldier->aiBehavior().flags() & AI_CHECK_SCHEDULE) )
 	{
 		return;
 	}

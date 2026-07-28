@@ -191,7 +191,7 @@ BOOLEAN CheckGuyVisible( UINT16 ubNPC, UINT16 ubGuy )
 	{
 		return( FALSE );
 	}
-	if (pNPC->aiData.bOppList[ pGuy->ubID ] == SEEN_CURRENTLY )
+	if (pNPC->awareness().opponentKnowledge()[ pGuy->ubID ] == SEEN_CURRENTLY )
 	{
 		return( TRUE );
 	}
@@ -222,7 +222,7 @@ BOOLEAN CheckNPCIsEnemy( UINT8 ubProfileID )
 	{
 		return( FALSE );
 	}
-	if (pNPC->bSide == gbPlayerNum || pNPC->aiData.bNeutral)
+	if (pNPC->bSide == gbPlayerNum || pNPC->aiBehavior().neutral())
 	{
 		if (pNPC->ubCivilianGroup != NON_CIV_GROUP)
 		{

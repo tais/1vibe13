@@ -1053,11 +1053,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Move merc up
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
 				}
 				break;
 
@@ -1067,7 +1067,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				MoveMercFacingDirection( pSoldier, FALSE, (FLOAT)gClimbUpRoofLATDist[ pSoldier->ubBodyType ] );
 
 				// MOVE DOWN SOME VALUE TOO!
-				pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDistGoingLower[ pSoldier->ubBodyType ] ) );
+				pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDistGoingLower[ pSoldier->ubBodyType ] ) );
 
 				break;
 
@@ -1077,11 +1077,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// Move merc DOWN
 				if ( pSoldier->position().direction() == NORTH )
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
 				}
 				else
 				{
-					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
+					pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - gClimbUpRoofDist[ pSoldier->ubBodyType ] ) );
 				}
 				break;
 
@@ -1182,8 +1182,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 462:
 
 				// CODE: MOVE UP FROM CLIFF CLIMB
-				pSoldier->aiData.dHeightAdjustment += (float)2.1;
-				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().animationHeightAdjustment() += (float)2.1;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->position().animationHeightAdjustment();
 				// Move over some...
 				//MoveMercFacingDirection( pSoldier , FALSE, (FLOAT)0.5 );
 				break;
@@ -1198,8 +1198,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 464:
 
 				// CODE: END CLIFF CLIMB
-				pSoldier->aiData.dHeightAdjustment = (float)0;
-				pSoldier->position().heightAdjustment() = (INT16)pSoldier->aiData.dHeightAdjustment;
+				pSoldier->position().animationHeightAdjustment() = (float)0;
+				pSoldier->position().heightAdjustment() = (INT16)pSoldier->position().animationHeightAdjustment();
 
 				// Set new gridno
 				{
@@ -1244,12 +1244,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( sDiff > 0 )
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment - 2 ) );
+							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() - 2 ) );
 						}
 						else
 						{
 							// Adjust!
-							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->aiData.dHeightAdjustment + 2 ) );
+							pSoldier->SetSoldierHeight( (FLOAT)(pSoldier->position().animationHeightAdjustment() + 2 ) );
 						}
 					}
 					else
@@ -1886,7 +1886,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 										if ( pAnimDef->ubFlags & RANDOM_ANIM_LOOKAROUND )
 										{
 											// enemy on sight, don't pretend we don't see him!
-											if ( pSoldier->aiData.bOppCnt > 0 )
+											if ( pSoldier->awareness().opponentCount() > 0 )
 											{
 												continue;
 											}
@@ -2005,7 +2005,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 														// these funny moves are not likely to be used in combat
 														if ( ( IsJa2TacticalCombatActive() ) )
 														{
-															if ( pSoldier->aiData.bMorale < 95 ) // .. unless we are really confident about ourselves
+															if ( pSoldier->morale().morale() < 95 ) // .. unless we are really confident about ourselves
 															{ 
 																continue;
 															}
@@ -2059,7 +2059,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( IS_MERC_BODY_TYPE( pTSoldier ) )
 						{
 							// ONLY DODGE IF WE ARE SEEN
-							if ( pTSoldier->aiData.bOppList[ pSoldier->ubID ] != 0 || pTSoldier->bTeam == pSoldier->bTeam )
+							if ( pTSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] != 0 || pTSoldier->bTeam == pSoldier->bTeam )
 							{
 								if ( gAnimControl[ pTSoldier->animationPlayback().state() ].ubHeight == ANIM_STAND )
 								{
@@ -2170,7 +2170,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 			case 495:
 
-				if (pSoldier->aiData.bAction == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiData.bAction == AI_ACTION_LOCK_DOOR && !(pSoldier->aiData.fAIFlags & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
+				if (pSoldier->aiPlanning().action() == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiPlanning().action() == AI_ACTION_LOCK_DOOR && !(pSoldier->aiBehavior().flags() & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
 				{
 					// EVENT HAS BEEN HANDLED
 					pSoldier->pendingAction().clearAction();
@@ -2179,7 +2179,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				}
 				else
 				{
-					pSoldier->aiData.fAIFlags &= ~(AI_LOCK_DOOR_INCLUDES_CLOSE);
+					pSoldier->aiBehavior().flags() &= ~(AI_LOCK_DOOR_INCLUDES_CLOSE);
 
 					pSoldier->audio().recordDoorOpeningNoise(
 						DoorOpeningNoise( pSoldier ) );
@@ -2391,21 +2391,21 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				if (!(pSoldier->status().flags() & SOLDIER_PC))
 				{
-					if ( pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER )
+					if ( pSoldier->aiPlanning().action() == AI_ACTION_PULL_TRIGGER )
 					{
 						if ( pSoldier->animationPlayback().state() == AI_PULL_SWITCH && GetJa2PendingTacticalCombatActions() == 0 && gubElementsOnExplosionQueue == 0 )
 						{
 							FreeUpNPCFromPendingAction( pSoldier );
 						}
 					}
-					else if ( pSoldier->aiData.bAction == AI_ACTION_PENDING_ACTION
-						|| pSoldier->aiData.bAction == AI_ACTION_OPEN_OR_CLOSE_DOOR
-						|| pSoldier->aiData.bAction == AI_ACTION_YELLOW_ALERT
-						|| pSoldier->aiData.bAction == AI_ACTION_RED_ALERT
-						|| pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER
-						|| pSoldier->aiData.bAction == AI_ACTION_CREATURE_CALL
-						|| pSoldier->aiData.bAction == AI_ACTION_UNLOCK_DOOR
-						|| pSoldier->aiData.bAction == AI_ACTION_LOCK_DOOR	)
+					else if ( pSoldier->aiPlanning().action() == AI_ACTION_PENDING_ACTION
+						|| pSoldier->aiPlanning().action() == AI_ACTION_OPEN_OR_CLOSE_DOOR
+						|| pSoldier->aiPlanning().action() == AI_ACTION_YELLOW_ALERT
+						|| pSoldier->aiPlanning().action() == AI_ACTION_RED_ALERT
+						|| pSoldier->aiPlanning().action() == AI_ACTION_PULL_TRIGGER
+						|| pSoldier->aiPlanning().action() == AI_ACTION_CREATURE_CALL
+						|| pSoldier->aiPlanning().action() == AI_ACTION_UNLOCK_DOOR
+						|| pSoldier->aiPlanning().action() == AI_ACTION_LOCK_DOOR	)
 					{
 						if ( pSoldier->animationPlayback().state() == PICKUP_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM || pSoldier->animationPlayback().state() == ADJACENT_GET_ITEM_CROUCHED || pSoldier->animationPlayback().state() == DROP_ITEM || pSoldier->animationPlayback().state() == END_OPEN_DOOR || pSoldier->animationPlayback().state() == END_OPEN_DOOR_CROUCHED || pSoldier->animationPlayback().state() == CLOSE_DOOR || pSoldier->animationPlayback().state() == MONSTER_UP || pSoldier->animationPlayback().state() == AI_RADIO || pSoldier->animationPlayback().state() == AI_CR_RADIO || pSoldier->animationPlayback().state() == END_OPENSTRUCT || pSoldier->animationPlayback().state() == END_OPENSTRUCT_CROUCHED || pSoldier->animationPlayback().state() == QUEEN_CALL )
 						{
@@ -2882,7 +2882,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 					//if ( SoldierOnScreen( pSoldier->ubID ) )
 					{
-						switch( pSoldier->aiData.usActionData )
+						switch( pSoldier->aiPlanning().actionData() )
 						{
 						case CALL_1_PREY:
 
@@ -4132,14 +4132,14 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 									gMercProfiles[ attacker->ubProfile ].records.usKillsCreatures++;
 								else if ( ARMED_VEHICLE( pSoldier ) )
 									gMercProfiles[ attacker->ubProfile ].records.usKillsTanks++;
-								else if ( pSoldier->bTeam == CIV_TEAM && !pSoldier->aiData.bNeutral && pSoldier->bSide != gbPlayerNum )
+								else if ( pSoldier->bTeam == CIV_TEAM && !pSoldier->aiBehavior().neutral() && pSoldier->bSide != gbPlayerNum )
 									gMercProfiles[ attacker->ubProfile ].records.usKillsHostiles++;
 								else
 								{
 									gMercProfiles[ attacker->ubProfile ].records.usKillsOthers++;
 
 									// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
-									if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE) && pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == attacker->bSide) )
+									if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE) && pSoldier->bTeam != OUR_TEAM && (pSoldier->aiBehavior().neutral() || pSoldier->bSide == attacker->bSide) )
 									{
 										// not for killing animals though...
 										if ( pSoldier->ubBodyType != CROW && pSoldier->ubBodyType != COW )
@@ -4154,7 +4154,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 						// Flugente: dynamic opinions: if this guy is not hostile towards us, then some mercs will complain about killing civilians
 						if (gGameExternalOptions.fDynamicOpinions && !(is_networked && pSoldier->bTeam >= LAN_TEAM_ONE))
 						{
-							if (pSoldier->bTeam != OUR_TEAM && (pSoldier->aiData.bNeutral || pSoldier->bSide == attacker->bSide))
+							if (pSoldier->bTeam != OUR_TEAM && (pSoldier->aiBehavior().neutral() || pSoldier->bSide == attacker->bSide))
 							{
 								// not for killing animals though...
 								if (pSoldier->ubBodyType != CROW && pSoldier->ubBodyType != COW)
@@ -5101,7 +5101,7 @@ void KickOutWheelchair( SOLDIERTYPE *pSoldier )
 
 	pSoldier->EVENT_StopMerc( sNewGridNo, pSoldier->position().direction() );
 	pSoldier->ubBodyType = REGMALE;
-	if ( pSoldier->ubProfile == SLAY && pSoldier->bTeam == CIV_TEAM && !pSoldier->aiData.bNeutral )
+	if ( pSoldier->ubProfile == SLAY && pSoldier->bTeam == CIV_TEAM && !pSoldier->aiBehavior().neutral() )
 	{
 		HandleNPCDoAction( pSoldier->ubProfile, NPC_ACTION_THREATENINGLY_RAISE_GUN, 0 );
 	}

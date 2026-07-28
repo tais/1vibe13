@@ -1888,7 +1888,7 @@ INT8 FindThrowableGrenade(SOLDIERTYPE * pSoldier, UINT8 ubGrenadeType, UINT8 ubM
 	// this is AI only so we can put in some customization for night
 	// sevenfm: use flare only if cannot see opponent
 	if (NightLight() &&
-		pSoldier->aiData.bOppCnt == 0 &&
+		pSoldier->awareness().opponentCount() == 0 &&
 		ubGrenadeType == EXPLOSV_ANY_TYPE &&
 		Chance(50))
 	{
@@ -9707,7 +9707,7 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->aiData.bMonsterSmell > 0 )
+	if ( pSoldier->bTeam == gbPlayerNum && pSoldier->perception().monsterSmell() > 0 )
 	{
 		if ( pSoldier->MercInDeepWater( ) )
 		{
@@ -9719,7 +9719,7 @@ void WaterDamage( SOLDIERTYPE *pSoldier )
 		}
 		if ( Random( bDieSize ) == 0 )
 		{
-			pSoldier->aiData.bMonsterSmell--;
+			pSoldier->perception().monsterSmell()--;
 		}
 	}
 
@@ -10029,10 +10029,10 @@ BOOLEAN ApplyElixir( SOLDIERTYPE * pSoldier, UINT16 usItem, UINT16& usrPointsToU
 		return(FALSE);
 	}
 		
-	INT16 sPointsToUse = (MAX_HUMAN_CREATURE_SMELL - pSoldier->aiData.bMonsterSmell) * 2;
+	INT16 sPointsToUse = (MAX_HUMAN_CREATURE_SMELL - pSoldier->perception().monsterSmell()) * 2;
 	usrPointsToUse = __min( sPointsToUse, usrPointsToUse );
 
-	pSoldier->aiData.bMonsterSmell += sPointsToUse / 2;
+	pSoldier->perception().monsterSmell() += sPointsToUse / 2;
 
 	return(TRUE);
 }
@@ -10221,10 +10221,10 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->ubID) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}
@@ -10237,7 +10237,7 @@ void ActivateXRayDevice( SOLDIERTYPE * pSoldier )
 			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
-				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
+				pSoldier2->perception().xraySource() = pSoldier->ubID;
 			}
 		}
 	}
@@ -10256,10 +10256,10 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->ubID) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}
@@ -10272,7 +10272,7 @@ void TurnOnXRayEffects( SOLDIERTYPE * pSoldier )
 			if ( pSoldier2->bTeam != pSoldier->bTeam && PythSpacesAway( pSoldier->position().gridNo(), pSoldier2->position().gridNo() ) < XRAY_RANGE )
 			{
 				pSoldier2->ubMiscSoldierFlags |= SOLDIER_MISC_XRAYED;
-				pSoldier2->aiData.ubXRayedBy = pSoldier->ubID;
+				pSoldier2->perception().xraySource() = pSoldier->ubID;
 			}
 		}
 	}
@@ -10296,10 +10296,10 @@ void TurnOffXRayEffects( SOLDIERTYPE * pSoldier )
 		pSoldier2 = MercSlots[ uiSlot ];
 		if ( pSoldier2 )
 		{
-			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->aiData.ubXRayedBy == pSoldier->ubID) )
+			if ( (pSoldier2->ubMiscSoldierFlags & SOLDIER_MISC_XRAYED) && (pSoldier2->perception().xraySource() == pSoldier->ubID) )
 			{
 				pSoldier2->ubMiscSoldierFlags &= (~SOLDIER_MISC_XRAYED);
-				pSoldier2->aiData.ubXRayedBy = NOBODY;
+				pSoldier2->perception().xraySource() = NOBODY;
 			}
 		}
 	}

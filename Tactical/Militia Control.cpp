@@ -1102,8 +1102,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							CancelAIAction(pTMilitiaSoldier, TRUE);
 
 							// Attack !!!
-							pTMilitiaSoldier->aiData.bOrders = SEEKENEMY;
-							pTMilitiaSoldier->aiData.bAttitude = AGGRESSIVE;
+							pTMilitiaSoldier->aiBehavior().orders() = SEEKENEMY;
+							pTMilitiaSoldier->aiBehavior().attitude() = AGGRESSIVE;
 							pTMilitiaSoldier->movement().mode() = RUNNING;
 
 							MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_SCREAM);
@@ -1135,7 +1135,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 							//Hold Position !!!
 							//ScreenMsg( FONT_WHITE, MSG_INTERFACE, L"Hold Position" );
-							pTMilitiaSoldier->aiData.bOrders = STATIONARY;
+							pTMilitiaSoldier->aiBehavior().orders() = STATIONARY;
 							//pTMilitiaSoldier->bAttitude = DEFENSIVE;
 						}
 
@@ -1165,8 +1165,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 							INT16 sActionGridNo;
 
-							pTMilitiaSoldier->aiData.bOrders = FARPATROL;
-							pTMilitiaSoldier->aiData.bAttitude = DEFENSIVE;
+							pTMilitiaSoldier->aiBehavior().orders() = FARPATROL;
+							pTMilitiaSoldier->aiBehavior().attitude() = DEFENSIVE;
 							pTMilitiaSoldier->movement().mode() = RUNNING;
 
 							pTMilitiaSoldier->RetreatCounterStart(2);
@@ -1174,15 +1174,15 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							// set up next action to run away
 							sActionGridNo =  FindSpotMaxDistFromOpponents( pTMilitiaSoldier );
 
-							pTMilitiaSoldier->aiData.usNextActionData = sActionGridNo;
+							pTMilitiaSoldier->aiPlanning().nextActionData() = sActionGridNo;
 							
-							if (!TileIsOutOfBounds(pTMilitiaSoldier->aiData.usNextActionData))
+							if (!TileIsOutOfBounds(pTMilitiaSoldier->aiPlanning().nextActionData()))
 							{
 								// sevenfm: use TAKE_COVER order to stop soldier from retreating
-								pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_TAKE_COVER;
-								//pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_RUN_AWAY;
+								pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_TAKE_COVER;
+								//pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_RUN_AWAY;
 
-								pTMilitiaSoldier->aiData.usActionData = ANIM_STAND;
+								pTMilitiaSoldier->aiPlanning().actionData() = ANIM_STAND;
 
 								// SEND PENDING ACTION
 								pTMilitiaSoldier->pendingAction().secondaryData()  = sActionGridNo;
@@ -1332,7 +1332,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							INT16 sActionGridNo;
 							INT32 iDummy;						
 
-							sActionGridNo =  FindBestNearbyCover(pTMilitiaSoldier,pTMilitiaSoldier->aiData.bAIMorale,&iDummy);
+							sActionGridNo =  FindBestNearbyCover(pTMilitiaSoldier,pTMilitiaSoldier->morale().aiMorale(),&iDummy);
 							
 							if (!TileIsOutOfBounds(sActionGridNo))
 							{
@@ -1404,8 +1404,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								pTeamSoldier->aiData.bOrders = SEEKENEMY;
-								pTeamSoldier->aiData.bAttitude = AGGRESSIVE;
+								pTeamSoldier->aiBehavior().orders() = SEEKENEMY;
+								pTeamSoldier->aiBehavior().attitude() = AGGRESSIVE;
 								pTeamSoldier->movement().mode() = RUNNING;
 							}
 						}
@@ -1443,8 +1443,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								pTeamSoldier->aiData.bOrders = STATIONARY;
-								pTeamSoldier->aiData.bAttitude = DEFENSIVE;
+								pTeamSoldier->aiBehavior().orders() = STATIONARY;
+								pTeamSoldier->aiBehavior().attitude() = DEFENSIVE;
 							}
 						}
 
@@ -1482,8 +1482,8 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTeamSoldier->EVENT_StopMerc(pTeamSoldier->position().gridNo(), pTeamSoldier->position().direction());
 								CancelAIAction(pTeamSoldier, TRUE);
 
-								pTeamSoldier->aiData.bOrders = FARPATROL;
-								pTeamSoldier->aiData.bAttitude = DEFENSIVE;
+								pTeamSoldier->aiBehavior().orders() = FARPATROL;
+								pTeamSoldier->aiBehavior().attitude() = DEFENSIVE;
 								pTeamSoldier->movement().mode() = RUNNING;
 
 								pTeamSoldier->RetreatCounterStart(2);
@@ -1491,15 +1491,15 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								// set up next action to run away
 								sActionGridNo =  FindSpotMaxDistFromOpponents( pTeamSoldier );
 
-								pTeamSoldier->aiData.usNextActionData = sActionGridNo;
+								pTeamSoldier->aiPlanning().nextActionData() = sActionGridNo;
 
-								if ( !TileIsOutOfBounds(pTeamSoldier->aiData.usNextActionData) )
+								if ( !TileIsOutOfBounds(pTeamSoldier->aiPlanning().nextActionData()) )
 								{
 									// sevenfm: use TAKE_COVER order to stop soldier from retreating
-									//pTeamSoldier->aiData.bNextAction = AI_ACTION_RUN_AWAY;
-									pTeamSoldier->aiData.bNextAction = AI_ACTION_TAKE_COVER;
+									//pTeamSoldier->aiPlanning().nextAction() = AI_ACTION_RUN_AWAY;
+									pTeamSoldier->aiPlanning().nextAction() = AI_ACTION_TAKE_COVER;
 
-									pTeamSoldier->aiData.usActionData = ANIM_STAND;									
+									pTeamSoldier->aiPlanning().actionData() = ANIM_STAND;
 
 									// SEND PENDING ACTION
 									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
@@ -1743,7 +1743,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								CancelAIAction(pTeamSoldier, TRUE);
 
 								// See if we can get there
-								sActionGridNo =  FindBestNearbyCover(pTeamSoldier,pTeamSoldier->aiData.bAIMorale,&iDummy);
+								sActionGridNo =  FindBestNearbyCover(pTeamSoldier,pTeamSoldier->morale().aiMorale(),&iDummy);
 																
 								if (!TileIsOutOfBounds(sActionGridNo))
 								{

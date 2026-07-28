@@ -159,7 +159,7 @@ BOOLEAN MercThinksHisMoraleIsTooLow( SOLDIERTYPE *pSoldier )
 	// above 50, morale is GOOD, never below tolerance then
 	bMoraleTolerance = (100 - bRepTolerance) / 2;
 
-	if (pSoldier->aiData.bMorale < bMoraleTolerance)
+	if (pSoldier->morale().morale() < bMoraleTolerance)
 	{
 		// too low - sorry
 		return(TRUE);

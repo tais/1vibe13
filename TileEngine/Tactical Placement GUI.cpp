@@ -1146,7 +1146,7 @@ void RenderTacticalPlacementGUI()
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+40, iStartY, xp+41, yp+29, Get16BPPColor( FROMRGB( 8, 8, 107 ) ) );
 
 			//MORALE BAR
-			iStartY = yp + 29 - 27*pSoldier->aiData.bMorale/100;
+			iStartY = yp + 29 - 27*pSoldier->morale().morale()/100;
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+42, iStartY, xp+43, yp+29, Get16BPPColor( FROMRGB( 8, 156, 8 ) ) );
 			ColorFillVideoSurfaceArea( FRAME_BUFFER, xp+43, iStartY, xp+44, yp+29, Get16BPPColor( FROMRGB( 8, 107, 8 ) ) );
 		}

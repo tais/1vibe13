@@ -1781,8 +1781,8 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 						}
 						break;
 					case RISK_MORALE:
-						pSoldier->aiData.bMorale = __min(100,__max(0, pSoldier->aiData.bMorale + Result));
-						pSoldier->aiData.bStrategicMoraleMod = __min(50,__max(-50, pSoldier->aiData.bStrategicMoraleMod + Result));
+						pSoldier->morale().morale() = __min(100,__max(0, pSoldier->morale().morale() + Result));
+						pSoldier->morale().strategicModifier() = __min(50,__max(-50, pSoldier->morale().strategicModifier() + Result));
 						RefreshSoldierMorale( pSoldier );
 						// SANDRO - add to merc records - facility accidents counter
 						if ( Result < 0 )

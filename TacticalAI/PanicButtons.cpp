@@ -76,7 +76,7 @@ void MakeClosestEnemyChosenOne()
 		}
 
 		// if this guy is in battle with opponent(s)
-		if (pSoldier->aiData.bOppCnt > 0)
+		if (pSoldier->awareness().opponentCount() > 0)
 		{
 			continue;	// next soldier
 		}
@@ -165,9 +165,9 @@ void MakeClosestEnemyChosenOne()
 
 		pSoldier = GetJa2SoldierRepository().resolve(
 			gTacticalStatus.ubTheChosenOne.i);
-		if ( pSoldier->aiData.bAlertStatus < STATUS_RED )
+		if ( pSoldier->aiBehavior().alertStatus() < STATUS_RED )
 		{
-			pSoldier->aiData.bAlertStatus = STATUS_RED;
+			pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			CheckForChangingOrders( pSoldier );
 		}
 		SetNewSituation( pSoldier );	// set new situation for the chosen one
@@ -285,7 +285,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 			}
 			else	 // otherwise, wait a turn
 			{
-				pSoldier->aiData.usActionData = NOWHERE;
+				pSoldier->aiPlanning().actionData() = NOWHERE;
 				DebugAI(AI_MSG_TOPIC, pSoldier, String("wait a turn"));
 				return(AI_ACTION_NONE);
 			}
@@ -365,11 +365,11 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 					if (pSoldier->actionPoints().current() >= APBPConstants[AP_PULL_TRIGGER])
 					{
 						// blow up the all the PANIC bombs (or just the journal)
-						pSoldier->aiData.usActionData = sPanicTriggerGridNo;
+						pSoldier->aiPlanning().actionData() = sPanicTriggerGridNo;
 
 #ifdef TESTVERSION
 						sprintf(tempstr,"TEST MSG: %s - PULLS PANIC TRIGGER at grid %d",
-						pSoldier->name,pSoldier->aiData.usActionData);
+						pSoldier->name,pSoldier->aiPlanning().actionData());
 						PopMessage(tempstr);
 #endif
 						DebugAI(AI_MSG_TOPIC, pSoldier, String("enough AP, activate trigger!"));
@@ -378,7 +378,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 					else		// otherwise, wait a turn
 					{
 						DebugAI(AI_MSG_TOPIC, pSoldier, String("wait a turn, not enough AP"));
-						pSoldier->aiData.usActionData = NOWHERE;
+						pSoldier->aiPlanning().actionData() = NOWHERE;
 						return(AI_ACTION_NONE);
 					}
 				}
@@ -391,11 +391,11 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 						// animations don't allow trigger-pulling from water, so we won't!
 						if (LegalNPCDestination(pSoldier,sPanicTriggerGridNo,ENSURE_PATH,NOWATER,0))
 						{
-							pSoldier->aiData.usActionData = sPanicTriggerGridNo;
+							pSoldier->aiPlanning().actionData() = sPanicTriggerGridNo;
 							pSoldier->pathing().stored() = TRUE;
 
 #ifdef DEBUGDECISIONS
-							sprintf(tempstr,"%s - GETTING CLOSER to PANIC TRIGGER at grid %d (Trigger at %d)", pSoldier->name,pSoldier->aiData.usActionData,sPanicTriggerGridNo);
+							sprintf(tempstr,"%s - GETTING CLOSER to PANIC TRIGGER at grid %d (Trigger at %d)", pSoldier->name,pSoldier->aiPlanning().actionData(),sPanicTriggerGridNo);
 							AIPopMessage(tempstr);
 #endif
 							DebugAI(AI_MSG_TOPIC, pSoldier, String("move closet to panic trigger %d", sPanicTriggerGridNo));
@@ -414,7 +414,7 @@ INT8 PanicAI(SOLDIERTYPE *pSoldier, UINT8 ubCanMove)
 					else		 // can't move, wait 1 turn
 					{
 						DebugAI(AI_MSG_TOPIC, pSoldier, String("cannot move, wait one turn"));
-						pSoldier->aiData.usActionData = NOWHERE;
+						pSoldier->aiPlanning().actionData() = NOWHERE;
 						return(AI_ACTION_NONE);
 					}
 				}
@@ -554,7 +554,7 @@ INT8 HeadForTheStairCase( SOLDIERTYPE * pSoldier )
 	{
 		if ( LegalNPCDestination( pSoldier, STAIRCASE_GRIDNO, ENSURE_PATH, WATEROK, 0 ) )
 		{
-			pSoldier->aiData.usActionData = STAIRCASE_GRIDNO;
+			pSoldier->aiPlanning().actionData() = STAIRCASE_GRIDNO;
 			return( AI_ACTION_GET_CLOSER );
 		}
 	}

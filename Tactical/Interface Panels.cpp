@@ -4517,7 +4517,7 @@ void SelectedMercEnemyIndicatorCallback( MOUSE_REGION * pRegion, INT32 iReason )
 			//}
 			//else
 			{
-				if ( GetSMCurrentMerc()->aiData.bOppCnt > 0 )
+				if ( GetSMCurrentMerc()->awareness().opponentCount() > 0 )
 				{
 					CycleVisibleEnemies( GetSMCurrentMerc() );
 				}
@@ -6224,7 +6224,7 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		//}
 		//else
 		{
-			if ( soldier->aiData.bOppCnt > 0 )
+			if ( soldier->awareness().opponentCount() > 0 )
 			{	// Cycle....
 				CycleVisibleEnemies( soldier );
 			}

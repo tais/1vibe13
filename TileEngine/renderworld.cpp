@@ -1791,7 +1791,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 	{
 		// Special effect - draw ghost if is seen by a guy in player's team but not current guy
 		// ATE: Todo: setup flag for 'bad-guy' - can releive some checks in renderer
-		if (!pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum))
+		if (!pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum))
 		{
 			SOLDIERTYPE * pSelSoldier;
 			if (gusSelectedSoldier != NOBODY)
@@ -1815,7 +1815,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				}
 				if (pSelSoldier != NULL)
 				{
-					if (pSelSoldier->aiData.bOppList[pSoldier->ubID] != SEEN_CURRENTLY)
+					if (pSelSoldier->awareness().opponentKnowledge()[pSoldier->ubID] != SEEN_CURRENTLY)
 					{
 						if (pSoldier->animationPlayback().state() != CHARIOTS_OF_FIRE && pSoldier->animationPlayback().state() != BODYEXPLODING)
 						{
@@ -1883,7 +1883,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 			//{
 			//  pSelSoldier = gusSelectedSoldier;
 			// Shade differently depending on visiblity
-			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->aiData.bOppList[ pSoldier->ubID ] == 0  ) )
+			//  if ( pSoldier->awareness().visibility() == 0 || ( pSelSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == 0  ) )
 			//  {
 			// Shade gray
 			//      pShadeTable = pSoldier->pGlowShades[ gpGlowFramePointer[ gsCurrentGlowFrame ] + 10 ];

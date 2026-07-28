@@ -492,14 +492,14 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 
 	// try to account for who outnumbers who: the side with the advantage thus
 	// (hopefully) values offense more, while those in trouble will play defense
-	if (pHim->aiData.bOppCnt > 1)
+	if (pHim->awareness().opponentCount() > 1)
 	{
-		iHisPosValue /= pHim->aiData.bOppCnt;
+		iHisPosValue /= pHim->awareness().opponentCount();
 	}
 
-	if (pMe->aiData.bOppCnt > 1)
+	if (pMe->awareness().opponentCount() > 1)
 	{
-		iMyPosValue /= pMe->aiData.bOppCnt;
+		iMyPosValue /= pMe->awareness().opponentCount();
 	}
 
 	// if my positional value is worth something at all here
@@ -532,7 +532,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 
 			// sevenfm: reduce range bonus depending on cover
 			if (gGameExternalOptions.fAIBetterCover &&
-				pMe->aiData.bAIMorale < MORALE_FEARLESS &&
+				pMe->morale().aiMorale() < MORALE_FEARLESS &&
 				AIGunRange(pMe) >= PythSpacesAway(sMyGridNo, sHisGridNo) &&
 				!AnyCoverFromSpot(sMyGridNo, bMyLevel, sHisGridNo, bHisLevel))
 			{
@@ -581,7 +581,7 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 
 #ifdef DEBUGCOVER
 	DebugAI( String( "CalcCoverValue: iCoverValue %d, sMyGridNo %d, sHisGrid %d, iRange %d, morale %d\n",iCoverValue,sMyGridNo,sHisGridNo,iRange,morale) );
-	DebugAI( String( "CalcCoverValue: iCertainty %d, his bOppCnt %d, my bOppCnt %d\n",Threat[uiThreatIndex].iCertainty,pHim->aiData.bOppCnt,pMe->aiData.bOppCnt) );
+	DebugAI( String( "CalcCoverValue: iCertainty %d, his bOppCnt %d, my bOppCnt %d\n",Threat[uiThreatIndex].iCertainty,pHim->awareness().opponentCount(),pMe->awareness().opponentCount()) );
 	DebugAI( String( "CalcCoverValue: bHisCTGT = %d, hisThreat = %d, hisFullAPs = %d\n",bHisCTGT,Threat[uiThreatIndex].iValue,Threat[uiThreatIndex].iAPs) );
 	DebugAI( String( "CalcCoverValue: bMyCTGT = %d,	iMyThreat = %d,	iMyAPsLeft = %d\n", bMyCTGT, iMyThreat,iMyAPsLeft) );
 	DebugAI( String( "CalcCoverValue: hisPosValue = %d, myPosValue = %d\n",iHisPosValue,iMyPosValue) );
@@ -709,7 +709,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->ubID][0]);
 
 	// hang a pointer into personal opplist
-	pbPersOL = &(pSoldier->aiData.bOppList[0]);
+	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
 	// hang a pointer into public opplist
 	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
 
@@ -717,7 +717,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	iSearchRange = gbDiff[DIFF_MAX_COVER_RANGE][ SoldierDifficultyLevel( pSoldier ) ];
 
 /*
-	switch (pSoldier->aiData.bAttitude)
+	switch (pSoldier->aiBehavior().attitude())
 	{
 		case DEFENSIVE:		iSearchRange += 2; break;
 		case BRAVESOLO:		iSearchRange -= 4; break;
@@ -741,7 +741,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 
 	usMovementMode = DetermineMovementMode( pSoldier, AI_ACTION_TAKE_COVER );
 
-	if (pSoldier->aiData.bAlertStatus >= STATUS_RED)			// if already in battle
+	if (pSoldier->aiBehavior().alertStatus() >= STATUS_RED)			// if already in battle
 	{
 		// must be able to reach the cover, so it can't possibly be more than
 		// action points left (rounded down) tiles away, since minimum
@@ -866,7 +866,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	iRoamRange = RoamingRange(pSoldier,&sOrigin);
 
 	// if status isn't black (life & death combat), and roaming range is limited	
-	if ((pSoldier->aiData.bAlertStatus != STATUS_BLACK) && (iRoamRange < MAX_ROAMING_RANGE) &&
+	if ((pSoldier->aiBehavior().alertStatus() != STATUS_BLACK) && (iRoamRange < MAX_ROAMING_RANGE) &&
 		(!TileIsOutOfBounds(sOrigin)))
 	{
 		// must try to stay within or return to the point of origin
@@ -892,7 +892,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	DebugAI( tempstr );
 #endif
 
-	if (pSoldier->aiData.bAlertStatus >= STATUS_RED)			// if already in battle
+	if (pSoldier->aiBehavior().alertStatus() >= STATUS_RED)			// if already in battle
 	{
 		// to speed this up, tell PathAI to cancel any paths beyond our AP reach!
 		gubNPCAPBudget = pSoldier->actionPoints().current();
@@ -1031,7 +1031,7 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 
 			// CJC: This should be a redundent check because the path code is given an
 			// AP limit to begin with!
-			if (pSoldier->aiData.bAlertStatus == STATUS_BLACK)		// in battle
+			if (pSoldier->aiBehavior().alertStatus() == STATUS_BLACK)		// in battle
 			{
 				// must be able to afford the APs to get to this cover this turn
 				if (iPathCost > pSoldier->actionPoints().current())
@@ -1267,7 +1267,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 			continue;			// next merc
 		}
 
-		pbPersOL = &(pSoldier->aiData.bOppList[pOpponent->ubID]);
+		pbPersOL = &(pSoldier->awareness().opponentKnowledge()[pOpponent->ubID]);
 		pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][pOpponent->ubID]);
 
 		// if this opponent is unknown personally and publicly
@@ -1277,7 +1277,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 		}
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiData.bAttitude == ATTACKSLAYONLY && pOpponent->ubProfile != SLAY)
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->ubProfile != SLAY)
 		{
 			continue;	// next opponent
 		}
@@ -1342,7 +1342,7 @@ INT32 FindSpotMaxDistFromOpponents(SOLDIERTYPE *pSoldier)
 	// THIS IS A LOT QUICKER THAN COVER, SO DO A LARGER AREA, NOT AFFECTED BY
 	// DIFFICULTY SETTINGS...
 
-	if (pSoldier->aiData.bAlertStatus == STATUS_BLACK)			// if already in battle
+	if (pSoldier->aiBehavior().alertStatus() == STATUS_BLACK)			// if already in battle
 	{
 		iSearchRange = pSoldier->actionPoints().current() / 2;
 
@@ -1888,7 +1888,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 	iSearchRange = gbDiff[DIFF_MAX_COVER_RANGE][ SoldierDifficultyLevel( pSoldier ) ];
 	DebugAI(AI_MSG_INFO, pSoldier, String("use search range %d", iSearchRange));
 
-	switch (pSoldier->aiData.bAttitude)
+	switch (pSoldier->aiBehavior().attitude())
 	{
 		case DEFENSIVE:		iSearchRange --;	break;
 		case BRAVESOLO:		iSearchRange += 2; break;
@@ -2244,15 +2244,15 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 					// we want to drop this item!
 					DebugAI(AI_MSG_INFO, pSoldier, String("%d decides he must drop %S first", pSoldier->ubID, ItemNames[pSoldier->inv[HANDPOS].usItem]));
 
-					pSoldier->aiData.bNextAction = AI_ACTION_PICKUP_ITEM;
-					pSoldier->aiData.usNextActionData = sBestSpot;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_PICKUP_ITEM;
+					pSoldier->aiPlanning().nextActionData() = sBestSpot;
 					pSoldier->pendingAction().nextSpecialData() = iBestItemIndex;
 					return( AI_ACTION_DROP_ITEM );
 				}
 			}
 		}
 		pSoldier->pendingAction().primaryData() = iBestItemIndex;
-		pSoldier->aiData.usActionData = sBestSpot;
+		pSoldier->aiPlanning().actionData() = sBestSpot;
 		return( AI_ACTION_PICKUP_ITEM );
 	}
 
@@ -2777,8 +2777,8 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 
 			// sevenfm: allow water flanking only for CUNNINGSOLO soldiers
 			if( Water( sGridNo, pSoldier->position().level() ) &&
-				pSoldier->aiData.bAttitude != CUNNINGSOLO && 
-				pSoldier->aiData.bAttitude != CUNNINGAID )
+				pSoldier->aiBehavior().attitude() != CUNNINGSOLO &&
+				pSoldier->aiBehavior().attitude() != CUNNINGAID )
 			{
 				continue;
 			}
@@ -2812,7 +2812,7 @@ INT32 FindFlankingSpot(SOLDIERTYPE *pSoldier, INT32 sPos, INT8 bAction )
 			}
 
 			// avoid moving too far from noise gridno
-			if (PythSpacesAway(sGridNo, sPos) > MAX_FLANK_DIST_RED && pSoldier->aiData.bAttitude != CUNNINGSOLO)
+			if (PythSpacesAway(sGridNo, sPos) > MAX_FLANK_DIST_RED && pSoldier->aiBehavior().attitude() != CUNNINGSOLO)
 			{
 				continue;
 			}

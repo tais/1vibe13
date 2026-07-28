@@ -3311,7 +3311,7 @@ BOOLEAN HookerInRoom( UINT16 usRoom )
 			GetJa2SoldierRepository().resolve(ubLoop.i);
 
 		if ( pSoldier &&
-			pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiData.bNeutral && pSoldier->ubBodyType == MINICIV )
+			pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && pSoldier->aiBehavior().neutral() && pSoldier->ubBodyType == MINICIV )
 		{
 			if ( InARoom( pSoldier->position().gridNo(), &usTempRoom ) && usTempRoom == usRoom )
 			{
@@ -3512,7 +3512,7 @@ void PerformItemAction( INT32 sGridNo, OBJECTTYPE * pObj )
 				{
 					for ( ubID2 = gTacticalStatus.Team[ gbPlayerNum ].bFirstID; ubID2 <= gTacticalStatus.Team[ gbPlayerNum ].bLastID; ubID2++ )
 					{
-						if ( civilian->aiData.bOppList[ubID2] == SEEN_CURRENTLY )
+						if ( civilian->awareness().opponentKnowledge()[ubID2] == SEEN_CURRENTLY )
 						{
 							MakeCivHostile( civilian, 2 );
 							fEnterCombat = TRUE;
@@ -5342,7 +5342,7 @@ void HandleBuldingDestruction( INT32 sGridNo, SoldierID ubOwner )
 	{
 		pSoldier =
 			GetJa2SoldierRepository().resolve(cnt.i);
-		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiData.bNeutral )
+		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() && pSoldier->aiBehavior().neutral() )
 		{
 			if ( pSoldier->ubProfile != NO_PROFILE )
 			{

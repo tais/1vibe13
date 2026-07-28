@@ -20856,7 +20856,7 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 		pSoldier->statistics().explosives() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumExplosives ||
 		pSoldier->statistics().experienceLevel() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel ||
 
-		pSoldier->aiData.bMorale < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale ||
+		pSoldier->morale().morale() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale ||
 		pSoldier->vitals().maximumBreath() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath
 		)
 	{
@@ -21216,7 +21216,7 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->aiData.bMorale < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale)
+	if (pSoldier->morale().morale() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale)
 	{
 		swprintf(sString, gzFacilityErrorMessage[11], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );

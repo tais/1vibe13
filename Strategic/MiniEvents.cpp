@@ -294,9 +294,9 @@ namespace MiniEventHelpers
 		std::for_each(gAllMercs.begin(), gAllMercs.end(), [val, profileId](SOLDIERTYPE* merc) {
 			if (merc->ubProfile == profileId)
 			{
-				merc->aiData.bStrategicMoraleMod += val;
-				merc->aiData.bStrategicMoraleMod = min(merc->aiData.bStrategicMoraleMod, gMoraleSettings.bModifiers[MORALE_MOD_MAX]);
-				merc->aiData.bStrategicMoraleMod = max(merc->aiData.bStrategicMoraleMod, -gMoraleSettings.bModifiers[MORALE_MOD_MAX]);
+				merc->morale().strategicModifier() += val;
+				merc->morale().strategicModifier() = min(merc->morale().strategicModifier(), gMoraleSettings.bModifiers[MORALE_MOD_MAX]);
+				merc->morale().strategicModifier() = max(merc->morale().strategicModifier(), -gMoraleSettings.bModifiers[MORALE_MOD_MAX]);
 				RefreshSoldierMorale(merc);
 			}
 		});

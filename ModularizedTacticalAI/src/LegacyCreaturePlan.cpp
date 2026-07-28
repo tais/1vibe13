@@ -19,7 +19,7 @@ namespace AI
 
         void LegacyCreaturePlan::execute(PlanInputData& environment)
         {
-            get_npc()->aiData.bAction = CreatureDecideAction( get_npc() );
+            get_npc()->aiPlanning().action() = CreatureDecideAction( get_npc() );
         }
     }
 }

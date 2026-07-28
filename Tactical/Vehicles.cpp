@@ -1835,7 +1835,7 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 		pSoldier->deployment().vehicleId() = -1;
 
 		//AllTeamsLookForAll( FALSE );
-		pSoldier->aiData.bOppList[ pVehicle->ubID ] = 1;
+		pSoldier->awareness().opponentKnowledge()[ pVehicle->ubID ] = 1;
 
 		// Add to sector....
 		INT16 sX, sY;

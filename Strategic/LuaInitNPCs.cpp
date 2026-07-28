@@ -4623,7 +4623,7 @@ static int l_bAttitude(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			Attitude = pSoldier->aiData.bAttitude;
+			Attitude = pSoldier->aiBehavior().attitude();
 		}
 
 		lua_pushinteger(L, Attitude);
@@ -5365,7 +5365,7 @@ static int l_bNeutral(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			if (pSoldier->aiData.bNeutral)
+			if (pSoldier->aiBehavior().neutral())
 				Bool = TRUE;
 			else
 				Bool = FALSE;
@@ -5388,7 +5388,7 @@ static int l_CheckSoldierAlertStatus(lua_State* L)
 
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
-			Status_alert = pSoldier->aiData.bAlertStatus;
+			Status_alert = pSoldier->aiBehavior().alertStatus();
 
 		lua_pushinteger(L, Status_alert);
 	}
@@ -5442,7 +5442,7 @@ static int l_ActionInProgress(lua_State* L)
 			pSoldier = FindSoldierByProfileID2(ID, TRUE);
 			if (pSoldier)
 			{
-				pSoldier->aiData.bActionInProgress = ExecuteAction(pSoldier);
+				pSoldier->aiPlanning().actionInProgress() = ExecuteAction(pSoldier);
 			}
 		}
 		else
@@ -5453,7 +5453,7 @@ static int l_ActionInProgress(lua_State* L)
 				pSoldier = GetJa2SoldierRepository().resolve(cnt2);
 				if (pSoldier->bActive && pSoldier->bInSector && pSoldier->ubProfile == NO_PROFILE)
 				{
-					pSoldier->aiData.bActionInProgress = ExecuteAction(pSoldier);
+					pSoldier->aiPlanning().actionInProgress() = ExecuteAction(pSoldier);
 				}
 			}
 		}
@@ -5490,7 +5490,7 @@ static int l_CheckSoldierNoiseVolume(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			NoiseVolume = pSoldier->aiData.ubNoiseVolume;
+			NoiseVolume = pSoldier->perception().noiseVolume();
 		}
 
 		lua_pushinteger(L, NoiseVolume);
@@ -5554,7 +5554,7 @@ static int l_SetNoiseGridno(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.sNoiseGridno = sGridNo;
+			pSoldier->perception().noiseGrid() = sGridNo;
 		}
 
 	}
@@ -5573,7 +5573,7 @@ static int l_SetNoiseVolume(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.ubNoiseVolume = NoiseVolume;
+			pSoldier->perception().noiseVolume() = NoiseVolume;
 		}
 	}
 
@@ -5633,7 +5633,7 @@ static int l_SetAlertStatus(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.bAlertStatus = AlertStatus;
+			pSoldier->aiBehavior().alertStatus() = AlertStatus;
 		}
 	}
 
@@ -5652,7 +5652,7 @@ static int l_CheckAction(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			Action = pSoldier->aiData.bAction;
+			Action = pSoldier->aiPlanning().action();
 		}
 		lua_pushinteger(L, Action);
 	}
@@ -5672,7 +5672,7 @@ static int l_SetNextAction(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.bNextAction = NextAction;
+			pSoldier->aiPlanning().nextAction() = NextAction;
 		}
 	}
 
@@ -5840,7 +5840,7 @@ static int l_SetNextActionData(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.usNextActionData = NextActionData;
+			pSoldier->aiPlanning().nextActionData() = NextActionData;
 		}
 	}
 
@@ -7062,7 +7062,7 @@ static int l_SetEnterCombatMode(lua_State* L)
 		for (SoldierID ubLoop = gTacticalStatus.Team[CIV_TEAM].bFirstID; ubLoop <= gTacticalStatus.Team[CIV_TEAM].bLastID; ++ubLoop)
 		{
 			pGoon = GetJa2SoldierRepository().resolve(ubLoop);
-			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->aiData.bOppList[ubID] == SEEN_CURRENTLY)
+			if (pGoon->ubCivilianGroup == group && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->awareness().opponentKnowledge()[ubID] == SEEN_CURRENTLY)
 			{
 				MakeCivHostile(pGoon);
 				if (!(IsJa2TacticalCombatActive()))
@@ -7245,7 +7245,7 @@ static int l_CheckSoldierNeutral(lua_State* L)
 
 		if (pSoldier)
 		{
-			BOOLEAN Bool = (pSoldier->aiData.bNeutral);
+			BOOLEAN Bool = (pSoldier->aiBehavior().neutral());
 			lua_pushboolean(L, Bool);
 		}
 	}
@@ -7304,7 +7304,7 @@ static int l_SetSoldierOrders(lua_State* L)
 		pSoldier = FindSoldierByProfileID(UID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->aiData.bOrders = Orders;
+			pSoldier->aiBehavior().orders() = Orders;
 		}
 	}
 
@@ -8435,7 +8435,7 @@ static int l_AnimMercPtsrfAIFlags(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->bInSector)
-			pSoldier->aiData.fAIFlags |= AI_HANDLE_EVERY_FRAME;
+			pSoldier->aiBehavior().flags() |= AI_HANDLE_EVERY_FRAME;
 	}
 	return 0;
 }
@@ -8527,7 +8527,7 @@ static int l_AnimMercPtsrusNextActionData(lua_State* L)
 			GetJa2SoldierRepository().resolve(ubID);
 
 		if (pSoldier && pSoldier->bInSector && GridNo != NOWHERE)
-			pSoldier->aiData.usNextActionData = GridNo;
+			pSoldier->aiPlanning().nextActionData() = GridNo;
 	}
 	return 0;
 }
@@ -8546,7 +8546,7 @@ static int l_AnimMercPtsrbNextAction(lua_State* L)
 
 
 		if (pSoldier && pSoldier->bInSector)
-			pSoldier->aiData.bNextAction = AI_ACTION;
+			pSoldier->aiPlanning().nextAction() = AI_ACTION;
 	}
 	return 0;
 }
@@ -8676,7 +8676,7 @@ static int l_CheckMercPtsrubIDSeenubID2(lua_State* L)
 
 		if (ubID != NOBODY && ubID2 != NOBODY)
 		{
-			INT8 seen = GetJa2SoldierRepository().resolve(ubID)->aiData.bOppList[ubID2];
+			INT8 seen = GetJa2SoldierRepository().resolve(ubID)->awareness().opponentKnowledge()[ubID2];
 			lua_pushinteger(L, seen);
 		}
 	}

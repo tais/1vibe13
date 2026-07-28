@@ -295,14 +295,14 @@ void DropSmell( SOLDIERTYPE * pSoldier )
 			return;
 		}
 
-		if (pSoldier->aiData.bNormalSmell > pSoldier->aiData.bMonsterSmell)
+		if (pSoldier->perception().normalSmell() > pSoldier->perception().monsterSmell())
 		{
-			ubStrength = pSoldier->aiData.bNormalSmell - pSoldier->aiData.bMonsterSmell;
+			ubStrength = pSoldier->perception().normalSmell() - pSoldier->perception().monsterSmell();
 			ubSmell = HUMAN;
 		}
 		else
 		{
-			ubStrength = pSoldier->aiData.bMonsterSmell - pSoldier->aiData.bNormalSmell;
+			ubStrength = pSoldier->perception().monsterSmell() - pSoldier->perception().normalSmell();
 			if (ubStrength == 0)
 			{
 				// don't drop any smell

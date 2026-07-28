@@ -406,19 +406,19 @@ INT8 FindBestPatient( SOLDIERTYPE * pSoldier, BOOLEAN * pfDoClimb )
 		*pfDoClimb = FALSE;
 		if ( CardinalSpacesAway( pSoldier->position().gridNo(), sBestPatientGridNo ) == 1 )
 		{
-			pSoldier->aiData.usActionData = sBestPatientGridNo;
+			pSoldier->aiPlanning().actionData() = sBestPatientGridNo;
 			return( AI_ACTION_GIVE_AID );
 		}
 		else
 		{
-			pSoldier->aiData.usActionData = sBestAdjGridNo;
+			pSoldier->aiPlanning().actionData() = sBestAdjGridNo;
 			return( AI_ACTION_GET_CLOSER );
 		}
 	}	
 	else if (!TileIsOutOfBounds(sBestClimbGridNo))
 	{
 		*pfDoClimb = TRUE;
-		pSoldier->aiData.usActionData = sBestClimbGridNo;
+		pSoldier->aiPlanning().actionData() = sBestClimbGridNo;
 		return( AI_ACTION_MOVE_TO_CLIMB );
 	}
 	else
@@ -454,7 +454,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 	if (pSoldier->vitals().bleeding())
 	{
 		// heal self first!
-		pSoldier->aiData.usActionData = pSoldier->position().gridNo();
+		pSoldier->aiPlanning().actionData() = pSoldier->position().gridNo();
 		if (bSlot != HANDPOS)
 		{
 			pSoldier->service().borrowInventorySlot( bSlot );
@@ -473,9 +473,9 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 		return( AI_ACTION_GIVE_AID );
 	}
 
-//	pSoldier->aiData.usActionData = FindClosestPatient( pSoldier );
-	pSoldier->aiData.bAction = FindBestPatient( pSoldier, &fDoClimb );
-	if (pSoldier->aiData.bAction != AI_ACTION_NONE)
+//	pSoldier->aiPlanning().actionData() = FindClosestPatient( pSoldier );
+	pSoldier->aiPlanning().action() = FindBestPatient( pSoldier, &fDoClimb );
+	if (pSoldier->aiPlanning().action() != AI_ACTION_NONE)
 	{
 		pSoldier->movement().mode() = RUNNING;
 		if (bSlot != HANDPOS)
@@ -484,7 +484,7 @@ INT8 DecideAutoBandage( SOLDIERTYPE * pSoldier )
 
 			SwapObjs( pSoldier, HANDPOS, bSlot, TRUE );
 		}
-		return( pSoldier->aiData.bAction );
+		return( pSoldier->aiPlanning().action() );
 	}
 
 	// do nothing

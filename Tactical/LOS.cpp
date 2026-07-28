@@ -2265,7 +2265,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 			else if ( pStartSoldier->bTeam == CREATURE_TEAM && pStartSoldier->ubBodyType == BLOODCAT )
 			{
 				// Source is a bloodcat. He can only spot player-side soldiers, and only if hostile.
-				if ( pEndSoldier->bSide != gbPlayerNum || pStartSoldier->aiData.bNeutral )
+				if ( pEndSoldier->bSide != gbPlayerNum || pStartSoldier->aiBehavior().neutral() )
 				{
 					return ( 0 );
 				}
@@ -3015,7 +3015,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 	else if (fIntended)
 	{
-		if ( pFirer != nullptr && pFirer->aiData.bOppList[pTarget->ubID] == SEEN_CURRENTLY)
+		if ( pFirer != nullptr && pFirer->awareness().opponentKnowledge()[pTarget->ubID] == SEEN_CURRENTLY)
 		{
 			sHitBy = pBullet->sHitBy;
 		}
@@ -3179,7 +3179,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	}
 
 	// check to see if someone was accidentally hit when no target was specified by the player
-	if ( pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pFirer->targeting().targetId() == NOBODY && pTarget->aiData.bNeutral	)
+	if ( pFirer != nullptr && pFirer->bTeam == gbPlayerNum && pFirer->targeting().targetId() == NOBODY && pTarget->aiBehavior().neutral()	)
 	{
 		if ( pTarget->ubCivilianGroup == KINGPIN_CIV_GROUP || pTarget->ubCivilianGroup == HICKS_CIV_GROUP )
 		{
@@ -8657,21 +8657,21 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	iBasicAperture = CalcBasicAperture( );
 
 	// magnification (1.0 or higher if scope is used)
-	//FLOAT dMagFactor = CalcMagFactor(pShooter, &(pShooter->inv[pShooter->attackSelection().hand()]), d2DDistance, iTargetGridNo, (UINT8)pShooter->aiData.bAimTime);
-	FLOAT dMagFactor = CalcMagFactor(pShooter, pWeapon, d2DDistance, iTargetGridNo, (UINT8)pShooter->aiData.bAimTime);
+	//FLOAT dMagFactor = CalcMagFactor(pShooter, &(pShooter->inv[pShooter->attackSelection().hand()]), d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime());
+	FLOAT dMagFactor = CalcMagFactor(pShooter, pWeapon, d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime());
 
 	// silversurfer: New functionality for iron sights - There have been many complaints that iron sights lose their usefulness
 	// very fast the farther the target is away. Setting IRON_SIGHT_PERFORMANCE_BONUS too high makes them overly powerful at
 	// close range. This experimental formula implements a curve that lowers iBasicAperture the farther the target is away.
 	// At 1 tile distance iBasicAperture will be the same as before. That's the common start.
-	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiData.bAimTime, iTargetGridNo))
+	if (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_USE_GRADIENT && dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiPlanning().aimTime(), iTargetGridNo))
 	{
 		iBasicAperture = iBasicAperture * (1 / sqrt(d2DDistance / FLOAT(CELL_X_SIZE)) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER
 			+ (gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER - 1) / gGameCTHConstants.IRON_SIGHTS_MAX_APERTURE_MODIFIER);
 	}
 
 	// iron sights can get a percentage bonus to make them overall better but only when not shooting from hip
-	if (dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiData.bAimTime, iTargetGridNo))
+	if (dMagFactor <= 1.0 && !pShooter->IsValidAlternativeFireMode(pShooter->aiPlanning().aimTime(), iTargetGridNo))
 	{
 		iBasicAperture = iBasicAperture * (FLOAT)((100 - gGameCTHConstants.IRON_SIGHT_PERFORMANCE_BONUS) / 100);
 	}
@@ -8694,7 +8694,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 		{
 			FLOAT fLaserBonus = 0;
 			// which bonus do we want to apply?
-			if ( pShooter->IsValidAlternativeFireMode( pShooter->aiData.bAimTime, iTargetGridNo ) )
+			if ( pShooter->IsValidAlternativeFireMode( pShooter->aiPlanning().aimTime(), iTargetGridNo ) )
 				// shooting from hip
 				fLaserBonus = gGameCTHConstants.LASER_PERFORMANCE_BONUS_HIP;
 			else if (dMagFactor <= 1.0)
@@ -8730,7 +8730,7 @@ void AdjustTargetCenterPoint( SOLDIERTYPE *pShooter, INT32 iTargetGridNo, FLOAT 
 	// is a divisor to the sway of the muzzle. It's about the same as multiplying CTH by a certain amount.
 	// Note that both optical magnification devices (like scopes) and dot-projection devices (like lasers and 
 	// reflex sights) provide this sort of bonus.
-	FLOAT iMagFactor = CalcMagFactor( pShooter, pWeapon, d2DDistance, iTargetGridNo, (UINT8)pShooter->aiData.bAimTime );
+	FLOAT iMagFactor = CalcMagFactor( pShooter, pWeapon, d2DDistance, iTargetGridNo, (UINT8)pShooter->aiPlanning().aimTime() );
 
 	// Get effective mag factor for this shooter. This represents his ability to use scopes.
 	FLOAT fEffectiveMagFactor = CalcEffectiveMagFactor( pShooter, iMagFactor );
@@ -9970,9 +9970,9 @@ UINT32 CalcCounterForceAccuracy(SOLDIERTYPE *pShooter, OBJECTTYPE *pWeapon, UINT
 
 	if (ubTargetID != NOBODY)
 	{
-		if (pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] == SEEN_CURRENTLY)
+		if (pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] == SEEN_CURRENTLY)
 			iSightRange *= 2;
-		else if(pShooter->aiData.bOppList[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] != SEEN_CURRENTLY)
+		else if(pShooter->awareness().opponentKnowledge()[ubTargetID] != SEEN_CURRENTLY && gbPublicOpplist[pShooter->bTeam][ubTargetID] != SEEN_CURRENTLY)
 			iSightRange *= 4;
 	}
 

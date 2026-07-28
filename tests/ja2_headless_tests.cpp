@@ -7595,7 +7595,7 @@ int main( int, char** )
 		movement.markPastXDestination();
 		movement.markPastYDestination();
 		movement.requestWaitAction(2);
-		soldier.interruptSnapshot().captureMoved(1);
+		soldier.turnState().captureMoved(1);
 		SoldierTargetingComponent& targeting = soldier.targeting();
 		targeting.selectLocation(1280, 1, 3);
 		targeting.lastGridNo() = 1279;
@@ -8124,7 +8124,7 @@ int main( int, char** )
 		       constSoldier.movement().waitingForAction() &&
 		       constSoldier.movement().waitAction() == 2,
 		       "soldier movement component owns tactical intent, contention, activity, and wait transitions" );
-		CHECK( constSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		CHECK( constSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier interrupt snapshot owns the pre-interrupt scheduler state" );
 		CHECK( constSoldier.targeting().gridNo() == 1280 &&
 		       constSoldier.targeting().level() == 1 &&
@@ -9353,7 +9353,7 @@ int main( int, char** )
 		       copiedSoldier.movement().crossedDestinationCenter() &&
 		       copiedSoldier.movement().waitAction() == 2,
 		       "soldier copies retain their owned persistent movement state" );
-		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		CHECK( copiedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier copies retain their owned interrupt snapshot" );
 		CHECK( copiedSoldier.targeting().gridNo() == 1280 &&
 		       copiedSoldier.targeting().level() == 1 &&
@@ -9804,12 +9804,12 @@ int main( int, char** )
 		       traversalLifecycle.randomActionCheckCounter() == 0,
 		       "animation activity resets only the random-animation cadence when a check is consumed" );
 
-		SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;
-		interruptSnapshotLifecycle.captureMoved(1);
-		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 1,
+		SoldierTurnStateComponent turnStateLifecycle;
+		turnStateLifecycle.captureMoved(1);
+		CHECK( turnStateLifecycle.movedBeforeInterrupt() == 1,
 		       "interrupt snapshot captures scheduler movement state" );
-		interruptSnapshotLifecycle.reset();
-		CHECK( interruptSnapshotLifecycle.movedBeforeInterrupt() == 0,
+		turnStateLifecycle.reset();
+		CHECK( turnStateLifecycle.movedBeforeInterrupt() == 0,
 		       "interrupt snapshot reset restores the established default" );
 
 		SoldierSuppressionComponent suppressionLifecycle;
@@ -10572,7 +10572,7 @@ int main( int, char** )
 		       !copiedSoldier.movement().waitingForAction() &&
 		       copiedSoldier.movement().waitAction() == 0,
 		       "soldier initialization resets the complete movement domain" );
-		CHECK( copiedSoldier.interruptSnapshot().movedBeforeInterrupt() == 0,
+		CHECK( copiedSoldier.turnState().movedBeforeInterrupt() == 0,
 		       "soldier initialization resets the interrupt snapshot domain" );
 		CHECK( copiedSoldier.targeting().gridNo() == 0 &&
 		       copiedSoldier.targeting().level() == 0 &&
@@ -10730,7 +10730,223 @@ int main( int, char** )
 	}
 
 	{
+		SOLDIERTYPE aiOwnedSoldier;
+		SoldierAiPlanningComponent& planning = aiOwnedSoldier.aiPlanning();
+		planning.lastAction() = -11;
+		planning.action() = 12;
+		planning.actionData() = 13001;
+		planning.queueAction(14, 15001);
+		planning.actionInProgress() = 1;
+		planning.nextTargetLevel() = 2;
+		planning.dominantDirection() = 3;
+		planning.patrolCount() = 4;
+		planning.nextPatrolPoint() = 2;
+		planning.patrolGrid()[0] = 16001;
+		planning.patrolGrid()[SOLDIER_PATROL_GRID_COUNT - 1] = 16010;
+		planning.aimTime() = 17;
+		planning.shownAimTime() = 18;
+
+		SoldierAiBehaviorComponent& behavior = aiOwnedSoldier.aiBehavior();
+		behavior.alertStatus() = 3;
+		behavior.neutral() = 1;
+		behavior.newSituation() = 2;
+		behavior.orders() = 4;
+		behavior.attitude() = 5;
+		behavior.underEscort() = 1;
+		behavior.bypassToGreen() = 30;
+		behavior.hunting() = 1;
+		behavior.mobility() = 2;
+		behavior.realtimeCombat() = 1;
+		behavior.flags() = 0x3f;
+
+		SoldierAiCommunicationComponent& communication =
+			aiOwnedSoldier.aiCommunication();
+		communication.lastMercToRadio() = 19;
+		communication.lastCall() = 20;
+		communication.caller() = SoldierID{ 21 };
+		communication.callerGrid() = 16011;
+		communication.callPriority() = 22;
+		communication.callActedUpon() = -1;
+
+		SoldierMoraleComponent& morale = aiOwnedSoldier.morale();
+		morale.morale() = 80;
+		morale.teamModifier() = -2;
+		morale.tacticalModifier() = 3;
+		morale.strategicModifier() = -4;
+		morale.aiMorale() = 5;
+		morale.frenzied() = 1;
+
+		aiOwnedSoldier.awareness().opponentKnowledge()[0] = 1;
+		aiOwnedSoldier.awareness().opponentKnowledge()[MAX_NUM_SOLDIERS - 1] = -2;
+		aiOwnedSoldier.awareness().opponentCount() = 7;
+		aiOwnedSoldier.perception().noiseGrid() = 16012;
+		aiOwnedSoldier.perception().noiseVolume() = 23;
+		aiOwnedSoldier.perception().xraySource() = SoldierID{ 24 };
+		aiOwnedSoldier.perception().normalSmell() = 25;
+		aiOwnedSoldier.perception().monsterSmell() = 26;
+		aiOwnedSoldier.position().animationHeightAdjustment() = 12.5f;
+		aiOwnedSoldier.combatResult().lastAttackHit() = 1;
+		aiOwnedSoldier.turnState().interruptDuelPoints() = -1;
+		aiOwnedSoldier.turnState().passedLastInterrupt() = 1;
+		aiOwnedSoldier.turnState().interruptStartActionPoints() = 77;
+		aiOwnedSoldier.turnState().moved() = 1;
+		aiOwnedSoldier.turnState().captureMoved(2);
+		aiOwnedSoldier.turnState().interruptCounters()[0] = 27;
+		aiOwnedSoldier.turnState().interruptCounters()[MAX_NUM_SOLDIERS - 1] = 28;
+
+		const SOLDIERTYPE& constAiOwnedSoldier = aiOwnedSoldier;
+		CHECK( constAiOwnedSoldier.aiPlanning().lastAction() == -11 &&
+		       constAiOwnedSoldier.aiPlanning().action() == 12 &&
+		       constAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
+		       constAiOwnedSoldier.aiPlanning().nextAction() == 14 &&
+		       constAiOwnedSoldier.aiPlanning().nextActionData() == 15001 &&
+		       constAiOwnedSoldier.aiPlanning().hasActionInProgress() &&
+		       constAiOwnedSoldier.aiPlanning().nextTargetLevel() == 2 &&
+		       constAiOwnedSoldier.aiPlanning().dominantDirection() == 3 &&
+		       constAiOwnedSoldier.aiPlanning().hasPatrolRoute() &&
+		       constAiOwnedSoldier.aiPlanning().patrolCount() == 4 &&
+		       constAiOwnedSoldier.aiPlanning().nextPatrolPoint() == 2 &&
+		       constAiOwnedSoldier.aiPlanning().patrolGrid()[0] == 16001 &&
+		       constAiOwnedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 16010 &&
+		       constAiOwnedSoldier.aiPlanning().aimTime() == 17 &&
+		       constAiOwnedSoldier.aiPlanning().shownAimTime() == 18,
+		       "soldier AI planning owns the complete action, patrol, and aiming plan" );
+		CHECK( constAiOwnedSoldier.aiBehavior().alertStatus() == 3 &&
+		       constAiOwnedSoldier.aiBehavior().neutral() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().newSituation() == 2 &&
+		       constAiOwnedSoldier.aiBehavior().orders() == 4 &&
+		       constAiOwnedSoldier.aiBehavior().attitude() == 5 &&
+		       constAiOwnedSoldier.aiBehavior().underEscort() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
+		       constAiOwnedSoldier.aiBehavior().hunting() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().mobility() == 2 &&
+		       constAiOwnedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       constAiOwnedSoldier.aiBehavior().hasFlag(0x20),
+		       "soldier AI behavior owns alert, disposition, escort, creature, and scheduler modes" );
+		CHECK( constAiOwnedSoldier.aiCommunication().lastMercToRadio() == 19 &&
+		       constAiOwnedSoldier.aiCommunication().lastCall() == 20 &&
+		       constAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
+		       constAiOwnedSoldier.aiCommunication().callerGrid() == 16011 &&
+		       constAiOwnedSoldier.aiCommunication().callPriority() == 22 &&
+		       constAiOwnedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       constAiOwnedSoldier.morale().morale() == 80 &&
+		       constAiOwnedSoldier.morale().teamModifier() == -2 &&
+		       constAiOwnedSoldier.morale().tacticalModifier() == 3 &&
+		       constAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       constAiOwnedSoldier.morale().aiMorale() == 5 &&
+		       constAiOwnedSoldier.morale().isFrenzied(),
+		       "soldier communication and morale domains retain their independent lifecycles" );
+		CHECK( constAiOwnedSoldier.awareness().opponentKnowledge()[0] == 1 &&
+		       constAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -2 &&
+		       constAiOwnedSoldier.awareness().opponentCount() == 7 &&
+		       constAiOwnedSoldier.perception().noiseGrid() == 16012 &&
+		       constAiOwnedSoldier.perception().noiseVolume() == 23 &&
+		       constAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
+		       constAiOwnedSoldier.perception().normalSmell() == 25 &&
+		       constAiOwnedSoldier.perception().monsterSmell() == 26 &&
+		       constAiOwnedSoldier.position().animationHeightAdjustment() == 12.5f &&
+		       constAiOwnedSoldier.combatResult().lastAttackHit() == 1 &&
+		       constAiOwnedSoldier.turnState().interruptDuelPoints() == -1 &&
+		       constAiOwnedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       constAiOwnedSoldier.turnState().interruptStartActionPoints() == 77 &&
+		       constAiOwnedSoldier.turnState().moved() == 1 &&
+		       constAiOwnedSoldier.turnState().movedBeforeInterrupt() == 2 &&
+		       constAiOwnedSoldier.turnState().interruptCounters()[0] == 27 &&
+		       constAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 28,
+		       "soldier awareness, perception, position, combat, and turn owners retain the former AI aggregate state" );
+
+		SOLDIERTYPE copiedAiOwnedSoldier = aiOwnedSoldier;
+		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 13001 &&
+		       copiedAiOwnedSoldier.aiBehavior().bypassToGreen() == 30 &&
+		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 21 } &&
+		       copiedAiOwnedSoldier.morale().strategicModifier() == -4 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -2 &&
+		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 24 } &&
+		       copiedAiOwnedSoldier.position().animationHeightAdjustment() == 12.5f &&
+		       copiedAiOwnedSoldier.combatResult().lastAttackHit() == 1 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 28,
+		       "soldier copies retain every domain formerly held by STRUCT_AIData" );
+
+		copiedAiOwnedSoldier.initialize();
+		CHECK( copiedAiOwnedSoldier.aiPlanning().actionData() == 0 &&
+		       copiedAiOwnedSoldier.aiPlanning().patrolGrid()[0] == 0 &&
+		       copiedAiOwnedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 0 &&
+		       copiedAiOwnedSoldier.aiBehavior().flags() == 0 &&
+		       copiedAiOwnedSoldier.aiCommunication().caller() == SoldierID{ 0 } &&
+		       copiedAiOwnedSoldier.morale().morale() == 0 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[0] == 0 &&
+		       copiedAiOwnedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == 0 &&
+		       copiedAiOwnedSoldier.perception().noiseGrid() == 0 &&
+		       copiedAiOwnedSoldier.perception().xraySource() == SoldierID{ 0 } &&
+		       copiedAiOwnedSoldier.position().animationHeightAdjustment() == 0.0f &&
+		       copiedAiOwnedSoldier.combatResult().lastAttackHit() == 0 &&
+		       copiedAiOwnedSoldier.turnState().moved() == 0 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[0] == 0 &&
+		       copiedAiOwnedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 0,
+		       "soldier initialization resets every former AI-data domain to the established zero state" );
+	}
+
+	{
 		auto legacySoldier = std::make_unique<OLDSOLDIERTYPE_101>();
+		legacySoldier->bOppList[0] = 2;
+		legacySoldier->bOppList[MAX_NUM_SOLDIERS - 1] = -3;
+		legacySoldier->bLastAction = -4;
+		legacySoldier->bAction = 5;
+		legacySoldier->usActionData = 17001;
+		legacySoldier->bNextAction = 6;
+		legacySoldier->usNextActionData = 17002;
+		legacySoldier->bActionInProgress = 1;
+		legacySoldier->bAlertStatus = 2;
+		legacySoldier->bOppCnt = 3;
+		legacySoldier->bNeutral = 1;
+		legacySoldier->bNewSituation = 2;
+		legacySoldier->bNextTargetLevel = 1;
+		legacySoldier->bOrders = 4;
+		legacySoldier->bAttitude = 5;
+		legacySoldier->bUnderEscort = 1;
+		legacySoldier->bBypassToGreen = 15;
+		legacySoldier->ubLastMercToRadio = 6;
+		legacySoldier->bDominantDir = 7;
+		legacySoldier->bPatrolCnt = 8;
+		legacySoldier->bNextPatrolPnt = 2;
+		legacySoldier->usPatrolGrid[0] = 17003;
+		legacySoldier->usPatrolGrid[OLD_MAXPATROLGRIDS - 1] = 17012;
+		legacySoldier->sNoiseGridNo = 17013;
+		legacySoldier->ubNoiseVolume = 9;
+		legacySoldier->bLastAttackHit = 1;
+		legacySoldier->ubXRayedBy = 10;
+		legacySoldier->dHeightAdjustment = 11.5f;
+		legacySoldier->bMorale = 80;
+		legacySoldier->bTeamMoraleMod = -2;
+		legacySoldier->bTacticalMoraleMod = 3;
+		legacySoldier->bStrategicMoraleMod = -4;
+		legacySoldier->bAIMorale = 5;
+		legacySoldier->bInterruptDuelPts = -1;
+		legacySoldier->bPassedLastInterrupt = 1;
+		legacySoldier->bIntStartAPs = 77;
+		legacySoldier->bMoved = 1;
+		legacySoldier->bHunting = 1;
+		legacySoldier->ubLastCall = 12;
+		legacySoldier->ubCaller = 13;
+		legacySoldier->sCallerGridNo = 17014;
+		legacySoldier->bCallPriority = 14;
+		legacySoldier->bCallActedUpon = -1;
+		legacySoldier->bFrenzied = 1;
+		legacySoldier->bNormalSmell = 15;
+		legacySoldier->bMonsterSmell = 16;
+		legacySoldier->bMobility = 2;
+		legacySoldier->bRTPCombat = 1;
+		legacySoldier->fAIFlags = 0x3f;
+		legacySoldier->bAimTime = 18;
+		legacySoldier->bShownAimTime = 19;
 		legacySoldier->fDoSpread = TRUE;
 		legacySoldier->autofireLastStep = TRUE;
 		legacySoldier->bBulletsLeft = 3;
@@ -11076,6 +11292,19 @@ int main( int, char** )
 		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
 		convertedSoldier.replication().updatedFromNetwork() = FALSE;
 		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
+		convertedSoldier.aiPlanning().actionData() = 99901;
+		convertedSoldier.aiPlanning().patrolGrid()[0] = 99902;
+		convertedSoldier.aiBehavior().flags() = -1;
+		convertedSoldier.aiCommunication().caller() = SoldierID{ 99 };
+		convertedSoldier.morale().morale() = 99;
+		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
+		convertedSoldier.perception().noiseGrid() = 99903;
+		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
+		convertedSoldier.combatResult().lastAttackHit() = 99;
+		convertedSoldier.turnState().moved() = 99;
+		convertedSoldier.turnState().interruptCounters()[0] = 99;
+		convertedSoldier.turnState().interruptCounters()[
+			MAX_NUM_SOLDIERS - 1] = 99;
 		convertedSoldier.condition().gasHitFlags() = 0xFF;
 		convertedSoldier.targeting().intendedTarget() = FALSE;
 		convertedSoldier.targeting().retainLastTargetFromTurn() = FALSE;
@@ -11129,7 +11358,7 @@ int main( int, char** )
 		convertedSoldier.movement().clearUiMovementFast();
 		convertedSoldier.movement().clearPastDestination();
 		convertedSoldier.movement().requestWaitAction(9);
-		convertedSoldier.interruptSnapshot().captureMoved(9);
+		convertedSoldier.turnState().captureMoved(9);
 		convertedSoldier.targeting().engageOpponent(SoldierID{ 90 });
 		convertedSoldier.targeting().rememberLineOfFireTarget(SoldierID{ 91 });
 		convertedSoldier.meleeApproach().recordPath(RUNNING, 99, 7);
@@ -11194,6 +11423,66 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
 		convertedSoldier = *legacySoldier;
+		CHECK( convertedSoldier.aiPlanning().lastAction() == -4 &&
+		       convertedSoldier.aiPlanning().action() == 5 &&
+		       convertedSoldier.aiPlanning().actionData() == 17001 &&
+		       convertedSoldier.aiPlanning().nextAction() == 6 &&
+		       convertedSoldier.aiPlanning().nextActionData() == 17002 &&
+		       convertedSoldier.aiPlanning().actionInProgress() == 1 &&
+		       convertedSoldier.aiPlanning().nextTargetLevel() == 1 &&
+		       convertedSoldier.aiPlanning().dominantDirection() == 7 &&
+		       convertedSoldier.aiPlanning().patrolCount() == 8 &&
+		       convertedSoldier.aiPlanning().nextPatrolPoint() == 2 &&
+		       convertedSoldier.aiPlanning().patrolGrid()[0] == 17003 &&
+		       convertedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 17012 &&
+		       convertedSoldier.aiPlanning().aimTime() == 18 &&
+		       convertedSoldier.aiPlanning().shownAimTime() == 19,
+		       "v101 soldier conversion maps the complete historical AI action, patrol, and aiming plan" );
+		CHECK( convertedSoldier.aiBehavior().alertStatus() == 2 &&
+		       convertedSoldier.aiBehavior().neutral() == 1 &&
+		       convertedSoldier.aiBehavior().newSituation() == 2 &&
+		       convertedSoldier.aiBehavior().orders() == 4 &&
+		       convertedSoldier.aiBehavior().attitude() == 5 &&
+		       convertedSoldier.aiBehavior().underEscort() == 1 &&
+		       convertedSoldier.aiBehavior().bypassToGreen() == 15 &&
+		       convertedSoldier.aiBehavior().hunting() == 1 &&
+		       convertedSoldier.aiBehavior().mobility() == 2 &&
+		       convertedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       convertedSoldier.aiBehavior().flags() == 0x3f,
+		       "v101 soldier conversion maps the complete historical AI behavior state" );
+		CHECK( convertedSoldier.aiCommunication().lastMercToRadio() == 6 &&
+		       convertedSoldier.aiCommunication().lastCall() == 12 &&
+		       convertedSoldier.aiCommunication().caller() == SoldierID{ 13 } &&
+		       convertedSoldier.aiCommunication().callerGrid() == 17014 &&
+		       convertedSoldier.aiCommunication().callPriority() == 14 &&
+		       convertedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       convertedSoldier.morale().morale() == 80 &&
+		       convertedSoldier.morale().teamModifier() == -2 &&
+		       convertedSoldier.morale().tacticalModifier() == 3 &&
+		       convertedSoldier.morale().strategicModifier() == -4 &&
+		       convertedSoldier.morale().aiMorale() == 5 &&
+		       convertedSoldier.morale().frenzied() == 1,
+		       "v101 soldier conversion maps AI communication and every morale channel" );
+		CHECK( convertedSoldier.awareness().opponentKnowledge()[0] == 2 &&
+		       convertedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -3 &&
+		       convertedSoldier.awareness().opponentCount() == 3 &&
+		       convertedSoldier.perception().noiseGrid() == 17013 &&
+		       convertedSoldier.perception().noiseVolume() == 9 &&
+		       convertedSoldier.perception().xraySource() == SoldierID{ 10 } &&
+		       convertedSoldier.perception().normalSmell() == 15 &&
+		       convertedSoldier.perception().monsterSmell() == 16 &&
+		       convertedSoldier.position().animationHeightAdjustment() == 11.5f &&
+		       convertedSoldier.combatResult().lastAttackHit() == 1 &&
+		       convertedSoldier.turnState().interruptDuelPoints() == -1 &&
+		       convertedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       convertedSoldier.turnState().interruptStartActionPoints() == 77 &&
+		       convertedSoldier.turnState().moved() == 1 &&
+		       convertedSoldier.turnState().interruptCounters()[0] == 0 &&
+		       convertedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 0,
+		       "v101 soldier conversion maps historical knowledge, perception, height, combat, and turn state while clearing later interrupt counters" );
 		CHECK( convertedSoldier.vitals().previousHealth() == 72 &&
 		       convertedSoldier.vitals().fractionalHealth() == 35 &&
 		       convertedSoldier.vitals().health() == 70 &&
@@ -11557,7 +11846,7 @@ int main( int, char** )
 		       convertedSoldier.meleeApproach().cost() == 23 &&
 		       convertedSoldier.meleeApproach().endDirection() == 0,
 		       "v101 soldier conversion maps the historical melee cache and clears later key fields" );
-		CHECK( convertedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		CHECK( convertedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "v101 soldier conversion retains the pre-interrupt moved snapshot" );
 		CHECK( convertedSoldier.animationActivity().traversalForecastGrid() == 1703 &&
 		       convertedSoldier.animationActivity().hasRenderZOverride() &&
@@ -11737,6 +12026,61 @@ int main( int, char** )
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
 		SOLDIERTYPE savedSoldier;
+		savedSoldier.aiPlanning().lastAction() = -21;
+		savedSoldier.aiPlanning().action() = 22;
+		savedSoldier.aiPlanning().actionData() = 23001;
+		savedSoldier.aiPlanning().queueAction(23, 24001);
+		savedSoldier.aiPlanning().actionInProgress() = 1;
+		savedSoldier.aiPlanning().nextTargetLevel() = 2;
+		savedSoldier.aiPlanning().dominantDirection() = 3;
+		savedSoldier.aiPlanning().patrolCount() = 4;
+		savedSoldier.aiPlanning().nextPatrolPoint() = 1;
+		savedSoldier.aiPlanning().patrolGrid()[0] = 25001;
+		savedSoldier.aiPlanning().patrolGrid()[
+			SOLDIER_PATROL_GRID_COUNT - 1] = 25010;
+		savedSoldier.aiPlanning().aimTime() = 26;
+		savedSoldier.aiPlanning().shownAimTime() = 27;
+		savedSoldier.aiBehavior().alertStatus() = 3;
+		savedSoldier.aiBehavior().neutral() = 1;
+		savedSoldier.aiBehavior().newSituation() = 2;
+		savedSoldier.aiBehavior().orders() = 4;
+		savedSoldier.aiBehavior().attitude() = 5;
+		savedSoldier.aiBehavior().underEscort() = 1;
+		savedSoldier.aiBehavior().bypassToGreen() = 20;
+		savedSoldier.aiBehavior().hunting() = 1;
+		savedSoldier.aiBehavior().mobility() = 2;
+		savedSoldier.aiBehavior().realtimeCombat() = 1;
+		savedSoldier.aiBehavior().flags() = 0x3e;
+		savedSoldier.aiCommunication().lastMercToRadio() = 28;
+		savedSoldier.aiCommunication().lastCall() = 29;
+		savedSoldier.aiCommunication().caller() = SoldierID{ 30 };
+		savedSoldier.aiCommunication().callerGrid() = 25011;
+		savedSoldier.aiCommunication().callPriority() = 31;
+		savedSoldier.aiCommunication().callActedUpon() = -1;
+		savedSoldier.morale().morale() = 81;
+		savedSoldier.morale().teamModifier() = -3;
+		savedSoldier.morale().tacticalModifier() = 4;
+		savedSoldier.morale().strategicModifier() = -5;
+		savedSoldier.morale().aiMorale() = 5;
+		savedSoldier.morale().frenzied() = 1;
+		savedSoldier.awareness().opponentKnowledge()[0] = 3;
+		savedSoldier.awareness().opponentKnowledge()[
+			MAX_NUM_SOLDIERS - 1] = -4;
+		savedSoldier.awareness().opponentCount() = 8;
+		savedSoldier.perception().noiseGrid() = 25012;
+		savedSoldier.perception().noiseVolume() = 32;
+		savedSoldier.perception().xraySource() = SoldierID{ 33 };
+		savedSoldier.perception().normalSmell() = 34;
+		savedSoldier.perception().monsterSmell() = 35;
+		savedSoldier.position().animationHeightAdjustment() = 13.5f;
+		savedSoldier.combatResult().lastAttackHit() = 1;
+		savedSoldier.turnState().interruptDuelPoints() = -2;
+		savedSoldier.turnState().passedLastInterrupt() = 1;
+		savedSoldier.turnState().interruptStartActionPoints() = 88;
+		savedSoldier.turnState().moved() = 1;
+		savedSoldier.turnState().interruptCounters()[0] = 36;
+		savedSoldier.turnState().interruptCounters()[
+			MAX_NUM_SOLDIERS - 1] = 37;
 		savedSoldier.statistics().experienceLevel() = 6;
 		savedSoldier.statistics().strength() = 77;
 		savedSoldier.statistics().agility() = 78;
@@ -12086,7 +12430,7 @@ int main( int, char** )
 		savedSoldier.movement().pastXDestination() = -3;
 		savedSoldier.movement().pastYDestination() = 4;
 		savedSoldier.movement().requestWaitAction(2);
-		savedSoldier.interruptSnapshot().captureMoved(1);
+		savedSoldier.turnState().captureMoved(1);
 		savedSoldier.targeting().selectLocation(1480, 1, 4);
 		savedSoldier.targeting().lastGridNo() = 1479;
 		savedSoldier.targeting().selectSoldier(SoldierID{ 9 });
@@ -12201,6 +12545,70 @@ int main( int, char** )
 			loadedStatisticsTraitsMatch &=
 				loadedSoldier.statistics().skillTrait(trait) == 101 + trait;
 		}
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiPlanning().lastAction() == -21 &&
+		       loadedSoldier.aiPlanning().action() == 22 &&
+		       loadedSoldier.aiPlanning().actionData() == 23001 &&
+		       loadedSoldier.aiPlanning().nextAction() == 23 &&
+		       loadedSoldier.aiPlanning().nextActionData() == 24001 &&
+		       loadedSoldier.aiPlanning().actionInProgress() == 1 &&
+		       loadedSoldier.aiPlanning().nextTargetLevel() == 2 &&
+		       loadedSoldier.aiPlanning().dominantDirection() == 3 &&
+		       loadedSoldier.aiPlanning().patrolCount() == 4 &&
+		       loadedSoldier.aiPlanning().nextPatrolPoint() == 1 &&
+		       loadedSoldier.aiPlanning().patrolGrid()[0] == 25001 &&
+		       loadedSoldier.aiPlanning().patrolGrid()[
+			       SOLDIER_PATROL_GRID_COUNT - 1] == 25010 &&
+		       loadedSoldier.aiPlanning().aimTime() == 26 &&
+		       loadedSoldier.aiPlanning().shownAimTime() == 27,
+		       "soldier save/load round-trips the component-owned AI action, patrol, and aiming plan at every established position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiBehavior().alertStatus() == 3 &&
+		       loadedSoldier.aiBehavior().neutral() == 1 &&
+		       loadedSoldier.aiBehavior().newSituation() == 2 &&
+		       loadedSoldier.aiBehavior().orders() == 4 &&
+		       loadedSoldier.aiBehavior().attitude() == 5 &&
+		       loadedSoldier.aiBehavior().underEscort() == 1 &&
+		       loadedSoldier.aiBehavior().bypassToGreen() == 20 &&
+		       loadedSoldier.aiBehavior().hunting() == 1 &&
+		       loadedSoldier.aiBehavior().mobility() == 2 &&
+		       loadedSoldier.aiBehavior().realtimeCombat() == 1 &&
+		       loadedSoldier.aiBehavior().flags() == 0x3e,
+		       "soldier save/load round-trips the complete component-owned AI behavior state" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.aiCommunication().lastMercToRadio() == 28 &&
+		       loadedSoldier.aiCommunication().lastCall() == 29 &&
+		       loadedSoldier.aiCommunication().caller() == SoldierID{ 30 } &&
+		       loadedSoldier.aiCommunication().callerGrid() == 25011 &&
+		       loadedSoldier.aiCommunication().callPriority() == 31 &&
+		       loadedSoldier.aiCommunication().callActedUpon() == -1 &&
+		       loadedSoldier.morale().morale() == 81 &&
+		       loadedSoldier.morale().teamModifier() == -3 &&
+		       loadedSoldier.morale().tacticalModifier() == 4 &&
+		       loadedSoldier.morale().strategicModifier() == -5 &&
+		       loadedSoldier.morale().aiMorale() == 5 &&
+		       loadedSoldier.morale().frenzied() == 1,
+		       "soldier save/load round-trips component-owned AI communication and morale" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.awareness().opponentKnowledge()[0] == 3 &&
+		       loadedSoldier.awareness().opponentKnowledge()[
+			       MAX_NUM_SOLDIERS - 1] == -4 &&
+		       loadedSoldier.awareness().opponentCount() == 8 &&
+		       loadedSoldier.perception().noiseGrid() == 25012 &&
+		       loadedSoldier.perception().noiseVolume() == 32 &&
+		       loadedSoldier.perception().xraySource() == SoldierID{ 33 } &&
+		       loadedSoldier.perception().normalSmell() == 34 &&
+		       loadedSoldier.perception().monsterSmell() == 35 &&
+		       loadedSoldier.position().animationHeightAdjustment() == 13.5f &&
+		       loadedSoldier.combatResult().lastAttackHit() == 1 &&
+		       loadedSoldier.turnState().interruptDuelPoints() == -2 &&
+		       loadedSoldier.turnState().passedLastInterrupt() == 1 &&
+		       loadedSoldier.turnState().interruptStartActionPoints() == 88 &&
+		       loadedSoldier.turnState().moved() == 1 &&
+		       loadedSoldier.turnState().interruptCounters()[0] == 36 &&
+		       loadedSoldier.turnState().interruptCounters()[
+			       MAX_NUM_SOLDIERS - 1] == 37,
+		       "soldier save/load round-trips component-owned AI knowledge, perception, height, combat, and interrupt state" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.statistics().experienceLevel() == 6 &&
 		       loadedSoldier.statistics().strength() == 77 &&
@@ -12627,7 +13035,7 @@ int main( int, char** )
 		       loadedSoldier.movement().moveSpeedOverride() == SoldierID{ 8 },
 		       "soldier save/load round-trips component-owned movement speed state" );
 		CHECK( saved && loaded &&
-		       loadedSoldier.interruptSnapshot().movedBeforeInterrupt() == 1,
+		       loadedSoldier.turnState().movedBeforeInterrupt() == 1,
 		       "soldier save/load round-trips the interrupt scheduler snapshot" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.targeting().gridNo() == 1480 &&

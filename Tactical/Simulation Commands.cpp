@@ -181,7 +181,7 @@ namespace
 			soldier.vitals().health() < OKLIFE ||
 			target.vitals().health() < OKLIFE ||
 			PythSpacesAway(soldier.position().gridNo(), target.position().gridNo()) != 1 ||
-			(!target.aiData.bNeutral && target.bSide != gbPlayerNum))
+			(!target.aiBehavior().neutral() && target.bSide != gbPlayerNum))
 			return false;
 		return CanExchangePlaces(&soldier, &target, FALSE) == TRUE;
 	}

@@ -341,13 +341,19 @@ AP, agility, visibility, accuracy, suppression, medical, and breath rules read
 the same owner. The signed and unsigned narrow distance counters saturate
 instead of wrapping, while the serializer and v101 conversion retain all four
 original positions, widths, and raw values.
-`SoldierAiPlanningComponent` separately owns flank progress and geometry,
-sniper posture, and modular plan selection. Tactical AI records flank steps,
+`SoldierAiPlanningComponent` separately owns current/previous/queued actions
+and payloads, action progress and target level, dominant facing, the fixed
+patrol route and cursor, aim time, flank progress and geometry, sniper posture,
+and modular plan selection. Tactical AI queues actions, records flank steps,
 terminal progress, posture changes, and default plan selection through named
 transitions shared by realtime and turn-based execution. The signed flank
-counter saturates instead of wrapping; the serializer retains all five original
-positions and widths, and v101 conversion maps its four established values
-while clearing the later plan index.
+counter saturates instead of wrapping; the serializer retains every original
+position and width and v101 conversion maps the historical fields.
+`SoldierAiBehaviorComponent` owns alert, disposition, orders, escort, creature,
+realtime, and AI-flag modes. `SoldierAiCommunicationComponent` owns radio and
+call exchange state, and `SoldierMoraleComponent` owns personal and calculated
+morale channels plus creature frenzy. These are state seams for AI and mod code,
+not replacements for existing policy, plan, XML, or Lua APIs.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,
 heterogeneous cooldowns, and the focus target. Named check, per-turn aging,
@@ -429,15 +435,14 @@ collapse. Named transitions keep those related states coherent without
 coupling the independent timers; old-save conversion and explicit persistence
 retain all five established byte positions and widths.
 `SoldierPerceptionComponent` separately owns view range, directional
-movement-noise memory, heard-noise elevation, blindness/deafness lifetimes, and
-X-ray activation time. Its named operations preserve the exact sight-recovery
-edge and per-turn noise cleanup while persistence retains all six original
-positions and widths. Opponent lists and render visibility are intentionally
-separate. `SoldierAwarenessComponent` owns current player-facing visibility,
-the last visibility consumed by rendering, newly discovered opponent count, and
-movement distance used to age stale knowledge. Its named visibility, fade,
-render-sync, discovery, and forget transitions preserve the tactical state
-machine while keeping per-observer opponent lists in the AI adapter. Current
+movement-noise memory, personal noise grid/volume, smell values, heard-noise
+elevation, blindness/deafness lifetimes, and X-ray source/activation time. Its
+named operations preserve the exact sight-recovery edge and per-turn noise
+cleanup. Render visibility remains separate. `SoldierAwarenessComponent` owns
+current player-facing visibility, the last visibility consumed by rendering,
+the fixed per-observer opponent table and counts, and movement distance used to
+age stale knowledge. Its named visibility, fade, render-sync, discovery, and
+forget transitions preserve the tactical state machine. Current
 `SoldierCamouflageComponent` owns the applied and equipment-derived values for
 all four established terrain families. Its bounded terrain and strongest-total
 queries give line-of-sight and UI code one definition of effective camouflage,
@@ -468,8 +473,9 @@ complete, consume, or cancel the door continuation; editor placements,
 schedule nodes, and creation/network records keep their established public
 formats. Precise and integer-projected world coordinates, turn-start
 coordinates, initial/current grid, elevation and facing, current/desired
-height, temporary animation grid, room, and terrain history are privately
-owned by `SoldierPositionComponent` as one persistent storage domain.
+height plus interpolated animation height, temporary animation grid, room, and
+terrain history are privately owned by `SoldierPositionComponent` as one
+persistent storage domain.
 Zero-cost reference accessors remain available to application hot paths,
 while named coordinate and terrain transitions keep paired values coherent.
 Old-save conversion and explicit persistence retain every established field
@@ -495,8 +501,10 @@ all use `movement()` as the one authority. Named operations cover intent
 changes, synchronized extended facing, grid-update suppression, turn and pause
 lifecycles, water/UI-speed edges, strategic-exit waits, and paired destination
 crossing instead of independently mutating generic flags.
-`SoldierInterruptSnapshotComponent` captures the scheduler's moved state across
-temporary interrupt ownership without exposing another flat soldier field.
+`SoldierTurnStateComponent` owns scheduler movement state, interrupt duel
+points/result/start AP, the pre-interrupt movement snapshot, and the fixed
+per-opponent interrupt counters. Temporary interrupt ownership therefore
+captures and restores one explicit state seam without exposing flat fields.
 `SoldierTargetingComponent` owns the selected target grid, elevation, cube
 level, previous target grid, selected target soldier, engaged opponent, and
 cached line-of-fire target identities.
@@ -523,8 +531,9 @@ muzzle-flash handles. AI dual-wield spread generation is clamped after
 doubling its shot count, so it cannot write twelve locations into the
 established six-target buffer.
 `SoldierCombatResultComponent` owns incoming attacker history, hit
-location/reason, per-turn hit and pellet counts, and accumulated damage. Named
-history operations preserve killer and assister attribution as one transition.
+location/reason, per-turn hit and pellet counts, accumulated damage, and the
+outgoing last-attack-hit result consumed by AI. Named history operations
+preserve killer and assister attribution as one transition.
 `SoldierDamageDisplayComponent` separately owns the floating-number cursor,
 screen offset, and direction. Accumulated damage stays in the simulation
 component because existing torso-hit and death rules consume it; render

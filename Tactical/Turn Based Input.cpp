@@ -755,7 +755,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 														if ( !HandleUIReloading( pSoldier ) )
 														{
 															// ATE: Reset refine aim..
-															pSoldier->aiData.bShownAimTime = 0;
+															pSoldier->aiPlanning().shownAimTime() = 0;
 
 															if ( gsCurrentActionPoints == 0 )
 															{
@@ -3519,7 +3519,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 					{
 						pSoldier = selectedSoldier;
 
-						if ( pSoldier->aiData.bOppCnt > 0 )
+						if ( pSoldier->awareness().opponentCount() > 0 )
 						{
 							// Cycle....
 							CycleVisibleEnemies( pSoldier );
@@ -4732,7 +4732,7 @@ void GetKeyboardInput( UINT32 *puiNewEvent )
 									if (CanSoldierReachGridNoInGivenTileLimit( pSoldier1, pSoldier2->position().gridNo(), 1, (INT8)gsInterfaceLevel ) )
 									{
 										// Exclude enemies....
-										if ( !pSoldier2->aiData.bNeutral && (pSoldier2->bSide != gbPlayerNum ) )
+										if ( !pSoldier2->aiBehavior().neutral() && (pSoldier2->bSide != gbPlayerNum ) )
 										{
 
 										}
@@ -5517,7 +5517,7 @@ void ObliterateSector()
 		{
 			continue;
 		}
-		if ( pTSoldier->bActive && !pTSoldier->aiData.bNeutral && (pTSoldier->bSide != gbPlayerNum ) )
+		if ( pTSoldier->bActive && !pTSoldier->aiBehavior().neutral() && (pTSoldier->bSide != gbPlayerNum ) )
 		{
 			//	ANITILE_PARAMS	AniParams;
 			//		memset( &AniParams, 0, sizeof( ANITILE_PARAMS ) );
@@ -5865,25 +5865,25 @@ void HandleRadioCursorClick(INT32 usMapPos, UINT32 *puiNewEvent)
 		if (iPathCost > 0)
 		{
 			// sevenfm: change from stationary/patrol etc
-			pTMilitiaSoldier->aiData.bOrders = STATIONARY;
-			pTMilitiaSoldier->aiData.bAttitude = DEFENSIVE;
+			pTMilitiaSoldier->aiBehavior().orders() = STATIONARY;
+			pTMilitiaSoldier->aiBehavior().attitude() = DEFENSIVE;
 
 			// sevenfm: set this spot as original point
-			pTMilitiaSoldier->aiData.sPatrolGrid[0] = sMoveSpot;
+			pTMilitiaSoldier->aiPlanning().patrolGrid()[0] = sMoveSpot;
 
 			CancelAIAction(pTMilitiaSoldier, TRUE);
 			if (fClimbingNecessary)
 			{
-				pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_MOVE_TO_CLIMB;
-				pTMilitiaSoldier->aiData.usNextActionData = sClimbSpot;
+				pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_MOVE_TO_CLIMB;
+				pTMilitiaSoldier->aiPlanning().nextActionData() = sClimbSpot;
 				pTMilitiaSoldier->movement().absoluteDestination() = sMoveSpot;
 
 				BeginMultiPurposeLocator(sClimbSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}
 			else
 			{
-				pTMilitiaSoldier->aiData.bNextAction = AI_ACTION_SEEK_OPPONENT;
-				pTMilitiaSoldier->aiData.usNextActionData = sMoveSpot;
+				pTMilitiaSoldier->aiPlanning().nextAction() = AI_ACTION_SEEK_OPPONENT;
+				pTMilitiaSoldier->aiPlanning().nextActionData() = sMoveSpot;
 
 				BeginMultiPurposeLocator(sMoveSpot, pTMilitiaSoldier->position().level(), FALSE);
 			}
@@ -6084,7 +6084,7 @@ void HandleHandCursorClick( INT32 usMapPos, UINT32 *puiNewEvent )
 				else
 				{
 					// Check morale, if < threashold, refuse...
-					if ( pSoldier->aiData.bMorale < 30 )
+					if ( pSoldier->morale().morale() < 30 )
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_REFUSING_ORDER );
 					}
@@ -8026,7 +8026,7 @@ void HandleTBCycleThroughVisibleEnemies( void )
 		
 	if ( pSoldier )
 	{
-		if ( pSoldier->aiData.bOppCnt > 0 )
+		if ( pSoldier->awareness().opponentCount() > 0 )
 		{
 			// Cycle....
 			CycleVisibleEnemies( pSoldier );
@@ -8047,7 +8047,7 @@ void HandleTBCycleThroughVisibleEnemiesBackward( void )
 	
 	if ( pSoldier )
 	{
-		if ( pSoldier->aiData.bOppCnt > 0 )
+		if ( pSoldier->awareness().opponentCount() > 0 )
 		{
 			// Cycle....
 			CycleVisibleEnemiesBackward( pSoldier );
@@ -9556,7 +9556,7 @@ void HandleTacticalTransformScope(void)
 				gpItemDescObject = NULL;
 				gpItemDescOrigAttachmentObject = NULL;
 
-				pSoldier->aiData.bShownAimTime = 0;
+				pSoldier->aiPlanning().shownAimTime() = 0;
 				DirtyMercPanelInterface(pSoldier, DIRTYLEVEL2);
 				gfUIForceReExamineCursorData = TRUE;
 

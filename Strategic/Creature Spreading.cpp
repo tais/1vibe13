@@ -736,7 +736,7 @@ static void AddCreaturesToBattle( UINT8 ubNumYoungMales, UINT8 ubNumYoungFemales
 		pSoldier->deployment().insertionDirection() = bDesiredDirection;
 		//Setup the position
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		pSoldier->aiData.bHunting = TRUE;
+		pSoldier->aiBehavior().hunting() = TRUE;
 		if( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
 		{
 			if( ubCurrSlot < MapEdgepointInfo.ubNumPoints )
@@ -812,7 +812,7 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 
 		//Setup the position
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
-		pSoldier->aiData.bHunting = TRUE;
+		pSoldier->aiBehavior().hunting() = TRUE;
 
 		if ( gsCreatureInsertionCode != INSERTION_CODE_GRIDNO )
 		{
@@ -837,8 +837,8 @@ static void AddCreaturesToBattle_Other( UINT8 ubNum )
 		if ( pSoldier )
 		{
 			// send soldier to centre of map, roughly
-			pSoldier->aiData.sNoiseGridno = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
-			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+			pSoldier->perception().noiseGrid() = ( CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS );
+			pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 		}
 	}
 	

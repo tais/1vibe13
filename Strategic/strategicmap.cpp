@@ -3076,7 +3076,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 								{
 									AddCharacterToUniqueSquad( pSoldier );
 									ubPOWSquad = pSoldier->assignment().current();
-									pSoldier->aiData.bNeutral = FALSE;
+									pSoldier->aiBehavior().neutral() = FALSE;
 								}
 							}
 							else
@@ -3145,7 +3145,7 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 			if ( pSoldier->ubProfile != NO_PROFILE && gMercProfiles[pSoldier->ubProfile].ubMiscFlags3 & PROFILE_MISC_FLAG3_PERMANENT_INSERTION_CODE )
 			{
 				// override orders
-				pSoldier->aiData.bOrders = STATIONARY;
+				pSoldier->aiBehavior().orders() = STATIONARY;
 			}
 
 			if (pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_SECONDARY_EDGEINDEX && (
@@ -5721,7 +5721,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHEAST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)NORTHEAST ) );
 
@@ -5734,7 +5734,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHEAST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		break;
 
@@ -5750,7 +5750,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHWEST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)SOUTHWEST ) );
 
@@ -5763,7 +5763,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHWEST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 		break;
 
 	case NORTH:
@@ -5778,7 +5778,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHWEST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)NORTHWEST ) );
 
@@ -5791,7 +5791,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = NORTHWEST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		break;
 
@@ -5807,7 +5807,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHEAST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 
 		sTempGridNo = NewGridNo( sNewGridNo, (UINT16)DirectionInc( (UINT8)SOUTHEAST ) );
 
@@ -5820,7 +5820,7 @@ void AdjustSoldierPathToGoOffEdge( SOLDIERTYPE *pSoldier, INT32 sEndGridNo, UINT
 		pSoldier->pathing().path()[pSoldier->pathing().pathSize()] = SOUTHEAST;
 		pSoldier->pathing().pathSize()++;
 		pSoldier->pathing().finalDestinationGrid() = sNewGridNo;
-		pSoldier->aiData.usActionData = sNewGridNo;
+		pSoldier->aiPlanning().actionData() = sNewGridNo;
 		break;
 
 	}

@@ -138,6 +138,21 @@ void SoldierAiPlanningComponent::reset() noexcept
 	*this = SoldierAiPlanningComponent{};
 }
 
+void SoldierAiBehaviorComponent::reset() noexcept
+{
+	*this = SoldierAiBehaviorComponent{};
+}
+
+void SoldierAiCommunicationComponent::reset() noexcept
+{
+	*this = SoldierAiCommunicationComponent{};
+}
+
+void SoldierMoraleComponent::reset() noexcept
+{
+	*this = SoldierMoraleComponent{};
+}
+
 void SoldierSkillStateComponent::ageTurnCounters() noexcept
 {
 	for (UINT8 index = 0; index < SOLDIER_COUNTER_MAX; ++index)
@@ -713,9 +728,9 @@ void SoldierMovementComponent::reset() noexcept
 	*this = SoldierMovementComponent{};
 }
 
-void SoldierInterruptSnapshotComponent::reset() noexcept
+void SoldierTurnStateComponent::reset() noexcept
 {
-	*this = SoldierInterruptSnapshotComponent{};
+	*this = SoldierTurnStateComponent{};
 }
 
 void SoldierTargetingComponent::selectLocation(

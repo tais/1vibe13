@@ -63,6 +63,12 @@ enum
 	NUM_ASSIST_SLOTS = 156,
 };
 
+// Fixed patrol capacity from the established soldier save schema.
+enum
+{
+	SOLDIER_PATROL_GRID_COUNT = 10,
+};
+
 // Stable indices and capacity for persistent drug effects. The unused slots
 // are part of the established save schema and remain serialized.
 enum
@@ -538,15 +544,42 @@ private:
 	UINT16 lastRealtimeMovementAnimation_ = 0;
 };
 
-// Canonical tactical-AI planning scratch for one actor. Flanking progress,
-// sniper posture, and modular plan selection are execution state rather than
-// permanent character data; keeping them together gives AI turns one explicit
-// reset boundary and prevents narrow progress counters from wrapping.
+// Canonical tactical-AI action plan for one actor. Current/queued actions,
+// patrol progress, aiming cadence, flanking progress, sniper posture, and
+// modular plan selection share one reset boundary. The component owns state,
+// not AI policy or installed content.
 class SoldierAiPlanningComponent
 {
 public:
+	using PatrolGrid = INT32[SOLDIER_PATROL_GRID_COUNT];
 	static constexpr INT8 MaximumFlankCount = 127;
 
+	INT8& lastAction() noexcept { return lastAction_; }
+	const INT8& lastAction() const noexcept { return lastAction_; }
+	INT8& action() noexcept { return action_; }
+	const INT8& action() const noexcept { return action_; }
+	INT32& actionData() noexcept { return actionData_; }
+	const INT32& actionData() const noexcept { return actionData_; }
+	INT8& nextAction() noexcept { return nextAction_; }
+	const INT8& nextAction() const noexcept { return nextAction_; }
+	INT32& nextActionData() noexcept { return nextActionData_; }
+	const INT32& nextActionData() const noexcept { return nextActionData_; }
+	INT8& actionInProgress() noexcept { return actionInProgress_; }
+	const INT8& actionInProgress() const noexcept { return actionInProgress_; }
+	INT8& nextTargetLevel() noexcept { return nextTargetLevel_; }
+	const INT8& nextTargetLevel() const noexcept { return nextTargetLevel_; }
+	INT8& dominantDirection() noexcept { return dominantDirection_; }
+	const INT8& dominantDirection() const noexcept { return dominantDirection_; }
+	INT8& patrolCount() noexcept { return patrolCount_; }
+	const INT8& patrolCount() const noexcept { return patrolCount_; }
+	INT8& nextPatrolPoint() noexcept { return nextPatrolPoint_; }
+	const INT8& nextPatrolPoint() const noexcept { return nextPatrolPoint_; }
+	PatrolGrid& patrolGrid() noexcept { return patrolGrid_; }
+	const PatrolGrid& patrolGrid() const noexcept { return patrolGrid_; }
+	INT16& aimTime() noexcept { return aimTime_; }
+	const INT16& aimTime() const noexcept { return aimTime_; }
+	INT8& shownAimTime() noexcept { return shownAimTime_; }
+	const INT8& shownAimTime() const noexcept { return shownAimTime_; }
 	INT8& flankCount() noexcept { return flankCount_; }
 	const INT8& flankCount() const noexcept { return flankCount_; }
 	INT32& flankAnchorGrid() noexcept { return flankAnchorGrid_; }
@@ -564,8 +597,15 @@ public:
 	{
 		return flankCount_ > 0 && flankCount_ < terminalCount;
 	}
+	bool hasActionInProgress() const noexcept { return actionInProgress_ != 0; }
+	bool hasPatrolRoute() const noexcept { return patrolCount_ > 0; }
 	bool sniperPostureActive() const noexcept { return sniperPosture_ != 0; }
 	bool hasPlanIndex() const noexcept { return planIndex_ != 0; }
+	void queueAction(INT8 action, INT32 data) noexcept
+	{
+		nextAction_ = action;
+		nextActionData_ = data;
+	}
 	void recordFlankStep(INT32 anchorGrid, INT16 originDirection) noexcept;
 	void advanceFlank() noexcept;
 	void finishFlank(INT8 terminalCount) noexcept { flankCount_ = terminalCount; }
@@ -576,12 +616,132 @@ public:
 	void reset() noexcept;
 
 private:
+	INT8 lastAction_ = 0;
+	INT8 action_ = 0;
+	INT32 actionData_ = 0;
+	INT8 nextAction_ = 0;
+	INT32 nextActionData_ = 0;
+	INT8 actionInProgress_ = 0;
+	INT8 nextTargetLevel_ = 0;
+	INT8 dominantDirection_ = 0;
+	INT8 patrolCount_ = 0;
+	INT8 nextPatrolPoint_ = 0;
+	PatrolGrid patrolGrid_{};
+	INT16 aimTime_ = 0;
+	INT8 shownAimTime_ = 0;
 	INT8 flankCount_ = 0;
 	INT32 flankAnchorGrid_ = 0;
 	INT8 sniperPosture_ = 0;
 	INT16 flankOriginDirection_ = 0;
 	INT16 planIndex_ = 0;
 	BOOLEAN lastFlankLeft_ = FALSE;
+};
+
+// Canonical tactical-AI behavioral mode. Alertness, orders, attitude, escort
+// status, scheduling flags, and creature movement modes are independent from
+// the selected action and from sensory knowledge.
+class SoldierAiBehaviorComponent
+{
+public:
+	INT8& alertStatus() noexcept { return alertStatus_; }
+	const INT8& alertStatus() const noexcept { return alertStatus_; }
+	INT8& neutral() noexcept { return neutral_; }
+	const INT8& neutral() const noexcept { return neutral_; }
+	INT8& newSituation() noexcept { return newSituation_; }
+	const INT8& newSituation() const noexcept { return newSituation_; }
+	INT8& orders() noexcept { return orders_; }
+	const INT8& orders() const noexcept { return orders_; }
+	INT8& attitude() noexcept { return attitude_; }
+	const INT8& attitude() const noexcept { return attitude_; }
+	INT8& underEscort() noexcept { return underEscort_; }
+	const INT8& underEscort() const noexcept { return underEscort_; }
+	INT8& bypassToGreen() noexcept { return bypassToGreen_; }
+	const INT8& bypassToGreen() const noexcept { return bypassToGreen_; }
+	INT8& hunting() noexcept { return hunting_; }
+	const INT8& hunting() const noexcept { return hunting_; }
+	INT8& mobility() noexcept { return mobility_; }
+	const INT8& mobility() const noexcept { return mobility_; }
+	INT8& realtimeCombat() noexcept { return realtimeCombat_; }
+	const INT8& realtimeCombat() const noexcept { return realtimeCombat_; }
+	INT8& flags() noexcept { return flags_; }
+	const INT8& flags() const noexcept { return flags_; }
+
+	bool hasFlag(INT8 flag) const noexcept { return (flags_ & flag) != 0; }
+	void setFlag(INT8 flag) noexcept { flags_ = static_cast<INT8>(flags_ | flag); }
+	void clearFlag(INT8 flag) noexcept { flags_ = static_cast<INT8>(flags_ & ~flag); }
+	void reset() noexcept;
+
+private:
+	INT8 alertStatus_ = 0;
+	INT8 neutral_ = 0;
+	INT8 newSituation_ = 0;
+	INT8 orders_ = 0;
+	INT8 attitude_ = 0;
+	INT8 underEscort_ = 0;
+	INT8 bypassToGreen_ = 0;
+	INT8 hunting_ = 0;
+	INT8 mobility_ = 0;
+	INT8 realtimeCombat_ = 0;
+	INT8 flags_ = 0;
+};
+
+// Canonical radio/call exchange state used by human and creature AI.
+class SoldierAiCommunicationComponent
+{
+public:
+	UINT8& lastMercToRadio() noexcept { return lastMercToRadio_; }
+	const UINT8& lastMercToRadio() const noexcept { return lastMercToRadio_; }
+	UINT8& lastCall() noexcept { return lastCall_; }
+	const UINT8& lastCall() const noexcept { return lastCall_; }
+	SoldierID& caller() noexcept { return caller_; }
+	const SoldierID& caller() const noexcept { return caller_; }
+	INT32& callerGrid() noexcept { return callerGrid_; }
+	const INT32& callerGrid() const noexcept { return callerGrid_; }
+	UINT8& callPriority() noexcept { return callPriority_; }
+	const UINT8& callPriority() const noexcept { return callPriority_; }
+	INT8& callActedUpon() noexcept { return callActedUpon_; }
+	const INT8& callActedUpon() const noexcept { return callActedUpon_; }
+
+	bool hasUnansweredCall() const noexcept { return callPriority_ != 0 && callActedUpon_ == 0; }
+	void reset() noexcept;
+
+private:
+	UINT8 lastMercToRadio_ = 0;
+	UINT8 lastCall_ = 0;
+	SoldierID caller_{ static_cast<UINT16>(0) };
+	INT32 callerGrid_ = 0;
+	UINT8 callPriority_ = 0;
+	INT8 callActedUpon_ = 0;
+};
+
+// Canonical personal and tactical morale state. Strategic/tactical/team
+// modifiers remain distinct because established rules update them separately.
+class SoldierMoraleComponent
+{
+public:
+	INT8& morale() noexcept { return morale_; }
+	const INT8& morale() const noexcept { return morale_; }
+	INT8& teamModifier() noexcept { return teamModifier_; }
+	const INT8& teamModifier() const noexcept { return teamModifier_; }
+	INT8& tacticalModifier() noexcept { return tacticalModifier_; }
+	const INT8& tacticalModifier() const noexcept { return tacticalModifier_; }
+	INT8& strategicModifier() noexcept { return strategicModifier_; }
+	const INT8& strategicModifier() const noexcept { return strategicModifier_; }
+	INT8& aiMorale() noexcept { return aiMorale_; }
+	const INT8& aiMorale() const noexcept { return aiMorale_; }
+	INT8& frenzied() noexcept { return frenzied_; }
+	const INT8& frenzied() const noexcept { return frenzied_; }
+
+	bool isFrenzied() const noexcept { return frenzied_ != 0; }
+	void reset() noexcept;
+
+private:
+	INT8 morale_ = 0;
+	INT8 teamModifier_ = 0;
+	INT8 tacticalModifier_ = 0;
+	INT8 strategicModifier_ = 0;
+	INT8 aiMorale_ = 0;
+	INT8 frenzied_ = 0;
 };
 
 // Canonical skill execution and persistence state. Repeated mechanical checks,
@@ -1091,9 +1251,9 @@ private:
 };
 
 // Canonical sensory state and short-lived perception effects. View range,
-// directional movement-noise memory, heard-noise elevation, blindness,
-// deafness, and X-ray lifetime share one reset boundary without owning the
-// opponent list or presentation visibility.
+// personal noise and smell memory, X-ray source/lifetime, blindness, and
+// deafness share one reset boundary without owning opponent knowledge or
+// presentation visibility.
 class SoldierPerceptionComponent
 {
 public:
@@ -1109,6 +1269,16 @@ public:
 	const UINT32& xrayActivatedAt() const noexcept { return xrayActivatedAt_; }
 	INT8& deafnessTurns() noexcept { return deafnessTurns_; }
 	const INT8& deafnessTurns() const noexcept { return deafnessTurns_; }
+	INT32& noiseGrid() noexcept { return noiseGrid_; }
+	const INT32& noiseGrid() const noexcept { return noiseGrid_; }
+	UINT8& noiseVolume() noexcept { return noiseVolume_; }
+	const UINT8& noiseVolume() const noexcept { return noiseVolume_; }
+	SoldierID& xraySource() noexcept { return xraySource_; }
+	const SoldierID& xraySource() const noexcept { return xraySource_; }
+	INT8& normalSmell() noexcept { return normalSmell_; }
+	const INT8& normalSmell() const noexcept { return normalSmell_; }
+	INT8& monsterSmell() noexcept { return monsterSmell_; }
+	const INT8& monsterSmell() const noexcept { return monsterSmell_; }
 
 	bool isBlinded() const noexcept { return blindnessTurns_ > 0; }
 	bool isDeafened() const noexcept { return deafnessTurns_ > 0; }
@@ -1128,6 +1298,11 @@ public:
 	void ageDeafness() noexcept;
 	void activateXrayAt(UINT32 worldSeconds) noexcept { xrayActivatedAt_ = worldSeconds; }
 	void deactivateXray() noexcept { xrayActivatedAt_ = 0; }
+	void clearNoise() noexcept
+	{
+		noiseGrid_ = -1;
+		noiseVolume_ = 0;
+	}
 	void reset() noexcept;
 
 private:
@@ -1137,16 +1312,22 @@ private:
 	INT8 heardNoiseLevel_ = 0;
 	UINT32 xrayActivatedAt_ = 0;
 	INT8 deafnessTurns_ = 0;
+	INT32 noiseGrid_ = 0;
+	UINT8 noiseVolume_ = 0;
+	SoldierID xraySource_{ static_cast<UINT16>(0) };
+	INT8 normalSmell_ = 0;
+	INT8 monsterSmell_ = 0;
 };
 
 // Canonical tactical awareness state. This owns whether the player currently
 // knows where the soldier is, the last visibility consumed by rendering, the
-// count of newly discovered opponents, and the movement distance used to age
-// stale opponent knowledge. Sensory capability remains in
-// SoldierPerceptionComponent; opponent lists remain in the AI data adapter.
+// local opponent-knowledge table and counts, and the movement distance used to
+// age stale knowledge. Sensory capability remains in SoldierPerceptionComponent.
 class SoldierAwarenessComponent
 {
 public:
+	using OpponentKnowledge = INT8[MAX_NUM_SOLDIERS];
+
 	INT8& visibility() noexcept { return visibility_; }
 	const INT8& visibility() const noexcept { return visibility_; }
 	INT8& lastRenderedVisibility() noexcept { return lastRenderedVisibility_; }
@@ -1155,6 +1336,10 @@ public:
 	const INT8& newOpponentCount() const noexcept { return newOpponentCount_; }
 	UINT8& tilesSinceForget() noexcept { return tilesSinceForget_; }
 	const UINT8& tilesSinceForget() const noexcept { return tilesSinceForget_; }
+	OpponentKnowledge& opponentKnowledge() noexcept { return opponentKnowledge_; }
+	const OpponentKnowledge& opponentKnowledge() const noexcept { return opponentKnowledge_; }
+	INT8& opponentCount() noexcept { return opponentCount_; }
+	const INT8& opponentCount() const noexcept { return opponentCount_; }
 
 	bool visibleNow() const noexcept { return visibility_ == TRUE; }
 	bool fullyHidden() const noexcept { return visibility_ == -1; }
@@ -1198,6 +1383,8 @@ private:
 	INT8 lastRenderedVisibility_ = 0;
 	INT8 newOpponentCount_ = 0;
 	UINT8 tilesSinceForget_ = 0;
+	OpponentKnowledge opponentKnowledge_{};
+	INT8 opponentCount_ = 0;
 };
 
 // Canonical personal camouflage state. Applied kit and worn-equipment values
@@ -1603,6 +1790,8 @@ public:
 	const UINT8& direction() const noexcept { return direction_; }
 	INT16& heightAdjustment() noexcept { return heightAdjustment_; }
 	const INT16& heightAdjustment() const noexcept { return heightAdjustment_; }
+	FLOAT& animationHeightAdjustment() noexcept { return animationHeightAdjustment_; }
+	const FLOAT& animationHeightAdjustment() const noexcept { return animationHeightAdjustment_; }
 	INT16& desiredHeight() noexcept { return desiredHeight_; }
 	const INT16& desiredHeight() const noexcept { return desiredHeight_; }
 	INT32& temporaryGrid() noexcept { return temporaryGrid_; }
@@ -1632,6 +1821,7 @@ private:
 	INT8 level_ = 0;
 	UINT8 direction_ = 0;
 	INT16 heightAdjustment_ = 0;
+	FLOAT animationHeightAdjustment_ = 0;
 	INT16 desiredHeight_ = 0;
 	INT32 temporaryGrid_ = 0;
 	INT16 roomNo_ = 0;
@@ -1889,20 +2079,37 @@ private:
 	UINT8 waitAction_ = 0;
 };
 
-// Canonical snapshot used while an interrupt temporarily rewrites the AI turn
-// scheduler's moved flag. Interrupt begin captures the established value and
-// interrupt end restores it through this component.
-class SoldierInterruptSnapshotComponent
+// Canonical tactical turn and interrupt state. The scheduler's moved state,
+// interrupt duel budget/snapshot, and per-opponent interrupt counters share
+// one owner so interrupt entry and restoration cannot diverge.
+class SoldierTurnStateComponent
 {
 public:
+	using InterruptCounters = UINT8[MAX_NUM_SOLDIERS];
+
+	INT8& interruptDuelPoints() noexcept { return interruptDuelPoints_; }
+	const INT8& interruptDuelPoints() const noexcept { return interruptDuelPoints_; }
+	INT8& passedLastInterrupt() noexcept { return passedLastInterrupt_; }
+	const INT8& passedLastInterrupt() const noexcept { return passedLastInterrupt_; }
+	INT16& interruptStartActionPoints() noexcept { return interruptStartActionPoints_; }
+	const INT16& interruptStartActionPoints() const noexcept { return interruptStartActionPoints_; }
+	INT8& moved() noexcept { return moved_; }
+	const INT8& moved() const noexcept { return moved_; }
 	INT8& movedBeforeInterrupt() noexcept { return movedBeforeInterrupt_; }
 	const INT8& movedBeforeInterrupt() const noexcept { return movedBeforeInterrupt_; }
+	InterruptCounters& interruptCounters() noexcept { return interruptCounters_; }
+	const InterruptCounters& interruptCounters() const noexcept { return interruptCounters_; }
 
 	void captureMoved(INT8 moved) noexcept { movedBeforeInterrupt_ = moved; }
 	void reset() noexcept;
 
 private:
+	INT8 interruptDuelPoints_ = 0;
+	INT8 passedLastInterrupt_ = 0;
+	INT16 interruptStartActionPoints_ = 0;
+	INT8 moved_ = 0;
 	INT8 movedBeforeInterrupt_ = 0;
+	InterruptCounters interruptCounters_{};
 };
 
 // Canonical tactical target selection. Attack execution, UI, AI, and network
@@ -2159,6 +2366,8 @@ public:
 	const INT8& pelletsHitBy() const noexcept { return pelletsHitBy_; }
 	INT16& accumulatedDamage() noexcept { return accumulatedDamage_; }
 	const INT16& accumulatedDamage() const noexcept { return accumulatedDamage_; }
+	INT8& lastAttackHit() noexcept { return lastAttackHit_; }
+	const INT8& lastAttackHit() const noexcept { return lastAttackHit_; }
 
 	bool hasCurrentAttacker() const noexcept { return currentAttacker_ != NOBODY; }
 	void recordHit(SoldierID attacker, UINT8 location) noexcept;
@@ -2176,6 +2385,7 @@ private:
 	INT8 hitsThisTurn_ = 0;
 	INT8 pelletsHitBy_ = 0;
 	INT16 accumulatedDamage_ = 0;
+	INT8 lastAttackHit_ = 0;
 };
 
 // Canonical outgoing combat-credit record. Tactical combat and autoresolve

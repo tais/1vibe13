@@ -1577,7 +1577,7 @@ void RenderOverheadOverlays()
 				// Flugente: if we are a (still covert) enemy assassin, colour us like militia, so that the player wont notice us
 				if ( pSoldier->usSoldierFlagMask & SOLDIER_ASSASSIN && pSoldier->usSoldierFlagMask & SOLDIER_COVERT_SOLDIER )
 					Blt8BPPDataTo16BPPBufferTransparent((PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, MILITIA_TEAM );
-				else if ( pSoldier->bTeam == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiData.bNeutral && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )
+				else if ( pSoldier->bTeam == CIV_TEAM && gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->aiBehavior().neutral() && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )
 					Blt8BPPDataTo16BPPBufferTransparent( (PIXEL *)pDestBuf, uiDestPitchBYTES, hVObject, sX, sY, PLAYER_PLAN );
 				// Flugente 18-04-15: observed an odd bug: if we play with a release build and see a creature for the first time, their overhead/radar map pins do not have the correct colour.
 				// Bizarrely enough, the issue seems dependent on the colour value (pink, RGB: 255/0/255) itself.

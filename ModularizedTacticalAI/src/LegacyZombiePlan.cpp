@@ -19,7 +19,7 @@ namespace AI
 
         void LegacyZombiePlan::execute(PlanInputData& environment)
         {
-            get_npc()->aiData.bAction = ZombieDecideAction(get_npc());
+            get_npc()->aiPlanning().action() = ZombieDecideAction(get_npc());
         }
     }
 }

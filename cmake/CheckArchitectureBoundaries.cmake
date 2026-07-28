@@ -1846,37 +1846,307 @@ endif()
 # but the live values must have exactly one in-memory owner:
 # SoldierVitalsComponent.
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_AIData//last edited at version 102"
-  current_soldier_ai_begin)
-string(FIND "${soldier_control_header_contents}"
-  "// forward declaration for modularized tactical ai"
-  current_soldier_ai_end)
-string(FIND "${soldier_control_header_contents}"
   "class SOLDIERTYPE//last edited at version 102"
   current_soldier_begin)
 string(FIND "${soldier_control_header_contents}"
   "#define SIZEOF_SOLDIERTYPE_POD"
   current_soldier_end)
-if(current_soldier_ai_begin EQUAL -1 OR
-   current_soldier_ai_end EQUAL -1 OR
-   current_soldier_begin EQUAL -1 OR
+if(current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/AI declaration boundaries for the soldier-component ownership check")
+    "Could not locate the current soldier declaration boundary for the soldier-component ownership check")
 endif()
-math(EXPR current_soldier_ai_length
-  "${current_soldier_ai_end} - ${current_soldier_ai_begin}")
 math(EXPR current_soldier_length
   "${current_soldier_end} - ${current_soldier_begin}")
-string(SUBSTRING "${soldier_control_header_contents}"
-  ${current_soldier_ai_begin} ${current_soldier_ai_length}
-  current_soldier_ai_contents)
+# STRUCT_AIData and STRUCT_Flags have no current runtime declarations. Keep
+# empty compatibility slices so older ownership ratchets continue to guard
+# their retired fields.
+set(current_soldier_ai_contents "")
 # STRUCT_Flags has no current runtime declaration. Keep the empty compatibility
 # slice so older ownership ratchets continue to guard against field regressions.
 set(current_soldier_flags_contents "")
 string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_begin} ${current_soldier_length}
   current_soldier_contents)
+
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Components.h"
+  soldier_components_header_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Soldier Control.cpp"
+  soldier_control_source_contents)
+file(READ "${SOURCE_ROOT}/Ja2/SaveLoadGame.cpp"
+  save_load_game_contents)
+file(READ "${SOURCE_ROOT}/docs/ENGINE_ARCHITECTURE.md"
+  engine_architecture_documentation)
+file(READ "${SOURCE_ROOT}/docs/ENGINE_SDK.md"
+  engine_sdk_documentation)
+file(READ "${SOURCE_ROOT}/docs/SAVE_FORMAT.md"
+  save_format_documentation)
+
+# The generic AI-data compatibility wrapper is fully retired. Its historical
+# save sequence remains in XferAIData, but each live value has one behavioral
+# owner and production code must use that owner directly.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_AIData"
+  retired_soldier_ai_data_declaration)
+if(NOT retired_soldier_ai_data_declaration EQUAL -1)
+  message(FATAL_ERROR
+    "Retired STRUCT_AIData returned; AI state belongs to explicit soldier domain components")
+endif()
+
+foreach(required_ai_owner_pattern IN ITEMS
+  "SoldierAiPlanningComponent[ \t\r\n]+aiPlanning_[ \t]*;"
+  "SoldierAiBehaviorComponent[ \t\r\n]+aiBehavior_[ \t]*;"
+  "SoldierAiCommunicationComponent[ \t\r\n]+aiCommunication_[ \t]*;"
+  "SoldierMoraleComponent[ \t\r\n]+morale_[ \t]*;"
+  "SoldierAwarenessComponent[ \t\r\n]+awareness_[ \t]*;"
+  "SoldierPerceptionComponent[ \t\r\n]+perception_[ \t]*;"
+  "SoldierPositionComponent[ \t\r\n]+position_[ \t]*;"
+  "SoldierTurnStateComponent[ \t\r\n]+turnState_[ \t]*;"
+  "SoldierCombatResultComponent[ \t\r\n]+combatResult_[ \t]*;")
+  string(REGEX MATCH
+    "${required_ai_owner_pattern}"
+    required_soldier_ai_owner
+    "${current_soldier_contents}")
+  if(NOT required_soldier_ai_owner)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost a private owner required by the retired AI-data boundary: '${required_ai_owner_pattern}'")
+  endif()
+endforeach()
+
+foreach(required_ai_accessor IN ITEMS
+  "SoldierAiPlanningComponent& aiPlanning() noexcept"
+  "const SoldierAiPlanningComponent& aiPlanning() const noexcept"
+  "SoldierAiBehaviorComponent& aiBehavior() noexcept"
+  "const SoldierAiBehaviorComponent& aiBehavior() const noexcept"
+  "SoldierAiCommunicationComponent& aiCommunication() noexcept"
+  "const SoldierAiCommunicationComponent& aiCommunication() const noexcept"
+  "SoldierMoraleComponent& morale() noexcept"
+  "const SoldierMoraleComponent& morale() const noexcept"
+  "SoldierAwarenessComponent& awareness() noexcept"
+  "const SoldierAwarenessComponent& awareness() const noexcept"
+  "SoldierPerceptionComponent& perception() noexcept"
+  "const SoldierPerceptionComponent& perception() const noexcept"
+  "SoldierPositionComponent& position() noexcept"
+  "const SoldierPositionComponent& position() const noexcept"
+  "SoldierTurnStateComponent& turnState() noexcept"
+  "const SoldierTurnStateComponent& turnState() const noexcept"
+  "SoldierCombatResultComponent& combatResult() noexcept"
+  "const SoldierCombatResultComponent& combatResult() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_ai_accessor}"
+    required_soldier_ai_accessor)
+  if(required_soldier_ai_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost const/mutable AI-domain accessor '${required_ai_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_ai_storage IN ITEMS
+  "INT8 lastAction_ = 0;"
+  "INT8 action_ = 0;"
+  "INT32 actionData_ = 0;"
+  "INT8 nextAction_ = 0;"
+  "INT32 nextActionData_ = 0;"
+  "INT8 actionInProgress_ = 0;"
+  "INT8 nextTargetLevel_ = 0;"
+  "INT8 dominantDirection_ = 0;"
+  "INT8 patrolCount_ = 0;"
+  "INT8 nextPatrolPoint_ = 0;"
+  "PatrolGrid patrolGrid_{};"
+  "INT16 aimTime_ = 0;"
+  "INT8 shownAimTime_ = 0;"
+  "INT8 alertStatus_ = 0;"
+  "INT8 neutral_ = 0;"
+  "INT8 newSituation_ = 0;"
+  "INT8 orders_ = 0;"
+  "INT8 attitude_ = 0;"
+  "INT8 underEscort_ = 0;"
+  "INT8 bypassToGreen_ = 0;"
+  "INT8 hunting_ = 0;"
+  "INT8 mobility_ = 0;"
+  "INT8 realtimeCombat_ = 0;"
+  "INT8 flags_ = 0;"
+  "UINT8 lastMercToRadio_ = 0;"
+  "UINT8 lastCall_ = 0;"
+  "SoldierID caller_{ static_cast<UINT16>(0) };"
+  "INT32 callerGrid_ = 0;"
+  "UINT8 callPriority_ = 0;"
+  "INT8 callActedUpon_ = 0;"
+  "INT8 morale_ = 0;"
+  "INT8 teamModifier_ = 0;"
+  "INT8 tacticalModifier_ = 0;"
+  "INT8 strategicModifier_ = 0;"
+  "INT8 aiMorale_ = 0;"
+  "INT8 frenzied_ = 0;"
+  "OpponentKnowledge opponentKnowledge_{};"
+  "INT8 opponentCount_ = 0;"
+  "INT32 noiseGrid_ = 0;"
+  "UINT8 noiseVolume_ = 0;"
+  "SoldierID xraySource_{ static_cast<UINT16>(0) };"
+  "INT8 normalSmell_ = 0;"
+  "INT8 monsterSmell_ = 0;"
+  "FLOAT animationHeightAdjustment_ = 0;"
+  "INT8 lastAttackHit_ = 0;"
+  "INT8 interruptDuelPoints_ = 0;"
+  "INT8 passedLastInterrupt_ = 0;"
+  "INT16 interruptStartActionPoints_ = 0;"
+  "INT8 moved_ = 0;"
+  "InterruptCounters interruptCounters_{};")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_ai_storage}"
+    required_soldier_ai_storage)
+  if(required_soldier_ai_storage EQUAL -1)
+    message(FATAL_ERROR
+      "A retired AI-data value lost its typed, initialized domain storage: '${required_ai_storage}'")
+  endif()
+endforeach()
+
+foreach(required_ai_reset IN ITEMS
+  "aiPlanning().reset();"
+  "aiBehavior().reset();"
+  "aiCommunication().reset();"
+  "morale().reset();"
+  "awareness().reset();"
+  "perception().reset();"
+  "position().reset();"
+  "turnState().reset();"
+  "combatResult().reset();")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_ai_reset}"
+    required_soldier_ai_reset)
+  if(required_soldier_ai_reset EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier initialization/conversion lost AI-domain reset '${required_ai_reset}'")
+  endif()
+endforeach()
+
+foreach(required_ai_save_fragment IN ITEMS
+  "for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.i8(awareness.opponentKnowledge()[i]);"
+  "ar.i8(planning.lastAction()); ar.i8(planning.action()); ar.i32(planning.actionData());"
+  "ar.i8(planning.nextAction()); ar.i32(planning.nextActionData());"
+  "ar.i8(planning.actionInProgress()); ar.i8(behavior.alertStatus()); ar.i8(awareness.opponentCount()); ar.i8(behavior.neutral());"
+  "ar.i8(behavior.newSituation()); ar.i8(planning.nextTargetLevel()); ar.i8(behavior.orders()); ar.i8(behavior.attitude());"
+  "ar.i8(suppression.underFire()); ar.i8(suppression.shock()); ar.i8(behavior.underEscort()); ar.i8(behavior.bypassToGreen());"
+  "ar.u8(communication.lastMercToRadio());"
+  "ar.i8(planning.dominantDirection()); ar.i8(planning.patrolCount()); ar.i8(planning.nextPatrolPoint());"
+  "for (i = 0; i < MAXPATROLGRIDS; ++i) ar.i32(planning.patrolGrid()[i]);"
+  "ar.i32(perception.noiseGrid()); ar.u8(perception.noiseVolume()); ar.i8(combatResult.lastAttackHit()); ar.u16(perception.xraySource().i);"
+  "ar.f32(position.animationHeightAdjustment());"
+  "ar.i8(morale.morale()); ar.i8(morale.teamModifier()); ar.i8(morale.tacticalModifier());"
+  "ar.i8(morale.strategicModifier()); ar.i8(morale.aiMorale());"
+  "ar.i8(turnState.interruptDuelPoints()); ar.i8(turnState.passedLastInterrupt()); ar.i16(turnState.interruptStartActionPoints());"
+  "ar.i8(turnState.moved()); ar.i8(behavior.hunting()); ar.u8(communication.lastCall());"
+  "ar.u16(communication.caller().i); ar.i32(communication.callerGrid()); ar.u8(communication.callPriority()); ar.i8(communication.callActedUpon());"
+  "ar.i8(morale.frenzied()); ar.i8(perception.normalSmell()); ar.i8(perception.monsterSmell()); ar.i8(behavior.mobility());"
+  "ar.i8(behavior.realtimeCombat()); ar.i8(behavior.flags()); ar.i16(planning.aimTime()); ar.i8(planning.shownAimTime());"
+  "for (i = 0; i < MAX_NUM_SOLDIERS; ++i) ar.u8(turnState.interruptCounters()[i]);")
+  string(FIND "${save_load_game_contents}"
+    "${required_ai_save_fragment}"
+    required_soldier_ai_save_fragment)
+  if(required_soldier_ai_save_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Retired AI-data field moved, changed width, or left its domain owner in XferAIData: '${required_ai_save_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_ai_v101_fragment IN ITEMS
+  "awareness().opponentKnowledge(), src.bOppList"
+  "aiPlanning().patrolGrid(), src.usPatrolGrid"
+  "aiPlanning().lastAction() = src.bLastAction"
+  "aiPlanning().action() = src.bAction"
+  "aiPlanning().actionData() = src.usActionData"
+  "aiPlanning().nextAction() = src.bNextAction"
+  "aiPlanning().nextActionData() = src.usNextActionData"
+  "aiPlanning().actionInProgress() = src.bActionInProgress"
+  "aiBehavior().alertStatus() = src.bAlertStatus"
+  "awareness().opponentCount() = src.bOppCnt"
+  "aiBehavior().neutral() = src.bNeutral"
+  "aiBehavior().newSituation() = src.bNewSituation"
+  "aiPlanning().nextTargetLevel() = src.bNextTargetLevel"
+  "aiBehavior().orders() = src.bOrders"
+  "aiBehavior().attitude() = src.bAttitude"
+  "aiBehavior().underEscort() = src.bUnderEscort"
+  "aiBehavior().bypassToGreen() = src.bBypassToGreen"
+  "aiCommunication().lastMercToRadio() = src.ubLastMercToRadio"
+  "aiPlanning().dominantDirection() = src.bDominantDir"
+  "aiPlanning().patrolCount() = src.bPatrolCnt"
+  "aiPlanning().nextPatrolPoint() = src.bNextPatrolPnt"
+  "perception().noiseGrid() = src.sNoiseGridNo"
+  "perception().noiseVolume() = src.ubNoiseVolume"
+  "combatResult().lastAttackHit() = src.bLastAttackHit"
+  "perception().xraySource() = static_cast<UINT16>( src.ubXRayedBy )"
+  "position().animationHeightAdjustment() = src.dHeightAdjustment"
+  "morale().morale() = src.bMorale"
+  "morale().teamModifier() = src.bTeamMoraleMod"
+  "morale().tacticalModifier() = src.bTacticalMoraleMod"
+  "morale().strategicModifier() = src.bStrategicMoraleMod"
+  "morale().aiMorale() = src.bAIMorale"
+  "turnState().interruptDuelPoints() = src.bInterruptDuelPts"
+  "turnState().passedLastInterrupt() = src.bPassedLastInterrupt"
+  "turnState().interruptStartActionPoints() = src.bIntStartAPs"
+  "turnState().moved() = src.bMoved"
+  "aiBehavior().hunting() = src.bHunting"
+  "aiCommunication().lastCall() = src.ubLastCall"
+  "aiCommunication().caller() = static_cast<UINT16>( src.ubCaller )"
+  "aiCommunication().callerGrid() = src.sCallerGridNo"
+  "aiCommunication().callPriority() = src.bCallPriority"
+  "aiCommunication().callActedUpon() = src.bCallActedUpon"
+  "morale().frenzied() = src.bFrenzied"
+  "perception().normalSmell() = src.bNormalSmell"
+  "perception().monsterSmell() = src.bMonsterSmell"
+  "aiBehavior().mobility() = src.bMobility"
+  "aiBehavior().realtimeCombat() = src.bRTPCombat"
+  "aiBehavior().flags() = src.fAIFlags"
+  "aiPlanning().aimTime() = src.bAimTime"
+  "aiPlanning().shownAimTime() = src.bShownAimTime")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_ai_v101_fragment}"
+    required_soldier_ai_v101_fragment)
+  if(required_soldier_ai_v101_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost retired AI-data mapping '${required_ai_v101_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_ai_headless_fragment IN ITEMS
+  "soldier copies retain every domain formerly held by STRUCT_AIData"
+  "soldier initialization resets every former AI-data domain to the established zero state"
+  "v101 soldier conversion maps the complete historical AI action, patrol, and aiming plan"
+  "v101 soldier conversion maps historical knowledge, perception, height, combat, and turn state while clearing later interrupt counters"
+  "soldier save/load round-trips the component-owned AI action, patrol, and aiming plan at every established position"
+  "soldier save/load round-trips component-owned AI knowledge, perception, height, combat, and interrupt state")
+  string(FIND "${headless_test_contents}"
+    "${required_ai_headless_fragment}"
+    required_soldier_ai_headless_fragment)
+  if(required_soldier_ai_headless_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost the retired AI-data regression '${required_ai_headless_fragment}'")
+  endif()
+endforeach()
+
+foreach(required_ai_documentation IN ITEMS
+  "ENGINE_ARCHITECTURE;remove `STRUCT_AIData` as a live catch-all without changing"
+  "ENGINE_SDK;not replacements for existing policy, plan, XML, or Lua APIs"
+  "SAVE_FORMAT;packet, map, XML, Lua, AI-plan, or installed-data bytes change.")
+  string(REPLACE ";" ";" required_ai_documentation_parts
+    "${required_ai_documentation}")
+  list(GET required_ai_documentation_parts 0 required_ai_documentation_name)
+  list(GET required_ai_documentation_parts 1 required_ai_documentation_fragment)
+  if(required_ai_documentation_name STREQUAL "ENGINE_ARCHITECTURE")
+    set(required_ai_documentation_contents "${engine_architecture_documentation}")
+  elseif(required_ai_documentation_name STREQUAL "ENGINE_SDK")
+    set(required_ai_documentation_contents "${engine_sdk_documentation}")
+  else()
+    set(required_ai_documentation_contents "${save_format_documentation}")
+  endif()
+  string(FIND "${required_ai_documentation_contents}"
+    "${required_ai_documentation_fragment}"
+    required_ai_documentation_position)
+  if(required_ai_documentation_position EQUAL -1)
+    message(FATAL_ERROR
+      "${required_ai_documentation_name} lost retired AI-data compatibility documentation '${required_ai_documentation_fragment}'")
+  endif()
+endforeach()
 
 foreach(retired_vital_field IN ITEMS
   bBleeding
@@ -6048,7 +6318,7 @@ foreach(employment_conversion IN ITEMS
 endforeach()
 
 string(REGEX MATCH
-  "ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
+  "ar\\.i8\\(turnState\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
   serialized_soldier_employment_contract_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8102,7 +8372,7 @@ string(REGEX MATCH
   "${current_soldier_contents}")
 if(retired_current_interrupt_snapshot)
   message(FATAL_ERROR
-    "Retired flat SOLDIERTYPE interrupt snapshot returned; scheduler restoration belongs to SoldierInterruptSnapshotComponent")
+    "Retired flat SOLDIERTYPE interrupt snapshot returned; scheduler restoration belongs to SoldierTurnStateComponent")
 endif()
 
 string(REGEX MATCH
@@ -8110,7 +8380,7 @@ string(REGEX MATCH
   soldier_melee_approach_owner
   "${current_soldier_contents}")
 string(REGEX MATCH
-  "SoldierInterruptSnapshotComponent[ \t\r\n]+interruptSnapshot_[ \t]*;"
+  "SoldierTurnStateComponent[ \t\r\n]+turnState_[ \t]*;"
   soldier_interrupt_snapshot_owner
   "${current_soldier_contents}")
 if(NOT soldier_melee_approach_owner OR NOT soldier_interrupt_snapshot_owner)
@@ -8136,7 +8406,7 @@ string(FIND "${soldier_components_header_contents}"
   owned_interrupt_snapshot_storage)
 if(owned_interrupt_snapshot_storage EQUAL -1)
   message(FATAL_ERROR
-    "SoldierInterruptSnapshotComponent lost initialized scheduler storage")
+    "SoldierTurnStateComponent lost initialized scheduler storage")
 endif()
 
 foreach(melee_approach_operation IN ITEMS
@@ -8161,7 +8431,7 @@ string(FIND "${soldier_control_header_contents}"
   "SoldierMeleeApproachComponent& meleeApproach() noexcept"
   soldier_melee_approach_accessor)
 string(FIND "${soldier_control_header_contents}"
-  "SoldierInterruptSnapshotComponent& interruptSnapshot() noexcept"
+  "SoldierTurnStateComponent& turnState() noexcept"
   soldier_interrupt_snapshot_accessor)
 string(REGEX MATCHALL
   "meleeApproach\\(\\)\\.reset\\(\\);"
@@ -8169,7 +8439,7 @@ string(REGEX MATCHALL
   "${soldier_control_source_contents}")
 list(LENGTH soldier_melee_approach_reset_sites soldier_melee_approach_reset_count)
 string(REGEX MATCHALL
-  "interruptSnapshot\\(\\)\\.reset\\(\\);"
+  "turnState\\(\\)\\.reset\\(\\);"
   soldier_interrupt_snapshot_reset_sites
   "${soldier_control_source_contents}")
 list(LENGTH soldier_interrupt_snapshot_reset_sites soldier_interrupt_snapshot_reset_count)
@@ -8185,7 +8455,7 @@ endif()
 foreach(transient_tactical_conversion IN ITEMS
   "this->meleeApproach().grid() = src.sWalkToAttackGridNo;"
   "this->meleeApproach().cost() = src.sWalkToAttackWalkToCost;"
-  "this->interruptSnapshot().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;")
+  "this->turnState().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;")
   string(FIND "${soldier_control_source_contents}"
     "${transient_tactical_conversion}"
     transient_tactical_conversion_site)
@@ -8199,7 +8469,7 @@ string(FIND "${save_load_game_contents}"
   "SoldierMeleeApproachComponent& meleeApproach = s.meleeApproach();"
   soldier_melee_approach_save_alias)
 string(FIND "${save_load_game_contents}"
-  "SoldierInterruptSnapshotComponent& interruptSnapshot = s.interruptSnapshot();"
+  "SoldierTurnStateComponent& turnState = s.turnState();"
   soldier_interrupt_snapshot_save_alias)
 string(REGEX MATCH
   "ar\\.i16\\(meleeApproach\\.movementMode\\(\\)\\);[ \t]*ar\\.i32\\(meleeApproach\\.grid\\(\\)\\);[ \t]*ar\\.i16\\(meleeApproach\\.cost\\(\\)\\);[ \t\r\n]*ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);"
@@ -8210,7 +8480,7 @@ string(REGEX MATCH
   serialized_soldier_melee_approach_direction_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);"
+  "ar\\.i8\\(turnState\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);"
   serialized_soldier_interrupt_snapshot_order
   "${save_load_game_contents}")
 if(soldier_melee_approach_save_alias EQUAL -1 OR
@@ -8239,8 +8509,8 @@ foreach(melee_approach_runtime_fragment IN ITEMS
   endif()
 endforeach()
 foreach(interrupt_snapshot_runtime_fragment IN ITEMS
-  "interruptSnapshot().captureMoved("
-  "interruptSnapshot().movedBeforeInterrupt()")
+  "turnState().captureMoved("
+  "turnState().movedBeforeInterrupt()")
   string(FIND "${soldier_interrupt_snapshot_team_turns_contents}"
     "${interrupt_snapshot_runtime_fragment}"
     soldier_interrupt_snapshot_runtime_site)
@@ -8252,7 +8522,7 @@ endforeach()
 
 foreach(transient_tactical_test_fragment IN ITEMS
   "SoldierMeleeApproachComponent meleeApproachLifecycle;"
-  "SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;"
+  "SoldierTurnStateComponent turnStateLifecycle;"
   "v101 soldier conversion maps the historical melee cache and clears later key fields"
   "soldier save/load round-trips the melee-approach cache at established schema positions")
   string(FIND "${headless_test_contents}"
@@ -8268,19 +8538,19 @@ string(FIND "${engine_architecture_documentation}"
   "SoldierMeleeApproachComponent"
   soldier_melee_approach_architecture_documented)
 string(FIND "${engine_architecture_documentation}"
-  "SoldierInterruptSnapshotComponent"
+  "SoldierTurnStateComponent"
   soldier_interrupt_snapshot_architecture_documented)
 string(FIND "${engine_sdk_documentation}"
   "SoldierMeleeApproachComponent"
   soldier_melee_approach_sdk_documented)
 string(FIND "${engine_sdk_documentation}"
-  "SoldierInterruptSnapshotComponent"
+  "SoldierTurnStateComponent"
   soldier_interrupt_snapshot_sdk_documented)
 string(FIND "${save_format_documentation}"
   "SoldierMeleeApproachComponent"
   soldier_melee_approach_save_documented)
 string(FIND "${save_format_documentation}"
-  "SoldierInterruptSnapshotComponent"
+  "SoldierTurnStateComponent"
   soldier_interrupt_snapshot_save_documented)
 if(soldier_melee_approach_architecture_documented EQUAL -1 OR
    soldier_interrupt_snapshot_architecture_documented EQUAL -1 OR
@@ -9811,7 +10081,7 @@ string(REGEX MATCH
   serialized_soldier_suppression_ai_owner
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(a\\.bNewSituation\\);[ \t]*ar\\.i8\\(a\\.bNextTargetLevel\\);[ \t]*ar\\.i8\\(a\\.bOrders\\);[ \t]*ar\\.i8\\(a\\.bAttitude\\);[ \t\r\n]*ar\\.i8\\(suppression\\.underFire\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.shock\\(\\)\\);[ \t]*ar\\.i8\\(a\\.bUnderEscort\\);[ \t]*ar\\.i8\\(a\\.bBypassToGreen\\);"
+  "ar\\.i8\\(behavior\\.newSituation\\(\\)\\);[ \t]*ar\\.i8\\(planning\\.nextTargetLevel\\(\\)\\);[ \t]*ar\\.i8\\(behavior\\.orders\\(\\)\\);[ \t]*ar\\.i8\\(behavior\\.attitude\\(\\)\\);[ \t\r\n]*ar\\.i8\\(suppression\\.underFire\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.shock\\(\\)\\);[ \t]*ar\\.i8\\(behavior\\.underEscort\\(\\)\\);[ \t]*ar\\.i8\\(behavior\\.bypassToGreen\\(\\)\\);"
   serialized_soldier_suppression_ai_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10222,7 +10492,7 @@ string(REGEX MATCH
   serialized_soldier_animation_turn_increment_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);[ \t]*ar\\.i32\\(fireControl\\.spreadDragEndGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.animationActivity\\(\\)\\.traversalForecastGrid\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.renderZOverride\\(\\)\\);[ \t\r\n]*ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);"
+  "ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);[ \t]*ar\\.i32\\(fireControl\\.spreadDragEndGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.animationActivity\\(\\)\\.traversalForecastGrid\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.renderZOverride\\(\\)\\);[ \t\r\n]*ar\\.i8\\(turnState\\.movedBeforeInterrupt\\(\\)\\);"
   serialized_soldier_animation_traversal_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -10737,6 +11007,14 @@ list(REMOVE_DUPLICATES soldier_storage_sources)
 
 foreach(source_file IN LISTS soldier_storage_sources)
   file(READ "${source_file}" contents)
+  string(REGEX MATCH
+    "(->|\\.)[ \t\r\n]*aiData([^A-Za-z0-9_]|$)"
+    retired_soldier_ai_data_access
+    "${contents}")
+  if(retired_soldier_ai_data_access)
+    message(FATAL_ERROR
+      "Application code accesses retired SOLDIERTYPE aiData in ${source_file}; use the owning AI, awareness, perception, morale, turn, position, or combat component")
+  endif()
   string(REGEX MATCH
     "(^|[^A-Za-z0-9_])(Menptr|MercPtrs)([^A-Za-z0-9_]|$)"
     direct_migrated_soldier_pool_access "${contents}")

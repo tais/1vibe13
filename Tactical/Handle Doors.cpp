@@ -440,7 +440,7 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 		for ( SoldierID ubLoop = gTacticalStatus.Team[ CIV_TEAM ].bFirstID; ubLoop <= gTacticalStatus.Team[ CIV_TEAM ].bLastID; ++ubLoop )
 		{
 			pGoon = GetJa2SoldierRepository().resolve(ubLoop.i);
-			if ( pGoon->ubCivilianGroup == KINGPIN_CIV_GROUP && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
+			if ( pGoon->ubCivilianGroup == KINGPIN_CIV_GROUP && pGoon->bActive && pGoon->bInSector && pGoon->vitals().health() >= OKLIFE && pGoon->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
 			{
 				MakeCivHostile(pGoon);
 				if ( ! (IsJa2TacticalCombatActive()) )
@@ -454,10 +454,10 @@ void ProcessImplicationsOfPCMessingWithDoor( SOLDIERTYPE * pSoldier )
 	if ( gWorldSectorX == TIXA_SECTOR_X && gWorldSectorY == TIXA_SECTOR_Y )
 	{
 		pGoon = FindSoldierByProfileID( WARDEN, FALSE );
-		if ( pGoon && pGoon->aiData.bAlertStatus < STATUS_RED && PythSpacesAway( pSoldier->position().gridNo(), pGoon->position().gridNo() ) <= 5 )
+		if ( pGoon && pGoon->aiBehavior().alertStatus() < STATUS_RED && PythSpacesAway( pSoldier->position().gridNo(), pGoon->position().gridNo() ) <= 5 )
 		{
 			// alert her if she hasn't been alerted
-			pGoon->aiData.bAlertStatus = STATUS_RED;
+			pGoon->aiBehavior().alertStatus() = STATUS_RED;
 			CheckForChangingOrders( pGoon );
 			DebugAI(AI_MSG_INFO, pSoldier, String("CancelAIAction: tixa door"));
 			CancelAIAction( pGoon, TRUE );

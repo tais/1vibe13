@@ -710,22 +710,22 @@ void AddMercWaypoint( INT32 iMapIndex )
 	if ( gsSelectedMercID == -1 || (gsSelectedMercID <= (INT32)gTacticalStatus.Team[ OUR_TEAM ].bLastID) || gsSelectedMercID >= MAXMERCS )
 		return;
 
-	if ( iActionParam > gpSelected->pSoldier->aiData.bPatrolCnt )
+	if ( iActionParam > gpSelected->pSoldier->aiPlanning().patrolCount() )
 	{
 		// Fill up missing waypoints with same value as new one
-		for(iNum = gpSelected->pSoldier->aiData.bPatrolCnt + 1; iNum <= iActionParam; iNum++)
+		for(iNum = gpSelected->pSoldier->aiPlanning().patrolCount() + 1; iNum <= iActionParam; iNum++)
 		{
 			gpSelected->pBasicPlacement->sPatrolGrid[iNum] = iMapIndex;
 			if( gpSelected->pDetailedPlacement )
 				gpSelected->pDetailedPlacement->sPatrolGrid[iNum] = iMapIndex;
-			gpSelected->pSoldier->aiData.sPatrolGrid[iNum] = iMapIndex;
+			gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum] = iMapIndex;
 		}
 
 		gpSelected->pBasicPlacement->bPatrolCnt = (INT8)iActionParam;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->bPatrolCnt = (INT8)iActionParam;
-		gpSelected->pSoldier->aiData.bPatrolCnt = (INT8) iActionParam;
-		gpSelected->pSoldier->aiData.bNextPatrolPnt = 1;
+		gpSelected->pSoldier->aiPlanning().patrolCount() = (INT8) iActionParam;
+		gpSelected->pSoldier->aiPlanning().nextPatrolPoint() = 1;
 	}
 	else
 	{
@@ -733,7 +733,7 @@ void AddMercWaypoint( INT32 iMapIndex )
 		gpSelected->pBasicPlacement->sPatrolGrid[iActionParam] = iMapIndex;
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->sPatrolGrid[iActionParam] = iMapIndex;
-		gpSelected->pSoldier->aiData.sPatrolGrid[iActionParam] = iMapIndex;
+		gpSelected->pSoldier->aiPlanning().patrolGrid()[iActionParam] = iMapIndex;
 	}
 	gfRenderWorld = TRUE;
 }
@@ -749,21 +749,21 @@ void EraseMercWaypoint()
 		return;
 
 	// Fill up missing areas
-	if ( iActionParam > gpSelected->pSoldier->aiData.bPatrolCnt )
+	if ( iActionParam > gpSelected->pSoldier->aiPlanning().patrolCount() )
 		return;
 
-	for(iNum = iActionParam; iNum < gpSelected->pSoldier->aiData.bPatrolCnt; iNum++)
+	for(iNum = iActionParam; iNum < gpSelected->pSoldier->aiPlanning().patrolCount(); iNum++)
 	{
 		gpSelected->pBasicPlacement->sPatrolGrid[iNum] = gpSelected->pBasicPlacement->sPatrolGrid[iNum+1];
 		if( gpSelected->pDetailedPlacement )
 			gpSelected->pDetailedPlacement->sPatrolGrid[iNum] = gpSelected->pDetailedPlacement->sPatrolGrid[iNum+1];
-		gpSelected->pSoldier->aiData.sPatrolGrid[iNum] = gpSelected->pSoldier->aiData.sPatrolGrid[iNum+1];
+		gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum] = gpSelected->pSoldier->aiPlanning().patrolGrid()[iNum+1];
 	}
 
 	gpSelected->pBasicPlacement->bPatrolCnt--;
 	if( gpSelected->pDetailedPlacement )
 		gpSelected->pDetailedPlacement->bPatrolCnt--;
-	gpSelected->pSoldier->aiData.bPatrolCnt--;
+	gpSelected->pSoldier->aiPlanning().patrolCount()--;
 	gfRenderWorld = TRUE;
 }
 
@@ -861,16 +861,16 @@ void DisplayEditMercWindow( void )
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 51, iXPos + 128 + 104, iYPos + 51 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 52, iXPos + 128 + 104, iYPos + 52 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 52, iXPos + 128 + 103, iYPos + 52 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( EditMercOrders[pSoldier->aiData.bOrders], FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 55, L"%s", EditMercOrders[pSoldier->aiData.bOrders] );
+	iXOff = (105 - StringPixLength( EditMercOrders[pSoldier->aiBehavior().orders()], FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 55, L"%s", EditMercOrders[pSoldier->aiBehavior().orders()] );
 
 	// Combat window
 	gprintf( iXPos + 128, iYPos + 73, pDisplayEditMercWindowText[2] );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 128, iYPos + 86, iXPos + 128 + 104, iYPos + 86 + 19, usFillColorDark );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 87, iXPos + 128 + 104, iYPos + 87 + 19, usFillColorLight );
 	ColorFillVideoSurfaceArea(FRAME_BUFFER, iXPos + 129, iYPos + 87, iXPos + 128 + 103, iYPos + 87 + 18, usFillColorTextBk );
-	iXOff = (105 - StringPixLength( EditMercAttitudes[pSoldier->aiData.bAttitude], FONT12POINT1 )) / 2;
-	gprintf( iXPos + 130 + iXOff, iYPos + 90, L"%s", EditMercAttitudes[pSoldier->aiData.bAttitude] );
+	iXOff = (105 - StringPixLength( EditMercAttitudes[pSoldier->aiBehavior().attitude()], FONT12POINT1 )) / 2;
+	gprintf( iXPos + 130 + iXOff, iYPos + 90, L"%s", EditMercAttitudes[pSoldier->aiBehavior().attitude()] );
 
 	// Get stats
 	iEditStat[0] = pSoldier->vitals().maximumHealth();			// 12 13
@@ -1346,10 +1346,10 @@ void DisplayWayPoints(void)
 		return;
 
 	// point 0 is not used!
-	for ( bPoint = 1; bPoint <= pSoldier->aiData.bPatrolCnt; bPoint++ )
+	for ( bPoint = 1; bPoint <= pSoldier->aiPlanning().patrolCount(); bPoint++ )
 	{
 		// Get the next point
-		sGridNo = pSoldier->aiData.sPatrolGrid[bPoint];
+		sGridNo = pSoldier->aiPlanning().patrolGrid()[bPoint];
 
 		// Can we see it?
 		if ( !GridNoOnVisibleWorldTile( sGridNo ) )
@@ -1474,7 +1474,7 @@ void CreateEditMercWindow( void )
 }
 void SetMercOrders( INT8 bOrders )
 {
-	gpSelected->pSoldier->aiData.bOrders = bOrders;
+	gpSelected->pSoldier->aiBehavior().orders() = bOrders;
 	gpSelected->pBasicPlacement->bOrders = bOrders;
 	UnclickEditorButtons( FIRST_MERCS_ORDERS_BUTTON, LAST_MERCS_ORDERS_BUTTON );
 	ClickEditorButton( FIRST_MERCS_ORDERS_BUTTON + bOrders );
@@ -1483,7 +1483,7 @@ void SetMercOrders( INT8 bOrders )
 
 void SetMercAttitude( INT8 bAttitude )
 {
-	gpSelected->pSoldier->aiData.bAttitude = bAttitude;
+	gpSelected->pSoldier->aiBehavior().attitude() = bAttitude;
 	gpSelected->pBasicPlacement->bAttitude = bAttitude;
 	UnclickEditorButtons( FIRST_MERCS_ATTITUDE_BUTTON, LAST_MERCS_ATTITUDE_BUTTON );
 	ClickEditorButton( FIRST_MERCS_ATTITUDE_BUTTON + bAttitude );
@@ -1763,8 +1763,8 @@ void IndicateSelectedMerc( INT16 sID )
 	gfRenderMercInfo = TRUE;
 	//These calls will set the proper button states, even though it redundantly
 	//assigns the soldier with the same orders/attitude.
-	SetMercOrders( gpSelected->pSoldier->aiData.bOrders );
-	SetMercAttitude( gpSelected->pSoldier->aiData.bAttitude );
+	SetMercOrders( gpSelected->pSoldier->aiBehavior().orders() );
+	SetMercAttitude( gpSelected->pSoldier->aiBehavior().attitude() );
 	SetMercDirection( gpSelected->pSoldier->position().direction() );
 	if( gpSelected->pBasicPlacement->fPriorityExistance )
 		ClickEditorButton( MERCS_PRIORITYEXISTANCE_CHECKBOX );
@@ -2646,7 +2646,7 @@ void UpdateMercsInfo()
 			SetFont( FONT10ARIAL );
 			SetFontForeground( FONT_WHITE );
 			SetFontShadow( FONT_NEARBLACK );
-			switch( gpSelected->pSoldier->aiData.bOrders )
+			switch( gpSelected->pSoldier->aiBehavior().orders() )
 			{
 				case STATIONARY:	mprintf( iScreenWidthOffset + 430, 2 * iScreenHeightOffset + 363, pUpdateMercsInfoText[39] );		break;
 				case ONCALL:		mprintf( iScreenWidthOffset + 430, 2 * iScreenHeightOffset + 363, pUpdateMercsInfoText[40] );		break;

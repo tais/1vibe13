@@ -157,34 +157,34 @@ INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier )
 	INT8 morale = 0;
 
 	// sevenfm: use bMorale for both player and AI
-	if (pSoldier->aiData.bMorale > 50)
+	if (pSoldier->morale().morale() > 50)
 	{
 		// give +1 at 55, +3 at 65, up to +5 at 95 and above
-		morale = (pSoldier->aiData.bMorale - 45) / 10;
+		morale = (pSoldier->morale().morale() - 45) / 10;
 	}
 	else
 	{
 		// give penalties down to -20 at 0 (-2 at 45, -4 by 40...)
-		morale = (pSoldier->aiData.bMorale - 50) * 2 / 5;
+		morale = (pSoldier->morale().morale() - 50) * 2 / 5;
 	}
 
 	/*if (pSoldier->status().flags() & SOLDIER_PC)
 	{
-		if (pSoldier->aiData.bMorale > 50)
+		if (pSoldier->morale().morale() > 50)
 		{
 			// give +1 at 55, +3 at 65, up to +5 at 95 and above
-			morale = (pSoldier->aiData.bMorale - 45) / 10;
+			morale = (pSoldier->morale().morale() - 45) / 10;
 		}
 		else
 		{
 			// give penalties down to -20 at 0 (-2 at 45, -4 by 40...)
-			morale = (pSoldier->aiData.bMorale - 50) * 2 / 5;
+			morale = (pSoldier->morale().morale() - 50) * 2 / 5;
 		}
 	}
 	else
 	{
 		// use AI morale
-		switch( pSoldier->aiData.bAIMorale )
+		switch( pSoldier->morale().aiMorale() )
 		{
 			case MORALE_HOPELESS:
 				morale = -15;
@@ -208,16 +208,16 @@ INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier )
 void DecayTacticalMorale( SOLDIERTYPE * pSoldier )
 {
 	// decay the tactical morale modifier
-	if (pSoldier->aiData.bTacticalMoraleMod != 0)
+	if (pSoldier->morale().tacticalModifier() != 0)
 	{
 		// decay the modifier!
-		if (pSoldier->aiData.bTacticalMoraleMod > 0)
+		if (pSoldier->morale().tacticalModifier() > 0)
 		{
-			pSoldier->aiData.bTacticalMoraleMod = __max( 0, pSoldier->aiData.bTacticalMoraleMod - (8 - pSoldier->aiData.bTacticalMoraleMod / 10) );
+			pSoldier->morale().tacticalModifier() = __max( 0, pSoldier->morale().tacticalModifier() - (8 - pSoldier->morale().tacticalModifier() / 10) );
 		}
 		else
 		{
-			pSoldier->aiData.bTacticalMoraleMod = __min( 0, pSoldier->aiData.bTacticalMoraleMod + (6 + pSoldier->aiData.bTacticalMoraleMod / 10) );
+			pSoldier->morale().tacticalModifier() = __min( 0, pSoldier->morale().tacticalModifier() + (6 + pSoldier->morale().tacticalModifier() / 10) );
 		}
 	}
 }
@@ -230,13 +230,13 @@ void DecayStrategicMorale( SOLDIERTYPE * pSoldier )
 	// assignments in some sectors.
 
 	// decay the modifier!
-	if (pSoldier->aiData.bStrategicMoraleMod > 0)
+	if (pSoldier->morale().strategicModifier() > 0)
 	{
-		pSoldier->aiData.bStrategicMoraleMod = __max( 0, pSoldier->aiData.bStrategicMoraleMod - (8 - (pSoldier->aiData.bStrategicMoraleMod / 10)) );
+		pSoldier->morale().strategicModifier() = __max( 0, pSoldier->morale().strategicModifier() - (8 - (pSoldier->morale().strategicModifier() / 10)) );
 	}
 	else
 	{
-		pSoldier->aiData.bStrategicMoraleMod = __min( 0, pSoldier->aiData.bStrategicMoraleMod + (6 + (pSoldier->aiData.bStrategicMoraleMod / 10)) );
+		pSoldier->morale().strategicModifier() = __min( 0, pSoldier->morale().strategicModifier() + (6 + (pSoldier->morale().strategicModifier() / 10)) );
 	}
 }
 
@@ -257,7 +257,7 @@ void DecayTacticalMoraleModifiers( void )
 																	pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{
 			// only let morale mod decay if it is positive while merc is a POW
-			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->aiData.bTacticalMoraleMod < 0 )
+			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->morale().tacticalModifier() < 0 )
 			{
 				continue;
 			}
@@ -267,7 +267,7 @@ void DecayTacticalMoraleModifiers( void )
 				if ( pSoldier->deployment().sectorZ() > 0 )
 				{
 					// underground, no recovery... in fact, if tact morale is high, decay
-					if ( pSoldier->aiData.bTacticalMoraleMod > gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
+					if ( pSoldier->morale().tacticalModifier() > gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
 					{
 						HandleMoraleEvent( pSoldier, MORALE_CLAUSTROPHOBE_UNDERGROUND, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 					}
@@ -276,7 +276,7 @@ void DecayTacticalMoraleModifiers( void )
 
 			if ( DoesMercHaveDisability( pSoldier, NERVOUS ) )
 			{
-				if ( pSoldier->aiData.bMorale < 50 )
+				if ( pSoldier->morale().morale() < 50 )
 				{
 					if (pSoldier->deployment().groupId() != 0 && PlayerIDGroupInMotion( pSoldier->deployment().groupId() ))
  					{
@@ -319,7 +319,7 @@ void DecayTacticalMoraleModifiers( void )
 
 					if ( fHandleNervous )
 					{
-						if ( pSoldier->aiData.bTacticalMoraleMod == gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
+						if ( pSoldier->morale().tacticalModifier() == gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
 						{
 							// don't change morale
 							//continue;
@@ -365,7 +365,7 @@ void DecayStrategicMoraleModifiers( void )
 																pSoldier->assignment().current() == ASSIGNMENT_DEAD ) )
 		{
 			// only let morale mod decay if it is positive while merc is a POW
-			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->aiData.bStrategicMoraleMod < 0 )
+			if ( pSoldier->assignment().current() == ASSIGNMENT_POW && pSoldier->morale().strategicModifier() < 0 )
 			{
 				continue;
 			}
@@ -389,8 +389,8 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 	}
 
 	// CJC, April 19, 1999: added up to 20% morale boost according to progress
-	//iActualMorale = DEFAULT_MORALE + (INT32) pSoldier->aiData.bTeamMoraleMod + (INT32) pSoldier->aiData.bTacticalMoraleMod + (INT32) pSoldier->aiData.bStrategicMoraleMod + (INT32) (CurrentPlayerProgressPercentage() / 5);
-	iActualMorale = gMoraleSettings.ubDefaultMorale + (INT32) pSoldier->aiData.bTeamMoraleMod + (INT32) pSoldier->aiData.bTacticalMoraleMod + (INT32) pSoldier->aiData.bStrategicMoraleMod + (INT32) (CurrentPlayerProgressPercentage() / 5);
+	//iActualMorale = DEFAULT_MORALE + (INT32) pSoldier->morale().teamModifier() + (INT32) pSoldier->morale().tacticalModifier() + (INT32) pSoldier->morale().strategicModifier() + (INT32) (CurrentPlayerProgressPercentage() / 5);
+	iActualMorale = gMoraleSettings.ubDefaultMorale + (INT32) pSoldier->morale().teamModifier() + (INT32) pSoldier->morale().tacticalModifier() + (INT32) pSoldier->morale().strategicModifier() + (INT32) (CurrentPlayerProgressPercentage() / 5);
 
 	// Flugente: drug system has been redone
 	iActualMorale += pSoldier->drugState().magnitude(DRUG_EFFECT_MORALE);
@@ -446,7 +446,7 @@ void RefreshSoldierMorale( SOLDIERTYPE * pSoldier )
 		iActualMorale = (iActualMorale + ubMaxMorale) / 2;
 	}
 
-	pSoldier->aiData.bMorale = (INT8) iActualMorale;
+	pSoldier->morale().morale() = (INT8) iActualMorale;
 
 	// update mapscreen as needed
 	fCharacterInfoPanelDirty = TRUE;
@@ -659,10 +659,10 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	// apply change!
 	if (ubType == TACTICAL_MORALE_EVENT)
 	{
-		iMoraleModTotal = (INT32) pSoldier->aiData.bTacticalMoraleMod + (INT32) bMoraleMod;
+		iMoraleModTotal = (INT32) pSoldier->morale().tacticalModifier() + (INT32) bMoraleMod;
 		iMoraleModTotal = __min( iMoraleModTotal, gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 		iMoraleModTotal = __max( iMoraleModTotal, -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
-		pSoldier->aiData.bTacticalMoraleMod = (INT8) iMoraleModTotal;
+		pSoldier->morale().tacticalModifier() = (INT8) iMoraleModTotal;
 	}
 	else if ( gTacticalStatus.fEnemyInSector && !pSoldier->bInSector ) // delayed strategic
 	{
@@ -673,10 +673,10 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	}
 	else // strategic
 	{
-		iMoraleModTotal = (INT32) pSoldier->aiData.bStrategicMoraleMod + (INT32) bMoraleMod;
+		iMoraleModTotal = (INT32) pSoldier->morale().strategicModifier() + (INT32) bMoraleMod;
 		iMoraleModTotal = __min( iMoraleModTotal, gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 		iMoraleModTotal = __max( iMoraleModTotal, -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
-		pSoldier->aiData.bStrategicMoraleMod = (INT8) iMoraleModTotal;
+		pSoldier->morale().strategicModifier() = (INT8) iMoraleModTotal;
 	}
 
 	RefreshSoldierMorale( pSoldier );
@@ -686,7 +686,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 		if ( !gfSomeoneSaidMoraleQuote )
 		{
 			// Check if we're below a certain value and warn
-			if ( pSoldier->aiData.bMorale < 35 )
+			if ( pSoldier->morale().morale() < 35 )
 			{
 				// Have we said this quote yet?
 				if ( !pSoldier->dialogue().hasSaid(SOLDIER_QUOTE_SAID_LOW_MORAL) )
@@ -702,7 +702,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	}
 
 	// Reset flag!
-	if ( pSoldier->aiData.bMorale > 65 )
+	if ( pSoldier->morale().morale() > 65 )
 	{
 		pSoldier->dialogue().clearSaid(SOLDIER_QUOTE_SAID_LOW_MORAL);
 	}
@@ -761,7 +761,7 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 			Assert( pSoldier );
 			// affects the soldier only, should be ignored if tactical morale mod is -20 or less
 			// SANDRO - really?? I think it also shouldn't go lower if strategic morale mod is less than -20
-			if ( pSoldier->aiData.bTacticalMoraleMod > gMoraleSettings.bModifiers[PHOBIC_LIMIT] && pSoldier->aiData.bStrategicMoraleMod > gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
+			if ( pSoldier->morale().tacticalModifier() > gMoraleSettings.bModifiers[PHOBIC_LIMIT] && pSoldier->morale().strategicModifier() > gMoraleSettings.bModifiers[PHOBIC_LIMIT] )
 			{
 				HandleMoraleEventForSoldier( pSoldier, bMoraleEvent );
 			}
@@ -1080,7 +1080,7 @@ void HandleMoraleEvent( SOLDIERTYPE *pSoldier, INT8 bMoraleEvent, INT16 sMapX, I
 	}
 
 	// Flugente: if the situation is really, REALLY bad, we can get traumatized
-	if ( pSoldier && pSoldier->aiData.bMorale < 15 )
+	if ( pSoldier && pSoldier->morale().morale() < 15 )
 		HandlePossibleInfection( pSoldier, NULL, INFECTION_TYPE_TRAUMATIC );
 
 	// some morale events also impact the player's reputation with the mercs back home
@@ -1305,7 +1305,7 @@ void HourlyMoraleUpdate( void )
 			// shift morale from team by ~10%
 
 			// this should range between -75 and +75
-			bTeamMoraleModDiff = bActualTeamOpinion - pSoldier->aiData.bTeamMoraleMod;
+			bTeamMoraleModDiff = bActualTeamOpinion - pSoldier->morale().teamModifier();
 			if (bTeamMoraleModDiff > 0)
 			{
 				bTeamMoraleModChange = 1 + bTeamMoraleModDiff / 10;
@@ -1325,18 +1325,18 @@ void HourlyMoraleUpdate( void )
 				bTeamMoraleModChange += gMoraleSettings.bModifiers[MORALE_MODIFIER_MALICIOUS_HOURLY_DECAY];//-= 1;
 			}
 
-			pSoldier->aiData.bTeamMoraleMod += bTeamMoraleModChange;
-			pSoldier->aiData.bTeamMoraleMod = __min( pSoldier->aiData.bTeamMoraleMod, gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
-			pSoldier->aiData.bTeamMoraleMod = __max( pSoldier->aiData.bTeamMoraleMod, -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
+			pSoldier->morale().teamModifier() += bTeamMoraleModChange;
+			pSoldier->morale().teamModifier() = __min( pSoldier->morale().teamModifier(), gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
+			pSoldier->morale().teamModifier() = __max( pSoldier->morale().teamModifier(), -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 
 			// New, December 3rd, 1998, by CJC --
 			// If delayed strategic modifier exists then incorporate it in strategic mod
 			if ( pSoldier->bDelayedStrategicMoraleMod )
 			{
-				pSoldier->aiData.bStrategicMoraleMod += pSoldier->bDelayedStrategicMoraleMod;
+				pSoldier->morale().strategicModifier() += pSoldier->bDelayedStrategicMoraleMod;
 				pSoldier->bDelayedStrategicMoraleMod = 0;
-				pSoldier->aiData.bStrategicMoraleMod = __min( pSoldier->aiData.bStrategicMoraleMod, gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
-				pSoldier->aiData.bStrategicMoraleMod = __max( pSoldier->aiData.bStrategicMoraleMod, -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
+				pSoldier->morale().strategicModifier() = __min( pSoldier->morale().strategicModifier(), gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
+				pSoldier->morale().strategicModifier() = __max( pSoldier->morale().strategicModifier(), -gMoraleSettings.bModifiers[MORALE_MOD_MAX] );
 			}
 
 			// refresh the morale value for the soldier based on the recalculated team modifier
@@ -1682,7 +1682,7 @@ void DailyMoraleUpdate(SOLDIERTYPE *pSoldier)
 	// CJC: made per hour now
 /*
 	// decay the merc's strategic morale modifier
-	if (pSoldier->aiData.bStrategicMoraleMod != 0)
+	if (pSoldier->morale().strategicModifier() != 0)
 	{
 		// decay the modifier!
 		DecayStrategicMorale( pSoldier );
@@ -1705,7 +1705,7 @@ void DailyMoraleUpdate(SOLDIERTYPE *pSoldier)
 		// too low, morale sinks further (merc's in a funk and things aren't getting better)
 		HandleMoraleEvent( pSoldier, MORALE_POOR_MORALE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );
 	}
-	else if ( pSoldier->aiData.bMorale >= 75 )
+	else if ( pSoldier->morale().morale() >= 75 )
 	{
 		// very high morale, merc is cheerleading others
 		HandleMoraleEvent( pSoldier, MORALE_GREAT_MORALE, pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() );

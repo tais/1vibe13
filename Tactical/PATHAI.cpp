@@ -1552,7 +1552,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 	pusLastLoc = &(gsLastKnownOppLoc[pSoldier->ubID][0]);
 
 	// hang a pointer into personal opplist
-	pbPersOL = &(pSoldier->aiData.bOppList[0]);
+	pbPersOL = &(pSoldier->awareness().opponentKnowledge()[0]);
 	// hang a pointer into public opplist
 	pbPublOL = &(gbPublicOpplist[pSoldier->bTeam][0]);
 
@@ -1573,7 +1573,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 			continue;			// next merc
 		}
 
-		pbPersOL = pSoldier->aiData.bOppList + pOpponent->ubID; 
+		pbPersOL = pSoldier->awareness().opponentKnowledge() + pOpponent->ubID;
 		pbPublOL = gbPublicOpplist[pSoldier->bTeam] + pOpponent->ubID;
 		pusLastLoc = gsLastKnownOppLoc[pSoldier->ubID] + pOpponent->ubID;
 
@@ -1583,7 +1583,7 @@ int AStarPathfinder::CalcGCover(int const NodeIndex,
 		}
 
 		// Special stuff for Carmen the bounty hunter
-		if (pSoldier->aiData.bAttitude == ATTACKSLAYONLY && pOpponent->ubProfile != 64) {
+		if (pSoldier->aiBehavior().attitude() == ATTACKSLAYONLY && pOpponent->ubProfile != 64) {
 			continue;	// next opponent
 		}
 
@@ -1669,7 +1669,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 									INT32 myThreatsiValue, INT32 myThreatsiAPs, INT32 myThreatsiCertainty)
 {
 	SOLDIERTYPE* pMe = this->pSoldier;
-	INT32	morale = pSoldier->aiData.bAIMorale;
+	INT32	morale = pSoldier->morale().aiMorale();
 
 	INT32	iRange = myThreatsiOrigRange;
 	// all 32-bit integers for max. speed
@@ -1796,14 +1796,14 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 	// try to account for who outnumbers who: the side with the advantage thus
 	// (hopefully) values offense more, while those in trouble will play defense
-	if (pHim->aiData.bOppCnt > 1)
+	if (pHim->awareness().opponentCount() > 1)
 	{
-		HisPosValue /= pHim->aiData.bOppCnt;
+		HisPosValue /= pHim->awareness().opponentCount();
 	}
 
-	if (pMe->aiData.bOppCnt > 1)
+	if (pMe->awareness().opponentCount() > 1)
 	{
-		MyPosValue /= pMe->aiData.bOppCnt;
+		MyPosValue /= pMe->awareness().opponentCount();
 	}
 
 
@@ -2065,7 +2065,7 @@ bool AStarPathfinder::WantToTraverse()
 		//from NightOps // elite AI will not walk on illuminated tiles, which are seen by the enemy
 		if( ( IsJa2TacticalTurnBasedCombat() )
 			&& pSoldier->bTeam == ENEMY_TEAM && pSoldier->ubProfile == NO_PROFILE 
-			&& pSoldier->aiData.bAction != AI_ACTION_LEAVE_WATER_GAS
+			&& pSoldier->aiPlanning().action() != AI_ACTION_LEAVE_WATER_GAS
 			//&& (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE 
 			//|| ( (pSoldier->ubSoldierClass == SOLDIER_CLASS_ARMY 
 			//		|| pSoldier->ubSoldierClass == SOLDIER_CLASS_ADMINISTRATOR) 
@@ -2883,7 +2883,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			// sevenfm: skip deep water if not in deep water already
 			if (!(s->status().flags() & SOLDIER_PC) &&
 				s->ubProfile == NO_PROFILE &&
-				s->aiData.bOrders != SEEKENEMY &&
+				s->aiBehavior().orders() != SEEKENEMY &&
 				DeepWater(newLoc, bLevel) &&
 				!DeepWater(s->position().gridNo(), bLevel) &&
 				!FindNotDeepWaterNearby(newLoc, bLevel))
@@ -3178,7 +3178,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID &&
 					(!(s->status().flags() & SOLDIER_PC) ||
 						blockingSoldier->bSide == s->bSide ||
-						blockingSoldier->aiData.bNeutral ||
+						blockingSoldier->aiBehavior().neutral() ||
 						blockingSoldier->awareness().visibility() >= 0 ||
 						SoldierToSoldierLineOfSightTest(
 							s, blockingSoldier, TRUE,
@@ -3586,7 +3586,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 						nextCost += 20;
 					}
 					else if (s->bTeam == ENEMY_TEAM &&
-						s->aiData.bAlertStatus >= STATUS_RED &&
+						s->aiBehavior().alertStatus() >= STATUS_RED &&
 						(InLightAtNight(newLoc, bLevel) || GetNearestRottingCorpseAIWarning(newLoc) > 0))
 					{
 						nextCost += 20;

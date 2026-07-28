@@ -16,7 +16,7 @@
 #define AM_A_ROBOT( p )	( ( p->ubProfile == NO_PROFILE ) ? FALSE : ( gMercProfiles[ p->ubProfile ].ubBodyType == ROBOTNOWEAPON ) )
 
 
-#define OK_ENEMY_MERC( p ) ( !p->aiData.bNeutral && (p->bSide != gbPlayerNum ) && p->vitals().health() >= OKLIFE && (p->bTeam < 5 ))
+#define OK_ENEMY_MERC( p ) ( !p->aiBehavior().neutral() && (p->bSide != gbPlayerNum ) && p->vitals().health() >= OKLIFE && (p->bTeam < 5 ))
 
 // Checks if our guy can be controllable .... checks bInSector, team, on duty, etc...
 
@@ -29,7 +29,7 @@
 #define OK_INSECTOR_MERC( p ) ( p->vitals().health() >= OKLIFE && p->bActive && p->bInSector && p->bTeam == gbPlayerNum && p->assignment().current() < ON_DUTY )
 
 // Checkf if our guy can be selected and is not in a position where our team has an interupt and he does not have one...
-#define OK_INTERRUPT_MERC( p ) ( ( INTERRUPT_QUEUED != 0 ) ? ( ( p->aiData.bMoved ) ? FALSE : TRUE ) : TRUE )
+#define OK_INTERRUPT_MERC( p ) ( ( INTERRUPT_QUEUED != 0 ) ? ( ( p->turnState().moved() ) ? FALSE : TRUE ) : TRUE )
 
 #define CREATURE_OR_BLOODCAT( p ) ( (p->status().flags() & SOLDIER_MONSTER) || p->ubBodyType == BLOODCAT )
 

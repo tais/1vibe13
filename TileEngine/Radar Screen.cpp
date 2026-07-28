@@ -683,7 +683,7 @@ void RenderRadarScreen( )
 					if ( pSoldier->bTeam == CIV_TEAM )
 					{
 						// Override civ team with red if hostile...
-						if ( pSoldier->bSide != gbPlayerNum && !pSoldier->aiData.bNeutral )
+						if ( pSoldier->bSide != gbPlayerNum && !pSoldier->aiBehavior().neutral() )
 							usLineColor = Get16BPPColor( FROMRGB( 255, 0, 0 ) );
 						// if uncovered, different colour (so the player doesn't have to search for us)
 						else if ( gGameExternalOptions.fKnownNPCsUseDifferentColour && pSoldier->ubProfile != NO_PROFILE && !zHiddenNames[pSoldier->ubProfile].Hidden )

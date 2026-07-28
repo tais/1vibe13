@@ -48,12 +48,12 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	DOUBLE iChance, iSneaky = 10;
 	INT8  bInWater;
 
-	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen, orders = %d",pSoldier->aiData.bOrders));
+	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen, orders = %d",pSoldier->aiBehavior().orders()));
 
 	DebugAI( AI_MSG_START, pSoldier, String("[Green Zombie]"));
 	LogDecideInfo(pSoldier);
-	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiBehavior().alertStatus()], gStr8Orders[pSoldier->aiBehavior().orders()], gStr8Attitude[pSoldier->aiBehavior().attitude()], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale()) );
 
 	gubNPCPathCount = 0;
 
@@ -74,15 +74,15 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	// this takes priority over water/gas checks, so that point patrol WILL work
 	// from island to island, and through gas covered areas, too
-	if ((pSoldier->aiData.bOrders == POINTPATROL) && (pSoldier->vitals().breath() >= 25))
+	if ((pSoldier->aiBehavior().orders() == POINTPATROL) && (pSoldier->vitals().breath() >= 25))
 	{
 		if (PointPatrolAI(pSoldier))
 		{
 			if (!gfTurnBasedAI)
 			{
 				// wait after this...
-				pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-				pSoldier->aiData.usNextActionData = RealtimeDelay( pSoldier );
+				pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+				pSoldier->aiPlanning().nextActionData() = RealtimeDelay( pSoldier );
 			}
 			return(AI_ACTION_POINT_PATROL);
 		}
@@ -93,15 +93,15 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 	}
 
-	if ((pSoldier->aiData.bOrders == RNDPTPATROL) && (pSoldier->vitals().breath() >=25))
+	if ((pSoldier->aiBehavior().orders() == RNDPTPATROL) && (pSoldier->vitals().breath() >=25))
 	{
 		if (RandomPointPatrolAI(pSoldier))
 		{
 			if (!gfTurnBasedAI)
 			{
 				// wait after this...
-				pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-				pSoldier->aiData.usNextActionData = RealtimeDelay( pSoldier );
+				pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+				pSoldier->aiPlanning().nextActionData() = RealtimeDelay( pSoldier );
 			}
 			return(AI_ACTION_POINT_PATROL);
 		}
@@ -120,9 +120,9 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	if ( bInWater )
 	{
-		pSoldier->aiData.usActionData = FindNearestUngassedLand(pSoldier);
+		pSoldier->aiPlanning().actionData() = FindNearestUngassedLand(pSoldier);
 
-		if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+		if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 		{
 			return(AI_ACTION_LEAVE_WATER_GAS);
 		}
@@ -138,7 +138,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	{
 		// take a breather for gods sake!
 		// for realtime, AI will use a standard wait set outside of here
-		pSoldier->aiData.usActionData = NOWHERE;
+		pSoldier->aiPlanning().actionData() = NOWHERE;
 		return(AI_ACTION_NONE);
 	}
 
@@ -149,12 +149,12 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	// sevenfm: disable roof climbing for zombies in Green AI
 	/*
-	if ( gGameExternalOptions.fZombieCanClimb && pSoldier->aiData.bLastAction != AI_ACTION_CLIMB_ROOF && !is_networked )
+	if ( gGameExternalOptions.fZombieCanClimb && pSoldier->aiPlanning().lastAction() != AI_ACTION_CLIMB_ROOF && !is_networked )
 	{
-		iChance = 10 + pSoldier->aiData.bBypassToGreen;
+		iChance = 10 + pSoldier->aiBehavior().bypassToGreen();
 
 		// set base chance and maximum seeking distance according to orders
-		switch (pSoldier->aiData.bOrders)
+		switch (pSoldier->aiBehavior().orders())
 		{
 		case STATIONARY:     iChance *= 0; break;
 		case ONGUARD:        iChance += 10; break;
@@ -168,7 +168,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 
 		// modify for attitude
-		switch (pSoldier->aiData.bAttitude)
+		switch (pSoldier->aiBehavior().attitude())
 		{
 		case DEFENSIVE:      iChance *= 1.5;  break;
 		case BRAVESOLO:      iChance /= 2;    break;
@@ -205,12 +205,12 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 			}
 			else
 			{
-				pSoldier->aiData.usActionData = FindClosestClimbPoint(pSoldier, fUp );
+				pSoldier->aiPlanning().actionData() = FindClosestClimbPoint(pSoldier, fUp );
 				// Added the check here because sniper militia who are locked inside of a building without keys
 				// will still have a >100% chance to want to climb, which means an infinite loop.  In fact, any
 				// time a move is desired, there probably also will be a need to check for a path.				
-				if ( !TileIsOutOfBounds(pSoldier->aiData.usActionData) &&
-					LegalNPCDestination(pSoldier,pSoldier->aiData.usActionData,ENSURE_PATH,WATEROK, 0 ))
+				if ( !TileIsOutOfBounds(pSoldier->aiPlanning().actionData()) &&
+					LegalNPCDestination(pSoldier,pSoldier->aiPlanning().actionData(),ENSURE_PATH,WATEROK, 0 ))
 				{
 					return( AI_ACTION_MOVE_TO_CLIMB  );
 				}
@@ -225,7 +225,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 	if (!gubNPCPathCount) // try to limit pathing in Green AI
 	{
-		iChance = 25 + pSoldier->aiData.bBypassToGreen;
+		iChance = 25 + pSoldier->aiBehavior().bypassToGreen();
 
 		// sevenfm: limit chance
 		iChance = iChance * pSoldier->vitals().breath() / 100;
@@ -234,20 +234,20 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		// OR if we roll under the chance calculated
 		if (bInWater || ((INT16) PreRandom(100) < iChance))
 		{
-			pSoldier->aiData.usActionData = RandDestWithinRange(pSoldier);
+			pSoldier->aiPlanning().actionData() = RandDestWithinRange(pSoldier);
 
-			if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+			if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			{
-				pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards( pSoldier, pSoldier->aiData.usActionData, AI_ACTION_RANDOM_PATROL );
+				pSoldier->aiPlanning().actionData() = GoAsFarAsPossibleTowards( pSoldier, pSoldier->aiPlanning().actionData(), AI_ACTION_RANDOM_PATROL );
 			}
 
-			if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+			if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			{
 				if (!gfTurnBasedAI)
 				{
 					// wait after this...
-					pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-					pSoldier->aiData.usNextActionData = RealtimeDelay( pSoldier );
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+					pSoldier->aiPlanning().nextActionData() = RealtimeDelay( pSoldier );
 				}
 				return(AI_ACTION_RANDOM_PATROL);
 			}
@@ -260,10 +260,10 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		// SEEK FRIEND: determine %chance for man to pay a friendly visit
 		////////////////////////////////////////////////////////////////////////////
 
-		iChance = 25 + pSoldier->aiData.bBypassToGreen;
+		iChance = 25 + pSoldier->aiBehavior().bypassToGreen();
 
 		// set base chance and maximum seeking distance according to orders
-		switch (pSoldier->aiData.bOrders)
+		switch (pSoldier->aiBehavior().orders())
 		{
 		case STATIONARY:     iChance += -20; break;
 		case ONGUARD:        iChance += -15; break;
@@ -277,7 +277,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		}
 
 		// modify for attitude
-		switch (pSoldier->aiData.bAttitude)
+		switch (pSoldier->aiBehavior().attitude())
 		{
 		case DEFENSIVE:                       break;
 		case BRAVESOLO:      iChance /= 2;    break;  // loners
@@ -292,13 +292,13 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 		{
 			if (RandomFriendWithin(pSoldier))
 			{
-				if ( pSoldier->aiData.usActionData == GoAsFarAsPossibleTowards( pSoldier, pSoldier->aiData.usActionData, AI_ACTION_SEEK_FRIEND ) )
+				if ( pSoldier->aiPlanning().actionData() == GoAsFarAsPossibleTowards( pSoldier, pSoldier->aiPlanning().actionData(), AI_ACTION_SEEK_FRIEND ) )
 				{
 					if ( !gfTurnBasedAI)
 					{
 						// pause at the end of the walk!
-						pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-						pSoldier->aiData.usNextActionData = (UINT16) REALTIME_CIV_AI_DELAY;
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+						pSoldier->aiPlanning().nextActionData() = (UINT16) REALTIME_CIV_AI_DELAY;
 					}
 
 					return(AI_ACTION_SEEK_FRIEND);
@@ -315,21 +315,21 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 	if (GetAPsToLook( pSoldier ) <= pSoldier->actionPoints().current())
 	{
 		// avoid 2 consecutive random turns in a row
-		if (pSoldier->aiData.bLastAction != AI_ACTION_CHANGE_FACING)
+		if (pSoldier->aiPlanning().lastAction() != AI_ACTION_CHANGE_FACING)
 		{
-			iChance = 25 + pSoldier->aiData.bBypassToGreen;
+			iChance = 25 + pSoldier->aiBehavior().bypassToGreen();
 
 			// set base chance according to orders
-			if (pSoldier->aiData.bOrders == STATIONARY || pSoldier->aiData.bOrders == SNIPER)
+			if (pSoldier->aiBehavior().orders() == STATIONARY || pSoldier->aiBehavior().orders() == SNIPER)
 				iChance += 25;
 
-			if (pSoldier->aiData.bOrders == ONGUARD)
+			if (pSoldier->aiBehavior().orders() == ONGUARD)
 				iChance += 20;
 
-			if (pSoldier->aiData.bAttitude == DEFENSIVE)
+			if (pSoldier->aiBehavior().attitude() == DEFENSIVE)
 				iChance += 25;
 
-			if ( pSoldier->aiData.bOrders == SNIPER && pSoldier->position().level() == 1)
+			if ( pSoldier->aiBehavior().orders() == SNIPER && pSoldier->position().level() == 1)
 				iChance += 35;
 
 			if ((INT16)PreRandom(100) < iChance)
@@ -339,10 +339,10 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 				{
 					// if man has a LEGAL dominant facing, and isn't facing it, he will turn
 					// back towards that facing 50% of the time here (normally just enemies)
-					if ((pSoldier->aiData.bDominantDir >= 0) && (pSoldier->aiData.bDominantDir <= 8) &&
-						(pSoldier->position().direction() != pSoldier->aiData.bDominantDir) && PreRandom(2) && pSoldier->aiData.bOrders != SNIPER )
+					if ((pSoldier->aiPlanning().dominantDirection() >= 0) && (pSoldier->aiPlanning().dominantDirection() <= 8) &&
+						(pSoldier->position().direction() != pSoldier->aiPlanning().dominantDirection()) && PreRandom(2) && pSoldier->aiBehavior().orders() != SNIPER )
 					{
-						pSoldier->aiData.usActionData = pSoldier->aiData.bDominantDir;
+						pSoldier->aiPlanning().actionData() = pSoldier->aiPlanning().dominantDirection();
 					}
 					else
 					{
@@ -354,24 +354,24 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 						if (TileIsOutOfBounds(sNoiseGridNo) || (ubNoiseDir = AIDirection(pSoldier->position().gridNo(), sNoiseGridNo)) == pSoldier->position().direction() )
 						{
-							pSoldier->aiData.usActionData = PreRandom(8);
+							pSoldier->aiPlanning().actionData() = PreRandom(8);
 						}
 						else
 						{
-							pSoldier->aiData.usActionData = ubNoiseDir;
+							pSoldier->aiPlanning().actionData() = ubNoiseDir;
 						}
 					}
-				} while (pSoldier->aiData.usActionData == pSoldier->position().direction());
+				} while (pSoldier->aiPlanning().actionData() == pSoldier->position().direction());
 
 				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Trying to turn - checking stance validity"));
-				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiData.usActionData, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
+				if ( pSoldier->InternalIsValidStance( (INT8) pSoldier->aiPlanning().actionData(), gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 				{
 
 					if ( !gfTurnBasedAI )
 					{
 						// wait after this...
-						pSoldier->aiData.bNextAction = AI_ACTION_WAIT;
-						pSoldier->aiData.usNextActionData = RealtimeDelay( pSoldier );
+						pSoldier->aiPlanning().nextAction() = AI_ACTION_WAIT;
+						pSoldier->aiPlanning().nextActionData() = RealtimeDelay( pSoldier );
 					}
 
 					DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionGreen: Soldier is turning"));
@@ -383,7 +383,7 @@ INT8 ZombieDecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	// by default, if everything else fails, just stands in place without turning
 	// for realtime, regular AI guys will use a standard wait set outside of here
-	pSoldier->aiData.usActionData = NOWHERE;
+	pSoldier->aiPlanning().actionData() = NOWHERE;
 	return(AI_ACTION_NONE);
 }
 
@@ -398,8 +398,8 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	
 	DebugAI( AI_MSG_START, pSoldier, String("[Yellow Zombie]"));
 	LogDecideInfo(pSoldier);
-	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiBehavior().alertStatus()], gStr8Orders[pSoldier->aiBehavior().orders()], gStr8Attitude[pSoldier->aiBehavior().attitude()], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale()) );
 
 	// determine the most important noise heard, and its relative value
 	sNoiseGridNo = MostImportantNoiseHeard(pSoldier,&iNoiseValue, &fClimb, &fReachable);
@@ -429,18 +429,18 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 		if ((pSoldier->position().direction() != ubNoiseDir) && PythSpacesAway(pSoldier->position().gridNo(),sNoiseGridNo) <= pSoldier->GetMaxDistanceVisible(sNoiseGridNo) )
 		{
 			// set base chance according to orders
-			if ((pSoldier->aiData.bOrders == STATIONARY) || (pSoldier->aiData.bOrders == ONGUARD) )
+			if ((pSoldier->aiBehavior().orders() == STATIONARY) || (pSoldier->aiBehavior().orders() == ONGUARD) )
 				iChance = 50;
 			else           // all other orders
 				iChance = 25;
 
-			if (pSoldier->aiData.bAttitude == DEFENSIVE)
+			if (pSoldier->aiBehavior().attitude() == DEFENSIVE)
 				iChance += 15;
 
 
 			if ((INT16)PreRandom(100) < iChance && pSoldier->InternalIsValidStance( ubNoiseDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
-				pSoldier->aiData.usActionData = ubNoiseDir;
+				pSoldier->aiPlanning().actionData() = ubNoiseDir;
 
 				return(AI_ACTION_CHANGE_FACING);
 			}
@@ -468,7 +468,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 			//iChance += gsDiff[DIFF_RADIO_RED_ALERT][GameOption[ENEMYDIFFICULTY]] / 2;
 
 			// modify base chance according to orders
-			switch (pSoldier->aiData.bOrders)
+			switch (pSoldier->aiBehavior().orders())
 			{
 			case STATIONARY: iChance +=  20;  break;
 			case ONGUARD:    iChance +=  15;  break;
@@ -482,7 +482,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 			}
 
 			// modify base chance according to attitude
-			switch (pSoldier->aiData.bAttitude)
+			switch (pSoldier->aiBehavior().attitude())
 			{
 			case DEFENSIVE:  iChance +=  20;  break;
 			case BRAVESOLO:  iChance += -10;  break;
@@ -508,19 +508,19 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	if ((pSoldier->vitals().breath() < 25) && !pSoldier->MercInWater())
 	{
 		// take a breather for gods sake!
-		pSoldier->aiData.usActionData = NOWHERE;
+		pSoldier->aiPlanning().actionData() = NOWHERE;
 		return(AI_ACTION_NONE);
 	}
 
-	pSoldier->aiData.usActionData = GoAsFarAsPossibleTowards(pSoldier,sNoiseGridNo,AI_ACTION_SEEK_NOISE);
+	pSoldier->aiPlanning().actionData() = GoAsFarAsPossibleTowards(pSoldier,sNoiseGridNo,AI_ACTION_SEEK_NOISE);
 
-	if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+	if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 	{
 		if ( fClimb )
 		{
 			if ( pSoldier->position().gridNo() == sNoiseGridNo)
 			{
-				if (IsActionAffordable(pSoldier, pSoldier->aiData.bAction))
+				if (IsActionAffordable(pSoldier, pSoldier->aiPlanning().action()))
 				{
 					return( AI_ACTION_CLIMB_ROOF );
 				}
@@ -531,7 +531,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 			}
 			else
 			{
-				pSoldier->aiData.usActionData = sNoiseGridNo;							
+				pSoldier->aiPlanning().actionData() = sNoiseGridNo;
 				return( AI_ACTION_MOVE_TO_CLIMB  );
 			}
 		}
@@ -547,7 +547,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	if ((INT16)PreRandom(100) < 50 )
 	{
 		// Skip YELLOW until new situation, 15% extra chance to do GREEN actions
-		pSoldier->aiData.bBypassToGreen = 15;
+		pSoldier->aiBehavior().bypassToGreen() = 15;
 		return(ZombieDecideActionGreen(pSoldier));
 	}
 
@@ -556,7 +556,7 @@ INT8 ZombieDecideActionYellow(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 
 	// by default, if everything else fails, just stands in place without turning
-	pSoldier->aiData.usActionData = NOWHERE;
+	pSoldier->aiPlanning().actionData() = NOWHERE;
 	return(AI_ACTION_NONE);
 }
 
@@ -576,17 +576,17 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	INT32	sThreatSpot = NOWHERE;
 	INT8	bThreatLevel = 0;
 
-	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("ZombieDecideActionRed: soldier orders = %d",pSoldier->aiData.bOrders));
+	DebugMsg (TOPIC_JA2,DBG_LEVEL_3,String("ZombieDecideActionRed: soldier orders = %d",pSoldier->aiBehavior().orders()));
 
 	DebugAI( AI_MSG_START, pSoldier, String("[Red Zombie]"));
 	LogDecideInfo(pSoldier);
-	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiBehavior().alertStatus()], gStr8Orders[pSoldier->aiBehavior().orders()], gStr8Attitude[pSoldier->aiBehavior().attitude()], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale()) );
 
 	// if we have absolutely no action points, we can't do a thing under RED!
 	if (!pSoldier->actionPoints().current())
 	{
-		pSoldier->aiData.usActionData = NOWHERE;
+		pSoldier->aiPlanning().actionData() = NOWHERE;
 		return(AI_ACTION_NONE);
 	}
 
@@ -600,7 +600,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("CanMove %d InWater %d InDeepWater %d", ubCanMove, bInWater, bInDeepWater));
 
 	// calculate our morale
-	pSoldier->aiData.bAIMorale = CalcMorale(pSoldier);
+	pSoldier->morale().aiMorale() = CalcMorale(pSoldier);
 
 	////////////////////////////////////////////////////////////////////////
 	// CROUCH & REST IF RUNNING OUT OF BREATH
@@ -611,7 +611,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	// if our breath is running a bit low, and we're not in water or under fire
 	if ((pSoldier->vitals().breath() < 25) && !bInWater && !pSoldier->suppression().underFire())
 	{		
-		pSoldier->aiData.usActionData = NOWHERE;
+		pSoldier->aiPlanning().actionData() = NOWHERE;
 		return(AI_ACTION_NONE);
 	}
 
@@ -664,25 +664,25 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 				if( gfTurnBasedAI &&
 					pSoldier->actionPoints().current() < pSoldier->actionPoints().initial() )
 				{
-					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
 					return( AI_ACTION_END_TURN );
 				}
 
 				// climb
 				if (IsActionAffordable(pSoldier, AI_ACTION_CLIMB_ROOF))
 				{
-					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
 					return( AI_ACTION_CLIMB_ROOF );
 				}
 				// cannot climb at all
 			}
 
 			// try to move towards him
-			pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestDisturbance, 0, AI_ACTION_SEEK_OPPONENT, 0);
-			DebugAI( AI_MSG_INFO, pSoldier, String("found seek spot %d", pSoldier->aiData.usActionData));
+			pSoldier->aiPlanning().actionData() = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestDisturbance, 0, AI_ACTION_SEEK_OPPONENT, 0);
+			DebugAI( AI_MSG_INFO, pSoldier, String("found seek spot %d", pSoldier->aiPlanning().actionData()));
 
 			// if it's possible						
-			if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+			if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			{
 				DebugAI( AI_MSG_INFO, pSoldier, String("[move to seek spot]"));
 
@@ -690,7 +690,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 				if( gfTurnBasedAI &&
 					PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) < TACTICAL_RANGE * 2 &&
 					PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) > TACTICAL_RANGE / 4 &&
-					!SightCoverAtSpot(pSoldier, pSoldier->aiData.usActionData, TRUE))
+					!SightCoverAtSpot(pSoldier, pSoldier->aiPlanning().actionData(), TRUE))
 				{
 					INT32 sAdvanceSpot = FindAdvanceSpot(pSoldier, sClosestDisturbance, AI_ACTION_SEEK_OPPONENT, ADVANCE_SPOT_SIGHT_COVER, TRUE);
 					DebugAI( AI_MSG_INFO, pSoldier, String("found advance spot %d", sAdvanceSpot));
@@ -699,9 +699,9 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 					{
 						DebugAI( AI_MSG_INFO, pSoldier, String("move to advance spot"));
 
-						pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sAdvanceSpot, 0, AI_ACTION_SEEK_OPPONENT, 0);
+						pSoldier->aiPlanning().actionData() = InternalGoAsFarAsPossibleTowards(pSoldier, sAdvanceSpot, 0, AI_ACTION_SEEK_OPPONENT, 0);
 
-						if( !TileIsOutOfBounds(pSoldier->aiData.usActionData) )
+						if( !TileIsOutOfBounds(pSoldier->aiPlanning().actionData()) )
 						{
 							return(AI_ACTION_SEEK_OPPONENT);
 						}						
@@ -727,7 +727,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 								PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
 								pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 							{
-								pSoldier->aiData.usActionData = ubOpponentDir;
+								pSoldier->aiPlanning().actionData() = ubOpponentDir;
 								return(AI_ACTION_CHANGE_FACING);								
 							}
 							DebugAI( AI_MSG_INFO, pSoldier, String("cannot turn"));
@@ -775,11 +775,11 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 			{
 				DebugAI( AI_MSG_INFO, pSoldier, String("move to friend %d", sClosestFriend));
 				// try to move towards him
-				pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestFriend, 0, AI_ACTION_SEEK_FRIEND, 0);
-				DebugAI( AI_MSG_INFO, pSoldier, String("found move spot %d", pSoldier->aiData.usActionData));
+				pSoldier->aiPlanning().actionData() = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestFriend, 0, AI_ACTION_SEEK_FRIEND, 0);
+				DebugAI( AI_MSG_INFO, pSoldier, String("found move spot %d", pSoldier->aiPlanning().actionData()));
 
 				// if it's possible						
-				if ( !TileIsOutOfBounds(pSoldier->aiData.usActionData) )
+				if ( !TileIsOutOfBounds(pSoldier->aiPlanning().actionData()) )
 				{
 					return(AI_ACTION_SEEK_FRIEND);
 				}
@@ -797,20 +797,20 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 			pSoldier->actionPoints().current() == pSoldier->actionPoints().initial() &&
 			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->suppression().underFire()) )
 		{
-			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);			
+			pSoldier->aiPlanning().actionData() = FindBestNearbyCover(pSoldier, pSoldier->morale().aiMorale(), &iDummy);
 
-			if( !TileIsOutOfBounds(pSoldier->aiData.usActionData) )
+			if( !TileIsOutOfBounds(pSoldier->aiPlanning().actionData()) )
 			{
-				DebugAI( AI_MSG_INFO, pSoldier, String("found cover spot %d", pSoldier->aiData.usActionData));
+				DebugAI( AI_MSG_INFO, pSoldier, String("found cover spot %d", pSoldier->aiPlanning().actionData()));
 				return AI_ACTION_TAKE_COVER;
 			}
 			else if (pSoldier->suppression().underFire())
 			{
-				pSoldier->aiData.usActionData = FindRetreatSpot(pSoldier);
+				pSoldier->aiPlanning().actionData() = FindRetreatSpot(pSoldier);
 
-				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+				if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 				{
-					DebugAI(AI_MSG_INFO, pSoldier, String("found retreat spot %d", pSoldier->aiData.usActionData));
+					DebugAI(AI_MSG_INFO, pSoldier, String("found retreat spot %d", pSoldier->aiPlanning().actionData()));
 					return AI_ACTION_TAKE_COVER;
 				}
 			}
@@ -839,7 +839,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 			PythSpacesAway(pSoldier->position().gridNo(),sClosestThreat) <= sDistVisible &&
 			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 		{
-			pSoldier->aiData.usActionData = ubOpponentDir;
+			pSoldier->aiPlanning().actionData() = ubOpponentDir;
 			return(AI_ACTION_CHANGE_FACING);			
 		}
 		DebugAI( AI_MSG_INFO, pSoldier, String("cannot turn"));
@@ -852,7 +852,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("[switch to green]"));
 
 	// if not in combat or under fire, and we COULD have moved, just chose not to	
-	if( (pSoldier->aiData.bAlertStatus != STATUS_BLACK) &&
+	if( (pSoldier->aiBehavior().alertStatus() != STATUS_BLACK) &&
 		!pSoldier->suppression().underFire() &&
 		ubCanMove &&
 		(!gfTurnBasedAI || pSoldier->actionPoints().current() == pSoldier->actionPoints().initial()) &&
@@ -861,7 +861,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		DebugAI( AI_MSG_INFO, pSoldier, String("decide green"));
 
 		// Skip RED until new situation/next turn, 30% extra chance to do GREEN actions
-		pSoldier->aiData.bBypassToGreen = 30;
+		pSoldier->aiBehavior().bypassToGreen() = 30;
 		return(ZombieDecideActionGreen(pSoldier) );
 	}
 
@@ -883,7 +883,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 		if ( pSoldier->position().direction() != ubOpponentDir &&
 			pSoldier->InternalIsValidStance( ubOpponentDir, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ))
 		{
-			pSoldier->aiData.usActionData = ubOpponentDir;
+			pSoldier->aiPlanning().actionData() = ubOpponentDir;
 			return( AI_ACTION_CHANGE_FACING );
 		}
 		DebugAI( AI_MSG_INFO, pSoldier, String("cannot turn"));
@@ -894,7 +894,7 @@ INT8 ZombieDecideActionRed(SOLDIERTYPE *pSoldier)
 	////////////////////////////////////////////////////////////////////////////
 	DebugAI( AI_MSG_INFO, pSoldier, String("nothing to do!"));
 
-	pSoldier->aiData.usActionData = NOWHERE;
+	pSoldier->aiPlanning().actionData() = NOWHERE;
 	return(AI_ACTION_NONE);
 }
 
@@ -915,12 +915,12 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	INT32	sThreatSpot = NOWHERE;
 	INT8	bThreatLevel = 0;
 
-	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionBlack: soldier = %d, orders = %d, attitude = %d",pSoldier->ubID,pSoldier->aiData.bOrders,pSoldier->aiData.bAttitude));
+	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("DecideActionBlack: soldier = %d, orders = %d, attitude = %d",pSoldier->ubID,pSoldier->aiBehavior().orders(),pSoldier->aiBehavior().attitude()));
 
 	DebugAI( AI_MSG_START, pSoldier, String("[Black Zombie]"));
 	LogDecideInfo(pSoldier);
-	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiData.bAlertStatus], gStr8Orders[pSoldier->aiData.bOrders], gStr8Attitude[pSoldier->aiData.bAttitude], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
-	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->aiData.bAIMorale) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("AP=%d/%d %s %s %s %s %s", pSoldier->actionPoints().current(), pSoldier->actionPoints().initial(), gStr8AlertStatus[pSoldier->aiBehavior().alertStatus()], gStr8Orders[pSoldier->aiBehavior().orders()], gStr8Attitude[pSoldier->aiBehavior().attitude()], gStr8Team[pSoldier->bTeam], gStr8Class[pSoldier->ubSoldierClass]) );
+	//DebugAI( AI_MSG_INFO, pSoldier, String("Health %d/%d Breath %d/%d Shock %d Tolerance %d AI Morale %d", pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath(), pSoldier->suppression().shock(), CalcSuppressionTolerance(pSoldier), pSoldier->morale().aiMorale()) );
 
 	ATTACKTYPE BestStab, BestAttack;
 	BOOLEAN fAllowCoverCheck = FALSE;
@@ -929,7 +929,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	if (pSoldier->actionPoints().current() <= 0)
 	{
 		DebugAI( AI_MSG_INFO, pSoldier, String("no AP! nothing to do"));
-		pSoldier->aiData.usActionData = NOWHERE;
+		pSoldier->aiPlanning().actionData() = NOWHERE;
 		return(AI_ACTION_NONE);
 	}
 
@@ -941,7 +941,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	bInDeepWater = WaterTooDeepForAttacks( pSoldier->position().gridNo(), pSoldier->position().level() );
 
 	// calculate our morale
-	pSoldier->aiData.bAIMorale = CalcMorale(pSoldier);
+	pSoldier->morale().aiMorale() = CalcMorale(pSoldier);
 
 	DebugAI( AI_MSG_INFO, pSoldier, String("CanMove %d InWater %d InDeepWater %d", ubCanMove, bInWater, bInDeepWater));
 	////////////////////////////////////////////////////////////////////////////
@@ -953,22 +953,22 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	{
 		DebugAI( AI_MSG_INFO, pSoldier, String("in deep water: find nearest land"));
 
-		pSoldier->aiData.usActionData = FindNearestUngassedLand(pSoldier);
+		pSoldier->aiPlanning().actionData() = FindNearestUngassedLand(pSoldier);
 
-		if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+		if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 		{
-			DebugAI( AI_MSG_INFO, pSoldier, String("leave deep water: move to %d", pSoldier->aiData.usActionData));
+			DebugAI( AI_MSG_INFO, pSoldier, String("leave deep water: move to %d", pSoldier->aiPlanning().actionData()));
 			return(AI_ACTION_LEAVE_WATER_GAS);
 		}
 
 		DebugAI( AI_MSG_INFO, pSoldier, String("couldn't find ANY land within 25 tiles"));
 		// couldn't find ANY land within 25 tiles(!), this should never happen...
 		// look for best place to RUN AWAY to (farthest from the closest threat)
-		pSoldier->aiData.usActionData = FindSpotMaxDistFromOpponents(pSoldier);
+		pSoldier->aiPlanning().actionData() = FindSpotMaxDistFromOpponents(pSoldier);
 
-		if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+		if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 		{
-			DebugAI( AI_MSG_INFO, pSoldier, String("move to %d", pSoldier->aiData.usActionData));
+			DebugAI( AI_MSG_INFO, pSoldier, String("move to %d", pSoldier->aiPlanning().actionData()));
 			return(AI_ACTION_RUN_AWAY);
 		}
 	}
@@ -1065,7 +1065,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	{
 		DebugAI( AI_MSG_INFO, pSoldier, String("prepare attack, AP cost %d CTH %d", BestAttack.ubAPCost, BestAttack.ubChanceToReallyHit));
 
-		pSoldier->aiData.bAimTime = BestAttack.ubAimTime;
+		pSoldier->aiPlanning().aimTime() = BestAttack.ubAimTime;
 		SOLDIERTYPE* attackOpponent =
 			GetJa2SoldierRepository().resolve(
 				BestAttack.ubOpponent.i);
@@ -1102,7 +1102,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			}
 		}
 
-		DebugAI( AI_MSG_INFO, pSoldier, String("AimTime %d AimShotLocation %d", pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation()));
+		DebugAI( AI_MSG_INFO, pSoldier, String("AimTime %d AimShotLocation %d", pSoldier->aiPlanning().aimTime(), pSoldier->attackSelection().shotLocation()));
 
 		// swap weapon to hand if necessary
 		if (BestAttack.bWeaponIn != HANDPOS)
@@ -1111,10 +1111,10 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			RearrangePocket(pSoldier,HANDPOS,BestAttack.bWeaponIn,FOREVER);
 		}
 
-		pSoldier->aiData.usActionData = BestAttack.sTarget;
+		pSoldier->aiPlanning().actionData() = BestAttack.sTarget;
 		pSoldier->targeting().level() = BestAttack.bTargetLevel;
 
-		DebugAI( AI_MSG_INFO, pSoldier, String("attack opponent %d at gridno %d level %d", BestAttack.ubOpponent, pSoldier->aiData.usActionData, pSoldier->targeting().level()));
+		DebugAI( AI_MSG_INFO, pSoldier, String("attack opponent %d at gridno %d level %d", BestAttack.ubOpponent, pSoldier->aiPlanning().actionData(), pSoldier->targeting().level()));
 
 		return(ubBestAttackAction);
 	}
@@ -1143,14 +1143,14 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 				if( gfTurnBasedAI &&
 					pSoldier->actionPoints().current() < pSoldier->actionPoints().initial() )
 				{
-					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
 					return( AI_ACTION_END_TURN );
 				}
 
 				// climb
 				if (IsActionAffordable(pSoldier, AI_ACTION_CLIMB_ROOF))
 				{
-					pSoldier->aiData.bNextAction = AI_ACTION_NONE;
+					pSoldier->aiPlanning().nextAction() = AI_ACTION_NONE;
 					return( AI_ACTION_CLIMB_ROOF );
 				}
 				// cannot climb at all
@@ -1160,17 +1160,17 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 				DebugAI( AI_MSG_INFO, pSoldier, String("try to move towards disturbance"));
 
 				// try to move towards him
-				pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestDisturbance, 0, AI_ACTION_SEEK_OPPONENT, 0);
-				DebugAI( AI_MSG_INFO, pSoldier, String("found spot %d", pSoldier->aiData.usActionData));
+				pSoldier->aiPlanning().actionData() = InternalGoAsFarAsPossibleTowards(pSoldier, sClosestDisturbance, 0, AI_ACTION_SEEK_OPPONENT, 0);
+				DebugAI( AI_MSG_INFO, pSoldier, String("found spot %d", pSoldier->aiPlanning().actionData()));
 
 				// if it's possible
-				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+				if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 				{
 					// sevenfm: try to advance using sight cover
 					if( gfTurnBasedAI &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) < TACTICAL_RANGE * 2 &&
 						PythSpacesAway(pSoldier->position().gridNo(), sClosestDisturbance) > TACTICAL_RANGE / 4 &&
-						!SightCoverAtSpot(pSoldier, pSoldier->aiData.usActionData, TRUE))
+						!SightCoverAtSpot(pSoldier, pSoldier->aiPlanning().actionData(), TRUE))
 					{
 						DebugAI( AI_MSG_INFO, pSoldier, String("[advance spot]"));
 
@@ -1181,9 +1181,9 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 						{
 							DebugAI( AI_MSG_INFO, pSoldier, String("advance to %d", sAdvanceSpot));
 
-							pSoldier->aiData.usActionData = InternalGoAsFarAsPossibleTowards(pSoldier, sAdvanceSpot, 0, AI_ACTION_SEEK_OPPONENT, 0);
+							pSoldier->aiPlanning().actionData() = InternalGoAsFarAsPossibleTowards(pSoldier, sAdvanceSpot, 0, AI_ACTION_SEEK_OPPONENT, 0);
 
-							if( !TileIsOutOfBounds(pSoldier->aiData.usActionData) )
+							if( !TileIsOutOfBounds(pSoldier->aiPlanning().actionData()) )
 							{
 								return(AI_ACTION_SEEK_OPPONENT);
 							}							
@@ -1209,20 +1209,20 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			pSoldier->actionPoints().current() == pSoldier->actionPoints().initial() &&
 			(!SightCoverAtSpot(pSoldier, pSoldier->position().gridNo(), TRUE) || pSoldier->suppression().underFire()) )
 		{
-			pSoldier->aiData.usActionData = FindBestNearbyCover(pSoldier, pSoldier->aiData.bAIMorale, &iDummy);						
+			pSoldier->aiPlanning().actionData() = FindBestNearbyCover(pSoldier, pSoldier->morale().aiMorale(), &iDummy);
 
-			if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+			if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 			{
-				DebugAI(AI_MSG_INFO, pSoldier, String("found hide spot %d", pSoldier->aiData.usActionData));
+				DebugAI(AI_MSG_INFO, pSoldier, String("found hide spot %d", pSoldier->aiPlanning().actionData()));
 				return AI_ACTION_TAKE_COVER;
 			}
 			else if (pSoldier->suppression().underFire())
 			{
-				pSoldier->aiData.usActionData = FindRetreatSpot(pSoldier);
+				pSoldier->aiPlanning().actionData() = FindRetreatSpot(pSoldier);
 				
-				if (!TileIsOutOfBounds(pSoldier->aiData.usActionData))
+				if (!TileIsOutOfBounds(pSoldier->aiPlanning().actionData()))
 				{
-					DebugAI(AI_MSG_INFO, pSoldier, String("found retreat spot %d", pSoldier->aiData.usActionData));
+					DebugAI(AI_MSG_INFO, pSoldier, String("found retreat spot %d", pSoldier->aiPlanning().actionData()));
 					return AI_ACTION_TAKE_COVER;
 				}
 			}
@@ -1250,7 +1250,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 			if( pSoldier->position().direction() != bDirection &&
 				pSoldier->InternalIsValidStance( bDirection, gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight ) )
 			{
-				pSoldier->aiData.usActionData = bDirection;
+				pSoldier->aiPlanning().actionData() = bDirection;
 
 				return(AI_ACTION_CHANGE_FACING);
 			}
@@ -1265,7 +1265,7 @@ INT8 ZombieDecideActionBlack(SOLDIERTYPE *pSoldier)
 	DebugAI( AI_MSG_INFO, pSoldier, String("nothing to do!"));
 
 	// by default, if everything else fails, just stand in place and wait
-	pSoldier->aiData.usActionData = NOWHERE;
+	pSoldier->aiPlanning().actionData() = NOWHERE;
 	return(AI_ACTION_NONE);
 }
 
@@ -1273,7 +1273,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 {
 	INT8 bAction = AI_ACTION_NONE;
 
-	switch (pSoldier->aiData.bAlertStatus)
+	switch (pSoldier->aiBehavior().alertStatus())
 	{
 	case STATUS_GREEN:
 		bAction = ZombieDecideActionGreen(pSoldier);
@@ -1294,7 +1294,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 
 #ifdef DEBUGDECISIONS
 	STR tempstr;
-	sprintf(tempstr, "ZombieDecideAction: selected action %d, actionData %d\n\n", bAction, pSoldier->aiData.usActionData);
+	sprintf(tempstr, "ZombieDecideAction: selected action %d, actionData %d\n\n", bAction, pSoldier->aiPlanning().actionData());
 	DebugAI(tempstr);
 #endif
 
@@ -1314,12 +1314,12 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 	// BLACK - Currently has one or more OPPONENTS in sight
 
 	// save the man's previous status
-	bOldStatus = pSoldier->aiData.bAlertStatus;
+	bOldStatus = pSoldier->aiBehavior().alertStatus();
 
 	// determine the current alert status for this category of man
-	if (pSoldier->aiData.bOppCnt > 0)		// opponent(s) in sight
+	if (pSoldier->awareness().opponentCount() > 0)		// opponent(s) in sight
 	{		
-		pSoldier->aiData.bAlertStatus = STATUS_BLACK;
+		pSoldier->aiBehavior().alertStatus() = STATUS_BLACK;
 	}
 	else // no opponents are in sight
 	{
@@ -1327,7 +1327,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 		{
 		case STATUS_BLACK:
 			// then drop back to RED status
-			pSoldier->aiData.bAlertStatus = STATUS_RED;
+			pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			break;
 
 		case STATUS_RED:
@@ -1339,17 +1339,17 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 			// if all enemies have been RED alerted, or we're under fire
 			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 			{
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			}
 			else
 			{
 				// if we are NOT aware of any uninvestigated noises right now
 				// and we are not currently in the middle of an action
 				// (could still be on his way heading to investigate a noise!)					
-				if (( TileIsOutOfBounds(MostImportantNoiseHeard(pSoldier,&iDummy,&fClimbDummy,&fReachableDummy))) && !pSoldier->aiData.bActionInProgress)
+				if (( TileIsOutOfBounds(MostImportantNoiseHeard(pSoldier,&iDummy,&fClimbDummy,&fReachableDummy))) && !pSoldier->aiPlanning().actionInProgress())
 				{
 					// then drop back to GREEN status
-					pSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 				}
 			}
 			break;
@@ -1358,7 +1358,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 			// if all enemies have been RED alerted, or we're under fire
 			if (gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition || pSoldier->suppression().underFire())
 			{
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			}
 			else
 			{
@@ -1366,7 +1366,7 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 				if ( !TileIsOutOfBounds(MostImportantNoiseHeard(pSoldier,&iDummy,&fClimbDummy,&fReachableDummy)))
 				{
 					// then move up to YELLOW status
-					pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
+					pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
 				}
 			}
 			break;
@@ -1375,18 +1375,18 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 	}
 
 	// if the creatures alert status has changed in any way
-	if (pSoldier->aiData.bAlertStatus != bOldStatus)
+	if (pSoldier->aiBehavior().alertStatus() != bOldStatus)
 	{
 		// HERE ARE TRYING TO AVOID NPCs SHUFFLING BACK & FORTH BETWEEN RED & BLACK
 		// if either status is < RED (ie. anything but RED->BLACK && BLACK->RED)
-		if ((bOldStatus < STATUS_RED) || (pSoldier->aiData.bAlertStatus < STATUS_RED))
+		if ((bOldStatus < STATUS_RED) || (pSoldier->aiBehavior().alertStatus() < STATUS_RED))
 		{
 			// force a NEW action decision on next pass through HandleManAI()
 			SetNewSituation( pSoldier );
 		}
 
 		// if this guy JUST discovered that there were opponents here for sure...
-		if ((bOldStatus < STATUS_RED) && (pSoldier->aiData.bAlertStatus >= STATUS_RED))
+		if ((bOldStatus < STATUS_RED) && (pSoldier->aiBehavior().alertStatus() >= STATUS_RED))
 		{
 			// might want to make custom to let them go anywhere
 			CheckForChangingOrders(pSoldier);
@@ -1395,8 +1395,8 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 	else	// status didn't change
 	{
 		// if a guy on status GREEN or YELLOW is running low on breath
-		if (((pSoldier->aiData.bAlertStatus == STATUS_GREEN)	&& (pSoldier->vitals().breath() < 75)) ||
-			((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
+		if (((pSoldier->aiBehavior().alertStatus() == STATUS_GREEN)	&& (pSoldier->vitals().breath() < 75)) ||
+			((pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW) && (pSoldier->vitals().breath() < 50)))
 		{
 			// as long as he's not in water (standing on a bridge is OK)
 			if (!pSoldier->MercInWater())
@@ -1405,11 +1405,11 @@ INT8 ZombieDecideAction( SOLDIERTYPE *pSoldier )
 				SetNewSituation( pSoldier );
 
 				// current action will be canceled. if noise is no longer important				
-				if ((pSoldier->aiData.bAlertStatus == STATUS_YELLOW) &&
+				if ((pSoldier->aiBehavior().alertStatus() == STATUS_YELLOW) &&
 					(TileIsOutOfBounds(MostImportantNoiseHeard(pSoldier,&iDummy,&fClimbDummy,&fReachableDummy))))
 				{
 					// then drop back to GREEN status
-					pSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 					CheckForChangingOrders(pSoldier);
 				}
 			}

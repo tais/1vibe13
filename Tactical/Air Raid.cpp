@@ -1452,7 +1452,7 @@ void EndAirRaid( )
 					GetJa2SoldierRepository().resolve(cnt.i);
 				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
-					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 				}
 			}
 			gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition = FALSE;
@@ -1465,7 +1465,7 @@ void EndAirRaid( )
 					GetJa2SoldierRepository().resolve(cnt.i);
 				if ( pTeamSoldier->bActive && pTeamSoldier->bInSector )
 				{
-					pTeamSoldier->aiData.bAlertStatus = STATUS_GREEN;
+					pTeamSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
 				}
 			}
 			gTacticalStatus.Team[ CIV_TEAM ].bAwareOfOpposition = FALSE;

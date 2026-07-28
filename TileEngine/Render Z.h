@@ -117,7 +117,7 @@ INT16 ShadowZLevel( INT16 sMapX, INT16 sMapY, INT16& sWorldY );
 	}\
 	else\
 	{\
-		if ( pSoldier->aiData.dHeightAdjustment > 0 )\
+		if ( pSoldier->position().animationHeightAdjustment() > 0 )\
 		{\
 			sWorldY += ( WALL_HEIGHT + 20 );\
 \

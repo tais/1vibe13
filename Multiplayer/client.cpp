@@ -1588,14 +1588,14 @@ void recieveHIRE(RPCParameters *rpcParameters)
 	pSoldier->status().flags() |= SOLDIER_PC;
 	if ( cGameType == MP_TYPE_DEATHMATCH && pSoldier->bTeam >= LAN_TEAM_ONE )
 		pSoldier->bSide = 1;	// LAN squads must read as hostile side in DM (audit: morale)
-	pSoldier->aiData.bNeutral = FALSE;
+	pSoldier->aiBehavior().neutral() = FALSE;
 	gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags |= PROFILE_MISC_FLAG_RECRUITED;
 	
 	if(!cSameMercAllowed)
 		gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_WORKING_ELSEWHERE;
 
 	pSoldier->bSide=0; //default coop only
-	pSoldier->aiData.bNeutral = FALSE;
+	pSoldier->aiBehavior().neutral() = FALSE;
 	gTacticalStatus.Team[MercCreateStruct.bTeam	].bSide=0;
 
 #ifdef ENABLE_MP_FRIENDLY_PLAYERS_SHARE_SAME_FOV
@@ -1783,7 +1783,7 @@ UINT8 numenemyLAN( UINT8 ubSectorX, UINT8 ubSectorY )
 		if ( pSoldier && pSoldier->bInSector &&
 			pSoldier->vitals().health() > 0 )
 		{
-			if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != 0 ) )
+			if ( !pSoldier->aiBehavior().neutral() && (pSoldier->bSide != 0 ) )
 			{
 				ubNumEnemies++;
 			}
@@ -5543,7 +5543,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 					SOLDIER_DEAD ) )
 			{
 				// Checkf for any more bacguys
-				if ( !pTeamSoldier->aiData.bNeutral && (pTeamSoldier->bTeam == iNetbTeam ) )
+				if ( !pTeamSoldier->aiBehavior().neutral() && (pTeamSoldier->bTeam == iNetbTeam ) )
 				{
 					// KIll......
 					pTeamSoldier->SoldierTakeDamage( ANIM_CROUCH, pTeamSoldier->vitals().health(), 100, TAKE_DAMAGE_BLOODLOSS, NOBODY, NOWHERE, 0, TRUE );

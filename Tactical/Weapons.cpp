@@ -2261,7 +2261,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	
 	// Calculate total APs required to complete the entire attack, including all relevant weapon AP costs
 	// with possible turning and gun-raising costs as well.
- 	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiData.bAimTime );
+	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiPlanning().aimTime() );
 	// SANDRO - get BP cost for weapon manipulating
 	if ( gGameExternalOptions.ubEnergyCostForWeaponWeight && !IsAutoResolveActive() ) // rather not in atuoresolve, since we can't choose stance there
 		iBPCost = sAPCost * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
@@ -2304,11 +2304,11 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// CALC MUZZLE SWAY
 	if ( Item[ usUBItem ].usItemClass == IC_THROWING_KNIFE )
 	{
-	    uiMuzzleSway = 100 - CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation() );
+	    uiMuzzleSway = 100 - CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), pSoldier->attackSelection().shotLocation() );
 	}
 	else
 	{
-		uiMuzzleSway = 100 - CalcChanceToHitGun( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation() );
+		uiMuzzleSway = 100 - CalcChanceToHitGun( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), pSoldier->attackSelection().shotLocation() );
 	}
 
 	//ATE: Added if we are in meanwhile, we always hit...
@@ -2652,7 +2652,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			UINT16 usMrksGain = 0;
 
 			// Extra marksmanship/dexterity bonus for aiming.
-			if (pSoldier->aiData.bAimTime)
+			if (pSoldier->aiPlanning().aimTime())
 			{
 				dExpGain += 3.0f * (FLOAT)sApertureRatio / 100.0f; // At this point, usExpGain could equal up to 5.
 				usDextGain += (UINT16)(dExpGain / 3);
@@ -2694,7 +2694,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			UINT16 usMrksGain = 0;
 
 			// Extra marksmanship/dexterity bonus for aiming.
-			if (pSoldier->aiData.bAimTime)
+			if (pSoldier->aiPlanning().aimTime())
 			{
 				dExpGain += 5.0f * (FLOAT)sApertureRatio / 100.0f; // At this point, usExpGain could equal up to 10.
 				usDextGain += (UINT16)(dExpGain / 3);
@@ -2950,9 +2950,9 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	// reduce monster smell (gunpowder smell)
-	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 2 ) == 0 )
+	if ( pSoldier->perception().monsterSmell() > 0 && Random( 2 ) == 0 )
 	{
-		pSoldier->aiData.bMonsterSmell--;
+		pSoldier->perception().monsterSmell()--;
 	}
 
 //<SB> manual recharge
@@ -3069,7 +3069,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 
 	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("UseGun") );
 	// Deduct points!
- 	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiData.bAimTime );
+	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiPlanning().aimTime() );
 	// SANDRO: get BP cost for weapon manipulating
 	if ( gGameExternalOptions.ubEnergyCostForWeaponWeight && !IsAutoResolveActive() ) // rather not in atuoresolve, since we can't choose stance there
 		iBPCost = sAPCost * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
@@ -3161,12 +3161,12 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// CALC CHANCE TO HIT
 	if ( Item[ usUBItem ].usItemClass == IC_THROWING_KNIFE )
 	{
-	  uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation() );
+	  uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), pSoldier->attackSelection().shotLocation() );
 	}
 	else
 	{
 		fCalculateCTHDuringGunfire = TRUE;
-		uiHitChance = CalcChanceToHitGun( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, pSoldier->attackSelection().shotLocation() );
+		uiHitChance = CalcChanceToHitGun( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), pSoldier->attackSelection().shotLocation() );
 		//CHRISL:
 		//pSoldier->CTH.push_back(uiHitChance);
 		//if(pSoldier->fireControl().autofireShots() == pSoldier->fireControl().burstCounter() && pSoldier->CTH.size() > 0)
@@ -3381,11 +3381,11 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				// grant extra exp for hitting a difficult target
 				usExpGain += (UINT8) (100 - uiHitChance) / 25;
 
-				if ( pSoldier->aiData.bAimTime && !pSoldier->fireControl().burstCounter() )
+				if ( pSoldier->aiPlanning().aimTime() && !pSoldier->fireControl().burstCounter() )
 				{
 					// gain extra exp for aiming, up to the amount from
 					// the difficulty of the shot
-					usExpGain += __min( pSoldier->aiData.bAimTime, usExpGain );
+					usExpGain += __min( pSoldier->aiPlanning().aimTime(), usExpGain );
 				}
 
 				// base pts extra for hitting
@@ -3461,11 +3461,11 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				// grant extra exp for hitting a difficult target
 				usExpGain += (UINT8) (100 - uiHitChance) / 10;
 
-				if (pSoldier->aiData.bAimTime)
+				if (pSoldier->aiPlanning().aimTime())
 				{
 					// gain extra exp for aiming, up to the amount from
 					// the difficulty of the throw
-					usExpGain += ( 2 * __min( pSoldier->aiData.bAimTime, usExpGain ) );
+					usExpGain += ( 2 * __min( pSoldier->aiPlanning().aimTime(), usExpGain ) );
 				}
 
 				// base pts extra for hitting
@@ -3794,9 +3794,9 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	}
 
 	// reduce monster smell (gunpowder smell)
-	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 2 ) == 0 )
+	if ( pSoldier->perception().monsterSmell() > 0 && Random( 2 ) == 0 )
 	{
-		pSoldier->aiData.bMonsterSmell--;
+		pSoldier->perception().monsterSmell()--;
 	}
 
 //<SB> manual recharge
@@ -3823,7 +3823,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	BOOLEAN							fSurpriseAttack;
 
 	// Deduct points!
- 	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, (pSoldier->aiData.bAimTime / 2) );
+	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, (pSoldier->aiPlanning().aimTime() / 2) );
 
 	DeductPoints( pSoldier, sAPCost, 0, AFTERACTION_INTERRUPT );
 
@@ -3842,14 +3842,14 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
 
 		// CHECK IF BUDDY KNOWS ABOUT US
-		if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
+		if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 		{
 			iHitChance = 100;
 			fSurpriseAttack = TRUE;
 		}
 		else
 		{
-			iHitChance = CalcChanceToStab( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime );
+			iHitChance = CalcChanceToStab( pSoldier, pTargetSoldier, pSoldier->aiPlanning().aimTime() );
 			fSurpriseAttack = FALSE;
 		}
 
@@ -3947,7 +3947,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		{
 			// anv: taunts on miss
 			PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_BLADE, pTargetSoldier->ubID );
-			if( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
+			if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
 				PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_BLADE, pSoldier->ubID ); 
 
 			// if it was another team shooting at someone under our control
@@ -3974,11 +3974,11 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				// grant extra exp for hitting a difficult target
 				usExpGain += (UINT8) (100 - iHitChance) / 10;
 
-				if (pSoldier->aiData.bAimTime)
+				if (pSoldier->aiPlanning().aimTime())
 				{
 					// gain extra exp for aiming, up to the amount from
 					// the difficulty of the attack
-					usExpGain += ( 2 * __min( pSoldier->aiData.bAimTime, usExpGain ) );
+					usExpGain += ( 2 * __min( pSoldier->aiPlanning().aimTime(), usExpGain ) );
 				}
 
 				// base pts extra for hitting
@@ -4022,9 +4022,9 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell
-	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
+	if ( pSoldier->perception().monsterSmell() > 0 && Random( 5 ) == 0 )
 	{
-		pSoldier->aiData.bMonsterSmell--;
+		pSoldier->perception().monsterSmell()--;
 	}
 
 
@@ -4054,7 +4054,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	// Punch the enemy
 	if (!fStealing)
 	{
- 		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, (pSoldier->aiData.bAimTime / 2));
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, (pSoldier->aiPlanning().aimTime() / 2));
 		DeductPoints( pSoldier, sAPCost, 0, AFTERACTION_INTERRUPT );
 	}
 	// Steal from the enemy
@@ -4097,11 +4097,11 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				iHitChance = 0;
 			}
 			// sevenfm: use sneak attack code
-			//else if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN )
+			//else if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN )
 			else if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK)
 			{
 				// give bonus for surprise, but not so much as struggle would still occur
-				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime ) + 20;
+				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiPlanning().aimTime() ) + 20;
 			}
 			else if ( pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 			{
@@ -4110,20 +4110,20 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			}
 			else
 			{
-				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime );
+				iHitChance = CalcChanceToSteal( pSoldier, pTargetSoldier, pSoldier->aiPlanning().aimTime() );
 			}
 		}
 		else
 		{
 			// sevenfm: use sneak attack code
-			//if ( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
+			//if ( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical() )
 			if (pTargetSoldier->usSoldierFlagMask2 & SOLDIER_SNEAK_ATTACK || pTargetSoldier->vitals().health() < OKLIFE || pTargetSoldier->collapseState().tactical())
 			{
 				iHitChance = 100;
 			}
 			else
 			{
-				iHitChance = CalcChanceToPunch( pSoldier, pTargetSoldier, pSoldier->aiData.bAimTime );
+				iHitChance = CalcChanceToPunch( pSoldier, pTargetSoldier, pSoldier->aiPlanning().aimTime() );
 
 				// sevenfm: bonus for boxers for attack from the back
 				if (iHitChance < 100 &&
@@ -4173,16 +4173,16 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			if ( fSoldierCollapsed )
 				;
 			// if he sees us, he'l notice
-			else if ( pTargetSoldier->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY )
+			else if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY )
 				fNoticed = TRUE;
 			else
 			{
 				UINT8 chance = 10;
 
-				if ( pTargetSoldier->aiData.bOppList[pSoldier->ubID] == SEEN_LAST_TURN )
+				if ( pTargetSoldier->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_LAST_TURN )
 					chance += 40;
 
-				chance += pSoldier->aiData.bAlertStatus * 10;
+				chance += pSoldier->aiBehavior().alertStatus() * 10;
 
 				if ( Chance( chance ) )
 					fNoticed = TRUE;
@@ -4211,7 +4211,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				( fSoldierCollapsed || 
 				( iDiceRoll < ( iHitChance * 2 / 3 ) && 
 				( !gGameExternalOptions.fEnhancedCloseCombatSystem ||
-				pTargetSoldier->aiData.bAlertStatus < STATUS_RED ) ) ) ) )
+				pTargetSoldier->aiBehavior().alertStatus() < STATUS_RED ) ) ) ) )
 			{
 				fStealAttempt = TRUE;
 
@@ -4576,7 +4576,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 						
 						// Double EXP for focused attack
-						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
+						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiPlanning().aimTime() >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
 							((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT)) && gGameOptions.fNewTraitSystem ))
 						{
 							ubExpGain *= 2;
@@ -4626,7 +4626,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 						
 						// Double EXP for focused attack
-						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
+						if ( (pSoldier->animationPlayback().state() == NINJA_SPINKICK || pSoldier->aiPlanning().aimTime() >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) &&
 							((HAS_SKILL_TRAIT( pSoldier, MARTIAL_ARTS_NT)) && gGameOptions.fNewTraitSystem ) )
 						{
 							ubExpGain *= 2;
@@ -4706,7 +4706,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			{
 				// anv: enemy taunts on miss
 				PossiblyStartEnemyTaunt( pSoldier, TAUNT_MISS_HTH, pTargetSoldier->ubID );
-				if( pTargetSoldier->aiData.bOppList[ pSoldier->ubID ] == SEEN_CURRENTLY )
+				if( pTargetSoldier->awareness().opponentKnowledge()[ pSoldier->ubID ] == SEEN_CURRENTLY )
 					PossiblyStartEnemyTaunt( pTargetSoldier, TAUNT_GOT_MISSED_HTH, pSoldier->ubID );
 
 				//INT16 sMinAPCost = MinAPsToAttack(pTargetSoldier, pSoldier->sGridNo, TRUE, 0, 0);
@@ -4743,9 +4743,9 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 					}
 
-					pTargetSoldier->aiData.bAimTime = 0;
+					pTargetSoldier->aiPlanning().aimTime() = 0;
 					if (pTargetSoldier->actionPoints().current() >= MinAPsToAttack(pTargetSoldier, pSoldier->position().gridNo(), TRUE, 1, 0) && Chance(EffectiveStrength(pTargetSoldier, FALSE) / 4))
-						pTargetSoldier->aiData.bAimTime = 1;
+						pTargetSoldier->aiPlanning().aimTime() = 1;
 
 					pTargetSoldier->attackSelection().meleeLocation() = AIM_SHOT_RANDOM;
 					if (gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE)
@@ -4771,9 +4771,9 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell (gunpowder smell)
-	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
+	if ( pSoldier->perception().monsterSmell() > 0 && Random( 5 ) == 0 )
 	{
-		pSoldier->aiData.bMonsterSmell--;
+		pSoldier->perception().monsterSmell()--;
 	}
 	
 	return( TRUE );
@@ -4787,7 +4787,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	SOLDIERTYPE	*pTargetSoldier;
 	//INT16			sAPCost = 0;//dnl ch72 180913
 
-	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, AIM_SHOT_TORSO );
+	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), AIM_SHOT_TORSO );
 
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
@@ -5058,7 +5058,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 			PlayJA2Sample( Weapon[ usItemNum ].sSound, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ) );
 	}
 
-	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiData.bAimTime, AIM_SHOT_TORSO );
+	uiHitChance = CalcThrownChanceToHit( pSoldier, sTargetGridNo, pSoldier->aiPlanning().aimTime(), AIM_SHOT_TORSO );
 
 	#ifdef JA2BETAVERSION
 	if ( gfReportHitChances )
@@ -5074,7 +5074,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 
 		//sAPCost = MinAPsToAttack( pSoldier, sTargetGridNo, TRUE );
 
-	 	sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiData.bShownAimTime );
+		sAPCost = CalcTotalAPsToAttack( pSoldier, sTargetGridNo, FALSE, pSoldier->aiPlanning().shownAimTime() );
 		// SANDRO: get BP cost for weapon manipulating
 		if ( gGameExternalOptions.ubEnergyCostForWeaponWeight )
 			iBPCost = sAPCost * GetBPCostPer10APsForGunHolding( pSoldier ) / 10;
@@ -5938,7 +5938,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 								ShooterID);
 						}
 					}
-					else if (opponent->aiData.bOppList[ShooterID] ==
+					else if (opponent->awareness().opponentKnowledge()[ShooterID] ==
 						SEEN_CURRENTLY)
 					{
 						PossiblyStartEnemyTaunt(
@@ -5951,7 +5951,7 @@ void StructureHit( INT32 iBullet, UINT16 usWeaponIndex, INT16 bWeaponStatus, Sol
 				}
 				else if( Item[ pBullet->pFirer->attackSelection().weapon() ].usItemClass & IC_THROWING_KNIFE )
 				{
-					if( opponent->aiData.bOppList[ShooterID] ==
+					if( opponent->awareness().opponentKnowledge()[ShooterID] ==
 						SEEN_CURRENTLY )
 						PossiblyStartEnemyTaunt(
 							opponent,
@@ -6200,7 +6200,7 @@ UINT32 CalcNewChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 
 	iSightRange = 0;
 
-	if (ubTargetID != NOBODY && (pSoldier->aiData.bOppList[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY))
+	if (ubTargetID != NOBODY && (pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY))
 	{
 		iSightRange = SoldierToSoldierLineOfSightTest(
 			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
@@ -6571,7 +6571,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	sDistVis = pSoldier->GetMaxDistanceVisible(sGridNo, pSoldier->targeting().level(), CALC_FROM_ALL_DIRS ) * CELL_X_SIZE;
 	iScopeVisionRangeBonus = GetTotalVisionRangeBonus(pSoldier, bLightLevel);	// not an actual range value, simply a modifier for range calculations
 
-	if (ubTargetID != NOBODY && ( pSoldier->aiData.bOppList[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY ) )
+	if (ubTargetID != NOBODY && ( pSoldier->awareness().opponentKnowledge()[ubTargetID] == SEEN_CURRENTLY || gbPublicOpplist[pSoldier->bTeam][ubTargetID] == SEEN_CURRENTLY ) )
 		iSightRange = SoldierToSoldierLineOfSightTest(
 			pSoldier, targetSoldier, TRUE, NO_DISTANCE_LIMIT,
 			pSoldier->attackSelection().shotLocation(), false );
@@ -6912,7 +6912,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 
 		// if target sees us, he may have a chance to dodge before the gun goes off
 		// but ability to dodge is reduced if crouched or prone!
-		if ( pTarget->aiData.bOppList[pSoldier->ubID] == SEEN_CURRENTLY && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) && !(pSoldier->ubBodyType != QUEENMONSTER) )
+		if ( pTarget->awareness().opponentKnowledge()[pSoldier->ubID] == SEEN_CURRENTLY && !ARMED_VEHICLE( pTarget ) && !ENEMYROBOT( pTarget ) && !(pSoldier->ubBodyType != QUEENMONSTER) )
 		{
 			iPenalty = ( EffectiveAgility( pTarget, FALSE ) / 5 + EffectiveExpLevel( pTarget ) * 2);
 			switch( gAnimControl[ pTarget->animationPlayback().state() ].ubHeight )
@@ -8176,13 +8176,13 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			// Throwing skill increases damage of knives here
 			if ( (ubAmmoType == AMMO_KNIFE) && HAS_SKILL_TRAIT( pFirer, THROWING_NT ))
 			{
-				iImpact += (INT32)(iImpact * (gSkillTraitValues.ubTHBladesDamageBonus + (gSkillTraitValues.ubTHBladesDamageBonusPerClick * pFirer->aiData.bAimTime))/100);
+				iImpact += (INT32)(iImpact * (gSkillTraitValues.ubTHBladesDamageBonus + (gSkillTraitValues.ubTHBladesDamageBonusPerClick * pFirer->aiPlanning().aimTime()))/100);
 			}
 	
 			// Sniper trait adds bonus damage per aim click
-			if (HAS_SKILL_TRAIT( pFirer, SNIPER_NT ) && (pFirer->aiData.bAimTime >= gSkillTraitValues.ubSNDamageBonusFromNumClicks) && !fFragment)
+			if (HAS_SKILL_TRAIT( pFirer, SNIPER_NT ) && (pFirer->aiPlanning().aimTime() >= gSkillTraitValues.ubSNDamageBonusFromNumClicks) && !fFragment)
 			{	
-				iImpact += (INT32)(iImpact * (pFirer->aiData.bAimTime - gSkillTraitValues.ubSNDamageBonusFromNumClicks + 1) * gSkillTraitValues.ubSNDamageBonusPerClick * NUM_SKILL_TRAITS( pFirer, SNIPER_NT ))/100; // +5% per trait
+				iImpact += (INT32)(iImpact * (pFirer->aiPlanning().aimTime() - gSkillTraitValues.ubSNDamageBonusFromNumClicks + 1) * gSkillTraitValues.ubSNDamageBonusPerClick * NUM_SKILL_TRAITS( pFirer, SNIPER_NT ))/100; // +5% per trait
 			}
 		}
 				
@@ -8312,11 +8312,11 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	// don't do critical hits against people who are gonna die!
 	if( !IsAutoResolveActive() )
 	{
-		if ( AmmoTypes[ubAmmoType].knife && pFirer && pFirer->aiData.bOppList[ pTarget->ubID ] == SEEN_CURRENTLY && !fFragment )
+		if ( AmmoTypes[ubAmmoType].knife && pFirer && pFirer->awareness().opponentKnowledge()[ pTarget->ubID ] == SEEN_CURRENTLY && !fFragment )
 		{
 			// is this a stealth attack?
-			if ( pTarget->aiData.bOppList[ pFirer->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget ) 
-				&& (ubHitLocation == AIM_SHOT_HEAD || ubHitLocation == AIM_SHOT_TORSO ) && (pTarget->aiData.bAlertStatus < STATUS_RED || !gGameExternalOptions.fEnhancedCloseCombatSystem) ) // Added check if enemy is alerted - SANDRO
+			if ( pTarget->awareness().opponentKnowledge()[ pFirer->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget )
+				&& (ubHitLocation == AIM_SHOT_HEAD || ubHitLocation == AIM_SHOT_TORSO ) && (pTarget->aiBehavior().alertStatus() < STATUS_RED || !gGameExternalOptions.fEnhancedCloseCombatSystem) ) // Added check if enemy is alerted - SANDRO
 			{
 				// HEADROCK HAM 4: With the original CTH system, the HitBy value represented a randomal margin by
 				// which the shooter surpassed his CTH value. Therefore, only a high CTH shot which randomly succeeded
@@ -8371,7 +8371,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			}
 			else
 			{
-				uiCritChance = (iImpactForCrits / 2) + (pFirer->aiData.bAimTime * 5);
+				uiCritChance = (iImpactForCrits / 2) + (pFirer->aiPlanning().aimTime() * 5);
 			}
 			BOOLEAN fMaliciousHit = FALSE;
 			// SANDRO - Malicious characters inflict stat loss more often
@@ -8761,7 +8761,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 
 						// The Spinning kicks or aimed punch bonus - SANDRO
 						if ( !autoresolve &&
-							(pSoldier->animationPlayback().state() == NINJA_SPINKICK || (pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) ))
+							(pSoldier->animationPlayback().state() == NINJA_SPINKICK || (pSoldier->aiPlanning().aimTime() >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6)) ))
 						{
 							//iImpact = (INT32)((iImpact * (100 + gSkillTraitValues.usMAAimedPunchDamageBonus * NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) ) / 100) + 0.5); // +75% damage per trait
 							iBonus += ( (gSkillTraitValues.ubMABonusDamageHandToHand + 25 )* NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT ) );
@@ -8777,7 +8777,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 					iBonus += gSkillTraitValues.ubMEDamageBonusBlunt;
 
 					// bonus for aimed attack
-					if ( !autoresolve && pSoldier->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedBladedAttackes : 6) )
+					if ( !autoresolve && pSoldier->aiPlanning().aimTime() >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedBladedAttackes : 6) )
 					{
 						iBonus += gSkillTraitValues.usMEAimedMeleeAttackDamageBonus;  // incresed damage if focused melee attack
 					}
@@ -8830,7 +8830,7 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 			}
 
 			// Surprising attack deals more damage
-			if (pTarget->aiData.bOppList[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget ) )
+			if (pTarget->awareness().opponentKnowledge()[ pSoldier->ubID ] == NOT_HEARD_OR_SEEN && !CREATURE_OR_BLOODCAT( pTarget ) )
 			{
 				iBonus += 50; // 50% incresed damage on suprising attacks
 			}						
@@ -8890,9 +8890,9 @@ INT32 HTHImpact( SOLDIERTYPE * pSoldier, SOLDIERTYPE * pTarget, INT32 iHitBy, BO
 		UINT8 skilllevel = NUM_SKILL_TRAITS( pSoldier, COVERT_NT );
 		instakillchance += skilllevel * gSkillTraitValues.sCoMeleeInstakillBonus;
 
-		if ( pTarget->aiData.bAlertStatus == STATUS_YELLOW )
+		if ( pTarget->aiBehavior().alertStatus() == STATUS_YELLOW )
 			resistchance += 20;
-		else if ( pTarget->aiData.bAlertStatus >= STATUS_RED )
+		else if ( pTarget->aiBehavior().alertStatus() >= STATUS_RED )
 			resistchance += 50;
 
 		if ( pTarget->collapseState().tactical() )
@@ -9042,7 +9042,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 
 		if( Item[ pAttacker->attackSelection().weapon() ].usItemClass & IC_GUN )
 		{
-			if(opponent->aiData.bOppList[ pAttacker->ubID ] ==
+			if(opponent->awareness().opponentKnowledge()[ pAttacker->ubID ] ==
 				SEEN_CURRENTLY )
 				PossiblyStartEnemyTaunt(
 					opponent, TAUNT_GOT_MISSED_GUNFIRE,
@@ -9051,7 +9051,7 @@ void ShotMiss( SoldierID ubAttackerID, INT32 iBullet )
 		}
 		else if( Item[ pAttacker->attackSelection().weapon() ].usItemClass & IC_THROWING_KNIFE )
 		{
-			if( opponent->aiData.bOppList[ pAttacker->ubID ] ==
+			if( opponent->awareness().opponentKnowledge()[ pAttacker->ubID ] ==
 				SEEN_CURRENTLY )
 				PossiblyStartEnemyTaunt(
 					opponent,
@@ -9616,7 +9616,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		if (gGameExternalOptions.fEnhancedCloseCombatSystem)
 		{
 			if( gGameOptions.fNewTraitSystem  && HAS_SKILL_TRAIT( pAttacker, MARTIAL_ARTS_NT ) && 
-				((pAttacker->animationPlayback().state() == NINJA_SPINKICK) || (pAttacker->aiData.bAimTime >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6))) )
+				((pAttacker->animationPlayback().state() == NINJA_SPINKICK) || (pAttacker->aiPlanning().aimTime() >= (gGameExternalOptions.fEnhancedCloseCombatSystem ? gSkillTraitValues.ubModifierForAPsAddedOnAimedPunches : 6))) )
 			{
 				// spinning kick or focused punch modifier
 				iChance += gSkillTraitValues.bMAAimedPunchCtHModifier * NUM_SKILL_TRAITS( pAttacker, MARTIAL_ARTS_NT );
@@ -10158,7 +10158,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 				iChance += gSkillTraitValues.bCtHModifierThrowingKnives; // -15% for untrained mercs
 
 				if ( HAS_SKILL_TRAIT( pSoldier, THROWING_NT ) )
-					iChance += (gSkillTraitValues.ubTHBladesCtHBonus + (gSkillTraitValues.ubTHBladesCtHBonusPerClick * pSoldier->aiData.bAimTime) );
+					iChance += (gSkillTraitValues.ubTHBladesCtHBonus + (gSkillTraitValues.ubTHBladesCtHBonusPerClick * pSoldier->aiPlanning().aimTime()) );
 			}
 			else
 			{
@@ -10520,7 +10520,7 @@ void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
 	if ( (&pSoldier->inv[HANDPOS])->exists() != true )
 		return;
 
-	INT8 bOldAimTime = pSoldier->aiData.bShownAimTime;
+	INT8 bOldAimTime = pSoldier->aiPlanning().shownAimTime();
 
 	// SANDRO - if the gun is flagged as HeavyGun, then we can only fire it from hip, thus no scopes to use at all, not even iron sights
 	if (ItemIsTwoHanded(pSoldier->inv[HANDPOS].usItem) && Weapon[pSoldier->inv[HANDPOS].usItem].HeavyGun && gGameExternalOptions.ubAllowAlternativeWeaponHolding == 3 )
@@ -10554,12 +10554,12 @@ void ChangeScopeMode( SOLDIERTYPE * pSoldier, INT32 iTrgGridNo )
 	{
 		if ( bOldAimTime > AllowedAimingLevels(pSoldier, iTrgGridNo) )
 		{
-			pSoldier->aiData.bShownAimTime = AllowedAimingLevels(pSoldier, iTrgGridNo);
+			pSoldier->aiPlanning().shownAimTime() = AllowedAimingLevels(pSoldier, iTrgGridNo);
 		}
 	}
 	else // wtf, reset to zero just to be sure
 	{
-		pSoldier->aiData.bShownAimTime = 0;
+		pSoldier->aiPlanning().shownAimTime() = 0;
 	}
 
 	// Flugente: test whether the change to scope mode invalidates our firing mode

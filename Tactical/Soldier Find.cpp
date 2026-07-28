@@ -128,7 +128,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	else
 	{
 		// Check the side, etc
-		if ( !pSoldier->aiData.bNeutral && (pSoldier->bSide != gbPlayerNum ) )
+		if ( !pSoldier->aiBehavior().neutral() && (pSoldier->bSide != gbPlayerNum ) )
 		{
 				// It's an enemy merc
 			MercFlags	|= ENEMY_MERC;

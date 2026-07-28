@@ -1930,15 +1930,15 @@ void AddSoldierInitListMilitia( UINT16 ubNumGreen, UINT16 ubNumRegs, UINT16 ubNu
 				//		they are often stop at a half way. trying to fix this
 				if ( gTacticalStatus.Team[MILITIA_TEAM].bAwareOfOpposition )
 				{
-					pSoldier->aiData.bOrders = SEEKENEMY;
-					pSoldier->aiData.bAlertStatus = STATUS_RED;
+					pSoldier->aiBehavior().orders() = SEEKENEMY;
+					pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 				}
 				else
 				{
-					pSoldier->aiData.bOrders = ONGUARD;
-					pSoldier->aiData.bAlertStatus = STATUS_GREEN;
-					pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
-					pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+					pSoldier->aiBehavior().orders() = ONGUARD;
+					pSoldier->aiBehavior().alertStatus() = STATUS_GREEN;
+					pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) + (Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS) * WORLD_COLS);
+					pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 				}
 
 				UpdateMercInSector( pSoldier, gWorldSectorX, gWorldSectorY, 0 );
@@ -3053,15 +3053,15 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//		they are often stop at a half way. trying to fix this
 			if ( gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition )
 			{
-				pSoldier->aiData.bOrders = SEEKENEMY;
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
+				pSoldier->aiBehavior().orders() = SEEKENEMY;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			}
 			else
 			{
-				pSoldier->aiData.bOrders = ONGUARD;
-				pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
-				pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-				pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+				pSoldier->aiBehavior().orders() = ONGUARD;
+				pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
+				pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+				pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 			}
 
 			//Setup the position
@@ -3093,15 +3093,15 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//		they are often stop at a half way. trying to fix this
 			if ( gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition )
 			{
-				pSoldier->aiData.bOrders = SEEKENEMY;
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
+				pSoldier->aiBehavior().orders() = SEEKENEMY;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			}
 			else
 			{
-				pSoldier->aiData.bOrders = ONGUARD;
-				pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
-				pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-				pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+				pSoldier->aiBehavior().orders() = ONGUARD;
+				pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
+				pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+				pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 			}
 
 			//Setup the position
@@ -3133,15 +3133,15 @@ void AddSoldierInitListMilitiaOnEdge( UINT8 ubStrategicInsertionCode, UINT16 ubN
 			//		they are often stop at a half way. trying to fix this
 			if ( gTacticalStatus.Team[ MILITIA_TEAM ].bAwareOfOpposition )
 			{
-				pSoldier->aiData.bOrders = SEEKENEMY;
-				pSoldier->aiData.bAlertStatus = STATUS_RED;
+				pSoldier->aiBehavior().orders() = SEEKENEMY;
+				pSoldier->aiBehavior().alertStatus() = STATUS_RED;
 			}
 			else
 			{
-				pSoldier->aiData.bOrders = ONGUARD;
-				pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
-				pSoldier->aiData.sNoiseGridno = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
-				pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION;
+				pSoldier->aiBehavior().orders() = ONGUARD;
+				pSoldier->aiBehavior().alertStatus() = STATUS_YELLOW;
+				pSoldier->perception().noiseGrid() = (CENTRAL_GRIDNO + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) + ( Random( CENTRAL_RADIUS * 2 + 1 ) - CENTRAL_RADIUS ) * WORLD_COLS);
+				pSoldier->perception().noiseVolume() = MAX_MISC_NOISE_DURATION;
 			}
 
 			//if ( GetTimeOfDayAmbientLightLevel() < NORMAL_LIGHTLEVEL_DAY + 2 )

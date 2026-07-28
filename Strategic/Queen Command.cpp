@@ -1343,7 +1343,7 @@ void ProcessQueenCmdImplicationsOfDeath( SOLDIERTYPE *pSoldier )
 			break;
 	}
 
-	if( pSoldier->aiData.bNeutral || pSoldier->bTeam != ENEMY_TEAM && pSoldier->bTeam != CREATURE_TEAM )
+	if( pSoldier->aiBehavior().neutral() || pSoldier->bTeam != ENEMY_TEAM && pSoldier->bTeam != CREATURE_TEAM )
 		return;
 
 	//we are recording an enemy death
@@ -2946,7 +2946,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		if ( gubQuest[QUEST_HELD_IN_ALMA] == QUESTNOTSTARTED )
 		{
 			//-teleport him to NE Alma sector (not Tixa as originally planned)
-			pSoldier->aiData.bNeutral = TRUE;
+			pSoldier->aiBehavior().neutral() = TRUE;
 			pSoldier->deployment().sectorX() = gModSettings.ubInitialPOWSectorX; //13
 			pSoldier->deployment().sectorY() = gModSettings.ubInitialPOWSectorY; //9
 			pSoldier->deployment().sectorZ() = 0;
@@ -2956,7 +2956,7 @@ void EnemyCapturesPlayerSoldier( SOLDIERTYPE *pSoldier )
 		else if (gubQuest[QUEST_HELD_IN_TIXA] == QUESTNOTSTARTED)
 		{
 			//-teleport him to Tixa as originally planned
-			pSoldier->aiData.bNeutral = TRUE;
+			pSoldier->aiBehavior().neutral() = TRUE;
 			pSoldier->deployment().sectorX() = gModSettings.ubTixaPrisonSectorX;
 			pSoldier->deployment().sectorY() = gModSettings.ubTixaPrisonSectorY;
 			pSoldier->deployment().sectorZ() = 0;
@@ -3065,7 +3065,7 @@ BOOLEAN OnlyHostileCivsInSector()
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
-			if( !pSoldier->aiData.bNeutral )
+			if( !pSoldier->aiBehavior().neutral() )
 			{
 				fHostileCivs = TRUE;
 				break;
@@ -3082,7 +3082,7 @@ BOOLEAN OnlyHostileCivsInSector()
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
-			if( !pSoldier->aiData.bNeutral )
+			if( !pSoldier->aiBehavior().neutral() )
 			{
 				return FALSE;
 			}
@@ -3093,7 +3093,7 @@ BOOLEAN OnlyHostileCivsInSector()
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
-			if( !pSoldier->aiData.bNeutral )
+			if( !pSoldier->aiBehavior().neutral() )
 			{
 				return FALSE;
 			}
@@ -3104,7 +3104,7 @@ BOOLEAN OnlyHostileCivsInSector()
 		pSoldier = GetJa2SoldierRepository().resolve(i);
 		if( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() )
 		{
-			if( !pSoldier->aiData.bNeutral )
+			if( !pSoldier->aiBehavior().neutral() )
 			{
 				return FALSE;
 			}
