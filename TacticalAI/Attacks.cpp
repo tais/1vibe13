@@ -385,8 +385,8 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 			STRUCTURE_FILE_REF *	pStructureFileRef;
 			UINT16								usAnimSurface;
 
-			usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, pSoldier->usUIMovementMode );
-			pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface,pSoldier->usUIMovementMode	);
+			usAnimSurface = DetermineSoldierAnimationSurface( pSoldier, pSoldier->movement().mode() );
+			pStructureFileRef = GetAnimationStructureRef( pSoldier->ubID, usAnimSurface,pSoldier->movement().mode()	);
 
 			if ( pStructureFileRef )
 			{
@@ -1749,8 +1749,8 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 
 	// temporarily make this guy run so we get a proper AP cost value
 	// from CalcTotalAPsToAttack
-	usTrueMovementMode = pSoldier->usUIMovementMode;
-	pSoldier->usUIMovementMode = RUNNING;
+	usTrueMovementMode = pSoldier->movement().mode();
+	pSoldier->movement().mode() = RUNNING;
 
 	// determine which attack against which target has the greatest attack value
 
@@ -1962,7 +1962,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 		}
 	}
 
-	pSoldier->usUIMovementMode = usTrueMovementMode;
+	pSoldier->movement().mode() = usTrueMovementMode;
 }
 
 void CalcTentacleAttack(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab )
@@ -3303,7 +3303,7 @@ BOOLEAN AIDetermineStealingWeaponAttempt( SOLDIERTYPE * pSoldier, SOLDIERTYPE * 
 	{
 		return( FALSE );
 	}
-	pSoldier->usUIMovementMode = RUNNING;
+	pSoldier->movement().mode() = RUNNING;
 	if( pSoldier->actionPoints().current() < GetAPsToStealItem( pSoldier, NULL, pOpponent->position().gridNo() ) )
 	{
 		return( FALSE );

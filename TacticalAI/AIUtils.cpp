@@ -578,11 +578,11 @@ SimulationCommandDispatchResult NewDest(
 	// sevenfm: always use DetermineMovementMode with new code
 	if (gGameExternalOptions.fAIMovementMode)
 	{
-		pSoldier->usUIMovementMode = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
+		pSoldier->movement().mode() = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
 		// check for non merc bodytypes
-		if ((pSoldier->usUIMovementMode == SWATTING || pSoldier->usUIMovementMode == SWATTING_WK) && !IS_MERC_BODY_TYPE(pSoldier))
+		if ((pSoldier->movement().mode() == SWATTING || pSoldier->movement().mode() == SWATTING_WK) && !IS_MERC_BODY_TYPE(pSoldier))
 		{
-			pSoldier->usUIMovementMode = WALKING;
+			pSoldier->movement().mode() = WALKING;
 		}
 	}
 	else
@@ -600,18 +600,18 @@ SimulationCommandDispatchResult NewDest(
 			if (usMovementMode != SWATTING)
 			{
 				// really want to look at path, see how far we could get on path while swatting
-				if (EnoughPoints(pSoldier, RecalculatePathCost(pSoldier, SWATTING), 0, FALSE) || (pSoldier->aiData.bLastAction == AI_ACTION_TAKE_COVER && pSoldier->usUIMovementMode == SWATTING))
+				if (EnoughPoints(pSoldier, RecalculatePathCost(pSoldier, SWATTING), 0, FALSE) || (pSoldier->aiData.bLastAction == AI_ACTION_TAKE_COVER && pSoldier->movement().mode() == SWATTING))
 				{
-					pSoldier->usUIMovementMode = SWATTING;
+					pSoldier->movement().mode() = SWATTING;
 				}
 				else
 				{
-					pSoldier->usUIMovementMode = usMovementMode;
+					pSoldier->movement().mode() = usMovementMode;
 				}
 			}
 			else
 			{
-				pSoldier->usUIMovementMode = usMovementMode;
+				pSoldier->movement().mode() = usMovementMode;
 			}
 			fSet = TRUE;
 		}
@@ -623,13 +623,13 @@ SimulationCommandDispatchResult NewDest(
 				{
 				case AI_ACTION_MOVE_TO_CLIMB:
 				case AI_ACTION_RUN_AWAY:
-					pSoldier->usUIMovementMode = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
+					pSoldier->movement().mode() = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
 					fSet = TRUE;
 					break;
 				default:
 					if (!fSet)
 					{
-						pSoldier->usUIMovementMode = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
+						pSoldier->movement().mode() = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
 						fSet = TRUE;
 					}
 					break;
@@ -638,23 +638,23 @@ SimulationCommandDispatchResult NewDest(
 			}
 			else
 			{
-				pSoldier->usUIMovementMode = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
+				pSoldier->movement().mode() = DetermineMovementMode(pSoldier, pSoldier->aiData.bAction);
 				fSet = TRUE;
 			}
 
-			if (pSoldier->usUIMovementMode == SWATTING && !IS_MERC_BODY_TYPE(pSoldier))
+			if (pSoldier->movement().mode() == SWATTING && !IS_MERC_BODY_TYPE(pSoldier))
 			{
-				pSoldier->usUIMovementMode = WALKING;
+				pSoldier->movement().mode() = WALKING;
 			}
 		}
 	}
 
-	//pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().destinationGrid(), pSoldier->usUIMovementMode );
+	//pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().destinationGrid(), pSoldier->movement().mode() );
 	// ATE: Using this more versatile version
 	// Last parameter says whether to re-start the soldier's animation
 	// This should be done if buddy was paused for fNoApstofinishMove...
 	return TryDispatchSystemMoveToGridCommand(
-		*pSoldier, usGridNo, pSoldier->usUIMovementMode,
+		*pSoldier, usGridNo, pSoldier->movement().mode(),
 		pSoldier->bReverse != FALSE,
 		pSoldier->flags.fNoAPToFinishMove != FALSE);
 }

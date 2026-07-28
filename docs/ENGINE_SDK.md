@@ -429,10 +429,12 @@ blacklist have one private owner and reset boundary instead of a public
 `STRUCT_Pathing`. Its reference accessors preserve hot-path
 mutation while the portable serializer retains the established byte sequence.
 `SoldierMovementComponent` now owns the complementary route-execution domain:
-delayed-tile counters and causes, movement reservation, merc contention,
-scripted and continued destinations, stop reason, and coordinated speed
-override. Paired transitions have named operations rather than independently
-mutating generic flags. `SoldierTargetingComponent` owns the selected target
+the selected movement-animation mode, delayed-tile counters and causes,
+movement reservation, merc contention, scripted and continued destinations,
+stop reason, and coordinated speed override. UI, AI, animation, pathing, and
+simulation-command adapters all use `movement().mode()` as the one authority.
+Paired transitions have named operations rather than independently mutating
+generic flags. `SoldierTargetingComponent` owns the selected target
 grid, elevation, cube level, previous target grid, and target soldier identity.
 The application UI, AI, weapons, simulation-command, animation-event, and
 multiplayer adapters use this one private owner; packages still receive only

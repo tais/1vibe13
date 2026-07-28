@@ -247,11 +247,11 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 						blockingPerson->pathing().finalDestinationGrid() =
 							blockingPerson->position().gridNo();
 
-						if ( PlotPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) )
+						if ( PlotPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), NO_COPYROUTE, NO_PLOT, TEMPORARY, pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) )
 						{
 							pSoldier->pathing().stored() = FALSE;
 							// OK, make guy go here...
-							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
+							pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 							// Restore final dest....
 							blockingPerson->pathing().finalDestinationGrid() =
 								sTempDestGridNo;
@@ -290,10 +290,10 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 
 									// With these two guys swapped, they should try and continue on their way....
 									// Start them both again along their way...
-									pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
+									pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 									blockingPerson->EVENT_GetNewSoldierPath(
 										blockingPerson->pathing().finalDestinationGrid(),
-										blockingPerson->usUIMovementMode);
+										blockingPerson->movement().mode());
 								}
 						}
 					}
@@ -590,7 +590,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					sCheckGridNo = pSoldier->pathing().finalDestinationGrid();
 				}
 
-				sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, fFlags );
+				sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, fFlags );
 
 				// Can we get there
 				if ( sCost > 0 )
@@ -604,7 +604,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 					{
 						// Try to path around everyone except dest person
 
-						sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
+						sCost = FindBestPath( pSoldier, sCheckGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST );
 
 						// Is the next tile in this new path blocked too?
 						sNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)guiPathingData[ 0 ] ) );
@@ -632,7 +632,7 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 
 						pSoldier->pathing().stored() = FALSE;
 
-						pSoldier->EVENT_GetNewSoldierPath( sCheckGridNo, pSoldier->usUIMovementMode );
+						pSoldier->EVENT_GetNewSoldierPath( sCheckGridNo, pSoldier->movement().mode() );
 						gfPlotPathToExitGrid = FALSE;
 
 						return( TRUE );
@@ -684,9 +684,9 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 						// We must calculate the path here so that we can give it the "through people" parameter						
 						if ( gTacticalStatus.fAutoBandageMode && TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
 						{
-							FindBestPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->position().level(), pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE );
+							FindBestPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->position().level(), pSoldier->movement().mode(), COPYROUTE, PATH_THROUGH_PEOPLE );
 						}						
-						else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()) && !FindBestPath( pSoldier, pSoldier->movement().absoluteDestination(), pSoldier->position().level(), pSoldier->usUIMovementMode, COPYROUTE, PATH_THROUGH_PEOPLE ) )
+						else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()) && !FindBestPath( pSoldier, pSoldier->movement().absoluteDestination(), pSoldier->position().level(), pSoldier->movement().mode(), COPYROUTE, PATH_THROUGH_PEOPLE ) )
 						{
 							// check to see if we're there now!
 							if ( pSoldier->position().gridNo() == pSoldier->movement().absoluteDestination() )
@@ -700,8 +700,8 @@ BOOLEAN HandleNextTileWaiting( SOLDIERTYPE *pSoldier )
 						}
 						pSoldier->pathing().stored() = TRUE;
 
-						pSoldier->EVENT_GetNewSoldierPath( pSoldier->movement().absoluteDestination(), pSoldier->usUIMovementMode );
-						//EVENT_GetNewSoldierPath( ubPerson, ubPerson->pathing().finalDestinationGrid(), ubPerson->usUIMovementMode );
+						pSoldier->EVENT_GetNewSoldierPath( pSoldier->movement().absoluteDestination(), pSoldier->movement().mode() );
+						//EVENT_GetNewSoldierPath( ubPerson, ubPerson->pathing().finalDestinationGrid(), ubPerson->movement().mode() );
 					}
 
 				}

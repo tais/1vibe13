@@ -487,10 +487,10 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 		}
 	}
 
-	pSoldier->usUIMovementMode = DetermineMovementMode(pSoldier, bAction );
-	if ( pSoldier->usUIMovementMode == RUNNING && fFlags & FLAG_CAUTIOUS )
+	pSoldier->movement().mode() = DetermineMovementMode(pSoldier, bAction );
+	if ( pSoldier->movement().mode() == RUNNING && fFlags & FLAG_CAUTIOUS )
 	{
-		pSoldier->usUIMovementMode = WALKING;
+		pSoldier->movement().mode() = WALKING;
 	}
 
 #ifdef DEBUGDECISIONS
@@ -673,14 +673,14 @@ INT32 InternalGoAsFarAsPossibleTowards(SOLDIERTYPE *pSoldier, INT32 sDesGrid, IN
 		// if we're just starting the "costing" process (first gridno)
 		if (sLoop == 0)
 			{
-			if (pSoldier->usUIMovementMode == RUNNING)
+			if (pSoldier->movement().mode() == RUNNING)
 			{
 				sAPCost += GetAPsStartRun( pSoldier ); // changed by SANDRO
 			}
 			}
 
 		// ATE: Direction here?
-		sAPCost += EstimateActionPointCost( pSoldier, sTempDest, (INT8) pSoldier->pathing().path()[sLoop], pSoldier->usUIMovementMode, (INT8) sLoop, (INT8) pSoldier->pathing().pathSize() );
+		sAPCost += EstimateActionPointCost( pSoldier, sTempDest, (INT8) pSoldier->pathing().path()[sLoop], pSoldier->movement().mode(), (INT8) sLoop, (INT8) pSoldier->pathing().pathSize() );
 
 		bAPsLeft = pSoldier->actionPoints().current() - sAPCost;
 	}
@@ -826,7 +826,7 @@ void SoldierTriesToContinueAlongPath(SOLDIERTYPE *pSoldier)
 	usNewGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( (UINT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) );
 
 	// Find out how much it takes to move here!
-	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], pSoldier->usUIMovementMode, (INT8) pSoldier->pathing().pathIndex(), (INT8) pSoldier->pathing().pathSize() );
+	bAPCost = EstimateActionPointCost( pSoldier, usNewGridNo, (INT8)pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ], pSoldier->movement().mode(), (INT8) pSoldier->pathing().pathIndex(), (INT8) pSoldier->pathing().pathSize() );
 
 	if (pSoldier->actionPoints().current() >= bAPCost)
 	{

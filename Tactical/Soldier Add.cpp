@@ -388,7 +388,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 					{
 						if ( fClosestToMerc )
 						{
-						uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
+						uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, 0 );
 
 				if (uiRange == 0 )
 				{
@@ -562,7 +562,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 					{
 						if ( fClosestToMerc )
 						{
-							uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 );
+							uiRange = FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, 0 );
 
 							if (uiRange == 0 )
 							{
@@ -1758,7 +1758,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 				}
 
 		// ATE: Make sure movement mode is up to date!
-				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 			}
 		}
@@ -1771,7 +1771,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 			// if the merc had a final destination, get the merc walking there
 			//if( pSoldier->pathing().finalDestinationGrid() != pSoldier->sGridNo )
 			//{
-			//	pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode );
+			//	pSoldier->EVENT_GetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode() );
 			//}
 		}
 	}

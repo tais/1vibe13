@@ -1900,7 +1900,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 				{
 				case MOVEMENT_MENU_RUN:
 
-					if ( pSoldier->usUIMovementMode != WALKING && pSoldier->usUIMovementMode != RUNNING && pSoldier->usUIMovementMode != WALKING_WEAPON_RDY && pSoldier->usUIMovementMode != WALKING_DUAL_RDY && pSoldier->usUIMovementMode != WALKING_ALTERNATIVE_RDY )
+					if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 					{
 						UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
 						pSoldier->flags.fUIMovementFast = 1;
@@ -1915,14 +1915,14 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						}
 
 						pSoldier->flags.fUIMovementFast = 1;
-						pSoldier->usUIMovementMode = RUNNING;
+						pSoldier->movement().mode() = RUNNING;
 						gfPlotNewMovement = TRUE;
 					}
 					break;
 
 				case MOVEMENT_MENU_WALK:
 
-					if ( pSoldier->usUIMovementMode != WALKING && pSoldier->usUIMovementMode != RUNNING && pSoldier->usUIMovementMode != WALKING_WEAPON_RDY && pSoldier->usUIMovementMode != WALKING_DUAL_RDY && pSoldier->usUIMovementMode != WALKING_ALTERNATIVE_RDY )
+					if ( pSoldier->movement().mode() != WALKING && pSoldier->movement().mode() != RUNNING && pSoldier->movement().mode() != WALKING_WEAPON_RDY && pSoldier->movement().mode() != WALKING_DUAL_RDY && pSoldier->movement().mode() != WALKING_ALTERNATIVE_RDY )
 					{
 						UIHandleSoldierStanceChange( pSoldier->ubID, ANIM_STAND );
 						pSoldier->flags.fUIMovementFast = 0;
@@ -1937,7 +1937,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 						}
 
 						pSoldier->flags.fUIMovementFast = 0;
-						pSoldier->usUIMovementMode = WALKING;
+						pSoldier->movement().mode() = WALKING;
 						gfPlotNewMovement = TRUE;
 					}
 					break;
@@ -1973,7 +1973,7 @@ UINT32 UIHandleMovementMenu( UI_EVENT *pUIEvent )
 
 				guiPendingOverrideEvent = A_CHANGE_TO_MOVE;
 
-				//pSoldier->usUIMovementMode = (INT8)pUIEvent->uiParams[ 0 ];
+				//pSoldier->movement().mode() = (INT8)pUIEvent->uiParams[ 0 ];
 			}
 		}
 	}
@@ -2244,24 +2244,24 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 					if ( fAllMove == 2 )
 					{
 						pSoldier->flags.fUIMovementFast = TRUE;
-						pSoldier->usUIMovementMode = RUNNING;
+						pSoldier->movement().mode() = RUNNING;
 					}
 					else
 					{
 						pSoldier->flags.fUIMovementFast = FALSE;
-						pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+						pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 					}
 
 					//if ( !( IsJa2TacticalCombatActive() ) && ( gAnimControl[ pSoldier->animationPlayback().state() ].uiFlags & ANIM_MOVING ) )
 					//{
 					//	pSoldier->sRTPendingMovementGridNo = sMapPos;
-					//	pSoldier->usRTPendingMovementAnim	= pSoldier->usUIMovementMode;
+					//	pSoldier->usRTPendingMovementAnim	= pSoldier->movement().mode();
 					//}
 					//else
 					const SimulationCommandDispatchResult movement =
 						TryDispatchMoveToGridCommandNow(
 							*pSoldier,
-							usMapPos, pSoldier->usUIMovementMode,
+							usMapPos, pSoldier->movement().mode(),
 							pSoldier->bReverse != FALSE, false);
 					if ( movement )
 					{
@@ -2323,7 +2323,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 				if ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) )
 				{
-					pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+					pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 				}
 				
 				sDestGridNo = usMapPos;
@@ -2458,14 +2458,14 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 								ubDirection,
 								sDestGridNo,
 								static_cast<std::uint16_t>(
-									pSoldier->usUIMovementMode),
+									pSoldier->movement().mode()),
 								gUIUseReverse != FALSE,
 								pSoldier->flags.fNoAPToFinishMove != FALSE)
 							: TryDispatchMoveToGridCommandNow(
 								*pSoldier,
 								sDestGridNo,
 								static_cast<std::uint16_t>(
-									pSoldier->usUIMovementMode),
+									pSoldier->movement().mode()),
 								gUIUseReverse != FALSE,
 								pSoldier->flags.fNoAPToFinishMove != FALSE);
 					if (!movement) return GAME_SCREEN;
@@ -2514,7 +2514,7 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 
 	if ( pSoldier->ubBodyType == ROBOTNOWEAPON )
 	{
-		pSoldier->usUIMovementMode = WALKING;
+		pSoldier->movement().mode() = WALKING;
 		gfPlotNewMovement = TRUE;
 		return( GAME_SCREEN );
 	}
@@ -2522,34 +2522,34 @@ UINT32 UIHandleMCycleMovement( UI_EVENT *pUIEvent )
 	do
 	{
 		// Cycle gmovement state
-		if ( pSoldier->usUIMovementMode == RUNNING )
+		if ( pSoldier->movement().mode() == RUNNING )
 		{
-			pSoldier->usUIMovementMode = WALKING;
+			pSoldier->movement().mode() = WALKING;
 			if ( IsValidMovementMode( pSoldier, WALKING ) )
 			{
 				fGoodMode = TRUE;
 			}
 		}
-		else if ( pSoldier->usUIMovementMode == WALKING )
+		else if ( pSoldier->movement().mode() == WALKING )
 		{
-			pSoldier->usUIMovementMode = SWATTING;
+			pSoldier->movement().mode() = SWATTING;
 			if ( IsValidMovementMode( pSoldier, SWATTING ) )
 			{
 				fGoodMode = TRUE;
 			}
 		}
-		else if ( pSoldier->usUIMovementMode == SWATTING )
+		else if ( pSoldier->movement().mode() == SWATTING )
 		{
-			pSoldier->usUIMovementMode = CRAWLING;
+			pSoldier->movement().mode() = CRAWLING;
 			if ( IsValidMovementMode( pSoldier, CRAWLING ) && IsValidStance(pSoldier, ANIM_PRONE) )
 			{
 				fGoodMode = TRUE;
 			}
 		}
-		else if ( pSoldier->usUIMovementMode == CRAWLING )
+		else if ( pSoldier->movement().mode() == CRAWLING )
 		{
 			pSoldier->flags.fUIMovementFast = 1;
-			pSoldier->usUIMovementMode = RUNNING;
+			pSoldier->movement().mode() = RUNNING;
 			if ( IsValidMovementMode( pSoldier, RUNNING ) )
 			{
 				fGoodMode = TRUE;
@@ -3544,7 +3544,7 @@ BOOLEAN SelectedMercCanAffordMove(	)
 		// Take the first direction!
 		sAPCost = PtsToMoveDirection( pSoldier, (UINT8)guiPathingData[ 0 ] );
 
-		sAPCost += GetAPsToChangeStance( pSoldier, gAnimControl[ pSoldier->usUIMovementMode ].ubHeight );
+		sAPCost += GetAPsToChangeStance( pSoldier, gAnimControl[ pSoldier->movement().mode() ].ubHeight );
 
 		if ( EnoughPoints( pSoldier, sAPCost, 0 , TRUE ) )
 		{
@@ -4283,7 +4283,7 @@ BOOLEAN HandleUIMovementCursor( SOLDIERTYPE *pSoldier, UINT32 uiCursorFlags, INT
 					}
 					else
 					{
-						switch ( pSoldier->usUIMovementMode )
+						switch ( pSoldier->movement().mode() )
 						{
 						case WALKING:
 						case WALKING_WEAPON_RDY:
@@ -4369,8 +4369,8 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 				sActionGridNo = sIntTileGridNo;
 			}
 			CalcInteractiveObjectAPs( pSoldier, sIntTileGridNo, pStructure, &sAPCost, &sBPCost ); // SANDRO - added argument
-			//sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
-			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			//sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( sActionGridNo != pSoldier->position().gridNo() )
 			{
@@ -4383,7 +4383,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		}
 		else
 		{
-			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		}
 
 		//sAPCost += CalculateActionTurningCost(pSoldier, sActionGridNo, sAdjustedGridNo, gfPlotPathEndDirection);
@@ -4399,7 +4399,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		{
 			sAPCost = GetAPsToCutFence( pSoldier );
 
-			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( sActionGridNo != pSoldier->position().gridNo() )
 			{
@@ -4420,7 +4420,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 		sAPCost = GetAPsToUseJar( pSoldier, sActionGridNo );
 
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4443,7 +4443,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 			{
 				sAPCost = GetAPsToUseCan(pSoldier, sActionGridNo);
 
-				sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 				if ( sActionGridNo != pSoldier->position().gridNo() )
 				{
@@ -4456,7 +4456,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		}
 		else
 		{
-			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		}
 
 	}
@@ -4471,7 +4471,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 				GetJa2SoldierRepository().resolve(ubMercID);
 			if (repairTarget)
 			{
-				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, repairTarget );
+				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, repairTarget );
 
 				if (!TileIsOutOfBounds(sNewGridNo))
 				{
@@ -4489,7 +4489,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 		sAPCost = GetAPsToBeginRepair( pSoldier );
 
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4511,7 +4511,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 				GetJa2SoldierRepository().resolve(ubMercID);
 			if (refuelTarget)
 			{
-				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 0, refuelTarget );
+				sNewGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 0, refuelTarget );
 
 				if (!TileIsOutOfBounds(sNewGridNo))
 				{
@@ -4529,7 +4529,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 		sAPCost = GetAPsToRefuelVehicle( pSoldier );
 
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4549,7 +4549,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		}
 
 		sAPCost = GetAPsForMultiTurnAction( pSoldier, MTA_FORTIFY );
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4569,7 +4569,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 			if (sActionGridNo != pSoldier->position().gridNo())
 			{
-				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 				gfUIHandleShowMoveGrid = TRUE;
 				gsUIHandleShowMoveGridLocation = sActionGridNo;
 			}
@@ -4587,7 +4587,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 			if (sActionGridNo != pSoldier->position().gridNo())
 			{
-				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 				gfUIHandleShowMoveGrid = TRUE;
 				gsUIHandleShowMoveGridLocation = sActionGridNo;
 			}
@@ -4603,7 +4603,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		{
 			sAPCost = GetAPsToApplyItem(pSoldier, sActionGridNo);
 
-			sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if (sActionGridNo != pSoldier->position().gridNo())
 			{
@@ -4626,7 +4626,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		UINT16 possibleaction = InteractiveActionPossibleAtGridNo( usMapPos, pSoldier->position().level(), structindex );
 		
 		sAPCost = GetAPsForInteractiveAction( pSoldier, possibleaction );
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4670,7 +4670,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 		{
 			if (sActionGridNo != pSoldier->position().gridNo() )
 			{
-				sAPCost = UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost = UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 				gfUIHandleShowMoveGrid = TRUE;
 				gsUIHandleShowMoveGridLocation = sActionGridNo;
 			}
@@ -4718,7 +4718,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 			{
 				sAPCost += GetAPsToChangeStance( pSoldier, ANIM_STAND );
 			}
-			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+			sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 
 			if ( sActionGridNo != pSoldier->position().gridNo() )
 			{
@@ -4735,7 +4735,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 			sAPCost += GetAPsToPlantMine( pSoldier );
 		else
 			sAPCost += GetAPsToDropBomb( pSoldier );
-		sAPCost += UIPlotPath( pSoldier, usMapPos, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += UIPlotPath( pSoldier, usMapPos, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		gfUIHandleShowMoveGrid = TRUE;
 		gsUIHandleShowMoveGridLocation = usMapPos;
@@ -4757,7 +4757,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 			{
 
 				sAPCost += GetAPsToBeginFirstAid(pSoldier);
-				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+				sAPCost += UIPlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 				if (sActionGridNo != pSoldier->position().gridNo())
 				{
 					gfUIHandleShowMoveGrid = TRUE;
@@ -4778,7 +4778,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
-					sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+					sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 					if ( sAPCost != 0 )
 					{
 						sAPCost += GetBasicAPsToPickupItem( pSoldier ); // SANDRO
@@ -4808,7 +4808,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 
 		sAPCost = GetAPsToFillBloodbag( pSoldier, sActionGridNo );
 
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 		if ( sActionGridNo != pSoldier->position().gridNo() )
 		{
@@ -4820,7 +4820,7 @@ INT8 DrawUIMovementPath( SOLDIERTYPE *pSoldier, INT32 usMapPos, UINT32 uiFlags )
 	}
 	else
 	{
-		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost += UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, fPlot, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 	}
 
 	if ( gTacticalStatus.uiFlags & SHOW_AP_LEFT )
@@ -5265,15 +5265,15 @@ void SetUIbasedOnStance( SOLDIERTYPE *pSoldier, INT8 bNewStance )
 	switch ( bNewStance )
 	{
 	case ANIM_STAND:
-		pSoldier->usUIMovementMode = WALKING;
+		pSoldier->movement().mode() = WALKING;
 		break;
 
 	case ANIM_CROUCH:
-		pSoldier->usUIMovementMode = SWATTING;
+		pSoldier->movement().mode() = SWATTING;
 		break;
 
 	case ANIM_PRONE:
-		pSoldier->usUIMovementMode = CRAWLING;
+		pSoldier->movement().mode() = CRAWLING;
 		break;
 	}
 
@@ -5293,7 +5293,7 @@ void SetMovementModeCursor( SOLDIERTYPE *pSoldier )
 		else
 		{
 			// Change mouse cursor based on type of movement we want to do
-			switch ( pSoldier->usUIMovementMode )
+			switch ( pSoldier->movement().mode() )
 			{
 			case WALKING:
 			case WALKING_WEAPON_RDY:
@@ -5359,7 +5359,7 @@ void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 			else
 			{
 				// Change mouse cursor based on type of movement we want to do
-				switch ( pSoldier->usUIMovementMode )
+				switch ( pSoldier->movement().mode() )
 				{
 				case WALKING:
 				case WALKING_WEAPON_RDY:
@@ -5397,7 +5397,7 @@ void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 			else
 			{
 				// Change mouse cursor based on type of movement we want to do
-				switch ( pSoldier->usUIMovementMode )
+				switch ( pSoldier->movement().mode() )
 				{
 				case WALKING:
 				case WALKING_WEAPON_RDY:
@@ -6198,7 +6198,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				}
 
 				pSoldier->flags.fUIMovementFast	= fMoveFast;
-				pSoldier->usUIMovementMode =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
+				pSoldier->movement().mode() =	pSoldier->GetMoveStateBasedOnStance( gAnimControl[ pSoldier->animationPlayback().state() ].ubEndHeight );
 
 				pSoldier->flags.fUIMovementFast	= FALSE;
 
@@ -6240,7 +6240,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 				const SimulationCommandDispatchResult movement =
 					TryDispatchMoveToGridCommandNow(
 						*pSoldier,
-						sIndividualDestGridNo, pSoldier->usUIMovementMode,
+						sIndividualDestGridNo, pSoldier->movement().mode(),
 						gUIUseReverse != FALSE,
 						pSoldier->flags.fNoAPToFinishMove != FALSE);
 				if ( movement )
@@ -6831,7 +6831,7 @@ BOOLEAN HandleTalkInit(	)
 						return( FALSE );
 					}
 
-					if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) == 0 )
+					if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) == 0 )
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
 						return( FALSE );
@@ -6839,12 +6839,12 @@ BOOLEAN HandleTalkInit(	)
 
 					// Walk up and talk to buddy....
 					gfNPCCircularDistLimit = TRUE;
-					sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->usUIMovementMode, pTSoldier->position().gridNo(), (NPC_TALK_RADIUS-1), &ubNewDirection, TRUE );
+					sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->movement().mode(), pTSoldier->position().gridNo(), (NPC_TALK_RADIUS-1), &ubNewDirection, TRUE );
 					gfNPCCircularDistLimit = FALSE;
 
 					// First calculate APs and validate...
 					sAPCost = APBPConstants[AP_TALK];
-					//sAPCost += UIPlotPath( pSoldier, sGoodGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+					//sAPCost += UIPlotPath( pSoldier, sGoodGridNo, NO_COPYROUTE, FALSE, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 					// Check AP cost...
 					if ( !EnoughPoints( pSoldier, sAPCost, 0, TRUE ) )
@@ -6856,7 +6856,7 @@ BOOLEAN HandleTalkInit(	)
 						*pSoldier,
 						*pTSoldier,
 						sGoodGridNo,
-						pSoldier->usUIMovementMode,
+						pSoldier->movement().mode(),
 						pSoldier->flags.fNoAPToFinishMove != FALSE);
 
 					return( FALSE );
@@ -7431,7 +7431,7 @@ BOOLEAN ValidQuickExchangePosition( )
 						{
 							// ATE:
 							// Check that the path is good!
-							if ( FindBestPath( pSoldier, pOverSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST ) == 1 )
+							if ( FindBestPath( pSoldier, pOverSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, PATH_IGNORE_PERSON_AT_DEST ) == 1 )
 							{
 								fOnValidGuy = TRUE;
 							}

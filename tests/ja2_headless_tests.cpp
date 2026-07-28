@@ -3769,7 +3769,7 @@ int main( int, char** )
 			compiledContext.commands().empty(),
 			"actor-reference ingress rejects a detached object even when its slot and incarnation fields match a live merc" );
 
-		commandHostActor.usUIMovementMode = WALKING;
+		commandHostActor.movement().mode() = WALKING;
 		commandHostActor.bReverse = FALSE;
 		commandHostActor.pendingAction().action() = 7;
 		const SimulationCommandDispatchResult invalidImmediateMove =
@@ -3793,7 +3793,7 @@ int main( int, char** )
 		       invalidImmediateMoveRecord->status == CommandJournalStatus::Discarded &&
 		       std::holds_alternative<MoveToGridCommand>(
 		           invalidImmediateMoveRecord->command ) &&
-		       commandHostActor.usUIMovementMode == WALKING &&
+		       commandHostActor.movement().mode() == WALKING &&
 		       commandHostActor.bReverse == FALSE &&
 		       commandHostActor.pendingAction().action() == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
@@ -3891,7 +3891,7 @@ int main( int, char** )
 		const bool movingStanceOwnedByExecutor =
 			movingStanceChanged.status ==
 				SimulationCommandDispatchStatus::Applied &&
-			commandHostActor.usUIMovementMode == expectedMovingStance &&
+			commandHostActor.movement().mode() == expectedMovingStance &&
 			commandHostActor.animationIntent().desiredHeight() == ANIM_CROUCH &&
 			commandHostActor.animationPlayback().state() == START_SWAT;
 		commandHostActor.animationCache().reset();
@@ -7483,6 +7483,7 @@ int main( int, char** )
 		pathing.blackListGrid() = 1300;
 		pathing.stored() = 1;
 		SoldierMovementComponent& movement = soldier.movement();
+		movement.mode() = SWATTING;
 		movement.waitForGrid(1250, 9);
 		movement.reservedGrid() = 1251;
 		movement.blockInDirection(3);
@@ -7842,7 +7843,8 @@ int main( int, char** )
 		       !constSoldier.pathing().empty() &&
 		       !constSoldier.pathing().complete(),
 		       "soldier pathing component owns the canonical tactical route" );
-		CHECK( constSoldier.movement().delayed() &&
+		CHECK( constSoldier.movement().mode() == SWATTING &&
+		       constSoldier.movement().delayed() &&
 		       constSoldier.movement().delayCounter() == 9 &&
 		       constSoldier.movement().delayedCauseGrid() == 1250 &&
 		       constSoldier.movement().reservedGrid() == 1251 &&
@@ -8695,7 +8697,8 @@ int main( int, char** )
 		       copiedSoldier.pathing().blackListGrid() == 1300 &&
 		       copiedSoldier.pathing().stored() == 1,
 		       "soldier copies retain their owned persistent pathing state" );
-		CHECK( copiedSoldier.movement().delayCounter() == 9 &&
+		CHECK( copiedSoldier.movement().mode() == SWATTING &&
+		       copiedSoldier.movement().delayCounter() == 9 &&
 		       copiedSoldier.movement().delayedCauseGrid() == 1250 &&
 		       copiedSoldier.movement().reservedGrid() == 1251 &&
 		       copiedSoldier.movement().blockedByAnotherMerc() &&
@@ -9434,7 +9437,8 @@ int main( int, char** )
 		       copiedSoldier.pathing().blackListGrid() == 0 &&
 		       copiedSoldier.pathing().stored() == 0,
 		       "soldier initialization resets the complete pathing domain" );
-		CHECK( copiedSoldier.movement().delayCounter() == 0 &&
+		CHECK( copiedSoldier.movement().mode() == 0 &&
+		       copiedSoldier.movement().delayCounter() == 0 &&
 		       copiedSoldier.movement().delayedCauseGrid() == 0 &&
 		       copiedSoldier.movement().reservedGrid() == 0 &&
 		       !copiedSoldier.movement().blockedByAnotherMerc() &&
@@ -9672,6 +9676,7 @@ int main( int, char** )
 		legacySoldier->bTilesMoved = 8;
 		legacySoldier->ubTilesMovedPerRTBreathUpdate = 5;
 		legacySoldier->usLastMovementAnimPerRTBreathUpdate = WALKING;
+		legacySoldier->usUIMovementMode = SWATTING;
 		legacySoldier->numFlanks = 4;
 		legacySoldier->lastFlankSpot = 16004;
 		legacySoldier->sniper = 1;
@@ -9748,6 +9753,7 @@ int main( int, char** )
 		convertedSoldier.movementMetrics().tilesMoved() = 90;
 		convertedSoldier.movementMetrics().realtimeBreathTiles() = 91;
 		convertedSoldier.movementMetrics().lastRealtimeMovementAnimation() = RUNNING;
+		convertedSoldier.movement().mode() = RUNNING;
 		convertedSoldier.aiPlanning().flankCount() = 90;
 		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
 		convertedSoldier.aiPlanning().raiseSniperPosture();
@@ -9994,6 +10000,8 @@ int main( int, char** )
 		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
 		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
 		       "v101 soldier conversion retains every historical tactical movement-history value" );
+		CHECK( convertedSoldier.movement().mode() == SWATTING,
+		       "v101 soldier conversion maps the established tactical movement mode" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -10340,6 +10348,7 @@ int main( int, char** )
 		savedSoldier.pathing().pathIndex() = 1;
 		savedSoldier.pathing().blackListGrid() = 1444;
 		savedSoldier.pathing().stored() = 1;
+		savedSoldier.movement().mode() = WALKING_WEAPON_RDY;
 		savedSoldier.movement().waitForGrid(1451, 12);
 		savedSoldier.movement().reservedGrid() = 1452;
 		savedSoldier.movement().blockInDirection(6);
@@ -10699,8 +10708,9 @@ int main( int, char** )
 		       loadedSoldier.pathing().stored() == 1,
 		       "soldier save/load round-trips complete position, movement-history, and pathing state through every established schema site" );
 		CHECK( saved && loaded &&
+		       loadedSoldier.movement().mode() == WALKING_WEAPON_RDY &&
 		       loadedSoldier.movement().delayCounter() == 12,
-		       "soldier save/load round-trips the component-owned movement delay counter" );
+		       "soldier save/load round-trips the component-owned movement mode and delay counter" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().delayedCauseGrid() == 1451,
 		       "soldier save/load round-trips the component-owned movement delay cause" );

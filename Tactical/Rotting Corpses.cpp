@@ -1293,8 +1293,8 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 
 			// Change to fly animation
 			//sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pCorpse->def.sGridNo, 5, &ubDirection );
-			//pSoldier->usUIMovementMode = CROW_FLY;
-			//pSoldier->EVENT_GetNewSoldierPath( sGridNo, pSoldier->usUIMovementMode );
+			//pSoldier->movement().mode() = CROW_FLY;
+			//pSoldier->EVENT_GetNewSoldierPath( sGridNo, pSoldier->movement().mode() );
 
 			// Setup action data to point back to corpse....
 			pSoldier->pendingAction().primaryData()	=	pCorpse->iID;
@@ -1335,8 +1335,8 @@ void HandleCrowFlyAway( SOLDIERTYPE *pSoldier )
 
 	// Change to fly animation
 	sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pSoldier->position().gridNo(), 5, &ubDirection );
-	pSoldier->usUIMovementMode = CROW_FLY;
-	SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->usUIMovementMode );
+	pSoldier->movement().mode() = CROW_FLY;
+	SendGetNewSoldierPathEvent( pSoldier, sGridNo, pSoldier->movement().mode() );
 }
 
 

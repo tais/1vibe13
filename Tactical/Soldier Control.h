@@ -1157,7 +1157,6 @@ public:
 	PIXEL			*pForcedShade;
 
 	UINT8			sWalkToAttackEndDirection;//shadooow: stores direction of merc at the destination grid
-	INT16			usUIMovementMode;
 	INT8				bUIInterfaceLevel;
 
 	UINT8			ubProfile;

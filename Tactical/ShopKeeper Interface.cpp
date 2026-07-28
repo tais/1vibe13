@@ -797,7 +797,7 @@ BOOLEAN EnterShopKeeperInterface()
 				return( FALSE );
 			}
 
-			if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) == 0 )
+			if ( UIPlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, FALSE, TEMPORARY, pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) == 0 )
 			{
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ NO_PATH ] );
 				return( FALSE );
@@ -805,14 +805,14 @@ BOOLEAN EnterShopKeeperInterface()
 
 			// Walk up and talk to buddy....
 			gfNPCCircularDistLimit = TRUE;
-			INT32 sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->usUIMovementMode, pShopkeeper->position().gridNo(), (NPC_TALK_RADIUS-1), &ubDirection, TRUE );
+			INT32 sGoodGridNo = FindGridNoFromSweetSpotWithStructData( pSoldier, pSoldier->movement().mode(), pShopkeeper->position().gridNo(), (NPC_TALK_RADIUS-1), &ubDirection, TRUE );
 			gfNPCCircularDistLimit = FALSE;
 
 			(void)TryDispatchApproachConversationCommandNow(
 				*pSoldier,
 				*pShopkeeper,
 				sGoodGridNo,
-				pSoldier->usUIMovementMode,
+				pSoldier->movement().mode(),
 				pSoldier->flags.fNoAPToFinishMove != FALSE);
 
 			return( FALSE );

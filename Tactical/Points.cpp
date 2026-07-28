@@ -1838,15 +1838,15 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 				else
 				{
 					// OK, in order to avoid path calculations here all the time... save and check if it's changed!
-					if (pSoldier->sWalkToAttackGridNo == sActionGridNo && pSoldier->sWalkToAttackMovementMode == (UINT8)pSoldier->usUIMovementMode)
+					if (pSoldier->sWalkToAttackGridNo == sActionGridNo && pSoldier->sWalkToAttackMovementMode == (UINT8)pSoldier->movement().mode())
 					{
 						sAPCost += (UINT8)(pSoldier->sWalkToAttackWalkToCost);
 					}
 					else
 					{
 						// Save for next time...
-						pSoldier->sWalkToAttackMovementMode = (UINT8)pSoldier->usUIMovementMode;
-						pSoldier->sWalkToAttackWalkToCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+						pSoldier->sWalkToAttackMovementMode = (UINT8)pSoldier->movement().mode();
+						pSoldier->sWalkToAttackWalkToCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
 						pSoldier->sWalkToAttackEndDirection = gfPlotPathEndDirection;
 						if (pSoldier->sWalkToAttackWalkToCost == 0)
 						{
@@ -2589,7 +2589,7 @@ INT16 MinPtsToMove(SOLDIERTYPE *pSoldier)
 		sGridNo = NewGridNo(pSoldier->position().gridNo(),DirectionInc(cnt));
 		if (sGridNo != pSoldier->position().gridNo())
 		{
-		    if ( (sCost=ActionPointCost( pSoldier, sGridNo, cnt , pSoldier->usUIMovementMode ) ) < sLowest )
+		    if ( (sCost=ActionPointCost( pSoldier, sGridNo, cnt , pSoldier->movement().mode() ) ) < sLowest )
 			{
 				sLowest = sCost;
 			}
@@ -2608,7 +2608,7 @@ INT8	PtsToMoveDirection(SOLDIERTYPE *pSoldier, INT8 bDirection )
 
 	sGridNo = NewGridNo( pSoldier->position().gridNo(), DirectionInc( bDirection ) );
 
-	usMoveModeToUse = pSoldier->usUIMovementMode;
+	usMoveModeToUse = pSoldier->movement().mode();
 
 	// ATE: Check if the new place is watter and we were tying to run....
 	bOverTerrainType = GetTerrainType( sGridNo );
@@ -2882,7 +2882,7 @@ UINT16 GetAPsToPickupItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 
 		if ( pSoldier->position().gridNo() != sActionGridNo )
 		{
-			sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			// If point cost is zero, return 0
 			if ( sAPCost != 0 )
@@ -2905,7 +2905,7 @@ UINT16 GetAPsToGiveItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	UINT16						sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	// If point cost is zero, return 0
 	if ( sAPCost != 0 || pSoldier->position().gridNo() == usMapPos )
@@ -3128,7 +3128,7 @@ UINT16 GetAPsToReloadRobot( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pRobot )
 
 	sActionGridNo = FindAdjacentGridEx( pSoldier, pRobot->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 
-	sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+	sAPCost = PlotPath( pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	// If point cost is zero, return 0
 	if ( sAPCost != 0 || sActionGridNo == pSoldier->position().gridNo() )
@@ -3259,7 +3259,7 @@ BOOLEAN CheckForMercContMove( SOLDIERTYPE *pSoldier )
 					// Do a check if we can afford move here!
 
 					// get a path to dest...
-					if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->usUIMovementMode, NO_COPYROUTE, 0 ) )
+					if ( FindBestPath( pSoldier, sGridNo, pSoldier->position().level(), pSoldier->movement().mode(), NO_COPYROUTE, 0 ) )
 					{
 						sAPCost = PtsToMoveDirection( pSoldier, (UINT8)guiPathingData[ 0 ] );
 
@@ -3725,7 +3725,7 @@ UINT16 GetTotalAPsToDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 {
 	INT16 sAPs = 0;
 
-	sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+	sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	if ( sAPs > 0 )
 	{
@@ -3752,7 +3752,7 @@ INT16 GetAPsToStealItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, INT
 
 	if (sMapPos != -1)
 	{
-		sAPCost = PlotPath( pSoldier, sMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+		sAPCost = PlotPath( pSoldier, sMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 	}
 
 	// ADD APS TO PICKUP
@@ -3807,7 +3807,7 @@ INT16 GetAPsToApplyItem( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	INT16 sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 		
 	sAPCost += APBPConstants[AP_APPLYITEM];
 
@@ -3818,7 +3818,7 @@ INT16 GetAPsToFillBloodbag( SOLDIERTYPE *pSoldier, INT32 usMapPos )
 {
 	INT16 sAPCost = 0;
 
-	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+	sAPCost = PlotPath( pSoldier, usMapPos, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 	sAPCost += APBPConstants[AP_FILLBLOODBAG];
 

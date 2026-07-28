@@ -1817,12 +1817,12 @@ BOOLEAN ExitVehicle( SOLDIERTYPE *pSoldier )
 	// TEST IF IT'S VALID...
 	if ( pVehicle->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
-		sGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 5, &ubDirection, 3, pVehicle );
+		sGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 5, &ubDirection, 3, pVehicle );
 		
 		if (TileIsOutOfBounds(sGridNo))
 		{
 			// ATE: BUT we need a place, widen the search
-			sGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->usUIMovementMode, 20, &ubDirection, 3, pVehicle );
+			sGridNo = FindGridNoFromSweetSpotWithStructDataFromSoldier( pSoldier, pSoldier->movement().mode(), 20, &ubDirection, 3, pVehicle );
 		}
 
 		// OK, remove....

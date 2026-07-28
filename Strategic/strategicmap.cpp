@@ -4590,7 +4590,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 		// FOR REALTIME - DO MOVEMENT BASED ON STANCE!
 		if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 		{
-			pSoldier->usUIMovementMode = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight );
+			pSoldier->movement().mode() = pSoldier->GetMoveStateBasedOnStance( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight );
 		}
 
 		sGridNo = FindGridNoFromSweetSpotCloseToExitGrid( pSoldier, usAdditionalData, 10, &ubDirection );
@@ -4604,7 +4604,7 @@ BOOLEAN SoldierOKForSectorExit( SOLDIERTYPE * pSoldier, INT8 bExitDirection, INT
 		if ( IsJa2TacticalCombatActive() )
 		{
 			// Turn off at end of function...
-			sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+			sAPs = PlotPath( pSoldier, sGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
 			if ( !EnoughPoints( pSoldier, sAPs, 0, FALSE ) )
 			{

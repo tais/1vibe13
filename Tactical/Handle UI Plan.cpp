@@ -59,9 +59,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 	if ( ubPlanID == UIPLAN_ACTION_MOVETO )
 	{
 		// Calculate cost to move here
-		sAPCost = PlotPath( gpUIPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) gpUIPlannedSoldier->usUIMovementMode, NOT_STEALTH, FORWARD,	gpUIPlannedSoldier->actionPoints().current() );
+		sAPCost = PlotPath( gpUIPlannedSoldier, sGridNo, COPYROUTE, NO_PLOT, TEMPORARY, (UINT16) gpUIPlannedSoldier->movement().mode(), NOT_STEALTH, FORWARD,	gpUIPlannedSoldier->actionPoints().current() );
 		// Adjust for running if we are not already running
-		if (	gpUIPlannedSoldier->usUIMovementMode == RUNNING )
+		if (	gpUIPlannedSoldier->movement().mode() == RUNNING )
 		{
 			sAPCost += GetAPsStartRun( gpUIPlannedSoldier ); // changed by SANDRO
 		}
@@ -100,7 +100,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->EVENT_SetSoldierPosition( sXPos, sYPos );
 				pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) sGridNo ); // Hopefully this code is never used anymore because the second param is now direction, not grid
 				pPlanSoldier->awareness().markVisible();
-				pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
+				pPlanSoldier->movement().mode() = gpUIPlannedSoldier->movement().mode();
 
 
 				pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
@@ -115,7 +115,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				pPlanSoldier->pathing().desiredDirection() = bDirection;
 
 				// Set walking animation
-				pPlanSoldier->ChangeSoldierState( pPlanSoldier->usUIMovementMode, 0, FALSE );
+				pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
 				// Change selected soldier
 				gusSelectedSoldier = pPlanSoldier->ubID;
@@ -179,7 +179,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->position().worldX(), gpUIPlannedSoldier->position().worldY() );
 					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->position().gridNo() );
 					pPlanSoldier->awareness().markVisible();
-					pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;
+					pPlanSoldier->movement().mode() = gpUIPlannedSoldier->movement().mode();
 
 
 					pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
@@ -194,7 +194,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					pPlanSoldier->pathing().desiredDirection() = bDirection;
 
 					// Set walking animation
-					pPlanSoldier->ChangeSoldierState( pPlanSoldier->usUIMovementMode, 0, FALSE );
+					pPlanSoldier->ChangeSoldierState( pPlanSoldier->movement().mode(), 0, FALSE );
 
 					// Change selected soldier
 					gusSelectedSoldier = pPlanSoldier->ubID;

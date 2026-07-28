@@ -448,6 +448,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   maps every historical value into the owner. Current world placement and
   route execution remain separate domains. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- The selected tactical movement-animation mode is now stored with route
+  execution by `SoldierMovementComponent`. The visitor still emits its signed
+  16-bit value between burst progress and UI interface level, and v101
+  conversion maps the historical `usUIMovementMode` value into that owner.
+  Current save streams, simulation commands, multiplayer packets, maps, XML,
+  Lua, and installed-data bytes are unchanged.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

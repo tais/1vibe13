@@ -1104,7 +1104,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 							// Attack !!!
 							pTMilitiaSoldier->aiData.bOrders = SEEKENEMY;
 							pTMilitiaSoldier->aiData.bAttitude = AGGRESSIVE;
-							pTMilitiaSoldier->usUIMovementMode = RUNNING;
+							pTMilitiaSoldier->movement().mode() = RUNNING;
 
 							MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_SCREAM);
 						}
@@ -1167,7 +1167,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 							pTMilitiaSoldier->aiData.bOrders = FARPATROL;
 							pTMilitiaSoldier->aiData.bAttitude = DEFENSIVE;
-							pTMilitiaSoldier->usUIMovementMode = RUNNING;
+							pTMilitiaSoldier->movement().mode() = RUNNING;
 
 							pTMilitiaSoldier->RetreatCounterStart(2);
 
@@ -1191,7 +1191,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 							if ( pTMilitiaSoldier->position().gridNo() != sActionGridNo )
 							{
-								SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode );
+								SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->movement().mode() );
 							}
 						}
 						
@@ -1234,13 +1234,13 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								pTMilitiaSoldier->pendingAction().secondaryData() = pSoldier->position().gridNo();
 								//pTMilitiaSoldier->bPendingActionData3  = ubDirection;
 								pTMilitiaSoldier->pendingAction().resetAnimationCount();
-								pTMilitiaSoldier->usUIMovementMode = RUNNING;
+								pTMilitiaSoldier->movement().mode() = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
 								if (pTMilitiaSoldier->position().gridNo() != sActionGridNo)
 								{
 									// WALK UP TO DEST FIRST
-									SendGetNewSoldierPathEvent(pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode);
+									SendGetNewSoldierPathEvent(pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->movement().mode());
 								}
 							}
 						}
@@ -1339,12 +1339,12 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 								// SEND PENDING ACTION
 								pTMilitiaSoldier->pendingAction().secondaryData()  = sActionGridNo;
 								pTMilitiaSoldier->pendingAction().resetAnimationCount();
-								pTMilitiaSoldier->usUIMovementMode = RUNNING;
+								pTMilitiaSoldier->movement().mode() = RUNNING;
 
 								// CHECK IF WE ARE AT THIS GRIDNO NOW
 								if ( pTMilitiaSoldier->position().gridNo() != sActionGridNo )
 								{
-									SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->usUIMovementMode );
+									SendGetNewSoldierPathEvent( pTMilitiaSoldier, sActionGridNo, pTMilitiaSoldier->movement().mode() );
 								}
 							}
 						}
@@ -1406,7 +1406,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 								pTeamSoldier->aiData.bOrders = SEEKENEMY;
 								pTeamSoldier->aiData.bAttitude = AGGRESSIVE;
-								pTeamSoldier->usUIMovementMode = RUNNING;
+								pTeamSoldier->movement().mode() = RUNNING;
 							}
 						}
 
@@ -1484,7 +1484,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 								pTeamSoldier->aiData.bOrders = FARPATROL;
 								pTeamSoldier->aiData.bAttitude = DEFENSIVE;
-								pTeamSoldier->usUIMovementMode = RUNNING;
+								pTeamSoldier->movement().mode() = RUNNING;
 
 								pTeamSoldier->RetreatCounterStart(2);
 
@@ -1508,7 +1508,7 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 
 								if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 								{
-									SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );
+									SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->movement().mode() );
 								}
 							}
 						}
@@ -1559,13 +1559,13 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->pendingAction().secondaryData() = pSoldier->position().gridNo();
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
 									pTeamSoldier->pendingAction().resetAnimationCount();
-									pTeamSoldier->usUIMovementMode = RUNNING;
+									pTeamSoldier->movement().mode() = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
 									if (pTeamSoldier->position().gridNo() != sActionGridNo)
 									{
 										// WALK UP TO DEST FIRST
-										SendGetNewSoldierPathEvent(pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode);
+										SendGetNewSoldierPathEvent(pTeamSoldier, sActionGridNo, pTeamSoldier->movement().mode());
 									}
 								}
 							}
@@ -1614,13 +1614,13 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
 									pTeamSoldier->pendingAction().resetAnimationCount();
-									pTeamSoldier->usUIMovementMode = RUNNING;
+									pTeamSoldier->movement().mode() = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
 									if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 									{
 										// WALK UP TO DEST FIRST
-										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );
+										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->movement().mode() );
 									}
 								}
 
@@ -1751,13 +1751,13 @@ void MilitiaControlMenuBtnCallBack( MOUSE_REGION * pRegion, INT32 iReason )
 									pTeamSoldier->pendingAction().secondaryData()  = sActionGridNo;
 									//pTeamSoldier->bPendingActionData3  = ubDirection;
 									pTeamSoldier->pendingAction().resetAnimationCount();
-									pTeamSoldier->usUIMovementMode = RUNNING;
+									pTeamSoldier->movement().mode() = RUNNING;
 
 									// CHECK IF WE ARE AT THIS GRIDNO NOW
 									if ( pTeamSoldier->position().gridNo() != sActionGridNo )
 									{
 										// WALK UP TO DEST FIRST
-										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->usUIMovementMode );
+										SendGetNewSoldierPathEvent( pTeamSoldier, sActionGridNo, pTeamSoldier->movement().mode() );
 									}
 								}
 							}

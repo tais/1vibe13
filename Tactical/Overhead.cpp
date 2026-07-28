@@ -1714,7 +1714,7 @@ BOOLEAN ExecuteOverhead( )
                                         }
                                         else
                                         {
-                                            if ( FindBestPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->position().level(), pSoldier->usUIMovementMode,
+                                            if ( FindBestPath( pSoldier, pSoldier->pathing().finalDestinationGrid(), pSoldier->position().level(), pSoldier->movement().mode(),
                                                         NO_COPYROUTE, PATH_THROUGH_PEOPLE ) != 0 )
                                             {
                                                 INT32 sNewGridNo;
@@ -1723,7 +1723,7 @@ BOOLEAN ExecuteOverhead( )
                                             }
 
                                             // We have not made it to our dest... set flag that we are waiting....
-                                            if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->usUIMovementMode, 2, FALSE ) )
+                                            if ( !pSoldier->EVENT_InternalGetNewSoldierPath( pSoldier->pathing().finalDestinationGrid(), pSoldier->movement().mode(), 2, FALSE ) )
                                             {
                                                 // ATE: To do here.... we could not get path, so we have to stop
                                                 // 0verhaul:    May also need to clear the action type so that the soldier will know
@@ -5048,9 +5048,9 @@ BOOLEAN NewOKDestination( SOLDIERTYPE * pCurrSoldier, INT32 sGridNo, BOOLEAN fPe
         // this could be kinda slow...
 
         // Get animation surface...
-        usAnimSurface = DetermineSoldierAnimationSurface( pCurrSoldier, pCurrSoldier->usUIMovementMode );
+        usAnimSurface = DetermineSoldierAnimationSurface( pCurrSoldier, pCurrSoldier->movement().mode() );
         // Get structure ref...
-        pStructureFileRef = GetAnimationStructureRef( pCurrSoldier->ubID, usAnimSurface, pCurrSoldier->usUIMovementMode );
+        pStructureFileRef = GetAnimationStructureRef( pCurrSoldier->ubID, usAnimSurface, pCurrSoldier->movement().mode() );
 
         // opposite directions should be mirrors, so only check 4
         if ( pStructureFileRef )
@@ -5185,9 +5185,9 @@ static INT16 NewOKDestinationAndDirection( SOLDIERTYPE * pCurrSoldier, INT32 sGr
         // this could be kinda slow...
 
         // Get animation surface...
-        usAnimSurface = DetermineSoldierAnimationSurface( pCurrSoldier, pCurrSoldier->usUIMovementMode );
+        usAnimSurface = DetermineSoldierAnimationSurface( pCurrSoldier, pCurrSoldier->movement().mode() );
         // Get structure ref...
-        pStructureFileRef = GetAnimationStructureRef( pCurrSoldier->ubID, usAnimSurface, pCurrSoldier->usUIMovementMode );
+        pStructureFileRef = GetAnimationStructureRef( pCurrSoldier->ubID, usAnimSurface, pCurrSoldier->movement().mode() );
 
         if ( pStructureFileRef )
         {
@@ -5516,7 +5516,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 
         if ( fCheckGivenGridNo )
         {
-            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
             if ( sDistance > 0 )
             {
@@ -5598,7 +5598,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
         ubDir = (UINT8)GetDirectionToGridNoFromGridNo( sSpot, sGridNo );
 
         if ( ( NewOKDestinationAndDirection( pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level() ) > 0 ) &&
-                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
+                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
         {
 			if (ubDir != gfPlotPathEndDirection) sDistance += 4;//shadooow: small hack to return adjacent GridNo with lowest AP cost
             if (sDistance < sClosest || sClosest == -1)
@@ -5679,7 +5679,7 @@ INT32 FindAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pubDirect
 			ubDir = (UINT8)GetDirectionToGridNoFromGridNo(sSpot, sGridNoProne);
 
 			if ((NewOKDestinationAndDirection(pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level()) > 0) &&
-				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
+				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
 			{
 				if (ubDir != gfPlotPathEndDirection) sDistance += 4;//shadooow: small hack to return adjacent GridNo with lowest AP cost
 				if (sDistance < sClosest || sClosest == -1)
@@ -5827,7 +5827,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
         if ( fCheckGivenGridNo )
         {
-            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
+            sDistance = PlotPath( pSoldier, sGridNo,    NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() );
 
             if ( sDistance > 0 )
             {
@@ -5918,7 +5918,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
         // don't store path, just measure it
         if ( ( NewOKDestinationAndDirection( pSoldier, sSpot, ubDir, TRUE , pSoldier->position().level() ) > 0 ) &&
-                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
+                ( ( sDistance = PlotPath( pSoldier, sSpot,  NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current() ) ) > 0 ) )
         {
             if ( sDistance < sClosest || sClosest == -1)
             {
@@ -6007,7 +6007,7 @@ INT32 FindNextToAdjacentGridEx( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 *pub
 
 			// don't store path, just measure it
 			if ((NewOKDestinationAndDirection(pSoldier, sSpot, ubDir, TRUE, pSoldier->position().level()) > 0) &&
-				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->usUIMovementMode, NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
+				((sDistance = PlotPath(pSoldier, sSpot, NO_COPYROUTE, NO_PLOT, TEMPORARY, (INT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current())) > 0))
 			{
 				if (sDistance < sClosest || sClosest == -1)
 				{
@@ -6416,7 +6416,7 @@ void CommonEnterCombatModeCode( )
                     // combat
                     //if ( pSoldier->bTeam == gbPlayerNum )
                     //{
-                    //pSoldier->usUIMovementMode = RUNNING;
+                    //pSoldier->movement().mode() = RUNNING;
                     //}
                 }*/
             }

@@ -318,12 +318,12 @@ namespace
 						(gAnimControl[soldier->animationPlayback().state()].uiFlags &
 							ANIM_STATIONARY) == 0)
 					{
-						soldier->usUIMovementMode =
+						soldier->movement().mode() =
 							soldier->GetMoveStateBasedOnStance(value.stance);
 						soldier->animationIntent().clearDesiredHeight();
 						soldier->usDontUpdateNewGridNoOnMoveAnimChange = 1;
 						soldier->ChangeSoldierState(
-							soldier->usUIMovementMode, 0, FALSE);
+							soldier->movement().mode(), 0, FALSE);
 					}
 					else
 					{
@@ -389,7 +389,7 @@ namespace
 					!IsValidMovementMode(soldier, value.movementMode))
 					return CommandDisposition::Discard;
 
-				soldier->usUIMovementMode = value.movementMode;
+				soldier->movement().mode() = value.movementMode;
 				soldier->bReverse = value.reverse ? TRUE : FALSE;
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
 					soldier->pendingAction().clearAction();
@@ -584,7 +584,7 @@ namespace
 				STRUCTURE* structure = ResolveLiveWorldObject(value.object);
 				if (!structure) return CommandDisposition::Discard;
 
-				soldier->usUIMovementMode = value.movementMode;
+				soldier->movement().mode() = value.movementMode;
 				soldier->bReverse = value.reverse ? TRUE : FALSE;
 				soldier->pendingAction().clearAction();
 				if (!soldier->EVENT_InternalGetNewSoldierPath(
@@ -633,9 +633,9 @@ namespace
 				const UINT8 previousAnimCount =
 					soldier->pendingAction().animationCount();
 				const UINT16 previousMovementMode =
-					soldier->usUIMovementMode;
+					soldier->movement().mode();
 
-				soldier->usUIMovementMode = value.movementMode;
+				soldier->movement().mode() = value.movementMode;
 				soldier->pendingAction().begin(MERC_TALK);
 				soldier->pendingAction().primaryData() = value.target.slot;
 				soldier->pendingAction().secondaryData() = 0;
@@ -659,7 +659,7 @@ namespace
 					previousTargetIncarnation;
 				soldier->pendingAction().animationCount() =
 					previousAnimCount;
-				soldier->usUIMovementMode = previousMovementMode;
+				soldier->movement().mode() = previousMovementMode;
 				return CommandDisposition::Discard;
 			}
 			else if constexpr (
@@ -703,9 +703,9 @@ namespace
 				const UINT8 previousAnimCount =
 					soldier->pendingAction().animationCount();
 				const UINT16 previousMovementMode =
-					soldier->usUIMovementMode;
+					soldier->movement().mode();
 
-				soldier->usUIMovementMode = value.movementMode;
+				soldier->movement().mode() = value.movementMode;
 				soldier->pendingAction().begin(MERC_ENTER_VEHICLE);
 				soldier->pendingAction().primaryData() = 0;
 				soldier->runtime.pendingAction.targetIncarnation =
@@ -732,7 +732,7 @@ namespace
 					previousTargetIncarnation;
 				soldier->pendingAction().animationCount() =
 					previousAnimCount;
-				soldier->usUIMovementMode = previousMovementMode;
+				soldier->movement().mode() = previousMovementMode;
 				return CommandDisposition::Discard;
 			}
 			else if constexpr (

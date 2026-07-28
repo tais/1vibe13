@@ -9236,7 +9236,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	//CHRISL: The above all assumes that the target is actually still possibly moving at the same rate
 	//	he was moving at before the end of his turn.  But what happens if a target moves, stops and 
 	//	changes stance?  We use usAnimState to figure out what stance we're currently in by looking at
-	//	out current animation state.  And I think usUIMovementMode tells us what animation state we
+	//	out current animation state. The movement component's mode tells us what animation state we
 	//	last moved in.  So if these two values are different, we should be able to assume that the target
 	//	has stopped moving.
 	// HEADROCK HAM 5: Oh god Chris, that's not how it's supposed to work. Changing stance doesn't miraculously
@@ -9245,7 +9245,7 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 	// are essentially assuming that turns overlap, so the shot isn't being taken at the exact moment after the
 	// guy has crouched down, it's taking place simultaneously with his sprint. Commented out.
 	/*
-	if (pTarget->animationPlayback().state() != pTarget->usUIMovementMode)
+	if (pTarget->animationPlayback().state() != pTarget->movement().mode())
 		sDistanceMoved = 0;
 	*/
 
