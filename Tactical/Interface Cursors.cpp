@@ -352,7 +352,7 @@ BOOLEAN DrawUICursor( )
 			if ( gusSelectedSoldier != NOBODY )
 			{
 				if ( GetJa2SoldierRepository()
-						.resolve(gusSelectedSoldier.i)->bStealthMode )
+						.resolve(gusSelectedSoldier.i)->movement().stealthMode() )
 				{
 					usTileCursor = FIRSTPOINTERS9;
 				}
@@ -366,7 +366,7 @@ BOOLEAN DrawUICursor( )
 				if ( gusSelectedSoldier != NOBODY )
 				{
 					if ( GetJa2SoldierRepository()
-							.resolve(gusSelectedSoldier.i)->bStealthMode )
+							.resolve(gusSelectedSoldier.i)->movement().stealthMode() )
 					{
 						usTileCursor = FIRSTPOINTERS10;
 					}

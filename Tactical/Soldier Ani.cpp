@@ -3339,7 +3339,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 773:
 
 				// Kneel up...
-				if ( !pSoldier->bStealthMode )
+				if ( !pSoldier->movement().stealthMode() )
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, KNEEL_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
@@ -3348,7 +3348,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 774:
 
 				// Kneel down..
-				if ( !pSoldier->bStealthMode )
+				if ( !pSoldier->movement().stealthMode() )
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, KNEEL_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
@@ -3357,7 +3357,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 775:
 
 				// prone up..
-				if ( !pSoldier->bStealthMode )
+				if ( !pSoldier->movement().stealthMode() )
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, PRONE_UP_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
@@ -3366,7 +3366,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 776:
 
 				// prone down..
-				if ( !pSoldier->bStealthMode )
+				if ( !pSoldier->movement().stealthMode() )
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, PRONE_DOWN_SOUND, RATE_11025, SoundVolume( MIDVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
@@ -3375,14 +3375,14 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 777:
 
 				// picking something up
-				if ( !pSoldier->bStealthMode )
+				if ( !pSoldier->movement().stealthMode() )
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, PICKING_SOMETHING_UP, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}
 				break;
 
 			case 778:
-				if (!pSoldier->bStealthMode && (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE)))
+				if (!pSoldier->movement().stealthMode() && (pSoldier->awareness().visibility() == TRUE || TeamMemberNear(gbPlayerNum, pSoldier->position().gridNo(), TACTICAL_RANGE)))
 				{
 					PlaySoldierJA2Sample( pSoldier->ubID, ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( HIGHVOLUME, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 				}

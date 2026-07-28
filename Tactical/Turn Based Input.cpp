@@ -6635,7 +6635,7 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 			return;
 		}
 
-		const bool enableStealth = pSoldier->bStealthMode == FALSE;
+		const bool enableStealth = pSoldier->movement().stealthMode() == FALSE;
 		if (!TryDispatchSetStealthModeCommandNow(
 				*pSoldier,
 				enableStealth))
@@ -6650,7 +6650,7 @@ void ToggleStealthMode( SOLDIERTYPE *pSoldier )
 		gfPlotNewMovement	= TRUE;
 		fInterfacePanelDirty = DIRTYLEVEL2;
 
-		if ( pSoldier->bStealthMode )
+		if ( pSoldier->movement().stealthMode() )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, pMessageStrings[ MSG_MERC_ON_STEALTHMODE ], pSoldier->GetName() );
 		}
@@ -7930,7 +7930,7 @@ void HandleTBToggleStealthAll( void )
 		}
 		if ( OK_CONTROLLABLE_MERC( pTeamSoldier ) && pTeamSoldier->assignment().current() == CurrentSquad( ) )
 		{
-			if ( pTeamSoldier->bStealthMode )
+			if ( pTeamSoldier->movement().stealthMode() )
 				fStealthOn = TRUE;
 			}
 		}

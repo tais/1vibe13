@@ -2262,7 +2262,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 						TryDispatchMoveToGridCommandNow(
 							*pSoldier,
 							usMapPos, pSoldier->movement().mode(),
-							pSoldier->bReverse != FALSE, false);
+							pSoldier->movement().reverse() != FALSE, false);
 					if ( movement )
 					{
 						pSoldier->InternalDoMercBattleSound( BATTLE_SOUND_OK1, BATTLE_SND_LOWER_VOLUME );

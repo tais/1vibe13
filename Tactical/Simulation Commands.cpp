@@ -321,7 +321,7 @@ namespace
 						soldier->movement().mode() =
 							soldier->GetMoveStateBasedOnStance(value.stance);
 						soldier->animationIntent().clearDesiredHeight();
-						soldier->usDontUpdateNewGridNoOnMoveAnimChange = 1;
+						soldier->movement().requestGridUpdateSuppression();
 						soldier->ChangeSoldierState(
 							soldier->movement().mode(), 0, FALSE);
 					}
@@ -390,7 +390,7 @@ namespace
 					return CommandDisposition::Discard;
 
 				soldier->movement().mode() = value.movementMode;
-				soldier->bReverse = value.reverse ? TRUE : FALSE;
+				soldier->movement().setReverse(value.reverse);
 				if (value.pendingAction == TacticalPendingActionPolicy::Clear)
 					soldier->pendingAction().clearAction();
 				return soldier->EVENT_InternalGetNewSoldierPath(
@@ -451,7 +451,7 @@ namespace
 				if (!soldier ||
 					(soldier->flags.uiStatusFlags & SOLDIER_VEHICLE) != 0)
 					return CommandDisposition::Discard;
-				soldier->bStealthMode = value.enabled ? TRUE : FALSE;
+				soldier->movement().setStealth(value.enabled);
 				return CommandDisposition::Applied;
 			}
 			else if constexpr (std::is_same<Command, StopMovementCommand>::value)
@@ -585,7 +585,7 @@ namespace
 				if (!structure) return CommandDisposition::Discard;
 
 				soldier->movement().mode() = value.movementMode;
-				soldier->bReverse = value.reverse ? TRUE : FALSE;
+				soldier->movement().setReverse(value.reverse);
 				soldier->pendingAction().clearAction();
 				if (!soldier->EVENT_InternalGetNewSoldierPath(
 						value.destinationGrid, value.movementMode,

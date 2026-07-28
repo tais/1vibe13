@@ -1299,7 +1299,7 @@ BOOLEAN ExecuteOverhead( )
                                 // Cancel path....
                                 pSoldier->pathing().pathIndex() = pSoldier->pathing().pathSize() = 0;
                                 // Cancel reverse
-                                pSoldier->bReverse = FALSE;
+                                pSoldier->movement().setReverse(false);
                                 BOOLEAN fAimAfterMove = FALSE;
                                 if ( pSoldier->animationPlayback().state() == WALKING_ALTERNATIVE_RDY || pSoldier->animationPlayback().state() == SIDE_STEP_ALTERNATIVE_RDY )
                                 {
@@ -1788,7 +1788,7 @@ BOOLEAN ExecuteOverhead( )
 
                             // Determine angle
                             //  dAngle = (FLOAT)atan2( dDeltaX, dDeltaY );
-                            dAngle = gdRadiansForAngle[ pSoldier->bMovementDirection ];
+                            dAngle = gdRadiansForAngle[ pSoldier->movement().animationDirection() ];
 
 							FLOAT movementchange = gAnimControl[pSoldier->animationPlayback().state()].dMovementChange;
 
@@ -2550,9 +2550,9 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             {
                 if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) ) )
                 {
-                    if ( !pSoldier->bReverse )
+                    if ( !pSoldier->movement().reverse() )
                     {
-                        pSoldier->bReverse = TRUE;
+                        pSoldier->movement().setReverse(true);
 
                         if ( pSoldier->ubBodyType == INFANT_MONSTER )
                         {
@@ -2566,7 +2566,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
                 }
                 else
                 {
-                    pSoldier->bReverse = FALSE;
+                    pSoldier->movement().setReverse(false);
                 }
             }
 
@@ -2575,15 +2575,15 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
             {
                 if ( !ValidCreatureTurn( pSoldier, ( INT8 ) ( pSoldier->pathing().path()[ pSoldier->pathing().pathIndex() ] ) ) )
                 {
-                    if ( !pSoldier->bReverse )
+                    if ( !pSoldier->movement().reverse() )
                     {
-                        pSoldier->bReverse = TRUE;
+                        pSoldier->movement().setReverse(true);
                         pSoldier->ChangeSoldierState( BLOODCAT_WALK_BACKWARDS, 1, TRUE );
                     }
                 }
                 else
                 {
-                    pSoldier->bReverse = FALSE;
+                    pSoldier->movement().setReverse(false);
                 }
             }
 
@@ -2836,7 +2836,7 @@ BOOLEAN HandleAtNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving )
         if (ubVolume > 0)
         {
             MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_MOVEMENT );
-            if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->bStealthMode) )
+            if ( (pSoldier->flags.uiStatusFlags & SOLDIER_PC) && (pSoldier->movement().stealthMode()) )
             {
                 PlayStealthySoldierFootstepSound( pSoldier );
             }
@@ -7720,7 +7720,7 @@ BOOLEAN CheckForEndOfBattle( BOOLEAN fAnEnemyRetreated )
 
                                         // toggle stealth mode....
                                         gfUIStanceDifferent = TRUE;
-                                        pTeamSoldier->bStealthMode = FALSE;
+                                        pTeamSoldier->movement().setStealth(false);
                                         fInterfacePanelDirty = DIRTYLEVEL2;
                                         //DBrot: Stance change
                                         if (gGameExternalOptions.fStandUpAfterBattle)

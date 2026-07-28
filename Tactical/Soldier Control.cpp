@@ -733,7 +733,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->vitals().bleeding() = src.bBleeding;		// blood loss control variable
 		this->vitals().breath() = src.bBreath;			// current breath value
 		this->vitals().maximumBreath() = src.bBreathMax;   // max breath, affected by fatigue/sleep
-		this->bStealthMode = src.bStealthMode;
+		this->movement().stealthMode() = src.bStealthMode;
 
 		this->vitals().breathReduction() = src.sBreathRed;			// current breath value
 
@@ -817,7 +817,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->service().providerCount() = src.ubServiceCount;
 		this->service().partner() = static_cast<UINT16>( src.ubServicePartner );
 		this->pThrowParams = src.pThrowParams;
-		this->bReverse = src.bReverse;
+		this->movement().reverse() = src.bReverse;
 		this->pLevelNode = src.pLevelNode;
 		this->pExternShadowLevelNode = src.pExternShadowLevelNode;
 		this->pRoofUILevelNode = src.pRoofUILevelNode;
@@ -957,13 +957,13 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->deployment().offWorldGrid() = src.sOffWorldGridNo;
 		this->pAniTile = src.pAniTile;
 		this->movement().absoluteDestination() = src.sAbsoluteFinalDestination;
-		this->ubHiResDirection = src.ubHiResDirection;
-		this->ubHiResDesiredDirection = src.ubHiResDesiredDirection;
+		this->movement().highResolutionDirection() = src.ubHiResDirection;
+		this->movement().highResolutionDesiredDirection() = src.ubHiResDesiredDirection;
 		this->audio().lastFootstepVariant() = src.ubLastFootPrintSound;
 		this->bVehicleID = src.bVehicleID;
-		this->bMovementDirection = src.bMovementDirection;
+		this->movement().animationDirection() = src.bMovementDirection;
 		this->movementHistory().previousGrid() = src.sOldGridNo;
-		this->usDontUpdateNewGridNoOnMoveAnimChange = src.usDontUpdateNewGridNoOnMoveAnimChange;
+		this->movement().gridUpdatePolicy() = src.usDontUpdateNewGridNoOnMoveAnimChange;
 		this->sBoundingBoxWidth = src.sBoundingBoxWidth;
 		this->sBoundingBoxHeight = src.sBoundingBoxHeight;
 		this->sBoundingBoxOffsetX = src.sBoundingBoxOffsetX;
@@ -3531,7 +3531,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		}
 
 		// OK, if we have reverse set, do the side step!
-		if ( this->bReverse )
+		if ( this->movement().reverse() )
 		{
 			if ( usNewState == WALKING || usNewState == RUNNING || usNewState == SWATTING
 				 //*** ddd
@@ -3713,14 +3713,14 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		{
 			BOOLEAN fKeepMoving;
 
-			if ( usNewState == CRAWLING && this->usDontUpdateNewGridNoOnMoveAnimChange == LOCKED_NO_NEWGRIDNO )
+			if ( usNewState == CRAWLING && this->movement().gridUpdatePolicy() == LOCKED_NO_NEWGRIDNO )
 			{
 				// Turn off lock once we are crawling once...
-				this->usDontUpdateNewGridNoOnMoveAnimChange = 1;
+				this->movement().requestGridUpdateSuppression();
 			}
 
 			// ATE: Additional check here if we have just been told to update animation ONLY, not goto gridno stuff...
-			if ( !this->usDontUpdateNewGridNoOnMoveAnimChange )
+			if ( !this->movement().gridUpdatePolicy() )
 			{
 				if ( usNewState != SWATTING )
 				{
@@ -3796,10 +3796,10 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			// factors such as maybe getting shot (this is realtime so an enemy could see him), it stays on locked.  Once
 			// it stays on locked, the soldier will be unable to navigate around obstacles but will simply stay put
 			// twitching.  Since the LOCKED is only set when going prone, this unsets it.
-			if ( this->usDontUpdateNewGridNoOnMoveAnimChange != LOCKED_NO_NEWGRIDNO ||
-				 (this->usDontUpdateNewGridNoOnMoveAnimChange == LOCKED_NO_NEWGRIDNO && this->animationPlayback().state() != PRONE_DOWN) )
+			if ( this->movement().gridUpdatePolicy() != LOCKED_NO_NEWGRIDNO ||
+				 (this->movement().gridUpdatePolicy() == LOCKED_NO_NEWGRIDNO && this->animationPlayback().state() != PRONE_DOWN) )
 			{
-				this->usDontUpdateNewGridNoOnMoveAnimChange = FALSE;
+				this->movement().clearGridUpdatePolicy();
 			}
 		}
 
@@ -3875,7 +3875,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	// ATE: If not a moving animation - turn off reverse....
 	if ( !(gAnimControl[usNewState].uiFlags & ANIM_MOVING) )
 	{
-		this->bReverse = FALSE;
+		this->movement().setReverse(false);
 	}
 
 	// ONLY DO FOR EVERYONE BUT PLANNING GUYS
@@ -4894,7 +4894,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 					// Make transition from low to deep
 					this->EVENT_InitNewSoldierAnim( LOW_TO_DEEP_WATER, 0, FALSE );
 					this->animationIntent().pendingAnimation() = DEEP_WATER_SWIM;
-					this->usDontUpdateNewGridNoOnMoveAnimChange = 1;
+					this->movement().requestGridUpdateSuppression();
 					PlayJA2Sample( ENTER_DEEP_WATER_1, RATE_11025, SoundVolume( MIDVOLUME, this->position().gridNo() ), 1, SoundDir( this->position().gridNo() ) );
 				}
 			}
@@ -4910,7 +4910,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			{
 				// Make transition from low to deep
 				this->EVENT_InitNewSoldierAnim( DEEP_TO_LOW_WATER, 0, FALSE );
-				this->usDontUpdateNewGridNoOnMoveAnimChange = 1;
+				this->movement().requestGridUpdateSuppression();
 				this->animationIntent().pendingAnimation() = usUIMovementModeToSet;
 			}
 		}
@@ -4933,7 +4933,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		// do NOT award this bonus if we are currently loading a game - otherwise one could increase agility by repeatedly saving and reloading the game
 		if ( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME) )
 		{
-			if ( this->bTeam == gbPlayerNum && this->bStealthMode )
+			if ( this->bTeam == gbPlayerNum && this->movement().stealthMode() )
 			{
 				// Merc got to a new tile by "sneaking". Did we theoretically sneak
 				// past an enemy?
@@ -7089,7 +7089,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	}
 
 	// sevenfm: set WALKING when sidestepping, this should fix running instead of sidestepping with weapon raised in turnbased mode
-	if (usMoveAnimState == RUNNING && this->bReverse)
+	if (usMoveAnimState == RUNNING && this->movement().reverse())
 		usMoveAnimState = WALKING;
 
 	this->movement().clearContinuedPath();
@@ -7168,7 +7168,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 			if ( usMoveAnimState != this->animationPlayback().state() )
 			{
 				//
-				this->usDontUpdateNewGridNoOnMoveAnimChange = TRUE;
+				this->movement().requestGridUpdateSuppression();
 
 				this->EVENT_InitNewSoldierAnim( usMoveAnimState, 0, FALSE );
 				if ( is_server || (is_client && this->ubID <20) ) send_path( this, sDestGridNo, usMoveAnimState, 0, FALSE );
@@ -7446,11 +7446,11 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierDestination( UINT16	usNewDirection, BO
 	this->pathing().destinationX() = sXPos;
 	this->pathing().destinationY() = sYPos;
 
-	this->bMovementDirection = (INT8)usNewDirection;
+	this->movement().animationDirection() = (INT8)usNewDirection;
 
 
 	// OK, ATE: If we are side_stepping, calculate a NEW desired direction....
-	if ( this->bReverse && 
+	if ( this->movement().reverse() &&
 		(usAnimState == SIDE_STEP ||
 			usAnimState == ROLL_PRONE_R ||
 			usAnimState == ROLL_PRONE_L ||
@@ -7570,7 +7570,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 	INT32 iBPCost = 0;
 
 	//if ( usAnimState == WALK_BACKWARDS )
-	if ( pSoldier->bReverse && 
+	if ( pSoldier->movement().reverse() &&
 		(usAnimState != SIDE_STEP && 
 			usAnimState != ROLL_PRONE_R &&
 			usAnimState != ROLL_PRONE_L	&&
@@ -7673,7 +7673,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 	}
 
 	// Set desired direction for the extended directions...
-	pSoldier->ubHiResDesiredDirection = ubExtDirection[pSoldier->pathing().desiredDirection()];
+	pSoldier->movement().highResolutionDesiredDirection() = ubExtDirection[pSoldier->pathing().desiredDirection()];
 
 	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
@@ -7686,7 +7686,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
 	{
-		pSoldier->animationActivity().turningIncrement() = (INT8)ExtQuickestDirection( pSoldier->ubHiResDirection, pSoldier->ubHiResDesiredDirection );
+		pSoldier->animationActivity().turningIncrement() = (INT8)ExtQuickestDirection( pSoldier->movement().highResolutionDirection(), pSoldier->movement().highResolutionDesiredDirection() );
 	}
 	else
 	{
@@ -7720,7 +7720,7 @@ void SOLDIERTYPE::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	this->position().direction() = (INT8)usNewDirection;
 
 	// Updated extended direction.....
-	this->ubHiResDirection = ubExtDirection[this->position().direction()];
+	this->movement().highResolutionDirection() = ubExtDirection[this->position().direction()];
 
 	// Add new stuff
 	this->HandleAnimationProfile( this->animationPlayback().state(), FALSE );
@@ -8093,7 +8093,7 @@ UINT8 SOLDIERTYPE::SpriteDirForSurface( UINT16 usAnimSurface )
 
 	if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 32 )
 	{
-		ubTempDir = gExtOneCDirection[this->ubHiResDirection];
+		ubTempDir = gExtOneCDirection[this->movement().highResolutionDirection()];
 	}
 	// Check # of directions /surface, adjust if ness.
 	else if ( gAnimSurfaceDatabase[usAnimSurface].uiNumDirections == 4 )
@@ -8443,9 +8443,9 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 		// Get new direction
 		/*
-		sDirection = this->ubHiResDirection + ExtQuickestDirection( this->ubHiResDirection, this->ubHiResDesiredDirection );
+		sDirection = this->movement().highResolutionDirection() + ExtQuickestDirection( this->movement().highResolutionDirection(), this->movement().highResolutionDesiredDirection() );
 		*/
-		sDirection = this->ubHiResDirection + this->animationActivity().turningIncrement();
+		sDirection = this->movement().highResolutionDirection() + this->animationActivity().turningIncrement();
 		if ( sDirection > 31 )
 		{
 			sDirection = 0;
@@ -8457,7 +8457,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 				sDirection = 31;
 			}
 		}
-		this->ubHiResDirection = (UINT8)sDirection;
+		this->movement().highResolutionDirection() = (UINT8)sDirection;
 
 		// Are we at a multiple of a 'cardnal' direction?
 		for ( cnt = 0; cnt < NUM_WORLD_DIRECTIONS; ++cnt )
@@ -9065,7 +9065,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	if ( !(IsJa2TacticalCombatActive()) )
 	{
 		// ATE: If realtime, and stealth mode...
-		if ( pStatsSoldier->bStealthMode )
+		if ( pStatsSoldier->movement().stealthMode() )
 		{
 			if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSoldier, STEALTHY_NT ) )
 			{
@@ -11471,7 +11471,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 	{
 		fStop = FALSE;
 
-		switch ( this->bMovementDirection )
+		switch ( this->movement().animationDirection() )
 		{
 		case NORTHEAST:
 		case EAST:
@@ -11523,7 +11523,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 	{
 		fStop = FALSE;
 
-		switch ( this->bMovementDirection )
+		switch ( this->movement().animationDirection() )
 		{
 		case NORTH:
 		case NORTHEAST:
@@ -14106,7 +14106,7 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	this->movement().clearDelay();
 
 	// Turn off reverse...
-	this->bReverse = FALSE;
+	this->movement().setReverse(false);
 
 	this->EVENT_SetSoldierPosition( (FLOAT)sX, (FLOAT)sY );
 	this->pathing().destinationX() = (INT16)this->position().worldX();
@@ -24095,7 +24095,7 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 void PlaySoldierFootstepSound( SOLDIERTYPE *pSoldier )
 {
 	// normally, not in stealth mode
-	if ( !pSoldier->bStealthMode )
+	if ( !pSoldier->movement().stealthMode() )
 	{
 		InternalPlaySoldierFootstepSound( pSoldier );
 	}

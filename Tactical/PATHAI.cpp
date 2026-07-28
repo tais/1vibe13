@@ -747,7 +747,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 
 			/*
 			//bool fVehicle = ( (pSoldier->uiStatusFlags & SOLDIER_VEHICLE) != 0 );
-			if (fVehicle && pSoldier->bReverse)
+			if (fVehicle && pSoldier->movement().reverse())
 			{
 				fReverse = TRUE;
 			}
@@ -1847,7 +1847,7 @@ void AStarPathfinder::InitVehicle()
 
 			/*
 			//bool fVehicle = ( (pSoldier->uiStatusFlags & SOLDIER_VEHICLE) != 0 );
-			if (fVehicle && pSoldier->bReverse)
+			if (fVehicle && pSoldier->movement().reverse())
 			{
 				fReverse = TRUE;
 			}
@@ -2477,7 +2477,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			fContinuousTurnNeeded = ( ( s->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
 
 			/*
-			if (fVehicle && s->bReverse)
+			if (fVehicle && s->movement().reverse())
 			{
 				fReverse = TRUE;
 			}
@@ -4230,7 +4230,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 		}
 
 		//shadooow: a little hack to calculate correct AP cost because game doesn't allow to run in reverse and forces walk mode
-		if (usMovementMode && (pSold->bReverse || bReverse))
+		if (usMovementMode && (pSold->movement().reverse() || bReverse))
 		{
 			usMovementMode = WALKING;
 		}
@@ -4473,7 +4473,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					}
 				
 					// Check for reverse mode
-					if ( pSold->bReverse || bReverse )
+					if ( pSold->movement().reverse() || bReverse )
 						sMovementAPsCost += APBPConstants[AP_REVERSE_MODIFIER];
 
 					// STOMP traits - Athletics trait decreases movement cost
@@ -4499,7 +4499,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 						sMovementAPsCost += GetAPsToOpenDoor( pSold ) + GetAPsToOpenDoor( pSold ); // Include open and close costs!
 					}
 					// Check for stealth mode
-					if (pSold->bStealthMode || bStealth)
+					if (pSold->movement().stealthMode() || bStealth)
 					{
 						// STOMP traits - Stealthy trait decreases stealth AP modifier
 						if (gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT(pSold, STEALTHY_NT))
@@ -4548,7 +4548,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 				sMovementAPsCost = sTileCost;
 
 				// Check for reverse mode
-				if ( pSold->bReverse || bReverse )
+				if ( pSold->movement().reverse() || bReverse )
 				{
 					sMovementAPsCost += APBPConstants[AP_REVERSE_MODIFIER];
 				}
@@ -4601,7 +4601,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					sPointsWalk += APBPConstants[AP_MODIFIER_READY];
 				}
 				// Check for stealth mode
-				if ( pSold->bStealthMode || bStealth )
+				if ( pSold->movement().stealthMode() || bStealth )
 				{
 					 // STOMP traits - Stealthy trait decreases stealth AP modifier
 					if ( gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT( pSold, STEALTHY_NT ))

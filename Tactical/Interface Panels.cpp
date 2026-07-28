@@ -929,7 +929,7 @@ void UpdateSMPanel( )
 		}
 
 		// Make new
-		giSMStealthImages = UseLoadedButtonImage( iSMPanelImages[ STANCE_IMAGES	] ,gbStanceButPos[ GetSMCurrentMerc()->bStealthMode ][gbSMCurStanceObj][0] ,gbStanceButPos[ GetSMCurrentMerc()->bStealthMode ][gbSMCurStanceObj][1],-1,gbStanceButPos[ GetSMCurrentMerc()->bStealthMode ][gbSMCurStanceObj][2],-1 );
+		giSMStealthImages = UseLoadedButtonImage( iSMPanelImages[ STANCE_IMAGES	] ,gbStanceButPos[ GetSMCurrentMerc()->movement().stealthMode() ][gbSMCurStanceObj][0] ,gbStanceButPos[ GetSMCurrentMerc()->movement().stealthMode() ][gbSMCurStanceObj][1],-1,gbStanceButPos[ GetSMCurrentMerc()->movement().stealthMode() ][gbSMCurStanceObj][2],-1 );
 
 		giSMStealthButton = QuickCreateButton( giSMStealthImages, SM_STEALTHMODE_X, SM_STEALTHMODE_Y,
 										BUTTON_TOGGLE, MSYS_PRIORITY_HIGH - 1,
@@ -2944,7 +2944,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		// Render Name!
 		SetFont( BLOCKFONT2 );
 
-		if ( GetSMCurrentMerc()->bStealthMode )
+		if ( GetSMCurrentMerc()->movement().stealthMode() )
 		{
 			SetFontBackground( FONT_MCOLOR_BLACK );
 			SetFontForeground( FONT_MCOLOR_LTYELLOW );
@@ -3181,7 +3181,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 						// Flugente: new colour for being drugged, as blue on black was hard to see
 						SetRGBFontForeground( 250, 5, 250 );
 					}
-					else if ( GetSMCurrentMerc()->bStealthMode )
+					else if ( GetSMCurrentMerc()->movement().stealthMode() )
 					{
 						SetFontBackground( FONT_MCOLOR_BLACK );
 						SetFontForeground( FONT_MCOLOR_LTYELLOW );
@@ -4829,7 +4829,7 @@ void BtnStealthModeCallback(GUI_BUTTON *btn,INT32 reason)
 
 		SOLDIERTYPE* const soldier = GetSMCurrentMerc();
 		if (soldier && TryDispatchSetStealthModeCommandNow(
-				*soldier, soldier->bStealthMode == FALSE))
+				*soldier, soldier->movement().stealthMode() == FALSE))
 		{
 			gfUIStanceDifferent = TRUE;
 			gfPlotNewMovement = TRUE;
@@ -5604,7 +5604,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				// Render name!
 				SetFont( BLOCKFONT2 );
 
-				if ( pSoldier->bStealthMode )
+				if ( pSoldier->movement().stealthMode() )
 				{
 					SetFontBackground( FONT_MCOLOR_BLACK );
 					SetFontForeground( FONT_MCOLOR_LTYELLOW );
@@ -5811,7 +5811,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 								// Flugente: new colour for being drugged, as blue on black was hard to see
 								SetRGBFontForeground( 250, 5, 250 );
 							}
-							else if ( pSoldier->bStealthMode )
+							else if ( pSoldier->movement().stealthMode() )
 							{
 								SetFontBackground( FONT_MCOLOR_BLACK );
 								SetFontForeground( FONT_MCOLOR_LTYELLOW );

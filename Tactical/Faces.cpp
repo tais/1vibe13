@@ -1139,7 +1139,7 @@ void HandleFaceHilights( FACETYPE *pFace, UINT32 uiBuffer, INT16 sFaceX, INT16 s
 				 pDestBuf = LockVideoSurface( uiBuffer, &uiDestPitchBYTES );
 				 SetClippingRegionAndImageWidth( uiDestPitchBYTES, sFaceX-2, sFaceY-1, sFaceX + pFace->usFaceWidth + 4, sFaceY + pFace->usFaceHeight + 4 );
 
-				 if ( faceSoldier->bStealthMode )
+				 if ( faceSoldier->movement().stealthMode() )
 				 {
 					 usLineColor = Get16BPPColor( FROMRGB( 158, 158, 12 ) );
 				 }
@@ -2551,7 +2551,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 							// Flugente: new colour for being drugged, as blue on black was hard to see
 							SetRGBFontForeground(250, 5, 250);
 						}
-						else if (pSoldier->bStealthMode)
+						else if (pSoldier->movement().stealthMode())
 						{
 							SetFontBackground(FONT_MCOLOR_BLACK);
 							SetFontForeground(FONT_MCOLOR_LTYELLOW);
@@ -2937,7 +2937,7 @@ void HandleAutoFaces( )
 					pFace->uiFlags &= ( ~FACE_SHOW_MOVING_HILIGHT );
 				}
 
-				if ( pSoldier->bStealthMode != pFace->bOldStealthMode )
+				if ( pSoldier->movement().stealthMode() != pFace->bOldStealthMode )
 				{
 					fRerender = TRUE;
 				}
@@ -3029,7 +3029,7 @@ void HandleAutoFaces( )
 				pFace->fOldHandleUIHatch = fHandleUIHatch;
 				pFace->bOldSoldierLife		= bLife;
 				pFace->bOldActionPoints	= bAPs;
-				pFace->bOldStealthMode		= pSoldier->bStealthMode;
+				pFace->bOldStealthMode		= pSoldier->movement().stealthMode();
 				pFace->bOldOppCnt				= pSoldier->aiData.bOppCnt;
 
 				if ( pFace->uiFlags & FACE_SHOW_WHITE_HILIGHT )

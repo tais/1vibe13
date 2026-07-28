@@ -1647,7 +1647,7 @@ INT32 FindNearestUngassedLand(SOLDIERTYPE *pSoldier)
 					continue;		// skip on to the next potential grid
 				}
 
-				sPathCost = PlotPath(pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, pSoldier->bReverse, 0);
+				sPathCost = PlotPath(pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0);
 
 				// check if spot is reachable
 				if(sPathCost == 0)
@@ -1812,7 +1812,7 @@ INT32 FindNearbyDarkerSpot(SOLDIERTYPE *pSoldier)
 					continue;		// skip on to the next potential grid
 				}
 
-				sPathCost = PlotPath(pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, pSoldier->bReverse, 0);
+				sPathCost = PlotPath(pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), pSoldier->movement().reverse(), 0);
 
 				// check if spot is reachable
 				if (sPathCost == 0)
@@ -3179,7 +3179,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 	}
 
 	// check that location is reachable
-	iBestPathCost = EstimatePlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
+	iBestPathCost = EstimatePlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
 	if (iBestPathCost == 0)
 	{
 		return NOWHERE;
@@ -3356,7 +3356,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 					continue;
 				}
 				// check that we'll have enough APs to go prone at target spot
-				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
+				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
 				if( pSoldier->actionPoints().current() - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
 				{
 				continue;
@@ -3370,7 +3370,7 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 					continue;
 				}
 				// check that we'll have enough APs to go prone at target spot
-				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
+				/*iPathCost = EstimatePlotPath( pSoldier, sGridNo, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
 				if( pSoldier->actionPoints().current() - iPathCost < GetAPsCrouch(pSoldier, TRUE) + GetAPsProne(pSoldier, TRUE) + APBPConstants[AP_CHANGE_FACING] )
 				{
 				continue;
@@ -3379,8 +3379,8 @@ INT32 FindAdvanceSpot(SOLDIERTYPE *pSoldier, INT32 sTargetSpot, INT8 bAction, UI
 
 			sRealGridNo = pSoldier->position().gridNo();
 			pSoldier->position().gridNo() = sGridNo;
-			iPathCost = EstimatePlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
-			//iPathCost = PlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->bStealthMode, FALSE, 0);
+			iPathCost = EstimatePlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
+			//iPathCost = PlotPath(pSoldier, sTargetSpot, FALSE, FALSE, FALSE, usMovementMode, pSoldier->movement().stealthMode(), FALSE, 0);
 			//iPathCost = EstimatePathCostToLocation( pSoldier, sTargetSpot, pSoldier->position().level(), TRUE, &fClimbingNecessary, &sClimbGridNo );
 			pSoldier->position().gridNo() = sRealGridNo;
 
