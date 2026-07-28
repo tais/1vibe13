@@ -1024,6 +1024,8 @@ public:
 	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
+	SoldierMovementHistoryComponent& movementHistory() noexcept { return movementHistory_; }
+	const SoldierMovementHistoryComponent& movementHistory() const noexcept { return movementHistory_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
@@ -1203,7 +1205,6 @@ public:
 	UINT8				ubLastFootPrintSound;
 	INT8					bVehicleID;
 	INT8					bMovementDirection;
-	INT32				sOldGridNo;
 	UINT16				usDontUpdateNewGridNoOnMoveAnimChange;
 	INT16				sBoundingBoxWidth;
 	INT16				sBoundingBoxHeight;
@@ -1231,7 +1232,6 @@ public:
 
 	INT32				iPositionSndID;	
 	INT32				iTuringSoundID;
-	INT32				sLastTwoLocations[2];
 	INT8					numFlanks;
 	INT32				lastFlankSpot;
 	INT8					sniper;
@@ -1300,6 +1300,7 @@ private:
 	SoldierAssignmentComponent	assignment_;
 	SoldierDeploymentComponent	deployment_;
 	SoldierPositionComponent	position_;
+	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
 	SoldierTargetingComponent	targeting_;

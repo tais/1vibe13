@@ -4282,6 +4282,111 @@ if(NOT converted_v101_soldier_world_position OR
     "v101 soldier conversion must retain every historical tactical world-placement value")
 endif()
 
+# The grid just departed and the two-location AI loop window describe movement
+# history, not current placement or route intent. Keep one private owner and do
+# not let their former public fields return.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*INT32[ \t]+sOldGridNo[ \t]*;"
+  retired_soldier_previous_grid
+  "${current_soldier_contents}")
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*INT32[ \t]+sLastTwoLocations[ \t]*\\[[ \t]*2[ \t]*\\][ \t]*;"
+  retired_soldier_recent_locations
+  "${current_soldier_contents}")
+if(retired_soldier_previous_grid OR retired_soldier_recent_locations)
+  message(FATAL_ERROR
+    "Retired flat SOLDIERTYPE movement history returned; previous and recent grids belong to SoldierMovementHistoryComponent")
+endif()
+string(REGEX MATCH
+  "SoldierMovementHistoryComponent[ \t\r\n]+movementHistory_[ \t]*;"
+  soldier_movement_history_owner
+  "${current_soldier_contents}")
+if(NOT soldier_movement_history_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierMovementHistoryComponent")
+endif()
+string(REGEX MATCH
+  "INT32[ \t]+previousGrid_[ \t]*=[ \t]*0[ \t]*;"
+  owned_soldier_previous_grid
+  "${soldier_components_header_contents}")
+string(REGEX MATCH
+  "RecentLocations[ \t]+recentLocations_[ \t]*\\{\\}[ \t]*;"
+  owned_soldier_recent_locations
+  "${soldier_components_header_contents}")
+string(FIND "${soldier_components_header_contents}"
+  "void recordDeparture(INT32 gridNo) noexcept { previousGrid_ = gridNo; }"
+  soldier_movement_history_departure)
+if(NOT owned_soldier_previous_grid OR
+   NOT owned_soldier_recent_locations OR
+   soldier_movement_history_departure EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierMovementHistoryComponent must own both history domains and their named departure transition")
+endif()
+foreach(movement_history_transition IN ITEMS
+  "void SoldierMovementHistoryComponent::resetAiLoop() noexcept"
+  "bool SoldierMovementHistoryComponent::observeAiMovement("
+  "recentLocations_[0] = NoGrid;"
+  "recentLocations_[1] = NoGrid;"
+  "destinationGrid == recentLocations_[1]"
+  "currentGrid == recentLocations_[0]"
+  "recentLocations_[0] = recentLocations_[1];"
+  "recentLocations_[1] = currentGrid;"
+  "*this = SoldierMovementHistoryComponent{};")
+  string(FIND "${soldier_components_source_contents}"
+    "${movement_history_transition}" soldier_movement_history_transition)
+  if(soldier_movement_history_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMovementHistoryComponent lost its bounded '${movement_history_transition}' lifecycle")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/TacticalAI/AIMain.cpp"
+  tactical_ai_main_contents)
+foreach(movement_history_runtime_transition IN ITEMS
+  "this->movementHistory().recordDeparture(this->position().gridNo());"
+  "movementHistory().reset();")
+  string(FIND "${soldier_control_source_contents}"
+    "${movement_history_runtime_transition}" soldier_movement_history_runtime_transition)
+  if(soldier_movement_history_runtime_transition EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier runtime bypassed movement-history transition '${movement_history_runtime_transition}'")
+  endif()
+endforeach()
+string(FIND "${tactical_ai_main_contents}"
+  "pSoldier->movementHistory().resetAiLoop();"
+  soldier_movement_history_ai_reset)
+string(FIND "${tactical_ai_main_contents}"
+  "pSoldier->movementHistory().observeAiMovement("
+  soldier_movement_history_ai_observation)
+if(soldier_movement_history_ai_reset EQUAL -1 OR
+   soldier_movement_history_ai_observation EQUAL -1)
+  message(FATAL_ERROR
+    "Tactical AI must reset and observe movement through SoldierMovementHistoryComponent")
+endif()
+
+# Preserve both scattered persistence sites and every v101 value exactly.
+string(REGEX MATCH
+  "ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(s\\.bMovementDirection\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(s\\.usDontUpdateNewGridNoOnMoveAnimChange\\);"
+  serialized_soldier_previous_grid_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
+  serialized_soldier_recent_locations_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "this->movementHistory\\(\\)\\.recentLocations\\(\\)\\[0\\] = src\\.sLastTwoLocations\\[0\\];[ \t\r\n]*this->movementHistory\\(\\)\\.recentLocations\\(\\)\\[1\\] = src\\.sLastTwoLocations\\[1\\];"
+  converted_v101_soldier_recent_locations
+  "${soldier_control_source_contents}")
+string(FIND "${soldier_control_source_contents}"
+  "this->movementHistory().previousGrid() = src.sOldGridNo;"
+  converted_v101_soldier_previous_grid)
+if(NOT serialized_soldier_previous_grid_order OR
+   NOT serialized_soldier_recent_locations_order OR
+   NOT converted_v101_soldier_recent_locations OR
+   converted_v101_soldier_previous_grid EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier movement history moved in persistence or v101 conversion; retain all three established values")
+endif()
+
 # Preserve the complete established pathing byte order independently of the
 # component's in-memory layout.
 string(REGEX MATCH
@@ -4959,7 +5064,7 @@ string(REGEX MATCH
   serialized_soldier_pellet_hits_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(s\\.sLastTwoLocations\\[i\\]\\);"
+  "ar\\.i32\\(s\\.iPositionSndID\\);[ \t]*ar\\.i32\\(s\\.iTuringSoundID\\);[ \t]*ar\\.u8\\(combatResult\\.lastDamageReason\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < 2; \\+\\+i\\) ar\\.i32\\(movementHistory\\.recentLocations\\(\\)\\[i\\]\\);"
   serialized_soldier_damage_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH

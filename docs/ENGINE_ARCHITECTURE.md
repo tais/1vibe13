@@ -1091,9 +1091,13 @@ the engine must not contain SDL types in its public domain model.
   coordinates, turn-start coordinates, initial/current grid, elevation and
   facing, current/desired height, the advanced-animation staging grid, room,
   and current/previous terrain. Named coordinate and terrain transitions keep
-  their paired representations coherent. Previous-grid and AI loop-prevention
-  history remain movement-history concerns rather than a second current
-  position owner. Tactical route destinations, movement cursor,
+  their paired representations coherent.
+  `SoldierMovementHistoryComponent` separately owns the most recently departed
+  grid and the bounded two-location memory used to detect AI movement
+  oscillation. Named departure, AI reset, observation, and full-reset
+  transitions keep history from becoming a second current-position owner and
+  preserve the original world-bound loop checks. Tactical route destinations,
+  movement cursor,
   fixed-capacity direction list, lookup flags, and blacklist now have one
   private `SoldierPathingComponent` owner as well. Tactical route
   execution has a separate private `SoldierMovementComponent`: delayed-tile

@@ -405,6 +405,12 @@ adapter, so save and load can never drift out of order. Extra methods:
   their original scattered POD positions and widths, and v101 conversion maps
   every historical value into the owner. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- The last departed grid and two-location AI loop history are now stored by
+  `SoldierMovementHistoryComponent`. The visitor still emits all three signed
+  32-bit grids at their two original scattered POD sites, and v101 conversion
+  maps every historical value into the owner. Current world placement and
+  route execution remain separate domains. No save, packet, map, XML, Lua, or
+  installed-data bytes change.
 - Soldier target geometry and target identity are now stored by
   `SoldierTargetingComponent`, but the field visitor emits them at the same two
   established positions: geometry after movement reservation and identity

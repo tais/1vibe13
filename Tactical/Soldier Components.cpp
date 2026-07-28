@@ -391,6 +391,46 @@ void SoldierPositionComponent::reset() noexcept
 	*this = SoldierPositionComponent{};
 }
 
+void SoldierMovementHistoryComponent::resetAiLoop() noexcept
+{
+	recentLocations_[0] = NoGrid;
+	recentLocations_[1] = NoGrid;
+}
+
+bool SoldierMovementHistoryComponent::observeAiMovement(
+	INT32 currentGrid, INT32 destinationGrid, INT32 gridCount) noexcept
+{
+	const auto isOutOfBounds = [gridCount](INT32 gridNo) noexcept
+	{
+		return gridNo < 0 || gridNo >= gridCount;
+	};
+
+	if (isOutOfBounds(recentLocations_[0]))
+	{
+		recentLocations_[0] = currentGrid;
+		return false;
+	}
+	if (isOutOfBounds(recentLocations_[1]))
+	{
+		recentLocations_[1] = currentGrid;
+		return false;
+	}
+	if (destinationGrid == recentLocations_[1] &&
+		currentGrid == recentLocations_[0])
+	{
+		return true;
+	}
+
+	recentLocations_[0] = recentLocations_[1];
+	recentLocations_[1] = currentGrid;
+	return false;
+}
+
+void SoldierMovementHistoryComponent::reset() noexcept
+{
+	*this = SoldierMovementHistoryComponent{};
+}
+
 void SoldierPathingComponent::clearRoute() noexcept
 {
 	pathSize_ = 0;

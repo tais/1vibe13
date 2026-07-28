@@ -1038,8 +1038,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 
 	pSoldier->flags.fTurnInProgress = TRUE;
 
-	pSoldier->sLastTwoLocations[0] = NOWHERE;
-	pSoldier->sLastTwoLocations[1] = NOWHERE;
+	pSoldier->movementHistory().resetAiLoop();
 
 	RefreshAI(pSoldier);
 
@@ -2059,28 +2058,17 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             }
 
             if ( gfTurnBasedAI && pSoldier->aiData.bAlertStatus <= STATUS_BLACK )
-            {			
-                if (TileIsOutOfBounds(pSoldier->sLastTwoLocations[0]))
-                {
-                    pSoldier->sLastTwoLocations[0] = pSoldier->position().gridNo();
-                }			
-                else if (TileIsOutOfBounds(pSoldier->sLastTwoLocations[1]))
-                {
-                    pSoldier->sLastTwoLocations[1] = pSoldier->position().gridNo();
-                }
-                // check for loop
-                else if ( pSoldier->aiData.usActionData == pSoldier->sLastTwoLocations[1] && pSoldier->position().gridNo() == pSoldier->sLastTwoLocations[0] )
+            {
+                if (pSoldier->movementHistory().observeAiMovement(
+                        pSoldier->position().gridNo(),
+                        pSoldier->aiData.usActionData,
+                        MAX_MAP_POS))
                 {
                     DebugAI( String( "%d in movement loop, aborting turn", pSoldier->ubID ) );
 
                     // loop found!
                     ActionDone( pSoldier );
                     EndAIGuysTurn( pSoldier );
-                }
-                else
-                {
-                    pSoldier->sLastTwoLocations[0] = pSoldier->sLastTwoLocations[1];
-                    pSoldier->sLastTwoLocations[1] = pSoldier->position().gridNo();
                 }
             }
 
