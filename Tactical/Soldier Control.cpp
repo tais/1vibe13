@@ -450,6 +450,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		deployment().reset();
 		vehicleState().reset();
 		schedule().reset();
+		frontArc().reset();
 		turnState().reset();
 		meleeApproach().reset();
 		fireControl().reset();
@@ -658,8 +659,15 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		memcpy(
 			fireControl().spreadLocations(), src.sSpreadLocations,
 			sizeof(src.sSpreadLocations));
-		memcpy( &(this->usFrontArcFullTileList), &(src.usFrontArcFullTileList), sizeof(UINT16)* MAX_FULLTILE_DIRECTIONS );
-		memcpy( &(this->usFrontArcFullTileGridNos), &(src.usFrontArcFullTileGridNos), sizeof(INT16)* MAX_FULLTILE_DIRECTIONS );
+		for (UINT8 direction = 0;
+		     direction < SoldierFrontArcComponent::DirectionCount;
+		     ++direction)
+		{
+			frontArc().bindOccluder(
+				direction,
+				src.usFrontArcFullTileList[direction],
+				src.usFrontArcFullTileGridNos[direction]);
+		}
 		memcpy( renderState().headPalette(), src.HeadPal, sizeof(PaletteRepID) );	// 30
 		memcpy( renderState().pantsPalette(), src.PantsPal, sizeof(PaletteRepID) );	// 30
 		memcpy( renderState().vestPalette(), src.VestPal, sizeof(PaletteRepID) );	// 30
@@ -1126,6 +1134,7 @@ void SOLDIERTYPE::initialize( )
 	vehicleState().reset();
 	schedule().reset();
 	position().reset();
+	frontArc().reset();
 	movementHistory().reset();
 	pathing().reset();
 	movement().reset();
@@ -11942,6 +11951,7 @@ void CheckForFullStructures( SOLDIERTYPE *pSoldier )
 	INT32 sGridNo;
 	UINT16 usFullTileIndex;
 	INT32		cnt;
+	SoldierFrontArcComponent& frontArc = pSoldier->frontArc();
 
 
 	// Check in all 'Above' directions
@@ -11952,18 +11962,20 @@ void CheckForFullStructures( SOLDIERTYPE *pSoldier )
 		if ( CheckForFullStruct( sGridNo, &usFullTileIndex ) )
 		{
 			// Add one for the item's obsuring part
-			pSoldier->usFrontArcFullTileList[cnt] = usFullTileIndex + 1;
-			pSoldier->usFrontArcFullTileGridNos[cnt] = sGridNo;
-			AddTopmostToHead( sGridNo, pSoldier->usFrontArcFullTileList[cnt] );
+			frontArc.bindOccluder(
+				static_cast<UINT8>(cnt), usFullTileIndex + 1, sGridNo);
+			AddTopmostToHead(
+				sGridNo, frontArc.tileIndex(static_cast<UINT8>(cnt)));
 		}
 		else
 		{
-			if ( pSoldier->usFrontArcFullTileList[cnt] != 0 )
+			if ( frontArc.hasOccluder(static_cast<UINT8>(cnt)) )
 			{
-				RemoveTopmost( pSoldier->usFrontArcFullTileGridNos[cnt], pSoldier->usFrontArcFullTileList[cnt] );
+				RemoveTopmost(
+					frontArc.gridNo(static_cast<UINT8>(cnt)),
+					frontArc.tileIndex(static_cast<UINT8>(cnt)));
 			}
-			pSoldier->usFrontArcFullTileList[cnt] = 0;
-			pSoldier->usFrontArcFullTileGridNos[cnt] = 0;
+			frontArc.clearOccluder(static_cast<UINT8>(cnt));
 		}
 	}
 

@@ -517,6 +517,13 @@ adapter, so save and load can never drift out of order. Extra methods:
   their original scattered POD/AI-section positions and widths, and v101
   conversion maps every historical value into the owner. No save, packet, map,
   XML, Lua, or installed-data bytes change.
+- The three front-arc occlusion tile indices and their three corresponding
+  grids are now stored as paired entries by `SoldierFrontArcComponent`. The
+  visitor still emits the complete unsigned 16-bit tile-index array followed
+  by the complete signed 32-bit grid array at their original positions. V101
+  conversion now maps all three full-width grid values instead of copying only
+  six bytes of that 12-byte array. Current save, packet, map, XML, Lua,
+  package, and installed-data bytes remain unchanged.
 - The last departed grid and two-location AI loop history are now stored by
   `SoldierMovementHistoryComponent`. The visitor still emits all three signed
   32-bit grids at their two original scattered POD sites, and v101 conversion

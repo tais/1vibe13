@@ -1232,6 +1232,11 @@ the engine must not contain SDL types in its public domain model.
   the advanced-animation staging grid, room, and current/previous terrain.
   Named coordinate and terrain transitions keep their paired representations
   coherent.
+  `SoldierFrontArcComponent` owns the adjacent three-direction occlusion
+  overlay as paired tile-index/grid entries. The tactical world adapter binds
+  or clears each pair atomically when it adds or removes topmost nodes, so
+  parallel public arrays cannot drift. The fixed three-entry capacity and
+  historical save positions remain unchanged.
   `SoldierMovementHistoryComponent` separately owns the most recently departed
   grid and the bounded two-location memory used to detect AI movement
   oscillation. Named departure, AI reset, observation, and full-reset

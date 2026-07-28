@@ -7283,6 +7283,25 @@ int main( int, char** )
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().featureFlags()),
 			const SoldierFeatureFlagsComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().frontArc()),
+			SoldierFrontArcComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
+			const SoldierFrontArcComponent&>);
+
+		SoldierFrontArcComponent frontArcLifecycle;
+		frontArcLifecycle.bindOccluder(1, 401, 1401);
+		const bool frontArcBound =
+			frontArcLifecycle.hasOccluder(1) &&
+			frontArcLifecycle.tileIndex(1) == 401 &&
+			frontArcLifecycle.gridNo(1) == 1401;
+		frontArcLifecycle.clearOccluder(1);
+		CHECK( frontArcBound &&
+		       !frontArcLifecycle.hasOccluder(1) &&
+		       frontArcLifecycle.tileIndex(1) == 0 &&
+		       frontArcLifecycle.gridNo(1) == 0,
+		       "soldier front-arc occluders bind and clear tile/grid pairs atomically" );
 
 		SOLDIERTYPE soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
@@ -7600,6 +7619,10 @@ int main( int, char** )
 		position.roomNo() = 8;
 		position.terrainType() = PAVED_ROAD;
 		position.enterTerrain(LOW_GRASS);
+		SoldierFrontArcComponent& frontArc = soldier.frontArc();
+		frontArc.bindOccluder(0, 301, 1237);
+		frontArc.bindOccluder(1, 302, 1238);
+		frontArc.bindOccluder(2, 303, 1239);
 		SoldierMovementHistoryComponent& movementHistory = soldier.movementHistory();
 		movementHistory.recordDeparture(1233);
 		movementHistory.recentLocations()[0] = 1220;
@@ -9428,6 +9451,13 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == LOW_GRASS &&
 		       copiedSoldier.position().previousTerrainType() == PAVED_ROAD,
 		       "soldier copies retain their complete owned persistent position" );
+		CHECK( copiedSoldier.frontArc().tileIndex(0) == 301 &&
+		       copiedSoldier.frontArc().gridNo(0) == 1237 &&
+		       copiedSoldier.frontArc().tileIndex(1) == 302 &&
+		       copiedSoldier.frontArc().gridNo(1) == 1238 &&
+		       copiedSoldier.frontArc().tileIndex(2) == 303 &&
+		       copiedSoldier.frontArc().gridNo(2) == 1239,
+		       "soldier copies retain every paired front-arc occluder" );
 		CHECK( copiedSoldier.movementHistory().previousGrid() == 1233 &&
 		       copiedSoldier.movementHistory().recentLocations()[0] == 1220 &&
 		       copiedSoldier.movementHistory().recentLocations()[1] == 1221,
@@ -10685,6 +10715,13 @@ int main( int, char** )
 		       copiedSoldier.position().terrainType() == 0 &&
 		       copiedSoldier.position().previousTerrainType() == 0,
 		       "soldier initialization resets the complete position domain" );
+		CHECK( !copiedSoldier.frontArc().hasOccluder(0) &&
+		       copiedSoldier.frontArc().gridNo(0) == 0 &&
+		       !copiedSoldier.frontArc().hasOccluder(1) &&
+		       copiedSoldier.frontArc().gridNo(1) == 0 &&
+		       !copiedSoldier.frontArc().hasOccluder(2) &&
+		       copiedSoldier.frontArc().gridNo(2) == 0,
+		       "soldier initialization resets every paired front-arc occluder" );
 		CHECK( copiedSoldier.movementHistory().previousGrid() == 0 &&
 		       copiedSoldier.movementHistory().recentLocations()[0] == 0 &&
 		       copiedSoldier.movementHistory().recentLocations()[1] == 0,
@@ -11429,6 +11466,12 @@ int main( int, char** )
 		legacySoldier->sRoomNo = 13;
 		legacySoldier->bOverTerrainType = HIGH_GRASS;
 		legacySoldier->bOldOverTerrainType = DIRT_ROAD;
+		legacySoldier->usFrontArcFullTileList[0] = 601;
+		legacySoldier->usFrontArcFullTileList[1] = 602;
+		legacySoldier->usFrontArcFullTileList[2] = 603;
+		legacySoldier->usFrontArcFullTileGridNos[0] = 2311;
+		legacySoldier->usFrontArcFullTileGridNos[1] = 2312;
+		legacySoldier->usFrontArcFullTileGridNos[2] = 2313;
 		legacySoldier->sOldGridNo = 2307;
 		legacySoldier->sLastTwoLocations[0] = 2308;
 		legacySoldier->sLastTwoLocations[1] = 2309;
@@ -11486,6 +11529,7 @@ int main( int, char** )
 		convertedSoldier.awareness().opponentKnowledge()[0] = 99;
 		convertedSoldier.perception().noiseGrid() = 99903;
 		convertedSoldier.position().animationHeightAdjustment() = 99.5f;
+		convertedSoldier.frontArc().bindOccluder(0, 999, 9999);
 		convertedSoldier.combatResult().lastAttackHit() = 99;
 		convertedSoldier.turnState().moved() = 99;
 		convertedSoldier.turnState().interruptCounters()[0] = 99;
@@ -12027,6 +12071,13 @@ int main( int, char** )
 		       convertedSoldier.position().terrainType() == HIGH_GRASS &&
 		       convertedSoldier.position().previousTerrainType() == DIRT_ROAD,
 		       "v101 soldier conversion retains every historical tactical world-placement value" );
+		CHECK( convertedSoldier.frontArc().tileIndex(0) == 601 &&
+		       convertedSoldier.frontArc().gridNo(0) == 2311 &&
+		       convertedSoldier.frontArc().tileIndex(1) == 602 &&
+		       convertedSoldier.frontArc().gridNo(1) == 2312 &&
+		       convertedSoldier.frontArc().tileIndex(2) == 603 &&
+		       convertedSoldier.frontArc().gridNo(2) == 2313,
+		       "v101 soldier conversion retains all three paired front-arc occluders" );
 		CHECK( convertedSoldier.movementHistory().previousGrid() == 2307 &&
 		       convertedSoldier.movementHistory().recentLocations()[0] == 2308 &&
 		       convertedSoldier.movementHistory().recentLocations()[1] == 2309,
@@ -12625,6 +12676,9 @@ int main( int, char** )
 		savedSoldier.position().roomNo() = 11;
 		savedSoldier.position().terrainType() = HIGH_GRASS;
 		savedSoldier.position().previousTerrainType() = DIRT_ROAD;
+		savedSoldier.frontArc().bindOccluder(0, 701, 1429);
+		savedSoldier.frontArc().bindOccluder(1, 702, 1431);
+		savedSoldier.frontArc().bindOccluder(2, 703, 1432);
 		savedSoldier.movementHistory().recordDeparture(1426);
 		savedSoldier.movementHistory().recentLocations()[0] = 1410;
 		savedSoldier.movementHistory().recentLocations()[1] = 1411;
@@ -13252,6 +13306,14 @@ int main( int, char** )
 		       loadedSoldier.pathing().blackListGrid() == 1444 &&
 		       loadedSoldier.pathing().stored() == 1,
 		       "soldier save/load round-trips complete position, movement-history, and pathing state through every established schema site" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.frontArc().tileIndex(0) == 701 &&
+		       loadedSoldier.frontArc().gridNo(0) == 1429 &&
+		       loadedSoldier.frontArc().tileIndex(1) == 702 &&
+		       loadedSoldier.frontArc().gridNo(1) == 1431 &&
+		       loadedSoldier.frontArc().tileIndex(2) == 703 &&
+		       loadedSoldier.frontArc().gridNo(2) == 1432,
+		       "soldier save/load round-trips all paired front-arc occluders at established schema positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.movement().mode() == WALKING_WEAPON_RDY &&
 		       loadedSoldier.movement().stealthy() &&

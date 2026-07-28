@@ -667,6 +667,24 @@ void SoldierPositionComponent::reset() noexcept
 	*this = SoldierPositionComponent{};
 }
 
+void SoldierFrontArcComponent::bindOccluder(
+	UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept
+{
+	tileIndices_[direction] = tileIndex;
+	gridNos_[direction] = gridNo;
+}
+
+void SoldierFrontArcComponent::clearOccluder(UINT8 direction) noexcept
+{
+	tileIndices_[direction] = 0;
+	gridNos_[direction] = 0;
+}
+
+void SoldierFrontArcComponent::reset() noexcept
+{
+	*this = SoldierFrontArcComponent{};
+}
+
 void SoldierMovementHistoryComponent::resetAiLoop() noexcept
 {
 	recentLocations_[0] = NoGrid;

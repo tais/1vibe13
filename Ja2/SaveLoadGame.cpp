@@ -1738,6 +1738,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierDeploymentComponent& deployment = s.deployment();
 	SoldierScheduleComponent& schedule = s.schedule();
 	SoldierPositionComponent& position = s.position();
+	SoldierFrontArcComponent& frontArc = s.frontArc();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
 	SoldierMovementComponent& movement = s.movement();
 	SoldierTurnStateComponent& turnState = s.turnState();
@@ -1788,8 +1789,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(movementMetrics.tilesMoved()); ar.f32(vitals.nextBleedAt());
 	ar.u8(movementMetrics.realtimeBreathTiles()); ar.u16(movementMetrics.lastRealtimeMovementAnimation());
 	ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);
-	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.u16(s.usFrontArcFullTileList[i]);
-	for (i = 0; i < MAX_FULLTILE_DIRECTIONS; ++i) ar.i32(s.usFrontArcFullTileGridNos[i]);
+	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
+		ar.u16(frontArc.tileIndex(i));
+	for (i = 0; i < SoldierFrontArcComponent::DirectionCount; ++i)
+		ar.i32(frontArc.gridNo(i));
 	ar.str8(renderState.headPalette(), sizeof(renderState.headPalette())); ar.str8(renderState.pantsPalette(), sizeof(renderState.pantsPalette()));
 	ar.str8(renderState.vestPalette(), sizeof(renderState.vestPalette())); ar.str8(renderState.skinPalette(), sizeof(renderState.skinPalette()));
 	ar.str8(renderState.miscPalette(), sizeof(renderState.miscPalette()));

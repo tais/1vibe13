@@ -1960,6 +1960,38 @@ private:
 	INT8 previousTerrainType_ = 0;
 };
 
+// Canonical three-direction tactical occlusion overlay. Tile indices and the
+// grids that own their topmost nodes are a paired cache: callers bind or clear
+// one direction atomically instead of mutating parallel SOLDIERTYPE arrays.
+class SoldierFrontArcComponent
+{
+public:
+	static constexpr UINT8 DirectionCount = 3;
+
+	UINT16& tileIndex(UINT8 direction) noexcept { return tileIndices_[direction]; }
+	const UINT16& tileIndex(UINT8 direction) const noexcept
+	{
+		return tileIndices_[direction];
+	}
+	INT32& gridNo(UINT8 direction) noexcept { return gridNos_[direction]; }
+	const INT32& gridNo(UINT8 direction) const noexcept
+	{
+		return gridNos_[direction];
+	}
+
+	bool hasOccluder(UINT8 direction) const noexcept
+	{
+		return tileIndices_[direction] != 0;
+	}
+	void bindOccluder(UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept;
+	void clearOccluder(UINT8 direction) noexcept;
+	void reset() noexcept;
+
+private:
+	UINT16 tileIndices_[DirectionCount]{};
+	INT32 gridNos_[DirectionCount]{};
+};
+
 // Canonical history of tactical grid movement. Current placement belongs to
 // SoldierPositionComponent; this component owns the grid departed most
 // recently and the bounded two-location history used to stop AI oscillation.

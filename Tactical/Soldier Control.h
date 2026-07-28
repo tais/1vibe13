@@ -192,6 +192,9 @@ static_assert(
 #define NO_DESIRED_HEIGHT			255
 
 #define MAX_FULLTILE_DIRECTIONS 3
+static_assert(
+	SoldierFrontArcComponent::DirectionCount == MAX_FULLTILE_DIRECTIONS,
+	"front-arc component capacity must retain the established soldier schema");
 
 // DIGICRAB: Burst UnCap. Keep the legacy spelling as a source-compatible
 // alias; persistent capacity is now owned by SoldierFireControlComponent.
@@ -838,6 +841,8 @@ public:
 	const SoldierScheduleComponent& schedule() const noexcept { return schedule_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
 	const SoldierPositionComponent& position() const noexcept { return position_; }
+	SoldierFrontArcComponent& frontArc() noexcept { return frontArc_; }
+	const SoldierFrontArcComponent& frontArc() const noexcept { return frontArc_; }
 	SoldierMovementHistoryComponent& movementHistory() noexcept { return movementHistory_; }
 	const SoldierMovementHistoryComponent& movementHistory() const noexcept { return movementHistory_; }
 	SoldierPathingComponent& pathing() noexcept { return pathing_; }
@@ -886,11 +891,6 @@ public:
 	KEY_ON_RING		*pKeyRing;
 
 	INT32			iFaceIndex;
-
-	// FULL 3-d TILE STUFF ( keep records of three tiles infront )
-	UINT16			usFrontArcFullTileList[ MAX_FULLTILE_DIRECTIONS ];
-	INT32			usFrontArcFullTileGridNos[ MAX_FULLTILE_DIRECTIONS ];
-	
 
 	// PALETTE MANAGEMENT STUFF
 	SGPPaletteEntry	*p8BPPPalette; // 4
@@ -969,6 +969,7 @@ private:
 	SoldierVehicleStateComponent	vehicleState_;
 	SoldierScheduleComponent	schedule_;
 	SoldierPositionComponent	position_;
+	SoldierFrontArcComponent	frontArc_;
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;

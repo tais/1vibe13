@@ -8053,6 +8053,136 @@ foreach(position_runtime_transition IN ITEMS
       "Tactical runtime bypassed the coordinated SoldierPositionComponent transition '${position_runtime_transition}'")
   endif()
 endforeach()
+
+# The three front-arc overlay nodes are one paired spatial cache. Keep their
+# current storage private, their legacy declaration available only to v101
+# conversion, and both established serializer arrays in place.
+foreach(retired_front_arc_field IN ITEMS
+  usFrontArcFullTileList
+  usFrontArcFullTileGridNos)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(UINT16|INT32)[ \t]+${retired_front_arc_field}[ \t]*\\[[^]]+\\][ \t]*;"
+    retired_current_front_arc_field
+    "${current_soldier_contents}")
+  if(retired_current_front_arc_field)
+    message(FATAL_ERROR
+      "Retired public SOLDIERTYPE front-arc array '${retired_front_arc_field}' returned; use SoldierFrontArcComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "SoldierFrontArcComponent[ \t\r\n]+frontArc_[ \t]*;"
+  soldier_front_arc_owner
+  "${current_soldier_contents}")
+if(NOT soldier_front_arc_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierFrontArcComponent")
+endif()
+foreach(required_front_arc_contract IN ITEMS
+  "static constexpr UINT8 DirectionCount = 3;"
+  "UINT16 tileIndices_[DirectionCount]{};"
+  "INT32 gridNos_[DirectionCount]{};"
+  "UINT16& tileIndex(UINT8 direction) noexcept"
+  "const UINT16& tileIndex(UINT8 direction) const noexcept"
+  "INT32& gridNo(UINT8 direction) noexcept"
+  "const INT32& gridNo(UINT8 direction) const noexcept"
+  "bool hasOccluder(UINT8 direction) const noexcept"
+  "void bindOccluder(UINT8 direction, UINT16 tileIndex, INT32 gridNo) noexcept;"
+  "void clearOccluder(UINT8 direction) noexcept;"
+  "void reset() noexcept;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_front_arc_contract}"
+    soldier_front_arc_contract)
+  if(soldier_front_arc_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFrontArcComponent lost contract '${required_front_arc_contract}'")
+  endif()
+endforeach()
+foreach(required_front_arc_transition IN ITEMS
+  "void SoldierFrontArcComponent::bindOccluder("
+  "tileIndices_[direction] = tileIndex;"
+  "gridNos_[direction] = gridNo;"
+  "void SoldierFrontArcComponent::clearOccluder(UINT8 direction) noexcept"
+  "tileIndices_[direction] = 0;"
+  "gridNos_[direction] = 0;"
+  "*this = SoldierFrontArcComponent{};")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_front_arc_transition}"
+    soldier_front_arc_transition)
+  if(soldier_front_arc_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierFrontArcComponent lost paired transition '${required_front_arc_transition}'")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "frontArc\\(\\)\\.reset\\(\\)"
+  soldier_front_arc_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_front_arc_reset_sites soldier_front_arc_reset_site_count)
+if(NOT soldier_front_arc_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Front-arc state must reset during both v101 conversion and current soldier initialization")
+endif()
+foreach(required_front_arc_conversion IN ITEMS
+  "direction < SoldierFrontArcComponent::DirectionCount;"
+  "frontArc().bindOccluder("
+  "src.usFrontArcFullTileList[direction]"
+  "src.usFrontArcFullTileGridNos[direction]")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_front_arc_conversion}"
+    soldier_front_arc_conversion)
+  if(soldier_front_arc_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost complete front-arc mapping '${required_front_arc_conversion}'")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "ar\\.i16\\(uiPresentation\\.locatorFrame\\(\\)\\);[ \t]*ar\\.i32\\(s\\.iFaceIndex\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.u16\\(frontArc\\.tileIndex\\(i\\)\\);[ \t\r\n]*for \\(i = 0; i < SoldierFrontArcComponent::DirectionCount; \\+\\+i\\)[ \t\r\n]*ar\\.i32\\(frontArc\\.gridNo\\(i\\)\\);[ \t\r\n]*ar\\.str8\\(renderState\\.headPalette\\(\\),"
+  serialized_soldier_front_arc_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_front_arc_order)
+  message(FATAL_ERROR
+    "Front-arc tile/grid arrays moved or changed width in the current soldier save schema")
+endif()
+foreach(required_front_arc_runtime IN ITEMS
+  "SoldierFrontArcComponent& frontArc = pSoldier->frontArc();"
+  "frontArc.bindOccluder("
+  "frontArc.hasOccluder("
+  "frontArc.clearOccluder(")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_front_arc_runtime}"
+    soldier_front_arc_runtime)
+  if(soldier_front_arc_runtime EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical occlusion flow bypassed SoldierFrontArcComponent transition '${required_front_arc_runtime}'")
+  endif()
+endforeach()
+foreach(required_front_arc_test IN ITEMS
+  "soldier front-arc occluders bind and clear tile/grid pairs atomically"
+  "soldier copies retain every paired front-arc occluder"
+  "soldier initialization resets every paired front-arc occluder"
+  "v101 soldier conversion retains all three paired front-arc occluders"
+  "soldier save/load round-trips all paired front-arc occluders at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${required_front_arc_test}"
+    soldier_front_arc_test)
+  if(soldier_front_arc_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost front-arc fixture '${required_front_arc_test}'")
+  endif()
+endforeach()
+foreach(front_arc_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${front_arc_documentation}"
+    "SoldierFrontArcComponent"
+    soldier_front_arc_documented)
+  if(soldier_front_arc_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier front-arc paired ownership must remain documented")
+  endif()
+endforeach()
+
 string(REGEX MATCH
   "SOLDIERTYPE[ \t]*&[ \t]*soldier_"
   soldier_component_back_reference

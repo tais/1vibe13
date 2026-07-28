@@ -504,7 +504,11 @@ persistent storage domain.
 Zero-cost reference accessors remain available to application hot paths,
 while named coordinate and terrain transitions keep paired values coherent.
 Old-save conversion and explicit persistence retain every established field
-position. `SoldierMovementHistoryComponent` separately owns the last departed
+position. `SoldierFrontArcComponent` separately owns the fixed three-direction
+occlusion overlay. Each tile index is bound to or cleared with the grid that
+owns its topmost node, preventing the former parallel arrays from diverging
+while retaining their exact save schema. `SoldierMovementHistoryComponent`
+separately owns the last departed
 grid and the bounded two-location AI loop memory. Named departure, AI reset,
 observation, and full-reset transitions retain the original world-bound
 oscillation behavior without confusing history with current placement. The
