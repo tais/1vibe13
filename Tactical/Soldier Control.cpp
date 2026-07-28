@@ -1826,7 +1826,7 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 	//send it on
 	if ( is_networked && this->identity().id() < 120 )
 	{
-		//if(this->ubID>=120) 
+		//if(this->identity().id()>=120)
 		//	return;//hayden
 		EV_S_STOP_MERC				SStopMerc;
 
@@ -2829,7 +2829,7 @@ BOOLEAN SOLDIERTYPE::ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAni
 	{
 		send_changestate( &SChangeState );
 	}
-	//else if((is_client && !is_server) && (this->ubID < 20 || (this->ubID < 120 && GetJa2TacticalCurrentTeam() == OUR_TEAM)))
+	//else if((is_client && !is_server) && (this->identity().id() < 20 || (this->identity().id() < 120 && GetJa2TacticalCurrentTeam() == OUR_TEAM)))
 	//{
 	//	this->EVENT_InitNewSoldierAnim( SChangeState.usNewState, SChangeState.usStartingAniCode, SChangeState.fForce );
 	//	send_changestate(&SChangeState);
@@ -3687,7 +3687,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			{
 				if ( usNewState != SWATTING )
 				{
-					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Handling New gridNo for %d: Old %s, New %s", this->ubID, gAnimControl[this->animationPlayback().state()].zAnimStr, gAnimControl[usNewState].zAnimStr ) );
+					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "Handling New gridNo for %d: Old %s, New %s", this->identity().id(), gAnimControl[this->animationPlayback().state()].zAnimStr, gAnimControl[usNewState].zAnimStr ) );
 
 					if ( !(gAnimControl[usNewState].uiFlags & ANIM_SPECIALMOVE) )
 					{
@@ -4279,15 +4279,15 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	{
 		if ( uiNewAnimFlags & ANIM_ATTACK ) {
 			BeginJa2TacticalCombatAction();
-			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->ubID, GetJa2PendingTacticalCombatActions() ) );
+			DebugAttackBusy( String( "**** Attack animation transfer to %s for %d.\nABC now %d\n", gAnimControl[usNewState].zAnimStr, this->identity().id(), GetJa2PendingTacticalCombatActions() ) );
 		} else if (uiOldAnimFlags & ANIM_ATTACK || this->animationActivity().suppressionStanceChange() ) {
-			DebugAttackBusy( String( "**** Transfer to %s for %d.\n", gAnimControl[usNewState].zAnimStr, this->ubID ) );
+			DebugAttackBusy( String( "**** Transfer to %s for %d.\n", gAnimControl[usNewState].zAnimStr, this->identity().id() ) );
 		}
 		if ( uiOldAnimFlags & ANIM_ATTACK ) {
-			DebugAttackBusy( String( "**** Attack animation transfer from %s for %d.  Reducing ABC.\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->ubID ) );
+			DebugAttackBusy( String( "**** Attack animation transfer from %s for %d.  Reducing ABC.\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->identity().id() ) );
 			ReduceAttackBusyCount( );
 		} else if (uiNewAnimFlags & ANIM_ATTACK  || this->animationActivity().suppressionStanceChange() ) {
-			DebugAttackBusy( String( "**** Transfer from %s for %d\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->ubID ) );
+			DebugAttackBusy( String( "**** Transfer from %s for %d\n", gAnimControl[this->animationPlayback().previousState()].zAnimStr, this->identity().id() ) );
 		}
 	}
 
@@ -4295,7 +4295,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 	{
 		this->animationActivity().suppressionStanceChange() = FALSE;
 		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Freeing up attacker - end of suppression stance change" ) );
-		DebugAttackBusy( String( "@@@@@@@ Freeing up attacker - end of suppression stance change for %d\n", this->ubID ) );
+		DebugAttackBusy( String( "@@@@@@@ Freeing up attacker - end of suppression stance change for %d\n", this->identity().id() ) );
 		ReduceAttackBusyCount( );
 	}
 
@@ -7153,7 +7153,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	if ( fContinue )
 	{
 		// Debug messages
-		DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier %d: Get new path", this->ubID ) );
+		DebugMsg( TOPIC_JA2, DBG_LEVEL_0, String( "Soldier %d: Get new path", this->identity().id() ) );
 
 		// Set final destination
 		this->pathing().finalDestinationGrid() = sDestGridNo;
@@ -9476,7 +9476,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 			ubWhoIsThere = WhoIsThere2(NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection)), 1);
 			if (ubWhoIsThere != NOBODY && ubWhoIsThere != this->identity().id())
 			{
-				DebugAttackBusy(String("Soldier %d tried to climb up on someone.\n", this->ubID));
+				DebugAttackBusy(String("Soldier %d tried to climb up on someone.\n", this->identity().id()));
 				this->aiPlanning().action() = AI_ACTION_NONE;
 				return;
 			}
@@ -9532,13 +9532,13 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 		}
 		else
 		{
-			DebugAttackBusy(String("Soldier %d tried to climb without AP.\n", this->ubID));
+			DebugAttackBusy(String("Soldier %d tried to climb without AP.\n", this->identity().id()));
 			this->aiPlanning().action() = AI_ACTION_NONE;
 		}
 	}
 	else
 	{
-		DebugAttackBusy(String("Soldier %d tried to climb where no roof is.\n", this->ubID));
+		DebugAttackBusy(String("Soldier %d tried to climb where no roof is.\n", this->identity().id()));
 		this->aiPlanning().action() = AI_ACTION_NONE;
 	}
 }
@@ -11326,7 +11326,7 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 			ubWhoIsThere = WhoIsThere2(NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection)), 0);
 			if (ubWhoIsThere != NOBODY && ubWhoIsThere != this->identity().id())
 			{
-				DebugAttackBusy(String("Soldier %d tried to climb down on someone.\n", this->ubID));
+				DebugAttackBusy(String("Soldier %d tried to climb down on someone.\n", this->identity().id()));
 				this->aiPlanning().action() = AI_ACTION_NONE;
 				return;
 			}
@@ -11358,13 +11358,13 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 		}
 		else
 		{
-			DebugAttackBusy(String("Soldier %d tried to climb down without AP.\n", this->ubID));
+			DebugAttackBusy(String("Soldier %d tried to climb down without AP.\n", this->identity().id()));
 			this->aiPlanning().action() = AI_ACTION_NONE;
 		}
 	}
 	else
 	{
-		DebugAttackBusy(String("Soldier %d tried to climb down where no roof is.\n", this->ubID));
+		DebugAttackBusy(String("Soldier %d tried to climb down where no roof is.\n", this->identity().id()));
 		this->aiPlanning().action() = AI_ACTION_NONE;
 	}
 }
@@ -22253,7 +22253,7 @@ void SOLDIERTYPE::PositionSoldierLight( void )
 		this->CreateSoldierLight( );
 	}
 
-	//if ( this->ubID == gusSelectedSoldier )
+	//if ( this->identity().id() == gusSelectedSoldier )
 	{
 		LightSpritePower( this->renderState().lightSprite(), TRUE );
 		LightSpriteFake( this->renderState().lightSprite() );

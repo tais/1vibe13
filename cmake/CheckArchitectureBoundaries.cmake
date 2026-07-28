@@ -2176,6 +2176,18 @@ foreach(retired_identity_roster_field IN ITEMS
   endif()
 endforeach()
 
+# Debug-only logging must use the same identity owner as release gameplay.
+# Several legacy debug macros compile their arguments away in Release, so a
+# raw access here would otherwise escape the normal product build matrix and
+# fail only the Debug/ASan gate.
+string(FIND "${soldier_control_source_contents}"
+  "this->ubID"
+  retired_debug_identity_access)
+if(NOT retired_debug_identity_access EQUAL -1)
+  message(FATAL_ERROR
+    "SOLDIERTYPE debug code accesses retired raw ubID; use identity().id()")
+endif()
+
 foreach(required_identity_roster_owner IN ITEMS
   "SoldierIdentityComponent[ \t\r\n]+identity_[ \t]*;"
   "SoldierRosterComponent[ \t\r\n]+roster_[ \t]*;")
