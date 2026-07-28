@@ -478,6 +478,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   flags/POD position, and the v101 converter maps the original fields into
   their new owners. Current save bytes, multiplayer packets, maps, Lua, XML,
   and installed data are unchanged.
+- Portrait flash, locator frame/offset/cycles, interface level, panel
+  animation/position, planned-action overlay, and enemy-cycle cursor are now
+  stored by `SoldierUiPresentationComponent`. The visitor emits all fifteen
+  values at their original scattered positions and widths, including the
+  widened current `SoldierID` cursor, and v101 conversion maps every historical
+  raw value. Palette, shade, surface, and level-node pointers remain separate
+  legacy render resources. No save, packet, map, XML, Lua, or installed-data
+  bytes change.
 - Militia kills, militia assists, and the fixed 156-entry player-team damage
   attribution table are now stored by `SoldierCombatContributionComponent`.
   The visitor emits the two unsigned 8-bit counters and every unsigned 8-bit

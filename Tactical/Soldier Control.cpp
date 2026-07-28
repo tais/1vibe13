@@ -630,6 +630,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		combatContribution().reset();
 		suppression().reset();
 		damageDisplay().reset();
+		uiPresentation().reset();
 		aiData.ConvertFrom_101_To_102( src );
 		pendingAction().action() = src.ubPendingAction;
 		pendingAction().animationCount() = src.ubPendingActionAnimCount;
@@ -723,7 +724,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->pKeyRing = src.pKeyRing;
 		this->vitals().previousHealth() = src.bOldLife;			// life at end of last turn, recorded for monster AI
 		this->bInSector = src.bInSector;
-		this->bFlashPortraitFrame = src.bFlashPortraitFrame;
+		this->uiPresentation().portraitFlashFrame() = src.bFlashPortraitFrame;
 		this->vitals().fractionalHealth() = src.sFractLife;		// fraction of life pts (in hundreths)
 		this->vitals().health() = src.bLife;
 		this->vitals().maximumHealth() = src.bLifeMax;
@@ -803,7 +804,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movementMetrics().realtimeBreathTiles() = src.ubTilesMovedPerRTBreathUpdate;
 		this->movementMetrics().lastRealtimeMovementAnimation() = src.usLastMovementAnimPerRTBreathUpdate;
 
-		this->sLocatorFrame = src.sLocatorFrame;
+		this->uiPresentation().locatorFrame() = src.sLocatorFrame;
 		this->iFaceIndex = src.iFaceIndex;
 
 
@@ -854,8 +855,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->sWalkToAttackWalkToCost = src.sWalkToAttackWalkToCost;
 
 
-		this->sLocatorOffX = src.sLocatorOffX;
-		this->sLocatorOffY = src.sLocatorOffY;
+		this->uiPresentation().locatorOffsetX() = src.sLocatorOffX;
+		this->uiPresentation().locatorOffsetY() = src.sLocatorOffY;
 		this->pForcedShade = src.pForcedShade;
 
 		this->damageDisplay().counter() = src.bDisplayDamageCount;
@@ -865,19 +866,19 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->damageDisplay().direction() = src.bDamageDir;
 		this->fireControl().burstCounter() = src.bDoBurst;
 		this->movement().mode() = src.usUIMovementMode;
-		this->bUIInterfaceLevel = src.bUIInterfaceLevel;
+		this->uiPresentation().interfaceLevel() = src.bUIInterfaceLevel;
 
 		this->ubProfile = src.ubProfile;
 		this->dialogue().quoteRecord() = src.ubQuoteRecord;
 		this->dialogue().quoteActionId() = src.ubQuoteActionID;
 		this->dialogue().battleSoundSet() = src.ubBattleSoundID;
 
-		this->ubClosePanelFrame = src.ubClosePanelFrame;
-		this->ubDeadPanelFrame = src.ubDeadPanelFrame;
-		this->bOpenPanelFrame = src.bOpenPanelFrame;
+		this->uiPresentation().closePanelFrame() = src.ubClosePanelFrame;
+		this->uiPresentation().deadPanelFrame() = src.ubDeadPanelFrame;
+		this->uiPresentation().openPanelFrame() = src.bOpenPanelFrame;
 
-		this->sPanelFaceX = src.sPanelFaceX;
-		this->sPanelFaceY = src.sPanelFaceY;
+		this->uiPresentation().panelFaceX() = src.sPanelFaceX;
+		this->uiPresentation().panelFaceY() = src.sPanelFaceY;
 
 		this->combatResult().hitsThisTurn() = src.bNumHitsThisTurn;
 		this->dialogue().saidFlags() = src.usQuoteSaidFlags;
@@ -896,9 +897,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 
 
-		this->ubPlannedUIAPCost = src.ubPlannedUIAPCost;
-		this->sPlannedTargetX = src.sPlannedTargetX;
-		this->sPlannedTargetY = src.sPlannedTargetY;
+		this->uiPresentation().plannedActionPointCost() = src.ubPlannedUIAPCost;
+		this->uiPresentation().plannedTargetX() = src.sPlannedTargetX;
+		this->uiPresentation().plannedTargetY() = src.sPlannedTargetY;
 
 		this->sStartGridNo = src.sStartGridNo;
 		this->sEndGridNo = src.sEndGridNo;
@@ -998,7 +999,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->vitals().regenerationBoostersUsedToday() = src.bRegenBoostersUsedToday;
 		this->combatResult().pelletsHitBy() = src.bNumPelletsHitBy;
 		this->skillState().checkGrid() = src.sSkillCheckGridNo;
-		this->ubLastEnemyCycledID = static_cast<UINT16>( src.ubLastEnemyCycledID );
+		this->uiPresentation().lastEnemyCycled() = static_cast<UINT16>( src.ubLastEnemyCycledID );
 
 		this->deployment().previousSectorId() = src.ubPrevSectorID;
 		this->awareness().tilesSinceForget() = src.ubNumTilesMovesSinceLastForget;
@@ -1007,7 +1008,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 
 
 		this->usValueGoneUp = src.usValueGoneUp;
-		this->ubNumLocateCycles = src.ubNumLocateCycles;
+		this->uiPresentation().locateCycles() = src.ubNumLocateCycles;
 		this->movement().delayedFlags() = src.ubDelayedMovementFlags;
 		this->ubCTGTTargetID = static_cast<UINT16>( src.ubCTGTTargetID );
 
@@ -1169,6 +1170,7 @@ void SOLDIERTYPE::initialize( )
 	combatContribution().reset();
 	suppression().reset();
 	damageDisplay().reset();
+	uiPresentation().reset();
 	animationIntent().reset();
 	animationPlayback().reset();
 	animationActivity().reset();
@@ -14730,7 +14732,7 @@ void SetSoldierLocatorOffsets( SOLDIERTYPE *pSoldier )
 	GetActualSoldierAnimOffsets( pSoldier, &sOffsetX, &sOffsetY );
 
 	// OK, here, use the difference between center of animation ( sWidth/2 ) and our offset!
-	//pSoldier->sLocatorOffX = ( abs( sOffsetX ) ) - ( sWidth / 2 );
+	//pSoldier->uiPresentation().locatorOffsetX() = ( abs( sOffsetX ) ) - ( sWidth / 2 );
 
 	pSoldier->sBoundingBoxWidth = sWidth;
 	pSoldier->sBoundingBoxHeight = sHeight;
@@ -21987,7 +21989,7 @@ void SoldierBleed( SOLDIERTYPE *pSoldier, BOOLEAN fBandagedBleed )
 	if ( (pSoldier->bInSector && GetCurrentScreen() == GAME_SCREEN) || GetCurrentScreen() != GAME_SCREEN )
 	{
 		pSoldier->flags.fFlashPortrait = TRUE;
-		pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_STARTSHADE;
+		pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 		RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
 
 		// If we are in mapscreen, set this person as selected
@@ -23934,7 +23936,7 @@ void SOLDIERTYPE::HandleSoldierTakeDamageFeedback( void )
 	{
 		// Flash portrait....
 		this->flags.fFlashPortrait = TRUE;
-		this->bFlashPortraitFrame = FLASH_PORTRAIT_STARTSHADE;
+		this->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 		RESETTIMECOUNTER(this->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY);
 	}
 }

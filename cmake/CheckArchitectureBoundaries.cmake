@@ -2056,7 +2056,7 @@ string(FIND "${save_load_game_contents}"
   "ar.i8(vitals.previousHealth()); ar.i8(awareness.visibility()); ar.i8(s.bActive); ar.i8(s.bTeam);"
   serialized_soldier_previous_health_position)
 string(FIND "${save_load_game_contents}"
-  "ar.u8(s.bInSector); ar.i8(s.bFlashPortraitFrame); ar.i16(vitals.fractionalHealth());"
+  "ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
   serialized_soldier_fractional_health_position)
 string(FIND "${save_load_game_contents}"
   "ar.i32(vitals.healableInjury()); ar.boolean(vitals.undergoingSurgery()); ar.slong(vitals.unregainableBreath());"
@@ -4923,7 +4923,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_off_world_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.ubLastEnemyCycledID\\.i\\);[ \t\r\n]*ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);"
+  "ar\\.u16\\(uiPresentation\\.lastEnemyCycled\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);"
   serialized_soldier_deployment_previous_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5524,7 +5524,7 @@ string(REGEX MATCH
   serialized_soldier_movement_alias
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(movement\\.mode\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bUIInterfaceLevel\\);"
+  "ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);[ \t]*ar\\.i8\\(fireControl\\.burstCounter\\(\\)\\);[ \t\r\n]*ar\\.i16\\(movement\\.mode\\(\\)\\);[ \t]*ar\\.i8\\(uiPresentation\\.interfaceLevel\\(\\)\\);"
   serialized_soldier_movement_mode_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5560,7 +5560,7 @@ string(REGEX MATCH
   serialized_soldier_movement_continued_path_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubNumLocateCycles\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.delayedFlags\\(\\)\\);[ \t]*ar\\.u16\\(s\\.ubCTGTTargetID\\.i\\);"
+  "ar\\.u8\\(uiPresentation\\.locateCycles\\(\\)\\);[ \t]*ar\\.u8\\(s\\.movement\\(\\)\\.delayedFlags\\(\\)\\);[ \t]*ar\\.u16\\(s\\.ubCTGTTargetID\\.i\\);"
   serialized_soldier_movement_delayed_flags_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5927,7 +5927,7 @@ string(REGEX MATCH
   serialized_soldier_fire_burst_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sPlannedTargetY\\);[ \t\r\n]*for \\(i = 0; i < MAX_BURST_SPREAD_TARGETS; \\+\\+i\\) ar\\.i32\\(fireControl\\.spreadLocations\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.i32\\(s\\.sStartGridNo\\);"
+  "ar\\.i16\\(uiPresentation\\.plannedTargetY\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < MAX_BURST_SPREAD_TARGETS; \\+\\+i\\) ar\\.i32\\(fireControl\\.spreadLocations\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.i32\\(s\\.sStartGridNo\\);"
   serialized_soldier_fire_targets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6130,11 +6130,11 @@ string(REGEX MATCH
   serialized_soldier_attacker_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sLocatorOffX\\);[ \t]*ar\\.i16\\(s\\.sLocatorOffY\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.sWalkToAttackEndDirection\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
+  "ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.locatorOffsetY\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.sWalkToAttackEndDirection\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
   serialized_soldier_damage_display_payload_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sPanelFaceX\\);[ \t]*ar\\.i16\\(s\\.sPanelFaceY\\);[ \t\r\n]*ar\\.i8\\(combatResult\\.hitsThisTurn\\(\\)\\);[ \t]*ar\\.u16\\(dialogue\\.saidFlags\\(\\)\\);"
+  "ar\\.i16\\(uiPresentation\\.panelFaceX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.panelFaceY\\(\\)\\);[ \t\r\n]*ar\\.i8\\(combatResult\\.hitsThisTurn\\(\\)\\);[ \t]*ar\\.u16\\(dialogue\\.saidFlags\\(\\)\\);"
   serialized_soldier_hits_this_turn_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6163,6 +6163,208 @@ if(NOT serialized_soldier_damage_display_flag_order OR
    NOT serialized_soldier_earlier_attacker_order)
   message(FATAL_ERROR
     "Soldier combat-result or damage-display state moved in the portable save schema; keep every value at its established byte position")
+endif()
+
+# Pointer-free tactical UI state has one private owner. Render-resource
+# pointers deliberately remain legacy adapter state, while locator, panel, and
+# planned-target coordinates cannot return as scattered SOLDIERTYPE fields.
+foreach(retired_ui_presentation_field IN ITEMS
+  bFlashPortraitFrame
+  sLocatorFrame
+  sLocatorOffX
+  sLocatorOffY
+  bUIInterfaceLevel
+  ubClosePanelFrame
+  ubDeadPanelFrame
+  bOpenPanelFrame
+  sPanelFaceX
+  sPanelFaceY
+  ubPlannedUIAPCost
+  sPlannedTargetX
+  sPlannedTargetY
+  ubLastEnemyCycledID
+  ubNumLocateCycles)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT8|UINT8|INT16|SoldierID)[ \t]+${retired_ui_presentation_field}[ \t]*;"
+    retired_current_ui_presentation_field
+    "${current_soldier_contents}")
+  if(retired_current_ui_presentation_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE UI field '${retired_ui_presentation_field}' returned; tactical view state belongs to SoldierUiPresentationComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierUiPresentationComponent[ \t\r\n]+uiPresentation_[ \t]*;"
+  soldier_ui_presentation_owner
+  "${current_soldier_contents}")
+if(NOT soldier_ui_presentation_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierUiPresentationComponent")
+endif()
+
+foreach(owned_ui_presentation_fragment IN ITEMS
+  "INT8 portraitFlashFrame_ = 0;"
+  "INT16 locatorFrame_ = 0;"
+  "INT16 locatorOffsetX_ = 0;"
+  "INT16 locatorOffsetY_ = 0;"
+  "INT8 interfaceLevel_ = 0;"
+  "UINT8 closePanelFrame_ = 0;"
+  "UINT8 deadPanelFrame_ = 0;"
+  "INT8 openPanelFrame_ = 0;"
+  "INT16 panelFaceX_ = 0;"
+  "INT16 panelFaceY_ = 0;"
+  "UINT8 plannedActionPointCost_ = 0;"
+  "INT16 plannedTargetX_ = 0;"
+  "INT16 plannedTargetY_ = 0;"
+  "SoldierID lastEnemyCycled_{};"
+  "UINT8 locateCycles_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${owned_ui_presentation_fragment}"
+    owned_soldier_ui_presentation_fragment)
+  if(owned_soldier_ui_presentation_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierUiPresentationComponent lost initialized storage '${owned_ui_presentation_fragment}'")
+  endif()
+endforeach()
+
+foreach(ui_presentation_operation IN ITEMS
+  "void setLocatorOffset(INT16 x, INT16 y) noexcept"
+  "void startLocator(UINT8 cycles) noexcept"
+  "void setPanelFacePosition(INT16 x, INT16 y) noexcept"
+  "void clearPanelAnimation() noexcept"
+  "bool hasPlannedTarget() const noexcept"
+  "void setPlannedTarget(INT16 x, INT16 y, UINT8 actionPointCost) noexcept"
+  "void clearPlannedTarget() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${ui_presentation_operation}"
+    soldier_ui_presentation_operation)
+  if(soldier_ui_presentation_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierUiPresentationComponent lost coordinated operation '${ui_presentation_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierUiPresentationComponent& uiPresentation() noexcept"
+  soldier_ui_presentation_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierUiPresentationComponent{};"
+  soldier_ui_presentation_default_reset)
+string(REGEX MATCHALL
+  "uiPresentation\\(\\)\\.reset\\(\\);"
+  soldier_ui_presentation_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_ui_presentation_reset_sites soldier_ui_presentation_reset_site_count)
+if(soldier_ui_presentation_accessor EQUAL -1 OR
+   soldier_ui_presentation_default_reset EQUAL -1 OR
+   soldier_ui_presentation_reset_site_count LESS 2)
+  message(FATAL_ERROR
+    "SoldierUiPresentationComponent must remain accessible and reset during v101 conversion and current initialization")
+endif()
+
+foreach(ui_presentation_conversion IN ITEMS
+  "this->uiPresentation().portraitFlashFrame() = src.bFlashPortraitFrame;"
+  "this->uiPresentation().locatorFrame() = src.sLocatorFrame;"
+  "this->uiPresentation().locatorOffsetX() = src.sLocatorOffX;"
+  "this->uiPresentation().locatorOffsetY() = src.sLocatorOffY;"
+  "this->uiPresentation().interfaceLevel() = src.bUIInterfaceLevel;"
+  "this->uiPresentation().closePanelFrame() = src.ubClosePanelFrame;"
+  "this->uiPresentation().deadPanelFrame() = src.ubDeadPanelFrame;"
+  "this->uiPresentation().openPanelFrame() = src.bOpenPanelFrame;"
+  "this->uiPresentation().panelFaceX() = src.sPanelFaceX;"
+  "this->uiPresentation().panelFaceY() = src.sPanelFaceY;"
+  "this->uiPresentation().plannedActionPointCost() = src.ubPlannedUIAPCost;"
+  "this->uiPresentation().plannedTargetX() = src.sPlannedTargetX;"
+  "this->uiPresentation().plannedTargetY() = src.sPlannedTargetY;"
+  "this->uiPresentation().lastEnemyCycled() = static_cast<UINT16>( src.ubLastEnemyCycledID );"
+  "this->uiPresentation().locateCycles() = src.ubNumLocateCycles;")
+  string(FIND "${soldier_control_source_contents}"
+    "${ui_presentation_conversion}"
+    soldier_ui_presentation_conversion_site)
+  if(soldier_ui_presentation_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost UI-presentation mapping '${ui_presentation_conversion}'")
+  endif()
+endforeach()
+
+string(FIND "${save_load_game_contents}"
+  "SoldierUiPresentationComponent& uiPresentation = s.uiPresentation();"
+  soldier_ui_presentation_save_alias)
+foreach(ui_presentation_save_position IN ITEMS
+  "ar.u8(s.bInSector); ar.i8(uiPresentation.portraitFlashFrame()); ar.i16(vitals.fractionalHealth());"
+  "ar.i16(uiPresentation.locatorFrame()); ar.i32(s.iFaceIndex);"
+  "ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);"
+  "ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());"
+  "ar.u8(uiPresentation.closePanelFrame()); ar.u8(uiPresentation.deadPanelFrame()); ar.i8(uiPresentation.openPanelFrame());"
+  "ar.i16(uiPresentation.panelFaceX()); ar.i16(uiPresentation.panelFaceY());"
+  "ar.u8(uiPresentation.plannedActionPointCost()); ar.i16(uiPresentation.plannedTargetX()); ar.i16(uiPresentation.plannedTargetY());"
+  "ar.u16(uiPresentation.lastEnemyCycled().i);"
+  "ar.u8(uiPresentation.locateCycles()); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);")
+  string(FIND "${save_load_game_contents}"
+    "${ui_presentation_save_position}"
+    soldier_ui_presentation_save_position)
+  if(soldier_ui_presentation_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier UI presentation moved in the portable save schema at '${ui_presentation_save_position}'")
+  endif()
+endforeach()
+if(soldier_ui_presentation_save_alias EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier serializer must use the canonical UI-presentation owner")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/Interface Panels.cpp"
+  soldier_ui_presentation_panels_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Handle UI Plan.cpp"
+  soldier_ui_presentation_plan_contents)
+file(READ "${SOURCE_ROOT}/Tactical/Interface Control.cpp"
+  soldier_ui_presentation_interface_control_contents)
+foreach(ui_presentation_runtime_fragment IN ITEMS
+  "soldier->uiPresentation().startLocator(locateCycles);"
+  "pSoldier->uiPresentation().setPanelFacePosition("
+  "pPlanSoldier->uiPresentation().clearPlannedTarget();"
+  "gpUIPlannedSoldier->uiPresentation().setPlannedTarget("
+  "pSoldier->uiPresentation().hasPlannedTarget()"
+  "plannedSoldier->uiPresentation().hasPlannedTarget()")
+  string(FIND
+    "${soldier_ui_presentation_panels_contents}${soldier_ui_presentation_plan_contents}${soldier_ui_presentation_interface_control_contents}"
+    "${ui_presentation_runtime_fragment}"
+    soldier_ui_presentation_runtime_site)
+  if(soldier_ui_presentation_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical UI lost component transition '${ui_presentation_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(ui_presentation_test_fragment IN ITEMS
+  "SoldierUiPresentationComponent uiPresentationLifecycle;"
+  "v101 soldier conversion retains the complete UI-presentation domain"
+  "soldier save/load round-trips UI presentation at every established schema position")
+  string(FIND "${headless_test_contents}"
+    "${ui_presentation_test_fragment}"
+    soldier_ui_presentation_test_fragment)
+  if(soldier_ui_presentation_test_fragment EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierUiPresentationComponent fixture '${ui_presentation_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierUiPresentationComponent"
+  soldier_ui_presentation_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierUiPresentationComponent"
+  soldier_ui_presentation_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierUiPresentationComponent"
+  soldier_ui_presentation_save_documented)
+if(soldier_ui_presentation_architecture_documented EQUAL -1 OR
+   soldier_ui_presentation_sdk_documented EQUAL -1 OR
+   soldier_ui_presentation_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierUiPresentationComponent ownership and compatibility guarantees must remain documented")
 endif()
 
 # Outgoing militia credit and the historical player-team assist table form a

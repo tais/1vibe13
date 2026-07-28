@@ -757,11 +757,11 @@ void SetSMPanelCurrentMerc( SoldierID ubNewID )
 	gusSMCurrentMerc = newMerc->ubID;
 
 	// Set to current guy's interface level
-	//if ( gsInterfaceLevel != GetSMCurrentMerc()->bUIInterfaceLevel )
+	//if ( gsInterfaceLevel != GetSMCurrentMerc()->uiPresentation().interfaceLevel() )
 	//{
 	//	SetRenderFlags(RENDER_FLAG_FULL);
 	//	ErasePath(FALSE);
-	//	gsInterfaceLevel = GetSMCurrentMerc()->bUIInterfaceLevel;
+	//	gsInterfaceLevel = GetSMCurrentMerc()->uiPresentation().interfaceLevel();
 	//}
 
 	// Disable all faces
@@ -1050,7 +1050,7 @@ void UpdateSMPanel( )
 		EnableButton( iSMPanelButtons[ SM_DONE_BUTTON ] );
 	}
 
-//	if ( GetSMCurrentMerc()->bUIInterfaceLevel > 0 )
+//	if ( GetSMCurrentMerc()->uiPresentation().interfaceLevel() > 0 )
 	if ( gsInterfaceLevel > 0 )
 	{
 		if ( !ButtonList[ iSMPanelButtons[ UPDOWN_BUTTON ] ]->ubToggleButtonActivated )
@@ -4678,13 +4678,13 @@ void BtnUpdownCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 
-		//gsInterfaceLevel = GetSMCurrentMerc()->bUIInterfaceLevel;
+		//gsInterfaceLevel = GetSMCurrentMerc()->uiPresentation().interfaceLevel();
 
 		// Change interface level via HandleUI handler
 		UIHandleChangeLevel( NULL );
 
 		// Remember soldier's new value
-		GetSMCurrentMerc()->bUIInterfaceLevel = (INT8)gsInterfaceLevel;
+		GetSMCurrentMerc()->uiPresentation().interfaceLevel() = (INT8)gsInterfaceLevel;
 	}
 	else if(reason & MSYS_CALLBACK_REASON_LOST_MOUSE )
 	{
@@ -5645,8 +5645,9 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 			// Update animations....
 			if ( pSoldier->flags.fClosePanel || pSoldier->flags.fClosePanelToDie )
 			{
-				pSoldier->sPanelFaceX = gFacesData[ pSoldier->iFaceIndex ].usFaceX;
-				pSoldier->sPanelFaceY = gFacesData[ pSoldier->iFaceIndex ].usFaceY;
+				pSoldier->uiPresentation().setPanelFacePosition(
+					gFacesData[ pSoldier->iFaceIndex ].usFaceX,
+					gFacesData[ pSoldier->iFaceIndex ].usFaceY);
 			}
 
 
@@ -6526,24 +6527,9 @@ void ShowRadioLocator( SoldierID ubID, UINT8 ubLocatorSpeed )
 	//LocateSoldier( ubID, FALSE );	// IC - this is already being done outside of this function :)
 	soldier->flags.fFlashLocator = TRUE;
 	//gbPanelSelectedGuy = ubID;	IC - had to move this outside to make this function versatile
-	soldier->sLocatorFrame = 0;
-
-	if ( ubLocatorSpeed == SHOW_LOCATOR_NORMAL )
-	{
-		// If we are an AI guy, and we have the baton, make lower...
-		// ( ubID->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL && ubID->bTeam != gbPlayerNum )
-		//
-		//ercPtrs[ ubID ]->ubNumLocateCycles = 3;
-		//
-		//se
-		//
-			soldier->ubNumLocateCycles = 5;
-		//
-	}
-	else
-	{
-		soldier->ubNumLocateCycles = 3;
-	}
+	const UINT8 locateCycles =
+		ubLocatorSpeed == SHOW_LOCATOR_NORMAL ? 5 : 3;
+	soldier->uiPresentation().startLocator(locateCycles);
 }
 
 void EndRadioLocator( SoldierID ubID )
@@ -6571,8 +6557,8 @@ void CheckForFacePanelStartAnims( SOLDIERTYPE *pSoldier, INT16 sPanelX, INT16 sP
 
 	if ( pSoldier->flags.fUIdeadMerc	)
 	{
-//		pSoldier->sPanelFaceX	= sPanelX;
-//		pSoldier->sPanelFaceY	= sPanelY;
+//		pSoldier->uiPresentation().panelFaceX()	= sPanelX;
+//		pSoldier->uiPresentation().panelFaceY()	= sPanelY;
 	}
 
 
@@ -6637,14 +6623,15 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 
 	if ( pSoldier->flags.fUIdeadMerc	)
 	{
-		pSoldier->sPanelFaceX = gFacesData[ pSoldier->iFaceIndex ].usFaceX;
-		pSoldier->sPanelFaceY = gFacesData[ pSoldier->iFaceIndex ].usFaceY;
+		pSoldier->uiPresentation().setPanelFacePosition(
+			gFacesData[ pSoldier->iFaceIndex ].usFaceX,
+			gFacesData[ pSoldier->iFaceIndex ].usFaceY);
 
 		pSoldier->flags.fUIdeadMerc = FALSE;
 		pSoldier->flags.fClosePanel		= TRUE;
 		pSoldier->flags.fClosePanelToDie = TRUE;
-		pSoldier->ubClosePanelFrame = 0;
-		pSoldier->ubDeadPanelFrame = 0;
+		pSoldier->uiPresentation().closePanelFrame() = 0;
+		pSoldier->uiPresentation().deadPanelFrame() = 0;
 		RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
 	}
 
@@ -6652,12 +6639,12 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	{
 		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
-				pSoldier->ubClosePanelFrame++;
+				pSoldier->uiPresentation().closePanelFrame()++;
 
-				if ( pSoldier->ubClosePanelFrame > 5 )
+				if ( pSoldier->uiPresentation().closePanelFrame() > 5 )
 				{
 					pSoldier->flags.fClosePanel = FALSE;
-					pSoldier->ubClosePanelFrame = 5;
+					pSoldier->uiPresentation().closePanelFrame() = 5;
 
 					if ( pSoldier->flags.fClosePanelToDie )
 					{
@@ -6668,7 +6655,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 					{
 						if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 						{
-							RestoreExternBackgroundRect( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, TM_FACE_WIDTH, TM_FACE_HEIGHT );
+							RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 						}
 					}
 				}
@@ -6683,9 +6670,9 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		//{
 			if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 			{
-				RestoreExternBackgroundRect( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, TM_FACE_WIDTH, TM_FACE_HEIGHT );
-				BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->ubClosePanelFrame, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
-				InvalidateRegion( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, pSoldier->sPanelFaceX + TM_FACE_WIDTH, pSoldier->sPanelFaceY + TM_FACE_HEIGHT );
+				RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
+				BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->uiPresentation().closePanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
+				InvalidateRegion( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), pSoldier->uiPresentation().panelFaceX() + TM_FACE_WIDTH, pSoldier->uiPresentation().panelFaceY() + TM_FACE_HEIGHT );
 			}
 		//}
 	}
@@ -6695,9 +6682,9 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	{
 		if ( TIMECOUNTERDONE(	pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
-				pSoldier->ubDeadPanelFrame++;
+				pSoldier->uiPresentation().deadPanelFrame()++;
 
-				if ( pSoldier->ubDeadPanelFrame == 4 )
+				if ( pSoldier->uiPresentation().deadPanelFrame() == 4 )
 				{
 					ScreenMsg( FONT_RED, MSG_SKULL_UI_FEEDBACK, pMercDeadString[ 0 ], pSoldier->name );
 
@@ -6705,21 +6692,21 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 					PlayJA2Sample( (UINT8)HEADCR_1, RATE_11025, HIGHVOLUME, 1, MIDDLEPAN );
 				}
 
-				if ( pSoldier->ubDeadPanelFrame > 5 )
+				if ( pSoldier->uiPresentation().deadPanelFrame() > 5 )
 				{
 					pSoldier->flags.fDeadPanel = FALSE;
-					pSoldier->ubDeadPanelFrame = 5;
+					pSoldier->uiPresentation().deadPanelFrame() = 5;
 					pSoldier->flags.fClosePanelToDie = FALSE;
 
 					// Finish!
 					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 					{
-						BltVideoObjectFromIndex( guiSAVEBUFFER, guiDEAD, pSoldier->ubDeadPanelFrame, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+						BltVideoObjectFromIndex( guiSAVEBUFFER, guiDEAD, pSoldier->uiPresentation().deadPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
 						// Blit hatch!
-						BltVideoObjectFromIndex( guiSAVEBUFFER, guiHATCH, 0, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+						BltVideoObjectFromIndex( guiSAVEBUFFER, guiHATCH, 0, pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
-						RestoreExternBackgroundRect( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, TM_FACE_WIDTH, TM_FACE_HEIGHT );
+						RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 					}
 					HandlePlayerTeamMemberDeathAfterSkullAnimation( pSoldier );
 
@@ -6735,12 +6722,12 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		//{
 				if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 				{
-					BltVideoObjectFromIndex( FRAME_BUFFER, guiDEAD, pSoldier->ubDeadPanelFrame, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+					BltVideoObjectFromIndex( FRAME_BUFFER, guiDEAD, pSoldier->uiPresentation().deadPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
 					// Blit hatch!
-					BltVideoObjectFromIndex( guiSAVEBUFFER, guiHATCH, 0, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+					BltVideoObjectFromIndex( guiSAVEBUFFER, guiHATCH, 0, pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 
-					InvalidateRegion( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, pSoldier->sPanelFaceX + TM_FACE_WIDTH, pSoldier->sPanelFaceY + TM_FACE_HEIGHT );
+					InvalidateRegion( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), pSoldier->uiPresentation().panelFaceX() + TM_FACE_WIDTH, pSoldier->uiPresentation().panelFaceY() + TM_FACE_HEIGHT );
 				}
 		//}
 	}
@@ -6750,16 +6737,16 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 	{
 		if ( TIMECOUNTERDONE( pSoldier->timeCounters.PanelAnimateCounter, 160 ) )
 		{
-				pSoldier->bOpenPanelFrame--;
+				pSoldier->uiPresentation().openPanelFrame()--;
 
-				if ( pSoldier->bOpenPanelFrame < 0 )
+				if ( pSoldier->uiPresentation().openPanelFrame() < 0 )
 				{
 					pSoldier->flags.fOpenPanel = FALSE;
-					pSoldier->bOpenPanelFrame = 0;
+					pSoldier->uiPresentation().openPanelFrame() = 0;
 
 					if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 					{
-						RestoreExternBackgroundRect( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, TM_FACE_WIDTH, TM_FACE_HEIGHT );
+						RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
 					}
 				}
 				RESETTIMECOUNTER( pSoldier->timeCounters.PanelAnimateCounter, 160 );
@@ -6773,8 +6760,8 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		//{
 				if ( !gFacesData[ pSoldier->iFaceIndex ].fDisabled )
 				{
-					RestoreExternBackgroundRect( pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, TM_FACE_WIDTH, TM_FACE_HEIGHT );
-					BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->bOpenPanelFrame, pSoldier->sPanelFaceX, pSoldier->sPanelFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
+					RestoreExternBackgroundRect( pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), TM_FACE_WIDTH, TM_FACE_HEIGHT );
+					BltVideoObjectFromIndex( FRAME_BUFFER, guiCLOSE, pSoldier->uiPresentation().openPanelFrame(), pSoldier->uiPresentation().panelFaceX(), pSoldier->uiPresentation().panelFaceY(), VO_BLT_SRCTRANSPARENCY, NULL );
 					//InvalidateRegion( sTEAMFacesXY[ ubOpenPanelID ], sTEAMFacesXY[ ubOpenPanelID + 1 ], sTEAMFacesXY[ ubOpenPanelID ] + TM_FACE_WIDTH, sTEAMFacesXY[ ubOpenPanelID + 1 ] + TM_FACE_HEIGHT );
 				}
 		//}

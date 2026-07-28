@@ -81,8 +81,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 				// Get pointer to soldier
 				GetSoldier( &pPlanSoldier, ubNewIndex );
 
-				pPlanSoldier->sPlannedTargetX = -1;
-				pPlanSoldier->sPlannedTargetY = -1;
+				pPlanSoldier->uiPresentation().clearPlannedTarget();
 
 				// Compare OPPLISTS!
 				// Set ones we don't know about but do now back to old ( ie no new guys )
@@ -105,7 +104,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 				pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-				pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->actionPoints().current();
+				pPlanSoldier->uiPresentation().plannedActionPointCost() = (UINT8)pPlanSoldier->actionPoints().current();
 
 				// Get direction
 				bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
@@ -163,8 +162,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 					// Get pointer to soldier
 					GetSoldier( &pPlanSoldier, ubNewIndex );
 
-					pPlanSoldier->sPlannedTargetX = -1;
-					pPlanSoldier->sPlannedTargetY = -1;
+					pPlanSoldier->uiPresentation().clearPlannedTarget();
 
 					// Compare OPPLISTS!
 					// Set ones we don't know about but do now back to old ( ie no new guys )
@@ -184,7 +182,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 					pPlanSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-					pPlanSoldier->ubPlannedUIAPCost = (UINT8)pPlanSoldier->actionPoints().current();
+					pPlanSoldier->uiPresentation().plannedActionPointCost() = (UINT8)pPlanSoldier->actionPoints().current();
 
 					// Get direction
 					bDirection = (INT8)gpUIPlannedSoldier->pathing().path()[ gpUIPlannedSoldier->pathing().pathSize() - 1 ];
@@ -210,7 +208,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 
 			gpUIPlannedSoldier->actionPoints().current() = gpUIPlannedSoldier->actionPoints().current() - sAPCost;
 
-			gpUIPlannedSoldier->ubPlannedUIAPCost = (UINT8)gpUIPlannedSoldier->actionPoints().current();
+			gpUIPlannedSoldier->uiPresentation().plannedActionPointCost() = (UINT8)gpUIPlannedSoldier->actionPoints().current();
 
 			// Get direction from gridno
 			bDirection = GetDirectionFromGridNo( sGridNo, gpUIPlannedSoldier );
@@ -222,8 +220,9 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 			// Set to shooting animation
 			SelectPausedFireAnimation( gpUIPlannedSoldier );
 
-			gpUIPlannedSoldier->sPlannedTargetX = sXPos;
-			gpUIPlannedSoldier->sPlannedTargetY = sYPos;
+			gpUIPlannedSoldier->uiPresentation().setPlannedTarget(
+				sXPos, sYPos,
+				gpUIPlannedSoldier->uiPresentation().plannedActionPointCost());
 
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"Adding Merc Shoot to Plan" );
 
@@ -251,7 +250,7 @@ void EndUIPlan(	)
 
 		if ( pSoldier && pSoldier->bActive )
 		{
-			if ( pSoldier->sPlannedTargetX != -1 )
+			if ( pSoldier->uiPresentation().hasPlannedTarget() )
 			{
 				SetRenderFlags(RENDER_FLAG_FULL );
 			}

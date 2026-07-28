@@ -1403,7 +1403,7 @@ UINT32 GetFaceShade(SOLDIERTYPE *pSoldier, FACETYPE *pFace, BOOLEAN fExternBlit)
 	{
 		if (pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_START)
 		{
-			return pSoldier->bFlashPortraitFrame;
+			return pSoldier->uiPresentation().portraitFlashFrame();
 		}
 	}
 
@@ -3053,7 +3053,7 @@ void HandleAutoFaces( )
 				if ( pSoldier->animationActivity().hitPhase() && pSoldier->flags.fFlashPortrait == FLASH_PORTRAIT_STOP )
 				{
 					pSoldier->flags.fFlashPortrait = TRUE;
-					pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_STARTSHADE;
+					pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_STARTSHADE;
 					RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
 					fRerender = TRUE;
 				}
@@ -3064,11 +3064,11 @@ void HandleAutoFaces( )
 					if ( TIMECOUNTERDONE( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY ) )
 					{
 						RESETTIMECOUNTER( pSoldier->timeCounters.PortraitFlashCounter, FLASH_PORTRAIT_DELAY );
-						pSoldier->bFlashPortraitFrame++;
+						pSoldier->uiPresentation().portraitFlashFrame()++;
 
-						if ( pSoldier->bFlashPortraitFrame > FLASH_PORTRAIT_ENDSHADE )
+						if ( pSoldier->uiPresentation().portraitFlashFrame() > FLASH_PORTRAIT_ENDSHADE )
 						{
-							pSoldier->bFlashPortraitFrame = FLASH_PORTRAIT_ENDSHADE;
+							pSoldier->uiPresentation().portraitFlashFrame() = FLASH_PORTRAIT_ENDSHADE;
 
 							if ( pSoldier->animationActivity().hitPhase() )
 							{
