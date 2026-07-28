@@ -1474,7 +1474,7 @@ BOOLEAN DelayedTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteN
 	if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 		return FALSE;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 		return( FALSE );
 
 	if ( (AM_A_ROBOT( pSoldier )) )
@@ -1511,7 +1511,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEvent( SOLDIERTYPE *pSoldier, UINT16
 		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+		if ( pSoldier->status().flags() & SOLDIER_GASSED )
 			return( FALSE );
 	}
 
@@ -1533,7 +1533,7 @@ BOOLEAN TacticalCharacterDialogueWithSpecialEventEx( SOLDIERTYPE *pSoldier, UINT
 		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+		if ( pSoldier->status().flags() & SOLDIER_GASSED )
 			return( FALSE );
 
 		if ( (AM_A_ROBOT( pSoldier )) )
@@ -1590,7 +1590,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 		return( FALSE );
 
 	if ( (AM_A_ROBOT( pSoldier )) )
@@ -1618,7 +1618,7 @@ BOOLEAN TacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNum )
 
 
 	// If we are a robot, play the controller's quote!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( pSoldier->CanRobotBeControlled( ) )
 		{
@@ -1691,7 +1691,7 @@ BOOLEAN SnitchTacticalCharacterDialogue( SOLDIERTYPE *pSoldier, UINT16 usQuoteNu
 	if (pSoldier->vitals().health() < OKLIFE && usQuoteNum != QUOTE_SERIOUSLY_WOUNDED )
 		return( FALSE );
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 		return( FALSE );
 
 	if ( (AM_A_ROBOT( pSoldier )) )
@@ -1752,7 +1752,7 @@ BOOLEAN AdditionalTacticalCharacterDialogue_CallsLua( SOLDIERTYPE *pSoldier, UIN
 	if ( pSoldier->vitals().health() < OKLIFE )
 		return( FALSE );
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 		return( FALSE );
 
 	if ( ( AM_A_ROBOT( pSoldier ) ) )
@@ -2056,7 +2056,7 @@ BOOLEAN ExecuteCharacterDialogue( UINT8 ubCharacterNum, UINT16 usQuoteNum, INT32
 		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
 			return FALSE;
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+		if ( pSoldier->status().flags() & SOLDIER_GASSED )
 			return( FALSE );
 
 		if ( (AM_A_ROBOT( pSoldier )) )
@@ -3359,7 +3359,7 @@ void SayQuoteFromAnyBodyInSector( UINT16 usQuoteNum )
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 		{
 			if ( gTacticalStatus.bNumFoughtInBattle[ ENEMY_TEAM ] == 0 )
 			{
@@ -3453,7 +3453,7 @@ void SayQuoteFromAnyBodyInThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSect
 		if ( pTeamSoldier->bActive )
 		{
 			// Add guy if he's a candidate...
-			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
+			if( pTeamSoldier->deployment().sectorX() == sSectorX && pTeamSoldier->deployment().sectorY() == sSectorY && pTeamSoldier->deployment().sectorZ() == bSectorZ	&& !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() )
 			{
 				ubMercsInSector[ ubNumMercs ] = (UINT16)cnt;
 				++ubNumMercs;
@@ -3514,7 +3514,7 @@ void SayQuoteFromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQuo
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
 		{
 			if ( usQuoteNum == 66 && (INT16) Random( 100 ) > EffectiveWisdom( pTeamSoldier ) )
@@ -3567,7 +3567,7 @@ void SayQuote58FromNearbyMercInSector( INT32 sGridNo, INT8 bDistance, UINT16 usQ
 			continue;
 		}
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && PythSpacesAway( sGridNo, pTeamSoldier->position().gridNo() ) < bDistance && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) && !pTeamSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo, 0, 0, TRUE ) )
 		{
 			// ATE: This is to check gedner for this quote...

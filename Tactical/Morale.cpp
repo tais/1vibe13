@@ -168,7 +168,7 @@ INT8 GetMoraleModifier( SOLDIERTYPE * pSoldier )
 		morale = (pSoldier->aiData.bMorale - 50) * 2 / 5;
 	}
 
-	/*if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
+	/*if (pSoldier->status().flags() & SOLDIER_PC)
 	{
 		if (pSoldier->aiData.bMorale > 50)
 		{
@@ -461,7 +461,7 @@ void UpdateSoldierMorale( SOLDIERTYPE * pSoldier, INT8 bMoraleEvent )
 	INT8 bMoraleMod = 0;
 
 	if ( !pSoldier->bActive || ( pSoldier->vitals().health() < CONSCIOUSNESS ) ||
-		( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) || AM_AN_EPC( pSoldier ) )
+		( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) || AM_AN_EPC( pSoldier ) )
 	{
 		return;
 	}
@@ -1376,7 +1376,7 @@ void HandleSnitchCheck( void )
 			!(pSoldier->assignment().current() == IN_TRANSIT ||
 			pSoldier->assignment().current() == ASSIGNMENT_DEAD ||
 			pSoldier->assignment().current() == ASSIGNMENT_POW ||
-			pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			// calculate the guy's opinion of the people he is with
 			pProfile = &(gMercProfiles[pSoldier->ubProfile]);
@@ -1402,7 +1402,7 @@ void HandleSnitchCheck( void )
 					!(pOtherSoldier->assignment().current() == IN_TRANSIT ||
 					pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD ||
 					pOtherSoldier->assignment().current() == ASSIGNMENT_POW ||
-					pOtherSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+					pOtherSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if ( fSameGroupOnly )
 					{
@@ -1742,7 +1742,7 @@ BOOLEAN IsShowOffNearBy( SOLDIERTYPE * pSoldier )
 			continue;
 		}
 		// Are we actually here?
-		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
+		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->status().flags() & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue;

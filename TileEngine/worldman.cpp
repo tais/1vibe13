@@ -2590,7 +2590,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 	BOOLEAN								fReturn;
 
 	// Turn off multi tile flag...
-	pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_MULTITILE );
+	pSoldier->status().flags() &= ( ~SOLDIER_MULTITILE );
 
 	if ( pSoldier->pLevelNode == NULL )
 	{
@@ -2648,7 +2648,7 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 				&& pStructureFileRef->pDBStructureRef[ gOneCDirection[ pSoldier->position().direction() ] ].pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
-				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;
+				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;
 			}
 
 
@@ -2660,11 +2660,11 @@ BOOLEAN AddMercStructureInfoFromAnimSurface( INT32 sGridNo, SOLDIERTYPE *pSoldie
 			if ( pSoldier->pLevelNode->pStructureData->pDBStructureRef->pDBStructure->ubNumberOfTiles > 1 )
 			{
 				// If we have more than one tile
-				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTITILE_Z;
+				pSoldier->status().flags() |= SOLDIER_MULTITILE_Z;
 			}
 			else
 			{
-				//pSoldier->uiStatusFlags |= SOLDIER_MULTITILE_NZ;
+				//pSoldier->status().flags() |= SOLDIER_MULTITILE_NZ;
 			}
 		}
 	}
@@ -2681,7 +2681,7 @@ BOOLEAN OKToAddMercToWorld( SOLDIERTYPE *pSoldier, INT8 bDirection )
 	// 0verhaul:  Reinserting this check.  If a soldier is sitting or standing on a grid and another soldier is lying prone
 	// across that grid but has the structure, this call will not allow the current soldier to turn.  Since we are talking
 	// about the soldier whose turn it is, this is not a good thing because it will lead to deadlock.
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ||
+	if ( pSoldier->status().flags() & SOLDIER_MULTITILE ||
 		pSoldier->animationPlayback().state() == CRAWLING)
 	{
 		// Get surface data

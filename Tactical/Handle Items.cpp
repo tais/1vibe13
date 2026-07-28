@@ -871,7 +871,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			// Check if we are reloading
 			if ( (gTacticalStatus.uiFlags & REALTIME) || !(IsJa2TacticalCombatActive()) )
 			{
-				if ( pSoldier->flags.fReloading )
+				if ( pSoldier->fireControl().reloading() )
 				{
 					return( ITEM_HANDLE_RELOADING );
 				}
@@ -1164,7 +1164,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					//{
 					//		pSoldier->aiData.bShownAimTime = REFINE_AIM_1;
 					//}
-					//pSoldier->flags.fPauseAim = TRUE;
+					//pSoldier->fireControl().aimPaused() = TRUE;
 				}
 
 				// If in turn based - refresh aim to first level
@@ -2630,7 +2630,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 		pSoldier->pendingAction().resetAnimationCount();
 
 		// Set soldier as engaged!
-		pSoldier->flags.uiStatusFlags |= SOLDIER_ENGAGEDINACTION;
+		pSoldier->status().flags() |= SOLDIER_ENGAGEDINACTION;
 
 		// CHECK IF WE ARE AT THIS GRIDNO NOW
 		if ( pSoldier->position().gridNo() != sActionGridNo )
@@ -2646,7 +2646,7 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 		}
 
 		// Set target as engaged!
-		pTargetSoldier->flags.uiStatusFlags |= SOLDIER_ENGAGEDINACTION;
+		pTargetSoldier->status().flags() |= SOLDIER_ENGAGEDINACTION;
 
 		return;
 	}
@@ -4434,7 +4434,7 @@ void NotifySoldiersToLookforItems( )
 
 		if ( pSoldier != NULL )
 		{
-			pSoldier->flags.uiStatusFlags |= SOLDIER_LOOKFOR_ITEMS;
+			pSoldier->status().flags() |= SOLDIER_LOOKFOR_ITEMS;
 		}
 	}
 
@@ -5221,14 +5221,14 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ pSoldier->pTempObject->usItem ] );
 
 			// OK, disengage buddy
-			pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+			pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 
 			if ( ubTargetMercID != NOBODY )
 			{
 				SOLDIERTYPE* target =
 					GetJa2SoldierRepository().resolve( ubTargetMercID );
 				if ( target )
-					target->flags.uiStatusFlags &=
+					target->status().flags() &=
 						(~SOLDIER_ENGAGEDINACTION );
 			}
 
@@ -5379,8 +5379,8 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 				ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ ITEM_HAS_BEEN_PLACED_ON_GROUND_STR ], ShortItemNames[ usItemNum ] );
 
 				// OK, disengage buddy
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
-				pTSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+				pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+				pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 			}
 			else
 			{
@@ -5434,8 +5434,8 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 	}
 
 	// OK, disengage buddy
-	pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
-	pTSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+	pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
+	pTSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 
 }
 
@@ -6130,7 +6130,7 @@ void TacticalFunctionSelectionMessageBoxCallBack( UINT8 ubExitValue )
 			SectorFillCanteens();
 			break;
 		case 2:
-       		// undisguise or take off custom clothes 
+		// undisguise or take off custom clothes
 			gpTempSoldier->Strip();
 			break;
        case 3:
@@ -6884,7 +6884,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 	}
 
 	// anv: vehicles and passengers can't detect mines
-	if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER ))	
+	if ( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER ))
 	{
 		return (FALSE);
 	}
@@ -6952,7 +6952,7 @@ BOOLEAN NearbyGroundSeemsWrong( SOLDIERTYPE * pSoldier, INT32 sGridNo, BOOLEAN f
 					}
 					else if (ubDetectLevel >= (*pObj)[0]->data.bTrap)
 					{
-						if (pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+						if (pSoldier->status().flags() & SOLDIER_PC )
 						{
 							// detected exposives buried nearby...
 							StatChange( pSoldier, EXPLODEAMT, (UINT16) ((*pObj)[0]->data.bTrap), FALSE );
@@ -11054,7 +11054,7 @@ void TakePhoto(SOLDIERTYPE* pSoldier, INT32 sGridNo, INT8 bLevel )
 	// CHANGE DIRECTION AND GOTO ANIMATION NOW
 	if (pSoldier->position().direction() != ubDirection)
 	{
-		pSoldier->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		pSoldier->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		pSoldier->EVENT_SetSoldierDesiredDirection(ubDirection);
 		pSoldier->EVENT_SetSoldierDirection(ubDirection);
 	}

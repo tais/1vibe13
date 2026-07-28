@@ -1463,7 +1463,7 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 		//if it is stack size limit we want it to be a big slot or a vehicle slot
 		if (UsingNewInventorySystem() == false)
 			return (max(1, ubSlotLimit));
-		else if(pSoldier != NULL && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+		else if(pSoldier != NULL && (pSoldier->status().flags() & SOLDIER_VEHICLE))
 			return (max(1, LBEPocketType[VEHICLE_POCKET_TYPE].ItemCapacityPerSize[__min(gGameExternalOptions.guiMaxItemSize,Item[pObject->usItem].ItemSize)])); //JMich
 		else
 			return (max(1, min(255,LBEPocketType[VEHICLE_POCKET_TYPE].ItemCapacityPerSize[__min(gGameExternalOptions.guiMaxItemSize,Item[pObject->usItem].ItemSize)]*4)));
@@ -1482,7 +1482,7 @@ UINT8 ItemSlotLimit( OBJECTTYPE * pObject, INT16 bSlot, SOLDIERTYPE *pSoldier, B
 
 
 	//UsingNewInventorySystem == true
-	if (pSoldier != NULL && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)) {
+	if (pSoldier != NULL && (pSoldier->status().flags() & SOLDIER_VEHICLE)) {
 		pIndex = VEHICLE_POCKET_TYPE;
 	}
 	else if (pSoldier && AM_A_ROBOT(pSoldier)) {
@@ -1697,7 +1697,7 @@ INT8 FindObj( SOLDIERTYPE * pSoldier, UINT16 usItem, INT8 bLower, INT8 bUpper )
 	for (bLoop = bLower; bLoop < bUpper; bLoop++)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
 			continue;
 
 		//CHRISL: If we check exists() then we can't search for an empty pocket with this function, which is done.
@@ -1824,7 +1824,7 @@ INT8 FindEmptySlotWithin( SOLDIERTYPE * pSoldier, INT8 bLower, INT8 bUpper )
 		// CHRISL: Only look at valid pockets
 		if((UsingNewInventorySystem() == false) && !oldInv[bLoop])
 			continue;
-		if((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !vehicleInv[bLoop])
+		if((pSoldier->status().flags() & SOLDIER_VEHICLE) && !vehicleInv[bLoop])
 			continue;
 		if(AM_A_ROBOT(pSoldier) && !robotInv[bLoop])
 			continue;
@@ -3763,7 +3763,7 @@ INT8 FindAmmo( SOLDIERTYPE * pSoldier, UINT8 ubCalibre, UINT16 ubMagSize, UINT8 
 	for (bLoop = HANDPOS; bLoop < invsize; ++bLoop)
 	{
 		//CHRISL: If in NIV, in combat and backpack is closed, don't look inside
-		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->flags.ZipperFlag == FALSE)
+		if(UsingNewAttachmentSystem() == true && (IsJa2TacticalCombatActive()) && IsBackpackSlot(bLoop) == true && pSoldier->inventoryState().zipperFlag() == FALSE)
 			continue;
 
 		if (pSoldier->inv[bLoop].exists() == true) {
@@ -6233,7 +6233,7 @@ held in the cursor that each active pocket can hold.*/
 extern BOOLEAN CompatibleAmmoForGun( OBJECTTYPE *pTryObject, OBJECTTYPE *pTestObject );
 BOOLEAN CanItemFitInVehicle( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos, BOOLEAN fDoingPlacement )
 {
-	if((UsingNewInventorySystem() == false) || !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+	if((UsingNewInventorySystem() == false) || !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 		return(FALSE);
 	if(!vehicleInv[bPos])
 		return(FALSE);
@@ -6328,7 +6328,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 	// CHRISL: Only check valid pockets
 	if ( UsingNewInventorySystem( ) )
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			return ( CanItemFitInVehicle( pSoldier, pObj, bPos, fDoingPlacement ) );
 		else if ( AM_A_ROBOT(pSoldier) && bPos != HANDPOS)
 			return ( CanItemFitInRobot( pSoldier, pObj, bPos, fDoingPlacement ) );
@@ -6531,7 +6531,7 @@ BOOLEAN CanItemFitInPosition( SOLDIERTYPE *pSoldier, OBJECTTYPE *pObj, INT8 bPos
 		case SMALLPOCK30POS:
 			if( UsingNewInventorySystem() )
 			{
-				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
+				if (icLBE[bPos] == BPACKPOCKPOS && (!(pSoldier->inventoryState().zipperFlag()) || (pSoldier->inventoryState().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && fDoingPlacement)
 					return( FALSE );
 
 				lbePocket = ( !pSoldier->inv[icLBE[bPos]].exists() ) ? LoadBearingEquipment[Item[icDefault[bPos]].ubClassIndex].lbePocketIndex[icPocket[bPos]] : LoadBearingEquipment[Item[pSoldier->inv[icLBE[bPos]].usItem].ubClassIndex].lbePocketIndex[icPocket[bPos]];
@@ -6793,7 +6793,7 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 		}
 	}
 
-	if ( Item[ pObj->usItem ].usItemClass == IC_KEY && pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+	if ( Item[ pObj->usItem ].usItemClass == IC_KEY && pSoldier->status().flags() & SOLDIER_PC )
 	{
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
@@ -7632,8 +7632,8 @@ BOOLEAN AutoPlaceObject( SOLDIERTYPE * pSoldier, OBJECTTYPE * pObj, BOOLEAN fNew
 					{
 						if( PlaceObject( pSoldier, BPACKPOCKPOS, pObj, fNewItem ) )
 						{
-							pSoldier->flags.DropPackFlag = FALSE;
-							pSoldier->flags.ZipperFlag = FALSE;
+							pSoldier->inventoryState().dropPackFlag() = FALSE;
+							pSoldier->inventoryState().zipperFlag() = FALSE;
 							RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 							if(pObj->exists() == false || fStackOrSingleSlot)
 								return( TRUE );
@@ -7727,7 +7727,7 @@ UINT8 AddKeysToSlot( SOLDIERTYPE * pSoldier, INT8 bKeyRingPosition, OBJECTTYPE *
 {
 	UINT8 ubNumberNotAdded = 0;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC ) // redundant but what the hey
+	if ( pSoldier->status().flags() & SOLDIER_PC ) // redundant but what the hey
 	{
 		if ( KeyTable[ (*pObj)[0]->data.key.ubKeyID ].usDateFound == 0 )
 		{
@@ -8834,7 +8834,7 @@ void SetNewItem( SOLDIERTYPE *pSoldier, UINT8 ubInvPos, BOOLEAN fNewItem )
 	{
 		pSoldier->inv.bNewItemCount[ ubInvPos ]						 = -1;
 		pSoldier->inv.bNewItemCycleCount[ ubInvPos ]			 = NEW_ITEM_CYCLE_COUNT;
-		pSoldier->flags.fCheckForNewlyAddedItems             = TRUE;
+		pSoldier->inventoryState().checkForNewItems()             = TRUE;
 	}
 }
 

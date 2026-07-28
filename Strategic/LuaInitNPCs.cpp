@@ -5691,7 +5691,7 @@ static int l_SetKeySoldier(lua_State* L)
 		pSoldier = FindSoldierByProfileID(ID, FALSE);
 		if (pSoldier)
 		{
-			pSoldier->flags.bHasKeys = Bool;
+			pSoldier->inventoryState().keyAccess() = Bool;
 		}
 	}
 

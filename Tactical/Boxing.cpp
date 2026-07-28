@@ -55,18 +55,18 @@ void ExitBoxing( void )
 
 			if ( pSoldier != NULL )
 			{
-				if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) && InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING )
+				if ( ( pSoldier->status().flags() & SOLDIER_BOXER ) && InARoom( pSoldier->position().gridNo(), &usRoom ) && usRoom == BOXING_RING )
 				{
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+					if ( pSoldier->status().flags() & SOLDIER_PC )
 					{
 						if ( ubPass == 0 ) // pass 0, only handle AI
 						{
 							continue;
 						}
 						// put guy under AI control temporarily
-						pSoldier->flags.uiStatusFlags |= SOLDIER_PCUNDERAICONTROL;
+						pSoldier->status().flags() |= SOLDIER_PCUNDERAICONTROL;
 						//SB: this flag don't allow merc leave the ring
-						pSoldier->flags.uiStatusFlags &= ~SOLDIER_ENGAGEDINACTION;
+						pSoldier->status().flags() &= ~SOLDIER_ENGAGEDINACTION;
 					}
 					else
 					{
@@ -235,11 +235,11 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 				}
 				++ubTotalInRing;
 
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+				if ( pSoldier->status().flags() & SOLDIER_PC )
 				{
 					++ubPlayersInRing;
 
-					if ( !pNonBoxingPlayer && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+					if ( !pNonBoxingPlayer && !(pSoldier->status().flags() & SOLDIER_BOXER) )
 					{
 						pNonBoxingPlayer = pSoldier;
 					}
@@ -274,7 +274,7 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 
 			// Flugente: in order for boxing to work while covert, we require the boxer to recognize our covert merc as a boxer, but that flag is not yet set
 			// so temporarily set the flag, recognize our merc, and then remove the flag again. it will be properly set later
-			pInRing[0]->flags.uiStatusFlags |= SOLDIER_BOXER;
+			pInRing[0]->status().flags() |= SOLDIER_BOXER;
 
 			PickABoxer();
 
@@ -291,10 +291,10 @@ static void CountPeopleInBoxingRingAndDoActions( void )
 				// ladieees and gennleman, we have a fight!
 				for (uiLoop = 0; uiLoop < 2; ++uiLoop)
 				{
-					if (!(pInRing[uiLoop]->flags.uiStatusFlags & SOLDIER_BOXER))
+					if (!(pInRing[uiLoop]->status().flags() & SOLDIER_BOXER))
 					{
 						// set as boxer!
-						pInRing[uiLoop]->flags.uiStatusFlags |= SOLDIER_BOXER;
+						pInRing[uiLoop]->status().flags() |= SOLDIER_BOXER;
 					}
 				}
 				// start match!
@@ -405,7 +405,7 @@ BOOLEAN PickABoxer( void )
 				// pick this boxer!
 				if ( pBoxer->bActive && pBoxer->bInSector && pBoxer->vitals().health() >= OKLIFE )
 				{
-					pBoxer->flags.uiStatusFlags |= SOLDIER_BOXER;
+					pBoxer->status().flags() |= SOLDIER_BOXER;
 					SetSoldierNonNeutral( pBoxer );
 					RecalculateOppCntsDueToNoLongerNeutral( pBoxer );
 					DebugAI(AI_MSG_INFO, pBoxer, String("CancelAIAction: pick a boxer"));
@@ -536,7 +536,7 @@ void BoxingMovementCheck( SOLDIERTYPE * pSoldier )
 		// someone moving in/into the ring
 		CountPeopleInBoxingRingAndDoActions();
 	}
-	else if ( ( gTacticalStatus.bBoxingState == BOXING ) && ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) )
+	else if ( ( gTacticalStatus.bBoxingState == BOXING ) && ( pSoldier->status().flags() & SOLDIER_BOXER ) )
 	{
 		// boxer stepped out of the ring!
 		BoxingPlayerDisqualified( pSoldier, BOXER_OUT_OF_RING );
@@ -544,7 +544,7 @@ void BoxingMovementCheck( SOLDIERTYPE * pSoldier )
 		AddHistoryToPlayersLog( HISTORY_DISQUALIFIED_BOXING, pSoldier->ubProfile, GetWorldTotalMin(), gWorldSectorX, gWorldSectorY );
 		// make not a boxer any more
 		pSoldier->DeleteBoxingFlag( );
-		pSoldier->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+		pSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 	}
 }
 
@@ -586,7 +586,7 @@ void ClearAllBoxerFlags( void )
 {
 	for (UINT32 uiSlot = 0; uiSlot < guiNumMercSlots; ++uiSlot)
 	{
-		if ( MercSlots[ uiSlot ] && MercSlots[ uiSlot ]->flags.uiStatusFlags & SOLDIER_BOXER )
+		if ( MercSlots[ uiSlot ] && MercSlots[ uiSlot ]->status().flags() & SOLDIER_BOXER )
 		{
 			// Flugente: nuke the entire opponent count, remove boxing flag, reevaluate opponent list
 			DecayIndividualOpplist(MercSlots[uiSlot]);
@@ -596,7 +596,7 @@ void ClearAllBoxerFlags( void )
 			ManLooksForOtherTeams(MercSlots[uiSlot]);
 
 			if ( MercSlots[uiSlot]->bTeam == gbPlayerNum )
-				MercSlots[uiSlot]->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+				MercSlots[uiSlot]->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 		}
 	}
 }

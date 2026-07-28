@@ -357,7 +357,7 @@ void UpdateStrategicDetectionLevel( )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )
@@ -499,7 +499,7 @@ void UpdateSkyriderCostModifier()
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )
@@ -562,7 +562,7 @@ void UpdateFacilityUsageCosts( )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )
@@ -704,7 +704,7 @@ INT32 MineIncomeModifierFromFacility( UINT8 ubMine )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )
@@ -1112,7 +1112,7 @@ void HandleHourlyRisks()
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
 		// Is character truly valid?
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )
@@ -1995,7 +1995,7 @@ INT32 GetTotalFacilityHourlyCosts( BOOLEAN fPositive )
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
 		// Is character truly valid?
-		if( pSoldier != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( pSoldier != NULL && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				pSoldier->deployment().sectorZ() == 0  &&
 				pSoldier->vitals().health() >= OKLIFE &&
 				!(pSoldier->assignment().isAsleep()) )

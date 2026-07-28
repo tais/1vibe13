@@ -1401,7 +1401,7 @@ INT32 ShowOnDutyTeam( INT16 sMapX, INT16 sMapY )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ ubCounter ].usSolID);
 
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				( pSoldier->deployment().sectorX() == sMapX) &&
 				( pSoldier->deployment().sectorY() == sMapY) &&
 				( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) &&
@@ -1456,7 +1456,7 @@ INT32 ShowAssignedTeam(INT16 sMapX, INT16 sMapY, INT32 iCount)
 		// given number of on duty members, find number of assigned chars
 		// start at beginning of list, look for people who are in sector and assigned
 		// Flugente: concealed mercs also show up here, to give the illusion they are present
-		if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 				( pSoldier->deployment().sectorX() == sMapX) &&
 				( pSoldier->deployment().sectorY() == sMapY) &&
 				( ( pSoldier->deployment().sectorZ() == iCurrentMapSectorZ ) || ( SPY_LOCATION( pSoldier->assignment().current()) && ( pSoldier->deployment().sectorZ() - 10 == iCurrentMapSectorZ ) ) ) &&
@@ -2045,7 +2045,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 		return;
 	}
 
-	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		SetUpMvtGroupForVehicle( pCharacter );
 	}
@@ -2061,7 +2061,7 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	pCharacter->pMercPath = MoveToBeginningOfPathList( pCharacter->pMercPath );
 
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		MoveCharactersPathToVehicle( pCharacter );
 	}
@@ -2131,7 +2131,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 		// be canceled.
 
 		// if a vehicle
-		if( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if( pCharacter->status().flags() & SOLDIER_VEHICLE )
 		{
 			pVehicle = &( pVehicleList[ pCharacter->bVehicleID ] );
 		}
@@ -2345,7 +2345,7 @@ void DisplaySoldierPath( SOLDIERTYPE *pCharacter )
 
 /* ARM: Hopefully no longer required once using GetSoldierMercPathPtr() ???
 	// check if in vehicle, if so, copy path to vehicle
-	if( ( pCharacter->assignment().current() == VEHICLE )||( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if( ( pCharacter->assignment().current() == VEHICLE )||( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		// get the real path from vehicle's structure and copy it into this soldier's
 		CopyVehiclePathToSoldier( pCharacter );
@@ -7069,7 +7069,7 @@ BOOLEAN CanMercsScoutThisSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 		}
 
 		// vehicles can't scout!
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			continue;
 		}

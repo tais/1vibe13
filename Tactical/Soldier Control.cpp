@@ -415,26 +415,6 @@ void Inventory::clear( ) {
 
 // ----------------------------------------
 
-void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	this->ZipperFlag = FALSE;
-	this->DropPackFlag = FALSE;
-
-	this->bHasKeys = src.bHasKeys;			// allows AI controlled dudes to open locked doors
-	this->fHitByGasFlags = src.fHitByGasFlags;						// flags
-	this->fSoldierUpdatedFromNetwork = src.fSoldierUpdatedFromNetwork;
-	this->fCheckForNewlyAddedItems = src.fCheckForNewlyAddedItems;
-	// The transient v101 door continuation phase is deliberately not converted.
-	this->fDontUnsetLastTargetFromTurn = src.fDontUnsetLastTargetFromTurn;
-	this->fDoingExternalDeath = src.fDoingExternalDeath;
-	this->fReactingFromBeingShot = src.fReactingFromBeingShot;
-	this->fReloading = src.fReloading;
-	this->fPauseAim = src.fPauseAim;
-	this->fIntendedTarget = src.fIntendedTarget; // intentionally shot?
-	this->lastFlankLeft = src.lastFlankLeft;
-	this->uiStatusFlags = src.uiStatusFlags;
-}
-
 void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 {
 	memcpy( &(this->bOppList), &(src.bOppList), sizeof(INT8)* MAX_NUM_SOLDIERS ); // AI knowledge database
@@ -499,6 +479,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		//member classes
 		vitals().reset();
 		statistics().reset();
+		status().reset();
+		inventoryState().reset();
 		service().reset();
 		dialogue().reset();
 		audio().reset();
@@ -533,7 +515,20 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().tertiaryData() = src.bPendingActionData3;
 		pendingAction().doorHandleCode() = src.ubDoorHandleCode;
 		pendingAction().quaternaryData() = src.uiPendingActionData4;
-		flags.ConvertFrom_101_To_102( src );
+		inventoryState().keyAccess() = src.bHasKeys;
+		condition().gasHitFlags() = src.fHitByGasFlags;
+		replication().updatedFromNetwork() = src.fSoldierUpdatedFromNetwork;
+		inventoryState().checkForNewItems() = src.fCheckForNewlyAddedItems;
+		targeting().retainLastTargetFromTurn() =
+			src.fDontUnsetLastTargetFromTurn;
+		animationActivity().externalDeath() = src.fDoingExternalDeath;
+		animationActivity().reactingFromShot() =
+			src.fReactingFromBeingShot;
+		fireControl().reloading() = src.fReloading;
+		fireControl().aimPaused() = src.fPauseAim;
+		targeting().intendedTarget() = src.fIntendedTarget;
+		aiPlanning().lastFlankLeft() = src.lastFlankLeft;
+		status().flags() = src.uiStatusFlags;
 		movement().turnInProgress() = src.fTurnInProgress;
 		movement().previousInWater() = src.fPrevInWater;
 		movement().uiMovementFast() = src.fUIMovementFast;
@@ -1096,9 +1091,10 @@ void SOLDIERTYPE::initialize( )
 	ai_masterplan_ = 0;
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
-	memset( &flags, 0, sizeof(STRUCT_Flags) );
 	vitals().reset();
 	statistics().reset();
+	status().reset();
+	inventoryState().reset();
 	service().reset();
 	dialogue().reset();
 	audio().reset();
@@ -1802,7 +1798,7 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 	}
 
 	// Check if we are a vehicle first....
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( this->status().flags() & SOLDIER_VEHICLE )
 	{
 		// Turn off sound effects....
 		if ( fSet )
@@ -2010,7 +2006,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	}
 
 	// If tired, reduce action points accordingly (by up to 1/2)
-	if ( soldierVitals.breath() < 100 && !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(this))
+	if ( soldierVitals.breath() < 100 && !(this->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(this))
 		ubPoints -= (ubPoints * (100 - soldierVitals.breath())) / 200;
 
 	if ( this->movementMetrics().carriedWeightAtTurnStart() > 100 )
@@ -2047,7 +2043,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 		// use same as young monsters
 		ubPoints = (ubPoints * APBPConstants[AP_YOUNG_MONST_FACTOR]) / 10;
 	}
-	else if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
+	else if ( this->status().flags() & SOLDIER_MONSTER )
 	{
 		// young monsters get extra APs
 		if ( this->ubBodyType == YAF_MONSTER || this->ubBodyType == YAM_MONSTER || this->ubBodyType == INFANT_MONSTER )
@@ -2064,7 +2060,7 @@ INT16 SOLDIERTYPE::CalcActionPoints( void )
 	}
 	// SANDRO - moved this here
 	// If we are a vehicle, adjust APS...
-	else if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if ( this->status().flags() & SOLDIER_VEHICLE )
 	{
 		AdjustVehicleAPs( this, &ubPoints );
 	}
@@ -2342,7 +2338,7 @@ void	SOLDIERTYPE::DoNinjaAttack( void )
 				// CHECK IF HE CAN SEE US, IF SO CHANGE DIRECTION
 				if ( pTSoldier->aiData.bOppList[this->ubID] == 0 && pTSoldier->bTeam != this->bTeam )
 				{
-					if ( !(pTSoldier->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
+					if ( !(pTSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
 					{
 						ubTDirection = (UINT8)GetDirectionFromGridNo( this->position().gridNo(), pTSoldier );
 						SendSoldierSetDesiredDirectionEvent( pTSoldier, ubTDirection );
@@ -2851,7 +2847,7 @@ BOOLEAN ReevaluateEnemyStance( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	INT16		sDist, sClosestDist = 10000;
 
 	// make the chosen one not turn to face us
-	if ( OK_ENEMY_MERC( pSoldier ) && pSoldier->ubID != gTacticalStatus.ubTheChosenOne && gAnimControl[usAnimState].ubEndHeight == ANIM_STAND && !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
+	if ( OK_ENEMY_MERC( pSoldier ) && pSoldier->ubID != gTacticalStatus.ubTheChosenOne && gAnimControl[usAnimState].ubEndHeight == ANIM_STAND && !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
 	{
 		if ( pSoldier->animationActivity().turningFromProneMode() == TURNING_FROM_PRONE_OFF )
 		{
@@ -2961,8 +2957,8 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 		return;
 	}
 
-	//if ( usOldAniState != usNewState && ( uiOldAnimFlags & ANIM_HITSTART ) && !( uiNewAnimFlags & ANIM_HITFINISH ) && !( uiNewAnimFlags & ANIM_IGNOREHITFINISH ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
-	if ( usOldAniState != usNewState && (uiOldAnimFlags & ANIM_HITSTART) && !(uiNewAnimFlags & ANIM_HITFINISH) && !(pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT) )
+	//if ( usOldAniState != usNewState && ( uiOldAnimFlags & ANIM_HITSTART ) && !( uiNewAnimFlags & ANIM_HITFINISH ) && !( uiNewAnimFlags & ANIM_IGNOREHITFINISH ) && !(pSoldier->status().flags() & SOLDIER_TURNINGFROMHIT ) )
+	if ( usOldAniState != usNewState && (uiOldAnimFlags & ANIM_HITSTART) && !(uiNewAnimFlags & ANIM_HITFINISH) && !(pSoldier->status().flags() & SOLDIER_TURNINGFROMHIT) )
 	{
 		// 0verhaul:  Yet again, this is handled by the state transition code.
 		// Release attacker
@@ -2984,7 +2980,7 @@ void CheckForFreeupFromHit( SOLDIERTYPE *pSoldier, UINT32 uiOldAnimFlags, UINT32
 
 	// CHECK IF WE HAVE FINSIHED A HIT WHILE DOWN
 	// OBLY DO THIS IF 1 ) We are dead already or 2 ) We are alive still
-	if ( (uiOldAnimFlags & ANIM_HITWHENDOWN) && ((pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) || pSoldier->vitals().health() != 0) )
+	if ( (uiOldAnimFlags & ANIM_HITWHENDOWN) && ((pSoldier->status().flags() & SOLDIER_DEAD) || pSoldier->vitals().health() != 0) )
 	{
 		// 0verhaul:  Ditto
 		// Release attacker
@@ -3299,7 +3295,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		{
 			// Don't do some of this if we are a monster!
 			// ATE: LOWER AIMATION IS GOOD, RAISE ONE HOWEVER MAY CAUSE PROBLEMS FOR AI....
-			if ( !(this->flags.uiStatusFlags & SOLDIER_MONSTER) && this->ubBodyType != ROBOTNOWEAPON && this->bTeam == gbPlayerNum )
+			if ( !(this->status().flags() & SOLDIER_MONSTER) && this->ubBodyType != ROBOTNOWEAPON && this->bTeam == gbPlayerNum )
 			{
 				// If this animation is a raise_weapon animation
 				if ( (gAnimControl[usNewState].uiFlags & ANIM_RAISE_WEAPON) && !(gAnimControl[this->animationPlayback().state()].uiFlags & (ANIM_RAISE_WEAPON | ANIM_NOCHANGE_WEAPON)) )
@@ -3501,7 +3497,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				 || usNewState == SWATTING_WK || usNewState == START_SWAT )
 			{
 				// CHECK FOR SIDEWAYS!
-				if ( !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) && this->position().direction() == gPurpendicularDirection[this->position().direction()][this->pathing().path()[this->pathing().pathIndex()]] )
+				if ( !(this->status().flags() & SOLDIER_VEHICLE) && this->position().direction() == gPurpendicularDirection[this->position().direction()][this->pathing().path()[this->pathing().pathIndex()]] )
 				{
 					// We are perpendicular!
 					// SANDRO - wait wait wait!!! We need to determine if gonna sidestep with weapon raised
@@ -3662,7 +3658,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		}
 		
 		// Turn off anipause flag for any anim!
-		this->flags.uiStatusFlags &= (~SOLDIER_PAUSEANIMOVE);
+		this->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
 
 		// Unset paused for no APs.....
 		this->AdjustNoAPToFinishMove( FALSE );
@@ -3729,7 +3725,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 
 					// Check if we are a vehicle, and start playing noise sound....
-					if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+					if ( this->status().flags() & SOLDIER_VEHICLE )
 					{
 						HandleVehicleMovementSound( this, TRUE );
 					}
@@ -3739,7 +3735,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 		else
 		{
 			// Check for stopping movement noise...
-			if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( this->status().flags() & SOLDIER_VEHICLE )
 			{
 				HandleVehicleMovementSound( this, FALSE );
 
@@ -4301,7 +4297,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 
 	this->animationActivity().clearRenderZOverride();
 
-	if ( !(this->flags.uiStatusFlags & SOLDIER_LOCKPENDINGACTIONCOUNTER) )
+	if ( !(this->status().flags() & SOLDIER_LOCKPENDINGACTIONCOUNTER) )
 	{
 		//ATE Cancel ANY pending action...
 		if ( this->pendingAction().animationCount() > 0 && (gAnimControl[this->animationPlayback().previousState()].uiFlags & ANIM_MOVING) )
@@ -4315,7 +4311,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 				if ( SOLDIERTYPE* target =
 						 GetJa2SoldierRepository().resolve(
 							 this->pendingAction().quaternaryData() ) )
-					target->flags.uiStatusFlags &=
+					target->status().flags() &=
 						(~SOLDIER_ENGAGEDINACTION);
 				break;
 			}
@@ -4326,7 +4322,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InitNewSoldierAnim( UINT16 usNewState, UINT16 usStart
 			// Increment this for almost all animations except some movement ones...
 			// That's because this represents ANY animation other than the one we began when the pending action was started
 			// ATE: Added to ignore this count if we are waiting for someone to move out of our way...
-			if ( usNewState != START_SWAT && usNewState != END_SWAT && !(gAnimControl[usNewState].uiFlags & ANIM_NOCHANGE_PENDINGCOUNT) && !this->movement().delayed() && !(this->flags.uiStatusFlags & SOLDIER_ENGAGEDINACTION) )
+			if ( usNewState != START_SWAT && usNewState != END_SWAT && !(gAnimControl[usNewState].uiFlags & ANIM_NOCHANGE_PENDINGCOUNT) && !this->movement().delayed() && !(this->status().flags() & SOLDIER_ENGAGEDINACTION) )
 			{
 				this->pendingAction().recordAnimationTransition();
 			}
@@ -4479,7 +4475,7 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYP
 	INT32 sNewGridNo;
 
 	// Not if we're dead!
-	if ( (this->flags.uiStatusFlags & SOLDIER_DEAD) )
+	if ( (this->status().flags() & SOLDIER_DEAD) )
 	{
 		return;
 	}
@@ -4505,7 +4501,7 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYP
 
 	this->SetSoldierGridNo( sNewGridNo, fForceRemove );
 
-	if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+	if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 	{
 		this->SetCheckSoldierLightFlag( );
 	}
@@ -4606,7 +4602,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 	//INT16	sX, sY, sWorldX, sZLevel;
 
 	// Not if we're dead!
-	if ( (this->flags.uiStatusFlags & SOLDIER_DEAD) )
+	if ( (this->status().flags() & SOLDIER_DEAD) )
 	{
 		return;
 	}
@@ -4639,7 +4635,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			SetPositionSndGridNo( this->audio().positionSoundId(), sNewGridNo );
 		}
 
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			this->InternalRemoveSoldierFromGridNo( fForceRemove );
 		}
@@ -4683,7 +4679,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 
 		// Remove this gridno as a reserved place!
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			UnMarkMovementReserved( this );
 		}
@@ -4700,7 +4696,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			gpWorldLevelData[this->position().gridNo() + DirIncrementer[bDir]].ubAdjacentSoldierCnt++;
 		}
 
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			DropSmell( this );
 		}
@@ -4739,7 +4735,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		// CheckForFullStructures( this );
 
 		// Add merc at new pos
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			AddMercToHead( this->position().gridNo(), this, TRUE );
 
@@ -4800,7 +4796,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 		// OK, check that our animation is up to date!
 		// Check our water value
 		INT16 usUIMovementModeToSet = this->movement().mode();
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			fInWaterValue = this->MercInWater( );
 
@@ -4886,7 +4882,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 				fSetGassed = FALSE;
 			if ( fSetGassed )
 			{
-				this->flags.uiStatusFlags |= SOLDIER_GASSED;
+				this->status().flags() |= SOLDIER_GASSED;
 			}
 		}
 
@@ -5041,7 +5037,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 
 		// else
 		{
-			if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
+			if ( this->status().flags() & SOLDIER_MONSTER )
 			{
 				// Force our direction!
 				this->EVENT_SetSoldierDirection( this->pathing().desiredDirection() );
@@ -5052,7 +5048,7 @@ void SOLDIERTYPE::EVENT_FireSoldierWeapon( INT32 sTargetGridNo )
 				if ( fDoFireRightAway )
 				{
 					// Set to true so we don't get toasted twice for APs..
-					this->flags.fDontUnsetLastTargetFromTurn = TRUE;
+					this->targeting().retainLastTargetFromTurn() = TRUE;
 
 					// Make sure we don't try and do fancy prone turning.....
 					this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_OFF;
@@ -5106,7 +5102,7 @@ UINT16 SelectFireAnimation( SOLDIERTYPE *pSoldier, UINT8 ubHeight )
 
 
 	//Do different things if we are a monster
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+	if ( pSoldier->status().flags() & SOLDIER_MONSTER )
 	{
 		switch ( pSoldier->ubBodyType )
 		{
@@ -5331,7 +5327,7 @@ UINT16 SOLDIERTYPE::GetMoveStateBasedOnStance( UINT8 ubStanceHeight )
 	switch ( ubStanceHeight )
 	{
 	case ANIM_STAND:
-		//if ( this->movement().uiMovementFast() && !( this->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		//if ( this->movement().uiMovementFast() && !( this->status().flags() & SOLDIER_VEHICLE ) )
 		if ( this->IsFastMovement() )
 		{
 			return(RUNNING);
@@ -5423,7 +5419,7 @@ BOOLEAN SOLDIERTYPE::InternalSoldierReadyWeapon( UINT8 sFacingDir, BOOLEAN fEndR
 	BOOLEAN	fReturnVal = FALSE;
 
 	// Handle monsters differently
-	if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
+	if ( this->status().flags() & SOLDIER_MONSTER )
 	{
 		if ( !fEndReady )
 		{
@@ -5835,7 +5831,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			if ( this->perception().blindnessTurns() == 0 )
 			{
 				// say quote
-				if ( this->flags.uiStatusFlags & SOLDIER_PC )
+				if ( this->status().flags() & SOLDIER_PC )
 				{
 					TacticalCharacterDialogue( this, QUOTE_BLINDED );
 				}
@@ -5854,7 +5850,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 			if ( this->perception().blindnessTurns() == 0 )
 			{
 				// say quote
-				if ( this->flags.uiStatusFlags & SOLDIER_PC )
+				if ( this->status().flags() & SOLDIER_PC )
 				{
 					TacticalCharacterDialogue( this, QUOTE_BLINDED );
 				}
@@ -6030,7 +6026,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 				// deal max special damage
 				this->perception().setBlindness((INT8)Explosive[Item[usWeaponIndex].ubClassIndex].ubDuration);
 				// say quote
-				if ( this->flags.uiStatusFlags & SOLDIER_PC )
+				if ( this->status().flags() & SOLDIER_PC )
 				{
 					TacticalCharacterDialogue( this, QUOTE_BLINDED );
 				}
@@ -6043,7 +6039,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 					this->perception().setBlindness(1);
 				this->perception().halveDeafness();
 				// say quote
-				if ( this->flags.uiStatusFlags & SOLDIER_PC )
+				if ( this->status().flags() & SOLDIER_PC )
 				{
 					TacticalCharacterDialogue( this, QUOTE_BLINDED );
 				}
@@ -6086,7 +6082,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	sBreathLoss = max( 1, (INT16)(sBreathLoss * (100 - this->GetDamageResistance( FALSE, TRUE )) / 100) );
 
 	// OK, If we are a vehicle.... damage vehicle...( people inside... )
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( this->status().flags() & SOLDIER_VEHICLE )
 	{
 		this->SoldierTakeDamage( ANIM_CROUCH, sDamage, sBreathLoss, ubReason, this->combatResult().currentAttacker(), NOWHERE, FALSE, TRUE );
 		return;
@@ -6094,7 +6090,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 
 	// sevenfm: player mercs should not die instantly
 	if (gGameExternalOptions.fReducedInstantDeath &&
-		this->flags.uiStatusFlags & SOLDIER_PC &&
+		this->status().flags() & SOLDIER_PC &&
 		this->vitals().health() >= OKLIFE &&
 		ubSpecial != FIRE_WEAPON_HEAD_EXPLODE_SPECIAL &&
 		ubSpecial != FIRE_WEAPON_CHEST_EXPLODE_SPECIAL &&
@@ -6271,7 +6267,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	}
 
 	// IF COWERING, PLAY SPECIFIC GENERIC HIT STAND...
-	if ( this->flags.uiStatusFlags & SOLDIER_COWERING )
+	if ( this->status().flags() & SOLDIER_COWERING )
 	{
 		if ( this->vitals().health() == 0 || IS_MERC_BODY_TYPE( this ) )
 		{
@@ -6356,7 +6352,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	case KIDCIV:
 
 		// OK, if life is 0 and not set as dead ( this is a death hit... )
-		if ( !(this->flags.uiStatusFlags & SOLDIER_DEAD) && this->vitals().health() == 0 )
+		if ( !(this->status().flags() & SOLDIER_DEAD) && this->vitals().health() == 0 )
 		{
 			// Randomize death!
 			if ( Random( 2 ) )
@@ -6536,7 +6532,7 @@ void SoldierGotHitGunFire( SOLDIERTYPE *pSoldier, UINT16 usWeaponIndex, INT16 sD
 
 	// MAYBE CHANGE TO SPECIAL ANIMATION BASED ON VALUE SET BY DAMAGE CALCULATION CODE
 	// ALL THESE ONLY WORK ON STANDING PEOPLE
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && (!(gTacticalStatus.uiFlags & GODMODE) || pSoldier->bTeam != OUR_TEAM))
+	if ( !(pSoldier->status().flags() & SOLDIER_MONSTER) && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND && (!(gTacticalStatus.uiFlags & GODMODE) || pSoldier->bTeam != OUR_TEAM))
 	{
 		if ( gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND )
 		{
@@ -6628,7 +6624,7 @@ void SoldierGotHitGunFire( SOLDIERTYPE *pSoldier, UINT16 usWeaponIndex, INT16 sD
 		pSoldier->usSoldierFlagMask |= SOLDIER_DAMAGED_PANTS;
 
 	// IF HERE AND GUY IS DEAD, RETURN!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		// 0verhaul:  Handled in the soldier state change code
 		// DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker,Dead soldier hit" ) );
@@ -6691,7 +6687,7 @@ void SoldierGotHitExplosion( SOLDIERTYPE *pSoldier, UINT16 usWeaponIndex, INT16 
 	INT32 sNewGridNo;
 
 	// IF HERE AND GUY IS DEAD, RETURN!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		return;
 	}
@@ -6862,7 +6858,7 @@ void SoldierGotHitBlade( SOLDIERTYPE *pSoldier, UINT8 ubHitLocation )
 		pSoldier->usSoldierFlagMask |= SOLDIER_DAMAGED_PANTS;
 
 	// IF HERE AND GUY IS DEAD, RETURN!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		return;
 	}
@@ -6899,7 +6895,7 @@ void SoldierGotHitPunch( SOLDIERTYPE *pSoldier, UINT16 usWeaponIndex, INT16 sDam
 {
 
 	// IF HERE AND GUY IS DEAD, RETURN!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		return;
 	}
@@ -6935,7 +6931,7 @@ void SoldierGotHitVehicle(SOLDIERTYPE *pSoldier, UINT16 bDirection)
 {
 	INT32 sNewGridNo = 0;
 	// IF HERE AND GUY IS DEAD, RETURN!
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		return;
 	}
@@ -7033,7 +7029,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	// ATE: if a civ, and from UI, and were cowering, remove from cowering
 	if ( AM_AN_EPC( this ) && fFromUI )
 	{
-		if ( this->flags.uiStatusFlags & SOLDIER_COWERING )
+		if ( this->status().flags() & SOLDIER_COWERING )
 		{
 			this->SetSoldierCowerState( FALSE );
 			usMoveAnimState = WALKING;
@@ -7043,7 +7039,7 @@ BOOLEAN SOLDIERTYPE::EVENT_InternalGetNewSoldierPath( INT32 sDestGridNo, UINT16 
 	// sevenfm: stop cowering for mercs
 	if (fFromUI &&
 		IS_MERC_BODY_TYPE(this) &&
-		//!(this->flags.uiStatusFlags & SOLDIER_COWERING) &&
+		//!(this->status().flags() & SOLDIER_COWERING) &&
 		this->IsCowering())
 	{
 		this->StopCoweringAnimation();
@@ -7288,7 +7284,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 		case ANIM_STAND:
 
 			// If we are cowering....goto cower state
-			if ( this->flags.uiStatusFlags & SOLDIER_COWERING )
+			if ( this->status().flags() & SOLDIER_COWERING )
 			{
 				this->EVENT_InitNewSoldierAnim( START_COWER, 0, FALSE );
 			}
@@ -7310,7 +7306,7 @@ void SOLDIERTYPE::SoldierGotoStationaryStance( void )
 		case ANIM_CROUCH:
 
 			// If we are cowering....goto cower state
-			if ( this->flags.uiStatusFlags & SOLDIER_COWERING )
+			if ( this->status().flags() & SOLDIER_COWERING )
 			{
 				this->EVENT_InitNewSoldierAnim( COWERING, 0, FALSE );
 			}
@@ -7597,7 +7593,7 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 			DeductPoints( pSoldier, sAPCost, iBPCost );
 			if ( usForceAnimState != INVALID_ANIMATION )//dnl ch70 170913
-				pSoldier->flags.fDontUnsetLastTargetFromTurn = FALSE;
+				pSoldier->targeting().retainLastTargetFromTurn() = FALSE;
 		}
 
 		pSoldier->animationActivity().turningCostWaived() = FALSE;
@@ -7637,20 +7633,20 @@ void EVENT_InternalSetSoldierDesiredDirection( SOLDIERTYPE *pSoldier, UINT8	ubNe
 
 	if ( pSoldier->pathing().desiredDirection() != pSoldier->position().direction() )
 	{
-		if ( pSoldier->flags.uiStatusFlags & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( pSoldier ) )
+		if ( pSoldier->status().flags() & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( pSoldier ) )
 		{
-			pSoldier->flags.uiStatusFlags |= SOLDIER_PAUSEANIMOVE;
+			pSoldier->status().flags() |= SOLDIER_PAUSEANIMOVE;
 		}
 	}
 
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		pSoldier->animationActivity().turningIncrement() = (INT8)ExtQuickestDirection( pSoldier->movement().highResolutionDirection(), pSoldier->movement().highResolutionDesiredDirection() );
 	}
 	else
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE )
+		if ( pSoldier->status().flags() & SOLDIER_MULTITILE )
 		{
 			pSoldier->animationActivity().turningIncrement() = (INT8)MultiTiledTurnDirection( pSoldier, pSoldier->position().direction(), pSoldier->pathing().desiredDirection() );
 		}
@@ -7686,7 +7682,7 @@ void SOLDIERTYPE::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	this->HandleAnimationProfile( this->animationPlayback().state(), FALSE );
 
 	// If we are turning, we have chaanged our aim!
-	if ( !this->flags.fDontUnsetLastTargetFromTurn )
+	if ( !this->targeting().retainLastTargetFromTurn() )
 	{
 		this->targeting().lastGridNo() = NOWHERE;
 	}
@@ -7694,7 +7690,7 @@ void SOLDIERTYPE::EVENT_SetSoldierDirection( UINT16	usNewDirection )
 	AdjustForFastTurnAnimation( this );
 
 	// Update structure info!
-	//	 if ( this->flags.uiStatusFlags & SOLDIER_MULTITILE )
+	//	 if ( this->status().flags() & SOLDIER_MULTITILE )
 	{
 		UpdateMercStructureInfo( this );
 	}
@@ -7749,7 +7745,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 	if ( !gTacticalStatus.fAutoBandageMode )
 	{
 		// Blood is not for the weak of heart, or mechanical
-		if ( !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ROBOT)) )
+		if ( !(this->status().flags() & (SOLDIER_VEHICLE | SOLDIER_ROBOT)) )
 		{
 			if ( this->vitals().bleeding() || this->vitals().health() < OKLIFE ) // is he bleeding or dying?
 			{
@@ -7781,7 +7777,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 
 		// sevenfm: increase morale for AI soldiers
 		if (this->ubProfile == NO_PROFILE &&
-			!(this->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+			!(this->status().flags() & SOLDIER_VEHICLE) &&
 			!AM_A_ROBOT(this) &&
 			!ARMED_VEHICLE(this) &&
 			this->suppression().shock() == 0 &&
@@ -7810,11 +7806,11 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 		if ((savedPts = this->aiData.bActionPts) > APBPConstants[MAX_AP_CARRIED])
 		savedPts = APBPConstants[MAX_AP_CARRIED];
 		*/
-		if ( this->flags.uiStatusFlags & SOLDIER_GASSED )
+		if ( this->status().flags() & SOLDIER_GASSED )
 		{
 			// then must get a gas mask or leave the gassed area to get over it
 			if ( DoesSoldierWearGasMask( this ) && this->inv[FindGasMask( this )][0]->data.objectStatus >= GASMASK_MIN_STATUS || !(GetSmokeEffectOnTile( this->position().gridNo(), this->position().level() )) )//dnl ch40 200909
-				this->flags.uiStatusFlags &= (~SOLDIER_GASSED);
+				this->status().flags() &= (~SOLDIER_GASSED);
 		}
 
 		if ( this->perception().ageBlindness() )
@@ -8164,7 +8160,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 	// If we are a vehicle... DON'T TURN!
 	// anv: YES PLIZ DO
-	//if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	//if ( this->status().flags() & SOLDIER_VEHICLE )
 	//{
 	//	if ( this->ubBodyType != TANK_NW && this->ubBodyType != TANK_NE )
 	//	{
@@ -8183,7 +8179,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	// Lesh: patch ended
 
 	// We handle sight now....
-	if ( this->flags.uiStatusFlags & SOLDIER_LOOK_NEXT_TURNSOLDIER )
+	if ( this->status().flags() & SOLDIER_LOOK_NEXT_TURNSOLDIER )
 	{
 		if ( (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY && this->animationPlayback().state() != CLIMBUPROOF && this->animationPlayback().state() != CLIMBDOWNROOF && this->animationPlayback().state() != JUMPUPWALL && this->animationPlayback().state() != JUMPDOWNWALL) )
 		{
@@ -8191,7 +8187,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			HandleSight( this, SIGHT_LOOK | SIGHT_RADIO );
 		}
 		// Turn off!
-		this->flags.uiStatusFlags &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
+		this->status().flags() &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
 
 		HandleSystemNewAISituation( this, FALSE );
 	}
@@ -8295,8 +8291,8 @@ void SOLDIERTYPE::TurnSoldier( void )
 		}
 
 		// Turn off!
-		this->flags.uiStatusFlags &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
-		this->flags.fDontUnsetLastTargetFromTurn = FALSE;
+		this->status().flags() &= (~SOLDIER_LOOK_NEXT_TURNSOLDIER);
+		this->targeting().retainLastTargetFromTurn() = FALSE;
 
 		// Unset ui busy if from ui
 		if ( this->animationIntent().turningFromUi() &&
@@ -8307,9 +8303,9 @@ void SOLDIERTYPE::TurnSoldier( void )
 			this->animationIntent().clearTurningFromUi();
 		}
 
-		if ( this->flags.uiStatusFlags & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( this ) )
+		if ( this->status().flags() & (SOLDIER_VEHICLE) || CREATURE_OR_BLOODCAT( this ) )
 		{
-			this->flags.uiStatusFlags &= (~SOLDIER_PAUSEANIMOVE);
+			this->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
 		}
 
 		FreeUpNPCFromTurning( this, LOOK );
@@ -8342,7 +8338,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			}
 		}
 
-		if ( this->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT )
+		if ( this->status().flags() & SOLDIER_TURNINGFROMHIT )
 		{
 			// This section seems problem-prone.  It relies on all animations happening without interruption.  There must be a more
 			// foolproof method.
@@ -8358,14 +8354,14 @@ void SOLDIERTYPE::TurnSoldier( void )
 				}
 				else
 				{
-					this->flags.uiStatusFlags &= (~SOLDIER_TURNINGFROMHIT);
+					this->status().flags() &= (~SOLDIER_TURNINGFROMHIT);
 					this->animationActivity().clearHit();
 				}
 			}
 			else if ( this->animationActivity().hitPhase() == 2 )
 			{
 				// Turn off
-				this->flags.uiStatusFlags &= (~SOLDIER_TURNINGFROMHIT);
+				this->status().flags() &= (~SOLDIER_TURNINGFROMHIT);
 
 
 				// Release attacker
@@ -8397,7 +8393,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	}
 
 	// Do something different for vehicles....
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( this->status().flags() & SOLDIER_VEHICLE )
 	{
 		fDoDirectionChange = FALSE;
 
@@ -8466,7 +8462,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 	// This is needed for prone animations as well as any multi-tiled structs
 	if ( fDoDirectionChange )
 	{
-		if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( this->status().flags() & SOLDIER_VEHICLE )
 		{
 			// need to turn around passengers inside
 			INT32 iId = this->bVehicleID;
@@ -8500,14 +8496,14 @@ void SOLDIERTYPE::TurnSoldier( void )
 				// ATE: We should only do this if we are STATIONARY!
 				if ( (gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_STATIONARY) )
 				{
-					this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;
+					this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;
 				}
 				// otherwise, it's handled next tile...
 			}
 
 			this->EVENT_SetSoldierDirection( sDirection );
 
-			if ( this->ubBodyType != LARVAE_MONSTER && !this->MercInWater( ) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+			if ( this->ubBodyType != LARVAE_MONSTER && !this->MercInWater( ) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 			{
 				PlaySoldierFootstepSound( this );
 			}
@@ -8520,7 +8516,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 			this->animationActivity().turningFromProneMode() = TURNING_FROM_PRONE_ENDING_UP_FROM_MOVE;
 		}
 		// If we are a creature, or multi-tiled, cancel AI action.....?
-		else if ( this->flags.uiStatusFlags & SOLDIER_MULTITILE )
+		else if ( this->status().flags() & SOLDIER_MULTITILE )
 		{
 			this->pathing().desiredDirection() = this->position().direction();
 		}
@@ -8952,7 +8948,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 		sTerrainDelay = 40;			// standing still
 	}
 
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+	if ( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 	{
 		bBreathDef = 50 - (pStatsSoldier->vitals().breath() / 2);
 
@@ -8966,7 +8962,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	{
 		// anv: vehicles have no agility and making them slower with less fuel would make no sense
 		// instead take gear into consideration here
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->animationPlayback().state() == RUNNING )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE && pSoldier->animationPlayback().state() == RUNNING )
 		{
 			bAgilDef = 10;
 		}
@@ -9812,7 +9808,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 				fEnoughPlace = OkayToAddStructureToWorld( this->position().gridNo(), this->position().level(), &(pStructureFileRef->pDBStructureRef[gOneCDirection[this->position().direction()]]), this->ubID, FALSE, NOBODY );
 		}
 		// vehicles can't cower...
-		else if ( !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+		else if ( !(this->status().flags() & SOLDIER_VEHICLE) )
 		{
 			pStructureFileRef = GetAnimationStructureRef( this->ubID, DetermineSoldierAnimationSurface( this, END_COWER ), END_COWER );
 
@@ -9866,7 +9862,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 				}
 			}
 			// vehicles can't cower...
-			else if ( !(this->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			else if ( !(this->status().flags() & SOLDIER_VEHICLE) )
 			{
 				this->EVENT_InitNewSoldierAnim( END_COWER, 0, FALSE );
 			}
@@ -9874,7 +9870,7 @@ void SOLDIERTYPE::BeginSoldierGetup( void )
 		else
 		{
 			this->collapseState().turns()++;
-			if ( (gTacticalStatus.bBoxingState == BOXING) && (this->flags.uiStatusFlags & SOLDIER_BOXER) )
+			if ( (gTacticalStatus.bBoxingState == BOXING) && (this->status().flags() & SOLDIER_BOXER) )
 			{
 				if ( this->collapseState().turns() > 1 )
 				{
@@ -9947,7 +9943,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 			// THis is for the die animation that will be happening....
 			if ( pSoldier->vitals().health() == 0 )
 			{
-				pSoldier->flags.fDoingExternalDeath = TRUE;
+				pSoldier->animationActivity().externalDeath() = TRUE;
 			}
 
 			// Check if he is dead....
@@ -9962,7 +9958,7 @@ void HandleTakeDamageDeath( SOLDIERTYPE *pSoldier, UINT8 bOldLife, UINT8 ubReaso
 
 		if ( (guiTacticalInterfaceFlags & INTERFACE_MAPSCREEN) || !pSoldier->bInSector )
 		{
-			if ( pSoldier->vitals().health() == 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
+			if ( pSoldier->vitals().health() == 0 && !(pSoldier->status().flags() & SOLDIER_DEAD) )
 			{
 				StrategicHandlePlayerTeamMercDeath( pSoldier );
 
@@ -10108,7 +10104,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	bOldLife = this->vitals().health();
 	
 	// OK, If we are a vehicle.... damage vehicle...( people inside... )
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( this->status().flags() & SOLDIER_VEHICLE )
 	{
 		if ( ubReason == TAKE_DAMAGE_GUNFIRE )
 		{
@@ -10145,12 +10141,12 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 	}
 
 	// ATE: If we are elloit being attacked in a meanwhile...
-	if ( this->flags.uiStatusFlags & SOLDIER_NPC_SHOOTING )
+	if ( this->status().flags() & SOLDIER_NPC_SHOOTING )
 	{
 		// Almost kill but not quite.....
 		sLifeDeduct = (this->vitals().health() - 1);
 		// Turn off
-		this->flags.uiStatusFlags &= (~SOLDIER_NPC_SHOOTING);
+		this->status().flags() &= (~SOLDIER_NPC_SHOOTING);
 	}
 #ifdef JA2UB
 	//Ja25: No meanwhiles
@@ -10178,7 +10174,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		{
 			sReductionFactor = 2;
 		}
-		else if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
+		else if ( this->status().flags() & SOLDIER_MONSTER )
 		{
 			switch ( this->ubBodyType )
 			{
@@ -10564,7 +10560,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		ubBlood = MAXBLOODQUANTITY;
 	}
 
-	if ( !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ROBOT)) )
+	if ( !(this->status().flags() & (SOLDIER_VEHICLE | SOLDIER_ROBOT)) )
 	{
 		if ( ubBlood != 0 )
 		{
@@ -10761,7 +10757,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	// DOUBLECHECK RANGE
 	CHECKF( ubBattleSoundID < NUM_MERC_BATTLE_SOUNDS );
 
-	if ( (this->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+	if ( (this->status().flags() & SOLDIER_VEHICLE) )
 	{
 		// Pick a passenger from vehicle....
 		//pSoldier = PickRandomPassengerFromVehicle( this );
@@ -10784,7 +10780,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 	}
 
 	// Are we mute?
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MUTE )
+	if ( pSoldier->status().flags() & SOLDIER_MUTE )
 	{
 		return(FALSE);
 	}
@@ -12077,7 +12073,7 @@ void AdjustForFastTurnAnimation( SOLDIERTYPE *pSoldier )
 
 	// CHECK FOR FASTTURN ANIMATIONS
 	// ATE: Mod: Only fastturn for OUR guys!
-	if ( gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FASTTURN && pSoldier->bTeam == gbPlayerNum && !(pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT) )
+	if ( gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_FASTTURN && pSoldier->bTeam == gbPlayerNum && !(pSoldier->status().flags() & SOLDIER_TURNINGFROMHIT) )
 	{
 		if ( pSoldier->position().direction() != pSoldier->pathing().desiredDirection() )
 		{
@@ -12292,7 +12288,7 @@ void SOLDIERTYPE::ReviveSoldier( void )
 	if ( this->vitals().health() < OKLIFE  && this->bActive )
 	{
 		// If dead or unconscious, revive!
-		this->flags.uiStatusFlags &= (~SOLDIER_DEAD);
+		this->status().flags() &= (~SOLDIER_DEAD);
 
 		this->vitals().health() = this->vitals().maximumHealth();
 		this->vitals().bleeding() = 0;
@@ -12516,7 +12512,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	{
 		if (this->animationPlayback().state() != CRAWLING && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE)
 			usForceAnimState = CROUCHING;
-		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
 		if (this->animationActivity().turningFromProneMode())
@@ -12533,7 +12529,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 	// DETERMINE ANIMATION TO PLAY
 	// LATER BASED ON IF TAREGT KNOWS OF US, STANCE, ETC
 	// GET POINTER TO TAREGT
-	if ( this->flags.uiStatusFlags & SOLDIER_MONSTER )
+	if ( this->status().flags() & SOLDIER_MONSTER )
 	{
 		// Is there an unconscious guy at gridno......
 		SoldierID ubTargetID = WhoIsThere2( sGridNo, this->targeting().level() );
@@ -12642,7 +12638,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginBladeAttack( INT32 sGridNo, UINT8 ubDirectio
 					// IF WE ARE SEEN, MAKE SURE GUY TURNS!
 					// Get direction to target
 					// IF WE ARE AN ANIMAL, CAR, MONSTER, DONT'T TURN
-					if ( !(pTSoldier->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
+					if ( !(pTSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
 					{
 						// OK, stop merc....
 						pTSoldier->EVENT_StopMerc( pTSoldier->position().gridNo(), pTSoldier->position().direction() );
@@ -12781,7 +12777,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 		//dnl ch73 290913
 		if ( this->animationPlayback().state() != CRAWLING && gAnimControl[this->animationPlayback().state()].ubEndHeight == ANIM_PRONE )
 			usForceAnimState = CROUCHING;
-		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
 		if ( this->animationActivity().turningFromProneMode() )
@@ -13001,7 +12997,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 				{
 					// Get direction to target
 					// IF WE ARE AN ANIMAL, CAR, MONSTER, DONT'T TURN
-					if ( !(pTSoldier->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
+					if ( !(pTSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE)) )
 					{
 						// OK, stop merc....
 						pTSoldier->EVENT_StopMerc( pTSoldier->position().gridNo(), pTSoldier->position().direction() );
@@ -13083,11 +13079,11 @@ void SOLDIERTYPE::EVENT_SoldierBeginKnifeThrowAttack( INT32 sGridNo, UINT8 ubDir
 		usForceAnimState = this->animationIntent().pendingAnimation();
 	else
 		usForceAnimState = INVALID_ANIMATION;
-	this->flags.fDontUnsetLastTargetFromTurn = TRUE;
+	this->targeting().retainLastTargetFromTurn() = TRUE;
 	// CHANGE DIRECTION AND GOTO ANIMATION NOW
 	if (this->position().direction() != ubDirection)
 	{
-		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
 	}
@@ -13248,7 +13244,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginFirstAid( INT32 sGridNo, UINT8 ubDirection )
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -13998,7 +13994,7 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 			// OK - this is hightly annoying , but due to the huge combinations of
 			// things that can happen - 1 of them is that sLastTarget will get unset
 			// after turn is done - so set flag here to tell it not to...
-			this->flags.fDontUnsetLastTargetFromTurn = TRUE;
+			this->targeting().retainLastTargetFromTurn() = TRUE;
 
 			DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something" ) );
 			DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something\n" );
@@ -14450,7 +14446,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 
 	//}
 
-	if ( this->vitals().breath() == 0 && !this->collapseState().tactical() && !(this->flags.uiStatusFlags & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
+	if ( this->vitals().breath() == 0 && !this->collapseState().tactical() && !(this->status().flags() & (SOLDIER_VEHICLE | SOLDIER_ANIMAL | SOLDIER_MONSTER)) )
 	{
 		if ( !this->service().hasProviders() ) // added by SANDRO (we don't want to collapse when on surgery)
 		{
@@ -14476,7 +14472,7 @@ BOOLEAN SOLDIERTYPE::InternalIsValidStance( INT8 bDirection, INT8 bNewStance )
 	// Check, if dest is prone, we can actually do this!
 
 	// If we are a vehicle, we can only 'stand'
-	if ( (this->flags.uiStatusFlags & SOLDIER_VEHICLE) && bNewStance != ANIM_STAND )
+	if ( (this->status().flags() & SOLDIER_VEHICLE) && bNewStance != ANIM_STAND )
 	{
 		return(FALSE);
 	}
@@ -14807,7 +14803,7 @@ BOOLEAN	SOLDIERTYPE::IsWeaponMounted( void )
 		return TRUE;
 
 	// anv: passengers who can shoot can rest their guns
-	if ( this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
+	if ( this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
 	{
 		if ( !gNewVehicle[pVehicleList[this->deployment().vehicleId()].ubVehicleType].VehicleSeats[GetSeatIndexFromSoldier( this )].fBlockedShots )
 			return(TRUE);
@@ -14863,7 +14859,7 @@ BOOLEAN	SOLDIERTYPE::IsWeaponMounted( void )
 					}
 
 					// anv: vehicles don't mind
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 					{
 						applybipod = TRUE;
 					}
@@ -14942,7 +14938,7 @@ BOOLEAN	SOLDIERTYPE::IsWeaponMounted( void )
 					}
 
 					// anv: vehicles don't mind
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 					{
 						applybipod = TRUE;
 					}
@@ -15418,7 +15414,7 @@ BOOLEAN		SOLDIERTYPE::IsFeedingExternal( SoldierID * pubId1, UINT16* pGunSlot1, 
 
 	// for robots and AI-controlled soldiers (who don't have any LBE gear), we put a change in here so that ALL their slots are checked for ammo
 	if ( this->bTeam != gbPlayerNum ||
-		(this->flags.uiStatusFlags & SOLDIER_ROBOT) )
+		(this->status().flags() & SOLDIER_ROBOT) )
 	{
 		firstslotforammo = HANDPOS;
 		lastslotforammo = NUM_INV_SLOTS;
@@ -19551,8 +19547,8 @@ BOOLEAN		SOLDIERTYPE::AIDoctorSelf( )
 // Flugente: boxing fix: this shall be the only location where the boxing flag gets removed (easier debugging)
 void	SOLDIERTYPE::DeleteBoxingFlag( )
 {
-	if ( flags.uiStatusFlags & SOLDIER_BOXER )
-		flags.uiStatusFlags &= (~SOLDIER_BOXER);
+	if ( status().flags() & SOLDIER_BOXER )
+		status().flags() &= (~SOLDIER_BOXER);
 }
 
 // Flugente: disease
@@ -19563,7 +19559,7 @@ void	SOLDIERTYPE::Infect( UINT8 aDisease )
 		return;
 
 	// diseases should not affect machines
-	if ( (this->flags.uiStatusFlags & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
+	if ( (this->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
 		return;
 
 	// do not infect us if we are already infected
@@ -19611,7 +19607,7 @@ void	SOLDIERTYPE::AddDiseasePoints( UINT8 aDisease, INT32 aVal )
 		return;
 
 	// diseases should not affect machines
-	if ( (this->flags.uiStatusFlags & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
+	if ( (this->status().flags() & SOLDIER_VEHICLE) || AM_A_ROBOT( this ) )
 		return;
 
 	if ( aDisease < NUM_DISEASES )
@@ -19761,7 +19757,7 @@ void SOLDIERTYPE::PrintDiseaseDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 		return;
 
 	// only for living mercs with a profile with a valid infection method
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE || this->ubProfile == NO_PROFILE )
+	if ( this->status().flags() & SOLDIER_VEHICLE || this->ubProfile == NO_PROFILE )
 		return;
 
 	BOOLEAN fShowExactPoints = FALSE;
@@ -19928,7 +19924,7 @@ void SOLDIERTYPE::PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 		return;
 
 	// only for living mercs with a profile
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE || this->ubProfile == NO_PROFILE )
+	if ( this->status().flags() & SOLDIER_VEHICLE || this->ubProfile == NO_PROFILE )
 		return;
 	
 	CHAR16	atStr[500];
@@ -20029,7 +20025,7 @@ void SOLDIERTYPE::PrintFoodDesc( CHAR16* apStr, BOOLEAN fFullDesc )
 void SOLDIERTYPE::PrintSleepDesc( CHAR16* apStr )
 {
 	// only for people
-	if ( this->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( this->status().flags() & SOLDIER_VEHICLE )
 		return;
 
 	CHAR16	atStr[100];
@@ -20316,7 +20312,7 @@ BOOLEAN	SOLDIERTYPE::IsCrouchedAgainstCoverFromDir( UINT8 aDirection )
 		return FALSE;
 
 	// not in a car...
-	if ( this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
+	if ( this->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER) )
 		return FALSE;
 
 	// we test whether we are crouched against cover in a specific direction, so determine the gridno to test
@@ -20376,7 +20372,7 @@ BOOLEAN SOLDIERTYPE::HasItem(UINT16 usItem)
 // AI-only: heal self. Do NOT, repeat, NOT use this with mercs!
 BOOLEAN		SOLDIERTYPE::SelfDetonate( )
 {
-	if ( !(this->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
+	if ( !(this->status().flags() & SOLDIER_UNDERAICONTROL) )
 		return FALSE;
 
 	for ( size_t bLoop = 0, invsize = inv.size(); bLoop < invsize; ++bLoop )
@@ -21294,7 +21290,7 @@ BOOLEAN		SOLDIERTYPE::IsValidBloodDonor()
 		return FALSE;
 
 	// mustn't be mechanical unit
-	if (AM_A_ROBOT(this) || this->flags.uiStatusFlags & SOLDIER_VEHICLE)
+	if (AM_A_ROBOT(this) || this->status().flags() & SOLDIER_VEHICLE)
 		return FALSE;
 
 	// not if wounded
@@ -22077,7 +22073,7 @@ void SoldierCollapse( SOLDIERTYPE *pSoldier )
 		break;
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY )
+	if ( pSoldier->status().flags() & SOLDIER_ENEMY )
 	{
 		if ( gTacticalStatus.ubTheChosenOne == pSoldier->ubID )
 		{
@@ -22090,7 +22086,7 @@ void SoldierCollapse( SOLDIERTYPE *pSoldier )
 			}
 		}
 
-		if ( IsJa2TacticalTurnBasedCombat() && (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
+		if ( IsJa2TacticalTurnBasedCombat() && (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
 		{
 #ifdef TESTAICONTROL
 			DebugAI( String( "Ending turn for %d because of error from HandleItem", pSoldier->ubID ) );
@@ -22270,7 +22266,7 @@ void SOLDIERTYPE::PositionSoldierLight( void )
 void SOLDIERTYPE::SetCheckSoldierLightFlag( )
 {
 	this->PositionSoldierLight( );
-	//this->flags.uiStatusFlags |= SOLDIER_RECHECKLIGHT;
+	//this->status().flags() |= SOLDIER_RECHECKLIGHT;
 }
 
 
@@ -22296,7 +22292,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 				pSoldier->EVENT_InitNewSoldierAnim( ADJACENT_GET_ITEM, 0, FALSE );
 		}
 
-		if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+		if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 		{
 			// set "pending action" value for AI so it will wait
 			pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
@@ -22312,7 +22308,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 			HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
 			pSoldier->pendingAction().clearAction();
 			pSoldier->SoldierGotoStationaryStance( );
-			if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+			if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 			{
 				// reset action value for AI because we're done!
 				ActionDone( pSoldier );
@@ -22373,7 +22369,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 					pSoldier->EVENT_InitNewSoldierAnim( PICKUP_ITEM, 0, FALSE );
 				}
 
-				if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+				if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 				{
 					// set "pending action" value for AI so it will wait
 					pSoldier->aiData.bAction = AI_ACTION_PENDING_ACTION;
@@ -22387,7 +22383,7 @@ void PickPickupAnimation( SOLDIERTYPE *pSoldier, INT32 iItemIndex, INT32 sGridNo
 				HandleSoldierPickupItem( pSoldier, iItemIndex, sGridNo, bZLevel );
 				pSoldier->pendingAction().clearAction();
 				pSoldier->SoldierGotoStationaryStance( );
-				if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+				if ( !(pSoldier->status().flags() & SOLDIER_PC) )
 				{
 					// reset action value for AI because we're done!
 					ActionDone( pSoldier );
@@ -22428,7 +22424,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginCutFence( INT32 sGridNo, UINT8 ubDirection )
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -22460,7 +22456,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginRepair( INT32 sGridNo, UINT8 ubDirection )
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -22505,7 +22501,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginRefuel( INT32 sGridNo, UINT8 ubDirection )
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -22532,7 +22528,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginTakeBlood( INT32 sGridNo, UINT8 ubDirection 
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -22621,7 +22617,7 @@ void SOLDIERTYPE::EVENT_SoldierBuildStructure( INT32 sGridNo, UINT8 ubDirection 
 	// CHANGE DIRECTION AND GOTO ANIMATION NOW
 	if (this->position().direction() != ubDirection)
 	{
-		this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+		this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 		this->EVENT_SetSoldierDesiredDirection(ubDirection);
 		this->EVENT_SetSoldierDirection(ubDirection);
 	}
@@ -22708,7 +22704,7 @@ void SOLDIERTYPE::EVENT_SoldierHandcuffPerson( INT32 sGridNo, UINT8 ubDirection 
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -23098,12 +23094,12 @@ void SOLDIERTYPE::EVENT_SoldierBeginReloadRobot( INT32 sGridNo, UINT8 ubDirectio
 		GetJa2SoldierRepository().resolve(
 			ubPerson );
 
-	if ( robot != nullptr && robot->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( robot != nullptr && robot->status().flags() & SOLDIER_ROBOT )
 	{
 		// CHANGE DIRECTION AND GOTO ANIMATION NOW
 		if (this->position().direction() != ubDirection)
 		{
-			this->flags.uiStatusFlags |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
+			this->status().flags() |= SOLDIER_LOOK_NEXT_TURNSOLDIER;//shadooow: fix for vision not updating
 			this->EVENT_SetSoldierDesiredDirection(ubDirection);
 			this->EVENT_SetSoldierDirection(ubDirection);
 		}
@@ -23230,22 +23226,22 @@ void SOLDIERTYPE::SetSoldierCowerState( BOOLEAN fOn )
 	// OK< set flag and do anim...
 	if ( fOn )
 	{
-		if ( !(this->flags.uiStatusFlags & SOLDIER_COWERING) )
+		if ( !(this->status().flags() & SOLDIER_COWERING) )
 		{
 			this->EVENT_InitNewSoldierAnim( START_COWER, 0, FALSE );
 
-			this->flags.uiStatusFlags |= SOLDIER_COWERING;
+			this->status().flags() |= SOLDIER_COWERING;
 
 			this->animationIntent().desiredHeight() = ANIM_CROUCH;
 		}
 	}
 	else
 	{
-		if ( (this->flags.uiStatusFlags & SOLDIER_COWERING) || (gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_STAND) )
+		if ( (this->status().flags() & SOLDIER_COWERING) || (gAnimControl[this->animationPlayback().state()].ubEndHeight != ANIM_STAND) )
 		{
 			this->EVENT_InitNewSoldierAnim( END_COWER, 0, FALSE );
 
-			this->flags.uiStatusFlags &= (~SOLDIER_COWERING);
+			this->status().flags() &= (~SOLDIER_COWERING);
 
 			this->animationIntent().desiredHeight() = ANIM_STAND;
 		}
@@ -23687,7 +23683,7 @@ BOOLEAN SOLDIERTYPE::IsValidPistolFastShot( INT16 bAimTime, INT32 iTrgGridNo )
 }
 BOOLEAN SOLDIERTYPE::CanRobotBeControlled( void )
 {
-	if ( !(this->flags.uiStatusFlags & SOLDIER_ROBOT) )
+	if ( !(this->status().flags() & SOLDIER_ROBOT) )
 	{
 		return(FALSE);
 	}
@@ -23857,7 +23853,7 @@ void SOLDIERTYPE::UpdateRobotControllerGivenController( void )
 		pTeamSoldier =
 			GetJa2SoldierRepository().resolve(
 				cnt );
-		if ( pTeamSoldier != nullptr && pTeamSoldier->bActive && (pTeamSoldier->flags.uiStatusFlags & SOLDIER_ROBOT) )
+		if ( pTeamSoldier != nullptr && pTeamSoldier->bActive && (pTeamSoldier->status().flags() & SOLDIER_ROBOT) )
 		{
 			pTeamSoldier->ubRobotRemoteHolderID = this->ubID;
 		}
@@ -23915,7 +23911,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 			pSoldier->schedule().cancelDoorContinuation();
 
 			// if this guy isn't under direct AI control, WHO GIVES A FLYING FLICK?
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )
+			if ( pSoldier->status().flags() & SOLDIER_UNDERAICONTROL )
 			{
 				if ( pSoldier->animationActivity().turningToShoot() )
 				{
@@ -23924,7 +23920,7 @@ void HandleSystemNewAISituation( SOLDIERTYPE *pSoldier, BOOLEAN fResetABC )
 					// OK - this is hightly annoying , but due to the huge combinations of
 					// things that can happen - 1 of them is that sLastTarget will get unset
 					// after turn is done - so set flag here to tell it not to...
-					pSoldier->flags.fDontUnsetLastTargetFromTurn = TRUE;
+					pSoldier->targeting().retainLastTargetFromTurn() = TRUE;
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something: DONE IN SYSTEM NEW SITUATION" ) );
 					DebugAttackBusy( "@@@@@@@ Reducing attacker busy count..., ending fire because saw something: DONE IN SYSTEM NEW SITUATION\n" );
 					FreeUpAttacker( );
@@ -23957,14 +23953,14 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 	UINT8					ubRandomMax = 4;
 
 	// Determine if we are on the floor
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+	if ( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 	{
 		if ( pSoldier->animationPlayback().state() == HOPFENCE || pSoldier->animationPlayback().state() == JUMPWINDOWS )
 		{
 			bVolume = HIGHVOLUME;
 		}
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+		if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 		{
 			PlaySoldierJA2Sample( pSoldier->ubID, ROBOT_BEEP, RATE_11025, SoundVolume( bVolume, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 			return;
@@ -24104,14 +24100,14 @@ void DebugValidateSoldierData( )
 
 			// OK, first check for alive people
 			// Don't do this check if we are a vehicle...
-			if ( pSoldier->vitals().health() > 0 && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if ( pSoldier->vitals().health() > 0 && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				// Alive -- now check for proper group IDs
 				if ( deployment.groupId() == 0 &&
 					!SPY_LOCATION( pSoldier->assignment().current() ) &&
 					pSoldier->assignment().current() != IN_TRANSIT &&
 					pSoldier->assignment().current() != ASSIGNMENT_POW &&
-					!(pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+					!(pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 				{
 					// This is bad!
 					swprintf( sString, L"Soldier Data Error: Soldier %d is alive but has a zero group ID.", cnt.i );
@@ -24126,7 +24122,7 @@ void DebugValidateSoldierData( )
 			}
 			//else
 			{
-				//if ( pSoldier->deployment().groupId() != 0 && (pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) )
+				//if ( pSoldier->deployment().groupId() != 0 && (pSoldier->status().flags() & SOLDIER_DEAD) )
 				{
 					// Dead guys should have 0 group IDs
 					//swprintf( sString, L"GroupID Error: Soldier %d is dead but has a non-zero group ID.", cnt );
@@ -24200,11 +24196,11 @@ void SOLDIERTYPE::SetSoldierAsUnderAiControl( void )
 				cnt );
 		if ( pSoldier != nullptr && pSoldier->bActive )
 		{
-			pSoldier->flags.uiStatusFlags &= ~SOLDIER_UNDERAICONTROL;
+			pSoldier->status().flags() &= ~SOLDIER_UNDERAICONTROL;
 		}
 	}
 
-	this->flags.uiStatusFlags |= SOLDIER_UNDERAICONTROL;
+	this->status().flags() |= SOLDIER_UNDERAICONTROL;
 }
 
 void HandlePlayerTogglingLightEffects( BOOLEAN fToggleValue )
@@ -25076,7 +25072,7 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			}
 
 			// adjust for getting aid, being in gas or being in shock
-			if ( pInterrupter->flags.uiStatusFlags & SOLDIER_GASSED )
+			if ( pInterrupter->status().flags() & SOLDIER_GASSED )
 				uiReactionTime = (uiReactionTime * (100 + AIM_PENALTY_GASSED) / 100);
 
 			if ( pInterrupter->service().hasProviders() )
@@ -25201,9 +25197,9 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			// remove AI control from the interrupted guy just in case may not be neccessary, but it's harmless anyway
 			if ( (GetJa2TacticalCurrentTeam() != pSoldier->bTeam) && !(gTacticalStatus.Team[GetJa2TacticalCurrentTeam()].bHuman) )
 			{
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )
+				if ( pSoldier->status().flags() & SOLDIER_UNDERAICONTROL )
 				{
-					pSoldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
+					pSoldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
 				}
 			}
 			// reset 
@@ -25285,7 +25281,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 	}
 
 	// if it is player controlled merc
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+	if ( pSoldier->status().flags() & SOLDIER_PC )
 	{
 		// are we in combat?
 		if ( IsJa2TacticalCombatActive() )
@@ -26407,7 +26403,7 @@ void SOLDIERTYPE::StopCoweringAnimation(void)
 	}
 
 	// remove AI cowering flag
-	this->flags.uiStatusFlags &= ~SOLDIER_COWERING;
+	this->status().flags() &= ~SOLDIER_COWERING;
 }
 
 BOOLEAN	SOLDIERTYPE::IsGivingAid(void)

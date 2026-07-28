@@ -1685,7 +1685,7 @@ UINT32 UIHandleMOnTerrain( UI_EVENT *pUIEvent )
 	// If we are a passenger or driver just show ?
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )
 	{
-		if ( ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER )) )
+		if ( ( pSoldier->status().flags() & ( SOLDIER_PASSENGER )) )
 		{
 			if ( !UIHandleOnMerc( TRUE ) )
 			{
@@ -1693,7 +1693,7 @@ UINT32 UIHandleMOnTerrain( UI_EVENT *pUIEvent )
 				return( GAME_SCREEN );
 			}
 		}
-		else if ( pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER ) )
+		else if ( pSoldier->status().flags() & (SOLDIER_DRIVER ) )
 		{
 			pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 			fVehicleDriver = TRUE;
@@ -2128,7 +2128,7 @@ UINT32 UIHandleCWait( UI_EVENT *pUIEvent )
 
 	if ( GetSoldier( &pSoldier, gusSelectedSoldier )	)
 	{
-		if( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
+		if( pSoldier->status().flags() & SOLDIER_DRIVER )
 		{
 			pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		}
@@ -2229,7 +2229,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				if ( OK_CONTROLLABLE_MERC( pSoldier ) && pSoldier->assignment().current() == CurrentSquad( ) && !pSoldier->assignment().isAsleep() )
 				{
 					// If we can't be controlled, returninvalid...
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+					if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 					{
 						if ( !pSoldier->CanRobotBeControlled( ) )
 						{
@@ -2290,7 +2290,7 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 			if ( GetSoldier( &pSoldier, gusSelectedSoldier )	)
 			{
 				// anv: if we selected vehicle driver, move his vehicle
-				if ( pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER ) )
+				if ( pSoldier->status().flags() & (SOLDIER_DRIVER ) )
 				{
 					pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 					// anv: if shift is pressed, treat is as ram + move - flag has to be set for later add structure checks
@@ -2308,15 +2308,15 @@ UINT32 UIHandleCMoveMerc( UI_EVENT *pUIEvent )
 				if((UsingNewInventorySystem() == true))
 				{
 					// CHRISL: If we're in combat and zipper is active, don't allow movement
-					if((IsJa2TacticalCombatActive()) && pSoldier->flags.ZipperFlag)
+					if((IsJa2TacticalCombatActive()) && pSoldier->inventoryState().zipperFlag())
 					{
 						ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, NewInvMessage[NIV_ZIPPER_NO_MOVE] );
 						return( GAME_SCREEN );
 					}
 					// CHRISL: If we're not in combat but the zipper is active and we're moving, deactivate the zipper
-					if(!(IsJa2TacticalCombatActive()) && pSoldier->flags.ZipperFlag)
+					if(!(IsJa2TacticalCombatActive()) && pSoldier->inventoryState().zipperFlag())
 					{
-						pSoldier->flags.ZipperFlag=FALSE;
+						pSoldier->inventoryState().zipperFlag()=FALSE;
 						RenderBackpackButtons(ACTIVATE_BUTTON);
 					}
 				}
@@ -3848,7 +3848,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 							{
 								return FALSE;
 							}
-							if( pSelectedSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+							if( pSelectedSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 							{
 								SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSelectedSoldier->deployment().vehicleId() );
 								INT8 bSeatIndex = GetSeatIndexFromSoldier( pSelectedSoldier );
@@ -3884,7 +3884,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 		}
 		else
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				return( FALSE );
 			}
@@ -3949,7 +3949,7 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		return;
 	}
 
-	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
 		pSoldier = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 	}
@@ -3961,11 +3961,11 @@ void UIHandleSoldierStanceChange( SoldierID ubSoldierID, INT8	bNewStance )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, gzLateLocalizedString[ 4 ], pSoldier->GetName() );
 		}
-		else if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		else if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ VEHICLES_NO_STANCE_CHANGE_STR ] );
 		}
-		else if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+		else if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ ROBOT_NO_STANCE_CHANGE_STR ] );
 		}
@@ -5129,7 +5129,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 		pTSoldier = fullTarget;
 
 		// If we are a vehicle...
-		if ( ( pTSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT ) ) )
+		if ( ( pTSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_ROBOT ) ) )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, TacticalStr[ CANNOT_DO_FIRST_AID_STR ], pTSoldier->GetName() );
 			return( FALSE );
@@ -5213,42 +5213,42 @@ BOOLEAN SoldierCanAffordNewStance( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance 
 	{
 	case ANIM_STAND - ANIM_CROUCH:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 1;
 		bAP += GetAPsCrouch(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH];
 		break;
 	case ANIM_CROUCH - ANIM_STAND:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsCrouch(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH];
 		break;
 	case ANIM_STAND - ANIM_PRONE:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsCrouch(pSoldier, FALSE) + GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH] + APBPConstants[BP_PRONE];
 		break;
 	case ANIM_PRONE - ANIM_STAND:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 4;
 		bAP += GetAPsCrouch(pSoldier, FALSE) + GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_CROUCH] + APBPConstants[BP_PRONE];
 		break;
 	case ANIM_CROUCH - ANIM_PRONE:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 1;
 		bAP += GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_PRONE];
 		break;
 	case ANIM_PRONE - ANIM_CROUCH:
 		if((UsingNewInventorySystem() == true))
-			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+			if(pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 				bAP = bBP = 2;
 		bAP += GetAPsProne(pSoldier, FALSE);
 		bBP += APBPConstants[BP_PRONE];
@@ -5390,7 +5390,7 @@ void SetConfirmMovementModeCursor( SOLDIERTYPE *pSoldier, BOOLEAN fFromMove )
 		}
 		else
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				guiNewUICursor = CONFIRM_MOVE_VEHICLE_UICURSOR;
 			}
@@ -5545,7 +5545,7 @@ BOOLEAN MakeSoldierTurn( SOLDIERTYPE *pSoldier, INT16 sXPos, INT16 sYPos )
 	INT32							iBPCpst = 0;
 
 	// Make sure the merc is not collapsed!
-	if (!(IsValidStance(pSoldier, ANIM_CROUCH) || IsValidStance(pSoldier, ANIM_STAND)) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
+	if (!(IsValidStance(pSoldier, ANIM_CROUCH) || IsValidStance(pSoldier, ANIM_STAND)) && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER )))
 	{
 		if ( pSoldier->collapseState().tactical() && pSoldier->vitals().breath() < OKBREATH )
 		{
@@ -5691,7 +5691,7 @@ UINT32 UIHandleLCLook( UI_EVENT *pUIEvent )
 			}
 			if ( pSoldier->bActive && pSoldier->bInSector )
 			{
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+				if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 				{
 					MakeSoldierTurn( pSoldier, sXPos, sYPos );
 				}
@@ -6023,7 +6023,7 @@ void EndMultiSoldierSelection( BOOLEAN fAcknowledge )
 		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
 				gTacticalStatus.fAtLeastOneGuyOnMultiSelect = TRUE;
 
@@ -6081,7 +6081,7 @@ BOOLEAN StopRubberBandedMercFromMoving(void)
 		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
 				if (!(gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_STATIONARY))
 				{
@@ -6133,7 +6133,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
 				if ( pSoldier->ubID == gusSelectedSoldier )
 				{
@@ -6161,7 +6161,7 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
 				// update lowest and highest x and y values
 				lowestX  = min(lowestX,  pSoldier->position().gridNo() % MAXCOL );
@@ -6186,10 +6186,10 @@ BOOLEAN HandleMultiSelectionMove( INT32 sDestGridNo )
 		}
 		if ( pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
 				// If we can't be controlled, returninvalid...
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+				if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 				{
 					if ( !pSoldier->CanRobotBeControlled( ) )
 					{
@@ -6273,9 +6273,9 @@ void ResetMultiSelection( )
 			GetJa2SoldierRepository().resolve(cnt.i);
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+			if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 			{
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+				pSoldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 			}
 		}
 	}
@@ -6328,7 +6328,7 @@ UINT32 UIHandleRubberBandOnTerrain( UI_EVENT *pUIEvent )
 			continue;
 		}
 		// Check if this guy is OK to control....
-		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
+		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 		{
 			// Get screen pos of gridno......
 			GetGridNoScreenXY( pSoldier->position().gridNo(), &sScreenX, &sScreenY );
@@ -6361,11 +6361,11 @@ UINT32 UIHandleRubberBandOnTerrain( UI_EVENT *pUIEvent )
 			continue;
 		}
 		// Check if this guy is OK to control....
-		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
+		if ( OK_CONTROLLABLE_MERC( pSoldier ) && !( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 		{
 			if ( !_KeyDown( ALT ) )
 			{
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+				pSoldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 			}
 
 			// Get screen pos of gridno......
@@ -6380,7 +6380,7 @@ UINT32 UIHandleRubberBandOnTerrain( UI_EVENT *pUIEvent )
 			if ( IsPointInScreenRect( sScreenX, sScreenY, &aRect ) )
 			{
 				// Adjust this guy's flag...
-				pSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+				pSoldier->status().flags() |= SOLDIER_MULTI_SELECTED;
 			}
 		}
 	}
@@ -6594,7 +6594,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 		return( FALSE );
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return( FALSE );
 	}
@@ -6632,7 +6632,7 @@ BOOLEAN IsValidTalkableNPC( SoldierID ubSoldierID, BOOLEAN fGive, BOOLEAN fAllow
 	}
 
 	// Alright, let's do something special here for robot...
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( fValidGuy == TRUE && !fGive )
 		{
@@ -6974,7 +6974,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 	gfBeginVehicleCursor = FALSE;
 
 	// If we are a passenger or driver just show an ?
-	if ( ( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER )) )
+	if ( ( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_DRIVER | SOLDIER_PASSENGER )) )
 	{
 		// unless we are over our own vehicle, then we can call vehicle menu
 		if( gfUIFullTargetFound )
@@ -7004,7 +7004,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 		}
 
 		// anv: added condition - make sure we won't put vehicle in another vehicle
-		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
+		if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE ) ) )
 		//if ( OK_ENTERABLE_VEHICLE( pTSoldier ) && pTSoldier->awareness().visibility() != -1 )
 		{
 			// grab number of occupants in vehicles
@@ -7419,7 +7419,7 @@ BOOLEAN ValidQuickExchangePosition( )
 		if ( ( pOverSoldier->bTeam != gbPlayerNum && pOverSoldier->aiData.bNeutral ) || (pOverSoldier->bTeam == MILITIA_TEAM && pOverSoldier->bSide == 0 ) )
 		{
 			// hehe - don't allow animals to exchange places
-			if ( !( pOverSoldier->flags.uiStatusFlags & ( SOLDIER_ANIMAL ) ) )
+			if ( !( pOverSoldier->status().flags() & ( SOLDIER_ANIMAL ) ) )
 			{
 				// OK, we have a civ , now check if they are near selected guy.....
 				if ( GetSoldier( &pSoldier, gusSelectedSoldier ) )

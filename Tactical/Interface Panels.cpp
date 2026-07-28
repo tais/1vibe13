@@ -664,7 +664,7 @@ void CheckForDisabledForGiveItem( )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) )
 			{
 				sDist = PythSpacesAway( currentMerc->position().gridNo(), pSoldier->position().gridNo() );
 
@@ -959,12 +959,12 @@ void UpdateSMPanel( )
 	CheckForReEvaluateDisabledINVPanelButtons( );
 
 	// Check for any newly added items we need.....
-	if ( GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems )
+	if ( GetSMCurrentMerc()->inventoryState().checkForNewItems() )
 	{
 		// Startup any newly added items....
 		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
 
-		GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems = FALSE;
+		GetSMCurrentMerc()->inventoryState().checkForNewItems() = FALSE;
 	}
 
 
@@ -995,7 +995,7 @@ void UpdateSMPanel( )
 
 
 	// Toggle MUTE button...
-	if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_MUTE )
+	if ( GetSMCurrentMerc()->status().flags() & SOLDIER_MUTE )
 	{
 		if ( !ButtonList[ iSMPanelButtons[ MUTE_BUTTON ] ]->ubToggleButtonActivated )
 		{
@@ -1244,21 +1244,21 @@ void RenderBackpackButtons(int bpAction)
 				RemoveButton( giSMDropPackButton );
 			if(giSMDropPackImages != -1)
 				UnloadButtonImage( giSMDropPackImages );
-			GetSMCurrentMerc()->flags.DropPackFlag = FALSE;
+			GetSMCurrentMerc()->inventoryState().dropPackFlag() = FALSE;
 			if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == FALSE)
 			{
 				for(unsigned int wi = 0; wi < guiNumWorldItems; wi++)
 				{
 					if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->ubID && gWorldItems[wi].object.exists() == true)
 					{
-						GetSMCurrentMerc()->flags.DropPackFlag = TRUE;
+						GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
 						break;
 					}
 				}
 			}
-			giSMZipperImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbZipperButPos[ GetSMCurrentMerc()->flags.ZipperFlag ][0],-1,gbZipperButPos[ GetSMCurrentMerc()->flags.ZipperFlag ][1],-1 );
-			giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbDropPackButPos[ GetSMCurrentMerc()->flags.DropPackFlag ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->flags.DropPackFlag ][1],-1 );
-			//giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,gbDropPackButPos[ GetSMCurrentMerc()->flags.DropPackFlag ][0] ,gbDropPackButPos[ GetSMCurrentMerc()->flags.DropPackFlag ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->flags.DropPackFlag ][1],-1 );
+			giSMZipperImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbZipperButPos[ GetSMCurrentMerc()->inventoryState().zipperFlag() ][0],-1,gbZipperButPos[ GetSMCurrentMerc()->inventoryState().zipperFlag() ][1],-1 );
+			giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,-1 ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][1],-1 );
+			//giSMDropPackImages	= UseLoadedButtonImage( iSMPanelImages[ BACKPACK_IMAGES  ] ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0] ,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][0],-1,gbDropPackButPos[ GetSMCurrentMerc()->inventoryState().dropPackFlag() ][1],-1 );
 
 			giSMZipperButton	= QuickCreateButton( giSMZipperImages, SM_ZIPPER_X, SM_ZIPPER_Y,
 													BUTTON_TOGGLE, MSYS_PRIORITY_HIGH - 1,
@@ -3042,12 +3042,12 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 		// UPdate stats!
 		if ( GetSMCurrentMerc()->vitals().health() != 0 )
 		{
-		if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( GetSMCurrentMerc()->status().flags() & SOLDIER_VEHICLE )
 		{
 			swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth(), GetSMCurrentMerc()->vitals().breath(), GetSMCurrentMerc()->vitals().maximumBreath() );
 			SetRegionFastHelpText( &(gSM_SELMERCBarsRegion), pStr );
 		}
-		else if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_ROBOT )
+		else if ( GetSMCurrentMerc()->status().flags() & SOLDIER_ROBOT )
 		{
 			swprintf( pStr, gzLateLocalizedString[ 16 ], GetSMCurrentMerc()->vitals().health(), GetSMCurrentMerc()->vitals().maximumHealth() );
 			SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
@@ -3160,7 +3160,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			SetRegionHelpEndCallback( &gSM_SELMERCBarsRegion, SkiHelpTextDoneCallBack );
 
 		// display AP
-		if ( !( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_DEAD ) )
+		if ( !( GetSMCurrentMerc()->status().flags() & SOLDIER_DEAD ) )
 		{
 			if ( IsJa2TacticalTurnBasedCombat() && GetSMCurrentMerc()->vitals().health() >= OKLIFE )
 			{
@@ -3201,7 +3201,7 @@ void RenderSMPanel( BOOLEAN *pfDirty )
 			// Display bars
 			DrawLifeUIBarEx( GetSMCurrentMerc(), SM_SELMERC_HEALTH_X, SM_SELMERC_HEALTH_Y, SM_SELMERC_HEALTH_WIDTH, SM_SELMERC_HEALTH_HEIGHT, TRUE , FRAME_BUFFER );
 
-		if ( !(GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+		if ( !(GetSMCurrentMerc()->status().flags() & SOLDIER_ROBOT ) )
 		{
 			DrawBreathUIBarEx( GetSMCurrentMerc(), SM_SELMERC_BREATH_X, SM_SELMERC_BREATH_Y, SM_SELMERC_HEALTH_WIDTH, SM_SELMERC_HEALTH_HEIGHT, TRUE, FRAME_BUFFER );
 			DrawMoraleUIBarEx( GetSMCurrentMerc(), SM_SELMERC_MORALE_X, SM_SELMERC_MORALE_Y, SM_SELMERC_MORALE_WIDTH, SM_SELMERC_MORALE_HEIGHT, TRUE, FRAME_BUFFER );
@@ -3722,7 +3722,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	//else if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP && fLeftDown )
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->flags.ZipperFlag) || (GetSMCurrentMerc()->flags.ZipperFlag && gAnimControl[GetSMCurrentMerc()->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(GetSMCurrentMerc()->inventoryState().zipperFlag()) || (GetSMCurrentMerc()->inventoryState().zipperFlag() && gAnimControl[GetSMCurrentMerc()->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN )
 	{
@@ -3760,7 +3760,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 				if(uiHandPos == BPACKPOCKPOS)
 				{
 					// Deal with the zipper before we do anything
-					if(GetSMCurrentMerc()->flags.ZipperFlag)
+					if(GetSMCurrentMerc()->inventoryState().zipperFlag())
 						if(!ChangeZipperStatus(GetSMCurrentMerc(), FALSE))
 							return;
 					// Do we still have a linked backpack?  If so, reset droppackflag
@@ -3768,7 +3768,7 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					{
 						if(gWorldItems[wi].soldierID == GetSMCurrentMerc()->ubID && gWorldItems[wi].object.exists() == true)
 						{
-							GetSMCurrentMerc()->flags.DropPackFlag = TRUE;
+							GetSMCurrentMerc()->inventoryState().dropPackFlag() = TRUE;
 							break;
 						}
 					}
@@ -3980,11 +3980,11 @@ void SMInvClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if(uiHandPos == BPACKPOCKPOS && CanItemFitInPosition(GetSMCurrentMerc(), gpItemPointer, uiHandPos, FALSE))
 					{
 						// First, deal with the zipper
-						if(GetSMCurrentMerc()->flags.ZipperFlag)
+						if(GetSMCurrentMerc()->inventoryState().zipperFlag())
 							if(!ChangeZipperStatus(GetSMCurrentMerc(), FALSE))
 								return;
-						if(GetSMCurrentMerc()->flags.DropPackFlag)
-							GetSMCurrentMerc()->flags.DropPackFlag = FALSE;
+						if(GetSMCurrentMerc()->inventoryState().dropPackFlag())
+							GetSMCurrentMerc()->inventoryState().dropPackFlag() = FALSE;
 						RenderBackpackButtons(ACTIVATE_BUTTON);	/* CHRISL: Needed for new inventory backpack buttons */
 					}
 				}
@@ -4197,13 +4197,13 @@ BOOLEAN  ChangeZipperStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 			bNewStance = ANIM_CROUCH;
 			UIHandleSoldierStanceChange( pSoldier->ubID, bNewStance );
 		}
-		pSoldier->flags.ZipperFlag = newStatus;
+		pSoldier->inventoryState().zipperFlag() = newStatus;
 		gfUIStanceDifferent = TRUE;
 	}
 	// Closing a pack?
 	else
 	{
-		pSoldier->flags.ZipperFlag = newStatus;
+		pSoldier->inventoryState().zipperFlag() = newStatus;
 		gfUIStanceDifferent = TRUE;
 	}
 	fCharacterInfoPanelDirty = TRUE;
@@ -4220,7 +4220,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 	INT32	worldKey=1, iRange=0;
 
 	// Are we dropping a pack that has the zipper open?
-	if(newStatus && pSoldier->flags.ZipperFlag)
+	if(newStatus && pSoldier->inventoryState().zipperFlag())
 	{
 		sAPCost = 0;
 		if(!ChangeZipperStatus(pSoldier, FALSE))
@@ -4295,7 +4295,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 		{
 			NotifySoldiersToLookforItems( );
 			DeleteObj(&pSoldier->inv[BPACKPOCKPOS]);
-			pSoldier->flags.DropPackFlag = newStatus;
+			pSoldier->inventoryState().dropPackFlag() = newStatus;
 			gfUIStanceDifferent = TRUE;
 		}
 	}
@@ -4320,7 +4320,7 @@ BOOLEAN ChangeDropPackStatus(SOLDIERTYPE *pSoldier, BOOLEAN newStatus)
 							if(AutoPlaceObject(pSoldier, &(gWorldItems[wi].object ), TRUE ))
 							{
 								RemoveItemFromPool(gWorldItems[wi].sGridNo, wi, gWorldItems[wi].ubLevel);
-								pSoldier->flags.DropPackFlag = newStatus;
+								pSoldier->inventoryState().dropPackFlag() = newStatus;
 								gfUIStanceDifferent = TRUE;
 								return TRUE;
 							}
@@ -4512,7 +4512,7 @@ void SelectedMercEnemyIndicatorCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		// ATE: Don't if this guy can't....
 		if ( !gfSMDisableForItems )
 		{
-			//if ( GetSMCurrentMerc()->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			//if ( GetSMCurrentMerc()->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			//{
 			//}
 			//else
@@ -4595,15 +4595,15 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 				{
 					continue;
 				}
-				/* Is DropPackFlag currently false and is there something in the backpack pocket?  If so, we haven't
+				/* Is drop-pack state currently false and is there something in the backpack pocket?  If so, we haven't
 				dropped a pack yet and apparently want to*/
-				if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.DropPackFlag)
+				if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().dropPackFlag())
 				{
 					ChangeDropPackStatus(pSoldier, TRUE);
 				}
-				/* Is DropPackFlag currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
+				/* Is drop-pack state currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
 				must want to retreive a backpack we previously dropped.*/
-				else if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == false && pSoldier->flags.DropPackFlag)
+				else if(pSoldier->assignment().current() == bAssignment && pSoldier->inv[BPACKPOCKPOS].exists() == false && pSoldier->inventoryState().dropPackFlag())
 				{
 					ChangeDropPackStatus(pSoldier, FALSE);
 				}
@@ -4611,15 +4611,15 @@ void BtnDropPackCallback(GUI_BUTTON *btn,INT32 reason)
 		}
 		else
 		{
-			/* Is DropPackFlag currently false and is there something in the backpack pocket?  If so, we haven't
+			/* Is drop-pack state currently false and is there something in the backpack pocket?  If so, we haven't
 			dropped a pack yet and apparently want to*/
-			if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->flags.DropPackFlag)
+			if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventoryState().dropPackFlag())
 			{
 				ChangeDropPackStatus(GetSMCurrentMerc(), TRUE);
 			}
-			/* Is DropPackFlag currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
+			/* Is drop-pack state currently true, is nothing in the backpack pocket and have we dropped a pack?  If so, we
 			must want to retreive a backpack we previously dropped.*/
-			else if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == false && GetSMCurrentMerc()->flags.DropPackFlag)
+			else if(GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == false && GetSMCurrentMerc()->inventoryState().dropPackFlag())
 			{
 				ChangeDropPackStatus(GetSMCurrentMerc(), FALSE);
 			}
@@ -4644,12 +4644,12 @@ void BtnZipperCallback(GUI_BUTTON *btn,INT32 reason)
 	{
 		btn->uiFlags &= (~BUTTON_CLICKED_ON );
 		//Are we in combat, do we have a backpack on and is the pack closed? Open it
-		if((IsJa2TacticalCombatActive()) && GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->flags.ZipperFlag)
+		if((IsJa2TacticalCombatActive()) && GetSMCurrentMerc()->inv[BPACKPOCKPOS].exists() == true && !GetSMCurrentMerc()->inventoryState().zipperFlag())
 		{
 			ChangeZipperStatus(GetSMCurrentMerc(), TRUE);
 		}
 		//Is the pack open?
-		else if(GetSMCurrentMerc()->flags.ZipperFlag)
+		else if(GetSMCurrentMerc()->inventoryState().zipperFlag())
 		{
 			ChangeZipperStatus(GetSMCurrentMerc(), FALSE);
 		}
@@ -4875,15 +4875,15 @@ void BtnMuteCallback(GUI_BUTTON *btn,INT32 reason)
 
 	if (reason & MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		if ( GetSMCurrentMerc()->flags.uiStatusFlags & SOLDIER_MUTE )
+		if ( GetSMCurrentMerc()->status().flags() & SOLDIER_MUTE )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_OFF_STR ], GetSMCurrentMerc()->name );
-			GetSMCurrentMerc()->flags.uiStatusFlags &= ( ~SOLDIER_MUTE );
+			GetSMCurrentMerc()->status().flags() &= ( ~SOLDIER_MUTE );
 		}
 		else
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[ MUTE_ON_STR ], GetSMCurrentMerc()->name );
-			GetSMCurrentMerc()->flags.uiStatusFlags |= ( SOLDIER_MUTE );
+			GetSMCurrentMerc()->status().flags() |= ( SOLDIER_MUTE );
 		}
 	}
 
@@ -5532,7 +5532,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 					continue;
 				}
 
-				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
+				if ( pSoldier->status().flags() & ( SOLDIER_DRIVER ) )
 				{
 					// Get soldier pointer for vehicle.....
 					SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
@@ -5554,7 +5554,7 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				}
 
 				// Add text for seonc hand popup
-				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+				if ( pSoldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 				{
 					//OK, for each item, set dirty text if applicable!
 					SetRegionFastHelpText( &(gTEAM_SecondHandInv[ cnt ]), TacticalStr[ EXIT_VEHICLE_POPUPTEXT ] );
@@ -5658,12 +5658,12 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 				{
 					if ( pSoldier->vitals().health() != 0 )
 					{
-						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							 swprintf( pStr, TacticalStr[ VEHICLE_VITAL_STATS_POPUPTEXT ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth(), pSoldier->vitals().breath(), pSoldier->vitals().maximumBreath() );
 							 SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
 						}
-						else if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+						else if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 						{
 							 swprintf( pStr, gzLateLocalizedString[ 16 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 							 SetRegionFastHelpText( &(gTEAM_BarsRegions[ cnt ]), pStr );
@@ -5780,11 +5780,11 @@ void RenderTEAMPanel( BOOLEAN fDirty )
 					}
 				}
 
-				if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+				if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 				{
 					DrawLifeUIBarEx( pSoldier, sTEAMLifeXY[ posIndex ], sTEAMLifeXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, TRUE, FRAME_BUFFER );
 
-					if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+					if ( !( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 					{
 							DrawBreathUIBarEx( pSoldier, sTEAMBreathXY[ posIndex ], sTEAMBreathXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, TRUE, FRAME_BUFFER );
 							DrawMoraleUIBarEx( pSoldier, sTEAMMoraleXY[ posIndex ], sTEAMMoraleXY[ posIndex + 1 ], TM_LIFEBAR_WIDTH, TM_LIFEBAR_HEIGHT, TRUE, FRAME_BUFFER );
@@ -6219,7 +6219,7 @@ void EnemyIndicatorClickCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_DWN)
 	{
-		//if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+		//if ( ubSoldierID->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 		//{
 		//}
 		//else
@@ -6294,8 +6294,8 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	{
 		if ( !gfInItemPickupMenu && gpItemPointer == NULL )
 		{
-			//if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
-			//if ( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER ) )
+			//if ( ubSoldierID->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			//if ( ubSoldierID->status().flags() & ( SOLDIER_DRIVER ) )
 			//{
 			//	pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 
@@ -6317,9 +6317,9 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 						// HEADROCK HAM 3.5: Shift-Click a merc's face will add him to the current selection.
 						if (!(IsJa2TacticalCombatActive()) && _KeyDown( SHIFT ) )
 						{
-							if ( ! (soldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
+							if ( ! (soldier->status().flags() & SOLDIER_MULTI_SELECTED ) )
 							{
-								if ( OK_CONTROLLABLE_MERC( soldier ) && !( soldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
+								if ( OK_CONTROLLABLE_MERC( soldier ) && !( soldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_PASSENGER | SOLDIER_DRIVER ) ) )
 								{
 									//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s added", ubSoldierID->name );
 									SOLDIERTYPE* selectedSoldier =
@@ -6327,9 +6327,9 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 											gusSelectedSoldier.i);
 									if (selectedSoldier)
 									{
-										selectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+										selectedSoldier->status().flags() |= SOLDIER_MULTI_SELECTED;
 									}
-									soldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+									soldier->status().flags() |= SOLDIER_MULTI_SELECTED;
 									EndMultiSoldierSelection( TRUE );
 								}
 							}
@@ -6337,7 +6337,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 							else
 							{
 								//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"%s removed", ubSoldierID->name );
-								soldier->flags.uiStatusFlags &= (~SOLDIER_MULTI_SELECTED );
+								soldier->status().flags() &= (~SOLDIER_MULTI_SELECTED );
 								if (ubSoldierID != gusSelectedSoldier)
 								{
 									SOLDIERTYPE* selectedSoldier =
@@ -6345,7 +6345,7 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 											gusSelectedSoldier.i);
 									if (selectedSoldier)
 									{
-										selectedSoldier->flags.uiStatusFlags |= SOLDIER_MULTI_SELECTED;
+										selectedSoldier->status().flags() |= SOLDIER_MULTI_SELECTED;
 									}
 								}
 								EndMultiSoldierSelection( TRUE );
@@ -6370,8 +6370,8 @@ void MercFacePanelCallback( MOUSE_REGION * pRegion, INT32 iReason )
 		if ( !InOverheadMap( ) )
 		{
 			// Only if guy is not dead!
-			//if ( !( ubSoldierID->flags.uiStatusFlags & SOLDIER_DEAD ) && !AM_AN_EPC( ubSoldierID ) && !( ubSoldierID->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
-			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) && !AM_AN_EPC( soldier ) )
+			//if ( !( ubSoldierID->status().flags() & SOLDIER_DEAD ) && !AM_AN_EPC( ubSoldierID ) && !( ubSoldierID->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+			if ( !( soldier->status().flags() & SOLDIER_DEAD ) && !AM_AN_EPC( soldier ) )
 			{
 				gfSwitchPanel = TRUE;
 				gbNewPanel = SM_PANEL;
@@ -6498,7 +6498,7 @@ void HandleLocateSelectMerc( SoldierID ubID, INT8 bFlag	)
 		if ( fSelect )
 		{
 			// Select merc, only if alive!
-			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+			if ( !( soldier->status().flags() & SOLDIER_DEAD ) )
 			{
 				InternalSelectSoldier( ubID, TRUE, FALSE, TRUE );
 			}
@@ -6601,7 +6601,7 @@ void HandlePanelFaceAnimations( SOLDIERTYPE *pSoldier )
 		return;
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// Don't do this for a vehice.
 		return;
@@ -6766,9 +6766,9 @@ void HandleSoldierFaceFlash( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY )
 
 void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPanelNum, BOOLEAN fDirty )
 {
-	if ( pSoldier->bActive && !(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( pSoldier->bActive && !(pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER )
+		if ( pSoldier->status().flags() & SOLDIER_DRIVER )
 		{			
 			INVRenderSteeringWheel( guiSAVEBUFFER, guiVEHINV, pSoldier, sX, sY, TM_INV_WIDTH, TM_INV_HEIGHT, fDirty );
 		}
@@ -6778,7 +6778,7 @@ void RenderSoldierTeamInv( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY, UINT8 ubPa
 			INVRenderItem( guiSAVEBUFFER, pSoldier, &(pSoldier->inv[ HANDPOS ]), sX, sY, TM_INV_WIDTH, TM_INV_HEIGHT, fDirty, &(gfTEAM_HandInvDispText[ ubPanelNum ][ HANDPOS ] ), 0 , FALSE, 0);
 		}
 
-		if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+		if ( pSoldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 		{
 			BltVideoObjectFromIndex( guiSAVEBUFFER, guiVEHINV, 1, sX, (INT16)(sY + TM_INV_HAND_SEPY), VO_BLT_SRCTRANSPARENCY, NULL );
 			RestoreExternBackgroundRect( sX, (INT16)(sY + TM_INV_HAND_SEPY), (INT16)(TM_INV_WIDTH ) , (INT16)( TM_INV_HEIGHT ) );
@@ -6870,7 +6870,7 @@ void TMClickFirstHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 	if (iReason == MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
 		// anv: select vehicle by clicking on the steering wheel
-		//if ( ubSoldierID->flags.uiStatusFlags & SOLDIER_DRIVER )
+		//if ( ubSoldierID->status().flags() & SOLDIER_DRIVER )
 		//{
 		//	SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( ubSoldierID->deployment().vehicleId() );
 		//	HandleLocateSelectMerc( pVehicle->ubID, 0 );
@@ -6919,7 +6919,7 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason == MSYS_CALLBACK_REASON_LBUTTON_UP )
 	{
-		if ( soldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+		if ( soldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 		{
 			ExitVehicle( soldier );
 		}
@@ -6931,7 +6931,7 @@ void TMClickSecondHandInvCallback( MOUSE_REGION * pRegion, INT32 iReason )
 
 	if (iReason == MSYS_CALLBACK_REASON_RBUTTON_UP )
 	{
-		if ( soldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+		if ( soldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 		{
 		}
 		else
@@ -7016,12 +7016,12 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 	}
 
 	// If we are a vehicle don't ever add.....
-	if ( soldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( soldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
 
-	if ( !( soldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+	if ( !( soldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 	{
 		if ( !PlayerExistsInSlot( ubID ) )
 		{
@@ -7050,7 +7050,7 @@ void AddPlayerToInterfaceTeamSlot( SoldierID ubID )
 	else
 	{
 		// anv: for passengers, position on team panel will be linked with seat in vehicle
-		if ( soldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+		if ( soldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 		{
 			SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( soldier->deployment().vehicleId() );
 			if( pVehicle != NULL )
@@ -7137,7 +7137,7 @@ BOOLEAN RemovePlayerFromInterfaceTeamSlot( UINT8 ubPanelSlot )
 			gTeamPanel[ ubPanelSlot ].ubID.i);
 		if (soldier)
 		{
-			if ( !( soldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+			if ( !( soldier->status().flags() & SOLDIER_DEAD ) )
 			{
 				// Set Id to close
 				soldier->uiPresentation().queueCloseMercUi();
@@ -7215,7 +7215,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 					}
 
 					// ARE WE A VEHICLE.....
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 					{
 						AddPassangersToTeamPanel( pSoldier->bVehicleID );
 					}

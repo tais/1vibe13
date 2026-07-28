@@ -848,7 +848,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	//SetButtonSavedRect( iActionIcons[ RUN_ICON ] );
 	ButtonList[ iActionIcons[ RUN_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->MercInWater( ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+	if ( pSoldier->MercInWater( ) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		DisableButton( iActionIcons[ RUN_ICON ] );
 	}
@@ -863,7 +863,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 	//SetButtonSavedRect( iActionIcons[ WALK_ICON ] );
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if (pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		SetButtonFastHelpText( iActionIcons[ WALK_ICON ], TacticalStr[ DRIVE_POPUPTEXT ] );
 	}
@@ -874,7 +874,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 
 	ButtonList[ iActionIcons[ WALK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{
@@ -932,12 +932,12 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	//SetButtonSavedRect( iActionIcons[ LOOK_ICON ] );
 	ButtonList[ iActionIcons[ LOOK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		DisableButton( iActionIcons[ LOOK_ICON ]	);
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{
@@ -945,7 +945,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 		}
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// Until we get mounted weapons...
 		uiActionImages = CANCEL_IMAGES;
@@ -1016,7 +1016,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	}
 
 	// anv: don't switch if passengers are blocked from attacking
-	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
 		SOLDIERTYPE *pVehicle = GetSoldierStructureForVehicle( pSoldier->deployment().vehicleId() );
 		INT8 bSeatIndex = GetSeatIndexFromSoldier( pSoldier );
@@ -1056,7 +1056,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	SetButtonFastHelpText( iActionIcons[ TALK_ICON ], pTacticalPopupButtonStrings[ TALK_ICON ] );
 	ButtonList[ iActionIcons[ TALK_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		DisableButton( iActionIcons[ TALK_ICON ]	);
 	}
@@ -1074,7 +1074,7 @@ void PopupMovementMenu( UI_EVENT *pUIEvent )
 	SetButtonFastHelpText( iActionIcons[ HAND_ICON ], pTacticalPopupButtonStrings[ HAND_ICON ] );
 	ButtonList[ iActionIcons[ HAND_ICON ] ]->UserData[0] = (uintptr_t)pUIEvent;
 
-	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		DisableButton( iActionIcons[ HAND_ICON ]	);
 	}
@@ -1551,7 +1551,7 @@ void GetSoldierAboveGuyPositions(SOLDIERTYPE *pSoldier, INT16 *psX, INT16 *psY, 
 	}
 
 	// anv: passengers sit, but we want to display their names above vehicle
-	if (pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
+	if (pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
 	{
 		sStanceOffset = 0;
 	}
@@ -1719,7 +1719,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			{
 				// Render the beastie
 				// anv: if soldier is in vehicle, draw above middle of the vehicle
-				if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+				if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 				{
 					GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, TRUE );
 				}
@@ -1785,7 +1785,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		{
 			// Render the beastie
 			// anv: if soldier is in vehicle, draw above middle of the vehicle
-			if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+			if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 			{
 				GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, TRUE );
 			}
@@ -1832,7 +1832,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		//{
 
 		//}
-		else if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+		else if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 		{
 
 		}
@@ -1856,13 +1856,13 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	}
 
 	// Do not show if we are dead
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		return;
 	}
 	
 	// anv: if soldier is in vehicle, draw above middle of the vehicle
-	if( !(pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+	if( !(pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 	{
 		GetSoldierAboveGuyPositions( pSoldier, &sXPos, &sYPos, FALSE );
 	}
@@ -1886,7 +1886,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 	// sevenfm: improved UI
 	if( gGameExternalOptions.fImprovedTacticalUI )
 	{
-		if( pSoldier->flags.uiStatusFlags & SOLDIER_PC &&
+		if( pSoldier->status().flags() & SOLDIER_PC &&
 			pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 		{
 			SetRGBFontForeground( 220, 220, 0 );
@@ -1913,7 +1913,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 	}
 
-	if ( pSoldier->ubProfile != NO_PROFILE || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->ubProfile != NO_PROFILE || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		if ( gfUIMouseOnValidCatcher == 1 && pSoldier->ubID == gubUIValidCatcherID )
 		{
@@ -1957,7 +1957,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			mprintf( sX, sY, NameStr );
 			fRaiseName = TRUE;
 		}
-		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->assignment().current() < ON_DUTY && pSoldier->assignment().current() != CurrentSquad() && !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED ) )
+		else if ( pSoldier->bTeam == gbPlayerNum &&	pSoldier->assignment().current() < ON_DUTY && pSoldier->assignment().current() != CurrentSquad() && !( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED ) )
 		{
 			if ( gGameExternalOptions.fUseXMLSquadNames && pSoldier->assignment().current() < gSquadNameVector.size() )
 				sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gSquadNameVector[pSoldier->assignment().current()].c_str() );
@@ -1971,7 +1971,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		}
 
 		// If not in a squad....
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
 			{
@@ -2019,7 +2019,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		if ( gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_AIM ||
 			gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_MERC ||
 			gMercProfiles[pSoldier->ubProfile].Type == PROFILETYPE_IMP 
-			|| RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			|| RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( gGameExternalOptions.ubShowHealthBarsOnHead )
 			{
@@ -2092,7 +2092,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			}
 		}
 		else // ( pSoldier->ubProfile < FIRST_RPC || pSoldier->ubProfile >= GASTON ||
-		{	// RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		{	// RPC_RECRUITED( pSoldier ) || AM_AN_EPC( pSoldier ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			if ( gfUIMouseOnValidCatcher == 2 && pSoldier->ubID == gubUIValidCatcherID )
 			{
 				SetFont( TINYFONT1 );
@@ -2211,7 +2211,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		if (gGameSettings.fOptions[TOPTION_ALLOW_SOLDIER_TOOLTIPS])
 			SoldierTooltip(pSoldier);
 	}
-	else //pSoldier->ubProfile != NO_PROFILE || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else //pSoldier->ubProfile != NO_PROFILE || ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// show (roof) text
 		if ( pSoldier->position().level() != 0 )

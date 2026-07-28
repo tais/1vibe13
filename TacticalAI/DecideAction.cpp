@@ -725,7 +725,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 
 	if ( gTacticalStatus.bBoxingState != NOT_BOXING )
 	{
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_BOXER)
+		if (pSoldier->status().flags() & SOLDIER_BOXER)
 		{
 			if ( gTacticalStatus.bBoxingState == PRE_BOXING )
 			{
@@ -773,8 +773,8 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 									continue;
 								}
 
-								if (pTeamSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL)
-									pTeamSoldier->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+								if (pTeamSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL)
+									pTeamSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 
 								pTeamSoldier->DeleteBoxingFlag( );
 							}
@@ -834,7 +834,7 @@ INT8 DecideActionGreen(SOLDIERTYPE *pSoldier)
 	{
 		// special stuff for civs
 
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_COWERING)
+		if (pSoldier->status().flags() & SOLDIER_COWERING)
 		{
 			// everything's peaceful again, stop cowering!!
 			pSoldier->aiData.usActionData = ANIM_STAND;
@@ -1589,7 +1589,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 
 	if (fCivilian || (gGameExternalOptions.fAllNamedNpcsDecideAction && pSoldier->ubProfile != NO_PROFILE))
 	{
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_COWERING)
+		if (pSoldier->status().flags() & SOLDIER_COWERING)
 		{
 			// everything's peaceful again, stop cowering!!
 			pSoldier->aiData.usActionData = ANIM_STAND;
@@ -1986,7 +1986,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 		INT16 currDir = GetDirectionFromGridNo ( sFlankGridNo, pSoldier );
 		INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
 		pSoldier->aiPlanning().advanceFlank();
-		if ( pSoldier->flags.lastFlankLeft )
+		if ( pSoldier->aiPlanning().lastFlankLeft() )
 		{
 			if ( origDir > currDir )
 				origDir -= NUM_WORLD_DIRECTIONS;
@@ -2044,7 +2044,7 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 	bool isNamedCiv = (pSoldier->ubProfile != NO_PROFILE);
 	bool isEldin = (pSoldier->ubProfile == ELDIN);//logically flipped from the original, isNotEldin == false is confusing
 	// For purpose of seeking noise, cowardly civs are neutral, even if attacked by your thugs
-	bool isNeutral = pSoldier->aiData.bNeutral || pSoldier->flags.uiStatusFlags & SOLDIER_COWERING; 
+	bool isNeutral = pSoldier->aiData.bNeutral || pSoldier->status().flags() & SOLDIER_COWERING;
 	if (
 		(onCivTeam == false) || //true #1
 		(onCivTeam == true && isNamedCiv == true && isNeutral == false) || //true #2
@@ -2198,9 +2198,9 @@ INT8 DecideActionYellow(SOLDIERTYPE *pSoldier)
 						else
 						{
 							if ( action == AI_ACTION_FLANK_LEFT )
-								pSoldier->flags.lastFlankLeft = TRUE;
+								pSoldier->aiPlanning().lastFlankLeft() = TRUE;
 							else
-								pSoldier->flags.lastFlankLeft = FALSE;
+								pSoldier->aiPlanning().lastFlankLeft() = FALSE;
 
 							pSoldier->aiPlanning().recordFlankStep(
 								sNoiseGridNo,
@@ -2671,13 +2671,13 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		}
 	}
 
-	//if (fCivilian && !(pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && gTacticalStatus.bBoxingState == NOT_BOXING)
-	if (fCivilian && !(pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+	//if (fCivilian && !(pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV || pSoldier->status().flags() & SOLDIER_VEHICLE) && gTacticalStatus.bBoxingState == NOT_BOXING)
+	if (fCivilian && !(pSoldier->ubBodyType == COW || pSoldier->ubBodyType == CRIPPLECIV || pSoldier->status().flags() & SOLDIER_VEHICLE))
 	{
 		if (FindAIUsableObjClass(pSoldier, IC_WEAPON) == NO_SLOT)
 		{
 			// cower in fear!!
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+			if ( pSoldier->status().flags() & SOLDIER_COWERING )
 			{
 				if ( gfTurnBasedAI || gTacticalStatus.fEnemyInSector ) // battle!
 				{
@@ -2749,7 +2749,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 		!bInGas && 
 		pSoldier->CheckInitialAP() &&
 		!pSoldier->IsFlanking() &&
-		!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && 
+		!(pSoldier->status().flags() & SOLDIER_BOXER) &&
 		(CanNPCAttack(pSoldier) == TRUE))
 	{
 		BestThrow.ubPossible = FALSE;    // by default, assume Throwing isn't possible
@@ -3705,7 +3705,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 
 	// sevenfm: no Main Red AI for civilians
 	if ( (gGameExternalOptions.fEnemyTanksCanMoveInTactical || !ARMED_VEHICLE( pSoldier )) && 
-		!(pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) &&
+		!(pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) &&
 		!fCivilian)
 	{
 		DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"decideactionred: main red ai");
@@ -3753,7 +3753,7 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 			INT16 currDir = GetDirectionFromGridNo ( sFlankGridNo, pSoldier );
 			INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
 			pSoldier->aiPlanning().advanceFlank();
-			if ( pSoldier->flags.lastFlankLeft )
+			if ( pSoldier->aiPlanning().lastFlankLeft() )
 			{
 				if ( origDir > currDir )
 					origDir -= NUM_WORLD_DIRECTIONS;
@@ -4182,9 +4182,9 @@ INT8 DecideActionRed(SOLDIERTYPE *pSoldier)
 								else
 								{
 									if ( action == AI_ACTION_FLANK_LEFT )
-										pSoldier->flags.lastFlankLeft = TRUE;
+										pSoldier->aiPlanning().lastFlankLeft() = TRUE;
 									else
-										pSoldier->flags.lastFlankLeft = FALSE;
+										pSoldier->aiPlanning().lastFlankLeft() = FALSE;
 
 									pSoldier->aiPlanning().recordFlankStep(
 										sClosestDisturbance,
@@ -4975,7 +4975,7 @@ INT16 ubMinAPCost;
 	// can this guy move to any of the neighbouring squares ? (sets TRUE/FALSE)
 	ubCanMove = (pSoldier->actionPoints().current() >= MinPtsToMove(pSoldier));
 
-	if( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+	if( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 	{
 		ubCanMove = 0;
 	}
@@ -5042,7 +5042,7 @@ INT16 ubMinAPCost;
 		}
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER )
+	if ( pSoldier->status().flags() & SOLDIER_BOXER )
 	{
 		if ( gTacticalStatus.bBoxingState == PRE_BOXING )
 		{
@@ -5221,7 +5221,7 @@ INT16 ubMinAPCost;
 	{
 		bCanAttack = FALSE;
 	}
-	else if (pSoldier->flags.uiStatusFlags & SOLDIER_BOXER)
+	else if (pSoldier->status().flags() & SOLDIER_BOXER)
 	{
 		bCanAttack = TRUE;
 		fTryPunching = TRUE;
@@ -5235,10 +5235,10 @@ INT16 ubMinAPCost;
 			{
 				if (fCivilian)
 				{
-					if ( ( bCanAttack == NOSHOOT_NOWEAPON) && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && pSoldier->ubBodyType != COW && pSoldier->ubBodyType != CRIPPLECIV && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+					if ( ( bCanAttack == NOSHOOT_NOWEAPON) && !(pSoldier->status().flags() & SOLDIER_BOXER) && pSoldier->ubBodyType != COW && pSoldier->ubBodyType != CRIPPLECIV && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 					{
 						// cower in fear!!
-						if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+						if ( pSoldier->status().flags() & SOLDIER_COWERING )
 						{
 							if ( pSoldier->aiData.bLastAction == AI_ACTION_COWER )
 							{
@@ -5593,7 +5593,7 @@ INT16 ubMinAPCost;
 
 		// if the soldier does have a usable knife somewhere
 		// 0verhaul:  And is not a tank!
-		if ( bWeaponIn != NO_SLOT && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) && !(pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		if ( bWeaponIn != NO_SLOT && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) && !(pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			DebugMsg (TOPIC_JA2,DBG_LEVEL_3,"try to stab");
 			BestStab.bWeaponIn = bWeaponIn;
@@ -5688,7 +5688,7 @@ INT16 ubMinAPCost;
 		}
 		/////////////////////////////////////////////////////////////////////////////////////////////////////
 		// SANDRO - even if we don't have any blade, calculate how much damage we could do unarmed
-		else if ( !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) && !(pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+		else if ( !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) && !(pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 		{
 			bWeaponIn = FindAIUsableObjClass( pSoldier, IC_PUNCH );
 			if (bWeaponIn == NO_SLOT) // if no punch-type weapon found, just calculate it with empty hands
@@ -5716,7 +5716,7 @@ INT16 ubMinAPCost;
 
 					if (BestStab.ubPossible)
 					{
-						if (!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER))
+						if (!(pSoldier->status().flags() & SOLDIER_BOXER))
 						{
 							// if we have not enough APs to deal at least two or three punches, 
 							// reduce the attack value as one punch ain't much
@@ -5819,7 +5819,7 @@ INT16 ubMinAPCost;
 
 		// cautious boxer approach, reserve AP for two attacks (only if not attacking from the back)
 		if (BestStab.ubPossible &&
-			(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+			(pSoldier->status().flags() & SOLDIER_BOXER) &&
 			SpacesAway(pSoldier->position().gridNo(), BestStab.sTarget) > 2 &&
 			bestStabOpponent &&
 			AIDirection(pSoldier->position().gridNo(), bestStabOpponent->position().gridNo()) != bestStabOpponent->position().direction() &&
@@ -5835,7 +5835,7 @@ INT16 ubMinAPCost;
 
 		// try to avoid frontal attack
 		if (BestStab.ubPossible &&
-			(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+			(pSoldier->status().flags() & SOLDIER_BOXER) &&
 			SpacesAway(pSoldier->position().gridNo(), BestStab.sTarget) > 1 &&
 			bestStabOpponent &&
 			gAnimControl[bestStabOpponent->animationPlayback().state()].ubEndHeight == ANIM_STAND &&
@@ -6189,7 +6189,7 @@ INT16 ubMinAPCost;
 	{
 		// okay, really got to wonder about this... could taking cover be an option?
 		if (ubCanMove && pSoldier->aiData.bOrders != STATIONARY && !gfHiddenInterrupt &&
-			!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+			!(pSoldier->status().flags() & SOLDIER_BOXER) )
 		{
 			// make militia a bit more cautious
 			// 3 (UINT16) CONVERSIONS HERE TO AVOID ERRORS.  GOTTHARD 7/15/08
@@ -6228,7 +6228,7 @@ INT16 ubMinAPCost;
 	if ( (ubCanMove && !SkipCoverCheck && !gfHiddenInterrupt &&
 		((ubBestAttackAction == AI_ACTION_NONE) || pSoldier->aiData.bLastAttackHit) &&
 		(pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.fAIFlags & AI_RTP_OPTION_CAN_SEEK_COVER) &&
-		!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+		!(pSoldier->status().flags() & SOLDIER_BOXER) )
 		|| fAllowCoverCheck )
 	{
 		// sevenfm: if not found yet
@@ -6888,7 +6888,7 @@ L_NEWAIM:
 
 	DebugAI(AI_MSG_TOPIC, pSoldier, String("[Make boxer close if possible]"));
 	// try to make boxer close if possible
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_BOXER )
+	if (pSoldier->status().flags() & SOLDIER_BOXER )
 	{
 		DebugAI(AI_MSG_TOPIC, pSoldier, String("[Make boxer close if possible]"));
 
@@ -7347,7 +7347,7 @@ void DecideAlertStatus( SOLDIERTYPE *pSoldier )
 
 	// save the man's previous status
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
+	if (pSoldier->status().flags() & SOLDIER_MONSTER)
 	{
 		CreatureDecideAlertStatus( pSoldier );
 		return;
@@ -7356,7 +7356,7 @@ void DecideAlertStatus( SOLDIERTYPE *pSoldier )
 	bOldStatus = pSoldier->aiData.bAlertStatus;
 
 	// determine the current alert status for this category of man
-	//if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+	//if (!(pSoldier->status().flags() & SOLDIER_PC))
 	{
 		if (pSoldier->aiData.bOppCnt > 0)        // opponent(s) in sight
 		{
@@ -8083,7 +8083,7 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 		INT16 currDir = GetDirectionFromGridNo( sFlankGridNo, pSoldier );
 		INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
 		pSoldier->aiPlanning().advanceFlank();
-		if ( pSoldier->flags.lastFlankLeft )
+		if ( pSoldier->aiPlanning().lastFlankLeft() )
 		{
 			if ( origDir > currDir )
 				origDir -= NUM_WORLD_DIRECTIONS;
@@ -8230,9 +8230,9 @@ INT8 ArmedVehicleDecideActionYellow( SOLDIERTYPE *pSoldier )
 					else
 					{
 						if ( action == AI_ACTION_FLANK_LEFT )
-							pSoldier->flags.lastFlankLeft = TRUE;
+							pSoldier->aiPlanning().lastFlankLeft() = TRUE;
 						else
-							pSoldier->flags.lastFlankLeft = FALSE;
+							pSoldier->aiPlanning().lastFlankLeft() = FALSE;
 
 						pSoldier->aiPlanning().recordFlankStep(
 							sNoiseGridNo,
@@ -8836,7 +8836,7 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 			INT16 currDir = GetDirectionFromGridNo( sFlankGridNo, pSoldier );
 			INT16 origDir = pSoldier->aiPlanning().flankOriginDirection();
 			pSoldier->aiPlanning().advanceFlank();
-			if ( pSoldier->flags.lastFlankLeft )
+			if ( pSoldier->aiPlanning().lastFlankLeft() )
 			{
 				if ( origDir > currDir )
 					origDir -= NUM_WORLD_DIRECTIONS;
@@ -9151,9 +9151,9 @@ INT8 ArmedVehicleDecideActionRed( SOLDIERTYPE *pSoldier)
 								else
 								{
 									if ( action == AI_ACTION_FLANK_LEFT )
-										pSoldier->flags.lastFlankLeft = TRUE;
+										pSoldier->aiPlanning().lastFlankLeft() = TRUE;
 									else
-										pSoldier->flags.lastFlankLeft = FALSE;
+										pSoldier->aiPlanning().lastFlankLeft() = FALSE;
 
 									pSoldier->aiPlanning().recordFlankStep(
 										sClosestDisturbance,
@@ -9964,7 +9964,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	{
 		// okay, really got to wonder about this... could taking cover be an option?
 		if ( ubCanMove && pSoldier->aiData.bOrders != STATIONARY && !gfHiddenInterrupt &&
-			 !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+			 !(pSoldier->status().flags() & SOLDIER_BOXER) )
 		{
 			// make militia a bit more cautious
 			// 3 (UINT16) CONVERSIONS HERE TO AVOID ERRORS.  GOTTHARD 7/15/08
@@ -9996,7 +9996,7 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 	if ( (ubCanMove && !SkipCoverCheck && !gfHiddenInterrupt &&
 		((ubBestAttackAction == AI_ACTION_NONE) || pSoldier->aiData.bLastAttackHit) &&
 		(pSoldier->bTeam != gbPlayerNum || pSoldier->aiData.fAIFlags & AI_RTP_OPTION_CAN_SEEK_COVER) &&
-		!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER))
+		!(pSoldier->status().flags() & SOLDIER_BOXER))
 		|| fAllowCoverCheck )
 	{
 		sBestCover = FindBestNearbyCover( pSoldier, pSoldier->aiData.bAIMorale, &iCoverPercentBetter );

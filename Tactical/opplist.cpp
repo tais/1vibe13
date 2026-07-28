@@ -375,7 +375,7 @@ void ReevaluateBestSightingPosition( SOLDIERTYPE * pSoldier, INT8 bInterruptDuel
 		return;
 	}
 
-	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER ) )
+	if ( !( pSoldier->status().flags() & SOLDIER_MONSTER ) )
 	{
 		//gfHumanSawSomeoneInRealtime = TRUE;
 	}
@@ -924,7 +924,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 	SOLDIERTYPE *pThem;
 	INT8			bTempNewSituation;
 
-	if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 		// I DON'T THINK SO!
 		return;
@@ -1002,7 +1002,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 		HandleBestSightingPositionInRealtime();
 	}
 
-	if ( pSoldier->aiData.bNewSituation && !(pSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+	if ( pSoldier->aiData.bNewSituation && !(pSoldier->status().flags() & SOLDIER_PC) )
 	{
 		pSoldier->HaultSoldierFromSighting( TRUE );
 	}
@@ -1011,7 +1011,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 	// if we've been told to radio the results
 	if (ubSightFlags & SIGHT_RADIO)
 	{
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+		if (pSoldier->status().flags() & SOLDIER_PC )
 		{
 			// update our team's public knowledge
 			RadioSightings(pSoldier,EVERYBODY, pSoldier->bTeam );
@@ -1070,7 +1070,7 @@ void HandleSight(SOLDIERTYPE *pSoldier, UINT8 ubSightFlags)
 					continue;		// he doesn't look (he ALWAYS knows about him)
 
 				// other human team's merc report sightings to their teams now
-				if (pThem->flags.uiStatusFlags & SOLDIER_PC)
+				if (pThem->status().flags() & SOLDIER_PC)
 				{
 // Temporary for opplist synching - disable random order radioing
 #ifdef RECORDOPPLIST
@@ -1271,7 +1271,7 @@ INT16 DistanceSmellable( SOLDIERTYPE *pSoldier, SOLDIERTYPE * pSubject )
 
 	if (pSubject)
 	{
-		if (pSubject->flags.uiStatusFlags & SOLDIER_MONSTER)
+		if (pSubject->status().flags() & SOLDIER_MONSTER)
 		{
 			// trying to smell a friend; change nothing
 		}
@@ -1324,7 +1324,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 	SOLDIERTYPE* pSubject = pKnownSubject ? pKnownSubject : SimpleFindSoldier( sSubjectGridNo, bLevel );
 	INT16 tunnelVisionInPercent = 0;
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
+	if (pSoldier->status().flags() & SOLDIER_MONSTER)
 	{
 		if ( !pSubject )
 		{
@@ -1372,7 +1372,7 @@ INT16 DistanceVisible(SOLDIERTYPE *pSoldier, INT8 bFacingDir, INT8 bSubjectDir, 
 		//bSubjectDir = atan8(pSoldier->position().worldXInt(),pSoldier->position().worldYInt(),pOpponent->position().worldXInt(),pOpponent->position().worldYInt());
 	}
 
-	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT) || (pSubject && pSubject->renderState().muzzleFlashVisible())) )
+	if ( !ARMED_VEHICLE( pSoldier ) && (bFacingDir == DIRECTION_IRRELEVANT || (pSoldier->status().flags() & SOLDIER_ROBOT) || (pSubject && pSubject->renderState().muzzleFlashVisible())) )
 	{
 		sDistVisible = MaxNormalDistanceVisible();
 	}
@@ -1688,7 +1688,7 @@ INT8 DecideHearing( SOLDIERTYPE * pSoldier )
 	{
 		return( -5 );
 	}
-	else if ( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+	else if ( pSoldier->status().flags() & SOLDIER_MONSTER )
 	{
 		return( -10 );
 	}
@@ -2159,7 +2159,7 @@ INT16 ManLooksForMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, UINT8 ubCall
 	return(success);
 */
 
-	if ( pSoldier->ubBodyType == LARVAE_MONSTER || (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->bTeam == OUR_TEAM) )
+	if ( pSoldier->ubBodyType == LARVAE_MONSTER || (pSoldier->status().flags() & SOLDIER_VEHICLE && pSoldier->bTeam == OUR_TEAM) )
 	{
 		// don't do sight for these
 		return( FALSE );
@@ -2695,7 +2695,7 @@ void ManSeesMan(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT32 sOppGridNo,
 			if ( pSoldier->IsAssassin() && pSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER) )
 			{
 				// check wether our opponent would see us as an opponent if we weren't covert
-				if ( !( (pSoldier->aiData.bNeutral || pSoldier->usSoldierFlagMask & SOLDIER_POW) && ( pOpponent->bTeam != CREATURE_TEAM || pOpponent->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+				if ( !( (pSoldier->aiData.bNeutral || pSoldier->usSoldierFlagMask & SOLDIER_POW) && ( pOpponent->bTeam != CREATURE_TEAM || pOpponent->status().flags() & SOLDIER_VEHICLE ) ) )
 					fAddAsOpponent = TRUE;
 			}
 			else
@@ -3145,7 +3145,7 @@ void AddOneOpponent(SOLDIERTYPE *pSoldier)
 
 		pSoldier->aiData.bAlertStatus = STATUS_BLACK;	// force black AI status right away
 
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
+		if (pSoldier->status().flags() & SOLDIER_MONSTER)
 		{
 			pSoldier->aiData.ubCaller = NOBODY;
 			pSoldier->aiData.bCallPriority = 0;
@@ -3302,7 +3302,7 @@ void UpdatePublic(UINT8 ubTeam, SoldierID ubID, INT8 bNewOpplist, INT32 sGridNo,
 			}
 
 			// if this soldier is active, in this sector, and well enough to look
-			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
+			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->status().flags() & SOLDIER_GASSED ) )
 			{
 				// if soldier isn't aware of guynum, give him another chance to see
 				if (pSoldier->aiData.bOppList[ubID] == NOT_HEARD_OR_SEEN)
@@ -3664,7 +3664,7 @@ void SaySeenQuote( SOLDIERTYPE *pSoldier, BOOLEAN fSeenCreature, BOOLEAN fVirgin
 					{
 						if ( OK_ENEMY_MERC( pTeamSoldier ) )
 						{
-							if ( pTeamSoldier->flags.uiStatusFlags & SOLDIER_MONSTER && pSoldier->aiData.bOppList[ pTeamSoldier->ubID ] == SEEN_CURRENTLY )
+							if ( pTeamSoldier->status().flags() & SOLDIER_MONSTER && pSoldier->aiData.bOppList[ pTeamSoldier->ubID ] == SEEN_CURRENTLY )
 							{
 								ubNumEnemies++;
 							}
@@ -3877,7 +3877,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 
 		// if these two mercs are on the same SIDE, then they're NOT opponents
 		// NEW: Apr. 21 '96: must allow ALL non-humans to get radioed about
-		if ((pSoldier->bSide == pOpponent->bSide) && (pOpponent->flags.uiStatusFlags & SOLDIER_PC))
+		if ((pSoldier->bSide == pOpponent->bSide) && (pOpponent->status().flags() & SOLDIER_PC))
 		{
 #ifdef TESTOPPLIST
 			DebugMsg( TOPIC_JA2OPPLIST, DBG_LEVEL_3,
@@ -4005,7 +4005,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 							}
 						}
 
-						if ( pOpponent->flags.uiStatusFlags & SOLDIER_MONSTER )
+						if ( pOpponent->status().flags() & SOLDIER_MONSTER )
 						{
 							gfPlayerTeamSawCreatures = TRUE;
 						}
@@ -4018,7 +4018,7 @@ void RadioSightings(SOLDIERTYPE *pSoldier, UINT16 ubAbout, UINT8 ubTeamToRadioTo
 						}
 					}
 
-					if ( pOpponent->flags.uiStatusFlags & SOLDIER_MONSTER )
+					if ( pOpponent->status().flags() & SOLDIER_MONSTER )
 					{
 						if ( !(gMercProfiles[ pSoldier->ubProfile ].ubMiscFlags & PROFILE_MISC_FLAG_HAVESEENCREATURE) )
 						{
@@ -4132,7 +4132,7 @@ void DebugSoldierPage1( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"STATUS FLAGS:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%x", pSoldier->flags.uiStatusFlags );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%x", pSoldier->status().flags() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4254,7 +4254,7 @@ void DebugSoldierPage1( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"AI has Keys:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 400, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.bHasKeys );
+		gprintf( 400, LINE_HEIGHT * ubLine, L"%d", pSoldier->inventoryState().keyAccess() );
 		ubLine++;
 	}
 	else if ( GetMouseMapPos( &usMapPos ) )
@@ -4578,7 +4578,7 @@ void DebugSoldierPage3( )
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Action:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
 		gprintf( 150, LINE_HEIGHT * ubLine, L"%S", gzActionStr[ pSoldier->aiData.bAction ] );
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY )
+		if (pSoldier->status().flags() & SOLDIER_ENEMY )
 		{
 			gprintf( 350, LINE_HEIGHT * ubLine, L"Alert %S", gzAlertStr[ pSoldier->aiData.bAlertStatus ] );
 		}
@@ -4589,7 +4589,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
 		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->aiData.usActionData );
 
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY )
+		if (pSoldier->status().flags() & SOLDIER_ENEMY )
 		{
 			gprintf( 350, LINE_HEIGHT * ubLine, L"AIMorale %d", pSoldier->aiData.bAIMorale );
 		}
@@ -4728,7 +4728,7 @@ void DebugSoldierPage3( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Reloading:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->flags.fReloading );
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d", pSoldier->fireControl().reloading() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -5449,11 +5449,11 @@ UINT8 MovementNoise(SOLDIERTYPE *pSoldier)
 	INT8	bBandaged, bEffLife;
 
 	// anv: vehicle and passengers
-	if (pSoldier->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
+	if (pSoldier->status().flags() & (SOLDIER_DRIVER | SOLDIER_PASSENGER))
 	{
 		return(0);
 	}
-	else if (pSoldier->flags.uiStatusFlags & (SOLDIER_VEHICLE))
+	else if (pSoldier->status().flags() & (SOLDIER_VEHICLE))
 	{
 		if (pSoldier->animationPlayback().state() == RUNNING)
 		{
@@ -5918,7 +5918,7 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 	{
 		// inactive/not in sector/dead soldiers, shouldn't be making noise!
 		if (!noiseMaker->bActive || !noiseMaker->bInSector ||
-			noiseMaker->flags.uiStatusFlags & SOLDIER_DEAD)
+			noiseMaker->status().flags() & SOLDIER_DEAD)
 		{
 #ifdef BETAVERSION
 			NumMessage("ProcessNoise: ERROR - Noisemaker is inactive/not in sector/dead, Guy #",ubNoiseMaker);
@@ -6100,12 +6100,12 @@ void ProcessNoise( SoldierID ubNoiseMaker, INT32 sGridNo, INT8 bLevel, UINT8 ubT
 			}
 
 			// if this "listener" is inactive, or in no condition to care
-			if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->flags.uiStatusFlags & SOLDIER_DEAD || (pSoldier->vitals().health() < OKLIFE) || pSoldier->ubBodyType == LARVAE_MONSTER)
+			if (!pSoldier->bActive || !pSoldier->bInSector || pSoldier->status().flags() & SOLDIER_DEAD || (pSoldier->vitals().health() < OKLIFE) || pSoldier->ubBodyType == LARVAE_MONSTER)
 			{
 				continue;			// skip him!
 			}
 
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->bTeam == OUR_TEAM	)
+			if ( pSoldier->status().flags() & SOLDIER_VEHICLE && pSoldier->bTeam == OUR_TEAM	)
 			{
 				continue; // skip
 			}
@@ -6662,7 +6662,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 
 			// if it's an AI soldier, he is not allowed to automatically radio any
 			// noise heard, but manSeesMan has set his newOppCnt, so clear it here
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+			if (!(pSoldier->status().flags() & SOLDIER_PC))
 			{
 				pSoldier->awareness().clearNewOpponents();
 			}
@@ -6686,7 +6686,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 				}
 			}
 			// sevenfm: remember noise even for seen opponents
-			if( pSoldier->flags.uiStatusFlags & SOLDIER_PC && ubVolumeScaled > pSoldier->aiData.ubNoiseVolume )
+			if( pSoldier->status().flags() & SOLDIER_PC && ubVolumeScaled > pSoldier->aiData.ubNoiseVolume )
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
@@ -6719,7 +6719,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 			// sevenfm: increment watched location when soldier hears enemy
 			if ((ubNoiseType == NOISE_GUNFIRE || ubNoiseType == NOISE_MOVEMENT || ubNoiseType == NOISE_SCREAM || ubNoiseType == NOISE_VOICE) &&
 				!TileIsOutOfBounds(sGridNo) &&
-				!(pSoldier->flags.uiStatusFlags & SOLDIER_PC) &&
+				!(pSoldier->status().flags() & SOLDIER_PC) &&
 				!pSoldier->aiData.bNeutral &&
 				!noiseMaker->aiData.bNeutral &&
 				!pSoldier->IsFlanking())
@@ -6822,7 +6822,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 	else	// noise made by NOBODY
 	{
 		// if noise type was unmistakably that of an explosion (seen or not) or alarm
-		if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+		if (!(pSoldier->status().flags() & SOLDIER_PC))
 		{
 			if ( ( ubNoiseType == NOISE_EXPLOSION || ubNoiseType == NOISE_SILENT_ALARM ) && (ubVolume >= 3) )
 			{
@@ -6863,7 +6863,7 @@ void HearNoise(SOLDIERTYPE *pSoldier, SoldierID ubNoiseMaker, INT32 sGridNo, INT
 		//	or it's a rock that he watched land (didn't need to turn)
 		{
 			// sevenfm: allow player mercs to hear all noises
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC && ubVolumeScaled > pSoldier->aiData.ubNoiseVolume)
+			if ( pSoldier->status().flags() & SOLDIER_PC && ubVolumeScaled > pSoldier->aiData.ubNoiseVolume)
 			{
 				// yes it is, so remember this noise INSTEAD (old noise is forgotten)
 				pSoldier->aiData.sNoiseGridno = sGridNo;
@@ -7093,7 +7093,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 
 #endif
 
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
+		if (pSoldier->status().flags() & SOLDIER_PC)
 		{
 			RadioSightings(pSoldier,EVERYBODY,pSoldier->bTeam);
 		}
@@ -7166,7 +7166,7 @@ void VerifyAndDecayOpplist(SOLDIERTYPE *pSoldier)
 		pSoldier->guynum,ExtMen[pSoldier->guynum].name,pSoldier->newOppCnt);
 #endif
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
+	if (pSoldier->status().flags() & SOLDIER_PC)
 	 RadioSightings(pSoldier,EVERYBODY,pSoldier->bTeam);
 
 	pSoldier->awareness().clearNewOpponents();
@@ -7519,7 +7519,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 	}
 
 	// do we need to do checks for life/breath here?
-	if (pDefender->ubBodyType == LARVAE_MONSTER || (pDefender->flags.uiStatusFlags & SOLDIER_VEHICLE && pDefender->bTeam == OUR_TEAM))
+	if (pDefender->ubBodyType == LARVAE_MONSTER || (pDefender->status().flags() & SOLDIER_VEHICLE && pDefender->bTeam == OUR_TEAM))
 	{
 		return;
 	}
@@ -7587,7 +7587,7 @@ void NoticeUnseenAttacker( SOLDIERTYPE * pAttacker, SOLDIERTYPE * pDefender, INT
 		UpdatePersonal( pDefender, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->position().gridNo(), pAttacker->position().level() );
 
 		// if the victim is a human-controlled soldier, instantly report publicly
-		if (pDefender->flags.uiStatusFlags & SOLDIER_PC)
+		if (pDefender->status().flags() & SOLDIER_PC)
 		{
 			// mark attacker as having been PUBLICLY heard THIS TURN & remember where
 			UpdatePublic( pDefender->bTeam, pAttacker->ubID, HEARD_THIS_TURN, pAttacker->position().gridNo(), pAttacker->position().level() );
@@ -7717,7 +7717,7 @@ BOOLEAN MercSeesCreature( SOLDIERTYPE * pSoldier )
 				GetJa2SoldierRepository().resolve( ubID );
 			if ( creature != nullptr &&
 				pSoldier->aiData.bOppList[ubID] == SEEN_CURRENTLY &&
-				(creature->flags.uiStatusFlags & SOLDIER_MONSTER) )
+				(creature->status().flags() & SOLDIER_MONSTER) )
 			{
 				return(TRUE);
 			}

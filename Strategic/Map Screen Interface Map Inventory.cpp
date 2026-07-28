@@ -2494,7 +2494,7 @@ void BeginInventoryPoolPtr( OBJECTTYPE *pInventorySlot )
 				if (!fShowInventoryFlag)
 					fShowInventoryFlag = TRUE;
 				
-				if(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+				if(pSoldier->status().flags() & SOLDIER_VEHICLE)
 				{
 					// try to STACK the item in all existing slots
 					for(int x = 0; x<NUM_INV_SLOTS; x++)

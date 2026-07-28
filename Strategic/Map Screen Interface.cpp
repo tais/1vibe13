@@ -638,7 +638,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 					}
 				}
 				// if anchor guy IS a vehicle
-				else if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				else if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					if ( !CanSoldierMoveWithVehicleId( pSoldier2, pSoldier->bVehicleID ) )
 					{
@@ -656,7 +656,7 @@ void DeselectSelectedListMercsWhoCantMoveWithThisGuy( SOLDIERTYPE *pSoldier )
 					}
 				}
 				// if this guy IS a vehicle
-				else if ( pSoldier2->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				else if ( pSoldier2->status().flags() & SOLDIER_VEHICLE )
 				{
 					if ( !CanSoldierMoveWithVehicleId( pSoldier, pSoldier2->bVehicleID ) )
 					{
@@ -751,14 +751,14 @@ BOOLEAN AnyMercInSameSquadOrVehicleIsSelected( SOLDIERTYPE *pSoldier )
 				}
 
 				// target guy is in a vehicle, and this guy IS that vehicle
-				if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier2->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+				if( ( pSoldier->assignment().current() == VEHICLE ) && ( pSoldier2->status().flags() & SOLDIER_VEHICLE ) &&
 						( pSoldier->deployment().vehicleId() == pSoldier2->bVehicleID ) )
 				{
 					return ( TRUE );
 				}
 
 				// this guy is in a vehicle, and the target guy IS that vehicle
-				if( ( pSoldier2->assignment().current() == VEHICLE ) && ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+				if( ( pSoldier2->assignment().current() == VEHICLE ) && ( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 						( pSoldier2->deployment().vehicleId() == pSoldier->bVehicleID ) )
 				{
 					return ( TRUE );
@@ -1517,7 +1517,7 @@ void GetMoraleString( SOLDIERTYPE *pSoldier, CHAR16 *sString )
 {
 	INT8 bMorale = pSoldier->aiData.bMorale;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+	if ( pSoldier->status().flags() & SOLDIER_DEAD )
 	{
 	wcscpy( sString, pMoralStrings[ 5 ] );
 	}
@@ -1995,7 +1995,7 @@ void UpdateCharRegionHelpText( void )
 					// robot (condition only)
 					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[ 3 ], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 				}
-				else if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				else if (pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					// vehicle (condition/fuel)
 					swprintf( sString, L"%s: %d/%d, %s: %d/%d",
@@ -2441,7 +2441,7 @@ void RandomMercInGroupSaysQuote( GROUP *pGroup, UINT16 usQuoteNum )
 		pSoldier = pPlayer->pSoldier;
 		Assert( pSoldier );
 
-		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
@@ -3685,7 +3685,7 @@ void SetUpMovingListsForSector( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ )
 					( pSoldier->assignment().current() != IN_TRANSIT ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && !SPY_LOCATION( pSoldier->assignment().current() ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 					( pSoldier->deployment().sectorX() == sSectorX ) && ( pSoldier->deployment().sectorY() == sSectorY ) && ( pSoldier->deployment().sectorZ() == sSectorZ ) )
 			{
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					// vehicle
 					// if it can move (can't be empty)
@@ -4977,7 +4977,7 @@ void HandleSettingTheSelectedListOfMercs( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				fSelected = IsVehicleSelectedForMovement( pSoldier->bVehicleID );
 			}
@@ -6448,7 +6448,7 @@ BOOLEAN CanCharacterMoveInStrategic( SOLDIERTYPE *pSoldier, INT8 *pbErrorNumber 
 	}
 
 	// vehicle checks
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// empty (needs a driver!)?
 		if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
@@ -6675,7 +6675,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 	// now check anybody who would be travelling with him
 
 	// does character have group?
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// IS a vehicle - use vehicle's group
 		ubGroup = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
@@ -6713,7 +6713,7 @@ BOOLEAN CanEntireMovementGroupMercIsInMove( SOLDIERTYPE *pSoldier, INT8 *pbError
 			}
 
 			// does character have group?
-			if( pCurrentSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if( pCurrentSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				// IS a vehicle
 				ubCurrentGroup = pVehicleList[ pCurrentSoldier->bVehicleID ].ubMovementGroup;
@@ -6858,7 +6858,7 @@ BOOLEAN CanSoldierMoveWithVehicleId( SOLDIERTYPE *pSoldier, INT32 iVehicle1Id )
 	}
 	else
 	// if soldier IS a vehicle
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		iVehicle2Id = pSoldier->bVehicleID;
 	}

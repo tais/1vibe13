@@ -300,7 +300,7 @@ INT32 FindGridNoFromSweetSpotWithStructData( SOLDIERTYPE *pSoldier, UINT16 usAni
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
@@ -462,7 +462,7 @@ INT32 FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( SOLDIERTYPE
 	sRight	= ubRadius;
 
 	// If we are already at this gridno....
-	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( pSoldier->position().gridNo() == sSweetGridNo && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
 	*pubDirection = pSoldier->position().direction();
 	return( sSweetGridNo );
@@ -1158,7 +1158,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		}
 #endif
 		// ADD SOLDIER TO SLOT!
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_OFF_MAP)
+		if (pSoldier->status().flags() & SOLDIER_OFF_MAP)
 		{
 			AddAwaySlot( pSoldier );
 
@@ -1176,7 +1176,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 		}
 
 		// If a driver or passenger - stop here!
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_DRIVER || pSoldier->flags.uiStatusFlags & SOLDIER_PASSENGER )
+		if ( pSoldier->status().flags() & SOLDIER_DRIVER || pSoldier->status().flags() & SOLDIER_PASSENGER )
 		{
 			return( FALSE );
 		}
@@ -1233,7 +1233,7 @@ BOOLEAN InternalAddSoldierToSector(SoldierID ubID, BOOLEAN fCalculateDirection, 
 				if( TileIsOutOfBounds( sRecover ) ) sRecover = (WORLD_ROWS * WORLD_COLS + WORLD_COLS) / 2;
 				pSoldier->deployment().insertionGrid() = sRecover;
 			}
-			if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 			{
 				sGridNo = FindGridNoFromSweetSpotWithStructDataUsingGivenDirectionFirst( pSoldier, STANDING, pSoldier->deployment().insertionGrid(), 12, &ubCalculatedDirection, FALSE, pSoldier->deployment().insertionDirection() );
 				// ATE: Override insertion direction				
@@ -1630,7 +1630,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 
 	if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )
 	{
-		if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+		if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 		{
 			if ( pSoldier->bTeam == gbPlayerNum )
 			{
@@ -1683,7 +1683,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 		}
 	}
 
-	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		//if we are loading a 'pristine' map ( ie, not loading a saved game )
 		if( !(gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )

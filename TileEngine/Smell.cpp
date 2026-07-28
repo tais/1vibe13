@@ -483,7 +483,7 @@ void DropBlood( SOLDIERTYPE * pSoldier, UINT8 ubStrength, INT8 bVisible )
 	*/
 
 	// figure out the type of blood that we're dropping
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+	if ( pSoldier->status().flags() & SOLDIER_MONSTER )
 	{
 		if ( pSoldier->position().level() == 0 )
 			ubType = CREATURE_ON_FLOOR;

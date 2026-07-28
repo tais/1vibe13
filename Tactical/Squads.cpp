@@ -199,7 +199,7 @@ BOOLEAN AddCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 		// We're not allowing anybody to go on a vehicle if they are not passengers!
 		// NB: We obviously need to make sure that REAL passengers have their
 		// flags set before adding them to a squad!
-		if ( !( pCharacter->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER | SOLDIER_VEHICLE ) ) )
+		if ( !( pCharacter->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER | SOLDIER_VEHICLE ) ) )
 		{
 			return( FALSE );
 		}
@@ -546,7 +546,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 				// reset player mvt group id value
 				pCharacter->deployment().groupId() = 0;
 
-				if( ( pCharacter->deployment().isBetweenSectors() )&&( pCharacter->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				if( ( pCharacter->deployment().isBetweenSectors() )&&( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
 				{
 					ubGroupId = CreateNewPlayerGroupDepartingFromSector( ( INT8 ) ( pCharacter->deployment().sectorX() ) , ( INT8 ) ( pCharacter->deployment().sectorY() ) );
 
@@ -1637,7 +1637,7 @@ INT8 NumberOfPlayerControllableMercsInSquad( INT8 bSquadValue )
 
 			//Kris:	This breaks the CLIENT of this function, tactical traversal.	Do NOT check for EPCS or ROBOT here.
 			//if ( !AM_AN_EPC( pSoldier ) && !AM_A_ROBOT( pSoldier ) &&
-			if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				++bSquadCount;
 			}
@@ -1669,7 +1669,7 @@ BOOLEAN DoesVehicleExistInSquad( INT8 bSquadValue )
 			pSoldier = Squad[ bSquadValue ][ bCounter ] ;
 
 			// If we are an EPC or ROBOT, don't allow this
-			if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				return( TRUE );
 			}

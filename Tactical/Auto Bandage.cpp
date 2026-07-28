@@ -103,7 +103,7 @@ void BeginAutoBandage( )
 		SOLDIERTYPE* soldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		// if the soldier isn't active or in sector, we have problems..leave
-		if ( !(soldier->bActive) || !(soldier->bInSector) || ( soldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (soldier->assignment().current() == VEHICLE ) )
+		if ( !(soldier->bActive) || !(soldier->bInSector) || ( soldier->status().flags() & SOLDIER_VEHICLE ) || (soldier->assignment().current() == VEHICLE ) )
 		{
 			continue;
 		}

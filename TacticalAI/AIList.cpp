@@ -183,7 +183,7 @@ BOOLEAN InsertIntoAIList( SoldierID ubID, INT8 bPriority )
 
 BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount, BOOLEAN fDoRandomChecks )
 {
-	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) )
+	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pSoldier->status().flags() & SOLDIER_BOXER) )
 	{
 		return( FALSE );
 	}
@@ -235,7 +235,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 			else
 			{
 				// heard gunshots
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+				if ( pSoldier->status().flags() & SOLDIER_COWERING )
 				{
 					if ( pSoldier->awareness().visibility() == TRUE )
 					{
@@ -269,7 +269,7 @@ BOOLEAN SatisfiesAIListConditions( SOLDIERTYPE * pSoldier, UINT16 * pubDoneCount
 		// non-neutral civs should be handled all the time, right?
 		// reset last action if cowering
 
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+		if ( pSoldier->status().flags() & SOLDIER_COWERING )
 		{
 			pSoldier->aiData.bLastAction = AI_ACTION_NONE;
 		}

@@ -380,7 +380,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		if (ubFriendlyFireChance > MIN_CHANCE_TO_ACCIDENTALLY_HIT_SOMEONE)
 			continue;*/
 
-		if ( (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER) && (pSoldier->ubBodyType != QUEENMONSTER ) )
+		if ( (pSoldier->status().flags() & SOLDIER_MONSTER) && (pSoldier->ubBodyType != QUEENMONSTER ) )
 		{
 			STRUCTURE_FILE_REF *	pStructureFileRef;
 			UINT16								usAnimSurface;
@@ -1145,7 +1145,7 @@ void CalcBestThrow(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestThrow)
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_CREATUREGAS &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_BURNABLEGAS &&
 			Explosive[Item[usGrenade].ubClassIndex].ubType != EXPLOSV_SMOKE &&
-			(ARMED_VEHICLE(pOpponent) || ENEMYROBOT(pOpponent) || pOpponent->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT(pOpponent)))
+			(ARMED_VEHICLE(pOpponent) || ENEMYROBOT(pOpponent) || pOpponent->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT(pOpponent)))
 		{
 			continue;
 		}
@@ -2162,7 +2162,7 @@ INT32 EstimateShotDamage(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pOpponent, INT16 ub
 	OBJECTTYPE *pObj;
 
 	/*
-	if ( pOpponent->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pOpponent->status().flags() & SOLDIER_VEHICLE )
 	{
 	// only thing that can damage vehicles is HEAP rounds?
 	return( 0 );

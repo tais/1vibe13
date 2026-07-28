@@ -31,14 +31,14 @@
 // Checkf if our guy can be selected and is not in a position where our team has an interupt and he does not have one...
 #define OK_INTERRUPT_MERC( p ) ( ( INTERRUPT_QUEUED != 0 ) ? ( ( p->aiData.bMoved ) ? FALSE : TRUE ) : TRUE )
 
-#define CREATURE_OR_BLOODCAT( p ) ( (p->flags.uiStatusFlags & SOLDIER_MONSTER) || p->ubBodyType == BLOODCAT )
+#define CREATURE_OR_BLOODCAT( p ) ( (p->status().flags() & SOLDIER_MONSTER) || p->ubBodyType == BLOODCAT )
 
 #define COMBAT_JEEP( p ) ( p->ubBodyType == COMBAT_JEEP )
 #define TANK( p ) (p->ubBodyType == TANK_NE || p->ubBodyType == TANK_NW )
 #define ENEMYROBOT( p ) (p->ubBodyType == ROBOTNOWEAPON && p->bTeam == ENEMY_TEAM)
 #define ARMED_VEHICLE( p )	( TANK( p ) || COMBAT_JEEP(p) )
 
-//#define OK_ENTERABLE_VEHICLE( p )	( ( p->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !TANK( p ) && p->vitals().health() >= OKLIFE	)
-#define OK_ENTERABLE_VEHICLE( p )	( ( p->flags.uiStatusFlags & SOLDIER_VEHICLE ) && (!ARMED_VEHICLE( p ) || !(p->flags.uiStatusFlags & SOLDIER_ENEMY) ) && p->vitals().health() >= OKLIFE	)
+//#define OK_ENTERABLE_VEHICLE( p )	( ( p->status().flags() & SOLDIER_VEHICLE ) && !TANK( p ) && p->vitals().health() >= OKLIFE	)
+#define OK_ENTERABLE_VEHICLE( p )	( ( p->status().flags() & SOLDIER_VEHICLE ) && (!ARMED_VEHICLE( p ) || !(p->status().flags() & SOLDIER_ENEMY) ) && p->vitals().health() >= OKLIFE	)
 
 #endif

@@ -735,7 +735,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 						// but not monsters and such (they can't fall down due to lack of animations)
 						// also make sure AI won't flatten their allies
 						if( pSoldier && movingSoldier &&
-							!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) &&
+							!( pSoldier->status().flags() & ( SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_MONSTER ) ) &&
 							((!ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowCarsDrivingOverPeople) ||
 							(ARMED_VEHICLE( movingSoldier ) && gGameExternalOptions.fAllowTanksDrivingOverPeople)) &&
 							( movingSoldier->bTeam == gbPlayerNum || movingSoldier->bTeam != pSoldier->bTeam ) )
@@ -913,7 +913,7 @@ static BOOLEAN OkayToAddStructureToTile( INT32 sBaseGridNo, INT16 sCubeOffset, D
 						SOLDIERTYPE* existingSoldier =
 							GetJa2SoldierRepository().resolve(
 								pExistingStructure->usStructureID);
-						if( existingSoldier && existingSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if( existingSoldier && existingSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							if( movingSoldier &&
 								(movingSoldier->animationActivity().nonInterruptible() == TRUE ||

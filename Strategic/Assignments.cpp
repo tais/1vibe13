@@ -1527,7 +1527,7 @@ BOOLEAN CanCharacterPatient( SOLDIERTYPE *pSoldier )
 		return( FALSE );
 
 	// Robot must be REPAIRED to be "healed", not doctored
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return ( FALSE );
 	}
@@ -1644,7 +1644,7 @@ BOOLEAN BasicCanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character a Vehicle or Robot?
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return( FALSE );
 	}
@@ -1765,7 +1765,7 @@ BOOLEAN BasicCanCharacterDrillMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character a Vehicle or Robot?
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return( FALSE );
 	}
@@ -2509,7 +2509,7 @@ BOOLEAN CanCharacterSleep( SOLDIERTYPE *pSoldier, BOOLEAN fExplainWhyNot )
 	}
 
 	// vehicle or robot?
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return( FALSE );
 	}
@@ -5853,7 +5853,7 @@ void FatigueCharacter( SOLDIERTYPE *pSoldier )
 	INT8 bMaxBreathTaken = 0;
 
 	// vehicle or robot?
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return;
 	}
@@ -9472,7 +9472,7 @@ void HandleNaturalHealing( void )
 		if( pTeamSoldier->bActive )
 		{
 			// mechanical members don't regenerate!
-			if( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pTeamSoldier ) ) )
+			if( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pTeamSoldier ) ) )
 			{
 				HandleHealingByNaturalCauses( pTeamSoldier );
 			}
@@ -9562,7 +9562,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 		for ( ; id <= lastid; ++id )
 		{
 			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
-			if ( !(pMedic->bActive) || !(pMedic->bInSector) || ( pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pMedic->assignment().current() == VEHICLE ) )
+			if ( !(pMedic->bActive) || !(pMedic->bInSector) || ( pMedic->status().flags() & SOLDIER_VEHICLE ) || (pMedic->assignment().current() == VEHICLE ) )
 			{
 				continue; // NEXT!!!
 			}
@@ -10570,7 +10570,7 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 
 			//shadooow: rules for item swapping rewritten to honor pocket restrictions
 			// sevenfm: for AI, just swap objects
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+			if (!(pSoldier->status().flags() & SOLDIER_PC))
 			{
 				SwapObjs(pSoldier, HANDPOS, bPocket, TRUE);
 				return(TRUE);
@@ -10624,7 +10624,7 @@ BOOLEAN MakeSureMedKitIsInHand( SOLDIERTYPE *pSoldier , bool bAllow1stAidKit)
 		}
 	}
 	//if we came here it means we don't have medical kit or we cannot place it into hand due to no suitable pockets for whatever merc carries in them
-	if (medkit_found && (pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+	if (medkit_found && (pSoldier->status().flags() & SOLDIER_PC))
 		ScreenMsg(FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, TacticalStr[QUICK_ITEMS_NOWHERE_TO_PLACE]);
 	if(!bAllow1stAidKit)
 		return FALSE;
@@ -12776,7 +12776,7 @@ static void BeginRemoveMercFromContract( SOLDIERTYPE *pSoldier )
 		}
 #endif
 		//shadooow: it makes no sense, but if someone wants to dismiss vehicle then do not popup the department box and drop its items in current sector without asking
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+		if (pSoldier->status().flags() & SOLDIER_VEHICLE)
 		{
 			StrategicRemoveMerc(pSoldier);
 			HandleLeavingOfEquipmentInCurrentSector(pSoldier->ubID);
@@ -13851,7 +13851,7 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 		for ( ; id <= lastid; ++id )
 		{
 			SOLDIERTYPE *pMedic = GetJa2SoldierRepository().resolve(id);
-			if ( !(pMedic->bActive) || !(pMedic->bInSector) || (pMedic->flags.uiStatusFlags & SOLDIER_VEHICLE) || (pMedic->assignment().current() == VEHICLE) )
+			if ( !(pMedic->bActive) || !(pMedic->bInSector) || (pMedic->status().flags() & SOLDIER_VEHICLE) || (pMedic->assignment().current() == VEHICLE) )
 				continue; // is nowhere around!
 
 			if ( (pSoldier->ubID == pMedic->ubID) || !IS_DOCTOR( pMedic->assignment().current() ) )
@@ -16470,7 +16470,7 @@ void HandleRestFatigueAndSleepStatus( void )
 
 		if( pSoldier->bActive )
 		{
-			if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+			if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 			{
 				continue;
 			}
@@ -16619,7 +16619,7 @@ void HandleRestFatigueAndSleepStatus( void )
 
 		if( pSoldier->bActive )
 		{
-			if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+			if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 			{
 				continue;
 			}
@@ -18809,7 +18809,7 @@ void SetAssignmentForList( INT8 bAssignment, INT8 bParam )
 		if( ( gCharactersList[ iCounter ].fValid ) &&
 				( fSelectedListOfMercsForMapScreen[ iCounter ] == TRUE ) &&
 				( iCounter != bSelectedAssignChar ) &&
-				!(GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				!(GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID)->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
@@ -19583,7 +19583,7 @@ BOOLEAN CanCharacterRepairAnotherSoldiersStuff( SOLDIERTYPE *pSoldier, SOLDIERTY
 	if ( ( pOtherSoldier->assignment().current() == IN_TRANSIT ) ||
 		( pOtherSoldier->assignment().current() == ASSIGNMENT_POW ) ||
 		( SPY_LOCATION( pOtherSoldier->assignment().current() ) ) ||
-		( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
+		( pSoldier->status().flags() & SOLDIER_VEHICLE ) ||
 		( AM_A_ROBOT( pSoldier ) ) ||
 		( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC ) ||
 		( pOtherSoldier->assignment().current() == ASSIGNMENT_DEAD ) ||
@@ -19625,8 +19625,8 @@ SOLDIERTYPE *GetSelectedAssignSoldier( BOOLEAN fNullOK, BOOLEAN fReturnVehicleDr
 		// better be an active person, not a vehicle
 		Assert( pSoldier->bActive );
 		// anv: don't assert, handle...
-		//Assert( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) );
-		if(fReturnVehicleDriver && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		//Assert( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) );
+		if(fReturnVehicleDriver && pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			pSoldier = GetDriver( pSoldier->deployment().vehicleId() );
 		}
@@ -20381,7 +20381,7 @@ BOOLEAN BasicCanCharacterFacility( SOLDIERTYPE *pSoldier )
 	}
 
 	// Is character a Vehicle or Robot?
-	if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		return( FALSE );
 	}

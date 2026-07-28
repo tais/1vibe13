@@ -110,7 +110,7 @@ void StatChange(SOLDIERTYPE *pSoldier, UINT8 ubStat, UINT16 usNumChances, UINT8 
 		return;
 
 	// ignore vehicles and robots
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 		return;
 
 	if( pSoldier->assignment().current() == ASSIGNMENT_POW )
@@ -865,7 +865,7 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 			return;
 
 		// ignore vehicles and robots
-		if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+		if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || ( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 			return;
 
 		// delay increases while merc is dying
@@ -1859,7 +1859,7 @@ void AwardExperienceBonusToActiveSquad( UINT8 ubExpBonusType )
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
 		if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
-				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			StatChange( pSoldier, EXPERAMT, usXPs, FALSE );
 		}

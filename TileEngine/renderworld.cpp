@@ -1861,7 +1861,7 @@ inline static PIXEL * GetShadeTable(LEVELNODE * pNode, SOLDIERTYPE * pSoldier, S
 				if (GetJa2TacticalCurrentTeam() != OUR_TEAM)
 				{
 					// Do he have baton?
-					if ((pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL))
+					if ((pSoldier->status().flags() & SOLDIER_UNDERAICONTROL))
 					{
 						pShadeTable = (PIXEL *)pShadeStart[gpGlowFramePointer[gsCurrentGlowFrame] + bGlowShadeOffset];
 						if (gpGlowFramePointer[gsCurrentGlowFrame] >= 7)
@@ -2696,7 +2696,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								if (uiRowFlags == TILES_DYNAMIC_MERCS)
 								{
 									// If we are multi-tiled, ignore here
-									if (pSoldier->flags.uiStatusFlags & (SOLDIER_MULTITILE_Z | SOLDIER_Z))
+									if (pSoldier->status().flags() & (SOLDIER_MULTITILE_Z | SOLDIER_Z))
 									{
 										pNode = pNode->pNext;
 										continue;
@@ -2713,7 +2713,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								if (uiRowFlags == TILES_DYNAMIC_HIGHMERCS)
 								{
 									// If we are multi-tiled, ignore here
-									if (pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE_Z)
+									if (pSoldier->status().flags() & SOLDIER_MULTITILE_Z)
 									{
 										pNode = pNode->pNext;
 										continue;
@@ -2731,7 +2731,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								if (uiRowFlags == TILES_DYNAMIC_STRUCT_MERCS)
 								{
 									// If we are not multi-tiled, ignore here
-									if (!(pSoldier->flags.uiStatusFlags & (SOLDIER_MULTITILE_Z | SOLDIER_Z)))
+									if (!(pSoldier->status().flags() & (SOLDIER_MULTITILE_Z | SOLDIER_Z)))
 									{
 										// If we are at a low level, no not do anything unless we are at the merc stage
 										if (pSoldier->position().level() == 0)
@@ -2741,12 +2741,12 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 										}
 									}
 
-									if (pSoldier->flags.uiStatusFlags & (SOLDIER_MULTITILE_Z | SOLDIER_Z))
+									if (pSoldier->status().flags() & (SOLDIER_MULTITILE_Z | SOLDIER_Z))
 									{
 										fSaveZ = TRUE;
 										fZBlitter = TRUE;
 
-										if (pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE_Z)
+										if (pSoldier->status().flags() & SOLDIER_MULTITILE_Z)
 										{
 											fMultiTransShadowZBlitter = TRUE;
 											// ATE: Use one direction for queen!

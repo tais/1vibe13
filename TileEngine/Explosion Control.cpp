@@ -1664,7 +1664,7 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 			;
 		// we can loose stats due to being hit by the blast
 		else if ( gGameOptions.fNewTraitSystem && Explosive[Item[usItem].ubClassIndex].ubType == EXPLOSV_NORMAL && 
-				  !AM_A_ROBOT( pSoldier ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER) && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) &&
+				  !AM_A_ROBOT( pSoldier ) && !(pSoldier->status().flags() & SOLDIER_MONSTER) && !ARMED_VEHICLE( pSoldier ) && !ENEMYROBOT( pSoldier ) &&
 			sNewWoundAmt > 2 && sNewWoundAmt < pSoldier->vitals().health() )
 		{
 			if ( PreRandom( sNewWoundAmt ) > gSkillTraitValues.ubDamageNeededToLoseStats )
@@ -1944,7 +1944,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 
 	if ( pExplosive->ubType == EXPLOSV_CREATUREGAS )
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+		if ( pSoldier->status().flags() & SOLDIER_MONSTER )
 		{
 			// unaffected by own gas effects
 			return( fRecompileMovementCosts );
@@ -1954,13 +1954,13 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 	// no gas mask helps from creature attacks and fire
 	if ( pExplosive->ubType == EXPLOSV_CREATUREGAS || pExplosive->ubType == EXPLOSV_BURNABLEGAS)
 	{
-		if ( sSubsequent && pSoldier->flags.fHitByGasFlags & HIT_BY_CREATUREGAS )
+		if ( sSubsequent && pSoldier->condition().gasHitFlags() & HIT_BY_CREATUREGAS )
 		{
 			// already affected by creature gas this turn
 			return( fRecompileMovementCosts );
 		}
 		// Who cares if he was affected already? Running through a gas cloud is not good for health so let him suffer!
-		if ( /*sSubsequent &&*/ pSoldier->flags.fHitByGasFlags & HIT_BY_BURNABLEGAS )
+		if ( /*sSubsequent &&*/ pSoldier->condition().gasHitFlags() & HIT_BY_BURNABLEGAS )
 		{
 			// Already affected by burnable gas this turn. Lower damage value by ini setting.
 			fGasDamageModifier = gItemSettings.fDamageHealthMoveModifierExplosive;
@@ -1984,7 +1984,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 
 			// ignore whether subsequent or not if hit this turn
 			// Who cares if he was affected already? Running through a gas cloud is not good for health so let him suffer!
-			if ( pSoldier->flags.fHitByGasFlags & HIT_BY_TEARGAS )
+			if ( pSoldier->condition().gasHitFlags() & HIT_BY_TEARGAS )
 			{
 				// Already affected by tear gas this turn. Lower damage value by ini setting.
 				fGasDamageModifier = gItemSettings.fDamageHealthMoveModifierExplosive;
@@ -2001,7 +2001,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 			}
 
 			// Who cares if he was affected already? Running through a gas cloud is not good for health so let him suffer!
-			if ( /*sSubsequent &&*/ pSoldier->flags.fHitByGasFlags & HIT_BY_MUSTARDGAS )
+			if ( /*sSubsequent &&*/ pSoldier->condition().gasHitFlags() & HIT_BY_MUSTARDGAS )
 			{
 				// Already affected by mustard gas this turn. Lower damage value by ini setting.
 				fGasDamageModifier = gItemSettings.fDamageHealthMoveModifierExplosive;
@@ -2017,7 +2017,7 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 				return(fRecompileMovementCosts);
 
 			// Who cares if he was affected already? Running through a gas cloud is not good for health so let him suffer!
-			if ( pSoldier->flags.fHitByGasFlags & HIT_BY_SMOKEGAS )
+			if ( pSoldier->condition().gasHitFlags() & HIT_BY_SMOKEGAS )
 			{
 				// Already affected by smoke this turn. Lower damage value by ini setting.
 				fGasDamageModifier = gItemSettings.fDamageHealthMoveModifierExplosive;
@@ -2057,10 +2057,10 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 					// if at least 500 of breath damage got through
 					// the soldier within the blast radius is gassed for at least one
 					// turn, possibly more if it's tear gas (which hangs around a while)
-					pSoldier->flags.uiStatusFlags |= SOLDIER_GASSED;
+					pSoldier->status().flags() |= SOLDIER_GASSED;
 				}
 
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+				if ( pSoldier->status().flags() & SOLDIER_PC )
 				{
 
 					if ( sWoundAmt > 1 )
@@ -2104,27 +2104,27 @@ BOOLEAN DishOutGasDamage( SOLDIERTYPE * pSoldier, EXPLOSIVETYPE * pExplosive, IN
 		switch( pExplosive->ubType )
 		{
 		case EXPLOSV_CREATUREGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_CREATUREGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_CREATUREGAS;
 			break;
 		case EXPLOSV_TEARGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_TEARGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_TEARGAS;
 			break;
 		case EXPLOSV_MUSTGAS:		
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_MUSTARDGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_MUSTARDGAS;
 			break;
 		case EXPLOSV_BURNABLEGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_BURNABLEGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_BURNABLEGAS;
 			break;
 		case EXPLOSV_SMOKE://dnl ch40 200909
 		case EXPLOSV_SMOKE_DEBRIS:
 		case EXPLOSV_SMOKE_FIRERETARDANT:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_SMOKEGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_SMOKEGAS;
 			break;
 		default:
 			break;
 		}
 
-		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"ExpControl pSoldier->flags.fHitByGasFlags: %d", pSoldier->flags.fHitByGasFlags );
+		//ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_INTERFACE, L"ExpControl pSoldier->condition().gasHitFlags(): %d", pSoldier->condition().gasHitFlags() );
 
 		// Flugente: if we're frozen, we take no gas damage at all (because I say so)
 		if ( pSoldier->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) )
@@ -2566,12 +2566,12 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 
 			if ( pExplosive->ubType == EXPLOSV_CREATUREGAS )
 			{
-			if ( pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+			if ( pSoldier->status().flags() & SOLDIER_MONSTER )
 			{
 			// unaffected by own gas effects
 			return( fRecompileMovementCosts );
 			}
-			if ( sSubsequent && pSoldier->flags.fHitByGasFlags & HIT_BY_CREATUREGAS )
+			if ( sSubsequent && pSoldier->condition().gasHitFlags() & HIT_BY_CREATUREGAS )
 			{
 			// already affected by creature gas this turn
 			return( fRecompileMovementCosts );
@@ -2586,7 +2586,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			if ( pExplosive->ubType == EXPLOSV_TEARGAS )
 			{
 			// ignore whether subsequent or not if hit this turn
-			if ( pSoldier->flags.fHitByGasFlags & HIT_BY_TEARGAS )
+			if ( pSoldier->condition().gasHitFlags() & HIT_BY_TEARGAS )
 			{
 			// already affected by creature gas this turn
 			return( fRecompileMovementCosts );
@@ -2594,7 +2594,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			}
 			else if ( pExplosive->ubType == EXPLOSV_MUSTGAS )
 			{
-			if ( sSubsequent && pSoldier->flags.fHitByGasFlags & HIT_BY_MUSTARDGAS )
+			if ( sSubsequent && pSoldier->condition().gasHitFlags() & HIT_BY_MUSTARDGAS )
 			{
 			// already affected by creature gas this turn
 			return( fRecompileMovementCosts );
@@ -2602,7 +2602,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 
 			}
 
-			if ( sSubsequent && pSoldier->flags.fHitByGasFlags & HIT_BY_CREATUREGAS )
+			if ( sSubsequent && pSoldier->condition().gasHitFlags() & HIT_BY_CREATUREGAS )
 			{
 			// already affected by creature gas this turn
 			return( fRecompileMovementCosts );
@@ -2629,7 +2629,7 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			// if at least 500 of breath damage got through
 			// the soldier within the blast radius is gassed for at least one
 			// turn, possibly more if it's tear gas (which hangs around a while)
-			pSoldier->flags.uiStatusFlags |= SOLDIER_GASSED;
+			pSoldier->status().flags() |= SOLDIER_GASSED;
 			}
 
 			if ( sWoundAmt > 1 )
@@ -2668,13 +2668,13 @@ BOOLEAN ExpAffect( INT32 sBombGridNo, INT32 sGridNo, UINT32 uiDist, UINT16 usIte
 			switch( pExplosive->ubType )
 			{
 			case EXPLOSV_CREATUREGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_CREATUREGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_CREATUREGAS;
 			break;
 			case EXPLOSV_TEARGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_TEARGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_TEARGAS;
 			break;
 			case EXPLOSV_MUSTGAS:
-			pSoldier->flags.fHitByGasFlags |= HIT_BY_MUSTARDGAS;
+			pSoldier->condition().gasHitFlags() |= HIT_BY_MUSTARDGAS;
 			break;
 			default:
 			break;
@@ -4259,7 +4259,7 @@ void HandleExplosionQueue( void )
 				gubPersonToSetOffExplosions.i);
 
 		if ( triggeringSoldier &&
-			!(triggeringSoldier->flags.uiStatusFlags & SOLDIER_PC) )
+			!(triggeringSoldier->status().flags() & SOLDIER_PC) )
 		{
 			FreeUpNPCFromPendingAction( triggeringSoldier );
 		}
@@ -4924,7 +4924,7 @@ BOOLEAN SetOffBombsInGridNo( SoldierID ubID, INT32 sGridNo, BOOLEAN fAllBombs, I
 					if ( !fAllBombs && triggeringSoldier && ItemIsATMine(pObj->usItem))
 					{
 						// if this is not a vehicle, not a robot and not a tank, don't activate
-						if ( !(triggeringSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+						if ( !(triggeringSoldier->status().flags() & SOLDIER_VEHICLE) &&
 							!AM_A_ROBOT( triggeringSoldier ) &&
 							!ARMED_VEHICLE( triggeringSoldier ) &&
 							!ENEMYROBOT( triggeringSoldier ) )

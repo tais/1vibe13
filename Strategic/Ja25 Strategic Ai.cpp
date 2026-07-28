@@ -2424,7 +2424,7 @@ if ( gGameUBOptions.pJA2UB == TRUE )
 			pSoldier->aiData.ubNoiseVolume = MAX_MISC_NOISE_DURATION / 2;
 
 			pSoldier->aiData.bAlertStatus = STATUS_YELLOW;
-			pSoldier->flags.bHasKeys = TRUE;
+			pSoldier->inventoryState().keyAccess() = TRUE;
 
 			pSoldier->aiData.bOrders = SEEKENEMY;
 		}

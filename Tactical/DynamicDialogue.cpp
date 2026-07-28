@@ -960,7 +960,7 @@ BOOLEAN DynamicOpinionTacticalCharacterDialogue( DynamicOpinionSpeechEvent& aEve
 	if ( pSoldier->vitals().health() < OKLIFE )
 		return(FALSE);
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 		return(FALSE);
 
 	if ( AM_A_ROBOT( pSoldier ) )
@@ -1137,11 +1137,11 @@ void AddOpinionEvent( UINT16 usProfileA, UINT16 usProfileB, UINT8 usEvent, BOOLE
 
 	// we don't want any events for people not on our team or vehicles
 	SOLDIERTYPE* pSoldier = FindSoldierByProfileID( usProfileA, TRUE );
-	if ( !pSoldier || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT(pSoldier))
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT(pSoldier))
 		return;
 
 	pSoldier = FindSoldierByProfileID( usProfileB, TRUE );
-	if ( !pSoldier || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE )
 		return;
 
 	UINT32 ustmpFlagmask[OPINION_FLAGMASKS_NUMBER];

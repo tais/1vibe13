@@ -316,13 +316,13 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	INT8		bStructHeight;
 	INT8		bThroughWindowDirection;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY )
+	if ( pSoldier->status().flags() & SOLDIER_ENEMY )
 	{
 		//pSoldier->needToLookForItems = FALSE;
 		return;
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -359,7 +359,7 @@ void RevealRoofsAndItems(SOLDIERTYPE *pSoldier, UINT32 itemsToo, BOOLEAN fShowLo
 	//NumMessage("good old reveal",dir);
 
 	// a gassed merc can only see 1 tile away due to blurred vision
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		range = 1;
 	}

@@ -382,7 +382,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 			// Check if we are reloading
 			if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 			{
-				if ( pSoldier->flags.fReloading || pSoldier->flags.fPauseAim )
+				if ( pSoldier->fireControl().reloading() || pSoldier->fireControl().aimPaused() )
 				{
 					return( ACTION_TARGET_RELOADING );
 				}
@@ -542,7 +542,7 @@ UINT8 HandleActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos, BOOLEA
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( TARGETREFINE )	)
 				{
@@ -1282,7 +1282,7 @@ UINT8 HandleNonActivatedTargetCursor( SOLDIERTYPE *pSoldier, INT32 usMapPos , BO
 			//DetermineCursorBodyLocation( (UINT8)gusSelectedSoldier, FALSE, fRecalc );
 			DetermineCursorBodyLocation( gusSelectedSoldier, fShowAPs, fRecalc );
 
-			if ( pSoldier->flags.fReloading || pSoldier->flags.fPauseAim )
+			if ( pSoldier->fireControl().reloading() || pSoldier->fireControl().aimPaused() )
 			{
 				return( ACTION_TARGET_RELOADING );
 			}
@@ -1744,7 +1744,7 @@ UINT8 HandleKnifeCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( NONGUNTARGETREFINE )	)
 				{
@@ -1877,7 +1877,7 @@ UINT8 HandlePunchCursor( SOLDIERTYPE *pSoldier, INT32 sGridNo, BOOLEAN fActivate
 
 		if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) )
 		{
-			if ( !pSoldier->flags.fPauseAim )
+			if ( !pSoldier->fireControl().aimPaused() )
 			{
 				if ( COUNTERDONE( NONGUNTARGETREFINE )	)
 				{
@@ -2525,12 +2525,12 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_AIM_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_AIM_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			// Reset counter
 			RESETCOUNTER( TARGETREFINE );
@@ -2541,12 +2541,12 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_PUNCH_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_PUNCH_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 
 			}
 			// Reset counter
@@ -2559,12 +2559,12 @@ void HandleLeftClickCursor( SOLDIERTYPE *pSoldier )
 			if ( IsJa2TacticalTurnBasedCombat() )
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_KNIFE_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 			}
 			else
 			{
 				pSoldier->aiData.bShownAimTime				= REFINE_KNIFE_1;
-				pSoldier->flags.fPauseAim = FALSE;
+				pSoldier->fireControl().aimPaused() = FALSE;
 
 			}
 			// Reset counter
@@ -2925,25 +2925,25 @@ UINT8 GetActionModeCursor( SOLDIERTYPE *pSoldier )
 	UINT16				usInHand;
 
 	// If we are an EPC, do nothing....
-	//if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	//if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	//{
 	//	return( INVALIDCURS );
 	//}
 
 	// AN EPC is always not - attackable unless they are a robot!
-	if ( AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT ) )
+	if ( AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_ROBOT ) )
 	{
 		return( INVALIDCURS );
 	}
 
 	// ATE: if a vehicle.... same thing
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return( INVALIDCURS );
 	}
 
 	// If we can't be controlled, returninvalid...
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( !pSoldier->CanRobotBeControlled( ) )
 		{

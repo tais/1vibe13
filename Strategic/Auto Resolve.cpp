@@ -1856,7 +1856,7 @@ void RenderAutoResolve()
 					{
 						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
-						if ( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+						if ( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 						{ //Merc is active and alive, and not a vehicle or robot
 							if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 							{
@@ -5965,7 +5965,7 @@ void CheckForSoldiersWhoRetreatedIntoMilitiaHeldSectors()
 				{
 					SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
 
-					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
+					if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) )
 					{
 						//Merc is active and alive, and not a vehicle or robot
 						if ( (pSoldier->deployment().sectorX() == sX) && (pSoldier->deployment().sectorY() == sY) && (pSoldier->deployment().sectorZ() == 0) )

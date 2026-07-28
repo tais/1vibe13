@@ -199,7 +199,7 @@ namespace
 		std::uint8_t seatIndex) noexcept
 	{
 		if (soldier.ubID == vehicle.ubID ||
-			(soldier.flags.uiStatusFlags &
+			(soldier.status().flags() &
 				(SOLDIER_DRIVER | SOLDIER_PASSENGER | SOLDIER_VEHICLE)) != 0 ||
 			!OK_ENTERABLE_VEHICLE((&vehicle)) ||
 			vehicle.awareness().visibility() == -1 ||
@@ -449,7 +449,7 @@ namespace
 			{
 				SOLDIERTYPE* soldier = ResolveLiveCommandActor(value.soldier);
 				if (!soldier ||
-					(soldier->flags.uiStatusFlags & SOLDIER_VEHICLE) != 0)
+					(soldier->status().flags() & SOLDIER_VEHICLE) != 0)
 					return CommandDisposition::Discard;
 				soldier->movement().setStealth(value.enabled);
 				return CommandDisposition::Applied;

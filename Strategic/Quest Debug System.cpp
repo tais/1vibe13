@@ -4067,7 +4067,7 @@ void GetDebugLocationString( UINT16 usProfileID, CHAR16 *pzText )
 	pSoldier = FindSoldierByProfileID( (UINT8)usProfileID, FALSE );
 
 	//if their is a soldier, the soldier is alive and the soldier is off the map
-	if( pSoldier != NULL && pSoldier->bActive && pSoldier->flags.uiStatusFlags & SOLDIER_OFF_MAP )
+	if( pSoldier != NULL && pSoldier->bActive && pSoldier->status().flags() & SOLDIER_OFF_MAP )
 	{
 		//the soldier is on schedule
 		sgp_swprintf( pzText, 64,L"On Schdl.");

@@ -2273,7 +2273,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 		}
 	}
 
-	if (pStartSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
+	if (pStartSoldier->status().flags() & SOLDIER_MONSTER)
 	{
 		// monsters use smell instead of sight!
 		dEndZPos = STANDING_LOS_POS; // should avoid low rocks etc
@@ -2354,7 +2354,7 @@ INT32 SoldierToSoldierLineOfSightTest( SOLDIERTYPE * pStartSoldier, SOLDIERTYPE 
 
 	// anv: special check for vehicles - since they're no longer transparent, we need to check for visibility 
 	// of all substructures, also vehicle will be noticed even if just part of it is sticking around the corner
-	if ( pEndSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && (!ARMED_VEHICLE( pEndSoldier ) || gGameExternalOptions.fEnemyTanksAnyPartVisible) )
+	if ( pEndSoldier->status().flags() & SOLDIER_VEHICLE && (!ARMED_VEHICLE( pEndSoldier ) || gGameExternalOptions.fEnemyTanksAnyPartVisible) )
 	{
 		STRUCTURE	*pBase = pEndSoldier->pLevelNode->pStructureData;
 		if( pBase == NULL )
@@ -2772,7 +2772,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// when the bullet got near him
 	//pTarget->suppression().points()--;
 
-	if ( pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE || (pTarget->ubBodyType == COW || pTarget->ubBodyType == CROW || pTarget->ubBodyType == BLOODCAT) )
+	if ( pTarget->status().flags() & SOLDIER_VEHICLE || (pTarget->ubBodyType == COW || pTarget->ubBodyType == CROW || pTarget->ubBodyType == BLOODCAT) )
 	{
 		//ubHitLocation = pStructure->ubVehicleHitLocation;
 		ubHitLocation = AIM_SHOT_TORSO;
@@ -2970,7 +2970,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 			}
 		}
 
-		if ( ( AmmoTypes[ubAmmoType].monsterSpit || ( !DoesSoldierWearGasMask(pTarget) && AmmoTypes[ubAmmoType].ammoflag & AMMO_BLIND ) ) && (ubHitLocation == AIM_SHOT_HEAD) && ( ! (pTarget->flags.uiStatusFlags & SOLDIER_MONSTER) ) )
+		if ( ( AmmoTypes[ubAmmoType].monsterSpit || ( !DoesSoldierWearGasMask(pTarget) && AmmoTypes[ubAmmoType].ammoflag & AMMO_BLIND ) ) && (ubHitLocation == AIM_SHOT_HEAD) && ( ! (pTarget->status().flags() & SOLDIER_MONSTER) ) )
 		{
 			UINT8			ubOppositeDirection;
 
@@ -3007,7 +3007,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	// Determine damage, checking guy's armour, etc
 	sRange = GetRangeInCellCoordsFromGridNoDiff( pBullet->sOrigGridNo, pTarget->position().gridNo() );
 
-	if ( gTacticalStatus.uiFlags & GODMODE && pTarget->bTeam == OUR_TEAM && pFirer != nullptr && !(pFirer->flags.uiStatusFlags & SOLDIER_PC))
+	if ( gTacticalStatus.uiFlags & GODMODE && pTarget->bTeam == OUR_TEAM && pFirer != nullptr && !(pFirer->status().flags() & SOLDIER_PC))
 	{
 		// in god mode, and firer is computer controlled
 		iImpact = 0;
@@ -3054,7 +3054,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		}
 
 		// intentionally shot
-		pTarget->flags.fIntendedTarget = TRUE;
+		pTarget->targeting().intendedTarget() = TRUE;
 
 		if ( pFirer != nullptr && (pBullet->usFlags & BULLET_FLAG_BUCKSHOT) && ( pTarget->ubID == pFirer->targeting().targetId() ) )
 		{
@@ -3085,7 +3085,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 				{
 					usExpGain /= 2;
 				}
-				else if ( pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pTarget ) || ARMED_VEHICLE( pTarget ) )
+				else if ( pTarget->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pTarget ) || ARMED_VEHICLE( pTarget ) )
 				{
 					// no exp from shooting a vehicle that you can't damage and can't move!
 					usExpGain = 0;
@@ -3123,7 +3123,7 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 		iDamage = BulletImpact( pFirer, pBullet, pTarget, ubHitLocation, iImpact, sHitBy, &ubSpecial );
 
 		// accidentally shot
-		pTarget->flags.fIntendedTarget = FALSE;
+		pTarget->targeting().intendedTarget() = FALSE;
 	}
 
 	if ( AmmoTypes[ubAmmoType].monsterSpit )
@@ -7260,10 +7260,10 @@ void MoveBullet( INT32 iBullet )
 						iNumLocalStructures++;
 					}
 					else if ( pBullet->pFirer != nullptr &&
-						(pBullet->pFirer->flags.uiStatusFlags & SOLDIER_MONSTER) )
+						(pBullet->pFirer->status().flags() & SOLDIER_MONSTER) )
 					{
 						// monsters firing will always accidentally hit people but never accidentally hit each other.
-						if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER) )
+						if ( !(pSoldier->status().flags() & SOLDIER_MONSTER) )
 						{
 							gpLocalStructure[iNumLocalStructures] = pStructure;
 							iNumLocalStructures++;
@@ -7962,9 +7962,9 @@ void MoveBullet( INT32 iBullet )
 		}
 
 		// check to see if bullet is close to target
-		if ( pBullet->pFirer != nullptr && pBullet->pFirer->targeting().targetId() != NOBODY && !(pBullet->pFirer->flags.uiStatusFlags & SOLDIER_ATTACK_NOTICED) && PythSpacesAway( pBullet->sGridNo, pBullet->sTargetGridNo ) <= 3 )
+		if ( pBullet->pFirer != nullptr && pBullet->pFirer->targeting().targetId() != NOBODY && !(pBullet->pFirer->status().flags() & SOLDIER_ATTACK_NOTICED) && PythSpacesAway( pBullet->sGridNo, pBullet->sTargetGridNo ) <= 3 )
 		{
-			pBullet->pFirer->flags.uiStatusFlags |= SOLDIER_ATTACK_NOTICED;
+			pBullet->pFirer->status().flags() |= SOLDIER_ATTACK_NOTICED;
 		}
 	} while( uiTileInc < pBullet->ubTilesPerUpdate );
 	// unless the distance is integral, after the loop there will be a

@@ -770,7 +770,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 446:
 
 				// CODE: Turn pause move flag on
-				pSoldier->flags.uiStatusFlags |= SOLDIER_PAUSEANIMOVE;
+				pSoldier->status().flags() |= SOLDIER_PAUSEANIMOVE;
 				break;
 
 			case 447:
@@ -1096,8 +1096,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: CHANGE ATTACKING TO FIRST HAND
 				pSoldier->attackSelection().selectWeapon(
 					HANDPOS, pSoldier->inv[HANDPOS].usItem);
-				// Adjust fReloading to FALSE
-				pSoldier->flags.fReloading = FALSE;
+				// Clear the fire-control reload state.
+				pSoldier->fireControl().reloading() = FALSE;
 				break;
 
 			case 458:
@@ -1105,8 +1105,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// CODE: CHANGE ATTACKING TO SECOND HAND
 				pSoldier->attackSelection().selectWeapon(
 					SECONDHANDPOS, pSoldier->inv[SECONDHANDPOS].usItem);
-				// Adjust fReloading to FALSE
-				pSoldier->flags.fReloading = FALSE;
+				// Clear the fire-control reload state.
+				pSoldier->fireControl().reloading() = FALSE;
 				break;
 
 			case 460:
@@ -1305,12 +1305,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					BOOLEAN fNPCPunch = FALSE;
 
 					// ATE: Put some code in for NPC punches...
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_NPC_DOING_PUNCH )
+					if ( pSoldier->status().flags() & SOLDIER_NPC_DOING_PUNCH )
 					{
 						fNPCPunch = TRUE;
 
 						// Turn off
-						pSoldier->flags.uiStatusFlags &= (~SOLDIER_NPC_DOING_PUNCH );
+						pSoldier->status().flags() &= (~SOLDIER_NPC_DOING_PUNCH );
 
 						// Trigger approach...
 						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
@@ -1419,7 +1419,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 471:
 
 				// CODE: Turn pause move flag off
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_PAUSEANIMOVE);
+				pSoldier->status().flags() &= (~SOLDIER_PAUSEANIMOVE);
 				break;
 
 			case 472:
@@ -1619,7 +1619,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								if ( uiChance < 50 )
 								{
 									// OK, pick a larger direction to goto....
-									pSoldier->flags.uiStatusFlags |= SOLDIER_TURNINGFROMHIT;
+									pSoldier->status().flags() |= SOLDIER_TURNINGFROMHIT;
 									// This becomes an attack busy situation
 									// 0verhaul:  There is an attack busy problem with this.  The soldier could be in mid-turn
 									// when another bullet is fired (auto-fire or dual-wield, for instance), and the soldier is
@@ -1660,7 +1660,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Secondly, don't if we are going to collapse
 					//if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 )
 					//{
-					///	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
+					///	if ( !( pSoldier->status().flags() & SOLDIER_TURNINGFROMHIT ) )
 					//	{
 					///		pSoldier->ubDirection				= (INT8)pSoldier->pendingAction().primaryData();
 					//		pSoldier->pathing().desiredDirection() = (INT8)pSoldier->pendingAction().primaryData();
@@ -2045,7 +2045,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// SIGNAL DODGE!
 				// ATE: Only do if we're not inspecial case...
-				if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_NPC_DOING_PUNCH ) )
+				if ( !( pSoldier->status().flags() & SOLDIER_NPC_DOING_PUNCH ) )
 				{
 					SOLDIERTYPE *pTSoldier;
 					UINT32 uiMercFlags;
@@ -2389,7 +2389,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// JUMP TO NEXT STATIONARY ANIMATION ACCORDING TO HEIGHT
 			case 499:
 
-				if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+				if (!(pSoldier->status().flags() & SOLDIER_PC))
 				{
 					if ( pSoldier->aiData.bAction == AI_ACTION_PULL_TRIGGER )
 					{
@@ -2632,7 +2632,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 								pSoldier->EVENT_InitNewSoldierAnim( pSoldier->movement().mode(), 0 , FALSE );
 
 								// UNSET LOCK PENDING ACTION COUNTER FLAG
-								pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );
+								pSoldier->status().flags() &= ( ~SOLDIER_LOCKPENDINGACTIONCOUNTER );
 
 							}
 						}
@@ -3066,7 +3066,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 750:
 
 				// CODE: Move Vehicle UP
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					//	pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() + 1 ) );
 				}
@@ -3075,7 +3075,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 751:
 
 				// CODE: Move vehicle down
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					//		pSoldier->SetSoldierHeight( (FLOAT)( pSoldier->position().heightAdjustment() - 1 ) );
 				}
@@ -3134,7 +3134,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						GetJa2SoldierRepository().resolve( ubPerson );
 
 					if ( pRobot != nullptr &&
-						(pRobot->flags.uiStatusFlags & SOLDIER_ROBOT) )
+						(pRobot->status().flags() & SOLDIER_ROBOT) )
 					{
 						ReloadGun( pRobot, &(pRobot->inv[ HANDPOS ] ), pSoldier->pTempObject );
 
@@ -3216,7 +3216,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 					// any AI guy has been specially given keys for this, now take them
 					// away
-					pSoldier->flags.bHasKeys = pSoldier->flags.bHasKeys >> 1;
+					pSoldier->inventoryState().keyAccess() = pSoldier->inventoryState().keyAccess() >> 1;
 				}
 				break;
 
@@ -3589,7 +3589,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 		}
 
 		// Add guy if he's a candidate...		
-		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier )) 
+		if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pTeamSoldier ))
 			&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds(pTeamSoldier->position().gridNo()) && pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
 		{
 			// Are we a buddy of killer?
@@ -3736,7 +3736,7 @@ void SayBuddyWitnessedQuoteFromKill( SOLDIERTYPE *pKillerSoldier, INT32 sGridNo,
 			// we do not exclude the buddies from above. If we get to this point, it might have been a buddy that already said his line. In that case additional dialogue might play other ones
 
 			// Add guy if he's a candidate...		
-			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !( AM_A_ROBOT( pTeamSoldier ) )
+			if ( OK_INSECTOR_MERC( pTeamSoldier ) && !AM_AN_EPC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !( AM_A_ROBOT( pTeamSoldier ) )
 				&& !pTeamSoldier->assignment().isAsleep() && !TileIsOutOfBounds( pTeamSoldier->position().gridNo() ) )//&& pTeamSoldier->ubProfile != pKillerSoldier->ubProfile )
 			{
 				// TO LOS check to killed
@@ -3836,7 +3836,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 
 					if ( cnt != pKillerSoldier->ubID )
 					{
-						if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
+						if ( OK_INSECTOR_MERC( pTeamSoldier ) && !( pTeamSoldier->status().flags() & SOLDIER_GASSED ) && !AM_AN_EPC( pTeamSoldier ) )
 						{
 							// Can we see location?
 							if ( SoldierTo3DLocationLineOfSightTest( pTeamSoldier, sGridNo,  bLevel, 3, TRUE, CALC_FROM_ALL_DIRS ) )
@@ -3911,7 +3911,7 @@ void HandleKilledQuote( SOLDIERTYPE *pKilledSoldier, SOLDIERTYPE *pKillerSoldier
 						if ( Random( 100 ) < 33 && pKilledSoldier->ubBodyType != BLOODCAT )
 						{
 							// If it's a creature......
-							if ( pKilledSoldier->flags.uiStatusFlags & SOLDIER_MONSTER )
+							if ( pKilledSoldier->status().flags() & SOLDIER_MONSTER )
 							{
 								TacticalCharacterDialogue( pKillerSoldier, QUOTE_KILLED_A_CREATURE );
 							}
@@ -3946,7 +3946,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 	BOOLEAN fBuddyJustDead = FALSE;
 	*pfMadeCorpse = FALSE;
 
-	if ( pSoldier->vitals().health() == 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )	)
+	if ( pSoldier->vitals().health() == 0 && !( pSoldier->status().flags() & SOLDIER_DEAD )	)
 	{
 		// Haydent/send death info
 		if (is_networked)
@@ -4020,7 +4020,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 				// ATE: THIS IS S DUPLICATE SETTING OF SOLDIER_DEAD. Is set in StrategicHandlePlayerTeamMercDeath()
 				// also, but here it's needed to tell tectical to ignore this dude...
 				// until StrategicHandlePlayerTeamMercDeath() can get called after death skull interface is done
-				pSoldier->flags.uiStatusFlags |= SOLDIER_DEAD;
+				pSoldier->status().flags() |= SOLDIER_DEAD;
 
 			}
 		}
@@ -4279,7 +4279,7 @@ BOOLEAN HandleSoldierDeath( SOLDIERTYPE *pSoldier , BOOLEAN *pfMadeCorpse )
 		// 0verhaul: This is now handled in the death state transitions
 		// if ( pSoldier->bTeam != gbPlayerNum )
 		// {
-		//	if ( !pSoldier->flags.fDoingExternalDeath )
+		//	if ( !pSoldier->animationActivity().externalDeath() )
 				//	{
 		//		// Release attacker
 		//		DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker, code 497 = handle soldier death") );
@@ -4310,7 +4310,7 @@ void HandlePlayerTeamMemberDeathAfterSkullAnimation( SOLDIERTYPE *pSoldier )
 {
 	// 0verhaul:	This is now handled in the death state transition.
 	// Release attacker
-	// if ( !pSoldier->flags.fDoingExternalDeath )
+	// if ( !pSoldier->animationActivity().externalDeath() )
 	// {
 	//	DebugMsg( TOPIC_JA2, DBG_LEVEL_3, String("@@@@@@@ Releasesoldierattacker, code 497 = handle soldier death") );
 	//	ReleaseSoldiersAttacker( pSoldier );

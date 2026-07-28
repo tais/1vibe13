@@ -710,7 +710,7 @@ UINT16 DetermineCivQuoteEntry( SOLDIERTYPE *pCiv, UINT16 *pubCivHintToUse, BOOLE
 	}
 
 	// ATE: Cowering people take precedence....
-	if ( ( pCiv->flags.uiStatusFlags & SOLDIER_COWERING ) || ( pCiv->bTeam == CIV_TEAM && ( IsJa2TacticalCombatActive() ) ) )
+	if ( ( pCiv->status().flags() & SOLDIER_COWERING ) || ( pCiv->bTeam == CIV_TEAM && ( IsJa2TacticalCombatActive() ) ) )
 	{
 		if ( ubCivType == CIV_TYPE_ADULT )
 		{

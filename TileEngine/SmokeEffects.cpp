@@ -705,7 +705,7 @@ void DecaySmokeEffects( UINT32 uiTime )
 		if ( MercSlots[ cnt ] )
 		{
 			// reset 'hit by gas' flags
-			MercSlots[ cnt ]->flags.fHitByGasFlags = 0;
+			MercSlots[ cnt ]->condition().gasHitFlags() = 0;
 		}
 	}
 

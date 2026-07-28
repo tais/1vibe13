@@ -2359,7 +2359,7 @@ int main( int, char** )
 		ubNumberOfVehicles = 1;
 		gNewVehicle[0].iNewSeatingCapacities = 2;
 		SOLDIERTYPE vehicle;
-		vehicle.flags.uiStatusFlags |= SOLDIER_VEHICLE;
+		vehicle.status().flags() |= SOLDIER_VEHICLE;
 		vehicle.bVehicleID = 0;
 		SOLDIERTYPE passenger;
 		const bool acceptedBoundedCapacity =
@@ -7296,6 +7296,23 @@ int main( int, char** )
 		{
 			statistics.skillTrait(trait) = 20 + trait;
 		}
+		SoldierStatusComponent& status = soldier.status();
+		status.set(SOLDIER_PC | SOLDIER_MUTE);
+		SoldierInventoryStateComponent& inventoryState =
+			soldier.inventoryState();
+		inventoryState.keyAccess() = -3;
+		inventoryState.checkForNewItems() = TRUE;
+		inventoryState.zipperFlag() = TRUE;
+		inventoryState.dropPackFlag() = TRUE;
+		soldier.replication().updatedFromNetwork() = TRUE;
+		soldier.aiPlanning().lastFlankLeft() = TRUE;
+		soldier.condition().gasHitFlags() = 0xA5;
+		soldier.targeting().intendedTarget() = TRUE;
+		soldier.targeting().retainLastTargetFromTurn() = TRUE;
+		soldier.fireControl().reloading() = TRUE;
+		soldier.fireControl().aimPaused() = TRUE;
+		soldier.animationActivity().reactingFromShot() = TRUE;
+		soldier.animationActivity().externalDeath() = TRUE;
 		SoldierServiceComponent& service = soldier.service();
 		service.activity() = 2;
 		service.addProvider();
@@ -7762,6 +7779,22 @@ int main( int, char** )
 		       constSoldier.statistics().skillTrait(
 			       SoldierStatisticsComponent::SkillTraitCapacity - 1) == 49,
 		       "soldier statistics component owns every base attribute and the complete persistent trait capacity" );
+		CHECK( constSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       constSoldier.status().hasAny(SOLDIER_PC) &&
+		       constSoldier.inventoryState().keyAccess() == -3 &&
+		       constSoldier.inventoryState().checkForNewItems() &&
+		       constSoldier.inventoryState().zipperFlag() &&
+		       constSoldier.inventoryState().dropPackFlag() &&
+		       constSoldier.replication().updatedFromNetwork() &&
+		       constSoldier.aiPlanning().lastFlankLeft() &&
+		       constSoldier.condition().gasHitFlags() == 0xA5 &&
+		       constSoldier.targeting().intendedTarget() &&
+		       constSoldier.targeting().retainLastTargetFromTurn() &&
+		       constSoldier.fireControl().reloading() &&
+		       constSoldier.fireControl().aimPaused() &&
+		       constSoldier.animationActivity().reactingFromShot() &&
+		       constSoldier.animationActivity().externalDeath(),
+		       "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
@@ -8343,6 +8376,27 @@ int main( int, char** )
 		       statisticsLifecycle.scientific() == 0 &&
 		       statisticsTraitsCleared,
 		       "soldier statistics reset clears every base attribute and the complete persistent trait capacity" );
+		SoldierStatusComponent statusLifecycle;
+		statusLifecycle.set(SOLDIER_PC | SOLDIER_MUTE);
+		statusLifecycle.clear(SOLDIER_MUTE);
+		CHECK( statusLifecycle.flags() == SOLDIER_PC &&
+		       statusLifecycle.hasAny(SOLDIER_PC) &&
+		       !statusLifecycle.hasAny(SOLDIER_MUTE),
+		       "soldier status component provides explicit bit-mask queries and mutations" );
+		statusLifecycle.reset();
+		CHECK( statusLifecycle.flags() == 0,
+		       "soldier status reset clears the complete general status mask" );
+		SoldierInventoryStateComponent inventoryStateLifecycle;
+		inventoryStateLifecycle.keyAccess() = -8;
+		inventoryStateLifecycle.checkForNewItems() = TRUE;
+		inventoryStateLifecycle.zipperFlag() = TRUE;
+		inventoryStateLifecycle.dropPackFlag() = TRUE;
+		inventoryStateLifecycle.reset();
+		CHECK( inventoryStateLifecycle.keyAccess() == 0 &&
+		       !inventoryStateLifecycle.checkForNewItems() &&
+		       !inventoryStateLifecycle.zipperFlag() &&
+		       !inventoryStateLifecycle.dropPackFlag(),
+		       "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -8993,6 +9047,21 @@ int main( int, char** )
 		       copiedSoldier.statistics().scientific() == 80 &&
 		       copiedStatisticsTraitsMatch,
 		       "soldier copies retain every owned base attribute and persistent trait slot" );
+		CHECK( copiedSoldier.status().flags() == (SOLDIER_PC | SOLDIER_MUTE) &&
+		       copiedSoldier.inventoryState().keyAccess() == -3 &&
+		       copiedSoldier.inventoryState().checkForNewItems() &&
+		       copiedSoldier.inventoryState().zipperFlag() &&
+		       copiedSoldier.inventoryState().dropPackFlag() &&
+		       copiedSoldier.replication().updatedFromNetwork() &&
+		       copiedSoldier.aiPlanning().lastFlankLeft() &&
+		       copiedSoldier.condition().gasHitFlags() == 0xA5 &&
+		       copiedSoldier.targeting().intendedTarget() &&
+		       copiedSoldier.targeting().retainLastTargetFromTurn() &&
+		       copiedSoldier.fireControl().reloading() &&
+		       copiedSoldier.fireControl().aimPaused() &&
+		       copiedSoldier.animationActivity().reactingFromShot() &&
+		       copiedSoldier.animationActivity().externalDeath(),
+		       "soldier copies retain every component-owned former general flag" );
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -10191,6 +10260,21 @@ int main( int, char** )
 		       copiedSoldier.statistics().scientific() == 0 &&
 		       initializedStatisticsTraitsCleared,
 		       "soldier initialization resets the complete base-statistics domain" );
+		CHECK( copiedSoldier.status().flags() == 0 &&
+		       copiedSoldier.inventoryState().keyAccess() == 0 &&
+		       !copiedSoldier.inventoryState().checkForNewItems() &&
+		       !copiedSoldier.inventoryState().zipperFlag() &&
+		       !copiedSoldier.inventoryState().dropPackFlag() &&
+		       !copiedSoldier.replication().updatedFromNetwork() &&
+		       !copiedSoldier.aiPlanning().lastFlankLeft() &&
+		       copiedSoldier.condition().gasHitFlags() == 0 &&
+		       !copiedSoldier.targeting().intendedTarget() &&
+		       !copiedSoldier.targeting().retainLastTargetFromTurn() &&
+		       !copiedSoldier.fireControl().reloading() &&
+		       !copiedSoldier.fireControl().aimPaused() &&
+		       !copiedSoldier.animationActivity().reactingFromShot() &&
+		       !copiedSoldier.animationActivity().externalDeath(),
+		       "soldier initialization resets every component-owned former general flag" );
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
@@ -10730,6 +10814,18 @@ int main( int, char** )
 		legacySoldier->bScientific = 90;
 		legacySoldier->ubSkillTrait1 = 11;
 		legacySoldier->ubSkillTrait2 = 12;
+		legacySoldier->bHasKeys = -6;
+		legacySoldier->fIntendedTarget = TRUE;
+		legacySoldier->fReloading = TRUE;
+		legacySoldier->fPauseAim = TRUE;
+		legacySoldier->fReactingFromBeingShot = TRUE;
+		legacySoldier->fCheckForNewlyAddedItems = TRUE;
+		legacySoldier->fSoldierUpdatedFromNetwork = TRUE;
+		legacySoldier->fDontUnsetLastTargetFromTurn = TRUE;
+		legacySoldier->fHitByGasFlags = 0x5A;
+		legacySoldier->fDoingExternalDeath = TRUE;
+		legacySoldier->lastFlankLeft = TRUE;
+		legacySoldier->uiStatusFlags = SOLDIER_PC | SOLDIER_MUTE;
 		legacySoldier->bService = 2;
 		legacySoldier->ubServiceCount = 3;
 		legacySoldier->ubServicePartner = 7;
@@ -10973,6 +11069,20 @@ int main( int, char** )
 		convertedSoldier.statistics().skillTrait(0) = 99;
 		convertedSoldier.statistics().skillTrait(
 			SoldierStatisticsComponent::SkillTraitCapacity - 1) = 99;
+		convertedSoldier.status().flags() = SOLDIER_DEAD;
+		convertedSoldier.inventoryState().keyAccess() = 99;
+		convertedSoldier.inventoryState().checkForNewItems() = FALSE;
+		convertedSoldier.inventoryState().zipperFlag() = TRUE;
+		convertedSoldier.inventoryState().dropPackFlag() = TRUE;
+		convertedSoldier.replication().updatedFromNetwork() = FALSE;
+		convertedSoldier.aiPlanning().lastFlankLeft() = FALSE;
+		convertedSoldier.condition().gasHitFlags() = 0xFF;
+		convertedSoldier.targeting().intendedTarget() = FALSE;
+		convertedSoldier.targeting().retainLastTargetFromTurn() = FALSE;
+		convertedSoldier.fireControl().reloading() = FALSE;
+		convertedSoldier.fireControl().aimPaused() = FALSE;
+		convertedSoldier.animationActivity().reactingFromShot() = FALSE;
+		convertedSoldier.animationActivity().externalDeath() = FALSE;
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
@@ -11124,6 +11234,22 @@ int main( int, char** )
 		       convertedSoldier.statistics().skillTrait(1) == 12 &&
 		       convertedHistoricalTraitTailCleared,
 		       "v101 soldier conversion maps all historical base statistics and clears later trait slots" );
+		CHECK( convertedSoldier.status().flags() ==
+			       (SOLDIER_PC | SOLDIER_MUTE) &&
+		       convertedSoldier.inventoryState().keyAccess() == -6 &&
+		       convertedSoldier.inventoryState().checkForNewItems() &&
+		       !convertedSoldier.inventoryState().zipperFlag() &&
+		       !convertedSoldier.inventoryState().dropPackFlag() &&
+		       convertedSoldier.replication().updatedFromNetwork() &&
+		       convertedSoldier.aiPlanning().lastFlankLeft() &&
+		       convertedSoldier.condition().gasHitFlags() == 0x5A &&
+		       convertedSoldier.targeting().intendedTarget() &&
+		       convertedSoldier.targeting().retainLastTargetFromTurn() &&
+		       convertedSoldier.fireControl().reloading() &&
+		       convertedSoldier.fireControl().aimPaused() &&
+		       convertedSoldier.animationActivity().reactingFromShot() &&
+		       convertedSoldier.animationActivity().externalDeath(),
+		       "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -11628,6 +11754,21 @@ int main( int, char** )
 		{
 			savedSoldier.statistics().skillTrait(trait) = 101 + trait;
 		}
+		savedSoldier.status().flags() =
+			SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER;
+		savedSoldier.inventoryState().keyAccess() = -7;
+		savedSoldier.inventoryState().checkForNewItems() = TRUE;
+		savedSoldier.inventoryState().zipperFlag() = TRUE;
+		savedSoldier.inventoryState().dropPackFlag() = TRUE;
+		savedSoldier.replication().updatedFromNetwork() = TRUE;
+		savedSoldier.aiPlanning().lastFlankLeft() = TRUE;
+		savedSoldier.condition().gasHitFlags() = 0xA6;
+		savedSoldier.targeting().intendedTarget() = TRUE;
+		savedSoldier.targeting().retainLastTargetFromTurn() = TRUE;
+		savedSoldier.fireControl().reloading() = TRUE;
+		savedSoldier.fireControl().aimPaused() = TRUE;
+		savedSoldier.animationActivity().reactingFromShot() = TRUE;
+		savedSoldier.animationActivity().externalDeath() = TRUE;
 		savedSoldier.vitals().health() = 71;
 		savedSoldier.vitals().maximumHealth() = 89;
 		savedSoldier.vitals().breath() = 62;
@@ -12074,6 +12215,23 @@ int main( int, char** )
 		       loadedSoldier.statistics().scientific() == 86 &&
 		       loadedStatisticsTraitsMatch,
 		       "soldier save/load round-trips the complete base-statistics and trait capacity at established schema positions" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.status().flags() ==
+			       (SOLDIER_PC | SOLDIER_MUTE | SOLDIER_BOXER) &&
+		       loadedSoldier.inventoryState().keyAccess() == -7 &&
+		       loadedSoldier.inventoryState().checkForNewItems() &&
+		       loadedSoldier.inventoryState().zipperFlag() &&
+		       loadedSoldier.inventoryState().dropPackFlag() &&
+		       loadedSoldier.replication().updatedFromNetwork() &&
+		       loadedSoldier.aiPlanning().lastFlankLeft() &&
+		       loadedSoldier.condition().gasHitFlags() == 0xA6 &&
+		       loadedSoldier.targeting().intendedTarget() &&
+		       loadedSoldier.targeting().retainLastTargetFromTurn() &&
+		       loadedSoldier.fireControl().reloading() &&
+		       loadedSoldier.fireControl().aimPaused() &&
+		       loadedSoldier.animationActivity().reactingFromShot() &&
+		       loadedSoldier.animationActivity().externalDeath(),
+		       "soldier save/load round-trips every former general flag through its established byte position and domain owner" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&

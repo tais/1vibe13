@@ -1978,12 +1978,12 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 		pMercPath = pVehicleList[ pSoldier->deployment().vehicleId() ].pMercPath;
 	}
 	// IS a vehicle?
-	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 	/* Sergeant_Kolja, 2007-02-20: got an pVehicleList==NULL Exception on loading an older save here... not REALY fixed! */
 	if( !pVehicleList ) /*bcause we have no vehicle list at all, we act as we are a person*/
 		{
-		pSoldier->flags.uiStatusFlags &= ~SOLDIER_VEHICLE;
+		pSoldier->status().flags() &= ~SOLDIER_VEHICLE;
 			pMercPath = pSoldier->pMercPath;
 		/* after all, create an empty Vehicle list */
 			pVehicleList = (VEHICLETYPE *) MemAlloc( sizeof( VEHICLETYPE ) );
@@ -2045,7 +2045,7 @@ UINT8 GetSoldierGroupId( SOLDIERTYPE *pSoldier )
 		ubGroupId = pVehicleList[ pSoldier->deployment().vehicleId() ].ubMovementGroup;
 	}
 	// IS a vehicle?
-	else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
 	}
@@ -2123,7 +2123,7 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
 
 	// if a vehicle
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		pVehicle = &( pVehicleList[ pSoldier->bVehicleID ] );
 	}

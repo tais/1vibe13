@@ -124,7 +124,7 @@ void RTHandleAI( SOLDIERTYPE * pSoldier )
 			{
 				if ( pSoldier->aiData.bNextAction == AI_ACTION_END_COWER_AND_MOVE )
 				{
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+					if ( pSoldier->status().flags() & SOLDIER_COWERING )
 					{
 						pSoldier->aiData.bAction = AI_ACTION_STOP_COWERING;
 						pSoldier->aiData.usActionData = ANIM_STAND;

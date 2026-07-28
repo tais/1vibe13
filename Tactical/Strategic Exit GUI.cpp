@@ -238,7 +238,7 @@ BOOLEAN InternalInitSectorExitMenu( UINT8 ubDirection, INT32 sAdditionalData )//
 				( pSoldier->assignment().current() != selectedSoldier->assignment().current() ||
 				( pSoldier->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() != selectedSoldier->deployment().vehicleId() ) ) &&
 				pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
-				&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				&& !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{ //KM:	We need to determine if there are more than one squad (meaning other concious mercs in a different squad or assignment)
 			//		These conditions were done to the best of my knowledge, so if there are other situations that require modification,
 			//		then feel free to do so.

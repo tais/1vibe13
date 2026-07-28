@@ -204,6 +204,48 @@ private:
 	SkillTraits skillTraits_{};
 };
 
+// Canonical owner for the established general-purpose soldier bit mask. The
+// mask remains value-compatible while callers transition from public aggregate
+// storage to explicit status queries and mutations.
+class SoldierStatusComponent
+{
+public:
+	UINT32& flags() noexcept { return flags_; }
+	const UINT32& flags() const noexcept { return flags_; }
+
+	bool hasAny(UINT32 flags) const noexcept { return (flags_ & flags) != 0; }
+	void set(UINT32 flags) noexcept { flags_ |= flags; }
+	void clear(UINT32 flags) noexcept { flags_ &= ~flags; }
+	void reset() noexcept;
+
+private:
+	UINT32 flags_ = 0;
+};
+
+// Canonical persistent inventory-adjacent state. Key access, new-item refresh,
+// and load-bearing-equipment zipper/drop-pack flags share the inventory
+// lifecycle without exposing another generic soldier flag bucket.
+class SoldierInventoryStateComponent
+{
+public:
+	INT8& keyAccess() noexcept { return keyAccess_; }
+	const INT8& keyAccess() const noexcept { return keyAccess_; }
+	BOOLEAN& checkForNewItems() noexcept { return checkForNewItems_; }
+	const BOOLEAN& checkForNewItems() const noexcept { return checkForNewItems_; }
+	BOOLEAN& zipperFlag() noexcept { return zipperFlag_; }
+	const BOOLEAN& zipperFlag() const noexcept { return zipperFlag_; }
+	BOOLEAN& dropPackFlag() noexcept { return dropPackFlag_; }
+	const BOOLEAN& dropPackFlag() const noexcept { return dropPackFlag_; }
+
+	void reset() noexcept;
+
+private:
+	INT8 keyAccess_ = 0;
+	BOOLEAN checkForNewItems_ = FALSE;
+	BOOLEAN zipperFlag_ = FALSE;
+	BOOLEAN dropPackFlag_ = FALSE;
+};
+
 // Canonical tactical service relationship. A provider points at one patient,
 // while the patient counts all active providers and may reserve one medic
 // during automatic bandaging. The persisted activity marker is retained
@@ -437,6 +479,8 @@ public:
 	const INT32& scheduledStopGrid() const noexcept { return scheduledStopGrid_; }
 	UINT32& checksum() noexcept { return checksum_; }
 	const UINT32& checksum() const noexcept { return checksum_; }
+	BOOLEAN& updatedFromNetwork() noexcept { return updatedFromNetwork_; }
+	const BOOLEAN& updatedFromNetwork() const noexcept { return updatedFromNetwork_; }
 
 	bool hasLastUpdate() const noexcept { return lastUpdateAt_ != 0; }
 	bool updateTimedOut(UINT32 now, UINT32 timeout) const noexcept
@@ -457,6 +501,7 @@ private:
 	UINT8 updateType_ = 0;
 	INT32 scheduledStopGrid_ = 0;
 	UINT32 checksum_ = 0;
+	BOOLEAN updatedFromNetwork_ = FALSE;
 };
 
 // Canonical movement telemetry consumed by turn rules, visibility, accuracy,
@@ -512,6 +557,8 @@ public:
 	const INT16& flankOriginDirection() const noexcept { return flankOriginDirection_; }
 	INT16& planIndex() noexcept { return planIndex_; }
 	const INT16& planIndex() const noexcept { return planIndex_; }
+	BOOLEAN& lastFlankLeft() noexcept { return lastFlankLeft_; }
+	const BOOLEAN& lastFlankLeft() const noexcept { return lastFlankLeft_; }
 
 	bool flanking(INT8 terminalCount) const noexcept
 	{
@@ -534,6 +581,7 @@ private:
 	INT8 sniperPosture_ = 0;
 	INT16 flankOriginDirection_ = 0;
 	INT16 planIndex_ = 0;
+	BOOLEAN lastFlankLeft_ = FALSE;
 };
 
 // Canonical skill execution and persistence state. Repeated mechanical checks,
@@ -640,6 +688,8 @@ public:
 	const UINT8& diseaseFlags(UINT8 index) const noexcept { return diseaseFlags_[index]; }
 	UINT32& disabilityFlags() noexcept { return disabilityFlags_; }
 	const UINT32& disabilityFlags() const noexcept { return disabilityFlags_; }
+	UINT8& gasHitFlags() noexcept { return gasHitFlags_; }
+	const UINT8& gasHitFlags() const noexcept { return gasHitFlags_; }
 
 	bool hasExtraStats() const noexcept;
 	bool hasStarvationDamage() const noexcept;
@@ -674,6 +724,7 @@ private:
 	DiseasePoints diseasePoints_{};
 	DiseaseFlags diseaseFlags_{};
 	UINT32 disabilityFlags_ = 0;
+	UINT8 gasHitFlags_ = 0;
 };
 
 // Canonical persistent drug and alcohol state. Fixed effect arrays retain the
@@ -1875,6 +1926,16 @@ public:
 	const SoldierID& engagedOpponent() const noexcept { return engagedOpponent_; }
 	SoldierID& lineOfFireTarget() noexcept { return lineOfFireTarget_; }
 	const SoldierID& lineOfFireTarget() const noexcept { return lineOfFireTarget_; }
+	BOOLEAN& intendedTarget() noexcept { return intendedTarget_; }
+	const BOOLEAN& intendedTarget() const noexcept { return intendedTarget_; }
+	BOOLEAN& retainLastTargetFromTurn() noexcept
+	{
+		return retainLastTargetFromTurn_;
+	}
+	const BOOLEAN& retainLastTargetFromTurn() const noexcept
+	{
+		return retainLastTargetFromTurn_;
+	}
 
 	bool hasTargetSoldier() const noexcept { return targetId_ != NOBODY; }
 	bool hasEngagedOpponent() const noexcept { return engagedOpponent_ != NOBODY; }
@@ -1896,6 +1957,8 @@ private:
 	SoldierID targetId_ = NOBODY;
 	SoldierID engagedOpponent_ = NOBODY;
 	SoldierID lineOfFireTarget_ = NOBODY;
+	BOOLEAN intendedTarget_ = FALSE;
+	BOOLEAN retainLastTargetFromTurn_ = FALSE;
 };
 
 // Canonical weapon and aim selection for one tactical actor. Target geometry
@@ -2017,6 +2080,10 @@ public:
 	const UINT8& grenadeLauncherDelayMode() const noexcept { return grenadeLauncherDelayMode_; }
 	UINT8& barrelMode() noexcept { return barrelMode_; }
 	const UINT8& barrelMode() const noexcept { return barrelMode_; }
+	BOOLEAN& reloading() noexcept { return reloading_; }
+	const BOOLEAN& reloading() const noexcept { return reloading_; }
+	BOOLEAN& aimPaused() noexcept { return aimPaused_; }
+	const BOOLEAN& aimPaused() const noexcept { return aimPaused_; }
 
 	bool bursting() const noexcept { return burstCounter_ != 0; }
 	bool autofiring() const noexcept { return autofireShots_ != 0; }
@@ -2066,6 +2133,8 @@ private:
 	INT8 gunType_ = 0;
 	UINT8 grenadeLauncherDelayMode_ = 0;
 	UINT8 barrelMode_ = 0;
+	BOOLEAN reloading_ = FALSE;
+	BOOLEAN aimPaused_ = FALSE;
 };
 
 // Canonical result of incoming combat. This keeps the current/previous
@@ -2711,6 +2780,10 @@ public:
 	const UINT32& randomActionCheckCounter() const noexcept { return randomActionCheckCounter_; }
 	INT16& lastRandomAnimation() noexcept { return lastRandomAnimation_; }
 	const INT16& lastRandomAnimation() const noexcept { return lastRandomAnimation_; }
+	BOOLEAN& reactingFromShot() noexcept { return reactingFromShot_; }
+	const BOOLEAN& reactingFromShot() const noexcept { return reactingFromShot_; }
+	BOOLEAN& externalDeath() noexcept { return externalDeath_; }
+	const BOOLEAN& externalDeath() const noexcept { return externalDeath_; }
 
 	bool gettingHit() const noexcept { return hitPhase_ != 0; }
 	bool hasRenderZOverride() const noexcept { return renderZOverride_ != -1; }
@@ -2757,6 +2830,8 @@ private:
 	INT16 renderZOverride_ = 0;
 	UINT32 randomActionCheckCounter_ = 0;
 	INT16 lastRandomAnimation_ = 0;
+	BOOLEAN reactingFromShot_ = FALSE;
+	BOOLEAN externalDeath_ = FALSE;
 };
 
 struct SoldierPendingActionRuntimeState

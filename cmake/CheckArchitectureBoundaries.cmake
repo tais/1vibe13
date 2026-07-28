@@ -1849,11 +1849,8 @@ string(FIND "${soldier_control_header_contents}"
   "class STRUCT_AIData//last edited at version 102"
   current_soldier_ai_begin)
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_Flags//last edited at version 102"
-  current_soldier_flags_begin)
-string(FIND "${soldier_control_header_contents}"
   "// forward declaration for modularized tactical ai"
-  current_soldier_flags_end)
+  current_soldier_ai_end)
 string(FIND "${soldier_control_header_contents}"
   "class SOLDIERTYPE//last edited at version 102"
   current_soldier_begin)
@@ -1861,25 +1858,22 @@ string(FIND "${soldier_control_header_contents}"
   "#define SIZEOF_SOLDIERTYPE_POD"
   current_soldier_end)
 if(current_soldier_ai_begin EQUAL -1 OR
-   current_soldier_flags_begin EQUAL -1 OR
-   current_soldier_flags_end EQUAL -1 OR
+   current_soldier_ai_end EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/AI/flags declaration boundaries for the soldier-component ownership check")
+    "Could not locate current soldier/AI declaration boundaries for the soldier-component ownership check")
 endif()
 math(EXPR current_soldier_ai_length
-  "${current_soldier_flags_begin} - ${current_soldier_ai_begin}")
-math(EXPR current_soldier_flags_length
-  "${current_soldier_flags_end} - ${current_soldier_flags_begin}")
+  "${current_soldier_ai_end} - ${current_soldier_ai_begin}")
 math(EXPR current_soldier_length
   "${current_soldier_end} - ${current_soldier_begin}")
 string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_ai_begin} ${current_soldier_ai_length}
   current_soldier_ai_contents)
-string(SUBSTRING "${soldier_control_header_contents}"
-  ${current_soldier_flags_begin} ${current_soldier_flags_length}
-  current_soldier_flags_contents)
+# STRUCT_Flags has no current runtime declaration. Keep the empty compatibility
+# slice so older ownership ratchets continue to guard against field regressions.
+set(current_soldier_flags_contents "")
 string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_begin} ${current_soldier_length}
   current_soldier_contents)
@@ -4166,6 +4160,270 @@ if(soldier_statistics_architecture_documented EQUAL -1 OR
     "SoldierStatisticsComponent ownership and byte-compatibility guarantees must remain documented")
 endif()
 
+# The final generic flag bucket is retired. Keep the general status mask and
+# inventory-adjacent values in narrow owners, and keep each remaining value in
+# the behavioral component that already controls its lifecycle. The visitor
+# order and widths remain the compatibility contract.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_Flags"
+  retired_soldier_flags_aggregate)
+if(NOT retired_soldier_flags_aggregate EQUAL -1)
+  message(FATAL_ERROR
+    "Retired STRUCT_Flags returned; its values must remain split across their behavioral domains")
+endif()
+
+foreach(retired_general_flag_field IN ITEMS
+  bHasKeys
+  fIntendedTarget
+  fReloading
+  fPauseAim
+  fReactingFromBeingShot
+  fCheckForNewlyAddedItems
+  fSoldierUpdatedFromNetwork
+  fDontUnsetLastTargetFromTurn
+  fHitByGasFlags
+  fDoingExternalDeath
+  lastFlankLeft
+  uiStatusFlags
+  ZipperFlag
+  DropPackFlag)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_general_flag_field}([^A-Za-z0-9_]|$)"
+    retired_current_general_flag_field
+    "${current_soldier_contents}")
+  if(retired_current_general_flag_field)
+    message(FATAL_ERROR
+      "Retired flat soldier flag '${retired_general_flag_field}' returned; keep it in its domain component")
+  endif()
+endforeach()
+
+foreach(soldier_flag_owner_pattern IN ITEMS
+  "SoldierStatusComponent[ \t\r\n]+status_[ \t]*;"
+  "SoldierInventoryStateComponent[ \t\r\n]+inventoryState_[ \t]*;")
+  string(REGEX MATCH
+    "${soldier_flag_owner_pattern}"
+    soldier_flag_owner
+    "${current_soldier_contents}")
+  if(NOT soldier_flag_owner)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost a private status or inventory-state owner")
+  endif()
+endforeach()
+foreach(soldier_flag_accessor IN ITEMS
+  "SoldierStatusComponent& status() noexcept"
+  "const SoldierStatusComponent& status() const noexcept"
+  "SoldierInventoryStateComponent& inventoryState() noexcept"
+  "const SoldierInventoryStateComponent& inventoryState() const noexcept")
+  string(FIND "${soldier_control_header_contents}"
+    "${soldier_flag_accessor}"
+    soldier_flag_accessor_site)
+  if(soldier_flag_accessor_site EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost zero-cost component accessor '${soldier_flag_accessor}'")
+  endif()
+endforeach()
+
+foreach(soldier_flag_storage IN ITEMS
+  "UINT32 flags_ = 0;"
+  "INT8 keyAccess_ = 0;"
+  "BOOLEAN checkForNewItems_ = FALSE;"
+  "BOOLEAN zipperFlag_ = FALSE;"
+  "BOOLEAN dropPackFlag_ = FALSE;"
+  "BOOLEAN updatedFromNetwork_ = FALSE;"
+  "BOOLEAN lastFlankLeft_ = FALSE;"
+  "UINT8 gasHitFlags_ = 0;"
+  "BOOLEAN intendedTarget_ = FALSE;"
+  "BOOLEAN retainLastTargetFromTurn_ = FALSE;"
+  "BOOLEAN reloading_ = FALSE;"
+  "BOOLEAN aimPaused_ = FALSE;"
+  "BOOLEAN reactingFromShot_ = FALSE;"
+  "BOOLEAN externalDeath_ = FALSE;")
+  string(FIND "${soldier_components_header_contents}"
+    "${soldier_flag_storage}"
+    soldier_flag_storage_site)
+  if(soldier_flag_storage_site EQUAL -1)
+    message(FATAL_ERROR
+      "A component-owned former general flag lost initialized storage '${soldier_flag_storage}'")
+  endif()
+endforeach()
+
+foreach(soldier_flag_reset_type IN ITEMS
+  SoldierStatusComponent
+  SoldierInventoryStateComponent)
+  string(FIND "${soldier_components_source_contents}"
+    "*this = ${soldier_flag_reset_type}{};"
+    soldier_flag_default_reset)
+  if(soldier_flag_default_reset EQUAL -1)
+    message(FATAL_ERROR
+      "${soldier_flag_reset_type} must reset through its complete default state")
+  endif()
+endforeach()
+string(REGEX MATCHALL
+  "status\\(\\)\\.reset\\(\\)"
+  soldier_status_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_status_reset_sites
+  soldier_status_reset_site_count)
+string(REGEX MATCHALL
+  "inventoryState\\(\\)\\.reset\\(\\)"
+  soldier_inventory_state_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_inventory_state_reset_sites
+  soldier_inventory_state_reset_site_count)
+if(NOT soldier_status_reset_site_count EQUAL 2 OR
+   NOT soldier_inventory_state_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "Status and inventory-state owners must reset exactly during v101 conversion and current initialization")
+endif()
+
+foreach(soldier_flag_v101_mapping IN ITEMS
+  "inventoryState().keyAccess() = src.bHasKeys;"
+  "condition().gasHitFlags() = src.fHitByGasFlags;"
+  "replication().updatedFromNetwork() = src.fSoldierUpdatedFromNetwork;"
+  "inventoryState().checkForNewItems() = src.fCheckForNewlyAddedItems;"
+  "animationActivity().externalDeath() = src.fDoingExternalDeath;"
+  "fireControl().reloading() = src.fReloading;"
+  "fireControl().aimPaused() = src.fPauseAim;"
+  "targeting().intendedTarget() = src.fIntendedTarget;"
+  "aiPlanning().lastFlankLeft() = src.lastFlankLeft;"
+  "status().flags() = src.uiStatusFlags;")
+  string(FIND "${soldier_control_source_contents}"
+    "${soldier_flag_v101_mapping}"
+    soldier_flag_v101_mapping_site)
+  if(soldier_flag_v101_mapping_site EQUAL -1)
+    message(FATAL_ERROR
+      "V101 conversion lost former general-flag mapping '${soldier_flag_v101_mapping}'")
+  endif()
+endforeach()
+foreach(soldier_flag_v101_split_mapping IN ITEMS
+  "targeting\\(\\)\\.retainLastTargetFromTurn\\(\\)[ \t\r\n]*=[ \t\r\n]*src\\.fDontUnsetLastTargetFromTurn;"
+  "animationActivity\\(\\)\\.reactingFromShot\\(\\)[ \t\r\n]*=[ \t\r\n]*src\\.fReactingFromBeingShot;")
+  string(REGEX MATCH
+    "${soldier_flag_v101_split_mapping}"
+    soldier_flag_v101_split_mapping_site
+    "${soldier_control_source_contents}")
+  if(NOT soldier_flag_v101_split_mapping_site)
+    message(FATAL_ERROR
+      "V101 conversion lost a split-line former general-flag mapping")
+  endif()
+endforeach()
+
+string(FIND "${save_load_game_contents}"
+  "ar.i8(inventoryState.keyAccess());"
+  soldier_flag_save_key_access)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(targeting.intendedTarget());"
+  soldier_flag_save_intended_target)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(fireControl.reloading());"
+  soldier_flag_save_reloading)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(fireControl.aimPaused());"
+  soldier_flag_save_aim_paused)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(animationActivity.reactingFromShot());"
+  soldier_flag_save_reacting_from_shot)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(inventoryState.checkForNewItems());"
+  soldier_flag_save_check_for_new_items)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(replication.updatedFromNetwork());"
+  soldier_flag_save_updated_from_network)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(targeting.retainLastTargetFromTurn());"
+  soldier_flag_save_retain_target)
+string(FIND "${save_load_game_contents}"
+  "ar.u8(condition.gasHitFlags());"
+  soldier_flag_save_gas_hits)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(animationActivity.externalDeath());"
+  soldier_flag_save_external_death)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(aiPlanning.lastFlankLeft());"
+  soldier_flag_save_last_flank_left)
+string(FIND "${save_load_game_contents}"
+  "ar.u32(status.flags());"
+  soldier_flag_save_status_mask)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(inventoryState.zipperFlag());"
+  soldier_flag_save_zipper)
+string(FIND "${save_load_game_contents}"
+  "ar.boolean(inventoryState.dropPackFlag());"
+  soldier_flag_save_drop_pack)
+if(soldier_flag_save_key_access EQUAL -1 OR
+   soldier_flag_save_intended_target EQUAL -1 OR
+   soldier_flag_save_reloading EQUAL -1 OR
+   soldier_flag_save_aim_paused EQUAL -1 OR
+   soldier_flag_save_reacting_from_shot EQUAL -1 OR
+   soldier_flag_save_check_for_new_items EQUAL -1 OR
+   soldier_flag_save_updated_from_network EQUAL -1 OR
+   soldier_flag_save_retain_target EQUAL -1 OR
+   soldier_flag_save_gas_hits EQUAL -1 OR
+   soldier_flag_save_external_death EQUAL -1 OR
+   soldier_flag_save_last_flank_left EQUAL -1 OR
+   soldier_flag_save_status_mask EQUAL -1 OR
+   soldier_flag_save_zipper EQUAL -1 OR
+   soldier_flag_save_drop_pack EQUAL -1)
+  message(FATAL_ERROR
+    "A former general flag changed width or disappeared from the portable soldier visitor")
+endif()
+if(NOT soldier_flag_save_key_access LESS soldier_flag_save_intended_target OR
+   NOT soldier_flag_save_intended_target LESS soldier_flag_save_reloading OR
+   NOT soldier_flag_save_reloading LESS soldier_flag_save_aim_paused OR
+   NOT soldier_flag_save_aim_paused LESS soldier_flag_save_reacting_from_shot OR
+   NOT soldier_flag_save_reacting_from_shot LESS soldier_flag_save_check_for_new_items OR
+   NOT soldier_flag_save_check_for_new_items LESS soldier_flag_save_updated_from_network OR
+   NOT soldier_flag_save_updated_from_network LESS soldier_flag_save_retain_target OR
+   NOT soldier_flag_save_retain_target LESS soldier_flag_save_gas_hits OR
+   NOT soldier_flag_save_gas_hits LESS soldier_flag_save_external_death OR
+   NOT soldier_flag_save_external_death LESS soldier_flag_save_last_flank_left OR
+   NOT soldier_flag_save_last_flank_left LESS soldier_flag_save_status_mask OR
+   NOT soldier_flag_save_status_mask LESS soldier_flag_save_zipper OR
+   NOT soldier_flag_save_zipper LESS soldier_flag_save_drop_pack)
+  message(FATAL_ERROR
+    "Former general flags moved relative to each other in the portable soldier visitor")
+endif()
+
+foreach(soldier_flag_test_fragment IN ITEMS
+  "soldier components own every former general flag by its status, inventory, replication, AI, condition, targeting, fire-control, or animation domain"
+  "soldier status component provides explicit bit-mask queries and mutations"
+  "soldier inventory-state reset clears key access, refresh, zipper, and drop-pack state"
+  "soldier copies retain every component-owned former general flag"
+  "soldier initialization resets every component-owned former general flag"
+  "v101 soldier conversion maps every historical general flag to its domain and clears zipper/drop-pack state absent from that schema"
+  "soldier save/load round-trips every former general flag through its established byte position and domain owner")
+  string(FIND "${headless_test_contents}"
+    "${soldier_flag_test_fragment}"
+    soldier_flag_test_site)
+  if(soldier_flag_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost former general-flag fixture '${soldier_flag_test_fragment}'")
+  endif()
+endforeach()
+
+foreach(soldier_flag_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}")
+  string(FIND "${soldier_flag_documentation}"
+    "SoldierStatusComponent"
+    soldier_status_documented)
+  string(FIND "${soldier_flag_documentation}"
+    "SoldierInventoryStateComponent"
+    soldier_inventory_state_documented)
+  if(soldier_status_documented EQUAL -1 OR
+     soldier_inventory_state_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Status and inventory-state ownership must remain documented")
+  endif()
+endforeach()
+string(FIND "${save_format_documentation}"
+  "The former 14-field `STRUCT_Flags` aggregate"
+  soldier_flags_save_documented)
+if(soldier_flags_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Former general-flag byte compatibility must remain documented")
+endif()
+
 # Persistent stat-change presentation has one timestamp and direction-feedback
 # owner. Keep the historical eleven-value save block, scattered mask position,
 # and v101 mapping exact while preventing the old STRUCT_TimeChanges shell and
@@ -6431,7 +6689,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_arrival_getup_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fReloading\\);[ \t]*ar\\.boolean\\(f\\.fPauseAim\\);[ \t]*ar\\.boolean\\(deployment\\.inMissionExitNode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(deployment\\.betweenSectors\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fReactingFromBeingShot\\);"
+  "ar\\.boolean\\(fireControl\\.reloading\\(\\)\\);[ \t]*ar\\.boolean\\(fireControl\\.aimPaused\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.inMissionExitNode\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(deployment\\.betweenSectors\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.reactingFromShot\\(\\)\\);"
   serialized_soldier_deployment_transit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7231,7 +7489,7 @@ string(REGEX MATCH
   serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(f\\.bHasKeys\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);"
+  "ar\\.i8\\(inventoryState\\.keyAccess\\(\\)\\);[ \t\r\n]*ar\\.u8\\(movement\\.delayCounter\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.turnInProgress\\(\\)\\);"
   serialized_soldier_movement_delay_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7247,11 +7505,11 @@ string(REGEX MATCH
   serialized_soldier_movement_halt_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.networkDelayed\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fSoldierUpdatedFromNetwork\\);"
+  "ar\\.boolean\\(fireControl\\.spreadIndex\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(movement\\.movementClockActive\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.networkDelayed\\(\\)\\);[ \t]*ar\\.boolean\\(replication\\.updatedFromNetwork\\(\\)\\);"
   serialized_soldier_movement_clock_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);"
+  "ar\\.boolean\\(animationActivity\\.stanceCostWaived\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.wasMoving\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(targeting\\.retainLastTargetFromTurn\\(\\)\\);"
   serialized_soldier_movement_presentation_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7259,11 +7517,11 @@ string(REGEX MATCH
   serialized_soldier_movement_axis_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fCheckForNewlyAddedItems\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);"
+  "ar\\.boolean\\(inventoryState\\.checkForNewItems\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.blockedByAnotherMerc\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(employment\\.contractPriceIncreasedState\\(\\)\\);"
   serialized_soldier_movement_block_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDontUnsetLastTargetFromTurn\\);[ \t]*ar\\.boolean\\(movement\\.usesMoveSpeedOverride\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);"
+  "ar\\.boolean\\(targeting\\.retainLastTargetFromTurn\\(\\)\\);[ \t]*ar\\.boolean\\(movement\\.usesMoveSpeedOverride\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);"
   serialized_soldier_movement_speed_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8227,7 +8485,7 @@ string(REGEX MATCH
   serialized_soldier_fire_spread_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(f\\.fDoingExternalDeath\\);[ \t\r\n]*ar\\.boolean\\(fireControl\\.autofireLastStep\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.lastFlankLeft\\);"
+  "ar\\.boolean\\(animationActivity\\.externalDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(fireControl\\.autofireLastStep\\(\\)\\);[ \t]*ar\\.boolean\\(aiPlanning\\.lastFlankLeft\\(\\)\\);"
   serialized_soldier_fire_autofire_step_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8493,7 +8751,7 @@ endif()
 # This ownership cut must not move a byte. Pin the former flag and every POD
 # position independently, including attacker history and accumulated damage.
 string(REGEX MATCH
-  "ar\\.u8\\(f\\.fHitByGasFlags\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);"
+  "ar\\.u8\\(condition\\.gasHitFlags\\(\\)\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);"
   serialized_soldier_damage_display_flag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -9179,7 +9437,7 @@ foreach(ui_presentation_save_position IN ITEMS
   endif()
 endforeach()
 string(REGEX MATCH
-  "ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.deadSoundPlayedState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseRequested\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseForDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.deadPanelActive\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelOpenRequested\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fIntendedTarget\\);"
+  "ar\\.boolean\\(renderState\\.forceShade\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(dialogue\\.deadSoundPlayedState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseRequested\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelCloseForDeath\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.deadPanelActive\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.panelOpenRequested\\(\\)\\);[ \t]*ar\\.boolean\\(targeting\\.intendedTarget\\(\\)\\);"
   serialized_ui_panel_lifecycle_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -9187,7 +9445,7 @@ string(REGEX MATCH
   serialized_ui_locator_portrait_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.deadMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.newMercUiPendingState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.closeMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstNoActionPointsState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstUnconsciousState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(f\\.fReloading\\);"
+  "ar\\.boolean\\(movement\\.paused\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.deadMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.newMercUiPendingState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(uiPresentation\\.closeMercUiPendingState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstNoActionPointsState\\(\\)\\);[ \t]*ar\\.boolean\\(uiPresentation\\.firstUnconsciousState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(fireControl\\.reloading\\(\\)\\);"
   serialized_ui_notification_order
   "${save_load_game_contents}")
 if(soldier_ui_presentation_save_alias EQUAL -1 OR
@@ -9952,11 +10210,11 @@ string(REGEX MATCH
   serialized_soldier_animation_stance_cost_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.tiredComplaintState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(f\\.fHitByGasFlags\\);"
+  "ar\\.boolean\\(dialogue\\.dieSoundUsedState\\(\\)\\);[ \t]*ar\\.boolean\\(deployment\\.useLandingZoneForArrival\\(\\)\\);[ \t]*ar\\.boolean\\(assignment\\.tiredComplaintState\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.realtimeNonInterruptible\\(\\)\\);[ \t\r\n]*ar\\.u8\\(condition\\.gasHitFlags\\(\\)\\);"
   serialized_soldier_animation_realtime_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastXDestination\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastYDestination\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(f\\.fDoingExternalDeath\\);"
+  "ar\\.i8\\(damageDisplay\\.displayFlag\\(\\)\\);[ \t]*ar\\.i8\\(suppression\\.closeCall\\(\\)\\);[ \t]*ar\\.i8\\(animationActivity\\.tryingToFall\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastXDestination\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.pastYDestination\\(\\)\\);[ \t\r\n]*ar\\.boolean\\(animationActivity\\.fallClockwise\\(\\)\\);[ \t]*ar\\.boolean\\(animationActivity\\.externalDeath\\(\\)\\);"
   serialized_soldier_animation_fall_activity_order
   "${save_load_game_contents}")
 string(REGEX MATCH

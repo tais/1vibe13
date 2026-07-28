@@ -1103,7 +1103,7 @@ void PrepareForPreBattleInterface( GROUP *pPlayerDialogGroup, GROUP *pInitiating
 	{
 		pSoldier = pPlayer->pSoldier;
 
-		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 					!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !is_client )
 		{
 			ubMercsInGroup[ ubNumMercs ] = pSoldier->ubID;
@@ -1274,7 +1274,7 @@ BOOLEAN CheckConditionsForBattle( GROUP *pGroup )
 						while( pPlayer )
 						{
 							pSoldier = pPlayer->pSoldier;
-							if( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+							if( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if( !AM_A_ROBOT( pSoldier ) &&
 										!AM_AN_EPC( pSoldier ) &&
@@ -1594,7 +1594,7 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 	{
 		pSoldier = pPlayerGroup->pSoldier;
 		if( pSoldier	&& !AM_A_ROBOT( pSoldier ) &&
-				!AM_AN_EPC( pSoldier ) && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				!AM_AN_EPC( pSoldier ) && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			if ( pSoldier->vitals().maximumHealth() < 100 )
 			{
@@ -1749,7 +1749,7 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 
 		while( curr )
 		{
-			curr->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			curr->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			curr = curr->next;
 		}
 
@@ -3033,7 +3033,7 @@ void SetGroupSectorValue( INT16 sSectorX, INT16 sSectorY, INT16 sSectorZ, UINT8 
 			pPlayer->pSoldier->deployment().sectorY() = sSectorY;
 			pPlayer->pSoldier->deployment().sectorZ() = (UINT8)sSectorZ;
 			pPlayer->pSoldier->deployment().completeStrategicTransit();
-			pPlayer->pSoldier->flags.uiStatusFlags &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
+			pPlayer->pSoldier->status().flags() &= ~SOLDIER_SHOULD_BE_TACTICALLY_VALID;
 			pPlayer = pPlayer->next;
 		}
 	}
@@ -3534,7 +3534,7 @@ UINT8 PlayerMercsInSector( UINT8 ubSectorX, UINT8 ubSectorY, UINT8 ubSectorZ )
 				while( pPlayer )
 				{
 					// robots count as mercs here, because they can fight, but vehicles don't
-					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+					if( ( pPlayer->pSoldier->vitals().health() ) && !( pPlayer->pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 					{
 						++ubNumMercs;
 					}
@@ -5011,7 +5011,7 @@ INT16 CalculateFuelCostBetweenSectors( UINT8 ubSectorID1, UINT8 ubSectorID2 )
 
 BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	if( pSoldier->vitals().breathReduction() )
 	{
 		return TRUE;
@@ -5021,13 +5021,13 @@ BOOLEAN VehicleHasFuel( SOLDIERTYPE *pSoldier )
 
 INT16 VehicleFuelRemaining( SOLDIERTYPE *pSoldier )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	return pSoldier->vitals().breathReduction();
 }
 
 BOOLEAN SpendVehicleFuel( SOLDIERTYPE* pSoldier, INT16 sFuelSpent )
 {
-	Assert( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE );
+	Assert( pSoldier->status().flags() & SOLDIER_VEHICLE );
 	pSoldier->vitals().breathReduction() -= sFuelSpent;
 	pSoldier->vitals().breathReduction() = (INT16)max( 0, pSoldier->vitals().breathReduction() );
 	pSoldier->vitals().breath() = (INT8)((pSoldier->vitals().breathReduction()+99) / 100);
@@ -5384,7 +5384,7 @@ BOOLEAN TestForBloodcatAmbush( GROUP *pGroup )
 			for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if ( pSoldier->deployment().sectorX() == pGroup->ubSectorX && pSoldier->deployment().sectorY() == pGroup->ubSectorY && pSoldier->assignment().current() != ASSIGNMENT_POW && pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT && pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND && pSoldier->vitals().health() >= OKLIFE )
 					{
@@ -6008,7 +6008,7 @@ void CheckCombatInSectorDueToUnusualEnemyArrival( UINT8 aTeam, INT16 sX, INT16 s
 						while ( pPlayer )
 						{
 							pSoldier = pPlayer->pSoldier;
-							if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+							if ( !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 							{
 								if ( !AM_A_ROBOT( pSoldier ) &&
 									 !AM_AN_EPC( pSoldier ) &&

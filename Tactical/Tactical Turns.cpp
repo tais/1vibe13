@@ -261,7 +261,7 @@ void HandleTacticalEndTurn( )
 			{
 				continue;
 			}
-			if ( pSoldier->bActive && pSoldier->vitals().health() > 0 && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() > 0 && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				// Handle everything from getting breath back, to bleeding, etc
 				pSoldier->EVENT_BeginMercTurn( TRUE, 0 );

@@ -203,7 +203,7 @@ void HandlePossibleInfection( SOLDIERTYPE *pSoldier, SOLDIERTYPE* pOtherSoldier,
 		return;
 	
 	// only for living mercs with a profile with a valid infection method
-	if ( !pSoldier || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE || pSoldier->ubProfile == NO_PROFILE || aInfectionType >= INFECTION_TYPE_MAX )
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || pSoldier->ubProfile == NO_PROFILE || aInfectionType >= INFECTION_TYPE_MAX )
 		return;
 
 	int max = fStrategicOnly ? 1 : NUM_DISEASES;

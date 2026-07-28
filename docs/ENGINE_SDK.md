@@ -294,6 +294,17 @@ unsigned trait bytes. v101 conversion maps every historical attribute and its
 first two trait slots while clearing the 28 slots absent from that record.
 Profile structures, trait rules, XML, Lua, multiplayer, installed data, and save
 bytes do not change.
+The retired `STRUCT_Flags` does not gain a replacement generic bucket.
+`SoldierStatusComponent` owns the established 32-bit status mask and supplies
+explicit mask operations, while `SoldierInventoryStateComponent` owns key
+access, new-item refresh, zipper, and drop-pack state. Target intent and
+retention, reload and aim pauses, hit/death reactions, network refresh, gas
+hits, and flank orientation live in their existing targeting, fire-control,
+animation, replication, condition, and AI-planning domains. The serializer
+retains all fourteen original positions and widths. v101 conversion maps its
+twelve historical fields and clears the later zipper/drop-pack flags. No save,
+profile, packet, map, XML, Lua, multiplayer, package, or installed-data format
+changes.
 `SoldierServiceComponent` separately owns the persisted service marker, patient
 provider count, provider-to-patient identity, and automatic-bandage medic
 reservation, plus the inventory slot temporarily borrowed by an autonomous

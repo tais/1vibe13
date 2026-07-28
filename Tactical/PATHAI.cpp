@@ -660,7 +660,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 	fGoingThroughDoor = FALSE;
 
 	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
-	fPathingForPlayer = ( (pSoldier->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) );
+	fPathingForPlayer = ( (pSoldier->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(pSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL) );
 	fNonSwimmer = !( IS_MERC_BODY_TYPE( pSoldier ) );
 	fPathAroundPeople = ( (fFlags & PATH_THROUGH_PEOPLE) == 0 );
 	fCloseGoodEnough = ( (fFlags & PATH_CLOSE_GOOD_ENOUGH) != 0);
@@ -728,7 +728,7 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 #endif
 
 
-	fMultiTile = ((pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE) != 0);
+	fMultiTile = ((pSoldier->status().flags() & SOLDIER_MULTITILE) != 0);
 	if ( fMultiTile == false)
 	{
 		fContinuousTurnNeeded = FALSE;
@@ -743,10 +743,10 @@ int AStarPathfinder::GetPath(SOLDIERTYPE *s ,
 
 		if ( pStructureFileRef )
 		{
-			fContinuousTurnNeeded = ( ( pSoldier->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
+			fContinuousTurnNeeded = ( ( pSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
 
 			/*
-			//bool fVehicle = ( (pSoldier->uiStatusFlags & SOLDIER_VEHICLE) != 0 );
+			//bool fVehicle = ( (pSoldier->status().flags() & SOLDIER_VEHICLE) != 0 );
 			if (fVehicle && pSoldier->movement().reverse())
 			{
 				fReverse = TRUE;
@@ -1832,7 +1832,7 @@ int AStarPathfinder::CalcCoverValue(INT32 sMyGridNo, INT32 iMyThreat, INT32 iMyA
 
 void AStarPathfinder::InitVehicle()
 {
-	fMultiTile = ((pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE) != 0);
+	fMultiTile = ((pSoldier->status().flags() & SOLDIER_MULTITILE) != 0);
 	if (fMultiTile)
 	{
 		// Get animation surface...
@@ -1843,10 +1843,10 @@ void AStarPathfinder::InitVehicle()
 
 		if ( pStructureFileRef )
 		{
-			fContinuousTurnNeeded = ( ( pSoldier->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
+			fContinuousTurnNeeded = ( ( pSoldier->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
 
 			/*
-			//bool fVehicle = ( (pSoldier->uiStatusFlags & SOLDIER_VEHICLE) != 0 );
+			//bool fVehicle = ( (pSoldier->status().flags() & SOLDIER_VEHICLE) != 0 );
 			if (fVehicle && pSoldier->movement().reverse())
 			{
 				fReverse = TRUE;
@@ -2339,7 +2339,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 	fTurnBased = ( IsJa2TacticalTurnBasedCombat() );
 
-	fPathingForPlayer = ( (s->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(s->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) );
+	fPathingForPlayer = ( (s->bTeam == gbPlayerNum) && (!gTacticalStatus.fAutoBandageMode) && !(s->status().flags() & SOLDIER_PCUNDERAICONTROL) );
 
 	// Flugente: nonswimmers are those who are not mercs and not boats
 	fNonSwimmer = !(IS_MERC_BODY_TYPE( s ) );
@@ -2355,7 +2355,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 	// anv: vehicles can drive through people and structures if shift is pressed 
 	// (or rather route through can be planned, actual driving through is dependent on SOLDIER_RAM_THROUGH_OBSTACLES flag set in Handle UI)
-	if ( _KeyDown( SHIFT ) && fPathingForPlayer && ( s->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+	if ( _KeyDown( SHIFT ) && fPathingForPlayer && ( s->status().flags() & SOLDIER_VEHICLE ) )
 	{
 		fVehicleIgnoreObstacles = TRUE;
 	}
@@ -2461,7 +2461,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 #endif
 
 
-	fMultiTile = ((s->flags.uiStatusFlags & SOLDIER_MULTITILE) != 0);
+	fMultiTile = ((s->status().flags() & SOLDIER_MULTITILE) != 0);
 	if (fMultiTile)
 	{
 		// Get animation surface...
@@ -2472,9 +2472,9 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 		if ( pStructureFileRef )
 		{
-			fVehicle = ( (s->flags.uiStatusFlags & SOLDIER_VEHICLE) != 0 );
+			fVehicle = ( (s->status().flags() & SOLDIER_VEHICLE) != 0 );
 
-			fContinuousTurnNeeded = ( ( s->flags.uiStatusFlags & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
+			fContinuousTurnNeeded = ( ( s->status().flags() & (SOLDIER_MONSTER | SOLDIER_ANIMAL | SOLDIER_VEHICLE) ) != 0 );
 
 			/*
 			if (fVehicle && s->movement().reverse())
@@ -2881,7 +2881,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			}
 
 			// sevenfm: skip deep water if not in deep water already
-			if (!(s->flags.uiStatusFlags & SOLDIER_PC) &&
+			if (!(s->status().flags() & SOLDIER_PC) &&
 				s->ubProfile == NO_PROFILE &&
 				s->aiData.bOrders != SEEKENEMY &&
 				DeepWater(newLoc, bLevel) &&
@@ -2892,7 +2892,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 			}
 
 			// sevenfm: skip gas if not in gas already
-			if ((!(s->flags.uiStatusFlags & SOLDIER_PC) || gTacticalStatus.fAutoBandageMode || s->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL) &&
+			if ((!(s->status().flags() & SOLDIER_PC) || gTacticalStatus.fAutoBandageMode || s->status().flags() & SOLDIER_PCUNDERAICONTROL) &&
 				InGasSpot(s, newLoc, bLevel) &&
 				!InGasSpot(s, s->position().gridNo(), bLevel))
 			{
@@ -3101,7 +3101,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 							{
 								// door is closed and this should be an obstacle, EXCEPT if we are calculating
 								// a path for an enemy or NPC with keys
-								if ( fPathingForPlayer || ( s && (s->flags.uiStatusFlags & SOLDIER_MONSTER || s->flags.uiStatusFlags & SOLDIER_ANIMAL) ) )
+								if ( fPathingForPlayer || ( s && (s->status().flags() & SOLDIER_MONSTER || s->status().flags() & SOLDIER_ANIMAL) ) )
 								{
 									nextCost = TRAVELCOST_OBSTACLE;
 								}
@@ -3111,7 +3111,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 									pDoor = FindDoorInfoAtGridNo( iDoorGridNo );
 									if (pDoor)
 									{
-										if (!pDoor->fLocked || s->flags.bHasKeys)
+										if (!pDoor->fLocked || s->inventoryState().keyAccess())
 										{
 											// add to AP cost
 											if (gubNPCAPBudget)
@@ -3176,7 +3176,7 @@ if(!GridNoOnVisibleWorldTile(iDestination))
 
 				// sevenfm: for player mercs, ignore invisible opponents
 				if (ubMerc < TOTAL_SOLDIERS && ubMerc != s->ubID &&
-					(!(s->flags.uiStatusFlags & SOLDIER_PC) ||
+					(!(s->status().flags() & SOLDIER_PC) ||
 						blockingSoldier->bSide == s->bSide ||
 						blockingSoldier->aiData.bNeutral ||
 						blockingSoldier->awareness().visibility() >= 0 ||
@@ -4679,7 +4679,7 @@ INT32 PlotPath( SOLDIERTYPE *pSold, INT32 sDestGridNo, INT8 bCopyRoute, INT8 bPl
 					}
 
 					// Are we a vehicle?
-					//if ( pSold->flags.uiStatusFlags & SOLDIER_VEHICLE )
+					//if ( pSold->status().flags() & SOLDIER_VEHICLE )
 					//{
 					//	// did we exceed WALK cost?
 					//	if ( sPointsSwat > sAPBudget)
@@ -4978,7 +4978,7 @@ UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMov
 				break;
 		}
 
-		if ( pSoldier && (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER || pSoldier->flags.uiStatusFlags & SOLDIER_ANIMAL) )
+		if ( pSoldier && (pSoldier->status().flags() & SOLDIER_MONSTER || pSoldier->status().flags() & SOLDIER_ANIMAL) )
 		{
 			// can't open doors!
 			ubReplacementCost = TRAVELCOST_OBSTACLE;
@@ -5038,7 +5038,7 @@ UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMov
 				// a path for an enemy or NPC with keys
 
 				// creatures and animals can't open doors!
-				if ( fReturnPerceivedValue || ( pSoldier && (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER || pSoldier->flags.uiStatusFlags & SOLDIER_ANIMAL ) ) )
+				if ( fReturnPerceivedValue || ( pSoldier && (pSoldier->status().flags() & SOLDIER_MONSTER || pSoldier->status().flags() & SOLDIER_ANIMAL ) ) )
 				{
 					ubMovementCost = ubReplacementCost;
 				}
@@ -5048,7 +5048,7 @@ UINT8 InternalDoorTravelCost( SOLDIERTYPE * pSoldier, INT32 iGridNo, UINT8 ubMov
 					pDoor = FindDoorInfoAtGridNo( iDoorGridNo );
 					if ( pDoor )
 					{
-						if ( ( !pDoor->fLocked || (pSoldier && pSoldier->flags.bHasKeys) ) && !fReturnDoorCost )
+						if ( ( !pDoor->fLocked || (pSoldier && pSoldier->inventoryState().keyAccess()) ) && !fReturnDoorCost )
 						{
 							ubMovementCost = gTileTypeMovementCost[ gpWorldLevelData[ iGridNo ].ubTerrainID ];
 						}

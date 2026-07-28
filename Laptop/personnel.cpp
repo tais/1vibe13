@@ -532,11 +532,11 @@ void EnterPersonnel( void )
 
 		// WANNE: Bugfix: Also show the roboter in ther personnel screen. This bug was introduced in revision 2498, when Many Mercenary was included.
 		//if ((pTeamSoldier->bActive) && 
-		//	!(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)  && 
+		//	!(pTeamSoldier->status().flags() & SOLDIER_VEHICLE)  &&
 		//	/*(pTeamSoldier->vitals().health() > 0 ) && */  !AM_A_ROBOT(pTeamSoldier)  )
 
 		if (pTeamSoldier && (pTeamSoldier->bActive) &&
-			!(pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+			!(pTeamSoldier->status().flags() & SOLDIER_VEHICLE))
 		{		
 			currentTeamList[++maxCurrentTeamIndex] = idx;
 		}
@@ -809,7 +809,7 @@ void RenderPersonnelFace(SoldierID iId, INT32 iSlot, BOOLEAN fDead, BOOLEAN fFir
 		
 		// TODO: Check if needed!
 		if( activeSoldier &&
-			activeSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			activeSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			return;
 		}
@@ -1257,7 +1257,7 @@ void DisplayCharName( SoldierID Id, INT32 iSlot )
 	SetFontForeground(PERS_TEXT_FONT_COLOR);
 	SetFontBackground(FONT_BLACK);
 
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -1412,7 +1412,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 	}
 
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -2114,7 +2114,7 @@ void DisplayCharPersonality(SoldierID iId, INT32 iSlot)
 		}
 	}
 
-	if ( !pSoldier || pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier ) || pSoldier->ubProfile == NO_PROFILE )
+	if ( !pSoldier || pSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pSoldier ) || pSoldier->ubProfile == NO_PROFILE )
 	{
 		return;
 	}
@@ -2494,7 +2494,7 @@ INT32 GetNumberOfMercsOnPlayersTeam( void )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
-			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) )
 			iCounter++;
 	}
@@ -3224,7 +3224,7 @@ INT32 GetLowestDailyCostOfCurrentTeam( void )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
 		if( pSoldier && ( pSoldier->bActive ) &&
-			!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
@@ -3291,7 +3291,7 @@ INT32 GetHighestDailyCostOfCurrentTeam( void )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 
 		if( pSoldier && ( pSoldier->bActive) &&
-			!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			!( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pSoldier->vitals().health() > 0 ) )
 		{
 			// valid soldier, get cost
@@ -3722,7 +3722,7 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
-			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) &&
 			!AM_A_ROBOT( pTeamSoldier ) )
 		{
@@ -3844,7 +3844,7 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 	{
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pTeamSoldier && ( pTeamSoldier->bActive) &&
-			!( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			!( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pTeamSoldier->vitals().health() > 0 ) &&
 			!AM_A_ROBOT( pTeamSoldier ) )
 		{
@@ -3974,7 +3974,7 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 		if ( !pTeamSoldier )
 			continue;
 		// Only count stats of merc (not vehicles)
-		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 		if(( pTeamSoldier->bActive)&&( pTeamSoldier->vitals().health() > 0 ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
@@ -6234,7 +6234,7 @@ void DisplayEmploymentinformation( SoldierID iId, INT32 iSlot )
 	const MERCPROFILESTRUCT *pMercProfile = &gMercProfiles[pSoldier->ubProfile];
 	const STRUCT_Records *pRecords = &pMercProfile->records;
 
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -8423,7 +8423,7 @@ INT8 CalculateMercsAchievementPercentage( INT32 ubProfile )
 		if ( !pTeamSoldier )
 			continue;
 		// Only count stats of merc (not vehicles)
-		if ( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
+		if ( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pTeamSoldier ) )
 		{
 			if( pTeamSoldier->bActive && pTeamSoldier->vitals().health() > 0 && pTeamSoldier->ubProfile != 0 )
 			{

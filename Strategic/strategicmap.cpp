@@ -2082,7 +2082,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
 
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && !SPY_LOCATION(pSoldier->assignment().current()) && pSoldier->assignment().current() != ASSIGNMENT_POW)
+			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && !SPY_LOCATION(pSoldier->assignment().current()) && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
 				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
@@ -2133,7 +2133,7 @@ BOOLEAN	SetCurrentWorldSector( INT16 sMapX, INT16 sMapY, INT8 bMapZ )
 			//CHRISL: There's also an issue with vehicles.  Soldiers in any vehicle are considered to be in sGridNo = NOWHERE
 			//	This will result in an assertion error, so let's skip the assertion if the merc is assigned to a vehicle
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && pSoldier->assignment().current() != ASSIGNMENT_POW)
+			if (!(pSoldier->status().flags() & SOLDIER_DEAD) && pSoldier->assignment().current() != VEHICLE && pSoldier->assignment().current() != ASSIGNMENT_POW)
 			{
 				//Assert( !pSoldier->bActive || !pSoldier->bInSector || pSoldier->sGridNo != NOWHERE || pSoldier->bVehicleID == iHelicopterVehicleId );
 				Assert( !pSoldier->bActive || !pSoldier->bInSector || !TileIsOutOfBounds( pSoldier->position().gridNo() ) || pSoldier->bVehicleID == iHelicopterVehicleId );
@@ -3117,7 +3117,7 @@ void UpdateMercsInSector( INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, INT8 bSectorZ )
 {
 	BOOLEAN fError = FALSE;
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_IS_TACTICALLY_VALID )
+	if ( pSoldier->status().flags() & SOLDIER_IS_TACTICALLY_VALID )
 	{
 		pSoldier->deployment().strategicInsertionCode() = INSERTION_CODE_GRIDNO;
 	}
@@ -4463,7 +4463,7 @@ void DoneFadeOutAdjacentSector( )
 		curr = adjacentGroup->pPlayerList;
 		while ( curr )
 		{
-			if ( !(curr->pSoldier->flags.uiStatusFlags & SOLDIER_IS_TACTICALLY_VALID) )
+			if ( !(curr->pSoldier->status().flags() & SOLDIER_IS_TACTICALLY_VALID) )
 			{
 				if ( !TileIsOutOfBounds( curr->pSoldier->position().gridNo() ) )
 				{
@@ -4953,7 +4953,7 @@ BOOLEAN CanGoToTacticalInSector( INT16 sX, INT16 sY, UINT8 ubZ )
 	{
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		// ARM: now allows loading of sector with all mercs below OKLIFE as long as they're alive
-		if( ( pSoldier->bActive && pSoldier->vitals().health() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+		if( ( pSoldier->bActive && pSoldier->vitals().health() ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 			( pSoldier->assignment().current() != IN_TRANSIT ) && ( pSoldier->assignment().current() != ASSIGNMENT_POW ) && ( pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT ) && ( pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND ) &&
 			( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && !SoldierAboardAirborneHeli( pSoldier )
 			)
@@ -6379,7 +6379,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 			for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 			{ //If we have a live and valid soldier
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-				if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
+				if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 				{
 					if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
 						 pSoldier->deployment().sectorY() == gWorldSectorY &&
@@ -6397,7 +6397,7 @@ BOOLEAN CheckAndHandleUnloadingOfCurrentWorld( )
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i )
 		{ //If we have a live and valid soldier
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && pSoldier->bInSector && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
+			if ( pSoldier->bActive && pSoldier->vitals().health() && !pSoldier->deployment().isBetweenSectors() && pSoldier->bInSector && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) )
 			{
 				if ( pSoldier->deployment().sectorX() == gWorldSectorX &&
 					 pSoldier->deployment().sectorY() == gWorldSectorY &&

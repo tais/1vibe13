@@ -1653,7 +1653,7 @@ void RenderInvBodyPanel( SOLDIERTYPE *pSoldier, INT16 sX, INT16 sY )
 
 	// Kaiden: Vehicle Inventory change - Added IF Test, Else function call was
 	// the original statement
-	if ( (gGameExternalOptions.fVehicleInventory) && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+	if ( (gGameExternalOptions.fVehicleInventory) && (pSoldier->status().flags() & SOLDIER_VEHICLE) )
 	{
 		BltVideoObjectFromIndex( guiSAVEBUFFER, guiBodyInvVO[4][bSubImageIndex], 0, sX, sY, VO_BLT_SRCTRANSPARENCY, NULL );
 	}
@@ -1783,7 +1783,7 @@ INT16 pocketTypeInSlot(SOLDIERTYPE *pSoldier, INT16 sPocket){
 
 	if((UsingNewInventorySystem() == false) && !oldInv[sPocket])
 		return lbePocket;
-	if((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
+	if((pSoldier->status().flags() & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
 		return lbePocket;
 	if(pSoldier && AM_A_ROBOT(pSoldier) && !robotInv[sPocket])
 		return lbePocket;
@@ -2557,7 +2557,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	if((UsingNewInventorySystem() == false) && !oldInv[sPocket])
 		return;
 
-	if((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
+	if((pSoldier->status().flags() & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
 		return;
 
 	if(pSoldier && AM_A_ROBOT(pSoldier) && !robotInv[sPocket] && UsingNewInventorySystem() && sPocket != HANDPOS)
@@ -2582,7 +2582,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 	sX = gSMInvData[ sPocket ].sX;
 	sY = gSMInvData[ sPocket ].sY;
 
-	if ( UsingNewInventorySystem() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(pSoldier)) )
+	if ( UsingNewInventorySystem() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !(AM_A_ROBOT(pSoldier)) )
 	{
 		// If sPocket is not an equiped pocket, gather pocket information
 		if(icClass[sPocket] != ITEM_NOT_FOUND)
@@ -2594,7 +2594,7 @@ void INVRenderINVPanelItem( SOLDIERTYPE *pSoldier, INT16 sPocket, UINT8 fDirtyLe
 				case COMBAT_PACK:
 				case BACKPACK:
 
-					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (IsJa2TacticalCombatActive()) )
+					if ( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventoryState().zipperFlag()) && (IsJa2TacticalCombatActive()) )
 						lbePocket = 0;
 					else if( !pSoldier->inv[icLBE[sPocket]].exists() )
 					{
@@ -8967,7 +8967,7 @@ void DrawItemTileCursor( )
 					// Get soldier
 					// Are they on our team?
 					// ATE: Can't be an EPC
-					if ( pSoldier->bTeam == gbPlayerNum && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+					if ( pSoldier->bTeam == gbPlayerNum && !AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 					{
 						if ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE )
 						{
@@ -9021,7 +9021,7 @@ void DrawItemTileCursor( )
 				gubUIValidCatcherID			= gusUIFullTargetID;
 
 				// If this is a robot, change to say 'reload'
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+				if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 				{
 					gfUIMouseOnValidCatcher = 3;
 				}
@@ -9041,7 +9041,7 @@ void DrawItemTileCursor( )
 
 
 					// Get AP cost
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+					if ( pSoldier->status().flags() & SOLDIER_ROBOT )
 					{
 						sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), pSoldier );
 					}
@@ -9302,7 +9302,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		usItem = gpItemPointer->usItem;
 
 		// If the target is a robot,
-		if ( giveTarget->flags.uiStatusFlags & SOLDIER_ROBOT )
+		if ( giveTarget->status().flags() & SOLDIER_ROBOT )
 		{
 			// Charge APs to reload robot!
 			sAPCost = GetAPsToReloadRobot( GetItemPointerSoldier(), giveTarget );
@@ -9342,7 +9342,7 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		if ( EnoughPoints( GetItemPointerSoldier(), sAPCost, 0, TRUE ) )
 		{
 			// If we are a robot, check if this is proper item to reload!
-			if ( giveTarget->flags.uiStatusFlags & SOLDIER_ROBOT )
+			if ( giveTarget->status().flags() & SOLDIER_ROBOT )
 			{
 				// Check if we can reload robot....
 				if ( IsValidAmmoToReloadRobot( giveTarget, &gTempObject ) )
@@ -9497,10 +9497,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 		sGridNo = usMapPos;
 
 		// Kaiden: Vehicle Inventory change - Commented the following If test:
-		//if ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && gfUIFullTargetFound && gusUIFullTargetID->bTeam == gbPlayerNum && !AM_AN_EPC( gusUIFullTargetID ) && !( gusUIFullTargetID->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		//if ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && gfUIFullTargetFound && gusUIFullTargetID->bTeam == gbPlayerNum && !AM_AN_EPC( gusUIFullTargetID ) && !( gusUIFullTargetID->status().flags() & SOLDIER_VEHICLE ) )
 
 		// And added this one instead:
-		if ( ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && fullTarget && fullTarget->bTeam == gbPlayerNum && !AM_AN_EPC( fullTarget ) ) && !( (!gGameExternalOptions.fVehicleInventory) && (fullTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) ) )
+		if ( ( sDist <= PASSING_ITEM_DISTANCE_OKLIFE && fullTarget && fullTarget->bTeam == gbPlayerNum && !AM_AN_EPC( fullTarget ) ) && !( (!gGameExternalOptions.fVehicleInventory) && (fullTarget->status().flags() & SOLDIER_VEHICLE) ) )
 		{
 			// OK, do the transfer...
 			{
@@ -9609,10 +9609,10 @@ BOOLEAN HandleItemPointerClick( INT32 usMapPos )
 				pSoldier = fullTarget;
 
 				// Kaiden: Vehicle Inventory change - Commented the following If Test:
-				//if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				//if ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 
 				// And replaced it with this one:
-				if ( ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) ) && !( ( !gGameExternalOptions.fVehicleInventory ) &&  ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+				if ( ( pSoldier->bTeam == gbPlayerNum && pSoldier->vitals().health() >= OKLIFE && !AM_AN_EPC( pSoldier ) ) && !( ( !gGameExternalOptions.fVehicleInventory ) &&  ( pSoldier->status().flags() & SOLDIER_VEHICLE ) ) )
 				{
 					// OK, on our team,
 
@@ -9903,7 +9903,7 @@ BOOLEAN InitItemStackPopup( SOLDIERTYPE *pSoldier, UINT8 ubPosition, INT16 sInvX
 	//CHRISL: resize usPopupWidth based on popup stack location
 	if(UsingNewInventorySystem() == true)
 	{
-		if((ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)))
+		if((ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && (pSoldier->status().flags() & SOLDIER_VEHICLE)))
 		{
 			usPopupWidth = 75;
 			if(GetCurrentScreen() != MAP_SCREEN)
@@ -10119,7 +10119,7 @@ void RenderItemStackPopup( BOOLEAN fFullRender )
 	{
 		SOLDIERTYPE* popupSoldier =
 			GetJa2SoldierRepository().resolve(sID);
-		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && popupSoldier && (popupSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)))
+		if(ubPosition == -1 || (ubPosition >=BIGPOCKSTART && ubPosition < BIGPOCKFINAL) || (gGameExternalOptions.fVehicleInventory && popupSoldier && (popupSoldier->status().flags() & SOLDIER_VEHICLE)))
 		{
 			if(GetCurrentScreen() != MAP_SCREEN)
 				sItemWidth -= 2;
@@ -12357,7 +12357,7 @@ void GetHelpTextForItem( CHAR16 *pzStr, OBJECTTYPE *pObject, SOLDIERTYPE *pSoldi
 
 	if( pSoldier != NULL )
 	{
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD )
+		if ( pSoldier->status().flags() & SOLDIER_DEAD )
 		{
 			swprintf( pStr, L"" );
 			sgp_swprintf( pzStr, 500, L"%s", pStr );
@@ -14800,7 +14800,7 @@ BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
 	// CHRISL: Only run if we're looking at a legitimate pocket
 	if((UsingNewInventorySystem() == false) && !oldInv[sPocket])
 		return FALSE;
-	if((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
+	if((pSoldier->status().flags() & SOLDIER_VEHICLE) && UsingNewInventorySystem() == true && !vehicleInv[sPocket])
 		return FALSE;
 	if(pSoldier && AM_A_ROBOT(pSoldier) && !robotInv[sPocket] && UsingNewInventorySystem())
 		return FALSE;
@@ -14833,7 +14833,7 @@ BOOLEAN CheckPocketEmpty( SOLDIERTYPE *pSoldier, INT16 sPocket )
 						lbePocket = GetPocketFromAttachment(&pSoldier->inv[icLBE[sPocket]], icPocket[sPocket]);
 					}
 				}
-				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->flags.ZipperFlag) && (IsJa2TacticalCombatActive()) )
+				if( icLBE[sPocket] == BPACKPOCKPOS && !(pSoldier->inventoryState().zipperFlag()) && (IsJa2TacticalCombatActive()) )
 					lbePocket = 0;
 				// pocket exists and not occupied
 				if ( lbePocket != 0 && pObject->exists() == false )
@@ -14900,7 +14900,7 @@ void UpdateMercBodyRegionHelpText( )
 					// robot (condition only)
 					swprintf( sString, L"%s: %d/%d", pMapScreenStatusStrings[3], pSoldier->vitals().health(), pSoldier->vitals().maximumHealth() );
 				}
-				else if (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				else if (pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					// vehicle (condition/fuel)
 					swprintf( sString, L"%s: %d/%d, %s: %d/%d",

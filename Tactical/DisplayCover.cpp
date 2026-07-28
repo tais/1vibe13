@@ -683,7 +683,7 @@ void CalculateCover()
 					continue;
 				if ( pSoldier->bActive && pSoldier->bInSector )
 				{
-					if ( pSoldier->flags.uiStatusFlags & SOLDIER_MULTI_SELECTED )
+					if ( pSoldier->status().flags() & SOLDIER_MULTI_SELECTED )
 					{
 						CalculateCoverFromSoldier(pSoldier, sGridNo, onRoof, bOverlayType);
 

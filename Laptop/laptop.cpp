@@ -6204,7 +6204,7 @@ void PrintNumberOnTeam( void )
 		pTeamSoldier = GetJa2SoldierRepository().resolve(cnt.i);
 
 		if( pTeamSoldier && ( pTeamSoldier->bActive)&&
-			( !( pTeamSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ) )
+			( !( pTeamSoldier->status().flags() & SOLDIER_VEHICLE ) ) )
 		{
 			iCounter++;
 		}

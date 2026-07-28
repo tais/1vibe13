@@ -2135,7 +2135,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 	{
 		gpSelected->pSoldier->ubBodyType = (UINT8)iIndex;
 		//Set the flags based on the bodytype
-		gpSelected->pSoldier->flags.uiStatusFlags &= ~(SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_ANIMAL | SOLDIER_MONSTER);
+		gpSelected->pSoldier->status().flags() &= ~(SOLDIER_VEHICLE | SOLDIER_ROBOT | SOLDIER_ANIMAL | SOLDIER_MONSTER);
 		switch( gpSelected->pSoldier->ubBodyType )
 		{
 			case ADULTFEMALEMONSTER:
@@ -2145,15 +2145,15 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 			case LARVAE_MONSTER:
 			case INFANT_MONSTER:
 			case QUEENMONSTER:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_MONSTER;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_MONSTER;
 				break;
 			case BLOODCAT:
 			case COW:
 			case CROW:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_ANIMAL;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_ANIMAL;
 				break;
 			case ROBOTNOWEAPON:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_ROBOT;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_ROBOT;
 				break;
 			case HUMVEE:
 			case ELDORADO:
@@ -2162,7 +2162,7 @@ void ChangeBodyType( INT8 bOffset )	//+1 or -1 only
 			case TANK_NW:
 			case TANK_NE:
 			case COMBAT_JEEP:
-				gpSelected->pSoldier->flags.uiStatusFlags |= SOLDIER_VEHICLE;
+				gpSelected->pSoldier->status().flags() |= SOLDIER_VEHICLE;
 				break;
 		}
 		SetSoldierAnimationSurface( gpSelected->pSoldier, gpSelected->pSoldier->animationPlayback().state() );

@@ -642,8 +642,8 @@ extern CLOTHES_STRUCT Clothes[CLOTHES_MAX];
 // the_bob: also, creatures won't attack crows, because it seems to confuse the AI and cause freezes
 #define CONSIDERED_NEUTRAL( me, them )  (\
 										(them->aiData.bNeutral || them->usSoldierFlagMask & (SOLDIER_COVERT_CIV|SOLDIER_COVERT_SOLDIER|SOLDIER_POW)) \
-										&& (me->bTeam != CREATURE_TEAM || (them->flags.uiStatusFlags & SOLDIER_VEHICLE) || (them->ubBodyType == CROW)) \
-										&& !(me->flags.uiStatusFlags & SOLDIER_BOXER && them->flags.uiStatusFlags & SOLDIER_BOXER) \
+										&& (me->bTeam != CREATURE_TEAM || (them->status().flags() & SOLDIER_VEHICLE) || (them->ubBodyType == CROW)) \
+										&& !(me->status().flags() & SOLDIER_BOXER && them->status().flags() & SOLDIER_BOXER) \
 										)
 
 typedef struct
@@ -793,33 +793,6 @@ public:
 	UINT8			ubInterruptCounter[MAX_NUM_SOLDIERS]; // SANDRO - interrupt counter added
 };
 
-class STRUCT_Flags//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-
-public:
-	// flags from before the changes to the memory structure
-	INT8												bHasKeys;			// allows AI controlled dudes to open locked doors
-	BOOLEAN											fIntendedTarget; // intentionally shot?
-	BOOLEAN											fReloading;
-	BOOLEAN											fPauseAim;
-	BOOLEAN											fReactingFromBeingShot;
-	BOOLEAN											fCheckForNewlyAddedItems;
-	BOOLEAN											fSoldierUpdatedFromNetwork;
-	BOOLEAN											fDontUnsetLastTargetFromTurn;
-
-	UINT8												fHitByGasFlags;						// flags 
-	BOOLEAN					 fDoingExternalDeath;
-	BOOLEAN lastFlankLeft;
-	UINT32											uiStatusFlags;
-
-	//LBE node stuff
-	BOOLEAN			ZipperFlag;
-	BOOLEAN			DropPackFlag;
-
-};
-
 // forward declaration for modularized tactical ai
 namespace AI
 {
@@ -855,6 +828,10 @@ public:
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
 	SoldierStatisticsComponent& statistics() noexcept { return statistics_; }
 	const SoldierStatisticsComponent& statistics() const noexcept { return statistics_; }
+	SoldierStatusComponent& status() noexcept { return status_; }
+	const SoldierStatusComponent& status() const noexcept { return status_; }
+	SoldierInventoryStateComponent& inventoryState() noexcept { return inventoryState_; }
+	const SoldierInventoryStateComponent& inventoryState() const noexcept { return inventoryState_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -1047,11 +1024,12 @@ public:
 
 	//data from version 101 wrapped into structs
 	STRUCT_AIData			aiData;
-	STRUCT_Flags				flags;
 
 private:
 	SoldierVitalsComponent	vitals_;
 	SoldierStatisticsComponent	statistics_;
+	SoldierStatusComponent	status_;
+	SoldierInventoryStateComponent	inventoryState_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;

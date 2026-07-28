@@ -1584,7 +1584,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	MercCreateStruct.sInsertionGridNo		= pSoldier->position().gridNo();
 	MercCreateStruct.ubDirection					= pSoldier->position().direction();
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		MercCreateStruct.ubProfile					= NO_PROFILE;
 		MercCreateStruct.fUseGivenVehicle		= TRUE;
@@ -1634,15 +1634,15 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 
 		// 0verhaul:  Need to pass certain flags over.  COWERING is one of them.  Others to be determined.
 		
-		// copy uiStatusFlags, etc. - hayden :)
+		// Copy the general soldier status mask, etc. - hayden :)
 		if (is_networked)
 		{
-			pNewSoldier->flags.uiStatusFlags = pSoldier->flags.uiStatusFlags;
+			pNewSoldier->status().flags() = pSoldier->status().flags();
 			pNewSoldier->ubProfile = pSoldier->ubProfile;
 		}
 		else
 		{
-			pNewSoldier->flags.uiStatusFlags |= pSoldier->flags.uiStatusFlags & (SOLDIER_COWERING | SOLDIER_MUTE | SOLDIER_GASSED);
+			pNewSoldier->status().flags() |= pSoldier->status().flags() & (SOLDIER_COWERING | SOLDIER_MUTE | SOLDIER_GASSED);
 		}
 
 		
@@ -1917,7 +1917,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 
 
 	// If we are a robot, look to update controller....
-	if ( pNewSoldier->flags.uiStatusFlags & SOLDIER_ROBOT )
+	if ( pNewSoldier->status().flags() & SOLDIER_ROBOT )
 	{
 		pNewSoldier->UpdateRobotControllerGivenRobot(	);
 	}
@@ -1926,7 +1926,7 @@ BOOLEAN RecruitEPC( UINT8 ubCharNum )
 	pNewSoldier->employment().mercenaryType() = MERC_TYPE__EPC;
 
 	// Flugente: people recruited in Arulco are known to the enemy as civilians or even soldiers. So they will be covert when recruited. Of course, this is not for the rebels/vehicles/robots
-	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->flags.uiStatusFlags & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
+	if ( gGameOptions.fNewTraitSystem && !(pNewSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE)) )
 	{
 		pNewSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_CIV | SOLDIER_COVERT_NPC_SPECIAL);
 	}
@@ -2719,7 +2719,7 @@ INT8 CheckMercsNearForCharTraits( UINT8 ubProfileID, INT8 bCharTraitID )
 			continue;
 		}
 		// Are we actually here?
-		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->flags.uiStatusFlags & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
+		if ( !(pTeammate->bActive) || !(pTeammate->bInSector) || ( pTeammate->status().flags() & SOLDIER_VEHICLE ) || (pTeammate->assignment().current() == VEHICLE ) )
 		{
 			// is nowhere around!
 			continue;

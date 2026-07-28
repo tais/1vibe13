@@ -460,7 +460,7 @@ void EndAllAITurns( void )
 			if ( pSoldier->bActive )
 			{
 				pSoldier->aiData.bMoved = TRUE;
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
+				pSoldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
 				// record old life value... for creature AI; the human AI might
 				// want to use this too at some point
 				pSoldier->vitals().snapshotHealth();
@@ -498,7 +498,7 @@ void EndTurnEvents( void )
 		{
 			continue;
 		}
-		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )//&& !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() > 0 )//&& !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !( AM_A_ROBOT( pSoldier ) ) )
 		{
 			// Flugente: update multi-turn actions
 			pSoldier->UpdateMultiTurnAction();
@@ -833,7 +833,7 @@ void DisplayHiddenTurnbased( SOLDIERTYPE * pActingSoldier )
 	CommonEnterCombatModeCode( );
 
 	//JA2Gold: use function to make sure flags turned off everywhere else
-	//pActingSoldier->flags.uiStatusFlags |= SOLDIER_UNDERAICONTROL;
+	//pActingSoldier->status().flags() |= SOLDIER_UNDERAICONTROL;
 	pActingSoldier->SetSoldierAsUnderAiControl(	);
 	DebugAI( String( "Giving AI control to %d", pActingSoldier->ubID ) );
 	pActingSoldier->movement().beginTurn();
@@ -1767,7 +1767,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		if (pSoldier->bTeam == GetJa2TacticalCurrentTeam() )
 		{
 			// if this is a player's a merc or civilian
-			if ((pSoldier->flags.uiStatusFlags & SOLDIER_PC) || PTR_CIVILIAN)
+			if ((pSoldier->status().flags() & SOLDIER_PC) || PTR_CIVILIAN)
 			{
 				// then they are not allowed to interrupt their own team
 				return(FALSE);
@@ -1775,7 +1775,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			else
 			{
 				// enemies, MAY interrupt each other, but NOT themselves!
-				//if ( pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL )
+				//if ( pSoldier->status().flags() & SOLDIER_UNDERAICONTROL )
 				//{
 					return(FALSE);
 				//}
@@ -1817,7 +1817,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 	}
 
 	// soldiers gagging on gas are too busy about holding their cookies down...
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		return(FALSE);
 	}
@@ -1864,7 +1864,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		if (pSoldier->bSide == pOpponent->bSide)
 		{
 			// human/civilians on same side can't interrupt each other
-			if ((pSoldier->flags.uiStatusFlags & SOLDIER_PC) || PTR_CIVILIAN)
+			if ((pSoldier->status().flags() & SOLDIER_PC) || PTR_CIVILIAN)
 			{
 				return(FALSE);
 			}
@@ -1897,12 +1897,12 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 		else
 		{
 			if (!is_networked) {
-				if ( !(pOpponent->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && (pSoldier->bSide != pOpponent->bSide))
+				if ( !(pOpponent->status().flags() & SOLDIER_UNDERAICONTROL) && (pSoldier->bSide != pOpponent->bSide))
 				{
 					return( FALSE );
 				}
 			} else {
-				if ( !(is_client || (pOpponent->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)) && (pSoldier->bSide != pOpponent->bSide))
+				if ( !(is_client || (pOpponent->status().flags() & SOLDIER_UNDERAICONTROL)) && (pSoldier->bSide != pOpponent->bSide))
 				{
 					return( FALSE );
 				}
@@ -2024,7 +2024,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	// BASE = (2*lev + agi/10) / 3
 	// Robot has interrupt points based on the controller...
 	// Controller's interrupt points are reduced by 2 for being distracted...
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT && pSoldier->CanRobotBeControlled( ) )
+	if ( pSoldier->status().flags() & SOLDIER_ROBOT && pSoldier->CanRobotBeControlled( ) )
 	{
 		SOLDIERTYPE* controller =
 			GetJa2SoldierRepository().resolve(
@@ -2194,7 +2194,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 
 	// CJC note: this will affect friendly AI as well...
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+	if ( pSoldier->status().flags() & SOLDIER_PC )
 	{
 		if ( pSoldier->assignment().current() >= ON_DUTY )
 		{
@@ -2388,10 +2388,10 @@ void AddToIntList( UINT16 ubID, BOOLEAN fGainControl, BOOLEAN fCommunicate )
 	{
 		gubLastInterruptedGuy = ubID;
 		// turn off AI control flag if they lost control
-		if (soldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
+		if (soldier->status().flags() & SOLDIER_UNDERAICONTROL)
 		{
 			DebugAI( String( "Taking away AI control from %d", ubID ) );
-			soldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
+			soldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
 		}
 	}
 }
@@ -2792,10 +2792,10 @@ void ResolveInterruptsVs( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType)
 					SOLDIERTYPE* controlledSoldier =
 						GetJa2SoldierRepository().resolve(id.i);
 					if ( controlledSoldier &&
-						controlledSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
+						controlledSoldier->status().flags() & SOLDIER_UNDERAICONTROL)
 					{
 						// this guy lost control
-						controlledSoldier->flags.uiStatusFlags &= (~SOLDIER_UNDERAICONTROL);
+						controlledSoldier->status().flags() &= (~SOLDIER_UNDERAICONTROL);
 						AddToIntList( id, FALSE, TRUE);
 						break;
 					}

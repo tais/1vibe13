@@ -670,7 +670,7 @@ UINT16	NumberOfMercsOnPlayerTeam()
 		AssertNotNIL(pSoldier);
 
 		//if the is active, and is not a vehicle
-		if( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if( pSoldier->bActive && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			ubCount++;
 		}

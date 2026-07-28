@@ -1157,7 +1157,7 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 	// INT32 iChance, iResult; 
  
 	// should jams apply to enemies? 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_PC || gGameExternalOptions.fEnemyJams) 
+	if (pSoldier->status().flags() & SOLDIER_PC || gGameExternalOptions.fEnemyJams)
 	{ 
 		if( Item[pSoldier->attackSelection().weapon()].usItemClass == IC_GUN &&
 			!EXPLOSIVE_GUN( pSoldier->attackSelection().weapon() ) &&
@@ -1239,7 +1239,7 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 					}
 				 
 					// sevenfm: use curse battlesound for AI soldiers
-					if (pSoldier->flags.uiStatusFlags & SOLDIER_PC) 
+					if (pSoldier->status().flags() & SOLDIER_PC)
 					{
 						TacticalCharacterDialogue( pSoldier, QUOTE_JAMMED_GUN ); 
 					}
@@ -1268,7 +1268,7 @@ BOOLEAN CheckForGunJam( SOLDIERTYPE * pSoldier )
 					int iResult = SkillCheck( pSoldier, UNJAM_GUN_CHECK, bChanceMod); 
 					
 					// sevenfm: AI always unjams successfully
-					if (iResult > 0 || !(pSoldier->flags.uiStatusFlags & SOLDIER_PC)) 
+					if (iResult > 0 || !(pSoldier->status().flags() & SOLDIER_PC))
 					{ 
 						// yay! unjammed the gun 
 						(*pObj)[0]->data.gun.bGunAmmoStatus *= -1;
@@ -1372,7 +1372,7 @@ BOOLEAN FireWeapon( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	// If realtime and we are reloading - do not fire until counter is done!
 	if ( ( ( gTacticalStatus.uiFlags & REALTIME ) || !( IsJa2TacticalCombatActive() ) ) && !pSoldier->fireControl().burstCounter() )
 	{
-		if ( pSoldier->flags.fReloading )
+		if ( pSoldier->fireControl().reloading() )
 		{
 			return( FALSE );
 		}
@@ -2493,7 +2493,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			pSoldier->timing().reloadDelay()	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
 
 			// If a bad guy, double the delay!
-			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY ) )
+			if ( (pSoldier->status().flags() & SOLDIER_ENEMY ) )
 			{
 				pSoldier->timing().reloadDelay()	= ( pSoldier->timing().reloadDelay() * 2 );
 			}
@@ -2505,7 +2505,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				pSoldier->timing().reloadDelay() *= 2;
 			}
 
-			//pSoldier->flags.fReloading		= TRUE;
+			//pSoldier->fireControl().reloading()		= TRUE;
 			//pSoldier->timing().start(SoldierTimingComponent::Timer::Reload, pSoldier->timing().reloadDelay());
 		}
 
@@ -2638,7 +2638,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			{
 				dExpGain /= 2;
 			}
-			else if ( pAttackTarget->flags.uiStatusFlags &
+			else if ( pAttackTarget->status().flags() &
 					SOLDIER_VEHICLE ||
 				AM_A_ROBOT( pAttackTarget ) ||
 				TANK( pAttackTarget ) )
@@ -2680,7 +2680,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			{
 				dExpGain /= 2;
 			}
-			else if ( pAttackTarget->flags.uiStatusFlags &
+			else if ( pAttackTarget->status().flags() &
 					SOLDIER_VEHICLE ||
 				AM_A_ROBOT( pAttackTarget ) ||
 				TANK( pAttackTarget ) )
@@ -3340,7 +3340,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			pSoldier->timing().reloadDelay()	= (INT16)( Weapon[ usUBItem ].usReloadDelay + MANDATORY_WEAPON_DELAY );
 
 			// If a bad guy, double the delay!
-			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_ENEMY ) )
+			if ( (pSoldier->status().flags() & SOLDIER_ENEMY ) )
 			{
 				pSoldier->timing().reloadDelay()	= ( pSoldier->timing().reloadDelay() * 2 );
 			}
@@ -3352,7 +3352,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 				pSoldier->timing().reloadDelay() *= 2;
 			}
 
-			//pSoldier->flags.fReloading		= TRUE;
+			//pSoldier->fireControl().reloading()		= TRUE;
 			//pSoldier->timing().start(SoldierTimingComponent::Timer::Reload, pSoldier->timing().reloadDelay());
 		}
 
@@ -3406,7 +3406,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pAttackTarget->flags.uiStatusFlags &
+			else if ( pAttackTarget->status().flags() &
 					SOLDIER_VEHICLE ||
 				AM_A_ROBOT( pAttackTarget ) ||
 				TANK( pAttackTarget ) )
@@ -3480,7 +3480,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pAttackTarget->flags.uiStatusFlags &
+			else if ( pAttackTarget->status().flags() &
 					SOLDIER_VEHICLE ||
 				AM_A_ROBOT( pAttackTarget ) ||
 				TANK( pAttackTarget ) )
@@ -3835,8 +3835,8 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	if ( pTargetSoldier )
 	{
 		// set target as noticed attack
-		pSoldier->flags.uiStatusFlags |= SOLDIER_ATTACK_NOTICED;
-		pTargetSoldier->flags.fIntendedTarget = TRUE;
+		pSoldier->status().flags() |= SOLDIER_ATTACK_NOTICED;
+		pTargetSoldier->targeting().intendedTarget() = TRUE;
 
 		// SAVE OPP ID
 		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
@@ -3993,7 +3993,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			{
 				usExpGain /= 2;
 			}
-			else if ( pTargetSoldier->flags.uiStatusFlags &
+			else if ( pTargetSoldier->status().flags() &
 					SOLDIER_VEHICLE ||
 				AM_A_ROBOT( pTargetSoldier ) ||
 				TANK( pTargetSoldier ) )
@@ -4078,8 +4078,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	if ( pTargetSoldier )
 	{
 		// set target as noticed attack
-		pSoldier->flags.uiStatusFlags |= SOLDIER_ATTACK_NOTICED;
-		pTargetSoldier->flags.fIntendedTarget = TRUE;
+		pSoldier->status().flags() |= SOLDIER_ATTACK_NOTICED;
+		pTargetSoldier->targeting().intendedTarget() = TRUE;
 
 		// SAVE OPP ID
 		pSoldier->targeting().engageOpponent( pTargetSoldier->ubID );
@@ -4127,10 +4127,10 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 
 				// sevenfm: bonus for boxers for attack from the back
 				if (iHitChance < 100 &&
-					(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+					(pSoldier->status().flags() & SOLDIER_BOXER) &&
 					!pSoldier->perception().blindnessTurns() &&
 					gAnimControl[pTargetSoldier->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
-					(pTargetSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+					(pTargetSoldier->status().flags() & SOLDIER_BOXER) &&
 					pTargetSoldier->usSoldierFlagMask2 & SOLDIER_BACK_ATTACK)
 				{
 					iHitChance += (100 - iHitChance) / 2;
@@ -4451,7 +4451,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 			}
 
 			// Give some experience
-			if ( iHitChance > 0 && pSoldier->bTeam == gbPlayerNum && pTargetSoldier->bTeam != gbPlayerNum && !(pTargetSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT( pTargetSoldier ) && !ARMED_VEHICLE( pTargetSoldier ) && !ENEMYROBOT( pTargetSoldier ) )
+			if ( iHitChance > 0 && pSoldier->bTeam == gbPlayerNum && pTargetSoldier->bTeam != gbPlayerNum && !(pTargetSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT( pTargetSoldier ) && !ARMED_VEHICLE( pTargetSoldier ) && !ENEMYROBOT( pTargetSoldier ) )
 			{
 				if (fFailure == FALSE)
 				{
@@ -4583,7 +4583,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 					}
 
-					if ( pTargetSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) )
+					if ( pTargetSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) )
 					{
 						ubExpGain = 0;
 					}
@@ -4633,7 +4633,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 						}
 					}
 
-					if ( pTargetSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE || AM_A_ROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) )
+					if ( pTargetSoldier->status().flags() & SOLDIER_VEHICLE || AM_A_ROBOT( pTargetSoldier ) || ARMED_VEHICLE( pTargetSoldier ) || ENEMYROBOT( pTargetSoldier ) )
 					{
 						ubExpGain = 0;
 					}
@@ -4720,7 +4720,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				if (pTargetSoldier->actionPoints().current() > 0 &&
 					gGameOptions.fNewTraitSystem &&
 					gTacticalStatus.bBoxingState == BOXING &&
-					(pTargetSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+					(pTargetSoldier->status().flags() & SOLDIER_BOXER) &&
 					Chance(ubCounterattackChance) &&
 					IS_MERC_BODY_TYPE(pSoldier) &&
 					IS_MERC_BODY_TYPE(pTargetSoldier) &&
@@ -5424,7 +5424,7 @@ void WeaponHit( SoldierID usSoldierID, UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// OK, SHOT HAS HIT, DO THINGS APPROPRIATELY
 	// ATE: This is 'cause of that darn smoke effect that could potentially kill
 	// the poor bastard .. so check
-	if ( !pTargetSoldier->flags.fDoingExternalDeath )
+	if ( !pTargetSoldier->animationActivity().externalDeath() )
 	{
 		pTargetSoldier->EVENT_SoldierGotHit( usWeaponIndex, sDamage, sBreathLoss, usDirection, sRange, ubAttackerID, ubSpecial, ubHitLocation, 0, NOWHERE );
 	}
@@ -7280,7 +7280,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	
 	/////////////////////////////////////////////////////////////////////////////////////
 	// AI Modifiers
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC ) )	// if this is a computer AI controlled enemy
+	if ( !(pSoldier->status().flags() & SOLDIER_PC ) )	// if this is a computer AI controlled enemy
 	{
 		if ( gGameOptions.ubDifficultyLevel == DIF_LEVEL_EASY )
 		{
@@ -7336,7 +7336,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	
 	/////////////////////////////////////////////////////////////////////////////////////
 	// Situational modifiers
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	  iChance -= AIM_PENALTY_GASSED;
 	if (pSoldier->service().hasProviders())
 	  iChance -= AIM_PENALTY_GETTINGAID;
@@ -7825,7 +7825,7 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 	OBJECTTYPE *	pArmour;
 	BOOLEAN					plateHit = false;
 
-	if (pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE)
+	if (pTarget->status().flags() & SOLDIER_VEHICLE)
 	{
 		INT16 bDummyStatus = 100;
 		BOOLEAN dummyCoverage = true;
@@ -8028,7 +8028,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	{
 		damagefactor *= AmmoTypes[ubAmmoType].dDamageModifierZombie;
 	}
-	else if ( pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE || pTarget->flags.uiStatusFlags & SOLDIER_ROBOT )
+	else if ( pTarget->status().flags() & SOLDIER_VEHICLE || pTarget->status().flags() & SOLDIER_ROBOT )
 	{
 		if ( COMBAT_JEEP( pTarget ) || AM_A_ROBOT( pTarget ) || ENEMYROBOT( pTarget ))
 		{
@@ -8139,7 +8139,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 	}
 
 	// Flugente: if this is cryo ammo, freeze target.
-	if ( !ARMED_VEHICLE( pTarget ) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && AmmoTypes[ubAmmoType].ammoflag & AMMO_CRYO )
+	if ( !ARMED_VEHICLE( pTarget ) && !(pTarget->status().flags() & SOLDIER_VEHICLE) && AmmoTypes[ubAmmoType].ammoflag & AMMO_CRYO )
 	{
 		pTarget->skillState().cooldown(SOLDIER_COOLDOWN_CRYO) += 2;
 
@@ -8362,7 +8362,7 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 			}
 		}
 
-		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->vitals().health() && !(pTarget->flags.uiStatusFlags & SOLDIER_MONSTER) && !(pTarget->flags.uiStatusFlags & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->bTeam != OUR_TEAM))
+		if (iImpactForCrits > 0 && iImpactForCrits < pTarget->vitals().health() && !(pTarget->status().flags() & SOLDIER_MONSTER) && !(pTarget->status().flags() & SOLDIER_VEHICLE) && (!(gTacticalStatus.uiFlags & GODMODE) || pTarget->bTeam != OUR_TEAM))
 		{
 			UINT32 uiCritChance = 0;
 			if (fFragment)
@@ -9175,13 +9175,13 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		}
 	}
 
-	if (! (pAttacker->flags.uiStatusFlags & SOLDIER_PC) )   // if attacker is a computer AI controlled enemy
+	if (! (pAttacker->status().flags() & SOLDIER_PC) )   // if attacker is a computer AI controlled enemy
 	{
 		iAttRating += gbDiff[ DIFF_ENEMY_TO_HIT_MOD ][ SoldierDifficultyLevel( pAttacker ) ];
 	}
 
 	// if attacker is being affected by gas
-	if ( pAttacker->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pAttacker->status().flags() & SOLDIER_GASSED )
 		iAttRating -= AIM_PENALTY_GASSED;
 
 	// if attacker is being bandaged at the same time, his concentration is off
@@ -9365,7 +9365,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	iDefRating -= GetSkillCheckPenaltyForFatigue( pDefender, iDefRating );
 
 	// if attacker is being affected by gas
-	if ( pDefender->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pDefender->status().flags() & SOLDIER_GASSED )
 		iDefRating -= AIM_PENALTY_GASSED;
 
 	// if defender is being bandaged at the same time, his concentration is off
@@ -9607,7 +9607,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	{
 		// Changed from DG by CJC to give higher chances of hitting with a stab or punch
 		// sevenfm: lowered chance for boxers
-		if (pAttacker->flags.uiStatusFlags & SOLDIER_BOXER)
+		if (pAttacker->status().flags() & SOLDIER_BOXER)
 			iChance = 50 + (iAttRating - iDefRating) / 3;
 		else
 			iChance = 67 + (iAttRating - iDefRating) / 3;
@@ -9662,8 +9662,8 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 
 	// sevenfm: bonus for boxers for attacking from the back
 	if (ubMode == HTH_MODE_PUNCH &&
-		(pAttacker->flags.uiStatusFlags & SOLDIER_BOXER) &&
-		(pDefender->flags.uiStatusFlags & SOLDIER_BOXER) &&
+		(pAttacker->status().flags() & SOLDIER_BOXER) &&
+		(pDefender->status().flags() & SOLDIER_BOXER) &&
 		iChance < 100 &&
 		!pAttacker->perception().blindnessTurns() &&
 		gAnimControl[pDefender->animationPlayback().state()].ubEndHeight > ANIM_PRONE &&
@@ -10283,7 +10283,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 */
 
 	// if shooter is being affected by gas
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		iChance -= AIM_PENALTY_GASSED;
 	}
@@ -11355,7 +11355,7 @@ FLOAT CalcNewChanceToHitBaseEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// GASSED
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		fBaseModifier += gGameCTHConstants.BASE_GASSED;
 	}
@@ -11523,7 +11523,7 @@ FLOAT CalcNewChanceToHitBaseSpecialBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// GAME DIFFICULTY
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
+	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
 	{
 		fBaseModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsBaseDifficultyEnemy;
 	}
@@ -11718,7 +11718,7 @@ FLOAT CalcNewChanceToHitAimEffectBonus(SOLDIERTYPE *pSoldier)
 	}
 
 	// GASSED
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+	if ( pSoldier->status().flags() & SOLDIER_GASSED )
 	{
 		fAimModifier += gGameCTHConstants.AIM_GASSED;
 	}
@@ -11847,7 +11847,7 @@ FLOAT CalcNewChanceToHitAimSpecialBonus(SOLDIERTYPE *pSoldier)
 	FLOAT fAimModifier = 0;
 
 	// GAME DIFFICULTY
-	if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
+	if ( !(pSoldier->status().flags() & SOLDIER_PC ) && (pSoldier->bSide != gbPlayerNum) )
 	{
 		fAimModifier += zDiffSetting[gGameOptions.ubDifficultyLevel].fCTHSettingsAimDifficultyEnemy;
 	}

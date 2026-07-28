@@ -485,7 +485,7 @@ void UpdateTransportGroupInventory()
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if (pSoldier->bActive && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+			if (pSoldier->bActive && !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 			{
 				for (int j = 0 ; j < pSoldier->inv.size(); ++j)
 				{

@@ -274,7 +274,7 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->ubBodyType							= Soldier.ubBodyType;
 	this->ubCivilianGroup				= Soldier.ubCivilianGroup;
 	this->ubScheduleID					= Soldier.schedule().id();
-	this->fHasKeys							= Soldier.flags.bHasKeys;
+	this->fHasKeys							= Soldier.inventoryState().keyAccess();
 	this->sSectorX							= Soldier.deployment().sectorX();
 	this->sSectorY							= Soldier.deployment().sectorY();
 	this->bSectorZ							= Soldier.deployment().sectorZ();
@@ -657,18 +657,18 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// First off, force player team if they are a player guy! ( do some other stuff for only our guys!
 		if ( pCreateStruct->fPlayerMerc )
 		{
-			Soldier.flags.uiStatusFlags |= SOLDIER_PC;
+			Soldier.status().flags() |= SOLDIER_PC;
 			Soldier.bTeam = gbPlayerNum;
 			Soldier.awareness().markVisible();
 		}
 		else if ( pCreateStruct->fPlayerPlan )
 		{
-			Soldier.flags.uiStatusFlags |= SOLDIER_PC;
+			Soldier.status().flags() |= SOLDIER_PC;
 			Soldier.awareness().markVisible();
 		}
 		else
 		{
-			Soldier.flags.uiStatusFlags |= SOLDIER_ENEMY;
+			Soldier.status().flags() |= SOLDIER_ENEMY;
 		}
 
 
@@ -1055,7 +1055,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			case BLOODCAT:
 				AssignCreatureInventory( &Soldier );
 				Soldier.aiData.bNormalSmell = NORMAL_HUMAN_SMELL_STRENGTH;
-				Soldier.flags.uiStatusFlags |= SOLDIER_ANIMAL;
+				Soldier.status().flags() |= SOLDIER_ANIMAL;
 				break;
 
 			case ADULTFEMALEMONSTER:
@@ -1073,22 +1073,22 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 					Soldier.aiData.bOrders = FARPATROL;
 					Soldier.aiData.bAttitude = AGGRESSIVE;
 				}
-				Soldier.flags.uiStatusFlags |= SOLDIER_MONSTER;
+				Soldier.status().flags() |= SOLDIER_MONSTER;
 				Soldier.aiData.bMonsterSmell = NORMAL_CREATURE_SMELL_STRENGTH;
 				break;
 
 			case COW:
-				Soldier.flags.uiStatusFlags |= SOLDIER_ANIMAL;
+				Soldier.status().flags() |= SOLDIER_ANIMAL;
 				Soldier.aiData.bNormalSmell = COW_SMELL_STRENGTH;
 				break;
 			case CROW:
 
-				Soldier.flags.uiStatusFlags |= SOLDIER_ANIMAL;
+				Soldier.status().flags() |= SOLDIER_ANIMAL;
 				break;
 
 			case ROBOTNOWEAPON:
 
-				Soldier.flags.uiStatusFlags |= SOLDIER_ROBOT;
+				Soldier.status().flags() |= SOLDIER_ROBOT;
 				break;
 
 			case HUMVEE:
@@ -1099,7 +1099,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 			case TANK_NE:
 			case COMBAT_JEEP:
 
-				Soldier.flags.uiStatusFlags |= SOLDIER_VEHICLE;
+				Soldier.status().flags() |= SOLDIER_VEHICLE;
 
 				switch( Soldier.ubBodyType )
 				{
@@ -1284,7 +1284,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	// Set profile index!
 	pSoldier->ubProfile									= ubProfileIndex;
 	pSoldier->schedule().id()						= pCreateStruct->ubScheduleID;
-	pSoldier->flags.bHasKeys									= pCreateStruct->fHasKeys;
+	pSoldier->inventoryState().keyAccess()									= pCreateStruct->fHasKeys;
 
 	wcscpy( pSoldier->name, pProfile->zNickname );
 
@@ -1761,7 +1761,7 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->ubCivilianGroup				= pCreateStruct->ubCivilianGroup;
 
 	pSoldier->schedule().id()				= pCreateStruct->ubScheduleID;
-	pSoldier->flags.bHasKeys							= pCreateStruct->fHasKeys;
+	pSoldier->inventoryState().keyAccess()							= pCreateStruct->fHasKeys;
 	pSoldier->ubSoldierClass				= pCreateStruct->ubSoldierClass;
 
 	pSoldier->deployment().sectorX() = pCreateStruct->sSectorX;
@@ -2176,7 +2176,7 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 		DeleteSchedule( pSoldier->schedule().id() );
 	}
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && fRemoveVehicle )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE && fRemoveVehicle )
 	{
 		// remove this vehicle from the list
 		RemoveVehicleFromList( pSoldier->bVehicleID );
@@ -2209,7 +2209,7 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 				pSoldier->pAniTile = NULL;
 			}
 
-			if ( ! (pSoldier->flags.uiStatusFlags & SOLDIER_OFF_MAP) )
+			if ( ! (pSoldier->status().flags() & SOLDIER_OFF_MAP) )
 			{
 				// Decrement men in sector number!
 				RemoveManFromTeam( pSoldier->bTeam );

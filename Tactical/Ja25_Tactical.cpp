@@ -981,7 +981,7 @@ BOOLEAN HandlePlayerSayingQuoteWhenFailingToOpenGateInTunnel( SOLDIERTYPE *pSold
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
 		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
-				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			bSlot = FindObj( pSoldier, WIRECUTTERS );
 			if( bSlot != NO_SLOT )
@@ -1788,7 +1788,7 @@ INT8 RandomSoldierIdForAnyMercInSector()
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
     //if the soldier is in the sector
 		if( pSoldier->bActive && pSoldier->bInSector && ( pSoldier->vitals().health() >= CONSCIOUSNESS ) &&
-				 !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+				 !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			SoldierIdArray[ ubCount++ ] = cnt;			
 		}

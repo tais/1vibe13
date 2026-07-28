@@ -1007,7 +1007,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	Corpse.ubDirection	= pSoldier->position().direction();
 
 	// If we are a vehicle.... only use 1 direction....
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		Corpse.usFlags |= ROTTING_CORPSE_VEHICLE;
 
@@ -1376,7 +1376,7 @@ void HandleRottingCorpses( )
 				continue;
 			}
 
-			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) )
+			if (pSoldier->bActive && pSoldier->bInSector && (pSoldier->vitals().health() >= OKLIFE) && !( pSoldier->status().flags() & SOLDIER_GASSED ) )
 			{
 				if ( pSoldier->ubBodyType == CROW )
 				{

@@ -1525,7 +1525,7 @@ void MiniEventsLua(UINT32 eventId)
 			&& pSoldier->assignment().current() != IN_TRANSIT
 			&& pSoldier->assignment().current() != ASSIGNMENT_POW
 			&& pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND
-			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE))
 		{
 			gAllMercs.push_back(pSoldier);
 		}
@@ -1542,7 +1542,7 @@ void MiniEventsLua(UINT32 eventId)
 		for (SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
-			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
+			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->status().flags() & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);
 				std::string str(ws.begin(), ws.end());
@@ -1561,7 +1561,7 @@ void MiniEventsLua(UINT32 eventId)
 		for ( SoldierID i = gTacticalStatus.Team[OUR_TEAM].bFirstID; i <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++i)
 		{
 			const SOLDIERTYPE* merc = GetJa2SoldierRepository().resolve(i);
-			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->flags.uiStatusFlags & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
+			if (merc && merc->bActive && merc->assignment().current() != IN_TRANSIT && !(merc->status().flags() & SOLDIER_VEHICLE) && !(AM_A_ROBOT(merc)))
 			{
 				std::wstring ws(gMercProfiles[merc->ubProfile].zNickname);
 				std::string str(ws.begin(), ws.end());

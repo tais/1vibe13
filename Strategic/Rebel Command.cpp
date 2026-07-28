@@ -2174,7 +2174,7 @@ BOOLEAN SetupMissionAgentBox(UINT16 x, UINT16 y, INT8 index)
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->bActive
-			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
 			)
 		{
 			mercs.push_back(pSoldier);
@@ -2819,7 +2819,7 @@ void PrepareMission(INT8 index)
 		SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(i);
 
 		if (pSoldier && pSoldier->bActive
-			&& !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE)
+			&& !(pSoldier->status().flags() & SOLDIER_VEHICLE)
 			)
 		{
 			mercs.push_back(pSoldier);

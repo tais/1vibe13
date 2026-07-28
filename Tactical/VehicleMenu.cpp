@@ -90,7 +90,7 @@ VehicleSelection::Setup( UINT32 aVal )
 		// if seat is already taken, grey it out
 		if ( pVehicleList[ bVehicleID ].pPassengers[ i ] != NULL )
 		{			
-			if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			{
 				if( pVehicleList[ bVehicleID ].pPassengers[ i ] == pCurrentSoldier )
 				{
@@ -169,7 +169,7 @@ VehicleSelection::Functions( UINT32 aVal  )
 		return;
 	}
 
-	if( pCurrentSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
+	if( pCurrentSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) && pCurrentSoldier->deployment().vehicleId() == pCurrentVehicle->bVehicleID )
 	{
 		if( SwapVehicleSeat( pCurrentVehicle, pCurrentSoldier, aVal ) )
 		{

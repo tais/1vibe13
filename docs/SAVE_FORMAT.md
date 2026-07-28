@@ -300,6 +300,17 @@ adapter, so save and load can never drift out of order. Extra methods:
   every historical attribute and its first two trait bytes and clears the 28
   later slots. No save, profile, packet, map, trait rule, XML, Lua,
   multiplayer, package, or installed-data bytes change.
+- The former 14-field `STRUCT_Flags` aggregate has been divided by ownership
+  without changing its visitor. The signed 8-bit key-access value is stored by
+  `SoldierInventoryStateComponent`; the unsigned 32-bit general mask is stored
+  by `SoldierStatusComponent`; new-item refresh, zipper, and drop-pack booleans
+  stay with inventory; and the remaining booleans plus the unsigned 8-bit gas
+  mask live with targeting, fire control, animation activity, replication,
+  condition, and AI planning. All fourteen values retain their exact
+  historical order, scattered positions, and widths. v101 conversion maps its
+  twelve represented fields and resets zipper/drop-pack state, which that
+  record did not contain. No save, profile, packet, map, XML, Lua, multiplayer,
+  package, or installed-data bytes change.
 - Tactical service activity, patient provider count, provider-to-patient
   identity, the automatic-bandage medic reservation, and the signed inventory
   slot borrowed while servicing are now stored by `SoldierServiceComponent`.

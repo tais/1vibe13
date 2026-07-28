@@ -662,7 +662,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 	for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 	{
 		SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-		if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+		if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 		{
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) )
 			{
@@ -958,7 +958,7 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 		for( SoldierID i = gTacticalStatus.Team[ OUR_TEAM ].bFirstID; i <= gTacticalStatus.Team[ OUR_TEAM ].bLastID; ++i )
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(i);
-			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				if ( PlayerMercInvolvedInThisCombat( pSoldier ) && pSoldier->ubProfile != NO_PROFILE )
 				{
@@ -1652,7 +1652,7 @@ void RenderPreBattleInterface()
 		for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id)
 		{
 			SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+			if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 			{
 				if( PlayerMercInvolvedInThisCombat( pSoldier ) )
 				{
@@ -1698,7 +1698,7 @@ void RenderPreBattleInterface()
 			for( SoldierID id = gTacticalStatus.Team[OUR_TEAM].bFirstID; id <= gTacticalStatus.Team[OUR_TEAM].bLastID; ++id )
 			{
 				SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(id);
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) )
+				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) )
 				{
 					if( !PlayerMercInvolvedInThisCombat(pSoldier) )
 					{
@@ -2292,7 +2292,7 @@ void PutNonSquadMercsInPlayerGroupOnSquads( GROUP *pGroup, BOOLEAN fExitVehicles
 		// store ptr to next soldier in group, once removed from group, his info will get memfree'd!
 		pNextPlayer = pPlayer->next;
 
-		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but off-duty (includes mercs inside vehicles!)
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().current() >= ON_DUTY ) )
@@ -2359,7 +2359,7 @@ void WakeUpAllMercsInSectorUnderAttack( void )
 	{
 		pSoldier = &( GetJa2SoldierRepository().record(iCounter) );
 
-		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( pSoldier->bActive && pSoldier->vitals().health() && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			// if involved, but asleep
 			if ( PlayerMercInvolvedInThisCombat( pSoldier ) && ( pSoldier->assignment().isAsleep() == TRUE ) )
@@ -2549,7 +2549,7 @@ BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 			pSoldier->assignment().current() != ASSIGNMENT_DEAD &&
 			pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
 			pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
-			!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+			!(pSoldier->status().flags() & SOLDIER_VEHICLE) &&
 			// Robot is involved if it has a valid controller with it, uninvolved otherwise
 			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->ubRobotRemoteHolderID != NOBODY ) ) &&
 			!SoldierAboardAirborneHeli( pSoldier ) )

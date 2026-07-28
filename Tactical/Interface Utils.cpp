@@ -470,7 +470,7 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 
 	if ( pSoldier->bActive )
 	{
-		if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			// get the type of vehicle
 //			ubVehicleType = pVehicleList[ pSoldier->bVehicleID ].ubVehicleType;

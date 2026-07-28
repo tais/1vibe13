@@ -110,7 +110,7 @@ UINT32 GetSoldierFindFlags( SoldierID ubID )
 	}
 	if ( ubID >= gTacticalStatus.Team[ gbPlayerNum ].bFirstID && ubID <= gTacticalStatus.Team[ gbPlayerNum ].bLastID )
 	{
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->bVehicleID ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !GetNumberInVehicle( pSoldier->bVehicleID ) )
 		{
 			// Don't do anything!
 		}
@@ -213,10 +213,10 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 		if ( pSoldier != NULL )
 		{
 
-			if ( pSoldier->bActive && !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) && ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
+			if ( pSoldier->bActive && !( pSoldier->status().flags() & SOLDIER_DEAD ) && ( pSoldier->awareness().visibility() != -1 || (gTacticalStatus.uiFlags&SHOW_ALL_MERCS) ) )
 			{
 				// OK, ignore if we are a passenger...
-				if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
+				if ( pSoldier->status().flags() & ( SOLDIER_PASSENGER | SOLDIER_DRIVER ) )
 				{
 					continue;
 				}
@@ -312,7 +312,7 @@ BOOLEAN FindSoldier( INT32 sGridNo, SoldierID *pusSoldierIndex, UINT32 *pMercFla
 					if ( fInScreenRect || fInGridNo )
 					{
 						// Check if we are a vehicle and refine if so....
-						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							usAnimSurface = GetSoldierAnimationSurface( pSoldier, pSoldier->animationPlayback().state() );
 

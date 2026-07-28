@@ -420,7 +420,7 @@ UINT16 DetermineMovementMode( SOLDIERTYPE * pSoldier, INT8 bAction )
 				if (IS_MERC_BODY_TYPE(pSoldier) &&
 					pSoldier->aiData.bAlertStatus >= STATUS_YELLOW &&
 					!InWaterGasOrSmoke(pSoldier, pSoldier->position().gridNo()) &&
-					!(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) &&
+					!(pSoldier->status().flags() & SOLDIER_BOXER) &&
 					!TileIsOutOfBounds(sClosestThreat) &&
 					(pSoldier->bTeam == ENEMY_TEAM || pSoldier->bTeam == MILITIA_TEAM))
 				{
@@ -1241,7 +1241,7 @@ INT32 ClosestReachableDisturbance(SOLDIERTYPE *pSoldier, BOOLEAN * pfChangeLevel
 		}
 
 		// sevenfm: zombies do not attack vehicles (rftr: or robots)
-		if (pSoldier->IsZombie() && (AM_A_ROBOT(pOpponent) || ENEMYROBOT(pOpponent) || ARMED_VEHICLE(pOpponent) || (pOpponent->flags.uiStatusFlags & SOLDIER_VEHICLE)))
+		if (pSoldier->IsZombie() && (AM_A_ROBOT(pOpponent) || ENEMYROBOT(pOpponent) || ARMED_VEHICLE(pOpponent) || (pOpponent->status().flags() & SOLDIER_VEHICLE)))
 		{
 			continue;
 		}
@@ -1484,7 +1484,7 @@ INT32 ClosestKnownOpponent(SOLDIERTYPE *pSoldier, INT32 * psGridNo, INT8 * pbLev
 
 		if (sClosestOpponent == NOWHERE ||
 			iRange < iClosestRange ||
-			pClosestOpponent && !pClosestOpponent->IsZombie() && !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE)
+			pClosestOpponent && !pClosestOpponent->IsZombie() && !(pSoldier->status().flags() & SOLDIER_BOXER) && pClosestOpponent->vitals().health() < OKLIFE && pOpponent->vitals().health() >= OKLIFE)
 		{
 			iClosestRange = iRange;
 			sClosestOpponent = sGridNo;
@@ -1834,7 +1834,7 @@ INT32 FindClosestClimbPointAvailableToAI( SOLDIERTYPE * pSoldier, INT32 sStartGr
 	INT32	sRoamingOrigin;
 	INT16	sRoamingRange;
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_PC )
+	if ( pSoldier->status().flags() & SOLDIER_PC )
 	{
 		sRoamingOrigin = pSoldier->sGridNo;
 		sRoamingRange = 99;
@@ -2671,7 +2671,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 	}
 
 	// in boxing mode, let only a boxer be considered a threat.
-	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pEnemy->flags.uiStatusFlags & SOLDIER_BOXER) )
+	if ( (gTacticalStatus.bBoxingState == BOXING) && !(pEnemy->status().flags() & SOLDIER_BOXER) )
 	{
 		iThreatValue = -999;
 		return( iThreatValue );
@@ -3248,7 +3248,7 @@ INT16 AssessTacticalSituation( INT8 bTeam )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		ubSoldierTacticalThreat = CalcStraightThreatValue( pSoldier );
 		// Player-controlled Mercs are 1.5 times more threatening than AIs
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
+		if (pSoldier->status().flags() & SOLDIER_PC)
 			ubSoldierTacticalThreat = (UINT8)((float)ubSoldierTacticalThreat * 1.5);
 		
 		// Assess Threat
@@ -4061,7 +4061,7 @@ UINT8 CountFriendsFlankSameSpot(SOLDIERTYPE *pSoldier, INT32 sSpot)
 			if (pFriend->aiPlanning().flankCount() > 0 && pFriend->aiPlanning().flankCount() < MAX_FLANKS_RED &&
 				PythSpacesAway(pFriend->aiPlanning().flankAnchorGrid(), sSpot) < VISION_RANGE / 2)
 			{
-				if (pFriend->flags.lastFlankLeft)
+				if (pFriend->aiPlanning().lastFlankLeft())
 				{
 					ubFlankLeft++;
 				}
@@ -4815,7 +4815,7 @@ BOOLEAN ValidOpponent(SOLDIERTYPE* pSoldier, SOLDIERTYPE* pOpponent)
 		pSoldier->bSide == pOpponent->bSide ||
 		pSoldier->aiData.bAttitude == ATTACKSLAYONLY && pOpponent->ubProfile != SLAY ||
 		(pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle(pOpponent->bVehicleID) == 0) ||
-		gTacticalStatus.bBoxingState == BOXING && (pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) && !(pOpponent->flags.uiStatusFlags & SOLDIER_BOXER) ||
+		gTacticalStatus.bBoxingState == BOXING && (pSoldier->status().flags() & SOLDIER_BOXER) && !(pOpponent->status().flags() & SOLDIER_BOXER) ||
 		pOpponent->ubBodyType == CROW)
 	{
 		return FALSE;
@@ -4924,9 +4924,9 @@ BOOLEAN SoldierAI(SOLDIERTYPE *pSoldier)
 	if (!IS_MERC_BODY_TYPE(pSoldier) || 
 		pSoldier->aiData.bNeutral || 
 		fCivilian ||
-		pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ||
+		pSoldier->status().flags() & SOLDIER_BOXER ||
 		ARMED_VEHICLE(pSoldier) ||
-		pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ||
+		pSoldier->status().flags() & SOLDIER_VEHICLE ||
 		AM_A_ROBOT(pSoldier) ||
 		ENEMYROBOT(pSoldier))
 		return FALSE;

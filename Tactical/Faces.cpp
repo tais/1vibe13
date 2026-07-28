@@ -1890,7 +1890,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 			BltVideoObjectFromIndex( uiRenderBuffer, guiHATCH, 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );
 		}
 
-		if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+		if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 		{
 			// IF we are in the process of doing any deal/close animations, show face, not skill...
 			if ( !pSoldier->uiPresentation().panelClosing() &&
@@ -1975,7 +1975,7 @@ void HandleRenderFaceAdjustments( FACETYPE *pFace, BOOLEAN fDisplayBuffer, BOOLE
 		if (pSoldier->vitals().health() > 0 && !(pFace->uiFlags & FACE_BIGFACE))
 		{
 			// Check if a robot and is not controlled....
-			if (pSoldier->flags.uiStatusFlags & SOLDIER_ROBOT)
+			if (pSoldier->status().flags() & SOLDIER_ROBOT)
 			{
 				if (!pSoldier->CanRobotBeControlled())
 				{

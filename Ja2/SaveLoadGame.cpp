@@ -1568,13 +1568,18 @@ template<class Ar> static void XferAIData( Ar& ar, SOLDIERTYPE& soldier )
 
 template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_Flags& f = soldier.flags;
 	SoldierCollapseComponent& collapseState = soldier.collapseState();
 	SoldierDeploymentComponent& deployment = soldier.deployment();
 	SoldierDialogueComponent& dialogue = soldier.dialogue();
 	SoldierEmploymentComponent& employment = soldier.employment();
 	SoldierAssignmentComponent& assignment = soldier.assignment();
+	SoldierInventoryStateComponent& inventoryState = soldier.inventoryState();
+	SoldierStatusComponent& status = soldier.status();
 	SoldierMovementComponent& movement = soldier.movement();
+	SoldierReplicationComponent& replication = soldier.replication();
+	SoldierAiPlanningComponent& aiPlanning = soldier.aiPlanning();
+	SoldierConditionComponent& condition = soldier.condition();
+	SoldierTargetingComponent& targeting = soldier.targeting();
 	SoldierFireControlComponent& fireControl = soldier.fireControl();
 	SoldierSuppressionComponent& suppression = soldier.suppression();
 	SoldierDamageDisplayComponent& damageDisplay = soldier.damageDisplay();
@@ -1582,7 +1587,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	SoldierUiPresentationComponent& uiPresentation = soldier.uiPresentation();
 	SoldierAnimationIntentComponent& animationIntent = soldier.animationIntent();
 	SoldierAnimationActivityComponent& animationActivity = soldier.animationActivity();
-	ar.i8(f.bHasKeys);
+	ar.i8(inventoryState.keyAccess());
 	ar.u8(movement.delayCounter()); ar.boolean(movement.turnInProgress()); ar.u8(renderState.fadeMode());
 	ar.i8(animationActivity.turningFromProneMode());
 	ar.boolean(animationActivity.readyCostWaived()); ar.boolean(movement.previousInWater());
@@ -1590,7 +1595,7 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(renderState.forceRenderColor()); ar.boolean(renderState.forceNoPaletteCycle());
 	ar.boolean(animationIntent.stopPendingNextTile()); ar.boolean(movement.uiMovementFast()); ar.boolean(renderState.forceShade());
 	ar.boolean(dialogue.deadSoundPlayedState()); ar.boolean(uiPresentation.panelCloseRequested()); ar.boolean(uiPresentation.panelCloseForDeath());
-	ar.boolean(uiPresentation.deadPanelActive()); ar.boolean(uiPresentation.panelOpenRequested()); ar.boolean(f.fIntendedTarget);
+	ar.boolean(uiPresentation.deadPanelActive()); ar.boolean(uiPresentation.panelOpenRequested()); ar.boolean(targeting.intendedTarget());
 	ar.boolean(animationActivity.paused()); ar.u8(animationIntent.continuationMode());
 	ar.boolean(animationActivity.holdAttackerUntilDone()); ar.boolean(dialogue.bleedingWarningSpokenState()); ar.boolean(dialogue.dyingCommentSpokenState());
 	ar.boolean(animationActivity.turningToShoot()); ar.boolean(animationActivity.turningToFall()); ar.boolean(animationActivity.turningUntilDone());
@@ -1598,25 +1603,25 @@ template<class Ar> static void XferFlags( Ar& ar, SOLDIERTYPE& soldier )
 	ar.boolean(uiPresentation.locatorVisibleState()); ar.boolean(uiPresentation.portraitFlashPhase()); ar.boolean(movement.noActionPointsToFinish());
 	ar.boolean(movement.paused()); ar.boolean(uiPresentation.deadMercUiPendingState()); ar.boolean(uiPresentation.newMercUiPendingState());
 	ar.boolean(uiPresentation.closeMercUiPendingState()); ar.boolean(uiPresentation.firstNoActionPointsState()); ar.boolean(uiPresentation.firstUnconsciousState());
-	ar.boolean(f.fReloading); ar.boolean(f.fPauseAim); ar.boolean(deployment.inMissionExitNode());
-	ar.boolean(deployment.betweenSectors()); ar.boolean(f.fReactingFromBeingShot);
-	ar.boolean(f.fCheckForNewlyAddedItems); ar.boolean(movement.blockedByAnotherMerc());
+	ar.boolean(fireControl.reloading()); ar.boolean(fireControl.aimPaused()); ar.boolean(deployment.inMissionExitNode());
+	ar.boolean(deployment.betweenSectors()); ar.boolean(animationActivity.reactingFromShot());
+	ar.boolean(inventoryState.checkForNewItems()); ar.boolean(movement.blockedByAnotherMerc());
 	ar.boolean(employment.contractPriceIncreasedState()); ar.boolean(assignment.fixingSamSiteState()); ar.boolean(assignment.fixingRobotState());
 	ar.boolean(employment.signedAnotherContractState()); ar.boolean(animationActivity.turningCostWaived());
 	ar.boolean(animationActivity.suppressionStanceChange()); ar.boolean(assignment.forcedAwakeState()); ar.boolean(fireControl.spreadIndex());
-	ar.boolean(movement.movementClockActive()); ar.boolean(movement.networkDelayed()); ar.boolean(f.fSoldierUpdatedFromNetwork);
+	ar.boolean(movement.movementClockActive()); ar.boolean(movement.networkDelayed()); ar.boolean(replication.updatedFromNetwork());
 	ar.boolean(dialogue.ammoQuotePendingState()); ar.boolean(renderState.muzzleFlashVisible()); ar.boolean(collapseState.fatigue());
 	ar.boolean(assignment.assignmentCompleteAndIdleState()); ar.boolean(assignment.asleepState());
 	ar.boolean(animationActivity.stanceCostWaived()); ar.boolean(movement.wasMoving());
-	ar.boolean(f.fDontUnsetLastTargetFromTurn); ar.boolean(movement.usesMoveSpeedOverride());
+	ar.boolean(targeting.retainLastTargetFromTurn()); ar.boolean(movement.usesMoveSpeedOverride());
 	ar.boolean(dialogue.dieSoundUsedState()); ar.boolean(deployment.useLandingZoneForArrival()); ar.boolean(assignment.tiredComplaintState());
 	ar.boolean(animationActivity.realtimeNonInterruptible());
-	ar.u8(f.fHitByGasFlags);
+	ar.u8(condition.gasHitFlags());
 	ar.i8(damageDisplay.displayFlag()); ar.i8(suppression.closeCall()); ar.i8(animationActivity.tryingToFall()); ar.i8(movement.pastXDestination()); ar.i8(movement.pastYDestination());
-	ar.boolean(animationActivity.fallClockwise()); ar.boolean(f.fDoingExternalDeath);
-	ar.boolean(fireControl.autofireLastStep()); ar.boolean(f.lastFlankLeft);
-	ar.u32(f.uiStatusFlags);
-	ar.boolean(f.ZipperFlag); ar.boolean(f.DropPackFlag);
+	ar.boolean(animationActivity.fallClockwise()); ar.boolean(animationActivity.externalDeath());
+	ar.boolean(fireControl.autofireLastStep()); ar.boolean(aiPlanning.lastFlankLeft());
+	ar.u32(status.flags());
+	ar.boolean(inventoryState.zipperFlag()); ar.boolean(inventoryState.dropPackFlag());
 }
 
 template<class Ar> static void XferStatProgress( Ar& ar, SoldierStatProgressComponent& progress )
@@ -6073,14 +6078,14 @@ BOOLEAN LoadSavedGame( int ubSavedGameID )
 		// WANNE: This should fix the bug if any merc are still under PC control. This could happen after boxing in SAN MONA.
 		if ( gTacticalStatus.bBoxingState == NOT_BOXING )
 		{
-			if (pTeamSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL)
-				pTeamSoldier->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+			if (pTeamSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL)
+				pTeamSoldier->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 
 			pTeamSoldier->DeleteBoxingFlag();
 		}
 
 		// silversurfer: check for covert flags that shouldn't be active on a robot/vehicle and when playing with old traits
-		if ( (pTeamSoldier->flags.uiStatusFlags & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
+		if ( (pTeamSoldier->status().flags() & (SOLDIER_ROBOT | SOLDIER_VEHICLE) && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL))
 			|| (!gGameOptions.fNewTraitSystem && pTeamSoldier->usSoldierFlagMask & (SOLDIER_COVERT_CIV | SOLDIER_COVERT_SOLDIER | SOLDIER_COVERT_NPC_SPECIAL)) )
 			pTeamSoldier->LooseDisguise( );
 	}

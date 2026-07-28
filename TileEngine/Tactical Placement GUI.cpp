@@ -730,7 +730,7 @@ void InitTacticalPlacementGUI()
 			GetJa2SoldierRepository().resolve(i.i);
 		if( pSoldier && pSoldier->bActive && !pSoldier->deployment().isBetweenSectors() &&
 			CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) &&
-				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
+				!( pSoldier->status().flags() & ( SOLDIER_VEHICLE ) ) && // ATE Ignore vehicles
 				pSoldier->assignment().current() != ASSIGNMENT_POW &&
 				pSoldier->assignment().current() != ASSIGNMENT_MINIEVENT &&
 				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
@@ -756,7 +756,7 @@ void InitTacticalPlacementGUI()
 				pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 				!( pSoldier->usSoldierFlagMask2 & SOLDIER_CONCEALINSERTION ) &&
 				pSoldier->assignment().current() != IN_TRANSIT &&
-				!( pSoldier->flags.uiStatusFlags & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
+				!( pSoldier->status().flags() & ( SOLDIER_VEHICLE ) ) ) // ATE Ignore vehicles
 		{
 			// Flugente: if options allow it and we entered this sector - in combat - via helicopter, then allow us free selection of our entry point, and drop us from the helicopter
 			if ( pSoldier->bTeam == gbPlayerNum && (gGameExternalOptions.ubSkyriderHotLZ == 1 || gGameExternalOptions.ubSkyriderHotLZ == 3) && pSoldier->usSoldierFlagMask & SOLDIER_AIRDROP )
@@ -782,7 +782,7 @@ void InitTacticalPlacementGUI()
 				pSoldier->deployment().strategicInsertionCode() = GetValidInsertionDirectionForMP(pSoldier->deployment().strategicInsertionCode());
 			}
 			// ATE: If we are in a vehicle - remove ourselves from it!
-			//if ( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
+			//if ( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			//{
 			//	RemoveSoldierFromVehicle( pSoldier, pSoldier->bVehicleID );
 			//}
@@ -1884,7 +1884,7 @@ static void ChooseRandomEdgepoints()
 	UINT8	lastValidICode = INSERTION_CODE_GRIDNO;
 	for( i = 0; i < giPlacements; i++ )
 	{
-		if ( !( gMercPlacement[ i ].soldier()->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		if ( !( gMercPlacement[ i ].soldier()->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			if ( GetEnemyEncounterCode() == ENEMY_AMBUSH_DEPLOYMENT_CODE )
 			{

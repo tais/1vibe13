@@ -683,11 +683,11 @@ UINT32	ShopKeeperScreenHandle()
 	GetShopKeeperInterfaceUserInput();
 	
 	// Check for any newly added items...
-	if ( GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems )
+	if ( GetSMCurrentMerc()->inventoryState().checkForNewItems() )
 	{
 		// Startup any newly added items....
 		CheckForAnyNewlyAddedItems( GetSMCurrentMerc() );
-		GetSMCurrentMerc()->flags.fCheckForNewlyAddedItems = FALSE;
+		GetSMCurrentMerc()->inventoryState().checkForNewItems() = FALSE;
 	}
 
 	HandleShopKeeperInterface();
@@ -888,7 +888,7 @@ BOOLEAN EnterShopKeeperInterface()
 		pSoldier = GetJa2SoldierRepository().resolve(ubCnt.i);
 
 		if( pSoldier->bActive && ( pSoldier->ubProfile != NO_PROFILE ) &&
-			!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+			!(pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			// remember whose face is in this slot
 			gubArrayOfEmployedMercs[ gubNumberMercsInArray ] = pSoldier->ubProfile;
@@ -6651,7 +6651,7 @@ BOOLEAN CanMercInteractWithSelectedShopkeeper( SOLDIERTYPE *pSoldier )
 	}
 
 	if ( pSoldier->bActive && pSoldier->bInSector && IsMercOnCurrentSquad( pSoldier ) && ( pSoldier->vitals().health() >= OKLIFE ) &&
-		!( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+		!( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 	{
 		sDestGridNo = pShopkeeper->position().gridNo();
 		bDestLevel	= pShopkeeper->position().level();

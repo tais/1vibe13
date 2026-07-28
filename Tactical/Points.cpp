@@ -875,7 +875,7 @@ void DeductPoints( SOLDIERTYPE *pSoldier, INT16 sAPCost, INT32 iBPCost, UINT8 ub
 	}
 
 	// anv: there were weird things going on here, deducting fuel for strategic travel happens elsewhere anyway
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		iBPCost = 0;
 	}
@@ -1232,7 +1232,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 	// If we are not in turn-based combat...
 
 
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return;
 	}
@@ -1339,7 +1339,7 @@ void UnusedAPsToBreath( SOLDIERTYPE * pSoldier )
 			{
 				// can't gain any breath when we've just been gassed, OR
 				// if standing in tear gas without a gas mask on
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED )
+				if ( pSoldier->status().flags() & SOLDIER_GASSED )
 				{
 					return;		// can't breathe here, so get no breath back!
 				}
@@ -4006,7 +4006,7 @@ INT16 GetAPsCrouch( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck )
 	iFinalAPsToCrouch = APBPConstants[AP_CROUCH];
 
 	// if backpack and new inventory
-	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 		// min was added to stick with the behaviour above (+1) assuming the backpack is heavier than BACKPACK_WEIGHT_FACTOR
 		iFinalAPsToCrouch += min(1, GetBackbackAPPenaltyFromBackpack(pSoldier));
 
@@ -4027,7 +4027,7 @@ INT16 GetAPsProne( SOLDIERTYPE *pSoldier, BOOLEAN fBackpackCheck )
 	iFinalAPsToLieDown = APBPConstants[AP_PRONE];
 
 	// if backpack and new inventory
-	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->flags.ZipperFlag)
+	if ( fBackpackCheck && (UsingNewInventorySystem() == true) && pSoldier->inv[BPACKPOCKPOS].exists() == true && !pSoldier->inventoryState().zipperFlag())
 		// min was added to stick with the behaviour above (+1) assuming the backpack is heavier than BACKPACK_WEIGHT_FACTOR
 		iFinalAPsToLieDown += min(1, GetBackbackAPPenaltyFromBackpack(pSoldier));
 

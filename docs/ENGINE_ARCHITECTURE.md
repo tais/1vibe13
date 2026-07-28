@@ -977,6 +977,18 @@ the engine must not contain SDL types in its public domain model.
   every historical attribute and its two trait slots, then clears the 28 later
   slots. Profiles, trait rules, XML, Lua, multiplayer, installed game data, and
   save bytes are unchanged.
+  The final `STRUCT_Flags` bucket is retired rather than becoming another
+  catch-all component. `SoldierStatusComponent` privately owns only the
+  established 32-bit general soldier mask, with explicit query/set/clear
+  operations. `SoldierInventoryStateComponent` owns key access, new-item
+  refresh, zipper, and drop-pack state. The remaining former fields now live
+  with replication, AI planning, conditions, targeting, fire control, and
+  animation activity. Zero-cost reference accessors preserve the hot mutation
+  paths. The current visitor emits all fourteen values at their exact previous
+  positions and widths; v101 conversion maps its twelve historical values and
+  clears zipper/drop-pack state absent from that record. Save data, profiles,
+  packets, maps, XML, Lua, multiplayer protocols, packages, and installed game
+  data are unchanged.
   `SoldierServiceComponent` owns the complementary tactical care relationship:
   the persisted service marker, the number of active providers on a patient,
   the provider's patient identity, and the medic reserved by automatic

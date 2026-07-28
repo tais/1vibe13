@@ -2409,7 +2409,7 @@ void DrawCharBars( void )
 		}
 
 		// vehicles and robot don't have morale
-		if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
+		if ( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) )
 		{
 			// draw morale bar
 			DrawMoraleUIBarEx( pSoldier, UI_CHARPANEL.Statusbars.x + UI_CHARPANEL.Statusbars.offset*2, UI_CHARPANEL.Statusbars.y, 3,42, TRUE, FRAME_BUFFER );
@@ -2943,7 +2943,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 
 	// Nickname (beneath Picture)
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// vehicle
 //		wcscpy(sString, pShortVehicleStrings[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ]);
@@ -2960,7 +2960,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 
 	// Full name (Top Box)
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		// vehicle
 		//wcscpy(sString, pVehicleStrings[ pVehicleList[ pSoldier->bVehicleID ].ubVehicleType ]);
@@ -3093,7 +3093,7 @@ void DrawCharacterInfo(INT16 sCharNumber)
 
 
 	// if a vehicle or robot
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) )
 	{
 		// we're done - the remainder applies only to people
 		return;
@@ -3579,7 +3579,7 @@ INT32 GetPathTravelTimeDuringPlotting( PathStPtr pPath )
 				AssertNotNIL(pGroup);
 			}
 		}
-		else if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		else if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;
 			pGroup = GetGroup( ubGroupId );
@@ -7843,7 +7843,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 								if ( UsingNewInventorySystem() && fShowInventoryFlag && fShowMapInventoryPool && !gTacticalStatus.fEnemyInSector)
 								{
 									//CHRISL: pickup all items to vehicle
-									if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+									if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 									{
 										if (gGameExternalOptions.fVehicleInventory)
 										{
@@ -7947,7 +7947,7 @@ void GetMapKeyboardInput( UINT32 *puiNewEvent )
 					{
 						SOLDIERTYPE *pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ bSelectedInfoChar ].usSolID);
 
-						if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+						if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 						{
 							pSoldier->vitals().breathReduction() = 10000;
 							pSoldier->vitals().breath() = 100;
@@ -9503,7 +9503,7 @@ void CreateDestroyMapInvButton()
 		if (bSelectedInfoChar != -1 && gCharactersList[bSelectedInfoChar].fValid)
 		{
 			SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[bSelectedInfoChar].usSolID);
-			if (!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
+			if (!(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 			{
 				InitInvSlotInterface(gMapScreenInvPocketXY, &gSCamoXY, MAPInvMoveCallback, MAPInvClickCallback, MAPInvMoveCamoCallback, MAPInvClickCamoCallback, FALSE);
 			}
@@ -9590,7 +9590,7 @@ void BltCharInvPanel()
 	Assert(pSoldier);
 
 	// CHRISL: Changed last parameter so we can display graphic based on inventory system used
-	if((UsingNewInventorySystem() == true) && gGameExternalOptions.fVehicleInventory && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE))
+	if((UsingNewInventorySystem() == true) && gGameExternalOptions.fVehicleInventory && (pSoldier->status().flags() & SOLDIER_VEHICLE))
 	{
 		if(fResetMapCoords)
 		{
@@ -9697,7 +9697,7 @@ void BltCharInvPanel()
 	SetFontForeground( MAP_INV_STATS_TITLE_FONT_COLOR );
 
 	// CHRISL: Only display next three values if we're a merc
-	if(!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
+	if(!(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 	{
 		// print armor/weight/camo labels
 		mprintf(UI_CHARINV.Text.ArmorLabel.iX, UI_CHARINV.Text.ArmorLabel.iY, pInvPanelTitleStrings[ 0 ] );
@@ -9919,7 +9919,7 @@ void BltCharInvPanel()
 		DisplayWrappedString(UI_CHARINV.Text.RobotUtilityBonus.iX, UI_CHARINV.Text.RobotUtilityBonus.iY, 170, 2, FONT10ARIAL, fontColour, text, FONT_MCOLOR_BLACK, FALSE, 0);
 	}
 
-	if(!(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
+	if(!(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 	{
 		MSYS_EnableRegion(&gMapMercCamoRegion);
 		MSYS_EnableRegion(&gMapMercWeightRegion);
@@ -10144,7 +10144,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 
 	// CHRISL: Are we in combat, wearing a backpack with the zipper closed?  Don't allow access to backpack items
 	if((UsingNewInventorySystem() == true))
-		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->flags.ZipperFlag) || (pSoldier->flags.ZipperFlag && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
+		if(icLBE[uiHandPos] == BPACKPOCKPOS && (!(pSoldier->inventoryState().zipperFlag()) || (pSoldier->inventoryState().zipperFlag() && gAnimControl[pSoldier->animationPlayback().state()].ubEndHeight == ANIM_STAND)) && (IsJa2TacticalCombatActive()) && (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP ))
 			iReason = MSYS_CALLBACK_REASON_NONE;
 	if (iReason & MSYS_CALLBACK_REASON_LBUTTON_UP)
 	{
@@ -10186,14 +10186,14 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 			all items in the relevant IC Group pockets out of the soldiers inventory and put them into the LBE items
 			inventory. But first, find out if we already have a LBE item inventory for this item and this merc.  If we 
 			do, remove the items from it and place them into the sector the LBE inventory is located in.*/
-			if((UsingNewInventorySystem() == true) && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
+			if((UsingNewInventorySystem() == true) && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 			{
 				/*if we pick up a backpack without reactivating the drop pack button, and we have a
 				dropkey, reactivate the button*/
 				if(uiHandPos == BPACKPOCKPOS)
 				{
 					// Deal with the zipper before we do anything
-					if(pSoldier->flags.ZipperFlag)
+					if(pSoldier->inventoryState().zipperFlag())
 						if(!ChangeZipperStatus(pSoldier, FALSE))
 							return;
 					// Do we still have a linked backpack?  If so, reset droppackflag
@@ -10201,7 +10201,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					{
 						if(gWorldItems[wi].soldierID == pSoldier->ubID && gWorldItems[wi].object.exists() == true)
 						{
-							pSoldier->flags.DropPackFlag = TRUE;
+							pSoldier->inventoryState().dropPackFlag() = TRUE;
 						}
 					}
 				}
@@ -10365,7 +10365,7 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 				// else handle normally
 			}
 
-			if((UsingNewInventorySystem() == true) && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
+			if((UsingNewInventorySystem() == true) && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && !AM_A_ROBOT(pSoldier))
 			{
 				if((uiHandPos == VESTPOCKPOS || uiHandPos == LTHIGHPOCKPOS || uiHandPos == RTHIGHPOCKPOS || uiHandPos == CPACKPOCKPOS || uiHandPos == BPACKPOCKPOS) && CanItemFitInPosition(pSoldier, gpItemPointer, uiHandPos, FALSE))
 				{
@@ -10373,11 +10373,11 @@ void MAPInvClickCallback( MOUSE_REGION *pRegion, INT32 iReason )
 					if(uiHandPos == BPACKPOCKPOS)
 					{
 						// First, deal with the zipper
-						if(pSoldier->flags.ZipperFlag)
+						if(pSoldier->inventoryState().zipperFlag())
 							if(!ChangeZipperStatus(pSoldier, FALSE))
 								return;
-						if(pSoldier->flags.DropPackFlag)
-							pSoldier->flags.DropPackFlag = FALSE;
+						if(pSoldier->inventoryState().dropPackFlag())
+							pSoldier->inventoryState().dropPackFlag() = FALSE;
 					}
 				}
 			}
@@ -10698,7 +10698,7 @@ void RenderAttributeStringsForUpperLeftHandCorner( UINT32 uiBufferToRenderTo )
 	DrawString( pUpperLeftMapScreenStrings[ 0 ], (UINT16)(UI_CHARPANEL.Text.Assignment.iX - StringPixLength( pUpperLeftMapScreenStrings[0], CHAR_FONT)/2), UI_CHARPANEL.Text.Assignment.iY, CHAR_FONT);
 
 	// vehicles and robot don't have attributes, contracts, or morale
-	if ( ( pSoldier == NULL ) || ( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) ) )
+	if ( ( pSoldier == NULL ) || ( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) && !AM_A_ROBOT( pSoldier ) ) )
 	{
 		// health
 		DrawString(pUpperLeftMapScreenStrings[ 2 ], UI_CHARPANEL.Text.Health.iX, UI_CHARPANEL.Text.Health.iY, CHAR_FONT);
@@ -10806,7 +10806,7 @@ void SetUpCursorForStrategicMap( void )
 			{
 				// set cursor based on foot or vehicle
 				SOLDIERTYPE* pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[GetSelectedDestChar()].usSolID);
-				if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+				if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 				{
 					ChangeMapScreenMaskCursor( CURSOR_STRATEGIC_FOOT );
 				}
@@ -11530,7 +11530,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 
 			// if alive (dead guys keep going, use remove menu instead),
 			// and it's between sectors and it can be reassigned (non-vehicles)
-			if ( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->deployment().isBetweenSectors() ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if ( ( pSoldier->assignment().current() != ASSIGNMENT_DEAD ) && ( pSoldier->vitals().health() > 0 ) && ( pSoldier->deployment().isBetweenSectors() ) && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				// can't reassign mercs while between sectors
 				DoScreenIndependantMessageBox( pMapErrorString[ 41 ], MSG_BOX_FLAG_OK, NULL );
@@ -11558,7 +11558,7 @@ void TeamListAssignmentRegionBtnCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 			gfRenderPBInterface = TRUE;
 
 			// if this thing can be re-assigned
-			if( !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( !( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				giAssignHighLine = iValue + FIRSTmercTOdisplay;
 
@@ -11693,7 +11693,7 @@ void TeamListAssignmentRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 		{
 			giHighLine = iValue;
 
-			if( !( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( !( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay ].usSolID)->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				giAssignHighLine = iValue;
 			}
@@ -11724,7 +11724,7 @@ void TeamListAssignmentRegionMvtCallBack(MOUSE_REGION *pRegion, INT32 iReason )
 	else if( iReason & MSYS_CALLBACK_REASON_GAIN_MOUSE )
 	{
 		if( ( gCharactersList[ iValue + FIRSTmercTOdisplay ].fValid == TRUE ) && 
-		!( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+		!( GetJa2SoldierRepository().resolve(gCharactersList[ iValue + FIRSTmercTOdisplay].usSolID)->status().flags() & SOLDIER_VEHICLE ) )
 		{
 			// play click
 		PlayGlowRegionSound( );
@@ -13025,7 +13025,7 @@ void EnableDisableTeamListRegionsAndHelpText( void )
 			MSYS_EnableRegion( &gTeamListLocationRegion[ bCharNum ] );
 
 			// valid character.	If it's a vehicle, however
-			if ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->flags.uiStatusFlags & SOLDIER_VEHICLE )
+			if ( GetJa2SoldierRepository().resolve(gCharactersList[ bCharNum + FIRSTmercTOdisplay].usSolID)->status().flags() & SOLDIER_VEHICLE )
 			{
 				// Can't change assignment for vehicles
 				MSYS_DisableRegion( &gTeamListAssignmentRegion[ bCharNum ] );
@@ -13305,7 +13305,7 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 			// clicked on last sector, reset plotting mode
 
 			// if he's IN a vehicle or IS a vehicle
-			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				if( pSoldier->assignment().current() == VEHICLE )
 				{
@@ -13389,7 +13389,7 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 
 
 			// if he's IN a vehicle or IS a vehicle
-			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) )
+			if( ( pSoldier->assignment().current() == VEHICLE ) || ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 			{
 				if( pSoldier->assignment().current() == VEHICLE )
 				{
@@ -15328,9 +15328,9 @@ BOOLEAN MapCharacterHasAccessibleInventory( INT16 bCharNumber )
 			( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) ||
 			( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) ||
 				// Kaiden: Vehicle Inventory change - Commented the following line
-				// ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||
+				// ( pSoldier->status().flags() & SOLDIER_VEHICLE ) ||
 				// And added this instead:
-			( (!gGameExternalOptions.fVehicleInventory) && (pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) ) ||
+			( (!gGameExternalOptions.fVehicleInventory) && (pSoldier->status().flags() & SOLDIER_VEHICLE) ) ||
 			( AM_A_ROBOT( pSoldier ) && !gGameExternalOptions.fRobotUpgradeable) ||
 			( pSoldier->employment().mercenaryType() == MERC_TYPE__EPC && !AM_A_ROBOT( pSoldier ) ) ||
 			( pSoldier->vitals().health() < OKLIFE )
@@ -15463,7 +15463,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 	Assert( pSoldier->bActive );
 
 	// if a vehicle, in transit, or a POW
-	if( /*( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) ||*/
+	if( /*( pSoldier->status().flags() & SOLDIER_VEHICLE ) ||*/
 			( pSoldier->assignment().current() == IN_TRANSIT ) ||
 			( pSoldier->assignment().current() == ASSIGNMENT_POW ) )
 	{
@@ -15472,7 +15472,7 @@ BOOLEAN CanExtendContractForCharSlot( INT16 bCharNumber )
 	}
 
 	// if a vehicle has passengers
-	if (	(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) &&
+	if (	(pSoldier->status().flags() & SOLDIER_VEHICLE) &&
 			(DoesVehicleHaveAnyPassengers(pSoldier->bVehicleID) ) )
 	{
 		// then restrict contract menu
@@ -15505,7 +15505,7 @@ BOOLEAN CanChangeSleepStatusForSoldier( SOLDIERTYPE *pSoldier )
 	Assert( pSoldier->bActive );
 
 	// if a vehicle, robot, in transit, or a POW
-	if( ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) ||
+	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) || AM_A_ROBOT( pSoldier ) ||
 			( pSoldier->assignment().current() == IN_TRANSIT ) || ( pSoldier->assignment().current() == ASSIGNMENT_POW ) || ( pSoldier->assignment().current() == ASSIGNMENT_MINIEVENT ) || ( pSoldier->assignment().current() == ASSIGNMENT_REBELCOMMAND ) )
 	{
 		// can't change the sleep status of such mercs
@@ -15661,8 +15661,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
 								if ( (pSelected->assignment().current() == VEHICLE && pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId()) ||
-									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
-									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
+									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
+									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
 								{
 									// then also select this guy
 									SetEntryInSelectedCharacterList( iCounter );
@@ -15716,8 +15716,8 @@ BOOLEAN HandleCtrlOrShiftInTeamPanel( INT16 bCharNumber, BOOLEAN fFromRightClick
 							{
 								// and a member of that squad or vehicle is selected, or we are a vehicle
 								if ( pSoldier->deployment().vehicleId() == pSelected->deployment().vehicleId() ||
-									(pSelected->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
-									(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
+									(pSelected->status().flags() & SOLDIER_VEHICLE && pSoldier->deployment().vehicleId() == pSelected->bVehicleID ) ||
+									(pSoldier->status().flags() & SOLDIER_VEHICLE && pSelected->deployment().vehicleId() == pSoldier->bVehicleID ) )
 								{
 									// then also select this guy
 									ResetEntryForSelectedList( iCounter );
@@ -15925,7 +15925,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 			// skip itself!
 			if ( GetSoldierMercPathPtr( pSoldier ) != pPath )
 			{
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					pVehicleList[ pSoldier->bVehicleID ].pMercPath = CopyPaths( pPath, pVehicleList[ pSoldier->bVehicleID ].pMercPath );
 				}
@@ -15978,7 +15978,7 @@ void CancelPathsOfAllSelectedCharacters()
 				}
 
 				// cancel the entire path (also clears vehicles for any passengers selected, and handles reversing directions)
-				if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					CancelPathForVehicle( &( pVehicleList[ pSoldier->bVehicleID ] ), FALSE );
 				}
@@ -16169,7 +16169,7 @@ BOOLEAN AnyMovableCharsInOrBetweenThisSector( INT16 sSectorX, INT16 sSectorY, IN
 		}
 
 		// don't count vehicles - in order for them to move, somebody must be in the sector with them
-		if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+		if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			continue;
 		}
@@ -16396,7 +16396,7 @@ void RandomAwakeSelectedMercConfirmsStrategicMove( void )
 		{
 			pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE ) &&
+			if ( pSoldier->vitals().health() >= OKLIFE && !( pSoldier->status().flags() & SOLDIER_VEHICLE ) &&
 						!AM_A_ROBOT( pSoldier ) && !AM_AN_EPC( pSoldier ) && !pSoldier->assignment().isAsleep() )
 			{
 				ubSelectedMercID[ ubNumMercs ] = pSoldier->ubID;
@@ -17020,7 +17020,7 @@ void RestorePreviousPaths( void )
 				//pSoldier = GetJa2SoldierRepository().resolve(
 				//	gCharactersList[iCounter].usSolID);
 
-				//if ( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				//if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					ppMovePath = &gMilitiaPath[gMilitiaGroupId].path;
 					ubGroupId = (UINT8)gMilitiaPath[gMilitiaGroupId].sGroupid;
@@ -17070,7 +17070,7 @@ void RestorePreviousPaths( void )
 			{
 				pSoldier = GetJa2SoldierRepository().resolve(gCharactersList[ iCounter ].usSolID);
 
-				if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+				if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 				{
 					ppMovePath = &( pVehicleList[ pSoldier->bVehicleID ].pMercPath );
 					ubGroupId = pVehicleList[ pSoldier->bVehicleID ].ubMovementGroup;

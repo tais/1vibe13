@@ -1585,7 +1585,7 @@ void recieveHIRE(RPCParameters *rpcParameters)
 			pSoldier->deployment().strategicInsertionCode() = ( edge == MP_EDGE_CENTER ) ? (UINT8)INSERTION_CODE_CENTER : edge;
 		}
 	}
-	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
+	pSoldier->status().flags() |= SOLDIER_PC;
 	if ( cGameType == MP_TYPE_DEATHMATCH && pSoldier->bTeam >= LAN_TEAM_ONE )
 		pSoldier->bSide = 1;	// LAN squads must read as hostile side in DM (audit: morale)
 	pSoldier->aiData.bNeutral = FALSE;
@@ -1841,7 +1841,7 @@ void recieveAI (RPCParameters *rpcParameters)
 	{
 		return;	// creation refused -- do not resolve NOBODY
 	}
-	pSoldier->flags.uiStatusFlags |= SOLDIER_PC;
+	pSoldier->status().flags() |= SOLDIER_PC;
 
 	AddSoldierToSector( iNewIndex );
 }
@@ -5539,7 +5539,7 @@ void recieveDISCONNECT(RPCParameters* rpcParameters)
 				GetJa2SoldierRepository().resolve(cnt);
 			if ( pTeamSoldier && pTeamSoldier->bActive &&
 				pTeamSoldier->bInSector &&
-				!( pTeamSoldier->flags.uiStatusFlags &
+				!( pTeamSoldier->status().flags() &
 					SOLDIER_DEAD ) )
 			{
 				// Checkf for any more bacguys

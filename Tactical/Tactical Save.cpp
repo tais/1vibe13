@@ -2540,7 +2540,7 @@ BOOLEAN SetSectorFlag( INT16 sMapX, INT16 sMapY, UINT8 bMapZ, UINT32 uiFlagToSet
 				SOLDIERTYPE *pSoldier =
 					GetJa2SoldierRepository().resolve(id.i);
 
-				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
+				if( pSoldier->bActive && pSoldier->vitals().health() && !(pSoldier->status().flags() & SOLDIER_VEHICLE) && pSoldier->ubProfile != NO_PROFILE &&
 					pSoldier->deployment().sectorX() == sMapX && pSoldier->deployment().sectorY() == sMapY && pSoldier->deployment().sectorZ() == bMapZ && !pSoldier->deployment().isBetweenSectors() &&
 					pSoldier->assignment().current() != IN_TRANSIT && pSoldier->assignment().current() != ASSIGNMENT_DEAD )
 				{

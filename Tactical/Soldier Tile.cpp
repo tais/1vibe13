@@ -200,11 +200,11 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 	}
 
 	// anv: vehicles can ram people
-	if ( !ARMED_VEHICLE( pSoldier ) && gGameExternalOptions.fAllowCarsDrivingOverPeople && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE && pSoldier->usSoldierFlagMask2 & SOLDIER_RAM_THROUGH_OBSTACLES )
+	if ( !ARMED_VEHICLE( pSoldier ) && gGameExternalOptions.fAllowCarsDrivingOverPeople && pSoldier->status().flags() & SOLDIER_VEHICLE && pSoldier->usSoldierFlagMask2 & SOLDIER_RAM_THROUGH_OBSTACLES )
 	{
 		return( MOVE_TILE_CLEAR );
 	}
-	else if ( ARMED_VEHICLE( pSoldier ) && gGameExternalOptions.fAllowTanksDrivingOverPeople && pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	else if ( ARMED_VEHICLE( pSoldier ) && gGameExternalOptions.fAllowTanksDrivingOverPeople && pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		return( MOVE_TILE_CLEAR );
 	}
@@ -266,7 +266,7 @@ INT8 TileIsClear( SOLDIERTYPE *pSoldier, INT8 bDirection,  INT32 sGridNo, INT8 b
 						{
 
 								// Not for multi-tiled things...
-								if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_MULTITILE ) )
+								if ( !( pSoldier->status().flags() & SOLDIER_MULTITILE ) )
 								{
 									// Is the next movement cost for a door?
 									if ( DoorTravelCost( pSoldier, sGridNo, gubWorldMovementCosts[ sGridNo ][ bDirection ][ pSoldier->position().level() ], (BOOLEAN)( pSoldier->bTeam == gbPlayerNum ), NULL ) == TRAVELCOST_DOOR )
@@ -827,7 +827,7 @@ BOOLEAN CanExchangePlaces( SOLDIERTYPE *pSoldier1, SOLDIERTYPE *pSoldier2, BOOLE
 		return( TRUE );
 
 		// hehe - don't allow animals to exchange places
-		if ( pSoldier2->flags.uiStatusFlags & ( SOLDIER_ANIMAL ) )
+		if ( pSoldier2->status().flags() & ( SOLDIER_ANIMAL ) )
 			return( FALSE );
 
 		// must NOT be hostile, must NOT have stationary orders OR militia team, must be >= OKLIFE		

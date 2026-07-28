@@ -768,7 +768,7 @@ void DeleteTalkingMenu( )
 	// Set this guy up as NOT engaged in conversation
 	if ( destination )
 	{
-		destination->flags.uiStatusFlags &=
+		destination->status().flags() &=
 			(~SOLDIER_ENGAGEDINACTION);
 	}
 
@@ -1655,7 +1655,7 @@ void HandleNPCTriggerNPC( UINT8 ubTargetNPC, UINT8 ubTargetRecord, BOOLEAN fShow
 		// make sure they are in the right alert status to receive orders (it's a bug that
 		// this could be set for the player...)
 		pSoldier->aiData.bAlertStatus = STATUS_GREEN;
-		pSoldier->flags.uiStatusFlags &= (~SOLDIER_ENGAGEDINACTION );
+		pSoldier->status().flags() &= (~SOLDIER_ENGAGEDINACTION );
 	}
 
 	// OH BOY, CHECK IF THIS IS THE SAME PERSON WHO IS ON THE MENU
@@ -1840,7 +1840,7 @@ void HandleNPCGotoGridNo( UINT8 ubTargetNPC, INT32 usGridNo, UINT8 ubQuoteNum )
 	// if player controlled, set under AI control flag
 	if (pSoldier->bTeam == gbPlayerNum)
 	{
-		pSoldier->flags.uiStatusFlags |= SOLDIER_PCUNDERAICONTROL;
+		pSoldier->status().flags() |= SOLDIER_PCUNDERAICONTROL;
 	}
 
 	// OK, set in motion!
@@ -3651,7 +3651,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 						//HandleItem( pSoldier, pTarget->sGridNo, 0, NOTHING, FALSE );
 
-						pSoldier->flags.uiStatusFlags |= SOLDIER_NPC_DOING_PUNCH;
+						pSoldier->status().flags() |= SOLDIER_NPC_DOING_PUNCH;
 					}
 					else
 					{
@@ -3675,8 +3675,8 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if ( pTarget )
 					{
 						// Set special flag....
-						pTarget->flags.uiStatusFlags |= SOLDIER_NPC_SHOOTING;
-						pSoldier->flags.uiStatusFlags |= SOLDIER_NPC_SHOOTING;
+						pTarget->status().flags() |= SOLDIER_NPC_SHOOTING;
+						pSoldier->status().flags() |= SOLDIER_NPC_SHOOTING;
 
 						pSoldier->attackSelection().shotLocation() = AIM_SHOT_HEAD;
 
@@ -3703,7 +3703,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 
 				//Emmons: is this line of code part of something missing
 				//or no longer necessary?	CJC
-				//if ( pSoldier->flags.uiStatusFlags & SOLDIER_NPC_SHOOTING )
+				//if ( pSoldier->status().flags() & SOLDIER_NPC_SHOOTING )
 
 			case NPC_ACTION_PUNCH_FIRST_LIVING_PC:
 
@@ -3767,7 +3767,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 								CancelAIAction( pSoldier, TRUE );
 							}
 
-							pSoldier->flags.uiStatusFlags |= SOLDIER_NPC_DOING_PUNCH;
+							pSoldier->status().flags() |= SOLDIER_NPC_DOING_PUNCH;
 							break;
 						}
 					}
@@ -5671,7 +5671,7 @@ void HaveQualifiedMercSayQuoteAboutNpcWhenLeavingTalkScreen( UINT8 ubNpcProfileI
 		}
 
 		// Add guy if he's a candidate...
-		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->flags.uiStatusFlags & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->assignment().isAsleep() &&
+		if ( OK_INSECTOR_MERC( pSoldier ) && PythSpacesAway( pNPC->position().gridNo(), pSoldier->position().gridNo() ) < 10 && !AM_AN_EPC( pSoldier ) && !( pSoldier->status().flags() & SOLDIER_GASSED ) && !(AM_A_ROBOT( pSoldier )) && !pSoldier->assignment().isAsleep() &&
 			SoldierTo3DLocationLineOfSightTest( pSoldier, pNPC->position().gridNo(), 0, 0, (UINT8)MaxDistanceVisible(), TRUE ) )
 		{
 			ValidSoldierIdArray[ ubNumValidSoldiers ] = pSoldier->ubID;

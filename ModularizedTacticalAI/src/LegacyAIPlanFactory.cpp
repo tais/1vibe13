@@ -25,7 +25,7 @@ namespace AI
         Plan* LegacyAIPlanFactory::create_plan(SOLDIERTYPE* npc, const AIInputData& input)
         {
             DEBUGAIMSG("Planning for "<<(int)npc->ubID);
-            if((npc->flags.uiStatusFlags & SOLDIER_MONSTER) || npc->ubBodyType == BLOODCAT )
+            if((npc->status().flags() & SOLDIER_MONSTER) || npc->ubBodyType == BLOODCAT )
                 return new LegacyCreaturePlan(npc);
             if(npc->ubBodyType == CROW)
             {

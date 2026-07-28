@@ -4110,7 +4110,7 @@ BOOLEAN SetSoldierAnimationSurface( SOLDIERTYPE *pSoldier, UINT16 usAnimState )
 	usAnimSurface = LoadSoldierAnimationSurface( pSoldier, usAnimState );
 
 	// Add structure info!
-	if ( pSoldier->pLevelNode != NULL && !( pSoldier->flags.uiStatusFlags & SOLDIER_PAUSEANIMOVE ) )
+	if ( pSoldier->pLevelNode != NULL && !( pSoldier->status().flags() & SOLDIER_PAUSEANIMOVE ) )
 	{
 		AddMercStructureInfoFromAnimSurface( pSoldier->position().gridNo(), pSoldier, usAnimSurface, usAnimState );
 	}

@@ -627,7 +627,7 @@ void RenderRadarScreen( )
 				}
 
 				// Don't render guys if they are dead!
-				if ( ( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+				if ( ( pSoldier->status().flags() & SOLDIER_DEAD ) )
 				{
 					continue;
 				}

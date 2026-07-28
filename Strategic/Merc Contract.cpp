@@ -1063,7 +1063,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 		if( pSoldier->deployment().groupId() )
 		{
 			// anv: dead people are on "dead" assignment even if they were in vehicle pre-mortem, check flags too
-			if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->flags.uiStatusFlags & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
+			if( ( pSoldier->assignment().current() != VEHICLE ) && !( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) ) )
 			//if ( pSoldier->assignment().current() != VEHICLE )
 			{ //Can only remove groups if they aren't persistant (not in a squad or vehicle)
 				RemovePlayerFromGroup(pSoldier->deployment().groupId(), pSoldier);
@@ -1103,7 +1103,7 @@ BOOLEAN StrategicRemoveMerc( SOLDIERTYPE *pSoldier )
 
 	//add an entry in the history page for the firing/quiting of the merc
 	// ATE: Don't do this if they are already dead!
-	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_DEAD ) )
+	if ( !( pSoldier->status().flags() & SOLDIER_DEAD ) )
 	{
 		AddHistoryToPlayersLog( ubHistoryCode, pSoldier->ubProfile, GetWorldTotalMin(), pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY() );
 	}

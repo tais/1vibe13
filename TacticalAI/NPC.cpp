@@ -2469,7 +2469,7 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 					    if (ubNPC == KYLE)
 					    {
 						    // make sure he has keys
-						    pSoldier->flags.bHasKeys = TRUE;
+						    pSoldier->inventoryState().keyAccess() = TRUE;
 					    }
 
 					    if (pSoldier->position().gridNo() == pQuotePtr->usGoToGridNo )
@@ -2481,9 +2481,9 @@ void Converse( UINT8 ubNPC, UINT8 ubMerc, INT8 bApproach, uintptr_t uiApproachDa
 					    else
 					    {
 						    // turn off cowering
-						    if ( pNPC->flags.uiStatusFlags & SOLDIER_COWERING) // FIXME: Dereferencing null pointer
+						    if ( pNPC->status().flags() & SOLDIER_COWERING) // FIXME: Dereferencing null pointer
 						    {
-							    //pNPC->flags.uiStatusFlags &= ~SOLDIER_COWERING;
+							    //pNPC->status().flags() &= ~SOLDIER_COWERING;
 							    pNPC->EVENT_InitNewSoldierAnim( STANDING, 0 , FALSE );
 						    }
 
@@ -2731,7 +2731,7 @@ void NPCReachedDestination( SOLDIERTYPE * pNPC, BOOLEAN fAlreadyThere )
 	if (pNPC->bTeam == gbPlayerNum)
 	{
 		// the "under ai control" flag was set temporarily; better turn it off now
-		pNPC->flags.uiStatusFlags &= (~SOLDIER_PCUNDERAICONTROL);
+		pNPC->status().flags() &= (~SOLDIER_PCUNDERAICONTROL);
 		// make damn sure the AI_HANDLE_EVERY_FRAME flag is turned off
 		pNPC->aiData.fAIFlags &= (AI_HANDLE_EVERY_FRAME);
 	}

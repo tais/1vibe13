@@ -415,7 +415,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 	// ATE
 	// Bail if we are engaged in a NPC conversation/ and/or sequence ... or we have a pause because 
 	// we just saw someone... or if there are bombs on the bomb queue
-	if ( pSoldier->flags.uiStatusFlags & SOLDIER_ENGAGEDINACTION || gTacticalStatus.fEnemySightingOnTheirTurn || (gubElementsOnExplosionQueue != 0) )
+	if ( pSoldier->status().flags() & SOLDIER_ENGAGEDINACTION || gTacticalStatus.fEnemySightingOnTheirTurn || (gubElementsOnExplosionQueue != 0) )
 	{
 		return;
 	}
@@ -425,11 +425,11 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		return;
 	}
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
+	if (pSoldier->status().flags() & SOLDIER_PC)
 	{
 		// if we're in autobandage, or the AI control flag is set and the player has a quote record to perform, or is a boxer,
 		// let AI process this merc; otherwise abort
-		if ( !(gTacticalStatus.fAutoBandageMode) && !(pSoldier->flags.uiStatusFlags & SOLDIER_PCUNDERAICONTROL && (pSoldier->dialogue().hasQuoteRecord() || pSoldier->flags.uiStatusFlags & SOLDIER_BOXER) ) )
+		if ( !(gTacticalStatus.fAutoBandageMode) && !(pSoldier->status().flags() & SOLDIER_PCUNDERAICONTROL && (pSoldier->dialogue().hasQuoteRecord() || pSoldier->status().flags() & SOLDIER_BOXER) ) )
 		{
 			// patch...
 			if ( pSoldier->aiData.fAIFlags & AI_HANDLE_EVERY_FRAME )
@@ -453,8 +453,8 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		}
 		// why do we let the quote record thing be in here?  we're in turnbased the quote record doesn't matter,
 		// we can't act out of turn!
-		if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
-			//if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && !pSoldier->dialogue().hasQuoteRecord())
+		if ( !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
+			//if ( !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) && !pSoldier->dialogue().hasQuoteRecord())
 		{
 			return;
 		}
@@ -464,7 +464,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 #ifdef JA2BETAVERSION
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_ERROR, L"Turning off AI flag for %d because trying to act out of turn", pSoldier->ubID );
 #endif
-			pSoldier->flags.uiStatusFlags &= ~SOLDIER_UNDERAICONTROL;
+			pSoldier->status().flags() &= ~SOLDIER_UNDERAICONTROL;
 			return;
 		}
 		if ( pSoldier->aiData.bMoved )
@@ -515,7 +515,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 	if ( gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING || gTacticalStatus.bBoxingState == WON_ROUND || gTacticalStatus.bBoxingState == LOST_ROUND )
 	{
-		if ( ! ( pSoldier->flags.uiStatusFlags & SOLDIER_BOXER ) )
+		if ( ! ( pSoldier->status().flags() & SOLDIER_BOXER ) )
 		{
 			// do nothing!
 #ifdef TESTAICONTROL
@@ -584,7 +584,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 		return;
 	}
 
-	if ( (!gGameExternalOptions.fEnemyTanksCanMoveInTactical && ((pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE) && !ARMED_VEHICLE( pSoldier ))) || AM_A_ROBOT( pSoldier ) )
+	if ( (!gGameExternalOptions.fEnemyTanksCanMoveInTactical && ((pSoldier->status().flags() & SOLDIER_VEHICLE) && !ARMED_VEHICLE( pSoldier ))) || AM_A_ROBOT( pSoldier ) )
 	{
 		// bail out!
 #ifdef TESTAICONTROL
@@ -646,7 +646,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 
 		if ( fProcessNewSituation )
 		{
-			if ( (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) && pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST &&
+			if ( (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) && pSoldier->dialogue().quoteActionId() >= QUOTE_ACTION_ID_TRAVERSE_EAST &&
                     pSoldier->dialogue().quoteActionId() <= QUOTE_ACTION_ID_TRAVERSE_NORTH && !GridNoOnVisibleWorldTile( pSoldier->position().gridNo() ) )
 			{
 				// traversing offmap, ignore new situations
@@ -718,7 +718,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 #endif
 			// just abort
 			EndAIDeadlock();
-			if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL) )
+			if ( !(pSoldier->status().flags() & SOLDIER_UNDERAICONTROL) )
 			{
 				return;
 			}
@@ -794,7 +794,7 @@ void HandleSoldierAI( SOLDIERTYPE *pSoldier ) // FIXME - this function is named 
 					else
 					{
 						// make sure this guy is handled next frame!
-						pSoldier->flags.uiStatusFlags |= AI_HANDLE_EVERY_FRAME;
+						pSoldier->status().flags() |= AI_HANDLE_EVERY_FRAME;
 					}
 				}
 				// for regular guys still have to check for leaving the map
@@ -913,7 +913,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 		if ( pSoldier->ubCivilianGroup != NON_CIV_GROUP && !pSoldier->aiData.bNeutral )
 		{
 
-			if ( !(pSoldier->flags.uiStatusFlags & SOLDIER_BOXER)	|| !( gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING ) )
+			if ( !(pSoldier->status().flags() & SOLDIER_BOXER)	|| !( gTacticalStatus.bBoxingState == PRE_BOXING || gTacticalStatus.bBoxingState == BOXING ) )
 			{
 				UINT8 ubFirstProfile;
 
@@ -934,7 +934,7 @@ void EndAIGuysTurn( SOLDIERTYPE *pSoldier )
 
 		// End this NPC's control, move to next dude
 		EndRadioLocator( pSoldier->ubID );
-		pSoldier->flags.uiStatusFlags &= ( ~SOLDIER_UNDERAICONTROL );
+		pSoldier->status().flags() &= ( ~SOLDIER_UNDERAICONTROL );
 		pSoldier->movement().finishTurn();
 		pSoldier->aiData.bMoved = TRUE;
 		pSoldier->aiData.bBypassToGreen = FALSE;
@@ -980,7 +980,7 @@ void EndAIDeadlock(void)
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if ( pSoldier && pSoldier->bActive && pSoldier->bInSector )
 		{
-			if (pSoldier->flags.uiStatusFlags & SOLDIER_UNDERAICONTROL)
+			if (pSoldier->status().flags() & SOLDIER_UNDERAICONTROL)
 			{
 				CancelAIAction(pSoldier,FORCE);
 #ifdef TESTAICONTROL
@@ -1025,8 +1025,8 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 	if(!gfAmIHost)
 		return;
 #endif
-	////pSoldier->flags.uiStatusFlags |= SOLDIER_UNDERAICONTROL;
-	//if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC))
+	////pSoldier->status().flags() |= SOLDIER_UNDERAICONTROL;
+	//if (!(pSoldier->status().flags() & SOLDIER_PC))
 
 	//{
 	//SetSoldierAsUnderAiControl( pSoldier );
@@ -1055,7 +1055,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 	// important: if "fPausedAnimation" is TRUE, then we have to turn it off else
 	// HandleSoldierAI() will not be called!
 
-	if( pSoldier->flags.uiStatusFlags & SOLDIER_VEHICLE )
+	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
 		if ( GetNumberInVehicle(  pSoldier->bVehicleID ) == 0 )
 		{
@@ -1341,7 +1341,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 	// if an action is currently selected
 	if (pSoldier->aiData.bAction != AI_ACTION_NONE)
 	{
-		if (pSoldier->flags.uiStatusFlags & SOLDIER_MONSTER)
+		if (pSoldier->status().flags() & SOLDIER_MONSTER)
 		{
 #ifdef TESTAI
 			DebugMsg( TOPIC_JA2AI, DBG_LEVEL_3,
@@ -1400,7 +1400,7 @@ void ActionDone(SOLDIERTYPE *pSoldier)
 		pSoldier->pathing().stored() = FALSE;
 	}
 
-	if (pSoldier->flags.uiStatusFlags & SOLDIER_DEAD)
+	if (pSoldier->status().flags() & SOLDIER_DEAD)
 	{
 		// The last action killed the soldier (stepped on a mine, detonated a LAW too close, etc)
 		EndAIGuysTurn( pSoldier);
@@ -1663,7 +1663,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			// do the next thing we have to do...
 			if ( pSoldier->aiData.bNextAction == AI_ACTION_END_COWER_AND_MOVE )
 			{
-				if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+				if ( pSoldier->status().flags() & SOLDIER_COWERING )
 				{
 					pSoldier->aiData.bAction = AI_ACTION_STOP_COWERING;
 					pSoldier->aiData.usActionData = ANIM_STAND;
@@ -2361,7 +2361,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
         case AI_ACTION_RED_ALERT:             // tell friends opponent(s) seen
             // if a computer merc, and up to now they didn't know you're here
-            if (!(pSoldier->flags.uiStatusFlags & SOLDIER_PC) && ( !(gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition) || ( ( gTacticalStatus.fPanicFlags & PANIC_TRIGGERS_HERE ) && gTacticalStatus.ubTheChosenOne == NOBODY ) ) )
+            if (!(pSoldier->status().flags() & SOLDIER_PC) && ( !(gTacticalStatus.Team[pSoldier->bTeam].bAwareOfOpposition) || ( ( gTacticalStatus.fPanicFlags & PANIC_TRIGGERS_HERE ) && gTacticalStatus.ubTheChosenOne == NOBODY ) ) )
             {
                 HandleInitialRedAlert(pSoldier->bTeam, TRUE);
 
@@ -2433,7 +2433,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 
         case AI_ACTION_COWER:
             // make sure action data is set right
-            if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+            if ( pSoldier->status().flags() & SOLDIER_COWERING )
             {
                 // nothing to do!
                 ActionDone( pSoldier );
@@ -2447,7 +2447,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             break;
 
         case AI_ACTION_STOP_COWERING:
-			if (pSoldier->flags.uiStatusFlags & SOLDIER_COWERING)
+			if (pSoldier->status().flags() & SOLDIER_COWERING)
 			{
 				// stop cowering for civilians
 				pSoldier->aiData.usActionData = ANIM_STAND;
@@ -2478,7 +2478,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
 					}
 				}
 				// clear cowering flag
-				pSoldier->flags.uiStatusFlags &= (~SOLDIER_COWERING);
+				pSoldier->status().flags() &= (~SOLDIER_COWERING);
 				ActionDone(pSoldier);
 			}
 			else
@@ -2731,7 +2731,7 @@ void CheckForChangingOrders(SOLDIERTYPE *pSoldier)
 				pSoldier->aiData.usNextActionData = gMercProfiles[ pSoldier->ubProfile ].sPreCombatGridNo;
 				gMercProfiles[ pSoldier->ubProfile ].sPreCombatGridNo = NOWHERE;
 			}
-			else if ( pSoldier->flags.uiStatusFlags & SOLDIER_COWERING )
+			else if ( pSoldier->status().flags() & SOLDIER_COWERING )
 			{
 				pSoldier->aiData.bNextAction = AI_ACTION_STOP_COWERING;
 				pSoldier->aiData.usNextActionData = ANIM_STAND;
