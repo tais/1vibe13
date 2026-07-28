@@ -169,16 +169,16 @@ bool Filter::Match(SOLDIERTYPE* pSoldier) {
 					cmp_val = pSoldier->camouflage().snowApplied();
 					break;
 				case REQ_EXPLEVEL:
-					cmp_val = pSoldier->stats.bExpLevel;
+					cmp_val = pSoldier->statistics().experienceLevel();
 					break;
 				case REQ_STRENGTH:
-					cmp_val = pSoldier->stats.bStrength;
+					cmp_val = pSoldier->statistics().strength();
 					break;
 				case REQ_LEADERSHIP:
-					cmp_val = pSoldier->stats.bLeadership;
+					cmp_val = pSoldier->statistics().leadership();
 					break;
 				case REQ_WISDOM:
-					cmp_val = pSoldier->stats.bWisdom;
+					cmp_val = pSoldier->statistics().wisdom();
 					break;
 /*				case REQ_SKILLTRAIT1:
 					cmp_val = pSoldier->stats.ubSkillTrait1;

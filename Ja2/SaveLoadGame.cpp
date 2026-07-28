@@ -1662,13 +1662,27 @@ template<class Ar> static void XferDrugState(
 
 template<class Ar> static void XferStats( Ar& ar, SOLDIERTYPE& soldier )
 {
-	STRUCT_Statistics& s = soldier.stats;
+	SoldierStatisticsComponent& statistics = soldier.statistics();
 	SoldierVitalsComponent& vitals = soldier.vitals();
-	int i;
-	ar.i8(s.bExpLevel); ar.i8(vitals.health()); ar.i8(vitals.maximumHealth()); ar.i8(s.bStrength); ar.i8(s.bAgility);
-	ar.i8(s.bDexterity); ar.i8(s.bWisdom); ar.i8(s.bLeadership); ar.i8(s.bMarksmanship);
-	ar.i8(s.bMechanical); ar.i8(s.bExplosive); ar.i8(s.bMedical); ar.i8(s.bScientific);
-	for (i = 0; i < 30; ++i) ar.u8(s.ubSkillTraits[i]);
+	ar.i8(statistics.experienceLevel());
+	ar.i8(vitals.health());
+	ar.i8(vitals.maximumHealth());
+	ar.i8(statistics.strength());
+	ar.i8(statistics.agility());
+	ar.i8(statistics.dexterity());
+	ar.i8(statistics.wisdom());
+	ar.i8(statistics.leadership());
+	ar.i8(statistics.marksmanship());
+	ar.i8(statistics.mechanical());
+	ar.i8(statistics.explosives());
+	ar.i8(statistics.medical());
+	ar.i8(statistics.scientific());
+	for (UINT8 trait = 0;
+	     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+	     ++trait)
+	{
+		ar.u8(statistics.skillTrait(trait));
+	}
 }
 
 template<class Ar> static void XferPathing( Ar& ar, SOLDIERTYPE& soldier )
@@ -6439,7 +6453,7 @@ if( g_lang == i18n::Lang::de ) {
 				pSoldier->inv[ VESTPOS ].usItem = SPECTRA_VEST_18;
 				pSoldier->inv[ HELMETPOS ].usItem = SPECTRA_HELMET_18;
 				pSoldier->inv[ LEGPOS ].usItem = SPECTRA_LEGGINGS_18;
-				pSoldier->stats.bAgility = 50;
+				pSoldier->statistics().agility() = 50;
 			}
 		}
 	}

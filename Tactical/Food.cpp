@@ -434,12 +434,12 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			if ( foodsituation == FOOD_STARVING )
 				numberofreduces += Random(2);
 						
-			INT8 oldval = pSoldier->stats.bStrength;
-			pSoldier->stats.bStrength = max(1, pSoldier->stats.bStrength - numberofreduces);
-			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->stats.bStrength;
+			INT8 oldval = pSoldier->statistics().strength();
+			pSoldier->statistics().strength() = max(1, pSoldier->statistics().strength() - numberofreduces);
+			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->statistics().strength();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
+			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...
@@ -513,12 +513,12 @@ void HourlyFoodSituationUpdate( SOLDIERTYPE *pSoldier )
 			if ( watersituation == FOOD_STARVING )
 				numberofreduces += Random(2);
 						
-			INT8 oldval = pSoldier->stats.bStrength;
-			pSoldier->stats.bStrength = max(1, pSoldier->stats.bStrength - numberofreduces);
-			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->stats.bStrength;
+			INT8 oldval = pSoldier->statistics().strength();
+			pSoldier->statistics().strength() = max(1, pSoldier->statistics().strength() - numberofreduces);
+			pSoldier->condition().starvationStrengthDamage() += oldval - pSoldier->statistics().strength();
 
 			// Update Profile
-			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
+			gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
 			gMercProfiles[ pSoldier->ubProfile ].records.usTimesStatDamaged++;
 
 			// make stat RED for a while...

@@ -6531,7 +6531,7 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 	bool	fCantSeeTarget = false, fCoverObscured = false;
 
 	DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("CalcChanceToHitGun"));
-	if ( pSoldier->stats.bMarksmanship == 0 ) {
+	if ( pSoldier->statistics().marksmanship() == 0 ) {
 		return( gGameExternalOptions.ubMinimumCTH );
 	}
 
@@ -7256,9 +7256,9 @@ UINT32 CalcChanceToHitGun(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTime,
 		else 
 		{			
 			if(gGameExternalOptions.bAltAimEnabled) 
-				maxBonus = (FLOAT)(20 * iMarksmanship / 100) + ((FLOAT)iMarksmanship / 20 * pSoldier->stats.bExpLevel) + (accuracyheatmultiplicator * Weapon[Item[pInHand->usItem].ubClassIndex].bAccuracy * 2) + (NUM_SKILL_TRAITS(pSoldier, PROF_SNIPER_OT) * 10);
+				maxBonus = (FLOAT)(20 * iMarksmanship / 100) + ((FLOAT)iMarksmanship / 20 * pSoldier->statistics().experienceLevel()) + (accuracyheatmultiplicator * Weapon[Item[pInHand->usItem].ubClassIndex].bAccuracy * 2) + (NUM_SKILL_TRAITS(pSoldier, PROF_SNIPER_OT) * 10);
 			else 
-				maxBonus = 20 + ((FLOAT)iMarksmanship / 20 * pSoldier->stats.bExpLevel) + (accuracyheatmultiplicator * Weapon[Item[pInHand->usItem].ubClassIndex].bAccuracy * 2) + (NUM_SKILL_TRAITS(pSoldier, PROF_SNIPER_OT) * 10);
+				maxBonus = 20 + ((FLOAT)iMarksmanship / 20 * pSoldier->statistics().experienceLevel()) + (accuracyheatmultiplicator * Weapon[Item[pInHand->usItem].ubClassIndex].bAccuracy * 2) + (NUM_SKILL_TRAITS(pSoldier, PROF_SNIPER_OT) * 10);
 		}
 		iAimBonus = (float)GetAimBonus( pSoldier, pInHand, 100, 1 );
 
@@ -8410,19 +8410,19 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 					switch( ubHitLocation )
 					{
 						case AIM_SHOT_HEAD:
-							if (bStatLoss >= pTarget->stats.bWisdom)
+							if (bStatLoss >= pTarget->statistics().wisdom())
 							{
-								bStatLoss = pTarget->stats.bWisdom - 1;
+								bStatLoss = pTarget->statistics().wisdom() - 1;
 							}
 							if ( bStatLoss > 0 )
 							{
-								pTarget->stats.bWisdom -= bStatLoss;
+								pTarget->statistics().wisdom() -= bStatLoss;
 								// SANDRO - added this for healing lost stats feature
 								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += bStatLoss;
 
 								if (pTarget->ubProfile != NO_PROFILE)
 								{
-									gMercProfiles[ pTarget->ubProfile ].bWisdom = pTarget->stats.bWisdom;
+									gMercProfiles[ pTarget->ubProfile ].bWisdom = pTarget->statistics().wisdom();
 								}
 
 								// Flugente: disease
@@ -8505,19 +8505,19 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								// 50:50 to lose strength or dexterity
 								if ( Chance(50) )
 								{
-									if (bStatLoss >= pTarget->stats.bDexterity)
+									if (bStatLoss >= pTarget->statistics().dexterity())
 									{
-										bStatLoss = pTarget->stats.bDexterity - 1;
+										bStatLoss = pTarget->statistics().dexterity() - 1;
 									}
 									if ( bStatLoss > 0 )
 									{
-										pTarget->stats.bDexterity -= bStatLoss;
+										pTarget->statistics().dexterity() -= bStatLoss;
 										// SANDRO - added this for healing lost stats feature
 										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += bStatLoss;
 
 										if (pTarget->ubProfile != NO_PROFILE)
 										{
-											gMercProfiles[ pTarget->ubProfile ].bDexterity = pTarget->stats.bDexterity;
+											gMercProfiles[ pTarget->ubProfile ].bDexterity = pTarget->statistics().dexterity();
 										}
 
 										// Flugente: disease
@@ -8542,19 +8542,19 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 								}
 								else
 								{
-									if (bStatLoss >= pTarget->stats.bStrength)
+									if (bStatLoss >= pTarget->statistics().strength())
 									{
-										bStatLoss = pTarget->stats.bStrength - 1;
+										bStatLoss = pTarget->statistics().strength() - 1;
 									}
 									if ( bStatLoss > 0 )
 									{
-										pTarget->stats.bStrength -= bStatLoss;
+										pTarget->statistics().strength() -= bStatLoss;
 										// SANDRO - added this for healing lost stats feature
 										pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += bStatLoss;
 
 										if (pTarget->ubProfile != NO_PROFILE)
 										{
-											gMercProfiles[ pTarget->ubProfile ].bStrength = pTarget->stats.bStrength;
+											gMercProfiles[ pTarget->ubProfile ].bStrength = pTarget->statistics().strength();
 										}
 
 										// Flugente: disease
@@ -8580,19 +8580,19 @@ INT32 BulletImpact( SOLDIERTYPE *pFirer, BULLET *pBullet, SOLDIERTYPE * pTarget,
 							}
 							break;
 						case AIM_SHOT_LEGS:
-							if (bStatLoss >= pTarget->stats.bAgility)
+							if (bStatLoss >= pTarget->statistics().agility())
 							{
-								bStatLoss = pTarget->stats.bAgility - 1;
+								bStatLoss = pTarget->statistics().agility() - 1;
 							}
 							if ( bStatLoss > 0 )
 							{
-								pTarget->stats.bAgility -= bStatLoss;
+								pTarget->statistics().agility() -= bStatLoss;
 								// SANDRO - added this for healing lost stats feature
 								pTarget->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
 								if (pTarget->ubProfile != NO_PROFILE)
 								{
-									gMercProfiles[ pTarget->ubProfile ].bAgility = pTarget->stats.bAgility;
+									gMercProfiles[ pTarget->ubProfile ].bAgility = pTarget->statistics().agility();
 								}
 
 								// Flugente: disease
@@ -9114,7 +9114,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 			// We need to be agile and dexterous
 			iAttRating = ( 2 * EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy  *
 					 2 * EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
-				     pAttacker->stats.bStrength +    // physical strength 
+				     pAttacker->statistics().strength() +    // physical strength
 					 pAttacker->condition().extraStrength() +    // additional strength from power armour
 					 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 		}
@@ -9123,7 +9123,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 					// this is more of a brute force strength-vs-strength check
 			iAttRating = ( EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy
 					 EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
-					 3 * pAttacker->stats.bStrength +    // physical strength (TRIPLED!)
+					 3 * pAttacker->statistics().strength() +    // physical strength (TRIPLED!)
 					 3 * pAttacker->condition().extraStrength() +    // additional strength from power armour
 					 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 		}
@@ -9133,7 +9133,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	{
 		iAttRating = (3 * EffectiveDexterity( pAttacker, FALSE ) + // coordination, accuracy (TRIPLED!)
 				 EffectiveAgility( pAttacker, FALSE ) +    // speed & reflexes
-				 pAttacker->stats.bStrength +    // physical strength
+				 pAttacker->statistics().strength() +    // physical strength
 				 pAttacker->condition().extraStrength() +    // additional strength from power armour
 				 (10 * EffectiveExpLevel( pAttacker ) ) );  // experience, knowledge
 	}
@@ -9334,7 +9334,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		{
 			iDefRating = ( EffectiveAgility( pDefender, FALSE )) +   // speed & reflexes
 			   2 * EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
-			   2 * pDefender->stats.bStrength +    // physical strength 
+			   2 * pDefender->statistics().strength() +    // physical strength
 			   2 * pDefender->condition().extraStrength() +    // additional strength from power armour
 			   (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 		}
@@ -9342,7 +9342,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 		{
 			iDefRating = (EffectiveAgility( pDefender, FALSE )) +   // speed & reflexes
 			   EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
-			   3 * pDefender->stats.bStrength +    // physical strength (TRIPLED!)
+			   3 * pDefender->statistics().strength() +    // physical strength (TRIPLED!)
 			   3 * pDefender->condition().extraStrength() +    // additional strength from power armour
 			   (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 		}
@@ -9351,7 +9351,7 @@ UINT32 CalcChanceHTH( SOLDIERTYPE * pAttacker,SOLDIERTYPE *pDefender, INT16 ubAi
 	{
 		iDefRating = (3 * EffectiveAgility( pDefender, FALSE ) ) +   // speed & reflexes (TRIPLED!)
 		   EffectiveDexterity( pDefender, FALSE ) +  // coordination, accuracy
-		   pDefender->stats.bStrength +    // physical strength
+		   pDefender->statistics().strength() +    // physical strength
 		   pDefender->condition().extraStrength() +    // additional strength from power armour
 	     (10 * EffectiveExpLevel( pDefender ) );  // experience, knowledge
 	}
@@ -9955,8 +9955,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 		{
 			if (targetingSkill > 0)
 			{
-				if (pSoldier->stats.ubSkillTraits[a] == targetingSkill)
-					pSoldier->stats.ubSkillTraits[a] = 0;
+				if (pSoldier->statistics().skillTrait(a) == targetingSkill)
+					pSoldier->statistics().skillTrait(a) = 0;
 
 				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == targetingSkill)
 					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
@@ -9964,8 +9964,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 
 			if (chassisSkill > 0)
 			{
-				if (pSoldier->stats.ubSkillTraits[a] == chassisSkill)
-					pSoldier->stats.ubSkillTraits[a] = 0;
+				if (pSoldier->statistics().skillTrait(a) == chassisSkill)
+					pSoldier->statistics().skillTrait(a) = 0;
 
 				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == chassisSkill)
 					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
@@ -9973,8 +9973,8 @@ void HandleTacticalEffectsOfEquipmentChange( SOLDIERTYPE *pSoldier, UINT32 uiInv
 
 			if (utilitySkill > 0)
 			{
-				if (pSoldier->stats.ubSkillTraits[a] == utilitySkill)
-					pSoldier->stats.ubSkillTraits[a] = 0;
+				if (pSoldier->statistics().skillTrait(a) == utilitySkill)
+					pSoldier->statistics().skillTrait(a) = 0;
 
 				if (gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] == utilitySkill)
 					gMercProfiles[pSoldier->ubProfile].bSkillTraits[a] = 0;
@@ -10178,7 +10178,7 @@ UINT32 CalcThrownChanceToHit(SOLDIERTYPE *pSoldier, INT32 sGridNo, INT16 ubAimTi
 	{
 
 		// MECHANICALLY FIRED arced projectile (ie. mortar), need brains & know-how
-		iChance = ( EffectiveDexterity( pSoldier, FALSE ) + EffectiveMarksmanship( pSoldier ) + EffectiveWisdom( pSoldier ) + (pSoldier->stats.bExpLevel * 10) ) / 4;
+		iChance = ( EffectiveDexterity( pSoldier, FALSE ) + EffectiveMarksmanship( pSoldier ) + EffectiveWisdom( pSoldier ) + (pSoldier->statistics().experienceLevel() * 10) ) / 4;
 
 		////////////////////////////////////////////////////////////////////////////////////////////////
 		// sevenfm: apply penalty to enemy/militia only if traits can be assigned to compensate
@@ -11631,7 +11631,7 @@ FLOAT CalcNewChanceToHitBaseTargetBonus(SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTar
 	if ( pTarget )
 	{
 		// Target has high Agility or Experience and is therefore harder to hit
-		FLOAT fTempPenalty = (FLOAT)__max((pTarget->stats.bExpLevel*10), pTarget->stats.bAgility);
+		FLOAT fTempPenalty = (FLOAT)__max((pTarget->statistics().experienceLevel()*10), pTarget->statistics().agility());
 		fBaseModifier += (fTempPenalty * gGameCTHConstants.BASE_AGILE_TARGET) / 100;
 
 		// Flugente: backgrounds

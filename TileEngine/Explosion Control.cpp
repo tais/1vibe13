@@ -1673,18 +1673,18 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				UINT8 ubPickStat = PreRandom( 20 );
 				if (ubPickStat < 3 ) // 15% chance to lose Wisdom
 				{
-					if (ubStatLoss >= pSoldier->stats.bWisdom)
+					if (ubStatLoss >= pSoldier->statistics().wisdom())
 					{
-						ubStatLoss = pSoldier->stats.bWisdom - 1;
+						ubStatLoss = pSoldier->statistics().wisdom() - 1;
 					}
 					if ( ubStatLoss > 0 )
 					{
-						pSoldier->stats.bWisdom -= ubStatLoss;
+						pSoldier->statistics().wisdom() -= ubStatLoss;
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom = pSoldier->stats.bWisdom;
+							gMercProfiles[ pSoldier->ubProfile ].bWisdom = pSoldier->statistics().wisdom();
 						}
 
 						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
@@ -1706,18 +1706,18 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				}
 				else if (ubPickStat < 7 ) // 20% chance to lose Dexterity
 				{
-					if (ubStatLoss >= pSoldier->stats.bDexterity)
+					if (ubStatLoss >= pSoldier->statistics().dexterity())
 					{
-						ubStatLoss = pSoldier->stats.bDexterity - 1;
+						ubStatLoss = pSoldier->statistics().dexterity() - 1;
 					}
 					if ( ubStatLoss > 0 )
 					{
-						pSoldier->stats.bDexterity -= ubStatLoss;
+						pSoldier->statistics().dexterity() -= ubStatLoss;
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->stats.bDexterity;
+							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->statistics().dexterity();
 						}
 
 						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
@@ -1739,19 +1739,19 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				}
 				else if (ubPickStat < 11 ) // 20% chance to lose Strength
 				{
-					if (ubStatLoss >= pSoldier->stats.bStrength)
+					if (ubStatLoss >= pSoldier->statistics().strength())
 					{
-						ubStatLoss = pSoldier->stats.bStrength - 1;
+						ubStatLoss = pSoldier->statistics().strength() - 1;
 					}
 					if ( ubStatLoss > 0 )
 					{
-						pSoldier->stats.bStrength -= ubStatLoss;
+						pSoldier->statistics().strength() -= ubStatLoss;
 						// added this for healing lost stats feature
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bStrength = pSoldier->stats.bStrength;
+							gMercProfiles[ pSoldier->ubProfile ].bStrength = pSoldier->statistics().strength();
 						}
 
 						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
@@ -1773,19 +1773,19 @@ BOOLEAN DamageSoldierFromBlast( SoldierID ubPerson, SoldierID ubOwner, INT32 sBo
 				}
 				else if (ubPickStat < 15 ) // 20% chance to lose Agility
 				{
-					if (ubStatLoss >= pSoldier->stats.bAgility)
+					if (ubStatLoss >= pSoldier->statistics().agility())
 					{
-						ubStatLoss = pSoldier->stats.bAgility - 1;
+						ubStatLoss = pSoldier->statistics().agility() - 1;
 					}
 					if ( ubStatLoss > 0 )
 					{
-						pSoldier->stats.bAgility -= ubStatLoss;
+						pSoldier->statistics().agility() -= ubStatLoss;
 						// added this for healing lost stats feature
 						pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += ubStatLoss;
 
 						if (pSoldier->ubProfile != NO_PROFILE)
 						{
-							gMercProfiles[ pSoldier->ubProfile ].bAgility = pSoldier->stats.bAgility;
+							gMercProfiles[ pSoldier->ubProfile ].bAgility = pSoldier->statistics().agility();
 						}
 
 						if (pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE)
@@ -4049,18 +4049,18 @@ void HandleExplosionQueue( void )
 						HandlePossibleInfection( pSoldier, NULL, INFECTION_TYPE_WOUND_AGI, 1.5f );
 						HandlePossibleInfection( pSoldier, NULL, INFECTION_TYPE_WOUND_AGI, 1.5f );
 
-						INT8 bStatLoss = min( 3 + Random( 5 ) + Random( 8 ), pSoldier->stats.bAgility - 1 );
+						INT8 bStatLoss = min( 3 + Random( 5 ) + Random( 8 ), pSoldier->statistics().agility() - 1 );
 
 						if ( bStatLoss > 0 )
 						{
-							pSoldier->stats.bAgility -= bStatLoss;
+							pSoldier->statistics().agility() -= bStatLoss;
 
 							// SANDRO - added this for healing lost stats feature
 							pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] += bStatLoss;
 
 							if ( pSoldier->ubProfile != NO_PROFILE )
 							{
-								gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->stats.bAgility;
+								gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->statistics().agility();
 							}
 
 							if ( pSoldier->name[0] && pSoldier->awareness().visibility() == TRUE )

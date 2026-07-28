@@ -1604,9 +1604,9 @@ INT8 JA25HighestExpLevelOnTeam( INT8 bTeam )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
-			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
+			if( bHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				bHighestExpLevel = pSoldier->stats.bExpLevel;
+				bHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 		}
 	}
@@ -1629,14 +1629,14 @@ INT8 JA25SecondHighestExpLevelOnPlayersTeam( )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
-			if( bHighestExpLevel < pSoldier->stats.bExpLevel )
+			if( bHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				bHighestExpLevel = pSoldier->stats.bExpLevel;
+				bHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 
-			else if( b2ndHighestExpLevel < pSoldier->stats.bExpLevel )
+			else if( b2ndHighestExpLevel < pSoldier->statistics().experienceLevel() )
 			{
-				b2ndHighestExpLevel = pSoldier->stats.bExpLevel;
+				b2ndHighestExpLevel = pSoldier->statistics().experienceLevel();
 			}
 		}
 	}
@@ -1690,12 +1690,12 @@ INT8 JA25SecondHighestExpLevelOnEnemiesTeam( )
 			if( pSoldier->bActive )
 			{
 				//if the exp level is less then the highest
-				if( pSoldier->stats.bExpLevel < bHighestExpLevel )
+				if( pSoldier->statistics().experienceLevel() < bHighestExpLevel )
 				{
 					//is this a new second highest level
-					if( b2ndHighestExpLevel < pSoldier->stats.bExpLevel )
+					if( b2ndHighestExpLevel < pSoldier->statistics().experienceLevel() )
 					{
-						b2ndHighestExpLevel = pSoldier->stats.bExpLevel;
+						b2ndHighestExpLevel = pSoldier->statistics().experienceLevel();
 					}
 				}
 			}
@@ -1718,7 +1718,7 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
-			bNewExpLevel = pSoldier->stats.bExpLevel + bExpScaleValue;
+			bNewExpLevel = pSoldier->statistics().experienceLevel() + bExpScaleValue;
 
 			if( bNewExpLevel > 10 )
 			{
@@ -1731,13 +1731,13 @@ void Ja25ScaleAllEnemiesByValue( INT8 bExpScaleValue )
 			}
 
 			//if the enemy originally had a higher exp level AND will now go below set level
-			else if( pSoldier->stats.bExpLevel > JA25__MIN_EXP_LEVEL_AFTER_CHANGE && bNewExpLevel < JA25__MIN_EXP_LEVEL_AFTER_CHANGE )
+			else if( pSoldier->statistics().experienceLevel() > JA25__MIN_EXP_LEVEL_AFTER_CHANGE && bNewExpLevel < JA25__MIN_EXP_LEVEL_AFTER_CHANGE )
 			{
 				bNewExpLevel = JA25__MIN_EXP_LEVEL_AFTER_CHANGE;
 			}
 
 
-			pSoldier->stats.bExpLevel = bNewExpLevel;
+			pSoldier->statistics().experienceLevel() = bNewExpLevel;
 		}
 	}
 }
@@ -1754,7 +1754,7 @@ INT8 CountNumberOfMercsOnSameTeamOfSameExpLevel( INT8 bTeam, INT8 bExpLevel )
 		pSoldier = GetJa2SoldierRepository().resolve(cnt);
 		if( pSoldier->bActive )
 		{
-			if( bExpLevel == pSoldier->stats.bExpLevel )
+			if( bExpLevel == pSoldier->statistics().experienceLevel() )
 			{
 				bNumber++;
 			}

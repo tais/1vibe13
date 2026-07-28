@@ -1726,12 +1726,12 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 		// experience
 		if( zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] != -1 )
 		{
-			if( pCiv->stats.bExpLevel <= zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] )
+			if( pCiv->statistics().experienceLevel() <= zTaunt[ i ].value[TAUNT_EXP_LEVEL_GT] )
 				continue;
 		}
 		if( zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] != -1 )
 		{
-			if( pCiv->stats.bExpLevel >= zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] )
+			if( pCiv->statistics().experienceLevel() >= zTaunt[ i ].value[TAUNT_EXP_LEVEL_LT] )
 				continue;
 		}
 
@@ -1907,12 +1907,12 @@ void StartEnemyTaunt( SOLDIERTYPE *pCiv, TAUNTTYPE iTauntType, SOLDIERTYPE *pTar
 			// experience
 			if( zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] != -1 )
 			{
-				if( pTarget->stats.bExpLevel <= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] )
+				if( pTarget->statistics().experienceLevel() <= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_GT] )
 					continue;
 			}
 			if( zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] != -1 )
 			{
-				if( pTarget->stats.bExpLevel >= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] )
+				if( pTarget->statistics().experienceLevel() >= zTaunt[ i ].value[TAUNT_TARGET_EXP_LEVEL_LT] )
 					continue;
 			}
 		}

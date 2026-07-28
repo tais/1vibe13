@@ -1192,7 +1192,7 @@ void EnemyHeliMANPADSCheck( INT16 id )
 					}
 
 					// determine cth
-					INT16 samcth = pSoldier->stats.bMarksmanship;
+					INT16 samcth = pSoldier->statistics().marksmanship();
 
 					samcth = (FLOAT)((samcth * (100.0f + pSoldier->GetTraitCTHModifier( pObj->usItem, 2, NO_PROFILE ))) / 100.0f);
 

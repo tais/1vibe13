@@ -27,17 +27,17 @@ INT16 EffectiveStrength( SOLDIERTYPE *pSoldier, BOOLEAN fTrainer )
 	// plus 1/2 strength scaled according to how hurt we are
 	bBandaged = pSoldier->vitals().maximumHealth() - pSoldier->vitals().health() - pSoldier->vitals().bleeding();
 
-	if (pSoldier->stats.bStrength > 0)
+	if (pSoldier->statistics().strength() > 0)
 	{
 		if ( fTrainer )
 		{
-			iEffStrength = pSoldier->stats.bStrength / 2;
-			iEffStrength += ( pSoldier->stats.bStrength / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
+			iEffStrength = pSoldier->statistics().strength() / 2;
+			iEffStrength += ( pSoldier->statistics().strength() / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 		else
 		{
-			iEffStrength = ( pSoldier->stats.bStrength + pSoldier->condition().extraStrength() )/ 2;
-			iEffStrength += ( (pSoldier->stats.bStrength + pSoldier->condition().extraStrength()) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
+			iEffStrength = ( pSoldier->statistics().strength() + pSoldier->condition().extraStrength() )/ 2;
+			iEffStrength += ( (pSoldier->statistics().strength() + pSoldier->condition().extraStrength()) / 2) * (pSoldier->vitals().health() + bBandaged / 2) / (pSoldier->vitals().maximumHealth());
 		}
 	}
 	else
@@ -74,7 +74,7 @@ INT16 EffectiveWisdom( SOLDIERTYPE * pSoldier)
 {
 	INT32	iEffWisdom;
 
-	iEffWisdom = pSoldier->stats.bWisdom;
+	iEffWisdom = pSoldier->statistics().wisdom();
 
 	iEffWisdom += pSoldier->condition().extraWisdom();
 
@@ -94,7 +94,7 @@ INT16 EffectiveAgility( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffAgility;
 
-	iEffAgility = pSoldier->stats.bAgility;
+	iEffAgility = pSoldier->statistics().agility();
 
 	if (AM_A_ROBOT(pSoldier))
 	{
@@ -130,7 +130,7 @@ INT8 EffectiveMechanical( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMechanical;
 
-	iEffMechanical = pSoldier->stats.bMechanical;
+	iEffMechanical = pSoldier->statistics().mechanical();
 
 	iEffMechanical = EffectStatForBeingDrunk( pSoldier, iEffMechanical );
 
@@ -144,7 +144,7 @@ INT8 EffectiveExplosive( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffExplosive;
 
-	iEffExplosive = pSoldier->stats.bExplosive;
+	iEffExplosive = pSoldier->statistics().explosives();
 
 	iEffExplosive = EffectStatForBeingDrunk( pSoldier, iEffExplosive );
 
@@ -158,7 +158,7 @@ INT8 EffectiveMedical( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMedical;
 
-	iEffMedical = pSoldier->stats.bMedical;
+	iEffMedical = pSoldier->statistics().medical();
 
 	iEffMedical = EffectStatForBeingDrunk( pSoldier, iEffMedical );
 
@@ -172,7 +172,7 @@ INT8 EffectiveLeadership( SOLDIERTYPE * pSoldier )
 	INT32	iEffLeadership;
 	INT8	bDrunkLevel;
 
-	iEffLeadership = pSoldier->stats.bLeadership;
+	iEffLeadership = pSoldier->statistics().leadership();
 
 	// if we are drunk, effect leader ship in a +ve way...
 	bDrunkLevel = GetDrunkLevel( pSoldier );
@@ -200,7 +200,7 @@ INT8 EffectiveExpLevel( SOLDIERTYPE * pSoldier, BOOLEAN fTactical )
 		0,		// Hung
 		};
 
-	iEffExpLevel = pSoldier->stats.bExpLevel;
+	iEffExpLevel = pSoldier->statistics().experienceLevel();
 
 	// SANDRO - STOMP traits - Squadleader bonus to effective level
 	if ( fTactical && gGameOptions.fNewTraitSystem && IS_MERC_BODY_TYPE( pSoldier ))
@@ -263,7 +263,7 @@ INT8 EffectiveMarksmanship( SOLDIERTYPE * pSoldier )
 {
 	INT32	iEffMarksmanship;
 
-	iEffMarksmanship = pSoldier->stats.bMarksmanship;
+	iEffMarksmanship = pSoldier->statistics().marksmanship();
 
 	iEffMarksmanship = EffectStatForBeingDrunk( pSoldier, iEffMarksmanship );
 
@@ -276,7 +276,7 @@ INT16 EffectiveDexterity( SOLDIERTYPE * pSoldier, BOOLEAN fTrainer )
 {
 	INT32	iEffDexterity;
 
-	iEffDexterity = pSoldier->stats.bDexterity;
+	iEffDexterity = pSoldier->statistics().dexterity();
 
 	if (AM_A_ROBOT(pSoldier))
 	{

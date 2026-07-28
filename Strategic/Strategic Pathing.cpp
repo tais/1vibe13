@@ -1389,7 +1389,7 @@ INT32 GetStrategicMvtSpeed( SOLDIERTYPE *pCharacter )
 
 	// avg of strength and agility * percentage health..very simple..replace later
 
-	iSpeed = ( INT32 )( ( pCharacter->stats.bAgility + pCharacter->stats.bStrength + pCharacter->condition().extraStrength() ) / 2 );
+	iSpeed = ( INT32 )( ( pCharacter->statistics().agility() + pCharacter->statistics().strength() + pCharacter->condition().extraStrength() ) / 2 );
 	iSpeed *= ( INT32 )(( pCharacter->vitals().health() ) );
 	iSpeed /= ( INT32 )pCharacter->vitals().maximumHealth();
 

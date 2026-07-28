@@ -6739,21 +6739,21 @@ BOOLEAN PlaceObject( SOLDIERTYPE * pSoldier, INT8 bPos, OBJECTTYPE * pObj )
 						}
 					}
 
-					if (!soldierSet && pSoldier->stats.ubSkillTraits[a] == 0)
+					if (!soldierSet && pSoldier->statistics().skillTrait(a) == 0)
 					{
 						soldierSet = TRUE;
 						switch (bPos)
 						{
 						case ROBOT_TARGETING_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = targetingSkill;
+							pSoldier->statistics().skillTrait(a) = targetingSkill;
 							break;
 
 						case ROBOT_CHASSIS_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = chassisSkill;
+							pSoldier->statistics().skillTrait(a) = chassisSkill;
 							break;
 
 						case ROBOT_UTILITY_SLOT:
-							pSoldier->stats.ubSkillTraits[a] = utilitySkill;
+							pSoldier->statistics().skillTrait(a) = utilitySkill;
 							break;
 						}
 					}

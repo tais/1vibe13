@@ -967,6 +967,16 @@ the engine must not contain SDL types in its public domain model.
   establish one lifecycle boundary. Zero-cost reference accessors preserve
   hot-path mutation semantics, while the portable field serializer emits every
   value at its established byte position and width.
+  `SoldierStatisticsComponent` now privately owns the eleven persistent base
+  attributes and all 30 skill-trait slots formerly exposed through
+  `STRUCT_Statistics`. Combat, AI, assignments, character creation, and UI
+  consume one zero-cost accessor surface, and reset clears the entire fixed
+  trait capacity. The visitor retains the historical signed-byte attribute
+  sequence, including current/max health at their existing interleaved
+  positions, followed by all 30 unsigned trait bytes. v101 conversion maps
+  every historical attribute and its two trait slots, then clears the 28 later
+  slots. Profiles, trait rules, XML, Lua, multiplayer, installed game data, and
+  save bytes are unchanged.
   `SoldierServiceComponent` owns the complementary tactical care relationship:
   the persisted service marker, the number of active providers on a patient,
   the provider's patient identity, and the medic reserved by automatic

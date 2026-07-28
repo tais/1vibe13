@@ -318,7 +318,7 @@ static BOOLEAN CreateAutoBandageString( void )
 	{
 		SOLDIERTYPE* pSoldier =
 			GetJa2SoldierRepository().resolve(soldierId.i);
-		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
+		if ( pSoldier->bActive && pSoldier->bInSector && pSoldier->vitals().health() >= OKLIFE && !(pSoldier->collapseState().tactical()) && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT)
 		{
 			ubDoctor[ubDoctors] = pSoldier->ubID;
 			++ubDoctors;
@@ -1274,7 +1274,7 @@ SoldierID GetBestRetreatingMercDoctor( SOLDIERTYPE* pPatient )
 			if ( pSoldier->bActive && pSoldier->deployment().isBetweenSectors() && pSoldier->deployment().sectorX() == pPatient->deployment().sectorX()  && pSoldier->deployment().sectorY() == pPatient->deployment().sectorY() )
 			{
 				// find the best conscious doctor that has a medkit
-				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->stats.bMedical > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
+				if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->statistics().medical() > 0 && FindObjClass( pSoldier, IC_MEDKIT ) != NO_SLOT )
 				{
 					return ID;
 				}
@@ -1324,7 +1324,7 @@ void HandleRetreatBandaging()
 				UINT32 uiPointsUsed;
 				UINT16 usKitPts;
 				OBJECTTYPE *pKit = NULL;
-				if ( pSoldier->stats.bMedical > 0 && (bSlot = FindObjClass( pSoldier, IC_MEDKIT )) != NO_SLOT )
+				if ( pSoldier->statistics().medical() > 0 && (bSlot = FindObjClass( pSoldier, IC_MEDKIT )) != NO_SLOT )
 				{
 					while ( pSoldier->vitals().bleeding() )
 					{
@@ -1388,7 +1388,7 @@ void HandleRetreatBandaging()
 					UINT32 uiPointsUsed;
 					UINT16 usKitPts;
 					OBJECTTYPE *pKit = NULL;
-					if ( pDoctor->stats.bMedical > 0 && (bSlot = FindObjClass( pDoctor, IC_MEDKIT )) != NO_SLOT )
+					if ( pDoctor->statistics().medical() > 0 && (bSlot = FindObjClass( pDoctor, IC_MEDKIT )) != NO_SLOT )
 					{
 						while ( pSoldier->vitals().bleeding() )
 						{

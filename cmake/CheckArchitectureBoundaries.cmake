@@ -1846,20 +1846,14 @@ endif()
 # but the live values must have exactly one in-memory owner:
 # SoldierVitalsComponent.
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_Statistics//last edited at version 102"
-  current_soldier_stats_begin)
-string(FIND "${soldier_control_header_contents}"
   "class STRUCT_AIData//last edited at version 102"
   current_soldier_ai_begin)
 string(FIND "${soldier_control_header_contents}"
   "class STRUCT_Flags//last edited at version 102"
   current_soldier_flags_begin)
 string(FIND "${soldier_control_header_contents}"
-  "class STRUCT_Statistics//last edited at version 102"
+  "// forward declaration for modularized tactical ai"
   current_soldier_flags_end)
-string(FIND "${soldier_control_header_contents}"
-  "enum class BackgroundVectorTypes;"
-  current_soldier_stats_end)
 string(FIND "${soldier_control_header_contents}"
   "class SOLDIERTYPE//last edited at version 102"
   current_soldier_begin)
@@ -1869,19 +1863,15 @@ string(FIND "${soldier_control_header_contents}"
 if(current_soldier_ai_begin EQUAL -1 OR
    current_soldier_flags_begin EQUAL -1 OR
    current_soldier_flags_end EQUAL -1 OR
-   current_soldier_stats_begin EQUAL -1 OR
-   current_soldier_stats_end EQUAL -1 OR
    current_soldier_begin EQUAL -1 OR
    current_soldier_end EQUAL -1)
   message(FATAL_ERROR
-    "Could not locate current soldier/AI/flags/statistics declaration boundaries for the soldier-component ownership check")
+    "Could not locate current soldier/AI/flags declaration boundaries for the soldier-component ownership check")
 endif()
 math(EXPR current_soldier_ai_length
   "${current_soldier_flags_begin} - ${current_soldier_ai_begin}")
 math(EXPR current_soldier_flags_length
   "${current_soldier_flags_end} - ${current_soldier_flags_begin}")
-math(EXPR current_soldier_stats_length
-  "${current_soldier_stats_end} - ${current_soldier_stats_begin}")
 math(EXPR current_soldier_length
   "${current_soldier_end} - ${current_soldier_begin}")
 string(SUBSTRING "${soldier_control_header_contents}"
@@ -1891,22 +1881,9 @@ string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_flags_begin} ${current_soldier_flags_length}
   current_soldier_flags_contents)
 string(SUBSTRING "${soldier_control_header_contents}"
-  ${current_soldier_stats_begin} ${current_soldier_stats_length}
-  current_soldier_stats_contents)
-string(SUBSTRING "${soldier_control_header_contents}"
   ${current_soldier_begin} ${current_soldier_length}
   current_soldier_contents)
 
-foreach(retired_stat_field IN ITEMS bLife bLifeMax)
-  string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(INT8|UINT8)[ \t]+${retired_stat_field}[ \t]*;"
-    retired_current_soldier_stat
-    "${current_soldier_stats_contents}")
-  if(retired_current_soldier_stat)
-    message(FATAL_ERROR
-      "Retired STRUCT_Statistics field '${retired_stat_field}' returned; canonical health belongs to SoldierVitalsComponent")
-  endif()
-endforeach()
 foreach(retired_vital_field IN ITEMS
   bBleeding
   bBreath
@@ -2047,7 +2024,7 @@ string(REGEX MATCH
   serialized_soldier_breath_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bExpLevel\\);[ \t]*ar\\.i8\\(vitals\\.health\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.maximumHealth\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bStrength\\);"
+  "ar\\.i8\\(statistics\\.experienceLevel\\(\\)\\);[ \t\r\n]*ar\\.i8\\(vitals\\.health\\(\\)\\);[ \t\r\n]*ar\\.i8\\(vitals\\.maximumHealth\\(\\)\\);[ \t\r\n]*ar\\.i8\\(statistics\\.strength\\(\\)\\);"
   serialized_soldier_health_order
   "${save_load_game_contents}")
 string(FIND "${save_load_game_contents}"
@@ -4015,6 +3992,178 @@ if(soldier_drug_state_architecture_documented EQUAL -1 OR
    soldier_drug_state_save_documented EQUAL -1)
   message(FATAL_ERROR
     "SoldierDrugStateComponent ownership and compatibility guarantees must remain documented")
+endif()
+
+# Base attributes and learned traits now have one private owner. Keep the
+# historical 11 signed-byte values and complete 30-byte trait capacity exact,
+# including the two health bytes interleaved in their established save order.
+string(FIND "${soldier_control_header_contents}"
+  "class STRUCT_Statistics"
+  retired_statistics_aggregate)
+if(NOT retired_statistics_aggregate EQUAL -1)
+  message(FATAL_ERROR
+    "Retired STRUCT_Statistics returned; base attributes and trait slots belong to SoldierStatisticsComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierStatisticsComponent[ \t\r\n]+statistics_[ \t]*;"
+  soldier_statistics_owner
+  "${current_soldier_contents}")
+string(FIND "${soldier_control_header_contents}"
+  "SoldierStatisticsComponent& statistics() noexcept"
+  soldier_statistics_accessor)
+if(NOT soldier_statistics_owner OR
+   soldier_statistics_accessor EQUAL -1)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own SoldierStatisticsComponent and expose its zero-cost accessor")
+endif()
+
+string(FIND "${soldier_components_header_contents}"
+  "static constexpr UINT8 SkillTraitCapacity = 30;"
+  soldier_statistics_trait_capacity)
+if(soldier_statistics_trait_capacity EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatisticsComponent must retain the established 30-slot trait capacity")
+endif()
+
+foreach(statistics_storage IN ITEMS
+  "INT8 experienceLevel_ = 0;"
+  "INT8 strength_ = 0;"
+  "INT8 agility_ = 0;"
+  "INT8 dexterity_ = 0;"
+  "INT8 wisdom_ = 0;"
+  "INT8 leadership_ = 0;"
+  "INT8 marksmanship_ = 0;"
+  "INT8 mechanical_ = 0;"
+  "INT8 explosives_ = 0;"
+  "INT8 medical_ = 0;"
+  "INT8 scientific_ = 0;"
+  "SkillTraits skillTraits_{};")
+  string(FIND "${soldier_components_header_contents}"
+    "${statistics_storage}"
+    soldier_statistics_storage_site)
+  if(soldier_statistics_storage_site EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierStatisticsComponent lost initialized owned storage '${statistics_storage}'")
+  endif()
+endforeach()
+
+foreach(statistics_accessor_name IN ITEMS
+  experienceLevel
+  strength
+  agility
+  dexterity
+  wisdom
+  leadership
+  marksmanship
+  mechanical
+  explosives
+  medical
+  scientific
+  skillTrait)
+  string(REGEX MATCH
+    "${statistics_accessor_name}\\([^)]*\\)[ \t]+noexcept"
+    soldier_statistics_value_accessor
+    "${soldier_components_header_contents}")
+  if(NOT soldier_statistics_value_accessor)
+    message(FATAL_ERROR
+      "SoldierStatisticsComponent lost '${statistics_accessor_name}()' ownership access")
+  endif()
+endforeach()
+
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierStatisticsComponent{};"
+  soldier_statistics_default_reset)
+string(REGEX MATCHALL
+  "statistics\\(\\)\\.reset\\(\\)"
+  soldier_statistics_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_statistics_reset_sites
+  soldier_statistics_reset_site_count)
+if(soldier_statistics_default_reset EQUAL -1 OR
+   NOT soldier_statistics_reset_site_count EQUAL 2)
+  message(FATAL_ERROR
+    "SoldierStatisticsComponent must reset exactly during v101 conversion and current initialization")
+endif()
+
+foreach(statistics_v101_mapping IN ITEMS
+  "statistics().skillTrait(0) = src.ubSkillTrait1;"
+  "statistics().skillTrait(1) = src.ubSkillTrait2;"
+  "statistics().dexterity() = src.bDexterity;"
+  "statistics().wisdom() = src.bWisdom;"
+  "statistics().experienceLevel() = src.bExpLevel;"
+  "statistics().agility() = src.bAgility;"
+  "statistics().strength() = src.bStrength;"
+  "statistics().mechanical() = src.bMechanical;"
+  "statistics().medical() = src.bMedical;"
+  "statistics().marksmanship() = src.bMarksmanship;"
+  "statistics().scientific() = src.bScientific;"
+  "statistics().leadership() = src.bLeadership;"
+  "statistics().explosives() = src.bExplosive;")
+  string(FIND "${soldier_control_source_contents}"
+    "${statistics_v101_mapping}"
+    soldier_statistics_v101_mapping_site)
+  if(soldier_statistics_v101_mapping_site EQUAL -1)
+    message(FATAL_ERROR
+      "V101 conversion lost statistics mapping '${statistics_v101_mapping}'")
+  endif()
+endforeach()
+
+string(FIND "${save_load_game_contents}"
+  "	ar.i8(statistics.experienceLevel());
+	ar.i8(vitals.health());
+	ar.i8(vitals.maximumHealth());
+	ar.i8(statistics.strength());
+	ar.i8(statistics.agility());
+	ar.i8(statistics.dexterity());
+	ar.i8(statistics.wisdom());
+	ar.i8(statistics.leadership());
+	ar.i8(statistics.marksmanship());
+	ar.i8(statistics.mechanical());
+	ar.i8(statistics.explosives());
+	ar.i8(statistics.medical());
+	ar.i8(statistics.scientific());
+	for (UINT8 trait = 0;
+	     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+	     ++trait)
+	{
+		ar.u8(statistics.skillTrait(trait));
+	}"
+  soldier_statistics_save_order)
+if(soldier_statistics_save_order EQUAL -1)
+  message(FATAL_ERROR
+    "Soldier statistics moved or changed width in the portable save schema")
+endif()
+
+foreach(statistics_test_fragment IN ITEMS
+  "soldier statistics component owns every base attribute and the complete persistent trait capacity"
+  "soldier statistics reset clears every base attribute and the complete persistent trait capacity"
+  "soldier initialization resets the complete base-statistics domain"
+  "v101 soldier conversion maps all historical base statistics and clears later trait slots"
+  "soldier save/load round-trips the complete base-statistics and trait capacity at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${statistics_test_fragment}"
+    soldier_statistics_test_site)
+  if(soldier_statistics_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost SoldierStatisticsComponent fixture '${statistics_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierStatisticsComponent"
+  soldier_statistics_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierStatisticsComponent"
+  soldier_statistics_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "The eleven signed 8-bit base attributes"
+  soldier_statistics_save_documented)
+if(soldier_statistics_architecture_documented EQUAL -1 OR
+   soldier_statistics_sdk_documented EQUAL -1 OR
+   soldier_statistics_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierStatisticsComponent ownership and byte-compatibility guarantees must remain documented")
 endif()
 
 # Persistent stat-change presentation has one timestamp and direction-feedback

@@ -7278,6 +7278,24 @@ int main( int, char** )
 		vitals.regenerationCounter() = -1;
 		vitals.regenerationBoostersUsedToday() = 2;
 		vitals.lastBleedGruntAt() = 12340;
+		SoldierStatisticsComponent& statistics = soldier.statistics();
+		statistics.experienceLevel() = 6;
+		statistics.strength() = 71;
+		statistics.agility() = 72;
+		statistics.dexterity() = 73;
+		statistics.wisdom() = 74;
+		statistics.leadership() = 75;
+		statistics.marksmanship() = 76;
+		statistics.mechanical() = 77;
+		statistics.explosives() = 78;
+		statistics.medical() = 79;
+		statistics.scientific() = 80;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statistics.skillTrait(trait) = 20 + trait;
+		}
 		SoldierServiceComponent& service = soldier.service();
 		service.activity() = 2;
 		service.addProvider();
@@ -7729,6 +7747,21 @@ int main( int, char** )
 		       constSoldier.vitals().regenerationBoostersUsedToday() == 2 &&
 		       constSoldier.vitals().lastBleedGruntAt() == 12340,
 		       "const soldier access reads the complete canonical vitals component" );
+		CHECK( constSoldier.statistics().experienceLevel() == 6 &&
+		       constSoldier.statistics().strength() == 71 &&
+		       constSoldier.statistics().agility() == 72 &&
+		       constSoldier.statistics().dexterity() == 73 &&
+		       constSoldier.statistics().wisdom() == 74 &&
+		       constSoldier.statistics().leadership() == 75 &&
+		       constSoldier.statistics().marksmanship() == 76 &&
+		       constSoldier.statistics().mechanical() == 77 &&
+		       constSoldier.statistics().explosives() == 78 &&
+		       constSoldier.statistics().medical() == 79 &&
+		       constSoldier.statistics().scientific() == 80 &&
+		       constSoldier.statistics().skillTrait(0) == 20 &&
+		       constSoldier.statistics().skillTrait(
+			       SoldierStatisticsComponent::SkillTraitCapacity - 1) == 49,
+		       "soldier statistics component owns every base attribute and the complete persistent trait capacity" );
 		CHECK( constSoldier.service().active() &&
 		       constSoldier.service().providerCount() == 2 &&
 		       constSoldier.service().hasProviders() &&
@@ -8270,6 +8303,46 @@ int main( int, char** )
 		       vitals.criticalStatDamage()[DAMAGED_STAT_HEALTH] == 0 &&
 		       vitals.criticalStatDamage()[DAMAGED_STAT_AGILITY] == 0,
 		       "soldier vitals component coordinates turn snapshots, surgery, and critical-damage recovery" );
+		SoldierStatisticsComponent statisticsLifecycle;
+		statisticsLifecycle.experienceLevel() = 9;
+		statisticsLifecycle.strength() = 81;
+		statisticsLifecycle.agility() = 82;
+		statisticsLifecycle.dexterity() = 83;
+		statisticsLifecycle.wisdom() = 84;
+		statisticsLifecycle.leadership() = 85;
+		statisticsLifecycle.marksmanship() = 86;
+		statisticsLifecycle.mechanical() = 87;
+		statisticsLifecycle.explosives() = 88;
+		statisticsLifecycle.medical() = 89;
+		statisticsLifecycle.scientific() = 90;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statisticsLifecycle.skillTrait(trait) = trait + 1;
+		}
+		statisticsLifecycle.reset();
+		bool statisticsTraitsCleared = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			statisticsTraitsCleared &=
+				statisticsLifecycle.skillTrait(trait) == 0;
+		}
+		CHECK( statisticsLifecycle.experienceLevel() == 0 &&
+		       statisticsLifecycle.strength() == 0 &&
+		       statisticsLifecycle.agility() == 0 &&
+		       statisticsLifecycle.dexterity() == 0 &&
+		       statisticsLifecycle.wisdom() == 0 &&
+		       statisticsLifecycle.leadership() == 0 &&
+		       statisticsLifecycle.marksmanship() == 0 &&
+		       statisticsLifecycle.mechanical() == 0 &&
+		       statisticsLifecycle.explosives() == 0 &&
+		       statisticsLifecycle.medical() == 0 &&
+		       statisticsLifecycle.scientific() == 0 &&
+		       statisticsTraitsCleared,
+		       "soldier statistics reset clears every base attribute and the complete persistent trait capacity" );
 		SoldierServiceComponent serviceLifecycle;
 		serviceLifecycle.removeProvider();
 		serviceLifecycle.addProvider();
@@ -8899,6 +8972,27 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 3 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 12341,
 		       "soldier copies retain their owned persistent vitals" );
+		bool copiedStatisticsTraitsMatch = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			copiedStatisticsTraitsMatch &=
+				copiedSoldier.statistics().skillTrait(trait) == 20 + trait;
+		}
+		CHECK( copiedSoldier.statistics().experienceLevel() == 6 &&
+		       copiedSoldier.statistics().strength() == 71 &&
+		       copiedSoldier.statistics().agility() == 72 &&
+		       copiedSoldier.statistics().dexterity() == 73 &&
+		       copiedSoldier.statistics().wisdom() == 74 &&
+		       copiedSoldier.statistics().leadership() == 75 &&
+		       copiedSoldier.statistics().marksmanship() == 76 &&
+		       copiedSoldier.statistics().mechanical() == 77 &&
+		       copiedSoldier.statistics().explosives() == 78 &&
+		       copiedSoldier.statistics().medical() == 79 &&
+		       copiedSoldier.statistics().scientific() == 80 &&
+		       copiedStatisticsTraitsMatch,
+		       "soldier copies retain every owned base attribute and persistent trait slot" );
 		CHECK( copiedSoldier.service().activity() == 2 &&
 		       copiedSoldier.service().providerCount() == 2 &&
 		       copiedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -10076,6 +10170,27 @@ int main( int, char** )
 		       copiedSoldier.vitals().regenerationBoostersUsedToday() == 0 &&
 		       copiedSoldier.vitals().lastBleedGruntAt() == 0,
 		       "soldier initialization resets the complete vitals domain" );
+		bool initializedStatisticsTraitsCleared = true;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			initializedStatisticsTraitsCleared &=
+				copiedSoldier.statistics().skillTrait(trait) == 0;
+		}
+		CHECK( copiedSoldier.statistics().experienceLevel() == 0 &&
+		       copiedSoldier.statistics().strength() == 0 &&
+		       copiedSoldier.statistics().agility() == 0 &&
+		       copiedSoldier.statistics().dexterity() == 0 &&
+		       copiedSoldier.statistics().wisdom() == 0 &&
+		       copiedSoldier.statistics().leadership() == 0 &&
+		       copiedSoldier.statistics().marksmanship() == 0 &&
+		       copiedSoldier.statistics().mechanical() == 0 &&
+		       copiedSoldier.statistics().explosives() == 0 &&
+		       copiedSoldier.statistics().medical() == 0 &&
+		       copiedSoldier.statistics().scientific() == 0 &&
+		       initializedStatisticsTraitsCleared,
+		       "soldier initialization resets the complete base-statistics domain" );
 		CHECK( copiedSoldier.service().activity() == 0 &&
 		       !copiedSoldier.service().hasProviders() &&
 		       !copiedSoldier.service().hasPartner() &&
@@ -10602,6 +10717,19 @@ int main( int, char** )
 		legacySoldier->bRegenerationCounter = -2;
 		legacySoldier->bRegenBoostersUsedToday = 3;
 		legacySoldier->uiTimeSinceLastBleedGrunt = 12348;
+		legacySoldier->bExpLevel = 7;
+		legacySoldier->bStrength = 81;
+		legacySoldier->bAgility = 82;
+		legacySoldier->bDexterity = 83;
+		legacySoldier->bWisdom = 84;
+		legacySoldier->bLeadership = 85;
+		legacySoldier->bMarksmanship = 86;
+		legacySoldier->bMechanical = 87;
+		legacySoldier->bExplosive = 88;
+		legacySoldier->bMedical = 89;
+		legacySoldier->bScientific = 90;
+		legacySoldier->ubSkillTrait1 = 11;
+		legacySoldier->ubSkillTrait2 = 12;
 		legacySoldier->bService = 2;
 		legacySoldier->ubServiceCount = 3;
 		legacySoldier->ubServicePartner = 7;
@@ -10840,6 +10968,11 @@ int main( int, char** )
 		convertedSoldier.vitals().beginSurgery();
 		convertedSoldier.vitals().unregainableBreath() = 333;
 		convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] = 8;
+		convertedSoldier.statistics().experienceLevel() = 99;
+		convertedSoldier.statistics().strength() = 99;
+		convertedSoldier.statistics().skillTrait(0) = 99;
+		convertedSoldier.statistics().skillTrait(
+			SoldierStatisticsComponent::SkillTraitCapacity - 1) = 99;
 		convertedSoldier.assignment().facilityType() = 9;
 		convertedSoldier.assignment().itemMoveSectorId() = 48;
 		convertedSoldier.assignment().miniEventHoursRemaining() = 13;
@@ -10968,6 +11101,29 @@ int main( int, char** )
 		       convertedSoldier.vitals().unregainableBreath() == 0 &&
 		       convertedSoldier.vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL] == 0,
 		       "v101 soldier conversion maps established vitals and clears fields absent from that schema" );
+		bool convertedHistoricalTraitTailCleared = true;
+		for (UINT8 trait = 2;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			convertedHistoricalTraitTailCleared &=
+				convertedSoldier.statistics().skillTrait(trait) == 0;
+		}
+		CHECK( convertedSoldier.statistics().experienceLevel() == 7 &&
+		       convertedSoldier.statistics().strength() == 81 &&
+		       convertedSoldier.statistics().agility() == 82 &&
+		       convertedSoldier.statistics().dexterity() == 83 &&
+		       convertedSoldier.statistics().wisdom() == 84 &&
+		       convertedSoldier.statistics().leadership() == 85 &&
+		       convertedSoldier.statistics().marksmanship() == 86 &&
+		       convertedSoldier.statistics().mechanical() == 87 &&
+		       convertedSoldier.statistics().explosives() == 88 &&
+		       convertedSoldier.statistics().medical() == 89 &&
+		       convertedSoldier.statistics().scientific() == 90 &&
+		       convertedSoldier.statistics().skillTrait(0) == 11 &&
+		       convertedSoldier.statistics().skillTrait(1) == 12 &&
+		       convertedHistoricalTraitTailCleared,
+		       "v101 soldier conversion maps all historical base statistics and clears later trait slots" );
 		CHECK( convertedSoldier.service().activity() == 2 &&
 		       convertedSoldier.service().providerCount() == 3 &&
 		       convertedSoldier.service().partner() == SoldierID{ 7 } &&
@@ -11455,8 +11611,23 @@ int main( int, char** )
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
 
 		SOLDIERTYPE savedSoldier;
-		savedSoldier.stats.bExpLevel = 6;
-		savedSoldier.stats.bStrength = 77;
+		savedSoldier.statistics().experienceLevel() = 6;
+		savedSoldier.statistics().strength() = 77;
+		savedSoldier.statistics().agility() = 78;
+		savedSoldier.statistics().dexterity() = 79;
+		savedSoldier.statistics().wisdom() = 80;
+		savedSoldier.statistics().leadership() = 81;
+		savedSoldier.statistics().marksmanship() = 82;
+		savedSoldier.statistics().mechanical() = 83;
+		savedSoldier.statistics().explosives() = 84;
+		savedSoldier.statistics().medical() = 85;
+		savedSoldier.statistics().scientific() = 86;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			savedSoldier.statistics().skillTrait(trait) = 101 + trait;
+		}
 		savedSoldier.vitals().health() = 71;
 		savedSoldier.vitals().maximumHealth() = 89;
 		savedSoldier.vitals().breath() = 62;
@@ -11881,9 +12052,29 @@ int main( int, char** )
 		FileDelete( const_cast<char*>( path.c_str() ) );
 		guiCurrentSaveGameVersion = previousSaveVersion;
 
+		bool loadedStatisticsTraitsMatch = saved && loaded;
+		for (UINT8 trait = 0;
+		     trait < SoldierStatisticsComponent::SkillTraitCapacity;
+		     ++trait)
+		{
+			loadedStatisticsTraitsMatch &=
+				loadedSoldier.statistics().skillTrait(trait) == 101 + trait;
+		}
 		CHECK( saved && loaded &&
-		       loadedSoldier.stats.bExpLevel == 6 &&
-		       loadedSoldier.stats.bStrength == 77 &&
+		       loadedSoldier.statistics().experienceLevel() == 6 &&
+		       loadedSoldier.statistics().strength() == 77 &&
+		       loadedSoldier.statistics().agility() == 78 &&
+		       loadedSoldier.statistics().dexterity() == 79 &&
+		       loadedSoldier.statistics().wisdom() == 80 &&
+		       loadedSoldier.statistics().leadership() == 81 &&
+		       loadedSoldier.statistics().marksmanship() == 82 &&
+		       loadedSoldier.statistics().mechanical() == 83 &&
+		       loadedSoldier.statistics().explosives() == 84 &&
+		       loadedSoldier.statistics().medical() == 85 &&
+		       loadedSoldier.statistics().scientific() == 86 &&
+		       loadedStatisticsTraitsMatch,
+		       "soldier save/load round-trips the complete base-statistics and trait capacity at established schema positions" );
+		CHECK( saved && loaded &&
 		       loadedSoldier.vitals().health() == 71 &&
 		       loadedSoldier.vitals().maximumHealth() == 89 &&
 		       loadedSoldier.vitals().breath() == 62 &&

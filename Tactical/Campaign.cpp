@@ -557,69 +557,69 @@ void ChangeStat( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UINT8 ubSta
 			break;
 
 		case AGILAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bAgility );
+			pbSoldierStatPtr = &( pSoldier->statistics().agility() );
 			changedStat = SoldierStatProgressComponent::Stat::Agility;
 			usIncreaseValue = AGIL_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_AGILITY;
 			break;
 
 		case DEXTAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bDexterity );
+			pbSoldierStatPtr = &( pSoldier->statistics().dexterity() );
 			changedStat = SoldierStatProgressComponent::Stat::Dexterity;
 			usIncreaseValue = DEX_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_DEXTERITY;
 			break;
 
 		case WISDOMAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bWisdom );
+			pbSoldierStatPtr = &( pSoldier->statistics().wisdom() );
 			changedStat = SoldierStatProgressComponent::Stat::Wisdom;
 			usIncreaseValue = WIS_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_WISDOM;
 			break;
 
 		case MEDICALAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bMedical );
+			pbSoldierStatPtr = &( pSoldier->statistics().medical() );
 			changedStat = SoldierStatProgressComponent::Stat::Medical;
 			usIncreaseValue = MED_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MEDICAL;
 			break;
 
 		case EXPLODEAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bExplosive );
+			pbSoldierStatPtr = &( pSoldier->statistics().explosives() );
 			changedStat = SoldierStatProgressComponent::Stat::Explosives;
 			usIncreaseValue = EXP_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_EXPLOSIVES;
 			break;
 
 		case MECHANAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bMechanical );
+			pbSoldierStatPtr = &( pSoldier->statistics().mechanical() );
 			changedStat = SoldierStatProgressComponent::Stat::Mechanical;
 			usIncreaseValue = MECH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MECHANICAL;
 			break;
 
 		case MARKAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bMarksmanship );
+			pbSoldierStatPtr = &( pSoldier->statistics().marksmanship() );
 			changedStat = SoldierStatProgressComponent::Stat::Marksmanship;
 			usIncreaseValue = MRK_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_MARKSMANSHIP;
 			break;
 
 		case EXPERAMT:
-			pbSoldierStatPtr = &(pSoldier->stats.bExpLevel);
+			pbSoldierStatPtr = &(pSoldier->statistics().experienceLevel());
 			changedStat = SoldierStatProgressComponent::Stat::Level;
 			usIncreaseValue = LVL_INCREASE;
 			break;
 
 		case STRAMT:
-			pbSoldierStatPtr = &(pSoldier->stats.bStrength);
+			pbSoldierStatPtr = &(pSoldier->statistics().strength());
 			changedStat = SoldierStatProgressComponent::Stat::Strength;
 			usIncreaseValue = STRENGTH_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_STRENGTH;
 			break;
 
 		case LDRAMT:
-			pbSoldierStatPtr = &( pSoldier->stats.bLeadership);
+			pbSoldierStatPtr = &( pSoldier->statistics().leadership());
 			changedStat = SoldierStatProgressComponent::Stat::Leadership;
 			usIncreaseValue = LDR_INCREASE;
 			bDamagedStatToRaise = DAMAGED_STAT_LEADERSHIP;
@@ -982,43 +982,43 @@ void ProcessUpdateStats( MERCPROFILESTRUCT *pProfile, SOLDIERTYPE *pSoldier, UIN
 				break;
 
 			case AGILAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bAgility );
+				pbSoldierStatPtr = &( pSoldier->statistics().agility() );
 				break;
 
 			case DEXTAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bDexterity );
+				pbSoldierStatPtr = &( pSoldier->statistics().dexterity() );
 				break;
 
 			case WISDOMAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bWisdom );
+				pbSoldierStatPtr = &( pSoldier->statistics().wisdom() );
 				break;
 
 			case MEDICALAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bMedical );
+				pbSoldierStatPtr = &( pSoldier->statistics().medical() );
 				break;
 
 			case EXPLODEAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bExplosive );
+				pbSoldierStatPtr = &( pSoldier->statistics().explosives() );
 				break;
 
 			case MECHANAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bMechanical );
+				pbSoldierStatPtr = &( pSoldier->statistics().mechanical() );
 				break;
 
 			case MARKAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bMarksmanship );
+				pbSoldierStatPtr = &( pSoldier->statistics().marksmanship() );
 				break;
 
 			case EXPERAMT:
-				pbSoldierStatPtr = &(pSoldier->stats.bExpLevel);
+				pbSoldierStatPtr = &(pSoldier->statistics().experienceLevel());
 				break;
 
 			case STRAMT:
-				pbSoldierStatPtr = &(pSoldier->stats.bStrength);
+				pbSoldierStatPtr = &(pSoldier->statistics().strength());
 				break;
 
 			case LDRAMT:
-				pbSoldierStatPtr = &( pSoldier->stats.bLeadership);
+				pbSoldierStatPtr = &( pSoldier->statistics().leadership());
 				break;
 			}
 		}

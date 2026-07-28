@@ -827,7 +827,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 						{
 							PlayJA2Sample( RG_ID_INVALID, RATE_11025, HIGHVOLUME, 1, MIDDLE );
 
-							//if (Random( 100 ) < (UINT32) pSoldier->stats.bWisdom)
+							//if (Random( 100 ) < (UINT32) pSoldier->statistics().wisdom())
 							//{
 							//	pSoldier->DoMercBattleSound( BATTLE_SOUND_CURSE1 );
 							//}
@@ -985,26 +985,26 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 
 			if(pSoldier->fireControl().autofireShots() && (IsJa2TacticalTurnBasedCombat())) //this is the code that introduces uncertainty into full-auto bursts
 			{
-				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->stats.bMarksmanship));
+				DebugMsg(TOPIC_JA2,DBG_LEVEL_3,String("HandleItem: auto fire - setting dice sides, marksmanship = %d",pSoldier->statistics().marksmanship()));
 				//UINT32 diceSides = RAND_MAX;
 				//Madd: tried to make this more marksmanship dependent than agility, a level 10 auto-weapons specialist with 100 in all stats was wasting wayyy too many APs on this fucker
-				//UINT32 diceSides = RAND_MAX / ( max(1,pSoldier->stats.bMarksmanship) / 10) ;
+				//UINT32 diceSides = RAND_MAX / ( max(1,pSoldier->statistics().marksmanship()) / 10) ;
 
 				//Kaiden: Had to change the minimum value to 10 instead of 1,
 				//Rounding down resulted in division by zero and caused a crash.
-				UINT32 diceSides = RAND_MAX / ( max(10,pSoldier->stats.bMarksmanship) / 10) ;
+				UINT32 diceSides = RAND_MAX / ( max(10,pSoldier->statistics().marksmanship()) / 10) ;
 
 				DOUBLE avgAPadded;
 				// SANDRO - Slightly changed this formula to make the auto weapons trait little more needed if new traits activated - 
 				if( gGameOptions.fNewTraitSystem )
 				{
 					// also include possible squadleader bonus
-					UINT8 uiEffExpLev = min( 10, (pSoldier->stats.bExpLevel + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, FALSE ))));
-					avgAPadded = max(((400.0f-2.0f*pSoldier->stats.bDexterity))*(90.0f-5.0f*(uiEffExpLev+gSkillTraitValues.ubAWUnwantedBulletsReduction*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPONS_NT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
+					UINT8 uiEffExpLev = min( 10, (pSoldier->statistics().experienceLevel() + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, FALSE ))));
+					avgAPadded = max(((400.0f-2.0f*pSoldier->statistics().dexterity()))*(90.0f-5.0f*(uiEffExpLev+gSkillTraitValues.ubAWUnwantedBulletsReduction*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPONS_NT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
 				}
 				else
 				{
-					avgAPadded = max(((400.0f-2.0f*pSoldier->stats.bAgility))*(63.0f-5.0f*(pSoldier->stats.bExpLevel+2.0f*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPS_OT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
+					avgAPadded = max(((400.0f-2.0f*pSoldier->statistics().agility()))*(63.0f-5.0f*(pSoldier->statistics().experienceLevel()+2.0f*NUM_SKILL_TRAITS( pSoldier, AUTO_WEAPS_OT )))/2700.0f,1); //Important! don't make this zero, the formulae don't like it.
 				}
 
 				UINT32 chanceToMisfire = (UINT32)(((DOUBLE)diceSides*(2.0f*avgAPadded+1.0f-sqrt(4.0f*avgAPadded+1.0f)))/(2.0f*avgAPadded)); //derive the chace to misfire from the desired average AP overspent, derived suing

@@ -679,9 +679,9 @@ void InitPreBattleInterface( GROUP *pBattleGroup, BOOLEAN fPersistantPBI )
 						pBattleGroup = GetGroup( ubGroupID );
 						(void)SetPreBattleGroup(pBattleGroup);
 					}
-					//if( bBestExpLevel > pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
-					if( bBestExpLevel < pSoldier->stats.bExpLevel ) // SANDRO - WTF!! This is a bug!
-						bBestExpLevel = pSoldier->stats.bExpLevel;
+					//if( bBestExpLevel > pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
+					if( bBestExpLevel < pSoldier->statistics().experienceLevel() ) // SANDRO - WTF!! This is a bug!
+						bBestExpLevel = pSoldier->statistics().experienceLevel();
 					if( pSoldier->deployment().previousSectorId() == 255 )
 					{ //Not able to retreat (calculate it for group)
 						GROUP *pTempGroup;

@@ -1449,7 +1449,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bAgilityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bAgility );
+				swprintf( sString, L"%d", pSoldier->statistics().agility() );
 			}
 			else
 			{
@@ -1465,7 +1465,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bDexterityDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bDexterity );
+				swprintf( sString, L"%d", pSoldier->statistics().dexterity() );
 			}
 			else
 			{
@@ -1481,7 +1481,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bStrengthDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bStrength );
+				swprintf( sString, L"%d", pSoldier->statistics().strength() );
 			}
 			else
 			{
@@ -1497,7 +1497,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bLeadershipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_LEADERSHIP]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bLeadership );
+				swprintf( sString, L"%d", pSoldier->statistics().leadership() );
 			}
 			else
 			{
@@ -1513,7 +1513,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bWisdomDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bWisdom );
+				swprintf( sString, L"%d", pSoldier->statistics().wisdom() );
 			}
 			else
 			{
@@ -1535,7 +1535,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				}
 				//else
 				//{
-				swprintf( sString, L"%d", pSoldier->stats.bExpLevel );
+				swprintf( sString, L"%d", pSoldier->statistics().experienceLevel() );
 				//}
 			}
 			else
@@ -1553,7 +1553,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMarksmanshipDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MARKSMANSHIP]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bMarksmanship );
+				swprintf( sString, L"%d", pSoldier->statistics().marksmanship() );
 			}
 			else
 			{
@@ -1569,7 +1569,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMechanicDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MECHANICAL]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bMechanical );
+				swprintf( sString, L"%d", pSoldier->statistics().mechanical() );
 			}
 			else
 			{
@@ -1585,7 +1585,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bExplosivesDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_EXPLOSIVES]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bExplosive );
+				swprintf( sString, L"%d", pSoldier->statistics().explosives() );
 			}
 			else
 			{
@@ -1601,7 +1601,7 @@ void DisplayCharStats( SoldierID iId, INT32 iSlot )
 				// Flugente: stats can have gone up or down, find out which 
 				INT16 change = pMercProfile->bMedicalDelta - (INT16)(pSoldier->vitals().criticalStatDamage()[DAMAGED_STAT_MEDICAL]);
 				PrintStatChange( change, x, y, sString );
-				swprintf( sString, L"%d", pSoldier->stats.bMedical );
+				swprintf( sString, L"%d", pSoldier->statistics().medical() );
 			}
 			else
 			{
@@ -3743,84 +3743,84 @@ SoldierID GetIdOfMercWithHighestStat( INT32 iStat )
 				break;
 				case 1:
 					// agility
-					if( pTeamSoldier->stats.bAgility >= iValue )
+					if( pTeamSoldier->statistics().agility() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bAgility;
+						iValue = pTeamSoldier->statistics().agility();
 					}
 					break;
 				case 2:
 					// dexterity
-					if( pTeamSoldier->stats.bDexterity >= iValue )
+					if( pTeamSoldier->statistics().dexterity() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bDexterity;
+						iValue = pTeamSoldier->statistics().dexterity();
 					}
 					break;
 				case 3:
 				// strength
-				if(	pTeamSoldier->stats.bStrength >= iValue )
+				if(	pTeamSoldier->statistics().strength() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bStrength;
+						iValue = pTeamSoldier->statistics().strength();
 					}
 				break;
 				case 4:
 					// leadership
-				if(	pTeamSoldier->stats.bLeadership >= iValue )
+				if(	pTeamSoldier->statistics().leadership() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bLeadership;
+						iValue = pTeamSoldier->statistics().leadership();
 					}
 				break;
 				case 5:
 					// wisdom
-					if(	pTeamSoldier->stats.bWisdom >= iValue )
+					if(	pTeamSoldier->statistics().wisdom() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bWisdom;
+						iValue = pTeamSoldier->statistics().wisdom();
 					}
 				break;
 				case 6:
 					// exper
-			if( pTeamSoldier->stats.bExpLevel >= iValue )
+			if( pTeamSoldier->statistics().experienceLevel() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bExpLevel;
+						iValue = pTeamSoldier->statistics().experienceLevel();
 					}
 
 				break;
 				case 7:
 					//mrkmanship
-					if(	pTeamSoldier->stats.bMarksmanship >= iValue )
+					if(	pTeamSoldier->statistics().marksmanship() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMarksmanship;
+						iValue = pTeamSoldier->statistics().marksmanship();
 					}
 
 				break;
 				case 8:
 					// mech
-					if(	pTeamSoldier->stats.bMechanical >= iValue )
+					if(	pTeamSoldier->statistics().mechanical() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMechanical;
+						iValue = pTeamSoldier->statistics().mechanical();
 					}
 				break;
 				case 9:
 					// exp
-					if(pTeamSoldier->stats.bExplosive >= iValue )
+					if(pTeamSoldier->statistics().explosives() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bExplosive;
+						iValue = pTeamSoldier->statistics().explosives();
 					}
 				break;
 				case 10:
 					// med
-					if(	pTeamSoldier->stats.bMedical >= iValue )
+					if(	pTeamSoldier->statistics().medical() >= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMedical;
+						iValue = pTeamSoldier->statistics().medical();
 					}
 				break;
 				}
@@ -3867,84 +3867,84 @@ SoldierID GetIdOfMercWithLowestStat( INT32 iStat )
 				break;
 				case 1:
 					// agility
-					if( pTeamSoldier->stats.bAgility <= iValue )
+					if( pTeamSoldier->statistics().agility() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bAgility;
+						iValue = pTeamSoldier->statistics().agility();
 					}
 					break;
 				case 2:
 					// dexterity
-					if(	pTeamSoldier->stats.bDexterity <= iValue )
+					if(	pTeamSoldier->statistics().dexterity() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bDexterity;
+						iValue = pTeamSoldier->statistics().dexterity();
 					}
 					break;
 				case 3:
 				// strength
-				if(	pTeamSoldier->stats.bStrength <= iValue )
+				if(	pTeamSoldier->statistics().strength() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bStrength;
+						iValue = pTeamSoldier->statistics().strength();
 					}
 				break;
 				case 4:
 					// leadership
-				if( pTeamSoldier->stats.bLeadership <= iValue )
+				if( pTeamSoldier->statistics().leadership() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bLeadership;
+						iValue = pTeamSoldier->statistics().leadership();
 					}
 				break;
 				case 5:
 					// wisdom
-					if( pTeamSoldier->stats.bWisdom <= iValue )
+					if( pTeamSoldier->statistics().wisdom() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bWisdom;
+						iValue = pTeamSoldier->statistics().wisdom();
 					}
 				break;
 				case 6:
 					// exper
-					if(	pTeamSoldier->stats.bExpLevel <= iValue )
+					if(	pTeamSoldier->statistics().experienceLevel() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bExpLevel;
+						iValue = pTeamSoldier->statistics().experienceLevel();
 					}
 
 				break;
 				case 7:
 					//mrkmanship
-					if(	pTeamSoldier->stats.bMarksmanship <= iValue )
+					if(	pTeamSoldier->statistics().marksmanship() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMarksmanship;
+						iValue = pTeamSoldier->statistics().marksmanship();
 					}
 
 				break;
 				case 8:
 					// mech
-					if(	pTeamSoldier->stats.bMechanical <= iValue )
+					if(	pTeamSoldier->statistics().mechanical() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMechanical;
+						iValue = pTeamSoldier->statistics().mechanical();
 					}
 				break;
 				case 9:
 					// exp
-					if(	pTeamSoldier->stats.bExplosive <= iValue )
+					if(	pTeamSoldier->statistics().explosives() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bExplosive;
+						iValue = pTeamSoldier->statistics().explosives();
 					}
 				break;
 				case 10:
 					// med
-					if(	pTeamSoldier->stats.bMedical <= iValue )
+					if(	pTeamSoldier->statistics().medical() <= iValue )
 					{
 						iId = cnt;
-						iValue = pTeamSoldier->stats.bMedical;
+						iValue = pTeamSoldier->statistics().medical();
 					}
 				break;
 				}
@@ -3995,55 +3995,55 @@ INT32 GetAvgStatOfCurrentTeamStat( INT32 iStat )
 				break;
 				case 1:
 					// agility
-					iTotalStatValue +=pTeamSoldier->stats.bAgility;
+					iTotalStatValue +=pTeamSoldier->statistics().agility();
 
 					break;
 				case 2:
 					// dexterity
-					iTotalStatValue +=	pTeamSoldier->stats.bDexterity;
+					iTotalStatValue +=	pTeamSoldier->statistics().dexterity();
 
 					break;
 				case 3:
 				// strength
-				iTotalStatValue +=	pTeamSoldier->stats.bStrength;
+				iTotalStatValue +=	pTeamSoldier->statistics().strength();
 
 				break;
 				case 4:
 					// leadership
-					iTotalStatValue +=	pTeamSoldier->stats.bLeadership;
+					iTotalStatValue +=	pTeamSoldier->statistics().leadership();
 
 				break;
 				case 5:
 					// wisdom
 
-					iTotalStatValue += pTeamSoldier->stats.bWisdom;
+					iTotalStatValue += pTeamSoldier->statistics().wisdom();
 				break;
 				case 6:
 					// exper
 
-					iTotalStatValue +=	pTeamSoldier->stats.bExpLevel;
+					iTotalStatValue +=	pTeamSoldier->statistics().experienceLevel();
 
 				break;
 				case 7:
 					//mrkmanship
 
-					iTotalStatValue +=	pTeamSoldier->stats.bMarksmanship;
+					iTotalStatValue +=	pTeamSoldier->statistics().marksmanship();
 
 				break;
 				case 8:
 					// mech
 
-					iTotalStatValue +=	pTeamSoldier->stats.bMechanical;
+					iTotalStatValue +=	pTeamSoldier->statistics().mechanical();
 				break;
 				case 9:
 					// exp
 
-					iTotalStatValue +=	pTeamSoldier->stats.bExplosive;
+					iTotalStatValue +=	pTeamSoldier->statistics().explosives();
 				break;
 				case 10:
 					// med
 
-					iTotalStatValue +=	pTeamSoldier->stats.bMedical;
+					iTotalStatValue +=	pTeamSoldier->statistics().medical();
 				break;
 			}
 
@@ -4365,7 +4365,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 1:
 				// agility
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bAgility;
+					iStat = currentSoldier->statistics().agility();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
 				}
@@ -4373,7 +4373,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 2:
 				// dexterity
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bDexterity;
+					iStat = currentSoldier->statistics().dexterity();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
 				}
@@ -4381,7 +4381,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 3:
 				// strength
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bStrength;
+					iStat = currentSoldier->statistics().strength();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
 				}
@@ -4389,7 +4389,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 4:
 				// leadership
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bLeadership;
+					iStat = currentSoldier->statistics().leadership();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
 				}
@@ -4397,7 +4397,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 5:
 				// wisdom
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bWisdom;
+					iStat = currentSoldier->statistics().wisdom();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
 				}
@@ -4405,7 +4405,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 6:
 				// exper
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bExpLevel;
+					iStat = currentSoldier->statistics().experienceLevel();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
 				}
@@ -4413,7 +4413,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 7:
 				//mrkmanship
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMarksmanship;
+					iStat = currentSoldier->statistics().marksmanship();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
 				}
@@ -4421,7 +4421,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 8:
 				// mech
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMechanical;
+					iStat = currentSoldier->statistics().mechanical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
 				}
@@ -4429,7 +4429,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 9:
 				// exp
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bExplosive;
+					iStat = currentSoldier->statistics().explosives();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
 				}
@@ -4437,7 +4437,7 @@ void DisplayLowestStatValuesForCurrentTeam( void )
 			case 10:
 				// med
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMedical;
+					iStat = currentSoldier->statistics().medical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;
 				}
@@ -4543,7 +4543,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 1:
 				// agility
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bAgility;
+					iStat = currentSoldier->statistics().agility();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bAgility;
 				}
@@ -4551,7 +4551,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 2:
 				// dexterity
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bDexterity;
+					iStat = currentSoldier->statistics().dexterity();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bDexterity;
 				}
@@ -4559,7 +4559,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 3:
 				// strength
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bStrength;
+					iStat = currentSoldier->statistics().strength();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bStrength;
 				}
@@ -4567,7 +4567,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 4:
 				// leadership
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bLeadership;
+					iStat = currentSoldier->statistics().leadership();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bLeadership;
 				}
@@ -4575,7 +4575,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 5:
 				// wisdom
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bWisdom;
+					iStat = currentSoldier->statistics().wisdom();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bWisdom;
 				}
@@ -4583,7 +4583,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 6:
 				// exper
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bExpLevel;
+					iStat = currentSoldier->statistics().experienceLevel();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExpLevel;
 				}
@@ -4591,7 +4591,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 7:
 				//mrkmanship
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMarksmanship;
+					iStat = currentSoldier->statistics().marksmanship();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMarksmanship;
 				}
@@ -4599,7 +4599,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 8:
 				// mech
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMechanical;
+					iStat = currentSoldier->statistics().mechanical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMechanical;
 				}
@@ -4607,7 +4607,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 9:
 				// exp
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bExplosive;
+					iStat = currentSoldier->statistics().explosives();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bExplosive;
 				}
@@ -4615,7 +4615,7 @@ void DisplayHighestStatValuesForCurrentTeam( void )
 			case 10:
 				// med
 				if (fCurrentTeamMode) {
-					iStat = currentSoldier->stats.bMedical;
+					iStat = currentSoldier->statistics().medical();
 				} else {
 					iStat =	gMercProfiles[ iDepartedId ] . bMedical;
 				}

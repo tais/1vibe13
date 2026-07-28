@@ -344,15 +344,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_STRENGTH:
-				amount = max(min(100 - merc->stats.bStrength, amount), -merc->stats.bStrength);
-				merc->stats.bStrength += amount;
+				amount = max(min(100 - merc->statistics().strength(), amount), -merc->statistics().strength());
+				merc->statistics().strength() += amount;
 				statId = STRAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Strength, GetJA2Clock());
 
 				if (amount < 0)
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_STRENGTH] -= amount;
-					gMercProfiles[merc->ubProfile].bStrength = merc->stats.bStrength;
+					gMercProfiles[merc->ubProfile].bStrength = merc->statistics().strength();
 					merc->statProgress().clearIncreased(STRENGTH_INCREASE);
 				}
 				else if (amount > 0)
@@ -362,15 +362,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_AGILITY:
-				amount = max(min(100 - merc->stats.bAgility, amount), -merc->stats.bAgility);
-				merc->stats.bAgility += amount;
+				amount = max(min(100 - merc->statistics().agility(), amount), -merc->statistics().agility());
+				merc->statistics().agility() += amount;
 				statId = AGILAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Agility, GetJA2Clock());
 
 				if (amount < 0)
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_AGILITY] -= amount;
-					gMercProfiles[merc->ubProfile].bAgility = merc->stats.bAgility;
+					gMercProfiles[merc->ubProfile].bAgility = merc->statistics().agility();
 					merc->statProgress().clearIncreased(AGIL_INCREASE);
 				}
 				else if (amount > 0)
@@ -380,15 +380,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_DEXTERITY:
-				amount = max(min(100 - merc->stats.bDexterity, amount), -merc->stats.bDexterity);
-				merc->stats.bDexterity += amount;
+				amount = max(min(100 - merc->statistics().dexterity(), amount), -merc->statistics().dexterity());
+				merc->statistics().dexterity() += amount;
 				statId = DEXTAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Dexterity, GetJA2Clock());
 
 				if (amount < 0)
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_DEXTERITY] -= amount;
-					gMercProfiles[merc->ubProfile].bDexterity = merc->stats.bDexterity;
+					gMercProfiles[merc->ubProfile].bDexterity = merc->statistics().dexterity();
 					merc->statProgress().clearIncreased(DEX_INCREASE);
 				}
 				else if (amount > 0)
@@ -398,15 +398,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_WISDOM:
-				amount = max(min(100 - merc->stats.bWisdom, amount), -merc->stats.bWisdom);
-				merc->stats.bWisdom += amount;
+				amount = max(min(100 - merc->statistics().wisdom(), amount), -merc->statistics().wisdom());
+				merc->statistics().wisdom() += amount;
 				statId = WISDOMAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Wisdom, GetJA2Clock());
 
 				if (amount < 0)
 				{
 					merc->vitals().criticalStatDamage()[DAMAGED_STAT_WISDOM] -= amount;
-					gMercProfiles[merc->ubProfile].bWisdom = merc->stats.bWisdom;
+					gMercProfiles[merc->ubProfile].bWisdom = merc->statistics().wisdom();
 					merc->statProgress().clearIncreased(WIS_INCREASE);
 				}
 				else if (amount > 0)
@@ -416,14 +416,14 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_LEADERSHIP:
-				amount = max(min(100 - merc->stats.bLeadership, amount), -merc->stats.bLeadership);
-				merc->stats.bLeadership += amount;
+				amount = max(min(100 - merc->statistics().leadership(), amount), -merc->statistics().leadership());
+				merc->statistics().leadership() += amount;
 				statId = LDRAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Leadership, GetJA2Clock());
 
 				if (amount < 0)
 				{
-					gMercProfiles[merc->ubProfile].bLeadership = merc->stats.bLeadership;
+					gMercProfiles[merc->ubProfile].bLeadership = merc->statistics().leadership();
 					merc->statProgress().clearIncreased(LDR_INCREASE);
 				}
 				else if (amount > 0)
@@ -433,14 +433,14 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MARKSMANSHIP:
-				amount = max(min(100 - merc->stats.bMarksmanship, amount), -merc->stats.bMarksmanship);
-				merc->stats.bMarksmanship += amount;
+				amount = max(min(100 - merc->statistics().marksmanship(), amount), -merc->statistics().marksmanship());
+				merc->statistics().marksmanship() += amount;
 				statId = MARKAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Marksmanship, GetJA2Clock());
 
 				if (amount < 0)
 				{
-					gMercProfiles[merc->ubProfile].bMarksmanship = merc->stats.bMarksmanship;
+					gMercProfiles[merc->ubProfile].bMarksmanship = merc->statistics().marksmanship();
 					merc->statProgress().clearIncreased(MRK_INCREASE);
 				}
 				else if (amount > 0)
@@ -450,14 +450,14 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MECHANICAL:
-				amount = max(min(100 - merc->stats.bMechanical, amount), -merc->stats.bMechanical);
-				merc->stats.bMechanical += amount;
+				amount = max(min(100 - merc->statistics().mechanical(), amount), -merc->statistics().mechanical());
+				merc->statistics().mechanical() += amount;
 				statId = MECHANAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Mechanical, GetJA2Clock());
 
 				if (amount < 0)
 				{
-					gMercProfiles[merc->ubProfile].bMechanical = merc->stats.bMechanical;
+					gMercProfiles[merc->ubProfile].bMechanical = merc->statistics().mechanical();
 					merc->statProgress().clearIncreased(MECH_INCREASE);
 				}
 				else if (amount > 0)
@@ -467,14 +467,14 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_EXPLOSIVE:
-				amount = max(min(100 - merc->stats.bExplosive, amount), -merc->stats.bExplosive);
-				merc->stats.bExplosive += amount;
+				amount = max(min(100 - merc->statistics().explosives(), amount), -merc->statistics().explosives());
+				merc->statistics().explosives() += amount;
 				statId = EXPLODEAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Explosives, GetJA2Clock());
 
 				if (amount < 0)
 				{
-					gMercProfiles[merc->ubProfile].bExplosive = merc->stats.bExplosive;
+					gMercProfiles[merc->ubProfile].bExplosive = merc->statistics().explosives();
 					merc->statProgress().clearIncreased(EXP_INCREASE);
 				}
 				else if (amount > 0)
@@ -484,14 +484,14 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MEDICAL:
-				amount = max(min(100 - merc->stats.bMedical, amount), -merc->stats.bMedical);
-				merc->stats.bMedical += amount;
+				amount = max(min(100 - merc->statistics().medical(), amount), -merc->statistics().medical());
+				merc->statistics().medical() += amount;
 				statId = MEDICALAMT;
 				merc->statProgress().recordChange(SoldierStatProgressComponent::Stat::Medical, GetJA2Clock());
 
 				if (amount < 0)
 				{
-					gMercProfiles[merc->ubProfile].bMedical = merc->stats.bMedical;
+					gMercProfiles[merc->ubProfile].bMedical = merc->statistics().medical();
 					merc->statProgress().clearIncreased(MED_INCREASE);
 				}
 				else if (amount > 0)
@@ -645,15 +645,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_STRENGTH:
-				if (loss >= merc->stats.bStrength)
+				if (loss >= merc->statistics().strength())
 				{
-					loss = merc->stats.bStrength - 1;
+					loss = merc->statistics().strength() - 1;
 				}
-				merc->stats.bStrength -= loss;
+				merc->statistics().strength() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bStrength = merc->stats.bStrength;
+					gMercProfiles[ merc->ubProfile ].bStrength = merc->statistics().strength();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -663,15 +663,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_AGILITY:
-				if (loss >= merc->stats.bAgility)
+				if (loss >= merc->statistics().agility())
 				{
-					loss = merc->stats.bAgility - 1;
+					loss = merc->statistics().agility() - 1;
 				}
-				merc->stats.bAgility -= loss;
+				merc->statistics().agility() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bAgility = merc->stats.bAgility;
+					gMercProfiles[ merc->ubProfile ].bAgility = merc->statistics().agility();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -681,15 +681,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_DEXTERITY:
-				if (loss >= merc->stats.bDexterity)
+				if (loss >= merc->statistics().dexterity())
 				{
-					loss = merc->stats.bDexterity - 1;
+					loss = merc->statistics().dexterity() - 1;
 				}
-				merc->stats.bDexterity -= loss;
+				merc->statistics().dexterity() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bDexterity = merc->stats.bDexterity;
+					gMercProfiles[ merc->ubProfile ].bDexterity = merc->statistics().dexterity();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -699,15 +699,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_WISDOM:
-				if (loss >= merc->stats.bWisdom)
+				if (loss >= merc->statistics().wisdom())
 				{
-					loss = merc->stats.bWisdom - 1;
+					loss = merc->statistics().wisdom() - 1;
 				}
-				merc->stats.bWisdom -= loss;
+				merc->statistics().wisdom() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bWisdom = merc->stats.bWisdom;
+					gMercProfiles[ merc->ubProfile ].bWisdom = merc->statistics().wisdom();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -717,15 +717,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_LEADERSHIP:
-				if (loss >= merc->stats.bLeadership)
+				if (loss >= merc->statistics().leadership())
 				{
-					loss = merc->stats.bLeadership - 1;
+					loss = merc->statistics().leadership() - 1;
 				}
-				merc->stats.bLeadership -= loss;
+				merc->statistics().leadership() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bLeadership = merc->stats.bLeadership;
+					gMercProfiles[ merc->ubProfile ].bLeadership = merc->statistics().leadership();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -735,15 +735,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MARKSMANSHIP:
-				if (loss >= merc->stats.bMarksmanship)
+				if (loss >= merc->statistics().marksmanship())
 				{
-					loss = merc->stats.bMarksmanship - 1;
+					loss = merc->statistics().marksmanship() - 1;
 				}
-				merc->stats.bMarksmanship -= loss;
+				merc->statistics().marksmanship() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bMarksmanship = merc->stats.bMarksmanship;
+					gMercProfiles[ merc->ubProfile ].bMarksmanship = merc->statistics().marksmanship();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -753,15 +753,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MECHANICAL:
-				if (loss >= merc->stats.bMechanical)
+				if (loss >= merc->statistics().mechanical())
 				{
-					loss = merc->stats.bMechanical - 1;
+					loss = merc->statistics().mechanical() - 1;
 				}
-				merc->stats.bMechanical -= loss;
+				merc->statistics().mechanical() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bMechanical = merc->stats.bMechanical;
+					gMercProfiles[ merc->ubProfile ].bMechanical = merc->statistics().mechanical();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -771,15 +771,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_EXPLOSIVE:
-				if (loss >= merc->stats.bExplosive)
+				if (loss >= merc->statistics().explosives())
 				{
-					loss = merc->stats.bExplosive - 1;
+					loss = merc->statistics().explosives() - 1;
 				}
-				merc->stats.bExplosive -= loss;
+				merc->statistics().explosives() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bExplosive = merc->stats.bExplosive;
+					gMercProfiles[ merc->ubProfile ].bExplosive = merc->statistics().explosives();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -789,15 +789,15 @@ namespace MiniEventHelpers
 				}
 				break;
 			case STAT_MEDICAL:
-				if (loss >= merc->stats.bMedical)
+				if (loss >= merc->statistics().medical())
 				{
-					loss = merc->stats.bMedical - 1;
+					loss = merc->statistics().medical() - 1;
 				}
-				merc->stats.bMedical -= loss;
+				merc->statistics().medical() -= loss;
 
 				if (merc->ubProfile != NO_PROFILE)
 				{
-					gMercProfiles[ merc->ubProfile ].bMedical = merc->stats.bMedical;
+					gMercProfiles[ merc->ubProfile ].bMedical = merc->statistics().medical();
 				}
 
 				if (merc->name[0] && merc->awareness().visibility() == TRUE)
@@ -1227,72 +1227,72 @@ namespace MiniEventHelpers
 							}
 							break;
 						case STAT_STRENGTH:
-							if ((*iter)->stats.bStrength > bestStat)
+							if ((*iter)->statistics().strength() > bestStat)
 							{
-								bestStat = (*iter)->stats.bStrength;
+								bestStat = (*iter)->statistics().strength();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_AGILITY:
-							if ((*iter)->stats.bAgility > bestStat)
+							if ((*iter)->statistics().agility() > bestStat)
 							{
-								bestStat = (*iter)->stats.bAgility;
+								bestStat = (*iter)->statistics().agility();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_DEXTERITY:
-							if ((*iter)->stats.bDexterity > bestStat)
+							if ((*iter)->statistics().dexterity() > bestStat)
 							{
-								bestStat = (*iter)->stats.bDexterity;
+								bestStat = (*iter)->statistics().dexterity();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_WISDOM:
-							if ((*iter)->stats.bWisdom > bestStat)
+							if ((*iter)->statistics().wisdom() > bestStat)
 							{
-								bestStat = (*iter)->stats.bWisdom;
+								bestStat = (*iter)->statistics().wisdom();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_LEADERSHIP:
-							if ((*iter)->stats.bLeadership > bestStat)
+							if ((*iter)->statistics().leadership() > bestStat)
 							{
-								bestStat = (*iter)->stats.bLeadership;
+								bestStat = (*iter)->statistics().leadership();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_MARKSMANSHIP:
-							if ((*iter)->stats.bMarksmanship > bestStat)
+							if ((*iter)->statistics().marksmanship() > bestStat)
 							{
-								bestStat = (*iter)->stats.bMarksmanship;
+								bestStat = (*iter)->statistics().marksmanship();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_MECHANICAL:
-							if ((*iter)->stats.bMechanical > bestStat)
+							if ((*iter)->statistics().mechanical() > bestStat)
 							{
-								bestStat = (*iter)->stats.bMechanical;
+								bestStat = (*iter)->statistics().mechanical();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_EXPLOSIVE:
-							if ((*iter)->stats.bExplosive > bestStat)
+							if ((*iter)->statistics().explosives() > bestStat)
 							{
-								bestStat = (*iter)->stats.bExplosive;
+								bestStat = (*iter)->statistics().explosives();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_MEDICAL:
-							if ((*iter)->stats.bMedical > bestStat)
+							if ((*iter)->statistics().medical() > bestStat)
 							{
-								bestStat = (*iter)->stats.bMedical;
+								bestStat = (*iter)->statistics().medical();
 								bestSoldier = *iter;
 							}
 							break;
 						case STAT_EXPLEVEL:
-							if ((*iter)->stats.bExpLevel > bestStat)
+							if ((*iter)->statistics().experienceLevel() > bestStat)
 							{
-								bestStat = (*iter)->stats.bExpLevel;
+								bestStat = (*iter)->statistics().experienceLevel();
 								bestSoldier = *iter;
 							}
 							break;

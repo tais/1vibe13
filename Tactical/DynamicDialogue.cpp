@@ -1997,8 +1997,8 @@ UINT32 GetSoldierLeaderRating( SOLDIERTYPE* pSoldier )
 	// rating is based on leadership, experience and the squad leader trait. IMPs get a higher rating, as they represent the player closest
 	UINT32 rating = 0;
 
-	rating += pSoldier->stats.bLeadership;
-	rating += 10 * pSoldier->stats.bExpLevel;
+	rating += pSoldier->statistics().leadership();
+	rating += 10 * pSoldier->statistics().experienceLevel();
 	rating += 30 * NUM_SKILL_TRAITS( pSoldier, SQUADLEADER_NT );
 	rating += 50 * (pSoldier->employment().mercenaryType() == MERC_TYPE__PLAYER_CHARACTER);
 
@@ -2179,7 +2179,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 	BOOLEAN fCheckDrink = FALSE;
 	UINT8 highestcoolness = 0;
 	UINT32 meanwage = 0;
-	UINT8 explevel = pSoldier->stats.bExpLevel;
+	UINT8 explevel = pSoldier->statistics().experienceLevel();
 
 	switch ( usEvent )
 	{
@@ -2346,7 +2346,7 @@ void HandleDynamicOpinionChange( SOLDIERTYPE* pSoldier, UINT8 usEvent, BOOLEAN f
 				UINT32 theirmeanwage = gMercProfiles[pTeamSoldier->ubProfile].uiTotalCostToDate / pTeamSoldier->employment().totalLength();
 
 				// adjust this for experience levels
-				FLOAT explevelfactor = gGameExternalOptions.fDynamicWageFactor * pTeamSoldier->stats.bExpLevel / explevel;
+				FLOAT explevelfactor = gGameExternalOptions.fDynamicWageFactor * pTeamSoldier->statistics().experienceLevel() / explevel;
 
 				// abort if their mean wage isn't that high
 				if ( theirmeanwage < explevelfactor * meanwage )

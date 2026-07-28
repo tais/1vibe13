@@ -6286,9 +6286,9 @@ INT16 ubMinAPCost;
 
 
 		// smart guys more likely to try to stay alive, dolts more likely to shoot!
-		if (pSoldier->stats.bWisdom >= 50) //Madd: reduced the wisdom required to want to live...
+		if (pSoldier->statistics().wisdom() >= 50) //Madd: reduced the wisdom required to want to live...
 			iDefense += 10;
-		else if (pSoldier->stats.bWisdom < 30)
+		else if (pSoldier->statistics().wisdom() < 30)
 			iDefense -= 10;
 
 		// some orders are more offensive, others more defensive
@@ -10030,9 +10030,9 @@ INT8 ArmedVehicleDecideActionBlack( SOLDIERTYPE *pSoldier )
 		}
 
 		// smart guys more likely to try to stay alive, dolts more likely to shoot!
-		if ( pSoldier->stats.bWisdom >= 50 ) //Madd: reduced the wisdom required to want to live...
+		if ( pSoldier->statistics().wisdom() >= 50 ) //Madd: reduced the wisdom required to want to live...
 			iDefense += 10;
-		else if ( pSoldier->stats.bWisdom < 30 )
+		else if ( pSoldier->statistics().wisdom() < 30 )
 			iDefense -= 10;
 
 		// some orders are more offensive, others more defensive

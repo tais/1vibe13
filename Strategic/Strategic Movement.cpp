@@ -1608,12 +1608,12 @@ void AwardExperienceForTravelling( GROUP * pGroup )
 				}
 			}
 
-			if ( pSoldier->stats.bStrength < 100 )
+			if ( pSoldier->statistics().strength() < 100 )
 			{
 				uiCarriedPercent = CalculateCarriedWeight( pSoldier );
 				if ( uiCarriedPercent > 50 )
 				{
-					uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->stats.bStrength ) );
+					uiPoints = pGroup->uiTraverseTime / (450 / (100 - pSoldier->statistics().strength() ) );
 					StatChange( pSoldier, STRAMT, ( UINT16 ) ( uiPoints * ( uiCarriedPercent - 50) / 100 ), FALSE );
 				}
 			}

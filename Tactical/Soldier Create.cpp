@@ -257,16 +257,16 @@ SOLDIERCREATE_STRUCT& SOLDIERCREATE_STRUCT::operator=(const SOLDIERTYPE& Soldier
 	this->ubProfile							= NO_PROFILE;
 	this->bLife									= Soldier.vitals().health();
 	this->bLifeMax							= Soldier.vitals().maximumHealth();
-	this->bAgility							= Soldier.stats.bAgility;
-	this->bDexterity						= Soldier.stats.bDexterity;
-	this->bExpLevel							= Soldier.stats.bExpLevel;
-	this->bMarksmanship					= Soldier.stats.bMarksmanship;
-	this->bMedical							= Soldier.stats.bMedical;
-	this->bMechanical						= Soldier.stats.bMechanical;
-	this->bExplosive						= Soldier.stats.bExplosive;
-	this->bLeadership						= Soldier.stats.bLeadership;
-	this->bStrength							= Soldier.stats.bStrength;
-	this->bWisdom								= Soldier.stats.bWisdom;
+	this->bAgility							= Soldier.statistics().agility();
+	this->bDexterity						= Soldier.statistics().dexterity();
+	this->bExpLevel							= Soldier.statistics().experienceLevel();
+	this->bMarksmanship					= Soldier.statistics().marksmanship();
+	this->bMedical							= Soldier.statistics().medical();
+	this->bMechanical						= Soldier.statistics().mechanical();
+	this->bExplosive						= Soldier.statistics().explosives();
+	this->bLeadership						= Soldier.statistics().leadership();
+	this->bStrength							= Soldier.statistics().strength();
+	this->bWisdom								= Soldier.statistics().wisdom();
 	this->bAttitude							= Soldier.aiData.bAttitude;
 	this->bOrders								= Soldier.aiData.bOrders;
 	this->bMorale								= Soldier.aiData.bMorale;
@@ -911,7 +911,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 						break;
 					case FATCIV:
 						//fat, so slower
-						Soldier.stats.bAgility = (INT8)( 30 + Random( 26 ) ); //30 - 55
+						Soldier.statistics().agility() = (INT8)( 30 + Random( 26 ) ); //30 - 55
 						break;
 					case MANCIV:
 						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 35 + Random( 26 ) ); //35 - 60
@@ -926,7 +926,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 						break;
 					case CRIPPLECIV:
 						Soldier.vitals().health() = Soldier.vitals().maximumHealth() = (INT8)( 20 + Random( 26 ) ); //20 - 45
-						Soldier.stats.bAgility = (INT8)( 30 + Random( 16 ) ); // 30 - 45
+						Soldier.statistics().agility() = (INT8)( 30 + Random( 16 ) ); // 30 - 45
 						break;
 				}
 			}
@@ -961,7 +961,7 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 		// sevenfm: max morale for AI soldiers
 		if (Soldier.ubProfile == NO_PROFILE)
 		{
-			Soldier.aiData.bMorale = 60 + 2 * Soldier.stats.bExpLevel + Random(20);
+			Soldier.aiData.bMorale = 60 + 2 * Soldier.statistics().experienceLevel() + Random(20);
 		}
 
 		//For inventory, look for any face class items that may be located in the big pockets and if found, move
@@ -1290,17 +1290,17 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 
 	pSoldier->vitals().health() 										= pProfile->bLife;
 	pSoldier->vitals().maximumHealth()									= pProfile->bLifeMax;
-	pSoldier->stats.bAgility									= pProfile->bAgility;
-	pSoldier->stats.bLeadership								= pProfile->bLeadership;
-	pSoldier->stats.bDexterity								= pProfile->bDexterity;
-	pSoldier->stats.bStrength									= pProfile->bStrength;
-	pSoldier->stats.bWisdom										= pProfile->bWisdom;
-	pSoldier->stats.bExpLevel									= pProfile->bExpLevel;
-	pSoldier->stats.bMarksmanship							= pProfile->bMarksmanship;
-	pSoldier->stats.bMedical									= pProfile->bMedical;
-	pSoldier->stats.bMechanical								= pProfile->bMechanical;
-	pSoldier->stats.bExplosive								= pProfile->bExplosive;
-	pSoldier->stats.bScientific								= pProfile->bScientific;
+	pSoldier->statistics().agility()									= pProfile->bAgility;
+	pSoldier->statistics().leadership()								= pProfile->bLeadership;
+	pSoldier->statistics().dexterity()								= pProfile->bDexterity;
+	pSoldier->statistics().strength()									= pProfile->bStrength;
+	pSoldier->statistics().wisdom()										= pProfile->bWisdom;
+	pSoldier->statistics().experienceLevel()									= pProfile->bExpLevel;
+	pSoldier->statistics().marksmanship()							= pProfile->bMarksmanship;
+	pSoldier->statistics().medical()									= pProfile->bMedical;
+	pSoldier->statistics().mechanical()								= pProfile->bMechanical;
+	pSoldier->statistics().explosives()								= pProfile->bExplosive;
+	pSoldier->statistics().scientific()								= pProfile->bScientific;
 
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	pSoldier->vitals().healableInjury() = 0;
@@ -1315,7 +1315,7 @@ BOOLEAN TacticalCopySoldierFromProfile( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STR
 	pSoldier->assignment().previous() = NO_ASSIGNMENT;
 	for ( INT8 bCnt = 0; bCnt < 30; ++bCnt )
 	{
-		pSoldier->stats.ubSkillTraits[ bCnt ] = pProfile->bSkillTraits[ bCnt ];	
+		pSoldier->statistics().skillTrait(bCnt) = pProfile->bSkillTraits[ bCnt ];
 	}
 	//pSoldier->stats.ubSkillTrait2 = pProfile->bSkillTrait2;
 	//if ( gGameOptions.fNewTraitSystem )
@@ -1740,17 +1740,17 @@ BOOLEAN TacticalCopySoldierFromCreateStruct( SOLDIERTYPE *pSoldier, SOLDIERCREAT
 	pSoldier->vitals().maximumHealth()							= pCreateStruct->bLifeMax;
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	pSoldier->vitals().healableInjury() = 0;
-	pSoldier->stats.bAgility							= pCreateStruct->bAgility;
-	pSoldier->stats.bDexterity						= pCreateStruct->bDexterity;
-	pSoldier->stats.bExpLevel							= pCreateStruct->bExpLevel;
+	pSoldier->statistics().agility()							= pCreateStruct->bAgility;
+	pSoldier->statistics().dexterity()						= pCreateStruct->bDexterity;
+	pSoldier->statistics().experienceLevel()							= pCreateStruct->bExpLevel;
 
-	pSoldier->stats.bMarksmanship					= pCreateStruct->bMarksmanship;
-	pSoldier->stats.bMedical							= pCreateStruct->bMedical;
-	pSoldier->stats.bMechanical						= pCreateStruct->bMechanical;
-	pSoldier->stats.bExplosive						= pCreateStruct->bExplosive;
-	pSoldier->stats.bLeadership						= pCreateStruct->bLeadership;
-	pSoldier->stats.bStrength							= pCreateStruct->bStrength;
-	pSoldier->stats.bWisdom								= pCreateStruct->bWisdom;
+	pSoldier->statistics().marksmanship()					= pCreateStruct->bMarksmanship;
+	pSoldier->statistics().medical()							= pCreateStruct->bMedical;
+	pSoldier->statistics().mechanical()						= pCreateStruct->bMechanical;
+	pSoldier->statistics().explosives()						= pCreateStruct->bExplosive;
+	pSoldier->statistics().leadership()						= pCreateStruct->bLeadership;
+	pSoldier->statistics().strength()							= pCreateStruct->bStrength;
+	pSoldier->statistics().wisdom()								= pCreateStruct->bWisdom;
 
 	pSoldier->aiData.bAttitude							= pCreateStruct->bAttitude;
 	pSoldier->aiData.bOrders								= pCreateStruct->bOrders;
@@ -2876,37 +2876,37 @@ void UpdateSoldierWithStaticDetailedInformation( SOLDIERTYPE *s, SOLDIERCREATE_S
 	if( spp->bExpLevel != -1 )
 	{ //We have a static experience level, so generate all of the soldier's attributes.
 		INT8 bBaseAttribute;
-		s->stats.bExpLevel = spp->bExpLevel;
+		s->statistics().experienceLevel() = spp->bExpLevel;
 		//Set the minimum base attribute
-		bBaseAttribute = 45 + ( 4 * s->stats.bExpLevel );
+		bBaseAttribute = 45 + ( 4 * s->statistics().experienceLevel() );
 
 		//Roll enemy's combat statistics, taking bExpLevel into account.
 		//Stat range is currently 49-100, slightly bell-curved around the bExpLevel
 		s->vitals().maximumHealth()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->vitals().health()				= s->vitals().maximumHealth();
-		s->stats.bAgility				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bDexterity			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bMarksmanship	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bMedical				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bMechanical		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bExplosive			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bLeadership		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bStrength			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-		s->stats.bWisdom				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().agility()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().dexterity()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().marksmanship()	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().medical()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().mechanical()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().explosives()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().leadership()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().strength()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+		s->statistics().wisdom()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 		s->aiData.bMorale				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	}
 	//Replace any soldier attributes with any static values in the detailed placement.
 	if( spp->bLife				!= -1 )			s->vitals().health()					= spp->bLife;
 	if( spp->bLifeMax			!= -1 )			s->vitals().maximumHealth()				= spp->bLifeMax;
-	if( spp->bMarksmanship!= -1 )			s->stats.bMarksmanship	= spp->bMarksmanship;
-	if( spp->bStrength		!= -1 )			s->stats.bStrength			= spp->bStrength;
-	if( spp->bAgility			!= -1 )			s->stats.bAgility				= spp->bAgility;
-	if( spp->bDexterity		!= -1 )			s->stats.bDexterity			= spp->bDexterity;
-	if( spp->bWisdom			!= -1 )			s->stats.bWisdom				= spp->bWisdom;
-	if( spp->bLeadership	!= -1 )			s->stats.bLeadership		= spp->bLeadership;
-	if( spp->bExplosive		!= -1 )			s->stats.bExplosive			= spp->bExplosive;
-	if( spp->bMedical			!= -1 )			s->stats.bMedical				= spp->bMedical;
-	if( spp->bMechanical	!= -1 )			s->stats.bMechanical		= spp->bMechanical;
+	if( spp->bMarksmanship!= -1 )			s->statistics().marksmanship()	= spp->bMarksmanship;
+	if( spp->bStrength		!= -1 )			s->statistics().strength()			= spp->bStrength;
+	if( spp->bAgility			!= -1 )			s->statistics().agility()				= spp->bAgility;
+	if( spp->bDexterity		!= -1 )			s->statistics().dexterity()			= spp->bDexterity;
+	if( spp->bWisdom			!= -1 )			s->statistics().wisdom()				= spp->bWisdom;
+	if( spp->bLeadership	!= -1 )			s->statistics().leadership()		= spp->bLeadership;
+	if( spp->bExplosive		!= -1 )			s->statistics().explosives()			= spp->bExplosive;
+	if( spp->bMedical			!= -1 )			s->statistics().medical()				= spp->bMedical;
+	if( spp->bMechanical	!= -1 )			s->statistics().mechanical()		= spp->bMechanical;
 	if( spp->bMorale			!= -1 )			s->aiData.bMorale				= spp->bMorale;
 
 	//life can't exceed the life max.
@@ -2972,13 +2972,13 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 	// NOTE OF WARNING: THIS CURRENTLY IGNORES THE ENEMY CLASS (ADMIN/REG/ELITE) FOR CALCULATING LEVEL & ATTRIBUTES
 
 	// Rel level 0: Lvl 1-2, 1: Lvl 2-4, 2: Lvl 4-6, 3: Lvl 6-8, 4: Lvl 8-10
-	s->stats.bExpLevel = (INT8)(2 * bRelativeAttributeLevel + Random(3));
+	s->statistics().experienceLevel() = (INT8)(2 * bRelativeAttributeLevel + Random(3));
 
-	s->stats.bExpLevel = max( 1, s->stats.bExpLevel ); //minimum level of 1
-	s->stats.bExpLevel = min( 10, s->stats.bExpLevel ); //maximum level of 9 // 10
+	s->statistics().experienceLevel() = max( 1, s->statistics().experienceLevel() ); //minimum level of 1
+	s->statistics().experienceLevel() = min( 10, s->statistics().experienceLevel() ); //maximum level of 9 // 10
 
 	//Set the minimum base attribute
-	bBaseAttribute = 45 + ( 4 * s->stats.bExpLevel );
+	bBaseAttribute = 45 + ( 4 * s->statistics().experienceLevel() );
 
 	//Roll enemy's combat statistics, taking bExpLevel into account.
 	//Stat range is currently 49-100, slightly bell-curved around the bExpLevel
@@ -2986,15 +2986,15 @@ void ModifySoldierAttributesWithNewRelativeLevel( SOLDIERTYPE *s, INT8 bRelative
 	s->vitals().health()				= s->vitals().maximumHealth();
 	// added by SANDRO - insta-healable injury zero on soldier creation
 	s->vitals().healableInjury() = 0;
-	s->stats.bAgility				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bDexterity			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bMarksmanship	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bMedical				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bMechanical		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bExplosive			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bLeadership		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bStrength			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
-	s->stats.bWisdom				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().agility()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().dexterity()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().marksmanship()	= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().medical()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().mechanical()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().explosives()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().leadership()		= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().strength()			= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
+	s->statistics().wisdom()				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 	s->aiData.bMorale				= (INT8)(bBaseAttribute + Random( 9 ) + Random( 8 ));
 }
 
@@ -3646,14 +3646,14 @@ SOLDIERTYPE* TacticalCreateEnemyAssassin(UINT8 disguisetype)
 	{
 		// set correct stats
 		pSoldier->vitals().health() = pSoldier->vitals().maximumHealth() = (INT8)( 70 + Random( 26 ) );
-		pSoldier->stats.bAgility = (INT8)( 70 + Random( 16 ) );
+		pSoldier->statistics().agility() = (INT8)( 70 + Random( 16 ) );
 				
 		// add assassin flag
 		pSoldier->usSoldierFlagMask |= (SOLDIER_COVERT_SOLDIER|SOLDIER_ASSASSIN);
 
 		// add spy trait lvl2
-		pSoldier->stats.ubSkillTraits[0] = COVERT_NT;
-		pSoldier->stats.ubSkillTraits[1] = COVERT_NT;
+		pSoldier->statistics().skillTrait(0) = COVERT_NT;
+		pSoldier->statistics().skillTrait(1) = COVERT_NT;
 
 		// set correct civ group
 		pSoldier->ubCivilianGroup = ASSASSIN_CIV_GROUP;
@@ -4740,24 +4740,24 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 		{
 			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[0] > 0 )
 			{
-				pSoldier->stats.ubSkillTraits[0] = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[0];
+				pSoldier->statistics().skillTrait(0) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[0];
 				ATraitAssigned = TRUE;
 			}
 
 			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[1] > 0 )
 			{
-				pSoldier->stats.ubSkillTraits[1] = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[1];
+				pSoldier->statistics().skillTrait(1) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[1];
 				BTraitAssigned = TRUE;
 			}
 
 			if ( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2] > 0 )
 			{
 				// we have to make sure that not all 3 traits are major traits - if that happens, we ignore the third one
-				if ( MajorTrait( pSoldier->stats.ubSkillTraits[0] ) && MajorTrait( pSoldier->stats.ubSkillTraits[1] ) && MajorTrait( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2] ) )
+				if ( MajorTrait( pSoldier->statistics().skillTrait(0) ) && MajorTrait( pSoldier->statistics().skillTrait(1) ) && MajorTrait( zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2] ) )
 					;
 				else
 				{
-					pSoldier->stats.ubSkillTraits[2] = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2];
+					pSoldier->statistics().skillTrait(2) = zSoldierProfile[type][pSoldier->usSoldierProfile].uiTrait[2];
 					CTraitAssigned = TRUE;
 				}
 			}
@@ -4786,10 +4786,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			}
 			if ( Chance( iChance ) )
 			{
-				pSoldier->stats.ubSkillTraits[0] = SQUADLEADER_NT;
+				pSoldier->statistics().skillTrait(0) = SQUADLEADER_NT;
 				// raise level and leadership for this guy
-				pSoldier->stats.bExpLevel = min( 10, (pSoldier->stats.bExpLevel + 1) );
-				pSoldier->stats.bLeadership = min( 100, (pSoldier->stats.bLeadership + 20) );
+				pSoldier->statistics().experienceLevel() = min( 10, (pSoldier->statistics().experienceLevel() + 1) );
+				pSoldier->statistics().leadership() = min( 100, (pSoldier->statistics().leadership() + 20) );
 				ATraitAssigned = TRUE;
 
 				bNumSquadleadersInArmy++;
@@ -4818,20 +4818,20 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 		{
 			if ( !ATraitAssigned )
 			{
-				pSoldier->stats.ubSkillTraits[0] = SQUADLEADER_NT;
+				pSoldier->statistics().skillTrait(0) = SQUADLEADER_NT;
 				// raise level and leadership for this guy
-				pSoldier->stats.bExpLevel = min( 10, (pSoldier->stats.bExpLevel + 1) );
-				pSoldier->stats.bLeadership = min( 100, (pSoldier->stats.bLeadership + 20) );
+				pSoldier->statistics().experienceLevel() = min( 10, (pSoldier->statistics().experienceLevel() + 1) );
+				pSoldier->statistics().leadership() = min( 100, (pSoldier->statistics().leadership() + 20) );
 				ATraitAssigned = TRUE;
 
 				bNumSquadleadersInArmy++;
 			}
 			else
 			{
-				pSoldier->stats.ubSkillTraits[1] = SQUADLEADER_NT;
+				pSoldier->statistics().skillTrait(1) = SQUADLEADER_NT;
 				// raise level and leadership for this guy
-				pSoldier->stats.bExpLevel = min( 10, (pSoldier->stats.bExpLevel + 1) );
-				pSoldier->stats.bLeadership = min( 100, (pSoldier->stats.bLeadership + 20) );
+				pSoldier->statistics().experienceLevel() = min( 10, (pSoldier->statistics().experienceLevel() + 1) );
+				pSoldier->statistics().leadership() = min( 100, (pSoldier->statistics().leadership() + 20) );
 				BTraitAssigned = TRUE;
 
 				bNumSquadleadersInArmy++;
@@ -4876,9 +4876,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			if ( !ATraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[0] = AUTO_WEAPONS_NT;
+					pSoldier->statistics().skillTrait(0) = AUTO_WEAPONS_NT;
 				else
-					pSoldier->stats.ubSkillTraits[0] = AUTO_WEAPS_OT;
+					pSoldier->statistics().skillTrait(0) = AUTO_WEAPS_OT;
 
 				ATraitAssigned = TRUE;
 
@@ -4886,9 +4886,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				if ( Chance( iChance / 2 ) && !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPONS_NT;
+						pSoldier->statistics().skillTrait(1) = AUTO_WEAPONS_NT;
 					else
-						pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPS_OT;
+						pSoldier->statistics().skillTrait(1) = AUTO_WEAPS_OT;
 
 					BTraitAssigned = TRUE;
 				}
@@ -4896,9 +4896,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			else if ( !BTraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPONS_NT;
+					pSoldier->statistics().skillTrait(1) = AUTO_WEAPONS_NT;
 				else
-					pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPS_OT;
+					pSoldier->statistics().skillTrait(1) = AUTO_WEAPS_OT;
 
 				BTraitAssigned = TRUE;
 			}
@@ -4938,9 +4938,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			if ( !ATraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[0] = SNIPER_NT;
+					pSoldier->statistics().skillTrait(0) = SNIPER_NT;
 				else
-					pSoldier->stats.ubSkillTraits[0] = PROF_SNIPER_OT;
+					pSoldier->statistics().skillTrait(0) = PROF_SNIPER_OT;
 
 				ATraitAssigned = TRUE;
 
@@ -4948,9 +4948,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = SNIPER_NT;
+						pSoldier->statistics().skillTrait(1) = SNIPER_NT;
 					else
-						pSoldier->stats.ubSkillTraits[1] = PROF_SNIPER_OT;
+						pSoldier->statistics().skillTrait(1) = PROF_SNIPER_OT;
 
 					BTraitAssigned = TRUE;
 				}
@@ -4958,9 +4958,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			else if ( !BTraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[1] = SNIPER_NT;
+					pSoldier->statistics().skillTrait(1) = SNIPER_NT;
 				else
-					pSoldier->stats.ubSkillTraits[1] = PROF_SNIPER_OT;
+					pSoldier->statistics().skillTrait(1) = PROF_SNIPER_OT;
 
 				BTraitAssigned = TRUE;
 			}
@@ -5001,19 +5001,19 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = RANGER_NT;
+					pSoldier->statistics().skillTrait(0) = RANGER_NT;
 					ATraitAssigned = TRUE;
 
 					// Lower chance to assign expert level of the trait
 					if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = RANGER_NT;
+						pSoldier->statistics().skillTrait(1) = RANGER_NT;
 						BTraitAssigned = TRUE;
 					}
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = RANGER_NT;
+					pSoldier->statistics().skillTrait(1) = RANGER_NT;
 					BTraitAssigned = TRUE;
 				}
 			}
@@ -5025,12 +5025,12 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = PROF_SNIPER_OT;
+					pSoldier->statistics().skillTrait(0) = PROF_SNIPER_OT;
 					ATraitAssigned = TRUE;
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = PROF_SNIPER_OT;
+					pSoldier->statistics().skillTrait(1) = PROF_SNIPER_OT;
 					BTraitAssigned = TRUE;
 				}
 			}
@@ -5069,9 +5069,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			if ( !ATraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[0] = AUTO_WEAPONS_NT;
+					pSoldier->statistics().skillTrait(0) = AUTO_WEAPONS_NT;
 				else
-					pSoldier->stats.ubSkillTraits[0] = AUTO_WEAPS_OT;
+					pSoldier->statistics().skillTrait(0) = AUTO_WEAPS_OT;
 
 				ATraitAssigned = TRUE;
 
@@ -5079,9 +5079,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPONS_NT;
+						pSoldier->statistics().skillTrait(1) = AUTO_WEAPONS_NT;
 					else
-						pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPS_OT;
+						pSoldier->statistics().skillTrait(1) = AUTO_WEAPS_OT;
 
 					BTraitAssigned = TRUE;
 				}
@@ -5089,9 +5089,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			else if ( !BTraitAssigned )
 			{
 				if ( gGameOptions.fNewTraitSystem )
-					pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPONS_NT;
+					pSoldier->statistics().skillTrait(1) = AUTO_WEAPONS_NT;
 				else
-					pSoldier->stats.ubSkillTraits[1] = AUTO_WEAPS_OT;
+					pSoldier->statistics().skillTrait(1) = AUTO_WEAPS_OT;
 
 				BTraitAssigned = TRUE;
 			}
@@ -5106,13 +5106,13 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( gGameOptions.fNewTraitSystem )
 				{
-					if ( pSoldier->stats.ubSkillTraits[1] != AMBIDEXTROUS_NT && pSoldier->stats.ubSkillTraits[2] != AMBIDEXTROUS_NT ) // paranoya check
-						pSoldier->stats.ubSkillTraits[0] = AMBIDEXTROUS_NT;
+					if ( pSoldier->statistics().skillTrait(1) != AMBIDEXTROUS_NT && pSoldier->statistics().skillTrait(2) != AMBIDEXTROUS_NT ) // paranoya check
+						pSoldier->statistics().skillTrait(0) = AMBIDEXTROUS_NT;
 				}
 				else
 				{
-					if ( pSoldier->stats.ubSkillTraits[1] != AMBIDEXT_OT ) // paranoya check
-						pSoldier->stats.ubSkillTraits[0] = AMBIDEXT_OT;
+					if ( pSoldier->statistics().skillTrait(1) != AMBIDEXT_OT ) // paranoya check
+						pSoldier->statistics().skillTrait(0) = AMBIDEXT_OT;
 				}
 				ATraitAssigned = TRUE;
 			}
@@ -5120,20 +5120,20 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( gGameOptions.fNewTraitSystem )
 				{
-					if ( pSoldier->stats.ubSkillTraits[1] != AMBIDEXTROUS_NT && pSoldier->stats.ubSkillTraits[2] != AMBIDEXTROUS_NT ) // paranoya check
-						pSoldier->stats.ubSkillTraits[0] = AMBIDEXTROUS_NT;
+					if ( pSoldier->statistics().skillTrait(1) != AMBIDEXTROUS_NT && pSoldier->statistics().skillTrait(2) != AMBIDEXTROUS_NT ) // paranoya check
+						pSoldier->statistics().skillTrait(0) = AMBIDEXTROUS_NT;
 				}
 				else
 				{
-					if ( pSoldier->stats.ubSkillTraits[0] != AMBIDEXT_OT ) // paranoya check
-						pSoldier->stats.ubSkillTraits[1] = AMBIDEXT_OT;
+					if ( pSoldier->statistics().skillTrait(0) != AMBIDEXT_OT ) // paranoya check
+						pSoldier->statistics().skillTrait(1) = AMBIDEXT_OT;
 				}
 				BTraitAssigned = TRUE;
 			}
 			else if ( gGameOptions.fNewTraitSystem && (ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 			{
-				if ( pSoldier->stats.ubSkillTraits[0] != AMBIDEXTROUS_NT && pSoldier->stats.ubSkillTraits[1] != AMBIDEXTROUS_NT ) // paranoya check
-					pSoldier->stats.ubSkillTraits[2] = AMBIDEXTROUS_NT;
+				if ( pSoldier->statistics().skillTrait(0) != AMBIDEXTROUS_NT && pSoldier->statistics().skillTrait(1) != AMBIDEXTROUS_NT ) // paranoya check
+					pSoldier->statistics().skillTrait(2) = AMBIDEXTROUS_NT;
 
 				CTraitAssigned = TRUE;
 				return(TRUE); // We no longer need to continue from here
@@ -5175,20 +5175,20 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = GUNSLINGER_NT;
+					pSoldier->statistics().skillTrait(0) = GUNSLINGER_NT;
 					ATraitAssigned = TRUE;
 
 					// Lower chance to assign expert level of the trait
 					if ( Chance( iChance / 2 ) && !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = GUNSLINGER_NT;
+						pSoldier->statistics().skillTrait(1) = GUNSLINGER_NT;
 						BTraitAssigned = TRUE;
 
 						// elites can have third skill trait
 						if ( Chance( iChance / 3 ) && !ItemIsTwoHanded(pCreateStruct->Inv[HANDPOS].usItem) &&
 							(ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 						{
-							pSoldier->stats.ubSkillTraits[2] = AMBIDEXTROUS_NT;
+							pSoldier->statistics().skillTrait(2) = AMBIDEXTROUS_NT;
 							CTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5202,21 +5202,21 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 						else
 							(pCreateStruct->Inv[SECONDHANDPOS]) = (pCreateStruct->Inv[HANDPOS]);
 
-						pSoldier->stats.ubSkillTraits[1] = AMBIDEXTROUS_NT;
+						pSoldier->statistics().skillTrait(1) = AMBIDEXTROUS_NT;
 
 						BTraitAssigned = TRUE;
 					}
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = GUNSLINGER_NT;
+					pSoldier->statistics().skillTrait(1) = GUNSLINGER_NT;
 					BTraitAssigned = TRUE;
 
 					// elites can have third skill trait
 					if ( Chance( iChance / 3 ) && !ItemIsTwoHanded(pCreateStruct->Inv[HANDPOS].usItem) &&
 						(ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 					{
-						pSoldier->stats.ubSkillTraits[2] = AMBIDEXTROUS_NT;
+						pSoldier->statistics().skillTrait(2) = AMBIDEXTROUS_NT;
 						CTraitAssigned = TRUE;
 						return(TRUE); // We no longer need to continue from here
 					}
@@ -5226,7 +5226,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = AMBIDEXT_OT;
+					pSoldier->statistics().skillTrait(0) = AMBIDEXT_OT;
 					ATraitAssigned = TRUE;
 					// Ambidextrous trait gives us second weapon automatically
 					if ( !ItemIsTwoHanded(pCreateStruct->Inv[HANDPOS].usItem) )
@@ -5236,7 +5236,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = AMBIDEXT_OT;
+					pSoldier->statistics().skillTrait(1) = AMBIDEXT_OT;
 					BTraitAssigned = TRUE;
 					// Ambidextrous trait gives us second weapon automatically
 					if ( !ItemIsTwoHanded(pCreateStruct->Inv[HANDPOS].usItem) )
@@ -5316,18 +5316,18 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				// reasoning: this trait has to be one of the first evaluated - getting a radio set is rare, so e want to make sure we become a radio guy if we're lucky
 				if ( ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA )
 				{
-					pSoldier->stats.ubSkillTraits[2] = RADIO_OPERATOR_NT;
+					pSoldier->statistics().skillTrait(2) = RADIO_OPERATOR_NT;
 					CTraitAssigned = TRUE;
 					return(TRUE); // We no longer need to continue from here
 				}
 				else if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = RADIO_OPERATOR_NT;
+					pSoldier->statistics().skillTrait(0) = RADIO_OPERATOR_NT;
 					ATraitAssigned = TRUE;
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = RADIO_OPERATOR_NT;
+					pSoldier->statistics().skillTrait(1) = RADIO_OPERATOR_NT;
 					BTraitAssigned = TRUE;
 				}
 			}
@@ -5362,9 +5362,9 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				if ( !ATraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[0] = HEAVY_WEAPONS_NT;
+						pSoldier->statistics().skillTrait(0) = HEAVY_WEAPONS_NT;
 					else
-						pSoldier->stats.ubSkillTraits[0] = HEAVY_WEAPS_OT;
+						pSoldier->statistics().skillTrait(0) = HEAVY_WEAPS_OT;
 
 					ATraitAssigned = TRUE;
 
@@ -5372,10 +5372,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 					if ( Chance( iChance / 2 ) && !BTraitAssigned )
 					{
 						if ( gGameOptions.fNewTraitSystem )
-							pSoldier->stats.ubSkillTraits[1] = HEAVY_WEAPONS_NT;
+							pSoldier->statistics().skillTrait(1) = HEAVY_WEAPONS_NT;
 						else
 						{
-							pSoldier->stats.ubSkillTraits[1] = HEAVY_WEAPS_OT;
+							pSoldier->statistics().skillTrait(1) = HEAVY_WEAPS_OT;
 							return(TRUE); // We no longer need to continue from here
 						}
 						BTraitAssigned = TRUE;
@@ -5384,10 +5384,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				else if ( !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = HEAVY_WEAPONS_NT;
+						pSoldier->statistics().skillTrait(1) = HEAVY_WEAPONS_NT;
 					else
 					{
-						pSoldier->stats.ubSkillTraits[1] = HEAVY_WEAPS_OT;
+						pSoldier->statistics().skillTrait(1) = HEAVY_WEAPS_OT;
 						return(TRUE); // We no longer need to continue from here
 					}
 					BTraitAssigned = TRUE;
@@ -5422,19 +5422,19 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
+					pSoldier->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
 					ATraitAssigned = TRUE;
 
 					// reduced chance to be an expert
 					if ( Chance( iChance / 4 ) && !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = MARTIAL_ARTS_NT;
+						pSoldier->statistics().skillTrait(1) = MARTIAL_ARTS_NT;
 						BTraitAssigned = TRUE;
 					}
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = MARTIAL_ARTS_NT;
+					pSoldier->statistics().skillTrait(1) = MARTIAL_ARTS_NT;
 					BTraitAssigned = TRUE;
 				}
 			}
@@ -5466,18 +5466,18 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				{
 					if ( gGameOptions.fNewTraitSystem )
 					{
-						pSoldier->stats.ubSkillTraits[0] = NIGHT_OPS_NT;
+						pSoldier->statistics().skillTrait(0) = NIGHT_OPS_NT;
 						ATraitAssigned = TRUE;
 					}
 					else
 					{
-						pSoldier->stats.ubSkillTraits[0] = NIGHTOPS_OT;
+						pSoldier->statistics().skillTrait(0) = NIGHTOPS_OT;
 						ATraitAssigned = TRUE;
 
 						// reduced chance to be an expert
 						if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[1] = NIGHTOPS_OT;
+							pSoldier->statistics().skillTrait(1) = NIGHTOPS_OT;
 							BTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5486,10 +5486,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				else if ( !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = NIGHT_OPS_NT;
+						pSoldier->statistics().skillTrait(1) = NIGHT_OPS_NT;
 					else
 					{
-						pSoldier->stats.ubSkillTraits[1] = NIGHTOPS_OT;
+						pSoldier->statistics().skillTrait(1) = NIGHTOPS_OT;
 						return(TRUE); // We no longer need to continue from here
 					}
 					BTraitAssigned = TRUE;
@@ -5497,7 +5497,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				// allow third only to elites
 				else if ( !CTraitAssigned && gGameOptions.fNewTraitSystem && (ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 				{
-					pSoldier->stats.ubSkillTraits[2] = NIGHT_OPS_NT;
+					pSoldier->statistics().skillTrait(2) = NIGHT_OPS_NT;
 					CTraitAssigned = TRUE;
 					return(TRUE);
 				}
@@ -5528,18 +5528,18 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				{
 					if ( gGameOptions.fNewTraitSystem )
 					{
-						pSoldier->stats.ubSkillTraits[0] = THROWING_NT;
+						pSoldier->statistics().skillTrait(0) = THROWING_NT;
 						ATraitAssigned = TRUE;
 					}
 					else
 					{
-						pSoldier->stats.ubSkillTraits[0] = THROWING_OT;
+						pSoldier->statistics().skillTrait(0) = THROWING_OT;
 						ATraitAssigned = TRUE;
 
 						// reduced the chance to be an expert
 						if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[1] = THROWING_OT;
+							pSoldier->statistics().skillTrait(1) = THROWING_OT;
 							BTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5548,10 +5548,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				else if ( !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = THROWING_NT;
+						pSoldier->statistics().skillTrait(1) = THROWING_NT;
 					else
 					{
-						pSoldier->stats.ubSkillTraits[1] = THROWING_OT;
+						pSoldier->statistics().skillTrait(1) = THROWING_OT;
 						return(TRUE); // We no longer need to continue from here
 					}
 
@@ -5560,7 +5560,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				// allow third only to elites
 				else if ( !CTraitAssigned && gGameOptions.fNewTraitSystem && (ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 				{
-					pSoldier->stats.ubSkillTraits[2] = THROWING_NT;
+					pSoldier->statistics().skillTrait(2) = THROWING_NT;
 					CTraitAssigned = TRUE;
 					return(TRUE);
 				}
@@ -5592,18 +5592,18 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 
 					if ( gGameOptions.fNewTraitSystem )
 					{
-						pSoldier->stats.ubSkillTraits[0] = MELEE_NT;
+						pSoldier->statistics().skillTrait(0) = MELEE_NT;
 						ATraitAssigned = TRUE;
 					}
 					else
 					{
-						pSoldier->stats.ubSkillTraits[0] = KNIFING_OT;
+						pSoldier->statistics().skillTrait(0) = KNIFING_OT;
 						ATraitAssigned = TRUE;
 
 						// reduced the chance to be an expert
 						if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[1] = KNIFING_OT;
+							pSoldier->statistics().skillTrait(1) = KNIFING_OT;
 							BTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5612,10 +5612,10 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				else if ( !BTraitAssigned )
 				{
 					if ( gGameOptions.fNewTraitSystem )
-						pSoldier->stats.ubSkillTraits[1] = MELEE_NT;
+						pSoldier->statistics().skillTrait(1) = MELEE_NT;
 					else
 					{
-						pSoldier->stats.ubSkillTraits[1] = KNIFING_OT;
+						pSoldier->statistics().skillTrait(1) = KNIFING_OT;
 						return(TRUE); // We no longer need to continue from here
 					}
 					BTraitAssigned = TRUE;
@@ -5623,7 +5623,7 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				// allow third only to elites
 				else if ( !CTraitAssigned && gGameOptions.fNewTraitSystem && (ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 				{
-					pSoldier->stats.ubSkillTraits[2] = MELEE_NT;
+					pSoldier->statistics().skillTrait(2) = MELEE_NT;
 					CTraitAssigned = TRUE;
 					return(TRUE); // We no longer need to continue from here
 				}
@@ -5652,20 +5652,20 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = HANDTOHAND_OT;
+					pSoldier->statistics().skillTrait(0) = HANDTOHAND_OT;
 					ATraitAssigned = TRUE;
 
 					// half the chance to be an expert
 					if ( Chance( iChance * 2 / 5 ) && !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = HANDTOHAND_OT;
+						pSoldier->statistics().skillTrait(1) = HANDTOHAND_OT;
 						BTraitAssigned = TRUE;
 						return(TRUE); // We no longer need to continue from here
 					}
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = HANDTOHAND_OT;
+					pSoldier->statistics().skillTrait(1) = HANDTOHAND_OT;
 					BTraitAssigned = TRUE;
 					return(TRUE); // We no longer need to continue from here
 				}
@@ -5694,20 +5694,20 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = MARTIALARTS_OT;
+					pSoldier->statistics().skillTrait(0) = MARTIALARTS_OT;
 					ATraitAssigned = TRUE;
 
 					// reduced chance to be an expert
 					if ( Chance( iChance / 2 ) && !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = MARTIALARTS_OT;
+						pSoldier->statistics().skillTrait(1) = MARTIALARTS_OT;
 						BTraitAssigned = TRUE;
 						return(TRUE); // We no longer need to continue from here
 					}
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = MARTIALARTS_OT;
+					pSoldier->statistics().skillTrait(1) = MARTIALARTS_OT;
 					BTraitAssigned = TRUE;
 					return(TRUE); // We no longer need to continue from here
 				}
@@ -5746,17 +5746,17 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				{
 					if ( !ATraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[0] = BODYBUILDING_NT;
+						pSoldier->statistics().skillTrait(0) = BODYBUILDING_NT;
 						ATraitAssigned = TRUE;
 					}
 					else if ( !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = BODYBUILDING_NT;
+						pSoldier->statistics().skillTrait(1) = BODYBUILDING_NT;
 						BTraitAssigned = TRUE;
 					}
 					else if ( ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA )
 					{
-						pSoldier->stats.ubSkillTraits[2] = BODYBUILDING_NT;
+						pSoldier->statistics().skillTrait(2) = BODYBUILDING_NT;
 						CTraitAssigned = TRUE;
 						return(TRUE); // We no longer need to continue from here
 					}
@@ -5765,17 +5765,17 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 					{
 						if ( !ATraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[0] = ATHLETICS_NT;
+							pSoldier->statistics().skillTrait(0) = ATHLETICS_NT;
 							ATraitAssigned = TRUE;
 						}
 						else if ( !BTraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[1] = ATHLETICS_NT;
+							pSoldier->statistics().skillTrait(1) = ATHLETICS_NT;
 							BTraitAssigned = TRUE;
 						}
 						else if ( ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA )
 						{
-							pSoldier->stats.ubSkillTraits[2] = ATHLETICS_NT;
+							pSoldier->statistics().skillTrait(2) = ATHLETICS_NT;
 							CTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5785,17 +5785,17 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 				{
 					if ( !ATraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[0] = ATHLETICS_NT;
+						pSoldier->statistics().skillTrait(0) = ATHLETICS_NT;
 						ATraitAssigned = TRUE;
 					}
 					else if ( !BTraitAssigned )
 					{
-						pSoldier->stats.ubSkillTraits[1] = ATHLETICS_NT;
+						pSoldier->statistics().skillTrait(1) = ATHLETICS_NT;
 						BTraitAssigned = TRUE;
 					}
 					else if ( ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA )
 					{
-						pSoldier->stats.ubSkillTraits[2] = ATHLETICS_NT;
+						pSoldier->statistics().skillTrait(2) = ATHLETICS_NT;
 						CTraitAssigned = TRUE;
 						return(TRUE); // We no longer need to continue from here
 					}
@@ -5804,17 +5804,17 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 					{
 						if ( !ATraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[0] = BODYBUILDING_NT;
+							pSoldier->statistics().skillTrait(0) = BODYBUILDING_NT;
 							ATraitAssigned = TRUE;
 						}
 						else if ( !BTraitAssigned )
 						{
-							pSoldier->stats.ubSkillTraits[1] = BODYBUILDING_NT;
+							pSoldier->statistics().skillTrait(1) = BODYBUILDING_NT;
 							BTraitAssigned = TRUE;
 						}
 						else if ( ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA )
 						{
-							pSoldier->stats.ubSkillTraits[2] = BODYBUILDING_NT;
+							pSoldier->statistics().skillTrait(2) = BODYBUILDING_NT;
 							CTraitAssigned = TRUE;
 							return(TRUE); // We no longer need to continue from here
 						}
@@ -5845,18 +5845,18 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = DEMOLITIONS_NT;
+					pSoldier->statistics().skillTrait(0) = DEMOLITIONS_NT;
 					ATraitAssigned = TRUE;
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = DEMOLITIONS_NT;
+					pSoldier->statistics().skillTrait(1) = DEMOLITIONS_NT;
 					BTraitAssigned = TRUE;
 				}
 				// allow third only to elites
 				else if ( !CTraitAssigned && gGameOptions.fNewTraitSystem && (ubSolClass == SOLDIER_CLASS_ELITE || ubSolClass == SOLDIER_CLASS_ELITE_MILITIA) )
 				{
-					pSoldier->stats.ubSkillTraits[2] = DEMOLITIONS_NT;
+					pSoldier->statistics().skillTrait(2) = DEMOLITIONS_NT;
 					CTraitAssigned = TRUE;
 					return(TRUE);
 				}
@@ -5871,26 +5871,26 @@ BOOLEAN AssignTraitsToSoldier( SOLDIERTYPE *pSoldier, SOLDIERCREATE_STRUCT *pCre
 			{
 				if ( !ATraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[0] = DOCTOR_NT;
+					pSoldier->statistics().skillTrait(0) = DOCTOR_NT;
 					ATraitAssigned = TRUE;
 
 					// if we found a medkit, chance to become a full doctor
 					if ( !BTraitAssigned && fMedKitFound && Chance( 50 ) )
 					{
-						pSoldier->stats.ubSkillTraits[1] = DOCTOR_NT;
+						pSoldier->statistics().skillTrait(1) = DOCTOR_NT;
 						BTraitAssigned = TRUE;
 					}
 
 					// make sure we ar reasonably skilled
-					pSoldier->stats.bMedical = max( pSoldier->stats.bMedical, 50 );
+					pSoldier->statistics().medical() = max( pSoldier->statistics().medical(), 50 );
 				}
 				else if ( !BTraitAssigned )
 				{
-					pSoldier->stats.ubSkillTraits[1] = DOCTOR_NT;
+					pSoldier->statistics().skillTrait(1) = DOCTOR_NT;
 					BTraitAssigned = TRUE;
 
 					// make sure we ar reasonably skilled
-					pSoldier->stats.bMedical = max( pSoldier->stats.bMedical, 50 );
+					pSoldier->statistics().medical() = max( pSoldier->statistics().medical(), 50 );
 				}
 			}
 		}

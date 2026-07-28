@@ -1203,9 +1203,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bStrength - 1))
-								Result = -1*(pSoldier->stats.bStrength - 1);
-							pSoldier->stats.bStrength += Result;
+							if ( (-1*Result) > (pSoldier->statistics().strength() - 1))
+								Result = -1*(pSoldier->statistics().strength() - 1);
+							pSoldier->statistics().strength() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] -= Result;
@@ -1217,7 +1217,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(STRENGTH_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
+							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1255,9 +1255,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bAgility - 1))
-								Result = -1*(pSoldier->stats.bAgility - 1);
-							pSoldier->stats.bAgility += Result;
+							if ( (-1*Result) > (pSoldier->statistics().agility() - 1))
+								Result = -1*(pSoldier->statistics().agility() - 1);
+							pSoldier->statistics().agility() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] -= Result;
@@ -1269,7 +1269,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(AGIL_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->stats.bAgility;
+							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->statistics().agility();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1307,9 +1307,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bDexterity - 1))
-								Result = -1*(pSoldier->stats.bDexterity - 1);
-							pSoldier->stats.bDexterity += Result;
+							if ( (-1*Result) > (pSoldier->statistics().dexterity() - 1))
+								Result = -1*(pSoldier->statistics().dexterity() - 1);
+							pSoldier->statistics().dexterity() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] -= Result;
@@ -1321,7 +1321,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(DEX_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity	= pSoldier->stats.bDexterity;
+							gMercProfiles[ pSoldier->ubProfile ].bDexterity	= pSoldier->statistics().dexterity();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1359,9 +1359,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bWisdom - 1))
-								Result = -1*(pSoldier->stats.bWisdom - 1);
-							pSoldier->stats.bWisdom += Result;
+							if ( (-1*Result) > (pSoldier->statistics().wisdom() - 1))
+								Result = -1*(pSoldier->statistics().wisdom() - 1);
+							pSoldier->statistics().wisdom() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] -= Result;
@@ -1373,7 +1373,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(WIS_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->stats.bWisdom;
+							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->statistics().wisdom();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1484,9 +1484,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bMarksmanship - 1))
-								Result = -1*(pSoldier->stats.bMarksmanship - 1);
-							pSoldier->stats.bMarksmanship += Result;
+							if ( (-1*Result) > (pSoldier->statistics().marksmanship() - 1))
+								Result = -1*(pSoldier->statistics().marksmanship() - 1);
+							pSoldier->statistics().marksmanship() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MARKSMANSHIP ] -= Result;
@@ -1498,7 +1498,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MRK_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMarksmanship	= pSoldier->stats.bMarksmanship;
+							gMercProfiles[ pSoldier->ubProfile ].bMarksmanship	= pSoldier->statistics().marksmanship();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1536,9 +1536,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bLeadership - 1))
-								Result = -1*(pSoldier->stats.bLeadership - 1);
-							pSoldier->stats.bLeadership += Result;
+							if ( (-1*Result) > (pSoldier->statistics().leadership() - 1))
+								Result = -1*(pSoldier->statistics().leadership() - 1);
+							pSoldier->statistics().leadership() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_LEADERSHIP ] -= Result;
@@ -1550,7 +1550,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(LDR_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bLeadership	= pSoldier->stats.bLeadership;
+							gMercProfiles[ pSoldier->ubProfile ].bLeadership	= pSoldier->statistics().leadership();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1588,9 +1588,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bMechanical - 1))
-								Result = -1*(pSoldier->stats.bMechanical - 1);
-							pSoldier->stats.bMechanical += Result;
+							if ( (-1*Result) > (pSoldier->statistics().mechanical() - 1))
+								Result = -1*(pSoldier->statistics().mechanical() - 1);
+							pSoldier->statistics().mechanical() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MECHANICAL ] -= Result;
@@ -1602,7 +1602,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MECH_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMechanical	= pSoldier->stats.bMechanical;
+							gMercProfiles[ pSoldier->ubProfile ].bMechanical	= pSoldier->statistics().mechanical();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1640,9 +1640,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bMedical - 1))
-								Result = -1*(pSoldier->stats.bMedical - 1);
-							pSoldier->stats.bMedical += Result;
+							if ( (-1*Result) > (pSoldier->statistics().medical() - 1))
+								Result = -1*(pSoldier->statistics().medical() - 1);
+							pSoldier->statistics().medical() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_MEDICAL ] -= Result;
@@ -1654,7 +1654,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(MED_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bMedical	= pSoldier->stats.bMedical;
+							gMercProfiles[ pSoldier->ubProfile ].bMedical	= pSoldier->statistics().medical();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1692,9 +1692,9 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							// Soldier is suffering direct stat damage.
 							///////////////////////////////////////////////////////////////////////////////////////////
 							// SANDRO - if our stat is damaged through facility event, make it healable
-							if ( (-1*Result) > (pSoldier->stats.bExplosive - 1))
-								Result = -1*(pSoldier->stats.bExplosive - 1);
-							pSoldier->stats.bExplosive += Result;
+							if ( (-1*Result) > (pSoldier->statistics().explosives() - 1))
+								Result = -1*(pSoldier->statistics().explosives() - 1);
+							pSoldier->statistics().explosives() += Result;
 							if ( gGameOptions.fNewTraitSystem && (Result <= 0) )
 							{
 								pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_EXPLOSIVES ] -= Result;
@@ -1706,7 +1706,7 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 								pSoldier->statProgress().clearIncreased(EXP_INCREASE);
 							}
 							// Update Profile
-							gMercProfiles[ pSoldier->ubProfile ].bExplosive	= pSoldier->stats.bExplosive;
+							gMercProfiles[ pSoldier->ubProfile ].bExplosive	= pSoldier->statistics().explosives();
 
 							// merc records - stat damaged
 							if( Result < 0 )
@@ -1850,56 +1850,56 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							if ( gGameOptions.fNewTraitSystem )
 							{
 								// WISDOM decrease
-								if ( pSoldier->stats.bWisdom > 5 )
+								if ( pSoldier->statistics().wisdom() > 5 )
 								{
 									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] += 5;
-									pSoldier->stats.bWisdom -= 5;
+									pSoldier->statistics().wisdom() -= 5;
 								}
 								else
 								{
-									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] += (pSoldier->stats.bWisdom - 1);
-									pSoldier->stats.bWisdom = 1;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_WISDOM ] += (pSoldier->statistics().wisdom() - 1);
+									pSoldier->statistics().wisdom() = 1;
 								}
 								// DEXTERITY decrease
-								if ( pSoldier->stats.bDexterity > 5 )
+								if ( pSoldier->statistics().dexterity() > 5 )
 								{
 									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] += 5;
-									pSoldier->stats.bDexterity -= 5;
+									pSoldier->statistics().dexterity() -= 5;
 								}
 								else
 								{
-									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] += (pSoldier->stats.bDexterity - 1);
-									pSoldier->stats.bDexterity = 1;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_DEXTERITY ] += (pSoldier->statistics().dexterity() - 1);
+									pSoldier->statistics().dexterity() = 1;
 								}
 								// STRENGTH decrease
-								if ( pSoldier->stats.bStrength > 5 )
+								if ( pSoldier->statistics().strength() > 5 )
 								{
 									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] += 5;
-									pSoldier->stats.bStrength -= 5;
+									pSoldier->statistics().strength() -= 5;
 								}
 								else
 								{
-									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] += (pSoldier->stats.bStrength - 1);
-									pSoldier->stats.bStrength = 1;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_STRENGTH ] += (pSoldier->statistics().strength() - 1);
+									pSoldier->statistics().strength() = 1;
 								}
 								// AGILITY decrease
-								if ( pSoldier->stats.bAgility > 5 )
+								if ( pSoldier->statistics().agility() > 5 )
 								{
 									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] += 5;
-									pSoldier->stats.bAgility -= 5;
+									pSoldier->statistics().agility() -= 5;
 								}
 								else
 								{
-									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] += (pSoldier->stats.bAgility - 1);
-									pSoldier->stats.bAgility = 1;
+									pSoldier->vitals().criticalStatDamage()[ DAMAGED_STAT_AGILITY ] += (pSoldier->statistics().agility() - 1);
+									pSoldier->statistics().agility() = 1;
 								}
 							}
 							else // old system
 							{
-								pSoldier->stats.bAgility	= __max(1, pSoldier->stats.bWisdom-5);
-								pSoldier->stats.bDexterity	= __max(1, pSoldier->stats.bDexterity-5);
-								pSoldier->stats.bStrength	= __max(1, pSoldier->stats.bStrength-5);
-								pSoldier->stats.bAgility	= __max(1, pSoldier->stats.bAgility-5);
+								pSoldier->statistics().agility()	= __max(1, pSoldier->statistics().wisdom()-5);
+								pSoldier->statistics().dexterity()	= __max(1, pSoldier->statistics().dexterity()-5);
+								pSoldier->statistics().strength()	= __max(1, pSoldier->statistics().strength()-5);
+								pSoldier->statistics().agility()	= __max(1, pSoldier->statistics().agility()-5);
 
 								// make those stats RED for a while...
 								// SANDRO - we don't need to do this with new system, as we simply show all damaged stats in red until healed
@@ -1914,10 +1914,10 @@ void HandleRisksForSoldierFacilityAssignment( SOLDIERTYPE *pSoldier, UINT8 ubFac
 							}
 
 							// export stat changes to profile
-							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->stats.bWisdom;
-							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->stats.bDexterity;
-							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->stats.bStrength;
-							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->stats.bAgility;
+							gMercProfiles[ pSoldier->ubProfile ].bWisdom	= pSoldier->statistics().wisdom();
+							gMercProfiles[ pSoldier->ubProfile ].bDexterity = pSoldier->statistics().dexterity();
+							gMercProfiles[ pSoldier->ubProfile ].bStrength	= pSoldier->statistics().strength();
+							gMercProfiles[ pSoldier->ubProfile ].bAgility	= pSoldier->statistics().agility();
 
 							fBadResult = TRUE; // stop the time, call a doctor, we had a heart attack!
 

@@ -3080,42 +3080,42 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 			case 4:
 				if ( gGameOptions.fNewTraitSystem )
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
-				pNewSoldier->stats.ubSkillTraits[1] = MARTIAL_ARTS_NT;
-				pNewSoldier->stats.ubSkillTraits[2] = ATHLETICS_NT;
+				pNewSoldier->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
+				pNewSoldier->statistics().skillTrait(1) = MARTIAL_ARTS_NT;
+				pNewSoldier->statistics().skillTrait(2) = ATHLETICS_NT;
 				}
 				else
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = HANDTOHAND_OT;
-				pNewSoldier->stats.ubSkillTraits[1] = MARTIALARTS_OT;
+				pNewSoldier->statistics().skillTrait(0) = HANDTOHAND_OT;
+				pNewSoldier->statistics().skillTrait(1) = MARTIALARTS_OT;
 				}
 				break;
 				
 			case 3:
 				if ( gGameOptions.fNewTraitSystem )
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
-				pNewSoldier->stats.ubSkillTraits[1] = ATHLETICS_NT;
-				pNewSoldier->stats.ubSkillTraits[2] = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
+				pNewSoldier->statistics().skillTrait(1) = ATHLETICS_NT;
+				pNewSoldier->statistics().skillTrait(2) = NO_SKILLTRAIT_NT;
 				}
 				else
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = HANDTOHAND_OT;
-				pNewSoldier->stats.ubSkillTraits[1] = NO_SKILLTRAIT_OT;
+				pNewSoldier->statistics().skillTrait(0) = HANDTOHAND_OT;
+				pNewSoldier->statistics().skillTrait(1) = NO_SKILLTRAIT_OT;
 				}
 				break;
 
 			case 2:
 				if ( gGameOptions.fNewTraitSystem )
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
-				pNewSoldier->stats.ubSkillTraits[1] = NO_SKILLTRAIT_NT;
-				pNewSoldier->stats.ubSkillTraits[2] = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
+				pNewSoldier->statistics().skillTrait(1) = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(2) = NO_SKILLTRAIT_NT;
 				}
 				else
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = NO_SKILLTRAIT_OT;
-				pNewSoldier->stats.ubSkillTraits[1] = NO_SKILLTRAIT_OT;
+				pNewSoldier->statistics().skillTrait(0) = NO_SKILLTRAIT_OT;
+				pNewSoldier->statistics().skillTrait(1) = NO_SKILLTRAIT_OT;
 				}
 				break;
 
@@ -3123,14 +3123,14 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 			default:
 				if ( gGameOptions.fNewTraitSystem )
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = NO_SKILLTRAIT_NT;
-				pNewSoldier->stats.ubSkillTraits[1] = NO_SKILLTRAIT_NT;
-				pNewSoldier->stats.ubSkillTraits[2] = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(0) = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(1) = NO_SKILLTRAIT_NT;
+				pNewSoldier->statistics().skillTrait(2) = NO_SKILLTRAIT_NT;
 				}
 				else
 				{
-				pNewSoldier->stats.ubSkillTraits[0] = NO_SKILLTRAIT_OT;
-				pNewSoldier->stats.ubSkillTraits[1] = NO_SKILLTRAIT_OT;
+				pNewSoldier->statistics().skillTrait(0) = NO_SKILLTRAIT_OT;
+				pNewSoldier->statistics().skillTrait(1) = NO_SKILLTRAIT_OT;
 				}
 				break;
 		}

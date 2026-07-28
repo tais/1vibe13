@@ -785,19 +785,19 @@ void ChangeBaseSoldierStats( SOLDIERTYPE *pSoldier )
 	pSoldier->vitals().bleeding()	= 0;
 	pSoldier->vitals().breath()	= 100;
 
-	pSoldier->stats.bMarksmanship	= (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bMedical = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bMechanical = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bExplosive = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bAgility = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bDexterity = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().marksmanship()	= (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().medical() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().mechanical() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().explosives() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().agility() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().dexterity() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 
-	pSoldier->stats.bStrength = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bLeadership = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bWisdom = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
-	pSoldier->stats.bScientific = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().strength() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().leadership() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().wisdom() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
+	pSoldier->statistics().scientific() = (UINT8)(sBaseStat[sCurBaseDiff] + (UINT16)(Random(BASE_STAT_DEVIATION * 2)-BASE_STAT_DEVIATION));
 
-	pSoldier->stats.bExpLevel = (UINT8)sBaseExpLvl[sCurBaseDiff];
+	pSoldier->statistics().experienceLevel() = (UINT8)sBaseExpLvl[sCurBaseDiff];
 	pSoldier->fireControl().gunType() = (INT8)Random(BASE_GUNTYPE_DEVIATION);
 
 	pSoldier->actionPoints().current() = pSoldier->CalcActionPoints( );
@@ -875,16 +875,16 @@ void DisplayEditMercWindow( void )
 	// Get stats
 	iEditStat[0] = pSoldier->vitals().maximumHealth();			// 12 13
 	iEditStat[1] = pSoldier->vitals().health();						// 14 15
-	iEditStat[2] = pSoldier->stats.bStrength;		// 16 17
-	iEditStat[3] = pSoldier->stats.bAgility;		// 18 19
-	iEditStat[4] = pSoldier->stats.bDexterity;		// 20 21
-	iEditStat[5] = pSoldier->stats.bLeadership;	 // 22 23
-	iEditStat[6] = pSoldier->stats.bWisdom;		 // 24 25
-	iEditStat[7] = pSoldier->stats.bMarksmanship;	// 26 27
-	iEditStat[8] = pSoldier->stats.bExplosive;		// 28 29
-	iEditStat[9] = pSoldier->stats.bMedical;		// 30 31
-	iEditStat[10] = pSoldier->stats.bScientific;	// 32 33
-	iEditStat[11] = pSoldier->stats.bExpLevel;		// 34 35
+	iEditStat[2] = pSoldier->statistics().strength();		// 16 17
+	iEditStat[3] = pSoldier->statistics().agility();		// 18 19
+	iEditStat[4] = pSoldier->statistics().dexterity();		// 20 21
+	iEditStat[5] = pSoldier->statistics().leadership();	 // 22 23
+	iEditStat[6] = pSoldier->statistics().wisdom();		 // 24 25
+	iEditStat[7] = pSoldier->statistics().marksmanship();	// 26 27
+	iEditStat[8] = pSoldier->statistics().explosives();		// 28 29
+	iEditStat[9] = pSoldier->statistics().medical();		// 30 31
+	iEditStat[10] = pSoldier->statistics().scientific();	// 32 33
+	iEditStat[11] = pSoldier->statistics().experienceLevel();		// 34 35
 
 	// Stat value windows
 	for ( x = 0; x < 12; x++ )

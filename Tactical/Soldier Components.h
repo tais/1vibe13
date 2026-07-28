@@ -150,6 +150,60 @@ private:
 	INT32 lastBleedGruntAt_ = 0;
 };
 
+// Canonical base attributes and learned trait slots. Reference accessors keep
+// the established hot-path mutations zero-cost while one owner defines the
+// complete reset and persistent-capacity boundary.
+class SoldierStatisticsComponent
+{
+public:
+	static constexpr UINT8 SkillTraitCapacity = 30;
+	using SkillTraits = UINT8[SkillTraitCapacity];
+
+	INT8& experienceLevel() noexcept { return experienceLevel_; }
+	const INT8& experienceLevel() const noexcept { return experienceLevel_; }
+	INT8& strength() noexcept { return strength_; }
+	const INT8& strength() const noexcept { return strength_; }
+	INT8& agility() noexcept { return agility_; }
+	const INT8& agility() const noexcept { return agility_; }
+	INT8& dexterity() noexcept { return dexterity_; }
+	const INT8& dexterity() const noexcept { return dexterity_; }
+	INT8& wisdom() noexcept { return wisdom_; }
+	const INT8& wisdom() const noexcept { return wisdom_; }
+	INT8& leadership() noexcept { return leadership_; }
+	const INT8& leadership() const noexcept { return leadership_; }
+	INT8& marksmanship() noexcept { return marksmanship_; }
+	const INT8& marksmanship() const noexcept { return marksmanship_; }
+	INT8& mechanical() noexcept { return mechanical_; }
+	const INT8& mechanical() const noexcept { return mechanical_; }
+	INT8& explosives() noexcept { return explosives_; }
+	const INT8& explosives() const noexcept { return explosives_; }
+	INT8& medical() noexcept { return medical_; }
+	const INT8& medical() const noexcept { return medical_; }
+	INT8& scientific() noexcept { return scientific_; }
+	const INT8& scientific() const noexcept { return scientific_; }
+	UINT8& skillTrait(UINT8 index) noexcept { return skillTraits_[index]; }
+	const UINT8& skillTrait(UINT8 index) const noexcept
+	{
+		return skillTraits_[index];
+	}
+
+	void reset() noexcept;
+
+private:
+	INT8 experienceLevel_ = 0;
+	INT8 strength_ = 0;
+	INT8 agility_ = 0;
+	INT8 dexterity_ = 0;
+	INT8 wisdom_ = 0;
+	INT8 leadership_ = 0;
+	INT8 marksmanship_ = 0;
+	INT8 mechanical_ = 0;
+	INT8 explosives_ = 0;
+	INT8 medical_ = 0;
+	INT8 scientific_ = 0;
+	SkillTraits skillTraits_{};
+};
+
 // Canonical tactical service relationship. A provider points at one patient,
 // while the patient counts all active providers and may reserve one medic
 // during automatic bandaging. The persisted activity marker is retained

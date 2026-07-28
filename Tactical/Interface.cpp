@@ -2160,7 +2160,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 							{
 								if (zEnemyRank[iCounter2].Enabled == 1)
 								{		
-									if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->stats.bExpLevel == zEnemyRank[iCounter2].ExpLevel )  
+									if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->statistics().experienceLevel() == zEnemyRank[iCounter2].ExpLevel )
 									{
 										swprintf(NameStr, zEnemyRank[iCounter2].szCurRank);
 
@@ -2302,7 +2302,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 					{
 						if (zEnemyRank[iCounter2].Enabled == 1)
 						{
-							if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->stats.bExpLevel == zEnemyRank[iCounter2].ExpLevel )  
+							if ( zEnemyRank[iCounter2].Stats == 0 && pSoldier->statistics().experienceLevel() == zEnemyRank[iCounter2].ExpLevel )
 							{
 								swprintf(NameStr, zEnemyRank[iCounter2].szCurRank);
 

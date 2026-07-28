@@ -1561,7 +1561,7 @@ static UINT32 AutoBandageMercs()
 	{
 		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
 			!gpMercs[ i ].pSoldier->collapseState().tactical() &&
-				gpMercs[ i ].pSoldier->stats.bMedical > 0 &&
+				gpMercs[ i ].pSoldier->statistics().medical() > 0 &&
 				( bSlot = FindObjClass( gpMercs[ i ].pSoldier, IC_MEDKIT ) ) != NO_SLOT )
 		{
 			fFound = TRUE;
@@ -1597,9 +1597,9 @@ static UINT32 AutoBandageMercs()
 	iBest = 0;
 	for( i = 0; i < gpAR->ubMercs; i++ )
 	{
-		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE && !gpMercs[ i ].pSoldier->collapseState().tactical() && gpMercs[ i ].pSoldier->stats.bMedical > 0 )
+		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE && !gpMercs[ i ].pSoldier->collapseState().tactical() && gpMercs[ i ].pSoldier->statistics().medical() > 0 )
 		{
-			if( gpMercs[ i ].pSoldier->stats.bMedical > gpMercs[ iBest ].pSoldier->stats.bMedical )
+			if( gpMercs[ i ].pSoldier->statistics().medical() > gpMercs[ iBest ].pSoldier->statistics().medical() )
 			{
 				iBest = i;
 			}			
@@ -2891,7 +2891,7 @@ void DetermineBandageButtonState()
 	{
 		if( gpMercs[ i ].pSoldier->vitals().health() >= OKLIFE &&
 			!gpMercs[ i ].pSoldier->collapseState().tactical() &&
-				gpMercs[ i ].pSoldier->stats.bMedical > 0 )
+				gpMercs[ i ].pSoldier->statistics().medical() > 0 )
 		{
 			fFound = TRUE;
 		}
@@ -3783,17 +3783,17 @@ void DetermineTeamLeader( BOOLEAN fFriendlyTeam )
 		gpAR->ubPlayerLeadership = 0;
 		for( i = 0; i < gpAR->ubMercs; i++ )
 		{
-			if( gpMercs[ i ].pSoldier->stats.bLeadership > gpAR->ubPlayerLeadership )
+			if( gpMercs[ i ].pSoldier->statistics().leadership() > gpAR->ubPlayerLeadership )
 			{
-				gpAR->ubPlayerLeadership = gpMercs[ i ].pSoldier->stats.bLeadership;
+				gpAR->ubPlayerLeadership = gpMercs[ i ].pSoldier->statistics().leadership();
 				pBestLeaderCell = &gpMercs[ i ];
 			}
 		}
 		for( i = 0; i < gpAR->ubCivs; i++ )
 		{
-			if( gpCivs[ i ].pSoldier->stats.bLeadership > gpAR->ubPlayerLeadership )
+			if( gpCivs[ i ].pSoldier->statistics().leadership() > gpAR->ubPlayerLeadership )
 			{
-				gpAR->ubPlayerLeadership = gpCivs[ i ].pSoldier->stats.bLeadership;
+				gpAR->ubPlayerLeadership = gpCivs[ i ].pSoldier->statistics().leadership();
 				pBestLeaderCell = &gpCivs[ i ];
 			}
 		}
@@ -3809,9 +3809,9 @@ void DetermineTeamLeader( BOOLEAN fFriendlyTeam )
 	gpAR->ubEnemyLeadership = 0;
 	for( i = 0; i < gpAR->ubEnemies; i++ )
 	{
-		if( gpEnemies[ i ].pSoldier->stats.bLeadership > gpAR->ubEnemyLeadership )
+		if( gpEnemies[ i ].pSoldier->statistics().leadership() > gpAR->ubEnemyLeadership )
 		{
-			gpAR->ubEnemyLeadership = gpEnemies[ i ].pSoldier->stats.bLeadership;
+			gpAR->ubEnemyLeadership = gpEnemies[ i ].pSoldier->statistics().leadership();
 			pBestLeaderCell = &gpEnemies[ i ];
 		}
 	}
@@ -3880,10 +3880,10 @@ void CalculateAttackValues()
 		pSoldier = pCell->pSoldier;
 		if( !pSoldier->vitals().health() )
 			continue;
-		pCell->usAttack =		pSoldier->stats.bStrength +
-												pSoldier->stats.bDexterity +
-												pSoldier->stats.bWisdom +
-												pSoldier->stats.bMarksmanship +
+		pCell->usAttack =		pSoldier->statistics().strength() +
+												pSoldier->statistics().dexterity() +
+												pSoldier->statistics().wisdom() +
+												pSoldier->statistics().marksmanship() +
 												pSoldier->aiData.bMorale;
 		//Give player controlled mercs a significant bonus to compensate for lack of control
 		//as the player would typically do much better in tactical.
@@ -3894,18 +3894,18 @@ void CalculateAttackValues()
 		}
 		usBreathStrengthPercentage = 100 - ( 100 - pCell->pSoldier->vitals().maximumBreath() ) / 3;
 		pCell->usAttack =		pCell->usAttack * usBreathStrengthPercentage / 100;
-		pCell->usDefence =	pSoldier->stats.bAgility +
-												pSoldier->stats.bWisdom +
+		pCell->usDefence =	pSoldier->statistics().agility() +
+												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
-												pSoldier->stats.bMedical +
+												pSoldier->statistics().medical() +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%,
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 
 		//bExpLevel adds a bonus of 7% per level after 2, level 1 soldiers get a 7% decrease
-		//usBonus += 7 * (pSoldier->stats.bExpLevel-2);
+		//usBonus += 7 * (pSoldier->statistics().experienceLevel()-2);
 		// SANDRO - STOMP traits - Squadleaders bonus to effective level
-		uiEffectiveLevelExp = pSoldier->stats.bExpLevel;
+		uiEffectiveLevelExp = pSoldier->statistics().experienceLevel();
 		if ( gGameOptions.fNewTraitSystem )
 			uiEffectiveLevelExp = min(10,(uiEffectiveLevelExp + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, TRUE ))));
 		usBonus += EXP_BONUS * (uiEffectiveLevelExp-5);
@@ -3938,23 +3938,23 @@ void CalculateAttackValues()
 	{
 		pCell = &gpCivs[ i ];
 		pSoldier = pCell->pSoldier;
-		pCell->usAttack =		pSoldier->stats.bStrength +
-												pSoldier->stats.bDexterity +
-												pSoldier->stats.bWisdom +
-												pSoldier->stats.bMarksmanship +
+		pCell->usAttack =		pSoldier->statistics().strength() +
+												pSoldier->statistics().dexterity() +
+												pSoldier->statistics().wisdom() +
+												pSoldier->statistics().marksmanship() +
 												pSoldier->aiData.bMorale;
 		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
-		pCell->usDefence =	pSoldier->stats.bAgility +
-												pSoldier->stats.bWisdom +
+		pCell->usDefence =	pSoldier->statistics().agility() +
+												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
-												pSoldier->stats.bMedical +
+												pSoldier->statistics().medical() +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 		//bExpLevel adds a bonus of 7% per level after 2, level 1 soldiers get a 7% decrease
-		//usBonus += 7 * (pSoldier->stats.bExpLevel-2);
+		//usBonus += 7 * (pSoldier->statistics().experienceLevel()-2);
 		// SANDRO - STOMP traits - Squadleaders bonus to effective level
-		uiEffectiveLevelExp = pSoldier->stats.bExpLevel;
+		uiEffectiveLevelExp = pSoldier->statistics().experienceLevel();
 		if ( gGameOptions.fNewTraitSystem )
 			uiEffectiveLevelExp = min(10,(uiEffectiveLevelExp + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, TRUE ))));
 		usBonus += EXP_BONUS * (uiEffectiveLevelExp-5);
@@ -4004,23 +4004,23 @@ void CalculateAttackValues()
 	{
 		pCell = &gpEnemies[ i ];
 		pSoldier = pCell->pSoldier;
-		pCell->usAttack =		pSoldier->stats.bStrength +
-												pSoldier->stats.bDexterity +
-												pSoldier->stats.bWisdom +
-												pSoldier->stats.bMarksmanship +
+		pCell->usAttack =		pSoldier->statistics().strength() +
+												pSoldier->statistics().dexterity() +
+												pSoldier->statistics().wisdom() +
+												pSoldier->statistics().marksmanship() +
 												pSoldier->aiData.bMorale;
 		pCell->usAttack =		pCell->usAttack * pSoldier->vitals().breath() / 100;
-		pCell->usDefence =	pSoldier->stats.bAgility +
-												pSoldier->stats.bWisdom +
+		pCell->usDefence =	pSoldier->statistics().agility() +
+												pSoldier->statistics().wisdom() +
 												pSoldier->vitals().maximumBreath() +
-												pSoldier->stats.bMedical +
+												pSoldier->statistics().medical() +
 												pSoldier->aiData.bMorale;
 		//100 team leadership adds a bonus of 10%
 		usBonus = 100 + gpAR->ubPlayerLeadership/10;// + sOutnumberBonus;
 		//bExpLevel adds a bonus of 7% per level after 2, level 1 soldiers get a 7% decrease
-		//usBonus += 7 * (pSoldier->stats.bExpLevel-2);
+		//usBonus += 7 * (pSoldier->statistics().experienceLevel()-2);
 		// SANDRO - STOMP traits - Squadleaders bonus to effective level
-		uiEffectiveLevelExp = pSoldier->stats.bExpLevel;
+		uiEffectiveLevelExp = pSoldier->statistics().experienceLevel();
 		if ( gGameOptions.fNewTraitSystem )
 			uiEffectiveLevelExp = min(10,(uiEffectiveLevelExp + (gSkillTraitValues.ubSLEffectiveLevelInRadius * GetSquadleadersCountInVicinity( pSoldier, TRUE, TRUE ))));
 		usBonus += EXP_BONUS * (uiEffectiveLevelExp-5);

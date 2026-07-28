@@ -4176,55 +4176,55 @@ void DebugSoldierPage1( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Agility:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->stats.bAgility, EffectiveAgility( pSoldier, FALSE ) );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->statistics().agility(), EffectiveAgility( pSoldier, FALSE ) );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Dexterity:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d( %d )", pSoldier->stats.bDexterity, EffectiveDexterity( pSoldier, FALSE ) );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d( %d )", pSoldier->statistics().dexterity(), EffectiveDexterity( pSoldier, FALSE ) );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Strength:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bStrength );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->statistics().strength() );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Wisdom:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->stats.bWisdom, EffectiveWisdom( pSoldier ) );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->statistics().wisdom(), EffectiveWisdom( pSoldier ) );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Exp Lvl:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->stats.bExpLevel, EffectiveExpLevel( pSoldier ) );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->statistics().experienceLevel(), EffectiveExpLevel( pSoldier ) );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Mrksmnship:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->stats.bMarksmanship, EffectiveMarksmanship( pSoldier ) );
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->statistics().marksmanship(), EffectiveMarksmanship( pSoldier ) );
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Mechanical:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bMechanical);
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->statistics().mechanical());
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Explosive:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bExplosive);
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->statistics().explosives());
 		ubLine++;
 
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 200, LINE_HEIGHT * ubLine, L"Medical:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->stats.bMedical);
+		gprintf( 350, LINE_HEIGHT * ubLine, L"%d", pSoldier->statistics().medical());
 		ubLine++;
 
 		/*SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
@@ -4968,7 +4968,7 @@ void DebugSoldierPage4( )
 		SetFontShade(LARGEFONT1, FONT_SHADE_GREEN);
 		gprintf( 0, LINE_HEIGHT * ubLine, L"Exp. Level:");
 		SetFontShade(LARGEFONT1, FONT_SHADE_NEUTRAL);
-		gprintf( 150, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->stats.bExpLevel, EffectiveExpLevel(pSoldier) ); // SANDRO - added effective level calc
+		gprintf( 150, LINE_HEIGHT * ubLine, L"%d ( %d )", pSoldier->statistics().experienceLevel(), EffectiveExpLevel(pSoldier) ); // SANDRO - added effective level calc
 		switch( pSoldier->ubSoldierClass )
 		{
 			case SOLDIER_CLASS_ADMINISTRATOR:		gprintf( 320, LINE_HEIGHT * ubLine, L"(Administrator)" );	break;

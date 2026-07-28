@@ -835,7 +835,7 @@ void HandleSoldierLeavingForAnotherContract( SOLDIERTYPE *pSoldier )
 	{
 		// merc goes to work elsewhere
 		gMercProfiles[ pSoldier->ubProfile ].bMercStatus = MERC_WORKING_ELSEWHERE;
-		gMercProfiles[ pSoldier->ubProfile ].uiDayBecomesAvailable += 1 + Random(6 + (pSoldier->stats.bExpLevel / 2) );		// 1-(6 to 11) days
+		gMercProfiles[ pSoldier->ubProfile ].uiDayBecomesAvailable += 1 + Random(6 + (pSoldier->statistics().experienceLevel() / 2) );		// 1-(6 to 11) days
 	}
 }
 
@@ -934,7 +934,7 @@ void CheckIfMercGetsAnotherContract( SOLDIERTYPE *pSoldier )
 		}
 
 		// multiply by experience level
-		iChance *= pSoldier->stats.bExpLevel;
+		iChance *= pSoldier->statistics().experienceLevel();
 
 		//tais: disabled mercs going on other assignment after being fired..
 		if( (INT32) Random( 100 ) < iChance && gGameExternalOptions.fMercsOnAssignment < 2 )

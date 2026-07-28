@@ -3312,8 +3312,8 @@ void HandleWheelAdjustCursor( SOLDIERTYPE *pSoldier, INT16 sMapPos, INT16 sDelta
 UINT32 ChanceToHitApproximation( SOLDIERTYPE * pSoldier, UINT32 uiChance )
 {
 	UINT16 bExpLevelValue = EffectiveExpLevel(pSoldier); // SANDRO - changed to effective level calc
-	UINT16 bMarksmanship = pSoldier->stats.bMarksmanship;
-	UINT16 bWisdom = pSoldier->stats.bWisdom;
+	UINT16 bMarksmanship = pSoldier->statistics().marksmanship();
+	UINT16 bWisdom = pSoldier->statistics().wisdom();
 	UINT16 iNumStages, iNumStagesBase, StageSize, SubStageSize;
 	UINT8 iSniper;
 	UINT16 uiNewChance;

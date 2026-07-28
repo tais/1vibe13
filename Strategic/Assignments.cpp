@@ -886,7 +886,7 @@ BOOLEAN CanCharacterDoctorButDoesntHaveMedKit( SOLDIERTYPE *pSoldier )
 	}
 
 	// has medical skill?
-	if( pSoldier->stats.bMedical <= 0 )
+	if( pSoldier->statistics().medical() <= 0 )
 	{
 		// no skill whatsoever
 		return ( FALSE );
@@ -1402,7 +1402,7 @@ static BOOLEAN BasicCanCharacterRepair( SOLDIERTYPE * pSoldier )
 	}
 
 	// has repair skill?
-	if( pSoldier->stats.bMechanical <= 0 )
+	if( pSoldier->statistics().mechanical() <= 0 )
 	{
 		// no skill whatsoever
 		return ( FALSE );
@@ -1812,7 +1812,7 @@ BOOLEAN CanCharacterDrillMilitia( SOLDIERTYPE *pSoldier, BOOLEAN aErrorReport )
 	}
 
 	// Has leadership skill?
-	if ( pSoldier->stats.bLeadership <= 0 )
+	if ( pSoldier->statistics().leadership() <= 0 )
 	{
 		if ( aErrorReport )
 		{
@@ -1832,7 +1832,7 @@ BOOLEAN CanCharacterDrillMilitia( SOLDIERTYPE *pSoldier, BOOLEAN aErrorReport )
 	if ( gGameExternalOptions.ubMinimumLeadershipToTrainMilitia > 0 )
 	{
 		// Read BASE leadership
-		usEffectiveLeadership = pSoldier->stats.bLeadership;
+		usEffectiveLeadership = pSoldier->statistics().leadership();
 
 		if ( gGameOptions.fNewTraitSystem ) // SANDRO - old/new traits
 		{
@@ -1916,7 +1916,7 @@ BOOLEAN CanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	}
 
 	// Has leadership skill?
-	if( pSoldier->stats.bLeadership <= 0 )
+	if( pSoldier->statistics().leadership() <= 0 )
 	{
 		// no skill whatsoever
 		return ( FALSE );
@@ -1938,7 +1938,7 @@ BOOLEAN CanCharacterTrainMilitia( SOLDIERTYPE *pSoldier )
 	if( gGameExternalOptions.ubMinimumLeadershipToTrainMilitia > 0 )
 	{
 		// Read BASE leadership
-		usEffectiveLeadership = pSoldier->stats.bLeadership;
+		usEffectiveLeadership = pSoldier->statistics().leadership();
  
 		if ( gGameOptions.fNewTraitSystem ) // SANDRO - old/new traits
 		{
@@ -2191,39 +2191,39 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 	{
 		case ( STRENGTH ):
 			// strength
-			if ( pSoldier->stats.bStrength < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().strength() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bStrength < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().strength() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bStrength >=	gGameExternalOptions.ubTrainingSkillMax ) && ( fTrainSelf ) )
+			else if( ( pSoldier->statistics().strength() >=	gGameExternalOptions.ubTrainingSkillMax ) && ( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
 		break;
 		case( DEXTERITY ):
 			// dexterity
-			if ( pSoldier->stats.bDexterity < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().dexterity() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bDexterity < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().dexterity() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bDexterity >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().dexterity() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
 		break;
 		case( AGILITY ):
 			// agility
-			if ( pSoldier->stats.bAgility < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().agility() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bAgility < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().agility() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bAgility >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().agility() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
@@ -2245,13 +2245,13 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		break;
 		case( MARKSMANSHIP ):
 			// marksmanship
-			if ( pSoldier->stats.bMarksmanship < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().marksmanship() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bMarksmanship < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().marksmanship() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bMarksmanship >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().marksmanship() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
@@ -2259,13 +2259,13 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		break;
 		case( MEDICAL ):
 			// medical
-			if ( pSoldier->stats.bMedical < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().medical() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bMedical < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().medical() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bMedical >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().medical() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
@@ -2273,39 +2273,39 @@ BOOLEAN CanCharacterTrainStat( SOLDIERTYPE *pSoldier, INT8 bStat, BOOLEAN fTrain
 		break;
 		case( MECHANICAL ):
 			// mechanical
-			if ( pSoldier->stats.bMechanical < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().mechanical() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bMechanical < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().mechanical() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bMechanical >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().mechanical() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
 		break;
 		case( LEADERSHIP ):
 			// leadership
-			if ( pSoldier->stats.bLeadership < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().leadership() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bLeadership < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().leadership() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bLeadership >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().leadership() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
 		break;
 		case( EXPLOSIVE_ASSIGN ):
 			// explosives
-			if ( pSoldier->stats.bExplosive < gGameExternalOptions.ubTrainingSkillMin )
+			if ( pSoldier->statistics().explosives() < gGameExternalOptions.ubTrainingSkillMin )
 				return FALSE;
-			else if( ( ( pSoldier->stats.bExplosive < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
+			else if( ( ( pSoldier->statistics().explosives() < gGameExternalOptions.ubMinSkillToTeach ) && ( fTrainTeammate ) ) )
 			{
 				return ( FALSE );
 			}
-			else if( ( pSoldier->stats.bExplosive >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
+			else if( ( pSoldier->statistics().explosives() >= gGameExternalOptions.ubTrainingSkillMax )&&( fTrainSelf ) )
 			{
 				return ( FALSE );
 			}
@@ -3286,11 +3286,11 @@ UINT16 CalculateHealingPointsForDoctor(SOLDIERTYPE *pDoctor, UINT16 *pusMaxPts, 
 
 	// calculate normal doctoring rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 dexterity = (pDoctor->stats.bDexterity * (100 + pDoctor->GetBackgroundValue( BG_DEXTERITY ))) / 100;
-	INT16 medical	= (pDoctor->stats.bMedical * (100 + pDoctor->GetBackgroundValue( BG_MEDICAL ))) / 100;
-	INT16 wisdom	= (pDoctor->stats.bWisdom * (100 + pDoctor->GetBackgroundValue( BG_WISDOM ))) / 100;
+	INT16 dexterity = (pDoctor->statistics().dexterity() * (100 + pDoctor->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	INT16 medical	= (pDoctor->statistics().medical() * (100 + pDoctor->GetBackgroundValue( BG_MEDICAL ))) / 100;
+	INT16 wisdom	= (pDoctor->statistics().wisdom() * (100 + pDoctor->GetBackgroundValue( BG_WISDOM ))) / 100;
 
-	*pusMaxPts = (medical * ((dexterity + wisdom) / 2) * (100 + (5 * pDoctor->stats.bExpLevel))) / gGameExternalOptions.ubDoctoringRateDivisor;
+	*pusMaxPts = (medical * ((dexterity + wisdom) / 2) * (100 + (5 * pDoctor->statistics().experienceLevel()))) / gGameExternalOptions.ubDoctoringRateDivisor;
 	*pusMaxPts = __max(0,*pusMaxPts);
 
 	// SANDRO - New Doctor Trait
@@ -3388,9 +3388,9 @@ UINT8 CalculateRepairPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxPts
 
 	// calculate normal repair rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 mechanical = (pSoldier->stats.bMechanical * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
-	INT16 dexterity  = (pSoldier->stats.bDexterity * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
-	*pusMaxPts = (mechanical * dexterity * (100 + (5 * pSoldier->stats.bExpLevel))) / (gGameExternalOptions.ubRepairRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
+	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
+	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	*pusMaxPts = (mechanical * dexterity * (100 + (5 * pSoldier->statistics().experienceLevel()))) / (gGameExternalOptions.ubRepairRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
 
 	// SANDRO - Technician trait gives a good bonus to repair items
 	if ( gGameOptions.fNewTraitSystem )
@@ -3484,9 +3484,9 @@ UINT8 CalculateCleaningPointsForRepairman(SOLDIERTYPE *pSoldier, UINT16 *pusMaxP
 
 	// calculate normal repair rate - what it would be if his stats were "normal" (ignoring drugs, fatigue, equipment condition)
 	// and equipment was not a hindrance
-	INT16 mechanical = (pSoldier->stats.bMechanical * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
-	INT16 dexterity  = (pSoldier->stats.bDexterity * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
-	*pusMaxPts = ( ( mechanical + 3 * dexterity + 50 * pSoldier->stats.bExpLevel ) * 1000 ) / (gGameExternalOptions.ubCleaningRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
+	INT16 mechanical = (pSoldier->statistics().mechanical() * (100 + pSoldier->GetBackgroundValue( BG_MECHANICAL ))) / 100;
+	INT16 dexterity  = (pSoldier->statistics().dexterity() * (100 + pSoldier->GetBackgroundValue( BG_DEXTERITY ))) / 100;
+	*pusMaxPts = ( ( mechanical + 3 * dexterity + 50 * pSoldier->statistics().experienceLevel() ) * 1000 ) / (gGameExternalOptions.ubCleaningRateDivisor * gGameExternalOptions.ubAssignmentUnitsPerDay);
 
 	// SANDRO - Technician trait gives a good bonus to repair items
 	// we also use that for cleaning guns
@@ -3951,12 +3951,12 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
 						{
-							if( ( pSoldier->stats.bStrength + NUM_SKILL_TRAITS( pSoldier, ATHLETICS_NT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().strength() + NUM_SKILL_TRAITS( pSoldier, ATHLETICS_NT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 						else
 						{
-							if( ( pSoldier->stats.bStrength + NUM_SKILL_TRAITS( pSoldier, HANDTOHAND_OT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().strength() + NUM_SKILL_TRAITS( pSoldier, HANDTOHAND_OT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 					}
@@ -3982,12 +3982,12 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
 						{
-							if( ( ( pSoldier->stats.bAgility + pSoldier->stats.bStrength )/2 + NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT )* 20 ) /2 < Random( 100 ) )
+							if( ( ( pSoldier->statistics().agility() + pSoldier->statistics().strength() )/2 + NUM_SKILL_TRAITS( pSoldier, MARTIAL_ARTS_NT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 						else
 						{
-							if( ( ( pSoldier->stats.bAgility + pSoldier->stats.bStrength )/2 + NUM_SKILL_TRAITS( pSoldier, MARTIALARTS_OT )* 20 ) /2 < Random( 100 ) )
+							if( ( ( pSoldier->statistics().agility() + pSoldier->statistics().strength() )/2 + NUM_SKILL_TRAITS( pSoldier, MARTIALARTS_OT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 					}
@@ -4009,12 +4009,12 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
 						{
-							if( ( pSoldier->stats.bAgility + NUM_SKILL_TRAITS( pSoldier, MELEE_NT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().agility() + NUM_SKILL_TRAITS( pSoldier, MELEE_NT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 						else
 						{
-							if( ( pSoldier->stats.bAgility + NUM_SKILL_TRAITS( pSoldier, KNIFING_OT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().agility() + NUM_SKILL_TRAITS( pSoldier, KNIFING_OT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 					}
@@ -4036,12 +4036,12 @@ static BOOL HandleSnitchExposition(SOLDIERTYPE *pSoldier)
 						ubReactionTime--;
 						if ( gGameOptions.fNewTraitSystem )
 						{
-							if( ( pSoldier->stats.bStrength + NUM_SKILL_TRAITS( pSoldier, BODYBUILDING_NT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().strength() + NUM_SKILL_TRAITS( pSoldier, BODYBUILDING_NT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 						else
 						{
-							if( ( pSoldier->stats.bStrength + NUM_SKILL_TRAITS( pSoldier, HANDTOHAND_OT )* 20 ) /2 < Random( 100 ) )
+							if( ( pSoldier->statistics().strength() + NUM_SKILL_TRAITS( pSoldier, HANDTOHAND_OT )* 20 ) /2 < Random( 100 ) )
 								usDamageTaken += Random(10);
 						}
 					}
@@ -4197,7 +4197,7 @@ void HandleDoctorMilitia()
 				INT8	bMedFactor = 1;	// basic medical factor
 										// Added a penalty for not experienced mercs, they consume the bag faster
 										// if healing an repairing stat at the same time, this is increased again, but we wont recalculate for now
-				if ( gGameOptions.fNewTraitSystem && !sDoctortraits && ( pSoldier->stats.bMedical < 50 ) )
+				if ( gGameOptions.fNewTraitSystem && !sDoctortraits && ( pSoldier->statistics().medical() < 50 ) )
 					bMedFactor += 1;
 
 				// we are limited by our supplies
@@ -4490,7 +4490,7 @@ BOOLEAN CanSoldierBeHealedByDoctor( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pDoctor,
 	}
 
 	// if doctor's skill is unsufficient to save this guy
-	if ( !fSkipSkillCheck && ( pDoctor->stats.bMedical < GetMinHealingSkillNeeded( pSoldier ) ) )
+	if ( !fSkipSkillCheck && ( pDoctor->statistics().medical() < GetMinHealingSkillNeeded( pSoldier ) ) )
 	{
 		return(FALSE);
 	}
@@ -4583,7 +4583,7 @@ UINT16 HealPatient( SOLDIERTYPE *pPatient, SOLDIERTYPE * pDoctor, UINT16 usHealA
 	INT8	bMedFactor = 1;	// basic medical factor
 	// Added a penalty for not experienced mercs, they consume the bag faster
 	// if healing an repairing stat at the same time, this is increased again, but we wont recalculate for now
-	if ( gGameOptions.fNewTraitSystem && pDoctor && !sDoctortraits && (pDoctor->stats.bMedical < 50) )
+	if ( gGameOptions.fNewTraitSystem && pDoctor && !sDoctortraits && (pDoctor->statistics().medical() < 50) )
 		bMedFactor += 1;
 			
 	// we are limited by our supplies
@@ -7392,15 +7392,15 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 	{
 		case( STRENGTH ):
 			bTrainerEffSkill = EffectiveStrength ( pInstructor, TRUE );
-			bTrainerNatSkill = pInstructor->stats.bStrength;
+			bTrainerNatSkill = pInstructor->statistics().strength();
 		break;
 		case( DEXTERITY ):
 			bTrainerEffSkill = EffectiveDexterity ( pInstructor, TRUE );
-			bTrainerNatSkill = pInstructor->stats.bDexterity;
+			bTrainerNatSkill = pInstructor->statistics().dexterity();
 		break;
 		case( AGILITY ):
 			bTrainerEffSkill = EffectiveAgility( pInstructor, TRUE );
-			bTrainerNatSkill = pInstructor->stats.bAgility;
+			bTrainerNatSkill = pInstructor->statistics().agility();
 		break;
 		case( HEALTH ):
 			bTrainerEffSkill = pInstructor->vitals().maximumHealth();
@@ -7408,23 +7408,23 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 		break;
 		case( LEADERSHIP ):
 			bTrainerEffSkill = EffectiveLeadership( pInstructor );
-			bTrainerNatSkill = pInstructor->stats.bLeadership;
+			bTrainerNatSkill = pInstructor->statistics().leadership();
 		break;
 		case( MARKSMANSHIP ):
 			bTrainerEffSkill = EffectiveMarksmanship( pInstructor );
-			bTrainerNatSkill = pInstructor->stats.bMarksmanship;
+			bTrainerNatSkill = pInstructor->statistics().marksmanship();
 		break;
 		case( EXPLOSIVE_ASSIGN ):
 			bTrainerEffSkill = EffectiveExplosive( pInstructor );
-			bTrainerNatSkill = pInstructor->stats.bExplosive;
+			bTrainerNatSkill = pInstructor->statistics().explosives();
 		break;
 		case( MEDICAL ):
 			bTrainerEffSkill = EffectiveMedical( pInstructor );
-			bTrainerNatSkill = pInstructor->stats.bMedical;
+			bTrainerNatSkill = pInstructor->statistics().medical();
 		break;
 		case( MECHANICAL ):
 			bTrainerEffSkill = EffectiveMechanical( pInstructor );
-			bTrainerNatSkill = pInstructor->stats.bMechanical;
+			bTrainerNatSkill = pInstructor->statistics().mechanical();
 		break;
 		// NOTE: Wisdom can't be trained!
 		default:
@@ -7448,37 +7448,37 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 	{
 		// set student's variables
 		bTraineeEffWisdom = EffectiveWisdom ( pStudent );
-		bTraineeNatWisdom = pStudent->stats.bWisdom;
+		bTraineeNatWisdom = pStudent->statistics().wisdom();
 
 		// for trainee's stat skill, must use the natural value, not the effective one, to avoid drunks training beyond cap
 		switch( bTrainStat )
 		{
 			case( STRENGTH ):
-				bTraineeSkill = pStudent->stats.bStrength;
+				bTraineeSkill = pStudent->statistics().strength();
 			break;
 			case( DEXTERITY ):
-				bTraineeSkill = pStudent->stats.bDexterity;
+				bTraineeSkill = pStudent->statistics().dexterity();
 			break;
 			case( AGILITY ):
-				bTraineeSkill = pStudent->stats.bAgility;
+				bTraineeSkill = pStudent->statistics().agility();
 			break;
 			case( HEALTH ):
 				bTraineeSkill = pStudent->vitals().maximumHealth();
 			break;
 			case( LEADERSHIP ):
-				bTraineeSkill = pStudent->stats.bLeadership;
+				bTraineeSkill = pStudent->statistics().leadership();
 			break;
 			case( MARKSMANSHIP ):
-				bTraineeSkill = pStudent->stats.bMarksmanship;
+				bTraineeSkill = pStudent->statistics().marksmanship();
 			break;
 			case( EXPLOSIVE_ASSIGN ):
-				bTraineeSkill = pStudent->stats.bExplosive;
+				bTraineeSkill = pStudent->statistics().explosives();
 			break;
 			case( MEDICAL ):
-				bTraineeSkill = pStudent->stats.bMedical;
+				bTraineeSkill = pStudent->statistics().medical();
 			break;
 			case( MECHANICAL ):
-				bTraineeSkill = pStudent->stats.bMechanical;
+				bTraineeSkill = pStudent->statistics().mechanical();
 			break;
 			// NOTE: Wisdom can't be trained!
 			default:
@@ -7525,7 +7525,7 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 		// calculate effective training pts
 		sTrainingPts = max( 10, ( bTrainerEffSkill - bTraineeSkill )) * ( bTraineeEffWisdom + ( EffectiveWisdom( pInstructor ) + EffectiveLeadership( pInstructor ) ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
 		// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-		*pusMaxPts	= max( 10, ( bTrainerNatSkill - bTraineeSkill )) * ( bTraineeNatWisdom + ( pInstructor->stats.bWisdom + pInstructor->stats.bLeadership ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
+		*pusMaxPts	= max( 10, ( bTrainerNatSkill - bTraineeSkill )) * ( bTraineeNatWisdom + ( pInstructor->statistics().wisdom() + pInstructor->statistics().leadership() ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
 
 		// penalty for non-specialized mercs
 		bTrainingBonus = bTrainingBonus * (100 + gSkillTraitValues.bSpeedModifierTeachingOthers) / 100;
@@ -7541,7 +7541,7 @@ INT16 GetBonusTrainingPtsDueToInstructor( SOLDIERTYPE *pInstructor, SOLDIERTYPE 
 		// calculate effective training pts
 		sTrainingPts = ( bTrainerEffSkill - bTraineeSkill ) * ( bTraineeEffWisdom + ( EffectiveWisdom( pInstructor ) + EffectiveLeadership( pInstructor ) ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
 		// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-		*pusMaxPts	= ( bTrainerNatSkill - bTraineeSkill ) * ( bTraineeNatWisdom + ( pInstructor->stats.bWisdom + pInstructor->stats.bLeadership ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
+		*pusMaxPts	= ( bTrainerNatSkill - bTraineeSkill ) * ( bTraineeNatWisdom + ( pInstructor->statistics().wisdom() + pInstructor->statistics().leadership() ) / 2 ) / gGameExternalOptions.ubInstructedTrainingDivisor;
 
 		// put in a minimum (that can be reduced due to instructor being tired?)
 		if (*pusMaxPts <= 0) // stay safe
@@ -7605,31 +7605,31 @@ INT16 GetSoldierTrainingPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pus
 	switch( bTrainStat )
 	{
 		case( STRENGTH ):
-			bSkill = pSoldier->stats.bStrength;
+			bSkill = pSoldier->statistics().strength();
 		break;
 		case( DEXTERITY ):
-			bSkill = pSoldier->stats.bDexterity;
+			bSkill = pSoldier->statistics().dexterity();
 		break;
 		case( AGILITY ):
-			bSkill = pSoldier->stats.bAgility;
+			bSkill = pSoldier->statistics().agility();
 		break;
 		case( HEALTH ):
 			bSkill = pSoldier->vitals().maximumHealth();
 		break;
 		case( LEADERSHIP ):
-			bSkill = pSoldier->stats.bLeadership;
+			bSkill = pSoldier->statistics().leadership();
 		break;
 		case( MARKSMANSHIP ):
-			bSkill = pSoldier->stats.bMarksmanship;
+			bSkill = pSoldier->statistics().marksmanship();
 		break;
 		case( EXPLOSIVE_ASSIGN ):
-			bSkill = pSoldier->stats.bExplosive;
+			bSkill = pSoldier->statistics().explosives();
 		break;
 		case( MEDICAL ):
-			bSkill = pSoldier->stats.bMedical;
+			bSkill = pSoldier->statistics().medical();
 		break;
 		case( MECHANICAL ):
-			bSkill = pSoldier->stats.bMechanical;
+			bSkill = pSoldier->statistics().mechanical();
 		break;
 		// NOTE: Wisdom can't be trained!
 		default:
@@ -7647,7 +7647,7 @@ INT16 GetSoldierTrainingPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pus
 	}
 
 	// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-	*pusMaxPts = __max( ( ( pSoldier->stats.bWisdom * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
+	*pusMaxPts = __max( ( ( pSoldier->statistics().wisdom() * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
 
 	// calculate effective training pts
 	sTrainingPts = __max( ( ( EffectiveWisdom( pSoldier ) * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
@@ -7732,31 +7732,31 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 	switch( bTrainStat )
 	{
 		case( STRENGTH ):
-			bSkill = pSoldier->stats.bStrength;
+			bSkill = pSoldier->statistics().strength();
 		break;
 		case( DEXTERITY ):
-			bSkill = pSoldier->stats.bDexterity;
+			bSkill = pSoldier->statistics().dexterity();
 		break;
 		case( AGILITY ):
-			bSkill = pSoldier->stats.bAgility;
+			bSkill = pSoldier->statistics().agility();
 		break;
 		case( HEALTH ):
 			bSkill = pSoldier->vitals().maximumHealth();
 		break;
 		case( LEADERSHIP ):
-			bSkill = pSoldier->stats.bLeadership;
+			bSkill = pSoldier->statistics().leadership();
 		break;
 		case( MARKSMANSHIP ):
-			bSkill = pSoldier->stats.bMarksmanship;
+			bSkill = pSoldier->statistics().marksmanship();
 		break;
 		case( EXPLOSIVE_ASSIGN ):
-			bSkill = pSoldier->stats.bExplosive;
+			bSkill = pSoldier->statistics().explosives();
 		break;
 		case( MEDICAL ):
-			bSkill = pSoldier->stats.bMedical;
+			bSkill = pSoldier->statistics().medical();
 		break;
 		case( MECHANICAL ):
-			bSkill = pSoldier->stats.bMechanical;
+			bSkill = pSoldier->statistics().mechanical();
 		break;
 		// NOTE: Wisdom can't be trained!
 		default:
@@ -7774,7 +7774,7 @@ INT16 GetSoldierStudentPts( SOLDIERTYPE *pSoldier, INT8 bTrainStat, UINT16 *pusM
 	}
 
 	// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-	*pusMaxPts = __max( ( ( pSoldier->stats.bWisdom * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
+	*pusMaxPts = __max( ( ( pSoldier->statistics().wisdom() * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
 
 	// calculate effective training pts
 	sTrainingPts = __max( ( ( EffectiveWisdom( pSoldier ) * ( gGameExternalOptions.ubTrainingSkillMax - bSkill ) ) / gGameExternalOptions.ubSelfTrainingDivisor ), 1 );
@@ -9224,10 +9224,10 @@ INT16 GetTownTrainPtsForCharacter( SOLDIERTYPE *pTrainer, UINT16 *pusMaxPts )
 //	UINT8 ubTownId = 0;
 
 	// calculate normal training pts - what it would be if his stats were "normal" (ignoring drugs, fatigue)
-	INT16 wisdom	 = (pTrainer->stats.bWisdom * (100 + pTrainer->GetBackgroundValue( BG_WISDOM ))) / 100;
-	INT16 leadership = (pTrainer->stats.bLeadership * (100 + pTrainer->GetBackgroundValue( BG_LEADERSHIP ))) / 100;
+	INT16 wisdom	 = (pTrainer->statistics().wisdom() * (100 + pTrainer->GetBackgroundValue( BG_WISDOM ))) / 100;
+	INT16 leadership = (pTrainer->statistics().leadership() * (100 + pTrainer->GetBackgroundValue( BG_LEADERSHIP ))) / 100;
 
-	*pusMaxPts = (wisdom + leadership + (10 * pTrainer->stats.bExpLevel)) * gGameExternalOptions.ubTownMilitiaTrainingRate;
+	*pusMaxPts = (wisdom + leadership + (10 * pTrainer->statistics().experienceLevel())) * gGameExternalOptions.ubTownMilitiaTrainingRate;
 
 	// calculate effective training points (this is hundredths of pts / hour)
 	// typical: 300/hr, maximum: 600/hr
@@ -9566,7 +9566,7 @@ void HandleHealingByNaturalCauses( SOLDIERTYPE *pSoldier )
 			{
 				continue; // NEXT!!!
 			}
-			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0
+			if (pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->statistics().medical() > 0
 				&& pMedic->ubID != pSoldier->ubID && HAS_SKILL_TRAIT( pMedic, DOCTOR_NT ))
 			{
 				bRegenerationBonus += NUM_SKILL_TRAITS( pMedic, DOCTOR_NT );
@@ -13861,7 +13861,7 @@ static void CheckForSurgery(SOLDIERTYPE *pSoldier)
 			if ( bSlot == NO_SLOT )
 				continue;// no medical kit!
 
-			if ( pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->stats.bMedical > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
+			if ( pMedic->vitals().health() >= OKLIFE && !(pMedic->collapseState().tactical()) && pMedic->statistics().medical() > 0 && (NUM_SKILL_TRAITS( pMedic, DOCTOR_NT ) >= gSkillTraitValues.ubDONumberTraitsNeededForSurgery) )
 			{
 				if ( pBestMedic != NULL )
 				{
@@ -19697,7 +19697,7 @@ void RepairItemsOnOthers( SOLDIERTYPE *pSoldier, UINT8 *pubRepairPtsLeft )
 					// okay, seems like a candidate!
 					if ( FindRepairableItemOnOtherSoldier( pSoldier, pOtherSoldier, ubPassType ) != 0 )
 					{
-						bPriority = pOtherSoldier->stats.bExpLevel;
+						bPriority = pOtherSoldier->statistics().experienceLevel();
 						if ( bPriority > bBestPriority )
 						{
 							bBestPriority = bPriority;
@@ -20146,7 +20146,7 @@ BOOLEAN CanCharacterTrainWorkers( SOLDIERTYPE *pSoldier )
 	}
 
 	// Has leadership skill?
-	if( pSoldier->stats.bLeadership <= 0 )
+	if( pSoldier->statistics().leadership() <= 0 )
 	{
 		// no skill whatsoever
 		return ( FALSE );
@@ -20207,7 +20207,7 @@ BOOLEAN CanCharacterTrainMilitiaWithErrorReport( SOLDIERTYPE *pSoldier )
 	///////////////////////////////
 	// Test for required Leadership
 
-	UINT16 usEffectiveLeadership = pSoldier->stats.bLeadership; // Basic leadership score
+	UINT16 usEffectiveLeadership = pSoldier->statistics().leadership(); // Basic leadership score
 	BOOLEAN fSufficientLeadership = TRUE; // Result of check
 
 	// Apply modifier for TEACHER trait, if that feature is activated
@@ -20844,17 +20844,17 @@ BOOLEAN CanCharacterFacility( SOLDIERTYPE *pSoldier, UINT8 ubFacilityType, UINT8
 
 	//////////////////////////////////////////
 	// Does character have sufficient skill?
-	if (pSoldier->stats.bStrength < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumStrength ||
+	if (pSoldier->statistics().strength() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumStrength ||
 		pSoldier->vitals().health() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumHealth ||
-		pSoldier->stats.bWisdom < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumWisdom ||
-		pSoldier->stats.bAgility < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumAgility ||
-		pSoldier->stats.bDexterity < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumDexterity ||
-		pSoldier->stats.bMarksmanship < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMarksmanship ||
-		pSoldier->stats.bMechanical < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMechanical ||
-		pSoldier->stats.bMedical < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMedical ||
-		pSoldier->stats.bLeadership < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLeadership ||
-		pSoldier->stats.bExplosive < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumExplosives ||
-		pSoldier->stats.bExpLevel < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel ||
+		pSoldier->statistics().wisdom() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumWisdom ||
+		pSoldier->statistics().agility() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumAgility ||
+		pSoldier->statistics().dexterity() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumDexterity ||
+		pSoldier->statistics().marksmanship() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMarksmanship ||
+		pSoldier->statistics().mechanical() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMechanical ||
+		pSoldier->statistics().medical() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMedical ||
+		pSoldier->statistics().leadership() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLeadership ||
+		pSoldier->statistics().explosives() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumExplosives ||
+		pSoldier->statistics().experienceLevel() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel ||
 
 		pSoldier->aiData.bMorale < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMorale ||
 		pSoldier->vitals().maximumBreath() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumBreath
@@ -21150,19 +21150,19 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 	//////////////////////////////////////////
 	// Skill/Condition check
 
-	if (pSoldier->stats.bStrength < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumStrength)
+	if (pSoldier->statistics().strength() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumStrength)
 	{
 		swprintf(sString, gzFacilityErrorMessage[0], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bDexterity < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumDexterity)
+	if (pSoldier->statistics().dexterity() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumDexterity)
 	{
 		swprintf(sString, gzFacilityErrorMessage[1], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bAgility < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumAgility)
+	if (pSoldier->statistics().agility() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumAgility)
 	{
 		swprintf(sString, gzFacilityErrorMessage[2], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
@@ -21174,43 +21174,43 @@ BOOLEAN CanCharacterFacilityWithErrorReport( SOLDIERTYPE *pSoldier, UINT8 ubFaci
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bWisdom < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumWisdom)
+	if (pSoldier->statistics().wisdom() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumWisdom)
 	{
 		swprintf(sString, gzFacilityErrorMessage[4], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bMarksmanship < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMarksmanship)
+	if (pSoldier->statistics().marksmanship() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMarksmanship)
 	{
 		swprintf(sString, gzFacilityErrorMessage[5], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bMedical < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMedical)
+	if (pSoldier->statistics().medical() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMedical)
 	{
 		swprintf(sString, gzFacilityErrorMessage[6], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bMechanical < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMechanical)
+	if (pSoldier->statistics().mechanical() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumMechanical)
 	{
 		swprintf(sString, gzFacilityErrorMessage[7], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bLeadership < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLeadership)
+	if (pSoldier->statistics().leadership() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLeadership)
 	{
 		swprintf(sString, gzFacilityErrorMessage[8], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bExplosive < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumExplosives)
+	if (pSoldier->statistics().explosives() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumExplosives)
 	{
 		swprintf(sString, gzFacilityErrorMessage[9], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );
 		return( FALSE );
 	}
-	if (pSoldier->stats.bExpLevel < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel)
+	if (pSoldier->statistics().experienceLevel() < gFacilityTypes[ubFacilityType].AssignmentData[ubAssignmentType].ubMinimumLevel)
 	{
 		swprintf(sString, gzFacilityErrorMessage[10], pSoldier->GetName());
 		DoScreenIndependantMessageBox( sString, MSG_BOX_FLAG_OK, NULL );

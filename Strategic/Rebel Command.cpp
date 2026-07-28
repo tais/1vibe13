@@ -3024,29 +3024,29 @@ void ApplyEnemyPenalties(SOLDIERTYPE* pSoldier)
 	{
 		pSoldier->vitals().health() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().maximumHealth() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bAgility -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bDexterity -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bStrength -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bWisdom -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bLeadership -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMarksmanship -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMechanical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bExplosive -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
-		pSoldier->stats.bMedical -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().agility() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().dexterity() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().strength() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().wisdom() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().leadership() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().marksmanship() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().mechanical() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().explosives() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
+		pSoldier->statistics().medical() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().breath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 		pSoldier->vitals().maximumBreath() -= static_cast<INT8>(info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level);
 
 		pSoldier->vitals().health() = static_cast<INT8>(max(25, pSoldier->vitals().health()));
 		pSoldier->vitals().maximumHealth() = static_cast<INT8>(max(25, pSoldier->vitals().maximumHealth()));
-		pSoldier->stats.bAgility = static_cast<INT8>(max(25, pSoldier->stats.bAgility));
-		pSoldier->stats.bDexterity = static_cast<INT8>(max(25, pSoldier->stats.bDexterity));
-		pSoldier->stats.bStrength = static_cast<INT8>(max(25, pSoldier->stats.bStrength));
-		pSoldier->stats.bWisdom = static_cast<INT8>(max(25, pSoldier->stats.bStrength));
-		pSoldier->stats.bLeadership = static_cast<INT8>(max(25, pSoldier->stats.bLeadership));
-		pSoldier->stats.bMarksmanship = static_cast<INT8>(max(25, pSoldier->stats.bMarksmanship));
-		pSoldier->stats.bMechanical = static_cast<INT8>(max(25, pSoldier->stats.bMechanical));
-		pSoldier->stats.bExplosive = static_cast<INT8>(max(25, pSoldier->stats.bExplosive));
-		pSoldier->stats.bMedical = static_cast<INT8>(max(25, pSoldier->stats.bMedical));
+		pSoldier->statistics().agility() = static_cast<INT8>(max(25, pSoldier->statistics().agility()));
+		pSoldier->statistics().dexterity() = static_cast<INT8>(max(25, pSoldier->statistics().dexterity()));
+		pSoldier->statistics().strength() = static_cast<INT8>(max(25, pSoldier->statistics().strength()));
+		pSoldier->statistics().wisdom() = static_cast<INT8>(max(25, pSoldier->statistics().strength()));
+		pSoldier->statistics().leadership() = static_cast<INT8>(max(25, pSoldier->statistics().leadership()));
+		pSoldier->statistics().marksmanship() = static_cast<INT8>(max(25, pSoldier->statistics().marksmanship()));
+		pSoldier->statistics().mechanical() = static_cast<INT8>(max(25, pSoldier->statistics().mechanical()));
+		pSoldier->statistics().explosives() = static_cast<INT8>(max(25, pSoldier->statistics().explosives()));
+		pSoldier->statistics().medical() = static_cast<INT8>(max(25, pSoldier->statistics().medical()));
 		pSoldier->vitals().breath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
 		pSoldier->vitals().maximumBreath() = static_cast<INT8>(max(25, info.adminActions[RCAA_SUPPLY_DISRUPTION].fValue1 * level));
 	};
@@ -3112,17 +3112,17 @@ void ApplyMilitiaBonuses(SOLDIERTYPE* pMilitia)
 
 	pMilitia->vitals().health() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 	pMilitia->vitals().maximumHealth() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bAgility += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bDexterity += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bStrength += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
-	pMilitia->stats.bMarksmanship += (gRebelCommandSettings.iMilitiaMarksmanshipBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().agility() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().dexterity() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().strength() += (gRebelCommandSettings.iMilitiaStatBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
+	pMilitia->statistics().marksmanship() += (gRebelCommandSettings.iMilitiaMarksmanshipBonusPerLevel * rebelCommandSaveInfo.iMilitiaStatsLevel);
 
 	pMilitia->vitals().health() = min(100, pMilitia->vitals().health());
 	pMilitia->vitals().maximumHealth() = min(100, pMilitia->vitals().maximumHealth());
-	pMilitia->stats.bAgility = min(100, pMilitia->stats.bAgility);
-	pMilitia->stats.bDexterity = min(100, pMilitia->stats.bDexterity);
-	pMilitia->stats.bStrength = min(100, pMilitia->stats.bStrength);
-	pMilitia->stats.bMarksmanship = min(100, pMilitia->stats.bMarksmanship);
+	pMilitia->statistics().agility() = min(100, pMilitia->statistics().agility());
+	pMilitia->statistics().dexterity() = min(100, pMilitia->statistics().dexterity());
+	pMilitia->statistics().strength() = min(100, pMilitia->statistics().strength());
+	pMilitia->statistics().marksmanship() = min(100, pMilitia->statistics().marksmanship());
 }
 
 UINT8 GetApproximateEnemyLocationResolutionIndex()
@@ -4520,17 +4520,17 @@ void ApplyEnemyMechanicalUnitPenalties(SOLDIERTYPE* pSoldier)
 
 		pSoldier->vitals().health() -= statLoss;
 		pSoldier->vitals().maximumHealth() = pSoldier->vitals().health();
-		pSoldier->stats.bAgility -= statLoss;
-		pSoldier->stats.bDexterity -= statLoss;
-		pSoldier->stats.bStrength -= statLoss;
-		pSoldier->stats.bMarksmanship -= statLoss;
+		pSoldier->statistics().agility() -= statLoss;
+		pSoldier->statistics().dexterity() -= statLoss;
+		pSoldier->statistics().strength() -= statLoss;
+		pSoldier->statistics().marksmanship() -= statLoss;
 
 		pSoldier->vitals().health() = max(33, pSoldier->vitals().health());
 		pSoldier->vitals().maximumHealth() = max(33, pSoldier->vitals().maximumHealth());
-		pSoldier->stats.bAgility = max(33, pSoldier->stats.bAgility);
-		pSoldier->stats.bDexterity = max(33, pSoldier->stats.bDexterity);
-		pSoldier->stats.bStrength = max(33, pSoldier->stats.bStrength);
-		pSoldier->stats.bMarksmanship = max(33, pSoldier->stats.bMarksmanship);
+		pSoldier->statistics().agility() = max(33, pSoldier->statistics().agility());
+		pSoldier->statistics().dexterity() = max(33, pSoldier->statistics().dexterity());
+		pSoldier->statistics().strength() = max(33, pSoldier->statistics().strength());
+		pSoldier->statistics().marksmanship() = max(33, pSoldier->statistics().marksmanship());
 	}
 }
 

@@ -728,9 +728,9 @@ INT32 FindBestNearbyCover(SOLDIERTYPE *pSoldier, INT32 morale, INT32 *piPercentB
 	}*/
 
 	// maximum search range is 1 tile / 8 pts of wisdom
-	if (iSearchRange > (pSoldier->stats.bWisdom / 8))
+	if (iSearchRange > (pSoldier->statistics().wisdom() / 8))
 	{
-		iSearchRange = (pSoldier->stats.bWisdom / 8);
+		iSearchRange = (pSoldier->statistics().wisdom() / 8);
 	}
 
 	if (!gfTurnBasedAI)
@@ -1899,9 +1899,9 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 	}
 
 	// maximum search range is 1 tile / 10 pts of wisdom
-	if (iSearchRange > (pSoldier->stats.bWisdom / 10))
+	if (iSearchRange > (pSoldier->statistics().wisdom() / 10))
 	{
-		iSearchRange = (pSoldier->stats.bWisdom / 10);
+		iSearchRange = (pSoldier->statistics().wisdom() / 10);
 	}
 
 	if (!gfTurnBasedAI)
@@ -1953,7 +1953,7 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 	FindBestPath( pSoldier, GRIDSIZE, pSoldier->position().level(), DetermineMovementMode( pSoldier, AI_ACTION_PICKUP_ITEM ), COPYREACHABLE, 0 );//dnl ch50 071009
 
 	// Flugente: if the soldier is 'dumb enough', he may pick up certain items... which can be used to lure the AI into traps
-	if (pSoldier->stats.bWisdom < 70)
+	if (pSoldier->statistics().wisdom() < 70)
 	{
 		DebugAI(AI_MSG_INFO, pSoldier, String("dumb enough to pick up items"));
 		fDumbEnoughtoPickup = TRUE;
@@ -3030,15 +3030,15 @@ INT32 FindBestCoverNearTheGridNo(SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubS
 	INT32 iPercentBetter;
 //	INT16 sTrueGridNo;
 	INT16 sResultGridNo;
-	INT8 bRealWisdom = pSoldier->stats.bWisdom;
+	INT8 bRealWisdom = pSoldier->statistics().wisdom();
 
 //	sTrueGridNo = pSoldier->sGridNo;
 //	pSoldier->sGridNo = sGridNo;
-	pSoldier->stats.bWisdom = 8 * ubSearchRadius;// 5 tiles
+	pSoldier->statistics().wisdom() = 8 * ubSearchRadius;// 5 tiles
 
 	sResultGridNo = FindBestNearbyCover( pSoldier, MORALE_NORMAL, &iPercentBetter);
 
-	pSoldier->stats.bWisdom = bRealWisdom;
+	pSoldier->statistics().wisdom() = bRealWisdom;
 //	pSoldier->sGridNo = sTrueGridNo;
 	
 	if(!TileIsOutOfBounds(sResultGridNo))

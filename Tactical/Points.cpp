@@ -1156,10 +1156,10 @@ INT32 AdjustBreathPts( SOLDIERTYPE * pSoldier , INT32 iBPCost )
  //sBreathFactor += (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2)));
  sBreathFactor += 100 * (pSoldier->vitals().maximumHealth() - (pSoldier->vitals().health() + (ubBandaged / 2))) / pSoldier->vitals().maximumHealth();
 
- if ( pSoldier->stats.bStrength > 80 )
+ if ( pSoldier->statistics().strength() > 80 )
  {
 	// give % reduction to breath costs for high strength mercs
-	sBreathFactor -= (pSoldier->stats.bStrength - 80) / 2;
+	sBreathFactor -= (pSoldier->statistics().strength() - 80) / 2;
  }
 
 /*	THIS IS OLD JAGGED ALLIANCE STUFF (left for possible future reference)
@@ -3660,7 +3660,7 @@ INT16 MinAPsToThrow( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTurningCos
 	// tosses per turn is for max dexterity, drops down to 1/2 at dexterity = 0
 	// bottom = (TOSSES_PER_10TURNS * (50 + (ptr->dexterity / 2)) / 10);
 	//else
-	iBottom = ( tossesper10turns * (50 + ( pSoldier->stats.bDexterity / 2 ) ) / 10 );
+	iBottom = ( tossesper10turns * (50 + ( pSoldier->statistics().dexterity() / 2 ) ) / 10 );
 
 	// add minimum aiming time to the overall minimum AP_cost
 	//	 This here ROUNDS UP fractions of 0.5 or higher using integer math

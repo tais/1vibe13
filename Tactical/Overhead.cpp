@@ -4092,7 +4092,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         if (pAttacker && pAttacker->bTeam == gbPlayerNum )
         {
             // SANDRO - for special NPCs, you gain more experiences
-            UINT16 usNumExpChances = ( 10 * pSoldierOld->stats.bExpLevel ); // basic value
+            UINT16 usNumExpChances = ( 10 * pSoldierOld->statistics().experienceLevel() ); // basic value
             switch( pSoldierOld->ubProfile )
             {
                 case CARMEN:
@@ -4140,7 +4140,7 @@ void HandleNPCTeamMemberDeath( SOLDIERTYPE *pSoldierOld )
         if (assister && assister->bTeam == gbPlayerNum )
         {
             // EXPERIENCE CLASS GAIN:   Earned an assist
-            StatChange( assister, EXPERAMT, (UINT16)( 5 * pSoldierOld->stats.bExpLevel ), FALSE );
+            StatChange( assister, EXPERAMT, (UINT16)( 5 * pSoldierOld->statistics().experienceLevel() ), FALSE );
         }
     }
 
@@ -8673,7 +8673,7 @@ INT8 CalcSuppressionTolerance( SOLDIERTYPE * pSoldier )
 	}
 	else
 	{
-		bTolerance = pSoldier->stats.bExpLevel * 2;
+		bTolerance = pSoldier->statistics().experienceLevel() * 2;
 		if (pSoldier->flags.uiStatusFlags & SOLDIER_PC)
 		{
 			// give +1 for every 10% morale from 50, for a maximum bonus/penalty of 5.
@@ -9028,7 +9028,7 @@ static void HandleSuppressionFire( SoldierID ubTargetedMerc, SoldierID ubCausedA
 					{
 						if (IS_MERC_BODY_TYPE(pSoldier))
 						{
-							pSoldier->aiData.bMorale = max(20 + 2 * pSoldier->stats.bExpLevel, pSoldier->aiData.bMorale - 4);
+							pSoldier->aiData.bMorale = max(20 + 2 * pSoldier->statistics().experienceLevel(), pSoldier->aiData.bMorale - 4);
 						}
 					}
 					else
@@ -10680,10 +10680,10 @@ INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
         pLeader = GetJa2SoldierRepository().resolve(iCounter.i);
         // Make sure that character is alive, not too shocked, and conscious, and of higher experience level
         // than the character being suppressed.
-        if (pLeader != pSoldier && pLeader->bActive && pLeader->suppression().shock() < pLeader->stats.bLeadership/5 &&
+        if (pLeader != pSoldier && pLeader->bActive && pLeader->suppression().shock() < pLeader->statistics().leadership()/5 &&
                 pLeader->vitals().health() >= OKLIFE )
         {
-            bLevelDifference = pLeader->stats.bExpLevel - pSoldier->stats.bExpLevel;
+            bLevelDifference = pLeader->statistics().experienceLevel() - pSoldier->statistics().experienceLevel();
             // Calculate character's leadership and range/3
             sEffectiveLeadership = (EffectiveLeadership( pLeader ) - 25) / 15;
             sEffectiveRangeToLeader = PythSpacesAway( pSoldier->position().gridNo(), pLeader->position().gridNo() ) / 3;
@@ -10725,7 +10725,7 @@ INT8 CheckStatusNearbyFriendlies( SOLDIERTYPE *pSoldier )
             {   
                 // Penalty is based on the difference between experience levels, and the range between them,
                 // and is never less than 1 point.
-                sEffectiveLeadership = (pLeader->stats.bExpLevel - pSoldier->stats.bExpLevel) / __max(1,(sEffectiveRangeToLeader/2));
+                sEffectiveLeadership = (pLeader->statistics().experienceLevel() - pSoldier->statistics().experienceLevel()) / __max(1,(sEffectiveRangeToLeader/2));
                 sFriendBonus -= __max(1, sEffectiveLeadership);
             }
             // SANDRO - however, dead squadleader is very bad for our psychics

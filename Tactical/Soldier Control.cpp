@@ -435,23 +435,6 @@ void STRUCT_Flags::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 	this->uiStatusFlags = src.uiStatusFlags;
 }
 
-void STRUCT_Statistics::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
-{
-	this->ubSkillTraits[0] = src.ubSkillTrait1;
-	this->ubSkillTraits[1] = src.ubSkillTrait2;
-	this->bDexterity = src.bDexterity;		// dexterity (hand coord) value
-	this->bWisdom = src.bWisdom;
-	this->bExpLevel = src.bExpLevel;		// general experience level
-	this->bAgility = src.bAgility;			// agility (speed) value
-	this->bStrength = src.bStrength;
-	this->bMechanical = src.bMechanical;
-	this->bMedical = src.bMedical;
-	this->bMarksmanship = src.bMarksmanship;
-	this->bScientific = src.bScientific;
-	this->bLeadership = src.bLeadership;
-	this->bExplosive = src.bExplosive;
-}
-
 void STRUCT_AIData::ConvertFrom_101_To_102( const OLDSOLDIERTYPE_101& src )
 {
 	memcpy( &(this->bOppList), &(src.bOppList), sizeof(INT8)* MAX_NUM_SOLDIERS ); // AI knowledge database
@@ -515,6 +498,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		}
 		//member classes
 		vitals().reset();
+		statistics().reset();
 		service().reset();
 		dialogue().reset();
 		audio().reset();
@@ -641,8 +625,19 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		timing().counter(SoldierTimingComponent::Timer::LocatorBlink) = src.BlinkSelCounter;
 		timing().counter(SoldierTimingComponent::Timer::PortraitFlash) = src.PortraitFlashCounter;
 		timing().counter(SoldierTimingComponent::Timer::NextTile) = src.NextTileCounter;
-		//drugs.ConvertFrom_101_To_102( src );
-		stats.ConvertFrom_101_To_102( src );
+		statistics().skillTrait(0) = src.ubSkillTrait1;
+		statistics().skillTrait(1) = src.ubSkillTrait2;
+		statistics().dexterity() = src.bDexterity;
+		statistics().wisdom() = src.bWisdom;
+		statistics().experienceLevel() = src.bExpLevel;
+		statistics().agility() = src.bAgility;
+		statistics().strength() = src.bStrength;
+		statistics().mechanical() = src.bMechanical;
+		statistics().medical() = src.bMedical;
+		statistics().marksmanship() = src.bMarksmanship;
+		statistics().scientific() = src.bScientific;
+		statistics().leadership() = src.bLeadership;
+		statistics().explosives() = src.bExplosive;
 		memcpy( pathing().path(), src.usPathingData, sizeof(src.usPathingData) );
 		pathing().desiredDirection() = src.bDesiredDirection;
 		pathing().destinationX() = src.sDestXPos;
@@ -1061,16 +1056,16 @@ UINT32 SOLDIERTYPE::GetChecksum( )
 
 	uiChecksum += (this->vitals().health() + 1);
 	uiChecksum *= (this->vitals().maximumHealth() + 1);
-	uiChecksum += (this->stats.bAgility + 1);
-	uiChecksum *= (this->stats.bDexterity + 1);
-	uiChecksum += (this->stats.bStrength + 1);
-	uiChecksum *= (this->stats.bMarksmanship + 1);
-	uiChecksum += (this->stats.bMedical + 1);
-	uiChecksum *= (this->stats.bMechanical + 1);
-	uiChecksum += (this->stats.bExplosive + 1);
+	uiChecksum += (this->statistics().agility() + 1);
+	uiChecksum *= (this->statistics().dexterity() + 1);
+	uiChecksum += (this->statistics().strength() + 1);
+	uiChecksum *= (this->statistics().marksmanship() + 1);
+	uiChecksum += (this->statistics().medical() + 1);
+	uiChecksum *= (this->statistics().mechanical() + 1);
+	uiChecksum += (this->statistics().explosives() + 1);
 
 	// put in some multipliers too!
-	uiChecksum *= (this->stats.bExpLevel + 1);
+	uiChecksum *= (this->statistics().experienceLevel() + 1);
 	uiChecksum += (this->ubProfile + 1);
 
 	UINT32 invsize = this->inv.size( );
@@ -1102,8 +1097,8 @@ void SOLDIERTYPE::initialize( )
 
 	memset( &aiData, 0, sizeof(STRUCT_AIData) );
 	memset( &flags, 0, sizeof(STRUCT_Flags) );
-	memset( &stats, 0, sizeof(STRUCT_Statistics) );
 	vitals().reset();
+	statistics().reset();
 	service().reset();
 	dialogue().reset();
 	audio().reset();
@@ -7791,9 +7786,9 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 			!ARMED_VEHICLE(this) &&
 			this->suppression().shock() == 0 &&
 			!this->suppression().underFire() &&
-			this->aiData.bMorale < 80 + 2 * this->stats.bExpLevel)
+			this->aiData.bMorale < 80 + 2 * this->statistics().experienceLevel())
 		{
-			this->aiData.bMorale = __min(80 + 2 * this->stats.bExpLevel, this->aiData.bMorale + 2 + this->stats.bExpLevel / 5);
+			this->aiData.bMorale = __min(80 + 2 * this->statistics().experienceLevel(), this->aiData.bMorale + 2 + this->statistics().experienceLevel() / 5);
 		}
 
 		// if this person has heard a noise that hasn't been investigated
@@ -20097,7 +20092,7 @@ INT16	SOLDIERTYPE::GetDiseaseResistance( )
 UINT16		SOLDIERTYPE::GetDiseaseDiagnosePoints()
 {
 	// determine our skill at detecting disease
-	UINT16 skill = this->stats.bMedical / 2 + NUM_SKILL_TRAITS( this, DOCTOR_NT ) * 15;
+	UINT16 skill = this->statistics().medical() / 2 + NUM_SKILL_TRAITS( this, DOCTOR_NT ) * 15;
 
 	skill = ( skill * ( 100 + this->GetBackgroundValue( BG_PERC_DISEASE_DIAGNOSE ) ) ) / 100;
 
@@ -20486,7 +20481,7 @@ UINT16	SOLDIERTYPE::GetInteractiveActionSkill( INT32 sGridNo, UINT8 usLevel, UIN
 				return 0;
 
 			// reading is governed by wisdom
-			return this->stats.bWisdom;
+			return this->statistics().wisdom();
 		}
 		break;
 
@@ -24557,10 +24552,10 @@ BOOLEAN HAS_SKILL_TRAIT( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber )
 
 		for ( INT8 bCnt = 0; bCnt < min( 30, bMaxTraits ); ++bCnt )
 		{
-			if ( pSoldier->stats.ubSkillTraits[bCnt] == uiSkillTraitNumber )
+			if ( pSoldier->statistics().skillTrait(bCnt) == uiSkillTraitNumber )
 				return(TRUE);
 
-			if ( MajorTrait( pSoldier->stats.ubSkillTraits[bCnt] ) )
+			if ( MajorTrait( pSoldier->statistics().skillTrait(bCnt) ) )
 				++bNumMajorTraitsCounted;
 
 			// if we exceeded the allowed number of major traits, ignore the rest of them
@@ -24570,10 +24565,10 @@ BOOLEAN HAS_SKILL_TRAIT( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber )
 	}
 	else
 	{
-		if ( pSoldier->stats.ubSkillTraits[0] == uiSkillTraitNumber )
+		if ( pSoldier->statistics().skillTrait(0) == uiSkillTraitNumber )
 			return(TRUE);
 
-		if ( pSoldier->stats.ubSkillTraits[1] == uiSkillTraitNumber )
+		if ( pSoldier->statistics().skillTrait(1) == uiSkillTraitNumber )
 			return(TRUE);
 	}
 
@@ -24602,10 +24597,10 @@ INT8 NUM_SKILL_TRAITS( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber )
 
 		for ( INT8 bCnt = 0; bCnt < min( 30, bMaxTraits ); ++bCnt )
 		{
-			if ( pSoldier->stats.ubSkillTraits[bCnt] == uiSkillTraitNumber )
+			if ( pSoldier->statistics().skillTrait(bCnt) == uiSkillTraitNumber )
 				++bNumberOfTraits;
 				
-			if ( MajorTrait( pSoldier->stats.ubSkillTraits[bCnt] ) )
+			if ( MajorTrait( pSoldier->statistics().skillTrait(bCnt) ) )
 				++bNumMajorTraitsCounted;
 
 			// if we exceeded the allowed number of major traits, ignore the rest of them
@@ -24621,10 +24616,10 @@ INT8 NUM_SKILL_TRAITS( SOLDIERTYPE * pSoldier, UINT8 uiSkillTraitNumber )
 	}
 	else
 	{
-		if ( pSoldier->stats.ubSkillTraits[0] == uiSkillTraitNumber )
+		if ( pSoldier->statistics().skillTrait(0) == uiSkillTraitNumber )
 			++bNumberOfTraits;
 
-		if ( pSoldier->stats.ubSkillTraits[1] == uiSkillTraitNumber )
+		if ( pSoldier->statistics().skillTrait(1) == uiSkillTraitNumber )
 			++bNumberOfTraits;
 
 		// Electronics, Ambidextrous and Camouflaged can only be of one grade
@@ -24664,8 +24659,8 @@ UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHighe
 				// also count in already aquired level increses from other SLs
 				if ( fWithHigherLevel )
 				{
-					if ( pSquadLeader->stats.bExpLevel > (pSoldier->stats.bExpLevel + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius)) )
-						ubNumberSL += min( (max( 0, (pSquadLeader->stats.bExpLevel - (pSoldier->stats.bExpLevel + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius))) )), (NUM_SKILL_TRAITS( pSquadLeader, SQUADLEADER_NT )) );
+					if ( pSquadLeader->statistics().experienceLevel() > (pSoldier->statistics().experienceLevel() + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius)) )
+						ubNumberSL += min( (max( 0, (pSquadLeader->statistics().experienceLevel() - (pSoldier->statistics().experienceLevel() + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius))) )), (NUM_SKILL_TRAITS( pSquadLeader, SQUADLEADER_NT )) );
 				}
 				else
 				{
@@ -24701,8 +24696,8 @@ UINT8 GetSquadleadersCountInVicinity( SOLDIERTYPE * pSoldier, BOOLEAN fWithHighe
 					// also count in already aquired level increses from other SLs
 					if ( fWithHigherLevel )
 					{
-						if ( pSquadLeader->stats.bExpLevel > (pSoldier->stats.bExpLevel + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius)) )
-							ubNumberSL += min( (max( 0, (pSquadLeader->stats.bExpLevel - (pSoldier->stats.bExpLevel + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius))) )), (NUM_SKILL_TRAITS( pSquadLeader, SQUADLEADER_NT )) );
+						if ( pSquadLeader->statistics().experienceLevel() > (pSoldier->statistics().experienceLevel() + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius)) )
+							ubNumberSL += min( (max( 0, (pSquadLeader->statistics().experienceLevel() - (pSoldier->statistics().experienceLevel() + (ubNumberSL*gSkillTraitValues.ubSLEffectiveLevelInRadius))) )), (NUM_SKILL_TRAITS( pSquadLeader, SQUADLEADER_NT )) );
 					}
 					else
 					{
@@ -24811,43 +24806,43 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 					break;
 				case DAMAGED_STAT_DEXTERITY:
 					sStat = sStatGainStrings[2]; // set string
-					pSoldier->stats.bDexterity += usStatIncreasement;
-					if ( pSoldier->stats.bDexterity >= 100 ) // repair if going too far
+					pSoldier->statistics().dexterity() += usStatIncreasement;
+					if ( pSoldier->statistics().dexterity() >= 100 ) // repair if going too far
 					{
-						pSoldier->stats.bDexterity = 100;
+						pSoldier->statistics().dexterity() = 100;
 						pSoldier->vitals().criticalStatDamage()[cnt] = 0;
 					}
-					gMercProfiles[pSoldier->ubProfile].bDexterity = pSoldier->stats.bDexterity; // update profile
+					gMercProfiles[pSoldier->ubProfile].bDexterity = pSoldier->statistics().dexterity(); // update profile
 					break;
 				case DAMAGED_STAT_AGILITY:
 					sStat = sStatGainStrings[1]; // set string
-					pSoldier->stats.bAgility += usStatIncreasement;
-					if ( pSoldier->stats.bAgility >= 100 ) // repair if going too far
+					pSoldier->statistics().agility() += usStatIncreasement;
+					if ( pSoldier->statistics().agility() >= 100 ) // repair if going too far
 					{
-						pSoldier->stats.bAgility = 100;
+						pSoldier->statistics().agility() = 100;
 						pSoldier->vitals().criticalStatDamage()[cnt] = 0;
 					}
-					gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->stats.bAgility; // update profile
+					gMercProfiles[pSoldier->ubProfile].bAgility = pSoldier->statistics().agility(); // update profile
 					break;
 				case DAMAGED_STAT_STRENGTH:
 					sStat = sStatGainStrings[9]; // set string
-					pSoldier->stats.bStrength += usStatIncreasement;
-					if ( pSoldier->stats.bStrength >= 100 ) // repair if going too far
+					pSoldier->statistics().strength() += usStatIncreasement;
+					if ( pSoldier->statistics().strength() >= 100 ) // repair if going too far
 					{
-						pSoldier->stats.bStrength = 100;
+						pSoldier->statistics().strength() = 100;
 						pSoldier->vitals().criticalStatDamage()[cnt] = 0;
 					}
-					gMercProfiles[pSoldier->ubProfile].bStrength = pSoldier->stats.bStrength; // update profile
+					gMercProfiles[pSoldier->ubProfile].bStrength = pSoldier->statistics().strength(); // update profile
 					break;
 				case DAMAGED_STAT_WISDOM:
 					sStat = sStatGainStrings[3]; // set string
-					pSoldier->stats.bWisdom += usStatIncreasement;
-					if ( pSoldier->stats.bWisdom >= 100 ) // repair if going too far
+					pSoldier->statistics().wisdom() += usStatIncreasement;
+					if ( pSoldier->statistics().wisdom() >= 100 ) // repair if going too far
 					{
-						pSoldier->stats.bWisdom = 100;
+						pSoldier->statistics().wisdom() = 100;
 						pSoldier->vitals().criticalStatDamage()[cnt] = 0;
 					}
-					gMercProfiles[pSoldier->ubProfile].bWisdom = pSoldier->stats.bWisdom; // update profile
+					gMercProfiles[pSoldier->ubProfile].bWisdom = pSoldier->statistics().wisdom(); // update profile
 					break;
 				}
 				// Throw a message if healed anything
@@ -24941,13 +24936,13 @@ UINT8 RegainDamagedStats( SOLDIERTYPE * pSoldier, UINT16 usAmountRegainedHundred
 				bStatsReturned += usStatIncreasement; // keep value for feedback
 
 				sStat = sStatGainStrings[9]; // set string
-				pSoldier->stats.bStrength += usStatIncreasement;
-				if ( pSoldier->stats.bStrength >= 100 ) // repair if going too far
+				pSoldier->statistics().strength() += usStatIncreasement;
+				if ( pSoldier->statistics().strength() >= 100 ) // repair if going too far
 				{
-					pSoldier->stats.bStrength = 100;
+					pSoldier->statistics().strength() = 100;
 					pSoldier->condition().starvationStrengthDamage() = 0;
 				}
-				gMercProfiles[pSoldier->ubProfile].bStrength = pSoldier->stats.bStrength; // update profile
+				gMercProfiles[pSoldier->ubProfile].bStrength = pSoldier->statistics().strength(); // update profile
 
 				// Throw a message if healed anything
 				if ( gSkillTraitValues.fDORepStShouldThrowMessage && pSoldier->bTeam != ENEMY_TEAM )
@@ -25048,13 +25043,13 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 			}
 			uiReactionTime = uiReactionTime * 10; // x10 ... we will divide by 10 after all adjustments done
 			// adjust based on Agility
-			if ( pInterrupter->stats.bAgility >= 80 )
+			if ( pInterrupter->statistics().agility() >= 80 )
 			{
-				uiReactionTime = (uiReactionTime * (100 - (2 * (pInterrupter->stats.bAgility - 80))) / 100);
+				uiReactionTime = (uiReactionTime * (100 - (2 * (pInterrupter->statistics().agility() - 80))) / 100);
 			}
-			else if ( pInterrupter->stats.bAgility < 80 && pInterrupter->stats.bAgility > 50 )
+			else if ( pInterrupter->statistics().agility() < 80 && pInterrupter->statistics().agility() > 50 )
 			{
-				uiReactionTime = (uiReactionTime * (100 + (2 * (80 - pInterrupter->stats.bAgility))) / 100);
+				uiReactionTime = (uiReactionTime * (100 + (2 * (80 - pInterrupter->statistics().agility()))) / 100);
 			}
 			else
 			{
@@ -25175,11 +25170,11 @@ BOOLEAN ResolvePendingInterrupt( SOLDIERTYPE * pSoldier, UINT8 ubInterruptType )
 							// 0-20% is determined by our Experience Level - i.e how well can we realize that we must act
 							// 0-20% is determined by our Agility - can our body react so swiftly at all
 							// 0-10% is determined by our Wisdom - do we have enough mental agility as well?
-							usColIntChance = 10 * (((pInterrupter->stats.bLeadership * 3) +
+							usColIntChance = 10 * (((pInterrupter->statistics().leadership() * 3) +
 								(EffectiveExpLevel( pInterrupter ) * 20) +
 								(EffectiveExpLevel( pTeammate ) * 20) +
-								(pTeammate->stats.bAgility * 2) +
-								(pTeammate->stats.bWisdom)) / 100);
+								(pTeammate->statistics().agility() * 2) +
+								(pTeammate->statistics().wisdom())) / 100);
 							// add bonus per Squadleader trait of the original interrupter
 							if ( HAS_SKILL_TRAIT( pInterrupter, SQUADLEADER_NT ) && gGameOptions.fNewTraitSystem )
 							{
@@ -25315,7 +25310,7 @@ BOOLEAN DecideAltAnimForBigMerc( SOLDIERTYPE * pSoldier )
 	{
 		//never use this for regular enemies, only elites with high morale and level can sometimes show this animation
 		if ( (pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE || pSoldier->ubSoldierClass == SOLDIER_CLASS_ELITE_MILITIA) &&
-			 (pSoldier->aiData.bAIMorale >= MORALE_FEARLESS) && (pSoldier->stats.bExpLevel > 8) )
+			 (pSoldier->aiData.bAIMorale >= MORALE_FEARLESS) && (pSoldier->statistics().experienceLevel() > 8) )
 		{
 			return TRUE;
 		}

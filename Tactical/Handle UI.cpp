@@ -5135,7 +5135,7 @@ BOOLEAN UIMouseOnValidAttackLocation( SOLDIERTYPE *pSoldier )
 			return( FALSE );
 		}
 
-		if ( pSoldier->stats.bMedical == 0 )
+		if ( pSoldier->statistics().medical() == 0 )
 		{
 			ScreenMsg( FONT_MCOLOR_LTYELLOW, MSG_UI_FEEDBACK, pMessageStrings[ MSG_MERC_HAS_NO_MEDSKILL ], pSoldier->GetName() );
 			return( FALSE );

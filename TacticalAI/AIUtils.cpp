@@ -2707,7 +2707,7 @@ INT32 CalcManThreatValue( SOLDIERTYPE *pEnemy, INT32 sMyGrid, UINT8 ubReduceForC
 			iThreatValue += ArmourPercent( pEnemy ) / 4;
 
 			// ADD 1/5 of man's marksmanship skill (0-20)
-			iThreatValue += (pEnemy->stats.bMarksmanship / 5);
+			iThreatValue += (pEnemy->statistics().marksmanship() / 5);
 
 			if ( Item[ pEnemy->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 			{
@@ -3422,7 +3422,7 @@ INT32 CalcStraightThreatValue( SOLDIERTYPE *pEnemy )
 			iThreatValue += ArmourPercent( pEnemy ) / 4;
 
 			// ADD 1/5 of man's marksmanship skill (0-20)
-			iThreatValue += (pEnemy->stats.bMarksmanship / 5);
+			iThreatValue += (pEnemy->statistics().marksmanship() / 5);
 
 			if ( Item[ pEnemy->inv[HANDPOS].usItem ].usItemClass & IC_WEAPON )
 			{
@@ -5043,7 +5043,7 @@ BOOLEAN AICheckIsSniper(SOLDIERTYPE *pSoldier)
 
 	if ((AIGunRange(pSoldier) > TACTICAL_RANGE || AICheckHasWeaponOfType(pSoldier, GUN_SN_RIFLE)) &&
 		AIGunScoped(pSoldier) &&
-		pSoldier->stats.bMarksmanship > 90 &&
+		pSoldier->statistics().marksmanship() > 90 &&
 		gGameOptions.fNewTraitSystem &&
 		HAS_SKILL_TRAIT(pSoldier, SNIPER_NT))
 	{
@@ -5075,7 +5075,7 @@ BOOLEAN AICheckIsMarksman(SOLDIERTYPE *pSoldier)
 	}
 
 	if (AIGunRange(pSoldier) >= TACTICAL_RANGE &&
-		(AIGunScoped(pSoldier) || pSoldier->stats.bMarksmanship > 90 || gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT(pSoldier, SNIPER_NT)))
+		(AIGunScoped(pSoldier) || pSoldier->statistics().marksmanship() > 90 || gGameOptions.fNewTraitSystem && HAS_SKILL_TRAIT(pSoldier, SNIPER_NT)))
 	{
 		return TRUE;
 	}

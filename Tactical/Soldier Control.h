@@ -829,26 +829,6 @@ namespace AI
     }
 }
 
-class STRUCT_Statistics//last edited at version 102
-{
-public:
-	void				ConvertFrom_101_To_102(const OLDSOLDIERTYPE_101& src);
-	INT8												bExpLevel;		// general experience level
-	INT8												bStrength;
-	INT8												bAgility;			// agility (speed) value
-	INT8												bDexterity;		// dexterity (hand coord) value
-	INT8												bWisdom;
-	INT8												bLeadership;
-	INT8												bMarksmanship;
-	INT8												bMechanical;
-	INT8												bExplosive;
-	INT8												bMedical;
-	INT8												bScientific;	
-	UINT8												ubSkillTraits[30];
-	//UINT8												ubSkillTrait2;
-	//UINT8												ubSkillTrait3; // added by SANDRO
-};
-
 enum class BackgroundVectorTypes;
 
 class SOLDIERTYPE//last edited at version 102
@@ -873,6 +853,8 @@ public:
 	bool	exists();
 	SoldierVitalsComponent& vitals() noexcept { return vitals_; }
 	const SoldierVitalsComponent& vitals() const noexcept { return vitals_; }
+	SoldierStatisticsComponent& statistics() noexcept { return statistics_; }
+	const SoldierStatisticsComponent& statistics() const noexcept { return statistics_; }
 	SoldierServiceComponent& service() noexcept { return service_; }
 	const SoldierServiceComponent& service() const noexcept { return service_; }
 	SoldierDialogueComponent& dialogue() noexcept { return dialogue_; }
@@ -1066,10 +1048,10 @@ public:
 	//data from version 101 wrapped into structs
 	STRUCT_AIData			aiData;
 	STRUCT_Flags				flags;
-	STRUCT_Statistics		stats;
 
 private:
 	SoldierVitalsComponent	vitals_;
+	SoldierStatisticsComponent	statistics_;
 	SoldierServiceComponent	service_;
 	SoldierDialogueComponent	dialogue_;
 	SoldierAudioComponent	audio_;

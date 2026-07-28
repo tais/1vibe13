@@ -426,12 +426,12 @@ BOOLEAN CheckTalkerStrong( void )
 		GetDialogueDestinationSoldier();
 	if (source && source->bTeam == gbPlayerNum)
 	{
-		return( source->stats.bStrength >= 84 );
+		return( source->statistics().strength() >= 84 );
 	}
 	else if (destination &&
 		destination->bTeam == gbPlayerNum)
 	{
-		return( destination->stats.bStrength >= 84 );
+		return( destination->statistics().strength() >= 84 );
 	}
 	return( FALSE );
 }

@@ -1608,17 +1608,17 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 		// Copy vital stats back!
 		pNewSoldier->vitals().health()													= pSoldier->vitals().health();
 		pNewSoldier->vitals().maximumHealth()												= pSoldier->vitals().maximumHealth();
-		pNewSoldier->stats.bAgility												= pSoldier->stats.bAgility;
-		pNewSoldier->stats.bLeadership										= pSoldier->stats.bLeadership;
-		pNewSoldier->stats.bDexterity											= pSoldier->stats.bDexterity;
-		pNewSoldier->stats.bStrength											= pSoldier->stats.bStrength;
-		pNewSoldier->stats.bWisdom												= pSoldier->stats.bWisdom;
-		pNewSoldier->stats.bExpLevel											= pSoldier->stats.bExpLevel;
-		pNewSoldier->stats.bMarksmanship									= pSoldier->stats.bMarksmanship;
-		pNewSoldier->stats.bMedical												= pSoldier->stats.bMedical;
-		pNewSoldier->stats.bMechanical										= pSoldier->stats.bMechanical;
-		pNewSoldier->stats.bExplosive											= pSoldier->stats.bExplosive;
-		pNewSoldier->stats.bScientific										= pSoldier->stats.bScientific;
+		pNewSoldier->statistics().agility()												= pSoldier->statistics().agility();
+		pNewSoldier->statistics().leadership()										= pSoldier->statistics().leadership();
+		pNewSoldier->statistics().dexterity()											= pSoldier->statistics().dexterity();
+		pNewSoldier->statistics().strength()											= pSoldier->statistics().strength();
+		pNewSoldier->statistics().wisdom()												= pSoldier->statistics().wisdom();
+		pNewSoldier->statistics().experienceLevel()											= pSoldier->statistics().experienceLevel();
+		pNewSoldier->statistics().marksmanship()									= pSoldier->statistics().marksmanship();
+		pNewSoldier->statistics().medical()												= pSoldier->statistics().medical();
+		pNewSoldier->statistics().mechanical()										= pSoldier->statistics().mechanical();
+		pNewSoldier->statistics().explosives()											= pSoldier->statistics().explosives();
+		pNewSoldier->statistics().scientific()										= pSoldier->statistics().scientific();
 		pNewSoldier->awareness().lastRenderedVisibility()				= pSoldier->awareness().lastRenderedVisibility();
 		pNewSoldier->awareness().visibility()												= pSoldier->awareness().visibility();
 		// added by SANDRO - insta-healable injury zero on soldier creation
@@ -2127,17 +2127,17 @@ void UpdateSoldierPointerDataIntoProfile( BOOLEAN fPlayerMercs )
 					// Copy....
 					pProfile->bLife 										= pSoldier->vitals().health();
 					pProfile->bLifeMax									= pSoldier->vitals().maximumHealth();
-					pProfile->bAgility									= pSoldier->stats.bAgility;
-					pProfile->bLeadership								= pSoldier->stats.bLeadership;
-					pProfile->bDexterity								= pSoldier->stats.bDexterity;
-					pProfile->bStrength									= pSoldier->stats.bStrength;
-					pProfile->bWisdom										= pSoldier->stats.bWisdom;
-					pProfile->bExpLevel									= pSoldier->stats.bExpLevel;
-					pProfile->bMarksmanship							= pSoldier->stats.bMarksmanship;
-					pProfile->bMedical									= pSoldier->stats.bMedical;
-					pProfile->bMechanical								= pSoldier->stats.bMechanical;
-					pProfile->bExplosive								= pSoldier->stats.bExplosive;
-					pProfile->bScientific								= pSoldier->stats.bScientific;
+					pProfile->bAgility									= pSoldier->statistics().agility();
+					pProfile->bLeadership								= pSoldier->statistics().leadership();
+					pProfile->bDexterity								= pSoldier->statistics().dexterity();
+					pProfile->bStrength									= pSoldier->statistics().strength();
+					pProfile->bWisdom										= pSoldier->statistics().wisdom();
+					pProfile->bExpLevel									= pSoldier->statistics().experienceLevel();
+					pProfile->bMarksmanship							= pSoldier->statistics().marksmanship();
+					pProfile->bMedical									= pSoldier->statistics().medical();
+					pProfile->bMechanical								= pSoldier->statistics().mechanical();
+					pProfile->bExplosive								= pSoldier->statistics().explosives();
+					pProfile->bScientific								= pSoldier->statistics().scientific();
 				}
 			}
 		}
@@ -2378,17 +2378,17 @@ SOLDIERTYPE* SwapToProfile( SOLDIERTYPE * pSoldier, UINT8 ubDestProfile )
 	// replace profile in group
 	ReplaceSoldierProfileInPlayerGroup( pSoldier->deployment().groupId(), ubSrcProfile, ubDestProfile );
 
-	pSoldier->stats.bStrength =			pNewProfile->bStrength + pNewProfile->bStrengthDelta;
-	pSoldier->stats.bDexterity =		pNewProfile->bDexterity + pNewProfile->bDexterityDelta;
-	pSoldier->stats.bAgility =			pNewProfile->bAgility + pNewProfile->bAgilityDelta;
-	pSoldier->stats.bWisdom =			pNewProfile->bWisdom + pNewProfile->bWisdomDelta;
-	pSoldier->stats.bExpLevel =			pNewProfile->bExpLevel + pNewProfile->bExpLevelDelta;
-	pSoldier->stats.bLeadership =		pNewProfile->bLeadership + pNewProfile->bLeadershipDelta;
+	pSoldier->statistics().strength() =			pNewProfile->bStrength + pNewProfile->bStrengthDelta;
+	pSoldier->statistics().dexterity() =		pNewProfile->bDexterity + pNewProfile->bDexterityDelta;
+	pSoldier->statistics().agility() =			pNewProfile->bAgility + pNewProfile->bAgilityDelta;
+	pSoldier->statistics().wisdom() =			pNewProfile->bWisdom + pNewProfile->bWisdomDelta;
+	pSoldier->statistics().experienceLevel() =			pNewProfile->bExpLevel + pNewProfile->bExpLevelDelta;
+	pSoldier->statistics().leadership() =		pNewProfile->bLeadership + pNewProfile->bLeadershipDelta;
 
-	pSoldier->stats.bMarksmanship =		pNewProfile->bMarksmanship + pNewProfile->bMarksmanshipDelta;
-	pSoldier->stats.bMechanical =		pNewProfile->bMechanical + pNewProfile->bMechanicDelta;
-	pSoldier->stats.bMedical =			pNewProfile->bMedical + pNewProfile->bMedicalDelta;
-	pSoldier->stats.bExplosive =		pNewProfile->bExplosive + pNewProfile->bExplosivesDelta;
+	pSoldier->statistics().marksmanship() =		pNewProfile->bMarksmanship + pNewProfile->bMarksmanshipDelta;
+	pSoldier->statistics().mechanical() =		pNewProfile->bMechanical + pNewProfile->bMechanicDelta;
+	pSoldier->statistics().medical() =			pNewProfile->bMedical + pNewProfile->bMedicalDelta;
+	pSoldier->statistics().explosives() =		pNewProfile->bExplosive + pNewProfile->bExplosivesDelta;
 	
 	if ( pSoldier->ubProfile == LARRY_DRUNK )
 	{

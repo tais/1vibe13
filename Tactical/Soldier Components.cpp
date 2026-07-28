@@ -30,6 +30,11 @@ void SoldierVitalsComponent::reset() noexcept
 	*this = SoldierVitalsComponent{};
 }
 
+void SoldierStatisticsComponent::reset() noexcept
+{
+	*this = SoldierStatisticsComponent{};
+}
+
 void SoldierServiceComponent::addProvider() noexcept
 {
 	if (providerCount_ < std::numeric_limits<UINT8>::max())

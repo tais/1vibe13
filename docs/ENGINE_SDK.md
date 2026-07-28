@@ -285,6 +285,15 @@ surgery state, unrecoverable breath, critical-stat damage, bleed scheduling and
 sound throttling, and the retired regeneration save slots. Named snapshot,
 surgery, damage-recovery, life-deduction, and reset transitions keep the domain
 coherent; the explicit serializer retains every established position and width.
+`SoldierStatisticsComponent` separately owns the eleven persistent base
+attributes and fixed 30-slot learned-trait array. Combat, AI, assignments,
+character creation, and UI use the same reference-accessor surface rather than
+a public legacy aggregate. The serializer retains the exact signed-byte
+attribute sequence, the two historically interleaved health bytes, and all 30
+unsigned trait bytes. v101 conversion maps every historical attribute and its
+first two trait slots while clearing the 28 slots absent from that record.
+Profile structures, trait rules, XML, Lua, multiplayer, installed data, and save
+bytes do not change.
 `SoldierServiceComponent` separately owns the persisted service marker, patient
 provider count, provider-to-patient identity, and automatic-bandage medic
 reservation, plus the inventory slot temporarily borrowed by an autonomous

@@ -414,28 +414,28 @@ BOOLEAN PickABoxer( void )
 					gfBoxerFought[ uiLoop ] = TRUE;
 					DebugQuestInfo(String("PickABoxer: set gfBoxerFought[%d] %d", uiLoop, gfBoxerFought[uiLoop]));
 					// improve stats based on the # of rests these guys have had
-					pBoxer->stats.bStrength = __min( 100, pBoxer->stats.bStrength + gubBoxersRests * 5 );
-					pBoxer->stats.bDexterity = __min( 100, pBoxer->stats.bDexterity + gubBoxersRests * 5 );
-					pBoxer->stats.bAgility = __min( 100, pBoxer->stats.bAgility + gubBoxersRests * 5 );
+					pBoxer->statistics().strength() = __min( 100, pBoxer->statistics().strength() + gubBoxersRests * 5 );
+					pBoxer->statistics().dexterity() = __min( 100, pBoxer->statistics().dexterity() + gubBoxersRests * 5 );
+					pBoxer->statistics().agility() = __min( 100, pBoxer->statistics().agility() + gubBoxersRests * 5 );
 					pBoxer->vitals().maximumHealth() = __min( 100, pBoxer->vitals().maximumHealth() + gubBoxersRests * 5 );
 					// give the 2nd boxer Hand to hand - SANDRO
 					if ( (uiLoop == NUM_BOXERS - 2) )
 					{
 						if (gGameOptions.fNewTraitSystem) // SANDRO - traits
-							pBoxer->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
+							pBoxer->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
 						else
-							pBoxer->stats.ubSkillTraits[0] = HANDTOHAND_OT;
+							pBoxer->statistics().skillTrait(0) = HANDTOHAND_OT;
 					}
 					// give the 3rd boxer martial arts
 					if ( (uiLoop == NUM_BOXERS - 1) && pBoxer->ubBodyType == REGMALE )
 					{
 						if (gGameOptions.fNewTraitSystem) // SANDRO - traits
 						{
-							pBoxer->stats.ubSkillTraits[0] = MARTIAL_ARTS_NT;
-							pBoxer->stats.ubSkillTraits[1] = MARTIAL_ARTS_NT;
+							pBoxer->statistics().skillTrait(0) = MARTIAL_ARTS_NT;
+							pBoxer->statistics().skillTrait(1) = MARTIAL_ARTS_NT;
 						}
 						else
-							pBoxer->stats.ubSkillTraits[0] = MARTIALARTS_OT;
+							pBoxer->statistics().skillTrait(0) = MARTIALARTS_OT;
 					}
 					return( TRUE );
 				}
