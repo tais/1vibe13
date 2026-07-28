@@ -1113,11 +1113,12 @@ the engine must not contain SDL types in its public domain model.
   prevent a duty change from retaining stale repair or facility state.
   `SoldierDeploymentComponent` now owns that separate strategic-placement
   domain: sector coordinates, movement-group and vehicle membership, tactical
-  insertion, traversal origin, off-world staging, and arrival bookkeeping.
-  Named sector, insertion, traversal, vehicle, and arrival transitions keep
-  related values coherent. The existing strategic route and live group
-  pointers remain boundary adapters rather than becoming component-owned
-  content formats.
+  insertion, traversal origin, off-world staging, arrival bookkeeping, and the
+  Unfinished Business helicopter arrival get-up timer and phase flags. Named
+  sector, insertion, traversal, vehicle, arrival, and arrival get-up
+  transitions keep related values coherent. The existing strategic route and
+  live group pointers remain boundary adapters rather than becoming
+  component-owned content formats.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to
@@ -1218,9 +1219,10 @@ the engine must not contain SDL types in its public domain model.
   `SoldierAnimationActivityComponent` owns the surrounding lifecycle:
   prone-turn mode, pausing, turn-to-completion state, hit and fall phases,
   interruptibility, suppression stance changes, and animation AP-cost
-  waivers. Traversal landing forecast and its temporary render-depth override
-  live here as well, rather than as distant public render scratch. Named
-  operations update coordinated lifecycle state together.
+  waivers. Traversal landing forecast and its temporary render-depth override,
+  plus random-animation cadence and the last selected random animation, live
+  here as well rather than as distant public scratch state. Named operations
+  update coordinated lifecycle state together.
   Runtime surface residency has a fourth private boundary:
   `SoldierAnimationCacheComponent` replaces the public two-pointer
   `AnimCache` with fixed-capacity inline storage. Soldier creation cannot fail

@@ -1754,7 +1754,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(s.iLight); ar.i32(s.iMuzFlash); ar.i8(s.bMuzFlashCount);
 	ar.i16(position.worldXInt()); ar.i16(position.worldYInt()); ar.u16(s.animationPlayback().previousState()); ar.i16(s.animationPlayback().previousCode());
 	ar.i8(fireControl.bulletsLeft()); ar.u8(suppression.points());
-	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
+	ar.u32(s.animationActivity().randomActionCheckCounter()); ar.i16(s.animationActivity().lastRandomAnimation());
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
 	ar.i16(meleeApproach.movementMode()); ar.i32(meleeApproach.grid()); ar.i16(meleeApproach.cost());
 	ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);
@@ -1840,9 +1840,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(s.usGLDelayMode); ar.u8(s.usBarrelMode); ar.u8(fireControl.barrelCounter());
 	ar.i32(skillState.focusGrid()); ar.u32(s.usSoldierFlagMask2); ar.u32(s.usIndividualMilitiaID);
 	ar.u32(condition.disabilityFlags()); ar.i32(interaction.draggedStructureGrid());
-	ar.boolean(s.fIgnoreGetupFromCollapseCheck);
-	ar.i32(s.GetupFromJA25StartCounter);
-	ar.boolean(s.fWaitingToGetupFromJA25Start);
+	ar.boolean(deployment.ignoreCollapseGetupCheck());
+	ar.i32(deployment.arrivalGetupCounter());
+	ar.boolean(deployment.waitingForArrivalGetup());
 	for (i = 0; i < NUM_ASSIST_SLOTS; ++i) ar.u8(combatContribution.damageByTeam()[i]);
 }
 

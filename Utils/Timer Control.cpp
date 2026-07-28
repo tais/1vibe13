@@ -256,7 +256,7 @@ static void ProcessLegacyClockStep( BOOLEAN paused )
 					UpdateTimeCounter( pSoldier->timeCounters.NextTileCounter, iTimeLeft );
 					UpdateTimeCounter( pSoldier->timeCounters.PanelAnimateCounter, iTimeLeft );
 #ifdef JA2UB
-					UpdateTimeCounter( pSoldier->GetupFromJA25StartCounter, iTimeLeft );
+					UpdateTimeCounter( pSoldier->deployment().arrivalGetupCounter(), iTimeLeft );
 #endif
 				}
 			}

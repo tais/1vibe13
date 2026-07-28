@@ -1780,11 +1780,11 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				if ( pSoldier->vitals().health() >= OKLIFE )
 				{
 					// Increment time from last update
-					pSoldier->uiTimeOfLastRandomAction++;
+					pSoldier->animationActivity().advanceRandomActionCheck();
 
-					if ( pSoldier->uiTimeOfLastRandomAction > TIME_FOR_RANDOM_ANIM_CHECK || pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD || GetDrunkLevel( pSoldier ) >= BORDERLINE )
+					if ( pSoldier->animationActivity().randomActionCheckDue(TIME_FOR_RANDOM_ANIM_CHECK) || pSoldier->vitals().health() < INJURED_CHANGE_THREASHOLD || GetDrunkLevel( pSoldier ) >= BORDERLINE )
 					{
-						pSoldier->uiTimeOfLastRandomAction = 0;
+						pSoldier->animationActivity().resetRandomActionCheck();
 
 						// Don't play these generally if this is the guy selected by player, as this one is "awaiting orders"
 						if (pSoldier->ubID != gusSelectedSoldier || Random( 10 ) == 0 ) 

@@ -1040,15 +1040,15 @@ BOOLEAN ExecuteOverhead( )
             }
             // ATE: JA25 additon - poll for getting up from start of game...
             if( GetGameContext().capabilities().isUnfinishedBusiness() &&
-                pSoldier->fWaitingToGetupFromJA25Start )
+                pSoldier->deployment().arrivalGetupPending() )
             {
                 if( !DialogueActive( ) )
                 {
                     ///if the timer is done, AND no one is talking
-                    if( TIMECOUNTERDONE( pSoldier->GetupFromJA25StartCounter, 0 ) )
+                    if( TIMECOUNTERDONE( pSoldier->deployment().arrivalGetupCounter(), 0 ) )
                     {
                         //make sure they wont say this again
-                        pSoldier->fWaitingToGetupFromJA25Start = FALSE;
+                        pSoldier->deployment().completeArrivalGetup();
 
                         //
                         //Get the soldier that should say the quote
@@ -1072,7 +1072,7 @@ BOOLEAN ExecuteOverhead( )
                 }
                 else
                 {
-                    pSoldier->GetupFromJA25StartCounter += giTimerDiag;
+                    pSoldier->deployment().arrivalGetupCounter() += giTimerDiag;
                 }
             }               
 

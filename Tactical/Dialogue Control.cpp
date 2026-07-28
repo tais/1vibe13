@@ -1378,7 +1378,7 @@ void HandleDialogue( )
 					if (pSoldier != nullptr)
 					{
 						// Now, wake these sluts up and have them say quote...
-						pSoldier->fIgnoreGetupFromCollapseCheck = FALSE;
+						pSoldier->deployment().clearCollapseGetupOverride();
 
 						//Get the soldier up
 						pSoldier->collapseState().clearTactical();
@@ -3923,7 +3923,7 @@ BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 		if ( OK_CONTROLLABLE_MERC( pSoldier )  )
 		{
 			//if the merc is still not done the initial speech, and still prone
-			if( pSoldier->fIgnoreGetupFromCollapseCheck )
+			if( pSoldier->deployment().ignoreCollapseGetupCheck() )
 			{
 				//we arent done
 				return( FALSE );
@@ -3936,7 +3936,7 @@ BOOLEAN AreAllTheMercsFinishedSayingThereInitialHeliCrashQuotes()
 	if( pSoldier )
 	{
 		//if the merc is still not done the initial speech, and still prone
-		if( pSoldier->fIgnoreGetupFromCollapseCheck )
+		if( pSoldier->deployment().ignoreCollapseGetupCheck() )
 		{
 			//we arent done
 			return( FALSE );

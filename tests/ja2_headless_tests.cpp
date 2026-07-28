@@ -7446,6 +7446,8 @@ int main( int, char** )
 		deployment.setTraversalOrigin(31, 2203);
 		deployment.useExitGridForReentryDirection() = 1;
 		deployment.scheduleArrival(14000, 6);
+		deployment.beginArrivalGetup();
+		deployment.arrivalGetupCounter() = 15000;
 		SoldierScheduleComponent& schedule = soldier.schedule();
 		schedule.id() = 37;
 		schedule.progress() = 2;
@@ -7607,6 +7609,8 @@ int main( int, char** )
 		animationActivity.turningIncrement() = -1;
 		animationActivity.forecastTraversalAt(1290);
 		animationActivity.setRenderZOverride(999);
+		animationActivity.randomActionCheckCounter() = 42;
+		animationActivity.lastRandomAnimation() = 123;
 		CHECK( vitals.alive() &&
 		       vitals.hasHealableInjury() &&
 		       vitals.isUndergoingSurgery() &&
@@ -7829,8 +7833,11 @@ int main( int, char** )
 		       constSoldier.deployment().useExitGridForReentryDirection() == 1 &&
 		       constSoldier.deployment().preTraversalGrid() == 2203 &&
 		       constSoldier.deployment().leaveHistoryCode() == 6 &&
-		       constSoldier.deployment().arrivalTime() == 14000,
-		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival state" );
+		       constSoldier.deployment().arrivalTime() == 14000 &&
+		       constSoldier.deployment().arrivalGetupPending() &&
+		       constSoldier.deployment().ignoreCollapseGetupCheck() &&
+		       constSoldier.deployment().arrivalGetupCounter() == 15000,
+		       "soldier deployment component owns strategic placement, insertion, traversal, and arrival lifecycle" );
 		CHECK( constSoldier.schedule().assigned() &&
 		       constSoldier.schedule().id() == 37 &&
 		       constSoldier.schedule().progress() == 2 &&
@@ -8028,8 +8035,11 @@ int main( int, char** )
 		       constSoldier.animationActivity().turningIncrement() == -1 &&
 		       constSoldier.animationActivity().traversalForecastGrid() == 1290 &&
 		       constSoldier.animationActivity().hasRenderZOverride() &&
-		       constSoldier.animationActivity().renderZOverride() == 999,
-		       "soldier animation-activity component owns coordinated turn, hit, fall, and AP lifecycle state" );
+		       constSoldier.animationActivity().renderZOverride() == 999 &&
+		       constSoldier.animationActivity().randomActionCheckDue(41) &&
+		       constSoldier.animationActivity().randomActionCheckCounter() == 42 &&
+		       constSoldier.animationActivity().lastRandomAnimation() == 123,
+		       "soldier animation-activity component owns coordinated turn, hit, fall, random-action, and AP lifecycle state" );
 		SoldierAnimationCacheComponent invalidOwnerCache;
 		invalidOwnerCache.initialize( NOBODY );
 		CHECK( invalidOwnerCache.empty() &&
@@ -8716,7 +8726,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
 		       copiedSoldier.deployment().preTraversalGrid() == 2203 &&
 		       copiedSoldier.deployment().leaveHistoryCode() == 6 &&
-		       copiedSoldier.deployment().arrivalTime() == 14000,
+		       copiedSoldier.deployment().arrivalTime() == 14000 &&
+		       copiedSoldier.deployment().arrivalGetupPending() &&
+		       copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
+		       copiedSoldier.deployment().arrivalGetupCounter() == 15000,
 		       "soldier copies retain their owned persistent deployment state" );
 		CHECK( copiedSoldier.schedule().id() == 37 &&
 		       copiedSoldier.schedule().progress() == 2 &&
@@ -8891,7 +8904,9 @@ int main( int, char** )
 		       copiedSoldier.animationActivity().fallDirection() == 6 &&
 		       copiedSoldier.animationActivity().turningIncrement() == -1 &&
 		       copiedSoldier.animationActivity().traversalForecastGrid() == 1290 &&
-		       copiedSoldier.animationActivity().renderZOverride() == 999,
+		       copiedSoldier.animationActivity().renderZOverride() == 999 &&
+		       copiedSoldier.animationActivity().randomActionCheckCounter() == 42 &&
+		       copiedSoldier.animationActivity().lastRandomAnimation() == 123,
 		       "soldier copies retain their owned persistent animation activity" );
 		copiedSoldier.pathing().clearRoute();
 		CHECK( copiedSoldier.pathing().empty() &&
@@ -9042,6 +9057,16 @@ int main( int, char** )
 		traversalLifecycle.clearRenderZOverride();
 		CHECK( !traversalLifecycle.hasRenderZOverride(),
 		       "animation activity clears traversal render-depth override explicitly" );
+		traversalLifecycle.advanceRandomActionCheck();
+		traversalLifecycle.lastRandomAnimation() = 17;
+		CHECK( traversalLifecycle.randomActionCheckDue(0) &&
+		       traversalLifecycle.randomActionCheckCounter() == 1 &&
+		       traversalLifecycle.lastRandomAnimation() == 17,
+		       "animation activity advances the random-animation cadence through a named transition" );
+		traversalLifecycle.resetRandomActionCheck();
+		CHECK( !traversalLifecycle.randomActionCheckDue(0) &&
+		       traversalLifecycle.randomActionCheckCounter() == 0,
+		       "animation activity resets only the random-animation cadence when a check is consumed" );
 
 		SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;
 		interruptSnapshotLifecycle.captureMoved(1);
@@ -9324,14 +9349,25 @@ int main( int, char** )
 		deploymentLifecycle.setTraversalOrigin(55, 3303);
 		deploymentLifecycle.useExitGridForReentryDirection() = 1;
 		deploymentLifecycle.scheduleArrival(4400, 7);
+		deploymentLifecycle.beginArrivalGetup();
+		deploymentLifecycle.arrivalGetupCounter() = 4500;
 		CHECK( deploymentLifecycle.isInSector(11, 5, 2) &&
 		       deploymentLifecycle.hasVehicle() &&
 		       deploymentLifecycle.strategicInsertionData() == 3301 &&
 		       deploymentLifecycle.previousSectorId() == 55 &&
 		       deploymentLifecycle.preTraversalGrid() == 3303 &&
 		       deploymentLifecycle.arrivalTime() == 4400 &&
-		       deploymentLifecycle.leaveHistoryCode() == 7,
+		       deploymentLifecycle.leaveHistoryCode() == 7 &&
+		       deploymentLifecycle.arrivalGetupPending() &&
+		       deploymentLifecycle.ignoreCollapseGetupCheck() &&
+		       deploymentLifecycle.arrivalGetupCounter() == 4500,
 		       "deployment exposes named sector, insertion, traversal, vehicle, and arrival transitions" );
+		deploymentLifecycle.completeArrivalGetup();
+		deploymentLifecycle.clearCollapseGetupOverride();
+		CHECK( !deploymentLifecycle.arrivalGetupPending() &&
+		       !deploymentLifecycle.ignoreCollapseGetupCheck() &&
+		       deploymentLifecycle.arrivalGetupCounter() == 4500,
+		       "deployment completes arrival get-up while retaining the historical timer value" );
 		deploymentLifecycle.clearVehicle();
 		CHECK( !deploymentLifecycle.hasVehicle() && deploymentLifecycle.vehicleId() == -1,
 		       "deployment clears vehicle membership through a named transition" );
@@ -9348,7 +9384,10 @@ int main( int, char** )
 		       deploymentLifecycle.useExitGridForReentryDirection() == 0 &&
 		       deploymentLifecycle.preTraversalGrid() == 0 &&
 		       deploymentLifecycle.leaveHistoryCode() == 0 &&
-		       deploymentLifecycle.arrivalTime() == 0,
+		       deploymentLifecycle.arrivalTime() == 0 &&
+		       !deploymentLifecycle.arrivalGetupPending() &&
+		       !deploymentLifecycle.ignoreCollapseGetupCheck() &&
+		       deploymentLifecycle.arrivalGetupCounter() == 0,
 		       "deployment reset clears the complete strategic placement lifecycle" );
 
 		SoldierScheduleComponent scheduleLifecycle;
@@ -9569,7 +9608,10 @@ int main( int, char** )
 		       copiedSoldier.deployment().useExitGridForReentryDirection() == 0 &&
 		       copiedSoldier.deployment().preTraversalGrid() == 0 &&
 		       copiedSoldier.deployment().leaveHistoryCode() == 0 &&
-		       copiedSoldier.deployment().arrivalTime() == 0,
+		       copiedSoldier.deployment().arrivalTime() == 0 &&
+		       !copiedSoldier.deployment().arrivalGetupPending() &&
+		       !copiedSoldier.deployment().ignoreCollapseGetupCheck() &&
+		       copiedSoldier.deployment().arrivalGetupCounter() == 0,
 		       "soldier initialization resets the complete deployment domain" );
 		CHECK( !copiedSoldier.schedule().assigned() &&
 		       copiedSoldier.schedule().progress() == 0 &&
@@ -9748,7 +9790,9 @@ int main( int, char** )
 		       copiedSoldier.animationActivity().turningIncrement() == 0 &&
 		       copiedSoldier.animationActivity().traversalForecastGrid() == 0 &&
 		       copiedSoldier.animationActivity().hasRenderZOverride() &&
-		       copiedSoldier.animationActivity().renderZOverride() == 0,
+		       copiedSoldier.animationActivity().renderZOverride() == 0 &&
+		       copiedSoldier.animationActivity().randomActionCheckCounter() == 0 &&
+		       copiedSoldier.animationActivity().lastRandomAnimation() == 0,
 		       "soldier initialization resets the complete animation-activity domain" );
 	}
 
@@ -9765,6 +9809,11 @@ int main( int, char** )
 		legacySoldier->sEndGridNo = 1702;
 		legacySoldier->sForcastGridNo = 1703;
 		legacySoldier->sZLevelOverride = 701;
+		legacySoldier->uiTimeOfLastRandomAction = 73;
+		legacySoldier->usLastRandomAnim = 702;
+		legacySoldier->fIgnoreGetupFromCollapseCheck = TRUE;
+		legacySoldier->GetupFromJA25StartCounter = 1704;
+		legacySoldier->fWaitingToGetupFromJA25Start = TRUE;
 		legacySoldier->bMovedPriorToInterrupt = 1;
 		legacySoldier->bActionPoints = 43;
 		legacySoldier->bInitialActionPoints = 78;
@@ -10007,6 +10056,10 @@ int main( int, char** )
 		convertedSoldier.fireControl().updateSpreadDrag(9999);
 		convertedSoldier.animationActivity().forecastTraversalAt(10000);
 		convertedSoldier.animationActivity().setRenderZOverride(1001);
+		convertedSoldier.animationActivity().randomActionCheckCounter() = 99;
+		convertedSoldier.animationActivity().lastRandomAnimation() = 1002;
+		convertedSoldier.deployment().beginArrivalGetup();
+		convertedSoldier.deployment().arrivalGetupCounter() = 10003;
 		convertedSoldier.aiPlanning().flankCount() = 90;
 		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
 		convertedSoldier.aiPlanning().raiseSniperPosture();
@@ -10241,8 +10294,11 @@ int main( int, char** )
 		       convertedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
 		       convertedSoldier.deployment().preTraversalGrid() == 2303 &&
 		       convertedSoldier.deployment().leaveHistoryCode() == 8 &&
-		       convertedSoldier.deployment().arrivalTime() == 15000,
-		       "v101 soldier conversion retains the complete deployment and arrival lifecycle" );
+		       convertedSoldier.deployment().arrivalTime() == 15000 &&
+		       !convertedSoldier.deployment().arrivalGetupPending() &&
+		       !convertedSoldier.deployment().ignoreCollapseGetupCheck() &&
+		       convertedSoldier.deployment().arrivalGetupCounter() == 0,
+		       "v101 soldier conversion retains deployment while clearing historically ignored arrival get-up state" );
 		CHECK( convertedSoldier.schedule().id() == 42 &&
 		       convertedSoldier.schedule().progress() == 3 &&
 		       !convertedSoldier.schedule().doorContinuationPending() &&
@@ -10287,8 +10343,10 @@ int main( int, char** )
 		       "v101 soldier conversion retains the pre-interrupt moved snapshot" );
 		CHECK( convertedSoldier.animationActivity().traversalForecastGrid() == 1703 &&
 		       convertedSoldier.animationActivity().hasRenderZOverride() &&
-		       convertedSoldier.animationActivity().renderZOverride() == 701,
-		       "v101 soldier conversion retains traversal forecast and render-depth state" );
+		       convertedSoldier.animationActivity().renderZOverride() == 701 &&
+		       convertedSoldier.animationActivity().randomActionCheckCounter() == 73 &&
+		       convertedSoldier.animationActivity().lastRandomAnimation() == 702,
+		       "v101 soldier conversion retains traversal, render-depth, and random-animation state" );
 		CHECK( convertedSoldier.fireControl().spreadIndex() == TRUE &&
 		       convertedSoldier.fireControl().autofireLastStep() &&
 		       convertedSoldier.fireControl().bulletsLeft() == 3 &&
@@ -10615,6 +10673,8 @@ int main( int, char** )
 		savedSoldier.deployment().setTraversalOrigin(33, 2403);
 		savedSoldier.deployment().useExitGridForReentryDirection() = 1;
 		savedSoldier.deployment().scheduleArrival(16000, 9);
+		savedSoldier.deployment().beginArrivalGetup();
+		savedSoldier.deployment().arrivalGetupCounter() = 17000;
 		savedSoldier.schedule().id() = 43;
 		savedSoldier.schedule().progress() = 4;
 		savedSoldier.schedule().beginDoorContinuation(2404);
@@ -10749,6 +10809,8 @@ int main( int, char** )
 		savedSoldier.animationActivity().turningIncrement() = -1;
 		savedSoldier.animationActivity().forecastTraversalAt(1520);
 		savedSoldier.animationActivity().setRenderZOverride(888);
+		savedSoldier.animationActivity().randomActionCheckCounter() = 81;
+		savedSoldier.animationActivity().lastRandomAnimation() = 124;
 
 		HWFILE output = FileOpen( const_cast<char*>( path.c_str() ),
 		                          FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS );
@@ -10995,7 +11057,10 @@ int main( int, char** )
 		       loadedSoldier.deployment().useExitGridForReentryDirection() == 1 &&
 		       loadedSoldier.deployment().preTraversalGrid() == 2403 &&
 		       loadedSoldier.deployment().leaveHistoryCode() == 9 &&
-		       loadedSoldier.deployment().arrivalTime() == 16000,
+		       loadedSoldier.deployment().arrivalTime() == 16000 &&
+		       loadedSoldier.deployment().arrivalGetupPending() &&
+		       loadedSoldier.deployment().ignoreCollapseGetupCheck() &&
+		       loadedSoldier.deployment().arrivalGetupCounter() == 17000,
 		       "soldier save/load round-trips deployment state at every established POD position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.schedule().id() == 43 &&
@@ -11188,8 +11253,10 @@ int main( int, char** )
 		       loadedSoldier.animationActivity().turningIncrement() == -1 &&
 		       loadedSoldier.animationActivity().traversalForecastGrid() == 1520 &&
 		       loadedSoldier.animationActivity().hasRenderZOverride() &&
-		       loadedSoldier.animationActivity().renderZOverride() == 888,
-		       "soldier save/load round-trips animation activity without normalizing hit phase 2 to boolean 1" );
+		       loadedSoldier.animationActivity().renderZOverride() == 888 &&
+		       loadedSoldier.animationActivity().randomActionCheckCounter() == 81 &&
+		       loadedSoldier.animationActivity().lastRandomAnimation() == 124,
+		       "soldier save/load round-trips animation activity and random cadence without normalizing hit phase 2 to boolean 1" );
 	}
 
 	{

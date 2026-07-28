@@ -1143,11 +1143,6 @@ public:
 	INT8				bMuzFlashCount;
 
 
-	// STUFF FOR RANDOM ANIMATIONS
-	UINT32			uiTimeOfLastRandomAction;
-	INT16			usLastRandomAnim;
-
-
 	PIXEL			*pForcedShade;
 
 	UINT8			ubProfile;
@@ -1202,11 +1197,6 @@ public:
 	UINT32	usSoldierFlagMask2;		// anv: another usSoldierFlagMask
 
 	UINT32	usIndividualMilitiaID;	// Flugente: if this is a militia, this is the ID of the militia data
-
-	//ja25
-	BOOLEAN			fIgnoreGetupFromCollapseCheck;
-	TIMECOUNTER		GetupFromJA25StartCounter;
-	BOOLEAN			fWaitingToGetupFromJA25Start;
 
 	char endOfPOD;	// marker for end of POD (plain old data)
 
