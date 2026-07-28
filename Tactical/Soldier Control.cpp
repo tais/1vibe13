@@ -614,6 +614,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		service().reset();
 		dialogue().reset();
 		audio().reset();
+		replication().reset();
 		skillState().reset();
 		condition().reset();
 		longAction().reset();
@@ -919,12 +920,11 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->employment().lifeInsurance() = src.usLifeInsurance;          // is there life insurance taken out on merc
 
 
-		this->uiStartMovementTime = src.uiStartMovementTime;				// the time since the merc first started moving
-		this->uiOptimumMovementTime = src.uiOptimumMovementTime;			// everytime in ececute overhead the time for the current ani will be added to this total
-		this->usLastUpdateTime = src.usLastUpdateTime;					// The last time the soldier was in ExecuteOverhead
-
-		this->uiSoldierUpdateNumber = src.uiSoldierUpdateNumber;
-		this->ubSoldierUpdateType = src.ubSoldierUpdateType;
+		this->replication().movementStartedAt() = src.uiStartMovementTime;
+		this->replication().optimumMovementTime() = src.uiOptimumMovementTime;
+		this->replication().lastUpdateAt() = src.usLastUpdateTime;
+		this->replication().updateSequence() = src.uiSoldierUpdateNumber;
+		this->replication().updateType() = src.ubSoldierUpdateType;
 
 		this->employment().insuranceStartDay() = src.iStartOfInsuranceContract;
 		this->assignment().lastChangeMinute() = src.uiLastAssignmentChangeMin;		// timestamp of last assignment change in minutes
@@ -1009,7 +1009,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().delayedFlags() = src.ubDelayedMovementFlags;
 		this->ubCTGTTargetID = static_cast<UINT16>( src.ubCTGTTargetID );
 
-		this->uiMercChecksum = src.uiMercChecksum;
+		this->replication().checksum() = src.uiMercChecksum;
 
 		this->dialogue().currentCivilianQuote() = src.bCurrentCivQuote;
 		this->dialogue().civilianQuoteDelta() = src.bCurrentCivQuoteDelta;
@@ -1139,6 +1139,7 @@ void SOLDIERTYPE::initialize( )
 	service().reset();
 	dialogue().reset();
 	audio().reset();
+	replication().reset();
 	skillState().reset();
 	condition().reset();
 	longAction().reset();

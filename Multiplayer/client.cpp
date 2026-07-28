@@ -5183,13 +5183,13 @@ void UpdateSoldierToNetwork ( SOLDIERTYPE *pSoldier )
 
 	if(id < 20 || (is_server && id <120))
 	{
-		if(pSoldier->usLastUpdateTime==0)
+		if(!pSoldier->replication().hasLastUpdate())
 		{
-			pSoldier->usLastUpdateTime = time;
+			pSoldier->replication().recordUpdate(time);
 		}
-		if((time - (pSoldier->usLastUpdateTime)) > 2000 && pSoldier->vitals().health()!=0)
+		if(pSoldier->replication().updateTimedOut(time, 2000) && pSoldier->vitals().health()!=0)
 		{
-			pSoldier->usLastUpdateTime = time;
+			pSoldier->replication().recordUpdate(time);
 
 			EV_S_UPDATENETWORKSOLDIER SUpdateNetworkSoldier;
 

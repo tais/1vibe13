@@ -7304,6 +7304,14 @@ int main( int, char** )
 		audio.startBurstSound(301);
 		audio.startPositionSound(302);
 		audio.startTurningSound(303);
+		SoldierReplicationComponent& replication = soldier.replication();
+		replication.movementStartedAt() = 12344;
+		replication.optimumMovementTime() = 12345;
+		replication.recordUpdate(12346);
+		replication.updateSequence() = 304;
+		replication.updateType() = 7;
+		replication.scheduleStop(1235);
+		replication.recordChecksum(305);
 		SoldierSkillStateComponent& skillState = soldier.skillState();
 		skillState.beginCheck(-7, 1234);
 		skillState.recordCheckAttempt();
@@ -7622,6 +7630,15 @@ int main( int, char** )
 		       constSoldier.audio().hasTurningSound() &&
 		       constSoldier.audio().turningSoundId() == 303,
 		       "soldier audio component owns footstep/noise state and non-dialogue sound handles" );
+		CHECK( constSoldier.replication().movementStartedAt() == 12344 &&
+		       constSoldier.replication().optimumMovementTime() == 12345 &&
+		       constSoldier.replication().hasLastUpdate() &&
+		       constSoldier.replication().lastUpdateAt() == 12346 &&
+		       constSoldier.replication().updateSequence() == 304 &&
+		       constSoldier.replication().updateType() == 7 &&
+		       constSoldier.replication().scheduledStopGrid() == 1235 &&
+		       constSoldier.replication().checksum() == 305,
+		       "soldier replication component owns transport timing, update metadata, stop scheduling, and integrity state" );
 		CHECK( constSoldier.skillState().isRepeatedCheck(-7, 1234) &&
 		       constSoldier.skillState().checkAttempts() == 2 &&
 		       constSoldier.skillState().selectedAiSkill() == SKILLS_FOCUS &&
@@ -8052,6 +8069,34 @@ int main( int, char** )
 		       audioLifecycle.positionSoundId() == SoldierAudioComponent::NoSample &&
 		       audioLifecycle.turningSoundId() == SoldierAudioComponent::NoSample,
 		       "soldier audio reset restores gameplay values and handle sentinels" );
+		SoldierReplicationComponent replicationLifecycle;
+		CHECK( !replicationLifecycle.hasLastUpdate() &&
+		       !replicationLifecycle.updateTimedOut(5000, 2000),
+		       "soldier replication begins without an observed update timestamp" );
+		replicationLifecycle.movementStartedAt() = 410;
+		replicationLifecycle.optimumMovementTime() = 420;
+		replicationLifecycle.recordUpdate(1000);
+		replicationLifecycle.updateSequence() = 430;
+		replicationLifecycle.updateType() = 4;
+		replicationLifecycle.scheduleStop(440);
+		replicationLifecycle.recordChecksum(450);
+		CHECK( !replicationLifecycle.updateTimedOut(3000, 2000) &&
+		       replicationLifecycle.updateTimedOut(3001, 2000) &&
+		       replicationLifecycle.scheduledStopGrid() == 440 &&
+		       replicationLifecycle.checksum() == 450,
+		       "soldier replication applies an explicit timeout and records synchronization metadata" );
+		replicationLifecycle.clearScheduledStop();
+		CHECK( replicationLifecycle.scheduledStopGrid() == 0,
+		       "soldier replication closes a scheduled synchronization stop through a named transition" );
+		replicationLifecycle.reset();
+		CHECK( replicationLifecycle.movementStartedAt() == 0 &&
+		       replicationLifecycle.optimumMovementTime() == 0 &&
+		       !replicationLifecycle.hasLastUpdate() &&
+		       replicationLifecycle.updateSequence() == 0 &&
+		       replicationLifecycle.updateType() == 0 &&
+		       replicationLifecycle.scheduledStopGrid() == 0 &&
+		       replicationLifecycle.checksum() == 0,
+		       "soldier replication reset clears the complete transport bookkeeping domain" );
 		SoldierSkillStateComponent skillStateLifecycle;
 		skillStateLifecycle.beginCheck(-5, 700);
 		skillStateLifecycle.recordCheckAttempt();
@@ -8379,6 +8424,14 @@ int main( int, char** )
 		       copiedSoldier.audio().positionSoundId() == 302 &&
 		       copiedSoldier.audio().turningSoundId() == 303,
 		       "soldier copies retain their owned audio state" );
+		CHECK( copiedSoldier.replication().movementStartedAt() == 12344 &&
+		       copiedSoldier.replication().optimumMovementTime() == 12345 &&
+		       copiedSoldier.replication().lastUpdateAt() == 12346 &&
+		       copiedSoldier.replication().updateSequence() == 304 &&
+		       copiedSoldier.replication().updateType() == 7 &&
+		       copiedSoldier.replication().scheduledStopGrid() == 1235 &&
+		       copiedSoldier.replication().checksum() == 305,
+		       "soldier copies retain their owned replication state" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == -7 &&
 		       copiedSoldier.skillState().checkAttempts() == 2 &&
 		       copiedSoldier.skillState().checkGrid() == 1234 &&
@@ -9092,6 +9145,14 @@ int main( int, char** )
 		       !copiedSoldier.audio().hasPositionSound() &&
 		       !copiedSoldier.audio().hasTurningSound(),
 		       "soldier initialization resets non-dialogue audio with valid inactive sentinels" );
+		CHECK( copiedSoldier.replication().movementStartedAt() == 0 &&
+		       copiedSoldier.replication().optimumMovementTime() == 0 &&
+		       !copiedSoldier.replication().hasLastUpdate() &&
+		       copiedSoldier.replication().updateSequence() == 0 &&
+		       copiedSoldier.replication().updateType() == 0 &&
+		       copiedSoldier.replication().scheduledStopGrid() == 0 &&
+		       copiedSoldier.replication().checksum() == 0,
+		       "soldier initialization resets the complete replication domain" );
 		CHECK( copiedSoldier.skillState().lastCheckReason() == 0 &&
 		       copiedSoldier.skillState().checkAttempts() == 0 &&
 		       copiedSoldier.skillState().checkGrid() == 0 &&
@@ -9486,6 +9547,12 @@ int main( int, char** )
 		legacySoldier->iBurstSoundID = 501;
 		legacySoldier->iPositionSndID = 502;
 		legacySoldier->iTuringSoundID = 503;
+		legacySoldier->uiStartMovementTime = 16001;
+		legacySoldier->uiOptimumMovementTime = 16002;
+		legacySoldier->usLastUpdateTime = 16003;
+		legacySoldier->uiSoldierUpdateNumber = 504;
+		legacySoldier->ubSoldierUpdateType = 8;
+		legacySoldier->uiMercChecksum = 505;
 		legacySoldier->dXPos = 321.5f;
 		legacySoldier->dYPos = 654.25f;
 		legacySoldier->sX = 319;
@@ -9547,6 +9614,13 @@ int main( int, char** )
 		convertedSoldier.audio().startBurstSound(9996);
 		convertedSoldier.audio().startPositionSound(9997);
 		convertedSoldier.audio().startTurningSound(9998);
+		convertedSoldier.replication().movementStartedAt() = 9990;
+		convertedSoldier.replication().optimumMovementTime() = 9991;
+		convertedSoldier.replication().recordUpdate(9992);
+		convertedSoldier.replication().updateSequence() = 9993;
+		convertedSoldier.replication().updateType() = 99;
+		convertedSoldier.replication().scheduleStop(9994);
+		convertedSoldier.replication().recordChecksum(9995);
 		convertedSoldier.skillState().selectedAiSkill() = SKILLS_FOCUS;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_RADIO_ARTILLERY) = 8;
 		convertedSoldier.skillState().counter(SOLDIER_COUNTER_MAX - 1) = 18;
@@ -9620,6 +9694,14 @@ int main( int, char** )
 		       convertedSoldier.audio().positionSoundId() == 502 &&
 		       convertedSoldier.audio().turningSoundId() == 503,
 		       "v101 soldier conversion retains the complete non-dialogue audio domain" );
+		CHECK( convertedSoldier.replication().movementStartedAt() == 16001 &&
+		       convertedSoldier.replication().optimumMovementTime() == 16002 &&
+		       convertedSoldier.replication().lastUpdateAt() == 16003 &&
+		       convertedSoldier.replication().updateSequence() == 504 &&
+		       convertedSoldier.replication().updateType() == 8 &&
+		       convertedSoldier.replication().scheduledStopGrid() == 0 &&
+		       convertedSoldier.replication().checksum() == 505,
+		       "v101 soldier conversion maps established replication metadata and clears the later scheduled-stop field" );
 		CHECK( convertedSoldier.skillState().lastCheckReason() == -6 &&
 		       convertedSoldier.skillState().checkAttempts() == 3 &&
 		       convertedSoldier.skillState().checkGrid() == 1410 &&
@@ -9954,6 +10036,12 @@ int main( int, char** )
 		savedSoldier.audio().startBurstSound(601);
 		savedSoldier.audio().startPositionSound(602);
 		savedSoldier.audio().startTurningSound(603);
+		savedSoldier.replication().movementStartedAt() = 26001;
+		savedSoldier.replication().optimumMovementTime() = 26002;
+		savedSoldier.replication().recordUpdate(26003);
+		savedSoldier.replication().updateSequence() = 604;
+		savedSoldier.replication().updateType() = 9;
+		savedSoldier.replication().scheduleStop(26004);
 		savedSoldier.skillState().beginCheck(-8, 1500);
 		savedSoldier.skillState().recordCheckAttempt();
 		savedSoldier.skillState().recordCheckAttempt();
@@ -10251,6 +10339,16 @@ int main( int, char** )
 		       loadedSoldier.audio().positionSoundId() == 602 &&
 		       loadedSoldier.audio().turningSoundId() == 603,
 		       "soldier save/load round-trips non-dialogue audio state at every established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.replication().movementStartedAt() == 26001 &&
+		       loadedSoldier.replication().optimumMovementTime() == 26002 &&
+		       loadedSoldier.replication().lastUpdateAt() == 26003 &&
+		       loadedSoldier.replication().updateSequence() == 604 &&
+		       loadedSoldier.replication().updateType() == 9 &&
+		       loadedSoldier.replication().scheduledStopGrid() == 26004 &&
+		       loadedSoldier.replication().checksum() == savedSoldier.GetChecksum() &&
+		       savedSoldier.replication().checksum() == savedSoldier.GetChecksum(),
+		       "soldier save/load round-trips replication state and records the current integrity checksum" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.skillState().lastCheckReason() == -8 &&
 		       loadedSoldier.skillState().checkAttempts() == 3 &&

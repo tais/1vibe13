@@ -304,6 +304,13 @@ door, movement, and spatial-audio code one lifecycle boundary; stopped burst
 handles are invalidated immediately and fresh handles use the explicit
 no-sample sentinel. The serializer and v101 conversion retain all five raw
 values at their original positions and widths.
+`SoldierReplicationComponent` separately owns movement/update timestamps,
+update sequence and kind, the scheduled synchronization stop, and the persisted
+soldier checksum. Multiplayer and tactical overhead now record and age updates
+through named wrap-safe transitions, while persistence records and verifies the
+checksum through the same owner. The current serializer retains all seven
+original positions and widths; v101 conversion maps its six established values
+and clears the later scheduled-stop field.
 `SoldierSkillStateComponent` separately owns repeated mechanical-check
 identity and attempts, the AI's selected skill, fixed-capacity trait counters,
 heterogeneous cooldowns, and the focus target. Named check, per-turn aging,

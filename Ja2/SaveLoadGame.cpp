@@ -1669,6 +1669,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierServiceComponent& service = s.service();
 	SoldierDialogueComponent& dialogue = s.dialogue();
 	SoldierAudioComponent& audio = s.audio();
+	SoldierReplicationComponent& replication = s.replication();
 	SoldierSkillStateComponent& skillState = s.skillState();
 	SoldierConditionComponent& condition = s.condition();
 	SoldierLongActionComponent& longAction = s.longAction();
@@ -1772,8 +1773,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i16(deployment.sectorX()); ar.i16(deployment.sectorY()); ar.i8(deployment.sectorZ()); ar.i32(deployment.vehicleId());
 	ar.ptr(s.pMercPath);
 	ar.u16(employment.medicalDeposit()); ar.u16(employment.lifeInsurance());
-	ar.u32(s.uiStartMovementTime); ar.u32(s.uiOptimumMovementTime); ar.u32(s.usLastUpdateTime);
-	ar.u32(s.uiSoldierUpdateNumber); ar.u8(s.ubSoldierUpdateType); ar.i32(s.sScheduledStop);
+	ar.u32(replication.movementStartedAt()); ar.u32(replication.optimumMovementTime()); ar.u32(replication.lastUpdateAt());
+	ar.u32(replication.updateSequence()); ar.u8(replication.updateType()); ar.i32(replication.scheduledStopGrid());
 	ar.i32(employment.insuranceStartDay()); ar.u32(assignment.lastChangeMinute()); ar.i32(employment.insuranceLengthDays());
 	ar.u8(s.ubSoldierClass); ar.u8(suppression.actionPointsLost()); ar.u16(suppression.suppressor().i);
 	ar.u8(assignment.desiredSquad()); ar.u8(assignment.mergeTraversalAllowance());
@@ -1798,7 +1799,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u8(deployment.previousSectorId()); ar.u8(awareness.tilesSinceForget()); ar.i8(s.animationActivity().turningIncrement());
 	ar.u32(dialogue.activeBattleSound()); ar.u16(s.usValueGoneUp);
 	ar.u8(s.ubNumLocateCycles); ar.u8(s.movement().delayedFlags()); ar.u16(s.ubCTGTTargetID.i);
-	ar.u32(s.uiMercChecksum);
+	ar.u32(replication.checksum());
 	ar.i8(dialogue.currentCivilianQuote()); ar.i8(dialogue.civilianQuoteDelta()); ar.u8(s.ubMiscSoldierFlags); ar.u8(s.movement().stopReason());
 	ar.i32(s.sLocationOfFadeStart); ar.u8(deployment.useExitGridForReentryDirection());
 	ar.u32(dialogue.lastSpokeAt()); ar.u8(employment.renewalQuoteCode()); ar.i32(deployment.preTraversalGrid());
@@ -1841,7 +1842,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 BOOLEAN SOLDIERTYPE::Save(HWFILE hFile)
 {
 	// calculate checksum for soldier
-	this->uiMercChecksum = this->GetChecksum();
+	this->replication().recordChecksum( this->GetChecksum() );
 
 	SaveWriter wr(hFile);
 	SaveFieldWriter ar(wr);
@@ -1919,7 +1920,7 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 		if (!rd.good()) return(FALSE);
 
 		// check checksum
-		if ( this->GetChecksum() != this->uiMercChecksum )
+		if ( this->GetChecksum() != this->replication().checksum() )
 		{
 			return( FALSE );
 		}

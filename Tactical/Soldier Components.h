@@ -309,6 +309,49 @@ private:
 	INT32 turningSoundId_ = NoSample;
 };
 
+// Canonical network-replication bookkeeping. Movement/update timestamps,
+// sequence metadata, scheduled synchronization stops, and the persisted
+// integrity checksum share one lifecycle without leaking transport details
+// into the rest of the soldier model.
+class SoldierReplicationComponent
+{
+public:
+	UINT32& movementStartedAt() noexcept { return movementStartedAt_; }
+	const UINT32& movementStartedAt() const noexcept { return movementStartedAt_; }
+	UINT32& optimumMovementTime() noexcept { return optimumMovementTime_; }
+	const UINT32& optimumMovementTime() const noexcept { return optimumMovementTime_; }
+	UINT32& lastUpdateAt() noexcept { return lastUpdateAt_; }
+	const UINT32& lastUpdateAt() const noexcept { return lastUpdateAt_; }
+	UINT32& updateSequence() noexcept { return updateSequence_; }
+	const UINT32& updateSequence() const noexcept { return updateSequence_; }
+	UINT8& updateType() noexcept { return updateType_; }
+	const UINT8& updateType() const noexcept { return updateType_; }
+	INT32& scheduledStopGrid() noexcept { return scheduledStopGrid_; }
+	const INT32& scheduledStopGrid() const noexcept { return scheduledStopGrid_; }
+	UINT32& checksum() noexcept { return checksum_; }
+	const UINT32& checksum() const noexcept { return checksum_; }
+
+	bool hasLastUpdate() const noexcept { return lastUpdateAt_ != 0; }
+	bool updateTimedOut(UINT32 now, UINT32 timeout) const noexcept
+	{
+		return hasLastUpdate() && (now - lastUpdateAt_) > timeout;
+	}
+	void recordUpdate(UINT32 now) noexcept { lastUpdateAt_ = now; }
+	void scheduleStop(INT32 grid) noexcept { scheduledStopGrid_ = grid; }
+	void clearScheduledStop() noexcept { scheduledStopGrid_ = 0; }
+	void recordChecksum(UINT32 checksum) noexcept { checksum_ = checksum; }
+	void reset() noexcept;
+
+private:
+	UINT32 movementStartedAt_ = 0;
+	UINT32 optimumMovementTime_ = 0;
+	UINT32 lastUpdateAt_ = 0;
+	UINT32 updateSequence_ = 0;
+	UINT8 updateType_ = 0;
+	INT32 scheduledStopGrid_ = 0;
+	UINT32 checksum_ = 0;
+};
+
 // Canonical skill execution and persistence state. Repeated mechanical checks,
 // the AI's selected skill, trait counters, heterogeneous cooldowns, and focus
 // targeting share one reset boundary without absorbing permanent statistics or

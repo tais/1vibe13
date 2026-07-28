@@ -313,6 +313,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   conversion maps every established raw value. Fresh handles use the explicit
   no-sample sentinel, without altering values loaded from either schema. No
   save, packet, map, XML, Lua, audio, or installed-data bytes change.
+- Movement and optimum timing, last network update time, update sequence and
+  type, scheduled stop grid, and the soldier integrity checksum are now stored
+  by `SoldierReplicationComponent`. The visitor emits five unsigned 32-bit
+  values, one unsigned byte, and one signed 32-bit value at their three original
+  groups and widths; the checksum continues to be calculated immediately
+  before save and verified immediately after load. v101 conversion maps its six
+  established fields and resets the scheduled stop that was absent from that
+  record. No save, packet, map, XML, Lua, or installed-data bytes change.
 - Repeated skill-check identity and attempts, the AI's selected skill,
   20 persistent trait counters, 20 heterogeneous cooldown values, and the
   focus target are now stored by `SoldierSkillStateComponent`. The visitor
