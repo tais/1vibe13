@@ -480,7 +480,10 @@ location boundary: strategic sector, movement group, vehicle, tactical
 insertion, traversal origin, off-world staging, between-sector transit,
 mission-exit participation, landing-zone arrival policy, arrival bookkeeping,
 and the Unfinished Business helicopter arrival get-up timer and phase flags.
-Strategic route/group objects remain adapters, and all existing sector,
+Strategic route objects remain adapters, while strategic groups are referenced
+by `groupId()`—the sole soldier-side strategic group identity—and resolved
+through the strategic group repository instead of being cached as a second
+per-soldier pointer. All existing sector,
 transit, insertion, vehicle, arrival, and arrival get-up gameplay entry points
 continue to operate on the same values. `SoldierVehicleStateComponent`
 separately owns a vehicle soldier's tactical `VEHICLETYPE` record index and a

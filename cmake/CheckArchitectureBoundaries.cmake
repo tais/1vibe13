@@ -7167,7 +7167,8 @@ endforeach()
 
 # Strategic/tactical placement, movement-group and vehicle membership,
 # insertion, traversal origin, off-world staging, and arrival bookkeeping now
-# have one deployment owner. Route and live group pointers remain adapters.
+# have one deployment owner. The route remains an adapter; the redundant live
+# group pointer is retired in favor of the component-owned group ID.
 foreach(retired_deployment_field IN ITEMS
   "INT8;ubInsertionDirection"
   "UINT8;ubGroupID"
@@ -7211,6 +7212,47 @@ foreach(retired_deployment_flag IN ITEMS
   if(retired_current_deployment_flag)
     message(FATAL_ERROR
       "Retired STRUCT_Flags deployment field '${retired_deployment_flag}' returned; strategic transit and arrival policy belong to SoldierDeploymentComponent")
+  endif()
+endforeach()
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*struct[ \t]+GROUP[ \t]*\\*[ \t]*pGroup[ \t]*;"
+  retired_current_soldier_group_pointer
+  "${current_soldier_contents}")
+if(retired_current_soldier_group_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE pGroup cache returned; deployment().groupId() is the sole soldier-side strategic group identity")
+endif()
+string(FIND "${soldier_control_header_contents}"
+  "pGroup;"
+  legacy_soldier_group_pointer_declaration)
+if(legacy_soldier_group_pointer_declaration EQUAL -1)
+  message(FATAL_ERROR
+    "The raw soldier pGroup pointer must exist only in the v101 compatibility record")
+endif()
+string(FIND "${soldier_control_source_contents}"
+  "src.pGroup"
+  legacy_soldier_group_pointer_read)
+if(NOT legacy_soldier_group_pointer_read EQUAL -1)
+  message(FATAL_ERROR
+    "v101 conversion must not install the meaningless historical pGroup pointer")
+endif()
+string(FIND "${save_load_game_contents}"
+  "ar.retiredPtr(); ar.u8(deployment.leaveHistoryCode());"
+  retired_soldier_group_pointer_marker)
+if(retired_soldier_group_pointer_marker EQUAL -1)
+  message(FATAL_ERROR
+    "The zero-byte historical soldier pGroup landmark must remain explicit in the portable field list")
+endif()
+foreach(group_identity_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${group_identity_documentation}"
+    "sole soldier-side"
+    soldier_group_identity_documented)
+  if(soldier_group_identity_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier strategic-group ID authority must remain documented")
   endif()
 endforeach()
 foreach(owned_arrival_getup_field IN ITEMS
@@ -7383,7 +7425,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_reentry_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(deployment\\.arrivalTime\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.repairVehicleId\\(\\)\\);"
   serialized_soldier_deployment_arrival_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -8430,7 +8472,7 @@ string(REGEX MATCH
   serialized_soldier_movement_stop_reason_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pGroup\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
+  "ar\\.retiredPtr\\(\\);[ \t]*ar\\.u8\\(deployment\\.leaveHistoryCode\\(\\)\\);[ \t]*ar\\.u16\\(s\\.movement\\(\\)\\.moveSpeedOverride\\(\\)\\.i\\);"
   serialized_soldier_movement_speed_override_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_movement_alias OR

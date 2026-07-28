@@ -279,8 +279,12 @@ adapter, so save and load can never drift out of order. Extra methods:
 
 - `ptr(T*&)` — **runtime pointers are never persisted**: writes nothing, sets the
   pointer `NULL` on load. The game rebuilds them after load (palette/shade tables,
-  `LEVELNODE*`, `pMercPath`, `pGroup`, …). This matches the legacy
+  `LEVELNODE*`, `pMercPath`, …). This matches the legacy
   behaviour, which only ever persisted meaningless pointer *values*.
+- `retiredPtr()` — keeps a named field-list landmark for a runtime pointer whose
+  live storage has been removed. Like `ptr`, it emits and consumes zero bytes.
+  The former soldier `pGroup` visit uses this marker; `groupId()` is the sole soldier-side
+  strategic group identity.
 - The soldier animation cache no longer contains pointers. Its retired `ptr`
   visits emitted no bytes, so load resets its fixed-capacity inline working set
   directly without changing the field stream.
@@ -486,7 +490,9 @@ adapter, so save and load can never drift out of order. Extra methods:
   get-up tail remains a boolean, signed 32-bit timer, and boolean. v101
   conversion maps the raw deployment values it historically consumed and
   keeps its established behavior of clearing the three ignored arrival get-up
-  values. Strategic path and group pointers remain serialization adapters. No
+  values. The strategic path pointer remains a serialization adapter. The
+  redundant live group pointer is retired; its zero-byte field-list landmark
+  remains explicit and `groupId()` is the sole persistent group identity. No
   save, packet, map, XML, Lua, or installed-data bytes change.
 - The tactical vehicle-record index and remote robot-controller soldier
   identity are now stored by `SoldierVehicleStateComponent`. They remain

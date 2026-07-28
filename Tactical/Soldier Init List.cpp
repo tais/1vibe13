@@ -812,7 +812,6 @@ BOOLEAN AddPlacementToWorld( SOLDIERINITNODE *curr, GROUP *pGroup = NULL )
 		if (pGroup)
 		{
 			pSoldier->deployment().groupId() = pGroup->ubGroupID;
-			pSoldier->pGroup = pGroup;
 		}
 
 		AddSoldierToSectorNoCalculateDirection( ubID );

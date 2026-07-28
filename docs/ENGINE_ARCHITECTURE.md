@@ -1204,8 +1204,11 @@ the engine must not contain SDL types in its public domain model.
   bookkeeping, and the Unfinished Business helicopter arrival get-up timer
   and phase flags. Named sector, transit, mission-exit, insertion, traversal,
   vehicle, arrival, and arrival get-up transitions keep related values
-  coherent. The existing strategic route and live group pointers remain
-  boundary adapters rather than becoming component-owned content formats.
+  coherent. The existing strategic route pointer remains a boundary adapter
+  rather than becoming component-owned content. The redundant per-soldier live
+  group pointer has been retired: `groupId()` is the sole soldier-side
+  authority, and application code resolves a live `GROUP` through the strategic
+  group repository only when needed.
   `SoldierVehicleStateComponent` owns the two complementary tactical record
   links: the signed index used when a vehicle soldier resolves its live
   `VEHICLETYPE`, and the typed soldier identity used when a remote robot

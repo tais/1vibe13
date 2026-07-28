@@ -992,7 +992,6 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->morale().delayedStrategicModifier() = src.bDelayedStrategicMoraleMod;
 		this->audio().doorOpeningNoise() = src.ubDoorOpeningNoise;
 
-		this->pGroup = src.pGroup;
 		this->deployment().leaveHistoryCode() = src.ubLeaveHistoryCode;
 		this->movement().moveSpeedOverride() = static_cast<UINT16>( src.bOverrideMoveSpeed );
 

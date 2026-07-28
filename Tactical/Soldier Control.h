@@ -917,7 +917,6 @@ public:
 	//END
 
 	struct TAG_anitile	*pAniTile;	
-	struct GROUP			*pGroup;
 
 	// Reserved bytes remain explicit because the current save visitor preserves
 	// their established positions even though live feature flags have a typed
