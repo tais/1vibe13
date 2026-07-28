@@ -339,6 +339,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   scattered positions. v101 conversion clears this later domain and restores
   explicit no-corpse/no-structure sentinels. No save, packet, map, XML, Lua, or
   installed-data bytes change.
+- Pending action kind, animation-transition count, four primary payload values,
+  door operation, queued-AI special data, interruption marker, and the fifth
+  payload byte are now stored by `SoldierPendingActionComponent`. The visitor
+  still emits the two unsigned 8-bit action values, unsigned 32-bit primary and
+  quaternary payloads, signed 32-bit secondary payload, signed 8-bit tertiary
+  payload and door operation, signed 32-bit queued data, unsigned 8-bit
+  interruption marker, and signed 8-bit fifth payload at their original widths
+  and scattered schema positions. v101 conversion maps every historical value.
+  The existing runtime-only pending-action scratch remains unpersisted. No
+  save, packet, map, XML, Lua, or installed-data bytes change.
 - Current and turn-start action-point budgets are now stored by
   `SoldierActionPointComponent`. The visitor still emits both signed 16-bit
   values immediately after body type, and v101 conversion maps the original

@@ -482,6 +482,62 @@ private:
 	INT32 draggedStructureGrid_ = NoGrid;
 };
 
+// Canonical persisted state for a tactical action that has been selected but
+// not yet completed. The numbered payloads deliberately remain generic because
+// their established meaning depends on the action kind. Runtime-only target
+// incarnation, path-search, launcher, and callback scratch remain outside this
+// component in SoldierPendingActionRuntimeState.
+class SoldierPendingActionComponent
+{
+public:
+	static constexpr UINT8 NoAction = 255;
+
+	UINT8& action() noexcept { return action_; }
+	const UINT8& action() const noexcept { return action_; }
+	UINT8& animationCount() noexcept { return animationCount_; }
+	const UINT8& animationCount() const noexcept { return animationCount_; }
+	UINT32& primaryData() noexcept { return primaryData_; }
+	const UINT32& primaryData() const noexcept { return primaryData_; }
+	INT32& secondaryData() noexcept { return secondaryData_; }
+	const INT32& secondaryData() const noexcept { return secondaryData_; }
+	INT8& tertiaryData() noexcept { return tertiaryData_; }
+	const INT8& tertiaryData() const noexcept { return tertiaryData_; }
+	INT8& doorHandleCode() noexcept { return doorHandleCode_; }
+	const INT8& doorHandleCode() const noexcept { return doorHandleCode_; }
+	UINT32& quaternaryData() noexcept { return quaternaryData_; }
+	const UINT32& quaternaryData() const noexcept { return quaternaryData_; }
+	INT32& nextSpecialData() noexcept { return nextSpecialData_; }
+	const INT32& nextSpecialData() const noexcept { return nextSpecialData_; }
+	UINT8& interruptionMarker() noexcept { return interruptionMarker_; }
+	const UINT8& interruptionMarker() const noexcept { return interruptionMarker_; }
+	INT8& inventorySlot() noexcept { return inventorySlot_; }
+	const INT8& inventorySlot() const noexcept { return inventorySlot_; }
+
+	bool active() const noexcept { return action_ != NoAction; }
+	void begin(UINT8 action) noexcept
+	{
+		action_ = action;
+		animationCount_ = 0;
+	}
+	void clearAction() noexcept { action_ = NoAction; }
+	void clearPayload() noexcept;
+	void resetAnimationCount() noexcept { animationCount_ = 0; }
+	void recordAnimationTransition() noexcept;
+	void reset() noexcept;
+
+private:
+	UINT8 action_ = NoAction;
+	UINT8 animationCount_ = 0;
+	UINT32 primaryData_ = 0;
+	INT32 secondaryData_ = 0;
+	INT8 tertiaryData_ = 0;
+	INT8 doorHandleCode_ = 0;
+	UINT32 quaternaryData_ = 0;
+	INT32 nextSpecialData_ = 0;
+	UINT8 interruptionMarker_ = 0;
+	INT8 inventorySlot_ = 0;
+};
+
 // Canonical tactical action-point budget. The current amount and the turn-start
 // snapshot form one lifecycle: turn setup records them together, while network
 // reconciliation may still update only the authoritative current amount.

@@ -3770,7 +3770,7 @@ int main( int, char** )
 
 		commandHostActor.usUIMovementMode = WALKING;
 		commandHostActor.bReverse = FALSE;
-		commandHostActor.aiData.ubPendingAction = 7;
+		commandHostActor.pendingAction().action() = 7;
 		const SimulationCommandDispatchResult invalidImmediateMove =
 			TryDispatchMoveToGridCommandNow(
 				commandHostActor, -1, RUNNING,
@@ -3794,7 +3794,7 @@ int main( int, char** )
 		           invalidImmediateMoveRecord->command ) &&
 		       commandHostActor.usUIMovementMode == WALKING &&
 		       commandHostActor.bReverse == FALSE &&
-		       commandHostActor.aiData.ubPendingAction == 7,
+		       commandHostActor.pendingAction().action() == 7,
 		       "immediate movement execution rejects invalid destinations before mutating the live actor" );
 
 		beginCommandTestFrame();
@@ -3989,38 +3989,38 @@ int main( int, char** )
 				staleActor.slot, staleActor.incarnation,
 				99, 100, FIRST_LEVEL,
 				SimulationCommandSource::System );
-		commandHostActor.aiData.ubPendingAction = MERC_TALK;
-		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
-		commandHostActor.aiData.uiPendingActionData4 = 0;
+		commandHostActor.pendingAction().action() = MERC_TALK;
+		commandHostActor.pendingAction().primaryData() = staleActor.slot;
+		commandHostActor.pendingAction().quaternaryData() = 0;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingConversationCompleted =
 			TryCompletePendingConversationCommand( commandHostActor );
 		const bool stalePendingConversationCleared =
-			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
-		commandHostActor.aiData.ubPendingAction = MERC_ENTER_VEHICLE;
-		commandHostActor.aiData.uiPendingActionData1 = 0;
-		commandHostActor.aiData.sPendingActionData2 = staleActor.slot;
-		commandHostActor.aiData.bPendingActionData3 = 3;
-		commandHostActor.aiData.uiPendingActionData4 = 0;
+			commandHostActor.pendingAction().action() == NO_PENDING_ACTION;
+		commandHostActor.pendingAction().action() = MERC_ENTER_VEHICLE;
+		commandHostActor.pendingAction().primaryData() = 0;
+		commandHostActor.pendingAction().secondaryData() = staleActor.slot;
+		commandHostActor.pendingAction().tertiaryData() = 3;
+		commandHostActor.pendingAction().quaternaryData() = 0;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingVehicleCompleted =
 			TryCompletePendingVehicleCommand( commandHostActor );
 		const bool stalePendingVehicleCleared =
-			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION;
-		commandHostActor.aiData.ubPendingAction = MERC_STEAL;
-		commandHostActor.aiData.uiPendingActionData1 = staleActor.slot;
-		commandHostActor.aiData.sPendingActionData2 = 100;
-		commandHostActor.aiData.bPendingActionData3 = 3;
-		commandHostActor.aiData.uiPendingActionData4 = 0;
+			commandHostActor.pendingAction().action() == NO_PENDING_ACTION;
+		commandHostActor.pendingAction().action() = MERC_STEAL;
+		commandHostActor.pendingAction().primaryData() = staleActor.slot;
+		commandHostActor.pendingAction().secondaryData() = 100;
+		commandHostActor.pendingAction().tertiaryData() = 3;
+		commandHostActor.pendingAction().quaternaryData() = 0;
 		commandHostActor.targeting().level() = FIRST_LEVEL;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			staleActor.incarnation;
 		const bool stalePendingStealCompleted =
 			TryCompletePendingStealCommand( commandHostActor );
 		const bool stalePendingStealCleared =
-			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
+			commandHostActor.pendingAction().action() == NO_PENDING_ACTION &&
 			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
 
 		std::vector<WORLDITEM> previousWorldItems = std::move( gWorldItems );
@@ -4052,12 +4052,12 @@ int main( int, char** )
 		const bool removedWorldItemReferenceCaptured =
 			removedWorldItemReference.capture( 0 );
 		commandHostActor.position().level() = 0;
-		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
-		commandHostActor.aiData.uiPendingActionData1 =
+		commandHostActor.pendingAction().action() = MERC_PICKUPITEM;
+		commandHostActor.pendingAction().primaryData() =
 			firstWorldItem.slot;
-		commandHostActor.aiData.sPendingActionData2 = 123;
-		commandHostActor.aiData.bPendingActionData3 = 5;
-		commandHostActor.aiData.uiPendingActionData4 = 123;
+		commandHostActor.pendingAction().secondaryData() = 123;
+		commandHostActor.pendingAction().tertiaryData() = 5;
+		commandHostActor.pendingAction().quaternaryData() = 123;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool livePendingWorldItemAccepted =
@@ -4065,7 +4065,7 @@ int main( int, char** )
 			TryConsumePendingWorldItemPickup(
 				commandHostActor, 0, 123, 5 ) &&
 			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
-		commandHostActor.aiData.ubPendingAction = NO_PENDING_ACTION;
+		commandHostActor.pendingAction().action() = NO_PENDING_ACTION;
 		WORLDITEM copiedWorldItem = gWorldItems[0];
 		RemoveItemFromWorld( -1 );
 		RemoveItemFromWorld( 1 );
@@ -4138,18 +4138,18 @@ int main( int, char** )
 				firstWorldItem, 123, 0,
 				TacticalWorldItemPickupKind::SpecificItem,
 				SimulationCommandSource::System );
-		commandHostActor.aiData.ubPendingAction = MERC_PICKUPITEM;
-		commandHostActor.aiData.uiPendingActionData1 =
+		commandHostActor.pendingAction().action() = MERC_PICKUPITEM;
+		commandHostActor.pendingAction().primaryData() =
 			firstWorldItem.slot;
-		commandHostActor.aiData.sPendingActionData2 = 123;
-		commandHostActor.aiData.bPendingActionData3 = 0;
-		commandHostActor.aiData.uiPendingActionData4 = 123;
+		commandHostActor.pendingAction().secondaryData() = 123;
+		commandHostActor.pendingAction().tertiaryData() = 0;
+		commandHostActor.pendingAction().quaternaryData() = 123;
 		commandHostActor.runtime.pendingAction.targetIncarnation =
 			firstWorldItem.incarnation;
 		const bool stalePendingWorldItemRejected =
 			!TryValidatePendingWorldItemPickup( commandHostActor );
 		const bool stalePendingWorldItemCleared =
-			commandHostActor.aiData.ubPendingAction == NO_PENDING_ACTION &&
+			commandHostActor.pendingAction().action() == NO_PENDING_ACTION &&
 			commandHostActor.runtime.pendingAction.targetIncarnation == 0;
 		const bool worldItemIdentityLifecycle =
 			firstWorldItemAssigned && firstWorldItem.valid() &&
@@ -7338,6 +7338,17 @@ int main( int, char** )
 		interaction.nonNpcTraderId() = 7;
 		interaction.dragPerson(SoldierID{ 17 });
 		interaction.beginChatWith(SoldierID{ 18 });
+		SoldierPendingActionComponent& pendingAction = soldier.pendingAction();
+		pendingAction.begin(MERC_GIVEITEM);
+		pendingAction.animationCount() = 9;
+		pendingAction.primaryData() = 1301;
+		pendingAction.secondaryData() = -1302;
+		pendingAction.tertiaryData() = -3;
+		pendingAction.doorHandleCode() = 4;
+		pendingAction.quaternaryData() = 1303;
+		pendingAction.nextSpecialData() = -1304;
+		pendingAction.interruptionMarker() = 5;
+		pendingAction.inventorySlot() = -6;
 		SoldierActionPointComponent& actionPoints = soldier.actionPoints();
 		actionPoints.beginTurn(78);
 		actionPoints.current() = 43;
@@ -7627,6 +7638,18 @@ int main( int, char** )
 		       constSoldier.interaction().chatting() &&
 		       constSoldier.interaction().chatPartner() == SoldierID{ 18 },
 		       "soldier interaction component owns merchant, drag, and reciprocal chat state" );
+		CHECK( constSoldier.pendingAction().active() &&
+		       constSoldier.pendingAction().action() == MERC_GIVEITEM &&
+		       constSoldier.pendingAction().animationCount() == 9 &&
+		       constSoldier.pendingAction().primaryData() == 1301 &&
+		       constSoldier.pendingAction().secondaryData() == -1302 &&
+		       constSoldier.pendingAction().tertiaryData() == -3 &&
+		       constSoldier.pendingAction().doorHandleCode() == 4 &&
+		       constSoldier.pendingAction().quaternaryData() == 1303 &&
+		       constSoldier.pendingAction().nextSpecialData() == -1304 &&
+		       constSoldier.pendingAction().interruptionMarker() == 5 &&
+		       constSoldier.pendingAction().inventorySlot() == -6,
+		       "soldier pending-action component owns persistent current, queued, and payload state" );
 		CHECK( constSoldier.actionPoints().hasAny() &&
 		       constSoldier.actionPoints().current() == 43 &&
 		       constSoldier.actionPoints().initial() == 78,
@@ -8100,6 +8123,45 @@ int main( int, char** )
 		       interactionLifecycle.draggedCorpse() == -1 &&
 		       !interactionLifecycle.chatting(),
 		       "soldier interaction reset clears every relationship and restores invalid drag sentinels" );
+		SoldierPendingActionComponent pendingActionLifecycle;
+		CHECK( !pendingActionLifecycle.active() &&
+		       pendingActionLifecycle.action() == SoldierPendingActionComponent::NoAction &&
+		       pendingActionLifecycle.animationCount() == 0,
+		       "soldier pending-action state defaults to no selected action" );
+		pendingActionLifecycle.begin(MERC_PICKUPITEM);
+		pendingActionLifecycle.primaryData() = 41;
+		pendingActionLifecycle.secondaryData() = -42;
+		pendingActionLifecycle.tertiaryData() = -3;
+		pendingActionLifecycle.doorHandleCode() = 4;
+		pendingActionLifecycle.quaternaryData() = 43;
+		pendingActionLifecycle.nextSpecialData() = -44;
+		pendingActionLifecycle.interruptionMarker() = 5;
+		pendingActionLifecycle.inventorySlot() = -6;
+		pendingActionLifecycle.animationCount() = 255;
+		pendingActionLifecycle.recordAnimationTransition();
+		CHECK( pendingActionLifecycle.active() &&
+		       pendingActionLifecycle.animationCount() == 255,
+		       "soldier pending-action transition count saturates instead of wrapping" );
+		pendingActionLifecycle.clearAction();
+		CHECK( !pendingActionLifecycle.active() &&
+		       pendingActionLifecycle.primaryData() == 41 &&
+		       pendingActionLifecycle.quaternaryData() == 43,
+		       "cancelling a pending action preserves payloads still consumed by completion cleanup" );
+		pendingActionLifecycle.clearPayload();
+		CHECK( pendingActionLifecycle.primaryData() == 0 &&
+		       pendingActionLifecycle.secondaryData() == 0 &&
+		       pendingActionLifecycle.tertiaryData() == 0 &&
+		       pendingActionLifecycle.doorHandleCode() == 0 &&
+		       pendingActionLifecycle.quaternaryData() == 0 &&
+		       pendingActionLifecycle.inventorySlot() == 0 &&
+		       pendingActionLifecycle.nextSpecialData() == -44 &&
+		       pendingActionLifecycle.interruptionMarker() == 5,
+		       "clearing the current payload leaves independent queued and interruption state intact" );
+		pendingActionLifecycle.reset();
+		CHECK( !pendingActionLifecycle.active() &&
+		       pendingActionLifecycle.nextSpecialData() == 0 &&
+		       pendingActionLifecycle.interruptionMarker() == 0,
+		       "soldier pending-action reset clears the complete persistent domain" );
 		SoldierCombatContributionComponent contributionLifecycle;
 		CHECK( !contributionLifecycle.hasMilitiaCredit() &&
 		       contributionLifecycle.militiaPromotionPoints() == 0 &&
@@ -8220,6 +8282,17 @@ int main( int, char** )
 		       copiedSoldier.interaction().draggedPerson() == SoldierID{ 17 } &&
 		       copiedSoldier.interaction().chatPartner() == SoldierID{ 18 },
 		       "soldier copies retain their owned persistent interaction state" );
+		CHECK( copiedSoldier.pendingAction().action() == MERC_GIVEITEM &&
+		       copiedSoldier.pendingAction().animationCount() == 9 &&
+		       copiedSoldier.pendingAction().primaryData() == 1301 &&
+		       copiedSoldier.pendingAction().secondaryData() == -1302 &&
+		       copiedSoldier.pendingAction().tertiaryData() == -3 &&
+		       copiedSoldier.pendingAction().doorHandleCode() == 4 &&
+		       copiedSoldier.pendingAction().quaternaryData() == 1303 &&
+		       copiedSoldier.pendingAction().nextSpecialData() == -1304 &&
+		       copiedSoldier.pendingAction().interruptionMarker() == 5 &&
+		       copiedSoldier.pendingAction().inventorySlot() == -6,
+		       "soldier copies retain their owned persistent pending-action state" );
 		CHECK( copiedSoldier.actionPoints().current() == 43 &&
 		       copiedSoldier.actionPoints().initial() == 78,
 		       "soldier copies retain their owned persistent action-point budget" );
@@ -8864,6 +8937,18 @@ int main( int, char** )
 		       copiedSoldier.interaction().draggedStructureGrid() == -1 &&
 		       copiedSoldier.interaction().chatPartner() == NOBODY,
 		       "soldier initialization resets the complete interaction domain" );
+		CHECK( !copiedSoldier.pendingAction().active() &&
+		       copiedSoldier.pendingAction().action() == SoldierPendingActionComponent::NoAction &&
+		       copiedSoldier.pendingAction().animationCount() == 0 &&
+		       copiedSoldier.pendingAction().primaryData() == 0 &&
+		       copiedSoldier.pendingAction().secondaryData() == 0 &&
+		       copiedSoldier.pendingAction().tertiaryData() == 0 &&
+		       copiedSoldier.pendingAction().doorHandleCode() == 0 &&
+		       copiedSoldier.pendingAction().quaternaryData() == 0 &&
+		       copiedSoldier.pendingAction().nextSpecialData() == 0 &&
+		       copiedSoldier.pendingAction().interruptionMarker() == 0 &&
+		       copiedSoldier.pendingAction().inventorySlot() == 0,
+		       "soldier initialization resets the complete pending-action domain" );
 		CHECK( copiedSoldier.actionPoints().current() == 0 &&
 		       copiedSoldier.actionPoints().initial() == 0 &&
 		       !copiedSoldier.actionPoints().hasAny(),
@@ -9106,6 +9191,16 @@ int main( int, char** )
 		legacySoldier->bLastSkillCheck = -6;
 		legacySoldier->ubSkillCheckAttempts = 3;
 		legacySoldier->sSkillCheckGridNo = 1410;
+		legacySoldier->ubPendingAction = MERC_GIVEITEM;
+		legacySoldier->ubPendingActionAnimCount = 11;
+		legacySoldier->uiPendingActionData1 = 1411;
+		legacySoldier->sPendingActionData2 = -1412;
+		legacySoldier->bPendingActionData3 = -4;
+		legacySoldier->ubDoorHandleCode = 5;
+		legacySoldier->uiPendingActionData4 = 1413;
+		legacySoldier->iNextActionSpecialData = -1414;
+		legacySoldier->ubPendingActionInterrupted = 6;
+		legacySoldier->bPendingActionData5 = -7;
 		legacySoldier->bCollapsed = TRUE;
 		legacySoldier->bBreathCollapsed = TRUE;
 		legacySoldier->bTurnsCollapsed = 3;
@@ -9223,6 +9318,9 @@ int main( int, char** )
 		convertedSoldier.interaction().draggedCorpse() = 27;
 		convertedSoldier.interaction().chatPartner() = SoldierID{ 28 };
 		convertedSoldier.interaction().draggedStructureGrid() = 1413;
+		convertedSoldier.pendingAction().begin(MERC_TALK);
+		convertedSoldier.pendingAction().primaryData() = 99;
+		convertedSoldier.pendingAction().nextSpecialData() = 98;
 		convertedSoldier.combatContribution().militiaKills() = 9;
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
@@ -9302,6 +9400,18 @@ int main( int, char** )
 		       !convertedSoldier.interaction().dragging() &&
 		       !convertedSoldier.interaction().chatting(),
 		       "v101 soldier conversion clears interaction state absent from that schema" );
+		CHECK( convertedSoldier.pendingAction().active() &&
+		       convertedSoldier.pendingAction().action() == MERC_GIVEITEM &&
+		       convertedSoldier.pendingAction().animationCount() == 11 &&
+		       convertedSoldier.pendingAction().primaryData() == 1411 &&
+		       convertedSoldier.pendingAction().secondaryData() == -1412 &&
+		       convertedSoldier.pendingAction().tertiaryData() == -4 &&
+		       convertedSoldier.pendingAction().doorHandleCode() == 5 &&
+		       convertedSoldier.pendingAction().quaternaryData() == 1413 &&
+		       convertedSoldier.pendingAction().nextSpecialData() == -1414 &&
+		       convertedSoldier.pendingAction().interruptionMarker() == 6 &&
+		       convertedSoldier.pendingAction().inventorySlot() == -7,
+		       "v101 soldier conversion retains the complete persistent pending-action domain" );
 		CHECK( convertedSoldier.actionPoints().current() == 43 &&
 		       convertedSoldier.actionPoints().initial() == 78,
 		       "v101 soldier conversion retains current and turn-start action-point budgets" );
@@ -9595,6 +9705,16 @@ int main( int, char** )
 		savedSoldier.interaction().draggedCorpse() = 30;
 		savedSoldier.interaction().chatPartner() = SoldierID{ 31 };
 		savedSoldier.interaction().draggedStructureGrid() = 1521;
+		savedSoldier.pendingAction().begin(MERC_APPLYITEM);
+		savedSoldier.pendingAction().animationCount() = 12;
+		savedSoldier.pendingAction().primaryData() = 1522;
+		savedSoldier.pendingAction().secondaryData() = -1523;
+		savedSoldier.pendingAction().tertiaryData() = -5;
+		savedSoldier.pendingAction().doorHandleCode() = 6;
+		savedSoldier.pendingAction().quaternaryData() = 1524;
+		savedSoldier.pendingAction().nextSpecialData() = -1525;
+		savedSoldier.pendingAction().interruptionMarker() = 7;
+		savedSoldier.pendingAction().inventorySlot() = -8;
 		savedSoldier.actionPoints().beginTurn(76);
 		savedSoldier.actionPoints().current() = 41;
 		savedSoldier.collapseState().collapse();
@@ -9868,6 +9988,18 @@ int main( int, char** )
 		       loadedSoldier.interaction().chatPartner() == SoldierID{ 31 } &&
 		       loadedSoldier.interaction().draggedStructureGrid() == 1521,
 		       "soldier save/load round-trips every interaction field at its established schema position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.pendingAction().action() == MERC_APPLYITEM &&
+		       loadedSoldier.pendingAction().animationCount() == 12 &&
+		       loadedSoldier.pendingAction().primaryData() == 1522 &&
+		       loadedSoldier.pendingAction().secondaryData() == -1523 &&
+		       loadedSoldier.pendingAction().tertiaryData() == -5 &&
+		       loadedSoldier.pendingAction().doorHandleCode() == 6 &&
+		       loadedSoldier.pendingAction().quaternaryData() == 1524 &&
+		       loadedSoldier.pendingAction().nextSpecialData() == -1525 &&
+		       loadedSoldier.pendingAction().interruptionMarker() == 7 &&
+		       loadedSoldier.pendingAction().inventorySlot() == -8,
+		       "soldier save/load round-trips pending-action state at every established schema position" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.actionPoints().current() == 41 &&
 		       loadedSoldier.actionPoints().initial() == 76,

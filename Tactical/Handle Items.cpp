@@ -582,7 +582,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	}
 
 	// Remove any previous actions
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 
 	// here is where we would set a different value if the weapon mode is on
 	// "attached weapon"
@@ -746,26 +746,26 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_INTERACTIVEACTION;
+					pSoldier->pendingAction().begin(MERC_INTERACTIVEACTION);
 
 					if ( fHadToUseCursorPos )
 					{
-						pSoldier->aiData.sPendingActionData2 = usMapPos;
+						pSoldier->pendingAction().secondaryData() = usMapPos;
 					}
 					else
 					{
 						if ( pTargetSoldier != NULL )
 						{
-							pSoldier->aiData.sPendingActionData2 = pTargetSoldier->position().gridNo();
+							pSoldier->pendingAction().secondaryData() = pTargetSoldier->position().gridNo();
 						}
 						else
 						{
-							pSoldier->aiData.sPendingActionData2 = sGridNo;
+							pSoldier->pendingAction().secondaryData() = sGridNo;
 						}
 					}
 
-					pSoldier->aiData.bPendingActionData3 = (INT8)(possibleaction);
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().tertiaryData() = (INT8)(possibleaction);
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1210,10 +1210,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_PUNCH;
-				pSoldier->aiData.sPendingActionData2	= sAdjustedGridNo;
-				pSoldier->aiData.bPendingActionData3	= ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().begin(MERC_PUNCH);
+				pSoldier->pendingAction().secondaryData()	= sAdjustedGridNo;
+				pSoldier->pendingAction().tertiaryData()	= ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath(sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1260,18 +1260,18 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_GIVEAID;
+				pSoldier->pendingAction().begin(MERC_GIVEAID);
 
 				if ( pTargetSoldier != NULL )
 				{
-					pSoldier->aiData.sPendingActionData2	= pTargetSoldier->position().gridNo();
+					pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
 				}
 				else
 				{
-					pSoldier->aiData.sPendingActionData2	= sGridNo;
+					pSoldier->pendingAction().secondaryData()	= sGridNo;
 				}
-				pSoldier->aiData.bPendingActionData3	= ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().tertiaryData()	= ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1317,10 +1317,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_CUTFFENCE;
-					pSoldier->aiData.sPendingActionData2	= sAdjustedGridNo;
-					pSoldier->aiData.bPendingActionData3	= ubDirection;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().begin(MERC_CUTFFENCE);
+					pSoldier->pendingAction().secondaryData()	= sAdjustedGridNo;
+					pSoldier->pendingAction().tertiaryData()	= ubDirection;
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode , FALSE, TRUE );
@@ -1401,10 +1401,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_REPAIR;
-					pSoldier->aiData.sPendingActionData2 = fVehicle ? sVehicleGridNo : sAdjustedGridNo;
-					pSoldier->aiData.bPendingActionData3 = ubDirection;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().begin(MERC_REPAIR);
+					pSoldier->pendingAction().secondaryData() = fVehicle ? sVehicleGridNo : sAdjustedGridNo;
+					pSoldier->pendingAction().tertiaryData() = ubDirection;
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1474,10 +1474,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_FUEL_VEHICLE;
-					pSoldier->aiData.sPendingActionData2	= sVehicleGridNo;
-					pSoldier->aiData.bPendingActionData3	= ubDirection;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().begin(MERC_FUEL_VEHICLE);
+					pSoldier->pendingAction().secondaryData()	= sVehicleGridNo;
+					pSoldier->pendingAction().tertiaryData()	= ubDirection;
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1525,10 +1525,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_TAKEBLOOD;
-					pSoldier->aiData.sPendingActionData2	= sAdjustedGridNo;
-					pSoldier->aiData.bPendingActionData3	= ubDirection;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().begin(MERC_TAKEBLOOD);
+					pSoldier->pendingAction().secondaryData()	= sAdjustedGridNo;
+					pSoldier->pendingAction().tertiaryData()	= ubDirection;
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1598,10 +1598,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 				if ( pSoldier->position().gridNo() != sActionGridNo )
 				{
 					// SEND PENDING ACTION
-					pSoldier->aiData.ubPendingAction = MERC_BUILD_FORTIFICATION;
-					pSoldier->aiData.sPendingActionData2	= sGridNo;
-					pSoldier->aiData.bPendingActionData3	= ubDirection;
-					pSoldier->aiData.ubPendingActionAnimCount = 0;
+					pSoldier->pendingAction().begin(MERC_BUILD_FORTIFICATION);
+					pSoldier->pendingAction().secondaryData()	= sGridNo;
+					pSoldier->pendingAction().tertiaryData()	= ubDirection;
+					pSoldier->pendingAction().resetAnimationCount();
 
 					// WALK UP TO DEST FIRST
 					pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1666,25 +1666,25 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_HANDCUFF_PERSON;
+				pSoldier->pendingAction().begin(MERC_HANDCUFF_PERSON);
 
 				if ( fHadToUseCursorPos )
 				{
-					pSoldier->aiData.sPendingActionData2	= usMapPos;
+					pSoldier->pendingAction().secondaryData()	= usMapPos;
 				}
 				else
 				{
 					if ( pTargetSoldier != NULL )
 					{
-						pSoldier->aiData.sPendingActionData2	= pTargetSoldier->position().gridNo();
+						pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
 					}
 					else
 					{
-						pSoldier->aiData.sPendingActionData2	= sGridNo;
+						pSoldier->pendingAction().secondaryData()	= sGridNo;
 					}
 				}
-				pSoldier->aiData.bPendingActionData3	= ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().tertiaryData()	= ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1765,25 +1765,25 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_APPLYITEM;
+				pSoldier->pendingAction().begin(MERC_APPLYITEM);
 
 				if ( fHadToUseCursorPos )
 				{
-					pSoldier->aiData.sPendingActionData2	= usMapPos;
+					pSoldier->pendingAction().secondaryData()	= usMapPos;
 				}
 				else
 				{
 					if ( pTargetSoldier != NULL )
 					{
-						pSoldier->aiData.sPendingActionData2	= pTargetSoldier->position().gridNo();
+						pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
 					}
 					else
 					{
-						pSoldier->aiData.sPendingActionData2	= sGridNo;
+						pSoldier->pendingAction().secondaryData()	= sGridNo;
 					}
 				}
-				pSoldier->aiData.bPendingActionData3	= ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().tertiaryData()	= ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1839,25 +1839,25 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_FILLBLOODBAG;
+				pSoldier->pendingAction().begin(MERC_FILLBLOODBAG);
 
 				if ( fHadToUseCursorPos )
 				{
-					pSoldier->aiData.sPendingActionData2 = usMapPos;
+					pSoldier->pendingAction().secondaryData() = usMapPos;
 				}
 				else
 				{
 					if ( pTargetSoldier != NULL )
 					{
-						pSoldier->aiData.sPendingActionData2 = pTargetSoldier->position().gridNo();
+						pSoldier->pendingAction().secondaryData() = pTargetSoldier->position().gridNo();
 					}
 					else
 					{
-						pSoldier->aiData.sPendingActionData2 = sGridNo;
+						pSoldier->pendingAction().secondaryData() = sGridNo;
 					}
 				}
-				pSoldier->aiData.bPendingActionData3 = ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().tertiaryData() = ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1913,25 +1913,25 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_MEDICALSPLINT;
+				pSoldier->pendingAction().begin(MERC_MEDICALSPLINT);
 
 				if ( fHadToUseCursorPos )
 				{
-					pSoldier->aiData.sPendingActionData2 = usMapPos;
+					pSoldier->pendingAction().secondaryData() = usMapPos;
 				}
 				else
 				{
 					if ( pTargetSoldier != NULL )
 					{
-						pSoldier->aiData.sPendingActionData2 = pTargetSoldier->position().gridNo();
+						pSoldier->pendingAction().secondaryData() = pTargetSoldier->position().gridNo();
 					}
 					else
 					{
-						pSoldier->aiData.sPendingActionData2 = sGridNo;
+						pSoldier->pendingAction().secondaryData() = sGridNo;
 					}
 				}
-				pSoldier->aiData.bPendingActionData3 = ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().tertiaryData() = ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -1981,10 +1981,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 					if ( pSoldier->position().gridNo() != sActionGridNo )
 					{
 						// SEND PENDING ACTION
-						pSoldier->aiData.ubPendingAction = MERC_ATTACH_CAN;
-						pSoldier->aiData.sPendingActionData2	= sGridNo;
-						pSoldier->aiData.bPendingActionData3	= ubDirection;
-						pSoldier->aiData.ubPendingActionAnimCount = 0;
+						pSoldier->pendingAction().begin(MERC_ATTACH_CAN);
+						pSoldier->pendingAction().secondaryData()	= sGridNo;
+						pSoldier->pendingAction().tertiaryData()	= ubDirection;
+						pSoldier->pendingAction().resetAnimationCount();
 
 						// WALK UP TO DEST FIRST
 						pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -2038,7 +2038,7 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			else // detonator
 			{
 				// Save gridno....
-				pSoldier->aiData.sPendingActionData2	= sGridNo;
+				pSoldier->pendingAction().secondaryData()	= sGridNo;
 
 				pSoldier->EVENT_SoldierBeginUseDetonator( );
 
@@ -2077,13 +2077,13 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 	if ( fDropBomb )
 	{
 		// Save gridno....
-       pSoldier->aiData.sPendingActionData2    = sGridNo;                
+       pSoldier->pendingAction().secondaryData()    = sGridNo;
 
 		if ( pSoldier->position().gridNo() != sGridNo )
 		{
 			// SEND PENDING ACTION
-			pSoldier->aiData.ubPendingAction = MERC_DROPBOMB;
-			pSoldier->aiData.ubPendingActionAnimCount = 0;
+			pSoldier->pendingAction().begin(MERC_DROPBOMB);
+			pSoldier->pendingAction().resetAnimationCount();
 
 			// WALK UP TO DEST FIRST
 			pSoldier->EVENT_InternalGetNewSoldierPath( sGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -2134,10 +2134,10 @@ INT32 HandleItem( SOLDIERTYPE *pSoldier, INT32 sGridNo, INT8 bLevel, UINT16 usHa
 			if ( pSoldier->position().gridNo() != sActionGridNo )
 			{
 				// SEND PENDING ACTION
-				pSoldier->aiData.ubPendingAction = MERC_KNIFEATTACK;
-				pSoldier->aiData.sPendingActionData2	= sAdjustedGridNo;
-				pSoldier->aiData.bPendingActionData3	= ubDirection;
-				pSoldier->aiData.ubPendingActionAnimCount = 0;
+				pSoldier->pendingAction().begin(MERC_KNIFEATTACK);
+				pSoldier->pendingAction().secondaryData()	= sAdjustedGridNo;
+				pSoldier->pendingAction().tertiaryData()	= ubDirection;
+				pSoldier->pendingAction().resetAnimationCount();
 
 				// WALK UP TO DEST FIRST
 				pSoldier->EVENT_InternalGetNewSoldierPath( sActionGridNo, pSoldier->usUIMovementMode, FALSE, TRUE );
@@ -2611,23 +2611,23 @@ void SoldierGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pTargetSoldier, OBJECT
 	UINT8	ubDirection;
 
 	// Remove any previous actions
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 
 	// See if we can get there to stab
 	sActionGridNo =	FindAdjacentGridEx( pSoldier, pTargetSoldier->position().gridNo(), &ubDirection, &sAdjustedGridNo, TRUE, FALSE );
 	if ( sActionGridNo != -1 )
 	{
 		// SEND PENDING ACTION
-		pSoldier->aiData.ubPendingAction = MERC_GIVEITEM;
+		pSoldier->pendingAction().begin(MERC_GIVEITEM);
 
-		pSoldier->bPendingActionData5 = bInvPos;
+		pSoldier->pendingAction().inventorySlot() = bInvPos;
 		// Copy temp object
 		OBJECTTYPE::CopyToOrCreateAt(&pSoldier->pTempObject, pObject);
 
-		pSoldier->aiData.sPendingActionData2	= pTargetSoldier->position().gridNo();
-		pSoldier->aiData.bPendingActionData3	= ubDirection;
-		pSoldier->aiData.uiPendingActionData4 = pTargetSoldier->ubID;
-		pSoldier->aiData.ubPendingActionAnimCount = 0;
+		pSoldier->pendingAction().secondaryData()	= pTargetSoldier->position().gridNo();
+		pSoldier->pendingAction().tertiaryData()	= ubDirection;
+		pSoldier->pendingAction().quaternaryData() = pTargetSoldier->ubID;
+		pSoldier->pendingAction().resetAnimationCount();
 
 		// Set soldier as engaged!
 		pSoldier->flags.uiStatusFlags |= SOLDIER_ENGAGEDINACTION;
@@ -2673,19 +2673,19 @@ void SoldierPickupItem(
 	INT32 sActionGridNo;
 
 	// Remove any previous actions
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 	pSoldier->runtime.pendingAction.targetIncarnation =
 		uiTargetIncarnation;
 
 	sActionGridNo = AdjustGridNoForItemPlacement( pSoldier, sGridNo );
 
 	// SET PENDING ACTIONS!
-	pSoldier->aiData.ubPendingAction = MERC_PICKUPITEM;
-	pSoldier->aiData.uiPendingActionData1 = iItemIndex;
-	pSoldier->aiData.sPendingActionData2	= sActionGridNo;
-	pSoldier->aiData.uiPendingActionData4 = sGridNo;
-	pSoldier->aiData.bPendingActionData3	= bZLevel;
-	pSoldier->aiData.ubPendingActionAnimCount = 0;
+	pSoldier->pendingAction().begin(MERC_PICKUPITEM);
+	pSoldier->pendingAction().primaryData() = iItemIndex;
+	pSoldier->pendingAction().secondaryData()	= sActionGridNo;
+	pSoldier->pendingAction().quaternaryData() = sGridNo;
+	pSoldier->pendingAction().tertiaryData()	= bZLevel;
+	pSoldier->pendingAction().resetAnimationCount();
 
 	// Deduct points!
 	//sAPCost = GetAPsToPickupItem( pSoldier, sGridNo );
@@ -2713,7 +2713,7 @@ void SoldierPickupItem(
 	else
 	{
 		// DO ANIMATION OF PICKUP NOW!
-		PickPickupAnimation( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3 );
+		PickPickupAnimation( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData() );
 	}
 
 }
@@ -5187,9 +5187,9 @@ BOOLEAN VerifyGiveItem( SOLDIERTYPE *pSoldier, SOLDIERTYPE **ppTargetSoldier )
 	// Get items from pending data
 	pObject = pSoldier->pTempObject;
 
-	sGridNo		= pSoldier->aiData.sPendingActionData2;
-	ubDirection = pSoldier->aiData.bPendingActionData3;
-	ubTargetMercID = static_cast<UINT16>( pSoldier->aiData.uiPendingActionData4 );
+	sGridNo		= pSoldier->pendingAction().secondaryData();
+	ubDirection = pSoldier->pendingAction().tertiaryData();
+	ubTargetMercID = static_cast<UINT16>( pSoldier->pendingAction().quaternaryData() );
 
 	usSoldierIndex = WhoIsThere2( sGridNo, pSoldier->position().level() );
 
@@ -5259,7 +5259,7 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 	pSoldier->pTempObject->MoveThisObjectTo(gTempObject);
 	OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
 
-	bInvPos = pSoldier->bPendingActionData5;
+	bInvPos = pSoldier->pendingAction().inventorySlot();
 	usItemNum = gTempObject.usItem;
 
 	// ATE: OK, check if we have an item in the cursor from
@@ -5276,9 +5276,9 @@ void SoldierGiveItemFromAnimation( SOLDIERTYPE *pSoldier )
 		}
 	}
 
-	sGridNo		= pSoldier->aiData.sPendingActionData2;
-	ubDirection = pSoldier->aiData.bPendingActionData3;
-	ubTargetMercID = (UINT16)pSoldier->aiData.uiPendingActionData4;
+	sGridNo		= pSoldier->pendingAction().secondaryData();
+	ubDirection = pSoldier->pendingAction().tertiaryData();
+	ubTargetMercID = (UINT16)pSoldier->pendingAction().quaternaryData();
 
 	// ATE: Deduct APs!
 	DeductPoints( pSoldier, GetBasicAPsToPickupItem( pSoldier ), 0 ); // SANDRO

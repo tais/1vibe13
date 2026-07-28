@@ -1297,8 +1297,8 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 			//pSoldier->EVENT_GetNewSoldierPath( sGridNo, pSoldier->usUIMovementMode );
 
 			// Setup action data to point back to corpse....
-			pSoldier->aiData.uiPendingActionData1	=	pCorpse->iID;
-			pSoldier->aiData.sPendingActionData2		=	pCorpse->def.sGridNo;
+			pSoldier->pendingAction().primaryData()	=	pCorpse->iID;
+			pSoldier->pendingAction().secondaryData()		=	pCorpse->def.sGridNo;
 
 			pCorpse->def.bNumServicingCrows++;
 		}
@@ -1308,10 +1308,10 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 void HandleCrowLeave( SOLDIERTYPE *pSoldier )
 {
 	// Check if this crow is still referencing the same corpse...
-	ROTTING_CORPSE* pCorpse = &(gRottingCorpse[pSoldier->aiData.uiPendingActionData1]);
+	ROTTING_CORPSE* pCorpse = &(gRottingCorpse[pSoldier->pendingAction().primaryData()]);
 
 	// Double check grindo...
-	if ( pCorpse && pSoldier->aiData.sPendingActionData2 == pCorpse->def.sGridNo )
+	if ( pCorpse && pSoldier->pendingAction().secondaryData() == pCorpse->def.sGridNo )
 	{
 		// We have a match
 		// Adjust crow servicing count...
@@ -2534,7 +2534,7 @@ void GetBloodFromCorpse( SOLDIERTYPE *pSoldier )
 	//OBJECTTYPE			Object = {};
 
 	// OK, get corpse
-	pCorpse = &( gRottingCorpse[ pSoldier->aiData.uiPendingActionData4 ] );
+	pCorpse = &( gRottingCorpse[ pSoldier->pendingAction().quaternaryData() ] );
 
 	bObjSlot = FindObj( pSoldier, JAR );
 

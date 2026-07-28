@@ -3192,13 +3192,13 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 
 			case INSERTION_CODE_PRIMARY_EDGEINDEX:
 				//dnl ch48 041009 Risky translation, must never occur again on same element
-				gMapTrn.ResizeTrnCnt( pSoldier->aiData.sPendingActionData2 );
+				gMapTrn.ResizeTrnCnt( pSoldier->pendingAction().secondaryData() );
 				if ( fUsingEdgePointsForStrategicEntry )
 				{
 					INT32 sWorldX, sWorldY;
 					INT16 sScreenX, sScreenY, sX, sY;
 					// Determine 'mirror' gridno...
-					ConvertGridNoToXY( pSoldier->aiData.sPendingActionData2, &sX, &sY );
+					ConvertGridNoToXY( pSoldier->pendingAction().secondaryData(), &sX, &sY );
 					// Convert to absolute xy
 					GetWorldXYAbsoluteScreenXY( sX, sY, &sScreenX, &sScreenY );
 					// Get 'mirror', depending on what direction...
@@ -3220,14 +3220,14 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 					// Convert into a gridno again.....
 					GetFromAbsoluteScreenXYWorldXY( &sWorldX, &sWorldY, sScreenX, sScreenY );
 					// Save this gridNo....
-					pSoldier->aiData.sPendingActionData2 = GETWORLDINDEXFROMWORLDCOORDS( sWorldY, sWorldX );
+					pSoldier->pendingAction().secondaryData() = GETWORLDINDEXFROMWORLDCOORDS( sWorldY, sWorldX );
 				}
-				pSoldier->deployment().insertionGrid() = SearchForClosestPrimaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->deployment().strategicInsertionData() );
+				pSoldier->deployment().insertionGrid() = SearchForClosestPrimaryMapEdgepoint( pSoldier->pendingAction().secondaryData(), (UINT8)pSoldier->deployment().strategicInsertionData() );
 #ifdef JA2BETAVERSION
 				{
 					CHAR8 str[256];
 					sprintf( str, "%S's primary insertion gridno is %d using %d as initial search gridno and %d insertion code.",
-							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->aiData.sPendingActionData2, pSoldier->deployment().strategicInsertionData() );
+							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->pendingAction().secondaryData(), pSoldier->deployment().strategicInsertionData() );
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, str );
 				}
 #endif					
@@ -3239,12 +3239,12 @@ void UpdateMercInSector( SOLDIERTYPE *pSoldier, INT16 sSectorX, INT16 sSectorY, 
 				}
 				break;
 			case INSERTION_CODE_SECONDARY_EDGEINDEX:
-				pSoldier->deployment().insertionGrid() = SearchForClosestSecondaryMapEdgepoint( pSoldier->aiData.sPendingActionData2, (UINT8)pSoldier->deployment().strategicInsertionData() );
+				pSoldier->deployment().insertionGrid() = SearchForClosestSecondaryMapEdgepoint( pSoldier->pendingAction().secondaryData(), (UINT8)pSoldier->deployment().strategicInsertionData() );
 #ifdef JA2BETAVERSION
 				{
 					CHAR8 str[256];
 					sprintf( str, "%S's isolated insertion gridno is %d using %d as initial search gridno and %d insertion code.",
-							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->aiData.sPendingActionData2, pSoldier->deployment().strategicInsertionData() );
+							 pSoldier->name, pSoldier->deployment().insertionGrid(), pSoldier->pendingAction().secondaryData(), pSoldier->deployment().strategicInsertionData() );
 					DebugMsg( TOPIC_JA2, DBG_LEVEL_3, str );
 				}
 #endif					
@@ -3884,7 +3884,7 @@ void JumpIntoAdjacentSector( UINT8 ubTacticalDirection, UINT8 ubJumpCode, INT32 
 						// Save wait code - this will make buddy walk off screen into oblivion
 						curr->pSoldier->ubWaitActionToDo = 2;
 						// This will set the direction so we know now to move into oblivion
-						curr->pSoldier->aiData.uiPendingActionData1 = ubTacticalDirection;
+						curr->pSoldier->pendingAction().primaryData() = ubTacticalDirection;
 					}
 					else
 					{
@@ -4225,7 +4225,7 @@ void SetupTacticalTraversalInformation( )
 		if ( guiAdjacentTraverseTime <= 5 )
 		{
 			// Save this gridNo....
-			pSoldier->aiData.sPendingActionData2 = GETWORLDINDEXFROMWORLDCOORDS( pSoldier->sY, pSoldier->sX );
+			pSoldier->pendingAction().secondaryData() = GETWORLDINDEXFROMWORLDCOORDS( pSoldier->sY, pSoldier->sX );
 			// Copy CODe computed earlier into data
 			pSoldier->deployment().strategicInsertionData() = pSoldier->deployment().strategicInsertionCode();
 			// Now use NEW code....

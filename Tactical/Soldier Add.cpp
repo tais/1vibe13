@@ -1574,7 +1574,7 @@ void AddSoldierToSectorGridNo( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubDir
 	// Remove any pending animations
 	pSoldier->animationIntent().clearPendingAnimations();
 	pSoldier->animationIntent().clearPendingDirection();
-	pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+	pSoldier->pendingAction().clearAction();
 
 	//If we are not loading a saved game
 	if( (gTacticalStatus.uiFlags & LOADING_SAVED_GAME ) )

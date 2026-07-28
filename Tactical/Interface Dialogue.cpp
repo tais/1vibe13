@@ -3625,15 +3625,15 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					// Use a different approach....
 					if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_0 )
 					{
-						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_0;
+						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_0;
 					}
 					else if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_1 )
 					{
-						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_1;
+						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_1;
 					}
 					else if ( usActionCode == NPC_ACTION_PUNCH_PC_SLOT_2 )
 					{
-						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_2;
+						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_2;
 					}
 
 					if ( pTarget && pTarget->bActive && pTarget->bInSector && pTarget->vitals().health() != 0 )
@@ -3655,7 +3655,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					}
 					else
 					{
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->aiData.uiPendingActionData4, FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 				}
 				break;
@@ -3735,7 +3735,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 							continue;
 						}
 
-						pSoldier->aiData.uiPendingActionData4 = APPROACH_DONE_PUNCH_1;
+						pSoldier->pendingAction().quaternaryData() = APPROACH_DONE_PUNCH_1;
 
 						// If we are elliot, we can't do unconocious guys....
 						if ( pSoldier->ubProfile == ELLIOT )
@@ -3775,7 +3775,7 @@ void HandleNPCDoAction( UINT8 ubTargetNPC, UINT16 usActionCode, UINT8 ubQuoteNum
 					if ( cnt == 3 )
 					{
 						// If here, nobody was found...
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->aiData.uiPendingActionData4, FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 				}
 				break;

@@ -2068,7 +2068,7 @@ string(FIND "${save_load_game_contents}"
   "ar.i8(s.bTilesMoved); ar.f32(vitals.nextBleedAt());"
   serialized_soldier_next_bleed_position)
 string(FIND "${save_load_game_contents}"
-  "ar.u8(s.ubPendingActionInterrupted); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
+  "ar.u8(pendingAction.interruptionMarker()); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
   serialized_soldier_regeneration_counter_position)
 string(FIND "${save_load_game_contents}"
   "ar.i8(vitals.regenerationBoostersUsedToday()); ar.i8(combatResult.pelletsHitBy()); ar.i32(skillState.checkGrid());"
@@ -3004,6 +3004,169 @@ if(soldier_interaction_explicit_structure_query EQUAL -1 OR
     "Structure placement and pathing clones must consume the owned drag lifecycle instead of raw sentinel truthiness")
 endif()
 
+# Persistent pending-action state is one lifecycle even though the established
+# save schema scatters it between STRUCT_AIData and the soldier POD. Runtime
+# target identities, path-search scratch, launcher choice, and callbacks remain
+# in SoldierPendingActionRuntimeState and must not enter this save-owned record.
+foreach(retired_pending_action_ai_field IN ITEMS
+  ubPendingAction
+  ubPendingActionAnimCount
+  uiPendingActionData1
+  sPendingActionData2
+  bPendingActionData3
+  ubDoorHandleCode
+  uiPendingActionData4)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_pending_action_ai_field}([^A-Za-z0-9_]|$)"
+    retired_current_pending_action_ai_field
+    "${current_soldier_ai_contents}")
+  if(retired_current_pending_action_ai_field)
+    message(FATAL_ERROR
+      "Retired STRUCT_AIData pending-action field '${retired_pending_action_ai_field}' returned; persistent action state belongs to SoldierPendingActionComponent")
+  endif()
+endforeach()
+
+foreach(retired_pending_action_soldier_field IN ITEMS
+  iNextActionSpecialData
+  ubPendingActionInterrupted
+  bPendingActionData5)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_pending_action_soldier_field}([^A-Za-z0-9_]|$)"
+    retired_current_pending_action_soldier_field
+    "${current_soldier_contents}")
+  if(retired_current_pending_action_soldier_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE pending-action field '${retired_pending_action_soldier_field}' returned; persistent action state belongs to SoldierPendingActionComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierPendingActionComponent[ \t\r\n]+pendingAction_[ \t]*;"
+  soldier_pending_action_owner
+  "${current_soldier_contents}")
+if(NOT soldier_pending_action_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierPendingActionComponent")
+endif()
+
+foreach(owned_pending_action_pattern IN ITEMS
+  "UINT8[ \t]+action_[ \t]*=[ \t]*NoAction"
+  "UINT8[ \t]+animationCount_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+primaryData_[ \t]*=[ \t]*0"
+  "INT32[ \t]+secondaryData_[ \t]*=[ \t]*0"
+  "INT8[ \t]+tertiaryData_[ \t]*=[ \t]*0"
+  "INT8[ \t]+doorHandleCode_[ \t]*=[ \t]*0"
+  "UINT32[ \t]+quaternaryData_[ \t]*=[ \t]*0"
+  "INT32[ \t]+nextSpecialData_[ \t]*=[ \t]*0"
+  "UINT8[ \t]+interruptionMarker_[ \t]*=[ \t]*0"
+  "INT8[ \t]+inventorySlot_[ \t]*=[ \t]*0")
+  string(REGEX MATCH
+    "${owned_pending_action_pattern}"
+    owned_soldier_pending_action_field
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_pending_action_field)
+    message(FATAL_ERROR
+      "SoldierPendingActionComponent lost initialized owned storage matching '${owned_pending_action_pattern}'")
+  endif()
+endforeach()
+
+foreach(pending_action_accessor IN ITEMS
+  action
+  animationCount
+  primaryData
+  secondaryData
+  tertiaryData
+  doorHandleCode
+  quaternaryData
+  nextSpecialData
+  interruptionMarker
+  inventorySlot)
+  string(REGEX MATCH
+    "${pending_action_accessor}\\(\\)[ \t]+noexcept"
+    owned_soldier_pending_action_accessor
+    "${soldier_components_header_contents}")
+  if(NOT owned_soldier_pending_action_accessor)
+    message(FATAL_ERROR
+      "SoldierPendingActionComponent lost the '${pending_action_accessor}()' ownership accessor")
+  endif()
+endforeach()
+
+foreach(pending_action_operation IN ITEMS
+  "bool active() const noexcept"
+  "void begin(UINT8 action) noexcept"
+  "void clearAction() noexcept"
+  "void clearPayload() noexcept"
+  "void resetAnimationCount() noexcept"
+  "void recordAnimationTransition() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${pending_action_operation}"
+    soldier_pending_action_operation)
+  if(soldier_pending_action_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPendingActionComponent lost required lifecycle operation '${pending_action_operation}'")
+  endif()
+endforeach()
+
+string(FIND "${soldier_control_header_contents}"
+  "SoldierPendingActionComponent& pendingAction() noexcept"
+  soldier_pending_action_accessor)
+string(FIND "${soldier_components_source_contents}"
+  "*this = SoldierPendingActionComponent{};"
+  soldier_pending_action_default_reset)
+string(REGEX MATCHALL
+  "pendingAction\\(\\)\\.reset\\(\\);"
+  soldier_pending_action_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_pending_action_reset_sites
+  soldier_pending_action_reset_site_count)
+string(FIND "${soldier_components_source_contents}"
+  "if (animationCount_ < std::numeric_limits<UINT8>::max())"
+  soldier_pending_action_saturating_transition)
+if(soldier_pending_action_accessor EQUAL -1 OR
+   soldier_pending_action_default_reset EQUAL -1 OR
+   soldier_pending_action_reset_site_count LESS 2 OR
+   soldier_pending_action_saturating_transition EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierPendingActionComponent must remain accessible, reset for conversion/initialization, and saturate animation transitions")
+endif()
+
+foreach(pending_action_save_position IN ITEMS
+  "ar.u8(pendingAction.action()); ar.u8(pendingAction.animationCount());"
+  "ar.u32(pendingAction.primaryData()); ar.i32(pendingAction.secondaryData()); ar.i8(pendingAction.tertiaryData());"
+  "ar.i8(pendingAction.doorHandleCode()); ar.u32(pendingAction.quaternaryData());"
+  "ar.i32(pendingAction.nextSpecialData()); ar.u8(employment.mercenaryType());"
+  "ar.u8(pendingAction.interruptionMarker()); ar.i8(perception.heardNoiseLevel()); ar.i8(vitals.regenerationCounter());"
+  "ar.u32(perception.xrayActivatedAt()); ar.i8(s.animationIntent().turningFromUi()); ar.i8(pendingAction.inventorySlot());")
+  string(FIND "${save_load_game_contents}"
+    "${pending_action_save_position}"
+    soldier_pending_action_save_position)
+  if(soldier_pending_action_save_position EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier pending-action state moved or changed width in the portable save schema at '${pending_action_save_position}'")
+  endif()
+endforeach()
+
+foreach(pending_action_v101_mapping IN ITEMS
+  "pendingAction().action() = src.ubPendingAction;"
+  "pendingAction().animationCount() = src.ubPendingActionAnimCount;"
+  "pendingAction().primaryData() = src.uiPendingActionData1;"
+  "pendingAction().secondaryData() = src.sPendingActionData2;"
+  "pendingAction().tertiaryData() = src.bPendingActionData3;"
+  "pendingAction().doorHandleCode() = src.ubDoorHandleCode;"
+  "pendingAction().quaternaryData() = src.uiPendingActionData4;"
+  "pendingAction().nextSpecialData() = src.iNextActionSpecialData;"
+  "pendingAction().interruptionMarker() = src.ubPendingActionInterrupted;"
+  "pendingAction().inventorySlot() = src.bPendingActionData5;")
+  string(FIND "${soldier_control_source_contents}"
+    "${pending_action_v101_mapping}"
+    soldier_pending_action_v101_mapping)
+  if(soldier_pending_action_v101_mapping EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost pending-action mapping '${pending_action_v101_mapping}'")
+  endif()
+endforeach()
+
 # The tactical AP budget is a lifecycle pair, not two unrelated public
 # counters. Current and turn-start values have one private owner, while the
 # explicit field visitor and multiplayer packet adapters retain their formats.
@@ -3283,11 +3446,11 @@ string(REGEX MATCH
   serialized_soldier_blindness_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(s\\.ubPendingActionInterrupted\\);[ \t]*ar\\.i8\\(perception\\.heardNoiseLevel\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.regenerationCounter\\(\\)\\);"
+  "ar\\.u8\\(pendingAction\\.interruptionMarker\\(\\)\\);[ \t]*ar\\.i8\\(perception\\.heardNoiseLevel\\(\\)\\);[ \t]*ar\\.i8\\(vitals\\.regenerationCounter\\(\\)\\);"
   serialized_soldier_heard_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
+  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(pendingAction\\.inventorySlot\\(\\)\\);"
   serialized_soldier_xray_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3597,7 +3760,7 @@ if(soldier_employment_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bMovedPriorToInterrupt\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
+  "ar\\.i8\\(s\\.bMovedPriorToInterrupt\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
   serialized_soldier_employment_contract_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3726,7 +3889,7 @@ if(soldier_assignment_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.iNextActionSpecialData\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);"
+  "ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);[ \t\r\n]*ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);"
   serialized_soldier_assignment_identity_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5122,7 +5285,7 @@ string(REGEX MATCH
   serialized_soldier_animation_secondary_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(s\\.bPendingActionData5\\);"
+  "ar\\.u32\\(perception\\.xrayActivatedAt\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationIntent\\(\\)\\.turningFromUi\\(\\)\\);[ \t]*ar\\.i8\\(pendingAction\\.inventorySlot\\(\\)\\);"
   serialized_soldier_animation_ui_turn_order
   "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_stop_order OR

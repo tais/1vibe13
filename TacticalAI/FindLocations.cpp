@@ -2244,12 +2244,12 @@ INT8 SearchForItems( SOLDIERTYPE * pSoldier, INT8 bReason, UINT16 usItem )
 
 					pSoldier->aiData.bNextAction = AI_ACTION_PICKUP_ITEM;
 					pSoldier->aiData.usNextActionData = sBestSpot;
-					pSoldier->iNextActionSpecialData = iBestItemIndex;
+					pSoldier->pendingAction().nextSpecialData() = iBestItemIndex;
 					return( AI_ACTION_DROP_ITEM );
 				}
 			}
 		}
-		pSoldier->aiData.uiPendingActionData1 = iBestItemIndex;
+		pSoldier->pendingAction().primaryData() = iBestItemIndex;
 		pSoldier->aiData.usActionData = sBestSpot;
 		return( AI_ACTION_PICKUP_ITEM );
 	}

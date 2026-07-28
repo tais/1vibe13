@@ -182,7 +182,7 @@ static_assert(
 // MACROS
 // #######################################################
 
-#define NO_PENDING_ACTION			255
+#define NO_PENDING_ACTION			SoldierPendingActionComponent::NoAction
 #define NO_PENDING_ANIMATION	32001
 #define NO_PENDING_DIRECTION	253
 #define NO_PENDING_STANCE			254
@@ -772,13 +772,6 @@ public:
 	INT8				bTacticalMoraleMod;
 	INT8				bStrategicMoraleMod;
 	INT8				bAIMorale;
-	UINT8			ubPendingAction;
-	UINT8			ubPendingActionAnimCount;
-	UINT32			uiPendingActionData1;
-	INT32			sPendingActionData2;
-	INT8				bPendingActionData3;
-	INT8				ubDoorHandleCode;
-	UINT32			uiPendingActionData4;
 	INT8				bInterruptDuelPts;
 	INT8				bPassedLastInterrupt;
 	INT16			bIntStartAPs;	//100AP
@@ -1011,6 +1004,8 @@ public:
 	const SoldierLongActionComponent& longAction() const noexcept { return longAction_; }
 	SoldierInteractionComponent& interaction() noexcept { return interaction_; }
 	const SoldierInteractionComponent& interaction() const noexcept { return interaction_; }
+	SoldierPendingActionComponent& pendingAction() noexcept { return pendingAction_; }
+	const SoldierPendingActionComponent& pendingAction() const noexcept { return pendingAction_; }
 	SoldierActionPointComponent& actionPoints() noexcept { return actionPoints_; }
 	const SoldierActionPointComponent& actionPoints() const noexcept { return actionPoints_; }
 	SoldierCollapseComponent& collapseState() noexcept { return collapseState_; }
@@ -1199,7 +1194,6 @@ public:
 	INT32			sForcastGridno;
 	INT16			sZLevelOverride;
 	INT8				bMovedPriorToInterrupt;
-	INT32			iNextActionSpecialData;		// AI special action data record for the next action
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
 	UINT32			uiStartMovementTime;				// the time since the merc first started moving 
@@ -1238,7 +1232,6 @@ public:
 	INT32				iBurstSoundID;
 	INT8					bSlotItemTakenFrom;
 	SoldierID			ubRobotRemoteHolderID;
-	UINT8				ubPendingActionInterrupted;
 	SoldierID			ubLastEnemyCycledID;
 
 	UINT16				usValueGoneUp;
@@ -1250,8 +1243,6 @@ public:
 
 	UINT8				ubMiscSoldierFlags;
 	INT32				sLocationOfFadeStart;
-
-	INT8					bPendingActionData5;
 
 	INT8					bDelayedStrategicMoraleMod;
 	UINT8				ubDoorOpeningNoise;
@@ -1319,6 +1310,7 @@ private:
 	SoldierConditionComponent	condition_;
 	SoldierLongActionComponent	longAction_;
 	SoldierInteractionComponent	interaction_;
+	SoldierPendingActionComponent	pendingAction_;
 	SoldierActionPointComponent	actionPoints_;
 	SoldierCollapseComponent	collapseState_;
 	SoldierPerceptionComponent	perception_;

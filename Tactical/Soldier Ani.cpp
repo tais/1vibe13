@@ -595,7 +595,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					if ( pSoldier->animationPlayback().state() == CHARIOTS_OF_FIRE ||
 						pSoldier->animationPlayback().state() == BODYEXPLODING )
 					{
-						SoundStop( pSoldier->aiData.uiPendingActionData1 );
+						SoundStop( pSoldier->pendingAction().primaryData() );
 					}
 
 
@@ -1307,7 +1307,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						pSoldier->flags.uiStatusFlags &= (~SOLDIER_NPC_DOING_PUNCH );
 
 						// Trigger approach...
-						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->aiData.uiPendingActionData4, FALSE );
+						TriggerNPCWithGivenApproach( pSoldier->ubProfile, (UINT8)pSoldier->pendingAction().quaternaryData(), FALSE );
 					}
 
 
@@ -1537,7 +1537,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 476:
 
 				// CODE: GOTO PREVIOUS ANIMATION
-				pSoldier->ChangeSoldierState( ( pSoldier->aiData.sPendingActionData2 ), (UINT8)( pSoldier->aiData.uiPendingActionData1 + 1 ), FALSE );
+				pSoldier->ChangeSoldierState( ( pSoldier->pendingAction().secondaryData() ), (UINT8)( pSoldier->pendingAction().primaryData() + 1 ), FALSE );
 				return( TRUE );
 				break;
 
@@ -1578,7 +1578,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						if ( pSoldier->vitals().health() >= OKLIFE && pSoldier->vitals().breath() > 0 && pSoldier->position().level() == 0 )
 						{
 							// Save old direction
-							pSoldier->aiData.uiPendingActionData1 = pSoldier->position().direction();
+							pSoldier->pendingAction().primaryData() = pSoldier->position().direction();
 
 							// If we got a head shot...more chance of turning...
 							if ( pSoldier->combatResult().hitLocation() != AIM_SHOT_HEAD )
@@ -1656,8 +1656,8 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					//{
 					///	if ( !( pSoldier->flags.uiStatusFlags & SOLDIER_TURNINGFROMHIT ) )
 					//	{
-					///		pSoldier->ubDirection				= (INT8)pSoldier->aiData.uiPendingActionData1;
-					//		pSoldier->pathing().desiredDirection() = (INT8)pSoldier->aiData.uiPendingActionData1;
+					///		pSoldier->ubDirection				= (INT8)pSoldier->pendingAction().primaryData();
+					//		pSoldier->pathing().desiredDirection() = (INT8)pSoldier->pendingAction().primaryData();
 					//	}
 					//}
 				}
@@ -1691,20 +1691,20 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 			case 483:
 
 				// CODE: HANDLE DROP BOMB...
-				HandleSoldierDropBomb( pSoldier, pSoldier->aiData.sPendingActionData2 );
+				HandleSoldierDropBomb( pSoldier, pSoldier->pendingAction().secondaryData() );
 				break;
 
 			case 484:
 
 				// CODE: HANDLE REMOTE...
-				HandleSoldierUseRemote( pSoldier, pSoldier->aiData.sPendingActionData2 );
+				HandleSoldierUseRemote( pSoldier, pSoldier->pendingAction().secondaryData() );
 				break;
 
 			case 485:
 
 				// CODE: Try steal.....
 //				UnSetUIBusy( pSoldier->ubID);
-				UseHandToHand( pSoldier, pSoldier->aiData.sPendingActionData2, TRUE );
+				UseHandToHand( pSoldier, pSoldier->pendingAction().secondaryData(), TRUE );
 				//jackaians:
 				//if we are not waiting for the pickup menu to be displayed
 //				if (guiPendingOverrideEvent != G_GETTINGITEM)
@@ -2130,12 +2130,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				//CODE: PICKUP ITEM!
 				// CHECK IF THIS EVENT HAS BEEN SETUP
-				//if ( pSoldier->aiData.ubPendingAction == MERC_PICKUPITEM )
+				//if ( pSoldier->pendingAction().action() == MERC_PICKUPITEM )
 				//{
 				// DROP ITEM
-				HandleSoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.uiPendingActionData4, pSoldier->aiData.bPendingActionData3 );
+				HandleSoldierPickupItem( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->pendingAction().quaternaryData(), pSoldier->pendingAction().tertiaryData() );
 				// EVENT HAS BEEN HANDLED
-				pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+				pSoldier->pendingAction().clearAction();
 
 				//}
 				//else
@@ -2148,12 +2148,12 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				//CODE: OPEN STRUCT!
 				// CHECK IF THIS EVENT HAS BEEN SETUP
-				//if ( pSoldier->aiData.ubPendingAction == MERC_OPENSTRUCT )
+				//if ( pSoldier->pendingAction().action() == MERC_OPENSTRUCT )
 				//{
 				SoldierHandleInteractiveObject( pSoldier );
 
 				// EVENT HAS BEEN HANDLED
-				pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+				pSoldier->pendingAction().clearAction();
 
 				//}
 				//else
@@ -2167,7 +2167,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				if (pSoldier->aiData.bAction == AI_ACTION_UNLOCK_DOOR || (pSoldier->aiData.bAction == AI_ACTION_LOCK_DOOR && !(pSoldier->aiData.fAIFlags & AI_LOCK_DOOR_INCLUDES_CLOSE) ) )
 				{
 					// EVENT HAS BEEN HANDLED
-					pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+					pSoldier->pendingAction().clearAction();
 
 					// do nothing here
 				}
@@ -2184,7 +2184,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 						InitOpplistForDoorOpening();
 						//shadooow: this has been moved inside HandleDoorsOpenClose
-						//MakeNoise( pSoldier->ubID, pSoldier->aiData.sPendingActionData2, pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING );
+						//MakeNoise( pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->sGridNo].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING );
 						//	gfDelayResolvingBestSighting = FALSE;
 
 						gubInterruptProvoker = pSoldier->ubID;
@@ -2195,7 +2195,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					}
 
 					// EVENT HAS BEEN HANDLED
-					pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+					pSoldier->pendingAction().clearAction();
 				}
 
 
@@ -3122,7 +3122,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 
 				// Reload robot....
 				{
-					SoldierID ubPerson = WhoIsThere2( pSoldier->aiData.sPendingActionData2, pSoldier->position().level() );
+					SoldierID ubPerson = WhoIsThere2( pSoldier->pendingAction().secondaryData(), pSoldier->position().level() );
 					SOLDIERTYPE* pRobot =
 						GetJa2SoldierRepository().resolve( ubPerson );
 
@@ -3193,7 +3193,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 					// Dish out damage!
 					SOLDIERTYPE* target =
 						GetJa2SoldierRepository().resolve(
-							pSoldier->aiData.uiPendingActionData4 );
+							pSoldier->pendingAction().quaternaryData() );
 					if ( target )
 						target->EVENT_SoldierGotHit( TAKE_DAMAGE_BLADE, (INT16) 25, (INT16) 25, gOppositeDirection[ pSoldier->position().direction() ], 50, pSoldier->ubID, 0, ANIM_PRONE, 0, 0 );
 				}
@@ -3220,10 +3220,10 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				{
 					if ( pSoldier->awareness().visibility() != -1 )
 					{
-						if (Water(pSoldier->aiData.sPendingActionData2, pSoldier->position().level()))
+						if (Water(pSoldier->pendingAction().secondaryData(), pSoldier->position().level()))
 						{
 							UINT16 usItem = pSoldier->pTempObject->usItem;
-							INT32 sGridNo = pSoldier->aiData.sPendingActionData2;
+							INT32 sGridNo = pSoldier->pendingAction().secondaryData();
 
 							if (HasItemFlag(usItem, CORPSE))
 								PlayJA2Sample(ENTER_DEEP_WATER_1, RATE_11025, SoundVolume(MIDVOLUME, sGridNo), 1, SoundDir(sGridNo));
@@ -3238,7 +3238,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 						}
 					}
 
-					AddItemToPool( pSoldier->aiData.sPendingActionData2, pSoldier->pTempObject, 1, pSoldier->position().level(), 0 , -1 );
+					AddItemToPool( pSoldier->pendingAction().secondaryData(), pSoldier->pTempObject, 1, pSoldier->position().level(), 0 , -1 );
 					NotifySoldiersToLookforItems( );
 
 					OBJECTTYPE::DeleteMe( &pSoldier->pTempObject );
@@ -3301,7 +3301,7 @@ BOOLEAN AdjustToNextAnimationFrame( SOLDIERTYPE *pSoldier )
 				// THE GAS_CAN IS IN THE MERCS MAIN HAND AT THIS TIME
 				{
 					// Get pointer to vehicle...
-					SoldierID ubPerson = WhoIsThere2( pSoldier->aiData.sPendingActionData2, pSoldier->position().level() );
+					SoldierID ubPerson = WhoIsThere2( pSoldier->pendingAction().secondaryData(), pSoldier->position().level() );
 					SOLDIERTYPE* pVehicle =
 						GetJa2SoldierRepository().resolve( ubPerson );
 					if ( pVehicle != nullptr )
@@ -4797,8 +4797,8 @@ BOOLEAN HandleUnjamAnimation( SOLDIERTYPE *pSoldier )
 {
 	// OK, play intermediate animation here..... save in pending animation data, the current
 	// code we are at!
-	pSoldier->aiData.uiPendingActionData1 = pSoldier->animationPlayback().code();
-	pSoldier->aiData.sPendingActionData2	= pSoldier->animationPlayback().state();
+	pSoldier->pendingAction().primaryData() = pSoldier->animationPlayback().code();
+	pSoldier->pendingAction().secondaryData()	= pSoldier->animationPlayback().state();
 	// Check what animatnion we should do.....
 	switch( pSoldier->animationPlayback().state() )
 	{

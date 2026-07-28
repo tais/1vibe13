@@ -1527,7 +1527,7 @@ void CancelAIAction(SOLDIERTYPE *pSoldier, UINT8 ubForce)
 		pSoldier->aiData.bNextAction = AI_ACTION_NONE;
 		pSoldier->aiData.usNextActionData = 0;
 		pSoldier->aiData.bNextTargetLevel = 0;
-		pSoldier->iNextActionSpecialData = 0;
+		pSoldier->pendingAction().nextSpecialData() = 0;
 	}*/	
 }
 
@@ -1703,7 +1703,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			if (pSoldier->aiData.bAction == AI_ACTION_PICKUP_ITEM)
 			{
 				// the item pool index was stored in the special data field
-				pSoldier->aiData.uiPendingActionData1 = pSoldier->iNextActionSpecialData;
+				pSoldier->pendingAction().primaryData() = pSoldier->pendingAction().nextSpecialData();
 			}
 		}		
 		else if (!TileIsOutOfBounds(pSoldier->movement().absoluteDestination()))
@@ -1724,7 +1724,7 @@ void TurnBasedHandleNPCAI(SOLDIERTYPE *pSoldier)
 			pSoldier->aiData.bNextAction = AI_ACTION_NONE;
 			pSoldier->aiData.usNextActionData = 0;
 			pSoldier->aiData.bNextTargetLevel = 0;
-			pSoldier->iNextActionSpecialData = 0;
+			pSoldier->pendingAction().nextSpecialData() = 0;
 
 			if (!(gTacticalStatus.uiFlags & ENGAGED_IN_CONV))
 			{
@@ -1991,7 +1991,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
             break;
 
         case AI_ACTION_PICKUP_ITEM:					 // grab something!
-            SoldierPickupItem( pSoldier, pSoldier->aiData.uiPendingActionData1, pSoldier->aiData.usActionData, 0 );
+            SoldierPickupItem( pSoldier, pSoldier->pendingAction().primaryData(), pSoldier->aiData.usActionData, 0 );
             break;
 
         case AI_ACTION_DROP_ITEM:					 // drop item in hand
@@ -2626,7 +2626,7 @@ INT8 ExecuteAction(SOLDIERTYPE *pSoldier)
         // SANDRO - added a possibility for enemies to try to steal your gun
         case AI_ACTION_STEAL_MOVE:            // preparing to steal opponents weapon
             
-            pSoldier->aiData.ubPendingAction		= NO_PENDING_ACTION;
+            pSoldier->pendingAction().clearAction();
             pSoldier->usUIMovementMode = DetermineMovementMode( pSoldier, AI_ACTION_KNIFE_MOVE );
             usSoldierIndex = WhoIsThere2( pSoldier->aiData.usActionData, pSoldier->targeting().level());
             if ( usSoldierIndex != NOBODY )

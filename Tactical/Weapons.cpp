@@ -10602,7 +10602,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 						//
 						for ( cnt2 = 0; cnt2 < 2; cnt2++ )
 						{
-							if ( bValidDishoutDirs[ pQueenSoldier->aiData.uiPendingActionData1 ][ cnt2 ] == bDir )
+							if ( bValidDishoutDirs[ pQueenSoldier->pendingAction().primaryData() ][ cnt2 ] == bDir )
 							{
 								iChance = CalcChanceToStab( pQueenSoldier, pSoldier, 0 );
 
@@ -10627,7 +10627,7 @@ void DishoutQueenSwipeDamage( SOLDIERTYPE *pQueenSoldier )
 		}
 	}
 
-	pQueenSoldier->aiData.uiPendingActionData1++;
+	pQueenSoldier->pendingAction().primaryData()++;
 }
 
 

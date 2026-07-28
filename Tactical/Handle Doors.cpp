@@ -251,7 +251,7 @@ UINT16 GetAnimStateForInteraction( SOLDIERTYPE *pSoldier, BOOLEAN fDoor, UINT16 
 
 void InteractWithClosedDoor( SOLDIERTYPE *pSoldier, UINT8 ubHandleCode )
 {
-	pSoldier->aiData.ubDoorHandleCode = ubHandleCode;
+	pSoldier->pendingAction().doorHandleCode() = ubHandleCode;
 
 	switch( ubHandleCode )
 	{
@@ -419,7 +419,7 @@ void InteractWithOpenableStruct( SOLDIERTYPE *pSoldier, STRUCTURE *pStructure, U
 		}
 		else
 		{
-			pSoldier->aiData.ubDoorHandleCode = HANDLE_DOOR_OPEN;
+			pSoldier->pendingAction().doorHandleCode() = HANDLE_DOOR_OPEN;
 
 			pSoldier->ChangeSoldierState( GetAnimStateForInteraction( pSoldier, fDoor, OPEN_DOOR ), 0, FALSE );
 		}
@@ -503,7 +503,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 			pDoor = FindDoorInfoAtGridNo( sGridNo );
 
 			// Alrighty, first check for traps ( unless we are examining.... )
-			if ( pSoldier->aiData.ubDoorHandleCode != HANDLE_DOOR_EXAMINE && pSoldier->aiData.ubDoorHandleCode != HANDLE_DOOR_UNTRAP && pSoldier->aiData.ubDoorHandleCode != HANDLE_DOOR_UNLOCK )
+			if ( pSoldier->pendingAction().doorHandleCode() != HANDLE_DOOR_EXAMINE && pSoldier->pendingAction().doorHandleCode() != HANDLE_DOOR_UNTRAP && pSoldier->pendingAction().doorHandleCode() != HANDLE_DOOR_UNLOCK )
 			{
 				if ( pDoor != NULL )
 				{
@@ -591,7 +591,7 @@ BOOLEAN HandleOpenableStruct( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE *p
 			if ( fDoAction )
 			{
 				// OK, switch based on how we are going to open door....
-				switch( pSoldier->aiData.ubDoorHandleCode )
+				switch( pSoldier->pendingAction().doorHandleCode() )
 				{
 					case HANDLE_DOOR_OPEN:
 
@@ -1154,7 +1154,7 @@ BOOLEAN HandleDoorsOpenClose( SOLDIERTYPE *pSoldier, INT32 sGridNo, STRUCTURE * 
 	if (pSoldier && pSoldier->ubDoorOpeningNoise > 0)
 	{		
 		//shadooow: noise handling moved here so we can work with modified value of pSoldier->ubDoorOpeningNoise
-		OurNoise(pSoldier->ubID, pSoldier->aiData.sPendingActionData2, pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING);
+		OurNoise(pSoldier->ubID, pSoldier->pendingAction().secondaryData(), pSoldier->position().level(), gpWorldLevelData[pSoldier->position().gridNo()].ubTerrainID, pSoldier->ubDoorOpeningNoise, NOISE_CREAKING);
 	}
 
 	if ( !(pStructure->fFlags & STRUCTURE_OPEN) )
