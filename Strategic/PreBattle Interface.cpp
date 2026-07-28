@@ -2551,7 +2551,7 @@ BOOLEAN PlayerMercInvolvedInThisCombat( SOLDIERTYPE *pSoldier )
 			pSoldier->assignment().current() != ASSIGNMENT_REBELCOMMAND &&
 			!(pSoldier->status().flags() & SOLDIER_VEHICLE) &&
 			// Robot is involved if it has a valid controller with it, uninvolved otherwise
-			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->ubRobotRemoteHolderID != NOBODY ) ) &&
+			( !AM_A_ROBOT( pSoldier ) || ( pSoldier->vehicleState().robotRemoteHolder() != NOBODY ) ) &&
 			!SoldierAboardAirborneHeli( pSoldier ) )
 	{
 		if ( CurrentBattleSectorIs( pSoldier->deployment().sectorX(), pSoldier->deployment().sectorY(), pSoldier->deployment().sectorZ() ) )
@@ -2642,11 +2642,11 @@ void CheckForRobotAndIfItsControlled( void )
 			pSoldier->UpdateRobotControllerGivenRobot( );
 
 			// if he has a controller, set controllers
-			if ( pSoldier->ubRobotRemoteHolderID != NOBODY )
+			if ( pSoldier->vehicleState().robotRemoteHolder() != NOBODY )
 			{
 				SOLDIERTYPE* controller =
 					GetJa2SoldierRepository().resolve(
-						pSoldier->ubRobotRemoteHolderID);
+						pSoldier->vehicleState().robotRemoteHolder());
 				if (controller)
 				{
 					controller->UpdateRobotControllerGivenController( );

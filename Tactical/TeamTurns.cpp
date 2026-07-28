@@ -2028,7 +2028,7 @@ INT8 CalcInterruptDuelPts( SOLDIERTYPE * pSoldier, SoldierID ubOpponentID, BOOLE
 	{
 		SOLDIERTYPE* controller =
 			GetJa2SoldierRepository().resolve(
-				pSoldier->ubRobotRemoteHolderID.i);
+				pSoldier->vehicleState().robotRemoteHolder().i);
 		if (!controller)
 		{
 			return NO_INTERRUPT;

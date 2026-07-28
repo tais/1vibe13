@@ -1588,7 +1588,7 @@ SOLDIERTYPE *ChangeSoldierTeam( SOLDIERTYPE *pSoldier, UINT8 ubTeam )
 	{
 		MercCreateStruct.ubProfile					= NO_PROFILE;
 		MercCreateStruct.fUseGivenVehicle		= TRUE;
-		MercCreateStruct.bUseGivenVehicleID	= pSoldier->bVehicleID;
+		MercCreateStruct.bUseGivenVehicleID	= pSoldier->vehicleState().tacticalVehicleId();
 	}
 
 	if ( ubTeam == gbPlayerNum )

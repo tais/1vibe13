@@ -479,6 +479,14 @@ adapter, so save and load can never drift out of order. Extra methods:
   keeps its established behavior of clearing the three ignored arrival get-up
   values. Strategic path and group pointers remain serialization adapters. No
   save, packet, map, XML, Lua, or installed-data bytes change.
+- The tactical vehicle-record index and remote robot-controller soldier
+  identity are now stored by `SoldierVehicleStateComponent`. They remain
+  distinct from the strategic passenger-membership vehicle ID stored by
+  `SoldierDeploymentComponent`. The visitor emits the signed 8-bit tactical
+  index and unsigned 16-bit controller identity at their two original POD
+  positions, and v101 conversion maps both historical values. Vehicle
+  definitions, creation records, repository behavior, and all save, packet,
+  map, XML, Lua, package, and installed-data bytes are unchanged.
 - NPC schedule identity and progress plus the open-door continuation phase and
   grid are now stored by `SoldierScheduleComponent`. The visitor still emits
   the four values at their three original POD sites and widths. v101

@@ -447,6 +447,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().reset();
 		assignment().reset();
 		deployment().reset();
+		vehicleState().reset();
 		schedule().reset();
 		turnState().reset();
 		meleeApproach().reset();
@@ -918,7 +919,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->movement().highResolutionDirection() = src.ubHiResDirection;
 		this->movement().highResolutionDesiredDirection() = src.ubHiResDesiredDirection;
 		this->audio().lastFootstepVariant() = src.ubLastFootPrintSound;
-		this->bVehicleID = src.bVehicleID;
+		this->vehicleState().tacticalVehicleId() = src.bVehicleID;
 		this->movement().animationDirection() = src.bMovementDirection;
 		this->movementHistory().previousGrid() = src.sOldGridNo;
 		this->movement().gridUpdatePolicy() = src.usDontUpdateNewGridNoOnMoveAnimChange;
@@ -930,7 +931,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->audio().burstSoundId() = src.iBurstSoundID;
 		this->service().borrowedInventorySlot() = src.bSlotItemTakenFrom;
 		this->service().autoBandagingMedic() = static_cast<UINT16>( src.ubAutoBandagingMedic );
-		this->ubRobotRemoteHolderID = static_cast<UINT16>( src.ubRobotRemoteHolderID );
+		this->vehicleState().robotRemoteHolder() = static_cast<UINT16>( src.ubRobotRemoteHolderID );
 		this->employment().lastContractUpdateTime() = src.uiTimeOfLastContractUpdate;
 		this->employment().lastContractType() = src.bTypeOfLastContract;
 		this->collapseState().turns() = src.bTurnsCollapsed;
@@ -1121,6 +1122,7 @@ void SOLDIERTYPE::initialize( )
 	employment().reset();
 	assignment().reset();
 	deployment().reset();
+	vehicleState().reset();
 	schedule().reset();
 	position().reset();
 	movementHistory().reset();
@@ -1148,7 +1150,6 @@ void SOLDIERTYPE::initialize( )
 	// Initialize all SoldierID fields to NOBODY. 0 is a valid value!
 	this->identity().id() = NOBODY;
 	this->targeting().clearEngagedOpponent();
-	this->ubRobotRemoteHolderID = NOBODY;
 	this->targeting().clearLineOfFireTarget();
 }
 
@@ -1773,7 +1774,7 @@ void	SetSoldierPersonalLightLevel( SOLDIERTYPE *pSoldier );
 
 void HandleVehicleMovementSound( SOLDIERTYPE *pSoldier, BOOLEAN fOn )
 {
-	VEHICLETYPE *pVehicle = &(pVehicleList[pSoldier->bVehicleID]);
+	VEHICLETYPE *pVehicle = &(pVehicleList[pSoldier->vehicleState().tacticalVehicleId()]);
 
 	if ( fOn )
 	{
@@ -8464,7 +8465,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 		if ( this->status().flags() & SOLDIER_VEHICLE )
 		{
 			// need to turn around passengers inside
-			INT32 iId = this->bVehicleID;
+			INT32 iId = this->vehicleState().tacticalVehicleId();
 
 			// check which side vehicle turned
 			INT16 bDirectionChange = QuickestDirection( this->position().direction(), this->pathing().desiredDirection() );
@@ -10126,7 +10127,7 @@ UINT8 SOLDIERTYPE::SoldierTakeDamage( INT8 bHeight, INT16 sLifeDeduct, INT16 sBr
 		if ( sLifeDeduct > 30 )
 			this->usSoldierFlagMask2 |= SOLDIER_TAKEN_LARGE_HIT;
 		
-		VehicleTakeDamage( this->bVehicleID, ubReason, sLifeDeduct, this->position().gridNo(), ubAttacker );
+		VehicleTakeDamage( this->vehicleState().tacticalVehicleId(), ubReason, sLifeDeduct, this->position().gridNo(), ubAttacker );
 		HandleTakeDamageDeath( this, bOldLife, ubReason );
 
 		// add to our records.
@@ -10761,7 +10762,7 @@ BOOLEAN SOLDIERTYPE::InternalDoMercBattleSound( UINT8 ubBattleSoundID, INT8 bSpe
 		// Pick a passenger from vehicle....
 		//pSoldier = PickRandomPassengerFromVehicle( this );
 		// anv: as vehicles can be controlled, get a driver
-		pSoldier = GetDriver( this->bVehicleID );
+		pSoldier = GetDriver( this->vehicleState().tacticalVehicleId() );
 
 		if ( pSoldier == NULL )
 		{
@@ -23687,14 +23688,14 @@ BOOLEAN SOLDIERTYPE::CanRobotBeControlled( void )
 		return(FALSE);
 	}
 
-	if ( this->ubRobotRemoteHolderID == NOBODY )
+	if ( this->vehicleState().robotRemoteHolder() == NOBODY )
 	{
 		return(FALSE);
 	}
 
 	SOLDIERTYPE* pController =
 		GetJa2SoldierRepository().resolve(
-			this->ubRobotRemoteHolderID );
+			this->vehicleState().robotRemoteHolder() );
 
 	if ( pController != nullptr && pController->roster().active() )
 	{
@@ -23792,14 +23793,14 @@ BOOLEAN SOLDIERTYPE::ControllingRobot( void )
 
 SOLDIERTYPE *SOLDIERTYPE::GetRobotController( void )
 {
-	if ( this->ubRobotRemoteHolderID == NOBODY )
+	if ( this->vehicleState().robotRemoteHolder() == NOBODY )
 	{
 		return(NULL);
 	}
 	else
 	{
 		return GetJa2SoldierRepository().resolve(
-			this->ubRobotRemoteHolderID );
+			this->vehicleState().robotRemoteHolder() );
 	}
 }
 
@@ -23823,13 +23824,13 @@ void SOLDIERTYPE::UpdateRobotControllerGivenRobot( void )
 		{
 			if ( pTeamSoldier->ControllingRobot( ) )
 			{
-				pRobot->ubRobotRemoteHolderID = pTeamSoldier->identity().id();
+				pRobot->vehicleState().robotRemoteHolder() = pTeamSoldier->identity().id();
 				return;
 			}
 		}
 	}
 
-	pRobot->ubRobotRemoteHolderID = NOBODY;
+	pRobot->vehicleState().robotRemoteHolder() = NOBODY;
 }
 
 
@@ -23854,7 +23855,7 @@ void SOLDIERTYPE::UpdateRobotControllerGivenController( void )
 				cnt );
 		if ( pTeamSoldier != nullptr && pTeamSoldier->roster().active() && (pTeamSoldier->status().flags() & SOLDIER_ROBOT) )
 		{
-			pTeamSoldier->ubRobotRemoteHolderID = this->identity().id();
+			pTeamSoldier->vehicleState().robotRemoteHolder() = this->identity().id();
 		}
 	}
 }
@@ -24026,7 +24027,7 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 		}
 
 		if ( pVehicleList )
-			PlaySoldierJA2Sample( pSoldier->identity().id(), pVehicleList[pSoldier->bVehicleID].iMoveSound, RATE_11025, SoundVolume( bVolume, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
+			PlaySoldierJA2Sample( pSoldier->identity().id(), pVehicleList[pSoldier->vehicleState().tacticalVehicleId()].iMoveSound, RATE_11025, SoundVolume( bVolume, pSoldier->position().gridNo() ), 1, SoundDir( pSoldier->position().gridNo() ), TRUE );
 	}
 }
 

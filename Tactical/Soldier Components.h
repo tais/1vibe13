@@ -1801,6 +1801,30 @@ private:
 	BOOLEAN useLandingZoneForArrival_ = FALSE;
 };
 
+// Canonical link between a tactical vehicle actor and the strategic vehicle
+// record it represents, plus the controller identity for remote robots. These
+// identifiers are persisted, but the vehicle records and soldier repository
+// remain adapter-owned and are resolved only at the point of use.
+class SoldierVehicleStateComponent
+{
+public:
+	INT8& tacticalVehicleId() noexcept { return tacticalVehicleId_; }
+	const INT8& tacticalVehicleId() const noexcept { return tacticalVehicleId_; }
+	SoldierID& robotRemoteHolder() noexcept { return robotRemoteHolder_; }
+	const SoldierID& robotRemoteHolder() const noexcept { return robotRemoteHolder_; }
+
+	bool hasRobotRemoteHolder() const noexcept
+	{
+		return robotRemoteHolder() != NOBODY;
+	}
+	void clearRobotRemoteHolder() noexcept { robotRemoteHolder_ = NOBODY; }
+	void reset() noexcept;
+
+private:
+	INT8 tacticalVehicleId_ = 0;
+	SoldierID robotRemoteHolder_ = NOBODY;
+};
+
 // Canonical NPC schedule execution state. The schedule identifier and progress
 // are shared by the editor, strategic scheduler, and tactical AI. Door
 // continuation is kept here as part of that movement lifecycle so its phase

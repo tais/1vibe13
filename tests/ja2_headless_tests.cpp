@@ -2360,7 +2360,7 @@ int main( int, char** )
 		gNewVehicle[0].iNewSeatingCapacities = 2;
 		SOLDIERTYPE vehicle;
 		vehicle.status().flags() |= SOLDIER_VEHICLE;
-		vehicle.bVehicleID = 0;
+		vehicle.vehicleState().tacticalVehicleId() = 0;
 		SOLDIERTYPE passenger;
 		const bool acceptedBoundedCapacity =
 			GetVehicleSeatingCapacity( 0 ) == 2;
@@ -7271,6 +7271,12 @@ int main( int, char** )
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().roster()),
 			const SoldierRosterComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().vehicleState()),
+			SoldierVehicleStateComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().vehicleState()),
+			const SoldierVehicleStateComponent&>);
 
 		SOLDIERTYPE soldier;
 		SoldierIdentityComponent& identity = soldier.identity();
@@ -7562,6 +7568,9 @@ int main( int, char** )
 		deployment.beginStrategicTransit();
 		deployment.enterMissionExitNode();
 		deployment.setUseLandingZoneForArrival(true);
+		SoldierVehicleStateComponent& vehicleState = soldier.vehicleState();
+		vehicleState.tacticalVehicleId() = 12;
+		vehicleState.robotRemoteHolder() = SoldierID{ 38 };
 		SoldierScheduleComponent& schedule = soldier.schedule();
 		schedule.id() = 37;
 		schedule.progress() = 2;
@@ -8102,6 +8111,10 @@ int main( int, char** )
 		       constSoldier.deployment().insideMissionExitNode() &&
 		       constSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier deployment component owns strategic placement, transit, insertion, traversal, and arrival lifecycle" );
+		CHECK( constSoldier.vehicleState().tacticalVehicleId() == 12 &&
+		       constSoldier.vehicleState().hasRobotRemoteHolder() &&
+		       constSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 38 },
+		       "soldier vehicle-state component owns tactical vehicle and remote robot record identities" );
 		CHECK( constSoldier.schedule().assigned() &&
 		       constSoldier.schedule().id() == 37 &&
 		       constSoldier.schedule().progress() == 2 &&
@@ -9070,6 +9083,9 @@ int main( int, char** )
 		       copiedSoldier.roster().soldierClass() == SOLDIER_CLASS_ELITE &&
 		       copiedSoldier.roster().civilianGroup() == 17,
 		       "soldier copies retain every canonical identity and roster value" );
+		CHECK( copiedSoldier.vehicleState().tacticalVehicleId() == 12 &&
+		       copiedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 38 },
+		       "soldier copies retain tactical vehicle and remote robot linkage" );
 		CHECK( copiedSoldier.vitals().health() == 42 &&
 		       copiedSoldier.vitals().maximumHealth() == 84 &&
 		       copiedSoldier.vitals().breath() == 63 &&
@@ -10252,6 +10268,24 @@ int main( int, char** )
 		       !deploymentLifecycle.usesLandingZoneForArrival(),
 		       "deployment reset clears the complete strategic placement lifecycle" );
 
+		SoldierVehicleStateComponent vehicleStateLifecycle;
+		CHECK( vehicleStateLifecycle.tacticalVehicleId() == 0 &&
+		       !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle state defaults to the historical tactical record and no robot controller" );
+		vehicleStateLifecycle.tacticalVehicleId() = 9;
+		vehicleStateLifecycle.robotRemoteHolder() = SoldierID{ 57 };
+		CHECK( vehicleStateLifecycle.hasRobotRemoteHolder() &&
+		       vehicleStateLifecycle.robotRemoteHolder() == SoldierID{ 57 },
+		       "vehicle state exposes the remote robot controller through a typed soldier identity" );
+		vehicleStateLifecycle.clearRobotRemoteHolder();
+		CHECK( !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle state clears a remote robot controller through a named transition" );
+		vehicleStateLifecycle.robotRemoteHolder() = SoldierID{ 58 };
+		vehicleStateLifecycle.reset();
+		CHECK( vehicleStateLifecycle.tacticalVehicleId() == 0 &&
+		       !vehicleStateLifecycle.hasRobotRemoteHolder(),
+		       "vehicle-state reset restores both historical persisted sentinels" );
+
 		SoldierScheduleComponent scheduleLifecycle;
 		scheduleLifecycle.id() = 41;
 		scheduleLifecycle.progress() = 1;
@@ -10578,6 +10612,9 @@ int main( int, char** )
 		       !copiedSoldier.deployment().insideMissionExitNode() &&
 		       !copiedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier initialization resets the complete deployment domain" );
+		CHECK( copiedSoldier.vehicleState().tacticalVehicleId() == 0 &&
+		       !copiedSoldier.vehicleState().hasRobotRemoteHolder(),
+		       "soldier initialization resets the complete tactical vehicle-link domain" );
 		CHECK( !copiedSoldier.schedule().assigned() &&
 		       copiedSoldier.schedule().progress() == 0 &&
 		       !copiedSoldier.schedule().doorContinuationPending() &&
@@ -11289,6 +11326,8 @@ int main( int, char** )
 		legacySoldier->fBetweenSectors = 2;
 		legacySoldier->fInMissionExitNode = 3;
 		legacySoldier->fUseLandingZoneForArrival = 4;
+		legacySoldier->bVehicleID = -6;
+		legacySoldier->ubRobotRemoteHolderID = 59;
 		legacySoldier->bEndDoorOpenCode = 2;
 		legacySoldier->ubScheduleID = 42;
 		legacySoldier->sEndDoorOpenCodeData = 2310;
@@ -11463,6 +11502,8 @@ int main( int, char** )
 		convertedSoldier.animationActivity().lastRandomAnimation() = 1002;
 		convertedSoldier.deployment().beginArrivalGetup();
 		convertedSoldier.deployment().arrivalGetupCounter() = 10003;
+		convertedSoldier.vehicleState().tacticalVehicleId() = 99;
+		convertedSoldier.vehicleState().robotRemoteHolder() = SoldierID{ 99 };
 		convertedSoldier.aiPlanning().flankCount() = 90;
 		convertedSoldier.aiPlanning().flankAnchorGrid() = 9996;
 		convertedSoldier.aiPlanning().raiseSniperPosture();
@@ -11897,6 +11938,9 @@ int main( int, char** )
 		       convertedSoldier.deployment().inMissionExitNode() == 3 &&
 		       convertedSoldier.deployment().useLandingZoneForArrival() == 4,
 		       "v101 soldier conversion retains deployment and transit while clearing historically ignored arrival get-up state" );
+		CHECK( convertedSoldier.vehicleState().tacticalVehicleId() == -6 &&
+		       convertedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 59 },
+		       "v101 soldier conversion retains tactical vehicle and remote robot record identities" );
 		CHECK( convertedSoldier.schedule().id() == 42 &&
 		       convertedSoldier.schedule().progress() == 3 &&
 		       !convertedSoldier.schedule().doorContinuationPending() &&
@@ -12490,6 +12534,8 @@ int main( int, char** )
 		savedSoldier.deployment().beginStrategicTransit();
 		savedSoldier.deployment().enterMissionExitNode();
 		savedSoldier.deployment().setUseLandingZoneForArrival(true);
+		savedSoldier.vehicleState().tacticalVehicleId() = -8;
+		savedSoldier.vehicleState().robotRemoteHolder() = SoldierID{ 63 };
 		savedSoldier.schedule().id() = 43;
 		savedSoldier.schedule().progress() = 4;
 		savedSoldier.schedule().beginDoorContinuation(2404);
@@ -13084,6 +13130,10 @@ int main( int, char** )
 		       loadedSoldier.deployment().insideMissionExitNode() &&
 		       loadedSoldier.deployment().usesLandingZoneForArrival(),
 		       "soldier save/load round-trips deployment and transit state at every established POD position" );
+		CHECK( saved && loaded &&
+		       loadedSoldier.vehicleState().tacticalVehicleId() == -8 &&
+		       loadedSoldier.vehicleState().robotRemoteHolder() == SoldierID{ 63 },
+		       "soldier save/load round-trips tactical vehicle and remote robot record identities at established POD positions" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.schedule().id() == 43 &&
 		       loadedSoldier.schedule().progress() == 4 &&

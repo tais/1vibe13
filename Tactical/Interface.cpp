@@ -1973,7 +1973,7 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 		// If not in a squad....
 		if ( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 		{
-			if ( GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
+			if ( GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 			{
 				SetFontForeground( FONT_GRAY4 );
 			}
@@ -1996,8 +1996,8 @@ void DrawSelectedUIAboveGuy( SoldierID usSoldierID )
 			//Legion	
 			else if ( ARMED_VEHICLE( pSoldier ) )
 			{
-				if ( pSoldier->bVehicleID >= 0 && pVehicleList )
-					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[pVehicleList[pSoldier->bVehicleID].ubVehicleType].NewVehicleStrings );
+				if ( pSoldier->vehicleState().tacticalVehicleId() >= 0 && pVehicleList )
+					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[pVehicleList[pSoldier->vehicleState().tacticalVehicleId()].ubVehicleType].NewVehicleStrings );
 				else
 					sgp_swprintf( NameStr, MAX_ENEMY_NAMES_CHARS,gNewVehicle[TANK_CAR].NewVehicleStrings );
 			}

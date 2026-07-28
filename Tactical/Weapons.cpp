@@ -7830,11 +7830,11 @@ INT32 TotalArmourProtection( SOLDIERTYPE * pTarget, UINT8 ubHitLocation, INT32 i
 		INT16 bDummyStatus = 100;
 		BOOLEAN dummyCoverage = true;
 
-		//bDummyStatus = pVehicleList[ pTarget->bVehicleID ].sExternalArmorLocationsStatus[ ubHitLocation ];
+		//bDummyStatus = pVehicleList[ pTarget->vehicleState().tacticalVehicleId() ].sExternalArmorLocationsStatus[ ubHitLocation ];
 
-		iTotalProtection += ArmourProtection( pTarget, (UINT8) pVehicleList[ pTarget->bVehicleID ].sArmourType, &bDummyStatus, iImpact, ubAmmoType, &dummyCoverage );
+		iTotalProtection += ArmourProtection( pTarget, (UINT8) pVehicleList[ pTarget->vehicleState().tacticalVehicleId() ].sArmourType, &bDummyStatus, iImpact, ubAmmoType, &dummyCoverage );
 		
-		//pVehicleList[ pTarget->bVehicleID ].sExternalArmorLocationsStatus[ ubHitLocation ] = bDummyStatus;
+		//pVehicleList[ pTarget->vehicleState().tacticalVehicleId() ].sExternalArmorLocationsStatus[ ubHitLocation ] = bDummyStatus;
 	}
 	else
 	{

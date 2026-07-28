@@ -1057,7 +1057,7 @@ void StartNPCAI(SOLDIERTYPE *pSoldier)
 
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 	{
-		if ( GetNumberInVehicle(  pSoldier->bVehicleID ) == 0 )
+		if ( GetNumberInVehicle(  pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			fInValidSoldier = TRUE;
 		}

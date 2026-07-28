@@ -1842,11 +1842,11 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.u16(attackSelection.weapon()); ar.i8(attackSelection.weaponMode()); ar.u16(targeting.targetId().i); ar.i8(schedule.progress());
 	ar.i32(deployment.offWorldGrid()); ar.ptr(s.pAniTile); ar.i8(camouflage.jungleApplied()); ar.i32(s.movement().absoluteDestination());
 	ar.u8(movement.highResolutionDirection()); ar.u8(movement.highResolutionDesiredDirection()); ar.u8(audio.lastFootstepVariant());
-	ar.i8(s.bVehicleID); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
+	ar.i8(s.vehicleState().tacticalVehicleId()); ar.i8(movement.animationDirection()); ar.i32(movementHistory.previousGrid());
 	ar.u16(movement.gridUpdatePolicy());
 	ar.i16(renderState.boundingBoxWidth()); ar.i16(renderState.boundingBoxHeight()); ar.i16(renderState.boundingBoxOffsetX()); ar.i16(renderState.boundingBoxOffsetY());
 	ar.u32(dialogue.repeatedBattleSoundAt()); ar.i8(dialogue.previousBattleSound()); ar.i32(audio.burstSoundId()); ar.i8(service.borrowedInventorySlot());
-	ar.u16(service.autoBandagingMedic().i); ar.u16(s.ubRobotRemoteHolderID.i);
+	ar.u16(service.autoBandagingMedic().i); ar.u16(s.vehicleState().robotRemoteHolder().i);
 	ar.u32(employment.lastContractUpdateTime()); ar.i8(employment.lastContractType()); ar.i8(collapseState.turns());
 	ar.i8(collapseState.sleepDrugCounter()); ar.u8(combatContribution.militiaKills()); ar.i8(perception.blindnessTurns());
 	ar.u8(assignment.hours()); ar.u8(employment.justFired()); ar.u8(dialogue.heardNoiseCooldownTurns());

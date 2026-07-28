@@ -3754,7 +3754,7 @@ BOOLEAN UIHandleOnMerc( BOOLEAN fMovementMode )
 		if ( uiMercFlags & OWNED_MERC )
 		{
 			// ATE: Check if this is an empty vehicle.....
-			//if ( OK_ENTERABLE_VEHICLE( pSoldier ) && GetNumberInVehicle( pSoldier->bVehicleID ) == 0 )
+			//if ( OK_ENTERABLE_VEHICLE( pSoldier ) && GetNumberInVehicle( pSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 			//{
 			//	return( FALSE );
 			//}
@@ -6983,7 +6983,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 				GetJa2SoldierRepository().resolve(
 					gusUIFullTargetID.i);
 			if( pTSoldier &&
-				pSoldier->deployment().vehicleId() == pTSoldier->bVehicleID )
+				pSoldier->deployment().vehicleId() == pTSoldier->vehicleState().tacticalVehicleId() )
 			{
 				guiNewUICursor = ENTER_VEHICLE_UICURSOR;
 				return( 1 );
@@ -7020,7 +7020,7 @@ INT8 UIHandleInteractiveTilesAndItemsOnTerrain( SOLDIERTYPE *pSoldier, INT32 usM
 				}
 				else
 				{
-					if ( GetNumberInVehicle( pTSoldier->bVehicleID ) == 0 )
+					if ( GetNumberInVehicle( pTSoldier->vehicleState().tacticalVehicleId() ) == 0 )
 					{
 						// Set UI CURSOR....
 						guiNewUICursor = ENTER_VEHICLE_UICURSOR;

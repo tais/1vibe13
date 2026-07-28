@@ -2511,7 +2511,7 @@ BOOLEAN HandleGotoNewGridNo( SOLDIERTYPE *pSoldier, BOOLEAN *pfKeepMoving, BOOLE
 				// anv: deduct points from vehicle passengers to prevent time travel paradoxes... yeah yeah, you get the idea
 				if ( IsJa2TacticalTurnBased() && pSoldier->status().flags() & SOLDIER_VEHICLE && gGameExternalOptions.ubAPSharedAmongPassengersAndVehicleMode )
 				{
-					INT32 iId = pSoldier->bVehicleID;
+					INT32 iId = pSoldier->vehicleState().tacticalVehicleId();
 					// Loop through passengers and update each guy's AP
 					for( INT32 iCounter = 0; iCounter < gNewVehicle[ pVehicleList[ iId ].ubVehicleType ].iNewSeatingCapacities; iCounter++ )
 					{
@@ -3225,7 +3225,7 @@ void InternalSelectSoldier( SoldierID usSoldierID, BOOLEAN fAcknowledge, BOOLEAN
 
 	if( ( pSoldier->status().flags() & SOLDIER_VEHICLE ) )
 	{
-		pSoldier = GetDriver( pSoldier->bVehicleID );
+		pSoldier = GetDriver( pSoldier->vehicleState().tacticalVehicleId() );
 		if( pSoldier == NULL )
 		{
 			return;

@@ -1151,12 +1151,12 @@ SOLDIERTYPE* TacticalCreateSoldier( SOLDIERCREATE_STRUCT *pCreateStruct, Soldier
 
 				if ( pCreateStruct->fUseGivenVehicle )
 				{
-					Soldier.bVehicleID = pCreateStruct->bUseGivenVehicleID;
+					Soldier.vehicleState().tacticalVehicleId() = pCreateStruct->bUseGivenVehicleID;
 				}
 				else
 				{
 					// Add vehicle to list....
-					Soldier.bVehicleID = (INT8)AddVehicleToList( Soldier.deployment().sectorX(), Soldier.deployment().sectorY(), Soldier.deployment().sectorZ(), ubVehicleID );
+					Soldier.vehicleState().tacticalVehicleId() = (INT8)AddVehicleToList( Soldier.deployment().sectorX(), Soldier.deployment().sectorY(), Soldier.deployment().sectorZ(), ubVehicleID );
 				}
 				SetVehicleValuesIntoSoldierType( &Soldier );
 				break;
@@ -2122,7 +2122,7 @@ void InitSoldierStruct( SOLDIERTYPE *pSoldier )
 	pSoldier->animationPlayback().state()				= STANDING;
 	pSoldier->turnState().interruptDuelPoints()	= NO_INTERRUPT;
 	pSoldier->turnState().moved()				= FALSE;
-	pSoldier->ubRobotRemoteHolderID		= NOBODY;
+	pSoldier->vehicleState().robotRemoteHolder()		= NOBODY;
 	pSoldier->perception().noiseGrid()		= NOWHERE;
 	pSoldier->deployment().previousSectorId()				= 255;
 	pSoldier->aiPlanning().nextPatrolPoint()		= 1;
@@ -2179,7 +2179,7 @@ BOOLEAN TacticalRemoveSoldierPointer( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveVehi
 	if ( pSoldier->status().flags() & SOLDIER_VEHICLE && fRemoveVehicle )
 	{
 		// remove this vehicle from the list
-		RemoveVehicleFromList( pSoldier->bVehicleID );
+		RemoveVehicleFromList( pSoldier->vehicleState().tacticalVehicleId() );
 	}
 
 	// Handle crow leave....

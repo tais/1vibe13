@@ -1196,6 +1196,13 @@ the engine must not contain SDL types in its public domain model.
   vehicle, arrival, and arrival get-up transitions keep related values
   coherent. The existing strategic route and live group pointers remain
   boundary adapters rather than becoming component-owned content formats.
+  `SoldierVehicleStateComponent` owns the two complementary tactical record
+  links: the signed index used when a vehicle soldier resolves its live
+  `VEHICLETYPE`, and the typed soldier identity used when a remote robot
+  resolves its controller. This tactical vehicle index is deliberately
+  separate from `SoldierDeploymentComponent::vehicleId()`, which represents
+  strategic passenger membership. Vehicle records and the soldier repository
+  remain application adapters; no content-facing vehicle definition changes.
   `SoldierScheduleComponent` owns the NPC schedule execution boundary shared
   by the editor, strategic events, tactical AI, animation, and movement:
   schedule identity, current action progress, and the door grid/phase used to

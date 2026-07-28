@@ -599,6 +599,11 @@ void SoldierDeploymentComponent::reset() noexcept
 	*this = SoldierDeploymentComponent{};
 }
 
+void SoldierVehicleStateComponent::reset() noexcept
+{
+	*this = SoldierVehicleStateComponent{};
+}
+
 void SoldierScheduleComponent::advanceProgress() noexcept
 {
 	if (progress_ < std::numeric_limits<INT8>::max())

@@ -7217,7 +7217,7 @@ void CheckForAndAddMercToTeamPanel( SOLDIERTYPE *pSoldier )
 					// ARE WE A VEHICLE.....
 					if ( pSoldier->status().flags() & SOLDIER_VEHICLE )
 					{
-						AddPassangersToTeamPanel( pSoldier->bVehicleID );
+						AddPassangersToTeamPanel( pSoldier->vehicleState().tacticalVehicleId() );
 					}
 				}
 			}

@@ -784,7 +784,7 @@ void InitTacticalPlacementGUI()
 			// ATE: If we are in a vehicle - remove ourselves from it!
 			//if ( pSoldier->status().flags() & ( SOLDIER_DRIVER | SOLDIER_PASSENGER ) )
 			//{
-			//	RemoveSoldierFromVehicle( pSoldier, pSoldier->bVehicleID );
+			//	RemoveSoldierFromVehicle( pSoldier, pSoldier->vehicleState().tacticalVehicleId() );
 			//}
 
 			if( pSoldier->deployment().strategicInsertionCode() == INSERTION_CODE_PRIMARY_EDGEINDEX ||

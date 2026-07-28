@@ -2133,7 +2133,7 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 		// if a vehicle
 		if( pCharacter->status().flags() & SOLDIER_VEHICLE )
 		{
-			pVehicle = &( pVehicleList[ pCharacter->bVehicleID ] );
+			pVehicle = &( pVehicleList[ pCharacter->vehicleState().tacticalVehicleId() ] );
 		}
 		// or in a vehicle
 		else if( pCharacter->assignment().current() == VEHICLE )

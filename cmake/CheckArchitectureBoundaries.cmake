@@ -2617,7 +2617,7 @@ string(REGEX MATCH
   serialized_soldier_service_relationship_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);"
+  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);"
   serialized_soldier_auto_bandage_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6527,7 +6527,7 @@ string(REGEX MATCH
   serialized_soldier_employment_insurance_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u16\\(s\\.ubRobotRemoteHolderID\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);"
+  "ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);[ \t]*ar\\.i8\\(employment\\.lastContractType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.turns\\(\\)\\);"
   serialized_soldier_employment_update_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7318,6 +7318,181 @@ if(soldier_deployment_transit_architecture_documented EQUAL -1 OR
     "Engine and save documentation must describe component-owned deployment transit state")
 endif()
 
+# A vehicle soldier's tactical VEHICLETYPE record and a remote robot's
+# controller are live record links, not strategic deployment membership.
+# Keep both identities under one typed owner without changing either persisted
+# slot or allowing the old flat members back into application code.
+foreach(retired_vehicle_state_field IN ITEMS
+  bVehicleID
+  ubRobotRemoteHolderID)
+  string(REGEX MATCH
+    "(^|[^A-Za-z0-9_])${retired_vehicle_state_field}([^A-Za-z0-9_]|$)"
+    retired_current_vehicle_state_field
+    "${current_soldier_contents}")
+  if(retired_current_vehicle_state_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE vehicle-state field '${retired_vehicle_state_field}' returned")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "SoldierVehicleStateComponent[ \t\r\n]+vehicleState_[ \t]*;"
+  soldier_vehicle_state_owner
+  "${current_soldier_contents}")
+if(NOT soldier_vehicle_state_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must own one private SoldierVehicleStateComponent")
+endif()
+
+foreach(required_vehicle_state_accessor IN ITEMS
+  "SoldierVehicleStateComponent& vehicleState() noexcept"
+  "const SoldierVehicleStateComponent& vehicleState() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_vehicle_state_accessor}"
+    soldier_vehicle_state_accessor)
+  if(soldier_vehicle_state_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost vehicle-state accessor '${required_vehicle_state_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_storage IN ITEMS
+  "class SoldierVehicleStateComponent"
+  "INT8 tacticalVehicleId_ = 0;"
+  "SoldierID robotRemoteHolder_ = NOBODY;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_vehicle_state_storage}"
+    soldier_vehicle_state_storage)
+  if(soldier_vehicle_state_storage EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierVehicleStateComponent lost initialized storage '${required_vehicle_state_storage}'")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_operation IN ITEMS
+  "INT8& tacticalVehicleId() noexcept"
+  "const INT8& tacticalVehicleId() const noexcept"
+  "SoldierID& robotRemoteHolder() noexcept"
+  "const SoldierID& robotRemoteHolder() const noexcept"
+  "bool hasRobotRemoteHolder() const noexcept"
+  "void clearRobotRemoteHolder() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_vehicle_state_operation}"
+    soldier_vehicle_state_operation)
+  if(soldier_vehicle_state_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierVehicleStateComponent lost operation '${required_vehicle_state_operation}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "vehicleState\\(\\)\\.reset\\(\\)"
+  soldier_vehicle_state_reset_occurrences
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_vehicle_state_reset_occurrences
+  soldier_vehicle_state_reset_count)
+if(NOT soldier_vehicle_state_reset_count EQUAL 2)
+  message(FATAL_ERROR
+    "Soldier v101 conversion and initialization must each reset vehicle-state links")
+endif()
+
+foreach(required_vehicle_state_conversion IN ITEMS
+  "this->vehicleState().tacticalVehicleId() = src.bVehicleID;"
+  "this->vehicleState().robotRemoteHolder() = static_cast<UINT16>( src.ubRobotRemoteHolderID );")
+  string(FIND "${soldier_control_source_contents}"
+    "${required_vehicle_state_conversion}"
+    soldier_vehicle_state_conversion)
+  if(soldier_vehicle_state_conversion EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost vehicle-state mapping '${required_vehicle_state_conversion}'")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);"
+  serialized_soldier_tactical_vehicle_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.u16\\(service\\.autoBandagingMedic\\(\\)\\.i\\);[ \t]*ar\\.u16\\(s\\.vehicleState\\(\\)\\.robotRemoteHolder\\(\\)\\.i\\);[ \t\r\n]*ar\\.u32\\(employment\\.lastContractUpdateTime\\(\\)\\);"
+  serialized_soldier_robot_controller_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_tactical_vehicle_order OR
+   NOT serialized_soldier_robot_controller_order)
+  message(FATAL_ERROR
+    "Soldier vehicle-state values moved or changed width in the current save schema")
+endif()
+
+set(soldier_control_source_file
+  "${SOURCE_ROOT}/Tactical/Soldier Control.cpp")
+foreach(source_file IN LISTS world_state_declaration_files)
+  if("${source_file}" STREQUAL "${soldier_control_source_file}")
+    continue()
+  endif()
+  file(READ "${source_file}" vehicle_state_source_contents)
+  foreach(retired_vehicle_state_field IN ITEMS
+    bVehicleID
+    ubRobotRemoteHolderID)
+    string(REGEX MATCH
+      "(->|\\.)[ \t\r\n]*${retired_vehicle_state_field}([^A-Za-z0-9_]|$)"
+      retired_vehicle_state_access
+      "${vehicle_state_source_contents}")
+    if(retired_vehicle_state_access)
+      message(FATAL_ERROR
+        "Production code accesses retired soldier vehicle-state member '${retired_vehicle_state_field}' in ${source_file}")
+    endif()
+  endforeach()
+endforeach()
+foreach(legacy_vehicle_state_field IN ITEMS
+  bVehicleID
+  ubRobotRemoteHolderID)
+  string(REGEX MATCHALL
+    "src\\.${legacy_vehicle_state_field}"
+    legacy_vehicle_state_accesses
+    "${soldier_control_source_contents}")
+  list(LENGTH legacy_vehicle_state_accesses legacy_vehicle_state_access_count)
+  if(NOT legacy_vehicle_state_access_count EQUAL 1)
+    message(FATAL_ERROR
+      "Soldier Control.cpp must access legacy '${legacy_vehicle_state_field}' exactly once for v101 conversion")
+  endif()
+endforeach()
+
+foreach(required_vehicle_state_test IN ITEMS
+  "soldier vehicle-state component owns tactical vehicle and remote robot record identities"
+  "vehicle-state reset restores both historical persisted sentinels"
+  "soldier copies retain tactical vehicle and remote robot linkage"
+  "soldier initialization resets the complete tactical vehicle-link domain"
+  "v101 soldier conversion retains tactical vehicle and remote robot record identities"
+  "soldier save/load round-trips tactical vehicle and remote robot record identities at established POD positions")
+  string(FIND "${headless_test_contents}"
+    "${required_vehicle_state_test}"
+    soldier_vehicle_state_test)
+  if(soldier_vehicle_state_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost vehicle-state regression '${required_vehicle_state_test}'")
+  endif()
+endforeach()
+
+foreach(vehicle_state_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${vehicle_state_documentation}"
+    "SoldierVehicleStateComponent"
+    soldier_vehicle_state_documented)
+  if(soldier_vehicle_state_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Engine and save documentation must describe SoldierVehicleStateComponent")
+  endif()
+  string(FIND "${vehicle_state_documentation}"
+    "strategic"
+    soldier_vehicle_state_distinction_documented)
+  if(soldier_vehicle_state_distinction_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Vehicle-state documentation must distinguish tactical record linkage from strategic membership")
+  endif()
+endforeach()
+
 # NPC schedule execution has one live owner while schedule nodes, editor
 # placements, and creation packets remain compatibility adapters.
 foreach(retired_schedule_field IN ITEMS
@@ -7773,7 +7948,7 @@ endif()
 
 # Preserve both scattered persistence sites and every v101 value exactly.
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
+  "ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
   serialized_soldier_previous_grid_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7952,7 +8127,7 @@ string(REGEX MATCH
   serialized_soldier_movement_wait_action_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.bVehicleID\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
+  "ar\\.u8\\(movement\\.highResolutionDirection\\(\\)\\);[ \t]*ar\\.u8\\(movement\\.highResolutionDesiredDirection\\(\\)\\);[ \t]*ar\\.u8\\(audio\\.lastFootstepVariant\\(\\)\\);[ \t\r\n]*ar\\.i8\\(s\\.vehicleState\\(\\)\\.tacticalVehicleId\\(\\)\\);[ \t]*ar\\.i8\\(movement\\.animationDirection\\(\\)\\);[ \t]*ar\\.i32\\(movementHistory\\.previousGrid\\(\\)\\);[ \t\r\n]*ar\\.u16\\(movement\\.gridUpdatePolicy\\(\\)\\);"
   serialized_soldier_movement_facing_order
   "${save_load_game_contents}")
 string(REGEX MATCH

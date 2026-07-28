@@ -190,7 +190,7 @@ namespace
 		const SOLDIERTYPE& vehicle, std::uint8_t seatIndex) noexcept
 	{
 		const INT32 capacity =
-			GetVehicleSeatingCapacity(vehicle.bVehicleID);
+			GetVehicleSeatingCapacity(vehicle.vehicleState().tacticalVehicleId());
 		return capacity > 0 && seatIndex < capacity;
 	}
 
@@ -205,10 +205,10 @@ namespace
 			vehicle.awareness().visibility() == -1 ||
 			!OKUseVehicle(vehicle.identity().profile()) ||
 			!IsThisVehicleAccessibleToSoldier(
-				&soldier, vehicle.bVehicleID) ||
+				&soldier, vehicle.vehicleState().tacticalVehicleId()) ||
 			!HasValidVehicleSeat(vehicle, seatIndex))
 			return false;
-		return IsEnoughSpaceInVehicle(vehicle.bVehicleID) == TRUE;
+		return IsEnoughSpaceInVehicle(vehicle.vehicleState().tacticalVehicleId()) == TRUE;
 	}
 
 	void ClearPendingWorldItemPickup(SOLDIERTYPE& soldier) noexcept

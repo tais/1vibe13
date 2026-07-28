@@ -475,7 +475,13 @@ mission-exit participation, landing-zone arrival policy, arrival bookkeeping,
 and the Unfinished Business helicopter arrival get-up timer and phase flags.
 Strategic route/group objects remain adapters, and all existing sector,
 transit, insertion, vehicle, arrival, and arrival get-up gameplay entry points
-continue to operate on the same values. `SoldierScheduleComponent` owns live NPC schedule identity,
+continue to operate on the same values. `SoldierVehicleStateComponent`
+separately owns a vehicle soldier's tactical `VEHICLETYPE` record index and a
+remote robot's typed controller identity. The tactical record index is not the
+strategic passenger-membership ID exposed by `SoldierDeploymentComponent`;
+both retain their established meanings and adapters. Vehicle definitions,
+creation records, and repository APIs remain unchanged.
+`SoldierScheduleComponent` owns live NPC schedule identity,
 action progress, and the door continuation phase/grid shared by strategic
 scheduling and tactical movement. Named transitions atomically begin,
 complete, consume, or cancel the door continuation; editor placements,

@@ -473,7 +473,7 @@ void RenderSoldierFace( SOLDIERTYPE *pSoldier, INT16 sFaceX, INT16 sFaceY, BOOLE
 		if( pSoldier->status().flags() & SOLDIER_VEHICLE )
 		{
 			// get the type of vehicle
-//			ubVehicleType = pVehicleList[ pSoldier->bVehicleID ].ubVehicleType;
+//			ubVehicleType = pVehicleList[ pSoldier->vehicleState().tacticalVehicleId() ].ubVehicleType;
 
 			// just draw the vehicle
 //			BltVideoObjectFromIndex( guiSAVEBUFFER, giCarPortraits[ ubVehicleType ], 0, sFaceX, sFaceY, VO_BLT_SRCTRANSPARENCY, NULL );

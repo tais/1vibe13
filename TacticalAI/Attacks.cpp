@@ -687,7 +687,7 @@ void CalcBestShot(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestShot)
 		}
 
 		// sevenfm: empty vehicles have very low priority
-		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 		{
 			iAttackValue /= 4;
 		}
@@ -1774,7 +1774,7 @@ void CalcBestStab(SOLDIERTYPE *pSoldier, ATTACKTYPE *pBestStab, BOOLEAN fBladeAt
 			continue;			// next merc
 
 		// silversurfer: ignore empty vehicles
-		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->bVehicleID ) == 0 )
+		if ( pOpponent->employment().mercenaryType() == MERC_TYPE__VEHICLE && GetNumberInVehicle( pOpponent->vehicleState().tacticalVehicleId() ) == 0 )
 			continue;
 
 		// the_bob: don't stab the bird!

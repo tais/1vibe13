@@ -830,6 +830,8 @@ public:
 	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
 	SoldierDeploymentComponent& deployment() noexcept { return deployment_; }
 	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
+	SoldierVehicleStateComponent& vehicleState() noexcept { return vehicleState_; }
+	const SoldierVehicleStateComponent& vehicleState() const noexcept { return vehicleState_; }
 	SoldierScheduleComponent& schedule() noexcept { return schedule_; }
 	const SoldierScheduleComponent& schedule() const noexcept { return schedule_; }
 	SoldierPositionComponent& position() noexcept { return position_; }
@@ -913,9 +915,6 @@ public:
 	//END
 
 	struct TAG_anitile	*pAniTile;	
-	INT8					bVehicleID;
-	SoldierID			ubRobotRemoteHolderID;
-
 	UINT8				ubMiscSoldierFlags;
 
 	INT8					bDelayedStrategicMoraleMod;
@@ -975,6 +974,7 @@ private:
 	SoldierEmploymentComponent	employment_;
 	SoldierAssignmentComponent	assignment_;
 	SoldierDeploymentComponent	deployment_;
+	SoldierVehicleStateComponent	vehicleState_;
 	SoldierScheduleComponent	schedule_;
 	SoldierPositionComponent	position_;
 	SoldierMovementHistoryComponent	movementHistory_;
