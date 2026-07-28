@@ -1965,10 +1965,12 @@ void GroupArrivedAtSector( UINT8 ubGroupID, BOOLEAN fCheckForBattle, BOOLEAN fNe
 					curr->pSoldier->deployment().strategicInsertionCode() = ubStrategicInsertionCode;
 				}
 
-				if( curr->pSoldier->pMercPath )
+				if( !curr->pSoldier->strategicPath().empty() )
 				{
 					// remove head from their mapscreen path list
-					curr->pSoldier->pMercPath = RemoveHeadFromStrategicPath( curr->pSoldier->pMercPath );
+					curr->pSoldier->strategicPath().rebind(
+						RemoveHeadFromStrategicPath(
+							curr->pSoldier->strategicPath().head()));
 				}
 
 				// ATE: Alrighty, check if this sector is currently loaded, if so,

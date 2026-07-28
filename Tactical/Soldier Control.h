@@ -812,6 +812,8 @@ public:
 	const SoldierAssignmentComponent& assignment() const noexcept { return assignment_; }
 	SoldierDeploymentComponent& deployment() noexcept { return deployment_; }
 	const SoldierDeploymentComponent& deployment() const noexcept { return deployment_; }
+	SoldierStrategicPathComponent& strategicPath() noexcept { return strategicPath_; }
+	const SoldierStrategicPathComponent& strategicPath() const noexcept { return strategicPath_; }
 	SoldierVehicleStateComponent& vehicleState() noexcept { return vehicleState_; }
 	const SoldierVehicleStateComponent& vehicleState() const noexcept { return vehicleState_; }
 	SoldierScheduleComponent& schedule() noexcept { return schedule_; }
@@ -885,10 +887,6 @@ public:
 
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
-	PathStPtr		pMercPath;								//Path Structure
-	//DEF:	Used for the communications
-	//END
-
 	struct TAG_anitile	*pAniTile;	
 
 	// Reserved bytes remain explicit because the current save visitor preserves
@@ -941,6 +939,7 @@ private:
 	SoldierEmploymentComponent	employment_;
 	SoldierAssignmentComponent	assignment_;
 	SoldierDeploymentComponent	deployment_;
+	SoldierStrategicPathComponent	strategicPath_;
 	SoldierVehicleStateComponent	vehicleState_;
 	SoldierScheduleComponent	schedule_;
 	SoldierPositionComponent	position_;

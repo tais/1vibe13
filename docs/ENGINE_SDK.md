@@ -339,6 +339,15 @@ deletion, loading, and v101 conversion also release it deterministically. This
 is an application ownership boundary, not an SDK or package API. The former
 pointer was after `endOfPOD` and had no save-schema position, so saves, maps,
 XML, Lua, multiplayer packets, packages, and installed data do not change.
+Soldier routes now have a separate `SoldierStrategicPathComponent` ownership
+boundary. Copying an application soldier clones its `PathSt` chain; moving or
+swapping records transfers the node storage, and record reset/destruction
+releases it. Strategic pathing remains an application adapter and vehicle or
+militia path storage is unchanged, so this is not a new package data model or
+SDK serialization surface. The former `pMercPath` field emitted no bytes in
+the soldier visitor, and the outer save adapter continues to write the same
+node count and semantic node fields. Loading constructs a temporary route and
+publishes it only after the full payload succeeds.
 The post-v101 extension banks remain deliberately separate from those former
 general flags. `SoldierFeatureFlagsComponent` privately owns the unsigned
 8-bit gunshot/explosion/X-ray event markers and both unsigned 32-bit 1.13

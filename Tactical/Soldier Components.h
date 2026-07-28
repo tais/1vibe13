@@ -10,6 +10,7 @@
 #include <memory>
 
 class OBJECTTYPE;
+struct path;
 
 namespace AI
 {
@@ -1959,6 +1960,46 @@ private:
 	BOOLEAN betweenSectors_ = FALSE;
 	BOOLEAN inMissionExitNode_ = FALSE;
 	BOOLEAN useLandingZoneForArrival_ = FALSE;
+};
+
+// Owns the soldier's doubly-linked strategic route. Strategic path algorithms
+// still operate on the established PathSt nodes, but the list lifetime now
+// follows the soldier record: copies clone nodes, moves transfer them, and
+// reset/destruction release them. The explicit legacy address adapter is kept
+// only for path-building functions that still publish a new list head through
+// PathStPtr*.
+class SoldierStrategicPathComponent
+{
+public:
+	SoldierStrategicPathComponent() noexcept = default;
+	~SoldierStrategicPathComponent();
+	SoldierStrategicPathComponent(
+		const SoldierStrategicPathComponent& source);
+	SoldierStrategicPathComponent& operator=(
+		const SoldierStrategicPathComponent& source);
+	SoldierStrategicPathComponent(
+		SoldierStrategicPathComponent&& source) noexcept;
+	SoldierStrategicPathComponent& operator=(
+		SoldierStrategicPathComponent&& source) noexcept;
+
+	path* head() noexcept { return head_; }
+	const path* head() const noexcept { return head_; }
+	path** legacyHeadAddress() noexcept { return &head_; }
+	bool empty() const noexcept { return head_ == nullptr; }
+
+	// Adopt a separately allocated list, releasing the currently owned one.
+	void adopt(path* head) noexcept;
+	// Publish the head returned by an in-place legacy mutation. That mutation
+	// may already have freed the previous head, so this deliberately does not
+	// release storage.
+	void rebind(path* head) noexcept;
+	path* release() noexcept;
+	void copyFrom(const path* source);
+	void swapStorage(SoldierStrategicPathComponent& other) noexcept;
+	void reset() noexcept;
+
+private:
+	path* head_ = nullptr;
 };
 
 // Canonical link between a tactical vehicle actor and the strategic vehicle

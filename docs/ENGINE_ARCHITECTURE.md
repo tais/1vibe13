@@ -1019,6 +1019,18 @@ the engine must not contain SDL types in its public domain model.
   returns no plan. The retired pointer followed `endOfPOD` and was never part
   of the save visitor, so no save, map, XML, Lua, multiplayer, package, or
   installed-data format changes.
+  `SoldierStrategicPathComponent` now owns each soldier's doubly-linked
+  strategic route. Whole-soldier copies deep-copy the route, moves transfer it,
+  repository swaps exchange the original node storage without allocation, and
+  initialization/deletion release it with the record. The established
+  strategic path algorithms remain compatibility adapters over `PathSt`;
+  vehicle and militia routes keep their existing owners. Soldier loading builds
+  nodes under a temporary owner, rejects implausible counts, and commits only a
+  complete route, so truncated input cannot leak nodes or replace live state.
+  The former `pMercPath` visitor emitted no bytes and is retained as a
+  `retiredPtr()` landmark, while the same count and `PathSt` node payload still
+  follows the soldier record. Save, map, XML, Lua, multiplayer, package, and
+  installed-data formats are unchanged.
   The three later, independent compatibility banks are now privately owned by
   `SoldierFeatureFlagsComponent`: the unsigned 8-bit gunshot/explosion/X-ray
   event markers and the two unsigned 32-bit feature masks introduced by 1.13

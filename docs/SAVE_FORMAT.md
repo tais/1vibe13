@@ -279,7 +279,7 @@ adapter, so save and load can never drift out of order. Extra methods:
 
 - `ptr(T*&)` — **runtime pointers are never persisted**: writes nothing, sets the
   pointer `NULL` on load. The game rebuilds them after load (palette/shade tables,
-  `LEVELNODE*`, `pMercPath`, …). This matches the legacy
+  `LEVELNODE*`, …). This matches the legacy
   behaviour, which only ever persisted meaningless pointer *values*.
 - `retiredPtr()` — keeps a named field-list landmark for a runtime pointer whose
   live storage has been removed. Like `ptr`, it emits and consumes zero bytes.
@@ -340,6 +340,16 @@ adapter, so save and load can never drift out of order. Extra methods:
   or swapped soldiers also rebuild plans lazily because a plan's back-reference
   cannot be rebound safely. Save, map, XML, Lua, multiplayer packet, package,
   and installed-data formats are unchanged.
+- A soldier's strategic route is now owned by
+  `SoldierStrategicPathComponent`. The former `pMercPath` position in
+  `XferSoldierTypePOD` becomes a zero-byte `retiredPtr()` landmark, so the
+  record byte sequence does not move. The outer soldier adapter still writes
+  the same count followed by the same portable `PathSt` fields
+  (`uiSectorId`, `uiEta`, `fSpeed`); `pNext` and `pPrev` remain runtime-only.
+  Loading builds that list transactionally under a temporary owner, bounds
+  corrupt counts, and swaps it into the live record only after all nodes
+  succeed. Vehicle and militia route payloads and all content formats are
+  unchanged.
 - The unsigned 8-bit gunshot/explosion/X-ray event markers and the two unsigned
   32-bit 1.13 feature-mask banks are now stored by
   `SoldierFeatureFlagsComponent`. The visitor emits all three banks at their

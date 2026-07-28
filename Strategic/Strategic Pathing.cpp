@@ -1416,7 +1416,7 @@ void CalculateEtaForCharacterPath( SOLDIERTYPE *pCharacter )
 		fInVehicle = TRUE;
 	}
 
-	if( ( pCharacter->pMercPath == NULL ) && ( fInVehicle == FALSE ) )
+	if( pCharacter->strategicPath().empty() && ( fInVehicle == FALSE ) )
 	{
 		return;
 	}
@@ -1497,20 +1497,20 @@ void MoveCharacterOnPath( SOLDIERTYPE *pCharacter )
 		return;
 	}
 
-	if( pCharacter->pMercPath == NULL )
+	if( pCharacter->strategicPath().empty() )
 	{
 		return;
 	}
 
-	if( pCharacter->pMercPath->pNext == NULL )
+	if( pCharacter->strategicPath().head()->pNext == NULL )
 	{
 		// simply set eta to current time
-		pCharacter->pMercPath->uiEta = GetWorldTotalMin( );
+		pCharacter->strategicPath().head()->uiEta = GetWorldTotalMin( );
 		return;
 	}
 
 	// set up node to beginning of path list
-	pNode = pCharacter->pMercPath;
+	pNode = pCharacter->strategicPath().head();
 
 
 	// while there are nodes left with eta less than current time
@@ -1526,7 +1526,7 @@ void MoveCharacterOnPath( SOLDIERTYPE *pCharacter )
 		MemFree( pDeleteNode );
 
 		// set up merc path to this sector
-		pCharacter->pMercPath = pNode;
+		pCharacter->strategicPath().rebind(pNode);
 
 		// no where left to go
 		if( pNode == NULL )
@@ -1984,7 +1984,7 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 	if( !pVehicleList ) /*bcause we have no vehicle list at all, we act as we are a person*/
 		{
 		pSoldier->status().flags() &= ~SOLDIER_VEHICLE;
-			pMercPath = pSoldier->pMercPath;
+			pMercPath = pSoldier->strategicPath().head();
 		/* after all, create an empty Vehicle list */
 			pVehicleList = (VEHICLETYPE *) MemAlloc( sizeof( VEHICLETYPE ) );
 			memset( pVehicleList, 0, sizeof( VEHICLETYPE ) );
@@ -1995,7 +1995,7 @@ PathStPtr GetSoldierMercPathPtr( SOLDIERTYPE *pSoldier )
 	}
 	else	// a person
 	{
-		pMercPath = pSoldier->pMercPath;
+		pMercPath = pSoldier->strategicPath().head();
 	}
 
 	return( pMercPath );
@@ -2026,7 +2026,8 @@ PathStPtr GetGroupMercPathPtr( GROUP *pGroup )
 		// value returned will be NULL if there's nobody in the group!
 		if ( pGroup->pPlayerList && pGroup->pPlayerList->pSoldier )
 		{
-			pMercPath = pGroup->pPlayerList->pSoldier->pMercPath;
+			pMercPath =
+				pGroup->pPlayerList->pSoldier->strategicPath().head();
 		}
 	}
 
@@ -2120,7 +2121,9 @@ void ClearPathForSoldier( SOLDIERTYPE *pSoldier )
 
 
 	// clear the soldier's mercpath
-	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
+	pSoldier->strategicPath().rebind(ClearStrategicPathList(
+		pSoldier->strategicPath().head(),
+		pSoldier->deployment().groupId()));
 
 	// if a vehicle
 	if( pSoldier->status().flags() & SOLDIER_VEHICLE )
@@ -2155,7 +2158,9 @@ void AddSectorToFrontOfMercPathForAllSoldiersInGroup( GROUP *pGroup, UINT8 ubSec
 
 		if ( pSoldier != NULL )
 		{
-			AddSectorToFrontOfMercPath( &(pSoldier->pMercPath), ubSectorX, ubSectorY );
+			AddSectorToFrontOfMercPath(
+				pSoldier->strategicPath().legacyHeadAddress(),
+				ubSectorX, ubSectorY );
 		}
 
 		pPlayer = pPlayer->next;

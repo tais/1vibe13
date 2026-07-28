@@ -83,6 +83,8 @@ BOOLEAN LoadSaveGameHeaderFromFile( HWFILE hFile, SAVED_GAME_HEADER& h );
 struct path;
 BOOLEAN SavePathNodeToFile( HWFILE hFile, struct path* p );
 BOOLEAN LoadPathNodeFromFile( HWFILE hFile, struct path* p );
+BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID );
+BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID );
 
 BOOLEAN CopySavedSoldierInfoToNewSoldier( SOLDIERTYPE *pDestSourceInfo, SOLDIERTYPE *pSourceInfo );
 

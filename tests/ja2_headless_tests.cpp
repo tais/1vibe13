@@ -7257,6 +7257,11 @@ int main( int, char** )
 		source.position().gridNo() = 4321;
 		source.vitals().health() = 73;
 		source.runtime.pendingAction.pathSearchSourceGrid = 99;
+		PathSt sourceRouteTail{ 202, 2200, TRUE, nullptr, nullptr };
+		PathSt sourceRouteHead{
+			101, 1100, FALSE, &sourceRouteTail, nullptr };
+		sourceRouteTail.pPrev = &sourceRouteHead;
+		source.strategicPath().copyFrom(&sourceRouteHead);
 		int repositoryPlanDestructions = 0;
 		int repositoryPlanExecutions = 0;
 		records[1].aiPlan().adopt(new HeadlessOwnedAiPlan(
@@ -7267,6 +7272,10 @@ int main( int, char** )
 		       records[1].position().gridNo() == 4321 &&
 		       records[1].vitals().health() == 73 &&
 		       records[1].runtime.pendingAction.pathSearchSourceGrid == 0 &&
+		       records[1].strategicPath().head() !=
+		           source.strategicPath().head() &&
+		       records[1].strategicPath().head()->uiSectorId == 101 &&
+		       records[1].strategicPath().head()->pNext->uiSectorId == 202 &&
 		       !records[1].aiPlan().hasPlan() &&
 		       repositoryPlanDestructions == 1 &&
 		       repository.replace(2, source) == nullptr,
@@ -7280,6 +7289,12 @@ int main( int, char** )
 		records[0].position().gridNo() = 100;
 		records[1].identity().id() = SoldierID{ static_cast<UINT16>( 1 ) };
 		records[1].position().gridNo() = 200;
+		PathSt firstRoute{ 303, 3300, FALSE, nullptr, nullptr };
+		PathSt secondRoute{ 404, 4400, TRUE, nullptr, nullptr };
+		records[0].strategicPath().copyFrom(&firstRoute);
+		records[1].strategicPath().copyFrom(&secondRoute);
+		PathSt* firstOwnedRoute = records[0].strategicPath().head();
+		PathSt* secondOwnedRoute = records[1].strategicPath().head();
 		records[0].aiPlan().adopt(new HeadlessOwnedAiPlan(
 			&records[0], repositoryPlanDestructions,
 			repositoryPlanExecutions));
@@ -7292,6 +7307,10 @@ int main( int, char** )
 		       records[1].identity().id() == SoldierID{ static_cast<UINT16>( 1 ) } &&
 		       records[0].position().gridNo() == 200 &&
 		       records[1].position().gridNo() == 100 &&
+		       records[0].strategicPath().head() == secondOwnedRoute &&
+		       records[1].strategicPath().head() == firstOwnedRoute &&
+		       records[0].strategicPath().head()->uiSectorId == 404 &&
+		       records[1].strategicPath().head()->uiSectorId == 303 &&
 		       !records[0].aiPlan().hasPlan() &&
 		       !records[1].aiPlan().hasPlan() &&
 		       repositoryPlanDestructions == 3 &&
@@ -7349,6 +7368,12 @@ int main( int, char** )
 		static_assert(std::is_same_v<
 			decltype(std::declval<const SOLDIERTYPE&>().frontArc()),
 			const SoldierFrontArcComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<SOLDIERTYPE&>().strategicPath()),
+			SoldierStrategicPathComponent&>);
+		static_assert(std::is_same_v<
+			decltype(std::declval<const SOLDIERTYPE&>().strategicPath()),
+			const SoldierStrategicPathComponent&>);
 
 		int aiPlanDestructions = 0;
 		int aiPlanExecutions = 0;
@@ -7379,6 +7404,38 @@ int main( int, char** )
 		       !assignedAiPlanOwner.aiPlan().hasPlan() &&
 		       aiPlanDestructions == 3,
 		       "soldier AI plans are released by explicit reset and record reuse" );
+
+		PathSt routeTail{ 502, 5200, TRUE, nullptr, nullptr };
+		PathSt routeHead{ 501, 5100, FALSE, &routeTail, nullptr };
+		routeTail.pPrev = &routeHead;
+		SoldierStrategicPathComponent routeOwner;
+		routeOwner.copyFrom(&routeHead);
+		SoldierStrategicPathComponent copiedRouteOwner = routeOwner;
+		copiedRouteOwner.head()->uiSectorId = 777;
+		SoldierStrategicPathComponent assignedRouteOwner;
+		assignedRouteOwner = routeOwner;
+		SoldierStrategicPathComponent movedRouteOwner =
+			std::move(assignedRouteOwner);
+		CHECK( routeOwner.head() != &routeHead &&
+		       routeOwner.head()->pNext != &routeTail &&
+		       copiedRouteOwner.head() != routeOwner.head() &&
+		       copiedRouteOwner.head()->uiSectorId == 777 &&
+		       routeOwner.head()->uiSectorId == 501 &&
+		       movedRouteOwner.head() != routeOwner.head() &&
+		       movedRouteOwner.head()->pNext->pPrev ==
+		           movedRouteOwner.head() &&
+		       assignedRouteOwner.empty(),
+		       "soldier strategic-path owners deep-copy route nodes and transfer moves without aliases" );
+		SOLDIERTYPE copiedRouteSoldier;
+		copiedRouteSoldier.strategicPath().copyFrom(routeOwner.head());
+		SOLDIERTYPE routeSoldierClone = copiedRouteSoldier;
+		routeSoldierClone.strategicPath().head()->uiEta = 8800;
+		copiedRouteSoldier.initialize();
+		CHECK( copiedRouteSoldier.strategicPath().empty() &&
+		       routeSoldierClone.strategicPath().head() != nullptr &&
+		       routeSoldierClone.strategicPath().head()->uiEta == 8800 &&
+		       routeOwner.head()->uiEta == 5100,
+		       "whole-soldier copies own independent strategic routes and record reuse releases the destination route" );
 
 		SoldierFrontArcComponent frontArcLifecycle;
 		frontArcLifecycle.bindOccluder(1, 401, 1401);
@@ -11873,6 +11930,8 @@ int main( int, char** )
 		convertedSoldier.combatContribution().militiaKills() = 9;
 		convertedSoldier.combatContribution().militiaAssists() = 8;
 		convertedSoldier.combatContribution().damageByTeam()[0] = 70;
+		PathSt staleConvertedRoute{ 881, 8810, TRUE, nullptr, nullptr };
+		convertedSoldier.strategicPath().copyFrom(&staleConvertedRoute);
 		int convertedPlanDestructions = 0;
 		int convertedPlanExecutions = 0;
 		convertedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
@@ -11880,8 +11939,9 @@ int main( int, char** )
 			convertedPlanExecutions));
 		convertedSoldier = *legacySoldier;
 		CHECK( !convertedSoldier.aiPlan().hasPlan() &&
+		       convertedSoldier.strategicPath().empty() &&
 		       convertedPlanDestructions == 1,
-		       "v101 soldier conversion releases process-local modular AI plans" );
+		       "v101 soldier conversion releases process-local modular AI plans and ignores stale route pointers restored separately" );
 		CHECK( convertedSoldier.identity().id() == SoldierID{ 37 } &&
 		       convertedSoldier.identity().name()[0] == L'V' &&
 		       convertedSoldier.identity().name()[SOLDIER_NAME_LENGTH - 1] == L'1' &&
@@ -12520,6 +12580,101 @@ int main( int, char** )
 	CHECK( InitializeFileManager( NULL ), "InitializeFileManager(NULL)" );
 
 	{
+		SOLDIERTYPE records[1];
+		SOLDIERTYPE* slots[1] = { nullptr };
+		Ja2SoldierRepository repository(records, slots, 1);
+		repository.initializeSlots();
+		Ja2SoldierRepository& productionRepository =
+			GetJa2SoldierRepository();
+		BindJa2SoldierRepository(repository);
+
+		PathSt savedRouteTail{ 612, 6200, TRUE, nullptr, nullptr };
+		PathSt savedRouteHead{
+			611, 6100, FALSE, &savedRouteTail, nullptr };
+		savedRouteTail.pPrev = &savedRouteHead;
+		records[0].strategicPath().copyFrom(&savedRouteHead);
+
+		const std::string path = "soldier_strategic_path_test.bin";
+		HWFILE output = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		const bool saved =
+			output && SaveMercPathFromSoldierStruct(output, 0);
+		if (output) FileClose(output);
+
+		PathSt staleRoute{ 999, 9900, FALSE, nullptr, nullptr };
+		records[0].strategicPath().copyFrom(&staleRoute);
+		HWFILE input = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		const bool loaded =
+			input && LoadMercPathToSoldierStruct(input, 0);
+		if (input) FileClose(input);
+
+		PathSt* committedRoute = records[0].strategicPath().head();
+		CHECK( saved && loaded && committedRoute != nullptr &&
+		       committedRoute->pPrev == nullptr &&
+		       committedRoute->uiSectorId == 611 &&
+		       committedRoute->uiEta == 6100 &&
+		       committedRoute->fSpeed == FALSE &&
+		       committedRoute->pNext != nullptr &&
+		       committedRoute->pNext->pPrev == committedRoute &&
+		       committedRoute->pNext->pNext == nullptr &&
+		       committedRoute->pNext->uiSectorId == 612 &&
+		       committedRoute->pNext->uiEta == 6200 &&
+		       committedRoute->pNext->fSpeed == TRUE,
+		       "soldier strategic-path payload preserves the established node format and atomically replaces reused storage" );
+
+		output = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		UINT32 partialNodeCount = 2;
+		UINT32 bytesWritten = 0;
+		const bool partialWritten =
+			output &&
+			FileWrite(output, &partialNodeCount,
+			          sizeof(partialNodeCount), &bytesWritten) &&
+			bytesWritten == sizeof(partialNodeCount) &&
+			SavePathNodeToFile(output, &savedRouteHead);
+		if (output) FileClose(output);
+		input = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		const bool partialRejected =
+			input && !LoadMercPathToSoldierStruct(input, 0);
+		if (input) FileClose(input);
+		CHECK( partialWritten && partialRejected &&
+		       records[0].strategicPath().head() == committedRoute &&
+		       committedRoute->uiSectorId == 611 &&
+		       committedRoute->pNext->uiSectorId == 612,
+		       "truncated strategic-path payloads leave the live soldier route unchanged" );
+
+		output = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_WRITE | FILE_CREATE_ALWAYS);
+		UINT32 oversizedNodeCount = 65537;
+		bytesWritten = 0;
+		const bool oversizedWritten =
+			output &&
+			FileWrite(output, &oversizedNodeCount,
+			          sizeof(oversizedNodeCount), &bytesWritten) &&
+			bytesWritten == sizeof(oversizedNodeCount);
+		if (output) FileClose(output);
+		input = FileOpen(
+			const_cast<char*>(path.c_str()),
+			FILE_ACCESS_READ | FILE_OPEN_EXISTING);
+		const bool oversizedRejected =
+			input && !LoadMercPathToSoldierStruct(input, 0);
+		if (input) FileClose(input);
+		FileDelete(const_cast<char*>(path.c_str()));
+		CHECK( oversizedWritten && oversizedRejected &&
+		       records[0].strategicPath().head() == committedRoute,
+		       "strategic-path loading rejects implausible allocation counts before mutating live state" );
+
+		BindJa2SoldierRepository(productionRepository);
+	}
+
+	{
 		const std::string path = "soldier_vitals_roundtrip_test.bin";
 		const UINT32 previousSaveVersion = guiCurrentSaveGameVersion;
 		guiCurrentSaveGameVersion = SAVE_GAME_VERSION;
@@ -13068,6 +13223,8 @@ int main( int, char** )
 		OBJECTTYPE staleLoadedObject;
 		staleLoadedObject.usItem = 95;
 		loadedSoldier.pendingItem().prepareThrow(staleLoadedObject);
+		PathSt staleLoadedRoute{ 882, 8820, TRUE, nullptr, nullptr };
+		loadedSoldier.strategicPath().copyFrom(&staleLoadedRoute);
 		int loadedPlanDestructions = 0;
 		int loadedPlanExecutions = 0;
 		loadedSoldier.aiPlan().adopt(new HeadlessOwnedAiPlan(
@@ -13090,8 +13247,9 @@ int main( int, char** )
 		       "soldier POD save/load retires temporary action pointers and clears process-local transaction state" );
 		CHECK( saved && loaded &&
 		       !loadedSoldier.aiPlan().hasPlan() &&
+		       loadedSoldier.strategicPath().empty() &&
 		       loadedPlanDestructions == 1,
-		       "soldier POD load clears process-local modular AI plans before restoring persistent state" );
+		       "soldier POD load clears process-local modular AI plans before restoring persistent state and leaves routes for the separate payload" );
 		CHECK( saved && loaded &&
 		       loadedSoldier.identity().id() == SoldierID{ 47 } &&
 		       loadedSoldier.identity().name()[0] == L'S' &&

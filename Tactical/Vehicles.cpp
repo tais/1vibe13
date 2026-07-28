@@ -1064,7 +1064,7 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 	if( ( pSoldier->assignment().current() != VEHICLE ) && ( ! ( pSoldier->status().flags() & SOLDIER_VEHICLE ) ) )
 	{
 		// now clear soldier's path
-		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
+		pSoldier->strategicPath().reset();
 		return( FALSE );
 	}
 
@@ -1086,7 +1086,7 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 		if( ( iId >= ubNumberOfVehicles ) || ( iId < 0 ) )
 		{
 			// now clear soldier's path
-			pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
+			pSoldier->strategicPath().reset();
 			return ( FALSE );
 		}
 
@@ -1094,7 +1094,7 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 		if( pVehicleList[ iId ].fValid == FALSE )
 		{
 			// now clear soldier's path
-			pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
+			pSoldier->strategicPath().reset();
 			return( FALSE );
 		}
 	}
@@ -1106,13 +1106,14 @@ BOOLEAN MoveCharactersPathToVehicle( SOLDIERTYPE *pSoldier )
 	pVehicleList[ iId ].pMercPath = ClearStrategicPathList( pVehicleList[ iId ].pMercPath, pVehicleList[ iId ].ubMovementGroup );
 
 	// now copy over
-	pVehicleList[ iId ].pMercPath = CopyPaths( pSoldier->pMercPath, pVehicleList[ iId ].pMercPath );
+	pVehicleList[ iId ].pMercPath = CopyPaths(
+		pSoldier->strategicPath().head(), pVehicleList[ iId ].pMercPath );
 
 	// move to beginning
 	pVehicleList[ iId ].pMercPath = MoveToBeginningOfPathList( pVehicleList[ iId ].pMercPath );
 
 	// now clear soldier's path
-	pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
+	pSoldier->strategicPath().reset();
 
 	return( TRUE );
 }
@@ -1170,14 +1171,8 @@ BOOLEAN CopyVehiclePathToSoldier( SOLDIERTYPE *pSoldier )
 	// valid vehicle
 
 	// clear grunt path
-	if( pSoldier->pMercPath )
-	{
-		// clear soldier's path
-		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, 0 );
-	}
-
 	// now copy over
-	pSoldier->pMercPath = CopyPaths(pVehicleList[ iId ].pMercPath, pSoldier->pMercPath );
+	pSoldier->strategicPath().copyFrom(pVehicleList[ iId ].pMercPath);
 
 	return( TRUE );
 }
@@ -1213,10 +1208,12 @@ BOOLEAN SetUpMvtGroupForVehicle( SOLDIERTYPE *pSoldier )
 		iId = pSoldier->deployment().vehicleId();
 	}
 
-	if( pSoldier->pMercPath )
+	if( !pSoldier->strategicPath().empty() )
 	{
 		// clear soldier's path
-		pSoldier->pMercPath = ClearStrategicPathList( pSoldier->pMercPath, pSoldier->deployment().groupId() );
+		pSoldier->strategicPath().rebind(ClearStrategicPathList(
+			pSoldier->strategicPath().head(),
+			pSoldier->deployment().groupId()));
 	}
 
 	// if no group, create one for vehicle

@@ -450,6 +450,7 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		pendingAction().reset();
 		assignment().reset();
 		deployment().reset();
+		strategicPath().reset();
 		vehicleState().reset();
 		schedule().reset();
 		frontArc().reset();
@@ -893,7 +894,9 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->deployment().sectorY() = src.sSectorY;									// Y position on the Stategic Map
 		this->deployment().sectorZ() = src.bSectorZ;									// Z sector location
 		this->deployment().vehicleId() = src.iVehicleId;								// the id of the vehicle the char is in
-		this->pMercPath = src.pMercPath;								//Path Structure
+		// Runtime pointers embedded in v101 soldier bytes were never valid
+		// across processes. The route nodes are restored separately after
+		// conversion, so the owning component intentionally remains empty.
 		this->employment().medicalDeposit() = src.usMedicalDeposit;         // is there a medical deposit on merc
 		this->employment().lifeInsurance() = src.usLifeInsurance;          // is there life insurance taken out on merc
 
@@ -1134,6 +1137,7 @@ void SOLDIERTYPE::initialize( )
 	employment().reset();
 	assignment().reset();
 	deployment().reset();
+	strategicPath().reset();
 	vehicleState().reset();
 	schedule().reset();
 	position().reset();
@@ -2610,6 +2614,9 @@ BOOLEAN SOLDIERTYPE::DeleteSoldier( void )
 		this->pendingItem().reset();
 		// Modular AI plans retain a back-reference to this exact record.
 		this->aiPlan().reset();
+		// Strategic routes are owned by the record and must not survive slot
+		// teardown or alias the next soldier incarnation.
+		this->strategicPath().reset();
 
 		// Delete faces
 		DeleteSoldierFace( this );

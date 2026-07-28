@@ -13324,7 +13324,8 @@ BOOLEAN CheckIfClickOnLastSectorInPath( INT16 sX, INT16 sY )
 			else
 			{
 				// rebuild waypoints - mercs on foot
-				ppMovePath = &( pSoldier->pMercPath );
+				ppMovePath =
+					pSoldier->strategicPath().legacyHeadAddress();
 			}
 
 			RebuildWayPointsForAllSelectedCharsGroups( );
@@ -13413,8 +13414,8 @@ void RebuildWayPointsForAllSelectedCharsGroups( void )
 					generate ubGroupId.  For vehicles, we use the iVhicleId to generate both.  Shouldn't we be using the
 					same system here?  Meaning, shouldn't ppMovePath be generated with the soldier indicated with iCounter?*/
 				//ppMovePath = &( GetJa2SoldierRepository().record(
-				//	gCharactersList[ bSelectedDestChar ].usSolID ).pMercPath );
-				ppMovePath = &( pSoldier->pMercPath );
+				ppMovePath =
+					pSoldier->strategicPath().legacyHeadAddress();
 				ubGroupId = pSoldier->deployment().groupId();
 			}
 
@@ -15935,7 +15936,7 @@ void CopyPathToAllSelectedCharacters( PathStPtr pPath )
 				}
 				else
 				{
-					pSoldier->pMercPath = CopyPaths( pPath, pSoldier->pMercPath );
+					pSoldier->strategicPath().copyFrom(pPath);
 				}
 
 				// don't use CopyPathToCharactersSquadIfInOne(), it will whack the original pPath by replacing that merc's path!
@@ -17082,7 +17083,8 @@ void RestorePreviousPaths( void )
 				}
 				else if( pSoldier->assignment().current() < ON_DUTY )
 				{
-					ppMovePath = &( pSoldier->pMercPath );
+					ppMovePath =
+						pSoldier->strategicPath().legacyHeadAddress();
 					ubGroupId = pSoldier->deployment().groupId();
 				}
 				else
