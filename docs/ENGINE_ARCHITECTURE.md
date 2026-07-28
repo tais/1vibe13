@@ -1085,11 +1085,17 @@ the engine must not contain SDL types in its public domain model.
   related values coherent. The existing strategic route and live group
   pointers remain boundary adapters rather than becoming component-owned
   content formats.
-  Current tactical grid, elevation, and facing likewise have one private
+  Tactical world placement likewise has one private
   `SoldierPositionComponent` owner rather than fields split between
-  `SOLDIERTYPE` and its pathing record. Tactical route destinations, movement
-  cursor, fixed-capacity direction list, lookup flags, and blacklist now have
-  one private `SoldierPathingComponent` owner as well. Tactical route
+  `SOLDIERTYPE` and its pathing record. It owns precise and integer-projected
+  coordinates, turn-start coordinates, initial/current grid, elevation and
+  facing, current/desired height, the advanced-animation staging grid, room,
+  and current/previous terrain. Named coordinate and terrain transitions keep
+  their paired representations coherent. Previous-grid and AI loop-prevention
+  history remain movement-history concerns rather than a second current
+  position owner. Tactical route destinations, movement cursor,
+  fixed-capacity direction list, lookup flags, and blacklist now have one
+  private `SoldierPathingComponent` owner as well. Tactical route
   execution has a separate private `SoldierMovementComponent`: delayed-tile
   state, reservations, merc contention, scripted and continued destinations,
   stop reason, and coordinated speed override no longer live in the generic

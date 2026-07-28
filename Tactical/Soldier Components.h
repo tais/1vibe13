@@ -952,25 +952,68 @@ private:
 	UINT32 arrivalTime_ = 0;
 };
 
-// Canonical current tactical location storage. Persistent adapters serialize
-// these values at their established schema positions; the component itself is
-// independent of the legacy SOLDIERTYPE declaration.
+// Canonical current tactical world-placement storage. Persistent adapters
+// serialize these values at their established, scattered schema positions; the
+// component itself is independent of the legacy SOLDIERTYPE declaration.
 class SoldierPositionComponent
 {
 public:
+	FLOAT& worldX() noexcept { return worldX_; }
+	const FLOAT& worldX() const noexcept { return worldX_; }
+	FLOAT& worldY() noexcept { return worldY_; }
+	const FLOAT& worldY() const noexcept { return worldY_; }
+	INT16& worldXInt() noexcept { return worldXInt_; }
+	const INT16& worldXInt() const noexcept { return worldXInt_; }
+	INT16& worldYInt() noexcept { return worldYInt_; }
+	const INT16& worldYInt() const noexcept { return worldYInt_; }
+	INT16& turnStartX() noexcept { return turnStartX_; }
+	const INT16& turnStartX() const noexcept { return turnStartX_; }
+	INT16& turnStartY() noexcept { return turnStartY_; }
+	const INT16& turnStartY() const noexcept { return turnStartY_; }
+	INT32& initialGrid() noexcept { return initialGrid_; }
+	const INT32& initialGrid() const noexcept { return initialGrid_; }
 	INT32& gridNo() noexcept { return gridNo_; }
 	const INT32& gridNo() const noexcept { return gridNo_; }
 	INT8& level() noexcept { return level_; }
 	const INT8& level() const noexcept { return level_; }
 	UINT8& direction() noexcept { return direction_; }
 	const UINT8& direction() const noexcept { return direction_; }
+	INT16& heightAdjustment() noexcept { return heightAdjustment_; }
+	const INT16& heightAdjustment() const noexcept { return heightAdjustment_; }
+	INT16& desiredHeight() noexcept { return desiredHeight_; }
+	const INT16& desiredHeight() const noexcept { return desiredHeight_; }
+	INT32& temporaryGrid() noexcept { return temporaryGrid_; }
+	const INT32& temporaryGrid() const noexcept { return temporaryGrid_; }
+	INT16& roomNo() noexcept { return roomNo_; }
+	const INT16& roomNo() const noexcept { return roomNo_; }
+	INT8& terrainType() noexcept { return terrainType_; }
+	const INT8& terrainType() const noexcept { return terrainType_; }
+	INT8& previousTerrainType() noexcept { return previousTerrainType_; }
+	const INT8& previousTerrainType() const noexcept { return previousTerrainType_; }
 
+	void setWorldCoordinates(FLOAT x, FLOAT y) noexcept;
+	void recordTurnStart(INT16 x, INT16 y) noexcept;
+	bool hasTurnStart() const noexcept { return turnStartX_ != 0 || turnStartY_ != 0; }
+	void enterTerrain(INT8 terrainType) noexcept;
 	void reset() noexcept;
 
 private:
+	FLOAT worldX_ = 0;
+	FLOAT worldY_ = 0;
+	INT16 worldXInt_ = 0;
+	INT16 worldYInt_ = 0;
+	INT16 turnStartX_ = 0;
+	INT16 turnStartY_ = 0;
+	INT32 initialGrid_ = 0;
 	INT32 gridNo_ = 0;
 	INT8 level_ = 0;
 	UINT8 direction_ = 0;
+	INT16 heightAdjustment_ = 0;
+	INT16 desiredHeight_ = 0;
+	INT32 temporaryGrid_ = 0;
+	INT16 roomNo_ = 0;
+	INT8 terrainType_ = 0;
+	INT8 previousTerrainType_ = 0;
 };
 
 // Canonical tactical route ownership. The fixed-capacity path and its cursor

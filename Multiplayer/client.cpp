@@ -1259,8 +1259,8 @@ void send_stance ( SOLDIERTYPE *pSoldier, UINT8 ubDesiredStance )
 			SChangeStance.usSoldierID = pSoldier->ubID;
 
 
-		SChangeStance.sXPos				= pSoldier->sX;
-		SChangeStance.sYPos				= pSoldier->sY;
+		SChangeStance.sXPos				= pSoldier->position().worldXInt();
+		SChangeStance.sYPos				= pSoldier->position().worldYInt();
 		SChangeStance.uiUniqueId = pSoldier -> uiUniqueSoldierIdValue;
 
 		//ScreenMsg( FONT_LTGREEN, MSG_MPSYSTEM, L"change stance: %d",ubDesiredStance );

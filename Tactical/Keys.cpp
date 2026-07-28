@@ -816,12 +816,12 @@ BOOLEAN AttemptToBlowUpLock(SOLDIERTYPE * pSoldier, DOOR * pDoor)
 		}
 
 		// sevenfm: also make noise
-		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_EXPLOSION);
+		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_EXPLOSION);
 	}
 	else
 	{
 		// OOPS! ... BOOM!
-		IgniteExplosion(NOBODY, pSoldier->sX, pSoldier->sY, (INT16)(gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), usItem, 0);
+		IgniteExplosion(NOBODY, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16)(gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), usItem, 0);
 	}	
 
 	return fSuccess;

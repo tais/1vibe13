@@ -3332,7 +3332,7 @@ string(REGEX MATCH
   serialized_soldier_fatigue_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bOverTerrainType\\);[ \t]*ar\\.i8\\(s\\.bOldOverTerrainType\\);[ \t]*ar\\.i8\\(collapseState\\.tactical\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.breathTriggered\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);"
+  "ar\\.i8\\(position\\.terrainType\\(\\)\\);[ \t]*ar\\.i8\\(position\\.previousTerrainType\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.tactical\\(\\)\\);[ \t]*ar\\.i8\\(collapseState\\.breathTriggered\\(\\)\\);[ \t\r\n]*ar\\.u8\\(s\\.animationIntent\\(\\)\\.desiredHeight\\(\\)\\);"
   serialized_soldier_tactical_collapse_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -3434,7 +3434,7 @@ if(soldier_perception_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.u8\\(deployment\\.groupId\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);[ \t\r\n]*ar\\.f32\\(s\\.dXPos\\);"
+  "ar\\.u8\\(deployment\\.groupId\\(\\)\\);[ \t]*ar\\.u8\\(perception\\.movementNoiseDirections\\(\\)\\);[ \t\r\n]*ar\\.f32\\(position\\.worldX\\(\\)\\);"
   serialized_soldier_movement_noise_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -4092,8 +4092,9 @@ if(serialized_soldier_deployment_adapter EQUAL -1 OR
     "Soldier deployment state moved in the portable save schema; keep all fifteen values at their established POD positions")
 endif()
 
-# Current tactical grid, elevation, and facing have completed the same storage
-# cut. The old route sub-structure must not return as a second public owner.
+# Current tactical world placement has completed the same storage cut. The old
+# route sub-structure and scattered SOLDIERTYPE mirrors must not return as
+# second public owners.
 string(FIND "${soldier_control_header_contents}"
   "STRUCT_Pathing"
   retired_current_pathing_type)
@@ -4102,9 +4103,24 @@ if(NOT retired_current_pathing_type EQUAL -1)
     "Retired STRUCT_Pathing returned; canonical route state belongs to SoldierPathingComponent")
 endif()
 
-foreach(retired_position_field IN ITEMS sGridNo ubDirection)
+foreach(retired_position_field IN ITEMS
+  dXPos
+  dYPos
+  sX
+  sY
+  sOldXPos
+  sOldYPos
+  sInitialGridNo
+  sGridNo
+  ubDirection
+  sHeightAdjustment
+  sDesiredHeight
+  sTempNewGridNo
+  sRoomNo
+  bOverTerrainType
+  bOldOverTerrainType)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*(INT32|UINT8)[ \t]+${retired_position_field}[ \t]*;"
+    "(^|[\r\n])[ \t]*(FLOAT|INT32|INT16|INT8|UINT8)[ \t]+${retired_position_field}[ \t]*;"
     retired_current_soldier_position
     "${current_soldier_contents}")
   if(retired_current_soldier_position)
@@ -4122,9 +4138,22 @@ if(NOT soldier_position_owner)
 endif()
 
 foreach(owned_position_field IN ITEMS
+  "FLOAT;worldX"
+  "FLOAT;worldY"
+  "INT16;worldXInt"
+  "INT16;worldYInt"
+  "INT16;turnStartX"
+  "INT16;turnStartY"
+  "INT32;initialGrid"
   "INT32;gridNo"
   "INT8;level"
-  "UINT8;direction")
+  "UINT8;direction"
+  "INT16;heightAdjustment"
+  "INT16;desiredHeight"
+  "INT32;temporaryGrid"
+  "INT16;roomNo"
+  "INT8;terrainType"
+  "INT8;previousTerrainType")
   string(REPLACE ";" ";" owned_position_parts "${owned_position_field}")
   list(GET owned_position_parts 0 owned_position_type)
   list(GET owned_position_parts 1 owned_position_name)
@@ -4135,6 +4164,33 @@ foreach(owned_position_field IN ITEMS
   if(NOT owned_soldier_position)
     message(FATAL_ERROR
       "SoldierPositionComponent no longer owns '${owned_position_name}_'; do not recreate a SOLDIERTYPE compatibility facade")
+  endif()
+endforeach()
+foreach(position_transition IN ITEMS
+  "void SoldierPositionComponent::setWorldCoordinates(FLOAT x, FLOAT y) noexcept"
+  "void SoldierPositionComponent::recordTurnStart(INT16 x, INT16 y) noexcept"
+  "void SoldierPositionComponent::enterTerrain(INT8 terrainType) noexcept"
+  "worldXInt_ = static_cast<INT16>(x);"
+  "worldYInt_ = static_cast<INT16>(y);"
+  "previousTerrainType_ = terrainType_;"
+  "terrainType_ = terrainType;"
+  "*this = SoldierPositionComponent{};")
+  string(FIND "${soldier_components_source_contents}"
+    "${position_transition}" soldier_position_transition)
+  if(soldier_position_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierPositionComponent lost its coordinated '${position_transition}' transition")
+  endif()
+endforeach()
+foreach(position_runtime_transition IN ITEMS
+  "this->position().setWorldCoordinates(dNewXPos, dNewYPos);"
+  "this->position().enterTerrain(GetTerrainType(this->position().gridNo()));"
+  "this->position().recordTurnStart(sStartPosX, sStartPosY);")
+  string(FIND "${soldier_control_source_contents}"
+    "${position_runtime_transition}" soldier_position_runtime_transition)
+  if(soldier_position_runtime_transition EQUAL -1)
+    message(FATAL_ERROR
+      "Tactical runtime bypassed the coordinated SoldierPositionComponent transition '${position_runtime_transition}'")
   endif()
 endforeach()
 string(REGEX MATCH
@@ -4191,21 +4247,39 @@ if(NOT owned_soldier_path)
     "SoldierPathingComponent must own the fixed-capacity route path")
 endif()
 
-# Preserve all three established save positions: grid/facing remain after the
-# initial grid in the POD list, and elevation remains between the pathing
-# destination and stopped fields.
+# Preserve every established world-placement save position. The in-memory owner
+# is contiguous, but the positional save stream deliberately remains scattered.
 string(REGEX MATCH
-  "ar\\.i32\\(s\\.sInitialGridNo\\);[ \t]*ar\\.i32\\(s\\.position\\(\\)\\.gridNo\\(\\)\\);[ \t]*ar\\.u8\\(s\\.position\\(\\)\\.direction\\(\\)\\);[ \t\r\n]*ar\\.i16\\(s\\.sHeightAdjustment\\);"
-  serialized_soldier_grid_direction_order
+  "ar\\.f32\\(position\\.worldX\\(\\)\\);[ \t]*ar\\.f32\\(position\\.worldY\\(\\)\\);[ \t]*ar\\.i16\\(position\\.turnStartX\\(\\)\\);[ \t]*ar\\.i16\\(position\\.turnStartY\\(\\)\\);[ \t\r\n]*ar\\.i32\\(position\\.initialGrid\\(\\)\\);[ \t]*ar\\.i32\\(position\\.gridNo\\(\\)\\);[ \t]*ar\\.u8\\(position\\.direction\\(\\)\\);[ \t\r\n]*ar\\.i16\\(position\\.heightAdjustment\\(\\)\\);[ \t]*ar\\.i16\\(position\\.desiredHeight\\(\\)\\);[ \t]*ar\\.i32\\(position\\.temporaryGrid\\(\\)\\);[ \t]*ar\\.i16\\(position\\.roomNo\\(\\)\\);[ \t\r\n]*ar\\.i8\\(position\\.terrainType\\(\\)\\);[ \t]*ar\\.i8\\(position\\.previousTerrainType\\(\\)\\);"
+  serialized_soldier_world_position_order
   "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.i32\\(p\\.destinationGrid\\(\\)\\);[ \t]*ar\\.i32\\(p\\.finalDestinationGrid\\(\\)\\);[ \t\r\n]*ar\\.i8\\(soldier\\.position\\(\\)\\.level\\(\\)\\);[ \t]*ar\\.i8\\(p\\.stopped\\(\\)\\);"
   serialized_soldier_level_order
   "${save_load_game_contents}")
-if(NOT serialized_soldier_grid_direction_order OR
+string(REGEX MATCH
+  "ar\\.i32\\(s\\.iLight\\);[ \t]*ar\\.i32\\(s\\.iMuzFlash\\);[ \t]*ar\\.i8\\(s\\.bMuzFlashCount\\);[ \t\r\n]*ar\\.i16\\(position\\.worldXInt\\(\\)\\);[ \t]*ar\\.i16\\(position\\.worldYInt\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);"
+  serialized_soldier_integer_world_position_order
+  "${save_load_game_contents}")
+if(NOT serialized_soldier_world_position_order OR
+   NOT serialized_soldier_integer_world_position_order OR
    NOT serialized_soldier_level_order)
   message(FATAL_ERROR
-    "Soldier position moved in the portable save schema; keep grid, elevation, and facing in their established byte order")
+    "Soldier world placement moved in the portable save schema; keep all sixteen values at their established byte positions")
+endif()
+
+string(REGEX MATCH
+  "this->position\\(\\)\\.setWorldCoordinates\\(src\\.dXPos, src\\.dYPos\\);[ \t\r\n]*//[^\r\n]*[ \t\r\n]*this->position\\(\\)\\.recordTurnStart\\(src\\.sOldXPos, src\\.sOldYPos\\);[ \t\r\n]*this->position\\(\\)\\.initialGrid\\(\\) = src\\.sInitialGridNo;[ \t\r\n]*this->position\\(\\)\\.gridNo\\(\\) = src\\.sGridNo;[ \t\r\n]*this->position\\(\\)\\.direction\\(\\) = src\\.ubDirection;[ \t\r\n]*this->position\\(\\)\\.heightAdjustment\\(\\) = src\\.sHeightAdjustment;[ \t\r\n]*this->position\\(\\)\\.desiredHeight\\(\\) = src\\.sDesiredHeight;[ \t\r\n]*this->position\\(\\)\\.temporaryGrid\\(\\) = src\\.sTempNewGridNo;[ \t\r\n]*this->position\\(\\)\\.roomNo\\(\\) = src\\.sRoomNo;[ \t\r\n]*this->position\\(\\)\\.terrainType\\(\\) = src\\.bOverTerrainType;[ \t\r\n]*this->position\\(\\)\\.previousTerrainType\\(\\) = src\\.bOldOverTerrainType;"
+  converted_v101_soldier_world_position
+  "${soldier_control_source_contents}")
+string(REGEX MATCH
+  "this->position\\(\\)\\.worldXInt\\(\\) = src\\.sX;[ \t\r\n]*this->position\\(\\)\\.worldYInt\\(\\) = src\\.sY;"
+  converted_v101_soldier_integer_world_position
+  "${soldier_control_source_contents}")
+if(NOT converted_v101_soldier_world_position OR
+   NOT converted_v101_soldier_integer_world_position)
+  message(FATAL_ERROR
+    "v101 soldier conversion must retain every historical tactical world-placement value")
 endif()
 
 # Preserve the complete established pathing byte order independently of the
@@ -4658,7 +4732,7 @@ string(REGEX MATCH
   serialized_soldier_fire_recoil_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);"
+  "ar\\.i16\\(position\\.worldXInt\\(\\)\\);[ \t]*ar\\.i16\\(position\\.worldYInt\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);[ \t\r\n]*ar\\.i8\\(fireControl\\.bulletsLeft\\(\\)\\);[ \t]*ar\\.u8\\(suppression\\.points\\(\\)\\);"
   serialized_soldier_fire_bullets_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5366,7 +5440,7 @@ string(REGEX MATCH
   serialized_soldier_animation_cursor_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(s\\.sX\\);[ \t]*ar\\.i16\\(s\\.sY\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);"
+  "ar\\.i16\\(position\\.worldXInt\\(\\)\\);[ \t]*ar\\.i16\\(position\\.worldYInt\\(\\)\\);[ \t]*ar\\.u16\\(s\\.animationPlayback\\(\\)\\.previousState\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationPlayback\\(\\)\\.previousCode\\(\\)\\);"
   serialized_soldier_animation_previous_order
   "${save_load_game_contents}")
 string(REGEX MATCH

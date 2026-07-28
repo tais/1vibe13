@@ -1732,8 +1732,8 @@ void IndicateSelectedMerc( INT16 sID )
 
 	if( sID < 0 )
 	{	//We want to center the screen on the next merc, and update the interface.
-		gsRenderCenterX = (INT16)gpSelected->pSoldier->dXPos;
-		gsRenderCenterY = (INT16)gpSelected->pSoldier->dYPos;
+		gsRenderCenterX = (INT16)gpSelected->pSoldier->position().worldX();
+		gsRenderCenterY = (INT16)gpSelected->pSoldier->position().worldY();
 		gfRenderWorld = TRUE;
 	}
 

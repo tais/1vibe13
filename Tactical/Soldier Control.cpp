@@ -745,20 +745,18 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->deployment().groupId() = src.ubGroupID;		//the movement group the merc is currently part of.
 
 
-		this->dXPos = src.dXPos;
-		this->dYPos = src.dYPos;
+		this->position().setWorldCoordinates(src.dXPos, src.dYPos);
 		// HEADROCK HAM 4: Changed from FLOAT to INT32 to record position at beginning of turn.
-		this->sOldXPos = src.sOldXPos;
-		this->sOldYPos = src.sOldYPos;
-		this->sInitialGridNo = src.sInitialGridNo;
+		this->position().recordTurnStart(src.sOldXPos, src.sOldYPos);
+		this->position().initialGrid() = src.sInitialGridNo;
 		this->position().gridNo() = src.sGridNo;
 		this->position().direction() = src.ubDirection;
-		this->sHeightAdjustment = src.sHeightAdjustment;
-		this->sDesiredHeight = src.sDesiredHeight;
-		this->sTempNewGridNo = src.sTempNewGridNo;					// New grid no for advanced animations
-		this->sRoomNo = src.sRoomNo;
-		this->bOverTerrainType = src.bOverTerrainType;
-		this->bOldOverTerrainType = src.bOldOverTerrainType;
+		this->position().heightAdjustment() = src.sHeightAdjustment;
+		this->position().desiredHeight() = src.sDesiredHeight;
+		this->position().temporaryGrid() = src.sTempNewGridNo;
+		this->position().roomNo() = src.sRoomNo;
+		this->position().terrainType() = src.bOverTerrainType;
+		this->position().previousTerrainType() = src.bOldOverTerrainType;
 
 
 		this->animationIntent().desiredHeight() = src.ubDesiredHeight;
@@ -832,8 +830,8 @@ SOLDIERTYPE& SOLDIERTYPE::operator=(const OLDSOLDIERTYPE_101& src)
 		this->bMuzFlashCount = src.bMuzFlashCount;
 
 
-		this->sX = src.sX;
-		this->sY = src.sY;
+		this->position().worldXInt() = src.sX;
+		this->position().worldYInt() = src.sY;
 
 		this->animationPlayback().previousState() = src.usOldAniState;
 		this->animationPlayback().previousCode() = src.sOldAniCode;
@@ -1858,8 +1856,8 @@ void SOLDIERTYPE::AdjustNoAPToFinishMove( BOOLEAN fSet )
 		SStopMerc.ubDirection = this->position().direction();
 		SStopMerc.usSoldierID = this->ubID;
 		SStopMerc.fset = fSet;
-		SStopMerc.sXPos = this->sX;
-		SStopMerc.sYPos = this->sY;
+		SStopMerc.sXPos = this->position().worldXInt();
+		SStopMerc.sYPos = this->position().worldYInt();
 
 		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
 		// remote copy on a pure client: APPLY the halt below, but never re-broadcast
@@ -1928,8 +1926,8 @@ void HandleCrowShadowNewGridNo( SOLDIERTYPE *pSoldier )
 				AniParams.sDelay = pSoldier->animationPlayback().delay();
 				AniParams.sStartFrame = 0;
 				AniParams.uiFlags = ANITILE_CACHEDTILE | ANITILE_FORWARD | ANITILE_LOOPING | ANITILE_USE_DIRECTION_FOR_START_FRAME;
-				AniParams.sX = pSoldier->sX;
-				AniParams.sY = pSoldier->sY;
+				AniParams.sX = pSoldier->position().worldXInt();
+				AniParams.sY = pSoldier->position().worldYInt();
 				AniParams.sZ = 0;
 				strcpy( AniParams.zCachedFile, "TILECACHE\\FLY_SHDW.STI" );
 
@@ -1982,8 +1980,8 @@ void HandleCrowShadowNewPosition( SOLDIERTYPE *pSoldier )
 		{
 			if ( pSoldier->pAniTile != NULL )
 			{
-				pSoldier->pAniTile->sRelativeX = pSoldier->sX;
-				pSoldier->pAniTile->sRelativeY = pSoldier->sY;
+				pSoldier->pAniTile->sRelativeX = pSoldier->position().worldXInt();
+				pSoldier->pAniTile->sRelativeY = pSoldier->position().worldYInt();
 			}
 		}
 	}
@@ -2836,8 +2834,8 @@ BOOLEAN SOLDIERTYPE::ChangeSoldierState( UINT16 usNewState, UINT16 usStartingAni
 	SChangeState.usSoldierID = this->ubID;
 	SChangeState.uiUniqueId = this->uiUniqueSoldierIdValue;
 	SChangeState.usStartingAniCode = usStartingAniCode;
-	SChangeState.sXPos = this->sX;
-	SChangeState.sYPos = this->sY;
+	SChangeState.sXPos = this->position().worldXInt();
+	SChangeState.sYPos = this->position().worldYInt();
 	SChangeState.fForce = fForce;
 	SChangeState.usNewDirection = this->position().direction();
 	SChangeState.usTargetGridNo = this->targeting().gridNo();
@@ -4518,17 +4516,9 @@ void SOLDIERTYPE::EVENT_InternalSetSoldierPosition( FLOAT dNewXPos, FLOAT dNewYP
 		this->pathing().finalDestinationGrid() = sNewGridNo;
 	}
 
-	// HEADROCK HAM 4: TODO: Figure out whether this has any influence in-game?
-	// Copy old values
-	//this->sOldXPos = this->dXPos;
-	//this->sOldYPos = this->dYPos;
-
-	// Set New pos
-	this->dXPos = dNewXPos;
-	this->dYPos = dNewYPos;
-
-	this->sX = (INT16)dNewXPos;
-	this->sY = (INT16)dNewYPos;
+	// Set the precise coordinates and their established integer projection as
+	// one transition. Turn-start coordinates intentionally remain unchanged.
+	this->position().setWorldCoordinates(dNewXPos, dNewYPos);
 
 	HandleCrowShadowNewPosition( this );
 
@@ -4571,7 +4561,7 @@ void SOLDIERTYPE::InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLev
 	INT8	bOldLevel = this->position().level();
 
 	this->aiData.dHeightAdjustment = dNewHeight;
-	this->sHeightAdjustment = (INT16)this->aiData.dHeightAdjustment;
+	this->position().heightAdjustment() = (INT16)this->aiData.dHeightAdjustment;
 
 	if ( !fUpdateLevel )
 	{
@@ -4581,12 +4571,12 @@ void SOLDIERTYPE::InternalSetSoldierHeight( FLOAT dNewHeight, BOOLEAN fUpdateLev
 	// 0verhaul:  Changed this to half the wall height.  During a climb up, a soldier's height increases to about 8, then falls
 	// to near 0 before being set to 50 at the end.  The animation offsets should probably be changed to make this unnecessary
 	// but this is good enough to keep him from bouncing between level 1 and level 0 (and also triggering weird sight bugs).
-	if ( this->sHeightAdjustment > 25 )
+	if ( this->position().heightAdjustment() > 25 )
 	{
 		this->position().level() = SECOND_LEVEL;
 
-		ApplyTranslucencyToWalls( (INT16)(this->dXPos / CELL_X_SIZE), (INT16)(this->dYPos / CELL_Y_SIZE) );
-		//LightHideTrees((INT16)(this->dXPos/CELL_X_SIZE), (INT16)(this->dYPos/CELL_Y_SIZE));
+		ApplyTranslucencyToWalls( (INT16)(this->position().worldX() / CELL_X_SIZE), (INT16)(this->position().worldY() / CELL_Y_SIZE) );
+		//LightHideTrees((INT16)(this->position().worldX()/CELL_X_SIZE), (INT16)(this->position().worldY()/CELL_Y_SIZE));
 		//ConcealAllWalls();
 
 		//this->pLevelNode->ubShadeLevel=gpWorldLevelData[this->sGridNo].pRoofHead->ubShadeLevel;
@@ -4718,9 +4708,9 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			UnMarkMovementReserved( this );
 		}
 
-		if ( this->sInitialGridNo == 0 )
+		if ( this->position().initialGrid() == 0 )
 		{
-			this->sInitialGridNo = sNewGridNo;
+			this->position().initialGrid() = sNewGridNo;
 			this->aiData.sPatrolGrid[0] = sNewGridNo;
 		}
 
@@ -4825,8 +4815,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			HandleCrowShadowNewGridNo( this );
 		}
 
-		this->bOldOverTerrainType = this->bOverTerrainType;
-		this->bOverTerrainType = GetTerrainType( this->position().gridNo() );
+		this->position().enterTerrain(GetTerrainType(this->position().gridNo()));
 
 		// OK, check that our animation is up to date!
 		// Check our water value
@@ -4865,14 +4854,14 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 
 			// WANNE.WATER: If our soldier is not on the ground level and the tile is a "water" tile, then simply set the tile to "FLAT_GROUND"
 			// This should fix "problems" for special modified maps			
-			if ( (TERRAIN_IS_WATER( this->bOverTerrainType ) || TERRAIN_IS_WATER( this->bOldOverTerrainType )) && this->position().level() > 0 )
+			if ( (TERRAIN_IS_WATER( this->position().terrainType() ) || TERRAIN_IS_WATER( this->position().previousTerrainType() )) && this->position().level() > 0 )
 			{
-				this->bOverTerrainType = FLAT_GROUND;
-				this->bOldOverTerrainType = FLAT_GROUND;
+				this->position().terrainType() = FLAT_GROUND;
+				this->position().previousTerrainType() = FLAT_GROUND;
 			}
 
 			// OK, If we were not in deep water but we are now, handle deep animations!
-			if ( TERRAIN_IS_DEEP_WATER( this->bOverTerrainType ) && !TERRAIN_IS_DEEP_WATER( this->bOldOverTerrainType ) )
+			if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && !TERRAIN_IS_DEEP_WATER( this->position().previousTerrainType() ) )
 			{
 				// Based on our current animation, change!
 				switch ( this->animationPlayback().state() )
@@ -4898,7 +4887,7 @@ void SOLDIERTYPE::SetSoldierGridNo( INT32 sNewGridNo, BOOLEAN fForceRemove )
 			}
 
 			// OK, If we were in deep water but we are NOT now, handle mid animations!
-			if ( !TERRAIN_IS_DEEP_WATER( this->bOverTerrainType ) && TERRAIN_IS_DEEP_WATER( this->bOldOverTerrainType ) )
+			if ( !TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && TERRAIN_IS_DEEP_WATER( this->position().previousTerrainType() ) )
 			{
 				// Make transition from low to deep
 				this->EVENT_InitNewSoldierAnim( DEEP_TO_LOW_WATER, 0, FALSE );
@@ -6165,7 +6154,7 @@ void SOLDIERTYPE::EVENT_SoldierGotHit( UINT16 usWeaponIndex, INT16 sDamage, INT1
 	// DO APPROPRIATE HITWHILE DOWN ANIMATION
 	if ( !(gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_HITSTOP) || this->animationPlayback().state() != JFK_HITDEATH_STOP )
 	{
-		MakeNoise( this->ubID, this->position().gridNo(), this->position().level(), this->bOverTerrainType, ubVolume, NOISE_SCREAM );
+		MakeNoise( this->ubID, this->position().gridNo(), this->position().level(), this->position().terrainType(), ubVolume, NOISE_SCREAM );
 	}
 
 	// IAN ADDED THIS SAT JUNE 14th : HAVE TO SHOW VICTIM!
@@ -8066,8 +8055,7 @@ void SOLDIERTYPE::EVENT_BeginMercTurn( BOOLEAN fFromRealTime, INT32 iRealTimeCou
 	INT16 sStartPosX = 0;
 	INT16 sStartPosY = 0;
 	ConvertGridNoToCenterCellXY( this->position().gridNo(), &sStartPosX, &sStartPosY );
-	this->sOldXPos = sStartPosX;
-	this->sOldYPos = sStartPosY;
+	this->position().recordTurnStart(sStartPosX, sStartPosY);
 
 	// Flugente: Cool down all weapons and decay food in inventory
 	this->SoldierInventoryCoolDown( );
@@ -8535,7 +8523,7 @@ void SOLDIERTYPE::TurnSoldier( void )
 
 			this->EVENT_SetSoldierDirection( sDirection );
 
-			if ( this->ubBodyType != LARVAE_MONSTER && !this->MercInWater( ) && this->bOverTerrainType != DIRT_ROAD && this->bOverTerrainType != PAVED_ROAD && !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
+			if ( this->ubBodyType != LARVAE_MONSTER && !this->MercInWater( ) && this->position().terrainType() != DIRT_ROAD && this->position().terrainType() != PAVED_ROAD && !(this->flags.uiStatusFlags & (SOLDIER_DRIVER | SOLDIER_PASSENGER)) )
 			{
 				PlaySoldierFootstepSound( this );
 			}
@@ -8973,7 +8961,7 @@ void CalculateSoldierAniSpeed( SOLDIERTYPE *pSoldier, SOLDIERTYPE *pStatsSoldier
 	// figure out movement speed (terrspeed)
 	if ( gAnimControl[pSoldier->animationPlayback().state()].uiFlags & ANIM_MOVING )
 	{
-		sTerrainDelay = gsTerrainTypeSpeedModifiers[pStatsSoldier->bOverTerrainType];
+		sTerrainDelay = gsTerrainTypeSpeedModifiers[pStatsSoldier->position().terrainType()];
 	}
 	else
 	{
@@ -9521,7 +9509,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 					SetUIBusy(this->ubID);
 				}
 
-				this->sTempNewGridNo = NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection));
+				this->position().temporaryGrid() = NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection));
 
 				this->animationIntent().pendingDirection() = bNewDirection;
 				//this->animationIntent().pendingAnimation() = CLIMBUPROOF;
@@ -9530,7 +9518,7 @@ void SOLDIERTYPE::BeginSoldierClimbUpRoof(void)
 				if (IsAnimationValidForBodyType(this, CLIMBUPROOF) == FALSE)
 				{
 					SetSoldierHeight(50.0);
-					TeleportSoldier(this, this->sTempNewGridNo, TRUE);
+					TeleportSoldier(this, this->position().temporaryGrid(), TRUE);
 					EndAIGuysTurn(this);
 				}
 				else
@@ -9592,10 +9580,10 @@ void SOLDIERTYPE::BeginSoldierClimbFence( void )
 
 	if ( FindFenceJumpDirection( this, this->position().gridNo(), bDirection, &bDirection ) )
 	{
-		this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bDirection ) );
+		this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bDirection ) );
 
 		// Flugente: we want to jump OVER the structure, not INTO it!
-		this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (UINT16)DirectionInc( bDirection ) );
+		this->position().temporaryGrid() = NewGridNo( this->position().temporaryGrid(), (UINT16)DirectionInc( bDirection ) );
 
 		this->animationActivity().turningCostWaived() = TRUE;
 		EVENT_InternalSetSoldierDesiredDirection( this, bDirection, FALSE, this->animationPlayback().state() );
@@ -9624,7 +9612,7 @@ void SOLDIERTYPE::BeginSoldierClimbWindow( void )
 
 	if ( FindWindowJumpDirection( this, this->position().gridNo(), bDirection, &bDirection ) && this->position().level() == 0 && (this->position().direction() == NORTH || this->position().direction() == EAST || this->position().direction() == SOUTH || this->position().direction() == WEST) )
 	{
-		this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bDirection ) );
+		this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bDirection ) );
 		this->animationActivity().turningCostWaived() = TRUE;
 		EVENT_InternalSetSoldierDesiredDirection( this, bDirection, FALSE, this->animationPlayback().state() );
 		this->animationActivity().turningUntilDone() = TRUE;
@@ -9633,7 +9621,7 @@ void SOLDIERTYPE::BeginSoldierClimbWindow( void )
 		// Flugente: In case an animation is missing (civilian bodytypes), we TELEPORT instead
 		if ( IsAnimationValidForBodyType( this, JUMPWINDOWS ) == FALSE )
 		{
-			TeleportSoldier( this, this->sTempNewGridNo, TRUE );
+			TeleportSoldier( this, this->position().temporaryGrid(), TRUE );
 		}
 		else
 		{
@@ -9692,7 +9680,7 @@ void SOLDIERTYPE::BeginSoldierClimbWall( void )
 					SetUIBusy( this->ubID );
 				}
 
-				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
+				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
 
 				this->animationIntent().pendingDirection() = bNewDirection;
 				this->EVENT_InitNewSoldierAnim( JUMPUPWALL, 0, FALSE );
@@ -9730,7 +9718,7 @@ void SOLDIERTYPE::BeginSoldierClimbWallUp( void )
 					SetUIBusy( this->ubID );
 				}
 
-				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
+				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
 
 				bNewDirection = gTwoCDirection[bNewDirection];
 
@@ -11311,8 +11299,8 @@ BOOLEAN SOLDIERTYPE::CheckSoldierHitRoof( void )
 			// ATE: Make this more usefull...
 			if ( fDoForwards )
 			{
-				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
-				this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (INT16)(-1 * DirectionInc( bNewDirection )) );
+				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
+				this->position().temporaryGrid() = NewGridNo( this->position().temporaryGrid(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->EVENT_SetSoldierDesiredDirection( gOppositeDirection[bNewDirection] );
 				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLFORWARD_ROOF;
@@ -11325,8 +11313,8 @@ BOOLEAN SOLDIERTYPE::CheckSoldierHitRoof( void )
 			}
 			else
 			{
-				this->sTempNewGridNo = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
-				this->sTempNewGridNo = NewGridNo( this->sTempNewGridNo, (INT16)(-1 * DirectionInc( bNewDirection )) );
+				this->position().temporaryGrid() = NewGridNo( this->position().gridNo(), (INT16)(-1 * DirectionInc( bNewDirection )) );
+				this->position().temporaryGrid() = NewGridNo( this->position().temporaryGrid(), (INT16)(-1 * DirectionInc( bNewDirection )) );
 				this->EVENT_SetSoldierDesiredDirection( bNewDirection );
 				this->animationActivity().turningUntilDone() = TRUE;
 				this->animationIntent().pendingAnimation() = FALLOFF;
@@ -11371,7 +11359,7 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 					SetUIBusy(this->ubID);
 				}
 
-				this->sTempNewGridNo = NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection));
+				this->position().temporaryGrid() = NewGridNo(this->position().gridNo(), (UINT16)DirectionInc(bNewDirection));
 				bNewDirection = gTwoCDirection[bNewDirection];
 				this->animationIntent().pendingDirection() = bNewDirection;
 
@@ -11379,7 +11367,7 @@ void SOLDIERTYPE::BeginSoldierClimbDownRoof(void)
 				if (IsAnimationValidForBodyType(this, JUMPDOWNWALL) == FALSE)
 				{
 					SetSoldierHeight(0.0);
-					TeleportSoldier(this, this->sTempNewGridNo, TRUE);
+					TeleportSoldier(this, this->position().temporaryGrid(), TRUE);
 					EndAIGuysTurn(this);
 				}
 				else
@@ -11422,7 +11410,7 @@ SetUIBusy( pSoldier->ubID );
 
 
 
-pSoldier->sTempNewGridNo = NewGridNo( (INT16)pSoldier->sGridNo, (UINT16)DirectionInc(bNewDirection ) );
+pSoldier->position().temporaryGrid() = NewGridNo( (INT16)pSoldier->sGridNo, (UINT16)DirectionInc(bNewDirection ) );
 
 bNewDirection = gTwoCDirection[ bNewDirection ];
 
@@ -11453,7 +11441,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 	dDeltaPos = (FLOAT)(dMovementChange * sin( dAngle ));
 
 	// Find new position
-	dXPos = this->dXPos + dDeltaPos;
+	dXPos = this->position().worldX() + dDeltaPos;
 
 	if ( fCheckRange )
 	{
@@ -11505,7 +11493,7 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 	dDeltaPos = (FLOAT)(dMovementChange * cos( dAngle ));
 
 	// Find new pos
-	dYPos = this->dYPos + dDeltaPos;
+	dYPos = this->position().worldY() + dDeltaPos;
 
 	if ( fCheckRange )
 	{
@@ -11594,8 +11582,8 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 					INT16 this_base_y = 0;
 					ConvertGridNoToCenterCellXY( this->position().gridNo(), &this_base_x, &this_base_y );
 
-					dx = this->dXPos - this_base_x;
-					dy = this->dYPos - this_base_y;
+					dx = this->position().worldX() - this_base_x;
+					dy = this->position().worldY() - this_base_y;
 				}
 
 				INT16 base_x = 0;
@@ -11648,8 +11636,8 @@ void SOLDIERTYPE::MoveMerc( FLOAT dMovementChange, FLOAT dAngle, BOOLEAN fCheckR
 					INT16 this_base_y = 0;
 					ConvertGridNoToCenterCellXY(this->position().gridNo(), &this_base_x, &this_base_y);
 
-					FLOAT dx = this->dXPos - this_base_x;
-					FLOAT dy = this->dYPos - this_base_y;
+					FLOAT dx = this->position().worldX() - this_base_x;
+					FLOAT dy = this->position().worldY() - this_base_y;
 						
 					INT16 base_x = 0;
 					INT16 base_y = 0;
@@ -12234,7 +12222,7 @@ BOOLEAN SOLDIERTYPE::MercInWater( void )
 	// This should fix "problems" for special modified maps
 
 	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_WATER( this->bOverTerrainType ) && this->position().level() <= 0 )
+	if ( TERRAIN_IS_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
 	{
 		return(TRUE);
 	}
@@ -12250,7 +12238,7 @@ BOOLEAN SOLDIERTYPE::MercInShallowWater( void )
 	// This should fix "problems" for special modified maps
 
 	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_SHALLOW_WATER( this->bOverTerrainType ) && this->position().level() <= 0 )
+	if ( TERRAIN_IS_SHALLOW_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
 	{
 		return(TRUE);
 	}
@@ -12267,7 +12255,7 @@ BOOLEAN SOLDIERTYPE::MercInDeepWater( void )
 	// This should fix "problems" for special modified maps
 
 	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_DEEP_WATER( this->bOverTerrainType ) && this->position().level() <= 0 )
+	if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
 	{
 		return(TRUE);
 	}
@@ -12283,7 +12271,7 @@ BOOLEAN SOLDIERTYPE::MercInHighWater( void )
 	// This should fix "problems" for special modified maps
 
 	// Our water texture , for now is of a given type
-	if ( TERRAIN_IS_HIGH_WATER( this->bOverTerrainType ) && this->position().level() <= 0 )
+	if ( TERRAIN_IS_HIGH_WATER( this->position().terrainType() ) && this->position().level() <= 0 )
 	{
 		return(TRUE);
 	}
@@ -12855,7 +12843,7 @@ void SOLDIERTYPE::EVENT_SoldierBeginPunchAttack( INT32 sGridNo, UINT8 ubDirectio
 				if ( vitals().health() > 2 )
 					vitals().health() = 2;
 				// Explosion of a Jar of RDX Crystals
-				IgniteExplosion( this->ubID, this->sX, this->sY, (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), 136, this->position().level() );
+				IgniteExplosion( this->ubID, this->position().worldXInt(), this->position().worldYInt(), (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), 136, this->position().level() );
 			}
 			else
 			{
@@ -13927,8 +13915,8 @@ void SOLDIERTYPE::HaultSoldierFromSighting( BOOLEAN fFromSightingEnemy )
 	SStopMerc.ubDirection = this->position().direction();
 	SStopMerc.usSoldierID = this->ubID;
 	SStopMerc.fset = TRUE;
-	SStopMerc.sXPos = this->sX;
-	SStopMerc.sYPos = this->sY;
+	SStopMerc.sXPos = this->position().worldXInt();
+	SStopMerc.sYPos = this->position().worldYInt();
 	//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
 	if ( (is_networked) && (this->ubID >= 120) ) return;	// AI ids never replicate stops (unchanged)
 	// only the owner or host may broadcast; remote copies still run the local halt (audit [26])
@@ -14097,8 +14085,8 @@ void SOLDIERTYPE::EVENT_StopMerc( INT32 sGridNo, INT8 bDirection )
 	this->bReverse = FALSE;
 
 	this->EVENT_SetSoldierPosition( (FLOAT)sX, (FLOAT)sY );
-	this->pathing().destinationX() = (INT16)this->dXPos;
-	this->pathing().destinationY() = (INT16)this->dYPos;
+	this->pathing().destinationX() = (INT16)this->position().worldX();
+	this->pathing().destinationY() = (INT16)this->position().worldY();
 	this->EVENT_SetSoldierDirection( bDirection );
 
 	if ( gAnimControl[this->animationPlayback().state()].uiFlags & ANIM_MOVING )
@@ -14464,7 +14452,7 @@ BOOLEAN SOLDIERTYPE::CheckForBreathCollapse( void )
 	}
 
 	// Check for drowing.....
-	//if ( this->vitals().breath() < 10 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_DROWNING ) && this->bOverTerrainType == DEEP_WATER )
+	//if ( this->vitals().breath() < 10 && !this->dialogue().hasSaid(SOLDIER_QUOTE_SAID_DROWNING ) && this->position().terrainType() == DEEP_WATER )
 	//{
 	// WARN!
 	//	TacticalCharacterDialogue( this, QUOTE_DROWNING );
@@ -20413,7 +20401,7 @@ BOOLEAN		SOLDIERTYPE::SelfDetonate( )
 	{
 		if ( inv[bLoop].exists( ) == true && inv[bLoop].usItem == this->aiData.usActionData )
 		{
-			IgniteExplosion( this->ubID, this->sX, this->sY, (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), inv[bLoop].usItem, this->position().level(), this->position().direction() );
+			IgniteExplosion( this->ubID, this->position().worldXInt(), this->position().worldYInt(), (INT16)(gpWorldLevelData[this->position().gridNo()].sHeight), this->position().gridNo(), inv[bLoop].usItem, this->position().level(), this->position().direction() );
 		
 			// Remove item!
 			DeleteObj( &(this->inv[bLoop]) );
@@ -20456,7 +20444,7 @@ UINT8	SOLDIERTYPE::GetWaterSnakeDefenseChance()
 	}
 
 	// chance is lowered if we are in deep water
-	if ( TERRAIN_IS_DEEP_WATER( this->bOverTerrainType ) )
+	if ( TERRAIN_IS_DEEP_WATER( this->position().terrainType() ) )
 		val = max(0, val - 10);
 
 	return (UINT8)(val);
@@ -22291,7 +22279,7 @@ void SOLDIERTYPE::PositionSoldierLight( void )
 		LightSpritePower( this->iLight, TRUE );
 		LightSpriteFake( this->iLight );
 
-		LightSpritePosition( this->iLight, (INT16)(this->sX / CELL_X_SIZE), (INT16)(this->sY / CELL_Y_SIZE) );
+		LightSpritePosition( this->iLight, (INT16)(this->position().worldXInt() / CELL_X_SIZE), (INT16)(this->position().worldYInt() / CELL_Y_SIZE) );
 	}
 }
 
@@ -24022,11 +24010,11 @@ void InternalPlaySoldierFootstepSound( SOLDIERTYPE * pSoldier )
 			else
 			{
 				// Pick base based on terrain over....
-				if ( pSoldier->bOverTerrainType == FLAT_FLOOR )
+				if ( pSoldier->position().terrainType() == FLAT_FLOOR )
 				{
 					ubSoundBase = WALK_LEFT_IN;
 				}
-				else if ( pSoldier->bOverTerrainType == DIRT_ROAD || pSoldier->bOverTerrainType == PAVED_ROAD )
+				else if ( pSoldier->position().terrainType() == DIRT_ROAD || pSoldier->position().terrainType() == PAVED_ROAD )
 				{
 					ubSoundBase = WALK_LEFT_ROAD;
 				}
@@ -24350,7 +24338,7 @@ void BeginSoldierClimbWallUp( SOLDIERTYPE *pSoldier )
 					SetUIBusy( pSoldier->ubID );
 				}
 
-				pSoldier->sTempNewGridNo = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
+				pSoldier->position().temporaryGrid() = NewGridNo( pSoldier->position().gridNo(), (UINT16)DirectionInc( bNewDirection ) );
 
 				bNewDirection = gTwoCDirection[bNewDirection];
 

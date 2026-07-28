@@ -176,7 +176,7 @@ BOOLEAN AddUIPlan( INT32 sGridNo, UINT8 ubPlanID )
 						}
 					}
 
-					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->dXPos, gpUIPlannedSoldier->dYPos );
+					pPlanSoldier->EVENT_SetSoldierPosition( gpUIPlannedSoldier->position().worldX(), gpUIPlannedSoldier->position().worldY() );
 					pPlanSoldier->EVENT_SetSoldierDestination( (UINT8) gpUIPlannedSoldier->position().gridNo() );
 					pPlanSoldier->awareness().markVisible();
 					pPlanSoldier->usUIMovementMode = gpUIPlannedSoldier->usUIMovementMode;

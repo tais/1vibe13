@@ -674,8 +674,8 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 		}
 
 		// Get 'TRUE' merc position
-		dOffsetX = pSoldier->dXPos - gsRenderCenterX;
-		dOffsetY = pSoldier->dYPos - gsRenderCenterY;
+		dOffsetX = pSoldier->position().worldX() - gsRenderCenterX;
+		dOffsetY = pSoldier->position().worldY() - gsRenderCenterY;
 
 		FloatFromCellToScreenCoordinates( dOffsetX, dOffsetY, &dTempX_S, &dTempY_S );
 
@@ -699,7 +699,7 @@ void GetSoldierScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *psScre
 		sMercScreenY += pSoldier->sBoundingBoxOffsetY;
 
 
-		sMercScreenY -= pSoldier->sHeightAdjustment;
+		sMercScreenY -= pSoldier->position().heightAdjustment();
 
 		*psScreenX = sMercScreenX;
 		*psScreenY = sMercScreenY;
@@ -732,8 +732,8 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 		}
 
 		// Get 'TRUE' merc position
-		dOffsetX = pSoldier->dXPos - gsRenderCenterX;
-		dOffsetY = pSoldier->dYPos - gsRenderCenterY;
+		dOffsetX = pSoldier->position().worldX() - gsRenderCenterX;
+		dOffsetY = pSoldier->position().worldY() - gsRenderCenterY;
 
 		FloatFromCellToScreenCoordinates( dOffsetX, dOffsetY, &dTempX_S, &dTempY_S );
 
@@ -748,7 +748,7 @@ void GetSoldierTRUEScreenPos( SOLDIERTYPE *pSoldier, INT16 *psScreenX, INT16 *ps
 		sMercScreenY += gsRenderHeight;
 		sMercScreenY	-= gpWorldLevelData[ pSoldier->position().gridNo() ].sHeight;
 
-		sMercScreenY -= pSoldier->sHeightAdjustment;
+		sMercScreenY -= pSoldier->position().heightAdjustment();
 
 
 		*psScreenX = sMercScreenX;

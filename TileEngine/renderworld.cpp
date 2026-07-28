@@ -1327,8 +1327,8 @@ static void ShowRiotShield( SOLDIERTYPE* pSoldier, PIXEL *pBuffer, UINT32 uiDest
 		INT16 base_y = 0;
 		ConvertGridNoToCenterCellXY( pSoldier->position().gridNo(), &base_x, &base_y );
 
-		INT16 dx = pSoldier->sX - base_x;
-		INT16 dy = pSoldier->sY - base_y;
+		INT16 dx = pSoldier->position().worldXInt() - base_x;
+		INT16 dy = pSoldier->position().worldYInt() - base_y;
 
 		INT16 offset_x = (dx - dy);
 		INT16 offset_y = (dx + dy);
@@ -2794,8 +2794,8 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 
 
 								// Position guy based on guy's position
-								dOffsetX = pSoldier->dXPos - gsRenderCenterX;
-								dOffsetY = pSoldier->dYPos - gsRenderCenterY;
+								dOffsetX = pSoldier->position().worldX() - gsRenderCenterX;
+								dOffsetY = pSoldier->position().worldY() - gsRenderCenterY;
 
 
 								// Calculate guy's position
@@ -2809,7 +2809,7 @@ static void RenderTiles(UINT32 uiFlags, INT32 iStartPointX_M, INT32 iStartPointY
 								sYPos -= gsRenderWorldOffsetY;
 
 								// Adjust for soldier height
-								sYPos -= pSoldier->sHeightAdjustment;
+								sYPos -= pSoldier->position().heightAdjustment();
 
 								// Handle shade stuff....
 								// bio: put the logic for determining the right shade table into inline fuction (called again for logical bodytype implementation)

@@ -714,7 +714,7 @@ BOOLEAN AddSoldierToVehicle( SOLDIERTYPE *pSoldier, INT32 iId, UINT8 ubSeatIndex
 				pSoldier->EVENT_SetSoldierDesiredDirection( ( pVehicleSoldier->pathing().desiredDirection() + ubRotation ) % NUM_WORLD_DIRECTIONS );
 
 				// Set gridno for vehicle.....
-				//pSoldier->EVENT_SetSoldierPosition( pVehicleSoldier->dXPos, pVehicleSoldier->dYPos );
+				//pSoldier->EVENT_SetSoldierPosition( pVehicleSoldier->position().worldX(), pVehicleSoldier->position().worldY() );
 				UpdateAllVehiclePassengersGridNo( pVehicleSoldier );
 
 				// Stop from any movement.....
@@ -2702,7 +2702,7 @@ void UpdateAllVehiclePassengersGridNo( SOLDIERTYPE *pSoldier )
 					break;
 			}
 			// Set gridno.....
-			pPassenger->EVENT_SetSoldierPosition( pSoldier->dXPos + dXOffset, pSoldier->dYPos + dYOffset);
+			pPassenger->EVENT_SetSoldierPosition( pSoldier->position().worldX() + dXOffset, pSoldier->position().worldY() + dYOffset);
 		}
 	}
 }

@@ -1133,10 +1133,10 @@ void HandleEnvironmentHazard( )
 				GetJa2SoldierRepository().resolve(uiCnt);
 			if ( pSoldier && pSoldier->bActive && !pSoldier->deployment().sectorZ() && pSoldier->deployment().sectorX() == gWorldSectorX && pSoldier->deployment().sectorY() == gWorldSectorY && pSoldier->vitals().health() > 0 )
 			{
-				if ( TERRAIN_IS_WATER( pSoldier->bOverTerrainType ) && pSoldier->position().level() <= 0 )
+				if ( TERRAIN_IS_WATER( pSoldier->position().terrainType() ) && pSoldier->position().level() <= 0 )
 				{
 					// there is a chance to be attacked, it is increased if we have open wounds
-					UINT16 chancetobeattacked = 20 + pSoldier->vitals().bleeding() + 20 * TERRAIN_IS_DEEP_WATER( pSoldier->bOverTerrainType );
+					UINT16 chancetobeattacked = 20 + pSoldier->vitals().bleeding() + 20 * TERRAIN_IS_DEEP_WATER( pSoldier->position().terrainType() );
 
 					if ( Chance( chancetobeattacked ) )
 					{

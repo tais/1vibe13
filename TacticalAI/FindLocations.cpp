@@ -256,7 +256,7 @@ INT8 CalcBestCTGT( SOLDIERTYPE *pSoldier, SoldierID ubOppID, INT32 sOppGridNo, I
 
 					// NOTE: GOTTA SET THESE 3 FIELDS *BACK* AFTER USING THIS FUNCTION!!!
 					pSoldier->position().gridNo() = sAdjSpot;	 // pretend he's standing at 'sAdjSpot'
-					AICenterXY( sAdjSpot, &(pSoldier->dXPos), &(pSoldier->dYPos) );
+					AICenterXY( sAdjSpot, &(pSoldier->position().worldX()), &(pSoldier->position().worldY()) );
 					bThisCTGT = CalcWorstCTGTForPosition( pSoldier, ubOppID, sOppGridNo, bLevel, iMyAPsLeft );
 					if (bThisCTGT > bBestCTGT)
 					{
@@ -312,26 +312,26 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 	if (pMe->position().gridNo() != sMyGridNo)
 	{
 		sMyRealGridNo = pMe->position().gridNo();		// remember where I REALLY am
-		dMyX = pMe->dXPos;
-		dMyY = pMe->dYPos;
+		dMyX = pMe->position().worldX();
+		dMyY = pMe->position().worldY();
 
 		pMe->position().gridNo() = sMyGridNo;				// but pretend I'm standing at sMyGridNo
 		ConvertGridNoToCenterCellXY( sMyGridNo, &sTempX, &sTempY );
-		pMe->dXPos = (FLOAT) sTempX;
-		pMe->dYPos = (FLOAT) sTempY;
+		pMe->position().worldX() = (FLOAT) sTempX;
+		pMe->position().worldY() = (FLOAT) sTempY;
 	}
 
 	// if this is theoretical, and he's not actually at hisGrid right now
 	if (pHim->position().gridNo() != sHisGridNo)
 	{
 		sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
-		dHisX = pHim->dXPos;
-		dHisY = pHim->dYPos;
+		dHisX = pHim->position().worldX();
+		dHisY = pHim->position().worldY();
 
 		pHim->position().gridNo() = sHisGridNo;			// but pretend he's standing at sHisGridNo
 		ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
-		pHim->dXPos = (FLOAT) sTempX;
-		pHim->dYPos = (FLOAT) sTempY;
+		pHim->position().worldX() = (FLOAT) sTempX;
+		pHim->position().worldY() = (FLOAT) sTempY;
 	}
 
 
@@ -359,8 +359,8 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		if (TileIsOutOfBounds(sHisRealGridNo))
 		{
 			sHisRealGridNo = pHim->position().gridNo();		// remember where he REALLY is
-			dHisX = pHim->dXPos;
-			dHisY = pHim->dYPos;
+			dHisX = pHim->position().worldX();
+			dHisY = pHim->position().worldY();
 		}
 
 		// calculate where my cover is worst if opponent moves just 1 tile over
@@ -388,8 +388,8 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 		{
 			pHim->position().gridNo() = sHisGridNo;
 			ConvertGridNoToCenterCellXY( sHisGridNo, &sTempX, &sTempY );
-			pHim->dXPos = (FLOAT) sTempX;
-			pHim->dYPos = (FLOAT) sTempY;
+			pHim->position().worldX() = (FLOAT) sTempX;
+			pHim->position().worldY() = (FLOAT) sTempY;
 		}
 
 		// sevenfm: also check friendly fire chance for each position
@@ -421,15 +421,15 @@ INT32 CalcCoverValue(SOLDIERTYPE *pMe, INT32 sMyGridNo, INT32 iMyThreat, INT32 i
 	if (!TileIsOutOfBounds(sMyRealGridNo))
 	{
 		pMe->position().gridNo() = sMyRealGridNo;		// put me back where I belong!
-		pMe->dXPos = dMyX;						// also change the 'x'
-		pMe->dYPos = dMyY;						// and the 'y'
+		pMe->position().worldX() = dMyX;						// also change the 'x'
+		pMe->position().worldY() = dMyY;						// and the 'y'
 	}
 	
 	if (!TileIsOutOfBounds(sHisRealGridNo))
 	{
 		pHim->position().gridNo() = sHisRealGridNo;		// put HIM back where HE belongs!
-		pHim->dXPos = dHisX;					// also change the 'x'
-		pHim->dYPos = dHisY;					// and the 'y'
+		pHim->position().worldX() = dHisX;					// also change the 'x'
+		pHim->position().worldY() = dHisY;					// and the 'y'
 	}
 
 	sDist = PythSpacesAway(sMyGridNo, sHisGridNo);

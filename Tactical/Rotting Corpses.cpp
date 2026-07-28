@@ -915,8 +915,8 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	memset( &Corpse, 0, sizeof( Corpse ) );
 	Corpse.ubBodyType							= pSoldier->ubBodyType;
 	Corpse.sGridNo								= pSoldier->position().gridNo();
-	Corpse.dXPos									= pSoldier->dXPos;
-	Corpse.dYPos									= pSoldier->dYPos;
+	Corpse.dXPos									= pSoldier->position().worldX();
+	Corpse.dYPos									= pSoldier->position().worldY();
 	Corpse.bLevel									= pSoldier->position().level();
 	Corpse.ubProfile							= pSoldier->ubProfile;
 
@@ -928,7 +928,7 @@ BOOLEAN TurnSoldierIntoCorpse( SOLDIERTYPE *pSoldier, BOOLEAN fRemoveMerc, BOOLE
 	
 	if ( Corpse.bLevel > 0 )
 	{
-		Corpse.sHeightAdjustment			= (INT16)( pSoldier->sHeightAdjustment - WALL_HEIGHT );
+		Corpse.sHeightAdjustment			= (INT16)( pSoldier->position().heightAdjustment() - WALL_HEIGHT );
 	}
 
 	SET_PALETTEREP_ID ( Corpse.HeadPal,		pSoldier->HeadPal );
@@ -1286,7 +1286,7 @@ void AddCrowToCorpse( ROTTING_CORPSE *pCorpse )
 			pSoldier->deployment().strategicInsertionData() = sGridNo;
 
 			pSoldier->deployment().insertionGrid()		= sGridNo;
-			pSoldier->sDesiredHeight			= 0;
+			pSoldier->position().desiredHeight()			= 0;
 
 			// Add to sector
 			AddSoldierToSector( iNewIndex );
@@ -1331,7 +1331,7 @@ void HandleCrowFlyAway( SOLDIERTYPE *pSoldier )
 	INT32 sGridNo;
 
 	// Set desired height
-	pSoldier->sDesiredHeight			= 100;
+	pSoldier->position().desiredHeight()			= 100;
 
 	// Change to fly animation
 	sGridNo =	FindRandomGridNoFromSweetSpot( pSoldier, pSoldier->position().gridNo(), 5, &ubDirection );
@@ -3048,8 +3048,8 @@ void CreateZombiefromCorpse( ROTTING_CORPSE *	pCorpse, UINT16 usAnimState )
 
 		pNewSoldier->deployment().insertionDirection()	= pCorpse->def.ubDirection;
 
-		//pNewSoldier->sHeightAdjustment		= pCorpse->def.sHeightAdjustment;
-		pNewSoldier->sDesiredHeight			= 3;
+		//pNewSoldier->position().heightAdjustment()		= pCorpse->def.sHeightAdjustment;
+		pNewSoldier->position().desiredHeight()			= 3;
 
 		pNewSoldier->animationIntent().desiredHeight()		= 3;		// this forces pNewSoldier to rise up to crouching position
 

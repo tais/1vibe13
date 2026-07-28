@@ -2816,7 +2816,7 @@ BOOLEAN UseGunNCTH( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
@@ -3658,7 +3658,7 @@ BOOLEAN UseGun( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 		}				
 	}
 
-	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE );
+	MakeNoise( pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE );
 
 	// Flugente: if we fire multiple barrels, only do this on first one
 	if ( pSoldier->fireControl().burstCounter() && !pSoldier->fireControl().barrelCounter() )
@@ -3928,8 +3928,8 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 			SWeaponHit.usWeaponIndex		= pSoldier->attackSelection().weapon();
 			SWeaponHit.sDamage					= (INT16) iImpact;
 			SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
-			SWeaponHit.sXPos						= (INT16)pTargetSoldier->dXPos;
-			SWeaponHit.sYPos						= (INT16)pTargetSoldier->dYPos;
+			SWeaponHit.sXPos						= (INT16)pTargetSoldier->position().worldX();
+			SWeaponHit.sYPos						= (INT16)pTargetSoldier->position().worldY();
 			SWeaponHit.sZPos						= 20;
 			SWeaponHit.sRange						= 1;
 			SWeaponHit.ubAttackerID			= pSoldier->ubID;
@@ -4013,7 +4013,7 @@ BOOLEAN UseBlade( SOLDIERTYPE *pSoldier , INT32 sTargetGridNo )
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell
 	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
@@ -4683,8 +4683,8 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 				SWeaponHit.usWeaponIndex		= pSoldier->attackSelection().weapon();
 				SWeaponHit.sDamage					= (INT16) iImpact;
 				SWeaponHit.usDirection			= (UINT8)GetDirectionFromGridNo( pSoldier->position().gridNo(), pTargetSoldier );
-				SWeaponHit.sXPos						= (INT16)pTargetSoldier->dXPos;
-				SWeaponHit.sYPos						= (INT16)pTargetSoldier->dYPos;
+				SWeaponHit.sXPos						= (INT16)pTargetSoldier->position().worldX();
+				SWeaponHit.sYPos						= (INT16)pTargetSoldier->position().worldY();
 				SWeaponHit.sZPos						= 20;
 				SWeaponHit.sRange						= 1;
 				SWeaponHit.ubAttackerID			= pSoldier->ubID;
@@ -4762,7 +4762,7 @@ BOOLEAN UseHandToHand( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo, BOOLEAN fStea
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_BULLET_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_BULLET_IMPACT);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_BULLET_IMPACT);
 
 	// possibly reduce monster smell (gunpowder smell)
 	if ( pSoldier->aiData.bMonsterSmell > 0 && Random( 5 ) == 0 )
@@ -4896,7 +4896,7 @@ BOOLEAN UseThrown( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	if (ubVolume > 0)
 	{
 		// sevenfm: better make it NOISE_GRENADE_IMPACT instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GRENADE_IMPACT);
+		MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GRENADE_IMPACT);
 	}
 
 	HandleSoldierThrowItem(pSoldier, pSoldier->targeting().gridNo());
@@ -5148,7 +5148,7 @@ BOOLEAN UseLauncher( SOLDIERTYPE *pSoldier, INT32 sTargetGridNo )
 	UINT16 usUBItem = pSoldier->GetUsedWeaponNumber( &pSoldier->inv[ pSoldier->attackSelection().hand() ] );
 	UINT8 ubVolume = Weapon[ usUBItem ].ubAttackVolume;
 	// sevenfm: better make it NOISE_GUNFIRE instead of NOISE_UNKNOWN so AI can associate it with enemy presence
-	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->bOverTerrainType, ubVolume, NOISE_GUNFIRE);
+	MakeNoise(pSoldier->ubID, pSoldier->position().gridNo(), pSoldier->position().level(), pSoldier->position().terrainType(), ubVolume, NOISE_GUNFIRE);
 
 	return( TRUE );
 }

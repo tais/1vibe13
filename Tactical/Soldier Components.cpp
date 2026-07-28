@@ -366,11 +366,29 @@ void SoldierDeploymentComponent::reset() noexcept
 	*this = SoldierDeploymentComponent{};
 }
 
+void SoldierPositionComponent::setWorldCoordinates(FLOAT x, FLOAT y) noexcept
+{
+	worldX_ = x;
+	worldY_ = y;
+	worldXInt_ = static_cast<INT16>(x);
+	worldYInt_ = static_cast<INT16>(y);
+}
+
+void SoldierPositionComponent::recordTurnStart(INT16 x, INT16 y) noexcept
+{
+	turnStartX_ = x;
+	turnStartY_ = y;
+}
+
+void SoldierPositionComponent::enterTerrain(INT8 terrainType) noexcept
+{
+	previousTerrainType_ = terrainType_;
+	terrainType_ = terrainType;
+}
+
 void SoldierPositionComponent::reset() noexcept
 {
-	gridNo_ = 0;
-	level_ = 0;
-	direction_ = 0;
+	*this = SoldierPositionComponent{};
 }
 
 void SoldierPathingComponent::clearRoute() noexcept

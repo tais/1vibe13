@@ -2419,7 +2419,7 @@ void HandleSoldierDropBomb( SOLDIERTYPE *pSoldier, INT32 sGridNo )
 				if ( iResult < -20 && !ItemIsTripwire(pSoldier->inv[ HANDPOS ].usItem) )
 				{
 					// OOPS! ... BOOM!
-					IgniteExplosion( NOBODY, pSoldier->sX, pSoldier->sY, (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pSoldier->inv[ HANDPOS ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ HANDPOS ] );
+					IgniteExplosion( NOBODY, pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[pSoldier->position().gridNo()].sHeight), pSoldier->position().gridNo(), pSoldier->inv[ HANDPOS ].usItem, pSoldier->position().level(), pSoldier->position().direction(), &pSoldier->inv[ HANDPOS ] );
 					pSoldier->inv[ HANDPOS ].MoveThisObjectTo(gTempObject, 1);
 				}
 			}
@@ -6044,7 +6044,7 @@ void BombMessageBoxCallBack( UINT8 ubExitValue )
 					if ( !ItemIsTripwire(gpTempSoldier->inv[ HANDPOS ].usItem))
 					{
 						// OOPS! ... BOOM!
-						IgniteExplosion( NOBODY, gpTempSoldier->sX, gpTempSoldier->sY, (INT16) (gpWorldLevelData[gpTempSoldier->position().gridNo()].sHeight), gpTempSoldier->position().gridNo(), gpTempSoldier->inv[ HANDPOS ].usItem, gpTempSoldier->position().level(), gpTempSoldier->position().direction(), &gpTempSoldier->inv[ HANDPOS ] );
+						IgniteExplosion( NOBODY, gpTempSoldier->position().worldXInt(), gpTempSoldier->position().worldYInt(), (INT16) (gpWorldLevelData[gpTempSoldier->position().gridNo()].sHeight), gpTempSoldier->position().gridNo(), gpTempSoldier->inv[ HANDPOS ].usItem, gpTempSoldier->position().level(), gpTempSoldier->position().direction(), &gpTempSoldier->inv[ HANDPOS ] );
 					}
 
 					return;
@@ -7252,7 +7252,7 @@ void MakeNPCGrumpyForMinorOffense( SOLDIERTYPE * pSoldier, SOLDIERTYPE *pOffendi
 	if ( pOffendingSoldier )
 	{
 		pSoldier->aiData.bNextAction = AI_ACTION_CHANGE_FACING;
-		pSoldier->aiData.usNextActionData = atan8( pSoldier->sX, pSoldier->sY, pOffendingSoldier->sX, pOffendingSoldier->sY );
+		pSoldier->aiData.usNextActionData = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOffendingSoldier->position().worldXInt(), pOffendingSoldier->position().worldYInt() );
 	}
 }
 

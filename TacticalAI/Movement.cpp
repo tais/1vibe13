@@ -875,8 +875,8 @@ void HaltMoveForSoldierOutOfPoints(SOLDIERTYPE *pSoldier)
 		SStopMerc.ubDirection			= pSoldier->position().direction();
 		SStopMerc.usSoldierID			= pSoldier->ubID;
 		SStopMerc.fset=TRUE;
-		SStopMerc.sXPos=pSoldier->sX;
-		SStopMerc.sYPos=pSoldier->sY;
+		SStopMerc.sXPos=pSoldier->position().worldXInt();
+		SStopMerc.sYPos=pSoldier->position().worldYInt();
 
 		//AddGameEvent( S_STOP_MERC, 0, &SStopMerc ); //hayden.
 		if(pSoldier->ubID>=120 || (!is_server && pSoldier->ubID>=20)) 
@@ -1117,7 +1117,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 		}
 
 		// we don't want to run in that direction!
-		bOkayDir[ atan8( pSoldier->sX, pSoldier->sY, pOpponent->sX, pOpponent->sY ) ] = FALSE;
+		bOkayDir[ atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOpponent->position().worldXInt(), pOpponent->position().worldYInt() ) ] = FALSE;
 	}
 
 	for (ubLoop = 0; ubLoop < NUM_WORLD_DIRECTIONS; ubLoop += 2)
@@ -1161,7 +1161,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 		switch( ubBestDir )
 		{
 			case 0:
-				iRunX = pSoldier->sX + Random( 9 ) - 4;
+				iRunX = pSoldier->position().worldXInt() + Random( 9 ) - 4;
 				iRunY = 0;
 				if (iRunX < 0)
 				{
@@ -1174,7 +1174,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 				break;
 			case 2:
 				iRunX = WORLD_COLS;
-				iRunY = pSoldier->sY + Random( 9 ) - 4;
+				iRunY = pSoldier->position().worldYInt() + Random( 9 ) - 4;
 				if (iRunY < 0)
 				{
 					iRunY = 0;
@@ -1185,7 +1185,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 				}
 				break;
 			case 4:
-				iRunX = pSoldier->sX + Random( 9 ) - 4;
+				iRunX = pSoldier->position().worldXInt() + Random( 9 ) - 4;
 				iRunY = WORLD_ROWS;
 				if (iRunX < 0)
 				{
@@ -1198,7 +1198,7 @@ UINT16 RunAway( SOLDIERTYPE * pSoldier )
 				break;
 			case 6:
 				iRunX = 0;
-				iRunY = pSoldier->sY + Random( 9 ) - 4;
+				iRunY = pSoldier->position().worldYInt() + Random( 9 ) - 4;
 				if (iRunY < 0)
 				{
 					iRunY = 0;

@@ -165,7 +165,7 @@ void UnMarkMovementReserved( SOLDIERTYPE *pSoldier )
 {
 	INT32 sNewGridNo;
 
-	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(pSoldier->dYPos, pSoldier->dXPos );
+	sNewGridNo = GETWORLDINDEXFROMWORLDCOORDS(pSoldier->position().worldY(), pSoldier->position().worldX() );
 
 	// OK, if NOT in fence anim....
 	if ( pSoldier->animationPlayback().state() == HOPFENCE && pSoldier->movement().reservedGrid() != sNewGridNo )

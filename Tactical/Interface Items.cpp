@@ -6423,7 +6423,7 @@ void ItemDescAttachmentsCallback( MOUSE_REGION * pRegion, INT32 iReason )
 					if ( GetCurrentScreen() == GAME_SCREEN )
 					{
 						// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemPointerSoldier()->sX, GetItemPointerSoldier()->sY, (INT16) (gpWorldLevelData[GetItemPointerSoldier()->position().gridNo()].sHeight), GetItemPointerSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemPointerSoldier()->position().level(), GetItemPointerSoldier()->position().direction(), gpItemDescObject );
+						IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemPointerSoldier()->position().worldXInt(), GetItemPointerSoldier()->position().worldYInt(), (INT16) (gpWorldLevelData[GetItemPointerSoldier()->position().gridNo()].sHeight), GetItemPointerSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemPointerSoldier()->position().level(), GetItemPointerSoldier()->position().direction(), gpItemDescObject );
 					}
 					else if ( (GetCurrentScreen() == MAP_SCREEN) || (GetCurrentScreen() == MSG_BOX_SCREEN) )
 					{
@@ -14042,7 +14042,7 @@ void TransformationMenuPopup_Arm( OBJECTTYPE* pObj )
 			if ( screen == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( GetItemDescSoldier()->ubID, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), pObj->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), pObj );
+				IgniteExplosion( GetItemDescSoldier()->ubID, GetItemDescSoldier()->position().worldXInt(), GetItemDescSoldier()->position().worldYInt(), (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), pObj->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), pObj );
 			}
 			else
 			{
@@ -14219,7 +14219,7 @@ void BombInventoryMessageBoxCallBack( UINT8 ubExitValue )
 				if ( screen == GAME_SCREEN )
 				{
 					// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
+					IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->position().worldXInt(), GetItemDescSoldier()->position().worldYInt(), (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
 				}
 				else if ( (screen == MAP_SCREEN) || (screen == MSG_BOX_SCREEN) )
 				{
@@ -14402,7 +14402,7 @@ void BombInventoryDisArmMessageBoxCallBack( UINT8 ubExitValue )
 			if ( GetCurrentScreen() == GAME_SCREEN )
 			{
 				// ignite explosions manually - this item is not in the WorldBombs-structure, so we can't add it to the queue
-				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->sX, GetItemDescSoldier()->sY, (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
+				IgniteExplosion( (*gpItemDescObject)[0]->data.misc.ubBombOwner - 2, GetItemDescSoldier()->position().worldXInt(), GetItemDescSoldier()->position().worldYInt(), (INT16) (gpWorldLevelData[GetItemDescSoldier()->position().gridNo()].sHeight), GetItemDescSoldier()->position().gridNo(), gpItemDescObject->usItem, GetItemDescSoldier()->position().level(), GetItemDescSoldier()->position().direction(), gpItemDescObject );
 			}
 			else if ( GetCurrentScreen() == MAP_SCREEN || GetCurrentScreen() == MSG_BOX_SCREEN )
 			{

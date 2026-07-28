@@ -1934,7 +1934,7 @@ BOOLEAN StandardInterruptConditionsMet( SOLDIERTYPE * pSoldier, SoldierID ubOppo
 			}
 
 			// if the soldier is behind him and not very close, forget it
-			bDir = atan8( pSoldier->sX, pSoldier->sY, pOpponent->sX, pOpponent->sY );
+			bDir = atan8( pSoldier->position().worldXInt(), pSoldier->position().worldYInt(), pOpponent->position().worldXInt(), pOpponent->position().worldYInt() );
 			if ( gOppositeDirection[ pSoldier->pathing().desiredDirection() ] == bDir )
 			{
 				// directly behind; allow interrupts only within # of tiles equal to level

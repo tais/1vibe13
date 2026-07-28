@@ -3206,8 +3206,8 @@ BOOLEAN BulletHitMerc( BULLET * pBullet, STRUCTURE * pStructure, BOOLEAN fIntend
 	SWeaponHit.sBreathLoss			= sBreathLoss;
 	// HEADROCK HAM 5.1: Bullet data contains the correct original GridNo
 	SWeaponHit.usDirection			= GetDirectionFromGridNo( pBullet->sOrigGridNo, pTarget );
-	SWeaponHit.sXPos				= (INT16)pTarget->dXPos;
-	SWeaponHit.sYPos				= (INT16)pTarget->dYPos;
+	SWeaponHit.sXPos				= (INT16)pTarget->position().worldX();
+	SWeaponHit.sYPos				= (INT16)pTarget->position().worldY();
 	SWeaponHit.sZPos				= 20;
 	SWeaponHit.sRange				= sRange;
 	SWeaponHit.ubAttackerID			= pBullet->ubFirerID;
@@ -6438,7 +6438,7 @@ INT8 FireBulletGivenTargetTrapOnly( SOLDIERTYPE* pThrower, OBJECTTYPE* pObj, INT
 		ubVolume = __max( 1, ( ubVolume * noisefactor ) / 100 );
 	}
 
-	MakeNoise( NOBODY, gridno, 0, pThrower ? pThrower->bOverTerrainType : FLAT_GROUND, ubVolume, NOISE_GUNFIRE );
+	MakeNoise( NOBODY, gridno, 0, pThrower ? pThrower->position().terrainType() : FLAT_GROUND, ubVolume, NOISE_GUNFIRE );
 	///////////////////////// SOUND ////////////////////////////
 
 	///////////////////////// OVERHEATING AND STATUS REDUCTION ////////////////////////////
@@ -8045,8 +8045,8 @@ INT32	CheckForCollision( FLOAT dX, FLOAT dY, FLOAT dZ, FLOAT dDeltaX, FLOAT dDel
 	if (pMapElement->pMercHead != NULL )
 	{ // a merc! that isn't us :-)
 		pTarget = pMapElement->pMercHead->pSoldier;
-		dTargetX = pTarget->dXPos;
-		dTargetY = pTarget->dYPos;
+		dTargetX = pTarget->position().worldX();
+		dTargetY = pTarget->position().worldY();
 		dTargetZMin = 0.0f;
 		CalculateSoldierZPos( pTarget, HEIGHT, &dTargetZMax );
 		if (pTarget->position().level() > 0)
@@ -9203,21 +9203,20 @@ void CalcTargetMovementOffset( SOLDIERTYPE *pShooter, SOLDIERTYPE *pTarget, OBJE
 		return;
 	}
 
-	if (pTarget->sOldXPos == 0 && pTarget->sOldYPos == 0)
+	if (!pTarget->position().hasTurnStart())
 	{
 		// HEADROCK HAM 4: Hopefully the right spot for this: This soldier has no "old" coordinates, so just set them
 		// to wherever he/she is currently standing.
 		INT16 sXPos, sYPos;
 		ConvertGridNoToCenterCellXY(pTarget->position().gridNo(), &sXPos, &sYPos);
-		pTarget->sOldXPos = sXPos;
-		pTarget->sOldYPos = sYPos;
+		pTarget->position().recordTurnStart(sXPos, sYPos);
 		// Since movement is now nonexistent, break the formula here without adjusting coordinates.
 		return;
 	}
 
 	// Find previous position of this soldier, recorded when his/her last turn started.
-	INT16 sStartPosX = pTarget->sOldXPos;
-	INT16 sStartPosY = pTarget->sOldYPos;
+	INT16 sStartPosX = pTarget->position().turnStartX();
+	INT16 sStartPosY = pTarget->position().turnStartY();
 
 	// Find the current position of this soldier.
 	INT16 sCurPosX = 0;

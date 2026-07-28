@@ -505,7 +505,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 
 	case SCHEDULE_ACTION_WAKE:
 		// Go to this position
-		if (pSoldier->position().gridNo() == pSoldier->sInitialGridNo)
+		if (pSoldier->position().gridNo() == pSoldier->position().initialGrid())
 		{
 			// th-th-th-that's it!
 			DoneScheduleAction( pSoldier );
@@ -513,7 +513,7 @@ INT8 DecideActionSchedule( SOLDIERTYPE * pSoldier )
 		}
 		else
 		{
-			pSoldier->aiData.usActionData = pSoldier->sInitialGridNo;
+			pSoldier->aiData.usActionData = pSoldier->position().initialGrid();
 			pSoldier->movement().absoluteDestination() = pSoldier->aiData.usActionData;
 			return( AI_ACTION_SCHEDULE_MOVE );
 		}

@@ -1086,23 +1086,6 @@ public:
 	// values for surgery feature
 	/////////////////////////////////////////////////////////////////////////////////
 
-	// WORLD POSITION STUFF
-	FLOAT			dXPos;
-	FLOAT			dYPos;
-	// HEADROCK HAM 4: These two vars are appropriated for the new Shooting Mechanism.
-	// They represent the soldier's position at the start of his turn.
-	//FLOAT			dOldXPos;
-	//FLOAT			dOldYPos; 
-	INT16			sOldXPos;
-	INT16			sOldYPos;
-	INT32			sInitialGridNo;
-	INT16			sHeightAdjustment;
-	INT16			sDesiredHeight;
-	INT32			sTempNewGridNo;			// New grid no for advanced animations
-	INT16			sRoomNo;
-	INT8				bOverTerrainType;
-	INT8				bOldOverTerrainType;
-
 	UINT32			uiAIDelay;
 	INT16			sReloadDelay;
 
@@ -1152,9 +1135,6 @@ public:
 	INT32			iMuzFlash;
 	INT8				bMuzFlashCount;
 
-
-	INT16			sX;
-	INT16			sY;
 
 	// STUFF FOR RANDOM ANIMATIONS
 	UINT32			uiTimeOfLastRandomAction;
