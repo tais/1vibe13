@@ -572,6 +572,11 @@ void SoldierMovementComponent::reset() noexcept
 	*this = SoldierMovementComponent{};
 }
 
+void SoldierInterruptSnapshotComponent::reset() noexcept
+{
+	*this = SoldierInterruptSnapshotComponent{};
+}
+
 void SoldierTargetingComponent::selectLocation(
 	INT32 gridNo, INT8 level, INT8 cubeLevel) noexcept
 {
@@ -595,6 +600,11 @@ void SoldierAttackSelectionComponent::selectWeapon(
 void SoldierAttackSelectionComponent::reset() noexcept
 {
 	*this = SoldierAttackSelectionComponent{};
+}
+
+void SoldierMeleeApproachComponent::reset() noexcept
+{
+	*this = SoldierMeleeApproachComponent{};
 }
 
 void SoldierFireControlComponent::selectSingleShot() noexcept

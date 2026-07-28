@@ -434,7 +434,9 @@ movement reservation, merc contention, scripted and continued destinations,
 stop reason, and coordinated speed override. UI, AI, animation, pathing, and
 simulation-command adapters all use `movement().mode()` as the one authority.
 Paired transitions have named operations rather than independently mutating
-generic flags. `SoldierTargetingComponent` owns the selected target
+generic flags. `SoldierInterruptSnapshotComponent` captures the scheduler's
+moved state across temporary interrupt ownership without exposing another flat
+soldier field. `SoldierTargetingComponent` owns the selected target
 grid, elevation, cube level, previous target grid, and target soldier identity.
 The application UI, AI, weapons, simulation-command, animation-event, and
 multiplayer adapters use this one private owner; packages still receive only
@@ -443,11 +445,15 @@ stable pointer-free tactical identities and snapshots.
 weapon and scope modes, and ranged and melee body locations. It is distinct
 from target geometry and from the later mutable firing sequence, so every
 producer chooses how to attack through one boundary.
+`SoldierMeleeApproachComponent` owns the cached melee path key, cost, and
+terminal direction. Movement invalidates that cache through its named
+operation, while the historical partial-cache behavior remains intact.
 `SoldierFireControlComponent` owns that mutable firing sequence: burst and
 autofire progress, bullets in flight, the one-based spread cursor and six
 fixed spread targets, recoil and counterforce history, initial muzzle offsets,
-the autofire UI edge state, and the active multi-barrel cursor. Named
-single-shot, burst, and autofire transitions keep these paired modes
+the autofire UI edge state, the active multi-barrel cursor, and burst-drag
+start/end grids. Real-time and turn-based input share named drag transitions.
+Named single-shot, burst, and autofire transitions keep these paired modes
 consistent. Target selection remains separate, as do presentation-only sound
 and muzzle-flash handles. AI dual-wield spread generation is clamped after
 doubling its shot count, so it cannot write twelve locations into the
@@ -483,8 +489,9 @@ mode. `SoldierAnimationPlaybackComponent` separately owns the accepted current
 and previous animation, frame/code/delay cursor, render surface/depth, and
 subflags. `SoldierAnimationActivityComponent` owns the lifecycle around that
 playback: prone-turn mode, pausing, hit and fall phases, interruptibility,
-turn-to-completion state, and one-shot AP-cost waivers. Named operations now
-change coordinated hit, fall, pause, and interruptibility state together.
+turn-to-completion state, one-shot AP-cost waivers, traversal forecast, and
+temporary render-depth override. Named operations now change coordinated hit,
+fall, pause, interruptibility, and traversal presentation state together.
 `SoldierAnimationCacheComponent` owns the runtime surface working set in
 fixed-capacity inline arrays. Creating a soldier no longer performs two cache
 allocations, copies start with an empty working set instead of aliased owning

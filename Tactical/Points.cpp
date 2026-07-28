@@ -1833,26 +1833,28 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 			{
 				if (pSoldier->position().gridNo() == sActionGridNo)
 				{
-					pSoldier->sWalkToAttackWalkToCost = 0;
+					pSoldier->meleeApproach().clearCost();
 				}
 				else
 				{
 					// OK, in order to avoid path calculations here all the time... save and check if it's changed!
-					if (pSoldier->sWalkToAttackGridNo == sActionGridNo && pSoldier->sWalkToAttackMovementMode == (UINT8)pSoldier->movement().mode())
+					if (pSoldier->meleeApproach().matches(sActionGridNo, (UINT8)pSoldier->movement().mode()))
 					{
-						sAPCost += (UINT8)(pSoldier->sWalkToAttackWalkToCost);
+						sAPCost += (UINT8)(pSoldier->meleeApproach().cost());
 					}
 					else
 					{
 						// Save for next time...
-						pSoldier->sWalkToAttackMovementMode = (UINT8)pSoldier->movement().mode();
-						pSoldier->sWalkToAttackWalkToCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
-						pSoldier->sWalkToAttackEndDirection = gfPlotPathEndDirection;
-						if (pSoldier->sWalkToAttackWalkToCost == 0)
+						const INT16 walkCost = PlotPath(pSoldier, sActionGridNo, NO_COPYROUTE, NO_PLOT, TEMPORARY, (UINT16)pSoldier->movement().mode(), NOT_STEALTH, FORWARD, pSoldier->actionPoints().current());
+						pSoldier->meleeApproach().recordPath(
+							(UINT8)pSoldier->movement().mode(),
+							walkCost,
+							gfPlotPathEndDirection);
+						if (pSoldier->meleeApproach().cost() == 0)
 						{
 							return(99);
 						}
-						sAPCost += pSoldier->sWalkToAttackWalkToCost;
+						sAPCost += pSoldier->meleeApproach().cost();
 					}
 				}
 			}
@@ -1862,7 +1864,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 			}
 
 			// Save old location!
-			pSoldier->sWalkToAttackGridNo = sActionGridNo;
+			pSoldier->meleeApproach().rememberGrid(sActionGridNo);
 
 		}
 
@@ -1870,7 +1872,7 @@ INT16 CalcTotalAPsToAttack( SOLDIERTYPE *pSoldier, INT32 sGridNo, UINT8 ubAddTur
 		sAPCost += MinAPsToPunch(pSoldier, sAdjustedGridNo);
 
 		// Add points to turn around if needed
-		sAPCost += CalculateActionTurningCost(pSoldier, sActionGridNo, sAdjustedGridNo, pSoldier->sWalkToAttackEndDirection);
+		sAPCost += CalculateActionTurningCost(pSoldier, sActionGridNo, sAdjustedGridNo, pSoldier->meleeApproach().endDirection());
 		
 		// Add aim time...
 		sAPCost += (bAimTime*APBPConstants[AP_CLICK_AIM]);

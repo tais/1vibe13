@@ -1689,8 +1689,10 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	SoldierPositionComponent& position = s.position();
 	SoldierMovementHistoryComponent& movementHistory = s.movementHistory();
 	SoldierMovementComponent& movement = s.movement();
+	SoldierInterruptSnapshotComponent& interruptSnapshot = s.interruptSnapshot();
 	SoldierTargetingComponent& targeting = s.targeting();
 	SoldierAttackSelectionComponent& attackSelection = s.attackSelection();
+	SoldierMeleeApproachComponent& meleeApproach = s.meleeApproach();
 	SoldierFireControlComponent& fireControl = s.fireControl();
 	SoldierCombatResultComponent& combatResult = s.combatResult();
 	SoldierCombatContributionComponent& combatContribution = s.combatContribution();
@@ -1754,9 +1756,9 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i8(fireControl.bulletsLeft()); ar.u8(suppression.points());
 	ar.u32(s.uiTimeOfLastRandomAction); ar.i16(s.usLastRandomAnim);
 	ar.u16(s.animationPlayback().surface()); ar.u16(s.animationPlayback().zLevel());
-	ar.i16(s.sWalkToAttackMovementMode); ar.i32(s.sWalkToAttackGridNo); ar.i16(s.sWalkToAttackWalkToCost);
+	ar.i16(meleeApproach.movementMode()); ar.i32(meleeApproach.grid()); ar.i16(meleeApproach.cost());
 	ar.i16(uiPresentation.locatorOffsetX()); ar.i16(uiPresentation.locatorOffsetY()); ar.ptr(s.pForcedShade);
-	ar.i8(damageDisplay.counter()); ar.u8(s.sWalkToAttackEndDirection);
+	ar.i8(damageDisplay.counter()); ar.u8(meleeApproach.endDirection());
 	ar.i16(combatResult.accumulatedDamage()); ar.i16(damageDisplay.offsetX()); ar.i16(damageDisplay.offsetY()); ar.i8(damageDisplay.direction()); ar.i8(fireControl.burstCounter());
 	ar.i16(movement.mode()); ar.i8(uiPresentation.interfaceLevel());
 	ar.u8(s.ubProfile); ar.u8(dialogue.quoteRecord()); ar.u8(dialogue.quoteActionId()); ar.u8(dialogue.battleSoundSet());
@@ -1769,8 +1771,8 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	for (i = 0; i < NUM_SOLDIER_EFFECTSHADES; ++i) ar.ptr(s.pEffectShades[i]);
 	ar.u8(uiPresentation.plannedActionPointCost()); ar.i16(uiPresentation.plannedTargetX()); ar.i16(uiPresentation.plannedTargetY());
 	for (i = 0; i < MAX_BURST_SPREAD_TARGETS; ++i) ar.i32(fireControl.spreadLocations()[i]);
-	ar.i32(s.sStartGridNo); ar.i32(s.sEndGridNo); ar.i32(s.sForcastGridno); ar.i16(s.sZLevelOverride);
-	ar.i8(s.bMovedPriorToInterrupt);
+	ar.i32(fireControl.spreadDragStartGrid()); ar.i32(fireControl.spreadDragEndGrid()); ar.i32(s.animationActivity().traversalForecastGrid()); ar.i16(s.animationActivity().renderZOverride());
+	ar.i8(interruptSnapshot.movedBeforeInterrupt());
 	ar.i32(employment.endTime()); ar.i32(employment.startTime()); ar.i32(employment.totalLength());
 	ar.i32(pendingAction.nextSpecialData()); ar.u8(employment.mercenaryType());
 	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());

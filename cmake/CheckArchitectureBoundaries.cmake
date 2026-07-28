@@ -4616,7 +4616,7 @@ if(soldier_employment_accessor EQUAL -1 OR
 endif()
 
 string(REGEX MATCH
-  "ar\\.i8\\(s\\.bMovedPriorToInterrupt\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
+  "ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.startTime\\(\\)\\);[ \t]*ar\\.i32\\(employment\\.totalLength\\(\\)\\);[ \t\r\n]*ar\\.i32\\(pendingAction\\.nextSpecialData\\(\\)\\);[ \t]*ar\\.u8\\(employment\\.mercenaryType\\(\\)\\);"
   serialized_soldier_employment_contract_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -5792,6 +5792,220 @@ if(NOT serialized_soldier_attack_hand_order OR
     "Soldier attack-selection state moved in the portable save schema; keep every value at its established byte position")
 endif()
 
+# The melee path-cost optimization and the scheduler snapshot taken across an
+# interrupt are separate domains. Keep both private, initialized, and mapped at
+# their historical persistence positions.
+foreach(retired_melee_approach_field IN ITEMS
+  sWalkToAttackMovementMode
+  sWalkToAttackGridNo
+  sWalkToAttackWalkToCost
+  sWalkToAttackEndDirection)
+  string(REGEX MATCH
+    "(^|[\r\n])[ \t]*(INT16|INT32|UINT8)[ \t]+${retired_melee_approach_field}[ \t]*;"
+    retired_current_melee_approach_field
+    "${current_soldier_contents}")
+  if(retired_current_melee_approach_field)
+    message(FATAL_ERROR
+      "Retired flat SOLDIERTYPE melee-cache field '${retired_melee_approach_field}' returned; path-cost caching belongs to SoldierMeleeApproachComponent")
+  endif()
+endforeach()
+
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*INT8[ \t]+bMovedPriorToInterrupt[ \t]*;"
+  retired_current_interrupt_snapshot
+  "${current_soldier_contents}")
+if(retired_current_interrupt_snapshot)
+  message(FATAL_ERROR
+    "Retired flat SOLDIERTYPE interrupt snapshot returned; scheduler restoration belongs to SoldierInterruptSnapshotComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierMeleeApproachComponent[ \t\r\n]+meleeApproach_[ \t]*;"
+  soldier_melee_approach_owner
+  "${current_soldier_contents}")
+string(REGEX MATCH
+  "SoldierInterruptSnapshotComponent[ \t\r\n]+interruptSnapshot_[ \t]*;"
+  soldier_interrupt_snapshot_owner
+  "${current_soldier_contents}")
+if(NOT soldier_melee_approach_owner OR NOT soldier_interrupt_snapshot_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own its melee-approach cache and interrupt snapshot")
+endif()
+
+foreach(melee_approach_storage IN ITEMS
+  "INT16 movementMode_ = 0;"
+  "INT32 grid_ = 0;"
+  "INT16 cost_ = 0;"
+  "UINT8 endDirection_ = 0;")
+  string(FIND "${soldier_components_header_contents}"
+    "${melee_approach_storage}"
+    owned_melee_approach_storage)
+  if(owned_melee_approach_storage EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMeleeApproachComponent lost initialized storage '${melee_approach_storage}'")
+  endif()
+endforeach()
+string(FIND "${soldier_components_header_contents}"
+  "INT8 movedBeforeInterrupt_ = 0;"
+  owned_interrupt_snapshot_storage)
+if(owned_interrupt_snapshot_storage EQUAL -1)
+  message(FATAL_ERROR
+    "SoldierInterruptSnapshotComponent lost initialized scheduler storage")
+endif()
+
+foreach(melee_approach_operation IN ITEMS
+  "bool matches(INT32 grid, INT16 movementMode) const noexcept"
+  "void recordPath(INT16 movementMode, INT16 cost, UINT8 endDirection) noexcept"
+  "void rememberGrid(INT32 grid) noexcept"
+  "void clearCost() noexcept"
+  "void invalidate() noexcept"
+  "void reset() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${melee_approach_operation}"
+    soldier_melee_approach_operation)
+  if(soldier_melee_approach_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierMeleeApproachComponent lost coordinated operation '${melee_approach_operation}'")
+  endif()
+endforeach()
+string(FIND "${soldier_components_header_contents}"
+  "void captureMoved(INT8 moved) noexcept"
+  soldier_interrupt_snapshot_capture)
+string(FIND "${soldier_control_header_contents}"
+  "SoldierMeleeApproachComponent& meleeApproach() noexcept"
+  soldier_melee_approach_accessor)
+string(FIND "${soldier_control_header_contents}"
+  "SoldierInterruptSnapshotComponent& interruptSnapshot() noexcept"
+  soldier_interrupt_snapshot_accessor)
+string(REGEX MATCHALL
+  "meleeApproach\\(\\)\\.reset\\(\\);"
+  soldier_melee_approach_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_melee_approach_reset_sites soldier_melee_approach_reset_count)
+string(REGEX MATCHALL
+  "interruptSnapshot\\(\\)\\.reset\\(\\);"
+  soldier_interrupt_snapshot_reset_sites
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_interrupt_snapshot_reset_sites soldier_interrupt_snapshot_reset_count)
+if(soldier_interrupt_snapshot_capture EQUAL -1 OR
+   soldier_melee_approach_accessor EQUAL -1 OR
+   soldier_interrupt_snapshot_accessor EQUAL -1 OR
+   soldier_melee_approach_reset_count LESS 2 OR
+   soldier_interrupt_snapshot_reset_count LESS 2)
+  message(FATAL_ERROR
+    "Melee approach and interrupt snapshot must retain accessors and both current/v101 reset boundaries")
+endif()
+
+foreach(transient_tactical_conversion IN ITEMS
+  "this->meleeApproach().grid() = src.sWalkToAttackGridNo;"
+  "this->meleeApproach().cost() = src.sWalkToAttackWalkToCost;"
+  "this->interruptSnapshot().movedBeforeInterrupt() = src.bMovedPriorToInterrupt;")
+  string(FIND "${soldier_control_source_contents}"
+    "${transient_tactical_conversion}"
+    transient_tactical_conversion_site)
+  if(transient_tactical_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost transient tactical mapping '${transient_tactical_conversion}'")
+  endif()
+endforeach()
+
+string(FIND "${save_load_game_contents}"
+  "SoldierMeleeApproachComponent& meleeApproach = s.meleeApproach();"
+  soldier_melee_approach_save_alias)
+string(FIND "${save_load_game_contents}"
+  "SoldierInterruptSnapshotComponent& interruptSnapshot = s.interruptSnapshot();"
+  soldier_interrupt_snapshot_save_alias)
+string(REGEX MATCH
+  "ar\\.i16\\(meleeApproach\\.movementMode\\(\\)\\);[ \t]*ar\\.i32\\(meleeApproach\\.grid\\(\\)\\);[ \t]*ar\\.i16\\(meleeApproach\\.cost\\(\\)\\);[ \t\r\n]*ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);"
+  serialized_soldier_melee_approach_key_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(meleeApproach\\.endDirection\\(\\)\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);"
+  serialized_soldier_melee_approach_direction_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);[ \t\r\n]*ar\\.i32\\(employment\\.endTime\\(\\)\\);"
+  serialized_soldier_interrupt_snapshot_order
+  "${save_load_game_contents}")
+if(soldier_melee_approach_save_alias EQUAL -1 OR
+   soldier_interrupt_snapshot_save_alias EQUAL -1 OR
+   NOT serialized_soldier_melee_approach_key_order OR
+   NOT serialized_soldier_melee_approach_direction_order OR
+   NOT serialized_soldier_interrupt_snapshot_order)
+  message(FATAL_ERROR
+    "Melee approach or interrupt snapshot moved from an established portable save position")
+endif()
+
+file(READ "${SOURCE_ROOT}/Tactical/TeamTurns.cpp"
+  soldier_interrupt_snapshot_team_turns_contents)
+foreach(melee_approach_runtime_fragment IN ITEMS
+  "pSoldier->meleeApproach().matches("
+  "pSoldier->meleeApproach().recordPath("
+  "pSoldier->meleeApproach().rememberGrid("
+  "this->meleeApproach().invalidate();")
+  string(FIND
+    "${soldier_movement_metrics_points_contents}${soldier_control_source_contents}"
+    "${melee_approach_runtime_fragment}"
+    soldier_melee_approach_runtime_site)
+  if(soldier_melee_approach_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Melee path-cost flow lost component transition '${melee_approach_runtime_fragment}'")
+  endif()
+endforeach()
+foreach(interrupt_snapshot_runtime_fragment IN ITEMS
+  "interruptSnapshot().captureMoved("
+  "interruptSnapshot().movedBeforeInterrupt()")
+  string(FIND "${soldier_interrupt_snapshot_team_turns_contents}"
+    "${interrupt_snapshot_runtime_fragment}"
+    soldier_interrupt_snapshot_runtime_site)
+  if(soldier_interrupt_snapshot_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Interrupt flow lost scheduler snapshot transition '${interrupt_snapshot_runtime_fragment}'")
+  endif()
+endforeach()
+
+foreach(transient_tactical_test_fragment IN ITEMS
+  "SoldierMeleeApproachComponent meleeApproachLifecycle;"
+  "SoldierInterruptSnapshotComponent interruptSnapshotLifecycle;"
+  "v101 soldier conversion maps the historical melee cache and clears later key fields"
+  "soldier save/load round-trips the melee-approach cache at established schema positions")
+  string(FIND "${headless_test_contents}"
+    "${transient_tactical_test_fragment}"
+    transient_tactical_test_site)
+  if(transient_tactical_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost transient tactical fixture '${transient_tactical_test_fragment}'")
+  endif()
+endforeach()
+
+string(FIND "${engine_architecture_documentation}"
+  "SoldierMeleeApproachComponent"
+  soldier_melee_approach_architecture_documented)
+string(FIND "${engine_architecture_documentation}"
+  "SoldierInterruptSnapshotComponent"
+  soldier_interrupt_snapshot_architecture_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierMeleeApproachComponent"
+  soldier_melee_approach_sdk_documented)
+string(FIND "${engine_sdk_documentation}"
+  "SoldierInterruptSnapshotComponent"
+  soldier_interrupt_snapshot_sdk_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierMeleeApproachComponent"
+  soldier_melee_approach_save_documented)
+string(FIND "${save_format_documentation}"
+  "SoldierInterruptSnapshotComponent"
+  soldier_interrupt_snapshot_save_documented)
+if(soldier_melee_approach_architecture_documented EQUAL -1 OR
+   soldier_interrupt_snapshot_architecture_documented EQUAL -1 OR
+   soldier_melee_approach_sdk_documented EQUAL -1 OR
+   soldier_interrupt_snapshot_sdk_documented EQUAL -1 OR
+   soldier_melee_approach_save_documented EQUAL -1 OR
+   soldier_interrupt_snapshot_save_documented EQUAL -1)
+  message(FATAL_ERROR
+    "Transient tactical component ownership and compatibility guarantees must remain documented")
+endif()
+
 # Firing-mode choice and mutable volley execution now have one private owner.
 # Keep the generic flags block and flat SOLDIERTYPE list from becoming parallel
 # authorities for burst, spread, recoil, or multi-barrel progression.
@@ -5819,7 +6033,9 @@ foreach(retired_fire_control_field IN ITEMS
   dPrevCounterForceY
   dInitialMuzzleOffsetX
   dInitialMuzzleOffsetY
-  usBarrelCounter)
+  usBarrelCounter
+  sStartGridNo
+  sEndGridNo)
   string(REGEX MATCH
     "(^|[\r\n])[ \t]*(INT8|UINT8|INT32|FLOAT)[ \t]+${retired_fire_control_field}([ \t]*\\[[^]]+\\])?[ \t]*;"
     retired_current_fire_control_field
@@ -5847,7 +6063,9 @@ foreach(owned_fire_control_scalar IN ITEMS
   "BOOLEAN;autofireLastStep;FALSE"
   "FLOAT;initialMuzzleOffsetX;0\\.0f"
   "FLOAT;initialMuzzleOffsetY;0\\.0f"
-  "UINT8;barrelCounter;0")
+  "UINT8;barrelCounter;0"
+  "INT32;spreadDragStartGrid;0"
+  "INT32;spreadDragEndGrid;0")
   string(REPLACE ";" ";" owned_fire_control_parts
     "${owned_fire_control_scalar}")
   list(GET owned_fire_control_parts 0 owned_fire_control_type)
@@ -5895,13 +6113,63 @@ string(FIND "${soldier_control_source_contents}"
 string(FIND "${soldier_components_header_contents}"
   "clampSpreadTargetCount(UINT16 requested)"
   soldier_fire_control_spread_clamp)
+string(FIND "${soldier_components_header_contents}"
+  "void beginSpreadDrag(INT32 grid) noexcept"
+  soldier_fire_control_spread_drag_begin)
+string(FIND "${soldier_components_header_contents}"
+  "bool spreadDragMoved() const noexcept"
+  soldier_fire_control_spread_drag_query)
 if(soldier_fire_control_spread_capacity EQUAL -1 OR
    soldier_fire_control_accessor EQUAL -1 OR
    soldier_fire_control_reset EQUAL -1 OR
-   soldier_fire_control_spread_clamp EQUAL -1)
+   soldier_fire_control_spread_clamp EQUAL -1 OR
+   soldier_fire_control_spread_drag_begin EQUAL -1 OR
+   soldier_fire_control_spread_drag_query EQUAL -1)
   message(FATAL_ERROR
-    "SoldierFireControlComponent must retain its six-target capacity, accessor, reset boundary, and defensive spread clamp")
+    "SoldierFireControlComponent must retain its six-target capacity, accessor, reset boundary, defensive spread clamp, and burst-drag transitions")
 endif()
+
+foreach(fire_control_drag_conversion IN ITEMS
+  "this->fireControl().spreadDragStartGrid() = src.sStartGridNo;"
+  "this->fireControl().spreadDragEndGrid() = src.sEndGridNo;")
+  string(FIND "${soldier_control_source_contents}"
+    "${fire_control_drag_conversion}"
+    soldier_fire_control_drag_conversion_site)
+  if(soldier_fire_control_drag_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost burst-drag mapping '${fire_control_drag_conversion}'")
+  endif()
+endforeach()
+file(READ "${SOURCE_ROOT}/Tactical/Real Time Input.cpp"
+  real_time_input_contents)
+foreach(fire_control_drag_runtime_fragment IN ITEMS
+  "pSoldier->fireControl().beginSpreadDrag(usMapPos);"
+  "pSoldier->fireControl().updateSpreadDrag(usMapPos);"
+  "pSoldier->fireControl().spreadDragMoved()")
+  string(FIND "${turn_based_input_contents}"
+    "${fire_control_drag_runtime_fragment}"
+    soldier_fire_control_turn_based_drag_site)
+  string(FIND "${real_time_input_contents}"
+    "${fire_control_drag_runtime_fragment}"
+    soldier_fire_control_realtime_drag_site)
+  if(soldier_fire_control_turn_based_drag_site EQUAL -1 OR
+     soldier_fire_control_realtime_drag_site EQUAL -1)
+    message(FATAL_ERROR
+      "Real-time and turn-based burst input must share '${fire_control_drag_runtime_fragment}'")
+  endif()
+endforeach()
+foreach(fire_control_drag_test_fragment IN ITEMS
+  "SoldierFireControlComponent spreadDragLifecycle;"
+  "v101 soldier conversion retains the complete fire-control spread array"
+  "loadedSoldier.fireControl().spreadDragStartGrid() == 1510")
+  string(FIND "${headless_test_contents}"
+    "${fire_control_drag_test_fragment}"
+    soldier_fire_control_drag_test_site)
+  if(soldier_fire_control_drag_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost burst-drag fixture '${fire_control_drag_test_fragment}'")
+  endif()
+endforeach()
 
 # The component changes in-memory ownership only. Pin every former schema site:
 # flags, recoil history, bullets in flight, burst cursor, spread targets,
@@ -5927,8 +6195,12 @@ string(REGEX MATCH
   serialized_soldier_fire_burst_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(uiPresentation\\.plannedTargetY\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < MAX_BURST_SPREAD_TARGETS; \\+\\+i\\) ar\\.i32\\(fireControl\\.spreadLocations\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.i32\\(s\\.sStartGridNo\\);"
+  "ar\\.i16\\(uiPresentation\\.plannedTargetY\\(\\)\\);[ \t\r\n]*for \\(i = 0; i < MAX_BURST_SPREAD_TARGETS; \\+\\+i\\) ar\\.i32\\(fireControl\\.spreadLocations\\(\\)\\[i\\]\\);[ \t\r\n]*ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);"
   serialized_soldier_fire_targets_order
+  "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);[ \t]*ar\\.i32\\(fireControl\\.spreadDragEndGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.animationActivity\\(\\)\\.traversalForecastGrid\\(\\)\\);"
+  serialized_soldier_fire_drag_order
   "${save_load_game_contents}")
 string(REGEX MATCH
   "ar\\.u16\\(combatResult\\.earlierAttacker\\(\\)\\.i\\);[ \t\r\n]*ar\\.u8\\(fireControl\\.autofireShots\\(\\)\\);[ \t]*ar\\.i8\\(aiPlanning\\.flankCount\\(\\)\\);"
@@ -5961,6 +6233,10 @@ endif()
 if(NOT serialized_soldier_fire_targets_order)
   message(FATAL_ERROR
     "Soldier burst spread targets moved in the portable save schema")
+endif()
+if(NOT serialized_soldier_fire_drag_order)
+  message(FATAL_ERROR
+    "Soldier burst-spread drag grids moved in the portable save schema")
 endif()
 if(NOT serialized_soldier_fire_autofire_order)
   message(FATAL_ERROR
@@ -6130,7 +6406,7 @@ string(REGEX MATCH
   serialized_soldier_attacker_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.locatorOffsetY\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(s\\.sWalkToAttackEndDirection\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
+  "ar\\.i16\\(uiPresentation\\.locatorOffsetX\\(\\)\\);[ \t]*ar\\.i16\\(uiPresentation\\.locatorOffsetY\\(\\)\\);[ \t]*ar\\.ptr\\(s\\.pForcedShade\\);[ \t\r\n]*ar\\.i8\\(damageDisplay\\.counter\\(\\)\\);[ \t]*ar\\.u8\\(meleeApproach\\.endDirection\\(\\)\\);[ \t\r\n]*ar\\.i16\\(combatResult\\.accumulatedDamage\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetX\\(\\)\\);[ \t]*ar\\.i16\\(damageDisplay\\.offsetY\\(\\)\\);[ \t]*ar\\.i8\\(damageDisplay\\.direction\\(\\)\\);"
   serialized_soldier_damage_display_payload_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -6879,9 +7155,11 @@ endforeach()
 
 foreach(retired_animation_activity_field IN ITEMS
   bStartFallDir
-  bTurningIncrement)
+  bTurningIncrement
+  sForcastGridno
+  sZLevelOverride)
   string(REGEX MATCH
-    "(^|[\r\n])[ \t]*INT8[ \t]+${retired_animation_activity_field}[ \t]*;"
+    "(^|[\r\n])[ \t]*(INT8|INT16|INT32)[ \t]+${retired_animation_activity_field}[ \t]*;"
     retired_current_animation_activity_field
     "${current_soldier_contents}")
   if(retired_current_animation_activity_field)
@@ -6917,7 +7195,9 @@ foreach(owned_animation_activity_field IN ITEMS
   "INT8;tryingToFall;FALSE"
   "BOOLEAN;fallClockwise;FALSE"
   "INT8;fallDirection;0"
-  "INT8;turningIncrement;0")
+  "INT8;turningIncrement;0"
+  "INT32;traversalForecastGrid;0"
+  "INT16;renderZOverride;0")
   string(REPLACE ";" ";" owned_animation_activity_parts
     "${owned_animation_activity_field}")
   list(GET owned_animation_activity_parts 0 owned_animation_activity_type)
@@ -6930,6 +7210,31 @@ foreach(owned_animation_activity_field IN ITEMS
   if(NOT owned_soldier_animation_activity)
     message(FATAL_ERROR
       "SoldierAnimationActivityComponent no longer owns initialized '${owned_animation_activity_name}_' storage")
+  endif()
+endforeach()
+
+foreach(traversal_activity_operation IN ITEMS
+  "bool hasRenderZOverride() const noexcept"
+  "void forecastTraversalAt(INT32 grid) noexcept"
+  "void setRenderZOverride(INT16 zLevel) noexcept"
+  "void clearRenderZOverride() noexcept")
+  string(FIND "${soldier_components_header_contents}"
+    "${traversal_activity_operation}"
+    soldier_traversal_activity_operation)
+  if(soldier_traversal_activity_operation EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierAnimationActivityComponent lost traversal operation '${traversal_activity_operation}'")
+  endif()
+endforeach()
+foreach(traversal_activity_conversion IN ITEMS
+  "this->animationActivity().traversalForecastGrid() = src.sForcastGridNo;"
+  "this->animationActivity().renderZOverride() = src.sZLevelOverride;")
+  string(FIND "${soldier_control_source_contents}"
+    "${traversal_activity_conversion}"
+    soldier_traversal_activity_conversion_site)
+  if(soldier_traversal_activity_conversion_site EQUAL -1)
+    message(FATAL_ERROR
+      "v101 conversion lost traversal activity mapping '${traversal_activity_conversion}'")
   endif()
 endforeach()
 
@@ -6964,16 +7269,59 @@ string(REGEX MATCH
   "ar\\.u8\\(deployment\\.previousSectorId\\(\\)\\);[ \t]*ar\\.u8\\(awareness\\.tilesSinceForget\\(\\)\\);[ \t]*ar\\.i8\\(s\\.animationActivity\\(\\)\\.turningIncrement\\(\\)\\);[ \t\r\n]*ar\\.u32\\(dialogue\\.activeBattleSound\\(\\)\\);"
   serialized_soldier_animation_turn_increment_order
   "${save_load_game_contents}")
+string(REGEX MATCH
+  "ar\\.i32\\(fireControl\\.spreadDragStartGrid\\(\\)\\);[ \t]*ar\\.i32\\(fireControl\\.spreadDragEndGrid\\(\\)\\);[ \t]*ar\\.i32\\(s\\.animationActivity\\(\\)\\.traversalForecastGrid\\(\\)\\);[ \t]*ar\\.i16\\(s\\.animationActivity\\(\\)\\.renderZOverride\\(\\)\\);[ \t\r\n]*ar\\.i8\\(interruptSnapshot\\.movedBeforeInterrupt\\(\\)\\);"
+  serialized_soldier_animation_traversal_order
+  "${save_load_game_contents}")
 if(NOT serialized_soldier_animation_turn_activity_order OR
    NOT serialized_soldier_animation_hit_activity_order OR
    NOT serialized_soldier_animation_cost_activity_order OR
    NOT serialized_soldier_animation_stance_cost_order OR
    NOT serialized_soldier_animation_realtime_activity_order OR
    NOT serialized_soldier_animation_fall_activity_order OR
-   NOT serialized_soldier_animation_turn_increment_order)
+   NOT serialized_soldier_animation_turn_increment_order OR
+   NOT serialized_soldier_animation_traversal_order)
   message(FATAL_ERROR
     "Soldier animation activity moved in the portable save schema; keep every lifecycle value at its established byte position")
 endif()
+
+file(READ "${SOURCE_ROOT}/TileEngine/Render Z.h"
+  soldier_animation_render_z_contents)
+foreach(traversal_activity_runtime_fragment IN ITEMS
+  "pSoldier->animationActivity().forecastTraversalAt("
+  "pSoldier->animationActivity().setRenderZOverride("
+  "pSoldier->animationActivity().clearRenderZOverride()")
+  string(FIND "${soldier_animation_source_contents}"
+    "${traversal_activity_runtime_fragment}"
+    soldier_traversal_activity_runtime_site)
+  if(soldier_traversal_activity_runtime_site EQUAL -1)
+    message(FATAL_ERROR
+      "Traversal animation lost component transition '${traversal_activity_runtime_fragment}'")
+  endif()
+endforeach()
+string(FIND "${soldier_animation_render_z_contents}"
+  "pSoldier->animationActivity().hasRenderZOverride()"
+  soldier_traversal_render_query)
+string(FIND "${soldier_animation_render_z_contents}"
+  "pSoldier->animationActivity().renderZOverride()"
+  soldier_traversal_render_value)
+if(soldier_traversal_render_query EQUAL -1 OR
+   soldier_traversal_render_value EQUAL -1)
+  message(FATAL_ERROR
+    "Render-depth selection must consume SoldierAnimationActivityComponent traversal state")
+endif()
+foreach(traversal_activity_test_fragment IN ITEMS
+  "SoldierAnimationActivityComponent traversalLifecycle;"
+  "v101 soldier conversion retains traversal forecast and render-depth state"
+  "loadedSoldier.animationActivity().traversalForecastGrid() == 1520")
+  string(FIND "${headless_test_contents}"
+    "${traversal_activity_test_fragment}"
+    soldier_traversal_activity_test_site)
+  if(soldier_traversal_activity_test_site EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost traversal activity fixture '${traversal_activity_test_fragment}'")
+  endif()
+endforeach()
 
 # Animation surfaces are runtime resources, not serialized soldier state. The
 # former public AnimCache contained two raw owning pointers inside the memcpy

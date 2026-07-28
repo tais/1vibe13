@@ -1040,10 +1040,14 @@ public:
 	const SoldierPathingComponent& pathing() const noexcept { return pathing_; }
 	SoldierMovementComponent& movement() noexcept { return movement_; }
 	const SoldierMovementComponent& movement() const noexcept { return movement_; }
+	SoldierInterruptSnapshotComponent& interruptSnapshot() noexcept { return interruptSnapshot_; }
+	const SoldierInterruptSnapshotComponent& interruptSnapshot() const noexcept { return interruptSnapshot_; }
 	SoldierTargetingComponent& targeting() noexcept { return targeting_; }
 	const SoldierTargetingComponent& targeting() const noexcept { return targeting_; }
 	SoldierAttackSelectionComponent& attackSelection() noexcept { return attackSelection_; }
 	const SoldierAttackSelectionComponent& attackSelection() const noexcept { return attackSelection_; }
+	SoldierMeleeApproachComponent& meleeApproach() noexcept { return meleeApproach_; }
+	const SoldierMeleeApproachComponent& meleeApproach() const noexcept { return meleeApproach_; }
 	SoldierFireControlComponent& fireControl() noexcept { return fireControl_; }
 	const SoldierFireControlComponent& fireControl() const noexcept { return fireControl_; }
 	SoldierCombatResultComponent& combatResult() noexcept { return combatResult_; }
@@ -1146,24 +1150,12 @@ public:
 	INT16			usLastRandomAnim;
 
 
-	INT16			sWalkToAttackMovementMode;//shadooow: stores movement mode used in last pathing
-	INT32			sWalkToAttackGridNo;
-	INT16			sWalkToAttackWalkToCost;
-
-
 	PIXEL			*pForcedShade;
-
-	UINT8			sWalkToAttackEndDirection;//shadooow: stores direction of merc at the destination grid
 
 	UINT8			ubProfile;
 
 	PIXEL			*pEffectShades[ NUM_SOLDIER_EFFECTSHADES ]; // Shading tables for effects
 
-	INT32			sStartGridNo;	
-	INT32			sEndGridNo;	
-	INT32			sForcastGridno;
-	INT16			sZLevelOverride;
-	INT8				bMovedPriorToInterrupt;
 	PathStPtr		pMercPath;								//Path Structure
 	//DEF:	Used for the communications
 	//END
@@ -1267,8 +1259,10 @@ private:
 	SoldierMovementHistoryComponent	movementHistory_;
 	SoldierPathingComponent	pathing_;
 	SoldierMovementComponent	movement_;
+	SoldierInterruptSnapshotComponent	interruptSnapshot_;
 	SoldierTargetingComponent	targeting_;
 	SoldierAttackSelectionComponent	attackSelection_;
+	SoldierMeleeApproachComponent	meleeApproach_;
 	SoldierFireControlComponent	fireControl_;
 	SoldierCombatResultComponent	combatResult_;
 	SoldierCombatContributionComponent	combatContribution_;

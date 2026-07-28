@@ -1355,6 +1355,22 @@ private:
 	BOOLEAN usesMoveSpeedOverride_ = FALSE;
 };
 
+// Canonical snapshot used while an interrupt temporarily rewrites the AI turn
+// scheduler's moved flag. Interrupt begin captures the established value and
+// interrupt end restores it through this component.
+class SoldierInterruptSnapshotComponent
+{
+public:
+	INT8& movedBeforeInterrupt() noexcept { return movedBeforeInterrupt_; }
+	const INT8& movedBeforeInterrupt() const noexcept { return movedBeforeInterrupt_; }
+
+	void captureMoved(INT8 moved) noexcept { movedBeforeInterrupt_ = moved; }
+	void reset() noexcept;
+
+private:
+	INT8 movedBeforeInterrupt_ = 0;
+};
+
 // Canonical tactical target selection. Attack execution, UI, AI, and network
 // adapters all observe this same target geometry and identity; keeping it
 // private prevents the legacy SOLDIERTYPE field list from becoming a second
@@ -1419,6 +1435,46 @@ private:
 	UINT8 meleeLocation_ = 0;
 };
 
+// Canonical cache for the path portion of a melee attack. The target grid and
+// movement mode identify a reusable calculation; cost and terminal direction
+// are the corresponding result. Movement invalidates the target without
+// changing the established serialized defaults.
+class SoldierMeleeApproachComponent
+{
+public:
+	INT16& movementMode() noexcept { return movementMode_; }
+	const INT16& movementMode() const noexcept { return movementMode_; }
+	INT32& grid() noexcept { return grid_; }
+	const INT32& grid() const noexcept { return grid_; }
+	INT16& cost() noexcept { return cost_; }
+	const INT16& cost() const noexcept { return cost_; }
+	UINT8& endDirection() noexcept { return endDirection_; }
+	const UINT8& endDirection() const noexcept { return endDirection_; }
+
+	bool matches(INT32 grid, INT16 movementMode) const noexcept
+	{
+		return grid_ == grid && movementMode_ == movementMode;
+	}
+	void recordPath(INT16 movementMode, INT16 cost, UINT8 endDirection) noexcept
+	{
+		movementMode_ = movementMode;
+		cost_ = cost;
+		endDirection_ = endDirection;
+	}
+	void rememberGrid(INT32 grid) noexcept { grid_ = grid; }
+	void clearCost() noexcept { cost_ = 0; }
+	void invalidate() noexcept { grid_ = NoGrid; }
+	void reset() noexcept;
+
+private:
+	static constexpr INT32 NoGrid = -1;
+
+	INT16 movementMode_ = 0;
+	INT32 grid_ = 0;
+	INT16 cost_ = 0;
+	UINT8 endDirection_ = 0;
+};
+
 // Canonical state for selecting and executing one firing volley. Weapon and
 // aim choice belong to SoldierAttackSelectionComponent; this component owns
 // burst/autofire progress, spread targets, recoil history, and multi-barrel
@@ -1456,9 +1512,17 @@ public:
 	const FLOAT& initialMuzzleOffsetY() const noexcept { return initialMuzzleOffsetY_; }
 	UINT8& barrelCounter() noexcept { return barrelCounter_; }
 	const UINT8& barrelCounter() const noexcept { return barrelCounter_; }
+	INT32& spreadDragStartGrid() noexcept { return spreadDragStartGrid_; }
+	const INT32& spreadDragStartGrid() const noexcept { return spreadDragStartGrid_; }
+	INT32& spreadDragEndGrid() noexcept { return spreadDragEndGrid_; }
+	const INT32& spreadDragEndGrid() const noexcept { return spreadDragEndGrid_; }
 
 	bool bursting() const noexcept { return burstCounter_ != 0; }
 	bool autofiring() const noexcept { return autofireShots_ != 0; }
+	bool spreadDragMoved() const noexcept
+	{
+		return spreadDragEndGrid_ != spreadDragStartGrid_;
+	}
 	static constexpr UINT8 clampSpreadTargetCount(UINT16 requested) noexcept
 	{
 		return requested > SpreadTargetCapacity
@@ -1469,6 +1533,8 @@ public:
 	void selectBurst() noexcept;
 	void selectAutofire(UINT8 shots = 1) noexcept;
 	void clearSpreadTargets() noexcept;
+	void beginSpreadDrag(INT32 grid) noexcept { spreadDragStartGrid_ = grid; }
+	void updateSpreadDrag(INT32 grid) noexcept { spreadDragEndGrid_ = grid; }
 	void reset() noexcept;
 
 private:
@@ -1485,6 +1551,8 @@ private:
 	FLOAT initialMuzzleOffsetX_ = 0.0f;
 	FLOAT initialMuzzleOffsetY_ = 0.0f;
 	UINT8 barrelCounter_ = 0;
+	INT32 spreadDragStartGrid_ = 0;
+	INT32 spreadDragEndGrid_ = 0;
 };
 
 // Canonical result of incoming combat. This keeps the current/previous
@@ -1876,8 +1944,13 @@ public:
 	const INT8& fallDirection() const noexcept { return fallDirection_; }
 	INT8& turningIncrement() noexcept { return turningIncrement_; }
 	const INT8& turningIncrement() const noexcept { return turningIncrement_; }
+	INT32& traversalForecastGrid() noexcept { return traversalForecastGrid_; }
+	const INT32& traversalForecastGrid() const noexcept { return traversalForecastGrid_; }
+	INT16& renderZOverride() noexcept { return renderZOverride_; }
+	const INT16& renderZOverride() const noexcept { return renderZOverride_; }
 
 	bool gettingHit() const noexcept { return hitPhase_ != 0; }
+	bool hasRenderZOverride() const noexcept { return renderZOverride_ != -1; }
 	void beginHit() noexcept { hitPhase_ = 1; }
 	void advanceHit() noexcept { hitPhase_ = 2; }
 	void clearHit() noexcept { hitPhase_ = 0; }
@@ -1887,6 +1960,9 @@ public:
 	void clearInterruptibility() noexcept;
 	void beginFall(INT8 direction) noexcept;
 	void clearFall() noexcept { tryingToFall_ = FALSE; }
+	void forecastTraversalAt(INT32 grid) noexcept { traversalForecastGrid_ = grid; }
+	void setRenderZOverride(INT16 zLevel) noexcept { renderZOverride_ = zLevel; }
+	void clearRenderZOverride() noexcept { renderZOverride_ = -1; }
 	void reset() noexcept;
 
 private:
@@ -1908,6 +1984,8 @@ private:
 	BOOLEAN fallClockwise_ = FALSE;
 	INT8 fallDirection_ = 0;
 	INT8 turningIncrement_ = 0;
+	INT32 traversalForecastGrid_ = 0;
+	INT16 renderZOverride_ = 0;
 };
 
 struct SoldierPendingActionRuntimeState

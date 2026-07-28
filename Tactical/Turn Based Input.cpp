@@ -397,7 +397,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 
 						if(	GetSoldier( &pSoldier, gusSelectedSoldier ) )
 						{
-							pSoldier->sStartGridNo = usMapPos;
+							pSoldier->fireControl().beginSpreadDrag(usMapPos);
 						}
 						break;
 
@@ -617,11 +617,11 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 							{
 								if ( pSoldier->fireControl().burstCounter() )
 								{
-									pSoldier->sEndGridNo = usMapPos;
+									pSoldier->fireControl().updateSpreadDrag(usMapPos);
 
 									gfBeginBurstSpreadTracking = FALSE;
 
-									if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo )
+									if ( pSoldier->fireControl().spreadDragMoved() )
 									{
 										pSoldier->fireControl().spreadIndex() = TRUE;
 
@@ -765,7 +765,7 @@ void	QueryTBLeftButton( UINT32 *puiNewEvent )
 															else if ( UIMouseOnValidAttackLocation( pSoldier ) && SelectedMercCanAffordAttack( ) )
 															{
 																*puiNewEvent = A_CHANGE_TO_CONFIM_ACTION;
-																pSoldier->sStartGridNo = usMapPos;
+																pSoldier->fireControl().beginSpreadDrag(usMapPos);
 															}
 														}
 
@@ -1378,9 +1378,9 @@ void GetTBMousePositionInput( UINT32 *puiNewEvent )
 			{
 				if ( pSoldier->fireControl().burstCounter() )
 				{
-					pSoldier->sEndGridNo = usMapPos;
+					pSoldier->fireControl().updateSpreadDrag(usMapPos);
 
-					if ( pSoldier->sEndGridNo != pSoldier->sStartGridNo && fLeftButtonDown )
+					if ( pSoldier->fireControl().spreadDragMoved() && fLeftButtonDown )
 					{
 						pSoldier->fireControl().spreadIndex() = TRUE;
 						gfBeginBurstSpreadTracking = TRUE;
