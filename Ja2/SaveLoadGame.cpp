@@ -516,9 +516,6 @@ BOOLEAN		SetMercsInsertionGridNo( );
 BOOLEAN		LoadOppListInfoFromSavedGame( HWFILE hFile );
 BOOLEAN		SaveOppListInfoToSavedGame( HWFILE hFile );
 
-BOOLEAN		LoadMercPathToSoldierStruct( HWFILE hFilem, UINT16 ubID );
-BOOLEAN		SaveMercPathFromSoldierStruct( HWFILE hFilem, UINT16 ubID );
-
 BOOLEAN		LoadGeneralInfo( HWFILE hFile );
 BOOLEAN		SaveGeneralInfo( HWFILE hFile );
 BOOLEAN		SavePreRandomNumbersToSaveGameFile( HWFILE hFile );
@@ -1835,7 +1832,7 @@ template<class Ar> static void XferSoldierTypePOD( Ar& ar, SOLDIERTYPE& s )
 	ar.i32(pendingAction.nextSpecialData()); ar.u8(employment.mercenaryType());
 	ar.i8(assignment.current()); ar.i8(assignment.previous()); ar.i8(assignment.trainingStat());
 	ar.i16(deployment.sectorX()); ar.i16(deployment.sectorY()); ar.i8(deployment.sectorZ()); ar.i32(deployment.vehicleId());
-	ar.ptr(s.pMercPath);
+	ar.retiredPtr();
 	ar.u16(employment.medicalDeposit()); ar.u16(employment.lifeInsurance());
 	ar.u32(replication.movementStartedAt()); ar.u32(replication.optimumMovementTime()); ar.u32(replication.lastUpdateAt());
 	ar.u32(replication.updateSequence()); ar.u8(replication.updateType()); ar.i32(replication.scheduledStopGrid());
@@ -1964,6 +1961,9 @@ BOOLEAN SOLDIERTYPE::Load(HWFILE hFile)
 	// Modular AI plans are process-local and retain a back-reference to this
 	// record. Never carry one across an in-place load.
 	this->aiPlan().reset();
+	// Route nodes are restored from the separate path payload after this
+	// record. Loading into a reused temporary must release its previous route.
+	this->strategicPath().reset();
 
 	//if we are at the most current version, then fine
 	if ( guiCurrentSaveGameVersion >= NIV_SAVEGAME_DATATYPE_CHANGE )
@@ -6360,7 +6360,7 @@ BOOLEAN LoadSoldierStructure( HWFILE hFile )
 			SavedSoldierInfo.pBackGround	= NULL;
 			SavedSoldierInfo.pZBackground	= NULL;
 			SavedSoldierInfo.pForcedShade	= NULL;
-			SavedSoldierInfo.pMercPath	= NULL;
+			SavedSoldierInfo.strategicPath().reset();
 			memset( SavedSoldierInfo.pEffectShades, 0, sizeof( UINT16* ) * NUM_SOLDIER_EFFECTSHADES );
 			
 			//Create the new merc
@@ -7620,7 +7620,7 @@ BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 {
 	UINT32	uiNumOfNodes=0;
 	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
-	PathStPtr	pTempPath = soldier.pMercPath;
+	PathStPtr	pTempPath = soldier.strategicPath().head();
 	UINT32	uiNumBytesWritten=0;
 
 	//loop through to get all the nodes
@@ -7638,7 +7638,7 @@ BOOLEAN SaveMercPathFromSoldierStruct( HWFILE hFile, UINT16 ubID )
 	}
 
 	//loop through all the nodes and add them
-	pTempPath = soldier.pMercPath;
+	pTempPath = soldier.strategicPath().head();
 
 		//loop through nodes and save all the nodes
 	while( pTempPath )
@@ -7665,29 +7665,18 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 	UINT32	uiNumBytesRead=0;
 	UINT32	cnt;
 	SOLDIERTYPE& soldier = GetJa2SoldierRepository().record(ubID);
-
-	//The list SHOULD be empty at this point
-/*
-	//if there is nodes, loop through and delete them
-	if( soldier.pMercPath )
-	{
-		pTempPath = soldier.pMercPath;
-		while( pTempPath )
-		{
-			pTemp = pTempPath;
-			pTempPath = pTempPath->pNext;
-
-			MemFree( pTemp );
-			pTemp=NULL;
-		}
-
-		soldier.pMercPath = NULL;
-	}
-*/
+	SoldierStrategicPathComponent loadedPath;
 
 	//Load the number of the nodes
 	FileRead( hFile, &uiNumOfNodes, sizeof( UINT32 ), &uiNumBytesRead );
 	if( uiNumBytesRead != sizeof( UINT32 ) )
+	{
+		return(FALSE);
+	}
+	// A strategic route cannot legitimately approach this size. Bound corrupt
+	// input before it can drive an effectively unbounded allocation loop.
+	constexpr UINT32 MaximumSavedStrategicPathNodes = 65536;
+	if( uiNumOfNodes > MaximumSavedStrategicPathNodes )
 	{
 		return(FALSE);
 	}
@@ -7699,9 +7688,7 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 		pTemp = (PathStPtr) MemAlloc( sizeof( PathSt ) );
 		if( pTemp == NULL )
 		{
-			pTempPath = MoveToBeginningOfPathList( pTempPath );
-			ClearStrategicPathList( pTempPath, -1 );
- 			return( FALSE );
+			return( FALSE );
 		}
 
 		memset( pTemp, 0 , sizeof( PathSt ) );
@@ -7710,8 +7697,6 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 		if( !LoadPathNodeFromFile( hFile, pTemp ) )
 		{
 			MemFree( pTemp);
-			pTempPath = MoveToBeginningOfPathList( pTempPath );
-			ClearStrategicPathList( pTempPath, -1 );
 			return(FALSE);
 		}
 
@@ -7720,6 +7705,7 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 		{
 			pTempPath = pTemp;
 			pTemp->pPrev = NULL;
+			loadedPath.adopt(pTemp);
 		}
 		else
 		{
@@ -7732,12 +7718,9 @@ BOOLEAN LoadMercPathToSoldierStruct( HWFILE hFile, UINT16 ubID )
 		pTemp->pNext = NULL;
 	}
 
-	//move to beginning of list
-	pTempPath = MoveToBeginningOfPathList( pTempPath );
-
-	soldier.pMercPath = pTempPath;
-	if( soldier.pMercPath )
-		soldier.pMercPath->pPrev = NULL;
+	// Commit only after the complete payload is valid. Swapping also lets the
+	// temporary owner release any previous route held by a reused soldier.
+	soldier.strategicPath().swapStorage(loadedPath);
 
 	return( TRUE );
 }

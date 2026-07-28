@@ -2051,14 +2051,21 @@ void PlotPathForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, INT16 sY, BOOLEAN 
 	}
 
 	// make sure we are at the beginning
-	pCharacter->pMercPath = MoveToBeginningOfPathList( pCharacter->pMercPath );
+	pCharacter->strategicPath().rebind(
+		MoveToBeginningOfPathList(pCharacter->strategicPath().head()));
 
 	// will plot a path from current position to sX, sY
 	// get last sector in characters list, build new path, remove tail section, move to beginning of list, and append onto old list
-	pCharacter->pMercPath = AppendStrategicPath( MoveToBeginningOfPathList ( BuildAStrategicPath( NULL, GetLastSectorIdInCharactersPath( pCharacter ), ( INT16 )( sX + sY*( MAP_WORLD_X ) ), GetSoldierGroupId( pCharacter ), fTacticalTraversal /*, FALSE */ ) ), pCharacter->pMercPath );
+	pCharacter->strategicPath().rebind(AppendStrategicPath(
+		MoveToBeginningOfPathList(BuildAStrategicPath(
+			NULL, GetLastSectorIdInCharactersPath(pCharacter),
+			(INT16)(sX + sY * MAP_WORLD_X),
+			GetSoldierGroupId(pCharacter), fTacticalTraversal)),
+		pCharacter->strategicPath().head()));
 
 	// move to beginning of list
-	pCharacter->pMercPath = MoveToBeginningOfPathList( pCharacter->pMercPath );
+	pCharacter->strategicPath().rebind(
+		MoveToBeginningOfPathList(pCharacter->strategicPath().head()));
 
 	// check if in vehicle, if so, copy path to vehicle
 	if( ( pCharacter->assignment().current() == VEHICLE ) || ( pCharacter->status().flags() & SOLDIER_VEHICLE ) )
@@ -2143,7 +2150,10 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 		else
 		{
 			// foot soldier
-			pCharacter->pMercPath = ClearStrategicPathListAfterThisSector( pCharacter->pMercPath, sX, sY, pCharacter->deployment().groupId() );
+			pCharacter->strategicPath().rebind(
+				ClearStrategicPathListAfterThisSector(
+					pCharacter->strategicPath().head(), sX, sY,
+					pCharacter->deployment().groupId()));
 		}
 
 		// if there's an associated vehicle structure
@@ -2155,7 +2165,8 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 
 		if( GetLengthOfMercPath( pCharacter ) < iOrigLength )
 		{
-			CopyPathToAllSelectedCharacters( pCharacter->pMercPath );
+			CopyPathToAllSelectedCharacters(
+				pCharacter->strategicPath().head());
 			// path WAS actually shortened
 			return( PATH_SHORTENED );
 		}
@@ -2171,12 +2182,16 @@ UINT32 ClearPathAfterThisSectorForCharacter( SOLDIERTYPE *pCharacter, INT16 sX, 
 void CancelPathForCharacter( SOLDIERTYPE *pCharacter )
 {
 	// clear out character's entire path list, he and his squad will stay/return to his current sector.
-	pCharacter->pMercPath = ClearStrategicPathList( pCharacter->pMercPath, pCharacter->deployment().groupId() );
+	pCharacter->strategicPath().rebind(ClearStrategicPathList(
+		pCharacter->strategicPath().head(),
+		pCharacter->deployment().groupId()));
 	// NOTE: This automatically calls RemoveGroupWaypoints() internally for valid movement groups
 
 	// This causes the group to effectively reverse directions (even if they've never actually left), so handle that.
 	// They are going to return to their current X,Y sector.
-	RebuildWayPointsForGroupPath( pCharacter->pMercPath, pCharacter->deployment().groupId() );
+	RebuildWayPointsForGroupPath(
+		pCharacter->strategicPath().head(),
+		pCharacter->deployment().groupId());
 //	GroupReversingDirectionsBetweenSectors( GetGroup( pCharacter->deployment().groupId() ), ( UINT8 )( pCharacter->deployment().sectorX() ), ( UINT8 )( pCharacter->deployment().sectorY() ), FALSE );
 
 

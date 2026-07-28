@@ -1,10 +1,13 @@
 #include "Soldier Components.h"
 
 #include "Item Types.h"
+#include "MemMan.h"
+#include "Soldier Control.h"
 #include "../ModularizedTacticalAI/include/Plan.h"
 
 #include <algorithm>
 #include <limits>
+#include <new>
 #include <utility>
 
 void SoldierIdentityComponent::reset() noexcept
@@ -803,6 +806,146 @@ void SoldierAssignmentComponent::reset() noexcept
 void SoldierDeploymentComponent::reset() noexcept
 {
 	*this = SoldierDeploymentComponent{};
+}
+
+namespace
+{
+path* NormalizeStrategicPathHead(path* node) noexcept
+{
+	while (node != nullptr && node->pPrev != nullptr)
+	{
+		node = node->pPrev;
+	}
+	return node;
+}
+
+void DestroyStrategicPath(path* head) noexcept
+{
+	head = NormalizeStrategicPathHead(head);
+	while (head != nullptr)
+	{
+		path* next = head->pNext;
+		MemFree(head);
+		head = next;
+	}
+}
+
+path* CloneStrategicPath(const path* source)
+{
+	path* cloneHead = nullptr;
+	path* cloneTail = nullptr;
+
+	while (source != nullptr)
+	{
+		path* node = static_cast<path*>(MemAlloc(sizeof(path)));
+		if (node == nullptr)
+		{
+			DestroyStrategicPath(cloneHead);
+			throw std::bad_alloc();
+		}
+
+		node->uiSectorId = source->uiSectorId;
+		node->uiEta = source->uiEta;
+		node->fSpeed = source->fSpeed;
+		node->pNext = nullptr;
+		node->pPrev = cloneTail;
+
+		if (cloneTail != nullptr)
+		{
+			cloneTail->pNext = node;
+		}
+		else
+		{
+			cloneHead = node;
+		}
+
+		cloneTail = node;
+		source = source->pNext;
+	}
+
+	return cloneHead;
+}
+}
+
+SoldierStrategicPathComponent::~SoldierStrategicPathComponent()
+{
+	reset();
+}
+
+SoldierStrategicPathComponent::SoldierStrategicPathComponent(
+	const SoldierStrategicPathComponent& source)
+	: head_(CloneStrategicPath(source.head_))
+{
+}
+
+SoldierStrategicPathComponent& SoldierStrategicPathComponent::operator=(
+	const SoldierStrategicPathComponent& source)
+{
+	if (this != &source)
+	{
+		SoldierStrategicPathComponent copy(source);
+		swapStorage(copy);
+	}
+	return *this;
+}
+
+SoldierStrategicPathComponent::SoldierStrategicPathComponent(
+	SoldierStrategicPathComponent&& source) noexcept
+	: head_(source.release())
+{
+}
+
+SoldierStrategicPathComponent& SoldierStrategicPathComponent::operator=(
+	SoldierStrategicPathComponent&& source) noexcept
+{
+	if (this != &source)
+	{
+		reset();
+		head_ = source.release();
+	}
+	return *this;
+}
+
+void SoldierStrategicPathComponent::adopt(path* head) noexcept
+{
+	head = NormalizeStrategicPathHead(head);
+	if (head_ == head)
+	{
+		return;
+	}
+
+	reset();
+	head_ = head;
+}
+
+void SoldierStrategicPathComponent::rebind(path* head) noexcept
+{
+	head_ = NormalizeStrategicPathHead(head);
+}
+
+path* SoldierStrategicPathComponent::release() noexcept
+{
+	path* released = head_;
+	head_ = nullptr;
+	return released;
+}
+
+void SoldierStrategicPathComponent::copyFrom(const path* source)
+{
+	SoldierStrategicPathComponent copy;
+	copy.head_ = CloneStrategicPath(source);
+	swapStorage(copy);
+}
+
+void SoldierStrategicPathComponent::swapStorage(
+	SoldierStrategicPathComponent& other) noexcept
+{
+	std::swap(head_, other.head_);
+}
+
+void SoldierStrategicPathComponent::reset() noexcept
+{
+	DestroyStrategicPath(release());
 }
 
 void SoldierVehicleStateComponent::reset() noexcept

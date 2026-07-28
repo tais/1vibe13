@@ -538,7 +538,7 @@ BOOLEAN RemoveCharacterFromSquads( SOLDIERTYPE *pCharacter )
 
 				// Release memory for his personal path, BUT DON'T CLEAR HIS GROUP'S PATH/WAYPOINTS (pass in groupID -1).
 				// Just because one guy leaves a group is no reason to cancel movement for the rest of the group.
-				pCharacter->pMercPath = ClearStrategicPathList( pCharacter->pMercPath, -1 );
+				pCharacter->strategicPath().reset();
 
 				// remove character from mvt group
 				RemovePlayerFromGroup( SquadMovementGroups[ iCounterA ], pCharacter	);
@@ -788,7 +788,8 @@ BOOLEAN CopyPathOfSquadToCharacter(	SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 		if( ( Squad[ bSquadValue ][ bCounter ] != pCharacter ) &&( Squad[ bSquadValue ][ bCounter ] != NULL ) )
 		{
 			// valid character, copy paths
-			pCharacter->pMercPath = CopyPaths(	Squad[ bSquadValue ][ bCounter ]->pMercPath, pCharacter->pMercPath);
+			pCharacter->strategicPath().copyFrom(
+				Squad[ bSquadValue ][ bCounter ]->strategicPath().head());
 
 			// return success
 			return ( TRUE );
@@ -822,11 +823,8 @@ BOOLEAN CopyPathOfCharacterToSquad( SOLDIERTYPE *pCharacter, INT8 bSquadValue )
 		{
 			// valid character, copy paths
 
-			// first empty path
-			Squad[ bSquadValue ][ bCounter ]->pMercPath = ClearStrategicPathList( Squad[ bSquadValue ][ bCounter ]->pMercPath, -1 );
-
-			// then copy
-			Squad[ bSquadValue ][ bCounter ]->pMercPath = CopyPaths( pCharacter->pMercPath, Squad[ bSquadValue ][ bCounter ]->pMercPath );
+			Squad[ bSquadValue ][ bCounter ]->strategicPath().copyFrom(
+				pCharacter->strategicPath().head());
 
 			// successful at least once
 			fSuccess = TRUE;

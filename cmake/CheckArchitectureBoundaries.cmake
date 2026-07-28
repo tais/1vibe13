@@ -7217,7 +7217,7 @@ string(REGEX MATCH
   serialized_soldier_employment_contract_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.ptr\\(s\\.pMercPath\\);[ \t\r\n]*ar\\.u16\\(employment\\.medicalDeposit\\(\\)\\);[ \t]*ar\\.u16\\(employment\\.lifeInsurance\\(\\)\\);[ \t\r\n]*ar\\.u32\\(replication\\.movementStartedAt\\(\\)\\);"
+  "ar\\.retiredPtr\\(\\);[ \t\r\n]*ar\\.u16\\(employment\\.medicalDeposit\\(\\)\\);[ \t]*ar\\.u16\\(employment\\.lifeInsurance\\(\\)\\);[ \t\r\n]*ar\\.u32\\(replication\\.movementStartedAt\\(\\)\\);"
   serialized_soldier_employment_deposit_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -7872,7 +7872,7 @@ string(REGEX MATCH
   serialized_soldier_deployment_insertion_order
   "${save_load_game_contents}")
 string(REGEX MATCH
-  "ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);[ \t]*ar\\.i16\\(deployment\\.sectorY\\(\\)\\);[ \t]*ar\\.i8\\(deployment\\.sectorZ\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.vehicleId\\(\\)\\);[ \t\r\n]*ar\\.ptr\\(s\\.pMercPath\\);"
+  "ar\\.i8\\(assignment\\.current\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.previous\\(\\)\\);[ \t]*ar\\.i8\\(assignment\\.trainingStat\\(\\)\\);[ \t\r\n]*ar\\.i16\\(deployment\\.sectorX\\(\\)\\);[ \t]*ar\\.i16\\(deployment\\.sectorY\\(\\)\\);[ \t]*ar\\.i8\\(deployment\\.sectorZ\\(\\)\\);[ \t]*ar\\.i32\\(deployment\\.vehicleId\\(\\)\\);[ \t\r\n]*ar\\.retiredPtr\\(\\);"
   serialized_soldier_deployment_sector_order
   "${save_load_game_contents}")
 string(REGEX MATCH
@@ -11943,6 +11943,157 @@ if(repository_animation_cache_swap_count LESS 6)
   message(FATAL_ERROR
     "Whole-record replacement/swap must retain the animation cache with its canonical slot and global usage-history identity")
 endif()
+
+# A soldier's strategic route is owned state, not a process pointer embedded in
+# the live POD prefix. Keep vehicle routes on their established adapter for now,
+# while current SOLDIERTYPE copies, swaps, reset, and save restoration all pass
+# through SoldierStrategicPathComponent.
+string(REGEX MATCH
+  "(^|[\r\n])[ \t]*PathStPtr[ \t]+pMercPath[ \t]*;"
+  retired_current_soldier_path_pointer
+  "${current_soldier_contents}")
+if(retired_current_soldier_path_pointer)
+  message(FATAL_ERROR
+    "Retired SOLDIERTYPE pMercPath returned; strategic route lifetime belongs to SoldierStrategicPathComponent")
+endif()
+
+string(REGEX MATCH
+  "SoldierStrategicPathComponent[ \t\r\n]+strategicPath_[ \t]*;"
+  soldier_strategic_path_owner
+  "${current_soldier_contents}")
+if(NOT soldier_strategic_path_owner)
+  message(FATAL_ERROR
+    "SOLDIERTYPE must privately own one SoldierStrategicPathComponent")
+endif()
+
+foreach(required_strategic_path_accessor IN ITEMS
+  "SoldierStrategicPathComponent& strategicPath() noexcept"
+  "const SoldierStrategicPathComponent& strategicPath() const noexcept")
+  string(FIND "${current_soldier_contents}"
+    "${required_strategic_path_accessor}"
+    strategic_path_accessor)
+  if(strategic_path_accessor EQUAL -1)
+    message(FATAL_ERROR
+      "SOLDIERTYPE lost strategic-route accessor '${required_strategic_path_accessor}'")
+  endif()
+endforeach()
+
+foreach(required_strategic_path_contract IN ITEMS
+  "class SoldierStrategicPathComponent"
+  "~SoldierStrategicPathComponent();"
+  "path* head() noexcept"
+  "const path* head() const noexcept"
+  "path** legacyHeadAddress() noexcept"
+  "void adopt(path* head) noexcept;"
+  "void rebind(path* head) noexcept;"
+  "path* release() noexcept;"
+  "void copyFrom(const path* source);"
+  "void swapStorage(SoldierStrategicPathComponent& other) noexcept;"
+  "void reset() noexcept;"
+  "path* head_ = nullptr;")
+  string(FIND "${soldier_components_header_contents}"
+    "${required_strategic_path_contract}"
+    strategic_path_contract)
+  if(strategic_path_contract EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierStrategicPathComponent lost ownership contract '${required_strategic_path_contract}'")
+  endif()
+endforeach()
+
+foreach(required_strategic_path_transition IN ITEMS
+  "DestroyStrategicPath(cloneHead);"
+  "SoldierStrategicPathComponent::~SoldierStrategicPathComponent()"
+  "SoldierStrategicPathComponent::SoldierStrategicPathComponent("
+  "SoldierStrategicPathComponent& SoldierStrategicPathComponent::operator=("
+  "void SoldierStrategicPathComponent::adopt(path* head) noexcept"
+  "void SoldierStrategicPathComponent::rebind(path* head) noexcept"
+  "path* SoldierStrategicPathComponent::release() noexcept"
+  "void SoldierStrategicPathComponent::copyFrom(const path* source)"
+  "void SoldierStrategicPathComponent::swapStorage("
+  "void SoldierStrategicPathComponent::reset() noexcept")
+  string(FIND "${soldier_components_source_contents}"
+    "${required_strategic_path_transition}"
+    strategic_path_transition)
+  if(strategic_path_transition EQUAL -1)
+    message(FATAL_ERROR
+      "SoldierStrategicPathComponent lost lifecycle transition '${required_strategic_path_transition}'")
+  endif()
+endforeach()
+
+string(REGEX MATCHALL
+  "strategicPath\\(\\)\\.reset\\(\\)"
+  soldier_strategic_path_control_resets
+  "${soldier_control_source_contents}")
+list(LENGTH soldier_strategic_path_control_resets
+  soldier_strategic_path_control_reset_count)
+string(REGEX MATCHALL
+  "strategicPath\\(\\)\\.reset\\(\\)"
+  soldier_strategic_path_load_resets
+  "${save_load_game_contents}")
+list(LENGTH soldier_strategic_path_load_resets
+  soldier_strategic_path_load_reset_count)
+if(NOT soldier_strategic_path_control_reset_count EQUAL 3 OR
+   soldier_strategic_path_load_reset_count LESS 2)
+  message(FATAL_ERROR
+    "Strategic routes must reset during v101 conversion, initialization, deletion, current load, and reused save-record staging")
+endif()
+
+foreach(required_strategic_path_persistence IN ITEMS
+  "ar.retiredPtr();"
+  "soldier.strategicPath().head()"
+  "SoldierStrategicPathComponent loadedPath;"
+  "soldier.strategicPath().swapStorage(loadedPath);"
+  "MaximumSavedStrategicPathNodes = 65536")
+  string(FIND "${save_load_game_contents}"
+    "${required_strategic_path_persistence}"
+    strategic_path_persistence)
+  if(strategic_path_persistence EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier strategic-route persistence lost '${required_strategic_path_persistence}'")
+  endif()
+endforeach()
+
+foreach(required_strategic_path_repository IN ITEMS
+  "SoldierStrategicPathComponent firstStrategicPath;"
+  "SoldierStrategicPathComponent secondStrategicPath;"
+  "firstStrategicPath.swapStorage("
+  "secondStrategicPath.swapStorage(")
+  string(FIND "${soldier_repository_cache_contents}"
+    "${required_strategic_path_repository}"
+    strategic_path_repository)
+  if(strategic_path_repository EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier repository swap lost strategic-route storage transition '${required_strategic_path_repository}'")
+  endif()
+endforeach()
+
+foreach(required_strategic_path_test IN ITEMS
+  "soldier strategic-path payload preserves the established node format and atomically replaces reused storage"
+  "truncated strategic-path payloads leave the live soldier route unchanged"
+  "strategic-path loading rejects implausible allocation counts before mutating live state"
+  "soldier strategic-path owners deep-copy route nodes and transfer moves without aliases"
+  "whole-soldier copies own independent strategic routes and record reuse releases the destination route")
+  string(FIND "${headless_test_contents}"
+    "${required_strategic_path_test}"
+    strategic_path_test)
+  if(strategic_path_test EQUAL -1)
+    message(FATAL_ERROR
+      "Headless coverage lost strategic-route fixture '${required_strategic_path_test}'")
+  endif()
+endforeach()
+
+foreach(strategic_path_documentation IN ITEMS
+  "${engine_architecture_documentation}"
+  "${engine_sdk_documentation}"
+  "${save_format_documentation}")
+  string(FIND "${strategic_path_documentation}"
+    "SoldierStrategicPathComponent"
+    strategic_path_documented)
+  if(strategic_path_documented EQUAL -1)
+    message(FATAL_ERROR
+      "Soldier strategic-route ownership and persistence compatibility must remain documented")
+  endif()
+endforeach()
 
 # Loaded-world turn state is owned exclusively by TacticalWorldSession. The
 # former current-team and pending-combat fields no longer exist in
